@@ -18,7 +18,7 @@ Milestone map per the Bootstrap Kit (`_private/design/DLV-004`, Section 7).
 | M1 | `versions.py` (26.XXX scheme), database schema, loader, `_meta.yaml`, core steady commands with citations | Tier 1 database tests pass | Done 2026-07-21 (113 commands, commits a86600d..5233956, CI run 29845795014 green) |
 | M2 | Script builder with phase ordering, helpers, `files/` layout, local executor, campaign loop, manifest, loads parser, goldens, legacy matrix reader | End-to-end dry run plus one real local run | Done 2026-07-21 (dry run in the Tier 1 suite, 117 tests; real run CONVERGED, `reports/RPT-001`; legacy matrix reader with convert-matrix closing the content, HND-009) |
 | M3 | Tier 2 probe harness, first compat report for 26.120, apply-compat | Committed compat report; statuses promoted | Done 2026-07-21 (pilot HND-010, full sweep HND-011: `reports/compat/CMP-26120_2026-07-21_full`, 64 verified, 4 broken, 44 unprobed with reasons, 68 promotions) |
-| M4 | PHY-01/02 plus version-comparison suite (synthetic committed, SMI local) | Committed physics report | Started 2026-07-21 (exit criterion met; PHY-01 and PHY-02 done with 10 pass in `reports/physics/PHY-26120_2026-07-21_full`, HND-012/013; version comparison pending) |
+| M4 | PHY-01/02 plus version-comparison suite (synthetic committed, SMI local) | Committed physics report | Started 2026-07-21 (exit criterion met; PHY-01/02 and the synthetic drift suite done, HND-012/013/014: `PHY-26120_2026-07-21_full` 10 pass, `DRF-26100-26120_2026-07-21` 10 pass zero deltas; only the SMI drift class open, Geovana's call) |
 | M5 | mkdocs site, command reference and compatibility matrix generated from the database, steady polar example | Docs build strict; example runs | Planned |
 | v0.1.0 | Tag, private | All above green | Planned |
 | v0.2+ | Remaining PHY cases, 26.000/26.100 backfill probing, declarative matrix successor, public release, PyPI | Public checklist (invariants audit) passes | Planned |
@@ -38,12 +38,21 @@ SET_ANALYSIS_SYMMETRY_LOADS on the real solver (post-MIRROR default is
 ENABLE; the case emits it explicitly) with equivalence deltas +0.0015
 in CL and 0.0 in CDi, and the full-matrix run passes all 10 metrics
 against the seeded references (`PHY-26120_2026-07-21_full`), repeat
-runs bit-identical. Single next action: the version-comparison suite,
-starting with the design call on versions the database cannot emit
-for yet (26.100 backfill probing versus a raw-script escape recorded
-in the manifest). Probe specs for the import trio and
+runs bit-identical. The version-comparison suite followed (HND-014,
+design approved): `pyfs-qa drift` runs the same case set on two
+versions with one explicit executable each and judges version B
+against the version-A baseline inside the MetricSpec bands; the
+degenerate 26.120 self-comparison proved the machinery, a scoped
+backfill documented 27 commands for 26.100 from the 26.1 manual
+(grammars identical; SONIC_VELOCITY already deprecated in 26.1), and
+the first real drift (`DRF-26100-26120_2026-07-21`, builds 5012026
+versus 7012026) passed all 10 metrics with zero deltas. Single next
+action: Geovana's call between defining the SMI drift cases (closing
+PLN-008 inside M4) or declaring M4 done and starting M5 docs
+(PLN-009/010). Probe specs for the import trio and
 SET_ANALYSIS_SYMMETRY_LOADS would promote them from documented on the
-next sweep. PLN-012 stays parked. The xarray gate (PLN-006) is
+next sweep; 26.100 Tier 2 backfill probing stays at v0.2+. PLN-012
+stays parked. The xarray gate (PLN-006) is
 decided when `post/` starts. `convert-matrix` CLI wiring can join the
 `pyfs-qa` precedent when convenient.
 
@@ -51,6 +60,8 @@ decided when `post/` starts. `convert-matrix` CLI wiring can join the
 
 | Question | Waiting on |
 |---|---|
+| Whether the SMI drift class closes PLN-008 inside M4 or moves to v0.2+ | Geovana's milestone call (HND-014) |
+| Source id for the 26.1 manual edition (cited as "FS 26.1 manual" in version notes until registered) | Geovana's source registry |
 | Whether the four broken commands of CMP-26120_full are solver defects or drafted-grammar defects | Manual re-review (PLN-012) |
 | xarray as a runtime dependency behind the `ResultArray` facade | Geovana's confirmation at M2 (SAD Section 9; noted in `pyproject.toml`) |
 | Whether to genericize the SMI name in the repository (currently kept, required by the version-comparison case design) | Open option, Geovana's decision |
