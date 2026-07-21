@@ -128,6 +128,43 @@ def test_comma_separated_payload_list():
     assert script.render() == "SET_MOTION_BOUNDARIES 1 4\n1,2,3,5\n\n"
 
 
+def test_import_renders_the_manual_keyword_block():
+    script = Script(version="26.12")
+    script.emit("IMPORT", "METER", "STL", "C:/geometry/wing.stl", clear=True)
+    assert script.render() == (
+        "IMPORT\nUNITS METER\nFILE_TYPE STL\nFILE C:/geometry/wing.stl\nCLEAR\n\n"
+    )
+
+
+def test_import_without_clear_omits_the_presence_keyword():
+    script = Script(version="26.12")
+    script.emit("IMPORT", "METER", "TRI", "C:/geometry/wing.tri")
+    rendered = script.render()
+    assert "CLEAR" not in rendered
+    assert "FILE_TYPE TRI" in rendered
+
+
+def test_import_clear_must_be_a_bool():
+    script = Script(version="26.12")
+    with pytest.raises(CommandArgumentError, match="True or False"):
+        script.emit("IMPORT", "METER", "STL", "C:/geometry/wing.stl", clear="CLEAR")
+
+
+def test_ccs_import_renders_its_toggles_and_path():
+    script = Script(version="26.12")
+    script.emit("CCS_IMPORT", "ENABLE", "DISABLE", "ENABLE", "C:/geometry/model.csv")
+    assert script.render() == (
+        "CCS_IMPORT\nCLOSE_COMPONENT_ENDS ENABLE\nUPDATE_PROPERTIES DISABLE\n"
+        "CLEAR_EXISTING ENABLE\nFILE C:/geometry/model.csv\n\n"
+    )
+
+
+def test_export_surface_mesh_takes_the_path_on_its_own_line():
+    script = Script(version="26.12")
+    script.emit("EXPORT_SURFACE_MESH", "OBJ", -1, "C:/geometry/all.obj")
+    assert script.render() == "EXPORT_SURFACE_MESH OBJ -1\nC:/geometry/all.obj\n\n"
+
+
 def test_raw_bypasses_validation_and_sets_the_flag():
     script = Script(version="26.12")
     script.raw("SOME_UNKNOWN_COMMAND 1 2")

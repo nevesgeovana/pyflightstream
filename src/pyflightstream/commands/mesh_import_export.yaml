@@ -1,0 +1,69 @@
+# Chapter: Mesh Import / Export (SRC-003 pp.307-308).
+
+IMPORT:
+  layout: keyword_block
+  phase: geometry
+  args:
+    - name: units
+      type: enum
+      values: [INCH, MILLIMETER, OTHER, FEET, MILE, METER, KILOMETER, MILS, MICRON, CENTIMETER, MICROINCH]
+    - name: file_type
+      type: enum
+      values: [STL, TRI, P3D, INP, STRUCTURED_QUAD, UNSTRUCTURED_QUAD, LAWGS, VTK, AC, FAC, OBJ]
+    - name: file
+      type: path
+    - name: clear
+      type: bool
+      required: false
+  manual_ref: "SRC-003 p.307"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Imports a surface mesh into the simulation as a KEY VALUE block:
+    length units of the mesh file, one of eleven mesh formats, and the
+    file path. The optional bare CLEAR keyword deletes every existing
+    geometry boundary before the import (SRC-003 p.307).
+
+CCS_IMPORT:
+  layout: keyword_block
+  phase: geometry
+  args:
+    - name: close_component_ends
+      type: enum
+      values: [ENABLE, DISABLE]
+    - name: update_properties
+      type: enum
+      values: [ENABLE, DISABLE]
+    - name: clear_existing
+      type: enum
+      values: [ENABLE, DISABLE]
+    - name: file
+      type: path
+  manual_ref: "SRC-003 p.307"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Imports a Component Cross-Section (CCS) geometry file. The toggles
+    control hole-filling at component ends, whether the simulation
+    properties stored in the file are applied, and whether existing
+    geometry boundaries are deleted first (SRC-003 p.307).
+
+EXPORT_SURFACE_MESH:
+  layout: inline
+  phase: geometry
+  args:
+    - name: file_type
+      type: enum
+      values: [STL, TRI, OBJ]
+    - name: surface
+      type: int
+    - name: file
+      type: path
+      own_line: true
+  manual_ref: "SRC-003 pp.307-308"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Exports one geometry surface (first surface is index 1) or all
+    surfaces (-1) to STL, TRI, or OBJ; the destination path follows on
+    the next line (SRC-003 pp.307-308).

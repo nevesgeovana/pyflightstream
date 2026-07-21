@@ -4,7 +4,10 @@ Pipeline role: drives the qa evidence workflow from a terminal on the
 licensed machine. ``pyfs-qa probe`` runs the Tier 2 command-validity
 probes for one FlightStream version and writes the compat report;
 ``pyfs-qa apply-compat`` promotes database statuses from a committed
-report. Physics commands (Tier 3) arrive at milestone M4.
+report. ``pyfs-qa physics`` runs the Tier 3 physics regression matrix
+and writes the physics report; ``pyfs-qa update-reference`` is the only
+write path into the stored physics references and demands a reason
+string (SAD Section 11).
 """
 
 from __future__ import annotations
@@ -15,6 +18,12 @@ from pathlib import Path
 
 from pyflightstream.commands import CommandRegistry
 from pyflightstream.qa.compat import apply_compat, write_compat_report
+from pyflightstream.qa.physics import (
+    PhysicsEnvironmentError,
+    run_physics,
+    update_reference,
+    write_physics_report,
+)
 from pyflightstream.qa.probes import ProbeEnvironmentError, probe_version
 from pyflightstream.versions import resolve
 
@@ -82,6 +91,58 @@ def _build_parser() -> argparse.ArgumentParser:
         default=".",
         help="repository root; the report is cited relative to it (default .)",
     )
+
+    physics = subparsers.add_parser(
+        "physics",
+        help="run the Tier 3 physics regression matrix and write the physics report",
+    )
+    physics.add_argument(
+        "--version",
+        required=True,
+        help="target FlightStream version, canonical or alias (for example 26.120)",
+    )
+    physics.add_argument(
+        "--fs-exe",
+        required=True,
+        help="explicit path of the FlightStream executable (never guessed)",
+    )
+    physics.add_argument(
+        "--cases",
+        help="comma-separated case subset (for example PHY-01); default: every case",
+    )
+    physics.add_argument(
+        "--workroot",
+        default="physics_runs",
+        help="scratch root for geometry, scripts, and outputs (default physics_runs/)",
+    )
+    physics.add_argument(
+        "--timeout", type=float, default=900.0, help="per-point wall-clock limit, seconds"
+    )
+    physics.add_argument(
+        "--report-dir",
+        default="reports/physics",
+        help="directory receiving the report pair (default reports/physics/)",
+    )
+    physics.add_argument(
+        "--label",
+        help="report stem suffix distinguishing several reports on one day",
+    )
+
+    update = subparsers.add_parser(
+        "update-reference",
+        help="update or seed one physics reference from a committed physics report",
+    )
+    update.add_argument("case", help="case identifier, for example PHY-01")
+    update.add_argument(
+        "--from-report",
+        required=True,
+        help="committed physics report YAML carrying the measured values",
+    )
+    update.add_argument(
+        "--reason",
+        required=True,
+        help="why the reference moves; recorded in the reference file (required)",
+    )
     return parser
 
 
@@ -90,6 +151,10 @@ def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     if args.subcommand == "probe":
         return _cmd_probe(args)
+    if args.subcommand == "physics":
+        return _cmd_physics(args)
+    if args.subcommand == "update-reference":
+        return _cmd_update_reference(args)
     return _cmd_apply_compat(args)
 
 
@@ -121,6 +186,51 @@ def _cmd_probe(args: argparse.Namespace) -> int:
         print(f"solver: {line}")
     print(f"report: {yaml_path}")
     print(f"report: {md_path}")
+    return 0
+
+
+def _cmd_physics(args: argparse.Namespace) -> int:
+    canonical = resolve(args.version).canonical
+    cases = None
+    if args.cases:
+        cases = [name.strip() for name in args.cases.split(",") if name.strip()]
+    try:
+        run = run_physics(
+            canonical,
+            fs_exe=args.fs_exe,
+            workroot=args.workroot,
+            cases=cases,
+            timeout_s=args.timeout,
+        )
+    except PhysicsEnvironmentError as error:
+        print(f"physics run aborted: {error}", file=sys.stderr)
+        return 2
+    yaml_path, md_path = write_physics_report(run, args.report_dir, label=args.label)
+    counts = run.verdict_counts()
+    print(
+        f"FlightStream {run.version} ({run.fs_exe_name}): "
+        f"{counts['pass']} pass, {counts['warn']} warn, {counts['fail']} fail, "
+        f"{counts['no_reference']} without reference"
+    )
+    for result in run.results:
+        if result.error is not None:
+            print(f"{result.case_id} aborted: {result.error}", file=sys.stderr)
+    for line in run.solver_identity:
+        print(f"solver: {line}")
+    print(f"report: {yaml_path}")
+    print(f"report: {md_path}")
+    aborted = any(result.error is not None for result in run.results)
+    return 1 if counts["fail"] or aborted else 0
+
+
+def _cmd_update_reference(args: argparse.Namespace) -> int:
+    try:
+        path = update_reference(args.case, args.from_report, args.reason)
+    except ValueError as error:
+        print(f"reference not updated: {error}", file=sys.stderr)
+        return 2
+    print(f"reference written: {path}")
+    print("commit it alone: a reference update never shares a commit with code changes")
     return 0
 
 

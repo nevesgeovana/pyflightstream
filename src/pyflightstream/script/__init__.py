@@ -160,6 +160,10 @@ def _check_scalar(entry: CommandEntry, spec: ArgSpec, value: object) -> object:
         return value
     if spec.type is ArgType.ENUM:
         return _match_enum(entry, spec, value)
+    if spec.type is ArgType.BOOL:
+        if not isinstance(value, bool):
+            _type_error(entry, spec, "True or False", value)
+        return value
     raise AssertionError(f"unhandled scalar type {spec.type}")
 
 
@@ -458,6 +462,11 @@ class Script:
         for spec, value in provided:
             if spec.is_list:
                 lines.extend(self._list_lines(spec, value))
+            elif spec.type is ArgType.BOOL:
+                # Presence keyword (SRC-003 p.307): True is the bare keyword
+                # line, False emits nothing.
+                if value:
+                    lines.append(spec.name.upper())
             elif spec.joins_previous:
                 lines[-1] += f" {self._format_scalar(value)}"
             else:

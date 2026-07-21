@@ -99,6 +99,9 @@ class ArgType(enum.StrEnum):
     single line pairs an index with a toggle, such as the per-surface
     ``index,ENABLE`` lines of INITIALIZE_SOLVER (SRC-003 p.337); the
     typed pair validation lives in the curated helper that emits it.
+    ``bool`` is a presence keyword of a keyword_block: True emits the
+    bare keyword line and False (or omission) emits nothing, the
+    grammar of the CLEAR keyword of IMPORT (SRC-003 p.307).
     """
 
     INT = "int"
@@ -331,6 +334,18 @@ class CommandEntry(BaseModel):
     def _own_line_only_for_inline(self) -> CommandEntry:
         if self.layout is not Layout.INLINE and any(arg.own_line for arg in self.args):
             raise ValueError(f"{self.name}: own_line only applies to inline commands")
+        return self
+
+    @model_validator(mode="after")
+    def _bool_args_are_keyword_block_presence_keywords(self) -> CommandEntry:
+        if self.layout is not Layout.KEYWORD_BLOCK and any(
+            arg.type is ArgType.BOOL for arg in self.args
+        ):
+            raise ValueError(
+                f"{self.name}: bool arguments are bare presence keywords of a "
+                "keyword_block (SRC-003 p.307); other layouts spell their toggles "
+                "as ENABLE/DISABLE enums"
+            )
         return self
 
     @model_validator(mode="after")
