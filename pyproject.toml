@@ -29,6 +29,9 @@ dev = [
     "mkdocstrings[python]",
 ]
 
+[project.scripts]
+pyfs-qa = "pyflightstream.qa.cli:main"
+
 [project.urls]
 Repository = "https://github.com/nevesgeovana/pyflightstream"
 
