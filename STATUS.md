@@ -35,7 +35,7 @@ registry, aliases), then the database schema and loader, then the first
 |---|---|
 | xarray as a runtime dependency behind the `ResultArray` facade | Geovana's confirmation at M2 (SAD Section 9; noted in `pyproject.toml`) |
 | Whether to genericize the SMI name in the repository (currently kept, required by the version-comparison case design) | Open option, Geovana's decision |
-| Persistent `gh auth login` (browser flow); today repo-scoped gh calls export GH_TOKEN via `git credential fill` | Optional, Geovana |
+| Persistent `gh auth login`: approved 2026-07-21, browser flow pending Geovana's run (gh lives at `C:\Program Files\GitHub CLI\gh.exe`, off PATH); until then gh calls export GH_TOKEN via `git credential fill` | Geovana's run of the browser flow |
 
 ## Recorded deviations
 

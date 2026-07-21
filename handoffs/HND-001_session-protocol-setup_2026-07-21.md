@@ -29,6 +29,11 @@ done, CI green, single clean root commit acc0e0e, next milestone M1.
    Bootstrap Kit milestone map; no spreadsheet bridge exists in this
    project, so `/plan` operates on the CSV directly (adapted from the
    workspace scheme).
+5. Persistent `gh auth login` approved (decided by Geovana at session
+   close). Execution is hers: the browser flow is interactive, with
+   the gh executable at `C:\Program Files\GitHub CLI\gh.exe` (not on
+   PATH). Until it runs, gh calls keep exporting GH_TOKEN via
+   `git credential fill`.
 
 ## 3. Changes persisted
 
@@ -50,7 +55,8 @@ done, CI green, single clean root commit acc0e0e, next milestone M1.
   workspace HND-016).
 * Whether to genericize the SMI name in the repository (open option,
   workspace HND-018 decision 5).
-* Persistent `gh auth login` browser flow: optional, Geovana.
+* Persistent `gh auth login`: approved, browser flow pending Geovana's
+  run (decision 5 above).
 
 ## 5. Single highest-value next action
 
