@@ -1,0 +1,28 @@
+schema: pyflightstream-physics-reference/1
+case: PHY-02
+fs_version_basis: '26.120'
+updated: '2026-07-21'
+reason: 'initial reference: first PHY-02 run on 26.120 build 7012026; equivalence deltas 0.0015 in CL
+  and 0.0 in CDi, consistent with the same-session SET_ANALYSIS_SYMMETRY_LOADS calibration'
+source_report: reports/physics/PHY-26120_2026-07-21_phy02.yaml
+metrics:
+  CL_full_a4:
+    value: 0.337
+    warn: 0.02
+    fail: 0.05
+    kind: rel
+  CL_half_a4:
+    value: 0.3385
+    warn: 0.02
+    fail: 0.05
+    kind: rel
+  delta_CL_a4:
+    value: 0.0015000000000000013
+    warn: 0.005
+    fail: 0.02
+    kind: abs
+  delta_CDi_a4:
+    value: 0.0
+    warn: 0.0005
+    fail: 0.002
+    kind: abs
