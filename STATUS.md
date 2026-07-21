@@ -15,7 +15,7 @@ Milestone map per the Bootstrap Kit (`_private/design/DLV-004`, Section 7).
 | Milestone | Content | Exit criterion | Status |
 |---|---|---|---|
 | M0 | Repo skeleton, pyproject, CI, pre-commit, CLAUDE.md, guards | CI green on empty package | Done 2026-07-21 (root commit acc0e0e, CI green) |
-| M1 | `versions.py` (26.XXX scheme), database schema, loader, `_meta.yaml`, ~40 core steady commands with citations | Tier 1 database tests pass | Next |
+| M1 | `versions.py` (26.XXX scheme), database schema, loader, `_meta.yaml`, core steady commands with citations | Tier 1 database tests pass | Done 2026-07-21 (113 commands, commits a86600d..5233956, CI run 29845795014 green) |
 | M2 | Script builder with phase ordering, helpers, `files/` layout, local executor, campaign loop, manifest, loads parser, goldens, legacy matrix reader | End-to-end dry run plus one real local run | Planned |
 | M3 | Tier 2 probe harness, first compat report for 26.120, apply-compat | Committed compat report; statuses promoted | Planned |
 | M4 | PHY-01/02 plus version-comparison suite (synthetic committed, SMI local) | Committed physics report | Planned |
@@ -25,9 +25,10 @@ Milestone map per the Bootstrap Kit (`_private/design/DLV-004`, Section 7).
 
 ## Current focus
 
-M1. Single next action: draft `versions.py` (26.XXX scheme, ordered
-registry, aliases), then the database schema and loader, then the first
-~40 core steady commands from the manual with page citations.
+M2. Single next action: script builder with phase ordering and
+validating emit (PLN-005), consuming the layout grammars and phases now
+recorded in the command database; the xarray gate (PLN-006) is decided
+when `post/` work starts.
 
 ## Open questions
 
@@ -36,6 +37,7 @@ registry, aliases), then the database schema and loader, then the first
 | xarray as a runtime dependency behind the `ResultArray` facade | Geovana's confirmation at M2 (SAD Section 9; noted in `pyproject.toml`) |
 | Whether to genericize the SMI name in the repository (currently kept, required by the version-comparison case design) | Open option, Geovana's decision |
 | Persistent `gh auth login`: approved 2026-07-21, browser flow pending Geovana's run (gh lives at `C:\Program Files\GitHub CLI\gh.exe`, off PATH); until then gh calls export GH_TOKEN via `git credential fill` | Geovana's run of the browser flow |
+| SWEEPER entries are drafted from the worked example (SRC-003 p.406) and the Script Index (p.383); the Sweeper Toolbox chapter (pp.264-279) is not deep-reviewed and may widen the argument grammars | Follow-up manual pass |
 
 ## Recorded deviations
 
@@ -46,3 +48,13 @@ registry, aliases), then the database schema and loader, then the first
   `handoffs/`) is committed, by the author's decision of 2026-07-21. It
   is not part of the Bootstrap Kit tree and must satisfy the same
   guards as the rest of the repository.
+* The command schema extends the SAD Section 3.1 vocabulary on manual
+  evidence (recorded at M1): a `param_lines` layout for the multi-line
+  function grammar of SRC-003 p.279, `int_list` and `float_list`
+  argument types for index and sweep value lists, a `control` phase
+  for script-control commands exempt from phase ordering, and an
+  `ArgSpec.required` flag for optional parameters.
+* PLN-003 grew from the ~40 estimate to 113 entries because the four
+  approved families (author's decision of 2026-07-21) were delivered
+  as complete manual chapters; statuses stay evidence-strict, 26.120
+  only.
