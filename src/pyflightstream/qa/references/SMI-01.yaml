@@ -1,0 +1,28 @@
+schema: pyflightstream-physics-reference/1
+case: SMI-01
+fs_version_basis: '26.120'
+updated: '2026-07-21'
+reason: 'initial reference: first SMI-01 run on 26.120 build 7012026, converged at 25 iterations; absolute
+  bands, near-zero body coefficients'
+source_report: reports/physics/PHY-26120_2026-07-21_smi.yaml
+metrics:
+  CL:
+    value: -0.0174
+    warn: 0.005
+    fail: 0.02
+    kind: abs
+  CDi:
+    value: 0.003
+    warn: 0.002
+    fail: 0.01
+    kind: abs
+  CDo:
+    value: 0.1305
+    warn: 0.002
+    fail: 0.01
+    kind: abs
+  CMy:
+    value: -1.7843
+    warn: 0.005
+    fail: 0.02
+    kind: abs
