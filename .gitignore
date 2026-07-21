@@ -26,4 +26,4 @@ probe_runs/
 # outputs); the reports under reports/physics/ are the committed
 # evidence
 physics_runs/
-drift_runs/
+drift_runs*/

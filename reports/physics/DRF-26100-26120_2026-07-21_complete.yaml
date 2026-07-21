@@ -1,0 +1,178 @@
+schema: pyflightstream-drift-report/1
+fs_version_a: '26.100'
+fs_version_b: '26.120'
+date: '2026-07-21'
+package_version: 0.0.1.dev0
+fs_exes:
+  '26.100': FlightStream.exe
+  '26.120': Flightstream_2612.exe
+executor: LocalExecutor, -hidden --script (SRC-003 pp.279-280)
+solver_identity:
+- Flightstream version 26.1, build 5012026
+- Flightstream version 26.1, build 7012026
+summary:
+  pass: 17
+  warn: 1
+  fail: 0
+  no_reference: 0
+cases:
+  PHY-01:
+    title: NACA wing polar (synthetic NACA 0012, AR 8)
+    error: null
+    metrics:
+      CL_a0:
+        value_a: -0.0004
+        value_b: -0.0004
+        delta: 0.0
+        warn: 0.005
+        fail: 0.02
+        kind: abs
+        verdict: pass
+      CL_a2:
+        value_a: 0.1684
+        value_b: 0.1684
+        delta: 0.0
+        warn: 0.02
+        fail: 0.05
+        kind: rel
+        verdict: pass
+      CL_a4:
+        value_a: 0.337
+        value_b: 0.337
+        delta: 0.0
+        warn: 0.02
+        fail: 0.05
+        kind: rel
+        verdict: pass
+      CL_a6:
+        value_a: 0.505
+        value_b: 0.505
+        delta: 0.0
+        warn: 0.02
+        fail: 0.05
+        kind: rel
+        verdict: pass
+      CL_slope_per_rad:
+        value_a: 4.826596466182055
+        value_b: 4.826596466182055
+        delta: 0.0
+        warn: 0.02
+        fail: 0.05
+        kind: rel
+        verdict: pass
+      CDi_a4:
+        value_a: 0.0049
+        value_b: 0.0049
+        delta: 0.0
+        warn: 0.05
+        fail: 0.15
+        kind: rel
+        verdict: pass
+  PHY-02:
+    title: Half versus full symmetry equivalence (NACA 0012, AR 8)
+    error: null
+    metrics:
+      CL_full_a4:
+        value_a: 0.337
+        value_b: 0.337
+        delta: 0.0
+        warn: 0.02
+        fail: 0.05
+        kind: rel
+        verdict: pass
+      CL_half_a4:
+        value_a: 0.3385
+        value_b: 0.3385
+        delta: 0.0
+        warn: 0.02
+        fail: 0.05
+        kind: rel
+        verdict: pass
+      delta_CL_a4:
+        value_a: 0.0015000000000000013
+        value_b: 0.0015000000000000013
+        delta: 0.0
+        warn: 0.005
+        fail: 0.02
+        kind: abs
+        verdict: pass
+      delta_CDi_a4:
+        value_a: 0.0
+        value_b: 0.0
+        delta: 0.0
+        warn: 0.0005
+        fail: 0.002
+        kind: abs
+        verdict: pass
+  SMI-01:
+    title: SMI isolated body (28_B, smallest corpus file)
+    error: null
+    metrics:
+      CL:
+        value_a: -0.0181
+        value_b: -0.0174
+        delta: 0.0007000000000000027
+        warn: 0.005
+        fail: 0.02
+        kind: abs
+        verdict: pass
+      CDi:
+        value_a: 0.003
+        value_b: 0.003
+        delta: 0.0
+        warn: 0.002
+        fail: 0.01
+        kind: abs
+        verdict: pass
+      CDo:
+        value_a: 0.1311
+        value_b: 0.1305
+        delta: -0.0005999999999999894
+        warn: 0.002
+        fail: 0.01
+        kind: abs
+        verdict: pass
+      CMy:
+        value_a: -1.7702
+        value_b: -1.7843
+        delta: -0.014100000000000001
+        warn: 0.005
+        fail: 0.02
+        kind: abs
+        verdict: warn
+  SMI-02:
+    title: SMI full configuration (31_WBH_IH0, wing-body-tail)
+    error: null
+    metrics:
+      CL:
+        value_a: 12.1022
+        value_b: 12.1368
+        delta: 0.0345999999999993
+        warn: 0.005
+        fail: 0.02
+        kind: rel
+        verdict: pass
+      CDi:
+        value_a: 0.2244
+        value_b: 0.2244
+        delta: 0.0
+        warn: 0.005
+        fail: 0.02
+        kind: rel
+        verdict: pass
+      CDo:
+        value_a: 0.4245
+        value_b: 0.4229
+        delta: -0.0015999999999999903
+        warn: 0.005
+        fail: 0.02
+        kind: rel
+        verdict: pass
+      CMy:
+        value_a: -116.2838
+        value_b: -116.6897
+        delta: -0.4059000000000026
+        warn: 0.005
+        fail: 0.02
+        kind: rel
+        verdict: pass
