@@ -1,0 +1,38 @@
+schema: pyflightstream-physics-reference/1
+case: PHY-01
+fs_version_basis: '26.120'
+updated: '2026-07-21'
+reason: 'initial reference: first PHY-01 run on 26.120 build 7012026, all four points converged, slope
+  4.83/rad consistent with the AR-8 finite-wing anchor'
+source_report: reports/physics/PHY-26120_2026-07-21.yaml
+metrics:
+  CL_a0:
+    value: -0.0004
+    warn: 0.005
+    fail: 0.02
+    kind: abs
+  CL_a2:
+    value: 0.1684
+    warn: 0.02
+    fail: 0.05
+    kind: rel
+  CL_a4:
+    value: 0.337
+    warn: 0.02
+    fail: 0.05
+    kind: rel
+  CL_a6:
+    value: 0.505
+    warn: 0.02
+    fail: 0.05
+    kind: rel
+  CL_slope_per_rad:
+    value: 4.826596466182055
+    warn: 0.02
+    fail: 0.05
+    kind: rel
+  CDi_a4:
+    value: 0.0049
+    warn: 0.05
+    fail: 0.15
+    kind: rel
