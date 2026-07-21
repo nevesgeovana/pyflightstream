@@ -631,36 +631,38 @@ PHYSICS_CASES: dict[str, PhysicsCase] = {
 SMI_ALPHA_DEG = 2.0
 SMI_VELOCITY_M_S = 30.0
 
-_SMI_METRIC_SPECS = (
-    MetricSpec(
-        "CL",
-        "aggregated total lift coefficient at 2 deg (unit reference area)",
-        kind="abs",
-        warn=0.005,
-        fail=0.02,
-    ),
-    MetricSpec(
-        "CDi",
-        "aggregated induced drag coefficient at 2 deg",
-        kind="abs",
-        warn=0.002,
-        fail=0.01,
-    ),
-    MetricSpec(
-        "CDo",
-        "aggregated viscous drag coefficient at 2 deg",
-        kind="abs",
-        warn=0.002,
-        fail=0.01,
-    ),
-    MetricSpec(
-        "CMy",
-        "aggregated pitching moment coefficient at 2 deg (unit reference length)",
-        kind="abs",
-        warn=0.005,
-        fail=0.02,
-    ),
-)
+_SMI_METRIC_NAMES = ("CL", "CDi", "CDo", "CMy")
+
+
+def _smi_metric_specs(kind: str) -> tuple[MetricSpec, ...]:
+    """Build the four aggregated-coefficient specs of one SMI case.
+
+    Band kind is a per-case calibration decided from the first 26.120
+    measurement (PHY-26120_2026-07-21_smi): the isolated body's
+    coefficients sit near zero, where only absolute half widths make
+    sense, while the full configuration's unit-reference coefficients
+    are O(1..100), where the same absolute width would be absurdly
+    tight and relative bands say what the research means by drift.
+    """
+    if kind == "abs":
+        bands = {
+            "CL": (0.005, 0.02),
+            "CDi": (0.002, 0.01),
+            "CDo": (0.002, 0.01),
+            "CMy": (0.005, 0.02),
+        }
+    else:
+        bands = {name: (0.005, 0.02) for name in _SMI_METRIC_NAMES}
+    descriptions = {
+        "CL": "aggregated total lift coefficient at 2 deg (unit reference area)",
+        "CDi": "aggregated induced drag coefficient at 2 deg",
+        "CDo": "aggregated viscous drag coefficient at 2 deg",
+        "CMy": "aggregated pitching moment coefficient at 2 deg (unit reference length)",
+    }
+    return tuple(
+        MetricSpec(name, descriptions[name], kind=kind, warn=bands[name][0], fail=bands[name][1])
+        for name in _SMI_METRIC_NAMES
+    )
 
 
 def build_smi_script(
@@ -735,7 +737,7 @@ def build_smi_script(
 
 def smi_metrics(point: PointResult) -> dict[str, float]:
     """Reduce one SMI point to its aggregated coefficient metrics."""
-    return {spec.name: point.total[spec.name] for spec in _SMI_METRIC_SPECS}
+    return {name: point.total[name] for name in _SMI_METRIC_NAMES}
 
 
 def _make_smi_runner(case_id: str, fsm_name: str, title: str):
@@ -778,19 +780,27 @@ def _make_smi_runner(case_id: str, fsm_name: str, title: str):
     return run
 
 
-def _smi_case(case_id: str, fsm_name: str, title: str) -> PhysicsCase:
+def _smi_case(case_id: str, fsm_name: str, title: str, band_kind: str) -> PhysicsCase:
     return PhysicsCase(
         case_id=case_id,
         title=title,
-        metric_specs=_SMI_METRIC_SPECS,
+        metric_specs=_smi_metric_specs(band_kind),
         runner=_make_smi_runner(case_id, fsm_name, title),
     )
 
 
 SMI_CASES: dict[str, PhysicsCase] = {
-    "SMI-01": _smi_case("SMI-01", "28_B.fsm", "SMI isolated body (28_B, smallest corpus file)"),
+    "SMI-01": _smi_case(
+        "SMI-01",
+        "28_B.fsm",
+        "SMI isolated body (28_B, smallest corpus file)",
+        band_kind="abs",
+    ),
     "SMI-02": _smi_case(
-        "SMI-02", "31_WBH_IH0.fsm", "SMI full configuration (31_WBH_IH0, wing-body-tail)"
+        "SMI-02",
+        "31_WBH_IH0.fsm",
+        "SMI full configuration (31_WBH_IH0, wing-body-tail)",
+        band_kind="rel",
     ),
 }
 
