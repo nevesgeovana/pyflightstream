@@ -25,16 +25,19 @@ Milestone map per the Bootstrap Kit (`_private/design/DLV-004`, Section 7).
 
 ## Current focus
 
-M2. Builder core and the curated helper layer of SAD Section 4.3 are
-in: `script/helpers.py` covers free stream and atmosphere, actuator
-disc, rotary motion, solver settings, initialization, sweeps, analysis
-and export, and probes; the INITIALIZE_SOLVER per-surface and PERIODIC
-gaps are closed in the database (`surface_toggles`, `symmetry_copies`),
-and the builder now validates frame, actuator, and motion cross
-references (SAD Section 4.2) with `declare_existing()` for objects
-carried by an opened project. Single next action: `files/` run
-workspace layout and the local executor, then the campaign loop and
-manifest. The xarray gate (PLN-006) is decided when `post/` starts.
+M2. Builder core, the curated helper layer (SAD Section 4.3), the
+managed `files/` workspace, and the local executor are in.
+`CampaignWorkspace` owns the `sims/sim_<id>` layout with staged-input
+hashing, the authoritative `runs.json` manifest (`RunRecord`, atomic
+append, unique `run_id`), and archive and clean operations that refuse
+to touch unrecorded runs; `LocalExecutor` runs the documented headless
+mechanism (`-hidden`, `--script`, SRC-003 pp.279-280) and captures
+`FlightStreamLog.txt` from the execution directory. Single next
+action: the `cases/` SIM model (SimCase, Campaign, script recipes) and
+the campaign loop mapping executor outcomes into the six manifest
+statuses; then the loads parser toward the M2 exit criterion
+(end-to-end dry run plus one real local run). The xarray gate
+(PLN-006) is decided when `post/` starts.
 
 ## Open questions
 
@@ -42,7 +45,7 @@ manifest. The xarray gate (PLN-006) is decided when `post/` starts.
 |---|---|
 | xarray as a runtime dependency behind the `ResultArray` facade | Geovana's confirmation at M2 (SAD Section 9; noted in `pyproject.toml`) |
 | Whether to genericize the SMI name in the repository (currently kept, required by the version-comparison case design) | Open option, Geovana's decision |
-| Persistent `gh auth login`: approved 2026-07-21, browser flow pending Geovana's run (gh lives at `C:\Program Files\GitHub CLI\gh.exe`, off PATH); until then gh calls export GH_TOKEN via `git credential fill` | Geovana's run of the browser flow |
+| Persistent `gh auth login`: approved 2026-07-21, browser flow pending Geovana's run (gh lives at `C:\Program Files\GitHub CLI\gh.exe`, off PATH); the GH_TOKEN-via-`git credential fill` workaround is blocked by the Claude Code permission classifier as of 2026-07-21, so CI status checks need the login or a permission rule | Geovana's run of the browser flow (type `! & "C:\Program Files\GitHub CLI\gh.exe" auth login --web` in a Claude Code session) |
 | SWEEPER entries are drafted from the worked example (SRC-003 p.406) and the Script Index (p.383); the Sweeper Toolbox chapter (pp.264-279) is not deep-reviewed and may widen the argument grammars | Follow-up manual pass |
 
 ## Recorded deviations
