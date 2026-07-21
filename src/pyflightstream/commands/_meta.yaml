@@ -12,8 +12,7 @@ versions:
 
 manual_editions:
   "26.100": >
-    Altair FlightStream User Manual, 26.1 edition (local,
-    _private/exe/FlightStream_26100/; source id pending registration),
-    scripting reference from p.278; cited in version notes as
-    "FS 26.1 manual p.N"
-  "26.120": "FlightStream User Manual v2612, scripting reference pp. 286-371"
+    SRC-725: Altair FlightStream User Manual, 26.1 edition (local,
+    _private/exe/FlightStream_26100/), scripting reference from p.278;
+    cited in version notes as "SRC-725 p.N"
+  "26.120": "SRC-003: FlightStream User Manual v2612, scripting reference pp. 286-371"

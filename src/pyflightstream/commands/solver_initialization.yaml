@@ -30,7 +30,7 @@ INITIALIZE_SOLVER:
       required: false
   manual_ref: "SRC-003 p.337"
   versions:
-    "26.100": {status: documented, note: "FS 26.1 manual p.336, same grammar as 26.120"}
+    "26.100": {status: documented, note: "SRC-725 p.336, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
   notes: >
     SURFACES takes -1 for all boundaries or a count followed by one
@@ -77,7 +77,7 @@ START_SOLVER:
   args: []
   manual_ref: "SRC-003 p.338"
   versions:
-    "26.100": {status: documented, note: "FS 26.1 manual p.337, same grammar as 26.120"}
+    "26.100": {status: documented, note: "SRC-725 p.337, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
   notes: >
     Runs the solver with the current runtime settings; convergence is

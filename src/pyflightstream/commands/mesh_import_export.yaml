@@ -17,7 +17,7 @@ IMPORT:
       required: false
   manual_ref: "SRC-003 p.307"
   versions:
-    "26.100": {status: documented, note: "FS 26.1 manual p.306, same grammar as 26.120"}
+    "26.100": {status: documented, note: "SRC-725 p.306, same grammar as 26.120"}
     "26.120": {status: documented}
   notes: >
     Imports a surface mesh into the simulation as a KEY VALUE block:
@@ -42,7 +42,7 @@ CCS_IMPORT:
       type: path
   manual_ref: "SRC-003 p.307"
   versions:
-    "26.100": {status: documented, note: "FS 26.1 manual p.306, same grammar as 26.120"}
+    "26.100": {status: documented, note: "SRC-725 p.306, same grammar as 26.120"}
     "26.120": {status: documented}
   notes: >
     Imports a Component Cross-Section (CCS) geometry file. The toggles
@@ -64,7 +64,7 @@ EXPORT_SURFACE_MESH:
       own_line: true
   manual_ref: "SRC-003 pp.307-308"
   versions:
-    "26.100": {status: documented, note: "FS 26.1 manual pp.306-307, same grammar as 26.120"}
+    "26.100": {status: documented, note: "SRC-725 pp.306-307, same grammar as 26.120"}
     "26.120": {status: documented}
   notes: >
     Exports one geometry surface (first surface is index 1) or all

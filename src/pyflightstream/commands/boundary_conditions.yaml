@@ -9,7 +9,7 @@ AUTO_DETECT_TRAILING_EDGES:
   args: []
   manual_ref: "SRC-003 p.319"
   versions:
-    "26.100": {status: documented, note: "FS 26.1 manual p.318, same grammar as 26.120"}
+    "26.100": {status: documented, note: "SRC-725 p.318, same grammar as 26.120"}
     "26.120": {status: documented}
   notes: >
     Finds and marks all trailing edge nodes in the geometry. Trailing
@@ -49,7 +49,7 @@ AUTO_DETECT_WAKE_TERMINATION_NODES:
   args: []
   manual_ref: "SRC-003 p.321"
   versions:
-    "26.100": {status: documented, note: "FS 26.1 manual p.320, same grammar as 26.120"}
+    "26.100": {status: documented, note: "SRC-725 p.320, same grammar as 26.120"}
     "26.120": {status: documented}
   notes: >
     Finds and marks all wake termination nodes in the geometry.
@@ -82,7 +82,7 @@ SET_FREESTREAM:
       own_line: true
   manual_ref: "SRC-003 p.322"
   versions:
-    "26.100": {status: documented, note: "FS 26.1 manual p.321, same grammar as 26.120"}
+    "26.100": {status: documented, note: "SRC-725 p.321, same grammar as 26.120"}
     "26.120": {status: documented}
   notes: >
     CONSTANT needs no further input. CUSTOM appends a FILETYPE token
@@ -112,7 +112,7 @@ FLUID_PROPERTIES:
       type: float
   manual_ref: "SRC-003 p.328"
   versions:
-    "26.100": {status: documented, note: "FS 26.1 manual p.327, same grammar as 26.120"}
+    "26.100": {status: documented, note: "SRC-725 p.327, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
   notes: >
     Sets the working fluid state as KEY VALUE lines. Sonic velocity is
@@ -143,7 +143,7 @@ SONIC_VELOCITY:
       unit: "m/s"
   manual_ref: "SRC-003 p.328"
   versions:
-    "26.100": {status: removed, note: "Already deprecated in 26.1: the solver warns and ignores the value (FS 26.1 manual p.327)."}
+    "26.100": {status: removed, note: "Already deprecated in 26.1: the solver warns and ignores the value (SRC-725 p.327)."}
     "26.120":
       status: removed
       successor: null

@@ -9,7 +9,7 @@ EXPORT_SOLVER_ANALYSIS_SPREADSHEET:
       type: path
   manual_ref: "SRC-003 p.352"
   versions:
-    "26.100": {status: documented, note: "FS 26.1 manual p.351, same grammar as 26.120"}
+    "26.100": {status: documented, note: "SRC-725 p.351, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
   notes: >
     Exports the aerodynamic loads and moments spreadsheets; the
