@@ -1,0 +1,166 @@
+# Chapter: Scripting reference, Actuators (SRC-003 pp.323-324).
+# Actuator discs are the linearized propeller slipstream surrogate
+# (SRC-003 pp.185-187); they are defined before solver initialization.
+
+CREATE_NEW_ACTUATOR:
+  layout: inline
+  phase: setup
+  args:
+    - name: type
+      type: enum
+      values: [PROPELLER]
+    - name: subtype
+      type: enum
+      values: [CUSTOM, ELLIPTICAL]
+      required: false
+    - name: name
+      type: str
+  manual_ref: "SRC-003 p.323"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    SUBTYPE selects the thrust profile model and applies only to the
+    PROPELLER type. CUSTOM imports a radial force distribution;
+    ELLIPTICAL is specified by net thrust and RPM (SRC-003 p.185).
+
+SET_ACTUATOR_NAME:
+  layout: inline
+  phase: setup
+  args:
+    - name: actuator_index
+      type: int
+    - name: name
+      type: str
+  manual_ref: "SRC-003 p.323"
+  versions:
+    "26.120": {status: documented}
+
+SET_ACTUATOR_AXIS:
+  layout: inline
+  phase: setup
+  args:
+    - name: actuator_index
+      type: int
+    - name: frame
+      type: int
+    - name: axis
+      type: enum
+      values: [X, Y, Z]
+    - name: offset
+      type: float
+      unit: "simulation length units"
+  manual_ref: "SRC-003 p.323"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Places the actuator disc on an axis of a local coordinate system
+    (frame index greater than 1); the frame must exist before this
+    call, which is the pre-solver definition discipline the builder
+    enforces at M2.
+
+SET_ACTUATOR_RADIUS:
+  layout: inline
+  phase: setup
+  args:
+    - name: actuator_index
+      type: int
+    - name: r_tip
+      type: float
+      unit: "simulation length units"
+    - name: r_hub
+      type: float
+      unit: "simulation length units"
+  manual_ref: "SRC-003 p.323"
+  versions:
+    "26.120": {status: documented}
+
+SET_PROP_ACTUATOR_RPM:
+  layout: inline
+  phase: setup
+  args:
+    - name: actuator_index
+      type: int
+    - name: rpm
+      type: float
+      unit: "rev/min"
+  manual_ref: "SRC-003 p.323"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Sign selects the rotation direction about the actuator axis.
+
+SET_PROP_ACTUATOR_PROFILE:
+  layout: inline
+  phase: setup
+  args:
+    - name: actuator_index
+      type: int
+    - name: units_type
+      type: enum
+      values: [NEWTONS, KILO-NEWTONS, POUND-FORCE, KILOGRAM-FORCE]
+    - name: n_blades
+      type: int
+    - name: file_name
+      type: path
+  manual_ref: "SRC-003 pp.323-324"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Imports a custom radial thrust profile; the TXT file path follows
+    on the line after the inline arguments. UNITS_TYPE gives the force
+    unit used inside the file.
+
+SET_PROP_ACTUATOR_THRUST:
+  layout: inline
+  phase: setup
+  args:
+    - name: actuator_index
+      type: int
+    - name: ct
+      type: float
+    - name: thrust_type
+      type: enum
+      values: [COEFFICIENT, NEWTONS, POUNDS]
+  manual_ref: "SRC-003 p.324"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Net thrust of the disc. The manual warns to verify that the
+    coefficient convention matches the solver formulation and
+    recommends dimensional thrust to avoid ambiguity (SRC-003 p.187).
+
+SET_PROP_ACTUATOR_SWIRL:
+  layout: inline
+  phase: setup
+  args:
+    - name: actuator_index
+      type: int
+    - name: swirl_factor
+      type: float
+  manual_ref: "SRC-003 p.324"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Fraction between 0 and 1 of the swirl velocity kept downstream;
+    values below 1 mimic a stator de-swirling the slipstream
+    (SRC-003 p.186).
+
+ENABLE_ACTUATOR:
+  layout: inline
+  phase: setup
+  args:
+    - name: actuator_index
+      type: int
+  manual_ref: "SRC-003 p.324"
+  versions:
+    "26.120": {status: documented}
+
+DELETE_ACTUATOR:
+  layout: inline
+  phase: setup
+  args:
+    - name: actuator_index
+      type: int
+  manual_ref: "SRC-003 p.324"
+  versions:
+    "26.120": {status: documented}

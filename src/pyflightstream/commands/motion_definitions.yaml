@@ -1,0 +1,173 @@
+# Chapter: Scripting reference, Motion Definitions (SRC-003
+# pp.332-336). M1 drafts the rotary motion path and the FSI seam
+# commands (FR-23); the 6DOF family and custom motion tables await the
+# cases that exercise them.
+
+CREATE_NEW_MOTION:
+  layout: inline
+  phase: setup
+  args:
+    - name: type
+      type: enum
+      values: [ROTARY, 6DOF, CUSTOM]
+  manual_ref: "SRC-003 p.332"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Rotary motion is the blade-resolved alternative to the actuator
+    disc surrogate (SRC-003 p.234); it requires the unsteady solver.
+
+SET_MOTION_BOUNDARIES:
+  layout: payload_lines
+  phase: setup
+  args:
+    - name: motion_id
+      type: int
+    - name: num_boundaries
+      type: int
+    - name: boundary_indices
+      type: int_list
+      required: false
+  manual_ref: "SRC-003 p.332"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Assigns geometry boundaries to the motion; the comma-separated
+    index line follows. NUM_BOUNDARIES -1 selects all boundaries and
+    takes no index line.
+
+SET_MOTION_MOVING_FRAMES:
+  layout: payload_lines
+  phase: setup
+  args:
+    - name: motion_id
+      type: int
+    - name: num_frames
+      type: int
+    - name: frame_indices
+      type: int_list
+      required: false
+  manual_ref: "SRC-003 p.332"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Attaches user-defined local frames to the motion; -1 selects all
+    local coordinate systems and takes no index line.
+
+SET_MOTION_COORDINATE_SYSTEM:
+  layout: inline
+  phase: setup
+  args:
+    - name: motion_id
+      type: int
+    - name: coordinate_system_id
+      type: int
+  manual_ref: "SRC-003 p.332"
+  versions:
+    "26.120": {status: documented}
+
+SET_MOTION_START_TIME:
+  layout: inline
+  phase: setup
+  args:
+    - name: motion_id
+      type: int
+    - name: start_time
+      type: float
+      unit: "s"
+  manual_ref: "SRC-003 p.332"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Start of the motion within the solver physical time; enables
+    converging a steady base flow before the motion begins.
+
+SET_MOTION_ROTOR_AXIS:
+  layout: inline
+  phase: setup
+  args:
+    - name: motion_id
+      type: int
+    - name: axis
+      type: enum
+      values: [X, Y, Z, "1", "2", "3"]
+  manual_ref: "SRC-003 p.333"
+  versions:
+    "26.120": {status: documented}
+
+SET_MOTION_ROTOR_RPM:
+  layout: inline
+  phase: setup
+  args:
+    - name: motion_id
+      type: int
+    - name: rpm
+      type: float
+      unit: "rev/min"
+  manual_ref: "SRC-003 p.333"
+  versions:
+    "26.120": {status: documented}
+
+SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION:
+  layout: inline
+  phase: setup
+  args:
+    - name: motion_id
+      type: int
+    - name: wake_stabilization
+      type: enum
+      values: [ENABLE, DISABLE]
+    - name: num_blades
+      type: int
+  manual_ref: "SRC-003 p.333"
+  versions:
+    "26.120": {status: documented}
+
+SET_MOTION_FSI_EXECUTABLE:
+  layout: inline
+  phase: setup
+  args:
+    - name: motion_id
+      type: int
+    - name: show_console
+      type: enum
+      values: [ENABLE, DISABLE]
+    - name: export_load_distributions
+      type: enum
+      values: [ENABLE, DISABLE]
+    - name: executable_path
+      type: path
+  manual_ref: "SRC-003 pp.335-336"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    FSI seam (FR-23): FlightStream calls the external structural
+    executable per coupling step; the executable path follows on the
+    line after the inline arguments. EXPORT_LOAD_DISTRIBUTIONS also
+    writes the aerodynamic load distributions file alongside the
+    default interpolated loads file.
+
+SET_MOTION_FSI_STRUCTURAL_NODES:
+  layout: inline
+  phase: setup
+  args:
+    - name: motion_id
+      type: int
+    - name: nodes_path
+      type: path
+  manual_ref: "SRC-003 p.336"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Imports the structural displacement node set; the file path
+    follows on the line after the motion index.
+
+DELETE_MOTION:
+  layout: inline
+  phase: setup
+  args:
+    - name: motion_id
+      type: int
+  manual_ref: "SRC-003 p.336"
+  versions:
+    "26.120": {status: documented}
