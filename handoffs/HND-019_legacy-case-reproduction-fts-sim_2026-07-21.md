@@ -4,7 +4,7 @@
 
 Same-session continuation after HND-018, on Geovana's instruction:
 seed `fts_sim` in her research workspace as the pyflightstream-based
-successor of the legacy `fts_horse` driver, reproduce its POLAR-9001
+successor of the legacy driver, reproduce its POLAR-9001
 run (isolated propeller, one resolved blade under PERIODIC 6, 54
 unsteady steps, 1440 per-step monitors), and prove not only matching
 results but matching outputs. A parallel session works the M6/FSI
