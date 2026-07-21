@@ -377,7 +377,9 @@ def parse_residual_history(text: str) -> list[ResidualSample]:
         each row (iteration, velocity residual, pressure residual)
         are parsed, further columns vary with the run setup.
     """
-    rows = delimited_table(text, "Iteration", delimiter=None)
+    # Real hidden-mode log exports carry stray NUL bytes between lines
+    # (observed on 26.120 build 7012026); scrub them before parsing.
+    rows = delimited_table(text.replace("\x00", ""), "Iteration", delimiter=None)
     history: list[ResidualSample] = []
     for row in rows:
         if len(row) < 3:

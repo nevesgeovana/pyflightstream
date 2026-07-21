@@ -101,3 +101,9 @@ def test_parse_residual_history_reads_the_log_table():
     assert history[-1].iteration == 1575
     assert history[-1].velocity_residual == pytest.approx(9.6e-8)
     assert history[-1].pressure_residual == pytest.approx(2.62e-8)
+
+
+def test_parse_residual_history_scrubs_the_nul_bytes_of_real_exports():
+    text = read_fixture("log_residuals_26.120.txt").replace("\n\n", "\n\x00\n")
+    history = parse_residual_history(text)
+    assert history[-1].iteration == 1575
