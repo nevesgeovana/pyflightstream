@@ -57,6 +57,19 @@ gates the docs toolchain). Getting-started and campaign tutorial
 pages stay planned (docs home lists them); the guide's recipes can
 seed them.
 
+The legacy-case reproduction followed (HND-019): the research
+workspace's POLAR-9001 (isolated propeller, resolved blade under
+PERIODIC 6, 54 unsteady steps, 1440 monitors) reproduced through the
+library on the same build, with loads, sections, probes, and every
+per-step monitor matching at zero substantive differences. En route
+the database grew to 129 commands (Advanced Settings, Unsteady
+Solver, and Scenes backfill) and two phases were corrected on
+reproduction evidence (SET_ANALYSIS_SYMMETRY_LOADS and
+NEW_SURFACE_SECTION_DISTRIBUTION to init: in-solve consumers precede
+START_SOLVER); PHY-02 revalidated 4 pass with identical values, and
+PLN-012 gained the candidate abort cause plus a concrete re-probe
+plan.
+
 Previous focus (M4, kept for context): PHY-01 closed end to end
 (PLN-008 started, HND-012):
 the mesh-import family (IMPORT, CCS_IMPORT, EXPORT_SURFACE_MESH;
