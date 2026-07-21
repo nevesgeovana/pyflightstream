@@ -72,3 +72,15 @@ which is the M1 exit criterion.
 Start M2 (PLN-005): the Script builder with validating emit and phase
 ordering, consuming the layouts, phases, and typed args now recorded
 in the database, with golden-script snapshots as the tier 1 anchor.
+
+## 6. Addendum, same day
+
+After the close above, Geovana asked for a user-facing HTML reference
+and agreed to deliver it immediately as PLN-010 layer 1:
+`pyflightstream.help()` in `src/pyflightstream/reference.py` renders
+the database into one self-contained HTML page (stdlib only,
+html.escape plus webbrowser) and opens it; version filter honors
+hotfix inheritance and keeps removed commands visible. CommandEntry
+gained a loader-supplied `chapter` field for grouping. At M5 the same
+renderer feeds the mkdocs command reference (note added to PLN-009).
+Four tier 1 tests added; suite at 31 green.

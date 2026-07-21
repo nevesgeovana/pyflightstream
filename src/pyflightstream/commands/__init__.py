@@ -201,6 +201,9 @@ class CommandEntry(BaseModel):
     name : str
         Command name as the solver script expects it; supplied by the
         loader from the YAML mapping key.
+    chapter : str
+        Stem of the chapter YAML file the entry came from; supplied by
+        the loader and used to group the generated reference.
     layout : Layout
         Script layout grammar.
     phase : Phase
@@ -220,6 +223,7 @@ class CommandEntry(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     name: str
+    chapter: str = ""
     layout: Layout
     phase: Phase
     args: tuple[ArgSpec, ...] = ()
@@ -403,7 +407,8 @@ class CommandRegistry:
             for name, body in entries.items():
                 if name in commands:
                     raise ValueError(f"{name} is defined in more than one chapter file")
-                commands[name] = CommandEntry(name=name, **body)
+                chapter = resource.name.removesuffix(".yaml")
+                commands[name] = CommandEntry(name=name, chapter=chapter, **body)
         return cls(commands=commands)
 
     def for_version(self, version: str | FsVersion) -> VersionView:

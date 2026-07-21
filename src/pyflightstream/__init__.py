@@ -21,3 +21,7 @@ Milestone M0: skeleton only; functionality arrives from milestone M1 on.
 """
 
 __version__ = "0.0.1.dev0"
+
+from pyflightstream.reference import help  # noqa: E402
+
+__all__ = ["__version__", "help"]
