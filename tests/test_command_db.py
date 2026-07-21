@@ -102,9 +102,9 @@ def test_committed_reports_cited_by_statuses_exist():
     for entry in registry.commands.values():
         for record in entry.versions.values():
             if record.report is not None:
-                assert (
-                    REPO_ROOT / record.report
-                ).is_file(), f"{entry.name} cites missing report {record.report}"
+                assert (REPO_ROOT / record.report).is_file(), (
+                    f"{entry.name} cites missing report {record.report}"
+                )
 
 
 def test_successor_only_for_removed():
