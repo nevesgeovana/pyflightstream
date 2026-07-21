@@ -1,0 +1,76 @@
+# Chapter: Scripting, Opening, Closing and Saving (SRC-003 p.282) and
+# Output Status (p.283).
+
+OPEN:
+  layout: param_lines
+  phase: geometry
+  args:
+    - name: filename
+      type: path
+    - name: load_solver_initialization
+      type: enum
+      values: [ENABLE]
+      required: false
+  manual_ref: "SRC-003 p.282"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Opens an existing simulation (.fsm) file. The optional
+    LOAD_SOLVER_INITIALIZATION ENABLE line loads the solver
+    initialization stored in the opened file.
+
+SAVEAS:
+  layout: param_lines
+  phase: control
+  args:
+    - name: filename
+      type: path
+  manual_ref: "SRC-003 p.282"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Saves the current simulation to the given .fsm path.
+
+NEW_SIMULATION:
+  layout: bare
+  phase: geometry
+  args: []
+  manual_ref: "SRC-003 p.282"
+  versions:
+    "26.120": {status: documented}
+
+CLOSE_FLIGHTSTREAM:
+  layout: bare
+  phase: control
+  args: []
+  manual_ref: "SRC-003 p.282"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Closes FlightStream and exits; the natural last command of a
+    headless batch script.
+
+EXPORT_LOG:
+  layout: param_lines
+  phase: control
+  args:
+    - name: filename
+      type: path
+  manual_ref: "SRC-003 p.283"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Exports the log window messages to a text file; the probe harness
+    reads it for sentinel markers and error patterns.
+
+OUTPUT_SETTINGS_AND_STATUS:
+  layout: param_lines
+  phase: control
+  args:
+    - name: filename
+      type: path
+  manual_ref: "SRC-003 p.283"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Writes the fluid properties and solver status to a file.

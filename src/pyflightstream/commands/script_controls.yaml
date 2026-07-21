@@ -1,0 +1,39 @@
+# Chapter: Scripting, Script Controls (SRC-003 p.281).
+# Control commands run at any point of a script; the builder exempts
+# the control phase from phase ordering.
+
+STOP:
+  layout: bare
+  phase: control
+  args: []
+  manual_ref: "SRC-003 p.281"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Halts script processing at this location; the manual suggests it
+    for debugging partial scripts (SRC-003 p.280).
+
+PRINT:
+  layout: inline
+  phase: control
+  args:
+    - name: message
+      type: str
+  manual_ref: "SRC-003 p.281"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Writes a user-defined message to the log window; useful as a
+    sentinel marker in probe scripts.
+
+RUN_SCRIPT:
+  layout: param_lines
+  phase: control
+  args:
+    - name: script_path
+      type: path
+  manual_ref: "SRC-003 p.281"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Calls another script file from within the running script.

@@ -1,0 +1,128 @@
+# Chapter: Scripting reference, Boundary Conditions families used by
+# the core steady path: Trailing Edges (SRC-003 pp.319-320), Wake
+# Termination Nodes (p.321), Free-Stream Velocity (p.322), Fluid
+# Properties (p.328).
+
+AUTO_DETECT_TRAILING_EDGES:
+  layout: bare
+  phase: setup
+  args: []
+  manual_ref: "SRC-003 p.319"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Finds and marks all trailing edge nodes in the geometry. Trailing
+    edge marking controls where the wake is shed, so it must precede
+    solver initialization.
+
+SET_TRAILING_EDGE_TYPE:
+  layout: inline
+  phase: setup
+  args:
+    - name: te_index
+      type: int
+    - name: type
+      type: enum
+      values: [STANDARD, RELAXED, JET_OUTFLOW, VORTEX_SHEDDING]
+  manual_ref: "SRC-003 pp.319-320"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    STANDARD sheds the full net circulation (Kutta factor 1.0);
+    RELAXED sheds half, approximating body carryover at non-lifting
+    trailing edges such as wing-fuselage junctions (SRC-003 p.164).
+
+DISABLE_WAKE_NODES_ON_TRAILING_EDGE:
+  layout: inline
+  phase: setup
+  args:
+    - name: te_index
+      type: int
+  manual_ref: "SRC-003 p.320"
+  versions:
+    "26.120": {status: documented}
+
+AUTO_DETECT_WAKE_TERMINATION_NODES:
+  layout: bare
+  phase: setup
+  args: []
+  manual_ref: "SRC-003 p.321"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Finds and marks all wake termination nodes in the geometry.
+
+SET_FREESTREAM:
+  layout: inline
+  phase: setup
+  args:
+    - name: type
+      type: enum
+      values: [CONSTANT, CUSTOM, ROTATION]
+  manual_ref: "SRC-003 p.322"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    CONSTANT needs no further input. CUSTOM appends a FILETYPE token
+    (STRUCTURED or UNSTRUCTURED) and takes the profile file path on
+    the next line. ROTATION appends frame index, axis (X, Y or Z) and
+    angular velocity in RPM. The extended forms are conditional and
+    are emitted by dedicated helpers at M2 (SRC-003 p.322).
+
+FLUID_PROPERTIES:
+  layout: keyword_block
+  phase: setup
+  args:
+    - name: density
+      type: float
+      unit: "kg/m^3"
+    - name: pressure
+      type: float
+      unit: "Pa"
+    - name: temperature
+      type: float
+      unit: "K"
+    - name: viscosity
+      type: float
+      unit: "Pa s"
+    - name: specific_heat_ratio
+      type: float
+  manual_ref: "SRC-003 p.328"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Sets the working fluid state as KEY VALUE lines. Sonic velocity is
+    derived from temperature and specific heat ratio; it is no longer
+    an independent input (SRC-003 p.328).
+
+AIR_ALTITUDE:
+  layout: inline
+  phase: setup
+  args:
+    - name: value
+      type: float
+    - name: units
+      type: enum
+      values: [FEET, METERS]
+  manual_ref: "SRC-003 p.328"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Sets the air properties from a standard-atmosphere altitude.
+
+SONIC_VELOCITY:
+  layout: inline
+  phase: setup
+  args:
+    - name: value
+      type: float
+      unit: "m/s"
+  manual_ref: "SRC-003 p.328"
+  versions:
+    "26.120":
+      status: removed
+      successor: null
+      note: >
+        No longer supported; the solver throws a deprecation warning
+        and ignores the value. Sonic velocity now follows from
+        temperature and specific heat ratio (SRC-003 p.328).

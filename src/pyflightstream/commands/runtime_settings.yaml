@@ -1,0 +1,153 @@
+# Chapter: Scripting reference, Runtime Settings (SRC-003
+# pp.339-340). These commands configure the initialized solver and are
+# re-emitted between campaign points.
+
+SOLVER_SET_AOA:
+  layout: inline
+  phase: init
+  args:
+    - name: angle
+      type: float
+      unit: "deg"
+  manual_ref: "SRC-003 p.339"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Angle of attack; magnitude must stay below 90 degrees.
+
+SOLVER_SET_SIDESLIP:
+  layout: inline
+  phase: init
+  args:
+    - name: angle
+      type: float
+      unit: "deg"
+  manual_ref: "SRC-003 p.339"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Side-slip angle; magnitude must stay below 90 degrees.
+
+SOLVER_SET_VELOCITY:
+  layout: inline
+  phase: init
+  args:
+    - name: velocity
+      type: float
+      unit: "m/s"
+  manual_ref: "SRC-003 p.339"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Free-stream velocity magnitude.
+
+SOLVER_SET_MACH_NUMBER:
+  layout: inline
+  phase: init
+  args:
+    - name: mach
+      type: float
+  manual_ref: "SRC-003 p.339"
+  versions:
+    "26.120": {status: documented}
+
+SOLVER_SET_ITERATIONS:
+  layout: inline
+  phase: init
+  args:
+    - name: num_iterations
+      type: int
+  manual_ref: "SRC-003 p.339"
+  versions:
+    "26.120": {status: documented}
+
+SOLVER_SET_CONVERGENCE:
+  layout: inline
+  phase: init
+  args:
+    - name: threshold
+      type: float
+  manual_ref: "SRC-003 p.339"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Residual threshold on surface velocity and pressure below which
+    the run is declared converged (SRC-003 p.200).
+
+SOLVER_SET_FORCED_ITERATIONS:
+  layout: inline
+  phase: init
+  args:
+    - name: mode
+      type: enum
+      values: [ENABLE, DISABLE]
+  manual_ref: "SRC-003 p.339"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    When enabled the solver runs the full iteration count regardless
+    of the convergence threshold.
+
+SOLVER_SET_REF_VELOCITY:
+  layout: inline
+  phase: init
+  args:
+    - name: velocity
+      type: float
+      unit: "m/s"
+  manual_ref: "SRC-003 p.339"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Reference velocity for coefficient normalization. For steady runs
+    it should equal the free-stream velocity; for rotary or hover
+    cases the manual instructs using the largest characteristic
+    velocity, such as the rotor tip speed (SRC-003 p.201).
+
+SOLVER_SET_REF_MACH_NUMBER:
+  layout: inline
+  phase: init
+  args:
+    - name: mach
+      type: float
+  manual_ref: "SRC-003 p.339"
+  versions:
+    "26.120": {status: documented}
+
+SOLVER_SET_REF_AREA:
+  layout: inline
+  phase: init
+  args:
+    - name: area
+      type: float
+      unit: "simulation length units squared"
+  manual_ref: "SRC-003 pp.339-340"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Reference area S_ref used in Q*S_ref force normalization
+    (coefficient definitions, SRC-003 p.223).
+
+SOLVER_SET_REF_LENGTH:
+  layout: inline
+  phase: init
+  args:
+    - name: length
+      type: float
+      unit: "simulation length units"
+  manual_ref: "SRC-003 p.340"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Reference length L_ref used in Q*S_ref*L_ref moment normalization
+    (coefficient definitions, SRC-003 p.223).
+
+SET_MAX_PARALLEL_THREADS:
+  layout: inline
+  phase: init
+  args:
+    - name: num_cores
+      type: int
+  manual_ref: "SRC-003 p.340"
+  versions:
+    "26.120": {status: documented}

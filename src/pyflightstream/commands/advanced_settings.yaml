@@ -1,0 +1,30 @@
+# Chapter: Scripting reference, Advanced Settings (SRC-003
+# pp.344-346). Only the entries needed by the core steady path are
+# drafted at M1; the remaining toggles of the chapter await the cases
+# that exercise them.
+
+SET_SOLVER_CONVERGENCE_ITERATIONS:
+  layout: inline
+  phase: init
+  args:
+    - name: value
+      type: int
+  manual_ref: "SRC-003 p.344"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Number of iterations the solver must remain below the convergence
+    threshold before convergence is declared.
+
+SOLVER_MINIMUM_CP:
+  layout: inline
+  phase: init
+  args:
+    - name: cp
+      type: float
+  manual_ref: "SRC-003 p.345"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Lower limiter on the pressure coefficient; the solver default is
+    -20 (SRC-003 p.221).

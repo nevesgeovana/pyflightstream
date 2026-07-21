@@ -39,12 +39,16 @@ class Layout(enum.StrEnum):
     """Script layout grammars a command can use.
 
     ``bare`` has no arguments; ``inline`` takes arguments on the command
-    line; ``payload_lines`` takes a count followed by that many data
+    line; ``param_lines`` takes the command name alone and its
+    parameters each on a following line, ended by a blank line (the
+    multi-line function grammar of SRC-003 p.279, for example OPEN on
+    p.282); ``payload_lines`` takes a count followed by that many data
     lines; ``keyword_block`` takes KEY VALUE lines until a terminator.
     """
 
     BARE = "bare"
     INLINE = "inline"
+    PARAM_LINES = "param_lines"
     PAYLOAD_LINES = "payload_lines"
     KEYWORD_BLOCK = "keyword_block"
 
@@ -54,6 +58,9 @@ class Phase(enum.StrEnum):
 
     The script builder tracks the highest phase reached and rejects a
     command whose phase precedes it (SAD phase-ordering rule).
+    ``control`` marks script-control commands (STOP, PRINT, log export;
+    SRC-003 pp.281-283) that may appear anywhere; the builder exempts
+    them from phase ordering.
     """
 
     GEOMETRY = "geometry"
@@ -62,6 +69,7 @@ class Phase(enum.StrEnum):
     EXEC = "exec"
     ANALYSIS = "analysis"
     EXPORT = "export"
+    CONTROL = "control"
 
 
 class Status(enum.StrEnum):
@@ -80,13 +88,19 @@ class Status(enum.StrEnum):
 
 
 class ArgType(enum.StrEnum):
-    """Argument types a command can declare."""
+    """Argument types a command can declare.
+
+    ``int_list`` is a comma-separated list of integer indices on one
+    data line, the grammar FlightStream uses for boundary and surface
+    selections (for example SRC-003 p.319).
+    """
 
     INT = "int"
     FLOAT = "float"
     STR = "str"
     BOOL = "bool"
     PATH = "path"
+    INT_LIST = "int_list"
     ENUM = "enum"
     ENUM_LIST = "enum_list"
 
@@ -117,6 +131,10 @@ class ArgSpec(BaseModel):
         Physical unit of the value as the solver expects it (for
         example ``"m/s"``); absent for dimensionless or textual
         arguments.
+    required : bool
+        Whether the argument must be supplied; optional arguments are
+        the ones the manual marks as such (for example
+        LOAD_SOLVER_INITIALIZATION of OPEN, SRC-003 p.282).
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -125,6 +143,7 @@ class ArgSpec(BaseModel):
     type: ArgType
     values: tuple[str, ...] | None = None
     unit: str | None = None
+    required: bool = True
 
     @model_validator(mode="after")
     def _enum_types_carry_values(self) -> ArgSpec:

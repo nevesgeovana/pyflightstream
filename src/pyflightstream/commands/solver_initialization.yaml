@@ -1,0 +1,80 @@
+# Chapter: Scripting reference, Solver Initialization / Execution
+# (SRC-003 pp.337-338).
+
+INITIALIZE_SOLVER:
+  layout: keyword_block
+  phase: init
+  args:
+    - name: solver_model
+      type: enum
+      values: [INCOMPRESSIBLE, SUBSONIC_PRANDTL_GLAUERT,
+               TRANSONIC_FIELD_PANEL, TANGENT_CONE, MODIFIED_NEWTONIAN]
+    - name: surfaces
+      type: int
+    - name: wake_termination_x
+      type: str
+    - name: symmetry
+      type: enum
+      values: [NONE, MIRROR, PERIODIC]
+    - name: wall_collision_avoidance
+      type: enum
+      values: [ENABLE, DISABLE]
+      required: false
+  manual_ref: "SRC-003 p.337"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    SURFACES takes -1 for all boundaries or a count followed by one
+    line per surface with the surface index and the quad mesher toggle
+    (index,ENABLE). WAKE_TERMINATION_X takes an X location in the
+    reference frame or DEFAULT for auto-computation. PERIODIC symmetry
+    appends the number of copies. WALL_COLLISION_AVOIDANCE applies to
+    solver models 1 to 3. Initializing MIRROR symmetry with a full
+    (non-half) model diverges instantly (SRC-003 p.217); case metadata
+    declaring a full model triggers a build-time warning at M2.
+
+SOLVER_PROXIMAL_BOUNDARIES:
+  layout: payload_lines
+  phase: init
+  args:
+    - name: count
+      type: int
+    - name: boundary_indices
+      type: int_list
+  manual_ref: "SRC-003 pp.337-338"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Enables solver proximity checking for the listed boundaries, one
+    index per line. Must be called before INITIALIZE_SOLVER
+    (SRC-003 p.338).
+
+REMOVE_INITIALIZATION:
+  layout: bare
+  phase: init
+  args: []
+  manual_ref: "SRC-003 p.338"
+  versions:
+    "26.120": {status: documented}
+
+START_SOLVER:
+  layout: bare
+  phase: exec
+  args: []
+  manual_ref: "SRC-003 p.338"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Runs the solver with the current runtime settings; convergence is
+    declared against the SOLVER_SET_CONVERGENCE threshold.
+
+CLEAR_SOLUTION:
+  layout: bare
+  phase: exec
+  args: []
+  manual_ref: "SRC-003 p.338"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Clears the existing solution while keeping the initialization;
+    used between sweep points when solution reuse is not wanted.

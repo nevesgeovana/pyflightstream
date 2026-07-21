@@ -1,0 +1,71 @@
+# Chapter: Scripting reference, Solver Settings (SRC-003 pp.341-343).
+
+SET_SOLVER_STEADY:
+  layout: bare
+  phase: init
+  args: []
+  manual_ref: "SRC-003 p.341"
+  versions:
+    "26.120": {status: documented}
+
+SET_SOLVER_UNSTEADY:
+  layout: keyword_block
+  phase: init
+  args:
+    - name: time_iterations
+      type: int
+    - name: delta_time
+      type: float
+      unit: "s"
+  manual_ref: "SRC-003 p.341"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Physical time stepping. For rotary cases the manual recommends 8
+    to 12 degrees of blade rotation per time step and at least two
+    full rotations (SRC-003 p.210).
+
+SET_BOUNDARY_LAYER_TYPE:
+  layout: inline
+  phase: init
+  args:
+    - name: type
+      type: enum
+      values: [LAMINAR, TRANSITIONAL, TURBULENT]
+  manual_ref: "SRC-003 p.341"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    The default transitional-turbulent model is stated valid for chord
+    Reynolds numbers between 500000 and 1500000; outside this range
+    select LAMINAR or TURBULENT explicitly (SRC-003 p.203).
+
+SET_SOLVER_VISCOUS_COUPLING:
+  layout: inline
+  phase: init
+  args:
+    - name: mode
+      type: enum
+      values: [ENABLE, DISABLE]
+  manual_ref: "SRC-003 p.341"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Couples the semi-empirical boundary layer model to the potential
+    flow solution. Attached-flow viscosity only; stall capture also
+    needs a flow separation model assignment (SRC-003 pp.207-208).
+
+SET_VISCOUS_EXCLUDED_BOUNDARIES:
+  layout: payload_lines
+  phase: init
+  args:
+    - name: num_boundaries
+      type: int
+    - name: boundary_indices
+      type: int_list
+  manual_ref: "SRC-003 p.341"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Excludes the listed boundaries from viscous coupling; the indices
+    follow on the next line as comma-separated values.

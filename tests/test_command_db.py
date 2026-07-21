@@ -26,7 +26,7 @@ from pyflightstream.versions import FsVersion
 COMMANDS_DIR = Path(__file__).resolve().parents[1] / "src" / "pyflightstream" / "commands"
 CANONICAL_PATTERN = re.compile(r"^26\.\d{3}$")
 REQUIRED_ENTRY_KEYS = {"layout", "phase", "args", "manual_ref", "versions"}
-KNOWN_LAYOUTS = {"bare", "inline", "payload_lines", "keyword_block"}
+KNOWN_LAYOUTS = {"bare", "inline", "param_lines", "payload_lines", "keyword_block"}
 
 
 def load_meta():

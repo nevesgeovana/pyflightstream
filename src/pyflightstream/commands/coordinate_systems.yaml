@@ -1,0 +1,102 @@
+# Chapter: Scripting reference, Coordinate Systems (SRC-003
+# pp.329-331). Frame index 1 is the reference frame; local frames use
+# indices greater than 1. Auxiliary frames for actuators and motions
+# must exist before solver initialization.
+
+CREATE_NEW_COORDINATE_SYSTEM:
+  layout: bare
+  phase: setup
+  args: []
+  manual_ref: "SRC-003 p.329"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Appends a new local coordinate system; configure it afterwards
+    with the SET_COORDINATE_SYSTEM commands or EDIT_COORDINATE_SYSTEM.
+
+EDIT_COORDINATE_SYSTEM:
+  layout: keyword_block
+  phase: setup
+  args:
+    - name: frame
+      type: int
+    - name: name
+      type: str
+    - name: origin_x
+      type: float
+    - name: origin_y
+      type: float
+    - name: origin_z
+      type: float
+    - name: vector_x_x
+      type: float
+    - name: vector_x_y
+      type: float
+    - name: vector_x_z
+      type: float
+    - name: vector_y_x
+      type: float
+    - name: vector_y_y
+      type: float
+    - name: vector_y_z
+      type: float
+    - name: vector_z_x
+      type: float
+    - name: vector_z_y
+      type: float
+    - name: vector_z_z
+      type: float
+  manual_ref: "SRC-003 p.329"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Full edit of a local frame: origin and the three axis vectors,
+    all expressed in the reference frame.
+
+SET_COORDINATE_SYSTEM_ORIGIN:
+  layout: inline
+  phase: setup
+  args:
+    - name: frame
+      type: int
+    - name: x
+      type: float
+    - name: y
+      type: float
+    - name: z
+      type: float
+    - name: units
+      type: enum
+      values: [INCH, MILLIMETER, OTHER, FEET, MILE, METER, KILOMETER,
+               MILS, MICRON, CENTIMETER, MICROINCH]
+  manual_ref: "SRC-003 pp.329-330"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Origin position relative to the reference coordinate system.
+
+SET_COORDINATE_SYSTEM_AXIS:
+  layout: inline
+  phase: setup
+  args:
+    - name: frame
+      type: int
+    - name: axis
+      type: enum
+      values: [X, Y, Z]
+    - name: nx
+      type: float
+    - name: ny
+      type: float
+    - name: nz
+      type: float
+    - name: normalize_frame
+      type: enum
+      values: ["TRUE", "FALSE"]
+  manual_ref: "SRC-003 p.330"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Sets one axis direction vector of a local frame; the vector is
+    normalized automatically, and NORMALIZE_FRAME TRUE renormalizes
+    the whole frame after the update.

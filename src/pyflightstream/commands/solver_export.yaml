@@ -1,0 +1,131 @@
+# Chapter: Scripting reference, Solver Data Export (SRC-003
+# pp.352-354).
+
+EXPORT_SOLVER_ANALYSIS_SPREADSHEET:
+  layout: param_lines
+  phase: export
+  args:
+    - name: filename
+      type: path
+  manual_ref: "SRC-003 p.352"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Exports the aerodynamic loads and moments spreadsheets; the
+    primary quantitative output of a steady polar run.
+
+EXPORT_SOLVER_ANALYSIS_TECPLOT:
+  layout: param_lines
+  phase: export
+  args:
+    - name: filename
+      type: path
+  manual_ref: "SRC-003 p.352"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Exports the Tecplot .dat file for all initialized boundaries.
+
+EXPORT_SOLVER_ANALYSIS_VTK:
+  layout: param_lines
+  phase: export
+  args:
+    - name: filename
+      type: path
+    - name: surfaces
+      type: int
+    - name: boundary_indices
+      type: int_list
+      required: false
+  manual_ref: "SRC-003 p.352"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Exports the VTK file. SURFACES takes -1 for all boundaries or a
+    count followed by one index per line.
+
+SET_VTK_EXPORT_VARIABLES:
+  layout: payload_lines
+  phase: export
+  args:
+    - name: num_variables
+      type: int
+    - name: export_wake
+      type: enum
+      values: [ENABLE, DISABLE]
+    - name: variables
+      type: enum_list
+      values: [X, Y, Z, CF, CP, CP_REFERENCE, CP_FREESTREAM, MACH,
+               VX, VY, VZ, VTOT, PSTATIC, BLMOM, BLDISP, BLTHICK,
+               SHAPEFACTOR, TRANS, SEP, BLLENGTH, AREA, VORTICITY]
+  manual_ref: "SRC-003 p.352"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    NUM_VARIABLES takes -1 for all variables; otherwise one variable
+    name follows per line. The CP argument is flagged for depreciation
+    in favor of CP_REFERENCE and CP_FREESTREAM (SRC-003 p.352); the
+    emitter warns when CP is requested.
+
+EXPORT_SOLVER_ANALYSIS_CSV:
+  layout: param_lines
+  phase: export
+  args:
+    - name: filename
+      type: path
+    - name: format
+      type: enum
+      values: [CP-FREESTREAM, CP-REFERENCE, PRESSURE]
+    - name: units
+      type: enum
+      values: [PASCALS, MEGAPASCALS, BAR, ATMOSPHERES, PSI]
+    - name: frame
+      type: int
+    - name: surfaces
+      type: int
+    - name: boundary_indices
+      type: int_list
+      required: false
+  manual_ref: "SRC-003 p.353"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Exports the FEM CSV file. The path follows on the line after the
+    command name; FORMAT, UNITS, FRAME and SURFACES follow as KEY
+    VALUE lines, with the boundary indices one per line after
+    SURFACES when it is not -1.
+
+EXPORT_SOLVER_ANALYSIS_PLOAD_BDF:
+  layout: param_lines
+  phase: export
+  args:
+    - name: filename
+      type: path
+    - name: surfaces
+      type: int
+    - name: boundary_indices
+      type: int_list
+      required: false
+  manual_ref: "SRC-003 p.353"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Exports the NASTRAN PLOAD .bdf file based on the solver results.
+
+EXPORT_SOLVER_ANALYSIS_FORCE_DISTRIBUTIONS:
+  layout: param_lines
+  phase: export
+  args:
+    - name: filename
+      type: path
+    - name: surfaces
+      type: int
+    - name: boundary_indices
+      type: int_list
+      required: false
+  manual_ref: "SRC-003 pp.353-354"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Exports the force distribution vectors file for the initialized
+    boundaries.

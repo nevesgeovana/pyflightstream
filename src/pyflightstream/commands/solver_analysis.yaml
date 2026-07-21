@@ -1,0 +1,108 @@
+# Chapter: Scripting reference, Solver Analysis (SRC-003 pp.350-351).
+
+SET_VORTICITY_DRAG_BOUNDARIES:
+  layout: payload_lines
+  phase: analysis
+  args:
+    - name: num_boundaries
+      type: int
+    - name: boundary_indices
+      type: int_list
+  manual_ref: "SRC-003 p.350"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Boundaries whose induced drag is computed from surface vorticity
+    circulation integration; -1 selects all boundaries. Boundaries
+    without trailing-edge boundary conditions on this list silently
+    report zero induced drag (SRC-003 p.202); bluff bodies belong to
+    surface-pressure integration instead, which is why the results
+    layer refuses blind per-boundary drag aggregation.
+
+DELETE_VORTICITY_DRAG_BOUNDARIES:
+  layout: bare
+  phase: analysis
+  args: []
+  manual_ref: "SRC-003 p.350"
+  versions:
+    "26.120": {status: documented}
+
+SET_SOLVER_ANALYSIS_LOADS_FRAME:
+  layout: inline
+  phase: analysis
+  args:
+    - name: load_frame
+      type: int
+  manual_ref: "SRC-003 p.350"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Coordinate system used for evaluating aerodynamic loads and
+    moments; index 1 is the reference frame.
+
+SET_ANALYSIS_MOMENTS_MODEL:
+  layout: inline
+  phase: analysis
+  args:
+    - name: model
+      type: enum
+      values: [PRESSURE, VORTICITY]
+  manual_ref: "SRC-003 p.350"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    PRESSURE is the solver default.
+
+SET_ANALYSIS_SYMMETRY_LOADS:
+  layout: inline
+  phase: analysis
+  args:
+    - name: mode
+      type: enum
+      values: [ENABLE, DISABLE]
+  manual_ref: "SRC-003 p.350"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Includes the loads of symmetry boundaries in the analysis; relevant
+    to half-model runs.
+
+SET_LOADS_AND_MOMENTS_UNITS:
+  layout: inline
+  phase: analysis
+  args:
+    - name: unit_type
+      type: enum
+      values: [COEFFICIENTS, NEWTONS, KILO-NEWTONS, POUND-FORCE,
+               KILOGRAM-FORCE]
+  manual_ref: "SRC-003 pp.350-351"
+  versions:
+    "26.120": {status: documented}
+
+SET_SOLVER_ANALYSIS_BOUNDARIES:
+  layout: payload_lines
+  phase: analysis
+  args:
+    - name: num_boundaries
+      type: int
+    - name: boundary_indices
+      type: int_list
+  manual_ref: "SRC-003 p.351"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Enables the listed boundaries in the analysis tab; boundaries not
+    listed are disabled in the analysis (SRC-003 p.351).
+
+SET_INVISCID_LOADS:
+  layout: inline
+  phase: analysis
+  args:
+    - name: mode
+      type: enum
+      values: [ENABLE, DISABLE]
+  manual_ref: "SRC-003 p.351"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Restricts the analysis to inviscid loads and moments only.
