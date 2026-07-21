@@ -22,7 +22,7 @@ Milestone map per the Bootstrap Kit (`_private/design/DLV-004`, Section 7).
 | M5 | mkdocs site, command reference and compatibility matrix generated from the database, steady polar example | Docs build strict; example runs | Done 2026-07-21 (HND-016: generated reference and matrix from `reference.py` as single rendering source, strict build green, example executed on 26.120 with slope 4.83/rad; 179 tests) |
 | v0.1.0 | Tag, private | All above green | Done 2026-07-21 (HND-017: tag v0.1.0 pushed, release commit 38c091c, CI runs 29869650235 and 29869821677 green, sdist/wheel clean, CHANGELOG.md) |
 | M6 | FSI subpackage per DLV-007: `[fsi]` extra (PyNiteFEA, license evidence RPT-002), `FsiConfig`, loads parser, PyNite beam with centrifugal terms (Gate 1 Campbell), kinematics, driver, `pyfs-fsi` entry point | WP7 coupled pilot: near-rigid synthetic blade recovers the rigid CT within solver noise; frozen replay reproduces the deformed solution | Started 2026-07-21 (HND-021: WP0, WP3, WP4 delivered, Gate 1 Campbell green; WP1 dummy ready, dry run pending; WP2 parser awaits its fixtures) |
-| M7 | Far-field probe extraction per DLV-006: `probes` lattice (serializable, version-aware emission), `farfield` ledgers on xarray (quadrature, harmonic spine, forces, moments, loss channels), G0 synthetic gate as tier 1 | G0 green in CI; probe-export parser and G1 to G5 case-level checks follow with the solver campaign | Started 2026-07-21 (HND-020: lattice, ledgers, and G0 delivered; suite at 220 tests at close, including the parallel M6 session's in-progress files) |
+| M7 | Far-field probe extraction per DLV-006: `probes` lattice (serializable, version-aware emission), `farfield` ledgers on xarray (quadrature, harmonic spine, forces, moments, loss channels), G0 synthetic gate as tier 1 | G0 green in CI; probe-export parser and G1 to G5 case-level checks follow with the solver campaign | Started 2026-07-21 (HND-020: lattice, ledgers, and G0 delivered; suite at 220 tests at close, including the parallel M6 session's in-progress files). Extended same day (HND-023): planar probe grids as the controlled volume-section replacement (explicit frames, geometry culling and BL band refinement behind the `[geom]` extra, pre-processing fsm-to-obj export, VTK/Tecplot writers opening `post/`; suite at 265) |
 | v0.2+ | Remaining PHY cases, 26.000/26.100 backfill probing, declarative matrix successor, public release, PyPI | Public checklist (invariants audit) passes | Planned |
 
 ## Current focus
@@ -128,6 +128,30 @@ Physics formulas carry Source lines enforced by a tier 1 schema
 test; synthetic blades only; CI installs `.[dev,fsi]`; suite at 232
 tests at close. PHY-05 is registered as PLN-014, prerequisite of the
 WP7 coupled pilot.
+
+The probe planner extended M7 (HND-023, plan approved by Geovana):
+planar Cartesian probe grids replace the volume sections wherever the
+point placement must be controlled, prescribed by element size or
+cosine/geometric distributions on an explicit FrameDefinition
+(orthonormalized origin-plus-axes, the EDIT_COORDINATE_SYSTEM mirror;
+points transformed in Python and imported in the reference frame so
+culling and solver agree). The geometry gate culls points inside the
+body and re-samples the cells within the boundary-layer band distance
+with finer elements, against a watertight surface mesh; trimesh,
+rtree, and scipy form the new `[geom]` extra (license evidence
+RPT-003), with open meshes and the missing engine refusing
+didactically. `run.export_surface_mesh` covers the case with no mesh
+file: a pre-processing solver run of OPEN plus EXPORT_SURFACE_MESH
+OBJ (SRC-003 pp.307-308). Probe accounting is explicit: the
+GeometryGateReport counts every kept, culled, and band-added point,
+and PlannedProbes serializes grid, points, and report as the loading
+contract of the future export parser. The `post/` layer opened with
+deterministic VTK legacy and Tecplot ASCII probe-data writers plus
+the far-field dataset adapter, for flow visualization of any probe
+survey. Suite at 265 tests; smoke on the QA wing STL culled 35 of
+1275 plane nodes and added 388 band nodes. Next: the licensed
+round-trip probe (PLN-018) that also seeds the PLN-016 parser
+fixture.
 
 Previous focus (M4, kept for context): PHY-01 closed end to end
 (PLN-008 started, HND-012):
