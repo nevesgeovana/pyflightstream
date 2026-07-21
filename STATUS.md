@@ -19,13 +19,37 @@ Milestone map per the Bootstrap Kit (`_private/design/DLV-004`, Section 7).
 | M2 | Script builder with phase ordering, helpers, `files/` layout, local executor, campaign loop, manifest, loads parser, goldens, legacy matrix reader | End-to-end dry run plus one real local run | Done 2026-07-21 (dry run in the Tier 1 suite, 117 tests; real run CONVERGED, `reports/RPT-001`; legacy matrix reader with convert-matrix closing the content, HND-009) |
 | M3 | Tier 2 probe harness, first compat report for 26.120, apply-compat | Committed compat report; statuses promoted | Done 2026-07-21 (pilot HND-010, full sweep HND-011: `reports/compat/CMP-26120_2026-07-21_full`, 64 verified, 4 broken, 44 unprobed with reasons, 68 promotions) |
 | M4 | PHY-01/02 plus version-comparison suite (synthetic committed, SMI local) | Committed physics report | Done 2026-07-21 (HND-012..015: PHY-01/02 10 pass, synthetic drift zero deltas, SMI class delivered; capstone `DRF-26100-26120_2026-07-21_complete` 17 pass 1 warn, the SMI-01 CMy movement to triage) |
-| M5 | mkdocs site, command reference and compatibility matrix generated from the database, steady polar example | Docs build strict; example runs | Planned |
+| M5 | mkdocs site, command reference and compatibility matrix generated from the database, steady polar example | Docs build strict; example runs | Done 2026-07-21 (HND-016: generated reference and matrix from `reference.py` as single rendering source, strict build green, example executed on 26.120 with slope 4.83/rad; 179 tests) |
 | v0.1.0 | Tag, private | All above green | Planned |
 | v0.2+ | Remaining PHY cases, 26.000/26.100 backfill probing, declarative matrix successor, public release, PyPI | Public checklist (invariants audit) passes | Planned |
 
 ## Current focus
 
-M4 is open and PHY-01 is closed end to end (PLN-008 started, HND-012):
+M5 closed in one session (HND-016): the mkdocs site renders the
+command reference (one page per manual chapter, per-version evidence
+tables) and the version compatibility matrix (every command against
+every registered version, evidence counts, manual editions, the
+26.000 column honestly empty) generated at build time from the
+database, with `reference.py` as the single rendering source shared
+with the `pyflightstream.help()` offline fallback; nothing generated
+is committed. The steady polar example is real: synthetic NACA 0012
+wing, version-validated scripts, the didactic 26.0 refusal, optional
+execution behind an explicit executable path; executed on 26.120
+build 7012026 with all 7 points converged and lift slope 4.83/rad
+against the finite-wing anchor 5.03 (consistent with PHY-01). SRC-725
+is registered as the 26.1 manual source id across every citation.
+PLN-013 closed: the SMI-01 CMy warn is a deterministic solver change
+between builds 5012026 and 7012026 (bit-identical reruns, identical
+fsm sha256, single boundary; `TRI-SMI01-CMy_2026-07-21`), reference
+untouched, the WARN stands by design. Toolchain note: the MkDocs
+project is in a public governance dispute and the nav plugins now
+pull in and advertise the ProperDocs fork; migration is an open
+question toward v0.1.0. Single next action: cut v0.1.0 (private tag)
+through the release skill. Getting-started and campaign tutorial
+pages stay planned (docs home lists them).
+
+Previous focus (M4, kept for context): PHY-01 closed end to end
+(PLN-008 started, HND-012):
 the mesh-import family (IMPORT, CCS_IMPORT, EXPORT_SURFACE_MESH;
 SRC-003 pp.307-308) entered the database, `qa/geometry.py` generates
 the committable NACA wing STL, and `qa/physics.py` runs the Tier 3
@@ -68,8 +92,7 @@ decided when `post/` starts. `convert-matrix` CLI wiring can join the
 
 | Question | Waiting on |
 |---|---|
-| Whether the SMI-01 CMy warn (0.8 percent between builds) is a solver change, case sensitivity, or noise | Triage (PLN-013) |
-| Source id for the 26.1 manual edition (cited as "FS 26.1 manual" in version notes until registered) | Geovana's source registry |
+| Whether to follow the MkDocs-to-ProperDocs fork (the nav plugins already depend on it; Material endorses the fork) | Geovana's decision toward v0.1.0 |
 | Whether the four broken commands of CMP-26120_full are solver defects or drafted-grammar defects | Manual re-review (PLN-012) |
 | xarray as a runtime dependency behind the `ResultArray` facade | Geovana's confirmation at M2 (SAD Section 9; noted in `pyproject.toml`) |
 | Whether to genericize the SMI name in the repository (currently kept, required by the version-comparison case design) | Open option, Geovana's decision |
