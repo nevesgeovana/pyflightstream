@@ -32,6 +32,13 @@ solver. Successor of the author's legacy research scripts. MIT licensed.
    frames; module top-docstrings state the pipeline role; error
    messages name the physical or version cause.
 
+## Engineering policy
+
+Prefer existing public libraries over in-house implementation whenever
+the need is generic (validation, parsing, arrays, IO); licenses must be
+MIT-compatible. Domain logic (FlightStream semantics, evidence rules,
+physics) stays in-house. Author's decision of 2026-07-21.
+
 ## Definition of done
 
 A change is done when: tier 1 tests pass in CI; new commands carry
