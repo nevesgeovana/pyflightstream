@@ -7,7 +7,8 @@ probes for one FlightStream version and writes the compat report;
 report. ``pyfs-qa physics`` runs the Tier 3 physics regression matrix
 and writes the physics report; ``pyfs-qa update-reference`` is the only
 write path into the stored physics references and demands a reason
-string (SAD Section 11).
+string (SAD Section 11); ``pyfs-qa drift`` runs the same case set on
+two versions and diffs the aggregated coefficients (FR-27).
 """
 
 from __future__ import annotations
@@ -18,6 +19,7 @@ from pathlib import Path
 
 from pyflightstream.commands import CommandRegistry
 from pyflightstream.qa.compat import apply_compat, write_compat_report
+from pyflightstream.qa.drift import run_drift, write_drift_report
 from pyflightstream.qa.physics import (
     PhysicsEnvironmentError,
     run_physics,
@@ -128,6 +130,46 @@ def _build_parser() -> argparse.ArgumentParser:
         help="report stem suffix distinguishing several reports on one day",
     )
 
+    drift = subparsers.add_parser(
+        "drift",
+        help="run the case set on two versions and diff the coefficients (FR-27)",
+    )
+    drift.add_argument(
+        "--versions",
+        required=True,
+        help="two comma-separated versions, baseline first (for example 26.100,26.120); "
+        "the same version twice is the degenerate self-comparison",
+    )
+    drift.add_argument(
+        "--fs-exe",
+        action="append",
+        required=True,
+        metavar="VERSION=PATH",
+        help="explicit executable per version (repeatable, never guessed), "
+        "for example --fs-exe 26.100=C:/fs26100/FS.exe",
+    )
+    drift.add_argument(
+        "--cases",
+        help="comma-separated case subset (for example PHY-01); default: every case",
+    )
+    drift.add_argument(
+        "--workroot",
+        default="physics_runs",
+        help="scratch root; each version nests under its canonical name",
+    )
+    drift.add_argument(
+        "--timeout", type=float, default=900.0, help="per-point wall-clock limit, seconds"
+    )
+    drift.add_argument(
+        "--report-dir",
+        default="reports/physics",
+        help="directory receiving the report pair (default reports/physics/)",
+    )
+    drift.add_argument(
+        "--label",
+        help="report stem suffix distinguishing several reports on one day",
+    )
+
     update = subparsers.add_parser(
         "update-reference",
         help="update or seed one physics reference from a committed physics report",
@@ -153,6 +195,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_probe(args)
     if args.subcommand == "physics":
         return _cmd_physics(args)
+    if args.subcommand == "drift":
+        return _cmd_drift(args)
     if args.subcommand == "update-reference":
         return _cmd_update_reference(args)
     return _cmd_apply_compat(args)
@@ -211,6 +255,63 @@ def _cmd_physics(args: argparse.Namespace) -> int:
         f"FlightStream {run.version} ({run.fs_exe_name}): "
         f"{counts['pass']} pass, {counts['warn']} warn, {counts['fail']} fail, "
         f"{counts['no_reference']} without reference"
+    )
+    for result in run.results:
+        if result.error is not None:
+            print(f"{result.case_id} aborted: {result.error}", file=sys.stderr)
+    for line in run.solver_identity:
+        print(f"solver: {line}")
+    print(f"report: {yaml_path}")
+    print(f"report: {md_path}")
+    aborted = any(result.error is not None for result in run.results)
+    return 1 if counts["fail"] or aborted else 0
+
+
+def _cmd_drift(args: argparse.Namespace) -> int:
+    versions = [name.strip() for name in args.versions.split(",") if name.strip()]
+    if len(versions) != 2:
+        print(
+            "drift compares exactly two versions, baseline first "
+            "(for example --versions 26.100,26.120)",
+            file=sys.stderr,
+        )
+        return 2
+    fs_exes: dict[str, str] = {}
+    for item in args.fs_exe:
+        version, separator, path = item.partition("=")
+        if not separator or not path:
+            print(f"--fs-exe expects VERSION=PATH, got {item!r}", file=sys.stderr)
+            return 2
+        fs_exes[resolve(version.strip()).canonical] = path.strip()
+    canonicals = [resolve(version).canonical for version in versions]
+    missing = [canonical for canonical in canonicals if canonical not in fs_exes]
+    if missing:
+        print(
+            f"no executable given for {', '.join(missing)}; pass --fs-exe VERSION=PATH",
+            file=sys.stderr,
+        )
+        return 2
+    cases = None
+    if args.cases:
+        cases = [name.strip() for name in args.cases.split(",") if name.strip()]
+    try:
+        run = run_drift(
+            canonicals[0],
+            canonicals[1],
+            fs_exes=fs_exes,
+            workroot=args.workroot,
+            cases=cases,
+            timeout_s=args.timeout,
+        )
+    except PhysicsEnvironmentError as error:
+        print(f"drift run aborted: {error}", file=sys.stderr)
+        return 2
+    yaml_path, md_path = write_drift_report(run, args.report_dir, label=args.label)
+    counts = run.verdict_counts()
+    print(
+        f"FlightStream {run.version_a} vs {run.version_b}: "
+        f"{counts['pass']} pass, {counts['warn']} warn, {counts['fail']} fail, "
+        f"{counts['no_reference']} without declared bands"
     )
     for result in run.results:
         if result.error is not None:
