@@ -582,3 +582,96 @@ def _execute_point(
         outputs=collected,
         error=assessment.error,
     )
+
+
+class SurfaceMeshExportError(RuntimeError):
+    """The pre-processing surface-mesh export did not produce its file.
+
+    Raised by :func:`export_surface_mesh` when the solver run failed
+    or finished without writing the requested mesh file; the message
+    carries the process outcome and the captured log excerpt, because
+    hidden-mode failures are otherwise silent (SRC-003 p.280).
+    """
+
+
+def export_surface_mesh(
+    fsm_path: str | Path,
+    workdir: str | Path,
+    *,
+    version: str | FsVersion,
+    executor: Executor | None = None,
+    fs_exe: str | Path | None = None,
+    file_type: str = "OBJ",
+    surface: int = -1,
+    timeout_s: float | None = 600.0,
+) -> Path:
+    """Export the simulation surface mesh in a pre-processing solver run.
+
+    Builds and runs the minimal version-validated script (OPEN the
+    simulation, EXPORT_SURFACE_MESH, close), so the probe planner's
+    geometry gate can test candidate probes against the real body when
+    no mesh file exists yet (SRC-003 pp.282, 307-308). When a mesh
+    file already exists, skip this and hand it to the gate directly.
+
+    Parameters
+    ----------
+    fsm_path : str or pathlib.Path
+        Input simulation file to open.
+    workdir : str or pathlib.Path
+        Execution directory; the script, the exported mesh, and any
+        hidden-mode log land here.
+    version : str or FsVersion
+        Target FlightStream version; emission is validated against it.
+    executor : Executor, optional
+        Executor to run the script with; alternatively give
+        ``fs_exe`` to build a :class:`LocalExecutor`.
+    fs_exe : str or pathlib.Path, optional
+        FlightStream executable path (explicit input, never guessed).
+    file_type : str
+        Export format token, one of STL, TRI, OBJ (SRC-003 p.307);
+        OBJ is the geometry gate default.
+    surface : int
+        Surface index to export; -1 exports all geometry surfaces.
+    timeout_s : float, optional
+        Wall-clock limit of the pre-processing run.
+
+    Returns
+    -------
+    pathlib.Path
+        The exported mesh file.
+
+    Raises
+    ------
+    ExecutorConfigurationError
+        If neither executor nor a valid ``fs_exe`` is given.
+    SurfaceMeshExportError
+        If the run fails or leaves no mesh file behind.
+    """
+    if executor is None:
+        if fs_exe is None:
+            raise ExecutorConfigurationError(
+                "export_surface_mesh needs a way to run FlightStream: pass an "
+                "executor or the explicit fs_exe path"
+            )
+        executor = LocalExecutor(fs_exe)
+    workdir = Path(workdir)
+    workdir.mkdir(parents=True, exist_ok=True)
+    mesh_path = workdir / f"surface_mesh.{file_type.lower()}"
+
+    script = Script(version)
+    script.emit("OPEN", str(Path(fsm_path)))
+    script.emit("EXPORT_SURFACE_MESH", file_type, surface, str(mesh_path))
+    script.emit("CLOSE_FLIGHTSTREAM")
+    script_path = workdir / "export_surface_mesh.txt"
+    script_path.write_text(script.render(), encoding="utf-8")
+
+    result = executor.run_script(script_path, working_dir=workdir, timeout_s=timeout_s)
+    if result.failed or not mesh_path.is_file():
+        outcome = "timed out" if result.timed_out else f"returned {result.return_code}"
+        log_excerpt = (result.log_text or "")[-2000:]
+        raise SurfaceMeshExportError(
+            f"the pre-processing run {outcome} and the mesh file "
+            f"{mesh_path.name} {'exists' if mesh_path.is_file() else 'was not written'}; "
+            f"check the simulation file and the log excerpt: {log_excerpt!r}"
+        )
+    return mesh_path
