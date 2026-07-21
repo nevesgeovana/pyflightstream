@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyflightstream"
-version = "0.0.1.dev0"
+version = "0.1.0"
 description = "Version-aware, didactic Python driver for the FlightStream panel-method solver"
 readme = "README.md"
 license = {text = "MIT"}
