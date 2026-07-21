@@ -42,7 +42,7 @@ import numpy as np
 import yaml
 
 import pyflightstream
-from pyflightstream.qa.geometry import WingSpec, generate_wing_stl
+from pyflightstream.qa.geometry import BladeSpec, WingSpec, generate_blade_stl, generate_wing_stl
 from pyflightstream.results import IncompleteOutputError, LoadsReport, parse_loads
 from pyflightstream.run import ExecutionResult, LocalExecutor
 from pyflightstream.script import Script
@@ -65,6 +65,8 @@ __all__ = [
     "registered_cases",
     "build_phy01_script",
     "build_phy02_script",
+    "build_phy05_script",
+    "build_phy06_unsteady_script",
     "build_smi_script",
     "compare_metrics",
     "load_reference",
@@ -291,6 +293,7 @@ def _build_wing_point_script(
     log_name: str,
     symmetry: str = "NONE",
     symmetry_loads: str | None = None,
+    unsteady: tuple[int, float] | None = None,
 ) -> Script:
     """Build the one-point wing script the PHY cases share.
 
@@ -321,6 +324,10 @@ def _build_wing_point_script(
         specific_heat_ratio=1.4,
     )
     script.emit("SET_FREESTREAM", "CONSTANT")
+    if unsteady is not None:
+        # Physical time stepping selected before initialization, the
+        # order the 2026-07-21 legacy-case reproduction proved.
+        script.emit("SET_SOLVER_UNSTEADY", unsteady[0], unsteady[1])
     script.emit(
         "INITIALIZE_SOLVER",
         solver_model="INCOMPRESSIBLE",
@@ -555,11 +562,22 @@ class PhysicsCase:
     title: str
     metric_specs: tuple[MetricSpec, ...]
     runner: Callable[[_CaseContext], CaseResult]
+    versions: tuple[str, ...] | None = None
 
     @property
     def specs_by_name(self) -> dict[str, MetricSpec]:
         """The metric specifications keyed by metric name."""
         return {spec.name: spec for spec in self.metric_specs}
+
+    def supports(self, canonical: str) -> bool:
+        """Whether the case's command set has evidence for ``canonical``.
+
+        ``versions`` is None for cases whose commands are evidenced on
+        every registered version; a tuple restricts the case to the
+        listed canonical identifiers (the unsteady cases are 26.120
+        only until the motion and unsteady chapters are backfilled).
+        """
+        return self.versions is None or canonical in self.versions
 
 
 PHYSICS_CASES: dict[str, PhysicsCase] = {
@@ -617,7 +635,325 @@ PHYSICS_CASES: dict[str, PhysicsCase] = {
         ),
         runner=_run_phy02,
     ),
+    "PHY-05": PhysicsCase(
+        case_id="PHY-05",
+        title="Rigid unsteady periodic propeller (generic BladeSpec blade)",
+        metric_specs=(
+            MetricSpec(
+                "CL",
+                "total CL of the blade sector at the final step; near zero "
+                "as the loads balance around the disc, so the band is absolute",
+                kind="abs",
+                warn=0.002,
+                fail=0.01,
+            ),
+            MetricSpec(
+                "CDi",
+                "total axial force coefficient (negative: net thrust) at the final of 54 steps",
+                warn=0.01,
+                fail=0.03,
+            ),
+            MetricSpec(
+                "CDo",
+                "total viscous drag coefficient at the final step; near zero",
+                kind="abs",
+                warn=0.0005,
+                fail=0.002,
+            ),
+            MetricSpec(
+                "CMy",
+                "total pitching moment coefficient at the final step",
+                warn=0.01,
+                fail=0.03,
+            ),
+        ),
+        runner=lambda context: _run_phy05(context),
+        versions=("26.120",),
+    ),
+    "PHY-06": PhysicsCase(
+        case_id="PHY-06",
+        title="Steady versus unsteady equivalence (NACA 0012, AR 8)",
+        metric_specs=(
+            MetricSpec("CL_steady_a4", "total CL of the steady solve at 4 deg"),
+            MetricSpec(
+                "CL_unsteady_a4",
+                "total CL after the unsteady time march at 4 deg "
+                "(120 steps of 0.01 s: 36 chord passages at 30 m/s)",
+            ),
+            MetricSpec(
+                "delta_CL_a4",
+                "CL(unsteady) - CL(steady) at 4 deg; the time march of a "
+                "static configuration must asymptote to the steady solution",
+                kind="abs",
+                warn=0.005,
+                fail=0.02,
+            ),
+            MetricSpec(
+                "delta_CDi_a4",
+                "CDi(unsteady) - CDi(steady) at 4 deg; zero in the asymptote",
+                kind="abs",
+                warn=0.0005,
+                fail=0.002,
+            ),
+        ),
+        runner=lambda context: _run_phy06(context),
+        versions=("26.120",),
+    ),
 }
+
+
+# --------------------------------------------------------------------------
+# PHY-05 (rigid unsteady periodic propeller) and PHY-06 (steady versus
+# unsteady equivalence)
+# --------------------------------------------------------------------------
+#
+# PHY-05 promotes the shareable generic-blade case into the matrix: the
+# BladeSpec blade (public analytic shape laws, qa.geometry) under
+# PERIODIC 6 with rotary motion and physical time stepping, the flow
+# the 2026-07-21 legacy-case reproduction proved command by command.
+# PHY-06 anchors the unsteady solver against the steady one: a time
+# march of the static PHY-01 wing must asymptote to the steady
+# solution. Both are 26.120-only until the motion, coordinate-system,
+# unsteady, and advanced-settings chapters are backfilled for earlier
+# versions.
+
+PHY05_BLADE = BladeSpec()
+PHY05_FLUID = {
+    "density": 1.225,
+    "pressure": 101325.0,
+    "temperature": 288.15,
+    "viscosity": 1.789e-05,
+    "specific_heat_ratio": 1.4,
+}
+PHY05_VELOCITY_M_S = 49.0
+PHY05_REF_AREA_M2 = 10.0
+PHY05_REF_LENGTH_M = 2.0
+PHY05_N_BLADES = 6
+PHY05_ADVANCE_RATIO = 1.7
+# rpm = 60 V / (J D); dt spans 10 deg of rotation; 54 steps make 1.5
+# revolutions and the wake terminates after one revolution.
+PHY05_RPM = round(60.0 * PHY05_VELOCITY_M_S / (PHY05_ADVANCE_RATIO * 2.0 * PHY05_BLADE.r_tip_m), 2)
+PHY05_DELTA_TIME_S = round(10.0 / (6.0 * PHY05_RPM), 6)
+PHY05_TIME_ITERATIONS = 54
+PHY05_WAKE_TERMINATION_STEPS = -36
+
+PHY06_ALPHA_DEG = 4.0
+PHY06_TIME_ITERATIONS = 120
+PHY06_DELTA_TIME_S = 0.01
+
+
+def build_phy05_script(
+    version: str,
+    stl_path: str | Path,
+    loads_name: str,
+    log_name: str,
+) -> Script:
+    """Build the PHY-05 unsteady periodic propeller script.
+
+    The command content mirrors the proven generic-blade case: three
+    identity frames (analysis, rotation, blade axis), rotary motion on
+    the rotation frame with the blade-axis frame attached, physical
+    time stepping sized to 10 deg per step, PERIODIC 6 initialization
+    of the Prandtl-Glauert model, and the symmetry-loads state set
+    before the solve (in-solve consumers precede START_SOLVER).
+
+    Parameters
+    ----------
+    version : str
+        Target FlightStream version, canonical or alias.
+    stl_path : str or Path
+        The generated blade STL to import (meters, absolute path).
+    loads_name, log_name : str
+        Output file names, written into the working directory.
+
+    Returns
+    -------
+    Script
+        The validated script, ready to render.
+    """
+    script = Script(version=version)
+    script.comment("PHY-05 generic-blade unsteady periodic propeller (Tier 3, SAD Section 11)")
+    script.emit("NEW_SIMULATION")
+    script.emit("IMPORT", "METER", "STL", str(stl_path), clear=True)
+    script.emit("SET_SIMULATION_LENGTH_UNITS", "METER")
+    script.emit("AUTO_DETECT_TRAILING_EDGES")
+    script.emit("AUTO_DETECT_WAKE_TERMINATION_NODES")
+    script.emit("SET_SIGNIFICANT_DIGITS", 7)
+    for frame, name in ((2, "MRP"), (3, "PROP_MRP"), (4, "BladeAxis1")):
+        script.emit("CREATE_NEW_COORDINATE_SYSTEM")
+        script.emit(
+            "EDIT_COORDINATE_SYSTEM",
+            frame=frame,
+            name=name,
+            origin_x=0.0,
+            origin_y=0.0,
+            origin_z=0.0,
+            vector_x_x=1,
+            vector_x_y=0,
+            vector_x_z=0,
+            vector_y_x=0,
+            vector_y_y=1,
+            vector_y_z=0,
+            vector_z_x=0,
+            vector_z_y=0,
+            vector_z_z=1,
+        )
+    script.emit("ROTATE_COORDINATE_SYSTEM", frame=4, rotation_frame=3, rotation_axis="X", angle=0.0)
+    script.emit("FLUID_PROPERTIES", **PHY05_FLUID)
+    script.emit("SET_FREESTREAM", "CONSTANT")
+    script.emit("CREATE_NEW_MOTION", "ROTARY")
+    script.emit("SET_MOTION_COORDINATE_SYSTEM", 1, 3)
+    script.emit("SET_MOTION_MOVING_FRAMES", 1, 1, [4])
+    script.emit("SET_MOTION_ROTOR_RPM", 1, PHY05_RPM)
+    script.emit("SET_MOTION_BOUNDARIES", 1, 1, [1])
+    script.emit("SOLVER_SET_MESH_INDUCED_WAKE_VELOCITY", "ENABLE")
+    script.emit("SOLVER_SET_FARFIELD_LAYERS", 5)
+    script.emit("SET_SOLVER_UNSTEADY", PHY05_TIME_ITERATIONS, PHY05_DELTA_TIME_S)
+    script.emit("SET_WAKE_TERMINATION_TIME_STEPS", PHY05_WAKE_TERMINATION_STEPS)
+    script.emit(
+        "INITIALIZE_SOLVER",
+        solver_model="SUBSONIC_PRANDTL_GLAUERT",
+        surfaces=-1,
+        wake_termination_x="DEFAULT",
+        symmetry="PERIODIC",
+        symmetry_copies=PHY05_N_BLADES,
+        wall_collision_avoidance="DISABLE",
+    )
+    script.emit("SOLVER_SET_VELOCITY", PHY05_VELOCITY_M_S)
+    script.emit("SOLVER_SET_REF_VELOCITY", PHY05_VELOCITY_M_S)
+    script.emit("SOLVER_SET_ITERATIONS", PHY01_ITERATIONS)
+    script.emit("SOLVER_SET_CONVERGENCE", PHY01_CONVERGENCE)
+    script.emit("SOLVER_SET_REF_AREA", PHY05_REF_AREA_M2)
+    script.emit("SOLVER_SET_REF_LENGTH", PHY05_REF_LENGTH_M)
+    script.emit("SET_MAX_PARALLEL_THREADS", 8)
+    script.emit("SOLVER_SET_AOA", 0.0)
+    script.emit("SOLVER_SET_SIDESLIP", 0.0)
+    script.emit("SET_BOUNDARY_LAYER_TYPE", "TURBULENT")
+    script.emit("SET_SOLVER_VISCOUS_COUPLING", "DISABLE")
+    script.emit("SET_SOLVER_CONVERGENCE_ITERATIONS", 20)
+    script.emit("SOLVER_MINIMUM_CP", -100)
+    script.emit("ADDITIONAL_WAKE_RELAXATION_ITERATION", "DISABLE")
+    script.emit("REYNOLDS_AVERAGED_DRAG_FORCES", "DISABLE")
+    script.emit("SET_WAKE_ON_WAKE_INDUCTION", "ENABLE")
+    script.emit("SOLVER_UNSTEADY_PRESSURE_AND_KUTTA", "DISABLE")
+    script.emit("SET_ANALYSIS_SYMMETRY_LOADS", "DISABLE")
+    script.emit("START_SOLVER")
+    script.emit("SET_SOLVER_ANALYSIS_LOADS_FRAME", 2)
+    script.emit("SET_ANALYSIS_MOMENTS_MODEL", "PRESSURE")
+    script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", loads_name)
+    script.emit("EXPORT_LOG", log_name)
+    script.emit("CLOSE_FLIGHTSTREAM")
+    return script
+
+
+def _run_phy05(context: _CaseContext) -> CaseResult:
+    """Run PHY-05: generate the blade, march 1.5 revolutions, reduce."""
+    stl_path = generate_blade_stl(PHY05_BLADE, (context.workdir / "generic_blade.stl").resolve())
+    script = build_phy05_script(context.version, stl_path, "loads_prop.txt", "log_prop.txt")
+    report = context.solve_point(script, "phy05.txt", "loads_prop.txt")
+    point = PointResult(
+        alpha_deg=0.0,
+        total=dict(report.total),
+        iterations=report.current_iteration,
+        converged=True,
+        label="final_step",
+    )
+    context.stamp_solver(report)
+    spec = PHY05_BLADE
+    geometry = (
+        f"generic BladeSpec blade, NACA {spec.naca}, R {spec.r_tip_m:g} m, taper "
+        f"{spec.chord_root_ratio:g}R to {spec.chord_tip_ratio:g}R, ideal twist anchored "
+        f"at beta(0.75R) = {spec.beta_75_deg:g} deg for J {spec.advance_ratio_design:g}; "
+        f"one blade under PERIODIC {PHY05_N_BLADES}, {PHY05_TIME_ITERATIONS} steps of "
+        f"{PHY05_DELTA_TIME_S:g} s at {PHY05_RPM:g} rev/min"
+    )
+    metrics = {name: point.total[name] for name in ("CL", "CDi", "CDo", "CMy")}
+    return CaseResult(
+        case_id="PHY-05",
+        title=PHYSICS_CASES["PHY-05"].title,
+        geometry=geometry,
+        points=(point,),
+        metrics=metrics,
+    )
+
+
+def build_phy06_unsteady_script(
+    version: str,
+    stl_path: str | Path,
+    loads_name: str,
+    log_name: str,
+) -> Script:
+    """Build the PHY-06 unsteady time march of the static PHY-01 wing.
+
+    Identical to the steady point script except that physical time
+    stepping is selected before initialization: 120 steps of 0.01 s at
+    30 m/s sweep 36 chord lengths of wake past the AR-8 wing, deep in
+    the steady asymptote.
+    """
+    return _build_wing_point_script(
+        "PHY-06",
+        version,
+        PHY06_ALPHA_DEG,
+        stl_path,
+        loads_name,
+        log_name,
+        unsteady=(PHY06_TIME_ITERATIONS, PHY06_DELTA_TIME_S),
+    )
+
+
+def _run_phy06(context: _CaseContext) -> CaseResult:
+    """Run PHY-06: the steady and unsteady solves of the same wing."""
+    stl_path = generate_wing_stl(PHY01_WING, (context.workdir / "naca0012_full.stl").resolve())
+    steady_script = _build_wing_point_script(
+        "PHY-06",
+        context.version,
+        PHY06_ALPHA_DEG,
+        stl_path,
+        "loads_steady.txt",
+        "log_steady.txt",
+    )
+    steady = context.solve_point(steady_script, "phy06_steady.txt", "loads_steady.txt")
+    context.stamp_solver(steady)
+    unsteady_script = build_phy06_unsteady_script(
+        context.version, stl_path, "loads_unsteady.txt", "log_unsteady.txt"
+    )
+    unsteady = context.solve_point(unsteady_script, "phy06_unsteady.txt", "loads_unsteady.txt")
+    context.stamp_solver(unsteady)
+    points = (
+        PointResult(
+            alpha_deg=PHY06_ALPHA_DEG,
+            total=dict(steady.total),
+            iterations=steady.current_iteration,
+            converged=steady.current_iteration < steady.requested_iterations,
+            label="steady",
+        ),
+        PointResult(
+            alpha_deg=PHY06_ALPHA_DEG,
+            total=dict(unsteady.total),
+            iterations=unsteady.current_iteration,
+            converged=True,
+            label="unsteady_final",
+        ),
+    )
+    geometry = (
+        f"NACA {PHY01_WING.naca} rectangular wing, chord {PHY01_WING.chord_m:g} m, "
+        f"span {PHY01_WING.span_m:g} m (AR {PHY01_WING.aspect_ratio:g}), full span, "
+        "generated by qa.geometry as ASCII STL; steady solve versus "
+        f"{PHY06_TIME_ITERATIONS} steps of {PHY06_DELTA_TIME_S:g} s"
+    )
+    metrics = {
+        "CL_steady_a4": steady.total["CL"],
+        "CL_unsteady_a4": unsteady.total["CL"],
+        "delta_CL_a4": unsteady.total["CL"] - steady.total["CL"],
+        "delta_CDi_a4": unsteady.total["CDi"] - steady.total["CDi"],
+    }
+    return CaseResult(
+        case_id="PHY-06",
+        title=PHYSICS_CASES["PHY-06"].title,
+        geometry=geometry,
+        points=points,
+        metrics=metrics,
+    )
 
 
 # --------------------------------------------------------------------------
@@ -1006,12 +1342,21 @@ def run_physics(
     """
     canonical = resolve(version).canonical
     registry = registered_cases(include_smi=smi_root is not None)
-    wanted = cases or sorted(registry)
+    wanted = cases or sorted(
+        case_id for case_id, case in registry.items() if case.supports(canonical)
+    )
     unknown = [case_id for case_id in wanted if case_id not in registry]
     if unknown:
         raise PhysicsEnvironmentError(
             f"unknown physics case(s) {', '.join(unknown)}; registered: "
             f"{', '.join(sorted(registry))} (SMI cases need --smi-root)"
+        )
+    unsupported = [case_id for case_id in wanted if not registry[case_id].supports(canonical)]
+    if unsupported:
+        raise PhysicsEnvironmentError(
+            f"case(s) {', '.join(unsupported)} have no command evidence for "
+            f"FlightStream {canonical}; they are restricted until the backfill "
+            "widens their version support (CLAUDE.md invariant 3)"
         )
     try:
         executor = LocalExecutor(fs_exe)

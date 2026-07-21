@@ -256,3 +256,54 @@ def test_full_run_against_seeded_reference_passes(tmp_path):
     verdicts = compared.results[0].verdicts
     assert set(verdicts.values()) == {Verdict.PASS}
     assert compared.verdict_counts()["pass"] == len(verdicts)
+
+
+def test_phy05_script_pins_the_proven_unsteady_flow():
+    from pyflightstream.qa.physics import PHY05_DELTA_TIME_S, PHY05_RPM, build_phy05_script
+
+    text = build_phy05_script("26.12", "C:/work/blade.stl", "loads.txt", "log.txt").render()
+    assert "SYMMETRY PERIODIC 6" in text
+    assert f"SET_MOTION_ROTOR_RPM 1 {PHY05_RPM}" in text
+    assert f"TIME_ITERATIONS 54\nDELTA_TIME {PHY05_DELTA_TIME_S}" in text
+    assert "SET_WAKE_TERMINATION_TIME_STEPS -36" in text
+    # In-solve consumers precede the solve (2026-07-21 reproduction).
+    assert text.index("SET_ANALYSIS_SYMMETRY_LOADS DISABLE") < text.index("START_SOLVER")
+    assert text.index("SET_SOLVER_UNSTEADY") < text.index("INITIALIZE_SOLVER")
+
+
+def test_phy06_unsteady_script_differs_from_steady_only_by_time_stepping():
+    from pyflightstream.qa.physics import (
+        PHY06_ALPHA_DEG,
+        _build_wing_point_script,
+        build_phy06_unsteady_script,
+    )
+
+    steady = _build_wing_point_script(
+        "PHY-06", "26.12", PHY06_ALPHA_DEG, "C:/w/wing.stl", "l.txt", "g.txt"
+    ).render()
+    unsteady = build_phy06_unsteady_script("26.12", "C:/w/wing.stl", "l.txt", "g.txt").render()
+    extra = [
+        line for line in unsteady.splitlines() if line not in steady.splitlines() and line.strip()
+    ]
+    assert extra == ["SET_SOLVER_UNSTEADY", "TIME_ITERATIONS 120", "DELTA_TIME 0.01"]
+
+
+def test_unsteady_cases_are_gated_to_versions_with_evidence(tmp_path):
+    from pyflightstream.qa.physics import (
+        PHYSICS_CASES,
+        PhysicsEnvironmentError,
+        run_physics,
+    )
+
+    assert PHYSICS_CASES["PHY-05"].supports("26.120")
+    assert not PHYSICS_CASES["PHY-05"].supports("26.100")
+    assert not PHYSICS_CASES["PHY-06"].supports("26.100")
+    fake_exe = tmp_path / "fs.exe"
+    fake_exe.write_text("not a solver")
+    with pytest.raises(PhysicsEnvironmentError, match="no command evidence"):
+        run_physics(
+            "26.100",
+            fs_exe=fake_exe,
+            workroot=tmp_path / "runs",
+            cases=["PHY-05"],
+        )
