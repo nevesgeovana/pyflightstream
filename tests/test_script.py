@@ -178,3 +178,34 @@ def test_two_scripts_do_not_share_state():
     first.emit("START_SOLVER")
     second.emit("CREATE_NEW_COORDINATE_SYSTEM")
     assert "CREATE_NEW_COORDINATE_SYSTEM" not in first.render()
+
+
+def test_unsteady_monitoring_commands_render_the_manual_grammar():
+    # 2026-07-21 legacy-case backfill (SRC-003 pp.344-348, 355): the
+    # unsteady plot blocks render exactly as the manual samples.
+    script = Script(version="26.12")
+    script.emit("NEW_SIMULATION")
+    script.emit(
+        "UNSTEADY_SOLVER_NEW_FORCE_PLOT",
+        frame=1,
+        units="NEWTONS",
+        parameter="FORCE_X",
+        name="Propeller_thrust",
+        boundaries=3,
+        boundary_indices=[1, 2, 4],
+    )
+    script.emit(
+        "UNSTEADY_SOLVER_NEW_FLUID_PLOT",
+        frame=1,
+        parameter="VELOCITY",
+        name="Propeller_slipstream",
+        vertex="-2.0 1.4 0.0",
+    )
+    script.emit("SOLVER_SET_FARFIELD_LAYERS", 5)
+    script.emit("SET_WAKE_TERMINATION_TIME_STEPS", -36)
+    text = script.render()
+    assert "UNSTEADY_SOLVER_NEW_FORCE_PLOT\nFRAME 1\nUNITS NEWTONS\n" in text
+    assert "BOUNDARIES 3\n1,2,4\n" in text
+    assert "VERTEX -2.0 1.4 0.0\n" in text
+    assert "SOLVER_SET_FARFIELD_LAYERS 5\n" in text
+    assert "SET_WAKE_TERMINATION_TIME_STEPS -36\n" in text

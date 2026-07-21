@@ -15,3 +15,16 @@ SET_SIMULATION_LENGTH_UNITS:
   notes: >
     Selects the simulation length scale unit; geometry dimensions and
     length-typed command arguments are interpreted in this unit.
+
+SET_SIGNIFICANT_DIGITS:
+  layout: inline
+  phase: setup
+  args:
+    - name: digits
+      type: int
+  manual_ref: "SRC-003 p.284"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Output precision, integer between 1 and 8; applies to the values
+    the solver writes into its exports.

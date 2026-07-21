@@ -1,0 +1,14 @@
+# Scenes chapter (SRC-003 p.355): scripted view and scene switching.
+# Only the commands with observed scripted use are drafted; the
+# remaining scene and colormap commands await a need.
+
+CHANGE_SCENE_TO_PLOTS:
+  layout: bare
+  phase: control
+  args: []
+  manual_ref: "SRC-003 p.355"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Switches the active scene to the plots view; scene switching is a
+    display action and may appear anywhere in a script.

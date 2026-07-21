@@ -100,3 +100,24 @@ SET_COORDINATE_SYSTEM_AXIS:
     Sets one axis direction vector of a local frame; the vector is
     normalized automatically, and NORMALIZE_FRAME TRUE renormalizes
     the whole frame after the update.
+
+ROTATE_COORDINATE_SYSTEM:
+  layout: keyword_block
+  phase: setup
+  args:
+    - name: frame
+      type: int
+    - name: rotation_frame
+      type: int
+    - name: rotation_axis
+      type: enum
+      values: [X, Y, Z, "1", "2", "3"]
+    - name: angle
+      type: float
+      unit: "deg"
+  manual_ref: "SRC-003 p.330"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Rotates the local coordinate system FRAME about ROTATION_AXIS of
+    ROTATION_FRAME by ANGLE degrees.

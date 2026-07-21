@@ -1,0 +1,68 @@
+# Unsteady Solver chapter (SRC-003 pp.347-348): per-time-step
+# monitoring plots and their export. SET_SOLVER_UNSTEADY itself lives
+# in solver_settings.yaml with the other solver mode selectors.
+
+UNSTEADY_SOLVER_NEW_FORCE_PLOT:
+  layout: keyword_block
+  phase: setup
+  args:
+    - name: frame
+      type: int
+    - name: units
+      type: enum
+      values: [COEFFICIENTS, NEWTONS, KILO-NEWTONS, POUND-FORCE, KILOGRAM-FORCE]
+    - name: parameter
+      type: enum
+      values: [CL, CDI, CDO, CD, FORCE_X, FORCE_Y, FORCE_Z, MOMENT_X, MOMENT_Y, MOMENT_Z]
+    - name: name
+      type: str
+    - name: boundaries
+      type: int
+    - name: boundary_indices
+      type: int_list
+      required: false
+  manual_ref: "SRC-003 p.347"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Samples one force or moment parameter per solver time step, in
+    FRAME and UNITS, over the listed boundaries. BOUNDARIES -1 selects
+    every boundary and takes no index line; a positive count is
+    followed by the comma-separated boundary indices on the next line.
+    Plots must exist before the solver runs to record its steps.
+
+UNSTEADY_SOLVER_NEW_FLUID_PLOT:
+  layout: keyword_block
+  phase: setup
+  args:
+    - name: frame
+      type: int
+    - name: parameter
+      type: enum
+      values: [CP_FREE, CP_REF, MACH, VELOCITY, VX, VY, VZ, STATIC_PRESSURE_RATIO]
+    - name: name
+      type: str
+    - name: vertex
+      type: str
+  manual_ref: "SRC-003 p.347"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Samples one fluid property per solver time step at a fixed vertex.
+    VERTEX takes the three coordinates preformatted on one line
+    ("X Y Z", reference units of FRAME); the typed triple validation
+    lives in the caller, the same preformatted-token convention as the
+    per-surface lines of INITIALIZE_SOLVER.
+
+UNSTEADY_SOLVER_EXPORT_PLOTS:
+  layout: param_lines
+  phase: export
+  args:
+    - name: filename
+      type: path
+  manual_ref: "SRC-003 p.347"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Exports every unsteady solver plot (force and fluid) with one
+    column per plot and one row per time step.

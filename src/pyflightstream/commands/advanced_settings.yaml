@@ -28,3 +28,94 @@ SOLVER_MINIMUM_CP:
   notes: >
     Lower limiter on the pressure coefficient; the solver default is
     -20 (SRC-003 p.221).
+
+REYNOLDS_AVERAGED_DRAG_FORCES:
+  layout: inline
+  phase: init
+  args:
+    - name: mode
+      type: enum
+      values: [ENABLE, DISABLE]
+  manual_ref: "SRC-003 p.344"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Toggles the Reynolds-averaged (flat plate) boundary layer
+    calculations.
+
+SOLVER_SET_MESH_INDUCED_WAKE_VELOCITY:
+  layout: inline
+  phase: init
+  args:
+    - name: mode
+      type: enum
+      values: [ENABLE, DISABLE]
+  manual_ref: "SRC-003 p.344"
+  versions:
+    "26.120": {status: documented}
+
+SOLVER_SET_FARFIELD_LAYERS:
+  layout: inline
+  phase: init
+  args:
+    - name: layers
+      type: int
+  manual_ref: "SRC-003 p.344"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Far-field agglomeration layer count, integer between 1 and 5;
+    the solver default is 3.
+
+SOLVER_UNSTEADY_PRESSURE_AND_KUTTA:
+  layout: inline
+  phase: init
+  args:
+    - name: mode
+      type: enum
+      values: [ENABLE, DISABLE]
+  manual_ref: "SRC-003 p.344"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Toggles the unsteady Bernoulli and Kutta terms of the unsteady
+    solver.
+
+SET_WAKE_TERMINATION_TIME_STEPS:
+  layout: inline
+  phase: init
+  args:
+    - name: time_steps
+      type: int
+  manual_ref: "SRC-003 p.344"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Number of time steps after which a wake vortex filament edge that
+    lost all of its strength is removed from the simulation.
+
+SET_WAKE_ON_WAKE_INDUCTION:
+  layout: inline
+  phase: init
+  args:
+    - name: mode
+      type: enum
+      values: [ENABLE, DISABLE]
+  manual_ref: "SRC-003 pp.344-345"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Toggles the wake-on-wake induced velocity computation.
+
+ADDITIONAL_WAKE_RELAXATION_ITERATION:
+  layout: inline
+  phase: init
+  args:
+    - name: mode
+      type: enum
+      values: [ENABLE, DISABLE]
+  manual_ref: "SRC-003 p.345"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Performs one additional wake relaxation iteration.
