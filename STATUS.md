@@ -47,10 +47,15 @@ pull in and advertise the ProperDocs fork; migration is an open
 question toward the public phase. v0.1.0 was tagged in the same
 session (HND-017): definition of done and evidence currency verified,
 version bumped, CHANGELOG.md assembled, sdist and wheel built clean,
-annotated tag pushed with CI green. Single next action: open the
-v0.2+ line (public-release track versus declarative matrix successor;
-the ProperDocs decision gates the docs toolchain). Getting-started
-and campaign tutorial pages stay planned (docs home lists them).
+annotated tag pushed with CI green. A 64-page beamer user guide
+followed (HND-018): didactic walkthrough with per-simulation-type
+recipes, evidence-cited pitfalls, and real example data, committed as
+`guide/pyflightstream_user_guide.tex` (pdf built locally, never
+committed). Single next action: open the v0.2+ line (public-release
+track versus declarative matrix successor; the ProperDocs decision
+gates the docs toolchain). Getting-started and campaign tutorial
+pages stay planned (docs home lists them); the guide's recipes can
+seed them.
 
 Previous focus (M4, kept for context): PHY-01 closed end to end
 (PLN-008 started, HND-012):
