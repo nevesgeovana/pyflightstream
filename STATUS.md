@@ -21,6 +21,8 @@ Milestone map per the Bootstrap Kit (`_private/design/DLV-004`, Section 7).
 | M4 | PHY-01/02 plus version-comparison suite (synthetic committed, SMI local) | Committed physics report | Done 2026-07-21 (HND-012..015: PHY-01/02 10 pass, synthetic drift zero deltas, SMI class delivered; capstone `DRF-26100-26120_2026-07-21_complete` 17 pass 1 warn, the SMI-01 CMy movement to triage) |
 | M5 | mkdocs site, command reference and compatibility matrix generated from the database, steady polar example | Docs build strict; example runs | Done 2026-07-21 (HND-016: generated reference and matrix from `reference.py` as single rendering source, strict build green, example executed on 26.120 with slope 4.83/rad; 179 tests) |
 | v0.1.0 | Tag, private | All above green | Done 2026-07-21 (HND-017: tag v0.1.0 pushed, release commit 38c091c, CI runs 29869650235 and 29869821677 green, sdist/wheel clean, CHANGELOG.md) |
+| M6 | FSI subpackage per DLV-007: `[fsi]` extra (PyNiteFEA, license evidence RPT-002), `FsiConfig`, loads parser, PyNite beam with centrifugal terms (Gate 1 Campbell), kinematics, driver, `pyfs-fsi` entry point | WP7 coupled pilot: near-rigid synthetic blade recovers the rigid CT within solver noise; frozen replay reproduces the deformed solution | Started 2026-07-21 (DLV-007 ingested) |
+| M7 | Far-field probe extraction per DLV-006: `probes` lattice (serializable, version-aware emission), `farfield` ledgers on xarray (quadrature, harmonic spine, forces, moments, loss channels), G0 synthetic gate as tier 1 | G0 green in CI; probe-export parser and G1 to G5 case-level checks follow with the solver campaign | Started 2026-07-21 (HND-020: lattice, ledgers, and G0 delivered; suite at 220 tests at close, including the parallel M6 session's in-progress files) |
 | v0.2+ | Remaining PHY cases, 26.000/26.100 backfill probing, declarative matrix successor, public release, PyPI | Public checklist (invariants audit) passes | Planned |
 
 ## Current focus
@@ -69,6 +71,33 @@ NEW_SURFACE_SECTION_DISTRIBUTION to init: in-solve consumers precede
 START_SOLVER); PHY-02 revalidated 4 pass with identical values, and
 PLN-012 gained the candidate abort cause plus a concrete re-probe
 plan.
+
+The far-field extraction line opened as M7 (HND-020, spec DLV-006
+copied into `_private/design/` after the naming scrub): the command
+schema gained per-version argument grammars (`versions.<v>.args`,
+resolved by the version view with hotfix inheritance), and the
+26.1/26.12 manual delta was folded in with direct manual reads
+(CREATE_BULK_SEPARATION 3-arg versus 4-arg forms and the 26.1
+CREARE sample-spelling question, pending probe PLN-015;
+VOLUME_SECTION_BOUNDARY_LAYER removed at 26.12;
+EXPORT_SURFACE_SECTIONS added at 26.12; NEW_CCS_WING_CONTROL_SURFACE
+with the 26.12-only SPACE/AXIS pair; probe family backfilled for
+26.100). The `probes` module delivers the serializable cylindrical
+lattice (explicit ring edges for exact weights, uniform azimuths
+unrepresentable otherwise, z-up convention pinned by test) with
+version-validated emission and the documented import csv; the
+`farfield` module delivers the single quadrature, the azimuthal FFT
+harmonic layer, and the ledgers (mass closure, forces with the
+lateral term reported separately, torque, in-plane moments with the
+1P harmonic and moment-arm contributions kept separate, crossflow
+kinetic energy split swirl/induced with no axial term by
+construction, guarded rothalpy deficit reporting its masked
+fraction, spurious diagnostic in counts). Gate G0 runs as tier 1 on
+synthetic exact fields, including the two-code-path harmonic
+checks. xarray entered the runtime dependencies on the author's
+instruction (PLN-006 closed). Next on this line: the probe-export
+parser (needs a real 26.120 export fixture, PLN-016), then G1 to G5
+against the solver.
 
 Previous focus (M4, kept for context): PHY-01 closed end to end
 (PLN-008 started, HND-012):
