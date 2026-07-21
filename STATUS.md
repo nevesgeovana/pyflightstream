@@ -18,7 +18,7 @@ Milestone map per the Bootstrap Kit (`_private/design/DLV-004`, Section 7).
 | M1 | `versions.py` (26.XXX scheme), database schema, loader, `_meta.yaml`, core steady commands with citations | Tier 1 database tests pass | Done 2026-07-21 (113 commands, commits a86600d..5233956, CI run 29845795014 green) |
 | M2 | Script builder with phase ordering, helpers, `files/` layout, local executor, campaign loop, manifest, loads parser, goldens, legacy matrix reader | End-to-end dry run plus one real local run | Done 2026-07-21 (dry run in the Tier 1 suite, 117 tests; real run CONVERGED, `reports/RPT-001`; legacy matrix reader with convert-matrix closing the content, HND-009) |
 | M3 | Tier 2 probe harness, first compat report for 26.120, apply-compat | Committed compat report; statuses promoted | Done 2026-07-21 (pilot HND-010, full sweep HND-011: `reports/compat/CMP-26120_2026-07-21_full`, 64 verified, 4 broken, 44 unprobed with reasons, 68 promotions) |
-| M4 | PHY-01/02 plus version-comparison suite (synthetic committed, SMI local) | Committed physics report | Started 2026-07-21 (exit criterion met by PHY-01: `reports/physics/PHY-26120_2026-07-21` and `_banded`, HND-012; PHY-02 and version comparison pending) |
+| M4 | PHY-01/02 plus version-comparison suite (synthetic committed, SMI local) | Committed physics report | Started 2026-07-21 (exit criterion met; PHY-01 and PHY-02 done with 10 pass in `reports/physics/PHY-26120_2026-07-21_full`, HND-012/013; version comparison pending) |
 | M5 | mkdocs site, command reference and compatibility matrix generated from the database, steady polar example | Docs build strict; example runs | Planned |
 | v0.1.0 | Tag, private | All above green | Planned |
 | v0.2+ | Remaining PHY cases, 26.000/26.100 backfill probing, declarative matrix successor, public release, PyPI | Public checklist (invariants audit) passes | Planned |
@@ -31,15 +31,19 @@ SRC-003 pp.307-308) entered the database, `qa/geometry.py` generates
 the committable NACA wing STL, and `qa/physics.py` runs the Tier 3
 matrix against banded references (`pyfs-qa physics`), with reference
 updates only through the reason-demanding `pyfs-qa update-reference`.
-Two real runs on 26.120 build #7012026 are committed under
-`reports/physics/`: the polar converged at every point (CL slope
-4.83/rad against the AR-8 finite-wing anchor 5.0, CDi at 4 deg 0.0049),
-the repeat run was bit-identical, and all 6 metrics pass against the
-seeded reference. Single next action: continue PLN-008 with PHY-02
-(calibrate SET_ANALYSIS_SYMMETRY_LOADS on the real solver first) and
-the version-comparison suite skeleton (synthetic first, SMI local).
-Probe specs for the import trio would promote them from documented on
-the next sweep. PLN-012 stays parked. The xarray gate (PLN-006) is
+Both PHY cases are green on 26.120 build #7012026 (HND-012/013): the
+PHY-01 polar converged at every point (CL slope 4.83/rad against the
+AR-8 finite-wing anchor 5.0), PHY-02 closed after calibrating
+SET_ANALYSIS_SYMMETRY_LOADS on the real solver (post-MIRROR default is
+ENABLE; the case emits it explicitly) with equivalence deltas +0.0015
+in CL and 0.0 in CDi, and the full-matrix run passes all 10 metrics
+against the seeded references (`PHY-26120_2026-07-21_full`), repeat
+runs bit-identical. Single next action: the version-comparison suite,
+starting with the design call on versions the database cannot emit
+for yet (26.100 backfill probing versus a raw-script escape recorded
+in the manifest). Probe specs for the import trio and
+SET_ANALYSIS_SYMMETRY_LOADS would promote them from documented on the
+next sweep. PLN-012 stays parked. The xarray gate (PLN-006) is
 decided when `post/` starts. `convert-matrix` CLI wiring can join the
 `pyfs-qa` precedent when convenient.
 
