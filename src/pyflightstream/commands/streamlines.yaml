@@ -1,0 +1,63 @@
+# Chapter: Scripting reference, Post Processing, Off-body Streamlines
+# (SRC-003 pp.368-369). The on-body family (p.370) is deferred to the
+# cases that exercise it.
+
+NEW_OFF_BODY_STREAMLINE:
+  layout: keyword_block
+  phase: analysis
+  args:
+    - name: position_x
+      type: float
+    - name: position_y
+      type: float
+    - name: position_z
+      type: float
+    - name: upstream
+      type: enum
+      values: [ENABLE, DISABLE]
+  manual_ref: "SRC-003 p.368"
+  versions:
+    "26.120": {status: documented}
+
+NEW_STREAMLINE_DISTRIBUTION:
+  layout: keyword_block
+  phase: analysis
+  args:
+    - name: position_1_x
+      type: float
+    - name: position_1_y
+      type: float
+    - name: position_1_z
+      type: float
+    - name: position_2_x
+      type: float
+    - name: position_2_y
+      type: float
+    - name: position_2_z
+      type: float
+    - name: subdivisions
+      type: int
+  manual_ref: "SRC-003 p.368"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    SUBDIVISIONS is N+1 for N streamlines between the start and end
+    vertices.
+
+GENERATE_ALL_OFF_BODY_STREAMLINES:
+  layout: bare
+  phase: analysis
+  args: []
+  manual_ref: "SRC-003 p.368"
+  versions:
+    "26.120": {status: documented}
+
+EXPORT_ALL_OFF_BODY_STREAMLINES:
+  layout: param_lines
+  phase: export
+  args:
+    - name: filename
+      type: path
+  manual_ref: "SRC-003 p.369"
+  versions:
+    "26.120": {status: documented}

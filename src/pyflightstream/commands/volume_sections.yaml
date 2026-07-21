@@ -1,0 +1,122 @@
+# Chapter: Scripting reference, Post Processing, Volume Sections
+# (SRC-003 pp.366-367). Volume sections are the flow-field planes the
+# flux integration work extracts.
+
+CREATE_NEW_RECTANGLE_VOLUME_SECTION:
+  layout: inline
+  phase: analysis
+  args:
+    - name: frame
+      type: int
+    - name: plane
+      type: enum
+      values: [XY, XZ, YZ]
+    - name: offset
+      type: float
+    - name: refinement_layers
+      type: int
+    - name: x1
+      type: float
+    - name: y1
+      type: float
+    - name: x2
+      type: float
+    - name: y2
+      type: float
+    - name: prisms_type
+      type: enum
+      values: [NONE, PRISMS, PRISMS_ONLY]
+    - name: thickness
+      type: float
+    - name: layers
+      type: int
+    - name: growth_rate
+      type: float
+  manual_ref: "SRC-003 p.366"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Rectangular flow-field section between two diagonal corners, with
+    optional near-wall prism cell layers.
+
+CREATE_NEW_CIRCLE_VOLUME_SECTION:
+  layout: inline
+  phase: analysis
+  args:
+    - name: frame
+      type: int
+    - name: plane
+      type: enum
+      values: [XY, XZ, YZ]
+    - name: offset
+      type: float
+    - name: ipts
+      type: int
+    - name: jpts
+      type: int
+    - name: r1
+      type: float
+    - name: r2
+      type: float
+    - name: prisms_type
+      type: enum
+      values: [NONE, PRISMS]
+    - name: thickness
+      type: float
+    - name: layers
+      type: int
+    - name: growth_rate
+      type: float
+  manual_ref: "SRC-003 p.366"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Annular flow-field section with IPTS radial and JPTS azimuth
+    segments between the inner and outer radii; the natural plane for
+    slipstream surveys behind an actuator disc.
+
+UPDATE_ALL_VOLUME_SECTIONS:
+  layout: bare
+  phase: analysis
+  args: []
+  manual_ref: "SRC-003 p.366"
+  versions:
+    "26.120": {status: documented}
+
+EXPORT_VOLUME_SECTION_VTK:
+  layout: inline
+  phase: export
+  args:
+    - name: index
+      type: int
+    - name: filename
+      type: path
+  manual_ref: "SRC-003 pp.366-367"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    The file path follows on the line after the section index.
+
+EXPORT_VOLUME_SECTION_TECPLOT:
+  layout: inline
+  phase: export
+  args:
+    - name: index
+      type: int
+    - name: filename
+      type: path
+  manual_ref: "SRC-003 p.367"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    The file path follows on the line after the section index.
+
+DELETE_VOLUME_SECTION:
+  layout: inline
+  phase: analysis
+  args:
+    - name: index
+      type: int
+  manual_ref: "SRC-003 p.367"
+  versions:
+    "26.120": {status: documented}

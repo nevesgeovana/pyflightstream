@@ -92,7 +92,9 @@ class ArgType(enum.StrEnum):
 
     ``int_list`` is a comma-separated list of integer indices on one
     data line, the grammar FlightStream uses for boundary and surface
-    selections (for example SRC-003 p.319).
+    selections (for example SRC-003 p.319). ``float_list`` is a list of
+    real values, for example the custom sweep values of
+    SWEEPER_SET_AOA_SWEEP (SRC-003 p.406).
     """
 
     INT = "int"
@@ -101,6 +103,7 @@ class ArgType(enum.StrEnum):
     BOOL = "bool"
     PATH = "path"
     INT_LIST = "int_list"
+    FLOAT_LIST = "float_list"
     ENUM = "enum"
     ENUM_LIST = "enum_list"
 

@@ -168,6 +168,23 @@ def test_view_contains_and_iter():
     assert "SET_EXAMPLE" not in registry.for_version("26.0")
 
 
+def test_core_steady_path_is_available_in_26_120():
+    view = CommandRegistry.load().for_version("26.12")
+    core = [
+        "OPEN",
+        "SET_FREESTREAM",
+        "CREATE_NEW_ACTUATOR",
+        "INITIALIZE_SOLVER",
+        "SOLVER_SET_AOA",
+        "START_SOLVER",
+        "EXPORT_SOLVER_ANALYSIS_SPREADSHEET",
+    ]
+    for name in core:
+        assert name in view, f"{name} missing from the 26.120 view"
+    with pytest.raises(CommandNotInVersionError, match="removed in FlightStream 26.120"):
+        view["SONIC_VELOCITY"]
+
+
 def test_hotfix_inherits_base_release_until_overridden():
     entry = make_entry()
     hotfix = FsVersion(canonical="26.121", alias="26.12 hotfix 1", index=3)

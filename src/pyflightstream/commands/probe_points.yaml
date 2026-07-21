@@ -1,0 +1,97 @@
+# Chapter: Scripting reference, Post Processing, Probe Points
+# (SRC-003 pp.362-363). Probe exports carry velocity components, both
+# pressure coefficient forms, Mach and the boundary layer state flags
+# together (SRC-003 p.249), which is what the flux integration work
+# consumes downstream.
+
+NEW_PROBE_POINT:
+  layout: inline
+  phase: analysis
+  args:
+    - name: type
+      type: enum
+      values: [VOLUME, SURFACE]
+    - name: x
+      type: float
+    - name: y
+      type: float
+    - name: z
+      type: float
+  manual_ref: "SRC-003 p.362"
+  versions:
+    "26.120": {status: documented}
+
+NEW_PROBE_LINE:
+  layout: inline
+  phase: analysis
+  args:
+    - name: numpts
+      type: int
+    - name: x1
+      type: float
+    - name: y1
+      type: float
+    - name: z1
+      type: float
+    - name: x2
+      type: float
+    - name: y2
+      type: float
+    - name: z2
+      type: float
+  manual_ref: "SRC-003 p.362"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Survey line with NUMPTS probe vertices between the start and end
+    coordinates.
+
+UPDATE_PROBE_POINTS:
+  layout: bare
+  phase: analysis
+  args: []
+  manual_ref: "SRC-003 p.362"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Refreshes the probe values from the current solution; run it
+    before exporting.
+
+PROBE_POINTS_IMPORT:
+  layout: param_lines
+  phase: analysis
+  args:
+    - name: units
+      type: enum
+      values: [INCH, MILLIMETER, OTHER, FEET, MILE, METER, KILOMETER,
+               MILS, MICRON, CENTIMETER, MICROINCH]
+    - name: frame
+      type: int
+    - name: filename
+      type: path
+  manual_ref: "SRC-003 pp.362-363"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Imports a probe lattice from a CSV file whose rows are
+    X,Y,Z,TYPE with TYPE 0 for surface and 1 for volume probes; the
+    first line holds the point count. This is the programmatic path
+    for probe lattice generation.
+
+EXPORT_PROBE_POINTS:
+  layout: param_lines
+  phase: export
+  args:
+    - name: filename
+      type: path
+  manual_ref: "SRC-003 p.363"
+  versions:
+    "26.120": {status: documented}
+
+DELETE_PROBE_POINTS:
+  layout: bare
+  phase: analysis
+  args: []
+  manual_ref: "SRC-003 p.363"
+  versions:
+    "26.120": {status: documented}

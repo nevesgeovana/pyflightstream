@@ -1,0 +1,114 @@
+# Chapter: Scripting reference, Post Processing, Surface Sections
+# (SRC-003 pp.364-365).
+
+CREATE_NEW_SURFACE_SECTION:
+  layout: payload_lines
+  phase: analysis
+  args:
+    - name: frame
+      type: int
+    - name: plane
+      type: enum
+      values: [XY, XZ, YZ]
+    - name: offset
+      type: float
+    - name: plot_direction
+      type: enum
+      values: ["1", "2"]
+    - name: symmetry
+      type: enum
+      values: [ENABLE, DISABLE]
+    - name: surfaces
+      type: int
+    - name: surface_indices
+      type: int_list
+      required: false
+  manual_ref: "SRC-003 p.364"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    SURFACES takes -1 for all boundaries; otherwise the space-separated
+    surface indices follow on the next line.
+
+NEW_SURFACE_SECTION_DISTRIBUTION:
+  layout: keyword_block
+  phase: analysis
+  args:
+    - name: frame
+      type: int
+    - name: plane
+      type: enum
+      values: [XY, XZ, YZ]
+    - name: num_sections
+      type: int
+    - name: plot_direction
+      type: enum
+      values: ["1", "2"]
+    - name: surfaces
+      type: int
+    - name: surface_indices
+      type: int_list
+      required: false
+  manual_ref: "SRC-003 p.364"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Creates NUM_SECTIONS sections at once; the surface indices follow
+    the SURFACES line.
+
+COMPUTE_SURFACE_SECTIONAL_LOADS:
+  layout: inline
+  phase: analysis
+  args:
+    - name: units_type
+      type: enum
+      values: [COEFFICIENTS, NEWTONS, KILO-NEWTONS, POUND-FORCE,
+               KILOGRAM-FORCE]
+  manual_ref: "SRC-003 p.364"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Integrates the surface section properties into per-section loads.
+    Call it only after the relevant sections are updated and before
+    EXPORT_SURFACE_SECTIONAL_LOADS (SRC-003 p.364).
+
+EXPORT_SURFACE_SECTIONAL_LOADS:
+  layout: param_lines
+  phase: export
+  args:
+    - name: filename
+      type: path
+  manual_ref: "SRC-003 pp.364-365"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Writes the sectional loads file consumed by the sectional-loads
+    parser and the FSI coupling loop.
+
+UPDATE_ALL_SURFACE_SECTIONS:
+  layout: bare
+  phase: analysis
+  args: []
+  manual_ref: "SRC-003 p.365"
+  versions:
+    "26.120": {status: documented}
+
+EXPORT_ALL_SURFACE_SECTIONS:
+  layout: param_lines
+  phase: export
+  args:
+    - name: filename
+      type: path
+  manual_ref: "SRC-003 p.365"
+  versions:
+    "26.120": {status: documented}
+
+DELETE_SURFACE_SECTION:
+  layout: inline
+  phase: analysis
+  args:
+    - name: index
+      type: int
+  manual_ref: "SRC-003 p.365"
+  versions:
+    "26.120": {status: documented}

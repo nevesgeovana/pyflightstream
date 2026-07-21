@@ -1,0 +1,115 @@
+# Chapter: Sweeper Toolbox script commands, drafted from the worked
+# scripting example (SRC-003 p.406) and the Script Index (p.383). The
+# Sweeper chapter narrative (pp.264-279) is not deep-reviewed yet;
+# these entries record the forms shown in the example, and the
+# follow-up manual pass may widen the argument grammars.
+
+SWEEPER_SET_AOA_SWEEP:
+  layout: inline
+  phase: init
+  args:
+    - name: mode
+      type: enum
+      values: [CUSTOM, DISABLE]
+    - name: values
+      type: float_list
+      unit: "deg"
+      required: false
+  manual_ref: "SRC-003 p.406"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    CUSTOM takes the angle of attack list inline, space separated.
+
+SWEEPER_SET_BETA_SWEEP:
+  layout: inline
+  phase: init
+  args:
+    - name: mode
+      type: enum
+      values: [CUSTOM, DISABLE]
+    - name: values
+      type: float_list
+      unit: "deg"
+      required: false
+  manual_ref: "SRC-003 p.406"
+  versions:
+    "26.120": {status: documented}
+
+SWEEPER_SET_VELOCITY_SWEEP:
+  layout: inline
+  phase: init
+  args:
+    - name: mode
+      type: enum
+      values: [CUSTOM, DISABLE]
+    - name: filename
+      type: path
+      required: false
+  manual_ref: "SRC-003 p.406"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    CUSTOM imports the velocity list from a text file given inline.
+
+SWEEPER_POST_RUN_SCRIPT:
+  layout: inline
+  phase: init
+  args:
+    - name: mode
+      type: enum
+      values: [ENABLE, DISABLE]
+    - name: script_path
+      type: path
+      required: false
+  manual_ref: "SRC-003 p.406"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Per-run post-processing script executed after each sweep point,
+    for example a surface section extraction script.
+
+SWEEPER_CLEAR_SOLUTION:
+  layout: inline
+  phase: init
+  args:
+    - name: mode
+      type: enum
+      values: [ENABLE, DISABLE]
+  manual_ref: "SRC-003 p.406"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Controls solution reuse between sweep runs.
+
+SWEEPER_REF_VELOCITY_SAME:
+  layout: inline
+  phase: init
+  args:
+    - name: mode
+      type: enum
+      values: [ENABLE, DISABLE]
+  manual_ref: "SRC-003 p.406"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Keeps the reference velocity equal to the free-stream velocity at
+    every sweep point.
+
+SWEEPER_START:
+  layout: bare
+  phase: exec
+  args: []
+  manual_ref: "SRC-003 p.406"
+  versions:
+    "26.120": {status: documented}
+
+SWEEPER_EXPORT_SPREADSHEET:
+  layout: inline
+  phase: export
+  args:
+    - name: filename
+      type: path
+  manual_ref: "SRC-003 p.406"
+  versions:
+    "26.120": {status: documented}
