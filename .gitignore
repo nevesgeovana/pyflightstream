@@ -21,3 +21,7 @@ site/
 # Tier 2 probe scratch (scripts and logs); the compat report under
 # reports/compat/ is the committed evidence
 probe_runs/
+
+# Tier 3 physics scratch (geometry, scripts, solver outputs); the
+# physics report under reports/physics/ is the committed evidence
+physics_runs/

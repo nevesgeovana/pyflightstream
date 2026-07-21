@@ -355,7 +355,10 @@ def phy01_metrics(points: list[PointResult]) -> dict[str, float]:
 
 def _run_phy01(context: _CaseContext) -> CaseResult:
     """Run the PHY-01 sweep end to end inside its scratch directory."""
-    stl_path = generate_wing_stl(PHY01_WING, context.workdir / "naca0012_full.stl")
+    # The executor sets the solver's working directory, so bare output
+    # names resolve there; the imported geometry path is absolute so it
+    # never depends on where the solver process was started.
+    stl_path = generate_wing_stl(PHY01_WING, (context.workdir / "naca0012_full.stl").resolve())
     points: list[PointResult] = []
     for alpha in PHY01_ALPHAS_DEG:
         tag = f"a{alpha:g}".replace("-", "m").replace(".", "p")
@@ -479,7 +482,11 @@ class _CaseContext:
             spreadsheet missing or unparseable; the message carries
             the failure evidence for the case error field.
         """
-        script_path = self.workdir / script_name
+        # Absolute on purpose: the executor sets the solver's working
+        # directory to workdir, so a workdir-relative script path would
+        # be resolved against itself and FlightStream exits silently
+        # (code 0, no outputs) when --script names a missing file.
+        script_path = (self.workdir / script_name).resolve()
         script_path.write_text(script.render(), encoding="utf-8")
         result: ExecutionResult = self.executor.run_script(
             script_path, working_dir=self.workdir, timeout_s=self.timeout_s
