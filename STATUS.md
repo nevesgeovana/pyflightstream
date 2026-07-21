@@ -25,19 +25,20 @@ Milestone map per the Bootstrap Kit (`_private/design/DLV-004`, Section 7).
 
 ## Current focus
 
-M2. Builder core, the curated helper layer (SAD Section 4.3), the
-managed `files/` workspace, and the local executor are in.
-`CampaignWorkspace` owns the `sims/sim_<id>` layout with staged-input
-hashing, the authoritative `runs.json` manifest (`RunRecord`, atomic
-append, unique `run_id`), and archive and clean operations that refuse
-to touch unrecorded runs; `LocalExecutor` runs the documented headless
-mechanism (`-hidden`, `--script`, SRC-003 pp.279-280) and captures
-`FlightStreamLog.txt` from the execution directory. Single next
-action: the `cases/` SIM model (SimCase, Campaign, script recipes) and
-the campaign loop mapping executor outcomes into the six manifest
-statuses; then the loads parser toward the M2 exit criterion
-(end-to-end dry run plus one real local run). The xarray gate
-(PLN-006) is decided when `post/` starts.
+M2. Builder core, curated helpers, managed `files/` workspace, local
+executor, the `cases/` SIM model, and the campaign loop are in.
+`campaign.toml` loads into `Campaign`/`SimCase` (pydantic, versions
+validated at load); recipes are explicit `module:function` references
+or registry names; `run_campaign` takes every sweep point to exactly
+one of the six manifest statuses (FAILED_SCRIPT, FAILED_EXECUTION,
+FAILED_INCOMPLETE_OUTPUT decided by the loop; CONVERGED,
+COMPLETED_MAX_ITER, FAILED_DIVERGED delegated to an `OutcomeAssessor`)
+and raises `CampaignErrors` after the loop. The Tier 1 end-to-end dry
+run of the M2 exit criterion passes in the suite. Single next action:
+`results/` anchor-based primitives and the loads parser, shipping the
+standard assessor (closing the convergence judgment); then the legacy
+matrix reader, and the one real local run on the licensed machine.
+The xarray gate (PLN-006) is decided when `post/` starts.
 
 ## Open questions
 
