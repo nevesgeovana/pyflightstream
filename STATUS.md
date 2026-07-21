@@ -16,7 +16,7 @@ Milestone map per the Bootstrap Kit (`_private/design/DLV-004`, Section 7).
 |---|---|---|---|
 | M0 | Repo skeleton, pyproject, CI, pre-commit, CLAUDE.md, guards | CI green on empty package | Done 2026-07-21 (root commit acc0e0e, CI green) |
 | M1 | `versions.py` (26.XXX scheme), database schema, loader, `_meta.yaml`, core steady commands with citations | Tier 1 database tests pass | Done 2026-07-21 (113 commands, commits a86600d..5233956, CI run 29845795014 green) |
-| M2 | Script builder with phase ordering, helpers, `files/` layout, local executor, campaign loop, manifest, loads parser, goldens, legacy matrix reader | End-to-end dry run plus one real local run | Planned |
+| M2 | Script builder with phase ordering, helpers, `files/` layout, local executor, campaign loop, manifest, loads parser, goldens, legacy matrix reader | End-to-end dry run plus one real local run | Exit criterion met 2026-07-21 (dry run in the Tier 1 suite; real run CONVERGED, `reports/RPT-001`); remaining content: legacy matrix reader |
 | M3 | Tier 2 probe harness, first compat report for 26.120, apply-compat | Committed compat report; statuses promoted | Planned |
 | M4 | PHY-01/02 plus version-comparison suite (synthetic committed, SMI local) | Committed physics report | Planned |
 | M5 | mkdocs site, command reference and compatibility matrix generated from the database, steady polar example | Docs build strict; example runs | Planned |
@@ -42,11 +42,14 @@ declared log export, iteration heuristic for steady runs) and stamps
 the reported version and build into the manifest with the lax FR-18
 cross-check (the 26.120 build prints "26.1"; the build number is the
 discriminator). The Tier 1 end-to-end dry run of the M2 exit criterion
-passes in the suite. Single next action: the legacy matrix reader
-(`matrix_legacy.py`, FR-10, plus `convert-matrix`, FR-11); then the M2
-exit real local run, feasible on this machine (a 26.12 installation
-exists in the research workspace). The xarray gate (PLN-006) is
-decided when `post/` starts.
+passes in the suite, and the real local run is done: FlightStream
+26.120 from the local-only `_private/exe/` store ran a helper-built
+steady point to CONVERGED (iteration 86, residual 1.81E-06,
+`reports/RPT-001`), with the 26.100 executable smoke-tested too (both
+print version "26.1"; builds #5012026 and #7012026 discriminate).
+Single next action: the legacy matrix reader (`matrix_legacy.py`,
+FR-10, plus `convert-matrix`, FR-11), which closes the M2 content.
+The xarray gate (PLN-006) is decided when `post/` starts.
 
 ## Open questions
 
