@@ -27,3 +27,16 @@ probe_runs/
 # evidence
 physics_runs/
 drift_runs*/
+
+# LaTeX build artifacts of the beamer guide; the built pdf never
+# enters Git (repository guard), only guide/*.tex is committed
+guide/*.pdf
+guide/*.aux
+guide/*.log
+guide/*.nav
+guide/*.out
+guide/*.snm
+guide/*.toc
+guide/*.fls
+guide/*.fdb_latexmk
+guide/*.synctex.gz
