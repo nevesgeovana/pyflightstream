@@ -89,3 +89,38 @@ def test_generate_wing_stl_labels_the_solid(tmp_path):
 def test_wing_spec_rejects_non_4digit_designations():
     with pytest.raises(ValueError, match="4-digit"):
         WingSpec(naca="23012")
+
+
+def test_blade_spec_twist_is_anchored_and_monotonic():
+    from pyflightstream.qa.geometry import BladeSpec
+
+    spec = BladeSpec()
+    assert abs(np.degrees(spec.beta_rad(0.75)) - spec.beta_75_deg) < 1e-9
+    fractions = np.linspace(spec.hub_ratio, 1.0, 20)
+    betas = [spec.beta_rad(float(rr)) for rr in fractions]
+    assert all(a > b for a, b in zip(betas, betas[1:], strict=False))
+
+
+def test_blade_mesh_is_watertight_and_outward():
+    from collections import Counter
+
+    from pyflightstream.qa.geometry import BladeSpec, blade_triangles
+
+    triangles = blade_triangles(BladeSpec(n_chord=10, n_span=8))
+    edges = Counter()
+    for triangle in triangles:
+        for a, b in ((0, 1), (1, 2), (2, 0)):
+            key = tuple(sorted((tuple(np.round(triangle[a], 9)), tuple(np.round(triangle[b], 9)))))
+            edges[key] += 1
+    assert all(count == 2 for count in edges.values())
+    volume = sum(np.dot(t[0], np.cross(t[1], t[2])) for t in triangles) / 6.0
+    assert volume > 0.0
+
+
+def test_generate_blade_stl_writes_ascii(tmp_path):
+    from pyflightstream.qa.geometry import BladeSpec, generate_blade_stl
+
+    path = generate_blade_stl(BladeSpec(n_chord=8, n_span=6), tmp_path / "blade.stl")
+    text = path.read_text(encoding="utf-8")
+    assert text.startswith("solid generic_blade_naca4409")
+    assert text.count("facet normal") == text.count("endfacet")

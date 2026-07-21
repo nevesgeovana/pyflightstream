@@ -22,7 +22,16 @@ from pathlib import Path
 
 import numpy as np
 
-__all__ = ["WingSpec", "naca4_contour", "wing_triangles", "write_stl", "generate_wing_stl"]
+__all__ = [
+    "WingSpec",
+    "BladeSpec",
+    "naca4_contour",
+    "wing_triangles",
+    "blade_triangles",
+    "write_stl",
+    "generate_wing_stl",
+    "generate_blade_stl",
+]
 
 
 @dataclass(frozen=True)
@@ -222,6 +231,173 @@ def write_stl(triangles: np.ndarray, path: str | Path, name: str = "pyflightstre
     destination = Path(path)
     destination.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return destination
+
+
+@dataclass(frozen=True)
+class BladeSpec:
+    """A generic propeller blade lofted from one NACA 4-digit section.
+
+    Every shape law is analytic and public (textbook blade-element
+    relations with round coefficients), so the blade carries no
+    proprietary geometry and any committed case built on it is
+    shareable (CLAUDE.md invariant 5). It is deliberately NOT a model
+    of any research propeller; cases built on it seed their own
+    references.
+
+    Reference frame: rotor axis along +X (free stream +X), blade
+    spanning +Z from the hub radius to the tip, chord initially along
+    +Y and twisted toward +X. With the suction side facing -X, thrust
+    points -X (upstream) for positive rotation rates about +X when the
+    twist exceeds the local inflow angle.
+
+    Attributes
+    ----------
+    naca : str
+        Four-digit section designation, for example ``"4409"``.
+    r_tip_m : float
+        Tip radius in meters.
+    hub_ratio : float
+        Root radius as a fraction of ``r_tip_m``.
+    chord_root_ratio, chord_tip_ratio : float
+        Chord over tip radius at the root and tip stations; the chord
+        varies linearly in radius between them.
+    advance_ratio_design : float
+        Design advance ratio J = V / (n D) shaping the ideal twist
+        law beta(r) = atan(J / (pi r/R)) + collective.
+    beta_75_deg : float
+        Blade angle at 75 percent radius in degrees; fixes the
+        collective offset (the standard propeller pitch convention).
+    n_chord : int
+        Chordwise panels per surface side.
+    n_span : int
+        Radial panel count.
+    """
+
+    naca: str = "4409"
+    r_tip_m: float = 1.8288
+    hub_ratio: float = 0.15
+    chord_root_ratio: float = 0.14
+    chord_tip_ratio: float = 0.06
+    advance_ratio_design: float = 1.7
+    beta_75_deg: float = 45.0
+    n_chord: int = 25
+    n_span: int = 30
+
+    def __post_init__(self) -> None:
+        """Reject definitions the loft cannot mesh sensibly."""
+        if len(self.naca) != 4 or not self.naca.isdigit():
+            raise ValueError(
+                f"NACA designation {self.naca!r} is not four digits; the generator "
+                "implements the 4-digit family only"
+            )
+        if self.r_tip_m <= 0 or not 0.0 < self.hub_ratio < 1.0:
+            raise ValueError("r_tip_m must be positive and hub_ratio inside (0, 1)")
+        if self.chord_root_ratio <= 0 or self.chord_tip_ratio <= 0:
+            raise ValueError("chord ratios must be positive")
+        if self.advance_ratio_design <= 0:
+            raise ValueError("advance_ratio_design must be positive")
+        if self.n_chord < 4 or self.n_span < 2:
+            raise ValueError("mesh needs at least 4 chordwise and 2 radial panels")
+
+    @property
+    def r_hub_m(self) -> float:
+        """Root radius in meters."""
+        return self.hub_ratio * self.r_tip_m
+
+    def chord_m(self, rr: float) -> float:
+        """Chord in meters at radius fraction ``rr`` (linear taper)."""
+        blend = (rr - self.hub_ratio) / (1.0 - self.hub_ratio)
+        ratio = self.chord_root_ratio + (self.chord_tip_ratio - self.chord_root_ratio) * blend
+        return ratio * self.r_tip_m
+
+    def beta_rad(self, rr: float) -> float:
+        """Blade angle from the rotation plane at radius fraction ``rr``.
+
+        Ideal blade-element twist for the design advance ratio,
+        beta = atan(J / (pi rr)) plus the collective offset anchored
+        at beta(0.75) = ``beta_75_deg``.
+        """
+        ideal = np.arctan(self.advance_ratio_design / (np.pi * rr))
+        anchor = np.arctan(self.advance_ratio_design / (np.pi * 0.75))
+        return float(ideal - anchor + np.radians(self.beta_75_deg))
+
+
+def blade_triangles(spec: BladeSpec) -> np.ndarray:
+    """Mesh one blade into outward-oriented, watertight triangles.
+
+    The section loft places each scaled NACA contour at its radius,
+    rotated by the local blade angle about the radial (+Z) axis, with
+    the pitch axis at quarter chord; root and tip are capped so the
+    body closes (the blade-only case has no spinner to join).
+
+    Parameters
+    ----------
+    spec : BladeSpec
+        Blade definition; see :class:`BladeSpec`.
+
+    Returns
+    -------
+    numpy.ndarray
+        Shape ``(n_triangles, 3, 3)`` vertex array in meters; every
+        triangle winds counterclockwise seen from outside.
+    """
+    contour = naca4_contour(spec.naca, spec.n_chord)
+    fractions = np.linspace(spec.hub_ratio, 1.0, spec.n_span + 1)
+    sections = np.empty((fractions.size, contour.shape[0], 3))
+    for j, rr in enumerate(fractions):
+        chord = spec.chord_m(float(rr))
+        beta = spec.beta_rad(float(rr))
+        xi = (contour[:, 0] - 0.25) * chord
+        eta = contour[:, 1] * chord
+        # chord direction d = (sin b, cos b, 0); upper normal
+        # n = (-cos b, sin b, 0): suction side faces -X.
+        sections[j, :, 0] = xi * np.sin(beta) - eta * np.cos(beta)
+        sections[j, :, 1] = xi * np.cos(beta) + eta * np.sin(beta)
+        sections[j, :, 2] = rr * spec.r_tip_m
+    triangles: list[np.ndarray] = []
+    for j in range(fractions.size - 1):
+        near, far = sections[j], sections[j + 1]
+        for i in range(contour.shape[0] - 1):
+            # The (chord, thickness) basis crosses to +Z here (the wing
+            # loft crosses to -span), so the quad split flips relative
+            # to wing_triangles to keep the normals outward.
+            quad = (near[i], near[i + 1], far[i + 1], far[i])
+            triangles.append(np.array((quad[0], quad[2], quad[1])))
+            triangles.append(np.array((quad[0], quad[3], quad[2])))
+    triangles.extend(_blade_cap(sections[-1], outward_positive_z=True))
+    triangles.extend(_blade_cap(sections[0], outward_positive_z=False))
+    return np.array(triangles)
+
+
+def _blade_cap(section: np.ndarray, outward_positive_z: bool) -> list[np.ndarray]:
+    """Triangulate one blade end section as a fan from mid camber."""
+    hub = 0.5 * (section[0] + section[section.shape[0] // 2])
+    hub[2] = section[0, 2]
+    fan = []
+    for i in range(section.shape[0] - 1):
+        triangle = np.array((hub, section[i + 1], section[i]))
+        if not outward_positive_z:
+            triangle = triangle[::-1]
+        fan.append(triangle)
+    return fan
+
+
+def generate_blade_stl(spec: BladeSpec, path: str | Path) -> Path:
+    """Mesh ``spec`` and write it as ASCII STL in one call.
+
+    Parameters
+    ----------
+    spec : BladeSpec
+        Blade definition.
+    path : str or Path
+        Destination STL file.
+
+    Returns
+    -------
+    Path
+        The written path.
+    """
+    return write_stl(blade_triangles(spec), path, name=f"generic_blade_naca{spec.naca}")
 
 
 def generate_wing_stl(spec: WingSpec, path: str | Path, half: bool = False) -> Path:
