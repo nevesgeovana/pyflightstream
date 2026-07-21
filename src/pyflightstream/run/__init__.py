@@ -18,8 +18,9 @@ executor with the same interface is deferred (FR-15).
 
 Judging solver quality (converged, iteration limited, diverged) needs
 the solver outputs, so :func:`run_campaign` takes an
-:class:`OutcomeAssessor`; the standard implementation arrives with the
-results parsers, the next step of milestone M2.
+:class:`OutcomeAssessor`; the standard implementation is
+:class:`LoadsAssessor`, built on the anchor-based parsers of
+:mod:`pyflightstream.results`.
 """
 
 from __future__ import annotations
@@ -33,8 +34,13 @@ from typing import Protocol
 import pyflightstream
 from pyflightstream.cases import Campaign, ScriptRecipe, SimCase, point_tag, resolve_recipe
 from pyflightstream.files import CampaignWorkspace, RunRecord, RunStatus, WorkspaceError
+from pyflightstream.results import (
+    IncompleteOutputError,
+    parse_loads,
+    parse_residual_history,
+)
 from pyflightstream.script import Script
-from pyflightstream.versions import resolve
+from pyflightstream.versions import FsVersion, resolve
 
 _LOG_NAME = "FlightStreamLog.txt"
 
@@ -218,12 +224,19 @@ class Assessment:
         Final residual, when parsed.
     error : str, optional
         Explanation for a diverged judgment.
+    fs_version_reported : str, optional
+        Version string printed in the assessed output, verbatim
+        (FR-18).
+    fs_build : str, optional
+        Build number printed in the assessed output.
     """
 
     status: RunStatus
     iterations: int | None = None
     residual: float | None = None
     error: str | None = None
+    fs_version_reported: str | None = None
+    fs_build: str | None = None
 
 
 class OutcomeAssessor(Protocol):
@@ -239,6 +252,113 @@ class OutcomeAssessor(Protocol):
     def __call__(self, case: SimCase, execution: ExecutionResult, sim_dir: Path) -> Assessment:
         """Return the judgment of one executed point."""
         ...
+
+
+class LoadsAssessor:
+    """The standard solver-quality judgment, built on the run outputs.
+
+    Reads the collected loads spreadsheet and, when available, the
+    exported solver log, and decides between CONVERGED,
+    COMPLETED_MAX_ITER, and FAILED_DIVERGED:
+
+    - NaN or infinite Total coefficients: FAILED_DIVERGED.
+    - With a log: the final velocity and pressure residuals against
+      the run's convergence limit (SRC-003 p.200); NaN residuals are
+      a divergence.
+    - Without a log, steady mode: an iteration counter below the
+      requested limit means the threshold stopped the solver
+      (CONVERGED); reaching the limit means COMPLETED_MAX_ITER.
+    - Without a log, unsteady mode: the time loop always runs to its
+      prescribed end, so completion is recorded as
+      COMPLETED_MAX_ITER; declare the log export to get a residual
+      judgment.
+
+    An unparseable or truncated loads file is FAILED_INCOMPLETE_OUTPUT.
+
+    Parameters
+    ----------
+    loads_file : str
+        Name of the loads spreadsheet among the case's declared
+        outputs (collected into ``raw/``).
+    log_file : str, optional
+        Name of the exported solver log (EXPORT_LOG), when the recipe
+        declares one; enables the residual-based judgment.
+    requested_version : str or FsVersion, optional
+        Version the campaign requested; enables the FR-18 cross-check
+        against the version printed in the loads footer.
+    """
+
+    def __init__(
+        self,
+        loads_file: str,
+        log_file: str | None = None,
+        requested_version: str | FsVersion | None = None,
+    ):
+        self.loads_file = loads_file
+        self.log_file = log_file
+        self.requested_version = requested_version
+
+    def __call__(self, case: SimCase, execution: ExecutionResult, sim_dir: Path) -> Assessment:
+        """Judge one executed point from its collected outputs."""
+        raw = Path(sim_dir) / "raw"
+        try:
+            text = (raw / self.loads_file).read_text(encoding="utf-8", errors="replace")
+            report = parse_loads(text, requested_version=self.requested_version)
+        except (OSError, IncompleteOutputError, ValueError) as error:
+            return Assessment(
+                status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
+                error=f"loads spreadsheet unusable: {error}",
+            )
+        stamp = {
+            "fs_version_reported": report.fs_version_reported,
+            "fs_build": report.fs_build,
+        }
+        diverged = report.diverged_columns()
+        if diverged:
+            return Assessment(
+                status=RunStatus.FAILED_DIVERGED,
+                iterations=report.current_iteration,
+                error=f"non-finite Total coefficients: {', '.join(diverged)}",
+                **stamp,
+            )
+        if self.log_file is not None and (raw / self.log_file).is_file():
+            log_text = (raw / self.log_file).read_text(encoding="utf-8", errors="replace")
+            try:
+                final = parse_residual_history(log_text)[-1]
+            except (IncompleteOutputError, ValueError) as error:
+                return Assessment(
+                    status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
+                    error=f"solver log unusable: {error}",
+                    **stamp,
+                )
+            residual = max(final.velocity_residual, final.pressure_residual)
+            if residual != residual:  # NaN
+                return Assessment(
+                    status=RunStatus.FAILED_DIVERGED,
+                    iterations=final.iteration,
+                    error="final residuals are NaN",
+                    **stamp,
+                )
+            converged = residual <= report.convergence_limit
+            return Assessment(
+                status=RunStatus.CONVERGED if converged else RunStatus.COMPLETED_MAX_ITER,
+                iterations=final.iteration,
+                residual=residual,
+                **stamp,
+            )
+        if report.solver_mode.strip().lower() == "steady":
+            stopped_early = report.current_iteration < report.requested_iterations
+            return Assessment(
+                status=RunStatus.CONVERGED if stopped_early else RunStatus.COMPLETED_MAX_ITER,
+                iterations=report.current_iteration,
+                **stamp,
+            )
+        return Assessment(
+            status=RunStatus.COMPLETED_MAX_ITER,
+            iterations=report.current_iteration,
+            error=None,
+            **stamp,
+        )
 
 
 class CampaignErrors(RuntimeError):  # noqa: N818 (the SAD Section 7 name)
@@ -456,6 +576,8 @@ def _execute_point(
         status=assessment.status,
         iterations=assessment.iterations,
         residual=assessment.residual,
+        fs_version_reported=assessment.fs_version_reported,
+        fs_build=assessment.fs_build,
         wall_time_s=result.wall_time_s,
         outputs=collected,
         error=assessment.error,

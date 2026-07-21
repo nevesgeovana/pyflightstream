@@ -1,0 +1,35 @@
+                              Aerodynamic loads
+
+
+     Simulation file:                            C:\cases\prop_wing\a+00.0\prop_wing.fsm
+     Angle of attack (Deg)                       .000
+     Side-slip angle (Deg)                       .000
+     Freestream velocity (m/s)                   49.036
+     Requested solver iterations                 500
+     Solver convergence limit                     1.000E-05
+     Force solver to run all iterations           F
+     Time increment (sec)                        .004
+     Solver model:                               Subsonic (Prandtl-Glauert)
+     Solver mode:                                Unsteady
+     Reference velocity (m/s)                    49.036
+     Reference length (m)                        2.526
+     Reference area (m^2)                        50.000
+     Altitude (ft)                               .000
+
+     Wake refinement size (% average mesh size)  1000.000
+     Reynolds Number                             4380000.
+     Coordinate frame for analysis:              MRP
+     Current solver iteration number:            1575
+     ----------------------------------------------------------------------------------------------------
+     Surface, Cx, Cy, Cz, CL, CDi, CDo, CMx, CMy, CMz
+     ----------------------------------------------------------------------------------------------------
+     Blade1,-0.0088000,-0.0090000,-0.0002400,-0.0002400,-0.0091000,+0.0002000,-0.0043000,+0.0046000,+0.0000280
+     Wing,-0.0000520,-0.0000500,-0.0015000,-0.0015000,-0.0000850,+0.0000330,-0.0000010,-0.0001300,+0.0000040
+     Tail,+0.0002300,+0.0000030,+0.0034000,+0.0034000,+0.0001100,+0.0001200,+0.0000000,-0.0042000,+0.0000010
+     Total,-0.0086220,-0.0090470,+0.0016600,+0.0016600,-0.0090750,+0.0003530,-0.0043010,+0.0002700,+0.0000330
+     ----------------------------------------------------------------------------------------------------
+     Force Units: Coefficients
+     Moment Units: Coefficients
+     Software : Flightstream version 26.1, build #7012026
+     Company  : Altair
+     Date: 7/21/2026, Time: 1700 hours (local)

@@ -1,0 +1,15 @@
+                              Aerodynamic loads
+
+
+     Simulation file:                            C:\cases\wing\a+02.0\wing.fsm
+     Angle of attack (Deg)                       2.000
+     Side-slip angle (Deg)                       .000
+     Freestream velocity (m/s)                   30.000
+     Requested solver iterations                 500
+     Solver convergence limit                     1.000E-05
+     Solver mode:                                Steady
+     Current solver iteration number:            187
+     ----------------------------------------------------------------------------------------------------
+     Surface, Cx, Cy, Cz, CL, CDi, CDo, CMx, CMy, CMz
+     ----------------------------------------------------------------------------------------------------
+     Wing,+0.0102000,+0.0000010,+0.4310000,+0.4308000,+0.0089000,+0.0061000,+0.0000020,-0.0912

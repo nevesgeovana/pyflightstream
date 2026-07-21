@@ -14,8 +14,16 @@ import pytest
 
 from pyflightstream.cases import Campaign, SimCase, SweepAxis
 from pyflightstream.files import CampaignWorkspace, RunStatus
-from pyflightstream.run import Assessment, CampaignErrors, LocalExecutor, run_campaign
+from pyflightstream.run import (
+    Assessment,
+    CampaignErrors,
+    LoadsAssessor,
+    LocalExecutor,
+    run_campaign,
+)
 from pyflightstream.script import helpers
+
+FIXTURES = Path(__file__).parent / "fixtures"
 
 
 class StubSolver(LocalExecutor):
@@ -160,6 +168,77 @@ def test_unresolvable_recipe_fails_every_point_loudly(tmp_path):
     assert len(records) == 2
     assert all(record.status is RunStatus.FAILED_SCRIPT for record in records)
     assert "cannot be imported" in records[0].error
+
+
+def copies_fixture_as(fixture: str, target: str) -> str:
+    source = FIXTURES / fixture
+    return (
+        f"import pathlib; pathlib.Path({target!r})"
+        f".write_text(pathlib.Path(r'{source}').read_text())"
+    )
+
+
+def test_loads_assessor_closes_the_convergence_judgment_end_to_end(tmp_path):
+    campaign = make_campaign(tmp_path, alphas=(0.0,))
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    records = run_campaign(
+        campaign,
+        StubSolver(copies_fixture_as("loads_steady_26.120.txt", "loads.txt")),
+        workspace,
+        assess=LoadsAssessor("loads.txt", requested_version=campaign.fs_version),
+        recipes={"steady": steady_recipe},
+    )
+    record = records[0]
+    assert record.status is RunStatus.CONVERGED
+    assert record.iterations == 312
+    assert record.fs_version_reported == "26.1"
+    assert record.fs_build == "7012026"
+
+
+def make_raw(tmp_path, fixture: str, name: str = "loads.txt", text: str | None = None):
+    raw = tmp_path / "raw"
+    raw.mkdir(parents=True, exist_ok=True)
+    content = text if text is not None else (FIXTURES / fixture).read_text(encoding="utf-8")
+    (raw / name).write_text(content, encoding="utf-8")
+    return tmp_path
+
+
+def test_loads_assessor_judgments_per_evidence(tmp_path):
+    steady = (FIXTURES / "loads_steady_26.120.txt").read_text(encoding="utf-8")
+    assessor = LoadsAssessor("loads.txt")
+
+    converged = assessor(None, None, make_raw(tmp_path / "a", "loads_steady_26.120.txt"))
+    assert converged.status is RunStatus.CONVERGED
+
+    limited = assessor(
+        None,
+        None,
+        make_raw(tmp_path / "b", "", text=steady.replace("312", "500")),
+    )
+    assert limited.status is RunStatus.COMPLETED_MAX_ITER
+
+    diverged = assessor(
+        None,
+        None,
+        make_raw(tmp_path / "c", "", text=steady.replace("+0.0089000,", "NaN,")),
+    )
+    assert diverged.status is RunStatus.FAILED_DIVERGED
+    assert "CDi" in diverged.error
+
+    truncated = assessor(None, None, make_raw(tmp_path / "d", "loads_truncated_26.120.txt"))
+    assert truncated.status is RunStatus.FAILED_INCOMPLETE_OUTPUT
+
+    unsteady_no_log = assessor(None, None, make_raw(tmp_path / "e", "loads_unsteady_26.120.txt"))
+    assert unsteady_no_log.status is RunStatus.COMPLETED_MAX_ITER
+
+
+def test_loads_assessor_uses_the_log_residuals_when_declared(tmp_path):
+    sim_dir = make_raw(tmp_path, "loads_unsteady_26.120.txt")
+    make_raw(tmp_path, "log_residuals_26.120.txt", name="log.txt")
+    assessment = LoadsAssessor("loads.txt", log_file="log.txt")(None, None, sim_dir)
+    assert assessment.status is RunStatus.CONVERGED
+    assert assessment.iterations == 1575
+    assert assessment.residual == pytest.approx(9.6e-8)
 
 
 def test_diverged_assessment_is_a_failure(tmp_path):
