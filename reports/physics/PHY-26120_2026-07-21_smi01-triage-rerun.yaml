@@ -1,0 +1,49 @@
+schema: pyflightstream-physics-report/1
+fs_version: '26.120'
+date: '2026-07-21'
+package_version: 0.0.1.dev0
+fs_exe: Flightstream_2612.exe
+executor: LocalExecutor, -hidden --script (SRC-003 pp.279-280)
+solver_identity:
+- Flightstream version 26.1, build 7012026
+summary:
+  pass: 4
+  warn: 0
+  fail: 0
+  no_reference: 0
+cases:
+  SMI-01:
+    title: SMI isolated body (28_B, smallest corpus file)
+    geometry: SMI case 28_B.fsm (local, never committed), sha256 43b2373b316a552abc665eae052f7f174e36d5da7455e267efbe3a152f49d401;
+      unit reference area and length, aggregated coefficients only
+    error: null
+    points:
+    - label: 28_B
+      alpha_deg: 2.0
+      iterations: 25
+      converged: true
+      total:
+        Cx: 0.1339
+        Cy: -1.5153
+        Cz: -0.0111
+        CL: -0.0174
+        CDi: 0.003
+        CDo: 0.1305
+        CMx: 1.6342
+        CMy: -1.7843
+        CMz: -12.8466
+    metrics:
+      CL: -0.0174
+      CDi: 0.003
+      CDo: 0.1305
+      CMy: -1.7843
+    verdicts:
+      CL: pass
+      CDi: pass
+      CDo: pass
+      CMy: pass
+    reference:
+      fs_version_basis: '26.120'
+      updated: '2026-07-21'
+      reason: 'initial reference: first SMI-01 run on 26.120 build 7012026, converged at 25 iterations;
+        absolute bands, near-zero body coefficients'
