@@ -45,27 +45,26 @@ NEW_SURFACE_SECTION_DISTRIBUTION:
     - name: plot_direction
       type: enum
       values: ["1", "2"]
-    - name: surfaces
-      type: int
-      required: false
-    - name: surface_indices
-      type: int_list
-      separator: space
-      required: false
     - name: include_symmetry
       type: enum
       values: [ENABLE, DISABLE]
       required: false
+    - name: surfaces
+      type: int
+    - name: surface_indices
+      type: int_list
+      separator: space
+      required: false
   manual_ref: "SRC-003 p.364"
   versions:
-    "26.120": {status: broken, report: "reports/compat/CMP-26120_2026-07-21_full.yaml", note: "the documented SURFACES form aborted the probe script; a variant omitting SURFACES and carrying the undocumented INCLUDE_SYMMETRY keyword executed to completion on build 7012026 (2026-07-21 legacy-case reproduction); re-probe with the variant grammar pending (PLN-012)"}
+    "26.120": {status: broken, report: "reports/compat/CMP-26120_2026-07-21_full.yaml", note: "the documented grammar (without INCLUDE_SYMMETRY) aborted the probe script; a working 26.120 script carries the undocumented INCLUDE_SYMMETRY keyword ahead of SURFACES (2026-07-21 legacy-case reproduction); re-probe with the extended grammar pending (PLN-012)"}
   notes: >
-    Creates NUM_SECTIONS sections at once. The manual documents a
-    SURFACES count with the indices on the next line (SRC-003 p.364),
-    but that form aborted the Tier 2 probe on 26.120; a working 26.120
-    script instead omits SURFACES and carries an INCLUDE_SYMMETRY
-    keyword the manual does not list. Both forms stay declared until
-    the re-probe decides (PLN-012).
+    Creates NUM_SECTIONS sections at once; the surface indices follow
+    the SURFACES line. The manual grammar (SRC-003 p.364) aborted the
+    Tier 2 probe on 26.120, while a working 26.120 script additionally
+    carries an INCLUDE_SYMMETRY keyword the manual does not list; the
+    keyword is declared optional here until the re-probe decides
+    (PLN-012).
 
 COMPUTE_SURFACE_SECTIONAL_LOADS:
   layout: inline

@@ -9,7 +9,7 @@ OPEN:
       type: path
     - name: load_solver_initialization
       type: enum
-      values: [ENABLE]
+      values: [ENABLE, DISABLE]
       required: false
   manual_ref: "SRC-003 p.282"
   versions:
