@@ -27,15 +27,15 @@ COMPAT_SCHEMA = "pyflightstream-compat-report/1"
 
 
 def write_compat_report(
-    run: ProbeRun, out_dir: str | Path, *, date: str | None = None
+    run: ProbeRun, out_dir: str | Path, *, date: str | None = None, label: str | None = None
 ) -> tuple[Path, Path]:
     """Write one probe run as a compat report pair (YAML plus Markdown).
 
     The YAML file is the machine-readable evidence ``apply_compat``
     reads; the Markdown file renders the same content as a table for
-    review. Both share the stem ``CMP-<version digits>_<date>``.
-    Existing report files are never overwritten: evidence supersedes
-    evidence only through a new, dated report.
+    review. Both share the stem ``CMP-<version digits>_<date>`` plus
+    the optional label. Existing report files are never overwritten:
+    evidence supersedes evidence only through a new, dated report.
 
     Parameters
     ----------
@@ -45,6 +45,9 @@ def write_compat_report(
         Target directory, normally ``reports/compat/``.
     date : str, optional
         ISO date stamped into the report; defaults to today.
+    label : str, optional
+        Stem suffix distinguishing several reports on the same day
+        (for example ``"full"`` after a pilot).
 
     Returns
     -------
@@ -60,6 +63,8 @@ def write_compat_report(
     out_dir.mkdir(parents=True, exist_ok=True)
     date = date or datetime.date.today().isoformat()
     stem = f"CMP-{run.version.replace('.', '')}_{date}"
+    if label:
+        stem += f"_{label}"
     yaml_path = out_dir / f"{stem}.yaml"
     md_path = out_dir / f"{stem}.md"
     for path in (yaml_path, md_path):

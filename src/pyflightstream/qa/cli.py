@@ -48,6 +48,13 @@ def _build_parser() -> argparse.ArgumentParser:
         help="comma-separated subset to probe; default: every command with a probe spec",
     )
     probe.add_argument(
+        "--fsm",
+        help=(
+            "local simulation (.fsm) file for prelude tiers above none; specs needing "
+            "it are recorded unprobed when absent"
+        ),
+    )
+    probe.add_argument(
         "--workroot",
         default="probe_runs",
         help="scratch root for probe scripts and logs (default probe_runs/, not committed)",
@@ -59,6 +66,10 @@ def _build_parser() -> argparse.ArgumentParser:
         "--report-dir",
         default="reports/compat",
         help="directory receiving the compat report pair (default reports/compat/)",
+    )
+    probe.add_argument(
+        "--label",
+        help="report stem suffix distinguishing several reports on one day",
     )
 
     apply_parser = subparsers.add_parser(
@@ -93,12 +104,13 @@ def _cmd_probe(args: argparse.Namespace) -> int:
             workroot=Path(args.workroot) / canonical,
             fs_exe=args.fs_exe,
             commands=commands,
+            fsm=args.fsm,
             timeout_s=args.timeout,
         )
     except ProbeEnvironmentError as error:
         print(f"probe run aborted: {error}", file=sys.stderr)
         return 2
-    yaml_path, md_path = write_compat_report(run, args.report_dir)
+    yaml_path, md_path = write_compat_report(run, args.report_dir, label=args.label)
     counts = run.outcome_counts()
     print(
         f"FlightStream {run.version} ({run.fs_exe_name}): "

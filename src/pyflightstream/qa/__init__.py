@@ -18,17 +18,22 @@ from pyflightstream.qa.compat import (
 )
 from pyflightstream.qa.probes import (
     DEFAULT_ERROR_PATTERNS,
-    PROBE_SPECS,
     ProbeArtifacts,
     ProbeEnvironmentError,
     ProbeOutcome,
     ProbeResult,
     ProbeRun,
     ProbeSpec,
+    Requires,
+    dump_changed,
+    dump_gained,
+    file_effect,
     generate_probe_script,
     printed_line,
     probe_version,
+    region_printed,
 )
+from pyflightstream.qa.specs import PROBE_SPECS
 
 __all__ = [
     "COMPAT_SCHEMA",
@@ -40,10 +45,15 @@ __all__ = [
     "ProbeResult",
     "ProbeRun",
     "ProbeSpec",
+    "Requires",
     "apply_compat",
+    "dump_changed",
+    "dump_gained",
+    "file_effect",
     "generate_probe_script",
     "printed_line",
     "probe_version",
     "read_compat_report",
+    "region_printed",
     "write_compat_report",
 ]

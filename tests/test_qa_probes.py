@@ -16,6 +16,7 @@ from pyflightstream.qa import (
     ProbeEnvironmentError,
     ProbeOutcome,
     ProbeSpec,
+    Requires,
     generate_probe_script,
     probe_version,
 )
@@ -224,3 +225,85 @@ def test_foreign_probe_directory_is_refused_not_wiped(tmp_path):
     with pytest.raises(ProbeEnvironmentError, match="refusing to wipe"):
         run_pilot(tmp_path, FakeFlightStream(), commands=["PRINT"])
     assert (foreign / "keep_me.txt").exists()
+
+
+def test_every_catalog_spec_builds_a_validated_script(tmp_path):
+    fsm = tmp_path / "dummy.fsm"
+    for spec in PROBE_SPECS.values():
+        workdir = tmp_path / spec.command
+        workdir.mkdir()
+        script = generate_probe_script(spec, "26.120", workdir, fsm=fsm)
+        assert not script.raw_flag, spec.command
+        text = script.render()
+        assert f"PYFS_PROBE_BEGIN_{spec.command}" in text
+
+
+def test_tiered_spec_without_fsm_is_unprobed(tmp_path):
+    results, _ = run_pilot(tmp_path, FakeFlightStream(), commands=["SOLVER_SET_AOA"])
+    result = results["SOLVER_SET_AOA"]
+    assert result.outcome is ProbeOutcome.UNPROBED
+    assert "--fsm" in result.detail
+
+
+def test_failed_tier_baseline_downgrades_to_unprobed(tmp_path):
+    fsm = tmp_path / "model.fsm"
+    fsm.write_text("fake simulation", encoding="utf-8")
+    # The fake aborts on OPEN, so every tier prelude fails its baseline.
+    run = probe_version(
+        "26.120",
+        workroot=tmp_path / "probes",
+        executor=FakeFlightStream(abort_on="OPEN"),
+        commands=["SOLVER_SET_AOA"],
+        fsm=fsm,
+    )
+    results = {result.command: result for result in run.results}
+    result = results["SOLVER_SET_AOA"]
+    assert result.outcome is ProbeOutcome.UNPROBED
+    assert "prelude tier failed its baseline" in result.detail
+
+
+def test_unobservable_effect_is_unprobed_not_broken(tmp_path):
+    spec = ProbeSpec(
+        command="PRINT",
+        build_target=lambda script, workdir: script.emit("PRINT", "PYFS_EFFECT_PRINT"),
+        assert_effect=lambda artifacts: None,
+        effect_note="nothing observes this",
+    )
+    run = probe_version(
+        "26.120",
+        workroot=tmp_path / "probes",
+        executor=FakeFlightStream(),
+        commands=["PRINT"],
+        specs={"PRINT": spec},
+    )
+    result = {r.command: r for r in run.results}["PRINT"]
+    assert result.outcome is ProbeOutcome.UNPROBED
+    assert "not observable" in result.detail
+
+
+def test_after_log_is_exported_before_the_epilogue(tmp_path):
+    # Abort attribution: an epilogue instrument that aborts must never
+    # be blamed on the target, so log_after is exported first.
+    spec = PROBE_SPECS["DELETE_VOLUME_SECTION"]
+    lines = (
+        generate_probe_script(spec, "26.120", tmp_path, fsm=tmp_path / "dummy.fsm")
+        .render()
+        .splitlines()
+    )
+    after_at = next(i for i, line in enumerate(lines) if line.endswith("log_after.txt"))
+    epilogue_at = next(
+        i for i, line in enumerate(lines) if line.startswith("EXPORT_VOLUME_SECTION_VTK")
+    )
+    final_at = next(i for i, line in enumerate(lines) if line.endswith("log_final.txt"))
+    assert after_at < epilogue_at < final_at
+
+
+def test_early_prelude_lands_between_open_and_setup(tmp_path):
+    spec = PROBE_SPECS["SET_SOLVER_ANALYSIS_LOADS_FRAME"]
+    assert spec.requires is Requires.SOLUTION
+    script = generate_probe_script(spec, "26.120", tmp_path, fsm=tmp_path / "dummy.fsm")
+    lines = script.render().splitlines()
+    open_at = lines.index("OPEN")
+    create_at = lines.index("CREATE_NEW_COORDINATE_SYSTEM")
+    start_at = lines.index("START_SOLVER")
+    assert open_at < create_at < start_at

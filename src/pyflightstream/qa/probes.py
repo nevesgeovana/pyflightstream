@@ -39,6 +39,7 @@ import pyflightstream
 from pyflightstream.commands import CommandRegistry
 from pyflightstream.run import ExecutionResult, Executor, LocalExecutor
 from pyflightstream.script import Script
+from pyflightstream.script.helpers import initialize_solver
 from pyflightstream.versions import FsVersion, resolve
 
 _BEGIN = "PYFS_PROBE_BEGIN"
@@ -46,9 +47,11 @@ _END = "PYFS_PROBE_END"
 _BASELINE_MARKER = "PYFS_BASELINE_ALIVE"
 _LOG_BEFORE = "log_before.txt"
 _LOG_AFTER = "log_after.txt"
+_LOG_FINAL = "log_final.txt"
+_DUMP_BEFORE = "dump_before.txt"
+_DUMP_AFTER = "dump_after.txt"
 _SCRIPT_NAME = "probe_script.txt"
 _BASELINE_DIR = "_baseline"
-_NESTED_NAME = "nested_probe.txt"
 
 #: Conservative error patterns, scanned only between the probe
 #: sentinels so startup noise never blames the target command. The
@@ -75,6 +78,23 @@ class ProbeOutcome(enum.StrEnum):
     UNPROBED = "unprobed"
 
 
+class Requires(enum.StrEnum):
+    """Session state a probe needs before its sentinels (prelude tier).
+
+    ``none`` runs on the empty session; ``sim`` opens a local
+    simulation file (explicit input, never committed); ``solver`` adds
+    the minimal solver setup and INITIALIZE_SOLVER; ``solution`` adds
+    a short START_SOLVER run. Each tier used by a run is validated by
+    its own baseline first, so a broken prelude downgrades its probes
+    to unprobed instead of blaming the target commands.
+    """
+
+    NONE = "none"
+    SIM = "sim"
+    SOLVER = "solver"
+    SOLUTION = "solution"
+
+
 class ProbeEnvironmentError(RuntimeError):
     """The probe environment is unusable, so no command was judged.
 
@@ -99,8 +119,11 @@ class ProbeArtifacts:
         Log exported after the BEGIN sentinel and before the target
         command; None when the file never appeared.
     log_after : str or None
-        Log exported after the END sentinel; None when the file never
-        appeared (script aborted, or halted by design).
+        Log exported right after the END sentinel and before the
+        epilogue; None when the file never appeared (script aborted at
+        the target, or halted by design). Exporting it before the
+        epilogue keeps abort attribution clean: an epilogue instrument
+        that aborts can never be blamed on the target.
     begin_marker, end_marker : str
         The sentinel texts delimiting the target command's log region.
     execution : ExecutionResult
@@ -113,6 +136,18 @@ class ProbeArtifacts:
     begin_marker: str
     end_marker: str
     execution: ExecutionResult
+
+    def log_final(self) -> str | None:
+        """Return the log exported after the epilogue, if any."""
+        return _read_log(self.workdir / _LOG_FINAL)
+
+    def dump_before(self) -> str | None:
+        """Return the settings dump taken before the target, if any."""
+        return _read_log(self.workdir / _DUMP_BEFORE)
+
+    def dump_after(self) -> str | None:
+        """Return the settings dump taken after the target, if any."""
+        return _read_log(self.workdir / _DUMP_AFTER)
 
     def target_region(self) -> str:
         """Return the log lines belonging to the target command alone.
@@ -175,19 +210,40 @@ class ProbeSpec:
         (validated emission, never ``raw()``) and may write support
         files into ``workdir``.
     assert_effect : callable, optional
-        ``assert_effect(artifacts) -> bool`` checks the observable
-        effect. Mandatory unless ``expects_halt``: a command that runs
-        but does nothing is broken, not verified (SAD Section 11), so
-        a probe without an effect assertion cannot exist.
+        ``assert_effect(artifacts) -> bool | None`` checks the
+        observable effect: True verifies, False breaks (a command that
+        runs but does nothing is broken, not verified, SAD Section
+        11), None records unprobed because the current instruments
+        cannot observe the effect; a probe may never guess. Mandatory
+        unless ``expects_halt``.
     expects_halt : bool
         The command is expected to halt script processing (STOP); the
         halt itself is the asserted effect, so the sentinel logic
         inverts: the log before the command must exist and the one
         after it must never appear.
+    requires : Requires
+        Prelude tier emitted before the sentinels; see
+        :class:`Requires`. Tiers above ``none`` need the local
+        simulation file passed to :func:`probe_version` as ``fsm``.
+    early_prelude : callable, optional
+        ``early_prelude(script, workdir)`` emits setup-phase support
+        right after OPEN (before the rest of the tier prelude), for
+        objects that must exist before solver initialization, such as
+        a named coordinate system a later-phase target cites.
     prelude : callable, optional
-        ``prelude(script, workdir)`` emits the minimal model the
-        command needs before the sentinels (geometry, solver setup);
-        None for control commands that run on an empty session.
+        ``prelude(script, workdir)`` emits spec-specific setup after
+        the tier prelude and before the sentinels (for example the
+        object a setter manipulates), so a broken support command is
+        never blamed on the target.
+    epilogue : callable, optional
+        ``epilogue(script, workdir)`` emits effect instruments after
+        the END sentinel (for example an export whose file the effect
+        assertion reads); its log lines land outside the target
+        region, so instrument errors are not blamed on the target.
+    dump_state : bool
+        Bracket the target with OUTPUT_SETTINGS_AND_STATUS dumps
+        (``dump_before.txt`` and ``dump_after.txt``) for
+        state-difference effect assertions.
     effect_note : str
         One sentence naming the asserted effect; quoted in the compat
         report evidence line.
@@ -198,9 +254,13 @@ class ProbeSpec:
 
     command: str
     build_target: Callable[[Script, Path], None]
-    assert_effect: Callable[[ProbeArtifacts], bool] | None = None
+    assert_effect: Callable[[ProbeArtifacts], bool | None] | None = None
     expects_halt: bool = False
+    requires: Requires = Requires.NONE
+    early_prelude: Callable[[Script, Path], None] | None = None
     prelude: Callable[[Script, Path], None] | None = None
+    epilogue: Callable[[Script, Path], None] | None = None
+    dump_state: bool = False
     effect_note: str = ""
     timeout_s: float | None = None
 
@@ -289,18 +349,153 @@ class ProbeRun:
         return counts
 
 
+def file_effect(name: str) -> Callable[[ProbeArtifacts], bool]:
+    """Make an effect assertion: the command produced a non-empty file.
+
+    Strict on absence: an export that runs without error and writes
+    nothing is broken, not verified.
+
+    Parameters
+    ----------
+    name : str
+        File name relative to the probe working directory.
+    """
+
+    def check(artifacts: ProbeArtifacts) -> bool:
+        path = artifacts.workdir / name
+        return path.is_file() and path.stat().st_size > 0
+
+    return check
+
+
+def dump_gained(token: str, strict: bool = False) -> Callable[[ProbeArtifacts], bool | None]:
+    """Make an effect assertion: a distinctive token entered the state dump.
+
+    The token is a value only the probe would set (for example
+    ``7.2531``), searched in the OUTPUT_SETTINGS_AND_STATUS dump taken
+    after the target (``dump_state`` probes). Absence means None
+    (unobservable, unprobed) unless ``strict``, for settings the dump
+    is known to expose, where absence is a real no-op (broken).
+
+    Parameters
+    ----------
+    token : str
+        Distinctive text expected in the dump after the command.
+    strict : bool
+        Whether absence breaks instead of recording unprobed.
+    """
+
+    def check(artifacts: ProbeArtifacts) -> bool | None:
+        after = artifacts.dump_after()
+        if after is None:
+            return False if strict else None
+        if token in after:
+            return True
+        return False if strict else None
+
+    return check
+
+
+def dump_changed() -> Callable[[ProbeArtifacts], bool | None]:
+    """Make an effect assertion: the state dump differs after the target.
+
+    A difference proves the command acted; an identical dump proves
+    nothing (the dump may simply not expose that state), so it records
+    None (unprobed), never False.
+    """
+
+    def check(artifacts: ProbeArtifacts) -> bool | None:
+        before = artifacts.dump_before()
+        after = artifacts.dump_after()
+        if before is None or after is None:
+            return None
+        return True if before != after else None
+
+    return check
+
+
+def region_printed(marker: str) -> Callable[[ProbeArtifacts], bool]:
+    """Make an effect assertion: a marker was printed in the target region."""
+
+    def check(artifacts: ProbeArtifacts) -> bool:
+        return printed_line(artifacts.target_region(), marker)
+
+    return check
+
+
+def emit_solver_setup(script: Script) -> None:
+    """Emit the minimal steady setup preceding INITIALIZE_SOLVER.
+
+    Constant free stream, sea-level standard atmosphere, and a short
+    iteration budget: the smallest state in which the solver
+    initializes and runs on an opened simulation (M2 pipeline shape).
+    """
+    script.emit("SET_FREESTREAM", "CONSTANT")
+    script.emit("AIR_ALTITUDE", 0.0, "METERS")
+    script.emit("SOLVER_SET_VELOCITY", 30.0)
+    script.emit("SOLVER_SET_REF_VELOCITY", 30.0)
+    script.emit("SOLVER_SET_REF_AREA", 1.0)
+    script.emit("SOLVER_SET_REF_LENGTH", 1.0)
+    script.emit("SOLVER_SET_ITERATIONS", 5)
+    script.emit("SET_SOLVER_STEADY")
+
+
+def emit_tier_prelude(
+    script: Script,
+    tier: Requires,
+    fsm: Path,
+    after_open: Callable[[Script], None] | None = None,
+) -> None:
+    """Emit the standard prelude of one tier (SAD Section 11).
+
+    ``sim`` opens the local simulation file; ``solver`` adds the
+    minimal steady setup of the M2 pipeline (constant free stream,
+    sea-level atmosphere, short iteration budget) and
+    INITIALIZE_SOLVER on all boundaries without symmetry; ``solution``
+    adds START_SOLVER. Physical relevance is not the point: the tier
+    only manufactures the session state the target command needs to
+    act on.
+
+    Parameters
+    ----------
+    script : Script
+        Script under construction.
+    tier : Requires
+        Tier to emit; ``none`` emits nothing.
+    fsm : Path
+        Local simulation (.fsm) file for the OPEN command.
+    after_open : callable, optional
+        ``after_open(script)`` emits setup-phase support right after
+        OPEN, before the solver setup (the ``early_prelude`` hook).
+    """
+    if tier is Requires.NONE:
+        return
+    script.emit("OPEN", fsm)
+    if after_open is not None:
+        after_open(script)
+    if tier is Requires.SIM:
+        return
+    emit_solver_setup(script)
+    initialize_solver(script)
+    if tier is Requires.SOLVER:
+        return
+    script.emit("START_SOLVER")
+
+
 def generate_probe_script(
     spec: ProbeSpec,
     version: str | FsVersion,
     workdir: Path,
     registry: CommandRegistry | None = None,
+    fsm: Path | None = None,
 ) -> Script:
     """Build the probe script for one command, sentinels included.
 
     The script is validated emission end to end (no ``raw()``): the
-    optional prelude, the BEGIN sentinel with its log export, the
-    target command, the END sentinel with its log export, and
-    CLOSE_FLIGHTSTREAM so the hidden solver exits.
+    tier prelude, the spec prelude, the BEGIN sentinel with its log
+    export, the target command (bracketed by state dumps when
+    ``dump_state``), the END sentinel, the spec epilogue, the final
+    log export, and CLOSE_FLIGHTSTREAM so the hidden solver exits.
 
     Parameters
     ----------
@@ -312,6 +507,9 @@ def generate_probe_script(
         Probe working directory; log exports point into it.
     registry : CommandRegistry, optional
         Alternative database, used by tests.
+    fsm : Path, optional
+        Local simulation file for tier preludes above ``none``;
+        required by those tiers.
 
     Returns
     -------
@@ -326,13 +524,36 @@ def generate_probe_script(
     workdir = Path(workdir).resolve()
     script = Script(version, registry=registry)
     script.comment(f"tier 2 probe for {spec.command}, generated by pyflightstream")
+    if spec.requires is not Requires.NONE:
+        if fsm is None:
+            raise ProbeEnvironmentError(
+                f"probe for {spec.command} needs the {spec.requires} prelude tier, "
+                "which opens a local simulation file; pass fsm (CLI: --fsm)"
+            )
+        after_open = None
+        if spec.early_prelude is not None:
+            early = spec.early_prelude
+
+            def after_open(inner: Script) -> None:
+                early(inner, workdir)
+
+        emit_tier_prelude(script, spec.requires, Path(fsm).resolve(), after_open)
+    elif spec.early_prelude is not None:
+        spec.early_prelude(script, workdir)
     if spec.prelude is not None:
         spec.prelude(script, workdir)
     script.emit("PRINT", f"{_BEGIN}_{spec.command}")
     script.emit("EXPORT_LOG", workdir / _LOG_BEFORE)
+    if spec.dump_state:
+        script.emit("OUTPUT_SETTINGS_AND_STATUS", workdir / _DUMP_BEFORE)
     spec.build_target(script, workdir)
+    if spec.dump_state:
+        script.emit("OUTPUT_SETTINGS_AND_STATUS", workdir / _DUMP_AFTER)
     script.emit("PRINT", f"{_END}_{spec.command}")
     script.emit("EXPORT_LOG", workdir / _LOG_AFTER)
+    if spec.epilogue is not None:
+        spec.epilogue(script, workdir)
+        script.emit("EXPORT_LOG", workdir / _LOG_FINAL)
     script.emit("CLOSE_FLIGHTSTREAM")
     return script
 
@@ -345,6 +566,7 @@ def probe_version(
     executor: Executor | None = None,
     commands: Sequence[str] | None = None,
     specs: Mapping[str, ProbeSpec] | None = None,
+    fsm: str | Path | None = None,
     timeout_s: float = 120.0,
     error_patterns: Sequence[str] = DEFAULT_ERROR_PATTERNS,
     registry: CommandRegistry | None = None,
@@ -352,10 +574,10 @@ def probe_version(
     """Probe the commands of one FlightStream version.
 
     Runs the baseline probe first (aborting on an unusable
-    environment), then one probe per command that has a specification,
-    and records every remaining database command of the version as
-    ``unprobed``, so the compat report carries one evidence line per
-    command.
+    environment), validates each prelude tier the run will use, then
+    one probe per command that has a specification, and records every
+    remaining database command of the version as ``unprobed``, so the
+    compat report carries one evidence line per command.
 
     Parameters
     ----------
@@ -374,7 +596,12 @@ def probe_version(
         Subset to probe; every name must exist in the version's view.
         Commands outside the subset are recorded as unprobed.
     specs : mapping of str to ProbeSpec, optional
-        Probe specifications; defaults to :data:`PROBE_SPECS`.
+        Probe specifications; defaults to the packaged catalog in
+        :mod:`pyflightstream.qa.specs`.
+    fsm : str or Path, optional
+        Local simulation (.fsm) file for prelude tiers above ``none``;
+        explicit input, never committed. Specs needing it are recorded
+        unprobed when it is absent.
     timeout_s : float
         Wall-clock limit per probe, unless the spec overrides it.
     error_patterns : sequence of str
@@ -397,7 +624,12 @@ def probe_version(
     """
     resolved = resolve(version)
     view = (registry or CommandRegistry.load()).for_version(resolved)
-    active_specs = PROBE_SPECS if specs is None else specs
+    if specs is None:
+        from pyflightstream.qa import specs as spec_catalog
+
+        active_specs: Mapping[str, ProbeSpec] = spec_catalog.PROBE_SPECS
+    else:
+        active_specs = specs
     if executor is None:
         if fs_exe is None:
             raise ProbeEnvironmentError(
@@ -409,6 +641,12 @@ def probe_version(
     fs_exe_name = Path(executor.fs_exe).name if isinstance(executor, LocalExecutor) else "fake"
     workroot = Path(workroot)
     workroot.mkdir(parents=True, exist_ok=True)
+    fsm_path = None if fsm is None else Path(fsm).resolve()
+    if fsm_path is not None and not fsm_path.is_file():
+        raise ProbeEnvironmentError(
+            f"the simulation file {fsm_path} does not exist; the prelude tiers need a "
+            "real local .fsm as explicit input"
+        )
 
     available = list(view)
     if commands is not None:
@@ -423,6 +661,15 @@ def probe_version(
 
     solver_identity = _run_baseline(executor, resolved, workroot, timeout_s, registry)
 
+    planned = [
+        active_specs[name]
+        for name in available
+        if name in active_specs and (requested is None or name in requested)
+    ]
+    tier_failures = _validate_tiers(
+        planned, resolved, executor, workroot, fsm_path, timeout_s, registry
+    )
+
     results: list[ProbeResult] = []
     for name in available:
         spec = active_specs.get(name)
@@ -434,9 +681,36 @@ def probe_version(
                     name, ProbeOutcome.UNPROBED, "no probe specification for this command yet"
                 )
             )
+        elif spec.requires is not Requires.NONE and fsm_path is None:
+            results.append(
+                ProbeResult(
+                    name,
+                    ProbeOutcome.UNPROBED,
+                    f"needs the {spec.requires} prelude tier; supply a local simulation "
+                    "file (--fsm) to probe it",
+                )
+            )
+        elif spec.requires in tier_failures:
+            results.append(
+                ProbeResult(
+                    name,
+                    ProbeOutcome.UNPROBED,
+                    f"the {spec.requires} prelude tier failed its baseline, so the "
+                    f"command was not judged: {tier_failures[spec.requires]}",
+                )
+            )
         else:
             results.append(
-                _run_probe(spec, resolved, executor, workroot, timeout_s, error_patterns, registry)
+                _run_probe(
+                    spec,
+                    resolved,
+                    executor,
+                    workroot,
+                    timeout_s,
+                    error_patterns,
+                    registry,
+                    fsm_path,
+                )
             )
     return ProbeRun(
         version=resolved.canonical,
@@ -445,6 +719,44 @@ def probe_version(
         package_version=pyflightstream.__version__,
         results=tuple(results),
     )
+
+
+def _validate_tiers(
+    planned: Sequence[ProbeSpec],
+    version: FsVersion,
+    executor: Executor,
+    workroot: Path,
+    fsm: Path | None,
+    timeout_s: float,
+    registry: CommandRegistry | None,
+) -> dict[Requires, str]:
+    """Run one baseline per prelude tier the planned specs use.
+
+    A tier whose baseline fails downgrades its probes to unprobed with
+    the failure recorded; a broken prelude must never read as broken
+    target commands.
+    """
+    failures: dict[Requires, str] = {}
+    tiers = {spec.requires for spec in planned} - {Requires.NONE}
+    if fsm is None:
+        return failures
+    for tier in sorted(tiers, key=list(Requires).index):
+        workdir = _fresh_dir(workroot / f"_tier_{tier.value}")
+        script = Script(version, registry=registry)
+        script.comment(f"prelude tier baseline: {tier.value}")
+        emit_tier_prelude(script, tier, fsm)
+        marker = f"{_BASELINE_MARKER}_{tier.value.upper()}"
+        script.emit("PRINT", marker)
+        script.emit("EXPORT_LOG", workdir / _LOG_AFTER)
+        script.emit("CLOSE_FLIGHTSTREAM")
+        script_path = workdir / _SCRIPT_NAME
+        script_path.write_text(script.render(), encoding="utf-8")
+        execution = executor.run_script(script_path, working_dir=workdir, timeout_s=timeout_s)
+        log_text = _read_log(workdir / _LOG_AFTER)
+        if log_text is None or not printed_line(log_text, marker):
+            hint = execution.log_text or execution.stderr or f"return code {execution.return_code}"
+            failures[tier] = f"prelude did not reach its sentinel ({hint or 'no solver output'})"
+    return failures
 
 
 def _fresh_dir(workdir: Path) -> Path:
@@ -528,10 +840,11 @@ def _run_probe(
     timeout_s: float,
     error_patterns: Sequence[str],
     registry: CommandRegistry | None,
+    fsm: Path | None = None,
 ) -> ProbeResult:
     """Run one probe end to end and judge its three signals."""
     workdir = _fresh_dir(workroot / spec.command)
-    script = generate_probe_script(spec, version, workdir, registry=registry)
+    script = generate_probe_script(spec, version, workdir, registry=registry, fsm=fsm)
     text = script.render()
     script_path = workdir / _SCRIPT_NAME
     script_path.write_text(text, encoding="utf-8")
@@ -612,13 +925,30 @@ def _judge(
             log_errors=tuple(matches),
             **common,
         )
-    effect = bool(spec.assert_effect(artifacts))
+    epilogue_note = ""
+    if spec.epilogue is not None and artifacts.log_final() is None:
+        epilogue_note = (
+            " (the epilogue instruments aborted after the target; the effect was "
+            "judged from the artifacts they left)"
+        )
+    effect = spec.assert_effect(artifacts)
+    if effect is None:
+        return ProbeResult(
+            outcome=ProbeOutcome.UNPROBED,
+            detail=(
+                "the command ran without a script abort or logged error, but its "
+                "effect is not observable with the current instruments; asserted "
+                f"effect: {spec.effect_note}{epilogue_note}"
+            ),
+            effect=None,
+            **common,
+        )
     if not effect:
         return ProbeResult(
             outcome=ProbeOutcome.BROKEN,
             detail=(
                 "the command ran (script processing continued past it) but its effect "
-                f"was not observed; expected: {spec.effect_note}"
+                f"was not observed; expected: {spec.effect_note}{epilogue_note}"
             ),
             effect=False,
             **common,
@@ -627,7 +957,7 @@ def _judge(
         outcome=ProbeOutcome.VERIFIED,
         detail=(
             "script processing continued past the command, no error between the "
-            f"sentinels, and the effect was observed: {spec.effect_note}"
+            f"sentinels, and the effect was observed: {spec.effect_note}{epilogue_note}"
         ),
         effect=True,
         **common,
@@ -688,60 +1018,6 @@ def _scan_errors(region: str, error_patterns: Sequence[str]) -> list[str]:
     return matches
 
 
-# ---------------------------------------------------------------------------
-# Probe specifications. Pilot family: script controls (SRC-003 p.281).
-# The sweep over the remaining database families grows here, one
-# evidence-backed specification per command.
-
-
-def _print_target(script: Script, workdir: Path) -> None:
-    script.emit("PRINT", "PYFS_EFFECT_PRINT")
-
-
-def _print_effect(artifacts: ProbeArtifacts) -> bool:
-    return printed_line(artifacts.target_region(), "PYFS_EFFECT_PRINT")
-
-
-def _stop_target(script: Script, workdir: Path) -> None:
-    script.emit("STOP")
-
-
-def _run_script_target(script: Script, workdir: Path) -> None:
-    # The nested file is fixed probe support data (a single PRINT), not
-    # emitted through a builder: it must exist on disk before the run.
-    nested = workdir / _NESTED_NAME
-    nested.write_text(
-        "# nested script for the RUN_SCRIPT probe\nPRINT PYFS_EFFECT_NESTED\n",
-        encoding="utf-8",
-    )
-    script.emit("RUN_SCRIPT", nested)
-
-
-def _run_script_effect(artifacts: ProbeArtifacts) -> bool:
-    return printed_line(artifacts.target_region(), "PYFS_EFFECT_NESTED")
-
-
-PROBE_SPECS: dict[str, ProbeSpec] = {
-    "PRINT": ProbeSpec(
-        command="PRINT",
-        build_target=_print_target,
-        assert_effect=_print_effect,
-        effect_note="the probe message PYFS_EFFECT_PRINT appears as a log line of its own",
-    ),
-    "STOP": ProbeSpec(
-        command="STOP",
-        build_target=_stop_target,
-        expects_halt=True,
-        effect_note="script processing halts at STOP",
-        timeout_s=60.0,
-    ),
-    "RUN_SCRIPT": ProbeSpec(
-        command="RUN_SCRIPT",
-        build_target=_run_script_target,
-        assert_effect=_run_script_effect,
-        effect_note=(
-            "the nested script's message PYFS_EFFECT_NESTED appears in the log, so the "
-            "called script really ran"
-        ),
-    ),
-}
+# The probe specification catalog lives in pyflightstream.qa.specs,
+# one evidence-backed specification per command; probe_version imports
+# it lazily so the catalog can build on the machinery of this module.
