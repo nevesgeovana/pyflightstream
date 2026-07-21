@@ -131,6 +131,31 @@ def known_versions() -> tuple[FsVersion, ...]:
     )
 
 
+@lru_cache(maxsize=1)
+def manual_editions() -> dict[str, str]:
+    """Return the registered manual edition per canonical version.
+
+    The mapping is read from ``commands/_meta.yaml`` and names the
+    manual edition (with its source id) that backs the ``documented``
+    statuses of each version. Versions without a registered edition are
+    absent; their commands await release-notes review or backfill
+    probing.
+
+    Returns
+    -------
+    dict of str to str
+        Manual edition description keyed by canonical identifier.
+    """
+    meta_text = (
+        resources.files("pyflightstream.commands")
+        .joinpath("_meta.yaml")
+        .read_text(encoding="utf-8")
+    )
+    meta = yaml.safe_load(meta_text)
+    editions = meta.get("manual_editions") or {}
+    return {str(key): str(value).strip() for key, value in editions.items()}
+
+
 def resolve(version: str | FsVersion) -> FsVersion:
     """Resolve a canonical identifier or display alias to a registered version.
 

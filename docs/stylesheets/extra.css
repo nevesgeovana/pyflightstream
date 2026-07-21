@@ -1,0 +1,11 @@
+/* Evidence-status colors of the generated reference and compatibility
+   matrix; the same palette as the pyflightstream.help() offline page. */
+.status-documented { color: #1a6e2f; }
+.status-removed { color: #a33030; }
+.status-verified { color: #14508a; }
+.status-broken { color: #a33030; font-weight: bold; }
+
+[data-md-color-scheme="slate"] .status-documented { color: #5fbf7a; }
+[data-md-color-scheme="slate"] .status-removed { color: #e08a8a; }
+[data-md-color-scheme="slate"] .status-verified { color: #7ab3e0; }
+[data-md-color-scheme="slate"] .status-broken { color: #e08a8a; font-weight: bold; }

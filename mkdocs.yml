@@ -7,6 +7,40 @@ repo_url: https://github.com/nevesgeovana/pyflightstream
 
 theme:
   name: material
+  features:
+    - navigation.indexes
+    - navigation.top
+
+# The generated reference/SUMMARY.md exists only to feed literate-nav;
+# the hook keeps it out of the rendered site (exclude_docs cannot see
+# gen-files virtual files).
+hooks:
+  - scripts/docs_hooks.py
+
+plugins:
+  - search
+  # The command reference and the compatibility matrix are generated at
+  # build time from the command database (single rendering source:
+  # src/pyflightstream/reference.py, shared with pyflightstream.help()).
+  # Nothing generated is committed.
+  - gen-files:
+      scripts:
+        - scripts/gen_docs_pages.py
+  - literate-nav:
+      nav_file: SUMMARY.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - toc:
+      permalink: true
+
+extra_css:
+  - stylesheets/extra.css
 
 nav:
   - Home: index.md
+  - Command reference: reference/
+  - Compatibility matrix: compatibility.md
+  - Examples:
+      - Steady polar: examples/steady_polar.md
