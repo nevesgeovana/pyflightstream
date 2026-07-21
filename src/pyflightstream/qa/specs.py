@@ -713,9 +713,13 @@ _spec(
 _spec(
     command="SET_ANALYSIS_SYMMETRY_LOADS",
     build_target=_emit("SET_ANALYSIS_SYMMETRY_LOADS", "ENABLE"),
-    requires=Requires.SOLUTION,
+    requires=Requires.SOLVER,
     assert_effect=_unobservable,
-    effect_note="the symmetry-loads toggle is not exposed by any instrument yet",
+    effect_note=(
+        "the symmetry-loads toggle is not exposed by any instrument yet; probed "
+        "pre-solve since the 2026-07-21 phase correction (the in-solve monitors "
+        "consume it)"
+    ),
 )
 _spec(
     command="SET_LOADS_AND_MOMENTS_UNITS",
@@ -959,9 +963,10 @@ _spec(
         plane="XZ",
         num_sections=3,
         plot_direction="1",
+        include_symmetry="DISABLE",
         surfaces=-1,
     ),
-    requires=Requires.SOLUTION,
+    requires=Requires.SOLVER,
     epilogue=lambda script, workdir: script.emit(
         "EXPORT_ALL_SURFACE_SECTIONS", workdir / "sections.txt"
     ),

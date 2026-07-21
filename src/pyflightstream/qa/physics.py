@@ -336,10 +336,14 @@ def _build_wing_point_script(
     script.emit("SOLVER_SET_REF_LENGTH", PHY01_WING.chord_m)
     script.emit("SOLVER_SET_ITERATIONS", PHY01_ITERATIONS)
     script.emit("SOLVER_SET_CONVERGENCE", PHY01_CONVERGENCE)
+    if symmetry_loads is not None:
+        # Phase init since the legacy-case reproduction of 2026-07-21:
+        # the setting is consumed during the solve by the unsteady
+        # per-step monitors, so it precedes START_SOLVER; the exported
+        # loads read the same state either way (HND-013 calibration).
+        script.emit("SET_ANALYSIS_SYMMETRY_LOADS", symmetry_loads)
     script.emit("START_SOLVER")
     script.emit("SET_VORTICITY_DRAG_BOUNDARIES", -1)
-    if symmetry_loads is not None:
-        script.emit("SET_ANALYSIS_SYMMETRY_LOADS", symmetry_loads)
     script.emit("SET_LOADS_AND_MOMENTS_UNITS", "COEFFICIENTS")
     script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", loads_name)
     script.emit("EXPORT_LOG", log_name)

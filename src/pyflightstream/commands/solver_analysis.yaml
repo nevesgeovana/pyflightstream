@@ -57,7 +57,7 @@ SET_ANALYSIS_MOMENTS_MODEL:
 
 SET_ANALYSIS_SYMMETRY_LOADS:
   layout: inline
-  phase: analysis
+  phase: init
   args:
     - name: mode
       type: enum
@@ -68,7 +68,13 @@ SET_ANALYSIS_SYMMETRY_LOADS:
     "26.120": {status: documented}
   notes: >
     Includes the loads of symmetry boundaries in the analysis; relevant
-    to half-model runs.
+    to half-model and periodic runs. Phase init on empirical evidence
+    (2026-07-21 legacy-case reproduction on build 7012026): the
+    unsteady per-step force plots consume this setting during the
+    solve, and leaving it at the post-PERIODIC default ENABLE recorded
+    six-fold symmetric-copy sums while the export-time loads were
+    unaffected; the setting therefore precedes START_SOLVER. The
+    post-MIRROR default is also ENABLE (HND-013 calibration).
 
 SET_LOADS_AND_MOMENTS_UNITS:
   layout: inline

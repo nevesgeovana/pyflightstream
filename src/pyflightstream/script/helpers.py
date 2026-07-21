@@ -605,12 +605,16 @@ def analysis_setup(
         integration; boundaries without trailing-edge boundary
         conditions silently report zero induced drag (SRC-003 p.202).
     """
+    # symmetry_loads first: it is an init-phase setting consumed by the
+    # in-solve monitors (per-step force plots), so a call mixing it
+    # with the analysis-phase selections is only valid before
+    # START_SOLVER; pass it alone in that position.
+    if symmetry_loads is not None:
+        script.emit("SET_ANALYSIS_SYMMETRY_LOADS", _toggle(symmetry_loads))
     if loads_frame is not None:
         script.emit("SET_SOLVER_ANALYSIS_LOADS_FRAME", loads_frame)
     if moments_model is not None:
         script.emit("SET_ANALYSIS_MOMENTS_MODEL", moments_model)
-    if symmetry_loads is not None:
-        script.emit("SET_ANALYSIS_SYMMETRY_LOADS", _toggle(symmetry_loads))
     if load_units is not None:
         script.emit("SET_LOADS_AND_MOMENTS_UNITS", load_units)
     if boundaries is not None:
