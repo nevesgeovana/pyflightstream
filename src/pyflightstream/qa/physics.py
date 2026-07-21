@@ -20,12 +20,19 @@ equivalence: the open-root half wing under MIRROR symmetry with
 symmetry loads enabled must reproduce the full-span coefficients on
 the same full planform reference area; its metrics are the two lift
 coefficients and their near-zero deltas.
+
+The SMI class (FR-27) adds local-only drift cases over the research
+simulation files: they run only when an explicit ``smi_root`` is
+given, the geometry never enters Git, and the committed reports carry
+aggregated Total coefficients plus the sha256 of the opened file
+(CLAUDE.md invariant 5).
 """
 
 from __future__ import annotations
 
 import datetime
 import enum
+import hashlib
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from importlib import resources
@@ -54,8 +61,11 @@ __all__ = [
     "PhysicsRun",
     "PhysicsEnvironmentError",
     "PHYSICS_CASES",
+    "SMI_CASES",
+    "registered_cases",
     "build_phy01_script",
     "build_phy02_script",
+    "build_smi_script",
     "compare_metrics",
     "load_reference",
     "update_reference",
@@ -607,6 +617,185 @@ PHYSICS_CASES: dict[str, PhysicsCase] = {
 
 
 # --------------------------------------------------------------------------
+# SMI drift class: local-only cases over the research geometry
+# --------------------------------------------------------------------------
+#
+# The SMI simulation files live under _private/geometry/smi/ and never
+# enter Git (CLAUDE.md invariant 5); these cases run only when the run
+# is given an explicit --smi-root, and the committed reports carry the
+# aggregated Total coefficients plus the sha256 of the opened file,
+# never the geometry itself. Reference values use the unit reference
+# area and length convention (coefficients scale consistently on both
+# sides of any comparison, which is all drift needs).
+
+SMI_ALPHA_DEG = 2.0
+SMI_VELOCITY_M_S = 30.0
+
+_SMI_METRIC_SPECS = (
+    MetricSpec(
+        "CL",
+        "aggregated total lift coefficient at 2 deg (unit reference area)",
+        kind="abs",
+        warn=0.005,
+        fail=0.02,
+    ),
+    MetricSpec(
+        "CDi",
+        "aggregated induced drag coefficient at 2 deg",
+        kind="abs",
+        warn=0.002,
+        fail=0.01,
+    ),
+    MetricSpec(
+        "CDo",
+        "aggregated viscous drag coefficient at 2 deg",
+        kind="abs",
+        warn=0.002,
+        fail=0.01,
+    ),
+    MetricSpec(
+        "CMy",
+        "aggregated pitching moment coefficient at 2 deg (unit reference length)",
+        kind="abs",
+        warn=0.005,
+        fail=0.02,
+    ),
+)
+
+
+def build_smi_script(
+    version: str,
+    fsm_path: str | Path,
+    loads_name: str,
+    log_name: str,
+) -> Script:
+    """Build the one-point script an SMI drift case runs.
+
+    Opens the local simulation file and applies the minimal steady
+    setup the M2 pipeline shaped and the M3 preludes proved on this
+    corpus: constant free stream, sea-level ISA through
+    FLUID_PROPERTIES (AIR_ALTITUDE is broken on 26.120), steady
+    incompressible initialization over every boundary, and a converged
+    solve at the fixed comparison point.
+
+    Parameters
+    ----------
+    version : str
+        Target FlightStream version, canonical or alias.
+    fsm_path : str or Path
+        Local .fsm file; must be absolute (the solver runs inside the
+        case scratch directory).
+    loads_name, log_name : str
+        Output file names, written into the working directory.
+
+    Returns
+    -------
+    Script
+        The validated script, ready to render.
+    """
+    script = Script(version=version)
+    script.comment(
+        f"SMI drift point, alpha {SMI_ALPHA_DEG:+.1f} deg, unit references "
+        "(Tier 3, SAD Section 11; geometry local only)"
+    )
+    script.emit("OPEN", str(fsm_path))
+    script.emit(
+        "FLUID_PROPERTIES",
+        density=1.225,
+        pressure=101325.0,
+        temperature=288.15,
+        viscosity=1.7894e-05,
+        specific_heat_ratio=1.4,
+    )
+    script.emit("SET_FREESTREAM", "CONSTANT")
+    script.emit("SET_SOLVER_STEADY")
+    script.emit(
+        "INITIALIZE_SOLVER",
+        solver_model="INCOMPRESSIBLE",
+        surfaces=-1,
+        wake_termination_x="DEFAULT",
+        symmetry="NONE",
+        wall_collision_avoidance="DISABLE",
+    )
+    script.emit("SOLVER_SET_AOA", SMI_ALPHA_DEG)
+    script.emit("SOLVER_SET_VELOCITY", SMI_VELOCITY_M_S)
+    script.emit("SOLVER_SET_REF_VELOCITY", SMI_VELOCITY_M_S)
+    script.emit("SOLVER_SET_REF_AREA", 1.0)
+    script.emit("SOLVER_SET_REF_LENGTH", 1.0)
+    script.emit("SOLVER_SET_ITERATIONS", PHY01_ITERATIONS)
+    script.emit("SOLVER_SET_CONVERGENCE", PHY01_CONVERGENCE)
+    script.emit("START_SOLVER")
+    script.emit("SET_VORTICITY_DRAG_BOUNDARIES", -1)
+    script.emit("SET_LOADS_AND_MOMENTS_UNITS", "COEFFICIENTS")
+    script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", loads_name)
+    script.emit("EXPORT_LOG", log_name)
+    script.emit("CLOSE_FLIGHTSTREAM")
+    return script
+
+
+def smi_metrics(point: PointResult) -> dict[str, float]:
+    """Reduce one SMI point to its aggregated coefficient metrics."""
+    return {spec.name: point.total[spec.name] for spec in _SMI_METRIC_SPECS}
+
+
+def _make_smi_runner(case_id: str, fsm_name: str, title: str):
+    """Build the runner of one SMI case bound to its local file name."""
+
+    def run(context: _CaseContext) -> CaseResult:
+        if context.smi_root is None:
+            raise RuntimeError(
+                f"{case_id} needs the local SMI geometry root; pass --smi-root "
+                "(the files never enter Git, CLAUDE.md invariant 5)"
+            )
+        fsm_path = (Path(context.smi_root) / fsm_name).resolve()
+        if not fsm_path.is_file():
+            raise RuntimeError(f"{case_id}: {fsm_name} not found under {context.smi_root}")
+        digest = hashlib.sha256(fsm_path.read_bytes()).hexdigest()
+        script = build_smi_script(context.version, fsm_path, "loads_smi.txt", "log_smi.txt")
+        report = context.solve_point(
+            script, f"{case_id.lower().replace('-', '_')}.txt", "loads_smi.txt"
+        )
+        point = PointResult(
+            alpha_deg=SMI_ALPHA_DEG,
+            total=dict(report.total),
+            iterations=report.current_iteration,
+            converged=report.current_iteration < report.requested_iterations,
+            label=fsm_name.removesuffix(".fsm"),
+        )
+        context.stamp_solver(report)
+        geometry = (
+            f"SMI case {fsm_name} (local, never committed), sha256 {digest}; "
+            "unit reference area and length, aggregated coefficients only"
+        )
+        return CaseResult(
+            case_id=case_id,
+            title=title,
+            geometry=geometry,
+            points=(point,),
+            metrics=smi_metrics(point),
+        )
+
+    return run
+
+
+def _smi_case(case_id: str, fsm_name: str, title: str) -> PhysicsCase:
+    return PhysicsCase(
+        case_id=case_id,
+        title=title,
+        metric_specs=_SMI_METRIC_SPECS,
+        runner=_make_smi_runner(case_id, fsm_name, title),
+    )
+
+
+SMI_CASES: dict[str, PhysicsCase] = {
+    "SMI-01": _smi_case("SMI-01", "28_B.fsm", "SMI isolated body (28_B, smallest corpus file)"),
+    "SMI-02": _smi_case(
+        "SMI-02", "31_WBH_IH0.fsm", "SMI full configuration (31_WBH_IH0, wing-body-tail)"
+    ),
+}
+
+
+# --------------------------------------------------------------------------
 # Run machinery
 # --------------------------------------------------------------------------
 
@@ -624,11 +813,13 @@ class _CaseContext:
         executor: LocalExecutor,
         workdir: Path,
         timeout_s: float,
+        smi_root: Path | None = None,
     ):
         self.version = version
         self.executor = executor
         self.workdir = workdir
         self.timeout_s = timeout_s
+        self.smi_root = smi_root
         self.solver_identity: list[str] = []
 
     def solve_point(self, script: Script, script_name: str, loads_name: str) -> LoadsReport:
@@ -742,6 +933,17 @@ def compare_metrics(
     }
 
 
+def registered_cases(include_smi: bool = False) -> dict[str, PhysicsCase]:
+    """Return the case registry, optionally including the SMI class.
+
+    The SMI cases join only when the caller can provide the local
+    geometry root; they never run implicitly (CLAUDE.md invariant 5).
+    """
+    if include_smi:
+        return {**PHYSICS_CASES, **SMI_CASES}
+    return dict(PHYSICS_CASES)
+
+
 def run_physics(
     version: str,
     *,
@@ -750,6 +952,7 @@ def run_physics(
     cases: list[str] | None = None,
     timeout_s: float = 900.0,
     references_dir: str | Path | None = None,
+    smi_root: str | Path | None = None,
 ) -> PhysicsRun:
     """Run the Tier 3 physics matrix for one FlightStream version.
 
@@ -764,11 +967,17 @@ def run_physics(
         Scratch root receiving per-case directories with geometry,
         scripts, and solver outputs; local, never committed.
     cases : list of str, optional
-        Subset of case identifiers; defaults to every registered case.
+        Subset of case identifiers; defaults to every registered case
+        (the SMI class joins the default only when ``smi_root`` is
+        given).
     timeout_s : float
         Wall-clock limit per solver point.
     references_dir : str or Path, optional
         Alternative reference directory, used by tests.
+    smi_root : str or Path, optional
+        Local SMI geometry root (normally ``_private/geometry/smi``);
+        enables the SMI drift class. Explicit input, never guessed;
+        the geometry never enters Git.
 
     Returns
     -------
@@ -782,12 +991,13 @@ def run_physics(
         When the executable is missing or a requested case is unknown.
     """
     canonical = resolve(version).canonical
-    wanted = cases or sorted(PHYSICS_CASES)
-    unknown = [case_id for case_id in wanted if case_id not in PHYSICS_CASES]
+    registry = registered_cases(include_smi=smi_root is not None)
+    wanted = cases or sorted(registry)
+    unknown = [case_id for case_id in wanted if case_id not in registry]
     if unknown:
         raise PhysicsEnvironmentError(
             f"unknown physics case(s) {', '.join(unknown)}; registered: "
-            f"{', '.join(sorted(PHYSICS_CASES))}"
+            f"{', '.join(sorted(registry))} (SMI cases need --smi-root)"
         )
     try:
         executor = LocalExecutor(fs_exe)
@@ -796,10 +1006,16 @@ def run_physics(
     results: list[CaseResult] = []
     identity: list[str] = []
     for case_id in wanted:
-        case = PHYSICS_CASES[case_id]
+        case = registry[case_id]
         workdir = Path(workroot) / canonical / case_id.lower().replace("-", "_")
         workdir.mkdir(parents=True, exist_ok=True)
-        context = _CaseContext(canonical, executor, workdir, timeout_s)
+        context = _CaseContext(
+            canonical,
+            executor,
+            workdir,
+            timeout_s,
+            smi_root=None if smi_root is None else Path(smi_root),
+        )
         try:
             measured = case.runner(context)
         except RuntimeError as error:
@@ -1049,10 +1265,11 @@ def update_reference(
             "a reference update requires a reason string; references move only "
             "deliberately (SAD Section 11)"
         )
-    case = PHYSICS_CASES.get(case_id)
+    registry = registered_cases(include_smi=True)
+    case = registry.get(case_id)
     if case is None:
         raise ValueError(
-            f"unknown physics case {case_id!r}; registered: {', '.join(sorted(PHYSICS_CASES))}"
+            f"unknown physics case {case_id!r}; registered: {', '.join(sorted(registry))}"
         )
     report = read_physics_report(report_path)
     case_body = report.get("cases", {}).get(case_id)

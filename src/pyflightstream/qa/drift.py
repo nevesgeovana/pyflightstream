@@ -29,10 +29,10 @@ import yaml
 
 import pyflightstream
 from pyflightstream.qa.physics import (
-    PHYSICS_CASES,
     PhysicsRun,
     ReferenceBand,
     Verdict,
+    registered_cases,
     run_physics,
 )
 from pyflightstream.versions import resolve
@@ -154,7 +154,7 @@ def diff_runs(run_a: PhysicsRun, run_b: PhysicsRun) -> DriftRun:
                 )
             )
             continue
-        case = PHYSICS_CASES.get(result_a.case_id)
+        case = registered_cases(include_smi=True).get(result_a.case_id)
         specs = case.specs_by_name if case is not None else {}
         metrics: dict[str, DriftMetric] = {}
         for name, value_a in result_a.metrics.items():
@@ -204,6 +204,7 @@ def run_drift(
     workroot: str | Path,
     cases: list[str] | None = None,
     timeout_s: float = 900.0,
+    smi_root: str | Path | None = None,
 ) -> DriftRun:
     """Run the physics case set on both versions and diff the results.
 
@@ -220,9 +221,13 @@ def run_drift(
         Scratch root; each version nests its own per-case directories
         under its canonical name.
     cases : list of str, optional
-        Case subset; defaults to every registered case.
+        Case subset; defaults to every registered case (the SMI class
+        joins the default only when ``smi_root`` is given).
     timeout_s : float
         Wall-clock limit per solver point.
+    smi_root : str or Path, optional
+        Local SMI geometry root; enables the SMI drift class on both
+        versions. Explicit input, never guessed.
 
     Returns
     -------
@@ -245,8 +250,8 @@ def run_drift(
         workroot=workroot,
         cases=cases,
         timeout_s=timeout_s,
+        smi_root=smi_root,
     )
-    run_b = run_a
     if canonical_b != canonical_a:
         run_b = run_physics(
             canonical_b,
@@ -254,6 +259,7 @@ def run_drift(
             workroot=workroot,
             cases=cases,
             timeout_s=timeout_s,
+            smi_root=smi_root,
         )
     else:
         # Degenerate self-comparison: run the case set a second time so
@@ -264,6 +270,7 @@ def run_drift(
             workroot=Path(workroot) / "self_b",
             cases=cases,
             timeout_s=timeout_s,
+            smi_root=smi_root,
         )
     return diff_runs(run_a, run_b)
 

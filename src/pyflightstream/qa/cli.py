@@ -129,6 +129,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--label",
         help="report stem suffix distinguishing several reports on one day",
     )
+    physics.add_argument(
+        "--smi-root",
+        help="local SMI geometry root (normally _private/geometry/smi); enables the "
+        "SMI drift class, geometry never enters Git",
+    )
 
     drift = subparsers.add_parser(
         "drift",
@@ -168,6 +173,11 @@ def _build_parser() -> argparse.ArgumentParser:
     drift.add_argument(
         "--label",
         help="report stem suffix distinguishing several reports on one day",
+    )
+    drift.add_argument(
+        "--smi-root",
+        help="local SMI geometry root (normally _private/geometry/smi); enables the "
+        "SMI drift class on both versions, geometry never enters Git",
     )
 
     update = subparsers.add_parser(
@@ -245,6 +255,7 @@ def _cmd_physics(args: argparse.Namespace) -> int:
             workroot=args.workroot,
             cases=cases,
             timeout_s=args.timeout,
+            smi_root=args.smi_root,
         )
     except PhysicsEnvironmentError as error:
         print(f"physics run aborted: {error}", file=sys.stderr)
@@ -302,6 +313,7 @@ def _cmd_drift(args: argparse.Namespace) -> int:
             workroot=args.workroot,
             cases=cases,
             timeout_s=args.timeout,
+            smi_root=args.smi_root,
         )
     except PhysicsEnvironmentError as error:
         print(f"drift run aborted: {error}", file=sys.stderr)

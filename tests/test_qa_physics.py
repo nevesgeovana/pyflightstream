@@ -5,6 +5,7 @@ import yaml
 
 from pyflightstream.qa.physics import (
     PHYSICS_CASES,
+    SMI_CASES,
     CaseResult,
     PhysicsRun,
     PointResult,
@@ -12,10 +13,14 @@ from pyflightstream.qa.physics import (
     Verdict,
     build_phy01_script,
     build_phy02_script,
+    build_smi_script,
     compare_metrics,
     load_reference,
     phy01_metrics,
     phy02_metrics,
+    registered_cases,
+    run_physics,
+    smi_metrics,
     update_reference,
     write_physics_report,
 )
@@ -146,6 +151,47 @@ def test_point_labels_reach_both_report_faces(tmp_path):
     labels = [point["label"] for point in document["cases"]["PHY-02"]["points"]]
     assert labels == ["full", "half"]
     assert "| half | +4.0 |" in md_path.read_text(encoding="utf-8")
+
+
+def test_smi_cases_join_the_registry_only_with_a_root():
+    assert set(registered_cases()) == set(PHYSICS_CASES)
+    assert set(registered_cases(include_smi=True)) == set(PHYSICS_CASES) | set(SMI_CASES)
+    assert "SMI-01" in SMI_CASES and "SMI-02" in SMI_CASES
+
+
+def test_smi_case_without_root_is_refused_with_a_citation(tmp_path):
+    with pytest.raises(Exception, match="SMI"):
+        run_physics(
+            "26.120",
+            fs_exe="no_such.exe",
+            workroot=tmp_path,
+            cases=["SMI-01"],
+        )
+
+
+def test_smi_script_opens_and_solves_the_local_file(tmp_path):
+    script = build_smi_script("26.120", tmp_path / "28_B.fsm", "loads.txt", "log.txt")
+    rendered = script.render()
+    assert not script.raw_flag
+    assert rendered.count("OPEN") == 1
+    assert "SET_SOLVER_STEADY" in rendered
+    assert "SOLVER_SET_AOA 2.0" in rendered
+    assert "SOLVER_SET_REF_AREA 1.0" in rendered
+    # The SMI script must also build for 26.100 (the scoped backfill).
+    script_26100 = build_smi_script("26.100", tmp_path / "28_B.fsm", "loads.txt", "log.txt")
+    assert not script_26100.raw_flag
+
+
+def test_smi_metrics_are_the_aggregated_totals():
+    point = PointResult(
+        2.0,
+        {"CL": 0.021, "CDi": 0.0003, "CDo": 0.0041, "CMy": -0.012, "Cx": 0.004},
+        120,
+        True,
+        label="28_B",
+    )
+    metrics = smi_metrics(point)
+    assert metrics == {"CL": 0.021, "CDi": 0.0003, "CDo": 0.0041, "CMy": -0.012}
 
 
 def test_report_pair_written_and_never_overwritten(tmp_path):

@@ -6,6 +6,7 @@ SET_SOLVER_STEADY:
   args: []
   manual_ref: "SRC-003 p.341"
   versions:
+    "26.100": {status: documented, note: "FS 26.1 manual p.340, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
 
 SET_SOLVER_UNSTEADY:
