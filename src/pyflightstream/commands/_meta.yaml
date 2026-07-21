@@ -1,0 +1,14 @@
+# Ordered FlightStream version list: release order, append only.
+# This list is the only ordering authority (CLAUDE.md invariant 4).
+# canonical: 26.XXX scheme, last digit indexes vendor hotfix builds.
+# alias: the vendor-facing release name.
+versions:
+  - canonical: "26.000"
+    alias: "26.0"
+  - canonical: "26.100"
+    alias: "26.1"
+  - canonical: "26.120"
+    alias: "26.12"
+
+manual_editions:
+  "26.120": "FlightStream User Manual v2612, scripting reference pp. 286-371"

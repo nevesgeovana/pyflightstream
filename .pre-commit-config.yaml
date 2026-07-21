@@ -1,0 +1,36 @@
+# Pre-commit hooks: fast guards that run before every local commit.
+# The heavier house-style and database-schema guards run as tier 1 tests
+# (tests/test_house_style.py, tests/test_command_db.py) and in CI.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.5.0
+    hooks:
+      - id: ruff
+      - id: ruff-format
+
+  # Guard: licensed or binary documents never enter Git (invariant 1).
+  - repo: local
+    hooks:
+      - id: forbid-pdf
+        name: forbid pdf files
+        entry: pdf files never enter Git (invariant 1)
+        language: fail
+        files: '\.pdf$'
+      - id: forbid-notebooks
+        name: forbid notebooks
+        entry: examples are percent-format .py, notebooks never enter Git (invariant 7)
+        language: fail
+        files: '\.ipynb$'
+      - id: forbid-private
+        name: forbid _private content
+        entry: _private/ is local only and never enters Git (invariants 1 and 5)
+        language: fail
+        files: '^_private/'

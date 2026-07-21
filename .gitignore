@@ -1,0 +1,19 @@
+# Local-only material: manuals, research geometry (hard invariants 1 and 5)
+_private/
+
+# Licensed or binary documents never enter Git
+*.pdf
+*.ipynb
+
+# Python build and cache artifacts
+__pycache__/
+*.pyc
+build/
+dist/
+*.egg-info/
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# mkdocs build output
+site/

@@ -1,0 +1,44 @@
+# Tier 1 CI: everything here runs without FlightStream (no license in the
+# cloud). Tier 2 (command validity probes) and Tier 3 (physics regression)
+# run on a licensed local machine and commit their evidence under reports/.
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install package with dev extras
+        run: pip install -e .[dev]
+      - name: Lint
+        run: ruff check .
+      - name: Format check
+        run: ruff format --check .
+      - name: Tier 1 tests
+        run: pytest
+      - name: Docs build
+        run: mkdocs build --strict
+
+  guard:
+    # Repository-wide guards for the hard invariants (CLAUDE.md).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: No pdf, notebook, or _private content tracked
+        run: |
+          bad=$(git ls-files | grep -Ei '\.pdf$|\.ipynb$|^_private/' || true)
+          if [ -n "$bad" ]; then
+            echo "Forbidden tracked files found:"
+            echo "$bad"
+            exit 1
+          fi

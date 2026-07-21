@@ -1,0 +1,64 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyflightstream"
+version = "0.0.1.dev0"
+description = "Version-aware, didactic Python driver for the FlightStream panel-method solver"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [{name = "Geovana Neves"}]
+requires-python = ">=3.11"
+# xarray enters at milestone M2 together with the ResultArray facade,
+# pending confirmation (SAD Section 9).
+dependencies = [
+    "numpy",
+    "pandas",
+    "pyyaml",
+]
+
+[project.optional-dependencies]
+plot = ["matplotlib"]
+dev = [
+    "pytest",
+    "ruff",
+    "pre-commit",
+    "mkdocs-material",
+    "mkdocstrings[python]",
+]
+
+[project.urls]
+Repository = "https://github.com/nevesgeovana/pyflightstream"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"pyflightstream.commands" = ["*.yaml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "needs_flightstream: requires a local FlightStream installation and license",
+    "validity: tier 2 per-command probe tests",
+    "physics: tier 3 physics regression matrix (slow)",
+]
+addopts = "-m 'not needs_flightstream'"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "N", "D"]
+# N803/N806 exempted so aerodynamic symbols (CL, CDi, J, alpha_deg) keep
+# their standard names (SAD Section 12).
+ignore = ["N803", "N806"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["D"]
