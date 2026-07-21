@@ -23,6 +23,9 @@ dependencies = [
 
 [project.optional-dependencies]
 plot = ["matplotlib"]
+# Geometry gate of the probe planner: containment culling and
+# distance-to-surface queries (license evidence reports/RPT-003).
+geom = ["trimesh", "rtree", "scipy"]
 # FSI structural coupling (M6, DLV-007). PyNiteFEA is MIT; license
 # evidence: reports/RPT-002_pynitefea-license_2026-07-21.md (NFR-02).
 fsi = ["PyNiteFEA>=3.0"]

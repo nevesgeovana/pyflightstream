@@ -31,6 +31,14 @@ from pathlib import Path
 import numpy as np
 from pydantic import BaseModel, ConfigDict, model_validator
 
+from pyflightstream.probes.planar import (
+    AxisSpec,
+    FrameDefinition,
+    GeometryGateReport,
+    PlanarProbeGrid,
+    PlannedProbes,
+    RefinementBand,
+)
 from pyflightstream.script import Script, helpers
 
 __all__ = [
@@ -40,6 +48,13 @@ __all__ = [
     "emit_probe_import",
     "emit_probe_export",
     "write_probe_csv",
+    "write_points_csv",
+    "FrameDefinition",
+    "AxisSpec",
+    "RefinementBand",
+    "PlanarProbeGrid",
+    "GeometryGateReport",
+    "PlannedProbes",
 ]
 
 
@@ -361,7 +376,32 @@ def write_probe_csv(lattice: ProbeLattice, path: str | Path) -> int:
     int
         Number of probe rows written.
     """
-    points = lattice.dimensional_points()
+    return write_points_csv(lattice.dimensional_points(), path)
+
+
+def write_points_csv(points: np.ndarray, path: str | Path) -> int:
+    """Write any probe positions as a PROBE_POINTS_IMPORT csv.
+
+    Shared by the cylindrical survey lattice and the planar grids: the
+    documented format (SRC-003 pp.362-363) is the point count on the
+    first line, then one ``X,Y,Z,TYPE`` row per probe with TYPE 1 for
+    volume probes. Rows follow the order of ``points``, which is the
+    loading contract of the caller.
+
+    Parameters
+    ----------
+    points : numpy.ndarray
+        Positions, shape ``(n, 3)``, reference frame, simulation
+        length units.
+    path : str or pathlib.Path
+        Destination csv path.
+
+    Returns
+    -------
+    int
+        Number of probe rows written.
+    """
+    points = np.asarray(points, dtype=float)
     lines = [str(len(points))]
     lines += [f"{x},{y},{z},1" for x, y, z in points]
     Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")

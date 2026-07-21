@@ -777,3 +777,68 @@ def export_probes(script: Script, path: str, *, update: bool = True) -> None:
     if update:
         script.emit("UPDATE_PROBE_POINTS")
     script.emit("EXPORT_PROBE_POINTS", path)
+
+
+def coordinate_frame(
+    script: Script,
+    *,
+    name: str,
+    origin: Sequence[float],
+    x_axis: Sequence[float],
+    y_axis: Sequence[float],
+    z_axis: Sequence[float] | None = None,
+) -> int:
+    """Create and define a local coordinate system, returning its index.
+
+    Emits CREATE_NEW_COORDINATE_SYSTEM followed by
+    EDIT_COORDINATE_SYSTEM with the origin and the three axis vectors
+    in the reference frame (coordinate_systems chapter). Use it when
+    the solver should carry the same plane a probe grid was
+    prescribed on; probe positions themselves are always imported in
+    the reference frame (frame 1), so this helper is presentation,
+    not placement.
+
+    Parameters
+    ----------
+    script : Script
+        Script under construction.
+    name : str
+        Name of the new coordinate system.
+    origin : sequence of float
+        Frame origin in the reference frame (simulation length units).
+    x_axis, y_axis : sequence of float
+        Axis direction vectors in the reference frame.
+    z_axis : sequence of float, optional
+        Third axis; computed as the right-handed cross product of
+        x_axis and y_axis when omitted.
+
+    Returns
+    -------
+    int
+        Index of the created frame (the reference frame is 1; created
+        local frames follow).
+    """
+    if z_axis is None:
+        ax, ay, az = x_axis
+        bx, by, bz = y_axis
+        z_axis = (ay * bz - az * by, az * bx - ax * bz, ax * by - ay * bx)
+    script.emit("CREATE_NEW_COORDINATE_SYSTEM")
+    frame_index = script.num_local_frames + 1
+    script.emit(
+        "EDIT_COORDINATE_SYSTEM",
+        frame=frame_index,
+        name=name,
+        origin_x=origin[0],
+        origin_y=origin[1],
+        origin_z=origin[2],
+        vector_x_x=x_axis[0],
+        vector_x_y=x_axis[1],
+        vector_x_z=x_axis[2],
+        vector_y_x=y_axis[0],
+        vector_y_y=y_axis[1],
+        vector_y_z=y_axis[2],
+        vector_z_x=z_axis[0],
+        vector_z_y=z_axis[1],
+        vector_z_z=z_axis[2],
+    )
+    return frame_index
