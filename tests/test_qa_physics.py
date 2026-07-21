@@ -11,9 +11,11 @@ from pyflightstream.qa.physics import (
     ReferenceBand,
     Verdict,
     build_phy01_script,
+    build_phy02_script,
     compare_metrics,
     load_reference,
     phy01_metrics,
+    phy02_metrics,
     update_reference,
     write_physics_report,
 )
@@ -91,6 +93,59 @@ def test_phy01_script_builds_validated_for_26120(tmp_path):
     # case must set the fluid state through FLUID_PROPERTIES instead.
     assert "AIR_ALTITUDE" not in rendered
     assert "FLUID_PROPERTIES" in rendered
+
+
+def test_phy02_half_script_mirrors_and_enables_symmetry_loads(tmp_path):
+    script = build_phy02_script("26.120", True, tmp_path / "half.stl", "loads.txt", "log.txt")
+    rendered = script.render()
+    assert not script.raw_flag
+    assert "SYMMETRY MIRROR" in rendered
+    # Explicit on purpose: the 2026-07-21 calibration observed ENABLE as
+    # the solver default after MIRROR init, but the case must not depend
+    # on a default that could move between versions.
+    assert "SET_ANALYSIS_SYMMETRY_LOADS ENABLE" in rendered
+
+
+def test_phy02_full_script_keeps_the_baseline_shape(tmp_path):
+    script = build_phy02_script("26.120", False, tmp_path / "full.stl", "loads.txt", "log.txt")
+    rendered = script.render()
+    assert "SYMMETRY NONE" in rendered
+    assert "SET_ANALYSIS_SYMMETRY_LOADS" not in rendered
+
+
+def test_phy02_metrics_are_the_pair_and_its_deltas():
+    full = PointResult(4.0, {"CL": 0.3370, "CDi": 0.0049}, 58, True, label="full")
+    half = PointResult(4.0, {"CL": 0.3385, "CDi": 0.0049}, 55, True, label="half")
+    metrics = phy02_metrics(full, half)
+    assert metrics["CL_full_a4"] == pytest.approx(0.3370)
+    assert metrics["CL_half_a4"] == pytest.approx(0.3385)
+    assert metrics["delta_CL_a4"] == pytest.approx(0.0015)
+    assert metrics["delta_CDi_a4"] == pytest.approx(0.0)
+
+
+def test_point_labels_reach_both_report_faces(tmp_path):
+    full = PointResult(4.0, {"CL": 0.3370, "CDi": 0.0049}, 58, True, label="full")
+    half = PointResult(4.0, {"CL": 0.3385, "CDi": 0.0049}, 55, True, label="half")
+    run = PhysicsRun(
+        version="26.120",
+        fs_exe_name="Flightstream_2612.exe",
+        package_version="0.0.1.dev0",
+        results=(
+            CaseResult(
+                case_id="PHY-02",
+                title=PHYSICS_CASES["PHY-02"].title,
+                geometry="pair (test stub)",
+                points=(full, half),
+                metrics=phy02_metrics(full, half),
+                verdicts=compare_metrics(phy02_metrics(full, half), None),
+            ),
+        ),
+    )
+    yaml_path, md_path = write_physics_report(run, tmp_path, date="2026-07-21", label="pair")
+    document = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
+    labels = [point["label"] for point in document["cases"]["PHY-02"]["points"]]
+    assert labels == ["full", "half"]
+    assert "| half | +4.0 |" in md_path.read_text(encoding="utf-8")
 
 
 def test_report_pair_written_and_never_overwritten(tmp_path):

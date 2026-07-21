@@ -8,14 +8,18 @@ under ``reports/physics/``. References live as package data in
 which demands a reason string; a reference update never shares a commit
 with code changes (SAD Section 11).
 
-The first delivered case is PHY-01, the NACA wing polar: a synthetic
-NACA 0012 rectangular wing (written by :mod:`pyflightstream.qa.geometry`,
-no research geometry) is imported and solved over an angle-of-attack
-sweep; the metrics are the total lift coefficient per angle, the lift
-slope, and the induced drag at the reference angle. Physical anchor:
-finite-wing theory puts the lift slope of an aspect-ratio-8 wing near
-2*pi / (1 + 2/AR) = 5.0 per radian, so a grossly wrong slope points at
-a broken import or symmetry setup rather than solver drift.
+The delivered cases share one synthetic NACA 0012 rectangular wing
+(written by :mod:`pyflightstream.qa.geometry`, no research geometry).
+PHY-01 is the wing polar: an angle-of-attack sweep whose metrics are
+the total lift coefficient per angle, the lift slope, and the induced
+drag at the reference angle. Physical anchor: finite-wing theory puts
+the lift slope of an aspect-ratio-8 wing near 2*pi / (1 + 2/AR) = 5.0
+per radian, so a grossly wrong slope points at a broken import or
+symmetry setup rather than solver drift. PHY-02 is the symmetry
+equivalence: the open-root half wing under MIRROR symmetry with
+symmetry loads enabled must reproduce the full-span coefficients on
+the same full planform reference area; its metrics are the two lift
+coefficients and their near-zero deltas.
 """
 
 from __future__ import annotations
@@ -51,6 +55,7 @@ __all__ = [
     "PhysicsEnvironmentError",
     "PHYSICS_CASES",
     "build_phy01_script",
+    "build_phy02_script",
     "compare_metrics",
     "load_reference",
     "update_reference",
@@ -188,12 +193,17 @@ class PointResult:
     converged : bool
         Whether the solver stopped below its iteration limit (the
         steady-mode convergence signal of the M2 assessor).
+    label : str
+        Point identifier shown in reports; distinguishes points that
+        share an angle, such as the full and half models of PHY-02.
+        Empty defaults to the angle itself.
     """
 
     alpha_deg: float
     total: dict[str, float]
     iterations: int
     converged: bool
+    label: str = ""
 
 
 @dataclass(frozen=True)
@@ -251,7 +261,7 @@ class PhysicsRun:
 
 
 # --------------------------------------------------------------------------
-# PHY-01: NACA wing polar
+# PHY-01 (NACA wing polar) and PHY-02 (half versus full equivalence)
 # --------------------------------------------------------------------------
 
 PHY01_WING = WingSpec(naca="0012", chord_m=1.0, span_m=8.0, n_chord=25, n_span=40)
@@ -259,43 +269,34 @@ PHY01_ALPHAS_DEG = (0.0, 2.0, 4.0, 6.0)
 PHY01_VELOCITY_M_S = 30.0
 PHY01_ITERATIONS = 500
 PHY01_CONVERGENCE = 1.0e-5
+PHY02_ALPHA_DEG = 4.0
 
 
-def build_phy01_script(
+def _build_wing_point_script(
+    case_id: str,
     version: str,
     alpha_deg: float,
     stl_path: str | Path,
     loads_name: str,
     log_name: str,
+    symmetry: str = "NONE",
+    symmetry_loads: str | None = None,
 ) -> Script:
-    """Build the PHY-01 script for one angle of attack.
+    """Build the one-point wing script the PHY cases share.
 
     Every command is validated against the version's database view;
     the fluid state is set through FLUID_PROPERTIES (verified on
     26.120) rather than AIR_ALTITUDE, whose units argument the full
-    compat sweep judged broken (CMP-26120_2026-07-21_full).
-
-    Parameters
-    ----------
-    version : str
-        Target FlightStream version, canonical or alias.
-    alpha_deg : float
-        Angle of attack in degrees, positive nose up.
-    stl_path : str or Path
-        The generated wing STL to import (meters).
-    loads_name : str
-        File name of the loads spreadsheet exported into the working
-        directory.
-    log_name : str
-        File name of the exported solver log.
-
-    Returns
-    -------
-    Script
-        The validated script, ready to render.
+    compat sweep judged broken (CMP-26120_2026-07-21_full). The
+    reference area is always the full planform, so a MIRROR half
+    model with symmetry loads enabled must reproduce the full-span
+    coefficients (the PHY-02 equivalence).
     """
     script = Script(version=version)
-    script.comment(f"PHY-01 NACA wing polar, alpha {alpha_deg:+.1f} deg (Tier 3, SAD Section 11)")
+    script.comment(
+        f"{case_id} NACA wing, alpha {alpha_deg:+.1f} deg, symmetry {symmetry} "
+        "(Tier 3, SAD Section 11)"
+    )
     script.emit("NEW_SIMULATION")
     script.emit("IMPORT", "METER", "STL", str(stl_path), clear=True)
     script.emit("SET_SIMULATION_LENGTH_UNITS", "METER")
@@ -315,7 +316,7 @@ def build_phy01_script(
         solver_model="INCOMPRESSIBLE",
         surfaces=-1,
         wake_termination_x="DEFAULT",
-        symmetry="NONE",
+        symmetry=symmetry,
         wall_collision_avoidance="DISABLE",
     )
     script.emit("SOLVER_SET_AOA", alpha_deg)
@@ -327,11 +328,88 @@ def build_phy01_script(
     script.emit("SOLVER_SET_CONVERGENCE", PHY01_CONVERGENCE)
     script.emit("START_SOLVER")
     script.emit("SET_VORTICITY_DRAG_BOUNDARIES", -1)
+    if symmetry_loads is not None:
+        script.emit("SET_ANALYSIS_SYMMETRY_LOADS", symmetry_loads)
     script.emit("SET_LOADS_AND_MOMENTS_UNITS", "COEFFICIENTS")
     script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", loads_name)
     script.emit("EXPORT_LOG", log_name)
     script.emit("CLOSE_FLIGHTSTREAM")
     return script
+
+
+def build_phy01_script(
+    version: str,
+    alpha_deg: float,
+    stl_path: str | Path,
+    loads_name: str,
+    log_name: str,
+) -> Script:
+    """Build the PHY-01 script for one angle of attack.
+
+    Parameters
+    ----------
+    version : str
+        Target FlightStream version, canonical or alias.
+    alpha_deg : float
+        Angle of attack in degrees, positive nose up.
+    stl_path : str or Path
+        The generated full-span wing STL to import (meters).
+    loads_name : str
+        File name of the loads spreadsheet exported into the working
+        directory.
+    log_name : str
+        File name of the exported solver log.
+
+    Returns
+    -------
+    Script
+        The validated script, ready to render.
+    """
+    return _build_wing_point_script("PHY-01", version, alpha_deg, stl_path, loads_name, log_name)
+
+
+def build_phy02_script(
+    version: str,
+    half: bool,
+    stl_path: str | Path,
+    loads_name: str,
+    log_name: str,
+) -> Script:
+    """Build one PHY-02 script: the full baseline or the mirrored half.
+
+    The half model initializes with MIRROR symmetry and asks for the
+    symmetry-plane loads explicitly (SET_ANALYSIS_SYMMETRY_LOADS
+    ENABLE, SRC-003 p.350) rather than relying on the solver default,
+    which the 2026-07-21 calibration on 26.120 observed to be ENABLE
+    after a MIRROR initialization.
+
+    Parameters
+    ----------
+    version : str
+        Target FlightStream version, canonical or alias.
+    half : bool
+        Build the mirrored open-root half model instead of the
+        full-span baseline.
+    stl_path : str or Path
+        The matching generated STL (half or full) to import (meters).
+    loads_name, log_name : str
+        Output file names, written into the working directory.
+
+    Returns
+    -------
+    Script
+        The validated script, ready to render.
+    """
+    return _build_wing_point_script(
+        "PHY-02",
+        version,
+        PHY02_ALPHA_DEG,
+        stl_path,
+        loads_name,
+        log_name,
+        symmetry="MIRROR" if half else "NONE",
+        symmetry_loads="ENABLE" if half else None,
+    )
 
 
 def phy01_metrics(points: list[PointResult]) -> dict[str, float]:
@@ -371,6 +449,7 @@ def _run_phy01(context: _CaseContext) -> CaseResult:
                 total=dict(report.total),
                 iterations=report.current_iteration,
                 converged=report.current_iteration < report.requested_iterations,
+                label=tag,
             )
         )
         context.stamp_solver(report)
@@ -385,6 +464,60 @@ def _run_phy01(context: _CaseContext) -> CaseResult:
         geometry=geometry,
         points=tuple(points),
         metrics=phy01_metrics(points),
+    )
+
+
+def phy02_metrics(full: PointResult, half: PointResult) -> dict[str, float]:
+    """Reduce the PHY-02 pair to the equivalence metrics.
+
+    Both models use the full planform reference area, so the mirrored
+    half must reproduce the full-span coefficients; the deltas are the
+    physics content and sit near zero, hence absolute bands.
+    """
+    return {
+        "CL_full_a4": full.total["CL"],
+        "CL_half_a4": half.total["CL"],
+        "delta_CL_a4": half.total["CL"] - full.total["CL"],
+        "delta_CDi_a4": half.total["CDi"] - full.total["CDi"],
+    }
+
+
+def _run_phy02(context: _CaseContext) -> CaseResult:
+    """Run the PHY-02 full/half pair inside its scratch directory."""
+    points: list[PointResult] = []
+    for half in (False, True):
+        variant = "half" if half else "full"
+        stl_path = generate_wing_stl(
+            PHY01_WING, (context.workdir / f"naca0012_{variant}.stl").resolve(), half=half
+        )
+        loads_name = f"loads_{variant}.txt"
+        script = build_phy02_script(
+            context.version, half, stl_path, loads_name, f"log_{variant}.txt"
+        )
+        report = context.solve_point(script, f"phy02_{variant}.txt", loads_name)
+        points.append(
+            PointResult(
+                alpha_deg=PHY02_ALPHA_DEG,
+                total=dict(report.total),
+                iterations=report.current_iteration,
+                converged=report.current_iteration < report.requested_iterations,
+                label=variant,
+            )
+        )
+        context.stamp_solver(report)
+    full, half_point = points
+    geometry = (
+        f"NACA {PHY01_WING.naca} rectangular wing, chord {PHY01_WING.chord_m:g} m, "
+        f"span {PHY01_WING.span_m:g} m (AR {PHY01_WING.aspect_ratio:g}); full span "
+        "versus open-root MIRROR half with symmetry loads enabled, both on the "
+        "full planform reference area, generated by qa.geometry as ASCII STL"
+    )
+    return CaseResult(
+        case_id="PHY-02",
+        title=PHYSICS_CASES["PHY-02"].title,
+        geometry=geometry,
+        points=tuple(points),
+        metrics=phy02_metrics(full, half_point),
     )
 
 
@@ -443,6 +576,32 @@ PHYSICS_CASES: dict[str, PhysicsCase] = {
             ),
         ),
         runner=_run_phy01,
+    ),
+    "PHY-02": PhysicsCase(
+        case_id="PHY-02",
+        title="Half versus full symmetry equivalence (NACA 0012, AR 8)",
+        metric_specs=(
+            MetricSpec("CL_full_a4", "total CL of the full-span baseline at 4 deg"),
+            MetricSpec(
+                "CL_half_a4",
+                "total CL of the mirrored half model at 4 deg, symmetry loads enabled",
+            ),
+            MetricSpec(
+                "delta_CL_a4",
+                "CL(half) - CL(full) at 4 deg; zero in exact equivalence",
+                kind="abs",
+                warn=0.005,
+                fail=0.02,
+            ),
+            MetricSpec(
+                "delta_CDi_a4",
+                "CDi(half) - CDi(full) at 4 deg; zero in exact equivalence",
+                kind="abs",
+                warn=0.0005,
+                fail=0.002,
+            ),
+        ),
+        runner=_run_phy02,
     ),
 }
 
@@ -736,6 +895,7 @@ def write_physics_report(
                 "error": result.error,
                 "points": [
                     {
+                        "label": point.label or f"a{point.alpha_deg:g}",
                         "alpha_deg": point.alpha_deg,
                         "iterations": point.iterations,
                         "converged": point.converged,
@@ -797,13 +957,15 @@ def _render_markdown(run: PhysicsRun, date: str, counts: dict[str, int]) -> str:
         if result.points:
             lines.extend(
                 [
-                    "| alpha (deg) | CL | CDi | iterations | converged |",
-                    "|---|---|---|---|---|",
+                    "| point | alpha (deg) | CL | CDi | iterations | converged |",
+                    "|---|---|---|---|---|---|",
                 ]
             )
             for point in result.points:
+                label = point.label or f"a{point.alpha_deg:g}"
                 lines.append(
-                    f"| {point.alpha_deg:+.1f} | {point.total.get('CL', float('nan')):.5f} "
+                    f"| {label} | {point.alpha_deg:+.1f} "
+                    f"| {point.total.get('CL', float('nan')):.5f} "
                     f"| {point.total.get('CDi', float('nan')):.5f} | {point.iterations} "
                     f"| {'yes' if point.converged else 'no'} |"
                 )
