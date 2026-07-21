@@ -11,6 +11,7 @@ SET_VORTICITY_DRAG_BOUNDARIES:
       required: false
   manual_ref: "SRC-003 p.350"
   versions:
+    "26.100": {status: documented, note: "FS 26.1 manual p.349, same grammar as 26.120"}
     "26.120": {status: documented}
   notes: >
     Boundaries whose induced drag is computed from surface vorticity
@@ -63,6 +64,7 @@ SET_ANALYSIS_SYMMETRY_LOADS:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 p.350"
   versions:
+    "26.100": {status: documented, note: "FS 26.1 manual p.349, same grammar as 26.120"}
     "26.120": {status: documented}
   notes: >
     Includes the loads of symmetry boundaries in the analysis; relevant
@@ -78,6 +80,7 @@ SET_LOADS_AND_MOMENTS_UNITS:
                KILOGRAM-FORCE]
   manual_ref: "SRC-003 pp.350-351"
   versions:
+    "26.100": {status: documented, note: "FS 26.1 manual pp.349-350, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
 
 SET_SOLVER_ANALYSIS_BOUNDARIES:

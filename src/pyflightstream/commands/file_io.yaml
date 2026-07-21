@@ -13,6 +13,7 @@ OPEN:
       required: false
   manual_ref: "SRC-003 p.282"
   versions:
+    "26.100": {status: documented, note: "FS 26.1 manual p.281, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
   notes: >
     Opens an existing simulation (.fsm) file. The optional
@@ -27,6 +28,7 @@ SAVEAS:
       type: path
   manual_ref: "SRC-003 p.282"
   versions:
+    "26.100": {status: documented, note: "FS 26.1 manual p.281, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
   notes: >
     Saves the current simulation to the given .fsm path.
@@ -37,6 +39,7 @@ NEW_SIMULATION:
   args: []
   manual_ref: "SRC-003 p.282"
   versions:
+    "26.100": {status: documented, note: "FS 26.1 manual p.281, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
 
 CLOSE_FLIGHTSTREAM:
@@ -45,6 +48,7 @@ CLOSE_FLIGHTSTREAM:
   args: []
   manual_ref: "SRC-003 p.282"
   versions:
+    "26.100": {status: documented, note: "FS 26.1 manual p.281, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
   notes: >
     Closes FlightStream and exits; the natural last command of a
@@ -58,6 +62,7 @@ EXPORT_LOG:
       type: path
   manual_ref: "SRC-003 p.283"
   versions:
+    "26.100": {status: documented, note: "FS 26.1 manual p.282, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
   notes: >
     Exports the log window messages to a text file; the probe harness
@@ -71,6 +76,7 @@ OUTPUT_SETTINGS_AND_STATUS:
       type: path
   manual_ref: "SRC-003 p.283"
   versions:
+    "26.100": {status: documented, note: "FS 26.1 manual p.282, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
   notes: >
     Writes the fluid properties and solver status to a file.
