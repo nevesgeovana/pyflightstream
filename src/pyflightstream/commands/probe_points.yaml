@@ -19,7 +19,7 @@ NEW_PROBE_POINT:
       type: float
   manual_ref: "SRC-003 p.362"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
 
 NEW_PROBE_LINE:
   layout: inline
@@ -41,7 +41,7 @@ NEW_PROBE_LINE:
       type: float
   manual_ref: "SRC-003 p.362"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
   notes: >
     Survey line with NUMPTS probe vertices between the start and end
     coordinates.
@@ -71,7 +71,7 @@ PROBE_POINTS_IMPORT:
       type: path
   manual_ref: "SRC-003 pp.362-363"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
   notes: >
     Imports a probe lattice from a CSV file whose rows are
     X,Y,Z,TYPE with TYPE 0 for surface and 1 for volume probes; the
@@ -86,7 +86,7 @@ EXPORT_PROBE_POINTS:
       type: path
   manual_ref: "SRC-003 p.363"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
 
 DELETE_PROBE_POINTS:
   layout: bare
@@ -94,4 +94,4 @@ DELETE_PROBE_POINTS:
   args: []
   manual_ref: "SRC-003 p.363"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}

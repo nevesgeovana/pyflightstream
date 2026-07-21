@@ -10,7 +10,7 @@ SET_SIMULATION_LENGTH_UNITS:
                MILS, MICRON, CENTIMETER, MICROINCH]
   manual_ref: "SRC-003 p.284"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
   notes: >
     Selects the simulation length scale unit; geometry dimensions and
     length-typed command arguments are interpreted in this unit.

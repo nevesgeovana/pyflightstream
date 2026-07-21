@@ -17,7 +17,7 @@ CREATE_NEW_ACTUATOR:
       type: str
   manual_ref: "SRC-003 p.323"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
   notes: >
     SUBTYPE selects the thrust profile model and applies only to the
     PROPELLER type. CUSTOM imports a radial force distribution;
@@ -33,7 +33,7 @@ SET_ACTUATOR_NAME:
       type: str
   manual_ref: "SRC-003 p.323"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
 
 SET_ACTUATOR_AXIS:
   layout: inline
@@ -164,4 +164,4 @@ DELETE_ACTUATOR:
       type: int
   manual_ref: "SRC-003 p.324"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}

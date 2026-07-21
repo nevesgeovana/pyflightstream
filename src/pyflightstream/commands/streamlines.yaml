@@ -17,7 +17,7 @@ NEW_OFF_BODY_STREAMLINE:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 p.368"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: broken, report: "reports/compat/CMP-26120_2026-07-21_full.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing)"}
 
 NEW_STREAMLINE_DISTRIBUTION:
   layout: keyword_block
@@ -39,7 +39,7 @@ NEW_STREAMLINE_DISTRIBUTION:
       type: int
   manual_ref: "SRC-003 p.368"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
   notes: >
     SUBDIVISIONS is N+1 for N streamlines between the start and end
     vertices.
@@ -50,7 +50,7 @@ GENERATE_ALL_OFF_BODY_STREAMLINES:
   args: []
   manual_ref: "SRC-003 p.368"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
 
 EXPORT_ALL_OFF_BODY_STREAMLINES:
   layout: param_lines
@@ -60,4 +60,4 @@ EXPORT_ALL_OFF_BODY_STREAMLINES:
       type: path
   manual_ref: "SRC-003 p.369"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}

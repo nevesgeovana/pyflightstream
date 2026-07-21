@@ -30,7 +30,7 @@ INITIALIZE_SOLVER:
       required: false
   manual_ref: "SRC-003 p.337"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
   notes: >
     SURFACES takes -1 for all boundaries or a count followed by one
     line per surface with the surface index and the quad mesher toggle
@@ -68,7 +68,7 @@ REMOVE_INITIALIZATION:
   args: []
   manual_ref: "SRC-003 p.338"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
 
 START_SOLVER:
   layout: bare
@@ -76,7 +76,7 @@ START_SOLVER:
   args: []
   manual_ref: "SRC-003 p.338"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
   notes: >
     Runs the solver with the current runtime settings; convergence is
     declared against the SOLVER_SET_CONVERGENCE threshold.
@@ -87,7 +87,7 @@ CLEAR_SOLUTION:
   args: []
   manual_ref: "SRC-003 p.338"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
   notes: >
     Clears the existing solution while keeping the initialization;
     used between sweep points when solution reuse is not wanted.

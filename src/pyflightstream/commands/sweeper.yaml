@@ -17,7 +17,7 @@ SWEEPER_SET_AOA_SWEEP:
       required: false
   manual_ref: "SRC-003 p.406"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
   notes: >
     CUSTOM takes the angle of attack list inline, space separated.
 
@@ -34,7 +34,7 @@ SWEEPER_SET_BETA_SWEEP:
       required: false
   manual_ref: "SRC-003 p.406"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
 
 SWEEPER_SET_VELOCITY_SWEEP:
   layout: inline
@@ -64,7 +64,7 @@ SWEEPER_POST_RUN_SCRIPT:
       required: false
   manual_ref: "SRC-003 p.406"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
   notes: >
     Per-run post-processing script executed after each sweep point,
     for example a surface section extraction script.
@@ -102,7 +102,7 @@ SWEEPER_START:
   args: []
   manual_ref: "SRC-003 p.406"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
 
 SWEEPER_EXPORT_SPREADSHEET:
   layout: inline
@@ -112,4 +112,4 @@ SWEEPER_EXPORT_SPREADSHEET:
       type: path
   manual_ref: "SRC-003 p.406"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}

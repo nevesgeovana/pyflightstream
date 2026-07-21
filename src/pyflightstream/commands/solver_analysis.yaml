@@ -36,7 +36,7 @@ SET_SOLVER_ANALYSIS_LOADS_FRAME:
       type: int
   manual_ref: "SRC-003 p.350"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
   notes: >
     Coordinate system used for evaluating aerodynamic loads and
     moments; index 1 is the reference frame.
@@ -78,7 +78,7 @@ SET_LOADS_AND_MOMENTS_UNITS:
                KILOGRAM-FORCE]
   manual_ref: "SRC-003 pp.350-351"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
 
 SET_SOLVER_ANALYSIS_BOUNDARIES:
   layout: payload_lines
@@ -104,6 +104,6 @@ SET_INVISCID_LOADS:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 p.351"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
   notes: >
     Restricts the analysis to inviscid loads and moments only.

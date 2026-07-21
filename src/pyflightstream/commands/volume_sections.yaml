@@ -34,7 +34,7 @@ CREATE_NEW_RECTANGLE_VOLUME_SECTION:
       type: float
   manual_ref: "SRC-003 p.366"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
   notes: >
     Rectangular flow-field section between two diagonal corners, with
     optional near-wall prism cell layers.
@@ -69,7 +69,7 @@ CREATE_NEW_CIRCLE_VOLUME_SECTION:
       type: float
   manual_ref: "SRC-003 p.366"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
   notes: >
     Annular flow-field section with IPTS radial and JPTS azimuth
     segments between the inner and outer radii; the natural plane for
@@ -94,7 +94,7 @@ EXPORT_VOLUME_SECTION_VTK:
       own_line: true
   manual_ref: "SRC-003 pp.366-367"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
   notes: >
     The file path follows on the line after the section index.
 
@@ -109,7 +109,7 @@ EXPORT_VOLUME_SECTION_TECPLOT:
       own_line: true
   manual_ref: "SRC-003 p.367"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
   notes: >
     The file path follows on the line after the section index.
 
@@ -121,4 +121,4 @@ DELETE_VOLUME_SECTION:
       type: int
   manual_ref: "SRC-003 p.367"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}

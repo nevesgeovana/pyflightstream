@@ -11,7 +11,7 @@ SOLVER_SET_AOA:
       unit: "deg"
   manual_ref: "SRC-003 p.339"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
   notes: >
     Angle of attack; magnitude must stay below 90 degrees.
 
@@ -24,7 +24,7 @@ SOLVER_SET_SIDESLIP:
       unit: "deg"
   manual_ref: "SRC-003 p.339"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
   notes: >
     Side-slip angle; magnitude must stay below 90 degrees.
 
@@ -37,7 +37,7 @@ SOLVER_SET_VELOCITY:
       unit: "m/s"
   manual_ref: "SRC-003 p.339"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
   notes: >
     Free-stream velocity magnitude.
 
@@ -49,7 +49,7 @@ SOLVER_SET_MACH_NUMBER:
       type: float
   manual_ref: "SRC-003 p.339"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
 
 SOLVER_SET_ITERATIONS:
   layout: inline
@@ -59,7 +59,7 @@ SOLVER_SET_ITERATIONS:
       type: int
   manual_ref: "SRC-003 p.339"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
 
 SOLVER_SET_CONVERGENCE:
   layout: inline
@@ -69,7 +69,7 @@ SOLVER_SET_CONVERGENCE:
       type: float
   manual_ref: "SRC-003 p.339"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
   notes: >
     Residual threshold on surface velocity and pressure below which
     the run is declared converged (SRC-003 p.200).
@@ -83,7 +83,7 @@ SOLVER_SET_FORCED_ITERATIONS:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 p.339"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
   notes: >
     When enabled the solver runs the full iteration count regardless
     of the convergence threshold.
@@ -97,7 +97,7 @@ SOLVER_SET_REF_VELOCITY:
       unit: "m/s"
   manual_ref: "SRC-003 p.339"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
   notes: >
     Reference velocity for coefficient normalization. For steady runs
     it should equal the free-stream velocity; for rotary or hover
@@ -112,7 +112,7 @@ SOLVER_SET_REF_MACH_NUMBER:
       type: float
   manual_ref: "SRC-003 p.339"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
 
 SOLVER_SET_REF_AREA:
   layout: inline
@@ -123,7 +123,7 @@ SOLVER_SET_REF_AREA:
       unit: "simulation length units squared"
   manual_ref: "SRC-003 pp.339-340"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
   notes: >
     Reference area S_ref used in Q*S_ref force normalization
     (coefficient definitions, SRC-003 p.223).
@@ -137,7 +137,7 @@ SOLVER_SET_REF_LENGTH:
       unit: "simulation length units"
   manual_ref: "SRC-003 p.340"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
   notes: >
     Reference length L_ref used in Q*S_ref*L_ref moment normalization
     (coefficient definitions, SRC-003 p.223).

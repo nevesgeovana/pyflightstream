@@ -109,7 +109,7 @@ FLUID_PROPERTIES:
       type: float
   manual_ref: "SRC-003 p.328"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
   notes: >
     Sets the working fluid state as KEY VALUE lines. Sonic velocity is
     derived from temperature and specific heat ratio; it is no longer
@@ -126,7 +126,7 @@ AIR_ALTITUDE:
       values: [FEET, METERS]
   manual_ref: "SRC-003 p.328"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: broken, report: "reports/compat/CMP-26120_2026-07-21_full.yaml", note: "the command ran (script processing continued past it) but its effect was not observed; expected: the settings dump reports the 5000 m standa"}
   notes: >
     Sets the air properties from a standard-atmosphere altitude.
 

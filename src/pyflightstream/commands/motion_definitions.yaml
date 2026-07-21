@@ -77,7 +77,7 @@ SET_MOTION_START_TIME:
       unit: "s"
   manual_ref: "SRC-003 p.332"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: broken, report: "reports/compat/CMP-26120_2026-07-21_full.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing)"}
   notes: >
     Start of the motion within the solver physical time; enables
     converging a steady base flow before the motion begins.
