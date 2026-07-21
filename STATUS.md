@@ -70,7 +70,12 @@ reproduction evidence (SET_ANALYSIS_SYMMETRY_LOADS and
 NEW_SURFACE_SECTION_DISTRIBUTION to init: in-solve consumers precede
 START_SOLVER); PHY-02 revalidated 4 pass with identical values, and
 PLN-012 gained the candidate abort cause plus a concrete re-probe
-plan.
+plan. The de-characterized twin followed (HND-022): the BladeSpec
+generic blade generator entered `qa/geometry.py` (analytic public
+shape laws, watertight loft, tier 1 tests) and the shareable case
+9002 runs the complete propeller workflow on it, baseline seeded on
+26.120 (net thrust, physically sane transient); it is the geometry
+seed PLN-014/PHY-05 will wire into the Tier 3 matrix.
 
 The far-field extraction line opened as M7 (HND-020, spec DLV-006
 copied into `_private/design/` after the naming scrub): the command
