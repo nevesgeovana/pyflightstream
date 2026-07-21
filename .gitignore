@@ -22,6 +22,8 @@ site/
 # reports/compat/ is the committed evidence
 probe_runs/
 
-# Tier 3 physics scratch (geometry, scripts, solver outputs); the
-# physics report under reports/physics/ is the committed evidence
+# Tier 3 physics and drift scratch (geometry, scripts, solver
+# outputs); the reports under reports/physics/ are the committed
+# evidence
 physics_runs/
+drift_runs/
