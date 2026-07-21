@@ -20,7 +20,7 @@ Milestone map per the Bootstrap Kit (`_private/design/DLV-004`, Section 7).
 | M3 | Tier 2 probe harness, first compat report for 26.120, apply-compat | Committed compat report; statuses promoted | Done 2026-07-21 (pilot HND-010, full sweep HND-011: `reports/compat/CMP-26120_2026-07-21_full`, 64 verified, 4 broken, 44 unprobed with reasons, 68 promotions) |
 | M4 | PHY-01/02 plus version-comparison suite (synthetic committed, SMI local) | Committed physics report | Done 2026-07-21 (HND-012..015: PHY-01/02 10 pass, synthetic drift zero deltas, SMI class delivered; capstone `DRF-26100-26120_2026-07-21_complete` 17 pass 1 warn, the SMI-01 CMy movement to triage) |
 | M5 | mkdocs site, command reference and compatibility matrix generated from the database, steady polar example | Docs build strict; example runs | Done 2026-07-21 (HND-016: generated reference and matrix from `reference.py` as single rendering source, strict build green, example executed on 26.120 with slope 4.83/rad; 179 tests) |
-| v0.1.0 | Tag, private | All above green | Planned |
+| v0.1.0 | Tag, private | All above green | Done 2026-07-21 (HND-017: tag v0.1.0 pushed, release commit 38c091c, CI runs 29869650235 and 29869821677 green, sdist/wheel clean, CHANGELOG.md) |
 | v0.2+ | Remaining PHY cases, 26.000/26.100 backfill probing, declarative matrix successor, public release, PyPI | Public checklist (invariants audit) passes | Planned |
 
 ## Current focus
@@ -44,9 +44,13 @@ fsm sha256, single boundary; `TRI-SMI01-CMy_2026-07-21`), reference
 untouched, the WARN stands by design. Toolchain note: the MkDocs
 project is in a public governance dispute and the nav plugins now
 pull in and advertise the ProperDocs fork; migration is an open
-question toward v0.1.0. Single next action: cut v0.1.0 (private tag)
-through the release skill. Getting-started and campaign tutorial
-pages stay planned (docs home lists them).
+question toward the public phase. v0.1.0 was tagged in the same
+session (HND-017): definition of done and evidence currency verified,
+version bumped, CHANGELOG.md assembled, sdist and wheel built clean,
+annotated tag pushed with CI green. Single next action: open the
+v0.2+ line (public-release track versus declarative matrix successor;
+the ProperDocs decision gates the docs toolchain). Getting-started
+and campaign tutorial pages stay planned (docs home lists them).
 
 Previous focus (M4, kept for context): PHY-01 closed end to end
 (PLN-008 started, HND-012):
