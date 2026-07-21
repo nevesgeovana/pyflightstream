@@ -102,6 +102,7 @@ SET_PROP_ACTUATOR_PROFILE:
       type: int
     - name: file_name
       type: path
+      own_line: true
   manual_ref: "SRC-003 pp.323-324"
   versions:
     "26.120": {status: documented}

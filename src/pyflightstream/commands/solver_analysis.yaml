@@ -8,6 +8,7 @@ SET_VORTICITY_DRAG_BOUNDARIES:
       type: int
     - name: boundary_indices
       type: int_list
+      required: false
   manual_ref: "SRC-003 p.350"
   versions:
     "26.120": {status: documented}

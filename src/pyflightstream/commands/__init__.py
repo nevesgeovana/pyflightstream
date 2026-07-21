@@ -108,6 +108,19 @@ class ArgType(enum.StrEnum):
     ENUM_LIST = "enum_list"
 
 
+class ListSeparator(enum.StrEnum):
+    """How a list-typed argument joins its values in the script.
+
+    The manual samples show three grammars: comma-separated on one
+    line (SRC-003 p.332), space-separated on one line (p.364), and one
+    value per line (pp.338, 352).
+    """
+
+    COMMA = "comma"
+    SPACE = "space"
+    NEWLINE = "newline"
+
+
 class CommandNotInVersionError(LookupError):
     """A command is unavailable in the requested FlightStream version.
 
@@ -138,6 +151,13 @@ class ArgSpec(BaseModel):
         Whether the argument must be supplied; optional arguments are
         the ones the manual marks as such (for example
         LOAD_SOLVER_INITIALIZATION of OPEN, SRC-003 p.282).
+    separator : ListSeparator
+        How a list-typed argument joins its values when rendered; the
+        manual fixes it per command (see :class:`ListSeparator`).
+    own_line : bool
+        For inline commands whose file path follows on the line after
+        the inline arguments (for example SET_PROP_ACTUATOR_PROFILE,
+        SRC-003 pp.323-324).
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -147,6 +167,8 @@ class ArgSpec(BaseModel):
     values: tuple[str, ...] | None = None
     unit: str | None = None
     required: bool = True
+    separator: ListSeparator = ListSeparator.COMMA
+    own_line: bool = False
 
     @model_validator(mode="after")
     def _enum_types_carry_values(self) -> ArgSpec:
@@ -155,6 +177,17 @@ class ArgSpec(BaseModel):
             raise ValueError(f"argument {self.name!r} is {self.type} and must list its values")
         if not is_enum and self.values is not None:
             raise ValueError(f"argument {self.name!r} is {self.type} and must not list values")
+        return self
+
+    @property
+    def is_list(self) -> bool:
+        """Whether the argument holds several values."""
+        return self.type in (ArgType.INT_LIST, ArgType.FLOAT_LIST, ArgType.ENUM_LIST)
+
+    @model_validator(mode="after")
+    def _separator_only_for_lists(self) -> ArgSpec:
+        if self.separator is not ListSeparator.COMMA and not self.is_list:
+            raise ValueError(f"argument {self.name!r} is scalar and takes no separator")
         return self
 
 
@@ -270,6 +303,12 @@ class CommandEntry(BaseModel):
     def _bare_commands_take_no_args(self) -> CommandEntry:
         if self.layout is Layout.BARE and self.args:
             raise ValueError(f"{self.name} has layout bare and must not declare arguments")
+        return self
+
+    @model_validator(mode="after")
+    def _own_line_only_for_inline(self) -> CommandEntry:
+        if self.layout is not Layout.INLINE and any(arg.own_line for arg in self.args):
+            raise ValueError(f"{self.name}: own_line only applies to inline commands")
         return self
 
     def status_in(self, version: FsVersion) -> VersionStatus | None:

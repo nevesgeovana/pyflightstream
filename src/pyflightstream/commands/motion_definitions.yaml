@@ -137,6 +137,7 @@ SET_MOTION_FSI_EXECUTABLE:
       values: [ENABLE, DISABLE]
     - name: executable_path
       type: path
+      own_line: true
   manual_ref: "SRC-003 pp.335-336"
   versions:
     "26.120": {status: documented}
@@ -155,6 +156,7 @@ SET_MOTION_FSI_STRUCTURAL_NODES:
       type: int
     - name: nodes_path
       type: path
+      own_line: true
   manual_ref: "SRC-003 p.336"
   versions:
     "26.120": {status: documented}

@@ -91,6 +91,7 @@ EXPORT_VOLUME_SECTION_VTK:
       type: int
     - name: filename
       type: path
+      own_line: true
   manual_ref: "SRC-003 pp.366-367"
   versions:
     "26.120": {status: documented}
@@ -105,6 +106,7 @@ EXPORT_VOLUME_SECTION_TECPLOT:
       type: int
     - name: filename
       type: path
+      own_line: true
   manual_ref: "SRC-003 p.367"
   versions:
     "26.120": {status: documented}

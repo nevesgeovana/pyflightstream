@@ -22,6 +22,7 @@ CREATE_NEW_SURFACE_SECTION:
       type: int
     - name: surface_indices
       type: int_list
+      separator: space
       required: false
   manual_ref: "SRC-003 p.364"
   versions:
@@ -48,6 +49,7 @@ NEW_SURFACE_SECTION_DISTRIBUTION:
       type: int
     - name: surface_indices
       type: int_list
+      separator: space
       required: false
   manual_ref: "SRC-003 p.364"
   versions:

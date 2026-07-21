@@ -25,10 +25,13 @@ Milestone map per the Bootstrap Kit (`_private/design/DLV-004`, Section 7).
 
 ## Current focus
 
-M2. Single next action: script builder with phase ordering and
-validating emit (PLN-005), consuming the layout grammars and phases now
-recorded in the command database; the xarray gate (PLN-006) is decided
-when `post/` work starts.
+M2. Builder core is in (validating emit, phase ordering, layout
+renderers, steady polar golden). Single next action: the curated
+helper layer of SAD Section 4.3 (free stream, actuator disc, rotary
+motion, solver settings, sweeps, analysis and export, probes), which
+also closes the INITIALIZE_SOLVER per-surface and PERIODIC gaps noted
+in the script module docstring; then files/ layout and the local
+executor. The xarray gate (PLN-006) is decided when `post/` starts.
 
 ## Open questions
 

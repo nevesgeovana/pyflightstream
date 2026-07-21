@@ -41,6 +41,7 @@ SOLVER_PROXIMAL_BOUNDARIES:
       type: int
     - name: boundary_indices
       type: int_list
+      separator: newline
   manual_ref: "SRC-003 pp.337-338"
   versions:
     "26.120": {status: documented}
