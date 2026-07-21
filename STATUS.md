@@ -33,12 +33,20 @@ or registry names; `run_campaign` takes every sweep point to exactly
 one of the six manifest statuses (FAILED_SCRIPT, FAILED_EXECUTION,
 FAILED_INCOMPLETE_OUTPUT decided by the loop; CONVERGED,
 COMPLETED_MAX_ITER, FAILED_DIVERGED delegated to an `OutcomeAssessor`)
-and raises `CampaignErrors` after the loop. The Tier 1 end-to-end dry
-run of the M2 exit criterion passes in the suite. Single next action:
-`results/` anchor-based primitives and the loads parser, shipping the
-standard assessor (closing the convergence judgment); then the legacy
-matrix reader, and the one real local run on the licensed machine.
-The xarray gate (PLN-006) is decided when `post/` starts.
+and raises `CampaignErrors` after the loop. `results/` ships the
+anchor-based primitives (`labeled_value`, `delimited_table`), the
+loads-spreadsheet parser, and the log residual parser, with fixtures
+mirroring real 26.120 output (structure preserved, values synthetic);
+`LoadsAssessor` closes the convergence judgment (residual-based with a
+declared log export, iteration heuristic for steady runs) and stamps
+the reported version and build into the manifest with the lax FR-18
+cross-check (the 26.120 build prints "26.1"; the build number is the
+discriminator). The Tier 1 end-to-end dry run of the M2 exit criterion
+passes in the suite. Single next action: the legacy matrix reader
+(`matrix_legacy.py`, FR-10, plus `convert-matrix`, FR-11); then the M2
+exit real local run, feasible on this machine (a 26.12 installation
+exists in the research workspace). The xarray gate (PLN-006) is
+decided when `post/` starts.
 
 ## Open questions
 
