@@ -21,7 +21,7 @@ Milestone map per the Bootstrap Kit (`_private/design/DLV-004`, Section 7).
 | M4 | PHY-01/02 plus version-comparison suite (synthetic committed, SMI local) | Committed physics report | Done 2026-07-21 (HND-012..015: PHY-01/02 10 pass, synthetic drift zero deltas, SMI class delivered; capstone `DRF-26100-26120_2026-07-21_complete` 17 pass 1 warn, the SMI-01 CMy movement to triage) |
 | M5 | mkdocs site, command reference and compatibility matrix generated from the database, steady polar example | Docs build strict; example runs | Done 2026-07-21 (HND-016: generated reference and matrix from `reference.py` as single rendering source, strict build green, example executed on 26.120 with slope 4.83/rad; 179 tests) |
 | v0.1.0 | Tag, private | All above green | Done 2026-07-21 (HND-017: tag v0.1.0 pushed, release commit 38c091c, CI runs 29869650235 and 29869821677 green, sdist/wheel clean, CHANGELOG.md) |
-| M6 | FSI subpackage per DLV-007: `[fsi]` extra (PyNiteFEA, license evidence RPT-002), `FsiConfig`, loads parser, PyNite beam with centrifugal terms (Gate 1 Campbell), kinematics, driver, `pyfs-fsi` entry point | WP7 coupled pilot: near-rigid synthetic blade recovers the rigid CT within solver noise; frozen replay reproduces the deformed solution | Started 2026-07-21 (DLV-007 ingested) |
+| M6 | FSI subpackage per DLV-007: `[fsi]` extra (PyNiteFEA, license evidence RPT-002), `FsiConfig`, loads parser, PyNite beam with centrifugal terms (Gate 1 Campbell), kinematics, driver, `pyfs-fsi` entry point | WP7 coupled pilot: near-rigid synthetic blade recovers the rigid CT within solver noise; frozen replay reproduces the deformed solution | Started 2026-07-21 (HND-021: WP0, WP3, WP4 delivered, Gate 1 Campbell green; WP1 dummy ready, dry run pending; WP2 parser awaits its fixtures) |
 | M7 | Far-field probe extraction per DLV-006: `probes` lattice (serializable, version-aware emission), `farfield` ledgers on xarray (quadrature, harmonic spine, forces, moments, loss channels), G0 synthetic gate as tier 1 | G0 green in CI; probe-export parser and G1 to G5 case-level checks follow with the solver campaign | Started 2026-07-21 (HND-020: lattice, ledgers, and G0 delivered; suite at 220 tests at close, including the parallel M6 session's in-progress files) |
 | v0.2+ | Remaining PHY cases, 26.000/26.100 backfill probing, declarative matrix successor, public release, PyPI | Public checklist (invariants audit) passes | Planned |
 
@@ -99,6 +99,31 @@ instruction (PLN-006 closed). Next on this line: the probe-export
 parser (needs a real 26.120 export fixture, PLN-016), then G1 to G5
 against the solver.
 
+The FSI line opened as M6 (HND-021, spec DLV-007 in
+`_private/design/`): the seam of FR-23 became the implemented
+subpackage decision FR-23a, with the SRS and SAD amended in both the
+local sanitized copies and the research-workspace canonicals
+(author's decision; PyNite is a pip dependency of the optional
+`[fsi]` extra only, never vendored; MIT license evidence RPT-002).
+The structural branch is delivered: `fsi/config.py` (validated
+`FsiConfig`, round-trip IO, canonical config hash), `fsi/beam.py`
+(PyNite beam on the elastic axis, P-Delta statics, (w, theta) modal
+problem with exact condensation and flap/torsion classification;
+clamped-beam analytics within 1 percent), and `fsi/centrifugal.py`
+(tension through P-Delta with N(r) cross-checked, propeller moment
+with the inner twist iteration, torsional stiffening from its
+linearization). Gate 1 is green: Southwell lines with r squared
+above 0.999, flap coefficient 1.118 in the plan band, torsion 0.961
+against the 0.9608 inertia-ratio expectation, Campbell diagram in
+`examples/fsi_campbell_diagram.py`. The `pyfs-fsi` dummy executable
+is installed and archives interface files per call; the WP1 dry run
+(licensed machine, Aeroelastic Toolbox, instructions in the fsi
+README) is pending on Geovana and gates the WP2 loads parser.
+Physics formulas carry Source lines enforced by a tier 1 schema
+test; synthetic blades only; CI installs `.[dev,fsi]`; suite at 232
+tests at close. PHY-05 is registered as PLN-014, prerequisite of the
+WP7 coupled pilot.
+
 Previous focus (M4, kept for context): PHY-01 closed end to end
 (PLN-008 started, HND-012):
 the mesh-import family (IMPORT, CCS_IMPORT, EXPORT_SURFACE_MESH;
@@ -148,6 +173,7 @@ decided when `post/` starts. `convert-matrix` CLI wiring can join the
 | xarray as a runtime dependency behind the `ResultArray` facade | Geovana's confirmation at M2 (SAD Section 9; noted in `pyproject.toml`) |
 | Whether to genericize the SMI name in the repository (currently kept, required by the version-comparison case design) | Open option, Geovana's decision |
 | SWEEPER entries are drafted from the worked example (SRC-003 p.406) and the Script Index (p.383); the Sweeper Toolbox chapter (pp.264-279) is not deep-reviewed and may widen the argument grammars | Follow-up manual pass |
+| FSI interface facts (loads export cadence and header, blade identification, units setting, executable call convention) needed to finalize the WP2 parser | WP1 dry run on Geovana's licensed machine (instructions in `src/pyflightstream/fsi/README.md`) |
 
 ## Recorded deviations
 

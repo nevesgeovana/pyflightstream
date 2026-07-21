@@ -38,6 +38,7 @@ dev = [
 
 [project.scripts]
 pyfs-qa = "pyflightstream.qa.cli:main"
+pyfs-fsi = "pyflightstream.fsi.cli:main"
 
 [project.urls]
 Repository = "https://github.com/nevesgeovana/pyflightstream"
