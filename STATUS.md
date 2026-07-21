@@ -18,31 +18,30 @@ Milestone map per the Bootstrap Kit (`_private/design/DLV-004`, Section 7).
 | M1 | `versions.py` (26.XXX scheme), database schema, loader, `_meta.yaml`, core steady commands with citations | Tier 1 database tests pass | Done 2026-07-21 (113 commands, commits a86600d..5233956, CI run 29845795014 green) |
 | M2 | Script builder with phase ordering, helpers, `files/` layout, local executor, campaign loop, manifest, loads parser, goldens, legacy matrix reader | End-to-end dry run plus one real local run | Done 2026-07-21 (dry run in the Tier 1 suite, 117 tests; real run CONVERGED, `reports/RPT-001`; legacy matrix reader with convert-matrix closing the content, HND-009) |
 | M3 | Tier 2 probe harness, first compat report for 26.120, apply-compat | Committed compat report; statuses promoted | Done 2026-07-21 (pilot HND-010, full sweep HND-011: `reports/compat/CMP-26120_2026-07-21_full`, 64 verified, 4 broken, 44 unprobed with reasons, 68 promotions) |
-| M4 | PHY-01/02 plus version-comparison suite (synthetic committed, SMI local) | Committed physics report | Planned |
+| M4 | PHY-01/02 plus version-comparison suite (synthetic committed, SMI local) | Committed physics report | Started 2026-07-21 (exit criterion met by PHY-01: `reports/physics/PHY-26120_2026-07-21` and `_banded`, HND-012; PHY-02 and version comparison pending) |
 | M5 | mkdocs site, command reference and compatibility matrix generated from the database, steady polar example | Docs build strict; example runs | Planned |
 | v0.1.0 | Tag, private | All above green | Planned |
 | v0.2+ | Remaining PHY cases, 26.000/26.100 backfill probing, declarative matrix successor, public release, PyPI | Public checklist (invariants audit) passes | Planned |
 
 ## Current focus
 
-M3 is done (PLN-007 and PLN-011, HND-010/011): the Tier 2 harness in
-`qa/` runs every specified command through tiered preludes (empty
-session, opened sim, initialized solver, short solution) with per-tier
-baselines, three failure signals, and effect assertions that may
-honestly answer "unobservable" (unprobed), so a probe never guesses.
-The full sweep on 26.120 build #7012026 landed
-`reports/compat/CMP-26120_2026-07-21_full`: 64 verified, 4 broken
-(AIR_ALTITUDE ignores its METERS units argument, applying feet;
-SET_MOTION_START_TIME, NEW_OFF_BODY_STREAMLINE, and
-NEW_SURFACE_SECTION_DISTRIBUTION abort script processing as drafted),
-44 unprobed with per-line reasons; 68 statuses promoted via
-`pyfs-qa apply-compat`. Follow-ups tracked as PLN-012 (manual
-re-review of the four broken; instruments for the unobservable
-setters; fixtures for the three unspecified commands). Single next
-action: start M4, PLN-008 (PHY-01/02 plus the version-comparison
-suite, synthetic geometry first). The xarray gate (PLN-006) is
-decided when `post/` starts. `convert-matrix` CLI wiring can join
-the `pyfs-qa` precedent when convenient.
+M4 is open and PHY-01 is closed end to end (PLN-008 started, HND-012):
+the mesh-import family (IMPORT, CCS_IMPORT, EXPORT_SURFACE_MESH;
+SRC-003 pp.307-308) entered the database, `qa/geometry.py` generates
+the committable NACA wing STL, and `qa/physics.py` runs the Tier 3
+matrix against banded references (`pyfs-qa physics`), with reference
+updates only through the reason-demanding `pyfs-qa update-reference`.
+Two real runs on 26.120 build #7012026 are committed under
+`reports/physics/`: the polar converged at every point (CL slope
+4.83/rad against the AR-8 finite-wing anchor 5.0, CDi at 4 deg 0.0049),
+the repeat run was bit-identical, and all 6 metrics pass against the
+seeded reference. Single next action: continue PLN-008 with PHY-02
+(calibrate SET_ANALYSIS_SYMMETRY_LOADS on the real solver first) and
+the version-comparison suite skeleton (synthetic first, SMI local).
+Probe specs for the import trio would promote them from documented on
+the next sweep. PLN-012 stays parked. The xarray gate (PLN-006) is
+decided when `post/` starts. `convert-matrix` CLI wiring can join the
+`pyfs-qa` precedent when convenient.
 
 ## Open questions
 
@@ -67,7 +66,9 @@ the `pyfs-qa` precedent when convenient.
   function grammar of SRC-003 p.279, `int_list` and `float_list`
   argument types for index and sweep value lists, a `control` phase
   for script-control commands exempt from phase ordering, and an
-  `ArgSpec.required` flag for optional parameters.
+  `ArgSpec.required` flag for optional parameters. At M4 it adds the
+  `bool` presence-keyword argument type, keyword_block only, for
+  valueless keyword lines (the bare CLEAR of IMPORT, SRC-003 p.307).
 * PLN-003 grew from the ~40 estimate to 113 entries because the four
   approved families (author's decision of 2026-07-21) were delivered
   as complete manual chapters; statuses stay evidence-strict, 26.120
