@@ -25,13 +25,16 @@ Milestone map per the Bootstrap Kit (`_private/design/DLV-004`, Section 7).
 
 ## Current focus
 
-M2. Builder core is in (validating emit, phase ordering, layout
-renderers, steady polar golden). Single next action: the curated
-helper layer of SAD Section 4.3 (free stream, actuator disc, rotary
-motion, solver settings, sweeps, analysis and export, probes), which
-also closes the INITIALIZE_SOLVER per-surface and PERIODIC gaps noted
-in the script module docstring; then files/ layout and the local
-executor. The xarray gate (PLN-006) is decided when `post/` starts.
+M2. Builder core and the curated helper layer of SAD Section 4.3 are
+in: `script/helpers.py` covers free stream and atmosphere, actuator
+disc, rotary motion, solver settings, initialization, sweeps, analysis
+and export, and probes; the INITIALIZE_SOLVER per-surface and PERIODIC
+gaps are closed in the database (`surface_toggles`, `symmetry_copies`),
+and the builder now validates frame, actuator, and motion cross
+references (SAD Section 4.2) with `declare_existing()` for objects
+carried by an opened project. Single next action: `files/` run
+workspace layout and the local executor, then the campaign loop and
+manifest. The xarray gate (PLN-006) is decided when `post/` starts.
 
 ## Open questions
 
