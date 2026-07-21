@@ -40,3 +40,4 @@ guide/*.toc
 guide/*.fls
 guide/*.fdb_latexmk
 guide/*.synctex.gz
+guide/*.vrb
