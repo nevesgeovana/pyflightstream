@@ -1,0 +1,10 @@
+id,milestone,item,priority,status,ref,note
+PLN-001,M1,versions.py: FsVersion value object with the 26.XXX scheme; ordered registry read from commands/_meta.yaml; display aliases; UnknownVersionError,P0,planned,SAD Section 2,Ordering comes from the list position never from string or float comparison
+PLN-002,M1,Command database schema and loader: CommandRegistry.load() and per-version views; schema fields layout/phase/args/manual_ref/versions/status,P0,planned,SAD Section 3,Statuses documented/verified/broken/removed; verified and broken must cite a committed report
+PLN-003,M1,Draft ~40 core steady commands with manual page citations,P0,planned,SAD Section 14,Reading map is the research-workspace deep review of the manual (TSR-003); answers as a side effect whether the predecessor generated scripts use deprecated syntax
+PLN-004,M1,Tier 1 database tests: schema integrity and status-evidence checks pass on the drafted set,P0,planned,DLV-004 Section 7,M1 exit criterion
+PLN-005,M2,Script builder with phase ordering and validating emit; curated helpers; files/ layout; local executor; campaign loop; manifest; loads parser; goldens; legacy matrix reader,P0,planned,SAD Sections 4 to 8,Exit: end-to-end dry run plus one real local run
+PLN-006,M2,Confirm xarray as runtime dependency behind the ResultArray facade,P1,planned,SAD Section 9,Geovana's confirmation pending; marked in pyproject.toml
+PLN-007,M3,Tier 2 probe harness and first compat report for 26.120; apply-compat promotion,P0,planned,SAD Section 11,Requires the licensed machine
+PLN-008,M4,PHY-01/02 physics cases plus version-comparison suite (synthetic committed; SMI local only),P0,planned,SAD Section 11,
+PLN-009,M5,Docs: command reference and compatibility matrix generated from the database; steady polar example,P0,planned,DLV-004 Section 7,Exit: strict docs build and the example runs

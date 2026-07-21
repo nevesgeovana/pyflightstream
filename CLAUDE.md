@@ -45,3 +45,14 @@ issue tracking the pending probe.
 src layout per the SAD. Dependencies flow downward:
 versions <- commands <- script/results <- cases <- run/files <- post/qa.
 Never import upward.
+
+## Session protocol
+
+Every working session starts by stating its objective against
+STATUS.md, and ends with /handoff out, which writes the session
+handoff under handoffs/, appends the logbook.csv row, and updates
+STATUS.md. Planning lives in plan.csv via /plan. These session
+documents are committed and must satisfy the same guards as the rest
+of the repository. Conversation with the author may be in Portuguese;
+every committed artifact is in English (invariant 6). The design
+documents (SRS, SAD, Bootstrap Kit) are local-only in _private/design/.
