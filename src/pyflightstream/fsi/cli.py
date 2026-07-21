@@ -55,18 +55,21 @@ def init_dummy(directory: Path, node_count: int) -> None:
     print(f"dummy config written: {directory / DUMMY_CONFIG} (node_count {node_count})")
 
 
-def dummy_step(cwd: Path) -> int:
+def dummy_step(cwd: Path, received_argv: tuple[str, ...] = ()) -> int:
     """Execute one dummy coupling call in ``cwd``.
 
     Archives the visible interface files, writes zero displacements,
-    and appends to the call log. Returns a process exit code.
+    and appends to the call log. The working directory and any
+    received arguments are recorded on every call: both are open
+    questions of the WP1 dry run. Returns a process exit code.
     """
     stamp = datetime.datetime.now().isoformat(timespec="milliseconds")
+    argv_note = f"argv {list(received_argv)}" if received_argv else "argv none"
     config_path = cwd / DUMMY_CONFIG
     if not config_path.is_file():
         listing = "\n".join(sorted(p.name for p in cwd.iterdir()))
         (cwd / ERROR_LOG).write_text(
-            f"{stamp} pyfs-fsi called without {DUMMY_CONFIG} in {cwd}\n"
+            f"{stamp} pyfs-fsi called without {DUMMY_CONFIG} in {cwd} ({argv_note})\n"
             f"directory listing:\n{listing}\n",
             encoding="utf-8",
         )
@@ -108,8 +111,8 @@ def dummy_step(cwd: Path) -> int:
 
     with (cwd / CALL_LOG).open("a", encoding="utf-8") as log:
         log.write(
-            f"{stamp} call {call_number}: wrote {node_count} zero displacement "
-            f"vectors; archived {copied or 'nothing'}\n"
+            f"{stamp} call {call_number} (cwd {cwd}, {argv_note}): wrote "
+            f"{node_count} zero displacement vectors; archived {copied or 'nothing'}\n"
         )
     return 0
 
@@ -120,6 +123,11 @@ def main(argv: list[str] | None = None) -> int:
     if not argv:
         # FlightStream calls the executable bare: one dummy coupling step.
         return dummy_step(Path.cwd())
+    if argv[0] not in ("init-dummy", "step", "-h", "--help"):
+        # Unknown call convention: the Toolbox may pass arguments of its
+        # own (a WP1 open question). Execute the coupling step anyway and
+        # record the arguments as evidence instead of dying on argparse.
+        return dummy_step(Path.cwd(), received_argv=tuple(argv))
     parser = argparse.ArgumentParser(
         prog="pyfs-fsi",
         description=(

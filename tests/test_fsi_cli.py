@@ -39,3 +39,14 @@ def test_bare_call_without_config_leaves_evidence(tmp_path, monkeypatch):
     error = (tmp_path / cli.ERROR_LOG).read_text(encoding="utf-8")
     assert "pyfs_fsi_dummy.json" in error
     assert "directory listing" in error
+
+
+def test_unknown_call_convention_is_executed_and_recorded(tmp_path, monkeypatch):
+    """If the Toolbox passes arguments, the step runs and records them."""
+    cli.main(["init-dummy", "--node-count", "2", "--dir", str(tmp_path)])
+    monkeypatch.chdir(tmp_path)
+    assert cli.main(["some", "toolbox", "args"]) == 0
+    assert (tmp_path / cli.DISPLACEMENT_FILE).is_file()
+    log = (tmp_path / cli.CALL_LOG).read_text(encoding="utf-8")
+    assert "argv ['some', 'toolbox', 'args']" in log
+    assert f"cwd {tmp_path}" in log
