@@ -45,7 +45,6 @@ statuses; then the loads parser toward the M2 exit criterion
 |---|---|
 | xarray as a runtime dependency behind the `ResultArray` facade | Geovana's confirmation at M2 (SAD Section 9; noted in `pyproject.toml`) |
 | Whether to genericize the SMI name in the repository (currently kept, required by the version-comparison case design) | Open option, Geovana's decision |
-| Persistent `gh auth login`: approved 2026-07-21, browser flow pending Geovana's run (gh lives at `C:\Program Files\GitHub CLI\gh.exe`, off PATH); the GH_TOKEN-via-`git credential fill` workaround is blocked by the Claude Code permission classifier as of 2026-07-21, so CI status checks need the login or a permission rule | Geovana's run of the browser flow (type `! & "C:\Program Files\GitHub CLI\gh.exe" auth login --web` in a Claude Code session) |
 | SWEEPER entries are drafted from the worked example (SRC-003 p.406) and the Script Index (p.383); the Sweeper Toolbox chapter (pp.264-279) is not deep-reviewed and may widen the argument grammars | Follow-up manual pass |
 
 ## Recorded deviations

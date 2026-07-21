@@ -40,10 +40,12 @@ ruff check and format clean, mkdocs strict build.
 6. gh authentication: the GH_TOKEN-via-`git credential fill` export
    is blocked by the Claude Code permission classifier (twice, even
    under explicit instruction); recorded in the STATUS open question.
-   The fix is Geovana running the approved persistent browser login
-   once, via `! & "C:\Program Files\GitHub CLI\gh.exe" auth login
-   --web` inside a session, or a permission rule. CI status for this
-   session's push was therefore not watched from the session.
+   Resolved the same day: Geovana ran the persistent browser login
+   in-session (`! "/c/Program Files/GitHub CLI/gh.exe" auth login
+   --web`; the `!` prefix runs bash, not PowerShell). With gh
+   working, CI evidence for this day's sessions: HND-004 close run
+   29849504057 success, HND-005 close run 29850366257 success. The
+   STATUS open question is closed.
 
 ## 3. Changes persisted
 
