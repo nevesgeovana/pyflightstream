@@ -124,6 +124,23 @@ def test_bare_layout_takes_no_args():
         make_entry(layout="bare")
 
 
+def test_joins_previous_rejects_lists_and_needs_a_preceding_keyword_line():
+    with pytest.raises(ValidationError, match="cannot join the previous line"):
+        ArgSpec(name="indices", type="int_list", joins_previous=True)
+    with pytest.raises(ValidationError, match="keyword_block layout and a preceding"):
+        make_entry(args=[{"name": "copies", "type": "int", "joins_previous": True}])
+    with pytest.raises(ValidationError, match="keyword_block layout and a preceding"):
+        make_entry(
+            layout="keyword_block",
+            args=[{"name": "copies", "type": "int", "joins_previous": True}],
+        )
+
+
+def test_str_list_arguments_hold_strings():
+    spec = ArgSpec(name="surface_toggles", type="str_list", separator="newline", required=False)
+    assert spec.is_list
+
+
 def test_unquoted_yaml_version_keys_are_rejected():
     with pytest.raises(ValidationError, match="quote canonical identifiers"):
         make_entry(versions={26.12: {"status": "documented"}})

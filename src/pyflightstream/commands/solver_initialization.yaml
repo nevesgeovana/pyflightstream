@@ -11,11 +11,19 @@ INITIALIZE_SOLVER:
                TRANSONIC_FIELD_PANEL, TANGENT_CONE, MODIFIED_NEWTONIAN]
     - name: surfaces
       type: int
+    - name: surface_toggles
+      type: str_list
+      separator: newline
+      required: false
     - name: wake_termination_x
       type: str
     - name: symmetry
       type: enum
       values: [NONE, MIRROR, PERIODIC]
+    - name: symmetry_copies
+      type: int
+      required: false
+      joins_previous: true
     - name: wall_collision_avoidance
       type: enum
       values: [ENABLE, DISABLE]
@@ -26,12 +34,16 @@ INITIALIZE_SOLVER:
   notes: >
     SURFACES takes -1 for all boundaries or a count followed by one
     line per surface with the surface index and the quad mesher toggle
-    (index,ENABLE). WAKE_TERMINATION_X takes an X location in the
-    reference frame or DEFAULT for auto-computation. PERIODIC symmetry
-    appends the number of copies. WALL_COLLISION_AVOIDANCE applies to
-    solver models 1 to 3. Initializing MIRROR symmetry with a full
-    (non-half) model diverges instantly (SRC-003 p.217); case metadata
-    declaring a full model triggers a build-time warning at M2.
+    (SURFACE_TOGGLES lines of the form index,ENABLE; the count check
+    ties them to SURFACES). WAKE_TERMINATION_X takes an X location in
+    the reference frame or DEFAULT for auto-computation. PERIODIC
+    symmetry appends the number of copies on the SYMMETRY line
+    (SYMMETRY_COPIES). WALL_COLLISION_AVOIDANCE applies to solver
+    models 1 to 3. The initialize_solver helper builds both extended
+    forms from typed arguments. Initializing MIRROR symmetry with a
+    full (non-half) model diverges instantly (SRC-003 p.217); case
+    metadata declaring a full model triggers a build-time warning when
+    cases/ lands.
 
 SOLVER_PROXIMAL_BOUNDARIES:
   layout: payload_lines

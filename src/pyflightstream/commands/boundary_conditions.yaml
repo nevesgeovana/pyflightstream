@@ -59,6 +59,25 @@ SET_FREESTREAM:
     - name: type
       type: enum
       values: [CONSTANT, CUSTOM, ROTATION]
+    - name: filetype
+      type: enum
+      values: [STRUCTURED, UNSTRUCTURED]
+      required: false
+    - name: frame
+      type: int
+      required: false
+    - name: axis
+      type: enum
+      values: [X, Y, Z]
+      required: false
+    - name: angular_velocity
+      type: float
+      unit: "rev/min"
+      required: false
+    - name: filename
+      type: path
+      required: false
+      own_line: true
   manual_ref: "SRC-003 p.322"
   versions:
     "26.120": {status: documented}
@@ -66,8 +85,9 @@ SET_FREESTREAM:
     CONSTANT needs no further input. CUSTOM appends a FILETYPE token
     (STRUCTURED or UNSTRUCTURED) and takes the profile file path on
     the next line. ROTATION appends frame index, axis (X, Y or Z) and
-    angular velocity in RPM. The extended forms are conditional and
-    are emitted by dedicated helpers at M2 (SRC-003 p.322).
+    angular velocity in RPM. Which optional arguments each type takes
+    is conditional; the free_stream helper enforces the valid
+    combinations (SRC-003 p.322).
 
 FLUID_PROPERTIES:
   layout: keyword_block

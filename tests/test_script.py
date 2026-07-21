@@ -18,7 +18,14 @@ def build_steady_polar(script: Script) -> None:
     script.emit("AUTO_DETECT_WAKE_TERMINATION_NODES")
     script.emit("SET_FREESTREAM", "CONSTANT")
     script.emit("AIR_ALTITUDE", 0.0, "METERS")
-    script.emit("INITIALIZE_SOLVER", "INCOMPRESSIBLE", -1, "DEFAULT", "MIRROR", "DISABLE")
+    script.emit(
+        "INITIALIZE_SOLVER",
+        solver_model="INCOMPRESSIBLE",
+        surfaces=-1,
+        wake_termination_x="DEFAULT",
+        symmetry="MIRROR",
+        wall_collision_avoidance="DISABLE",
+    )
     script.emit("SOLVER_SET_AOA", 2.0)
     script.emit("SOLVER_SET_VELOCITY", 30.0)
     script.emit("SOLVER_SET_REF_VELOCITY", 30.0)
@@ -49,7 +56,13 @@ def test_removed_command_raises_with_citation():
 
 def test_phase_order_is_enforced_with_a_didactic_message():
     script = Script(version="26.12")
-    script.emit("INITIALIZE_SOLVER", "INCOMPRESSIBLE", -1, "DEFAULT", "NONE")
+    script.emit(
+        "INITIALIZE_SOLVER",
+        solver_model="INCOMPRESSIBLE",
+        surfaces=-1,
+        wake_termination_x="DEFAULT",
+        symmetry="NONE",
+    )
     with pytest.raises(ScriptOrderError, match="INITIALIZE_SOLVER at line"):
         script.emit("CREATE_NEW_COORDINATE_SYSTEM")
 
@@ -103,12 +116,14 @@ def test_param_lines_rendering_mixes_keys_and_bare_paths():
 
 def test_inline_own_line_path_renders_after_the_command():
     script = Script(version="26.12")
+    script.declare_existing(actuators=2)
     script.emit("SET_PROP_ACTUATOR_PROFILE", 2, "NEWTONS", 4, "C:/props/thrust.txt")
     assert script.render() == ("SET_PROP_ACTUATOR_PROFILE 2 NEWTONS 4\nC:/props/thrust.txt\n\n")
 
 
 def test_comma_separated_payload_list():
     script = Script(version="26.12")
+    script.declare_existing(motions=1)
     script.emit("SET_MOTION_BOUNDARIES", 1, 4, [1, 2, 3, 5])
     assert script.render() == "SET_MOTION_BOUNDARIES 1 4\n1,2,3,5\n\n"
 

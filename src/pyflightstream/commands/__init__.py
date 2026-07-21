@@ -94,7 +94,11 @@ class ArgType(enum.StrEnum):
     data line, the grammar FlightStream uses for boundary and surface
     selections (for example SRC-003 p.319). ``float_list`` is a list of
     real values, for example the custom sweep values of
-    SWEEPER_SET_AOA_SWEEP (SRC-003 p.406).
+    SWEEPER_SET_AOA_SWEEP (SRC-003 p.406). ``str_list`` is a list of
+    preformatted composite tokens, one per data line, used where a
+    single line pairs an index with a toggle, such as the per-surface
+    ``index,ENABLE`` lines of INITIALIZE_SOLVER (SRC-003 p.337); the
+    typed pair validation lives in the curated helper that emits it.
     """
 
     INT = "int"
@@ -104,6 +108,7 @@ class ArgType(enum.StrEnum):
     PATH = "path"
     INT_LIST = "int_list"
     FLOAT_LIST = "float_list"
+    STR_LIST = "str_list"
     ENUM = "enum"
     ENUM_LIST = "enum_list"
 
@@ -158,6 +163,11 @@ class ArgSpec(BaseModel):
         For inline commands whose file path follows on the line after
         the inline arguments (for example SET_PROP_ACTUATOR_PROFILE,
         SRC-003 pp.323-324).
+    joins_previous : bool
+        The value is appended to the script line of the preceding
+        argument instead of taking its own KEY VALUE line; the copy
+        count that PERIODIC symmetry appends to the SYMMETRY line of
+        INITIALIZE_SOLVER (SRC-003 p.337) is the documented case.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -169,6 +179,7 @@ class ArgSpec(BaseModel):
     required: bool = True
     separator: ListSeparator = ListSeparator.COMMA
     own_line: bool = False
+    joins_previous: bool = False
 
     @model_validator(mode="after")
     def _enum_types_carry_values(self) -> ArgSpec:
@@ -182,12 +193,23 @@ class ArgSpec(BaseModel):
     @property
     def is_list(self) -> bool:
         """Whether the argument holds several values."""
-        return self.type in (ArgType.INT_LIST, ArgType.FLOAT_LIST, ArgType.ENUM_LIST)
+        return self.type in (
+            ArgType.INT_LIST,
+            ArgType.FLOAT_LIST,
+            ArgType.STR_LIST,
+            ArgType.ENUM_LIST,
+        )
 
     @model_validator(mode="after")
     def _separator_only_for_lists(self) -> ArgSpec:
         if self.separator is not ListSeparator.COMMA and not self.is_list:
             raise ValueError(f"argument {self.name!r} is scalar and takes no separator")
+        return self
+
+    @model_validator(mode="after")
+    def _joins_previous_only_for_scalars(self) -> ArgSpec:
+        if self.joins_previous and self.is_list:
+            raise ValueError(f"argument {self.name!r} is a list and cannot join the previous line")
         return self
 
 
@@ -309,6 +331,18 @@ class CommandEntry(BaseModel):
     def _own_line_only_for_inline(self) -> CommandEntry:
         if self.layout is not Layout.INLINE and any(arg.own_line for arg in self.args):
             raise ValueError(f"{self.name}: own_line only applies to inline commands")
+        return self
+
+    @model_validator(mode="after")
+    def _joins_previous_needs_a_keyword_line_before(self) -> CommandEntry:
+        for position, arg in enumerate(self.args):
+            if not arg.joins_previous:
+                continue
+            if self.layout is not Layout.KEYWORD_BLOCK or position == 0:
+                raise ValueError(
+                    f"{self.name}: joins_previous requires a keyword_block layout and a "
+                    "preceding argument line to append to"
+                )
         return self
 
     def status_in(self, version: FsVersion) -> VersionStatus | None:
