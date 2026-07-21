@@ -19,6 +19,7 @@ NEW_PROBE_POINT:
       type: float
   manual_ref: "SRC-003 p.362"
   versions:
+    "26.100": {status: documented, note: "SRC-725 p.361, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
 
 NEW_PROBE_LINE:
@@ -41,6 +42,7 @@ NEW_PROBE_LINE:
       type: float
   manual_ref: "SRC-003 p.362"
   versions:
+    "26.100": {status: documented, note: "SRC-725 p.361, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
   notes: >
     Survey line with NUMPTS probe vertices between the start and end
@@ -52,6 +54,7 @@ UPDATE_PROBE_POINTS:
   args: []
   manual_ref: "SRC-003 p.362"
   versions:
+    "26.100": {status: documented, note: "SRC-725 p.361, same grammar as 26.120"}
     "26.120": {status: documented}
   notes: >
     Refreshes the probe values from the current solution; run it
@@ -71,6 +74,7 @@ PROBE_POINTS_IMPORT:
       type: path
   manual_ref: "SRC-003 pp.362-363"
   versions:
+    "26.100": {status: documented, note: "SRC-725 pp.361-362, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
   notes: >
     Imports a probe lattice from a CSV file whose rows are
@@ -86,6 +90,7 @@ EXPORT_PROBE_POINTS:
       type: path
   manual_ref: "SRC-003 p.363"
   versions:
+    "26.100": {status: documented, note: "SRC-725 p.362, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
 
 DELETE_PROBE_POINTS:
@@ -94,4 +99,5 @@ DELETE_PROBE_POINTS:
   args: []
   manual_ref: "SRC-003 p.363"
   versions:
+    "26.100": {status: documented, note: "SRC-725 p.362, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}

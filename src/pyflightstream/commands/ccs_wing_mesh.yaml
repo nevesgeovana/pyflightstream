@@ -1,0 +1,74 @@
+# Chapter: Scripting reference, CCS Wing Mesh (SRC-003 pp.297-299).
+# Only the gapped control-surface command is drafted so far: it is the
+# family member whose grammar is version-sensitive (the SPACE and AXIS
+# parameters added at 26.12); the remaining family entries await a
+# dedicated chapter pass.
+
+NEW_CCS_WING_CONTROL_SURFACE:
+  layout: inline
+  phase: geometry
+  args:
+    - name: name
+      type: str
+    - name: v0
+      type: float
+    - name: v1
+      type: float
+    - name: u0
+      type: float
+    - name: u1
+      type: float
+    - name: hinge_height
+      type: float
+    - name: angle
+      type: float
+      unit: "deg"
+    - name: slot_gap
+      type: float
+      unit: "percent of span"
+    - name: space
+      type: enum
+      values: [REAL, PARAMETRIC]
+      required: false
+    - name: axis
+      type: enum
+      values: [X, Y, Z]
+      required: false
+  manual_ref: "SRC-003 p.299"
+  versions:
+    "26.100":
+      status: documented
+      note: >-
+        SRC-725 p.298: eight-argument form; the SPACE and AXIS
+        parameters do not exist in 26.1, so spanwise placement is
+        parametric only
+      args:
+        - name: name
+          type: str
+        - name: v0
+          type: float
+        - name: v1
+          type: float
+        - name: u0
+          type: float
+        - name: u1
+          type: float
+        - name: hinge_height
+          type: float
+        - name: angle
+          type: float
+          unit: "deg"
+        - name: slot_gap
+          type: float
+          unit: "percent of span"
+    "26.120": {status: documented}
+  notes: >
+    Creates a gapped control surface on a CCS wing component. V0 and
+    V1 are the spanwise limits, U0 and U1 the chordwise depths from
+    the trailing edge, all parametric in 0 to 1; HINGE_HEIGHT is the
+    parametric hinge location through the airfoil thickness, ANGLE the
+    deflection, and SLOT_GAP a percentage of span. The optional SPACE
+    and AXIS pair exists only from 26.12: SPACE selects REAL or
+    PARAMETRIC interpretation of the spanwise coordinates, and AXIS
+    names the Reference-frame axis used when SPACE is REAL (SRC-003
+    p.299). The 26.1 grammar has neither parameter (SRC-725 p.298).

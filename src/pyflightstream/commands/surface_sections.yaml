@@ -118,6 +118,22 @@ EXPORT_ALL_SURFACE_SECTIONS:
   versions:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
 
+EXPORT_SURFACE_SECTIONS:
+  layout: inline
+  phase: export
+  args:
+    - name: index
+      type: int
+  manual_ref: "SRC-003 p.365"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Exports one surface section by index (index greater than 0), with
+    no filename line documented (SRC-003 p.365). Added at 26.12; the
+    26.1 manual documents only the all-sections export, so a 26.1
+    script exports everything through EXPORT_ALL_SURFACE_SECTIONS and
+    filters afterwards (SRC-725 p.364).
+
 DELETE_SURFACE_SECTION:
   layout: inline
   phase: analysis

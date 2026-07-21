@@ -75,6 +75,30 @@ CREATE_NEW_CIRCLE_VOLUME_SECTION:
     segments between the inner and outer radii; the natural plane for
     slipstream surveys behind an actuator disc.
 
+VOLUME_SECTION_BOUNDARY_LAYER:
+  layout: inline
+  phase: analysis
+  args:
+    - name: index
+      type: int
+    - name: mode
+      type: enum
+      values: [ENABLE, DISABLE]
+  manual_ref: "SRC-725 p.365"
+  versions:
+    "26.100": {status: documented}
+    "26.120":
+      status: removed
+      note: >-
+        absent from the 26.12 manual: the Volume Sections family
+        (SRC-003 pp.366-367) no longer lists the command and the
+        Script Index does not carry it; no replacement documented
+  notes: >
+    Toggles boundary-layer induction on one volume section (index
+    greater than 0). Documented in 26.1 only (SRC-725 p.365); the
+    command disappeared from the manual at 26.12 with no successor in
+    the Volume Sections family.
+
 UPDATE_ALL_VOLUME_SECTIONS:
   layout: bare
   phase: analysis

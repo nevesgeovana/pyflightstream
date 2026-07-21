@@ -70,3 +70,51 @@ SET_VISCOUS_EXCLUDED_BOUNDARIES:
   notes: >
     Excludes the listed boundaries from viscous coupling; the indices
     follow on the next line as comma-separated values.
+
+CREATE_BULK_SEPARATION:
+  layout: payload_lines
+  phase: init
+  args:
+    - name: name
+      type: str
+    - name: separation_type
+      type: enum
+      values: [CYLINDRICAL, FLAT_PLATE]
+    - name: num_boundaries
+      type: int
+    - name: diameter
+      type: float
+      unit: "simulation length units"
+    - name: boundary_indices
+      type: int_list
+      required: false
+  manual_ref: "SRC-003 p.342"
+  versions:
+    "26.100":
+      status: documented
+      note: >-
+        SRC-725 p.341 documents a three-argument form without
+        SEPARATION_TYPE. The same page's sample blocks spell the
+        command CREARE_BULK_SEPARATION while the function header
+        spells CREATE_BULK_SEPARATION; which token the 26.1 solver
+        accepts is unverified (pending probe, PLN-015)
+      args:
+        - name: name
+          type: str
+        - name: num_boundaries
+          type: int
+        - name: diameter
+          type: float
+          unit: "simulation length units"
+        - name: boundary_indices
+          type: int_list
+          required: false
+    "26.120": {status: documented}
+  notes: >
+    Assigns the bulk (bluff-body) flow-separation model to the listed
+    boundaries. NUM_BOUNDARIES takes -1 for all mesh boundaries;
+    otherwise the comma-separated indices follow on the next line
+    (SRC-003 p.342). The signature is version-sensitive: 26.12 inserts
+    SEPARATION_TYPE (CYLINDRICAL or FLAT_PLATE, matching the bulk
+    model sub-typing documented at SRC-003 p.207) as the second
+    argument, which the 26.1 grammar does not have (SRC-725 p.341).

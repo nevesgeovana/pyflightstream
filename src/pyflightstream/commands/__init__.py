@@ -16,6 +16,14 @@ Statuses follow the evidence rules of CLAUDE.md invariant 3:
 ``broken`` additionally cite a committed probe report; ``removed``
 records the manual page stating the removal and, when known, a
 successor command.
+
+A command whose argument grammar differs between versions declares the
+grammar of the latest documented version in ``args`` and overrides it
+per version through ``versions.<v>.args``; the per-version view
+resolves the override, so the script builder binds and renders the
+grammar of its target version (the four-versus-three argument forms of
+CREATE_BULK_SEPARATION, SRC-003 p.342 versus SRC-725 p.341, are the
+motivating case).
 """
 
 from __future__ import annotations
@@ -216,6 +224,33 @@ class ArgSpec(BaseModel):
         return self
 
 
+def _check_layout_rules(name: str, layout: Layout, args: tuple[ArgSpec, ...]) -> None:
+    """Reject an argument tuple that contradicts its command's layout.
+
+    Shared between the entry-level ``args`` and every per-version
+    override, so an override cannot smuggle in a grammar the layout
+    renderer does not support.
+    """
+    if layout is Layout.BARE and args:
+        raise ValueError(f"{name} has layout bare and must not declare arguments")
+    if layout is not Layout.INLINE and any(arg.own_line for arg in args):
+        raise ValueError(f"{name}: own_line only applies to inline commands")
+    if layout is not Layout.KEYWORD_BLOCK and any(arg.type is ArgType.BOOL for arg in args):
+        raise ValueError(
+            f"{name}: bool arguments are bare presence keywords of a "
+            "keyword_block (SRC-003 p.307); other layouts spell their toggles "
+            "as ENABLE/DISABLE enums"
+        )
+    for position, arg in enumerate(args):
+        if not arg.joins_previous:
+            continue
+        if layout is not Layout.KEYWORD_BLOCK or position == 0:
+            raise ValueError(
+                f"{name}: joins_previous requires a keyword_block layout and a "
+                "preceding argument line to append to"
+            )
+
+
 class VersionStatus(BaseModel):
     """Evidence record of a command in one FlightStream version.
 
@@ -230,6 +265,13 @@ class VersionStatus(BaseModel):
     report : str, optional
         Repository-relative path of the committed probe report; required
         for ``verified`` and ``broken`` (CLAUDE.md invariant 3).
+    args : tuple of ArgSpec, optional
+        Per-version argument grammar override. Declared when this
+        version's manual documents a different signature than the
+        entry-level ``args``; the per-version view substitutes it, so
+        emission for this version binds and renders the overridden
+        grammar. Absent for a version whose grammar matches the
+        entry-level one, and meaningless for ``removed``.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -238,6 +280,7 @@ class VersionStatus(BaseModel):
     successor: str | None = None
     note: str | None = None
     report: str | None = None
+    args: tuple[ArgSpec, ...] | None = None
 
     @model_validator(mode="after")
     def _statuses_follow_the_evidence_rules(self) -> VersionStatus:
@@ -248,6 +291,11 @@ class VersionStatus(BaseModel):
             )
         if self.successor is not None and self.status is not Status.REMOVED:
             raise ValueError("successor is only recorded for removed commands")
+        if self.args is not None and self.status is Status.REMOVED:
+            raise ValueError(
+                "a removed version has no grammar to emit; args overrides are only "
+                "recorded for versions where the command exists"
+            )
         return self
 
 
@@ -325,39 +373,16 @@ class CommandEntry(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def _bare_commands_take_no_args(self) -> CommandEntry:
-        if self.layout is Layout.BARE and self.args:
-            raise ValueError(f"{self.name} has layout bare and must not declare arguments")
+    def _args_obey_the_layout_rules(self) -> CommandEntry:
+        _check_layout_rules(self.name, self.layout, self.args)
         return self
 
     @model_validator(mode="after")
-    def _own_line_only_for_inline(self) -> CommandEntry:
-        if self.layout is not Layout.INLINE and any(arg.own_line for arg in self.args):
-            raise ValueError(f"{self.name}: own_line only applies to inline commands")
-        return self
-
-    @model_validator(mode="after")
-    def _bool_args_are_keyword_block_presence_keywords(self) -> CommandEntry:
-        if self.layout is not Layout.KEYWORD_BLOCK and any(
-            arg.type is ArgType.BOOL for arg in self.args
-        ):
-            raise ValueError(
-                f"{self.name}: bool arguments are bare presence keywords of a "
-                "keyword_block (SRC-003 p.307); other layouts spell their toggles "
-                "as ENABLE/DISABLE enums"
-            )
-        return self
-
-    @model_validator(mode="after")
-    def _joins_previous_needs_a_keyword_line_before(self) -> CommandEntry:
-        for position, arg in enumerate(self.args):
-            if not arg.joins_previous:
-                continue
-            if self.layout is not Layout.KEYWORD_BLOCK or position == 0:
-                raise ValueError(
-                    f"{self.name}: joins_previous requires a keyword_block layout and a "
-                    "preceding argument line to append to"
-                )
+    def _version_arg_overrides_obey_the_layout_rules(self) -> CommandEntry:
+        for canonical, record in self.versions.items():
+            if record.args is not None:
+                label = f"{self.name} ({canonical} args override)"
+                _check_layout_rules(label, self.layout, record.args)
         return self
 
     def status_in(self, version: FsVersion) -> VersionStatus | None:
@@ -432,6 +457,10 @@ class VersionView:
                 f"{name} is removed in FlightStream {self.version.canonical} "
                 f"({reason}, {entry.manual_ref}).{last_part} {successor}"
             )
+        if record.args is not None:
+            # Per-version grammar override: the returned entry carries the
+            # argument signature this version's manual documents.
+            return entry.model_copy(update={"args": record.args})
         return entry
 
     def __contains__(self, name: str) -> bool:

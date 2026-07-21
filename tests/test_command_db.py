@@ -202,6 +202,55 @@ def test_core_steady_path_is_available_in_26_120():
         view["SONIC_VELOCITY"]
 
 
+def test_version_args_override_resolves_through_the_view():
+    entry = make_entry(
+        versions={
+            "26.100": {
+                "status": "documented",
+                "args": [
+                    {"name": "value", "type": "float", "unit": "m/s"},
+                    {"name": "extra", "type": "int"},
+                ],
+            },
+            "26.120": {"status": "documented"},
+        }
+    )
+    registry = CommandRegistry(commands={"SET_EXAMPLE": entry})
+    assert [spec.name for spec in registry.for_version("26.12")["SET_EXAMPLE"].args] == ["value"]
+    assert [spec.name for spec in registry.for_version("26.1")["SET_EXAMPLE"].args] == [
+        "value",
+        "extra",
+    ]
+
+
+def test_version_args_override_is_rejected_for_removed():
+    with pytest.raises(ValidationError, match="removed version has no grammar"):
+        VersionStatus(status="removed", args=({"name": "value", "type": "float"},))
+
+
+def test_version_args_override_obeys_the_layout_rules():
+    with pytest.raises(ValidationError, match="own_line only applies"):
+        make_entry(
+            layout="param_lines",
+            args=[{"name": "filename", "type": "path"}],
+            versions={
+                "26.120": {
+                    "status": "documented",
+                    "args": [{"name": "filename", "type": "path", "own_line": True}],
+                }
+            },
+        )
+
+
+def test_bulk_separation_grammar_is_version_sensitive():
+    registry = CommandRegistry.load()
+    in_26120 = [spec.name for spec in registry.for_version("26.12")["CREATE_BULK_SEPARATION"].args]
+    in_26100 = [spec.name for spec in registry.for_version("26.1")["CREATE_BULK_SEPARATION"].args]
+    assert "separation_type" in in_26120
+    assert "separation_type" not in in_26100
+    assert in_26100 == ["name", "num_boundaries", "diameter", "boundary_indices"]
+
+
 def test_hotfix_inherits_base_release_until_overridden():
     entry = make_entry()
     hotfix = FsVersion(canonical="26.121", alias="26.12 hotfix 1", index=3)

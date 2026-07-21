@@ -209,3 +209,86 @@ def test_unsteady_monitoring_commands_render_the_manual_grammar():
     assert "VERTEX -2.0 1.4 0.0\n" in text
     assert "SOLVER_SET_FARFIELD_LAYERS 5\n" in text
     assert "SET_WAKE_TERMINATION_TIME_STEPS -36\n" in text
+
+
+def test_bulk_separation_renders_the_grammar_of_its_target_version():
+    # 26.1 versus 26.12 manual delta (SRC-725 p.341 / SRC-003 p.342):
+    # 26.12 inserts SEPARATION_TYPE as the second argument.
+    later = Script(version="26.12")
+    later.emit("CREATE_BULK_SEPARATION", "GEAR", "FLAT_PLATE", 3, 0.2, [1, 3, 5])
+    assert later.render() == "CREATE_BULK_SEPARATION GEAR FLAT_PLATE 3 0.2\n1,3,5\n\n"
+    earlier = Script(version="26.1")
+    earlier.emit("CREATE_BULK_SEPARATION", "GEAR", -1, 0.2)
+    assert earlier.render() == "CREATE_BULK_SEPARATION GEAR -1 0.2\n\n"
+    with pytest.raises(CommandArgumentError, match="no argument 'separation_type'"):
+        Script(version="26.1").emit(
+            "CREATE_BULK_SEPARATION",
+            "GEAR",
+            separation_type="FLAT_PLATE",
+            num_boundaries=-1,
+            diameter=0.2,
+        )
+
+
+def test_export_surface_sections_exists_only_from_26120():
+    later = Script(version="26.12")
+    later.emit("EXPORT_SURFACE_SECTIONS", 2)
+    assert "EXPORT_SURFACE_SECTIONS 2" in later.render()
+    with pytest.raises(CommandNotInVersionError, match="no recorded evidence"):
+        Script(version="26.1").emit("EXPORT_SURFACE_SECTIONS", 2)
+
+
+def test_volume_section_boundary_layer_is_removed_at_26120():
+    earlier = Script(version="26.1")
+    earlier.emit("VOLUME_SECTION_BOUNDARY_LAYER", 2, "DISABLE")
+    assert "VOLUME_SECTION_BOUNDARY_LAYER 2 DISABLE" in earlier.render()
+    with pytest.raises(CommandNotInVersionError, match=r"SRC-725 p\.365"):
+        Script(version="26.12").emit("VOLUME_SECTION_BOUNDARY_LAYER", 2, "DISABLE")
+
+
+def test_ccs_control_surface_space_axis_pair_is_26120_only():
+    later = Script(version="26.12")
+    later.emit(
+        "NEW_CCS_WING_CONTROL_SURFACE",
+        name="Aileron",
+        v0=0.5,
+        v1=0.7,
+        u0=0.15,
+        u1=0.15,
+        hinge_height=0.5,
+        angle=20.0,
+        slot_gap=0.001,
+        space="REAL",
+        axis="Y",
+    )
+    assert (
+        "NEW_CCS_WING_CONTROL_SURFACE Aileron 0.5 0.7 0.15 0.15 0.5 20.0 0.001 REAL Y"
+        in later.render()
+    )
+    earlier = Script(version="26.1")
+    earlier.emit("NEW_CCS_WING_CONTROL_SURFACE", "Aileron", 0.5, 0.7, 0.15, 0.15, 0.5, 20.0, 0.001)
+    with pytest.raises(CommandArgumentError, match="no argument 'space'"):
+        Script(version="26.1").emit(
+            "NEW_CCS_WING_CONTROL_SURFACE",
+            "Aileron",
+            0.5,
+            0.7,
+            0.15,
+            0.15,
+            0.5,
+            20.0,
+            0.001,
+            space="REAL",
+        )
+
+
+def test_probe_family_is_available_in_26100():
+    # TSR evidence: the probe family grammar is unchanged between 26.1
+    # and 26.12 (SRC-725 pp.361-362 / SRC-003 pp.362-363).
+    script = Script(version="26.1")
+    script.emit("NEW_PROBE_POINT", "VOLUME", 1.0, 0.5, 0.0)
+    script.emit("UPDATE_PROBE_POINTS")
+    script.emit("EXPORT_PROBE_POINTS", "C:/probes/out.txt")
+    text = script.render()
+    assert "NEW_PROBE_POINT VOLUME 1.0 0.5 0.0" in text
+    assert "EXPORT_PROBE_POINTS\nC:/probes/out.txt" in text
