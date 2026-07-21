@@ -60,8 +60,8 @@ the phase corrections below, `compare_9001.py` judges:
 * pyflightstream (four commits): the 11-command backfill plus grammar
   fixes; the phase corrections with helper, PHY-02, and spec updates;
   the PHY-02 revalidation report pair; 189 tier 1 tests green.
-* AeropropulsiveResearch/tools/fts_sim (research workspace, outside
-  this repository): README with the verdict, case_9001.py (exact
+* tools/fts_sim (research workspace, outside this repository):
+  README with the verdict, case_9001.py (exact
   literals with derivations), extract_case_data.py plus the two
   monitoring CSVs, recipe_9001.py (fully validated emission),
   run_9001.py, compare_9001.py, campaign_9001.toml (lossless
