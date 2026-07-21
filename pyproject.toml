@@ -10,17 +10,22 @@ readme = "README.md"
 license = {text = "MIT"}
 authors = [{name = "Geovana Neves"}]
 requires-python = ">=3.11"
-# xarray enters at milestone M2 together with the ResultArray facade,
-# pending confirmation (SAD Section 9).
+# xarray confirmed as a runtime dependency by the author's far-field
+# extraction instruction of 2026-07-21 (PLN-006 closed): the farfield
+# ledgers live on labeled (station, r, psi) arrays.
 dependencies = [
     "numpy",
     "pandas",
     "pydantic",
     "pyyaml",
+    "xarray",
 ]
 
 [project.optional-dependencies]
 plot = ["matplotlib"]
+# FSI structural coupling (M6, DLV-007). PyNiteFEA is MIT; license
+# evidence: reports/RPT-002_pynitefea-license_2026-07-21.md (NFR-02).
+fsi = ["PyNiteFEA>=3.0"]
 dev = [
     "pytest",
     "ruff",
