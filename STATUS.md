@@ -23,7 +23,8 @@ Milestone map per the Bootstrap Kit (`_private/design/DLV-004`, Section 7).
 | v0.1.0 | Tag, private | All above green | Done 2026-07-21 (HND-017: tag v0.1.0 pushed, release commit 38c091c, CI runs 29869650235 and 29869821677 green, sdist/wheel clean, CHANGELOG.md) |
 | M6 | FSI subpackage per DLV-007: `[fsi]` extra (PyNiteFEA, license evidence RPT-002), `FsiConfig`, loads parser, PyNite beam with centrifugal terms (Gate 1 Campbell), kinematics, driver, `pyfs-fsi` entry point | WP7 coupled pilot: near-rigid synthetic blade recovers the rigid CT within solver noise; frozen replay reproduces the deformed solution | Done 2026-07-21 (HND-021: WP0/WP3/WP4 with Gate 1; HND-026: WP1 dry run, RPT-005; HND-029: WP2/WP5/WP6 offline; HND-030: WP7 near-rigid pilot on 26.120, RPT-006; HND-031: beta projection delivered and the soft pilot ran, but RPT-007 finds build 7012026 silently drops the FSIDisp morphing on rotary-motion boundaries - two-way rotor FSI solver-blocked, interface proven end to end on the motionless wing control. Follow-ups: vendor question, PLN-019 sweep, optional static-wing two-way pilot) |
 | M7 | Far-field probe extraction per DLV-006: `probes` lattice (serializable, version-aware emission), `farfield` ledgers on xarray (quadrature, harmonic spine, forces, moments, loss channels), G0 synthetic gate as tier 1 | G0 green in CI; probe-export parser and G1 to G5 case-level checks follow with the solver campaign | Started 2026-07-21 (HND-020: lattice, ledgers, and G0 delivered; suite at 220 tests at close, including the parallel M6 session's in-progress files). Extended same day (HND-023): planar probe grids as the controlled volume-section replacement (explicit frames, geometry culling and BL band refinement behind the `[geom]` extra, pre-processing fsm-to-obj export, VTK/Tecplot writers opening `post/`; suite at 265) |
-| v0.2+ | Remaining PHY cases, 26.000/26.100 backfill probing, declarative matrix successor, public release, PyPI | Public checklist (invariants audit) passes | Planned |
+| v0.2.0 | First public release: PyPI and Zenodo | Public checklist (invariants audit) passes | Done 2026-07-22 (HND-032: audit clean, tag v0.2.0, CI green, https://pypi.org/project/pyflightstream/0.2.0/, DOI 10.5281/zenodo.21482925 via the GitHub release, CITATION.cff added) |
+| v0.3+ | Remaining PHY cases, 26.000/26.100 backfill probing, declarative matrix successor | Per-item evidence checks | Planned |
 
 ## Current focus
 
@@ -232,9 +233,17 @@ finding. SET_SIGNIFICANT_DIGITS was also probed on the author's
 recollection: it does not reach the sectional export, so the
 configured-dt remedy stands (validated: phase boundaries exactly
 18/36). Suite at 321. Single next action on this line: the vendor
-question on the morphing defect (Geovana's call, evidence package in
-RPT-007), with PLN-019 and an optional static-wing two-way pilot as
-the licensed follow-ups.
+question on the morphing defect (email and beamer slides ready in
+`_private/vendor/`, Geovana sends), with PLN-019 and an optional
+static-wing two-way pilot as the licensed follow-ups.
+
+v0.2.0 then went public (HND-032, 2026-07-22): invariants audit
+clean, changelog and CITATION.cff assembled, tag and GitHub release
+with CI green, https://pypi.org/project/pyflightstream/0.2.0/ on
+PyPI, and DOI 10.5281/zenodo.21482925 minted by the Zenodo
+integration on the release. The v0.3+ line (remaining PHY cases,
+backfill probing, declarative matrix successor) and the docs-hosting
+question (ProperDocs) are the open public-phase items.
 
 The probe planner extended M7 (HND-023, plan approved by Geovana):
 planar Cartesian probe grids replace the volume sections wherever the
