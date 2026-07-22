@@ -2,10 +2,10 @@ schema: pyflightstream-physics-reference/1
 case: PHY-06
 fs_version_basis: '26.120'
 updated: '2026-07-21'
-reason: 'metric set redefined to the full polar trend on Geovana''s instruction (HND-026): per-alpha steady-versus-unsteady
-  deltas of CL, CD, CMy over 0/2/4/6 deg plus both lift and pitching-moment slopes; measured deltas grow
-  monotonically to +0.0030 in CL at 6 deg, all inside the declared bands, and the steady lift slope 4.8266/rad
-  reproduces PHY-01'
+reason: 'metric set redefined to the full polar trend on Geovana''s instruction (evidence: PHY-26120_2026-07-21_phy06-polar-first
+  and -banded): per-alpha steady-versus-unsteady deltas of CL, CD, CMy over 0/2/4/6 deg plus both lift
+  and pitching-moment slopes; measured deltas grow monotonically to +0.0030 in CL at 6 deg, all inside
+  the declared bands, and the steady lift slope 4.8266/rad reproduces PHY-01'
 source_report: reports/physics/PHY-26120_2026-07-21_phy06-polar-first.yaml
 metrics:
   delta_CL_a0:
