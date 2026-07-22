@@ -1,21 +1,24 @@
 """``pyfs-fsi`` console entry point: the FSI coupling executable.
 
-Pipeline role: WP1 of DLV-007. FlightStream's Aeroelastic Toolbox
-calls an external executable between coupling iterations
-(``SET_MOTION_FSI_EXECUTABLE`` family, SRC-003 pp.335-336). This
-module is that executable. Today it implements the dummy mode of the
-WP1 dry run: write zero displacements so the blade stays rigid, and
-archive every interface file FlightStream produces, so the loads
-parser (WP2) is later written against real fixtures instead of
-documentation. The coupled driver (WP6) will plug into the same entry
-point.
+Pipeline role: FlightStream's Aeroelastic Coupling Toolbox calls an
+external executable bare, once per time step, in the directory set by
+``SET_AEROELASTIC_WORKING_DIRECTORY`` (SRC-003 pp.375-376; evidence
+reports/RPT-005). This module is that executable, with two modes
+dispatched on the run folder's content:
 
-The Toolbox may call the executable with no arguments and an unknown
-working directory; both are open questions the dry run closes. The
-dummy therefore takes its settings from a ``pyfs_fsi_dummy.json``
-placed in the working directory beforehand (``pyfs-fsi init-dummy``),
-and logs everything it sees to files, since nothing printed to stdout
-is visible from inside the solver.
+* Coupled mode (WP7): a ``config.json`` in the working directory makes
+  every call run :func:`pyflightstream.fsi.driver.coupling_step`, the
+  complete four-phase machine of WP6. The loads and displacement
+  files of every call are archived under ``fsi_archive/`` so a run is
+  replayable offline afterwards.
+* Dummy mode (WP1, kept as the fallback): with no ``config.json``,
+  write zero displacements so the blade stays rigid and archive every
+  interface file FlightStream produces; this is how the dry-run
+  fixtures were collected.
+
+Nothing printed to stdout is visible from inside the solver, so both
+modes log to files and any coupled-mode failure lands with its
+traceback in ``pyfs_fsi_error.log`` instead of a silent nonzero exit.
 """
 
 import argparse
@@ -23,7 +26,10 @@ import datetime
 import json
 import shutil
 import sys
+import traceback
 from pathlib import Path
+
+COUPLED_CONFIG = "config.json"
 
 DUMMY_CONFIG = "pyfs_fsi_dummy.json"
 STATE_FILE = "pyfs_fsi_dummy_state.json"
@@ -53,6 +59,42 @@ def init_dummy(directory: Path, node_count: int) -> None:
     config = {"node_count": node_count}
     (directory / DUMMY_CONFIG).write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
     print(f"dummy config written: {directory / DUMMY_CONFIG} (node_count {node_count})")
+
+
+def coupled_step(cwd: Path, received_argv: tuple[str, ...] = ()) -> int:
+    """Execute one real coupling call in ``cwd`` (WP7 wiring).
+
+    Runs :func:`pyflightstream.fsi.driver.coupling_step`, archives the
+    call's loads and displacement files for offline replay, and logs
+    the outcome. Any failure writes its traceback to the error log
+    and returns a nonzero exit code, which aborts the FlightStream
+    coupling instead of silently continuing rigid.
+    """
+    stamp = datetime.datetime.now().isoformat(timespec="milliseconds")
+    argv_note = f"argv {list(received_argv)}" if received_argv else "argv none"
+    # PyNite lives behind the optional [fsi] extra; import at call time
+    # so the dummy mode keeps working without it.
+    from pyflightstream.fsi import driver
+
+    try:
+        result = driver.coupling_step(cwd)
+    except Exception:
+        with (cwd / ERROR_LOG).open("a", encoding="utf-8") as log:
+            log.write(f"{stamp} coupled step failed in {cwd} ({argv_note})\n")
+            log.write(traceback.format_exc() + "\n")
+        return 1
+    archive = cwd / ARCHIVE_DIR / f"call_{result.call:04d}"
+    archive.mkdir(parents=True, exist_ok=True)
+    for name in (driver.LOADS_FILE, driver.DISPLACEMENT_FILE):
+        source = cwd / name
+        if source.is_file():
+            shutil.copy2(source, archive / name)
+    with (cwd / CALL_LOG).open("a", encoding="utf-8") as log:
+        log.write(
+            f"{stamp} coupled call {result.call} (step {result.step}, phase "
+            f"{result.phase}, cwd {cwd}, {argv_note}): FSIDisp written\n"
+        )
+    return 0
 
 
 def dummy_step(cwd: Path, received_argv: tuple[str, ...] = ()) -> int:
@@ -118,17 +160,25 @@ def dummy_step(cwd: Path, received_argv: tuple[str, ...] = ()) -> int:
     return 0
 
 
+def _step(cwd: Path, received_argv: tuple[str, ...] = ()) -> int:
+    """Dispatch one coupling call: coupled if configured, dummy otherwise."""
+    if (cwd / COUPLED_CONFIG).is_file():
+        return coupled_step(cwd, received_argv=received_argv)
+    return dummy_step(cwd, received_argv=received_argv)
+
+
 def main(argv: list[str] | None = None) -> int:
     """Entry point of the ``pyfs-fsi`` console script."""
     argv = sys.argv[1:] if argv is None else argv
     if not argv:
-        # FlightStream calls the executable bare: one dummy coupling step.
-        return dummy_step(Path.cwd())
+        # FlightStream calls the executable bare: one coupling step,
+        # coupled when the working directory carries a config.json.
+        return _step(Path.cwd())
     if argv[0] not in ("init-dummy", "step", "-h", "--help"):
         # Unknown call convention: the Toolbox may pass arguments of its
-        # own (a WP1 open question). Execute the coupling step anyway and
-        # record the arguments as evidence instead of dying on argparse.
-        return dummy_step(Path.cwd(), received_argv=tuple(argv))
+        # own. Execute the coupling step anyway and record the arguments
+        # as evidence instead of dying on argparse.
+        return _step(Path.cwd(), received_argv=tuple(argv))
     parser = argparse.ArgumentParser(
         prog="pyfs-fsi",
         description=(
@@ -149,7 +199,7 @@ def main(argv: list[str] | None = None) -> int:
             parser.error("a structural node list has at least one node")
         init_dummy(args.dir, args.node_count)
         return 0
-    return dummy_step(args.dir)
+    return _step(args.dir)
 
 
 if __name__ == "__main__":

@@ -1,8 +1,10 @@
-"""Tier 1: WP1 dummy executable behavior of pyfs-fsi."""
+"""Tier 1: pyfs-fsi executable, dummy mode (WP1) and coupled dispatch (WP7)."""
 
 import json
 
-from pyflightstream.fsi import cli
+from test_fsi_driver import stage_run, write_loads
+
+from pyflightstream.fsi import cli, driver
 
 
 def test_init_dummy_then_step_writes_zero_displacements(tmp_path):
@@ -51,3 +53,28 @@ def test_unknown_call_convention_is_executed_and_recorded(tmp_path, monkeypatch)
     log = (tmp_path / cli.CALL_LOG).read_text(encoding="utf-8")
     assert "argv ['some', 'toolbox', 'args']" in log
     assert f"cwd {tmp_path}" in log
+
+
+def test_config_json_dispatches_to_the_coupled_driver(tmp_path):
+    """WP7 wiring: a configured run folder runs the real machine."""
+    stage_run(tmp_path)
+    write_loads(tmp_path, 100)
+    assert cli.main(["step", "--dir", str(tmp_path)]) == 0
+    # The driver ran: state, log, and displacement file exist.
+    assert (tmp_path / driver.STATE_FILE).is_file()
+    assert (tmp_path / driver.LOG_FILE).is_file()
+    assert (tmp_path / cli.DISPLACEMENT_FILE).is_file()
+    # The call is archived for offline replay.
+    archive = tmp_path / cli.ARCHIVE_DIR / "call_0001"
+    assert (archive / driver.LOADS_FILE).is_file()
+    assert (archive / driver.DISPLACEMENT_FILE).is_file()
+    assert "coupled call 1" in (tmp_path / cli.CALL_LOG).read_text(encoding="utf-8")
+
+
+def test_coupled_failure_lands_in_the_error_log(tmp_path):
+    """In-solver stdout is invisible: failures must leave a traceback."""
+    stage_run(tmp_path)  # config.json present, but no loads file staged
+    assert cli.main(["step", "--dir", str(tmp_path)]) == 1
+    error = (tmp_path / cli.ERROR_LOG).read_text(encoding="utf-8")
+    assert "coupled step failed" in error
+    assert "Traceback" in error
