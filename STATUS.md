@@ -75,7 +75,15 @@ generic blade generator entered `qa/geometry.py` (analytic public
 shape laws, watertight loft, tier 1 tests) and the shareable case
 9002 runs the complete propeller workflow on it, baseline seeded on
 26.120 (net thrust, physically sane transient); it is the geometry
-seed PLN-014/PHY-05 will wire into the Tier 3 matrix.
+seed PLN-014/PHY-05 will wire into the Tier 3 matrix. The wiring
+landed the same day (HND-025): PHY-05 (generic-blade unsteady
+periodic propeller, first measurement bit-identical to the case 9002
+baseline) and PHY-06 (steady versus unsteady equivalence on the
+PHY-01 wing, march landing at +0.0022 in CL of the steady solution,
+both anchors reproduced) are committed with seeded banded references
+and an 8-pass validation; the registry gained a per-version evidence
+gate (both cases 26.120-only until the unsteady chapters backfill,
+which folds into the next licensed sweep with the PLN-012 re-probe).
 
 The far-field extraction line opened as M7 (HND-020, spec DLV-006
 copied into `_private/design/` after the naming scrub): the command
