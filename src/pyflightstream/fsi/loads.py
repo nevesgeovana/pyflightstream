@@ -87,12 +87,17 @@ class SectionFamily(BaseModel):
     count : int
         Number of sections the distribution creates (its block size in
         the flat export).
+    is_blade : bool
+        Whether the family is a blade the structural solve consumes;
+        non-blade families (a hub, a nacelle) are split and
+        cross-checked but never fed to a beam.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     name: str = Field(min_length=1)
     count: int = Field(ge=1)
+    is_blade: bool = True
 
 
 class SectionFamilyMap(BaseModel):

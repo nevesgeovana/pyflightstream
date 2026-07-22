@@ -198,6 +198,46 @@ blade frame, in blade order, and the FSIDisp rows follow that same
 blade-major order. Formats are the dry-run evidence exactly: comma
 separated three-column files, no header (RPT-005 finding 5).
 
+## driver and state: the four-phase machine (`driver.py`, `state.py`)
+
+`coupling_step(run_dir)` is one complete coupling call, file-driven:
+parse the fresh loads export, assemble per-blade elastic-axis loads,
+solve the rotating beam per blade, relax the displacements against the
+previous call, write `FSIDisp.txt`, append the convergence log, and
+persist `state.json` atomically (temporary file plus rename, FSI-R13,
+so a killed call resumes cleanly, which the crash-recovery test
+holds it to).
+
+The phase machine is keyed on the step counter, with steps converted
+to revolutions from the configured Omega and the time increment the
+loads file itself reports:
+
+| Phase | Behavior |
+|---|---|
+| 1, wake development | zero displacements on the rigid blade |
+| 2, averaged coupling | loads averaged over the window, relaxed updates (FSI-R07) |
+| 3, convergence watch | as 2; tip response logged per revolution, convergence when the tip twist change per revolution drops below tolerance (FSI-R09) |
+| 4, recording | instantaneous loads, lambda = 1 by design, twist recorded per step |
+
+Freshness is asserted, not assumed: every call must see an advancing
+solver iteration in the loads header; a repeated iteration means
+FlightStream is running more than one FSI iteration per time step and
+the driver refuses to continue (`SET_AEROELASTIC_ITERATIONS` must stay
+1, FSI-R12). The node layout is regenerated from `config.json` on
+every call and any staged map must agree with it (FSI-R14).
+
+Frozen mode (FSI-R10) is first class: drop a
+`fsi_frozen_displacements.txt` into the run folder and every call
+replays it verbatim, no loads, no solve, for sensitivity runs and
+Gate 2.
+
+The convergence log (`fsi_convergence_log.csv`) states the
+quasi-steady validity boundary in its header and carries the config
+hash on every row (FSI-R15), so any point of a later parametric map is
+traceable to its exact configuration. The whole machine runs offline
+in the tier 1 replay harness (`tests/test_fsi_driver.py`), fed by the
+archived WP1 fixtures, no FlightStream in the loop.
+
 ## cli: the executable FlightStream calls (`cli.py`)
 
 `pyfs-fsi` is the console entry point; pip installs it as an `.exe`

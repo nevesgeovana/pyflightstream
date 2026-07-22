@@ -11,7 +11,7 @@ slip in unlabeled.
 
 import inspect
 
-from pyflightstream.fsi import beam, centrifugal, kinematics, loads, nodes
+from pyflightstream.fsi import beam, centrifugal, driver, kinematics, loads, nodes, state
 
 PHYSICS_FUNCTIONS = [
     (centrifugal, "axial_load_distribution"),
@@ -25,6 +25,8 @@ PHYSICS_FUNCTIONS = [
     (loads, "transfer_moment_to_elastic_axis"),
     (kinematics, "station_normal_translation"),
     (kinematics, "twist_from_node_translations"),
+    (driver, "relax_displacements"),
+    (driver, "revolutions_per_step"),
 ]
 
 # Public functions that orchestrate solves or bookkeeping but contain no
@@ -54,6 +56,8 @@ NON_PHYSICS_PUBLIC = {
         "write_fsidisp",
         "read_fsidisp",
     },
+    "driver": {"coupling_step"},
+    "state": {"initial_state", "load_state", "write_state_atomic"},
 }
 
 
@@ -83,6 +87,8 @@ def test_every_public_function_is_classified():
         (loads, "loads"),
         (kinematics, "kinematics"),
         (nodes, "nodes"),
+        (driver, "driver"),
+        (state, "state"),
     )
     for module, key in modules:
         listed = {name for mod, name in PHYSICS_FUNCTIONS if mod is module}
