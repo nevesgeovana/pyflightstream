@@ -580,6 +580,82 @@ class PhysicsCase:
         return self.versions is None or canonical in self.versions
 
 
+PHY06_ALPHAS_DEG = (0.0, 2.0, 4.0, 6.0)
+PHY06_TIME_ITERATIONS = 120
+PHY06_DELTA_TIME_S = 0.01
+
+
+def _phy06_metric_specs() -> tuple[MetricSpec, ...]:
+    """Declare the PHY-06 polar-equivalence metrics.
+
+    Per sweep angle, the steady-versus-unsteady deltas of CL, CD
+    (CDi + CDo; the loads Total row carries no combined column), and
+    CMy must sit near zero: the time march of the static wing
+    asymptotes to the steady solution at every incidence, which is
+    the per-alpha trend confirmation. The two lift slopes then pin
+    the trend itself against the finite-wing anchor
+    2*pi/(1 + 2/AR) = 5.0 for AR 8, and the two pitching-moment
+    slopes pin the CMy trend without an analytic anchor.
+    """
+    specs: list[MetricSpec] = []
+    for alpha in PHY06_ALPHAS_DEG:
+        tag = f"a{alpha:g}"
+        specs.append(
+            MetricSpec(
+                f"delta_CL_{tag}",
+                f"CL(unsteady) - CL(steady) at {alpha:g} deg",
+                kind="abs",
+                warn=0.005,
+                fail=0.02,
+            )
+        )
+        specs.append(
+            MetricSpec(
+                f"delta_CD_{tag}",
+                f"CD(unsteady) - CD(steady) at {alpha:g} deg (CD = CDi + CDo)",
+                kind="abs",
+                warn=0.001,
+                fail=0.004,
+            )
+        )
+        specs.append(
+            MetricSpec(
+                f"delta_CMy_{tag}",
+                f"CMy(unsteady) - CMy(steady) at {alpha:g} deg",
+                kind="abs",
+                warn=0.005,
+                fail=0.02,
+            )
+        )
+    specs.append(
+        MetricSpec(
+            "CL_slope_steady_per_rad",
+            "least-squares lift slope of the steady polar, 1/rad "
+            "(finite-wing anchor 2*pi/(1 + 2/AR) = 5.0 for AR 8)",
+        )
+    )
+    specs.append(
+        MetricSpec(
+            "CL_slope_unsteady_per_rad",
+            "least-squares lift slope of the unsteady-final polar, 1/rad; "
+            "must match the steady slope inside the band",
+        )
+    )
+    specs.append(
+        MetricSpec(
+            "CMy_slope_steady_per_rad",
+            "least-squares pitching-moment slope of the steady polar, 1/rad",
+        )
+    )
+    specs.append(
+        MetricSpec(
+            "CMy_slope_unsteady_per_rad",
+            "least-squares pitching-moment slope of the unsteady-final polar, 1/rad",
+        )
+    )
+    return tuple(specs)
+
+
 PHYSICS_CASES: dict[str, PhysicsCase] = {
     "PHY-01": PhysicsCase(
         case_id="PHY-01",
@@ -672,30 +748,8 @@ PHYSICS_CASES: dict[str, PhysicsCase] = {
     ),
     "PHY-06": PhysicsCase(
         case_id="PHY-06",
-        title="Steady versus unsteady equivalence (NACA 0012, AR 8)",
-        metric_specs=(
-            MetricSpec("CL_steady_a4", "total CL of the steady solve at 4 deg"),
-            MetricSpec(
-                "CL_unsteady_a4",
-                "total CL after the unsteady time march at 4 deg "
-                "(120 steps of 0.01 s: 36 chord passages at 30 m/s)",
-            ),
-            MetricSpec(
-                "delta_CL_a4",
-                "CL(unsteady) - CL(steady) at 4 deg; the time march of a "
-                "static configuration must asymptote to the steady solution",
-                kind="abs",
-                warn=0.005,
-                fail=0.02,
-            ),
-            MetricSpec(
-                "delta_CDi_a4",
-                "CDi(unsteady) - CDi(steady) at 4 deg; zero in the asymptote",
-                kind="abs",
-                warn=0.0005,
-                fail=0.002,
-            ),
-        ),
+        title="Steady versus unsteady polar equivalence (NACA 0012, AR 8)",
+        metric_specs=_phy06_metric_specs(),
         runner=lambda context: _run_phy06(context),
         versions=("26.120",),
     ),
@@ -736,10 +790,6 @@ PHY05_RPM = round(60.0 * PHY05_VELOCITY_M_S / (PHY05_ADVANCE_RATIO * 2.0 * PHY05
 PHY05_DELTA_TIME_S = round(10.0 / (6.0 * PHY05_RPM), 6)
 PHY05_TIME_ITERATIONS = 54
 PHY05_WAKE_TERMINATION_STEPS = -36
-
-PHY06_ALPHA_DEG = 4.0
-PHY06_TIME_ITERATIONS = 120
-PHY06_DELTA_TIME_S = 0.01
 
 
 def build_phy05_script(
@@ -879,21 +929,22 @@ def _run_phy05(context: _CaseContext) -> CaseResult:
 
 def build_phy06_unsteady_script(
     version: str,
+    alpha_deg: float,
     stl_path: str | Path,
     loads_name: str,
     log_name: str,
 ) -> Script:
-    """Build the PHY-06 unsteady time march of the static PHY-01 wing.
+    """Build one PHY-06 unsteady time march of the static PHY-01 wing.
 
-    Identical to the steady point script except that physical time
-    stepping is selected before initialization: 120 steps of 0.01 s at
-    30 m/s sweep 36 chord lengths of wake past the AR-8 wing, deep in
-    the steady asymptote.
+    Identical to the steady point script at the same angle except that
+    physical time stepping is selected before initialization: 120
+    steps of 0.01 s at 30 m/s sweep 36 chord lengths of wake past the
+    AR-8 wing, deep in the steady asymptote.
     """
     return _build_wing_point_script(
         "PHY-06",
         version,
-        PHY06_ALPHA_DEG,
+        alpha_deg,
         stl_path,
         loads_name,
         log_name,
@@ -902,56 +953,84 @@ def build_phy06_unsteady_script(
 
 
 def _run_phy06(context: _CaseContext) -> CaseResult:
-    """Run PHY-06: the steady and unsteady solves of the same wing."""
+    """Run PHY-06: the steady and unsteady polars of the same wing."""
     stl_path = generate_wing_stl(PHY01_WING, (context.workdir / "naca0012_full.stl").resolve())
-    steady_script = _build_wing_point_script(
-        "PHY-06",
-        context.version,
-        PHY06_ALPHA_DEG,
-        stl_path,
-        "loads_steady.txt",
-        "log_steady.txt",
-    )
-    steady = context.solve_point(steady_script, "phy06_steady.txt", "loads_steady.txt")
-    context.stamp_solver(steady)
-    unsteady_script = build_phy06_unsteady_script(
-        context.version, stl_path, "loads_unsteady.txt", "log_unsteady.txt"
-    )
-    unsteady = context.solve_point(unsteady_script, "phy06_unsteady.txt", "loads_unsteady.txt")
-    context.stamp_solver(unsteady)
-    points = (
-        PointResult(
-            alpha_deg=PHY06_ALPHA_DEG,
-            total=dict(steady.total),
-            iterations=steady.current_iteration,
-            converged=steady.current_iteration < steady.requested_iterations,
-            label="steady",
-        ),
-        PointResult(
-            alpha_deg=PHY06_ALPHA_DEG,
-            total=dict(unsteady.total),
-            iterations=unsteady.current_iteration,
-            converged=True,
-            label="unsteady_final",
-        ),
-    )
+    points: list[PointResult] = []
+    steady_by_alpha: dict[float, dict[str, float]] = {}
+    unsteady_by_alpha: dict[float, dict[str, float]] = {}
+    for alpha in PHY06_ALPHAS_DEG:
+        tag = f"a{alpha:g}".replace(".", "p")
+        steady_script = _build_wing_point_script(
+            "PHY-06",
+            context.version,
+            alpha,
+            stl_path,
+            f"loads_steady_{tag}.txt",
+            f"log_steady_{tag}.txt",
+        )
+        steady = context.solve_point(
+            steady_script, f"phy06_steady_{tag}.txt", f"loads_steady_{tag}.txt"
+        )
+        context.stamp_solver(steady)
+        steady_by_alpha[alpha] = dict(steady.total)
+        points.append(
+            PointResult(
+                alpha_deg=alpha,
+                total=dict(steady.total),
+                iterations=steady.current_iteration,
+                converged=steady.current_iteration < steady.requested_iterations,
+                label=f"steady_{tag}",
+            )
+        )
+        unsteady_script = build_phy06_unsteady_script(
+            context.version,
+            alpha,
+            stl_path,
+            f"loads_unsteady_{tag}.txt",
+            f"log_unsteady_{tag}.txt",
+        )
+        unsteady = context.solve_point(
+            unsteady_script, f"phy06_unsteady_{tag}.txt", f"loads_unsteady_{tag}.txt"
+        )
+        context.stamp_solver(unsteady)
+        unsteady_by_alpha[alpha] = dict(unsteady.total)
+        points.append(
+            PointResult(
+                alpha_deg=alpha,
+                total=dict(unsteady.total),
+                iterations=unsteady.current_iteration,
+                converged=True,
+                label=f"unsteady_final_{tag}",
+            )
+        )
+    metrics: dict[str, float] = {}
+    for alpha in PHY06_ALPHAS_DEG:
+        tag = f"a{alpha:g}"
+        steady_total = steady_by_alpha[alpha]
+        unsteady_total = unsteady_by_alpha[alpha]
+        cd_steady = steady_total["CDi"] + steady_total["CDo"]
+        cd_unsteady = unsteady_total["CDi"] + unsteady_total["CDo"]
+        metrics[f"delta_CL_{tag}"] = unsteady_total["CL"] - steady_total["CL"]
+        metrics[f"delta_CD_{tag}"] = cd_unsteady - cd_steady
+        metrics[f"delta_CMy_{tag}"] = unsteady_total["CMy"] - steady_total["CMy"]
+    alphas_rad = np.radians(PHY06_ALPHAS_DEG)
+    for label, series in (("steady", steady_by_alpha), ("unsteady", unsteady_by_alpha)):
+        lifts = [series[alpha]["CL"] for alpha in PHY06_ALPHAS_DEG]
+        moments = [series[alpha]["CMy"] for alpha in PHY06_ALPHAS_DEG]
+        metrics[f"CL_slope_{label}_per_rad"] = float(np.polyfit(alphas_rad, lifts, 1)[0])
+        metrics[f"CMy_slope_{label}_per_rad"] = float(np.polyfit(alphas_rad, moments, 1)[0])
     geometry = (
         f"NACA {PHY01_WING.naca} rectangular wing, chord {PHY01_WING.chord_m:g} m, "
         f"span {PHY01_WING.span_m:g} m (AR {PHY01_WING.aspect_ratio:g}), full span, "
-        "generated by qa.geometry as ASCII STL; steady solve versus "
-        f"{PHY06_TIME_ITERATIONS} steps of {PHY06_DELTA_TIME_S:g} s"
+        "generated by qa.geometry as ASCII STL; steady polar versus the "
+        f"unsteady-final polar over alphas {PHY06_ALPHAS_DEG}, "
+        f"{PHY06_TIME_ITERATIONS} steps of {PHY06_DELTA_TIME_S:g} s per march"
     )
-    metrics = {
-        "CL_steady_a4": steady.total["CL"],
-        "CL_unsteady_a4": unsteady.total["CL"],
-        "delta_CL_a4": unsteady.total["CL"] - steady.total["CL"],
-        "delta_CDi_a4": unsteady.total["CDi"] - steady.total["CDi"],
-    }
     return CaseResult(
         case_id="PHY-06",
         title=PHYSICS_CASES["PHY-06"].title,
         geometry=geometry,
-        points=points,
+        points=tuple(points),
         metrics=metrics,
     )
 

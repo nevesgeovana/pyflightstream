@@ -273,19 +273,39 @@ def test_phy05_script_pins_the_proven_unsteady_flow():
 
 def test_phy06_unsteady_script_differs_from_steady_only_by_time_stepping():
     from pyflightstream.qa.physics import (
-        PHY06_ALPHA_DEG,
+        PHY06_ALPHAS_DEG,
         _build_wing_point_script,
         build_phy06_unsteady_script,
     )
 
-    steady = _build_wing_point_script(
-        "PHY-06", "26.12", PHY06_ALPHA_DEG, "C:/w/wing.stl", "l.txt", "g.txt"
-    ).render()
-    unsteady = build_phy06_unsteady_script("26.12", "C:/w/wing.stl", "l.txt", "g.txt").render()
-    extra = [
-        line for line in unsteady.splitlines() if line not in steady.splitlines() and line.strip()
-    ]
-    assert extra == ["SET_SOLVER_UNSTEADY", "TIME_ITERATIONS 120", "DELTA_TIME 0.01"]
+    for alpha in PHY06_ALPHAS_DEG:
+        steady = _build_wing_point_script(
+            "PHY-06", "26.12", alpha, "C:/w/wing.stl", "l.txt", "g.txt"
+        ).render()
+        unsteady = build_phy06_unsteady_script(
+            "26.12", alpha, "C:/w/wing.stl", "l.txt", "g.txt"
+        ).render()
+        extra = [
+            line
+            for line in unsteady.splitlines()
+            if line not in steady.splitlines() and line.strip()
+        ]
+        assert extra == ["SET_SOLVER_UNSTEADY", "TIME_ITERATIONS 120", "DELTA_TIME 0.01"]
+
+
+def test_phy06_metric_specs_cover_the_polar_trend():
+    from pyflightstream.qa.physics import PHY06_ALPHAS_DEG, PHYSICS_CASES
+
+    names = [spec.name for spec in PHYSICS_CASES["PHY-06"].metric_specs]
+    for alpha in PHY06_ALPHAS_DEG:
+        tag = f"a{alpha:g}"
+        for quantity in ("CL", "CD", "CMy"):
+            assert f"delta_{quantity}_{tag}" in names
+    assert "CL_slope_steady_per_rad" in names
+    assert "CL_slope_unsteady_per_rad" in names
+    assert "CMy_slope_steady_per_rad" in names
+    assert "CMy_slope_unsteady_per_rad" in names
+    assert len(names) == 3 * len(PHY06_ALPHAS_DEG) + 4
 
 
 def test_unsteady_cases_are_gated_to_versions_with_evidence(tmp_path):
