@@ -18,20 +18,12 @@ dist/
 # mkdocs build output
 site/
 
-# Tier 2 probe scratch (scripts and logs); the compat report under
-# reports/compat/ is the committed evidence
-probe_runs/
-
-# Tier 3 physics and drift scratch (geometry, scripts, solver
-# outputs); the reports under reports/physics/ are the committed
-# evidence
-physics_runs/
-drift_runs*/
-
-# WP7/PLN-020 coupled pilot scratch (run folders, probes, solver
-# outputs); the reports under reports/ and the convergence logs under
-# reports/fsi/ are the committed evidence
-fsi_runs/
+# Local run scratch, one root for every tier (runs/probes, runs/physics,
+# runs/drift, runs/fsi, campaign workspaces); the committed evidence is
+# the reports/ tree, never the scratch. Convention recorded at HND-035
+# session close; the legacy per-tier roots (probe_runs/, physics_runs/,
+# drift_runs*/, fsi_runs/) moved under runs/ the same day.
+runs/
 
 # LaTeX build artifacts of the beamer guide; the built pdf never
 # enters Git (repository guard), only guide/*.tex is committed

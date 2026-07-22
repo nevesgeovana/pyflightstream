@@ -70,8 +70,8 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     probe.add_argument(
         "--workroot",
-        default="probe_runs",
-        help="scratch root for probe scripts and logs (default probe_runs/, not committed)",
+        default="runs/probes",
+        help="scratch root for probe scripts and logs (default runs/probes/, not committed)",
     )
     probe.add_argument(
         "--timeout", type=float, default=120.0, help="per-probe wall-clock limit, seconds"
@@ -117,8 +117,8 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     physics.add_argument(
         "--workroot",
-        default="physics_runs",
-        help="scratch root for geometry, scripts, and outputs (default physics_runs/)",
+        default="runs/physics",
+        help="scratch root for geometry, scripts, and outputs (default runs/physics/)",
     )
     physics.add_argument(
         "--timeout", type=float, default=900.0, help="per-point wall-clock limit, seconds"
@@ -162,7 +162,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     drift.add_argument(
         "--workroot",
-        default="physics_runs",
+        default="runs/drift",
         help="scratch root; each version nests under its canonical name",
     )
     drift.add_argument(

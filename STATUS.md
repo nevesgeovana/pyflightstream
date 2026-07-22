@@ -412,3 +412,10 @@ decided when `post/` starts. `convert-matrix` CLI wiring can join the
   approved families (author's decision of 2026-07-21) were delivered
   as complete manual chapters; statuses stay evidence-strict, 26.120
   only.
+* Local run scratch lives under a single gitignored `runs/` root
+  (`runs/probes`, `runs/physics`, `runs/drift`, `runs/fsi`), the
+  author's tidy-up decision at the HND-035 close; the qa CLI defaults
+  point there and licensed sessions must not recreate per-tier
+  folders at the repository root. Committed evidence stays under
+  `reports/`; handoffs and reports written before the move cite the
+  old root names as historical fact.
