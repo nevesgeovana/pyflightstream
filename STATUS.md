@@ -245,6 +245,28 @@ integration on the release. The v0.3+ line (remaining PHY cases,
 backfill probing, declarative matrix successor) and the docs-hosting
 question (ProperDocs) are the open public-phase items.
 
+The post-release usage line opened next (HND-034, 2026-07-22),
+through a remote-control pilot session driven from the author's
+personal machine with the public 0.2.0 installed from PyPI. Two
+local-only OneDrive bridges (junctions `_private/inbox` and
+`_private/progress`, targets in her ResearchHub folder, never in Git)
+now carry raw notes in and triage reports out. Her 21 first-use notes
+were triaged against the codebase (three parallel exploration
+agents); the local triage report classifies every note with code-path
+evidence, finds two confirmed release bugs (the published package
+answers `__version__ = "0.0.1.dev0"` and keeps the stale M0 skeleton
+docstring; PLN-021), asks seven decision questions, and drafts the
+seven-workstream multi-agent plan registered as PLN-022. The
+genuinely-new lines: entity label registry (boundaries currently
+untracked and unverified), solver-setup provenance snapshot (defaults
+recorded nowhere), tabular results layer (pandas declared but unused
+in `src/`), campaign pre-flight and resume, two-level help with
+manual-coverage reporting. Licensed needs (OBJ group-name probe,
+undocumented solver defaults, mesh-refinement and solver-flag physics
+cases) queue with PLN-012/015/019. Single next action: the author's
+stage-3 review answering the seven triage questions, then plan
+refinement and multi-agent execution.
+
 The probe planner extended M7 (HND-023, plan approved by Geovana):
 planar Cartesian probe grids replace the volume sections wherever the
 point placement must be controlled, prescribed by element size or
@@ -335,6 +357,7 @@ decided when `post/` starts. `convert-matrix` CLI wiring can join the
 | xarray as a runtime dependency behind the `ResultArray` facade | Geovana's confirmation at M2 (SAD Section 9; noted in `pyproject.toml`) |
 | Whether to genericize the SMI name in the repository (currently kept, required by the version-comparison case design) | Open option, Geovana's decision |
 | SWEEPER entries are drafted from the worked example (SRC-003 p.406) and the Script Index (p.383); the Sweeper Toolbox chapter (pp.264-279) is not deep-reviewed and may widen the argument grammars | Follow-up manual pass |
+| The seven usage-triage decisions (naming-template authority, mandatory-matrix posture, `files` to `workspace` rename, vorticity UX, itaca contract, the "cp_lim" note, patch-versus-minor for PLN-021) | Geovana's stage-3 review of the 2026-07-22 triage report |
 
 ## Recorded deviations
 
