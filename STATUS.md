@@ -24,7 +24,7 @@ Milestone map per the Bootstrap Kit (`_private/design/DLV-004`, Section 7).
 | M6 | FSI subpackage per DLV-007: `[fsi]` extra (PyNiteFEA, license evidence RPT-002), `FsiConfig`, loads parser, PyNite beam with centrifugal terms (Gate 1 Campbell), kinematics, driver, `pyfs-fsi` entry point | WP7 coupled pilot: near-rigid synthetic blade recovers the rigid CT within solver noise; frozen replay reproduces the deformed solution | Done 2026-07-21 (HND-021: WP0/WP3/WP4 with Gate 1; HND-026: WP1 dry run, RPT-005; HND-029: WP2/WP5/WP6 offline; HND-030: WP7 near-rigid pilot on 26.120, RPT-006; HND-031: beta projection delivered and the soft pilot ran, but RPT-007 finds build 7012026 silently drops the FSIDisp morphing on rotary-motion boundaries - two-way rotor FSI solver-blocked, interface proven end to end on the motionless wing control. Follow-ups: vendor question, PLN-019 sweep, optional static-wing two-way pilot) |
 | M7 | Far-field probe extraction per DLV-006: `probes` lattice (serializable, version-aware emission), `farfield` ledgers on xarray (quadrature, harmonic spine, forces, moments, loss channels), G0 synthetic gate as tier 1 | G0 green in CI; probe-export parser and G1 to G5 case-level checks follow with the solver campaign | Started 2026-07-21 (HND-020: lattice, ledgers, and G0 delivered; suite at 220 tests at close, including the parallel M6 session's in-progress files). Extended same day (HND-023): planar probe grids as the controlled volume-section replacement (explicit frames, geometry culling and BL band refinement behind the `[geom]` extra, pre-processing fsm-to-obj export, VTK/Tecplot writers opening `post/`; suite at 265) |
 | v0.2.0 | First public release: PyPI and Zenodo | Public checklist (invariants audit) passes | Done 2026-07-22 (HND-032: audit clean, tag v0.2.0, CI green, https://pypi.org/project/pyflightstream/0.2.0/, DOI 10.5281/zenodo.21482925 via the GitHub release, CITATION.cff added) |
-| v0.3+ | Remaining PHY cases, 26.000/26.100 backfill probing, declarative matrix successor | Per-item evidence checks | Planned |
+| v0.3+ | Usage-feedback line (PLN-022), remaining PHY cases, 26.000/26.100 backfill probing | Per-item evidence checks | Started 2026-07-22 (HND-035: all seven workstreams landed, suite at 448; licensed evidence queued as PLN-023) |
 
 ## Current focus
 
@@ -267,6 +267,37 @@ cases) queue with PLN-012/015/019. Single next action: the author's
 stage-3 review answering the seven triage questions, then plan
 refinement and multi-agent execution.
 
+The usage-feedback line then executed end to end (HND-035,
+2026-07-22): the stage-3 review answered all seven questions (naming
+template output-only, matrix first-class with campaign.toml
+canonical, files renamed workspace behind a deprecation alias,
+solver_settings as single entry with the vorticity selection
+mandatory, ITACA on hold, no 0.2.1 patch, and the "cp_lim" note
+resolved to SOLVER_MINIMUM_CP -100 as the overridable library
+default, retiring the legacy reference-velocity workaround), plus the
+session finding that the workspace organizes inputs too, per the
+author's legacy research workflow. Multi-agent execution delivered
+all seven workstreams in three waves (commits dcc6c47..b2f6b68):
+two-level help (overview() from live module docstrings, the
+manual-coverage section with honest gaps, and the PLN-021 identity
+fix shipping with v0.3.0); the RPT-008 integrations license card
+(pyvista MIT as [viz] candidate, gmsh and OpenVSP external-tool
+only); the entity label registry (boundaries tracked at last, labels
+resolving everywhere entities are cited); the pandas tabular layer
+(per-parser tables, run_frame, sweep_frame off the manifest); the
+workspace as architecture (input-artifact library under inputs/
+resolved by stable id, NamingTemplate output-only with a
+no-parse-back guard, init CLI, plan_campaign pre-flight, resume);
+the solver-setup provenance snapshot (28 flags with explicit /
+evidence-backed default / unknown provenance riding the manifest,
+SOLVER_MINIMUM_CP -100 emitted by default, two goldens intentionally
+updated); and the matrix as first-class interface (resolve/plan/run
+against the input library, pyfs-matrix CLI, the Tier 3 registry
+printable as a numbered matrix). Suite at 448 tier 1 tests. Next on
+this line: the PLN-023 licensed sweep (with PLN-012/015/019), the
+RPT-008 decision list, and the v0.3.0 release when the author calls
+it.
+
 The probe planner extended M7 (HND-023, plan approved by Geovana):
 planar Cartesian probe grids replace the volume sections wherever the
 point placement must be controlled, prescribed by element size or
@@ -357,7 +388,8 @@ decided when `post/` starts. `convert-matrix` CLI wiring can join the
 | xarray as a runtime dependency behind the `ResultArray` facade | Geovana's confirmation at M2 (SAD Section 9; noted in `pyproject.toml`) |
 | Whether to genericize the SMI name in the repository (currently kept, required by the version-comparison case design) | Open option, Geovana's decision |
 | SWEEPER entries are drafted from the worked example (SRC-003 p.406) and the Script Index (p.383); the Sweeper Toolbox chapter (pp.264-279) is not deep-reviewed and may widen the argument grammars | Follow-up manual pass |
-| The seven usage-triage decisions (naming-template authority, mandatory-matrix posture, `files` to `workspace` rename, vorticity UX, itaca contract, the "cp_lim" note, patch-versus-minor for PLN-021) | Geovana's stage-3 review of the 2026-07-22 triage report |
+| The RPT-008 integration decisions (pyvista `[viz]` extra, documentation bridges for gmsh and OpenVSP, meshio) | Geovana's review of reports/RPT-008 |
+| Whether run_matrix/plan_matrix stay in `cases/` (lazy upward imports, no cycle) or hoist into `run/` for strict layering | Review on the v0.3 line |
 
 ## Recorded deviations
 
