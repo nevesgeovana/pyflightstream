@@ -17,6 +17,12 @@ actuator disc (SRC-003 pp.323-324), rotary motion (pp.332-333), solver
 settings (pp.339-343), solver initialization (p.337), sweeps (p.406),
 analysis and export selection (pp.350-354), and probe management
 (pp.362-363).
+
+Entity citations by label: every parameter that cites a frame,
+actuator, motion, or mesh boundary accepts the 1-based index or the
+label registered at creation (``label=``) or declared through
+:meth:`~pyflightstream.script.Script.declare_existing`; labels resolve
+to indices at emission through the script's entity registry.
 """
 
 from __future__ import annotations
@@ -32,11 +38,31 @@ def _toggle(value: bool) -> str:
     return "ENABLE" if value else "DISABLE"
 
 
+def _reject_bare_label(helper: str, argument: str, value: object, *, allows_all: bool) -> None:
+    """Reject a single label string where a sequence is expected.
+
+    A bare string would otherwise be iterated character by character,
+    producing a confusing downstream error; the fix (wrapping the
+    label in a list) is stated directly.
+    """
+    if not isinstance(value, str):
+        return
+    if allows_all and value == "all":
+        return
+    accepted = "a sequence of indices or labels"
+    if allows_all:
+        accepted += " or the string 'all'"
+    raise CommandArgumentError(
+        f"{helper}: {argument} takes {accepted}; a single entity label goes in a "
+        f"list, for example [{value!r}]"
+    )
+
+
 def free_stream(
     script: Script,
     kind: str = "CONSTANT",
     *,
-    frame: int | None = None,
+    frame: int | str | None = None,
     axis: str | None = None,
     rpm: float | None = None,
     profile: str | None = None,
@@ -53,9 +79,10 @@ def free_stream(
         from the solver settings), ``ROTATION`` (rotating frame free
         stream for hover and propeller analyses), or ``CUSTOM``
         (velocity profile imported from a file).
-    frame : int, optional
+    frame : int or str, optional
         ROTATION only: local coordinate system carrying the rotation
-        axis; it must exist earlier in the script.
+        axis, cited by index or by its creation label; it must exist
+        earlier in the script.
     axis : str, optional
         ROTATION only: rotation axis of ``frame``, ``X``, ``Y``, or
         ``Z``.
@@ -160,7 +187,7 @@ def actuator_disc(
     script: Script,
     name: str,
     *,
-    frame: int,
+    frame: int | str,
     axis: str,
     offset: float,
     r_tip: float,
@@ -173,6 +200,7 @@ def actuator_disc(
     n_blades: int | None = None,
     swirl: float | None = None,
     enable: bool = True,
+    label: str | None = None,
 ) -> int:
     """Create and configure one propeller actuator disc (SRC-003 pp.323-324).
 
@@ -188,9 +216,10 @@ def actuator_disc(
         Script under construction.
     name : str
         Actuator name shown in the interface.
-    frame : int
+    frame : int or str
         Local coordinate system carrying the disc axis (index greater
-        than 1); it must exist earlier in the script.
+        than 1, or its creation label); it must exist earlier in the
+        script.
     axis : str
         Disc axis within ``frame``: ``X``, ``Y``, or ``Z``.
     offset : float
@@ -219,6 +248,10 @@ def actuator_disc(
         (SRC-003 p.186).
     enable : bool
         Emit ENABLE_ACTUATOR at the end.
+    label : str, optional
+        Label registered for the created actuator in the script's
+        entity registry, so later commands can cite it by name
+        instead of by index.
 
     Returns
     -------
@@ -242,7 +275,7 @@ def actuator_disc(
             "fraction of the swirl velocity kept downstream (SRC-003 p.186)"
         )
     subtype = "ELLIPTICAL" if thrust is not None else "CUSTOM"
-    script.emit("CREATE_NEW_ACTUATOR", "PROPELLER", subtype=subtype, name=name)
+    script.emit("CREATE_NEW_ACTUATOR", "PROPELLER", subtype=subtype, name=name, label=label)
     index = script.num_actuators
     script.emit("SET_ACTUATOR_AXIS", index, frame, axis, offset)
     script.emit("SET_ACTUATOR_RADIUS", index, r_tip, r_hub)
@@ -261,13 +294,14 @@ def actuator_disc(
 def rotary_motion(
     script: Script,
     *,
-    frame: int,
+    frame: int | str,
     axis: str,
     rpm: float,
-    boundaries: Sequence[int] | Literal["all"] = "all",
-    moving_frames: Sequence[int] | Literal["all"] | None = None,
+    boundaries: Sequence[int | str] | Literal["all"] = "all",
+    moving_frames: Sequence[int | str] | Literal["all"] | None = None,
     start_time: float | None = None,
     wake_stabilization_blades: int | None = None,
+    label: str | None = None,
 ) -> int:
     """Create and configure one rotary motion (SRC-003 pp.332-333).
 
@@ -279,30 +313,40 @@ def rotary_motion(
     ----------
     script : Script
         Script under construction.
-    frame : int
+    frame : int or str
         Local coordinate system of the rotation (index greater than
-        1); it must exist earlier in the script.
+        1, or its creation label); it must exist earlier in the
+        script.
     axis : str
         Rotor axis within ``frame``: ``X``, ``Y``, or ``Z``.
     rpm : float
         Rotor speed in rev/min.
-    boundaries : sequence of int or ``"all"``
-        Geometry boundaries assigned to the motion; ``"all"`` selects
-        every boundary (-1 form).
-    moving_frames : sequence of int, ``"all"``, or None
-        Local frames attached to the motion; None attaches none.
+    boundaries : sequence of int or str, or ``"all"``
+        Geometry boundaries assigned to the motion, by 1-based index
+        or declared boundary label; ``"all"`` selects every boundary
+        (-1 form). Indices are verified against the inventory declared
+        with declare_existing(boundaries=...) when one exists.
+    moving_frames : sequence of int or str, ``"all"``, or None
+        Local frames attached to the motion, by index or creation
+        label; None attaches none.
     start_time : float, optional
         Motion start within the solver physical time, in s; a positive
         value converges a steady base flow before the motion begins.
     wake_stabilization_blades : int, optional
         Enables slipstream wake stabilization with this blade count.
+    label : str, optional
+        Label registered for the created motion in the script's
+        entity registry, so later commands can cite it by name
+        instead of by index.
 
     Returns
     -------
     int
         Identifier of the created motion, for later citations.
     """
-    script.emit("CREATE_NEW_MOTION", "ROTARY")
+    _reject_bare_label("rotary_motion", "boundaries", boundaries, allows_all=True)
+    _reject_bare_label("rotary_motion", "moving_frames", moving_frames, allows_all=True)
+    script.emit("CREATE_NEW_MOTION", "ROTARY", label=label)
     motion_id = script.num_motions
     if boundaries == "all":
         script.emit("SET_MOTION_BOUNDARIES", motion_id, -1)
@@ -363,7 +407,7 @@ def solver_settings(
     max_threads: int | None = None,
     boundary_layer: str | None = None,
     viscous_coupling: bool | None = None,
-    viscous_excluded: Sequence[int] | None = None,
+    viscous_excluded: Sequence[int | str] | None = None,
 ) -> None:
     """Set the solver runtime settings that were given (SRC-003 pp.339-343).
 
@@ -410,9 +454,13 @@ def solver_settings(
         Couple the semi-empirical boundary layer model to the
         potential flow solution (attached-flow viscosity only,
         SRC-003 pp.207-208).
-    viscous_excluded : sequence of int, optional
-        Boundaries excluded from viscous coupling.
+    viscous_excluded : sequence of int or str, optional
+        Boundaries excluded from viscous coupling, by 1-based index
+        or declared boundary label; verified against the inventory
+        declared with declare_existing(boundaries=...) when one
+        exists.
     """
+    _reject_bare_label("solver_settings", "viscous_excluded", viscous_excluded, allows_all=False)
     scalar_commands = (
         ("SOLVER_SET_AOA", aoa),
         ("SOLVER_SET_SIDESLIP", sideslip),
@@ -445,7 +493,7 @@ def initialize_solver(
     script: Script,
     *,
     solver_model: str = "INCOMPRESSIBLE",
-    surfaces: Sequence[tuple[int, bool]] | Literal["all"] = "all",
+    surfaces: Sequence[tuple[int | str, bool]] | Literal["all"] = "all",
     wake_termination_x: float | str = "DEFAULT",
     symmetry: str = "NONE",
     periodic_copies: int | None = None,
@@ -461,10 +509,14 @@ def initialize_solver(
         ``INCOMPRESSIBLE``, ``SUBSONIC_PRANDTL_GLAUERT``,
         ``TRANSONIC_FIELD_PANEL``, ``TANGENT_CONE``, or
         ``MODIFIED_NEWTONIAN``.
-    surfaces : sequence of (int, bool) pairs or ``"all"``
+    surfaces : sequence of (int or str, bool) pairs or ``"all"``
         ``"all"`` initializes every boundary (-1 form); a sequence of
-        ``(surface_index, quad_mesher)`` pairs initializes those
-        surfaces with the quad mesher toggled per surface.
+        ``(surface, quad_mesher)`` pairs initializes those surfaces
+        with the quad mesher toggled per surface. Each surface is a
+        1-based mesh boundary index or a boundary label declared with
+        declare_existing(boundaries=...); labels resolve at emission
+        and indices are verified against the declared inventory when
+        one exists.
     wake_termination_x : float or str
         X location of wake termination in the reference frame, or
         ``DEFAULT`` for auto-computation.
@@ -497,9 +549,18 @@ def initialize_solver(
     if surfaces == "all":
         arguments["surfaces"] = -1
     else:
-        arguments["surfaces"] = len(surfaces)
+        # The per-surface toggles render as strings, so boundary labels
+        # are resolved here rather than by the emit-level checks.
+        resolved = [
+            (
+                script.resolve_boundary(index, context="INITIALIZE_SOLVER: argument 'surfaces'"),
+                quad_mesher,
+            )
+            for index, quad_mesher in surfaces
+        ]
+        arguments["surfaces"] = len(resolved)
         arguments["surface_toggles"] = [
-            f"{index},{_toggle(quad_mesher)}" for index, quad_mesher in surfaces
+            f"{index},{_toggle(quad_mesher)}" for index, quad_mesher in resolved
         ]
     if periodic_copies is not None:
         arguments["symmetry_copies"] = periodic_copies
@@ -571,13 +632,13 @@ def sweep(
 def analysis_setup(
     script: Script,
     *,
-    loads_frame: int | None = None,
+    loads_frame: int | str | None = None,
     moments_model: str | None = None,
     symmetry_loads: bool | None = None,
     load_units: str | None = None,
-    boundaries: Sequence[int] | None = None,
+    boundaries: Sequence[int | str] | None = None,
     inviscid_only: bool | None = None,
-    vorticity_drag_boundaries: Sequence[int] | Literal["all"] | None = None,
+    vorticity_drag_boundaries: Sequence[int | str] | Literal["all"] | None = None,
 ) -> None:
     """Select how loads and moments are analyzed (SRC-003 pp.350-351).
 
@@ -585,9 +646,10 @@ def analysis_setup(
     ----------
     script : Script
         Script under construction.
-    loads_frame : int, optional
+    loads_frame : int or str, optional
         Coordinate system for evaluating loads and moments; index 1 is
-        the reference frame.
+        the reference frame, and created frames may be cited by their
+        creation label.
     moments_model : str, optional
         ``PRESSURE`` (solver default) or ``VORTICITY``.
     symmetry_loads : bool, optional
@@ -595,16 +657,24 @@ def analysis_setup(
     load_units : str, optional
         ``COEFFICIENTS``, ``NEWTONS``, ``KILO-NEWTONS``,
         ``POUND-FORCE``, or ``KILOGRAM-FORCE``.
-    boundaries : sequence of int, optional
-        Boundaries enabled in the analysis; boundaries not listed are
-        disabled (SRC-003 p.351).
+    boundaries : sequence of int or str, optional
+        Boundaries enabled in the analysis, by 1-based index or
+        declared boundary label; boundaries not listed are disabled
+        (SRC-003 p.351). Indices are verified against the inventory
+        declared with declare_existing(boundaries=...) when one
+        exists.
     inviscid_only : bool, optional
         Restrict the analysis to inviscid loads and moments.
-    vorticity_drag_boundaries : sequence of int, ``"all"``, or None
+    vorticity_drag_boundaries : sequence of int or str, ``"all"``, or None
         Boundaries whose induced drag comes from surface vorticity
-        integration; boundaries without trailing-edge boundary
-        conditions silently report zero induced drag (SRC-003 p.202).
+        integration, by index or declared label; boundaries without
+        trailing-edge boundary conditions silently report zero induced
+        drag (SRC-003 p.202).
     """
+    _reject_bare_label("analysis_setup", "boundaries", boundaries, allows_all=False)
+    _reject_bare_label(
+        "analysis_setup", "vorticity_drag_boundaries", vorticity_drag_boundaries, allows_all=True
+    )
     # symmetry_loads first: it is an init-phase setting consumed by the
     # in-solve monitors (per-step force plots), so a call mixing it
     # with the analysis-phase selections is only valid before
@@ -637,7 +707,7 @@ def export_results(
     spreadsheet: str | None = None,
     tecplot: str | None = None,
     vtk: str | None = None,
-    vtk_boundaries: Sequence[int] | Literal["all"] = "all",
+    vtk_boundaries: Sequence[int | str] | Literal["all"] = "all",
     vtk_variables: Sequence[str] | Literal["all"] | None = None,
     vtk_wake: bool = False,
     force_distributions: str | None = None,
@@ -655,8 +725,9 @@ def export_results(
         Path of the Tecplot .dat export.
     vtk : str, optional
         Path of the VTK export.
-    vtk_boundaries : sequence of int or ``"all"``
-        Boundaries included in the VTK export.
+    vtk_boundaries : sequence of int or str, or ``"all"``
+        Boundaries included in the VTK export, by 1-based index or
+        declared boundary label.
     vtk_variables : sequence of str, ``"all"``, or None
         Variables selected before the VTK export; None keeps the
         current selection. ``CP`` is flagged for depreciation in favor
@@ -667,6 +738,7 @@ def export_results(
     force_distributions : str, optional
         Path of the force distribution vectors export, all boundaries.
     """
+    _reject_bare_label("export_results", "vtk_boundaries", vtk_boundaries, allows_all=True)
     if spreadsheet is not None:
         script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", spreadsheet)
     if tecplot is not None:
@@ -737,7 +809,7 @@ def probe_line(
     script.emit("NEW_PROBE_LINE", points, *start, *end)
 
 
-def probes_from_file(script: Script, path: str, *, units: str, frame: int = 1) -> None:
+def probes_from_file(script: Script, path: str, *, units: str, frame: int | str = 1) -> None:
     """Import a probe lattice from a CSV file (SRC-003 pp.362-363).
 
     The file rows are X,Y,Z,TYPE with TYPE 0 for surface and 1 for
@@ -753,9 +825,10 @@ def probes_from_file(script: Script, path: str, *, units: str, frame: int = 1) -
     units : str
         Length unit of the file coordinates (``METER``, ``INCH``, and
         the other simulation length units).
-    frame : int
+    frame : int or str
         Coordinate system of the file coordinates; index 1 is the
-        reference frame.
+        reference frame, and created frames may be cited by their
+        creation label.
     """
     script.emit("PROBE_POINTS_IMPORT", units, frame, path)
 
@@ -787,6 +860,7 @@ def coordinate_frame(
     x_axis: Sequence[float],
     y_axis: Sequence[float],
     z_axis: Sequence[float] | None = None,
+    label: str | None = None,
 ) -> int:
     """Create and define a local coordinate system, returning its index.
 
@@ -811,6 +885,11 @@ def coordinate_frame(
     z_axis : sequence of float, optional
         Third axis; computed as the right-handed cross product of
         x_axis and y_axis when omitted.
+    label : str, optional
+        Label registered for the created frame in the script's entity
+        registry, so later commands can cite it by name instead of by
+        index. Distinct from ``name``, which is the display name
+        FlightStream shows in the interface.
 
     Returns
     -------
@@ -822,7 +901,7 @@ def coordinate_frame(
         ax, ay, az = x_axis
         bx, by, bz = y_axis
         z_axis = (ay * bz - az * by, az * bx - ax * bz, ax * by - ay * bx)
-    script.emit("CREATE_NEW_COORDINATE_SYSTEM")
+    script.emit("CREATE_NEW_COORDINATE_SYSTEM", label=label)
     frame_index = script.num_local_frames + 1
     script.emit(
         "EDIT_COORDINATE_SYSTEM",
