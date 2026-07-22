@@ -153,6 +153,20 @@ survey. Suite at 265 tests; smoke on the QA wing STL culled 35 of
 round-trip probe (PLN-018) that also seeds the PLN-016 parser
 fixture.
 
+The round trip ran the same day on the licensed 26.120 build
+(HND-024, reports/RPT-004): fsm-to-obj through
+run.export_surface_mesh (watertight solver obj), 1628 culled planar
+probes imported, solved, and exported, with count and row order
+preserved exactly; PLN-018 closed, the ordering risk retired for
+build 7012026. The parser followed (PLN-016 closed):
+results.parse_probe_points with the sanitized real fixture, and
+PlannedProbes.verify_positions re-validates the contract on every
+load. Side findings recorded in RPT-004 and the database notes: the
+viscous coupling defaults on, so the DLV-006 inert-BL assertion
+needs SET_SOLVER_VISCOUS_COUPLING DISABLE emitted, and strict
+containment keeps on-surface probes (a standoff margin is a recorded
+option). Suite at 272.
+
 Previous focus (M4, kept for context): PHY-01 closed end to end
 (PLN-008 started, HND-012):
 the mesh-import family (IMPORT, CCS_IMPORT, EXPORT_SURFACE_MESH;
