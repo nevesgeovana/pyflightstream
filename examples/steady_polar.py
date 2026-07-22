@@ -150,8 +150,17 @@ except CommandNotInVersionError as error:
 # ## 4. Optional: execute the sweep
 #
 # With a licensed executable the sweep runs headless (`-hidden
-# --script`), each loads spreadsheet is parsed, and the polar table is
-# assembled with the lift slope against the finite-wing anchor.
+# --script`) inside a managed campaign workspace:
+#
+# - `CampaignWorkspace` owns the folder layout and the `runs.json`
+#   manifest; run identity lives in the manifest, never in folder names.
+# - Every executed point is appended as one `RunRecord`: sweep point,
+#   script hash, outcome, and the collected loads spreadsheet (one
+#   uniquely named export per point, so no point overwrites another's
+#   evidence).
+# - `sweep_frame` then reads the manifest back and joins each record
+#   with its parsed coefficient table: the whole polar as one tidy
+#   DataFrame, one row per run, and the csv is one `to_csv` away.
 
 # %%
 fs_exe = sys.argv[1] if len(sys.argv) > 1 else None
@@ -160,21 +169,50 @@ if fs_exe is None:
 else:
     import numpy as np
 
+    import pyflightstream
+    from pyflightstream.files import CampaignWorkspace, RunRecord, RunStatus
+    from pyflightstream.results import sweep_frame
+    from pyflightstream.versions import resolve
+
     executor = LocalExecutor(fs_exe)
-    rows = []
+    workspace = CampaignWorkspace(workdir / "campaign")
+    sim_dir = workspace.create_sim("polar")
     for i, alpha in enumerate(ALPHAS_DEG):
-        script_path = (workdir / f"polar_a{i}.txt").resolve()
-        script_path.write_text(scripts[alpha].render(), encoding="utf-8")
-        result = executor.run_script(script_path, working_dir=workdir, timeout_s=900.0)
+        script_path, script_sha = workspace.write_script(
+            "polar", f"polar_a{i}.txt", scripts[alpha].render()
+        )
+        result = executor.run_script(script_path, working_dir=sim_dir, timeout_s=900.0)
         if result.failed:
             evidence = result.log_text or result.stderr or f"return code {result.return_code}"
             raise RuntimeError(f"solver failed at alpha {alpha:+.1f} deg: {evidence}")
-        loads_text = (workdir / f"loads_a{i}.txt").read_text(encoding="utf-8", errors="replace")
+        outputs = workspace.collect_outputs("polar", [sim_dir / f"loads_a{i}.txt"])
+        loads_text = (sim_dir / outputs[0]).read_text(encoding="utf-8", errors="replace")
         report = parse_loads(loads_text, requested_version=FS_VERSION)
-        rows.append((alpha, report.total["CL"], report.total["CDi"], report.current_iteration))
-        print(f"alpha {alpha:+5.1f} deg: CL {rows[-1][1]:+.4f}  CDi {rows[-1][2]:.5f}")
+        converged = report.current_iteration < report.requested_iterations
+        workspace.append_record(
+            RunRecord(
+                run_id=f"steady_polar/sim_polar/a{alpha:+05.1f}",
+                sim_id="polar",
+                point={"alpha": alpha},
+                fs_version_requested=resolve(FS_VERSION).canonical,
+                fs_version_reported=report.fs_version_reported,
+                fs_build=report.fs_build,
+                package_version=pyflightstream.__version__,
+                script_sha256=script_sha,
+                raw_flag=False,
+                status=RunStatus.CONVERGED if converged else RunStatus.COMPLETED_MAX_ITER,
+                iterations=report.current_iteration,
+                wall_time_s=result.wall_time_s,
+                outputs=outputs,
+            )
+        )
+        print(f"alpha {alpha:+5.1f} deg: recorded {report.current_iteration} iterations")
 
-    alphas_rad = np.radians([row[0] for row in rows])
-    slope = float(np.polyfit(alphas_rad, [row[1] for row in rows], 1)[0])
+    polar = sweep_frame(workspace)
+    print(polar[["alpha", "CL", "CDi", "iterations", "status"]].to_string(index=False))
+    polar.to_csv(workdir / "polar.csv", index=False)
+    print(f"polar table written to {workdir / 'polar.csv'}")
+
+    slope = float(np.polyfit(np.radians(polar["alpha"]), polar["CL"], 1)[0])
     anchor = 2 * np.pi / (1 + 2 / wing.aspect_ratio)
     print(f"lift slope {slope:.2f} per rad (finite-wing anchor {anchor:.2f})")

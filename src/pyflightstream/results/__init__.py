@@ -545,3 +545,39 @@ def parse_probe_points(text: str, requested_version=None) -> ProbePointsReport:
         reported_version=software.group("version"),
         reported_build=software.group("build"),
     )
+
+
+# Tabular views (pandas) build on the parsers above, so their import
+# must follow the definitions; __all__ re-exports them as part of the
+# public face of the results layer.
+from pyflightstream.results.tables import (  # noqa: E402
+    AmbiguousLoadsError,
+    LoadsNotFoundError,
+    parse_run_loads,
+    run_frame,
+    sweep_frame,
+    to_csv,
+    to_dataframe,
+)
+
+__all__ = [
+    "AmbiguousLoadsError",
+    "AnchorNotFoundError",
+    "IncompleteOutputError",
+    "LoadsNotFoundError",
+    "LoadsReport",
+    "ProbePointsReport",
+    "ResidualSample",
+    "VersionMismatchWarning",
+    "delimited_table",
+    "labeled_value",
+    "parse_loads",
+    "parse_number",
+    "parse_probe_points",
+    "parse_residual_history",
+    "parse_run_loads",
+    "run_frame",
+    "sweep_frame",
+    "to_csv",
+    "to_dataframe",
+]
