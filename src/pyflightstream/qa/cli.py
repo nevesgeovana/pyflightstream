@@ -8,7 +8,9 @@ report. ``pyfs-qa physics`` runs the Tier 3 physics regression matrix
 and writes the physics report; ``pyfs-qa update-reference`` is the only
 write path into the stored physics references and demands a reason
 string (SAD Section 11); ``pyfs-qa drift`` runs the same case set on
-two versions and diffs the aggregated coefficients (FR-27).
+two versions and diffs the aggregated coefficients (FR-27);
+``pyfs-qa cases`` prints the Tier 3 test matrix itself, one line per
+case id, without running anything.
 """
 
 from __future__ import annotations
@@ -22,6 +24,7 @@ from pyflightstream.qa.compat import apply_compat, write_compat_report
 from pyflightstream.qa.drift import run_drift, write_drift_report
 from pyflightstream.qa.physics import (
     PhysicsEnvironmentError,
+    case_table,
     run_physics,
     update_reference,
     write_physics_report,
@@ -180,6 +183,16 @@ def _build_parser() -> argparse.ArgumentParser:
         "SMI drift class on both versions, geometry never enters Git",
     )
 
+    cases = subparsers.add_parser(
+        "cases",
+        help="print the Tier 3 test matrix: one line per registered case id, nothing runs",
+    )
+    cases.add_argument(
+        "--include-smi",
+        action="store_true",
+        help="include the SMI local-geometry class; like the runs, it never appears implicitly",
+    )
+
     update = subparsers.add_parser(
         "update-reference",
         help="update or seed one physics reference from a committed physics report",
@@ -209,7 +222,22 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_drift(args)
     if args.subcommand == "update-reference":
         return _cmd_update_reference(args)
+    if args.subcommand == "cases":
+        return _cmd_cases(args)
     return _cmd_apply_compat(args)
+
+
+def _cmd_cases(args: argparse.Namespace) -> int:
+    rows = case_table(include_smi=args.include_smi)
+    header = {"case_id": "CASE", "title": "TITLE", "metrics": "METRICS", "versions": "VERSIONS"}
+    widths = {key: max(len(header[key]), *(len(str(row[key])) for row in rows)) for key in header}
+    line = "  ".join(header[key].ljust(widths[key]) for key in header)
+    print(line.rstrip())
+    for row in rows:
+        line = "  ".join(str(row[key]).ljust(widths[key]) for key in header)
+        print(line.rstrip())
+    print(f"{len(rows)} case(s); every physics validation is one matrix line with an id")
+    return 0
 
 
 def _cmd_probe(args: argparse.Namespace) -> int:

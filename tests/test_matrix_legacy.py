@@ -23,7 +23,7 @@ RECIPES = {"003": "recipes.steady_polar:build", "004": "recipes.beta_sweep:build
 
 def test_read_matrix_parses_the_verified_layout():
     rows = read_matrix(FIXTURE)
-    assert [row.pol for row in rows] == ["9001", "9002"]
+    assert [row.pol for row in rows] == ["9001", "9002", "9004", "9005", "9006", "9008"]
     first = rows[0]
     assert first.aircraft == "TestWing"
     assert first.re_millions == 4.38
@@ -35,9 +35,10 @@ def test_read_matrix_parses_the_verified_layout():
 
 
 def test_run_filtering_follows_the_legacy_flag():
-    assert len(read_matrix(FIXTURE)) == 2
+    assert len(read_matrix(FIXTURE)) == 6
     everything = read_matrix(FIXTURE, active_only=False)
-    assert [row.run for row in everything] == [1, 1, 0]
+    assert [row.run for row in everything] == [1, 1, 0, 1, 1, 1, 0, 1]
+    assert [row.pol for row in everything if row.run == 0] == ["9003", "9007"]
 
 
 def test_sweeps_convert_to_native_axes():
@@ -52,11 +53,60 @@ def test_sweeps_convert_to_native_axes():
     assert rows[1].sweep.values == [-6.0, 0.0, 6.0]
 
 
+def test_single_beta_broadcasts_over_the_alpha_sweep():
+    # POL 9001: three alphas against one beta value.
+    sweep = read_matrix(FIXTURE)[0].sweep
+    assert sweep.type == "alpha_beta"
+    assert [point["beta"] for point in sweep.points()] == [0.0, 0.0, 0.0]
+
+
+def test_single_alpha_broadcasts_over_the_beta_sweep():
+    # POL 9004: one alpha against five beta values.
+    sweep = next(row for row in read_matrix(FIXTURE) if row.pol == "9004").sweep
+    assert sweep.type == "alpha_beta"
+    points = list(sweep.points())
+    assert [point["alpha"] for point in points] == [2.0] * 5
+    assert [point["beta"] for point in points] == [-6.0, -3.0, 0.0, 3.0, 6.0]
+
+
+def test_alpha_only_sweep_reads_every_value():
+    sweep = next(row for row in read_matrix(FIXTURE) if row.pol == "9005").sweep
+    assert sweep.type == "alpha"
+    assert sweep.values == [-2.0, 0.0, 2.0, 4.0, 6.0]
+
+
+def test_equal_length_al_be_lists_pair_up():
+    sweep = next(row for row in read_matrix(FIXTURE) if row.pol == "9008").sweep
+    assert sweep.type == "alpha_beta"
+    assert list(sweep.points()) == [
+        {"alpha": -4.0, "beta": -2.0},
+        {"alpha": 0.0, "beta": 0.0},
+        {"alpha": 4.0, "beta": 2.0},
+    ]
+
+
 def test_variables_parse_spaced_values_and_lowercase_keys():
     variables = read_matrix(FIXTURE)[0].variables
     assert variables["SYMMETRY_TYPE"] == "PERIODIC 6"
     assert variables["ADVANCE_RATIO"] == "1.7"
     assert variables["unsteady_delta_theta_deg"] == "10.0"
+
+
+def test_full_variables_cell_keeps_every_pair_verbatim():
+    # POL 9006 carries the fullest VAR_NAMES_VALUES cell of the fixture,
+    # including an escaped newline (a literal backslash-n sequence) that
+    # must survive verbatim: the reader never interprets values.
+    variables = next(row for row in read_matrix(FIXTURE) if row.pol == "9006").variables
+    assert variables == {
+        "CONFIG": "NSX",
+        "FSM_FILE": "wing_flapped",
+        "NOTE": "first line\\nsecond line",
+        "SYMMETRY_TYPE": "PERIODIC 6",
+        "RESTART": "DISABLE",
+        "TRIM_TARGET": "CL 0.45",
+        "scale_inv": "1.0",
+    }
+    assert "\n" not in variables["NOTE"]
 
 
 def test_unverified_sweep_code_is_refused_with_evidence_language(tmp_path):
@@ -104,3 +154,6 @@ def test_convert_matrix_round_trips_through_load_campaign(tmp_path):
         FIXTURE, name="legacy", fs_version="26.12", fs_exe="C:/fs.exe", recipes=RECIPES
     )
     assert campaign == direct
+    # The escaped newline survives the TOML round trip verbatim.
+    full = next(sim for sim in campaign.sims if sim.sim_id == "9006")
+    assert full.variables["NOTE"] == "first line\\nsecond line"

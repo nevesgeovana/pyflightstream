@@ -1373,6 +1373,46 @@ def registered_cases(include_smi: bool = False) -> dict[str, PhysicsCase]:
     return dict(PHYSICS_CASES)
 
 
+def case_table(include_smi: bool = False) -> list[dict[str, str | int]]:
+    """Return the Tier 3 registry as a table, one line per case id.
+
+    Formalizes the test-matrix policy: every physics validation is a
+    matrix line with a numeric id (``PHY-NN`` for the shareable class,
+    ``SMI-NN`` for the local-geometry class). The registry itself is
+    that matrix; this view makes it inspectable, without running
+    anything, from Python or from ``pyfs-qa cases``.
+
+    Parameters
+    ----------
+    include_smi : bool
+        Include the SMI class lines; like the runs themselves, they
+        never appear implicitly (CLAUDE.md invariant 5).
+
+    Returns
+    -------
+    list of dict
+        One mapping per registered case, in registry order, keyed
+        ``case_id`` (the matrix line id), ``title``, ``metrics`` (how
+        many metrics the case declares), and ``versions`` (the version
+        gate: ``"all registered"`` when the case's command set has
+        evidence everywhere, else the comma-separated canonical
+        identifiers it is restricted to).
+    """
+    rows: list[dict[str, str | int]] = []
+    for case in registered_cases(include_smi=include_smi).values():
+        rows.append(
+            {
+                "case_id": case.case_id,
+                "title": case.title,
+                "metrics": len(case.metric_specs),
+                "versions": (
+                    "all registered" if case.versions is None else ", ".join(case.versions)
+                ),
+            }
+        )
+    return rows
+
+
 def run_physics(
     version: str,
     *,

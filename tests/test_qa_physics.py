@@ -327,3 +327,41 @@ def test_unsteady_cases_are_gated_to_versions_with_evidence(tmp_path):
             workroot=tmp_path / "runs",
             cases=["PHY-05"],
         )
+
+
+# --- the test matrix as an inspectable table (pyfs-qa cases) ----------------
+
+
+def test_case_table_is_one_line_per_registered_id():
+    from pyflightstream.qa.physics import case_table
+
+    table = case_table()
+    assert [row["case_id"] for row in table] == list(PHYSICS_CASES)
+    by_id = {row["case_id"]: row for row in table}
+    assert by_id["PHY-01"]["title"] == PHYSICS_CASES["PHY-01"].title
+    assert by_id["PHY-01"]["metrics"] == len(PHYSICS_CASES["PHY-01"].metric_specs)
+    assert by_id["PHY-01"]["versions"] == "all registered"
+    assert by_id["PHY-05"]["versions"] == "26.120"
+
+
+def test_case_table_includes_smi_only_on_request():
+    from pyflightstream.qa.physics import case_table
+
+    assert not any(row["case_id"].startswith("SMI") for row in case_table())
+    full = case_table(include_smi=True)
+    assert {row["case_id"] for row in full} == set(PHYSICS_CASES) | set(SMI_CASES)
+
+
+def test_cases_subcommand_prints_the_matrix(capsys):
+    from pyflightstream.qa.cli import main
+
+    assert main(["cases"]) == 0
+    out = capsys.readouterr().out
+    assert "CASE" in out and "VERSIONS" in out
+    for case_id in PHYSICS_CASES:
+        assert case_id in out
+    assert "SMI-01" not in out
+    assert "matrix line" in out
+
+    assert main(["cases", "--include-smi"]) == 0
+    assert "SMI-01" in capsys.readouterr().out
