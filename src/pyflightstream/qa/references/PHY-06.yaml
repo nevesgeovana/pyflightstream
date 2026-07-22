@@ -1,0 +1,29 @@
+schema: pyflightstream-physics-reference/1
+case: PHY-06
+fs_version_basis: '26.120'
+updated: '2026-07-21'
+reason: 'initial reference: first PHY-06 run on 26.120 build 7012026; steady point reproduces the PHY-01/PHY-02
+  anchors (CL 0.337, CDi 0.0049) and the 120-step time march lands within delta_CL +0.0022 and delta_CDi
+  -0.0003 of the steady solution, inside the declared equivalence bands'
+source_report: reports/physics/PHY-26120_2026-07-21_phy05-phy06-first.yaml
+metrics:
+  CL_steady_a4:
+    value: 0.337
+    warn: 0.02
+    fail: 0.05
+    kind: rel
+  CL_unsteady_a4:
+    value: 0.3392
+    warn: 0.02
+    fail: 0.05
+    kind: rel
+  delta_CL_a4:
+    value: 0.0021999999999999797
+    warn: 0.005
+    fail: 0.02
+    kind: abs
+  delta_CDi_a4:
+    value: -0.0002999999999999999
+    warn: 0.0005
+    fail: 0.002
+    kind: abs
