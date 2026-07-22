@@ -21,7 +21,7 @@ Milestone map per the Bootstrap Kit (`_private/design/DLV-004`, Section 7).
 | M4 | PHY-01/02 plus version-comparison suite (synthetic committed, SMI local) | Committed physics report | Done 2026-07-21 (HND-012..015: PHY-01/02 10 pass, synthetic drift zero deltas, SMI class delivered; capstone `DRF-26100-26120_2026-07-21_complete` 17 pass 1 warn, the SMI-01 CMy movement to triage) |
 | M5 | mkdocs site, command reference and compatibility matrix generated from the database, steady polar example | Docs build strict; example runs | Done 2026-07-21 (HND-016: generated reference and matrix from `reference.py` as single rendering source, strict build green, example executed on 26.120 with slope 4.83/rad; 179 tests) |
 | v0.1.0 | Tag, private | All above green | Done 2026-07-21 (HND-017: tag v0.1.0 pushed, release commit 38c091c, CI runs 29869650235 and 29869821677 green, sdist/wheel clean, CHANGELOG.md) |
-| M6 | FSI subpackage per DLV-007: `[fsi]` extra (PyNiteFEA, license evidence RPT-002), `FsiConfig`, loads parser, PyNite beam with centrifugal terms (Gate 1 Campbell), kinematics, driver, `pyfs-fsi` entry point | WP7 coupled pilot: near-rigid synthetic blade recovers the rigid CT within solver noise; frozen replay reproduces the deformed solution | Started 2026-07-21 (HND-021: WP0, WP3, WP4 delivered, Gate 1 Campbell green; WP1 dummy ready, dry run pending; WP2 parser awaits its fixtures) |
+| M6 | FSI subpackage per DLV-007: `[fsi]` extra (PyNiteFEA, license evidence RPT-002), `FsiConfig`, loads parser, PyNite beam with centrifugal terms (Gate 1 Campbell), kinematics, driver, `pyfs-fsi` entry point | WP7 coupled pilot: near-rigid synthetic blade recovers the rigid CT within solver noise; frozen replay reproduces the deformed solution | Started 2026-07-21 (HND-021: WP0, WP3, WP4, Gate 1 green; HND-026: WP1 closed by the executed dry run, coupled loop proven on 26.120 with the aeroelastic command family in the database and fixtures committed, RPT-005; WP2 parser unblocked) |
 | M7 | Far-field probe extraction per DLV-006: `probes` lattice (serializable, version-aware emission), `farfield` ledgers on xarray (quadrature, harmonic spine, forces, moments, loss channels), G0 synthetic gate as tier 1 | G0 green in CI; probe-export parser and G1 to G5 case-level checks follow with the solver campaign | Started 2026-07-21 (HND-020: lattice, ledgers, and G0 delivered; suite at 220 tests at close, including the parallel M6 session's in-progress files). Extended same day (HND-023): planar probe grids as the controlled volume-section replacement (explicit frames, geometry culling and BL band refinement behind the `[geom]` extra, pre-processing fsm-to-obj export, VTK/Tecplot writers opening `post/`; suite at 265) |
 | v0.2+ | Remaining PHY cases, 26.000/26.100 backfill probing, declarative matrix successor, public release, PyPI | Public checklist (invariants audit) passes | Planned |
 
@@ -129,9 +129,37 @@ linearization). Gate 1 is green: Southwell lines with r squared
 above 0.999, flap coefficient 1.118 in the plan band, torsion 0.961
 against the 0.9608 inertia-ratio expectation, Campbell diagram in
 `examples/fsi_campbell_diagram.py`. The `pyfs-fsi` dummy executable
-is installed and archives interface files per call; the WP1 dry run
-(licensed machine, Aeroelastic Toolbox, instructions in the fsi
-README) is pending on Geovana and gates the WP2 loads parser.
+is installed and archives interface files per call. The wing
+application followed on the author's request: the generic NACA 0012
+semi-span as the Omega-zero case with prescribed structural inputs
+sized for reasonable response (11.4 cm tip deflection at 2.8 percent
+of the half span, +0.54 deg nose-up twist, bending 3.0 Hz and
+torsion 15.3 Hz), tier 1 cross-checked against unit-load quadrature
+and worked in `examples/wing_static_deflection.py`.
+
+The WP1 dry run was then executed by Claude on the licensed machine
+at the author's request (HND-026, evidence RPT-005): four
+evidence-driven runs on the generic-blade case over half a
+revolution closed every DLV-007 Section 3 open question. Central
+finding: the implemented scripting interface is the Aeroelastic
+Coupling Toolbox family (SRC-003 pp.375-376), now in the database as
+`aeroelastic_coupling.yaml` plus AEROELASTIC_RBF_TYPE (11 commands,
+all exercised successfully); the manual's SET_MOTION_FSI pair
+(pp.335-336) is rejected as unrecognized by build 7012026 despite
+manual-exact grammar (stale section; candidate broken, sweep
+PLN-019). The coupled loop is proven: 18 executable calls, one per
+time step, bare invocation in the directory set by
+SET_AEROELASTIC_WORKING_DIRECTORY; the loads file is produced per
+step by the user-supplied post-processing script (section update,
+compute NEWTONS, export with the path on its own line), carries the
+standard labeled header for the SI assertion, and reports sectional
+Fx, Fz and moment about the quarter chord, the pitch axis reference
+of the plan. FSIDisp.txt and the node import are comma separated
+three-column files in import order; the dummy now writes commas.
+Sanitized fixtures live in `tests/fixtures/fsi/`; DLV-007 Section 3
+amended in both copies. WP2 (loads parser on the fixtures) is
+unblocked; per-blade section labeling on multi-blade meshes is the
+one interface fact still open.
 Physics formulas carry Source lines enforced by a tier 1 schema
 test; synthetic blades only; CI installs `.[dev,fsi]`; suite at 232
 tests at close. PHY-05 is registered as PLN-014, prerequisite of the
@@ -169,11 +197,14 @@ preserved exactly; PLN-018 closed, the ordering risk retired for
 build 7012026. The parser followed (PLN-016 closed):
 results.parse_probe_points with the sanitized real fixture, and
 PlannedProbes.verify_positions re-validates the contract on every
-load. Side findings recorded in RPT-004 and the database notes: the
-viscous coupling defaults on, so the DLV-006 inert-BL assertion
-needs SET_SOLVER_VISCOUS_COUPLING DISABLE emitted, and strict
-containment keeps on-surface probes (a standoff margin is a recorded
-option). Suite at 272.
+load. Side findings recorded in RPT-004 and the database notes,
+corrected by Geovana and settled by a three-variant control
+experiment (HND-027): the probe-export boundary-layer columns are
+geometric, populated for near-wall probes regardless of the viscous
+toggles (SET_SOLVER_VISCOUS_COUPLING concerns the loads, not the
+probe columns), so the DLV-006 inert-BL assertion holds by keeping
+probes away from the wall; the geometry gate gained the standoff
+margin on that finding. Suite at 274.
 
 Previous focus (M4, kept for context): PHY-01 closed end to end
 (PLN-008 started, HND-012):
@@ -224,7 +255,7 @@ decided when `post/` starts. `convert-matrix` CLI wiring can join the
 | xarray as a runtime dependency behind the `ResultArray` facade | Geovana's confirmation at M2 (SAD Section 9; noted in `pyproject.toml`) |
 | Whether to genericize the SMI name in the repository (currently kept, required by the version-comparison case design) | Open option, Geovana's decision |
 | SWEEPER entries are drafted from the worked example (SRC-003 p.406) and the Script Index (p.383); the Sweeper Toolbox chapter (pp.264-279) is not deep-reviewed and may widen the argument grammars | Follow-up manual pass |
-| FSI interface facts (loads export cadence and header, blade identification, units setting, executable call convention) needed to finalize the WP2 parser | WP1 dry run on Geovana's licensed machine (instructions in `src/pyflightstream/fsi/README.md`) |
+| Per-blade section labeling in FS_SurfaceSection_Loads.txt on multi-blade meshes (the dry run meshed one blade under PERIODIC; every other WP1 interface question is closed in RPT-005) | First multi-blade FSI run (WP7 territory) |
 
 ## Recorded deviations
 
