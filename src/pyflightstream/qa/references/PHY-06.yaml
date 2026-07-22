@@ -2,28 +2,89 @@ schema: pyflightstream-physics-reference/1
 case: PHY-06
 fs_version_basis: '26.120'
 updated: '2026-07-21'
-reason: 'initial reference: first PHY-06 run on 26.120 build 7012026; steady point reproduces the PHY-01/PHY-02
-  anchors (CL 0.337, CDi 0.0049) and the 120-step time march lands within delta_CL +0.0022 and delta_CDi
-  -0.0003 of the steady solution, inside the declared equivalence bands'
-source_report: reports/physics/PHY-26120_2026-07-21_phy05-phy06-first.yaml
+reason: 'metric set redefined to the full polar trend on Geovana''s instruction (HND-026): per-alpha steady-versus-unsteady
+  deltas of CL, CD, CMy over 0/2/4/6 deg plus both lift and pitching-moment slopes; measured deltas grow
+  monotonically to +0.0030 in CL at 6 deg, all inside the declared bands, and the steady lift slope 4.8266/rad
+  reproduces PHY-01'
+source_report: reports/physics/PHY-26120_2026-07-21_phy06-polar-first.yaml
 metrics:
-  CL_steady_a4:
-    value: 0.337
-    warn: 0.02
-    fail: 0.05
-    kind: rel
-  CL_unsteady_a4:
-    value: 0.3392
-    warn: 0.02
-    fail: 0.05
-    kind: rel
+  delta_CL_a0:
+    value: 0.0004
+    warn: 0.005
+    fail: 0.02
+    kind: abs
+  delta_CD_a0:
+    value: -0.00010000000000000026
+    warn: 0.001
+    fail: 0.004
+    kind: abs
+  delta_CMy_a0:
+    value: -0.0001
+    warn: 0.005
+    fail: 0.02
+    kind: abs
+  delta_CL_a2:
+    value: 0.0012999999999999956
+    warn: 0.005
+    fail: 0.02
+    kind: abs
+  delta_CD_a2:
+    value: -0.00010000000000000113
+    warn: 0.001
+    fail: 0.004
+    kind: abs
+  delta_CMy_a2:
+    value: -0.0001999999999999988
+    warn: 0.005
+    fail: 0.02
+    kind: abs
   delta_CL_a4:
     value: 0.0021999999999999797
     warn: 0.005
     fail: 0.02
     kind: abs
-  delta_CDi_a4:
-    value: -0.0002999999999999999
-    warn: 0.0005
-    fail: 0.002
+  delta_CD_a4:
+    value: -0.0003999999999999993
+    warn: 0.001
+    fail: 0.004
     kind: abs
+  delta_CMy_a4:
+    value: -0.00019999999999999185
+    warn: 0.005
+    fail: 0.02
+    kind: abs
+  delta_CL_a6:
+    value: 0.0030000000000000027
+    warn: 0.005
+    fail: 0.02
+    kind: abs
+  delta_CD_a6:
+    value: -0.0005000000000000004
+    warn: 0.001
+    fail: 0.004
+    kind: abs
+  delta_CMy_a6:
+    value: -0.00040000000000001146
+    warn: 0.005
+    fail: 0.02
+    kind: abs
+  CL_slope_steady_per_rad:
+    value: 4.826596466182055
+    warn: 0.02
+    fail: 0.05
+    kind: rel
+  CMy_slope_steady_per_rad:
+    value: -1.2149570045749105
+    warn: 0.02
+    fail: 0.05
+    kind: rel
+  CL_slope_unsteady_per_rad:
+    value: 4.851520130270246
+    warn: 0.02
+    fail: 0.05
+    kind: rel
+  CMy_slope_unsteady_per_rad:
+    value: -1.2175353146529992
+    warn: 0.02
+    fail: 0.05
+    kind: rel
