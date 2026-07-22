@@ -3,7 +3,7 @@
 Version-aware, didactic Python driver for the FlightStream panel-method
 solver. MIT licensed.
 
-Status: pre-alpha, milestone M5 (documentation site).
+Status: pre-alpha; the changelog records what each release adds.
 
 ## The idea in one paragraph
 
@@ -17,6 +17,10 @@ added, never dropped.
 
 ## The documentation
 
+* [Architecture overview](architecture.md): the layered pipeline and one
+  section per subpackage, generated at every docs build from the live
+  module docstrings. `pyflightstream.overview()` renders the same page
+  offline.
 * [Command reference](reference/index.md): generated from the database at
   every docs build, one page per manual chapter, with per-version evidence
   for every command. `pyflightstream.help()` renders the same database

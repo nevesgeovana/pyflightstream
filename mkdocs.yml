@@ -40,6 +40,7 @@ extra_css:
 
 nav:
   - Home: index.md
+  - Architecture: architecture.md
   - Command reference: reference/
   - Compatibility matrix: compatibility.md
   - Examples:

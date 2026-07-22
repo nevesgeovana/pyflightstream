@@ -73,6 +73,57 @@ def test_compatibility_matrix_is_honest_about_missing_evidence():
     assert "[SET_SOLVER_STEADY](reference/solver_settings.md#set_solver_steady)" in page
 
 
+def test_html_reference_carries_the_manual_coverage_section():
+    page = render_html()
+    assert "Manual coverage" in page
+    # Chapter rows carry the page citations from the YAML headers.
+    assert "SRC-003 pp.341-343" in page
+    # A citation wrapped across header comment lines still reassembles.
+    assert "SRC-003 pp.344-346" in page
+    # The honesty notes: uncited pages are named, never guessed at.
+    assert "not yet cited" in page
+    assert "not absent from the manual" in page
+
+
+def test_markdown_index_carries_the_manual_coverage_section():
+    pages = markdown_reference_pages()
+    index = pages["index.md"]
+    assert "| Chapter | Manual pages | Commands drafted |" in index
+    assert "SRC-003 pp.341-343" in index
+    assert "## Manual coverage" in index
+    assert "not yet cited" in index
+    # The 26.100 edition registers no closed page range; the report says
+    # so explicitly instead of computing a bogus gap list.
+    assert "no gap listing can be computed" in index
+
+
+def test_coverage_gap_analysis_is_derived_not_guessed():
+    from pyflightstream.reference import (
+        _coverage_notes,
+        _coverage_rows,
+        _database_cited_pages,
+        _page_spans,
+    )
+
+    # Every chapter of the database appears exactly once with its count.
+    registry = CommandRegistry.load()
+    rows = _coverage_rows()
+    assert {row[0] for row in rows} == {entry.chapter for entry in registry.commands.values()}
+    assert sum(row[3] for row in rows) == len(registry.commands)
+
+    # The cited-page scan sees both registered manual sources.
+    cited = _database_cited_pages()
+    assert "SRC-003" in cited and "SRC-725" in cited
+
+    # Span collapsing is exact.
+    assert _page_spans({300, 301, 302, 310}) == "300-302, 310"
+
+    # Notes never claim knowledge the database lacks: the closing note
+    # states out-of-scope areas are not tracked.
+    notes = _coverage_notes()
+    assert any("out of scope" in note for note in notes)
+
+
 def test_percent_script_markdown_renders_the_committed_example():
     source = Path("examples/steady_polar.py").read_text(encoding="utf-8")
     page = percent_script_markdown(source)

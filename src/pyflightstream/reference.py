@@ -13,9 +13,10 @@ extraction helpers, so they can never disagree.
 from __future__ import annotations
 
 import html
+import re
 import tempfile
 import webbrowser
-from importlib import metadata
+from importlib import metadata, resources
 from pathlib import Path
 
 from pyflightstream.commands import (
@@ -116,6 +117,177 @@ def _chapter_title(chapter: str) -> str:
     return chapter.replace("_", " ").capitalize()
 
 
+# Manual citations as the database writes them: "SRC-003 p.341",
+# "SRC-003 pp.344-346". Page numbers only, never manual text.
+_CITATION_PATTERN = re.compile(r"SRC-(\d{3})\s+pp?\.\s?(\d+)(?:\s*-\s*(\d+))?")
+_EDITION_SOURCE_PATTERN = re.compile(r"SRC-\d{3}")
+_EDITION_RANGE_PATTERN = re.compile(r"pp\.?\s*(\d+)\s*-\s*(\d+)")
+
+
+def _chapter_headers() -> dict[str, str]:
+    """Return the leading comment block of each chapter YAML file.
+
+    The headers name the manual chapter each file drafts and cite its
+    page range; they are the only place this information lives, so the
+    coverage report reads them from the installed package. Lines are
+    joined with spaces, so a citation wrapped across comment lines
+    reassembles.
+
+    Returns
+    -------
+    dict of str to str
+        Header text keyed by chapter file stem.
+    """
+    headers: dict[str, str] = {}
+    package = resources.files("pyflightstream.commands")
+    for resource in sorted(package.iterdir(), key=lambda item: item.name):
+        if not resource.name.endswith(".yaml") or resource.name == "_meta.yaml":
+            continue
+        lines = []
+        for line in resource.read_text(encoding="utf-8").splitlines():
+            if not line.startswith("#"):
+                break
+            lines.append(line.lstrip("#").strip())
+        headers[resource.name.removesuffix(".yaml")] = " ".join(filter(None, lines))
+    return headers
+
+
+def _citation_pages(text: str) -> dict[str, set[int]]:
+    """Return the manual pages cited in ``text``, keyed by source id."""
+    pages: dict[str, set[int]] = {}
+    for match in _CITATION_PATTERN.finditer(text):
+        source = f"SRC-{match.group(1)}"
+        start = int(match.group(2))
+        end = int(match.group(3) or start)
+        pages.setdefault(source, set()).update(range(start, end + 1))
+    return pages
+
+
+def _database_cited_pages() -> dict[str, set[int]]:
+    """Return every manual page cited anywhere in the database.
+
+    Scans the chapter headers, every ``manual_ref``, the entry notes,
+    and the per-version notes, so the gap analysis credits every
+    recorded citation.
+
+    Returns
+    -------
+    dict of str to set of int
+        Cited page numbers keyed by source id (for example
+        ``"SRC-003"``).
+    """
+    pages: dict[str, set[int]] = {}
+
+    def absorb(text: str | None) -> None:
+        if not text:
+            return
+        for source, found in _citation_pages(text).items():
+            pages.setdefault(source, set()).update(found)
+
+    for header in _chapter_headers().values():
+        absorb(header)
+    for entry in CommandRegistry.load().commands.values():
+        absorb(entry.manual_ref)
+        absorb(entry.notes)
+        for record in entry.versions.values():
+            absorb(record.note)
+    return pages
+
+
+def _page_spans(pages: set[int]) -> str:
+    """Collapse a page-number set into a span list, ``"300-306, 310"``."""
+    ordered = sorted(pages)
+    spans: list[str] = []
+    start = prev = ordered[0]
+    for page in ordered[1:]:
+        if page == prev + 1:
+            prev = page
+            continue
+        spans.append(f"{start}-{prev}" if prev > start else f"{start}")
+        start = prev = page
+    spans.append(f"{start}-{prev}" if prev > start else f"{start}")
+    return ", ".join(spans)
+
+
+def _coverage_rows() -> list[tuple[str, str, str, int]]:
+    """Return one coverage row per chapter: stem, title, pages, count.
+
+    The page text re-emits the citations found in the chapter YAML
+    header; a header without a citation is reported as such rather
+    than guessed at.
+    """
+    chapters = _grouped_by_chapter(None)
+    headers = _chapter_headers()
+    rows = []
+    for chapter, members in chapters.items():
+        header = headers.get(chapter, "")
+        citations = [match.group(0) for match in _CITATION_PATTERN.finditer(header)]
+        pages = "; ".join(dict.fromkeys(citations)) or "no page citation in the chapter header"
+        rows.append((chapter, _chapter_title(chapter), pages, len(members)))
+    return rows
+
+
+def _coverage_notes() -> list[str]:
+    """Return the honest coverage caveats as plain-text paragraphs.
+
+    Gaps are derived where the database can know them: the registered
+    manual edition page range in ``commands/_meta.yaml`` against every
+    page cited in the database. Where the database cannot know what is
+    missing, the note says so explicitly instead of guessing.
+    """
+    cited = _database_cited_pages()
+    notes = []
+    for canonical, edition in manual_editions().items():
+        source_match = _EDITION_SOURCE_PATTERN.search(edition)
+        if source_match is None:
+            continue
+        source = source_match.group(0)
+        range_match = _EDITION_RANGE_PATTERN.search(edition)
+        if range_match is None:
+            notes.append(
+                f"{source} (the edition registered for {canonical}) records no "
+                "closed page range for its scripting reference in "
+                "commands/_meta.yaml, so no gap listing can be computed for it."
+            )
+            continue
+        start, end = int(range_match.group(1)), int(range_match.group(2))
+        uncited = set(range(start, end + 1)) - cited.get(source, set())
+        if uncited:
+            notes.append(
+                f"{source} scripting reference pages not yet cited by any "
+                f"database entry or chapter header (registered range "
+                f"pp.{start}-{end}, edition for {canonical}): "
+                f"pp.{_page_spans(uncited)}. The database cannot know which "
+                "commands live on an uncited page; absence here means not yet "
+                "drafted, not absent from the manual."
+            )
+        else:
+            notes.append(
+                f"Every page of the registered {source} scripting reference "
+                f"range (pp.{start}-{end}, edition for {canonical}) is cited by "
+                "at least one database entry or chapter header. A cited page "
+                "can still hold undrafted commands; citation is not exhaustion."
+            )
+        outside = {page for page in cited.get(source, set()) if page < start or page > end}
+        if outside:
+            notes.append(
+                f"Database citations of {source} outside that registered range "
+                f"(pp.{_page_spans(outside)}) point at scripting material beyond "
+                "the core reference span: scripting basics, toolbox chapters, "
+                "worked examples, and usage guidance. No page range is "
+                "registered for those areas, so the database cannot compute "
+                "their gaps."
+            )
+    notes.append(
+        "Several chapter headers state they draft only the subset needed so "
+        "far; a chapter appearing in this table is not a claim of completeness "
+        "for its page range. Manual areas outside the scripting chapters (GUI "
+        "reference, theory) are out of scope of the command database and are "
+        "not tracked here."
+    )
+    return notes
+
+
 def _package_version() -> str:
     """Return the installed package version, or ``"unknown"``."""
     try:
@@ -161,6 +333,23 @@ def _entry_row_html(entry: CommandEntry) -> str:
     )
 
 
+def _coverage_html() -> str:
+    """Render the manual-coverage section of the HTML reference."""
+    rows = "\n".join(
+        f"<tr><td>{html.escape(title)}</td><td>{html.escape(pages)}</td><td>{count}</td></tr>"
+        for _, title, pages, count in _coverage_rows()
+    )
+    notes = "\n".join(f'<p class="notes">{html.escape(note)}</p>' for note in _coverage_notes())
+    return (
+        "<h2>Manual coverage</h2>\n"
+        "<p>Chapters drafted from the manual, whole database, independent of "
+        "any version scope. Pages are citations, never quotations.</p>\n"
+        "<table>\n<tr><th>Chapter</th><th>Manual pages</th>"
+        "<th>Commands drafted</th></tr>\n"
+        f"{rows}\n</table>\n{notes}"
+    )
+
+
 def render_html(version: str | FsVersion | None = None) -> str:
     """Render the command database as one self-contained HTML page.
 
@@ -199,6 +388,7 @@ def render_html(version: str | FsVersion | None = None) -> str:
         f"<title>pyflightstream command reference</title><style>{_STYLE}</style></head>"
         "<body>\n<h1>pyflightstream command reference</h1>\n"
         f'<p class="meta">{html.escape(_database_meta_sentence(entry_count, scope))}</p>\n'
+        f"{_coverage_html()}\n"
         f"{body}\n</body></html>\n"
     )
 
@@ -308,13 +498,16 @@ def markdown_reference_pages() -> dict[str, str]:
         "",
         "See also the [version compatibility matrix](../compatibility.md).",
         "",
-        "| Chapter | Commands |",
-        "|---|---|",
+        "| Chapter | Manual pages | Commands drafted |",
+        "|---|---|---|",
     ]
     nav_lines = ["* [Overview](index.md)"]
+    coverage_pages = {chapter: pages for chapter, _, pages, _ in _coverage_rows()}
     for chapter, members in chapters.items():
         title = _chapter_title(chapter)
-        index_lines.append(f"| [{title}]({chapter}.md) | {len(members)} |")
+        index_lines.append(
+            f"| [{title}]({chapter}.md) | {_md_cell(coverage_pages[chapter])} | {len(members)} |"
+        )
         nav_lines.append(f"* [{title}]({chapter}.md)")
 
         page_lines = [
@@ -330,6 +523,18 @@ def markdown_reference_pages() -> dict[str, str]:
         page_lines.extend(_entry_markdown(entry) for entry in members)
         pages[f"{chapter}.md"] = "\n".join(page_lines)
 
+    index_lines.append("")
+    index_lines.append("## Manual coverage")
+    index_lines.append("")
+    index_lines.append(
+        "The table above lists, per chapter drafted from the manual, the "
+        "pages its header cites and the number of commands drafted. Pages "
+        "are citations, never quotations. What the database knows about "
+        "what it does not yet cover:"
+    )
+    index_lines.append("")
+    for note in _coverage_notes():
+        index_lines.append(f"* {_md_cell(note)}")
     index_lines.append("")
     pages["index.md"] = "\n".join(index_lines)
     pages["SUMMARY.md"] = "\n".join(nav_lines) + "\n"
