@@ -5,6 +5,89 @@ All notable changes to pyflightstream. The format follows
 follow [SemVer](https://semver.org/) and are decoupled from
 FlightStream versions.
 
+## [0.2.0] - 2026-07-22
+
+First public release (PyPI and Zenodo). Milestones M6 (FSI) and M7
+(far-field probes) landed between the tags, together with the Tier 3
+matrix growth and a round of solver findings, every one backed by a
+committed report.
+
+### Added
+
+* `fsi` subpackage (optional `[fsi]` extra, PyNiteFEA): validated
+  `FsiConfig` with canonical hashing; sectional loads parser with the
+  SI assertion, family-per-blade attribution with geometric
+  cross-checks, and the pitch-axis to elastic-axis moment transfer;
+  PyNite beam of the (w, theta) blade with exact massless-DOF
+  condensation and clamped-beam benchmarks; centrifugal terms
+  (tension through P-Delta, propeller moment with inner twist
+  iteration) with the Campbell/Southwell verification; twist encoded
+  as three-node differential translations with the exact inverse;
+  node file, ordering map, and FSIDisp writer/reader from one
+  generator, embedding sections at the local blade angle on spinning
+  blades; four-phase coupling driver (wake, averaged relaxed
+  coupling, convergence watch, unrelaxed recording) with atomic
+  state, per-call freshness assertions, frozen replay mode, and a
+  hash-carrying convergence log; `pyfs-fsi` executable dispatching
+  between the coupled driver and the interface-evidence dummy.
+* `probes` and `farfield` (far-field extraction line): serializable
+  cylindrical lattice with version-aware emission; planar Cartesian
+  probe grids on explicit frames with element-size and
+  cosine/geometric distributions; geometry gate (optional `[geom]`
+  extra) with containment culling, boundary-layer band refinement,
+  and a wall standoff margin; single quadrature, azimuthal FFT
+  harmonic spine, and the conservation ledgers with the synthetic G0
+  gate in Tier 1; probe-export parser with the row-order contract
+  check; `run.export_surface_mesh` pre-processing; `post` VTK and
+  Tecplot probe-data writers.
+* `qa`: PHY-05 (generic-blade unsteady periodic propeller) and
+  PHY-06 (steady-versus-unsteady polar trend, 16 metrics) in the
+  Tier 3 matrix with a per-version evidence gate; the `BladeSpec`
+  generic propeller blade generator (public analytic shape laws).
+* Command database grown from 116 to 144 entries: motion, unsteady
+  solver, scenes, and advanced-settings backfill from the legacy-case
+  reproduction; the mesh-import family; the Aeroelastic Coupling
+  Toolbox family; per-version argument grammars
+  (`versions.<v>.args`) with hotfix inheritance for the 26.1/26.12
+  manual delta.
+* Examples: FSI Campbell diagram and the wing static deflection
+  worked cases; the beamer user guide source under `guide/`.
+
+### Changed
+
+* Two emission phases corrected on reproduction evidence
+  (`SET_ANALYSIS_SYMMETRY_LOADS` and
+  `NEW_SURFACE_SECTION_DISTRIBUTION` are in-solve consumers and
+  precede `START_SOLVER`).
+* `xarray` promoted to a runtime dependency (the far-field ledgers
+  live on labeled arrays).
+
+### Evidence
+
+* FSI interface established on 26.120 build 7012026
+  (`reports/RPT-005` to `RPT-007`): the implemented scripting
+  interface is the Aeroelastic Coupling Toolbox family (the manual's
+  `SET_MOTION_FSI` pair is unrecognized, candidate broken); the
+  sectional loads export carries line densities and a three-decimal
+  time-increment header (both folded back as code); the coupled loop
+  ran 54/54 and 90/90 calls with the full phase machine and frozen
+  replay reproducing held deformations to 5e-6.
+* Probe round trip on 26.120 (`reports/RPT-004`): imported probe
+  count and row order preserved exactly; boundary-layer export
+  columns are geometric (erratum), motivating the standoff margin.
+* PHY-05 bit-identical to its shareable-case baseline; PHY-06 polar
+  trend 16 pass with monotonic steady-versus-unsteady deltas.
+
+### Known limitations
+
+* Two-way rotor FSI is blocked on FlightStream 26.120 build 7012026:
+  the solver silently does not apply `FSIDisp.txt` morphing to
+  boundaries attached to a rotary motion, while a motionless boundary
+  morphs correctly with the same command sequence
+  (`reports/RPT-007`; vendor report prepared). The coupling loop
+  mechanics, the structural side, and the motionless path are fully
+  functional.
+
 ## [0.1.0] - 2026-07-21
 
 First tagged release, private phase. Everything below landed between
@@ -69,4 +152,5 @@ the repository seeding and this tag (milestones M0 through M5).
 * 26.000: registered, no recorded evidence yet (honest empty column;
   backfill planned for v0.2+).
 
+[0.2.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.2.0
 [0.1.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.1.0

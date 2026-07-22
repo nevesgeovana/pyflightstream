@@ -1,0 +1,28 @@
+cff-version: 1.2.0
+message: "If you use pyflightstream, please cite it using this metadata."
+title: "pyflightstream: version-aware, didactic Python driver for the FlightStream panel-method solver"
+type: software
+authors:
+  - family-names: Neves
+    given-names: Geovana
+license: MIT
+version: 0.2.0
+date-released: 2026-07-22
+repository-code: "https://github.com/nevesgeovana/pyflightstream"
+abstract: >-
+  Version-aware Python driver for the FlightStream panel-method
+  solver: a command database with per-version evidence statuses backed
+  by committed probe reports, a validating script builder, managed
+  campaign execution, anchor-based output parsers, a three-tier QA
+  harness with banded physics references and cross-version drift
+  checks, far-field probe surveys with conservation ledgers, and a
+  fluid-structure interaction subpackage coupling a rotating-blade
+  beam model to the solver's aeroelastic toolbox.
+keywords:
+  - aerodynamics
+  - panel method
+  - FlightStream
+  - aeroelasticity
+  - propeller
+  - solver automation
+  - verification and validation
