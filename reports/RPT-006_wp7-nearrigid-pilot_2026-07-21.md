@@ -1,5 +1,13 @@
 # RPT-006: WP7 near-rigid coupled pilot on FlightStream 26.120 (2026-07-21)
 
+> Addendum (same day, RPT-007): the subsequent soft-blade pilot and a
+> controlled probe series showed that build 7012026 does not apply the
+> FSIDisp deformation to boundaries attached to a rotary motion, while
+> a motionless wing control morphs correctly with the same commands
+> and files. The acceptance below therefore stands as loop-mechanics
+> evidence, but "recovers the rigid baseline" is trivially insensitive
+> in this build: see RPT-007 Section 5 for the reinterpretation.
+
 The WP7 coupled pilot of the M6 FSI line (DLV-007 Section 7), executed
 on the licensed machine with FlightStream 26.120 build 7012026 and
 `pyfs-fsi` in coupled mode (the WP6 driver behind the WP1 entry

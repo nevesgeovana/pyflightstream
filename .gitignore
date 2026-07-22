@@ -28,6 +28,11 @@ probe_runs/
 physics_runs/
 drift_runs*/
 
+# WP7/PLN-020 coupled pilot scratch (run folders, probes, solver
+# outputs); the reports under reports/ and the convergence logs under
+# reports/fsi/ are the committed evidence
+fsi_runs/
+
 # LaTeX build artifacts of the beamer guide; the built pdf never
 # enters Git (repository guard), only guide/*.tex is committed
 guide/*.pdf

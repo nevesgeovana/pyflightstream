@@ -21,7 +21,7 @@ Milestone map per the Bootstrap Kit (`_private/design/DLV-004`, Section 7).
 | M4 | PHY-01/02 plus version-comparison suite (synthetic committed, SMI local) | Committed physics report | Done 2026-07-21 (HND-012..015: PHY-01/02 10 pass, synthetic drift zero deltas, SMI class delivered; capstone `DRF-26100-26120_2026-07-21_complete` 17 pass 1 warn, the SMI-01 CMy movement to triage) |
 | M5 | mkdocs site, command reference and compatibility matrix generated from the database, steady polar example | Docs build strict; example runs | Done 2026-07-21 (HND-016: generated reference and matrix from `reference.py` as single rendering source, strict build green, example executed on 26.120 with slope 4.83/rad; 179 tests) |
 | v0.1.0 | Tag, private | All above green | Done 2026-07-21 (HND-017: tag v0.1.0 pushed, release commit 38c091c, CI runs 29869650235 and 29869821677 green, sdist/wheel clean, CHANGELOG.md) |
-| M6 | FSI subpackage per DLV-007: `[fsi]` extra (PyNiteFEA, license evidence RPT-002), `FsiConfig`, loads parser, PyNite beam with centrifugal terms (Gate 1 Campbell), kinematics, driver, `pyfs-fsi` entry point | WP7 coupled pilot: near-rigid synthetic blade recovers the rigid CT within solver noise; frozen replay reproduces the deformed solution | Done 2026-07-21 (HND-021: WP0/WP3/WP4 with Gate 1; HND-026: WP1 dry run, RPT-005; HND-029: WP2/WP5/WP6 offline; HND-030: WP7 near-rigid pilot on 26.120, RPT-006 - rigid baseline recovered on all four metrics and frozen replay reproducing to 5e-6. Follow-ups: PLN-020 soft-blade pilot with the beta projection, PLN-019 sweep, Tier 3 near-rigid registration) |
+| M6 | FSI subpackage per DLV-007: `[fsi]` extra (PyNiteFEA, license evidence RPT-002), `FsiConfig`, loads parser, PyNite beam with centrifugal terms (Gate 1 Campbell), kinematics, driver, `pyfs-fsi` entry point | WP7 coupled pilot: near-rigid synthetic blade recovers the rigid CT within solver noise; frozen replay reproduces the deformed solution | Done 2026-07-21 (HND-021: WP0/WP3/WP4 with Gate 1; HND-026: WP1 dry run, RPT-005; HND-029: WP2/WP5/WP6 offline; HND-030: WP7 near-rigid pilot on 26.120, RPT-006; HND-031: beta projection delivered and the soft pilot ran, but RPT-007 finds build 7012026 silently drops the FSIDisp morphing on rotary-motion boundaries - two-way rotor FSI solver-blocked, interface proven end to end on the motionless wing control. Follow-ups: vendor question, PLN-019 sweep, optional static-wing two-way pilot) |
 | M7 | Far-field probe extraction per DLV-006: `probes` lattice (serializable, version-aware emission), `farfield` ledgers on xarray (quadrature, harmonic spine, forces, moments, loss channels), G0 synthetic gate as tier 1 | G0 green in CI; probe-export parser and G1 to G5 case-level checks follow with the solver campaign | Started 2026-07-21 (HND-020: lattice, ledgers, and G0 delivered; suite at 220 tests at close, including the parallel M6 session's in-progress files). Extended same day (HND-023): planar probe grids as the controlled volume-section replacement (explicit frames, geometry culling and BL band refinement behind the `[geom]` extra, pre-processing fsm-to-obj export, VTK/Tecplot writers opening `post/`; suite at 265) |
 | v0.2+ | Remaining PHY cases, 26.000/26.100 backfill probing, declarative matrix successor, public release, PyPI | Public checklist (invariants audit) passes | Planned |
 
@@ -208,9 +208,33 @@ N integrated axial), the printed dt is three-decimal (optional
 export axes are axial/in-plane on a rotating blade, making the
 beta(r) chordwise/normal projection the recorded prerequisite of the
 soft-blade pilot (PLN-020, with the deliberate-offset sign
-confirmation and relaxation tuning). Suite at 316. Single next action
-on this line: PLN-020 soft-blade pilot; then PLN-019 sweep and the
-Tier 3 near-rigid registration.
+confirmation and relaxation tuning).
+
+PLN-020 then ran in the same session line (HND-031, RPT-007): the
+rotor-frame embedding landed (station triads place nodes on the local
+twisted chord and embed FSIDisp exactly; loads project with beta(r)
+and the export moment flips into the nose-up convention, its
+magnitude matching |Cm| q c^2 of the generic section), and the soft
+pilot (EI 1e5, GJ 2e3, 90 steps) delivered the full machine in-solver
+- phases 17/18/37/18 including unrelaxed phase 4 recording,
+convergence declared at revolution 2, tip twist -1.03 deg nose-down
+and flap +4.9 mm toward suction (both physically right, signs
+corroborated), frozen replay of the real deformation reproducing to
+5e-6. But the response was aerodynamically invisible (CDi moved 6e-6
+versus a matched near-rigid), and the controlled probe series
+(RBF type, iterations 2, pre-init ordering, decimal format, garbage
+crash proving the file is read, and a motionless wing control that
+morphs decisively with the same commands) concluded that build
+7012026 silently drops the FSIDisp morphing on rotary-motion
+boundaries: two-way rotor FSI is solver-blocked, the pyflightstream
+side is proven correct end to end, and the family notes carry the
+finding. SET_SIGNIFICANT_DIGITS was also probed on the author's
+recollection: it does not reach the sectional export, so the
+configured-dt remedy stands (validated: phase boundaries exactly
+18/36). Suite at 321. Single next action on this line: the vendor
+question on the morphing defect (Geovana's call, evidence package in
+RPT-007), with PLN-019 and an optional static-wing two-way pilot as
+the licensed follow-ups.
 
 The probe planner extended M7 (HND-023, plan approved by Geovana):
 planar Cartesian probe grids replace the volume sections wherever the

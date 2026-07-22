@@ -6,6 +6,17 @@
 # reports/RPT-005_fsi-dry-run_2026-07-21.md). All eleven commands of
 # this family were exercised successfully in that dry run on 26.120;
 # formal Tier 2 promotion follows the next validity sweep (PLN-019).
+#
+# Behavior finding on build 7012026 (WP7 probes,
+# reports/RPT-007_soft-pilot-morphing-investigation_2026-07-21.md):
+# the coupling loop runs end to end, and FSIDisp.txt is read every
+# step, but the mesh morphing is silently NOT applied to boundaries
+# attached to a rotary motion definition; a motionless boundary morphs
+# correctly with the same command sequence. Two-way rotor FSI is
+# therefore blocked in this build (candidate solver defect; the
+# documented workflow at SRC-003 p.273 names rotors). A malformed
+# FSIDisp.txt crashes the solver (access violation) instead of
+# raising an error.
 
 EXECUTE_AEROELASTIC_ANALYSIS:
   layout: bare
