@@ -99,9 +99,12 @@ EXPORT_PROBE_POINTS:
     Rows follow the probe creation order, preserved from an imported
     lattice (26.120 build 7012026 round trip,
     reports/RPT-004_probe-roundtrip-order_2026-07-21.md). The
-    boundary-layer columns are inert only when the viscous coupling
-    is disabled; the default leaves near-surface probes with BL data
-    (same report). Parsed by results.parse_probe_points.
+    boundary-layer columns are populated for near-surface probes
+    regardless of the viscous toggles (REYNOLDS_AVERAGED_DRAG_FORCES,
+    SET_SOLVER_VISCOUS_COUPLING, SET_INVISCID_LOADS; author's
+    correction and control experiment, same report): their inertness
+    is geometric, probes away from the wall export zeros. Parsed by
+    results.parse_probe_points.
 
 DELETE_PROBE_POINTS:
   layout: bare
