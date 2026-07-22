@@ -28,6 +28,8 @@ import re
 import warnings
 from dataclasses import dataclass
 
+import numpy as np
+
 from pyflightstream.versions import FsVersion, resolve
 
 _DASHED_LINE = re.compile(r"^-{4,}$")
@@ -397,3 +399,149 @@ def parse_residual_history(text: str) -> list[ResidualSample]:
     if not history:
         raise IncompleteOutputError("the log residual table is empty")
     return history
+
+
+@dataclass(frozen=True)
+class ProbePointsReport:
+    """Parsed EXPORT_PROBE_POINTS output (SRC-003 pp.362-363, p.249).
+
+    Rows follow the probe creation order: the 26.120 round-trip
+    evidence (reports/RPT-004) shows the solver preserves the count
+    and row order of imported probes, which is what lets a
+    :class:`~pyflightstream.probes.planar.PlannedProbes` plan map rows
+    back to grid nodes.
+
+    Attributes
+    ----------
+    columns : tuple of str
+        Column names as printed, starting with X, Y, Z (simulation
+        length units, reference frame).
+    values : numpy.ndarray
+        The full table, shape ``(count, len(columns))``, in printed
+        order.
+    angle_of_attack_deg : float
+        Angle of attack of the exported solution (deg).
+    freestream_velocity_m_s : float
+        Free-stream velocity (m/s).
+    current_iteration : int
+        Solver iteration the export reflects.
+    reported_version : str
+        Version string printed in the footer, verbatim.
+    reported_build : str
+        Build number printed in the footer, verbatim (the precise
+        discriminator, FR-18).
+    """
+
+    columns: tuple[str, ...]
+    values: np.ndarray
+    angle_of_attack_deg: float
+    freestream_velocity_m_s: float
+    current_iteration: int
+    reported_version: str
+    reported_build: str
+
+    @property
+    def count(self) -> int:
+        """Number of probe rows."""
+        return len(self.values)
+
+    @property
+    def positions(self) -> np.ndarray:
+        """Probe positions, shape ``(count, 3)``: the X, Y, Z columns."""
+        return self.values[:, :3]
+
+    def field(self, name: str) -> np.ndarray:
+        """Return one named column as an array.
+
+        Parameters
+        ----------
+        name : str
+            Printed column name, for example ``"vtot"`` or ``"Cp"``.
+        """
+        try:
+            index = self.columns.index(name)
+        except ValueError as error:
+            raise KeyError(
+                f"column {name!r} is not in this export; available: {', '.join(self.columns)}"
+            ) from error
+        return self.values[:, index]
+
+    def fields(self) -> dict[str, np.ndarray]:
+        """All non-coordinate columns, keyed by printed name.
+
+        Drops straight into the flow-visualization writers of
+        :mod:`pyflightstream.post`.
+        """
+        return {name: self.field(name) for name in self.columns[3:]}
+
+
+def parse_probe_points(text: str, requested_version=None) -> ProbePointsReport:
+    """Parse an EXPORT_PROBE_POINTS file into a typed report.
+
+    Anchor-based like every parser here: the point count is read from
+    its printed label, the table from its ``X, Y, Z,`` header to the
+    closing dashed line, and a declared-versus-parsed row mismatch
+    raises instead of returning less (FR-17). The boundary-layer
+    columns are part of the table; with the viscous coupling off they
+    are inert zeros, and asserting that is the caller's business
+    (DLV-006 Sec. 2.3).
+
+    Parameters
+    ----------
+    text : str
+        Complete export file text.
+    requested_version : str or FsVersion, optional
+        Version the run requested; when given, the printed version is
+        cross-checked and a mismatch warns (FR-18).
+
+    Returns
+    -------
+    ProbePointsReport
+        Typed table plus the solution metadata.
+    """
+    text = text.replace("\x00", "")
+    software = _SOFTWARE_LINE.search(text)
+    if software is None:
+        raise IncompleteOutputError(
+            "the probe export has no software footer; the file ends before the "
+            "closing block, so the solver stopped before finishing this export"
+        )
+    declared = int(parse_number(labeled_value(text, "Number of Probe Points:")))
+    header_line = next(
+        (line.strip() for line in text.splitlines() if line.strip().startswith("X, Y, Z,")),
+        None,
+    )
+    if header_line is None:
+        raise AnchorNotFoundError(
+            "the probe table header 'X, Y, Z,' was not found; the file is not an "
+            "EXPORT_PROBE_POINTS output or its format changed"
+        )
+    columns = tuple(cell.strip() for cell in header_line.split(",") if cell.strip())
+    rows = delimited_table(text, "X, Y, Z,")
+    parsed_rows = []
+    for row in rows:
+        cells = [cell for cell in row if cell]
+        if len(cells) != len(columns):
+            raise ValueError(
+                f"a probe row holds {len(cells)} values but the header names "
+                f"{len(columns)} columns; the table layout changed"
+            )
+        parsed_rows.append([parse_number(cell) for cell in cells])
+    if len(parsed_rows) != declared:
+        raise IncompleteOutputError(
+            f"the export declares {declared} probe points but the table holds "
+            f"{len(parsed_rows)} rows; the solver stopped mid-write"
+        )
+    if requested_version is not None:
+        _cross_check_version(software.group("version"), requested_version)
+    return ProbePointsReport(
+        columns=columns,
+        values=np.asarray(parsed_rows, dtype=float),
+        angle_of_attack_deg=parse_number(labeled_value(text, "Angle of attack (Deg)")),
+        freestream_velocity_m_s=parse_number(labeled_value(text, "Freestream velocity (m/s)")),
+        current_iteration=int(
+            parse_number(labeled_value(text, "Current solver iteration number:"))
+        ),
+        reported_version=software.group("version"),
+        reported_build=software.group("build"),
+    )

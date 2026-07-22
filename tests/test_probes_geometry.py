@@ -119,3 +119,15 @@ def test_planned_probes_serialization_round_trip():
     assert clone.grid == planned.grid
     assert clone.report == planned.report
     assert np.allclose(clone.points, planned.points)
+
+
+def test_verify_positions_enforces_the_row_order_contract():
+    planned = apply_geometry_gate(midplane_grid(), mesh_path=CUBE)
+    # Round-tripped through the export's four-digit mantissa format.
+    exported = np.asarray([[float(f"{c:.4e}") for c in row] for row in planned.points])
+    planned.verify_positions(exported)
+    with pytest.raises(ValueError, match="does not belong to this plan"):
+        planned.verify_positions(exported[:-1])
+    shuffled = np.random.default_rng(0).permutation(exported)
+    with pytest.raises(ValueError, match="row order contract is broken"):
+        planned.verify_positions(shuffled)

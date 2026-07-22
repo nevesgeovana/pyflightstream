@@ -7,6 +7,7 @@ synthetic.
 
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from pyflightstream.results import (
@@ -17,6 +18,7 @@ from pyflightstream.results import (
     labeled_value,
     parse_loads,
     parse_number,
+    parse_probe_points,
     parse_residual_history,
 )
 
@@ -107,3 +109,31 @@ def test_parse_residual_history_scrubs_the_nul_bytes_of_real_exports():
     text = read_fixture("log_residuals_26.120.txt").replace("\n\n", "\n\x00\n")
     history = parse_residual_history(text)
     assert history[-1].iteration == 1575
+
+
+def test_parse_probe_points_reads_the_fixture():
+    report = parse_probe_points(read_fixture("probe_points_26.120.txt"))
+    assert report.count == 12
+    assert report.columns[:3] == ("X", "Y", "Z")
+    assert report.columns[-1] == "Transition"
+    assert report.positions[0] == pytest.approx([-0.5, 2.0, -0.6])
+    assert report.field("vtot")[0] == pytest.approx(29.29, abs=0.01)
+    assert report.angle_of_attack_deg == 4.0
+    assert report.freestream_velocity_m_s == 30.0
+    assert report.current_iteration == 58
+    assert report.reported_build == "7012026"
+    # Boundary-layer columns are inert in the fixture rows.
+    for name in ("momentum_thickness", "disp_thick", "thickness", "CF", "Transition"):
+        assert report.field(name) == pytest.approx(np.zeros(12))
+    assert "vtot" in report.fields() and "X" not in report.fields()
+
+
+def test_parse_probe_points_checks_completeness_and_version():
+    text = read_fixture("probe_points_26.120.txt")
+    truncated = text[: text.index("Force Units")]
+    with pytest.raises(IncompleteOutputError, match="software footer|closing separator"):
+        parse_probe_points(truncated)
+    with pytest.warns(VersionMismatchWarning, match="wrong executable"):
+        parse_probe_points(text, requested_version="26.0")
+    with pytest.raises(KeyError, match="not in this export"):
+        parse_probe_points(text).field("entropy")

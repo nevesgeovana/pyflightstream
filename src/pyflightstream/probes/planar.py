@@ -398,6 +398,47 @@ class PlannedProbes:
     points: np.ndarray
     report: GeometryGateReport
 
+    def verify_positions(self, positions: np.ndarray, *, rtol: float = 5e-4) -> None:
+        """Assert exported probe rows follow this plan's order and count.
+
+        The 26.120 round trip (reports/RPT-004) shows the solver
+        preserves the count and row order of imported probes; this
+        check re-validates that contract on every load, because a
+        silent reordering would attach fields to the wrong positions.
+        The default tolerance matches the export's four significant
+        mantissa digits.
+
+        Parameters
+        ----------
+        positions : numpy.ndarray
+            Exported probe positions, shape ``(n, 3)``, for example
+            ``ProbePointsReport.positions``.
+        rtol : float
+            Largest tolerated relative coordinate mismatch.
+
+        Raises
+        ------
+        ValueError
+            If the count differs or any row-aligned position deviates
+            beyond ``rtol``: the export does not belong to this plan,
+            or the solver reordered the probes.
+        """
+        positions = np.asarray(positions, dtype=float)
+        if positions.shape != self.points.shape:
+            raise ValueError(
+                f"the export holds {len(positions)} probes but this plan placed "
+                f"{len(self.points)}; the export does not belong to this plan"
+            )
+        scale = np.maximum(np.abs(self.points), 1e-3)
+        mismatch = np.abs(positions - self.points) / scale
+        worst = int(np.argmax(mismatch.max(axis=1)))
+        if float(mismatch.max()) > rtol:
+            raise ValueError(
+                f"probe row {worst} sits at {positions[worst].tolist()} but the plan "
+                f"placed {self.points[worst].tolist()}; the row order contract is "
+                "broken (solver reordering, or an export from a different plan)"
+            )
+
     def to_json(self) -> str:
         """Serialize grid, points, and report together.
 
