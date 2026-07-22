@@ -346,12 +346,21 @@ class GeometryGateReport(BaseModel):
         Base grid nodes before the gate.
     base_culled : int
         Base nodes discarded because they fall inside the body.
+    base_standoff_culled : int
+        Base nodes discarded because they hug the surface closer than
+        the standoff margin; a probe on or against the wall samples
+        the body's surface state, not the flow (the on-surface probe
+        of reports/RPT-004 exported zero velocity).
     refined_added : int
         Refinement-band nodes added (after their own culling).
     refined_culled : int
         Refinement-band candidates discarded inside the body.
+    refined_standoff_culled : int
+        Refinement-band candidates discarded by the standoff margin.
     band_distance : float, optional
         Refinement band thickness used; None when no refinement ran.
+    standoff : float, optional
+        Standoff margin used; None when no margin was requested.
     mesh_path : str, optional
         Surface mesh file the gate tested against; None when the gate
         ran without a mesh (no culling, no refinement).
@@ -363,13 +372,16 @@ class GeometryGateReport(BaseModel):
     base_culled: int
     refined_added: int
     refined_culled: int
+    base_standoff_culled: int = 0
+    refined_standoff_culled: int = 0
     band_distance: float | None = None
+    standoff: float | None = None
     mesh_path: str | None = None
 
     @property
     def kept(self) -> int:
         """Probes that survive the gate."""
-        return self.base_total - self.base_culled + self.refined_added
+        return self.base_total - self.base_culled - self.base_standoff_culled + self.refined_added
 
     @property
     def culled_fraction(self) -> float:

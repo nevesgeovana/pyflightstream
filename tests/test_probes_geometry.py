@@ -121,6 +121,27 @@ def test_planned_probes_serialization_round_trip():
     assert np.allclose(clone.points, planned.points)
 
 
+def test_standoff_margin_culls_the_wall_hugging_probes():
+    # Midplane axis points are -1, -0.6, -0.2, 0.2, 0.6, 1 against the
+    # unit cube: outside nodes with in-plane clearance below 0.15 are
+    # the twelve at (+-0.6, |y| <= 0.6) and (+-0.2, +-0.6), whose
+    # distances are 0.1 or 0.1*sqrt(2).
+    planned = apply_geometry_gate(midplane_grid(), mesh_path=CUBE, standoff=0.15)
+    assert planned.report.base_culled == 4
+    assert planned.report.base_standoff_culled == 12
+    assert planned.report.standoff == 0.15
+    assert planned.report.kept == 20
+    assert len(planned.points) == 20
+    kept_xy = np.abs(planned.points[:, :2])
+    clearance = np.linalg.norm(np.maximum(kept_xy - 0.5, 0.0), axis=1)
+    assert np.all(clearance >= 0.15)
+
+
+def test_standoff_without_a_mesh_is_refused():
+    with pytest.raises(ValueError, match="measured from the surface"):
+        apply_geometry_gate(midplane_grid(), standoff=0.1)
+
+
 def test_verify_positions_enforces_the_row_order_contract():
     planned = apply_geometry_gate(midplane_grid(), mesh_path=CUBE)
     # Round-tripped through the export's four-digit mantissa format.

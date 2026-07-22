@@ -112,12 +112,20 @@ def _fine_axis(values: np.ndarray, factor: int) -> np.ndarray:
     return np.concatenate([*segments, [values[-1:]]], axis=None)
 
 
+def _surface_distance(mesh, points: np.ndarray) -> np.ndarray:
+    from trimesh.proximity import ProximityQuery
+
+    _, distance, _ = ProximityQuery(mesh).on_surface(points)
+    return np.asarray(distance)
+
+
 def apply_geometry_gate(
     grid: PlanarProbeGrid,
     mesh=None,
     *,
     mesh_path: str | Path | None = None,
     cull: bool = True,
+    standoff: float = 0.0,
 ) -> PlannedProbes:
     """Run the geometry gate of a planar grid and return the final probes.
 
@@ -134,6 +142,14 @@ def apply_geometry_gate(
     cull : bool
         Discard points inside the body. Disabling keeps every point
         while still allowing band refinement.
+    standoff : float
+        Also discard points closer to the surface than this margin
+        (simulation length units). A probe on or hugging the wall
+        samples the body's surface state, not the flow: the 26.120
+        round trip exported zero velocity for a node sitting exactly
+        on the leading edge, and near-wall probes carry
+        boundary-layer columns regardless of the viscous toggles
+        (reports/RPT-004). Zero disables the margin.
 
     Returns
     -------
@@ -144,9 +160,9 @@ def apply_geometry_gate(
     Raises
     ------
     ValueError
-        If the grid asks for refinement but no mesh is given: the
-        band is measured from the surface, so it cannot exist without
-        one.
+        If the grid asks for refinement, or a positive standoff is
+        requested, without a mesh: both are measured from the
+        surface, so they cannot exist without one.
     """
     resolved_path = str(mesh_path) if mesh_path is not None else None
     if mesh is None and mesh_path is not None:
@@ -157,18 +173,32 @@ def apply_geometry_gate(
             "mesh was given; the band is measured from the surface, so pass mesh "
             "or mesh_path (export one with pyflightstream.run.export_surface_mesh)"
         )
+    if standoff < 0.0:
+        raise ValueError("standoff must be zero or positive: it is a wall margin")
+    if standoff > 0.0 and mesh is None:
+        raise ValueError(
+            "a standoff margin is measured from the surface, so it needs a mesh; "
+            "pass mesh or mesh_path, or drop the margin"
+        )
 
     base = grid.base_points()
     if mesh is not None and cull:
         inside = np.asarray(mesh.contains(base), dtype=bool)
     else:
         inside = np.zeros(len(base), dtype=bool)
-    kept_base = base[~inside]
+    if standoff > 0.0:
+        near = (_surface_distance(mesh, base) < standoff) & ~inside
+    else:
+        near = np.zeros(len(base), dtype=bool)
+    kept_base = base[~(inside | near)]
 
     refined_points: list[np.ndarray] = []
     refined_culled = 0
+    refined_standoff_culled = 0
     if grid.refinement is not None:
-        refined, refined_culled = _refine_band(grid, mesh, cull=cull)
+        refined, refined_culled, refined_standoff_culled = _refine_band(
+            grid, mesh, cull=cull, standoff=standoff
+        )
         if len(refined):
             refined_points.append(refined)
 
@@ -176,25 +206,29 @@ def apply_geometry_gate(
     report = GeometryGateReport(
         base_total=len(base),
         base_culled=int(inside.sum()),
+        base_standoff_culled=int(near.sum()),
         refined_added=sum(len(block) for block in refined_points),
         refined_culled=refined_culled,
+        refined_standoff_culled=refined_standoff_culled,
         band_distance=grid.refinement.distance if grid.refinement else None,
+        standoff=standoff if standoff > 0.0 else None,
         mesh_path=resolved_path,
     )
     return PlannedProbes(grid=grid, points=points, report=report)
 
 
-def _refine_band(grid: PlanarProbeGrid, mesh, *, cull: bool) -> tuple[np.ndarray, int]:
+def _refine_band(
+    grid: PlanarProbeGrid, mesh, *, cull: bool, standoff: float = 0.0
+) -> tuple[np.ndarray, int, int]:
     """Fine nodes of the cells within the band distance of the surface.
 
     Cells are flagged by their center: within ``distance`` of the
     surface and not inside the body. Flagged cells are re-sampled
     ``factor`` times finer per direction; nodes already present in the
     base grid are skipped, and nodes shared between adjacent flagged
-    cells are emitted once, in cell-major order.
+    cells are emitted once, in cell-major order. Candidates inside the
+    body or within the standoff margin are discarded and counted.
     """
-    from trimesh.proximity import ProximityQuery
-
     factor = grid.refinement.factor
     distance = grid.refinement.distance
     u = grid.u.points()
@@ -207,9 +241,9 @@ def _refine_band(grid: PlanarProbeGrid, mesh, *, cull: bool) -> tuple[np.ndarray
     centers_local[:, 1] = np.tile(centers_v, len(centers_u))
     centers = grid.frame.to_reference(centers_local)
 
-    _, center_distance, _ = ProximityQuery(mesh).on_surface(centers)
+    center_distance = _surface_distance(mesh, centers)
     center_inside = np.asarray(mesh.contains(centers), dtype=bool)
-    flagged = (np.asarray(center_distance) < distance) & ~center_inside
+    flagged = (center_distance < distance) & ~center_inside
     flagged = flagged.reshape(len(centers_u), len(centers_v))
 
     fine_u = _fine_axis(u, factor)
@@ -231,12 +265,17 @@ def _refine_band(grid: PlanarProbeGrid, mesh, *, cull: bool) -> tuple[np.ndarray
                     seen.add((gu, gv))
                     nodes_local.append((fine_u[gu], fine_v[gv]))
     if not nodes_local:
-        return np.empty((0, 3)), 0
+        return np.empty((0, 3)), 0, 0
 
     local = np.zeros((len(nodes_local), 3))
     local[:, :2] = np.asarray(nodes_local)
     candidates = grid.frame.to_reference(local)
     if cull:
         inside = np.asarray(mesh.contains(candidates), dtype=bool)
-        return candidates[~inside], int(inside.sum())
-    return candidates, 0
+    else:
+        inside = np.zeros(len(candidates), dtype=bool)
+    if standoff > 0.0:
+        near = (_surface_distance(mesh, candidates) < standoff) & ~inside
+    else:
+        near = np.zeros(len(candidates), dtype=bool)
+    return candidates[~(inside | near)], int(inside.sum()), int(near.sum())
