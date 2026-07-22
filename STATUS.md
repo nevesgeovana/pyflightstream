@@ -162,8 +162,17 @@ of the plan. FSIDisp.txt and the node import are comma separated
 three-column files in import order; the dummy now writes commas.
 Sanitized fixtures live in `tests/fixtures/fsi/`; DLV-007 Section 3
 amended in both copies. WP2 (loads parser on the fixtures) is
-unblocked; per-blade section labeling on multi-blade meshes is the
-one interface fact still open.
+unblocked. The last interface question closed on the author's input
+in the same session line: blade attribution follows her standing
+family-per-blade convention (one geometry family per blade, one
+section distribution per blade boundary in the blade frame; the flat
+export concatenates families in creation order, so attribution is
+bookkeeping of the distribution-creating code, with the offset and
+chord jumps at block boundaries as cross-check; RPT-005 finding 6,
+confirmed against a legacy multi-boundary SMI run). Single next
+action on this line: WP2, the loads parser on the committed fixtures
+with the family-bookkeeping split and the SI header assertion, then
+WP5 kinematics.
 Physics formulas carry Source lines enforced by a tier 1 schema
 test; synthetic blades only; CI installs `.[dev,fsi]`; suite at 232
 tests at close. PHY-05 is registered as PLN-014, prerequisite of the
