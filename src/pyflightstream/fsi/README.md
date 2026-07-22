@@ -161,11 +161,16 @@ the tributary widths against the integrated loads of the same run
 arrive about the quarter chord, the pitch axis reference;
 `to_elastic_axis` transfers them with the configured e(r)
 (M_EA = M_PA + e x F, FSI-R04), so refining the elastic axis estimate
-never touches the FlightStream setup. Axes caveat: the export columns
-are the cut-plane axes (axial and in-plane on the pilot's rotating
-blade), which coincide with the section chordwise/normal axes only at
-zero local blade angle; the beta(r) projection for twisted blades is
-the recorded prerequisite of the soft-blade pilot.
+never touches the FlightStream setup. Axes: the export columns are
+the cut-plane axes (axial and in-plane on a rotating blade, RPT-006
+finding 3); on a spinning configuration `to_elastic_axis` projects
+them onto the section chordwise/normal axes with the local blade
+angle from the geometric pitch distribution
+(`project_rotor_frame_loads`; the export moment is positive
+nose-down and flips sign into the nose-up convention). The embedding
+rule (`config.frame_embedding`) is shared with the node generator, so
+loads and displacements always live in the same triad; at Omega zero
+everything passes through unchanged (the wing case).
 
 ## kinematics: twist as differential translations (`kinematics.py`)
 
@@ -202,6 +207,14 @@ frame, so one node file serves all blades: it is imported once per
 blade frame, in blade order, and the FSIDisp rows follow that same
 blade-major order. Formats are the dry-run evidence exactly: comma
 separated three-column files, no header (RPT-005 finding 5).
+
+On a spinning blade the sections embed at the local blade angle
+(`station_triads`: nodes on the actual twisted chord, displacements
+along the local suction direction), so the scalar twist encoding
+survives untouched while positions and FSIDisp rows live in the rotor
+import frame; at Omega zero the embedding is the identity and nothing
+changes for the wing case. The map records the embedding and the
+blade angles, keeping the round trip exact either way.
 
 ## driver and state: the four-phase machine (`driver.py`, `state.py`)
 

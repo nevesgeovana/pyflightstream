@@ -23,6 +23,7 @@ PHYSICS_FUNCTIONS = [
     (beam, "lumped_station_masses"),
     (beam, "_condense_massless"),
     (loads, "transfer_moment_to_elastic_axis"),
+    (loads, "project_rotor_frame_loads"),
     (kinematics, "station_normal_translation"),
     (kinematics, "twist_from_node_translations"),
     (driver, "relax_displacements"),
@@ -47,6 +48,7 @@ NON_PHYSICS_PUBLIC = {
     "kinematics": {"encode_station_translations", "decode_station_translations"},
     "nodes": {
         "generate_node_layout",
+        "station_triads",
         "node_positions",
         "write_node_file",
         "write_node_map",

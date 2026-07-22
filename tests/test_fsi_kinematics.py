@@ -135,6 +135,71 @@ def test_flatten_rejects_wrong_blade_count():
         nodes.flatten_blade_translations(layout, [one_blade])
 
 
+def rotor_config():
+    """Spinning uniform blade with a twist law: rotor-frame embedding."""
+    cfg = make_uniform_blade_config(omega_rad_per_s=50.0)
+    data = cfg.model_dump()
+    n = len(data["blade"]["station_radii_m"])
+    data["blade"]["geometric_pitch_deg"] = list(np.linspace(60.0, 25.0, n))
+    from pyflightstream.fsi.config import FsiConfig
+
+    return FsiConfig.model_validate(data)
+
+
+def test_rotor_embedding_places_nodes_on_the_local_chord():
+    layout = nodes.generate_node_layout(rotor_config())
+    assert layout.embedding == "rotor_frame"
+    positions = nodes.node_positions(layout)
+    beta = np.radians(layout.blade_angle_deg[0])
+    # EA node on the pitch axis (zero offsets), LE node a quarter chord
+    # along the local toward-LE direction (-sin b, -cos b, 0).
+    assert np.allclose(positions[0], (0.0, 0.0, layout.station_radii_m[0]))
+    le = layout.le_offset_m[0] * np.array([-np.sin(beta), -np.cos(beta), 0.0])
+    le[2] = layout.station_radii_m[0]
+    assert np.allclose(positions[1], le, rtol=1e-12)
+
+
+def test_rotor_embedding_twist_matches_rigid_rotation():
+    """Encoded twist equals the linearized nose-up rotation about -Z."""
+    layout = nodes.generate_node_layout(rotor_config())
+    radii = np.asarray(layout.station_radii_m)
+    theta = np.full(len(radii), 0.01)
+    translations = kinematics.encode_station_translations(
+        np.zeros(len(radii)), theta, np.asarray(layout.le_offset_m), np.asarray(layout.te_offset_m)
+    )
+    flat = nodes.flatten_blade_translations(layout, [translations] * layout.blade_count)
+    positions = nodes.node_positions(layout)
+    axis = np.array([0.0, 0.0, -1.0])  # nose-up for this geometry
+    for s in range(layout.station_count):
+        for role_index in (1, 2):  # LE and TE nodes carry the twist arm
+            row = s * 3 + role_index
+            in_plane = positions[row].copy()
+            in_plane[2] = 0.0
+            expected = np.cross(theta[s] * axis, in_plane)
+            assert np.allclose(flat[row], expected, rtol=1e-12, atol=1e-15)
+
+
+def test_rotor_embedding_round_trip_is_machine_precision(tmp_path):
+    cfg = rotor_config()
+    layout = nodes.generate_node_layout(cfg)
+    radii = np.asarray(layout.station_radii_m)
+    w, theta = analytic_solution(radii)
+    le, te = np.asarray(layout.le_offset_m), np.asarray(layout.te_offset_m)
+    per_blade = [
+        kinematics.encode_station_translations(w * (1 + b), theta, le, te)
+        for b in range(layout.blade_count)
+    ]
+    flat = nodes.flatten_blade_translations(layout, per_blade)
+    nodes.write_fsidisp(tmp_path / "FSIDisp.txt", flat)
+    back = nodes.read_fsidisp(tmp_path / "FSIDisp.txt", expected_rows=layout.total_nodes)
+    for original, translations in zip(
+        per_blade, nodes.unflatten_translations(layout, back), strict=True
+    ):
+        w_out, theta_out = kinematics.decode_station_translations(translations, le, te)
+        assert np.allclose(w_out, original[:, 0, 1], rtol=1e-12, atol=1e-16)
+        assert np.allclose(theta_out, theta, rtol=1e-11, atol=1e-15)
+
+
 def test_wp1_fixture_formats_are_readable():
     """The dry-run interface files parse with the same readers (RPT-005)."""
     disp = nodes.read_fsidisp(FIXTURES / "FSIDisp.txt", expected_rows=11)

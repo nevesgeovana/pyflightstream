@@ -58,7 +58,7 @@ from dataclasses import dataclass
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from pyflightstream.fsi.config import FsiConfig
+from pyflightstream.fsi.config import FsiConfig, frame_embedding
 from pyflightstream.results import (
     AnchorNotFoundError,
     IncompleteOutputError,
@@ -521,6 +521,37 @@ def transfer_moment_to_elastic_axis(
     )
 
 
+def project_rotor_frame_loads(
+    fx_n_per_m: np.ndarray,
+    fz_n_per_m: np.ndarray,
+    moment_qc_nm_per_m: np.ndarray,
+    blade_angle_rad: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Project cut-plane load densities onto the section axes (rotor frame).
+
+    f_chordwise = -Fx sin b - Fz cos b (toward the leading edge),
+    f_normal = -Fx cos b + Fz sin b (toward the suction side), and
+    m_nose_up = -Moment. In the rotor import frame (X axial, Y
+    in-plane, Z span; RPT-006 finding 3) the section chordwise and
+    suction directions at local blade angle b are (-sin b, -cos b) and
+    (-cos b, sin b); nose-up is the rotation about -Z for this
+    geometry, and the export's moment column is positive about +Z,
+    physically nose-down (the dry-run fixture's +7 to +13 N m/m match
+    the nose-down |Cm| q c^2 of the cambered generic section). The
+    sign is corroborated by the soft-blade pilot response (RPT-007).
+    Inputs broadcast; densities in N/m and N m / m, angles in rad.
+
+    Source: rigid-section geometry of the rotor-frame embedding
+    (RPT-006 finding 3); load assembly of DLV-007 Section 4.2.
+    """
+    fx = np.asarray(fx_n_per_m, dtype=float)
+    fz = np.asarray(fz_n_per_m, dtype=float)
+    beta = np.asarray(blade_angle_rad, dtype=float)
+    chordwise = -fx * np.sin(beta) - fz * np.cos(beta)
+    normal = -fx * np.cos(beta) + fz * np.sin(beta)
+    return chordwise, normal, -np.asarray(moment_qc_nm_per_m, dtype=float)
+
+
 @dataclass(frozen=True)
 class ElasticAxisLoads:
     """Per-section aerodynamic load densities of one blade, about its EA.
@@ -587,15 +618,17 @@ def to_elastic_axis(block: SectionBlock, cfg: FsiConfig) -> ElasticAxisLoads:
     elastic axis estimate never touches the FlightStream setup
     (DLV-007 Section 4.3).
 
-    Axes caveat (RPT-006): the export columns are the cut-plane axes,
-    which coincide with the section chordwise/normal axes only at zero
-    local blade angle (the Omega-zero wing case). For a twisted
-    propeller blade the pilot evidence identifies Fx as axial and Fz
-    as in-plane, so the chordwise/normal projection requires the local
-    blade angle; that projection, and its sign confirmation through a
-    deliberate elastic-axis offset, are the prerequisite of the
-    soft-blade coupled pilot and are not applied here yet. The
-    pitch-axis moment column is about the span axis and unaffected.
+    Axes (RPT-006 finding 3): the export columns are the cut-plane
+    axes. At Omega zero (``section_frame`` embedding, the wing case)
+    they are the section chordwise/normal axes and pass through
+    unchanged. On a spinning blade (``rotor_frame``) they are the
+    axial and in-plane axes, so the loads are projected onto the
+    section axes with the local blade angle interpolated from the
+    geometric pitch distribution
+    (:func:`project_rotor_frame_loads`); the embedding rule is shared
+    with the node generator through
+    :func:`pyflightstream.fsi.config.frame_embedding`, so loads and
+    displacements always live in the same triad.
 
     Parameters
     ----------
@@ -607,7 +640,8 @@ def to_elastic_axis(block: SectionBlock, cfg: FsiConfig) -> ElasticAxisLoads:
     Returns
     -------
     ElasticAxisLoads
-        Load densities about the elastic axis at the section radii.
+        Load densities about the elastic axis at the section radii,
+        in section components.
     """
     stations = np.asarray(cfg.blade.station_radii_m, dtype=float)
     radii = block.offset_m
@@ -626,14 +660,22 @@ def to_elastic_axis(block: SectionBlock, cfg: FsiConfig) -> ElasticAxisLoads:
     widths = _tributary_widths(ascending)
     if radii[0] > radii[-1]:
         widths = widths[::-1]
+    if frame_embedding(cfg) == "rotor_frame":
+        beta = np.radians(np.interp(radii, stations, cfg.blade.geometric_pitch_deg))
+        chordwise, normal, moment_pa = project_rotor_frame_loads(
+            block.fx_n_per_m, block.fz_n_per_m, block.moment_qc_nm_per_m, beta
+        )
+    else:
+        chordwise, normal = block.fx_n_per_m, block.fz_n_per_m
+        moment_pa = block.moment_qc_nm_per_m
     return ElasticAxisLoads(
         radius_m=radii,
         chord_m=block.chord_m,
-        force_chordwise_n_per_m=block.fx_n_per_m,
-        force_normal_n_per_m=block.fz_n_per_m,
-        moment_pa_nm_per_m=block.moment_qc_nm_per_m,
+        force_chordwise_n_per_m=chordwise,
+        force_normal_n_per_m=normal,
+        moment_pa_nm_per_m=moment_pa,
         moment_ea_nm_per_m=transfer_moment_to_elastic_axis(
-            block.moment_qc_nm_per_m, block.fx_n_per_m, block.fz_n_per_m, e_chordwise, e_normal
+            moment_pa, chordwise, normal, e_chordwise, e_normal
         ),
         ea_offset_chordwise_m=e_chordwise,
         ea_offset_normal_m=e_normal,

@@ -13,6 +13,7 @@ from pyflightstream.fsi.loads import (
     UnitsError,
     cross_check_totals,
     parse_sectional_loads,
+    project_rotor_frame_loads,
     to_elastic_axis,
     transfer_moment_to_elastic_axis,
 )
@@ -146,6 +147,45 @@ def test_transfer_moment_signs():
     """M_EA = M_PA + e_c F_n - e_n F_c, term by term."""
     assert transfer_moment_to_elastic_axis(10.0, 5.0, 20.0, 0.1, 0.0) == pytest.approx(12.0)
     assert transfer_moment_to_elastic_axis(10.0, 5.0, 20.0, 0.0, 0.2) == pytest.approx(9.0)
+
+
+def test_rotor_projection_formulas_and_signs():
+    """Thrust-side loads project to positive normal, nose-down flips."""
+    # beta = 90 deg: chord along +X toward the TE, so an upstream Fx is
+    # a toward-LE (positive chordwise) load and Fz maps to suction.
+    chordwise, normal, moment = project_rotor_frame_loads(-100.0, 50.0, 8.0, np.pi / 2)
+    assert chordwise == pytest.approx(100.0)
+    assert normal == pytest.approx(50.0)
+    assert moment == pytest.approx(-8.0)
+    # beta = 0: chord along +Y, upstream Fx is pure suction-side normal.
+    chordwise, normal, _ = project_rotor_frame_loads(-100.0, 50.0, 8.0, 0.0)
+    assert chordwise == pytest.approx(-50.0)
+    assert normal == pytest.approx(100.0)
+    # Fixture-like mid-blade state: upstream Fx and in-plane Fz at
+    # beta 53.7 deg give a positive (suction-side) normal density.
+    _, normal, _ = project_rotor_frame_loads(-600.0, 580.0, 12.0, np.radians(53.7))
+    assert normal == pytest.approx(822.6, rel=1e-3)
+
+
+def test_rotor_config_projects_before_the_ea_transfer():
+    blade = parse_sectional_loads(CALL2).split(TWO_FAMILIES)["blade_1"]
+    cfg = fixture_covering_config()
+    data = cfg.model_dump()
+    n = len(data["blade"]["station_radii_m"])
+    data["blade"]["geometric_pitch_deg"] = [30.0] * n
+    data["omega_rad_per_s"] = 50.0
+    spinning = FsiConfig.model_validate(data)
+    loads = to_elastic_axis(blade, spinning)
+    expected_c, expected_n, expected_m = project_rotor_frame_loads(
+        blade.fx_n_per_m, blade.fz_n_per_m, blade.moment_qc_nm_per_m, np.radians(30.0)
+    )
+    assert np.allclose(loads.force_chordwise_n_per_m, expected_c, rtol=1e-12)
+    assert np.allclose(loads.force_normal_n_per_m, expected_n, rtol=1e-12)
+    assert np.allclose(loads.moment_pa_nm_per_m, expected_m, rtol=1e-12)
+    # At Omega zero the same blade passes through unchanged.
+    static = to_elastic_axis(blade, cfg)
+    assert np.array_equal(static.force_chordwise_n_per_m, blade.fx_n_per_m)
+    assert np.array_equal(static.moment_pa_nm_per_m, blade.moment_qc_nm_per_m)
 
 
 def test_zero_offset_transfer_is_identity():

@@ -244,6 +244,25 @@ class FsiConfig(BaseModel):
     node_map_file: str = "fsi_node_map.json"
 
 
+def frame_embedding(cfg: FsiConfig) -> str:
+    """Return the geometric embedding of the blade section frame.
+
+    ``"rotor_frame"`` for a spinning blade (RPT-006 finding 3: the
+    import frame is rotor-axis X, in-plane Y, span Z, and the section
+    chordwise/normal axes rotate with the local blade angle, taken
+    from ``geometric_pitch_deg``); ``"section_frame"`` at Omega zero,
+    where the import frame is the section frame itself (the wing
+    case). One rule shared by the node generator and the loads
+    projection, so both sides of the interface always agree.
+
+    Parameters
+    ----------
+    cfg : FsiConfig
+        Validated configuration.
+    """
+    return "rotor_frame" if cfg.omega_rad_per_s > 0.0 else "section_frame"
+
+
 def load_config(path: str | Path) -> FsiConfig:
     """Load and validate a ``config.json``.
 
