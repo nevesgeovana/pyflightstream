@@ -84,6 +84,10 @@ both anchors reproduced) are committed with seeded banded references
 and an 8-pass validation; the registry gained a per-version evidence
 gate (both cases 26.120-only until the unsteady chapters backfill,
 which folds into the next licensed sweep with the PLN-012 re-probe).
+PHY-06 then grew into the full polar trend (HND-028): 0/2/4/6 deg in
+both modes, 16 metrics (per-alpha deltas of CL, CD, CMy plus both
+slopes), deltas growing monotonically to +0.0030 in CL at 6 deg with
+slopes matching within 0.5 percent, reseeded and validated 16 pass.
 
 The far-field extraction line opened as M7 (HND-020, spec DLV-006
 copied into `_private/design/` after the naming scrub): the command
