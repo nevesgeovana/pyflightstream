@@ -15,7 +15,9 @@ Pipeline layers, dependencies flowing strictly downward:
 - ``script``: the validating ASCII script builder.
 - ``results``: anchor-based parsers for solver output files.
 - ``cases``: simulation and campaign definitions.
-- ``run`` and ``files``: execution, run manifest, managed file layout.
+- ``run`` and ``workspace``: execution, run manifest, and the managed
+  workspace (input-artifact library plus run layout); the old
+  ``files`` name survives as a deprecation shim.
 - ``post``: results into engineering data (sweep assembly, exports).
 - ``qa``: probe harness and physics regression tooling.
 

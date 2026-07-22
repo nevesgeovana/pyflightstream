@@ -42,10 +42,13 @@ ul { margin: 0.4rem 0 0.8rem 1.2rem; }
 # The layered pipeline, one tuple per dependency level, bottom layer
 # last. Every module imports only modules of the rows below its own;
 # the CLAUDE.md layout rule (versions <- commands <- script/results <-
-# cases <- run/files <- post/qa) is the authority for the core stack.
+# cases <- run/workspace <- post/qa) is the authority for the core
+# stack (the CLAUDE.md text still spells the row "files"; workspace is
+# its renamed successor and pyflightstream.files is the deprecation
+# shim).
 _CORE_LAYERS: tuple[tuple[tuple[str, ...], str], ...] = (
     (("post", "qa"), "engineering data | probe and regression evidence"),
-    (("run", "files"), "headless execution | managed run layout and manifest"),
+    (("run", "workspace"), "headless execution | input library, run layout, manifest"),
     (("cases",), "simulation and campaign definitions"),
     (("script", "results"), "validating script builder | output parsers"),
     (("commands",), "the evidence-backed per-version command database"),
@@ -67,7 +70,7 @@ _SECTIONS: tuple[str, ...] = (
     "results",
     "cases",
     "run",
-    "files",
+    "workspace",
     "post",
     "qa",
     "fsi",

@@ -13,7 +13,6 @@ import pandas as pd
 import pytest
 
 import pyflightstream
-from pyflightstream.files import CampaignWorkspace, RunRecord, RunStatus
 from pyflightstream.fsi.loads import parse_sectional_loads
 from pyflightstream.results import (
     AmbiguousLoadsError,
@@ -28,6 +27,7 @@ from pyflightstream.results import (
     to_dataframe,
 )
 from pyflightstream.results import tables as tables_module
+from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

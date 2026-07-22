@@ -170,9 +170,9 @@ else:
     import numpy as np
 
     import pyflightstream
-    from pyflightstream.files import CampaignWorkspace, RunRecord, RunStatus
     from pyflightstream.results import sweep_frame
     from pyflightstream.versions import resolve
+    from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 
     executor = LocalExecutor(fs_exe)
     workspace = CampaignWorkspace(workdir / "campaign")

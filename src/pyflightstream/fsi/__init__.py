@@ -47,7 +47,7 @@ class StructuralSolver(Protocol):
         Parameters
         ----------
         run_dir : Path
-            Run folder managed by :mod:`pyflightstream.files` (FR-28)
+            Run folder managed by :mod:`pyflightstream.workspace` (FR-28)
             containing the FlightStream loads export, ``config.json``
             and ``state.json``. The written ``FSIDisp.txt`` carries one
             translation vector (dx, dy, dz) per structural node, in

@@ -28,7 +28,15 @@ def test_package_docstring_is_the_didactic_front_door():
     # pipeline layers and the two offline entry points.
     doc = pyflightstream.__doc__
     assert "ilestone" not in doc
-    for layer in ("versions", "commands", "script", "results", "cases", "run", "files"):
+    for layer in (
+        "versions",
+        "commands",
+        "script",
+        "results",
+        "cases",
+        "run",
+        "workspace",
+    ):
         assert f"``{layer}``" in doc
     assert "help" in doc and "overview" in doc
 
@@ -58,7 +66,7 @@ def test_overview_sections_match_the_deliverable_list():
         "results",
         "cases",
         "run",
-        "files",
+        "workspace",
         "post",
         "qa",
         "fsi",

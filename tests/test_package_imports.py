@@ -11,7 +11,6 @@ def test_package_imports_and_has_version():
 def test_all_subpackages_import():
     import pyflightstream.cases
     import pyflightstream.commands
-    import pyflightstream.files
     import pyflightstream.fsi
     import pyflightstream.post
     import pyflightstream.qa
@@ -19,13 +18,14 @@ def test_all_subpackages_import():
     import pyflightstream.run
     import pyflightstream.script
     import pyflightstream.versions
+    import pyflightstream.workspace
 
     modules = [
         pyflightstream.versions,
         pyflightstream.commands,
         pyflightstream.script,
         pyflightstream.cases,
-        pyflightstream.files,
+        pyflightstream.workspace,
         pyflightstream.run,
         pyflightstream.results,
         pyflightstream.post,

@@ -3,10 +3,21 @@
 Pipeline role: runs the solver headless on rendered scripts and lands
 every campaign point in the manifest with exactly one terminal status.
 :func:`run_campaign` composes an :class:`Executor` with the managed
-workspace of :mod:`pyflightstream.files`; there is no code path from
-"point started" to "loop continued" that does not write a status, so
-silent skips are structurally impossible (PP-5, FR-14). Failures
+workspace of :mod:`pyflightstream.workspace`; there is no code path
+from "point started" to "loop continued" that does not write a status,
+so silent skips are structurally impossible (PP-5, FR-14). Failures
 accumulate into :class:`CampaignErrors`, raised after the loop.
+
+Before any execution, :func:`plan_campaign` pre-flights the same
+campaign: it resolves every recipe, allocates the managed folders,
+verifies the geometry files exist, and builds every script in dry run
+(the builder validates phase, version, and entity references without a
+solver), returning one status per point and writing the plan summary
+into the campaign root. Re-running a campaign into the same root uses
+``run_campaign(..., resume=True)``, which skips the points already
+recorded in the manifest; the manifest's append-only duplicate
+rejection is what makes the skip safe, and with ``resume=False`` a
+duplicate point raises before anything executes.
 
 The local mechanism is the documented command-line script execution:
 ``FlightStream.exe --script <file>`` (SRC-003 p.279), with the
@@ -25,15 +36,16 @@ the solver outputs, so :func:`run_campaign` takes an
 
 from __future__ import annotations
 
+import enum
+import json
 import subprocess
 import time
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Protocol
 
 import pyflightstream
 from pyflightstream.cases import Campaign, ScriptRecipe, SimCase, point_tag, resolve_recipe
-from pyflightstream.files import CampaignWorkspace, RunRecord, RunStatus, WorkspaceError
 from pyflightstream.results import (
     IncompleteOutputError,
     parse_loads,
@@ -41,6 +53,13 @@ from pyflightstream.results import (
 )
 from pyflightstream.script import Script
 from pyflightstream.versions import FsVersion, resolve
+from pyflightstream.workspace import (
+    CampaignWorkspace,
+    NamingTemplateError,
+    RunRecord,
+    RunStatus,
+    WorkspaceError,
+)
 
 _LOG_NAME = "FlightStreamLog.txt"
 
@@ -392,6 +411,7 @@ def run_campaign(
     workspace: CampaignWorkspace,
     assess: OutcomeAssessor,
     recipes: dict[str, ScriptRecipe] | None = None,
+    resume: bool = False,
 ) -> list[RunRecord]:
     """Run every point of a campaign, recording each in the manifest.
 
@@ -415,8 +435,9 @@ def run_campaign(
         ``campaign.fs_exe``.
     workspace : CampaignWorkspace
         The managed campaign root receiving folders, scripts, outputs,
-        and the manifest. Re-running into the same root fails on the
-        duplicate ``run_id``; archive the sims or choose a new root.
+        and the manifest; its naming template renders the generated
+        script names and any placeholders in the declared output
+        names.
     assess : OutcomeAssessor
         Solver-quality judgment; required because the loop refuses to
         invent convergence evidence it cannot see.
@@ -424,18 +445,32 @@ def run_campaign(
         Named recipe registry consulted before treating
         :attr:`SimCase.recipe` as a ``module:function`` reference;
         the legacy matrix reader will register its recipe names here.
+    resume : bool
+        With True, points whose ``run_id`` is already in the manifest
+        are skipped without execution, so a campaign can grow sweep
+        points and re-run into the same root; the manifest's
+        append-only duplicate rejection is what makes the skip safe.
+        With False (the default) a duplicate point raises
+        :class:`~pyflightstream.workspace.WorkspaceError` before
+        anything executes, because silently redoing recorded evidence
+        would fork the run identity.
 
     Returns
     -------
     list of RunRecord
-        All records of this run, in execution order.
+        The records executed by this call, in execution order; points
+        skipped by ``resume`` keep their existing manifest records and
+        are not repeated here.
 
     Raises
     ------
     CampaignErrors
-        After the loop, when at least one point failed.
+        After the loop, when at least one executed point failed.
+    WorkspaceError
+        On the first already-recorded point when ``resume`` is False.
     """
     canonical = resolve(campaign.fs_version).canonical
+    recorded = {record.run_id for record in workspace.read_manifest()}
     records: list[RunRecord] = []
     failures: list[RunRecord] = []
     for case in campaign.sims:
@@ -444,11 +479,23 @@ def run_campaign(
             case, workspace, recipes
         )
         for point in case.sweep.points():
+            run_id = _run_id(campaign, case, point)
+            if run_id in recorded:
+                if resume:
+                    continue
+                raise WorkspaceError(
+                    f"run_id {run_id!r} is already in the manifest of "
+                    f"{workspace.root}; re-running a recorded point would fork the "
+                    "run identity. Pass resume=True to skip recorded points (and "
+                    "run only the new ones), or archive the simulation / choose a "
+                    "new campaign root to redo it."
+                )
             record = _execute_point(
                 campaign=campaign,
                 canonical=canonical,
                 case=case,
                 point=point,
+                run_id=run_id,
                 recipe=recipe,
                 preparation_error=preparation_error,
                 inputs_sha256=inputs_sha256,
@@ -459,12 +506,283 @@ def run_campaign(
                 assess=assess,
             )
             workspace.append_record(record)
+            recorded.add(record.run_id)
             records.append(record)
             if record.status.startswith("FAILED"):
                 failures.append(record)
     if failures:
         raise CampaignErrors(failures)
     return records
+
+
+def _run_id(campaign: Campaign, case: SimCase, point: dict[str, float]) -> str:
+    """Compose the fixed manifest identity of one campaign point.
+
+    The scheme ``<campaign>/sim_<sim_id>/<point_tag>`` is identity,
+    not presentation: it never goes through the naming template, so
+    renaming outputs can never fork or collide run identities.
+    """
+    return f"{campaign.name}/sim_{case.sim_id}/{point_tag(point)}"
+
+
+def _point_names(
+    campaign: Campaign,
+    case: SimCase,
+    point: dict[str, float],
+    workspace: CampaignWorkspace,
+) -> tuple[str, list[str]]:
+    """Render the human-readable names of one point, output only.
+
+    Returns the script file stem and the declared output names with
+    their placeholders rendered; the recipe sees the rendered names in
+    :attr:`SimCase.outputs`, so what it exports is what the loop
+    collects. The default template reproduces the historical names.
+    """
+    stem = workspace.naming.render_point(
+        campaign=campaign.name, sim=case.sim_id, point=point, mach=case.mach
+    )
+    outputs = [
+        workspace.naming.render_output(
+            name, campaign=campaign.name, sim=case.sim_id, point=point, mach=case.mach
+        )
+        for name in case.outputs
+    ]
+    return stem, outputs
+
+
+class PlanStatus(enum.StrEnum):
+    """Pre-flight status of one campaign point (no execution involved).
+
+    READY: the recipe resolved, the geometry exists, and the script
+    built and rendered in dry run. BLOCKED: something failed before any
+    solver could run; the plan carries the error text.
+    ALREADY_RECORDED: the manifest already holds this ``run_id``, so
+    ``run_campaign(..., resume=True)`` would skip it.
+    """
+
+    READY = "READY"
+    BLOCKED = "BLOCKED"
+    ALREADY_RECORDED = "ALREADY_RECORDED"
+
+
+@dataclass(frozen=True)
+class PointPlan:
+    """Pre-flight judgment of one campaign point.
+
+    Attributes
+    ----------
+    run_id : str
+        Manifest identity the point would run under.
+    sim_id : str
+        Simulation identity of the case.
+    point : dict of str to float
+        Sweep point coordinates (alpha and beta in deg, advance_ratio
+        dimensionless).
+    script_name : str or None
+        File name the generated script would take (from the naming
+        template); None when the name itself could not be rendered.
+    status : PlanStatus
+        The pre-flight status.
+    error : str or None
+        What blocks the point, for BLOCKED entries.
+    """
+
+    run_id: str
+    sim_id: str
+    point: dict[str, float]
+    script_name: str | None
+    status: PlanStatus
+    error: str | None = None
+
+
+@dataclass(frozen=True)
+class CampaignPlan:
+    """The pre-flight plan of one campaign: statuses per point, no execution.
+
+    Attributes
+    ----------
+    campaign : str
+        Campaign name.
+    fs_version : str
+        Canonical FlightStream version the scripts were validated
+        against.
+    points : list of PointPlan
+        One entry per campaign point, in campaign order.
+    plan_file : Path or None
+        Where the JSON summary was written (``plan.json`` in the
+        campaign root), or None when writing was disabled.
+    """
+
+    campaign: str
+    fs_version: str
+    points: list[PointPlan] = field(default_factory=list)
+    plan_file: Path | None = None
+
+    @property
+    def blocked(self) -> list[PointPlan]:
+        """The points that cannot run as planned."""
+        return [entry for entry in self.points if entry.status is PlanStatus.BLOCKED]
+
+    @property
+    def ready(self) -> list[PointPlan]:
+        """The points that built cleanly in dry run."""
+        return [entry for entry in self.points if entry.status is PlanStatus.READY]
+
+    @property
+    def already_recorded(self) -> list[PointPlan]:
+        """The points the manifest already holds (resume would skip them)."""
+        return [entry for entry in self.points if entry.status is PlanStatus.ALREADY_RECORDED]
+
+    def summary(self) -> str:
+        """Return the one-paragraph human summary of the plan."""
+        lines = [
+            f"campaign {self.campaign!r} on FlightStream {self.fs_version}: "
+            f"{len(self.ready)} ready, {len(self.blocked)} blocked, "
+            f"{len(self.already_recorded)} already recorded"
+        ]
+        for entry in self.blocked:
+            lines.append(f"  {entry.run_id}: {entry.error}")
+        return "\n".join(lines)
+
+
+def plan_campaign(
+    campaign: Campaign,
+    workspace: CampaignWorkspace,
+    recipes: dict[str, ScriptRecipe] | None = None,
+    write_plan: bool = True,
+) -> CampaignPlan:
+    """Pre-flight a campaign: validate every point without executing any.
+
+    Per case, in order: allocate the managed simulation folders,
+    resolve the recipe, and verify the geometry file exists; per
+    point: render the output names through the naming template and
+    build the whole script in dry run (the builder validates phase,
+    version, and entity references without a solver, and the dry-run
+    script is not written to ``scripts/``, so the files of a later
+    real run stay the only scripts on disk). Points whose ``run_id``
+    is already in the manifest are marked ALREADY_RECORDED, which is
+    exactly what ``run_campaign(..., resume=True)`` would skip; this
+    pairing is what lets a sweep grow points and re-run safely.
+
+    Nothing is executed and nothing is appended to the manifest: a
+    broken recipe or a missing geometry surfaces here, before any
+    solver time is spent, instead of as a FAILED_SCRIPT record inside
+    the campaign loop.
+
+    Parameters
+    ----------
+    campaign : Campaign
+        What would run; its ``fs_version`` is resolved to canonical
+        and every dry-run script is validated against it.
+    workspace : CampaignWorkspace
+        The managed campaign root; folders are allocated, the
+        manifest is read, nothing else is touched.
+    recipes : dict of str to ScriptRecipe, optional
+        Named recipe registry, as in :func:`run_campaign`.
+    write_plan : bool
+        Write the JSON summary as ``plan.json`` in the campaign root
+        (overwritten on each call; a convenience report, never an
+        identity source). Default True.
+
+    Returns
+    -------
+    CampaignPlan
+        One :class:`PointPlan` per point; inspect ``blocked`` before
+        running, or print ``summary()``.
+    """
+    canonical = resolve(campaign.fs_version).canonical
+    recorded = {record.run_id for record in workspace.read_manifest()}
+    points: list[PointPlan] = []
+    for case in campaign.sims:
+        workspace.create_sim(case.sim_id)
+        case_error = _plan_case_error(case, workspace, recipes)
+        recipe = None
+        if case_error is None:
+            recipe = (
+                recipes[case.recipe]
+                if recipes and case.recipe in recipes
+                else resolve_recipe(case.recipe)
+            )
+        for point in case.sweep.points():
+            points.append(
+                _plan_point(campaign, case, point, workspace, recipe, case_error, recorded)
+            )
+    plan_file = None
+    if write_plan:
+        plan_file = workspace.root / "plan.json"
+        payload = {
+            "campaign": campaign.name,
+            "fs_version": canonical,
+            "package_version": pyflightstream.__version__,
+            "points": [{**asdict(entry), "status": str(entry.status)} for entry in points],
+        }
+        workspace.root.mkdir(parents=True, exist_ok=True)
+        plan_file.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    return CampaignPlan(
+        campaign=campaign.name, fs_version=canonical, points=points, plan_file=plan_file
+    )
+
+
+def _plan_case_error(
+    case: SimCase,
+    workspace: CampaignWorkspace,
+    recipes: dict[str, ScriptRecipe] | None,
+) -> str | None:
+    """Return what blocks a whole case (recipe or geometry), or None."""
+    try:
+        if not (recipes and case.recipe in recipes):
+            resolve_recipe(case.recipe)
+    except ValueError as error:
+        return str(error)
+    if case.geometry is not None and not Path(case.geometry).is_file():
+        return (
+            f"geometry file {case.geometry} does not exist; the campaign loop "
+            "stages it into the managed inputs/ folder before execution, so the "
+            "authored path must point at a real file (check the path, or resolve "
+            "it from the workspace geometry library)."
+        )
+    return None
+
+
+def _plan_point(
+    campaign: Campaign,
+    case: SimCase,
+    point: dict[str, float],
+    workspace: CampaignWorkspace,
+    recipe: ScriptRecipe | None,
+    case_error: str | None,
+    recorded: set[str],
+) -> PointPlan:
+    """Judge one point in dry run: names, script build, manifest state."""
+    run_id = _run_id(campaign, case, point)
+    base = {"run_id": run_id, "sim_id": case.sim_id, "point": dict(point)}
+    if case_error is not None or recipe is None:
+        return PointPlan(
+            **base,
+            script_name=None,
+            status=PlanStatus.BLOCKED,
+            error=case_error or "recipe resolution failed",
+        )
+    try:
+        stem, outputs = _point_names(campaign, case, point, workspace)
+    except NamingTemplateError as error:
+        return PointPlan(**base, script_name=None, status=PlanStatus.BLOCKED, error=str(error))
+    script_name = f"{stem}.txt"
+    point_case = case.model_copy(update={"point": dict(point), "outputs": outputs})
+    script = Script(version=campaign.fs_version)
+    try:
+        recipe(point_case, script)
+        script.render()
+    except Exception as error:  # recipes are user code; any failure blocks the point
+        return PointPlan(
+            **base,
+            script_name=script_name,
+            status=PlanStatus.BLOCKED,
+            error=f"{type(error).__name__}: {error}",
+        )
+    if run_id in recorded:
+        return PointPlan(**base, script_name=script_name, status=PlanStatus.ALREADY_RECORDED)
+    return PointPlan(**base, script_name=script_name, status=PlanStatus.READY)
 
 
 def _prepare_case(
@@ -503,6 +821,7 @@ def _execute_point(
     canonical: str,
     case: SimCase,
     point: dict[str, float],
+    run_id: str,
     recipe: ScriptRecipe | None,
     preparation_error: str | None,
     inputs_sha256: dict[str, str],
@@ -513,9 +832,8 @@ def _execute_point(
     assess: OutcomeAssessor,
 ) -> RunRecord:
     """Take one point from sweep coordinates to its manifest record."""
-    tag = point_tag(point)
     base = {
-        "run_id": f"{campaign.name}/sim_{case.sim_id}/{tag}",
+        "run_id": run_id,
         "sim_id": case.sim_id,
         "point": dict(point),
         "fs_version_requested": canonical,
@@ -528,7 +846,11 @@ def _execute_point(
         error = preparation_error or "recipe resolution failed"
         return RunRecord(**base, status=RunStatus.FAILED_SCRIPT, error=error)
 
-    update: dict[str, object] = {"point": dict(point)}
+    try:
+        stem, outputs = _point_names(campaign, case, point, workspace)
+    except NamingTemplateError as error:
+        return RunRecord(**base, status=RunStatus.FAILED_SCRIPT, error=str(error))
+    update: dict[str, object] = {"point": dict(point), "outputs": outputs}
     if staged_geometry is not None:
         update["geometry"] = staged_geometry
     point_case = case.model_copy(update=update)
@@ -541,7 +863,7 @@ def _execute_point(
             status=RunStatus.FAILED_SCRIPT,
             error=f"{type(error).__name__}: {error}",
         )
-    script_path, script_sha = workspace.write_script(case.sim_id, f"{tag}.txt", script.render())
+    script_path, script_sha = workspace.write_script(case.sim_id, f"{stem}.txt", script.render())
     base["script_sha256"] = script_sha
     base["raw_flag"] = script.raw_flag
 
@@ -560,7 +882,7 @@ def _execute_point(
 
     try:
         collected = workspace.collect_outputs(
-            case.sim_id, [sim_dir / name for name in case.outputs]
+            case.sim_id, [sim_dir / name for name in point_case.outputs]
         )
     except WorkspaceError as error:
         return RunRecord(

@@ -31,7 +31,7 @@ unit-suffixed names (``offset_m``, ``fx_n_per_m``, ...) for the
 sectional loads, matching :class:`SectionalLoadsReport`.
 
 The manifest is read only through the public API of
-:mod:`pyflightstream.files`, imported inside the functions that need
+:mod:`pyflightstream.workspace`, imported inside the functions that need
 it: importing the results parsing layer never pulls the execution
 layers, so the downward dependency order of the package is preserved
 at import time.
@@ -54,7 +54,7 @@ from pyflightstream.results import (
 )
 
 if TYPE_CHECKING:  # typing only: no runtime import of the execution layers
-    from pyflightstream.files import CampaignWorkspace, RunRecord
+    from pyflightstream.workspace import CampaignWorkspace, RunRecord
 
 # Fixed identity and outcome columns of one run row, in output order;
 # sweep point axes are inserted after sim_id and must not collide.
@@ -220,7 +220,7 @@ def run_frame(record: RunRecord, loads: LoadsReport | None = None) -> pd.DataFra
     ----------
     record : RunRecord
         One manifest record, read through
-        :meth:`pyflightstream.files.CampaignWorkspace.read_manifest`.
+        :meth:`pyflightstream.workspace.CampaignWorkspace.read_manifest`.
     loads : LoadsReport, optional
         The run's parsed loads spreadsheet, for example from
         :func:`parse_run_loads`; None keeps the identity and outcome
@@ -519,7 +519,7 @@ def _as_workspace(workspace: CampaignWorkspace | str | Path) -> CampaignWorkspac
     """
     if hasattr(workspace, "read_manifest") and hasattr(workspace, "sim_dir"):
         return workspace
-    from pyflightstream.files import CampaignWorkspace
+    from pyflightstream.workspace import CampaignWorkspace
 
     return CampaignWorkspace(workspace)
 
