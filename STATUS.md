@@ -21,7 +21,7 @@ Milestone map per the Bootstrap Kit (`_private/design/DLV-004`, Section 7).
 | M4 | PHY-01/02 plus version-comparison suite (synthetic committed, SMI local) | Committed physics report | Done 2026-07-21 (HND-012..015: PHY-01/02 10 pass, synthetic drift zero deltas, SMI class delivered; capstone `DRF-26100-26120_2026-07-21_complete` 17 pass 1 warn, the SMI-01 CMy movement to triage) |
 | M5 | mkdocs site, command reference and compatibility matrix generated from the database, steady polar example | Docs build strict; example runs | Done 2026-07-21 (HND-016: generated reference and matrix from `reference.py` as single rendering source, strict build green, example executed on 26.120 with slope 4.83/rad; 179 tests) |
 | v0.1.0 | Tag, private | All above green | Done 2026-07-21 (HND-017: tag v0.1.0 pushed, release commit 38c091c, CI runs 29869650235 and 29869821677 green, sdist/wheel clean, CHANGELOG.md) |
-| M6 | FSI subpackage per DLV-007: `[fsi]` extra (PyNiteFEA, license evidence RPT-002), `FsiConfig`, loads parser, PyNite beam with centrifugal terms (Gate 1 Campbell), kinematics, driver, `pyfs-fsi` entry point | WP7 coupled pilot: near-rigid synthetic blade recovers the rigid CT within solver noise; frozen replay reproduces the deformed solution | Started 2026-07-21 (HND-021: WP0, WP3, WP4, Gate 1 green; HND-026: WP1 closed by the executed dry run, coupled loop proven on 26.120 with the aeroelastic command family in the database and fixtures committed, RPT-005; HND-029: WP2 loads parser, WP5 kinematics and single-source nodes, WP6 driver and state with the offline replay harness; remaining: WP7 coupled pilot and PLN-019, both licensed) |
+| M6 | FSI subpackage per DLV-007: `[fsi]` extra (PyNiteFEA, license evidence RPT-002), `FsiConfig`, loads parser, PyNite beam with centrifugal terms (Gate 1 Campbell), kinematics, driver, `pyfs-fsi` entry point | WP7 coupled pilot: near-rigid synthetic blade recovers the rigid CT within solver noise; frozen replay reproduces the deformed solution | Done 2026-07-21 (HND-021: WP0/WP3/WP4 with Gate 1; HND-026: WP1 dry run, RPT-005; HND-029: WP2/WP5/WP6 offline; HND-030: WP7 near-rigid pilot on 26.120, RPT-006 - rigid baseline recovered on all four metrics and frozen replay reproducing to 5e-6. Follow-ups: PLN-020 soft-blade pilot with the beta projection, PLN-019 sweep, Tier 3 near-rigid registration) |
 | M7 | Far-field probe extraction per DLV-006: `probes` lattice (serializable, version-aware emission), `farfield` ledgers on xarray (quadrature, harmonic spine, forces, moments, loss channels), G0 synthetic gate as tier 1 | G0 green in CI; probe-export parser and G1 to G5 case-level checks follow with the solver campaign | Started 2026-07-21 (HND-020: lattice, ledgers, and G0 delivered; suite at 220 tests at close, including the parallel M6 session's in-progress files). Extended same day (HND-023): planar probe grids as the controlled volume-section replacement (explicit frames, geometry culling and BL band refinement behind the `[geom]` extra, pre-processing fsm-to-obj export, VTK/Tecplot writers opening `post/`; suite at 265) |
 | v0.2+ | Remaining PHY cases, 26.000/26.100 backfill probing, declarative matrix successor, public release, PyPI | Public checklist (invariants audit) passes | Planned |
 
@@ -189,11 +189,28 @@ unrelaxed recording, freshness-asserted call/step counters, atomic
 state, frozen mode, convergence log with the validity boundary in the
 header and the config hash per row), all proven by the offline replay
 harness on the archived WP1 fixtures, including byte-identical crash
-recovery. Suite at 312 tier 1 tests. Single next action on this line:
-the licensed session - WP7 coupled pilot (wire `pyfs-fsi` to
-`driver.coupling_step`, near-rigid regression against PHY-05, frozen
-replay, the deliberate-offset sign confirmation of the export-axes
-mapping, per-run totals cross-check) and the PLN-019 validity sweep.
+recovery. Suite at 312 tier 1 tests at that close.
+
+WP7 then ran in the same session line on the licensed machine
+(HND-030, RPT-006), closing M6: `pyfs-fsi` dispatches to the coupled
+driver when the working directory carries `config.json`, and the
+near-rigid pilot (PHY-05 flow plus the 9002 section distributions and
+the RPT-005 aeroelastic recipe, synthetic 11-station blade at
+stiffness scale 1000) met both exit-criterion halves - all four
+metrics inside the PHY-05 rigid bands (CDi 0.51 percent rel, max
+displacement 83 um over 54/54 coupled calls) and the frozen replay
+reproducing the coupled solution to 5e-6. Three run findings were
+folded back as code immediately: the sectional export rows are line
+densities (fields renamed `*_per_m`, cross-checks integrate over
+tributary widths; the pilot closed -643 N sectional versus -650/-661
+N integrated axial), the printed dt is three-decimal (optional
+`FsiConfig.time_increment_s` now drives the phase schedule), and the
+export axes are axial/in-plane on a rotating blade, making the
+beta(r) chordwise/normal projection the recorded prerequisite of the
+soft-blade pilot (PLN-020, with the deliberate-offset sign
+confirmation and relaxation tuning). Suite at 316. Single next action
+on this line: PLN-020 soft-blade pilot; then PLN-019 sweep and the
+Tier 3 near-rigid registration.
 
 The probe planner extended M7 (HND-023, plan approved by Geovana):
 planar Cartesian probe grids replace the volume sections wherever the
