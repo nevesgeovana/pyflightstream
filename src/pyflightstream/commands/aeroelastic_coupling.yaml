@@ -1,0 +1,161 @@
+# Aeroelastic Coupling Toolbox scripting commands (SRC-003 pp.375-376;
+# new in 26.1 per the release notes). This is the command family the
+# solver actually implements for FSI coupling: the SET_MOTION_FSI pair
+# of the motion chapter (SRC-003 pp.335-336) is rejected as
+# unrecognized by build 7012026 (WP1 dry run evidence,
+# reports/RPT-005_fsi-dry-run_2026-07-21.md). All eleven commands of
+# this family were exercised successfully in that dry run on 26.120;
+# formal Tier 2 promotion follows the next validity sweep (PLN-019).
+
+EXECUTE_AEROELASTIC_ANALYSIS:
+  layout: bare
+  phase: exec
+  args: []
+  manual_ref: "SRC-003 p.375"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Runs the steady-state aeroelastic analysis. For unsteady coupling
+    the manual instructs the regular solver execution with
+    SET_AEROELASTIC_COUPLING_IN_UNSTEADY enabled instead (SRC-003
+    p.275).
+
+ASSIGN_AEROELASTIC_SURFACES:
+  layout: payload_lines
+  phase: init
+  args:
+    - name: num_boundaries
+      type: int
+    - name: boundary_indices
+      type: int_list
+      separator: newline
+      required: false
+  manual_ref: "SRC-003 p.375"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Mesh boundaries whose deflections the toolbox interpolates; one
+    index per line after the count, -1 selects all boundaries with no
+    index lines.
+
+ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS:
+  layout: payload_lines
+  phase: init
+  args:
+    - name: num_index
+      type: int
+    - name: frame_indices
+      type: int_list
+      separator: newline
+      required: false
+  manual_ref: "SRC-003 p.375"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Links user-defined coordinate systems for the aeroelastic
+    interpolation, one index per line after the count; index 1 (the
+    reference frame) is rejected by the solver per the manual.
+
+IMPORT_AEROELASTIC_STRUCTURAL_NODES:
+  layout: inline
+  phase: init
+  args:
+    - name: structural_coordinate_system
+      type: int
+    - name: delete_existing
+      type: enum
+      values: [ENABLE, DISABLE]
+    - name: nodes_path
+      type: path
+      own_line: true
+  manual_ref: "SRC-003 p.375"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Imports the structural node list; the file is three comma
+    separated columns X,Y,Z per node (SRC-003 p.274), interpreted in
+    the given coordinate system. The node order fixes the FSIDisp.txt
+    displacement order.
+
+DELETE_AEROELASTIC_STRUCTURAL_NODES:
+  layout: bare
+  phase: init
+  args: []
+  manual_ref: "SRC-003 p.375"
+  versions:
+    "26.120": {status: documented}
+  notes: Deletes all imported structural nodes.
+
+SET_AEROELASTIC_WORKING_DIRECTORY:
+  layout: inline
+  phase: init
+  args:
+    - name: directory_path
+      type: path
+      own_line: true
+  manual_ref: "SRC-003 p.375"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Runtime folder of the coupling: FlightStream writes FSIDisp.txt
+    and the loads exports there and executes the runtime command
+    there (SRC-003 pp.274-275). The dry run confirmed it is the
+    working directory of the external executable's process.
+
+SET_AEROELASTIC_POST_PROCESSING_SCRIPT:
+  layout: inline
+  phase: init
+  args:
+    - name: script_path
+      type: path
+      own_line: true
+  manual_ref: "SRC-003 p.376"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    FlightStream script executed between FSI iterations, before the
+    external executable; the documented mechanism for exporting the
+    aerodynamic forces the executable consumes (SRC-003 p.275), for
+    example the surface section loads export.
+
+SET_AEROELASTIC_STRUCTURAL_EXECUTION_COMMAND:
+  layout: inline
+  phase: init
+  args:
+    - name: command
+      type: str
+      own_line: true
+  manual_ref: "SRC-003 p.376"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Full command executed per coupling iteration in the working
+    directory. The dry run observed a bare invocation: no arguments
+    are appended by the solver.
+
+SET_AEROELASTIC_ITERATIONS:
+  layout: inline
+  phase: init
+  args:
+    - name: num_iterations
+      type: int
+  manual_ref: "SRC-003 p.376"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Two-way coupling iterations: the total count in steady mode, the
+    count per time step in unsteady mode (SRC-003 p.275).
+
+SET_AEROELASTIC_COUPLING_IN_UNSTEADY:
+  layout: inline
+  phase: init
+  args:
+    - name: state
+      type: enum
+      values: [ENABLE, DISABLE]
+  manual_ref: "SRC-003 p.376"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Toggles the FSI execution inside the unsteady solver; with ENABLE
+    the coupling runs on the regular solver start.

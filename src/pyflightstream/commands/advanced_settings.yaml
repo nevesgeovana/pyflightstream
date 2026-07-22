@@ -119,3 +119,18 @@ ADDITIONAL_WAKE_RELAXATION_ITERATION:
     "26.120": {status: documented}
   notes: >
     Performs one additional wake relaxation iteration.
+
+AEROELASTIC_RBF_TYPE:
+  layout: inline
+  phase: init
+  args:
+    - name: rbf_type
+      type: enum
+      values: [WENDLAND_C2, GAUSSIAN, THIN_PLATE_SPLINE, MULTI_QUADRATIC, INV_MULTI_QUADRATIC]
+  manual_ref: "SRC-003 p.345"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    RBF mesh morphing algorithm of the aeroelastic coupling; the
+    solver also accepts the numeric labels 1 to 5 documented on the
+    same page, the emitter uses the names.

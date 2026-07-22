@@ -34,7 +34,7 @@ ARCHIVE_DIR = "fsi_archive"
 # Interface files worth archiving on every call. The exact export set
 # and cadence are WP1 open questions; the directory listing recorded in
 # every archive folder catches anything not matched here.
-ARCHIVE_PATTERNS = ("FS_*.txt", "*.sldl", "FSIDisp.txt")
+ARCHIVE_PATTERNS = ("FS_*.txt", "FSLoad*", "FSI_output.txt", "FSIDisp.txt", "*.sldl")
 
 
 def init_dummy(directory: Path, node_count: int) -> None:
@@ -99,7 +99,8 @@ def dummy_step(cwd: Path, received_argv: tuple[str, ...] = ()) -> int:
         "\n".join(listing_lines) + "\n", encoding="utf-8"
     )
 
-    zero_line = "0.000000000000e+00 0.000000000000e+00 0.000000000000e+00"
+    # Comma separated per the FSIDisp.txt format of SRC-003 p.273.
+    zero_line = "0.000000000000e+00,0.000000000000e+00,0.000000000000e+00"
     (cwd / DISPLACEMENT_FILE).write_text(
         "\n".join([zero_line] * node_count) + "\n", encoding="utf-8"
     )

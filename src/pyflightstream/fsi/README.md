@@ -129,32 +129,42 @@ every interface file it sees under `fsi_archive/call_NNNN/`, plus a
 directory listing and a call log. The dry run therefore collects the
 real fixtures the loads parser (WP2) will be written against.
 
-### WP1 dry run instructions (licensed machine)
+### WP1 dry run: findings and the working recipe
 
-Goal: close the open interface questions with evidence, on half a
-revolution of an unsteady propeller case with the Aeroelastic Toolbox
-enabled: export cadence and layout of `FS_SurfaceSection_Loads.txt`,
-how blades are identified, whether the Toolbox passes arguments or a
-specific working directory to the executable, the units setting, and
-the exact loads file header (for the parser's SI assertion, FSI-R03).
+Executed 2026-07-21 on 26.120 build 7012026 with the generic blade
+case over half a revolution; full evidence in
+`reports/RPT-005_fsi-dry-run_2026-07-21.md`, fixtures in
+`tests/fixtures/fsi/`. What the run established:
 
-1. Install with the extra on the licensed machine:
-   `pip install -e .[fsi]`, and note the shim path
-   (`<venv>\Scripts\pyfs-fsi.exe`).
-2. Prepare the unsteady propeller case: surface sections on every
-   blade, a structural node list imported, SI units in the Toolbox
-   export settings, FSI iterations per time step left at 1
-   (FSI-R12), and the FSI executable pointed at the shim path.
-3. Seed the dummy in the simulation folder:
-   `pyfs-fsi init-dummy --node-count <N> --dir <sim folder>`, with
-   `<N>` the imported node count.
-4. Run about half a revolution with FSI enabled, then stop.
-5. Collect everything: `fsi_archive/`, `pyfs_fsi_calls.log`,
-   `FSIDisp.txt`, the FlightStream script and log. If
-   `pyfs_fsi_error.log` appears instead, the Toolbox called the
-   executable in an unexpected working directory, and that file
-   records where; rerun after seeding the dummy config there.
+* The implemented scripting interface is the Aeroelastic Coupling
+  Toolbox family (SRC-003 pp.375-376; `aeroelastic_coupling.yaml` in
+  the command database). The `SET_MOTION_FSI` pair of the motion
+  chapter is rejected as unrecognized by the build: stale manual
+  section, tracked as candidate broken (PLN-019).
+* The executable is called bare, no arguments, once per time step,
+  with its working directory equal to
+  `SET_AEROELASTIC_WORKING_DIRECTORY`; its console output lands in
+  `FSI_output.txt` there.
+* `FS_SurfaceSection_Loads.txt` is produced by the post-processing
+  script FlightStream runs between FSI iterations, before the
+  executable: `UPDATE_ALL_SURFACE_SECTIONS`,
+  `COMPUTE_SURFACE_SECTIONAL_LOADS NEWTONS`,
+  `EXPORT_SURFACE_SECTIONAL_LOADS` with the path on its own line.
+  Fresh content each step (advancing solver iteration counter in the
+  header); standard header with units in the labels, so the WP2 SI
+  assertion anchors on labeled values; data rows carry per-section
+  offset, chord, quarter-chord position, Fx, Fz, and the moment
+  about the quarter chord (the pitch axis reference).
+* File formats: structural node import and `FSIDisp.txt` are both
+  comma separated three-column files, displacement order equal to
+  node import order (SRC-003 pp.273-274).
 
-The archived files become committed tier 1 fixtures, and their
-sanitized facts (cadence, header, blade labels) close WP1; only then
-is the parser (WP2) finalized.
+Working setup, in script form: assign the blade boundaries and the
+rotating blade frames to the toolbox, import the node list in the
+blade frame, set the working directory, the post-processing script,
+the execution command (the `pyfs-fsi` shim path), iterations 1
+(FSI-R12), coupling in unsteady ENABLE, then start the unsteady
+solver. Seed the dummy first with
+`pyfs-fsi init-dummy --node-count <N> --dir <working directory>`.
+
+WP2 can now be finalized against the committed fixtures.

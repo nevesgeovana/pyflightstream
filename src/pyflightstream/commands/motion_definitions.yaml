@@ -146,7 +146,12 @@ SET_MOTION_FSI_EXECUTABLE:
     executable per coupling step; the executable path follows on the
     line after the inline arguments. EXPORT_LOAD_DISTRIBUTIONS also
     writes the aerodynamic load distributions file alongside the
-    default interpolated loads file.
+    default interpolated loads file. Dry run finding (2026-07-21,
+    reports/RPT-005): build 7012026 rejects this command as
+    unrecognized despite the manual-exact grammar; the implemented
+    interface is the Aeroelastic Coupling Toolbox family (SRC-003
+    pp.375-376, aeroelastic_coupling.yaml). Candidate broken;
+    promotion via the next validity sweep (PLN-019).
 
 SET_MOTION_FSI_STRUCTURAL_NODES:
   layout: inline
@@ -162,7 +167,12 @@ SET_MOTION_FSI_STRUCTURAL_NODES:
     "26.120": {status: documented}
   notes: >
     Imports the structural displacement node set; the file path
-    follows on the line after the motion index.
+    follows on the line after the motion index. Dry run finding
+    (2026-07-21, reports/RPT-005): build 7012026 rejects this command
+    as unrecognized; the implemented import is
+    IMPORT_AEROELASTIC_STRUCTURAL_NODES (SRC-003 p.375,
+    aeroelastic_coupling.yaml). Candidate broken; promotion via the
+    next validity sweep (PLN-019).
 
 DELETE_MOTION:
   layout: inline
