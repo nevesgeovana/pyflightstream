@@ -240,3 +240,21 @@ def test_steady_export_is_refused(tmp_path):
     (tmp_path / driver.LOADS_FILE).write_text(steady, encoding="utf-8")
     with pytest.raises(ValueError, match="unsteady"):
         driver.coupling_step(tmp_path)
+
+
+def test_configured_dt_overrides_the_printed_precision(tmp_path):
+    """RPT-006: the header prints dt with three decimals; the config wins."""
+    cfg = driver_config().model_copy(update={"time_increment_s": 0.0035})
+    stage_run(tmp_path, cfg)
+    write_loads(tmp_path, 100)
+    result = driver.coupling_step(tmp_path)
+    expected = driver.revolutions_per_step(cfg.omega_rad_per_s, 0.0035)
+    assert result.revolutions == pytest.approx(expected)
+
+
+def test_dt_mismatch_beyond_print_precision_is_refused(tmp_path):
+    cfg = driver_config().model_copy(update={"time_increment_s": 0.002})
+    stage_run(tmp_path, cfg)
+    write_loads(tmp_path, 100)
+    with pytest.raises(ValueError, match="different run"):
+        driver.coupling_step(tmp_path)

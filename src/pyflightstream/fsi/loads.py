@@ -18,12 +18,21 @@ Everything here is anchored on the WP1 dry-run evidence
   loads with ``COMPUTE_SURFACE_SECTIONAL_LOADS NEWTONS``.
 * The data table is ``Offset, Chord, X_QC, Z_QC, Fx, Fz, Moment`` per
   section; the moment is about the quarter chord, the pitch axis
-  reference of DLV-007 Section 4.3. The section-plane axes are labeled
-  X and Z in the 2D airfoil convention of the export; they map to the
-  chordwise (X) and normal (Y) axes of the rotating blade frame of
-  :mod:`pyflightstream.fsi.config`. The sign convention is confirmed
-  by design intent only until the WP7 coupled pilot exercises a
-  deliberate elastic-axis offset.
+  reference of DLV-007 Section 4.3. The rows are line densities along
+  the span: despite the footer naming the computation unit (Newtons
+  versus coefficients), integrating the force columns over the
+  tributary widths reproduces the integrated axial force of the same
+  run to a few percent, while summing them overshoots by the inverse
+  width (WP7 near-rigid pilot evidence, RPT-006). Forces are therefore
+  [N/m] and moments [N m / m], and the totals cross-check integrates,
+  never sums.
+* Section-plane axes, on the same pilot evidence: the export ``Fx``
+  is the axial (rotor axis) component, invariant under the blade
+  rotation and matching the integrated Cx, and ``Fz`` is the in-plane
+  component in the rotating blade frame. The mapping onto the
+  chordwise/normal axes of :mod:`pyflightstream.fsi.config` therefore
+  involves the local blade angle; the deliberate elastic-axis offset
+  check of the soft-blade pilot is the planned sign confirmation.
 * Blade attribution follows the author's family-per-blade convention
   (RPT-005 finding 6): one geometry family per blade, one section
   distribution per blade boundary, and the flat export concatenates
@@ -158,8 +167,11 @@ class SectionFamilyMap(BaseModel):
 class SectionBlock:
     """The rows of one family, split out of the flat export.
 
-    All arrays share the family's section count. Units are asserted at
-    parse time: forces in N, moments in N m, lengths in m.
+    All arrays share the family's section count. The force and moment
+    rows are line densities along the span (RPT-006, module
+    docstring): the SI assertion fixes the unit basis (Newtons), and
+    integrating over the tributary widths recovers the integrated
+    loads.
 
     Attributes
     ----------
@@ -172,12 +184,13 @@ class SectionBlock:
         Local chord [m].
     x_qc_m, z_qc_m : numpy.ndarray
         Quarter-chord position in the section plane [m], export axes.
-    fx_n, fz_n : numpy.ndarray
-        Sectional forces [N] along the section-plane X (chordwise) and
-        Z (normal) export axes.
-    moment_qc_nm : numpy.ndarray
-        Sectional moment about the quarter chord [N m], the pitch axis
-        reference (DLV-007 Section 4.3).
+    fx_n_per_m, fz_n_per_m : numpy.ndarray
+        Sectional force densities [N/m] along the two in-plane axes of
+        the distribution's cut plane, in plane-name order (for the
+        blade-frame XY distribution: axial, then in-plane).
+    moment_qc_nm_per_m : numpy.ndarray
+        Sectional moment density about the quarter chord [N m / m],
+        the pitch axis reference (DLV-007 Section 4.3).
     """
 
     family: str
@@ -185,9 +198,9 @@ class SectionBlock:
     chord_m: np.ndarray
     x_qc_m: np.ndarray
     z_qc_m: np.ndarray
-    fx_n: np.ndarray
-    fz_n: np.ndarray
-    moment_qc_nm: np.ndarray
+    fx_n_per_m: np.ndarray
+    fz_n_per_m: np.ndarray
+    moment_qc_nm_per_m: np.ndarray
 
 
 @dataclass(frozen=True)
@@ -250,18 +263,18 @@ class SectionalLoadsReport:
         return self.values[:, 1]
 
     @property
-    def fx_n(self) -> np.ndarray:
-        """Sectional chordwise forces [N] (export X axis)."""
+    def fx_n_per_m(self) -> np.ndarray:
+        """Sectional force densities [N/m], first cut-plane axis."""
         return self.values[:, 4]
 
     @property
-    def fz_n(self) -> np.ndarray:
-        """Sectional normal forces [N] (export Z axis)."""
+    def fz_n_per_m(self) -> np.ndarray:
+        """Sectional force densities [N/m], second cut-plane axis."""
         return self.values[:, 5]
 
     @property
-    def moment_qc_nm(self) -> np.ndarray:
-        """Sectional quarter-chord moments [N m]."""
+    def moment_qc_nm_per_m(self) -> np.ndarray:
+        """Sectional quarter-chord moment densities [N m / m]."""
         return self.values[:, 6]
 
     def split(self, family_map: SectionFamilyMap) -> dict[str, SectionBlock]:
@@ -301,9 +314,9 @@ class SectionalLoadsReport:
                 chord_m=rows[:, 1],
                 x_qc_m=rows[:, 2],
                 z_qc_m=rows[:, 3],
-                fx_n=rows[:, 4],
-                fz_n=rows[:, 5],
-                moment_qc_nm=rows[:, 6],
+                fx_n_per_m=rows[:, 4],
+                fz_n_per_m=rows[:, 5],
+                moment_qc_nm_per_m=rows[:, 6],
             )
             start += family.count
         _validate_block_boundaries(list(blocks.values()))
@@ -493,8 +506,10 @@ def transfer_moment_to_elastic_axis(
     F = (F_c, F_n), in the right-handed blade triad of
     :mod:`pyflightstream.fsi.config` (chordwise toward the leading
     edge, normal completing the triad, moments positive nose up about
-    the spanwise axis). All inputs broadcast; forces in N, offsets in
-    m, moments in N m.
+    the spanwise axis). All inputs broadcast. The identity holds per
+    unit span exactly as for totals, so it applies unchanged to the
+    line densities of the sectional export (forces in N/m, moments in
+    N m / m, offsets in m).
 
     Source: DLV-007 Section 4.3 (FSI-R04); pitch-axis moment reference
     confirmed by the WP1 dry run (reports/RPT-005 finding 4).
@@ -508,10 +523,11 @@ def transfer_moment_to_elastic_axis(
 
 @dataclass(frozen=True)
 class ElasticAxisLoads:
-    """Per-section aerodynamic loads of one blade, about its elastic axis.
+    """Per-section aerodynamic load densities of one blade, about its EA.
 
-    All arrays share the block's section count and live in the
-    rotating blade frame of :mod:`pyflightstream.fsi.config`.
+    All arrays share the block's section count and are line densities
+    along the span (RPT-006), ready for the beam's distributed-load
+    interface; the tributary widths integrate them back to totals.
 
     Attributes
     ----------
@@ -519,42 +535,42 @@ class ElasticAxisLoads:
         Section radii [m] from the rotation axis along the pitch axis.
     chord_m : numpy.ndarray
         Local chords [m].
-    force_chordwise_n : numpy.ndarray
-        Sectional chordwise forces [N] (export Fx).
-    force_normal_n : numpy.ndarray
-        Sectional normal (flap-direction) forces [N] (export Fz).
-    moment_pa_nm : numpy.ndarray
-        Sectional moments about the pitch axis [N m], as exported.
-    moment_ea_nm : numpy.ndarray
-        Sectional moments about the elastic axis [N m] (FSI-R04).
+    force_chordwise_n_per_m : numpy.ndarray
+        Chordwise force densities [N/m] (export Fx column; see
+        :func:`to_elastic_axis` for the axes caveat).
+    force_normal_n_per_m : numpy.ndarray
+        Normal (flap-direction) force densities [N/m] (export Fz).
+    moment_pa_nm_per_m : numpy.ndarray
+        Moment densities about the pitch axis [N m / m], as exported.
+    moment_ea_nm_per_m : numpy.ndarray
+        Moment densities about the elastic axis [N m / m] (FSI-R04).
     ea_offset_chordwise_m, ea_offset_normal_m : numpy.ndarray
         Interpolated elastic-axis offsets e(r) [m] used in the
         transfer.
     tributary_width_m : numpy.ndarray
-        Spanwise width [m] each section's integrated force represents,
-        from midpoint strips between section radii; divides the
-        integrated loads into the line densities the beam consumes.
+        Spanwise width [m] of each section's midpoint strip;
+        integrates the densities back to totals for cross-checks.
     """
 
     radius_m: np.ndarray
     chord_m: np.ndarray
-    force_chordwise_n: np.ndarray
-    force_normal_n: np.ndarray
-    moment_pa_nm: np.ndarray
-    moment_ea_nm: np.ndarray
+    force_chordwise_n_per_m: np.ndarray
+    force_normal_n_per_m: np.ndarray
+    moment_pa_nm_per_m: np.ndarray
+    moment_ea_nm_per_m: np.ndarray
     ea_offset_chordwise_m: np.ndarray
     ea_offset_normal_m: np.ndarray
     tributary_width_m: np.ndarray
 
     @property
     def flap_load_n_per_m(self) -> np.ndarray:
-        """Line density of the normal force [N/m] at the section radii."""
-        return self.force_normal_n / self.tributary_width_m
+        """Normal force densities [N/m] at the section radii."""
+        return self.force_normal_n_per_m
 
     @property
     def torsion_moment_nm_per_m(self) -> np.ndarray:
-        """Line density of the elastic-axis moment [N m / m]."""
-        return self.moment_ea_nm / self.tributary_width_m
+        """Elastic-axis moment densities [N m / m] at the section radii."""
+        return self.moment_ea_nm_per_m
 
 
 def _tributary_widths(radii: np.ndarray) -> np.ndarray:
@@ -564,15 +580,22 @@ def _tributary_widths(radii: np.ndarray) -> np.ndarray:
 
 
 def to_elastic_axis(block: SectionBlock, cfg: FsiConfig) -> ElasticAxisLoads:
-    """Transfer one blade block to elastic-axis loads (FSI-R04).
+    """Transfer one blade block to elastic-axis load densities (FSI-R04).
 
     The elastic-axis offsets e(r) come from the configuration,
     interpolated linearly at the section radii, so refining the
     elastic axis estimate never touches the FlightStream setup
-    (DLV-007 Section 4.3). The export's section-plane axes map to the
-    blade frame as chordwise = export X, normal = export Z (module
-    docstring); the WP7 coupled pilot's deliberate-offset check is the
-    planned sign confirmation.
+    (DLV-007 Section 4.3).
+
+    Axes caveat (RPT-006): the export columns are the cut-plane axes,
+    which coincide with the section chordwise/normal axes only at zero
+    local blade angle (the Omega-zero wing case). For a twisted
+    propeller blade the pilot evidence identifies Fx as axial and Fz
+    as in-plane, so the chordwise/normal projection requires the local
+    blade angle; that projection, and its sign confirmation through a
+    deliberate elastic-axis offset, are the prerequisite of the
+    soft-blade coupled pilot and are not applied here yet. The
+    pitch-axis moment column is about the span axis and unaffected.
 
     Parameters
     ----------
@@ -584,7 +607,7 @@ def to_elastic_axis(block: SectionBlock, cfg: FsiConfig) -> ElasticAxisLoads:
     Returns
     -------
     ElasticAxisLoads
-        Loads about the elastic axis at the section radii.
+        Load densities about the elastic axis at the section radii.
     """
     stations = np.asarray(cfg.blade.station_radii_m, dtype=float)
     radii = block.offset_m
@@ -606,11 +629,11 @@ def to_elastic_axis(block: SectionBlock, cfg: FsiConfig) -> ElasticAxisLoads:
     return ElasticAxisLoads(
         radius_m=radii,
         chord_m=block.chord_m,
-        force_chordwise_n=block.fx_n,
-        force_normal_n=block.fz_n,
-        moment_pa_nm=block.moment_qc_nm,
-        moment_ea_nm=transfer_moment_to_elastic_axis(
-            block.moment_qc_nm, block.fx_n, block.fz_n, e_chordwise, e_normal
+        force_chordwise_n_per_m=block.fx_n_per_m,
+        force_normal_n_per_m=block.fz_n_per_m,
+        moment_pa_nm_per_m=block.moment_qc_nm_per_m,
+        moment_ea_nm_per_m=transfer_moment_to_elastic_axis(
+            block.moment_qc_nm_per_m, block.fx_n_per_m, block.fz_n_per_m, e_chordwise, e_normal
         ),
         ea_offset_chordwise_m=e_chordwise,
         ea_offset_normal_m=e_normal,
@@ -622,47 +645,54 @@ def cross_check_totals(
     block: SectionBlock,
     integrated_fx_n: float,
     integrated_fz_n: float,
-    rel_tol: float = 0.01,
+    rel_tol: float = 0.05,
 ) -> dict[str, float]:
-    """Cross-check a block's force sums against integrated totals.
+    """Cross-check a block's integrated densities against total forces.
 
-    The sums of the sectional forces must reproduce the integrated
-    loads FlightStream reports for the same boundary in the same run
-    (in Newtons, same frame); a disagreement beyond ``rel_tol`` means
-    the sections do not cover the boundary or the attribution is
-    wrong, and raises instead of letting a partial load set into the
-    structural solve.
+    The force densities integrated over the tributary widths must
+    reproduce the loads FlightStream reports for the same boundary in
+    the same run, in Newtons and in a comparable frame component
+    (RPT-006: the axial component is the frame-invariant one for a
+    rotating blade); a disagreement beyond ``rel_tol`` means the
+    sections do not cover the boundary, the attribution is wrong, or
+    the per-span unit finding no longer holds, and raises instead of
+    letting a mis-scaled load set into the structural solve.
 
     Parameters
     ----------
     block : SectionBlock
         One family block.
     integrated_fx_n, integrated_fz_n : float
-        Integrated forces [N] of the matching boundary, from the
-        FlightStream loads export of the same run, in the same frame
-        as the sectional export.
+        Integrated forces [N] of the matching boundary from the same
+        run, in the components matching the export axes.
     rel_tol : float
         Allowed relative disagreement, on the larger of the compared
-        magnitudes.
+        magnitudes; the default reflects the few-percent closure of
+        the pilot evidence (tip and root strips, frame effects).
 
     Returns
     -------
     dict of str to float
         Relative deltas per component (``"fx"``, ``"fz"``).
     """
+    ascending = np.sort(block.offset_m)
+    widths = _tributary_widths(ascending)
+    order = np.argsort(block.offset_m)
     deltas: dict[str, float] = {}
-    for name, sectional_sum, integrated in (
-        ("fx", float(block.fx_n.sum()), integrated_fx_n),
-        ("fz", float(block.fz_n.sum()), integrated_fz_n),
+    for name, density, integrated in (
+        ("fx", block.fx_n_per_m, integrated_fx_n),
+        ("fz", block.fz_n_per_m, integrated_fz_n),
     ):
-        scale = max(abs(sectional_sum), abs(integrated), 1e-9)
-        deltas[name] = abs(sectional_sum - integrated) / scale
+        total = float((density[order] * widths).sum())
+        scale = max(abs(total), abs(integrated), 1e-9)
+        deltas[name] = abs(total - integrated) / scale
         if deltas[name] > rel_tol:
             raise ValueError(
-                f"the summed sectional {name.upper()} of family {block.family!r} "
-                f"is {sectional_sum:.6g} N but the integrated export reports "
+                f"the sectional {name.upper()} of family {block.family!r} "
+                f"integrates to {total:.6g} N but the integrated export reports "
                 f"{integrated:.6g} N ({deltas[name]:.2%} apart, tolerance "
-                f"{rel_tol:.2%}); the sections do not cover the boundary or the "
-                "family attribution is wrong"
+                f"{rel_tol:.2%}); the sections do not cover the boundary, the "
+                "attribution is wrong, or the per-span unit finding (RPT-006) "
+                "no longer holds"
             )
     return deltas

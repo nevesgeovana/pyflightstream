@@ -152,15 +152,20 @@ monotonically along the span, and at a true boundary the offset
 restarts or the chord jumps; a map that disagrees with the creation
 order fails loudly instead of loading the wrong blade.
 
-Moments arrive about the quarter chord, the pitch axis reference;
+Units, settled by the WP7 pilot (RPT-006): the data rows are line
+densities along the span ([N/m], [N m/m]) despite the footer naming
+the computation unit, so the fields are named `*_per_m`, the beam
+consumes them directly, and `cross_check_totals` integrates them over
+the tributary widths against the integrated loads of the same run
+(the pilot closed to a few percent on the axial component). Moments
+arrive about the quarter chord, the pitch axis reference;
 `to_elastic_axis` transfers them with the configured e(r)
 (M_EA = M_PA + e x F, FSI-R04), so refining the elastic axis estimate
-never touches the FlightStream setup. `cross_check_totals` compares a
-block's force sums against the integrated loads of the same run; the
-tier 1 tests exercise the machinery on the committed fixtures, and the
-per-run cross-check against a live integrated export is part of the
-WP7 coupled pilot, which is also the planned sign confirmation of the
-export-axes mapping (chordwise = export X, normal = export Z).
+never touches the FlightStream setup. Axes caveat: the export columns
+are the cut-plane axes (axial and in-plane on the pilot's rotating
+blade), which coincide with the section chordwise/normal axes only at
+zero local blade angle; the beta(r) projection for twisted blades is
+the recorded prerequisite of the soft-blade pilot.
 
 ## kinematics: twist as differential translations (`kinematics.py`)
 
@@ -209,8 +214,10 @@ so a killed call resumes cleanly, which the crash-recovery test
 holds it to).
 
 The phase machine is keyed on the step counter, with steps converted
-to revolutions from the configured Omega and the time increment the
-loads file itself reports:
+to revolutions from the configured Omega and the time increment. The
+loads header prints dt with three decimals only (RPT-006: 0.003525
+prints as .004), so a configured `time_increment_s` takes precedence
+and the printed value is cross-checked at print precision:
 
 | Phase | Behavior |
 |---|---|

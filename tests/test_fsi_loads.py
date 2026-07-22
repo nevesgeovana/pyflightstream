@@ -53,9 +53,9 @@ def test_parse_call2_metadata_and_table():
     # Spot-check the first data row against the committed fixture.
     assert report.offset_m[0] == pytest.approx(0.2899)
     assert report.chord_m[0] == pytest.approx(0.2544)
-    assert report.fx_n[0] == pytest.approx(-44.13)
-    assert report.fz_n[0] == pytest.approx(234.7)
-    assert report.moment_qc_nm[0] == pytest.approx(7.696)
+    assert report.fx_n_per_m[0] == pytest.approx(-44.13)
+    assert report.fz_n_per_m[0] == pytest.approx(234.7)
+    assert report.moment_qc_nm_per_m[0] == pytest.approx(7.696)
 
 
 def test_call18_is_fresh_content():
@@ -108,7 +108,7 @@ def test_split_two_families_of_fifty():
     assert np.all(np.diff(blade.offset_m) > 0.0)
     hub = blocks["hub"]
     assert hub.offset_m[0] == pytest.approx(-0.02722)
-    assert np.all(hub.fz_n == 0.0)
+    assert np.all(hub.fz_n_per_m == 0.0)
     assert np.all(hub.chord_m == 0.0)
 
 
@@ -151,7 +151,7 @@ def test_transfer_moment_signs():
 def test_zero_offset_transfer_is_identity():
     blade = parse_sectional_loads(CALL2).split(TWO_FAMILIES)["blade_1"]
     loads = to_elastic_axis(blade, fixture_covering_config())
-    assert np.array_equal(loads.moment_ea_nm, loads.moment_pa_nm)
+    assert np.array_equal(loads.moment_ea_nm_per_m, loads.moment_pa_nm_per_m)
     # Midpoint tributary widths tile the covered span exactly.
     covered = blade.offset_m[-1] - blade.offset_m[0]
     assert loads.tributary_width_m.sum() == pytest.approx(covered)
@@ -160,8 +160,8 @@ def test_zero_offset_transfer_is_identity():
 def test_chordwise_offset_adds_e_cross_f():
     blade = parse_sectional_loads(CALL2).split(TWO_FAMILIES)["blade_1"]
     loads = to_elastic_axis(blade, fixture_covering_config(e_chordwise=0.05))
-    expected = blade.moment_qc_nm + 0.05 * blade.fz_n
-    assert np.allclose(loads.moment_ea_nm, expected, rtol=1e-12)
+    expected = blade.moment_qc_nm_per_m + 0.05 * blade.fz_n_per_m
+    assert np.allclose(loads.moment_ea_nm_per_m, expected, rtol=1e-12)
 
 
 def test_config_not_covering_sections_is_rejected():
@@ -171,17 +171,24 @@ def test_config_not_covering_sections_is_rejected():
         to_elastic_axis(blade, short_blade)
 
 
-def test_line_densities_conserve_the_integrated_force():
+def test_rows_are_densities_and_flap_load_is_verbatim():
+    """RPT-006: the export rows already are line densities [N/m]."""
     blade = parse_sectional_loads(CALL2).split(TWO_FAMILIES)["blade_1"]
     loads = to_elastic_axis(blade, fixture_covering_config())
-    total = (loads.flap_load_n_per_m * loads.tributary_width_m).sum()
-    assert total == pytest.approx(blade.fz_n.sum())
+    assert np.array_equal(loads.flap_load_n_per_m, blade.fz_n_per_m)
+    assert np.array_equal(loads.torsion_moment_nm_per_m, loads.moment_ea_nm_per_m)
 
 
-def test_cross_check_totals_pass_and_fail():
+def test_cross_check_totals_integrates_not_sums():
     blade = parse_sectional_loads(CALL2).split(TWO_FAMILIES)["blade_1"]
-    fx, fz = float(blade.fx_n.sum()), float(blade.fz_n.sum())
-    deltas = cross_check_totals(blade, fx * 1.001, fz * 0.999, rel_tol=0.01)
-    assert deltas["fx"] == pytest.approx(0.001, rel=0.05)
-    with pytest.raises(ValueError, match="integrated export reports"):
-        cross_check_totals(blade, fx, fz * 1.05, rel_tol=0.01)
+    loads = to_elastic_axis(blade, fixture_covering_config())
+    fx = float((blade.fx_n_per_m * loads.tributary_width_m).sum())
+    fz = float((blade.fz_n_per_m * loads.tributary_width_m).sum())
+    deltas = cross_check_totals(blade, fx * 1.01, fz * 0.99, rel_tol=0.05)
+    assert deltas["fx"] == pytest.approx(0.01, rel=0.05)
+    with pytest.raises(ValueError, match="RPT-006"):
+        cross_check_totals(blade, fx, fz * 1.2, rel_tol=0.05)
+    # The raw sums overshoot the integrated force by the inverse width:
+    # passing them as totals must fail loudly (the pilot's unit finding).
+    with pytest.raises(ValueError, match="RPT-006"):
+        cross_check_totals(blade, float(blade.fx_n_per_m.sum()), fz, rel_tol=0.05)

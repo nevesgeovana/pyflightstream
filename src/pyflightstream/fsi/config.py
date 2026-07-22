@@ -206,6 +206,13 @@ class FsiConfig(BaseModel):
     omega_rad_per_s : float
         Rotor angular speed Omega [rad/s], constant over the run;
         source of the centrifugal tension and the propeller moment.
+    time_increment_s : float or None
+        Unsteady time step of the coupled run [s]. The loads export
+        header prints the increment with three decimals only (RPT-006:
+        0.003525 prints as .004, skewing the revolution bookkeeping),
+        so a configured value takes precedence in the driver's phase
+        schedule, with the printed value cross-checked against it at
+        print precision. None falls back to the printed value.
     blade : BladeProperties
         Shared per-station structural distributions.
     stiffness_scale_factor : float
@@ -229,6 +236,7 @@ class FsiConfig(BaseModel):
 
     blade_count: int = Field(ge=1)
     omega_rad_per_s: float = Field(ge=0.0)
+    time_increment_s: float | None = Field(default=None, gt=0.0)
     blade: BladeProperties
     stiffness_scale_factor: float = Field(default=1.0, gt=0.0)
     node_offset_chord_fraction: float = Field(default=0.25, gt=0.0, le=0.5)

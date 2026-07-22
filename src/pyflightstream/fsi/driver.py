@@ -167,10 +167,11 @@ def relax_displacements(
 def _blade_densities(
     ea_loads: ElasticAxisLoads, station_radii_m: list[float]
 ) -> tuple[list[float], list[float]]:
-    """Interpolate one blade's line densities at the config stations.
+    """Interpolate one blade's load densities at the config stations.
 
-    Constant extrapolation covers the small root and tip margins the
-    section distribution does not reach.
+    The export rows already are line densities (RPT-006), so this is
+    pure resampling; constant extrapolation covers the small root and
+    tip margins the section distribution does not reach.
     """
     order = np.argsort(ea_loads.radius_m)
     radii = ea_loads.radius_m[order]
@@ -321,6 +322,20 @@ def coupling_step(run_dir: str | Path) -> StepResult:
             "steady solve; the coupled driver runs inside the unsteady solver "
             "(SET_AEROELASTIC_COUPLING_IN_UNSTEADY, RPT-005)"
         )
+    # The header prints the increment with three decimals only (RPT-006),
+    # so a configured dt drives the revolution bookkeeping and the printed
+    # value is held to it at print precision.
+    time_increment_s = report.time_increment_s
+    if cfg.time_increment_s is not None:
+        if abs(cfg.time_increment_s - report.time_increment_s) > 5.0e-4:
+            raise ValueError(
+                f"the loads export prints a time increment of "
+                f"{report.time_increment_s} s but the configuration declares "
+                f"{cfg.time_increment_s} s; beyond the header's three-decimal "
+                "print precision this is a different run than the "
+                "configuration describes (RPT-006)"
+            )
+        time_increment_s = cfg.time_increment_s
     state.call_count += 1
     state.step_count += 1
     state.last_solver_iteration = report.current_iteration
@@ -337,7 +352,7 @@ def coupling_step(run_dir: str | Path) -> StepResult:
         )
     blocks = report.split(family_map)
 
-    rev_per_step = revolutions_per_step(cfg.omega_rad_per_s, report.time_increment_s)
+    rev_per_step = revolutions_per_step(cfg.omega_rad_per_s, time_increment_s)
     steps_per_rev = 1.0 / rev_per_step
     revolutions = state.step_count * rev_per_step
     phase = _schedule_phase(cfg, state, revolutions)
@@ -350,7 +365,9 @@ def coupling_step(run_dir: str | Path) -> StepResult:
         flap, torsion = _blade_densities(ea_loads, stations)
         flap_per_blade.append(flap)
         torsion_per_blade.append(torsion)
-        total_normal_force += float(blocks[name].fz_n.sum())
+        total_normal_force += float(
+            (ea_loads.force_normal_n_per_m * ea_loads.tributary_width_m).sum()
+        )
     state.load_history.append(
         LoadSample(
             step=state.step_count,
