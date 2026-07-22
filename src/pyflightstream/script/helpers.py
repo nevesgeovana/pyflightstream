@@ -23,19 +23,61 @@ actuator, motion, or mesh boundary accepts the 1-based index or the
 label registered at creation (``label=``) or declared through
 :meth:`~pyflightstream.script.Script.declare_existing`; labels resolve
 to indices at emission through the script's entity registry.
+
+Provenance: :func:`solver_settings` is the single entry point for every
+solver flag of the runtime_settings, solver_settings, and
+advanced_settings families. It requires the induced-drag boundary
+selection (``vorticity_drag_boundaries``), emits the library minimum-Cp
+default when the caller does not choose one, and attaches a
+:class:`~pyflightstream.script.solver_setup.SolverSetup` snapshot of
+every effective flag value to the script (``script.solver_setup``) for
+the run manifest. The induced-drag selection itself is an
+analysis-phase command, so its emission is deferred and lands right
+after the solver starts: :func:`start_solver` (or the first analysis or
+export helper call) flushes it.
 """
 
 from __future__ import annotations
 
 import warnings
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Literal
 
+from pydantic import ValidationError
+
+from pyflightstream.commands import CommandRegistry
 from pyflightstream.script import CommandArgumentError, Script
+from pyflightstream.script.solver_setup import (
+    LIBRARY_MINIMUM_CP,
+    BulkSeparation,
+    SolverSetup,
+    build_setup,
+)
 
 
 def _toggle(value: bool) -> str:
     return "ENABLE" if value else "DISABLE"
+
+
+def _flush_pending_vorticity(script: Script) -> None:
+    """Emit the deferred induced-drag boundary selection, if one waits.
+
+    :func:`solver_settings` records the required selection but cannot
+    emit it in place: SET_VORTICITY_DRAG_BOUNDARIES is an
+    analysis-phase command (SRC-003 p.350) and the settings are emitted
+    in the init phase, before the solver starts. The selection is
+    therefore flushed by :func:`start_solver`, by :func:`sweep` right
+    after SWEEPER_START, and by the first :func:`analysis_setup` or
+    :func:`export_results` call that reaches the analysis phase.
+    """
+    pending = getattr(script, "_pyfs_pending_vorticity", None)
+    if pending is None:
+        return
+    script._pyfs_pending_vorticity = None
+    if pending == "all":
+        script.emit("SET_VORTICITY_DRAG_BOUNDARIES", -1)
+    else:
+        script.emit("SET_VORTICITY_DRAG_BOUNDARIES", len(pending), list(pending))
 
 
 def _reject_bare_label(helper: str, argument: str, value: object, *, allows_all: bool) -> None:
@@ -393,6 +435,10 @@ def unsteady_solver(script: Script, *, time_iterations: int, delta_time: float) 
 def solver_settings(
     script: Script,
     *,
+    vorticity_drag_boundaries: Sequence[int | str] | Literal["all"] | None = None,
+    mode: str | None = None,
+    time_iterations: int | None = None,
+    delta_time: float | None = None,
     aoa: float | None = None,
     sideslip: float | None = None,
     velocity: float | None = None,
@@ -408,16 +454,68 @@ def solver_settings(
     boundary_layer: str | None = None,
     viscous_coupling: bool | None = None,
     viscous_excluded: Sequence[int | str] | None = None,
-) -> None:
-    """Set the solver runtime settings that were given (SRC-003 pp.339-343).
+    bulk_separation: BulkSeparation | Mapping | None = None,
+    convergence_iterations: int | None = None,
+    minimum_cp: float | None = None,
+    reynolds_averaged_drag: bool | None = None,
+    mesh_induced_wake_velocity: bool | None = None,
+    farfield_layers: int | None = None,
+    unsteady_pressure_and_kutta: bool | None = None,
+    wake_termination_time_steps: int | None = None,
+    wake_on_wake_induction: bool | None = None,
+    additional_wake_relaxation: bool | None = None,
+    aeroelastic_rbf_type: str | None = None,
+) -> SolverSetup:
+    """Set the solver flags, record their provenance, and return the snapshot.
 
-    Only the provided settings are emitted, so the helper serves both
-    the initial setup and the re-emission between campaign points.
+    Single entry point for every command of the runtime_settings
+    (SRC-003 pp.339-340), solver_settings (pp.341-343), and
+    advanced_settings (pp.344-346) families. Only the provided flags
+    are emitted (plus the library minimum-Cp default, below), so the
+    helper serves both the initial setup and the re-emission between
+    campaign points; the returned
+    :class:`~pyflightstream.script.solver_setup.SolverSetup` snapshot
+    records the effective value and provenance of every flag, passed or
+    not, and is attached to the script as ``script.solver_setup`` for
+    the run manifest.
+
+    Two flags have library-level behavior:
+
+    - ``vorticity_drag_boundaries`` is required: induced drag comes
+      from surface vorticity integration only on the listed
+      boundaries, and an unset list silently reports zero induced drag
+      (SRC-003 p.202). The selection is an analysis-phase command, so
+      its emission is deferred and lands right after the solver starts
+      (see :func:`start_solver`).
+    - ``minimum_cp`` unset emits ``SOLVER_MINIMUM_CP -100``: the
+      solver's own default -20 (SRC-003 p.221) clips the suction peaks
+      of rotor blades, so -100 is the library default (author decision
+      of 2026-07-22, retiring the legacy reference-velocity
+      workaround); pass the flag to override. The physics reference
+      re-validation under this default is queued as PLN-023. On a
+      FlightStream version without the command nothing is emitted and
+      the snapshot honestly records the flag as unknown.
 
     Parameters
     ----------
     script : Script
         Script under construction.
+    vorticity_drag_boundaries : sequence of int or str, or ``"all"``
+        Required. Boundaries whose induced drag comes from surface
+        vorticity integration, by 1-based index or declared boundary
+        label; ``"all"`` selects every boundary (-1 form). Boundaries
+        without trailing-edge boundary conditions silently report zero
+        induced drag (SRC-003 p.202).
+    mode : str, optional
+        Solver time regime: ``STEADY`` (SET_SOLVER_STEADY) or
+        ``UNSTEADY`` (SET_SOLVER_UNSTEADY, physical time stepping,
+        SRC-003 p.341).
+    time_iterations : int, optional
+        UNSTEADY only: number of physical time steps.
+    delta_time : float, optional
+        UNSTEADY only: physical time step in s. For rotary cases the
+        manual recommends 8 to 12 degrees of blade rotation per step
+        and at least two full rotations (SRC-003 p.210).
     aoa : float, optional
         Angle of attack in deg, magnitude below 90.
     sideslip : float, optional
@@ -459,8 +557,104 @@ def solver_settings(
         or declared boundary label; verified against the inventory
         declared with declare_existing(boundaries=...) when one
         exists.
+    bulk_separation : BulkSeparation or mapping, optional
+        Bulk (bluff-body) flow-separation assignment
+        (CREATE_BULK_SEPARATION, SRC-003 p.342); see
+        :class:`~pyflightstream.script.solver_setup.BulkSeparation`.
+    convergence_iterations : int, optional
+        Iterations the solver must stay below the convergence
+        threshold before convergence is declared (SRC-003 p.344).
+    minimum_cp : float, optional
+        Lower limiter on the pressure coefficient, dimensionless
+        (SRC-003 p.345); see the library-default note above.
+    reynolds_averaged_drag : bool, optional
+        Toggle the Reynolds-averaged (flat plate) boundary layer
+        calculations (SRC-003 p.344).
+    mesh_induced_wake_velocity : bool, optional
+        Toggle the mesh-induced wake velocity computation
+        (SRC-003 p.344).
+    farfield_layers : int, optional
+        Far-field agglomeration layer count, integer between 1 and 5;
+        the solver default is 3 (SRC-003 p.344).
+    unsteady_pressure_and_kutta : bool, optional
+        Toggle the unsteady Bernoulli and Kutta terms of the unsteady
+        solver (SRC-003 p.344).
+    wake_termination_time_steps : int, optional
+        Time steps after which a fully faded wake vortex filament edge
+        is removed (SRC-003 p.344).
+    wake_on_wake_induction : bool, optional
+        Toggle the wake-on-wake induced velocity computation
+        (SRC-003 pp.344-345).
+    additional_wake_relaxation : bool, optional
+        Perform one additional wake relaxation iteration
+        (SRC-003 p.345).
+    aeroelastic_rbf_type : str, optional
+        RBF mesh morphing algorithm of the aeroelastic coupling:
+        ``WENDLAND_C2``, ``GAUSSIAN``, ``THIN_PLATE_SPLINE``,
+        ``MULTI_QUADRATIC``, or ``INV_MULTI_QUADRATIC``
+        (SRC-003 p.345).
+
+    Returns
+    -------
+    SolverSetup
+        The snapshot of effective flag values and provenance, also
+        attached to the script as ``script.solver_setup``.
     """
+    if vorticity_drag_boundaries is None:
+        raise CommandArgumentError(
+            "solver_settings requires vorticity_drag_boundaries: induced drag comes "
+            "from surface vorticity integration only on the listed boundaries, and an "
+            "unset list silently reports zero induced drag (SRC-003 p.202). Pass 'all' "
+            "for every boundary, or the lifting boundaries by index or declared label."
+        )
+    _reject_bare_label(
+        "solver_settings", "vorticity_drag_boundaries", vorticity_drag_boundaries, allows_all=True
+    )
     _reject_bare_label("solver_settings", "viscous_excluded", viscous_excluded, allows_all=False)
+    upper_mode = mode.upper() if mode is not None else None
+    if upper_mode is not None and upper_mode not in ("STEADY", "UNSTEADY"):
+        raise CommandArgumentError(
+            f"solver_settings mode takes STEADY or UNSTEADY, got {mode!r}: the solver "
+            "time regime is one of the two (SRC-003 p.341)"
+        )
+    if upper_mode == "UNSTEADY" and (time_iterations is None or delta_time is None):
+        raise CommandArgumentError(
+            "solver_settings mode='UNSTEADY' needs both time_iterations and delta_time: "
+            "physical time stepping is defined by the step count and the step size "
+            "(SRC-003 p.341)"
+        )
+    if upper_mode != "UNSTEADY" and (time_iterations is not None or delta_time is not None):
+        raise CommandArgumentError(
+            "solver_settings: time_iterations and delta_time belong to the unsteady "
+            "solver; pass mode='UNSTEADY' with them, or drop them for a steady run "
+            "(SRC-003 p.341)"
+        )
+    bulk: BulkSeparation | None = None
+    if bulk_separation is not None:
+        try:
+            bulk = BulkSeparation.model_validate(bulk_separation)
+        except ValidationError as error:
+            raise CommandArgumentError(
+                "solver_settings: bulk_separation takes a BulkSeparation (name, "
+                f"separation_type, diameter, boundaries; SRC-003 p.342): {error}"
+            ) from error
+    # Resolve the required induced-drag selection before any emission,
+    # so a bad label or index leaves the script untouched; the emission
+    # itself is deferred to the analysis phase (see the docstring).
+    if vorticity_drag_boundaries == "all":
+        pending: list[int] | Literal["all"] = "all"
+    else:
+        pending = [
+            script.resolve_boundary(
+                item, context="solver_settings: argument 'vorticity_drag_boundaries'"
+            )
+            for item in vorticity_drag_boundaries
+        ]
+
+    if upper_mode == "STEADY":
+        script.emit("SET_SOLVER_STEADY")
+    elif upper_mode == "UNSTEADY":
+        script.emit("SET_SOLVER_UNSTEADY", time_iterations, delta_time)
     scalar_commands = (
         ("SOLVER_SET_AOA", aoa),
         ("SOLVER_SET_SIDESLIP", sideslip),
@@ -487,6 +681,112 @@ def solver_settings(
         script.emit(
             "SET_VISCOUS_EXCLUDED_BOUNDARIES", len(viscous_excluded), list(viscous_excluded)
         )
+    if bulk is not None:
+        if bulk.boundaries == "all":
+            script.emit(
+                "CREATE_BULK_SEPARATION",
+                name=bulk.name,
+                separation_type=bulk.separation_type,
+                num_boundaries=-1,
+                diameter=bulk.diameter,
+            )
+        else:
+            script.emit(
+                "CREATE_BULK_SEPARATION",
+                name=bulk.name,
+                separation_type=bulk.separation_type,
+                num_boundaries=len(bulk.boundaries),
+                diameter=bulk.diameter,
+                boundary_indices=list(bulk.boundaries),
+            )
+    if convergence_iterations is not None:
+        script.emit("SET_SOLVER_CONVERGENCE_ITERATIONS", convergence_iterations)
+    minimum_cp_default_emitted = False
+    if minimum_cp is not None:
+        script.emit("SOLVER_MINIMUM_CP", minimum_cp)
+    elif "SOLVER_MINIMUM_CP" in CommandRegistry.load().for_version(script.version):
+        script.emit("SOLVER_MINIMUM_CP", LIBRARY_MINIMUM_CP)
+        minimum_cp_default_emitted = True
+    if reynolds_averaged_drag is not None:
+        script.emit("REYNOLDS_AVERAGED_DRAG_FORCES", _toggle(reynolds_averaged_drag))
+    if mesh_induced_wake_velocity is not None:
+        script.emit("SOLVER_SET_MESH_INDUCED_WAKE_VELOCITY", _toggle(mesh_induced_wake_velocity))
+    if farfield_layers is not None:
+        script.emit("SOLVER_SET_FARFIELD_LAYERS", farfield_layers)
+    if unsteady_pressure_and_kutta is not None:
+        script.emit("SOLVER_UNSTEADY_PRESSURE_AND_KUTTA", _toggle(unsteady_pressure_and_kutta))
+    if wake_termination_time_steps is not None:
+        script.emit("SET_WAKE_TERMINATION_TIME_STEPS", wake_termination_time_steps)
+    if wake_on_wake_induction is not None:
+        script.emit("SET_WAKE_ON_WAKE_INDUCTION", _toggle(wake_on_wake_induction))
+    if additional_wake_relaxation is not None:
+        script.emit("ADDITIONAL_WAKE_RELAXATION_ITERATION", _toggle(additional_wake_relaxation))
+    if aeroelastic_rbf_type is not None:
+        script.emit("AEROELASTIC_RBF_TYPE", aeroelastic_rbf_type)
+
+    script._pyfs_pending_vorticity = pending
+
+    passed: dict[str, object] = {
+        "mode": upper_mode,
+        "time_iterations": time_iterations,
+        "delta_time": delta_time,
+        "aoa": aoa,
+        "sideslip": sideslip,
+        "velocity": velocity,
+        "mach": mach,
+        "ref_velocity": ref_velocity,
+        "ref_mach": ref_mach,
+        "ref_area": ref_area,
+        "ref_length": ref_length,
+        "iterations": iterations,
+        "convergence": convergence,
+        "forced_iterations": forced_iterations,
+        "max_threads": max_threads,
+        "boundary_layer": boundary_layer.upper() if boundary_layer is not None else None,
+        "viscous_coupling": viscous_coupling,
+        "viscous_excluded": viscous_excluded,
+        "bulk_separation": bulk,
+        "convergence_iterations": convergence_iterations,
+        "minimum_cp": minimum_cp,
+        "reynolds_averaged_drag": reynolds_averaged_drag,
+        "mesh_induced_wake_velocity": mesh_induced_wake_velocity,
+        "farfield_layers": farfield_layers,
+        "unsteady_pressure_and_kutta": unsteady_pressure_and_kutta,
+        "wake_termination_time_steps": wake_termination_time_steps,
+        "wake_on_wake_induction": wake_on_wake_induction,
+        "additional_wake_relaxation": additional_wake_relaxation,
+        "aeroelastic_rbf_type": (
+            aeroelastic_rbf_type.upper() if aeroelastic_rbf_type is not None else None
+        ),
+        "vorticity_drag_boundaries": vorticity_drag_boundaries,
+    }
+    setup = build_setup(
+        version=script.version.canonical,
+        passed=passed,
+        minimum_cp_default_emitted=minimum_cp_default_emitted,
+    )
+    script.solver_setup = setup
+    return setup
+
+
+def start_solver(script: Script) -> None:
+    """Start the solver and land the deferred induced-drag selection.
+
+    Emits START_SOLVER (SRC-003 p.338) and then the
+    SET_VORTICITY_DRAG_BOUNDARIES emission that
+    :func:`solver_settings` recorded: the selection is an
+    analysis-phase command (SRC-003 p.350) that cannot precede the
+    exec phase, while forgetting it silently zeroes the induced-drag
+    accounting (SRC-003 p.202); pairing it with the solver start is
+    what makes the required decision actually reach the script.
+
+    Parameters
+    ----------
+    script : Script
+        Script under construction.
+    """
+    script.emit("START_SOLVER")
+    _flush_pending_vorticity(script)
 
 
 def initialize_solver(
@@ -602,7 +902,11 @@ def sweep(
         Script executed after each sweep point, for example a surface
         section extraction script.
     start : bool
-        Emit SWEEPER_START after the configuration.
+        Emit SWEEPER_START after the configuration. Starting the sweep
+        also lands the induced-drag selection deferred by
+        :func:`solver_settings`, right after SWEEPER_START: the
+        selection is an analysis-phase command, so this is its
+        earliest legal position in a sweeper script.
     export_spreadsheet : str, optional
         Path of the sweep results spreadsheet export.
     """
@@ -625,6 +929,7 @@ def sweep(
         script.emit("SWEEPER_POST_RUN_SCRIPT", "ENABLE", post_run_script)
     if start:
         script.emit("SWEEPER_START")
+        _flush_pending_vorticity(script)
     if export_spreadsheet is not None:
         script.emit("SWEEPER_EXPORT_SPREADSHEET", export_spreadsheet)
 
@@ -666,6 +971,11 @@ def analysis_setup(
     inviscid_only : bool, optional
         Restrict the analysis to inviscid loads and moments.
     vorticity_drag_boundaries : sequence of int or str, ``"all"``, or None
+        Deprecated here since v0.3.0: the induced-drag boundary
+        selection is a required parameter of :func:`solver_settings`
+        and will leave analysis_setup in a future minor release.
+        Passing it still works (with a DeprecationWarning) and
+        replaces any selection deferred by :func:`solver_settings`.
         Boundaries whose induced drag comes from surface vorticity
         integration, by index or declared label; boundaries without
         trailing-edge boundary conditions silently report zero induced
@@ -675,12 +985,38 @@ def analysis_setup(
     _reject_bare_label(
         "analysis_setup", "vorticity_drag_boundaries", vorticity_drag_boundaries, allows_all=True
     )
+    if vorticity_drag_boundaries is not None:
+        warnings.warn(
+            "analysis_setup(vorticity_drag_boundaries=...) is deprecated: the "
+            "induced-drag boundary selection is a required parameter of "
+            "solver_settings since v0.3.0 and will leave analysis_setup in a future "
+            "minor release; this explicit call replaces the selection deferred by "
+            "solver_settings",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        if getattr(script, "_pyfs_pending_vorticity", None) is not None:
+            script._pyfs_pending_vorticity = None
     # symmetry_loads first: it is an init-phase setting consumed by the
     # in-solve monitors (per-step force plots), so a call mixing it
     # with the analysis-phase selections is only valid before
     # START_SOLVER; pass it alone in that position.
     if symmetry_loads is not None:
         script.emit("SET_ANALYSIS_SYMMETRY_LOADS", _toggle(symmetry_loads))
+    if any(
+        argument is not None
+        for argument in (
+            loads_frame,
+            moments_model,
+            load_units,
+            boundaries,
+            inviscid_only,
+            vorticity_drag_boundaries,
+        )
+    ):
+        # The call reaches the analysis phase: land the selection
+        # deferred by solver_settings before the analysis choices.
+        _flush_pending_vorticity(script)
     if loads_frame is not None:
         script.emit("SET_SOLVER_ANALYSIS_LOADS_FRAME", loads_frame)
     if moments_model is not None:
@@ -739,6 +1075,9 @@ def export_results(
         Path of the force distribution vectors export, all boundaries.
     """
     _reject_bare_label("export_results", "vtk_boundaries", vtk_boundaries, allows_all=True)
+    # Exports read the analysis state: land the induced-drag selection
+    # deferred by solver_settings before the first export command.
+    _flush_pending_vorticity(script)
     if spreadsheet is not None:
         script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", spreadsheet)
     if tecplot is not None:

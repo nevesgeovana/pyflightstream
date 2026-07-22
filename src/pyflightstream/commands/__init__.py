@@ -324,6 +324,17 @@ class CommandEntry(BaseModel):
         keys). Versions without an entry have no recorded evidence.
     notes : str, optional
         Paraphrased usage caveats with citations.
+    default : int, float, or str, optional
+        Documented default value the solver applies when the command
+        is never issued, recorded only when the manual states it and
+        always together with ``default_ref`` (evidence rule, CLAUDE.md
+        invariant 3). Consumed by the solver-setup snapshot
+        (:mod:`pyflightstream.script.solver_setup`) so an unset flag
+        with a documented default is recorded as such instead of
+        unknown; a flag without this field stays honestly unknown.
+    default_ref : str, optional
+        Manual page citation of ``default``, for example
+        ``"SRC-003 p.221"``; required whenever ``default`` is set.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -336,6 +347,8 @@ class CommandEntry(BaseModel):
     manual_ref: str
     versions: dict[str, VersionStatus]
     notes: str | None = None
+    default: int | float | str | None = None
+    default_ref: str | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -375,6 +388,36 @@ class CommandEntry(BaseModel):
     @model_validator(mode="after")
     def _args_obey_the_layout_rules(self) -> CommandEntry:
         _check_layout_rules(self.name, self.layout, self.args)
+        return self
+
+    @model_validator(mode="after")
+    def _defaults_carry_their_citation(self) -> CommandEntry:
+        if self.default is not None and not self.default_ref:
+            raise ValueError(
+                f"{self.name} records a default without default_ref; a recorded default "
+                "is a manual fact and must carry its page citation (evidence rule)"
+            )
+        if self.default_ref is not None and self.default is None:
+            raise ValueError(
+                f"{self.name} records default_ref without a default value; the citation "
+                "documents the default, so both travel together"
+            )
+        if self.default_ref is not None and not _MANUAL_REF_PATTERN.match(self.default_ref):
+            raise ValueError(
+                f"{self.name}: default_ref {self.default_ref!r} must cite a source and "
+                "page, for example 'SRC-003 p.221'"
+            )
+        if (
+            isinstance(self.default, str)
+            and len(self.args) == 1
+            and self.args[0].type is ArgType.ENUM
+            and self.default not in (self.args[0].values or ())
+        ):
+            raise ValueError(
+                f"{self.name}: default {self.default!r} is not one of the documented "
+                f"tokens {', '.join(self.args[0].values)}; a default must be a value "
+                "the command itself could emit"
+            )
         return self
 
     @model_validator(mode="after")

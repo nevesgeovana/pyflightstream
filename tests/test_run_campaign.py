@@ -59,12 +59,13 @@ def steady_recipe(case, script):
     helpers.initialize_solver(script)
     helpers.solver_settings(
         script,
+        vorticity_drag_boundaries="all",
         aoa=case.point["alpha"],
         velocity=case.velocity,
         iterations=case.solver.iterations,
         convergence=case.solver.convergence,
     )
-    script.emit("START_SOLVER")
+    helpers.start_solver(script)
     script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", "loads.txt")
     script.emit("CLOSE_FLIGHTSTREAM")
 
@@ -116,6 +117,21 @@ def test_dry_run_records_every_point_end_to_end(tmp_path):
     assert records[0].outputs == ["raw/loads.txt"]
     assert "wing.fsm" in records[0].inputs_sha256
     assert not records[0].raw_flag
+    # The solver-setup snapshot of the built script rode into the manifest.
+    setup = records[0].solver_setup
+    assert setup is not None
+    assert setup["flags"]["SOLVER_SET_AOA"]["provenance"] == "explicit"
+    assert setup["flags"]["SOLVER_MINIMUM_CP"] == {
+        "command": "SOLVER_MINIMUM_CP",
+        "family": "advanced_settings",
+        "provenance": "default",
+        "value": -100,
+        "emitted": True,
+        "evidence": setup["flags"]["SOLVER_MINIMUM_CP"]["evidence"],
+    }
+    assert "SRC-003 p.221" in setup["flags"]["SOLVER_MINIMUM_CP"]["evidence"]
+    reloaded = workspace.read_manifest()
+    assert reloaded[0].solver_setup == setup
     sim = tmp_path / "camp" / "sims" / "sim_9001"
     assert (sim / "scripts" / "a+02.0.txt").is_file()
     assert "SOLVER_SET_AOA 2.0" in (sim / "scripts" / "a+02.0.txt").read_text(encoding="utf-8")
@@ -347,8 +363,10 @@ def outputs_recipe(case, script):
     script.emit("OPEN", case.geometry)
     helpers.free_stream(script)
     helpers.initialize_solver(script)
-    helpers.solver_settings(script, aoa=case.point["alpha"], velocity=case.velocity)
-    script.emit("START_SOLVER")
+    helpers.solver_settings(
+        script, vorticity_drag_boundaries="all", aoa=case.point["alpha"], velocity=case.velocity
+    )
+    helpers.start_solver(script)
     script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", case.outputs[0])
     script.emit("CLOSE_FLIGHTSTREAM")
 

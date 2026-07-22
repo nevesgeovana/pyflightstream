@@ -123,7 +123,7 @@ def test_boundary_index_out_of_declared_range_is_didactic():
     script = Script(version="26.12")
     script.declare_existing(boundaries={"fuselage": 1, "wing": 2})
     with pytest.raises(ScriptReferenceError, match="valid indices run 1 to 2") as info:
-        helpers.analysis_setup(script, vorticity_drag_boundaries=[3])
+        helpers.solver_settings(script, vorticity_drag_boundaries=[3])
     assert "cites mesh boundary 3" in str(info.value)
     assert "declare_existing" in str(info.value)
 

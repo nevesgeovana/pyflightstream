@@ -36,6 +36,8 @@ SET_BOUNDARY_LAYER_TYPE:
   manual_ref: "SRC-003 p.341"
   versions:
     "26.120": {status: documented}
+  default: TRANSITIONAL
+  default_ref: "SRC-003 p.203"
   notes: >
     The default transitional-turbulent model is stated valid for chord
     Reynolds numbers between 500000 and 1500000; outside this range

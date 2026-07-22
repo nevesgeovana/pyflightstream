@@ -154,6 +154,13 @@ class RunRecord(BaseModel):
     raw_flag : bool
         True when the script used the ``raw()`` escape hatch and its
         content bypassed database validation (FR-07).
+    solver_setup : dict, optional
+        Serialized solver-setup snapshot
+        (:class:`pyflightstream.script.solver_setup.SolverSetup`) of
+        the built script: every solver flag with its effective value
+        and provenance (explicit, default with citation, or unknown).
+        None for scripts built without the curated ``solver_settings``
+        helper and for manifests written before v0.3.0.
     status : RunStatus
         Terminal status of the point.
     iterations : int, optional
@@ -181,6 +188,7 @@ class RunRecord(BaseModel):
     script_sha256: str
     inputs_sha256: dict[str, str] = Field(default_factory=dict)
     raw_flag: bool
+    solver_setup: dict | None = None
     status: RunStatus
     iterations: int | None = None
     residual: float | None = None

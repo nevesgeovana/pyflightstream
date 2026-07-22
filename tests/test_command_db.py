@@ -251,6 +251,38 @@ def test_bulk_separation_grammar_is_version_sensitive():
     assert in_26100 == ["name", "num_boundaries", "diameter", "boundary_indices"]
 
 
+def test_default_metadata_requires_its_citation():
+    with pytest.raises(ValidationError, match="must carry its page citation"):
+        make_entry(default=3)
+    with pytest.raises(ValidationError, match="both travel together"):
+        make_entry(default_ref="SRC-003 p.344")
+    with pytest.raises(ValidationError, match="cite a source and page"):
+        make_entry(default=3, default_ref="somewhere")
+    entry = make_entry(default=3, default_ref="SRC-003 p.344")
+    assert entry.default == 3
+
+
+def test_enum_default_must_be_a_documented_token():
+    enum_args = [{"name": "type", "type": "enum", "values": ["A", "B"]}]
+    with pytest.raises(ValidationError, match="not one of the documented tokens"):
+        make_entry(args=enum_args, default="C", default_ref="SRC-003 p.203")
+    entry = make_entry(args=enum_args, default="B", default_ref="SRC-003 p.203")
+    assert entry.default == "B"
+
+
+def test_seeded_defaults_carry_their_recorded_evidence():
+    registry = CommandRegistry.load()
+    minimum_cp = registry.commands["SOLVER_MINIMUM_CP"]
+    assert minimum_cp.default == -20
+    assert minimum_cp.default_ref == "SRC-003 p.221"
+    boundary_layer = registry.commands["SET_BOUNDARY_LAYER_TYPE"]
+    assert boundary_layer.default == "TRANSITIONAL"
+    assert boundary_layer.default_ref == "SRC-003 p.203"
+    farfield = registry.commands["SOLVER_SET_FARFIELD_LAYERS"]
+    assert farfield.default == 3
+    assert farfield.default_ref == "SRC-003 p.344"
+
+
 def test_hotfix_inherits_base_release_until_overridden():
     entry = make_entry()
     hotfix = FsVersion(canonical="26.121", alias="26.12 hotfix 1", index=3)

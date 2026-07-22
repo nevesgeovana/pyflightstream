@@ -44,6 +44,7 @@ def build_actuator_polar(script: Script) -> None:
     )
     helpers.solver_settings(
         script,
+        vorticity_drag_boundaries="all",
         velocity=55.0,
         ref_velocity=55.0,
         ref_area=11.5,
@@ -91,11 +92,16 @@ def build_rotor_unsteady(script: Script) -> None:
     helpers.initialize_solver(
         script, symmetry="PERIODIC", periodic_copies=3, wake_termination_x=5.0
     )
-    helpers.solver_settings(script, velocity=0.0, ref_velocity=150.0, ref_area=0.8, ref_length=0.25)
-    script.emit("START_SOLVER")
-    helpers.analysis_setup(
-        script, loads_frame=2, load_units="NEWTONS", vorticity_drag_boundaries="all"
+    helpers.solver_settings(
+        script,
+        vorticity_drag_boundaries="all",
+        velocity=0.0,
+        ref_velocity=150.0,
+        ref_area=0.8,
+        ref_length=0.25,
     )
+    helpers.start_solver(script)
+    helpers.analysis_setup(script, loads_frame=2, load_units="NEWTONS")
     helpers.probe_line(script, points=25, start=(0.0, 0.0, 0.5), end=(2.5, 0.0, 0.5))
     helpers.export_probes(script, "C:/cases/out/wake_line.txt")
     helpers.export_results(

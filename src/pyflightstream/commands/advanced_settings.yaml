@@ -25,6 +25,8 @@ SOLVER_MINIMUM_CP:
   manual_ref: "SRC-003 p.345"
   versions:
     "26.120": {status: documented}
+  default: -20
+  default_ref: "SRC-003 p.221"
   notes: >
     Lower limiter on the pressure coefficient; the solver default is
     -20 (SRC-003 p.221).
@@ -63,6 +65,8 @@ SOLVER_SET_FARFIELD_LAYERS:
   manual_ref: "SRC-003 p.344"
   versions:
     "26.120": {status: documented}
+  default: 3
+  default_ref: "SRC-003 p.344"
   notes: >
     Far-field agglomeration layer count, integer between 1 and 5;
     the solver default is 3.
