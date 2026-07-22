@@ -11,7 +11,7 @@ slip in unlabeled.
 
 import inspect
 
-from pyflightstream.fsi import beam, centrifugal
+from pyflightstream.fsi import beam, centrifugal, kinematics, loads, nodes
 
 PHYSICS_FUNCTIONS = [
     (centrifugal, "axial_load_distribution"),
@@ -22,6 +22,9 @@ PHYSICS_FUNCTIONS = [
     (centrifugal, "southwell_fit"),
     (beam, "lumped_station_masses"),
     (beam, "_condense_massless"),
+    (loads, "transfer_moment_to_elastic_axis"),
+    (kinematics, "station_normal_translation"),
+    (kinematics, "twist_from_node_translations"),
 ]
 
 # Public functions that orchestrate solves or bookkeeping but contain no
@@ -37,6 +40,19 @@ NON_PHYSICS_PUBLIC = {
         "extract_solution",
         "modal_frequencies",
         "tributary_lengths",
+    },
+    "loads": {"parse_sectional_loads", "to_elastic_axis", "cross_check_totals"},
+    "kinematics": {"encode_station_translations", "decode_station_translations"},
+    "nodes": {
+        "generate_node_layout",
+        "node_positions",
+        "write_node_file",
+        "write_node_map",
+        "load_node_map",
+        "flatten_blade_translations",
+        "unflatten_translations",
+        "write_fsidisp",
+        "read_fsidisp",
     },
 }
 
@@ -61,7 +77,14 @@ def test_physics_functions_cite_their_source():
 
 
 def test_every_public_function_is_classified():
-    for module, key in ((centrifugal, "centrifugal"), (beam, "beam")):
+    modules = (
+        (centrifugal, "centrifugal"),
+        (beam, "beam"),
+        (loads, "loads"),
+        (kinematics, "kinematics"),
+        (nodes, "nodes"),
+    )
+    for module, key in modules:
         listed = {name for mod, name in PHYSICS_FUNCTIONS if mod is module}
         unclassified = _public_functions(module) - listed - NON_PHYSICS_PUBLIC[key]
         assert not unclassified, (

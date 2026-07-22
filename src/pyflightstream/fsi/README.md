@@ -117,6 +117,87 @@ its source, and a schema test enforces the discipline: the primary
 sources of the model are still being verified research side (TSR-014),
 so any future correction must stay a localized change.
 
+## loads: what FlightStream hands the structure (`loads.py`)
+
+Per coupling call the post-processing script exports
+`FS_SurfaceSection_Loads.txt`; `parse_sectional_loads` turns it into a
+typed report using the anchor primitives of `results/` (labels and
+header rows, never line offsets). The parser is strict where errors
+would be silent:
+
+* SI assertion (FSI-R03): the unit-carrying header labels must be
+  present and the footer must read Newtons and Newton-Meter. Anything
+  else raises `UnitsError` naming the fix (the post-processing script
+  computes with `COMPUTE_SURFACE_SECTIONAL_LOADS NEWTONS`), because a
+  wrong unit here would silently rescale the structural response.
+* Completeness (FR-17): the declared section count, the table
+  terminator, and the units footer are structural; a truncated file
+  raises instead of returning fewer sections.
+
+```python
+from pyflightstream.fsi import loads
+
+report = loads.parse_sectional_loads(text)
+blocks = report.split(family_map)            # per-blade attribution
+ea = loads.to_elastic_axis(blocks["blade_1"], cfg)
+ea.flap_load_n_per_m                          # line densities for the beam
+```
+
+Attribution follows the family-per-blade convention (RPT-005 finding
+6): the flat export concatenates the section distributions in creation
+order, so the code that creates them owns the bookkeeping and emits a
+`SectionFamilyMap`. `split` partitions the rows by that map and
+cross-checks the geometry: inside a family the offsets march
+monotonically along the span, and at a true boundary the offset
+restarts or the chord jumps; a map that disagrees with the creation
+order fails loudly instead of loading the wrong blade.
+
+Moments arrive about the quarter chord, the pitch axis reference;
+`to_elastic_axis` transfers them with the configured e(r)
+(M_EA = M_PA + e x F, FSI-R04), so refining the elastic axis estimate
+never touches the FlightStream setup. `cross_check_totals` compares a
+block's force sums against the integrated loads of the same run; the
+tier 1 tests exercise the machinery on the committed fixtures, and the
+per-run cross-check against a live integrated export is part of the
+WP7 coupled pilot, which is also the planned sign confirmation of the
+export-axes mapping (chordwise = export X, normal = export Z).
+
+## kinematics: twist as differential translations (`kinematics.py`)
+
+`FSIDisp.txt` carries translations only, so the elastic twist is
+encoded geometrically (DLV-007 Section 4.4): three nodes per station,
+one on the elastic axis and one toward each edge at a quarter chord,
+and the beam solution maps to their normal translations by rigid
+section kinematics, dy = w + theta d. The encoding is linear by
+design, so the inverse is exact: w reads back from the elastic-axis
+node and theta from the offset-node difference, and the round trip
+closes at machine precision (the WP5 acceptance test).
+
+## nodes: one generator, one ordering (`nodes.py`)
+
+FlightStream applies displacements to the imported nodes strictly in
+import order, which makes any bookkeeping drift a silent geometry
+corruption. `generate_node_layout` is therefore the single source of
+truth (FSI-R14): the imported node CSV, the serialized
+`NodeOrderingMap`, the flat `FSIDisp.txt` writer, and the reader that
+reconstructs (w, theta) for the replay harness all derive from it.
+
+```python
+from pyflightstream.fsi import kinematics, nodes
+
+layout = nodes.generate_node_layout(cfg)
+nodes.write_node_file(layout, "structural_nodes.csv")   # imported per blade
+nodes.write_node_map(layout, cfg.node_map_file)
+flat = nodes.flatten_blade_translations(layout, per_blade_translations)
+nodes.write_fsidisp("FSIDisp.txt", flat)
+```
+
+Every blade shares the same local coordinates in its own rotating
+frame, so one node file serves all blades: it is imported once per
+blade frame, in blade order, and the FSIDisp rows follow that same
+blade-major order. Formats are the dry-run evidence exactly: comma
+separated three-column files, no header (RPT-005 finding 5).
+
 ## cli: the executable FlightStream calls (`cli.py`)
 
 `pyfs-fsi` is the console entry point; pip installs it as an `.exe`
@@ -175,4 +256,7 @@ the execution command (the `pyfs-fsi` shim path), iterations 1
 solver. Seed the dummy first with
 `pyfs-fsi init-dummy --node-count <N> --dir <working directory>`.
 
-WP2 can now be finalized against the committed fixtures.
+The loads parser (WP2) and the twist-encoding node machinery (WP5)
+are built against these fixtures; see their sections above. The
+coupled driver (WP6) will replace the dummy step behind this same
+entry point.
