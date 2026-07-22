@@ -80,7 +80,10 @@ PROBE_POINTS_IMPORT:
     Imports a probe lattice from a CSV file whose rows are
     X,Y,Z,TYPE with TYPE 0 for surface and 1 for volume probes; the
     first line holds the point count. This is the programmatic path
-    for probe lattice generation.
+    for probe lattice generation. The 26.120 round trip verified that
+    the export preserves the imported row order and count
+    (reports/RPT-004_probe-roundtrip-order_2026-07-21.md), the
+    loading contract of the probe planner.
 
 EXPORT_PROBE_POINTS:
   layout: param_lines
@@ -92,6 +95,13 @@ EXPORT_PROBE_POINTS:
   versions:
     "26.100": {status: documented, note: "SRC-725 p.362, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
+  notes: >
+    Rows follow the probe creation order, preserved from an imported
+    lattice (26.120 build 7012026 round trip,
+    reports/RPT-004_probe-roundtrip-order_2026-07-21.md). The
+    boundary-layer columns are inert only when the viscous coupling
+    is disabled; the default leaves near-surface probes with BL data
+    (same report). Parsed by results.parse_probe_points.
 
 DELETE_PROBE_POINTS:
   layout: bare
