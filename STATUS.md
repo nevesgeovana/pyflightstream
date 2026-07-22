@@ -259,7 +259,6 @@ decided when `post/` starts. `convert-matrix` CLI wiring can join the
 | xarray as a runtime dependency behind the `ResultArray` facade | Geovana's confirmation at M2 (SAD Section 9; noted in `pyproject.toml`) |
 | Whether to genericize the SMI name in the repository (currently kept, required by the version-comparison case design) | Open option, Geovana's decision |
 | SWEEPER entries are drafted from the worked example (SRC-003 p.406) and the Script Index (p.383); the Sweeper Toolbox chapter (pp.264-279) is not deep-reviewed and may widen the argument grammars | Follow-up manual pass |
-| Per-blade section labeling in FS_SurfaceSection_Loads.txt on multi-blade meshes (the dry run meshed one blade under PERIODIC; every other WP1 interface question is closed in RPT-005) | First multi-blade FSI run (WP7 territory) |
 
 ## Recorded deviations
 

@@ -64,7 +64,10 @@ nodes on the blade pitch axis. Full narrative and findings:
    delivered by the parallel line, HND-025).
 3. PLN-019 formal Tier 2 sweep for both FSI families; 26.100
    unprobed.
-4. Multi-blade section labeling: observe on the first multi-blade
-   FSI run.
+4. (Closed same session, author's input.) Multi-blade attribution
+   follows her standing convention: one geometry family per blade,
+   one section distribution per blade boundary; the flat export
+   concatenates families in creation order (RPT-005 finding 6,
+   amended).
 5. Research side: correct the FSI Blade Coupling Plan interface
    section per the RPT-005 findings (DLV-007 amendment points there).

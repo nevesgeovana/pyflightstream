@@ -57,9 +57,19 @@ with the aeroelastic coupling attached. Four runs, evidence-driven:
    cleanly, coordinate system selectable at import); `FSIDisp.txt`
    is comma separated `dx,dy,dz` per node in import order (SRC-003
    pp.273-274). The dummy now writes commas.
-6. Blade identification: with one meshed blade under PERIODIC 6 all
-   sections belong to blade 1; per-blade labeling on multi-blade
-   meshes remains to be observed (noted for WP2).
+6. Blade identification: closed by the author's standing modeling
+   convention (2026-07-21, confirmed on a legacy multi-boundary SMI
+   propeller run in her research archive): every blade is meshed as
+   its own geometry family (boundary), and each blade gets its own
+   section distribution targeting that boundary's surface index in
+   the blade's rotating frame. The export is one flat table with the
+   families concatenated in creation order, block sizes equal to
+   each family's section count (verified in the legacy export, three
+   families of 50, and in this run's fixtures, two families of 50);
+   offset and chord discontinuities at the block boundaries give the
+   parser a cross-check. Attribution is therefore bookkeeping owned
+   by the code that creates the distributions, the same
+   single-source-of-truth discipline as FSI-R14, not label parsing.
 
 ## Committed fixtures (`tests/fixtures/fsi/`)
 
@@ -83,4 +93,3 @@ spaces.
   p.273); not needed for the DLV-007 contract, not pursued.
 * 26.100 support for the family is unprobed (the family is new in
   26.1; both local builds print 26.1).
-* Multi-blade section labeling (finding 6).
