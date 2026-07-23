@@ -164,6 +164,24 @@ Deprecation messages naming v0.3.0 refer to this release.
   updated, all three examples rendered on the site, CONTRIBUTING
   setup corrected.
 
+### Evidence (licensed 26.1x session, 2026-07-23)
+
+* `NEW_SURFACE_SECTION_DISTRIBUTION` moves broken to verified on
+  26.120: the phase and `INCLUDE_SYMMETRY` grammar correction is
+  confirmed by a re-probe (`CMP-26120_2026-07-23_pln012`);
+  `AIR_ALTITUDE`, `SET_MOTION_START_TIME`, and
+  `NEW_OFF_BODY_STREAMLINE` are re-confirmed broken.
+* The bulk-separation spelling is resolved (`RPT-012`): the 26.100
+  solver accepts `CREATE_BULK_SEPARATION` and rejects the manual
+  sample-block spelling `CREARE` as unrecognized, so the database
+  keeps the header spelling and no alias is added.
+* Two research findings backing future features: `EXPORT_SURFACE_MESH`
+  OBJ writes one named object block per boundary from the source mesh
+  solid name (`RPT-010`, a fsm-to-obj boundary inspector is feasible),
+  and the settings-and-status export exposes only the steady-mode
+  default, not the wake and viscous toggles (`RPT-011`, their
+  provenance stays honestly unknown).
+
 ### Added (documentation and process)
 
 * Mesh inputs and GUI-only operations policy page in the docs
