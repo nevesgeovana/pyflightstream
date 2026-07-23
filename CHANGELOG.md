@@ -7,10 +7,41 @@ FlightStream versions.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-23
+
 The v0.3.0 line: the usage-feedback workstreams (PLN-022) triaged from
 the author's first outside-the-repo use of 0.2.0, delivered 2026-07-22,
 plus the protocol and library-review adoptions of the ultraplan week.
-Deprecation messages naming v0.3.0 refer to this release.
+
+### API surface delta
+
+* New public names: the `workspace` package (renamed from `files`);
+  `options` (plus top-level `get_option`, `set_option`,
+  `reset_option`, `describe_option`, `option_context`); `exceptions`
+  (the 25-class catalog); `testing` (`assert_records_close`,
+  `assert_scripts_equal`); `overview()`; `solver_settings`,
+  `SolverSetup`, `script_from_setup`; `cases.matrix` (`MatrixError`,
+  `MatrixRow`, `resolve_matrix`, `plan_matrix`, `run_matrix`,
+  `convert_matrix`, `to_campaign`); the pandas tables (`to_dataframe`,
+  `to_csv`, `run_frame`, `sweep_frame`); `reference.CONVENTIONS`;
+  `EntityRegistry`; the `pyfs-workspace` and `pyfs-matrix` CLIs.
+* Incompatible changes: `solver_settings` requires
+  `vorticity_drag_boundaries`; the behavior selectors of `help`,
+  `overview`, `run_campaign`, `register_option`, and `read_matrix`
+  are keyword-only; `pyflightstream.files` and
+  `pyflightstream.cases.matrix_legacy` are renamed (import shims kept
+  through v0.4.0); converted campaigns carry `matrix_*` variable keys
+  (were `legacy_*`).
+* Deprecations: `pyflightstream.files` and
+  `pyflightstream.cases.matrix_legacy` (removal v0.4.0,
+  deadline-guarded); the `analysis_setup(vorticity_drag_boundaries=...)`
+  path toward `solver_settings`.
+* Removed: none (the `Legacy*` names survive as shim aliases).
+
+Known gaps named for the next window: the formal `verified`
+promotions of the version-sensitive commands (PLN-015) and the
+aeroelastic family (PLN-019), and the unsteady-chapter backfill of
+PHY-05/06 across versions.
 
 ### Added
 
