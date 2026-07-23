@@ -1,4 +1,11 @@
-"""Shared tier 1 fixtures: synthetic blade definitions for the FSI suite.
+"""Shared tier 1 fixtures: registry hygiene and the FSI synthetic blades.
+
+Registry hygiene (D1d adoption of the 2026-07-23 library review,
+pyvista conftest discipline): every module-level registry or cached
+mutable default a test could touch is snapshotted before each test and
+restored after it, so a mutating test can never leak state into its
+neighbors. The snapshot list below is the inventory of such state; a
+new module-level registry joins it in the same commit that creates it.
 
 Synthetic blades generated here are the only blade definitions in the
 repository (DLV-007 Sections 1 and 8): real blade property sets are
@@ -9,7 +16,49 @@ compare against.
 
 import pytest
 
+from pyflightstream import versions as _versions
+from pyflightstream.cases import matrix as _matrix
+from pyflightstream.commands import CommandRegistry
 from pyflightstream.fsi.config import BladeProperties, FsiConfig
+from pyflightstream.qa import physics as _physics
+from pyflightstream.qa import specs as _specs
+from pyflightstream.script import entities as _entities
+from pyflightstream.script import solver_setup as _solver_setup
+
+
+def _mutable_module_state() -> list[dict]:
+    """Enumerate every module-level mutable registry or cached default.
+
+    The list is the single inventory of test-mutable module state:
+    public case and spec registries, private derived mappings, and the
+    mutable objects held by the two lru caches (the loaded command
+    database and the manual-edition map), which would otherwise carry a
+    test's mutation for the rest of the session.
+    """
+    return [
+        _physics.PHYSICS_CASES,
+        _physics.SMI_CASES,
+        _specs.PROBE_SPECS,
+        _solver_setup._SPEC_BY_COMMAND,
+        _matrix._SWEEP_CODES,
+        _entities._NOUNS,
+        # Cached mutable objects: the cache keeps returning the same
+        # dict, so an in-place mutation outlives the test that made it.
+        CommandRegistry.load().commands,
+        _versions.manual_editions(),
+    ]
+
+
+@pytest.fixture(autouse=True)
+def _restore_module_registries():
+    """Snapshot and restore the module registries around every test."""
+    live = _mutable_module_state()
+    saved = [dict(state) for state in live]
+    yield
+    for state, snapshot in zip(live, saved, strict=True):
+        if state != snapshot:
+            state.clear()
+            state.update(snapshot)
 
 
 def make_uniform_blade_config(
