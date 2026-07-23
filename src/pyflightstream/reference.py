@@ -5,7 +5,7 @@ Pipeline role: presentation layer sitting above ``commands`` and
 rendering source for both delivery layers of the reference:
 ``pyflightstream.help()`` renders a self-contained HTML page and opens
 it in the default browser (layer 1, the offline fallback), and the
-markdown generators feed the mkdocs site at build time (layer 2, the
+markdown generators feed the docs site at build time (layer 2, the
 published docs). Both layers read the same database through the same
 extraction helpers, so they can never disagree.
 """
@@ -400,7 +400,7 @@ def help(  # noqa: A001
 ) -> Path:
     """Write the HTML command reference and open it in the browser.
 
-    This is the offline fallback of the published mkdocs reference;
+    This is the offline fallback of the published docs reference;
     both are rendered from the same database by this module.
 
     Parameters
@@ -431,7 +431,7 @@ def help(  # noqa: A001
 
 
 # ---------------------------------------------------------------------------
-# Layer 2: markdown pages for the mkdocs site (generated at build time).
+# Layer 2: markdown pages for the docs site (generated at build time).
 # ---------------------------------------------------------------------------
 
 
@@ -473,8 +473,8 @@ def markdown_reference_pages() -> dict[str, str]:
     """Render the command reference as markdown pages for the docs site.
 
     One page per manual chapter plus an index and a ``SUMMARY.md``
-    navigation file (mkdocs-literate-nav format). Paths are relative to
-    the ``reference/`` section of the docs; the mkdocs build generates
+    navigation file (literate-nav format). Paths are relative to
+    the ``reference/`` section of the docs; the docs build generates
     them through ``scripts/gen_docs_pages.py`` so the site can never
     drift from the database.
 

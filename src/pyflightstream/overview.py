@@ -5,7 +5,7 @@ nothing imports it back. This module is the single rendering source for
 both delivery layers of the architecture overview:
 ``pyflightstream.overview()`` renders a self-contained HTML page and
 opens it in the default browser (layer 1, the offline fallback), and
-:func:`markdown_overview` feeds the mkdocs site at build time (layer 2,
+:func:`markdown_overview` feeds the docs site at build time (layer 2,
 the published docs). Both layers read the same source: the actual top
 docstrings of the package and its subpackages, imported at call time,
 so the overview can never drift from the code it describes.
@@ -246,7 +246,7 @@ def overview(path: str | Path | None = None, open_browser: bool = True) -> Path:
 def markdown_overview() -> str:
     """Render the architecture overview as one markdown page.
 
-    Same content as :func:`render_overview_html`, for the mkdocs site;
+    Same content as :func:`render_overview_html`, for the docs site;
     the build generates it through ``scripts/gen_docs_pages.py`` so the
     published page can never drift from the code.
 
