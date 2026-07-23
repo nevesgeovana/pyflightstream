@@ -63,6 +63,29 @@ registered in the plan. The author keeps the non-delegable seats:
 product owner, domain expert, numerical analyst (seat definitions in
 `.claude/skills/role-review/ROLE_TEMPLATE.md`).
 
+Mandatory push and release gate (adopted 2026-07-23, after the v0.3.0
+release ran paraphrased manual checks instead of the specialist
+agents): "role-review" means invoking the `role-review` skill so the
+real reviewer agents run, never a hand-written paraphrase of their
+charters. A PreToolUse hook (`.claude/hooks/role_review_gate.py`, on
+the Bash and PowerShell tools) blocks a `git push` until an
+attestation stamped by the role-review skill covers the commit being
+pushed; a release-grade push (a version tag or `--tags`)
+additionally requires the release attestation from the release skill
+(full-scope audit plus the role-review sweep of every item). The
+attestation is written by `.claude/hooks/write_attestation.py` as the
+skill's closing step and lives in
+`.claude/.role_review_attestation.json` (local, gitignored). A commit
+made after attesting re-arms the gate: an unreviewed commit never
+ships.
+
+PyPI publishing is trusted publishing only (OIDC), never a manual
+token upload: a pushed `vX.Y.Z` tag triggers
+`.github/workflows/release.yml`, which builds and publishes from the
+GitHub `pypi` environment. The release skill's Pause 5 is the
+authority; do not run `twine upload` by hand. Per the co-development
+decision (ITACA DD-23), this mirrors the ITACA release workflow.
+
 ## Layout
 
 src layout per the SAD. Dependencies flow downward:

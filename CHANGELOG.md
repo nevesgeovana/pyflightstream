@@ -12,6 +12,15 @@ FlightStream versions.
 * House conventions page on the docs site
   (`reference.conventions_markdown`, the same source as the offline
   `help()` conventions section), wired into the generator and nav.
+* Automated PyPI release through trusted publishing (OIDC):
+  `.github/workflows/release.yml` builds, checks the tag against the
+  `pyproject.toml` version, and publishes from the GitHub `pypi`
+  environment on a `v*` tag, so no API token is stored in the
+  repository (mirrors the ITACA release workflow). Development process:
+  a mandatory role-review push/release gate now blocks a `git push`
+  until the specialist reviewer agents have run and attested the
+  pushed commit (`.claude/` hooks and skills; internal tooling, not a
+  package surface).
 
 ### Fixed
 

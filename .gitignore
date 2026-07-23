@@ -38,3 +38,6 @@ guide/*.fls
 guide/*.fdb_latexmk
 guide/*.synctex.gz
 guide/*.vrb
+
+# Role-review push-gate attestation (local session state, never versioned)
+.claude/.role_review_attestation.json

@@ -59,3 +59,26 @@ The session record (handoff) lists, per work item: the passes that
 ran, findings fixed, findings registered, and questions raised to the
 author. When the item closes a plan row, the row's note cites the
 passes. A clean pass is recorded as clean; silence is not a record.
+
+## 6. Write the push attestation (mandatory, clears the git-push gate)
+
+The `git push` gate (`.claude/hooks/role_review_gate.py`) blocks every
+push until an attestation says these agent passes actually ran for the
+exact commit being pushed. This exists because a past release ran
+paraphrased manual checks instead of the agents; the attestation is
+the mechanical proof that the real agents ran.
+
+So, as the closing step, after every applicable pass has run and every
+finding is fixed or registered, and after the reviewed work is
+committed (the attestation must name the commit that will be pushed):
+
+```
+python .claude/hooks/write_attestation.py review architect,qa,vv,tech-writer,api-designer
+```
+
+Pass the passes you actually ran (comma-separated). The script stamps
+the current HEAD into `.claude/.role_review_attestation.json` (local,
+gitignored). If you commit anything more after this, the gate blocks
+again until you re-review and re-attest the new HEAD: an unreviewed
+commit never ships. Never write the attestation without running the
+agents; that defeats the seat that catches your own blind spots.

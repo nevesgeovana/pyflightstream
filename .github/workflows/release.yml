@@ -1,0 +1,60 @@
+# Release workflow: publishes pyflightstream to PyPI through trusted
+# publishing (OIDC), so no API token is stored in the repository. It
+# mirrors the ITACA release workflow. Requires the matching publisher
+# configured on PyPI (project pyflightstream, owner nevesgeovana,
+# repository pyflightstream, workflow release.yml, environment pypi)
+# and a GitHub environment named pypi. Triggered by version tags only;
+# the tag is cut after the release skill's gates are green (including
+# the role-review and release attestations).
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build sdist and wheel
+        run: |
+          python -m pip install --upgrade pip build twine
+          python -m build
+          twine check dist/*
+      - name: Verify tag matches the package version
+        run: |
+          # pyflightstream single-sources the version in pyproject.toml
+          # (there is no version.py; __version__ derives from the
+          # installed metadata).
+          VERSION=$(python -c "import tomllib, pathlib; print(tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version'])")
+          TAG="${GITHUB_REF_NAME#v}"
+          if [ "$VERSION" != "$TAG" ]; then
+            echo "Tag v$TAG does not match pyproject.toml version $VERSION" >&2
+            exit 1
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/pyflightstream/
+    permissions:
+      # OIDC trusted publishing: the workflow exchanges a short-lived
+      # identity token with PyPI instead of a stored secret.
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - name: Publish to PyPI (trusted publishing)
+        uses: pypa/gh-action-pypi-publish@release/v1

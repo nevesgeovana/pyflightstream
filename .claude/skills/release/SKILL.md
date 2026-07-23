@@ -51,19 +51,42 @@ new public names, incompatible changes, and deprecations each get a
 line or an explicit "none", so a reader can judge upgrade risk from
 the changelog alone.
 
-## Pause point 4: build and tag
+## Pause point 4: build, attest, and tag
 
 1. Build sdist and wheel from a clean checkout; inspect the contents
    once (no private material, no generated docs).
-2. Annotated tag; push with CI green.
+2. Role-review the whole release diff with the specialist agents (the
+   `role-review` skill, not paraphrased manual checks) and drive every
+   finding to fixed or registered, then write BOTH attestations for
+   the release commit so the push gate opens:
+   ```
+   python .claude/hooks/write_attestation.py review architect,qa,vv,tech-writer,api-designer
+   python .claude/hooks/write_attestation.py release architect,qa,vv,tech-writer,api-designer
+   ```
+   The release attestation is what the git-push gate
+   (`.claude/hooks/role_review_gate.py`) requires for any version-tag
+   or `--tags` push; without it the release push is blocked. This
+   pause point exists because a past release shipped paraphrased
+   checks instead of the agents.
+3. Annotated tag; push with CI green.
 
 ## Pause point 5: public releases only
 
 1. Invariants audit with the repository-wide guards: no manual
    content, no AGPL-derived code, no proprietary data, no employer
    or internal-toolchain names.
-2. Upload to PyPI (tokens per the author's keyring setup); verify the
-   PyPI page renders.
+2. Publish to PyPI through trusted publishing (OIDC), never a manual
+   token upload. This is mandatory: pushing the annotated `vX.Y.Z` tag
+   (pause point 4) triggers `.github/workflows/release.yml`, which
+   builds, verifies the tag matches `pyproject.toml`, and publishes
+   from the `pypi` GitHub environment with a short-lived OIDC token.
+   Do NOT run `twine upload` by hand. Watch the Release workflow to
+   green (`gh run watch`), then confirm the PyPI page renders the new
+   version. Prerequisite, one-time per project: a PyPI trusted
+   publisher matching `.github/workflows/release.yml` (that file is the
+   single home for the workflow name and the environment) and the
+   GitHub environment it names must exist; if a tag push does not
+   publish, that setup is missing, not the workflow.
 3. GitHub release with the changelog entry; confirm the Zenodo DOI
    minted and CITATION.cff still matches what shipped.
 4. Install the published package in a fresh venv and check

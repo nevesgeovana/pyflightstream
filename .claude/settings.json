@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .claude/hooks/role_review_gate.py",
+            "timeout": 30,
+            "statusMessage": "Checking the role-review push gate"
+          }
+        ]
+      }
+    ]
+  }
+}
