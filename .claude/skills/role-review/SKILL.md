@@ -10,7 +10,7 @@ Each pass is an agent from `.claude/agents/` with its own charter;
 this skill decides which passes apply, runs them, and enforces the
 update-or-fix rule on their findings. The template behind the
 charters is documented in `ROLE_TEMPLATE.md` next to this file; the
-itaca repository mirrors the same structure with its own specifics.
+ITACA repository mirrors the same structure with its own specifics.
 
 ## 1. Resolve the work item's diff
 
@@ -47,8 +47,9 @@ For each finding, in severity order: fix it in-session, or register
 it as a `_private/plan.csv` item naming the decision owner, or record
 in the session notes why it is not a defect (with the reviewer named,
 so the disagreement is auditable). Findings that require a
-non-delegable seat (product owner, aerodynamics SME, numerical
-analyst) become questions to the author, never an agent's call.
+non-delegable seat (product owner, domain expert, numerical analyst;
+seat definitions in `ROLE_TEMPLATE.md`) become questions to the
+author, never an agent's call.
 Re-run a reviewer only when its findings forced substantive rework of
 the item.
 

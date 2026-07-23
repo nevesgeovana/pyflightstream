@@ -16,9 +16,9 @@ fix yourself.
   license, no private paths. Schema integrity, builder goldens, parser
   fixtures, physics formula source checks.
 * Tier 2: command-validity probes on a licensed machine; specs in
-  `qa/specs.py`, reports under `reports/compat/`.
+  `src/pyflightstream/qa/specs.py`, reports under `reports/compat/`.
 * Tier 3: physics regression and drift on a licensed machine; cases in
-  `qa/physics.py`, reports under `reports/physics/`.
+  `src/pyflightstream/qa/physics.py`, reports under `reports/physics/`.
 
 ## Checks, in order
 

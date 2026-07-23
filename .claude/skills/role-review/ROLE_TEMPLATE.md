@@ -2,7 +2,7 @@
 
 How the reviewer-agent charters in `.claude/agents/` are structured,
 so the set can be regenerated here or mirrored in a sister repository
-(the itaca repository carries the same five roles adapted to its own
+(the ITACA repository carries the same five roles adapted to its own
 rules). Adopted 2026-07-23 with the team-role model (PLN-025).
 
 ## The model in one paragraph

@@ -60,7 +60,8 @@ Role passes (adopted 2026-07-23): before a work item closes, the
 (architect, QA, V&V, tech writer, API designer; charters in
 `.claude/agents/`) on the item's diff, and every finding is fixed or
 registered in the plan. The author keeps the non-delegable seats:
-product owner, aerodynamics domain expert, numerical analyst.
+product owner, domain expert, numerical analyst (seat definitions in
+`.claude/skills/role-review/ROLE_TEMPLATE.md`).
 
 ## Layout
 
