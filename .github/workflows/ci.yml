@@ -26,6 +26,12 @@ jobs:
         run: ruff format --check .
       - name: Tier 1 tests
         run: pytest
+      - name: Executable examples
+        # Sybil runs the docstring doctests and the python code blocks
+        # in the root README and docs/ (INB-006 item 1e, decision
+        # Q-007), with warnings promoted to errors; the shim skiplist
+        # is in the root conftest.py.
+        run: pytest src/pyflightstream README.md docs -W error
       - name: Docs build
         run: properdocs build --strict
       - name: Docs hook effect check

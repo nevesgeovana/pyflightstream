@@ -45,6 +45,9 @@ geom = ["trimesh", "rtree", "scipy"]
 fsi = ["PyNiteFEA>=3.0"]
 dev = [
     "pytest",
+    # Executable examples in CI: docstring doctests and markdown code
+    # blocks (INB-006 item 1e, decision Q-007). Config in conftest.py.
+    "sybil",
     "ruff",
     "pre-commit",
     # Docs build tool (license evidence: reports/RPT-009). The material
