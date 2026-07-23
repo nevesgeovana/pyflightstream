@@ -69,6 +69,15 @@ the author's first outside-the-repo use of 0.2.0, delivered 2026-07-22.
   user requests through intermediate hotfix builds into stable
   releases, instead of reading as criticism of the changelog; the
   documented facts and citations are unchanged.
+* The docs toolchain migrated from MkDocs to ProperDocs, the
+  maintained fork (license evidence RPT-009), after a green test:
+  drop-in at the config and CLI level, with strict build and an
+  identical page set and content on the same sources. The config
+  file is renamed `properdocs.yml`, CI builds with
+  `properdocs build --strict`, and the `[dev]` extra gains
+  `properdocs` (the material theme and the nav plugins keep their
+  mkdocs package names during the ecosystem transition; the build
+  hook now imports from the `properdocs` namespace).
 
 ### Deprecated
 
@@ -95,6 +104,13 @@ the author's first outside-the-repo use of 0.2.0, delivered 2026-07-22.
 
 ### Added (documentation and process)
 
+* Mesh inputs and GUI-only operations policy page in the docs
+  (PLN-028): the supported GUI-once-then-script workflow when a step
+  has no scripting command, the two canonical mesh input routes
+  (geometry meshed inside FlightStream carried as a saved `.fsm`
+  artifact, or a direct OBJ mesh), and the mesh format policy (OBJ
+  as the reference format; further formats only ever behind a
+  project-owned adapter).
 * The Software Requirements Specification is published as a living
   document in the docs (`docs/srs/`): founding requirements with
   implementation statuses, the usage-feedback requirements, explicit

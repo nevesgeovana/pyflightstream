@@ -56,6 +56,7 @@ nav:
       - Roadmap: srs/roadmap.md
   - Command reference: reference/
   - Compatibility matrix: compatibility.md
+  - Mesh inputs and GUI-only operations: mesh-inputs.md
   - Sister library (ITACA): sister-itaca.md
   - Examples:
       - Steady polar: examples/steady_polar.md
