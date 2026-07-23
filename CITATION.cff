@@ -11,8 +11,11 @@ date-released: 2026-07-23
 repository-code: "https://github.com/nevesgeovana/pyflightstream"
 identifiers:
   - type: doi
-    value: 10.5281/zenodo.21482925
-    description: "Zenodo archive of release v0.2.0"
+    value: 10.5281/zenodo.21515614
+    description: "Zenodo archive of release v0.3.0"
+  - type: doi
+    value: 10.5281/zenodo.21482924
+    description: "Zenodo concept DOI (resolves to the latest version)"
 abstract: >-
   Version-aware Python driver for the FlightStream panel-method
   solver: a command database with per-version evidence statuses backed
