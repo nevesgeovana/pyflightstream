@@ -19,9 +19,13 @@ then move on. References for the practices: docs/srs/standards.md.
 4. Run the `audit` skill (full scope) and close or plan every finding.
    A release never ships over an unread audit.
 5. Deprecation deadline: no shim survives past its recorded removal
-   version (check the shims by hand until the tier 1 deadline-guard
-   test lands), and every version string inside a shim's warning
-   matches the version being released.
+   version and every shim warning states that exact version; both are
+   enforced mechanically by the tier 1 guard
+   (tests/test_deprecation_deadline.py over the
+   pyflightstream._deprecations ledger), so a green suite on the
+   version-bump commit is the check. When the guard fires, delete the
+   shim, its tests, and its ledger entry in the same commit, or move
+   the promise deliberately and document the extension.
 
 ## Pause point 2: version, everywhere at once
 

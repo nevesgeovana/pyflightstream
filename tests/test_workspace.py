@@ -170,9 +170,10 @@ def test_files_shim_warns_and_reexports_the_workspace_api():
     assert shim.RunStatus is RunStatus
     assert shim.WorkspaceError is WorkspaceError
     assert shim.NamingTemplate is NamingTemplate
-    # The removal horizon is stated in the warning itself.
+    # The removal promise is stated in the warning itself, as the
+    # concrete version recorded in the deprecation ledger.
     sys.modules.pop("pyflightstream.files", None)
-    with pytest.warns(DeprecationWarning, match="future minor release"):
+    with pytest.warns(DeprecationWarning, match=r"removed in v0\.4\.0"):
         importlib.import_module("pyflightstream.files")
 
 

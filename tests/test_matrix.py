@@ -217,6 +217,8 @@ def test_matrix_legacy_shim_reexports_and_warns():
 
 
 def test_matrix_legacy_shim_names_the_removal_horizon():
+    # The concrete removal version recorded in the deprecation ledger,
+    # not a vague horizon.
     sys.modules.pop("pyflightstream.cases.matrix_legacy", None)
-    with pytest.warns(DeprecationWarning, match="future minor release"):
+    with pytest.warns(DeprecationWarning, match=r"removed in v0\.4\.0"):
         importlib.import_module("pyflightstream.cases.matrix_legacy")
