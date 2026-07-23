@@ -57,7 +57,7 @@ NEW_SURFACE_SECTION_DISTRIBUTION:
       required: false
   manual_ref: "SRC-003 p.364"
   versions:
-    "26.120": {status: broken, report: "reports/compat/CMP-26120_2026-07-21_full.yaml", note: "the documented grammar (without INCLUDE_SYMMETRY) aborted the probe script; a working 26.120 script carries the undocumented INCLUDE_SYMMETRY keyword ahead of SURFACES (2026-07-21 case-reproduction run); re-probe with the extended grammar pending (PLN-012)"}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-23_pln012.yaml"}
   notes: >
     Creates NUM_SECTIONS sections at once; the surface indices follow
     the SURFACES line. The manual grammar (SRC-003 p.364) aborted the

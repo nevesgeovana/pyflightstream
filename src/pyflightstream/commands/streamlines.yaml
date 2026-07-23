@@ -17,7 +17,7 @@ NEW_OFF_BODY_STREAMLINE:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 p.368"
   versions:
-    "26.120": {status: broken, report: "reports/compat/CMP-26120_2026-07-21_full.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing)"}
+    "26.120": {status: broken, report: "reports/compat/CMP-26120_2026-07-23_pln012.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing)"}
 
 NEW_STREAMLINE_DISTRIBUTION:
   layout: keyword_block

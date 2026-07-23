@@ -130,7 +130,7 @@ AIR_ALTITUDE:
       values: [FEET, METERS]
   manual_ref: "SRC-003 p.328"
   versions:
-    "26.120": {status: broken, report: "reports/compat/CMP-26120_2026-07-21_full.yaml", note: "the command ran (script processing continued past it) but its effect was not observed; expected: the settings dump reports the 5000 m standa"}
+    "26.120": {status: broken, report: "reports/compat/CMP-26120_2026-07-23_pln012.yaml", note: "the command ran (script processing continued past it) but its effect was not observed; expected: the settings dump reports the 5000 m standa"}
   notes: >
     Sets the air properties from a standard-atmosphere altitude.
 
