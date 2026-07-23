@@ -61,6 +61,13 @@ def main() -> int:
     if not head:
         print("could not resolve HEAD", file=sys.stderr)
         return 1
+    # The commits this attestation covers: everything reachable from HEAD
+    # that is not yet on any remote, which is exactly what the next push
+    # would make newly available. Stamping only HEAD let unpushed
+    # ancestors ship unreviewed (PLN-082): the gate compares this list
+    # against the range the push actually moves.
+    listed = _git(root, "rev-list", head, "--not", "--remotes")
+    commits = [c for c in listed.splitlines() if c] or [head]
     # Stamp the HEAD commit's committer date (%cI): deterministic, no
     # wall-clock dependency.
     when = _git(root, "show", "-s", "--format=%cI", head)
@@ -71,7 +78,7 @@ def main() -> int:
     except (json.JSONDecodeError, ValueError, OSError):
         att = {}
 
-    entry: dict[str, object] = {"head": head}
+    entry: dict[str, object] = {"head": head, "commits": commits}
     if when:
         entry["commit_date"] = when
     if passes:
@@ -81,9 +88,15 @@ def main() -> int:
     att_path.parent.mkdir(parents=True, exist_ok=True)
     att_path.write_text(json.dumps(att, indent=2) + "\n", encoding="utf-8")
     print(
-        f"{kind} attestation written for {head[:12]}"
+        f"{kind} attestation written for {head[:12]}, covering {len(commits)} unpushed commit(s)"
         + (f" (passes: {', '.join(passes)})" if passes else "")
     )
+    if len(commits) > 1:
+        print(
+            "  NOTE: more than one commit is unpushed, so the review had to cover the whole "
+            "range, not just the tip. If it did not, re-review before pushing.",
+            file=sys.stderr,
+        )
     return 0
 
 

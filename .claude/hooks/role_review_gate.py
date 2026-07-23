@@ -34,6 +34,17 @@ bypass holes in v1):
   the whole command (so a branch named ``fix/v1.2.3`` is not a false
   release) and NOT tags that merely happen to sit at HEAD.
 
+Extended 2026-07-23 after the sister library's review found two holes:
+
+- The attestation is checked against the WHOLE range the push makes new
+  (``git rev-list <target> --not --remotes``), not just the tip. v2
+  compared one commit, so any commit already on the branch but not yet
+  on the remote shipped unreviewed; itaca demonstrated it by pushing
+  across an intermediate commit no attestation ever named (PLN-082).
+- A push is denied while the shared incident ledger has an open,
+  blocking incident for this repository, so no new work ships on top of
+  a defect whose structural cause is still unfixed (PLN-084).
+
 The attestation path is duplicated in write_attestation.py:ATTESTATION
 and .gitignore; a rename must touch all three.
 """
@@ -48,6 +59,14 @@ import sys
 from pathlib import Path
 
 ATTESTATION = ".claude/.role_review_attestation.json"
+# The incident ledger shared with the sister library. A push is denied
+# while any incident is open and blocking for this repository: a defect
+# is fixed at its structural cause before more work ships on top of it
+# (author's decision 2026-07-23, after three failures in one session).
+INCIDENT_CHECKER = Path(
+    r"C:\Users\geova\OneDrive\Education\ResearchHub\shared_incidents\check_incidents.py"
+)
+REPO_NAME = "pyflightstream"
 # A version tag argument: v followed by a digit, then version-ish
 # characters (covers v0.3.0 and pre-releases like v0.3.0rc1, matching
 # the release workflow's `v*` publish trigger). Anchored to the whole
@@ -148,6 +167,46 @@ def _git(root: Path, *args: str) -> str:
         return ""
 
 
+def _pushed_commits(root: Path, target: str) -> list[str]:
+    """List the commits this push would make newly available on the remote.
+
+    ``git rev-list <target> --not --remotes`` is everything reachable
+    from the target that no remote-tracking ref already has. That is the
+    real range a push moves, and it needs no refspec parsing, so
+    ``git push``, ``git push origin main``, ``git push origin HEAD:main``
+    and a tag push are all handled the same way.
+
+    Empty means the remote already has everything: nothing new ships.
+    """
+    listed = _git(root, "rev-list", target, "--not", "--remotes")
+    return [c for c in listed.splitlines() if c]
+
+
+def _blocking_incidents() -> tuple[bool, str]:
+    """Ask the shared ledger whether an open incident blocks this repo.
+
+    Returns ``(blocked, detail)``. A missing checker is NOT treated as
+    "nothing is wrong": the ledger is part of the protocol, so if it
+    cannot be consulted the gate says so and blocks, the same way it
+    fails closed everywhere else.
+    """
+    if not INCIDENT_CHECKER.is_file():
+        return True, f"the incident checker is missing at {INCIDENT_CHECKER}"
+    try:
+        done = subprocess.run(
+            [sys.executable, str(INCIDENT_CHECKER), REPO_NAME],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=20,
+        )
+    except (OSError, ValueError, subprocess.SubprocessError) as error:
+        return True, f"the incident checker could not run ({type(error).__name__}: {error})"
+    if done.returncode == 0:
+        return False, ""
+    return True, (done.stdout.strip() or done.stderr.strip() or "checker reported a blocking state")
+
+
 def _is_release_push(args_after_push: list[str], root: Path) -> tuple[bool, str | None]:
     """Classify a push as release-grade from the refs it names.
 
@@ -216,27 +275,57 @@ def main() -> None:
         except (json.JSONDecodeError, ValueError, OSError):
             att = {}
 
-        review = att.get("review") or {}
-        if review.get("head") != target:
+        # An open blocking incident stops every push, before the review
+        # question is even asked: no new work ships on top of a defect
+        # whose structural cause is still unfixed.
+        blocked, detail = _blocking_incidents()
+        if blocked:
             _decide(
                 "deny",
-                "ROLE-REVIEW GATE: no role-review attestation for the commit being pushed "
-                f"({target[:12]}). Run the role-review skill (the specialist agents: architect, "
-                "QA, V&V, tech writer, API designer as applicable) over the pushed range, fix or "
-                "register every finding, and let the skill write the attestation. Do NOT "
-                "paraphrase the review as manual checks. If you amended or rebased since "
-                "attesting, the commit changed: re-review the new range and re-attest. Then push.",
+                "INCIDENT GATE: the shared incident ledger reports something that blocks a push "
+                f"from {REPO_NAME}:\n{detail}\n"
+                "Fix the incident at its structural cause, give it a guard and the evidence that "
+                "the guard blocks the original failure, and set its status to fixed in "
+                f"{INCIDENT_CHECKER.parent}. Marking it non-blocking to get past this gate is the "
+                "failure this protocol exists to prevent; if it genuinely cannot reach a user or "
+                "a repository, say so in blocking_reason and let the author decide.",
+            )
+
+        # The attestation must cover EVERY commit the push makes new, not
+        # just the tip: checking the tip alone let unpushed ancestors ship
+        # unreviewed (PLN-082).
+        pushed = _pushed_commits(root, target)
+        review = att.get("review") or {}
+        covered = set(review.get("commits") or ([review["head"]] if review.get("head") else []))
+        missing = [c for c in pushed if c not in covered]
+        if missing:
+            listed = ", ".join(c[:12] for c in missing[:8])
+            more = f" and {len(missing) - 8} more" if len(missing) > 8 else ""
+            _decide(
+                "deny",
+                f"ROLE-REVIEW GATE: {len(missing)} of the {len(pushed)} commit(s) this push would "
+                f"make new are not covered by any role-review attestation: {listed}{more}. "
+                "Run the role-review skill (the specialist agents: architect, QA, V&V, tech "
+                "writer, API designer as applicable) over the WHOLE pushed range, not only the "
+                "tip, fix or register every finding, and let the skill write the attestation. Do "
+                "NOT paraphrase the review as manual checks. If you amended or rebased since "
+                "attesting, the commits changed: re-review and re-attest. Then push.",
             )
 
         if is_release:
             release = att.get("release") or {}
-            if release.get("head") != target:
+            rel_covered = set(
+                release.get("commits") or ([release["head"]] if release.get("head") else [])
+            )
+            rel_missing = [c for c in pushed if c not in rel_covered]
+            if rel_missing:
                 _decide(
                     "deny",
-                    "RELEASE GATE: this is a release-grade push (a version tag or --tags) but "
-                    f"there is no release attestation for {target[:12]}. Run the release skill "
-                    "end to end (full-scope audit plus the role-review sweep of every item), "
-                    "which writes the release attestation, before tagging or pushing the release.",
+                    "RELEASE GATE: this is a release-grade push (a version tag or --tags) but the "
+                    f"release attestation does not cover {len(rel_missing)} of the {len(pushed)} "
+                    "commit(s) being released. Run the release skill end to end (full-scope audit "
+                    "plus the role-review sweep of every item), which writes the release "
+                    "attestation over the whole range, before tagging or pushing the release.",
                 )
 
         # Attestation covers the pushed commit: let the normal permission
