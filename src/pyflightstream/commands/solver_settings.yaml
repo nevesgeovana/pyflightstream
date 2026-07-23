@@ -98,8 +98,12 @@ CREATE_BULK_SEPARATION:
         SRC-725 p.341 documents a three-argument form without
         SEPARATION_TYPE. The same page's sample blocks spell the
         command CREARE_BULK_SEPARATION while the function header
-        spells CREATE_BULK_SEPARATION; which token the 26.1 solver
-        accepts is unverified (pending probe, PLN-015)
+        spells CREATE_BULK_SEPARATION; a controlled 26.100 run
+        (build 5012026, RPT-012) resolved the spelling: the solver
+        accepts CREATE_BULK_SEPARATION and rejects CREARE as an
+        unrecognized command, so CREARE is a manual typo and the
+        header spelling stands. Status stays documented pending an
+        effect-asserting harness probe on 26.100
       args:
         - name: name
           type: str
