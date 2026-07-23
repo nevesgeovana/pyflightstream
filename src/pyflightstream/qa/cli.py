@@ -20,6 +20,7 @@ import sys
 from pathlib import Path
 
 from pyflightstream.commands import CommandRegistry
+from pyflightstream.options import get_option
 from pyflightstream.qa.compat import apply_compat, write_compat_report
 from pyflightstream.qa.drift import run_drift, write_drift_report
 from pyflightstream.qa.physics import (
@@ -70,11 +71,15 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     probe.add_argument(
         "--workroot",
-        default="runs/probes",
-        help="scratch root for probe scripts and logs (default runs/probes/, not committed)",
+        default=f"{get_option('qa.scratch_root')}/probes",
+        help="scratch root for probe scripts and logs (default from the "
+        "qa.scratch_root option: runs/probes/, not committed)",
     )
     probe.add_argument(
-        "--timeout", type=float, default=120.0, help="per-probe wall-clock limit, seconds"
+        "--timeout",
+        type=float,
+        default=get_option("qa.probe_timeout_s"),
+        help="per-probe wall-clock limit, seconds (default from the qa.probe_timeout_s option)",
     )
     probe.add_argument(
         "--report-dir",
@@ -117,11 +122,15 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     physics.add_argument(
         "--workroot",
-        default="runs/physics",
-        help="scratch root for geometry, scripts, and outputs (default runs/physics/)",
+        default=f"{get_option('qa.scratch_root')}/physics",
+        help="scratch root for geometry, scripts, and outputs (default from "
+        "the qa.scratch_root option: runs/physics/)",
     )
     physics.add_argument(
-        "--timeout", type=float, default=900.0, help="per-point wall-clock limit, seconds"
+        "--timeout",
+        type=float,
+        default=get_option("qa.case_timeout_s"),
+        help="per-point wall-clock limit, seconds (default from the qa.case_timeout_s option)",
     )
     physics.add_argument(
         "--report-dir",
@@ -162,11 +171,15 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     drift.add_argument(
         "--workroot",
-        default="runs/drift",
-        help="scratch root; each version nests under its canonical name",
+        default=f"{get_option('qa.scratch_root')}/drift",
+        help="scratch root, each version nesting under its canonical name "
+        "(default from the qa.scratch_root option: runs/drift/)",
     )
     drift.add_argument(
-        "--timeout", type=float, default=900.0, help="per-point wall-clock limit, seconds"
+        "--timeout",
+        type=float,
+        default=get_option("qa.case_timeout_s"),
+        help="per-point wall-clock limit, seconds (default from the qa.case_timeout_s option)",
     )
     drift.add_argument(
         "--report-dir",

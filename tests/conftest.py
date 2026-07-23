@@ -16,6 +16,7 @@ compare against.
 
 import pytest
 
+from pyflightstream import options as _options
 from pyflightstream import versions as _versions
 from pyflightstream.cases import matrix as _matrix
 from pyflightstream.commands import CommandRegistry
@@ -42,6 +43,8 @@ def _mutable_module_state() -> list[dict]:
         _solver_setup._SPEC_BY_COMMAND,
         _matrix._SWEEP_CODES,
         _entities._NOUNS,
+        _options._REGISTRY,
+        _options._VALUES,
         # Cached mutable objects: the cache keeps returning the same
         # dict, so an in-place mutation outlives the test that made it.
         CommandRegistry.load().commands,
