@@ -82,3 +82,11 @@ def test_scripts_equal_names_a_pure_length_difference():
         match=r"agree up to line 1 and then one of them ends",
     ):
         assert_scripts_equal("OPEN a.fsm\n", "OPEN a.fsm\nSTART_SOLVER\n")
+
+
+def test_scripts_equal_names_an_endings_only_difference():
+    """CRLF or trailing-newline drift is named, not reported as zero diffs."""
+    with pytest.raises(AssertionError, match="only in line endings or a trailing newline"):
+        assert_scripts_equal("OPEN a.fsm\nSTART_SOLVER", "OPEN a.fsm\nSTART_SOLVER\n")
+    with pytest.raises(AssertionError, match="only in line endings or a trailing newline"):
+        assert_scripts_equal("OPEN a.fsm\r\nSTART_SOLVER\r\n", "OPEN a.fsm\nSTART_SOLVER\n")

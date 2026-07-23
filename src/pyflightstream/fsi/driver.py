@@ -60,6 +60,7 @@ from pyflightstream.fsi.state import (
     LoadSample,
     RecordedTwist,
     RevolutionSample,
+    StaleLoadsError,
     initial_state,
     load_state,
     write_state_atomic,
@@ -84,15 +85,9 @@ _LOG_HEADER = (
 )
 
 
-class StaleLoadsError(ValueError):
-    """The loads file did not advance between calls (FSI-R12).
-
-    A call receiving the same solver iteration as the previous one is
-    a second FSI iteration inside one time step: the Toolbox is not
-    configured with ``SET_AEROELASTIC_ITERATIONS 1``, and continuing
-    would average duplicated loads and desynchronize the call and step
-    counters.
-    """
+# StaleLoadsError lives in pyflightstream.fsi.state (import-light) so
+# the exception catalog imports without the [fsi] extra; re-exported
+# here because the driver is the module that raises it.
 
 
 @dataclass(frozen=True)

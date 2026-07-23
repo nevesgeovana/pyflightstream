@@ -28,6 +28,13 @@ Side packages follow the same downward-only rule:
   the conservation ledgers computed on them.
 - ``reference``: the command reference renderer behind ``help()``.
 
+Cross-cutting support modules, importable from any layer:
+
+- ``options``: the declared, validated machine and QA knobs
+  (``get_option``/``set_option`` also re-exported here at top level).
+- ``exceptions``: the single catalog of every exception and warning.
+- ``testing``: public assertions with quantified violation reports.
+
 Where to start:
 
 - :func:`pyflightstream.help` opens the offline HTML command reference,
@@ -50,7 +57,23 @@ except metadata.PackageNotFoundError:
     # version.
     __version__ = "0.0.0+uninstalled"
 
+from pyflightstream.options import (  # noqa: E402
+    describe_option,
+    get_option,
+    option_context,
+    reset_option,
+    set_option,
+)
 from pyflightstream.overview import overview  # noqa: E402
 from pyflightstream.reference import help  # noqa: E402
 
-__all__ = ["__version__", "help", "overview"]
+__all__ = [
+    "__version__",
+    "describe_option",
+    "get_option",
+    "help",
+    "option_context",
+    "overview",
+    "reset_option",
+    "set_option",
+]

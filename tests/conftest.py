@@ -34,7 +34,10 @@ def _mutable_module_state() -> list[dict]:
     public case and spec registries, private derived mappings, and the
     mutable objects held by the two lru caches (the loaded command
     database and the manual-edition map), which would otherwise carry a
-    test's mutation for the rest of the session.
+    test's mutation for the rest of the session. The snapshot contract
+    is shallow (top-level membership and bindings): registry values are
+    frozen models by construction, and a future mutable value joins
+    consciously or deepens the snapshot.
     """
     return [
         _physics.PHYSICS_CASES,
@@ -54,11 +57,16 @@ def _mutable_module_state() -> list[dict]:
 
 @pytest.fixture(autouse=True)
 def _restore_module_registries():
-    """Snapshot and restore the module registries around every test."""
-    live = _mutable_module_state()
-    saved = [dict(state) for state in live]
+    """Snapshot and restore the module registries around every test.
+
+    Teardown re-resolves the inventory so a test that cleared an lru
+    cache (rebinding the cached dict) still gets its live objects
+    restored; a fresh cache object is pristine, so restoring the
+    pre-clear snapshot into it is a no-op by content.
+    """
+    saved = [dict(state) for state in _mutable_module_state()]
     yield
-    for state, snapshot in zip(live, saved, strict=True):
+    for state, snapshot in zip(_mutable_module_state(), saved, strict=True):
         if state != snapshot:
             state.clear()
             state.update(snapshot)

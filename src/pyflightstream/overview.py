@@ -58,6 +58,10 @@ _SIDE_BRANCHES: tuple[tuple[str, str], ...] = (
     ("fsi", "structural executable of the aeroelastic coupling loop"),
     ("probes, farfield", "probe lattices and far-field conservation ledgers"),
     ("reference, overview", "presentation: command reference and this page"),
+    (
+        "options, exceptions, testing",
+        "cross-cutting support: declared knobs | exception catalog | quantified assertions",
+    ),
 )
 
 # Every subpackage the overview documents, in pipeline order: the core
@@ -76,6 +80,9 @@ _SECTIONS: tuple[str, ...] = (
     "probes",
     "farfield",
     "reference",
+    "options",
+    "exceptions",
+    "testing",
 )
 
 _ROLE_PATTERN = re.compile(r":(?:mod|class|func|meth|attr|data|obj|exc):`~?([^`]+)`")
@@ -212,7 +219,7 @@ def render_overview_html() -> str:
     )
 
 
-def overview(path: str | Path | None = None, open_browser: bool = True) -> Path:
+def overview(*, path: str | Path | None = None, open_browser: bool = True) -> Path:
     """Write the HTML architecture overview and open it in the browser.
 
     This is the offline fallback of the published architecture page;

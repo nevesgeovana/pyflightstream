@@ -33,11 +33,14 @@ class UnknownVersionError(ValueError):
     Attributes
     ----------
     version : str or None
-        The identifier that failed to resolve, when the refusal came
-        from a lookup (``None`` for a malformed canonical identifier).
+        The identifier that failed to resolve or validate; ``None``
+        only when a raiser has no candidate string at hand.
     known : tuple of str
         Canonical identifiers of every registered version, in release
-        order, so callers can react without parsing the message.
+        order, so callers can react without parsing the message; the
+        word is ``known`` here (registered versions are known) while
+        the workspace miss uses ``available`` (staged artifacts are
+        available), a deliberate domain distinction.
     """
 
     def __init__(
@@ -85,7 +88,8 @@ class FsVersion:
         if not _CANONICAL_PATTERN.match(self.canonical):
             raise UnknownVersionError(
                 f"{self.canonical!r} does not follow the canonical MAJOR.XXX "
-                "scheme with exactly three fractional digits (example: 26.120)."
+                "scheme with exactly three fractional digits (example: 26.120).",
+                version=self.canonical,
             )
 
     def __str__(self) -> str:

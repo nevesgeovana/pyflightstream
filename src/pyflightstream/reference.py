@@ -52,9 +52,10 @@ code { font-family: ui-monospace, monospace; }
 
 #: The naming and nomenclature conventions of the package, one
 #: (title, text) pair per rule. This tuple is the single home of the
-#: conventions: ``help()`` renders it as a section, the docs page is
-#: generated from :func:`conventions_markdown`, and the tier 1
-#: adherence audit (``tests/test_conventions.py``) enforces the
+#: conventions: ``help()`` renders it as a section, the docs site page
+#: is meant to be generated from :func:`conventions_markdown` (wiring
+#: the generator is with the docs build, not this module), and the
+#: tier 1 adherence audit (``tests/test_conventions.py``) enforces the
 #: mechanical rules against the code.
 CONVENTIONS: tuple[tuple[str, str], ...] = (
     (
@@ -131,9 +132,10 @@ def conventions_markdown() -> str:
     Returns
     -------
     str
-        One heading plus one titled paragraph per convention; the docs
-        build consumes this so the site and ``help()`` can never
-        disagree (single home, NFR-11).
+        One heading plus one titled paragraph per convention, rendered
+        from the same ``CONVENTIONS`` home as the ``help()`` section,
+        so any consumer of this function can never disagree with the
+        offline page (single home, NFR-11).
     """
     blocks = [f"### {title}\n\n{text}" for title, text in CONVENTIONS]
     return "## Naming conventions\n\n" + "\n\n".join(blocks) + "\n"
@@ -497,6 +499,7 @@ def render_html(version: str | FsVersion | None = None) -> str:
 
 def help(  # noqa: A001
     version: str | FsVersion | None = None,
+    *,
     path: str | Path | None = None,
     open_browser: bool = True,
 ) -> Path:

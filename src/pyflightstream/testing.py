@@ -1,10 +1,9 @@
 """Public testing assertions with quantified violation reports.
 
-Pipeline role: cross-cutting support module (the pandas/numpy testing
-model, PLN-045 adoption). User campaigns and this repository's own
-suites compare two kinds of artifacts, and each gets the matching
-assertion under the golden philosophy split of the 2026-07-23 library
-review:
+Pipeline role: cross-cutting support module, after the public testing
+namespaces of numpy and pandas. User campaigns and this repository's
+own suites compare two kinds of artifacts, and each gets the matching
+assertion under the project's golden philosophy split:
 
 - Solver scripts and other deterministic ASCII artifacts compare
   exactly: :func:`assert_scripts_equal` reports the first differing
@@ -64,6 +63,15 @@ def assert_records_close(
         message reports the compared count, the violating count with
         keys, and the worst offender with both values and its
         deviation.
+
+    Examples
+    --------
+    >>> from pyflightstream.testing import assert_records_close
+    >>> assert_records_close(
+    ...     {"CL": 0.5210004, "CDi": 0.0132},
+    ...     {"CL": 0.5210, "CDi": 0.0132},
+    ...     rtol=1.0e-5,
+    ... )
     """
     missing = sorted(set(expected) - set(actual))
     extra = sorted(set(actual) - set(expected))
@@ -100,7 +108,7 @@ def assert_scripts_equal(
     *,
     label: str = "script",
 ) -> None:
-    """Assert two ASCII scripts are exactly equal, line by line.
+    r"""Assert two ASCII scripts are exactly equal, line by line.
 
     Deterministic ASCII artifacts (solver scripts, goldens) compare
     exactly by policy; a tolerance would hide an emission change.
@@ -119,12 +127,29 @@ def assert_scripts_equal(
     AssertionError
         Any difference. The message reports the first differing line
         (number and both texts) and the total count of differing
-        lines, including a trailing length difference.
+        lines; endings-only differences (CRLF, trailing newline) are
+        named as such.
+
+    Examples
+    --------
+    >>> from pyflightstream.testing import assert_scripts_equal
+    >>> assert_scripts_equal("OPEN a.fsm\\n", "OPEN a.fsm\\n", label="golden")
     """
     if actual == expected:
         return
     actual_lines = actual.splitlines()
     expected_lines = expected.splitlines()
+    if actual_lines == expected_lines:
+        # The texts differ only in what splitlines erases: line
+        # endings (CRLF against LF) or a trailing newline. On Windows
+        # goldens this is the most likely real difference, so it gets
+        # named instead of a contradictory zero-differences report.
+        raise AssertionError(
+            f"{label}: the texts differ only in line endings or a trailing "
+            f"newline ({len(actual)} characters actual against "
+            f"{len(expected)} expected). Scripts compare exactly by policy; "
+            "normalize the writer, not the comparison."
+        )
     # strict=False: the pair compares up to the common length and the
     # length difference is reported separately.
     differing = [

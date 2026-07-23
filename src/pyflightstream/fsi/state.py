@@ -29,6 +29,19 @@ from pydantic import BaseModel, ConfigDict, Field
 logger = logging.getLogger(__name__)
 
 
+class StaleLoadsError(ValueError):
+    """The loads file did not advance between calls (FSI-R12).
+
+    A call receiving the same solver iteration as the previous one is
+    a second FSI iteration inside one time step: the Toolbox is not
+    configured with ``SET_AEROELASTIC_ITERATIONS 1``, and continuing
+    would average duplicated loads and desynchronize the call and step
+    counters. Defined here (the import-light state module) so the
+    exception catalog stays importable without the ``[fsi]`` extra;
+    the driver raises it.
+    """
+
+
 class LoadSample(BaseModel):
     """One call's aerodynamic load densities, in the averaging buffer.
 

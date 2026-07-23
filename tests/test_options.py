@@ -75,16 +75,44 @@ def test_scratch_root_requires_non_empty_path_text():
 
 def test_registering_a_default_that_fails_its_own_validator_is_refused():
     with pytest.raises(OptionError, match="rejects value -1"):
-        register_option("test.bad_default", -1, "doc", options.positive_seconds)
+        register_option(
+            "test.bad_default", default=-1, doc="doc", validator=options.positive_seconds
+        )
     # The failed registration left nothing behind.
     with pytest.raises(OptionError, match="no option is registered"):
         get_option("test.bad_default")
 
 
 def test_duplicate_registration_is_refused():
-    register_option("test.once", 1, "declared once")
+    register_option("test.once", default=1, doc="declared once")
     with pytest.raises(OptionError, match=r"'test\.once' is already registered"):
-        register_option("test.once", 2, "declared twice")
+        register_option("test.once", default=2, doc="declared twice")
+
+
+def test_register_option_fields_are_keyword_only():
+    """default and doc would swap silently for string options if positional."""
+    with pytest.raises(TypeError):
+        register_option("test.positional", "value", "doc")  # noqa: PLE0101
+
+
+def test_path_options_accept_pathlib_paths():
+    from pathlib import Path
+
+    set_option("qa.scratch_root", Path("D:/scratch"))
+    assert str(get_option("qa.scratch_root")) in ("D:\\scratch", "D:/scratch")
+
+
+def test_reset_and_describe_refuse_unknown_keys():
+    with pytest.raises(OptionError, match="Keys are exact"):
+        reset_option("qa.nope")
+    with pytest.raises(OptionError, match="Keys are exact"):
+        describe_option("qa.nope")
+
+
+def test_option_context_refuses_unknown_keys_untouched():
+    with pytest.raises(OptionError, match="Keys are exact"):
+        with option_context("qa.nope", 1.0):
+            pass  # pragma: no cover - never entered
 
 
 # --- option_context ---------------------------------------------------------

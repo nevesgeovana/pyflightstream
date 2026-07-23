@@ -22,7 +22,14 @@ from pyflightstream.workspace import CampaignWorkspace, InputArtifactError
 
 
 def _defined_exception_classes() -> dict[str, type]:
-    """Every exception class defined in a public pyflightstream module."""
+    """Every exception class visible in a public pyflightstream module.
+
+    The scan walks PUBLIC_MODULES members: an exception defined in an
+    underscore-private module and never re-exported publicly would
+    escape it, so that pattern is banned by convention (refusals are
+    public surface; define them in, or re-export them into, a public
+    module).
+    """
     found: dict[str, type] = {}
     for name in PUBLIC_MODULES:
         try:
@@ -69,13 +76,14 @@ def test_the_catalog_all_matches_its_names():
 
 
 def test_unknown_version_error_carries_version_and_known():
-    from pyflightstream.versions import UnknownVersionError, resolve
+    from pyflightstream.versions import UnknownVersionError, known_versions, resolve
 
     with pytest.raises(UnknownVersionError) as caught:
         resolve("27.000")
     assert caught.value.version == "27.000"
     assert "26.120" in caught.value.known
-    assert caught.value.known == tuple(sorted(caught.value.known, key=caught.value.known.index))
+    # Release order per the registered list, the only ordering authority.
+    assert caught.value.known == tuple(v.canonical for v in known_versions())
 
 
 def test_input_artifact_miss_carries_kind_id_and_available(tmp_path):

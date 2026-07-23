@@ -91,6 +91,33 @@ def test_no_shim_survives_its_removal_version(entry: DeprecatedModule) -> None:
         )
 
 
+def test_the_guard_itself_fires_on_an_expired_shim(monkeypatch) -> None:
+    """Prove the deadline branch, which stays dormant until v0.4.0.
+
+    A synthetic ledger entry for a real importable module expires
+    immediately under a monkeypatched project version; the guard must
+    fail exactly then, or a bug in the version sourcing or comparison
+    would let an expired shim ship silently (the one defect D10 was
+    adopted to prevent).
+    """
+    entry = DeprecatedModule(
+        module="pyflightstream.versions",  # real, importable stand-in
+        replacement="pyflightstream.versions",
+        deprecated_since="0.0.1",
+        removal_version="0.0.2",
+    )
+    monkeypatch.setattr(sys.modules[__name__], "_project_version", lambda: "0.0.2")
+    with pytest.raises(AssertionError, match="promised removal in v0.0.2"):
+        test_no_shim_survives_its_removal_version(entry)
+
+
+def test_parse_version_refuses_non_semver_strings() -> None:
+    with pytest.raises(ValueError, match=r"plain MAJOR\.MINOR\.PATCH"):
+        parse_version("0.4")
+    with pytest.raises(ValueError, match="recorded against plain SemVer"):
+        parse_version("0.4.0rc1")
+
+
 @pytest.mark.parametrize("entry", DEPRECATED_MODULES, ids=lambda e: e.module)
 def test_shim_warning_states_the_recorded_removal_version(entry: DeprecatedModule) -> None:
     """The warning users see cites the exact version the ledger enforces.

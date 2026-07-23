@@ -42,7 +42,18 @@ def test_package_docstring_is_the_didactic_front_door():
 
 
 def test_overview_is_exported_next_to_help():
-    assert set(pyflightstream.__all__) == {"__version__", "help", "overview"}
+    # The two offline pages plus the pandas-style options quintet
+    # (role-review adoption 2026-07-23).
+    assert set(pyflightstream.__all__) == {
+        "__version__",
+        "help",
+        "overview",
+        "get_option",
+        "set_option",
+        "reset_option",
+        "describe_option",
+        "option_context",
+    }
     assert callable(pyflightstream.overview)
 
 
@@ -73,6 +84,9 @@ def test_overview_sections_match_the_deliverable_list():
         "probes",
         "farfield",
         "reference",
+        "options",
+        "exceptions",
+        "testing",
     )
 
 

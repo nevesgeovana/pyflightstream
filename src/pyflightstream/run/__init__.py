@@ -410,6 +410,7 @@ def run_campaign(
     campaign: Campaign,
     executor: Executor,
     workspace: CampaignWorkspace,
+    *,
     assess: OutcomeAssessor,
     recipes: dict[str, ScriptRecipe] | None = None,
     resume: bool = False,

@@ -74,6 +74,18 @@ PUBLIC_MODULES = [
 
 DEPRECATED_MODULE_NAMES = {entry.module for entry in DEPRECATED_MODULES}
 
+#: Modules an optional extra legitimately gates at import time: these
+#: alone may refuse to import, and only with the didactic message
+#: naming the install remedy. Everything else in PUBLIC_MODULES must
+#: import unconditionally on a base install; in particular the
+#: exception catalog and the whole workspace/script/results core.
+EXTRA_GATED_MODULES = {
+    "pyflightstream.fsi.beam",  # PyNite at import, didactic re-raise
+    "pyflightstream.fsi.centrifugal",  # imports beam
+    "pyflightstream.fsi.driver",  # imports beam
+    "pyflightstream.fsi.cli",  # imports driver
+}
+
 
 def _discovered_modules() -> list[str]:
     """Walk the installed package and list every module.
@@ -136,8 +148,11 @@ def test_deprecated_modules_stay_out_of_the_public_list():
 def test_public_modules_import_and_carry_a_docstring():
     """The affirmed surface imports cleanly and is didactically documented.
 
-    A missing optional extra may refuse the import, but only with the
-    documented didactic message that names the install remedy.
+    Only the modules in EXTRA_GATED_MODULES may refuse the import, and
+    only with the documented didactic message naming the install
+    remedy; a core module refusing to import is a defect, whatever the
+    message says (the architect finding of 2026-07-23: a wrong install
+    remedy for a core need is worse than no message).
     """
     for name in PUBLIC_MODULES:
         try:
@@ -145,6 +160,9 @@ def test_public_modules_import_and_carry_a_docstring():
                 warnings.simplefilter("ignore", DeprecationWarning)
                 module = importlib.import_module(name)
         except ImportError as error:
+            assert name in EXTRA_GATED_MODULES, (
+                f"core module {name} must import on a base install but raised: {error}"
+            )
             assert "pip install" in str(error), (
                 f"{name} failed to import without naming its install remedy: {error}"
             )
