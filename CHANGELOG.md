@@ -96,8 +96,15 @@ the author's first outside-the-repo use of 0.2.0, delivered 2026-07-22.
   writer, API designer) and the `role-review` skill that runs the
   applicable passes on a work item's diff before it closes, per the
   team-role model adopted 2026-07-23; the definition of done cites
-  the passes, and the author keeps the non-delegable seats (product
-  owner, domain expert, numerical analyst).
+  the passes, the author keeps the non-delegable seats (product
+  owner, domain expert, numerical analyst), and the standards
+  alignment chapter records the model's public anchors.
+* Co-development with the sister library ITACA (AD-07): the two
+  libraries may generate requirements for each other, the docs gain
+  the sister library page describing the division of labor and the
+  cross-requirement convention, and the future data adapter is
+  declared as a pyflightstream `[itaca]` extra (ITACA stays
+  solver-agnostic and never imports this package).
 
 ## [0.2.0] - 2026-07-22
 

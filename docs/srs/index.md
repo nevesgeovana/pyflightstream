@@ -10,7 +10,7 @@ requirements trace to evidence. It follows the author's SRS template
 | Field | Value |
 |---|---|
 | Document | pyflightstream Software Requirements Specification |
-| Version | 1.0.0 |
+| Version | 1.1.0 |
 | Status | Living document |
 | Author | Geovana Neves |
 | First published | 2026-07-22 |
@@ -79,6 +79,7 @@ implemented without a shipped test behind it.
 
 | Version | Date | Change |
 |---|---|---|
+| 1.1.0 | 2026-07-23 | Role-based review model added to the standards alignment; AD-07 co-development with ITACA added to the architecture chapter, with the sister library page and the ITACA adapter open line |
 | 1.0.0 | 2026-07-22 | First public edition: the founding requirements (FR-01 to FR-29) updated with implementation statuses through v0.2.0 and the v0.3 line, plus the usage-feedback requirements (FR-30 to FR-36) and the documentation-currency policy (NFR-11) |
 
 ## Glossary

@@ -1,7 +1,8 @@
 # Standards alignment
 
 The external standards and community practices this project aligns
-with, each verified at adoption (2026-07-22 review). Adopted means the
+with, each verified at its adoption date (initial review 2026-07-22;
+later rows carry their own dates). Adopted means the
 practice is in force; aspirational means it is on the adoption
 backlog; considered means it was evaluated and deliberately not
 adopted, with the reason recorded so the evaluation is not repeated.
@@ -22,6 +23,7 @@ adopted, with the reason recorded so the evaluation is not repeated.
 | Checklist design principles | [projectcheck.org](http://www.projectcheck.org/checklist-for-checklists.html) | Maintenance skills are structured around explicit pause points, DO-CONFIRM for audits, READ-DO for releases, few killer items per block |
 | ISO/IEC/IEEE 29148 (outline only) | [iso.org/standard/72089.html](https://www.iso.org/standard/72089.html) | This SRS borrows the information-item outline and the requirement-quality characteristics (singular, verifiable, unambiguous), not the process weight |
 | Decision records (pattern) | [Nygard ADRs](https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions), [MADR](https://adr.github.io/madr/) | Decisions are numbered, dated, evidence-linked, and never rewritten; the existing session records (plan items, logbook decisions, handoffs) are the ADR store of this project rather than a parallel file set |
+| Role-based review (team-role model, adopted 2026-07-23) | [US-RSE](https://us-rse.org/) for the research-software-engineering standard; [AIAA G-077](https://arc.aiaa.org/doi/book/10.2514/4.472855) and [NASA-STD-7009](https://standards.nasa.gov/standard/NASA/NASA-STD-7009) for the V&V seat; [ISTQB](https://istqb.org/) for the QA seat; [Google SRE](https://sre.google/sre-book/release-engineering/) for release engineering; [JOSS](https://joss.readthedocs.io/en/latest/review_criteria.html) and [pyOpenSci](https://www.pyopensci.org/software-peer-review/) review criteria as the periodic audit layer | Five reviewer charters in `.claude/agents/` (architect, QA, V&V, technical writer, API designer) run by the `role-review` skill on every work item's diff before it closes (definition of done); the author keeps the non-delegable seats (product owner, domain expert, numerical analyst); the sister ITACA repository carries the same process |
 
 ## Aspirational (adoption backlog, tracked as a plan item)
 

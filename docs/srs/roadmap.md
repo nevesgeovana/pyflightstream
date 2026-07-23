@@ -29,6 +29,7 @@ private session records carry the day-to-day detail.
 | Post-processing completion | FR-20 (labeled result arrays, interpolation, trim extraction) and FR-21 (legacy plot-file writers) | Design session |
 | Process adoption backlog | VCS-derived versioning, executable doc examples, mechanical repo review, supply-chain posture, support-window declaration (see [standards](standards.md)) | The author's per-item decisions |
 | Integrations | The RPT-008 decision list: pyvista viz extra, documented external-tool bridges | The author's review |
+| ITACA adapter | The `[itaca]` extra of AD-07: manifest, solver-setup snapshot, and result tables exported as ITACA datasets with provenance (supersedes the RPT-008 on-hold entry) | Dedicated session; ITACA capability per structure |
 | HPC executor | FR-15 | Research-group cluster path |
 | Docs toolchain | The generator's upstream governance question | The author's decision |
 

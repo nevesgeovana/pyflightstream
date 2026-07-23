@@ -60,6 +60,19 @@ structural side of the aeroelastic loop), `probes` and `farfield`
     Tables are pandas; multidimensional labeled fields are xarray.
     The two never substitute for each other.
 
+!!! decision "AD-07 Co-development with ITACA (2026-07-23)"
+    pyflightstream and [ITACA](https://github.com/nevesgeovana/itaca)
+    are sister libraries by the same author, born integrated: each may
+    generate requirements for the other, and each documents awareness
+    of the other's architecture (see the
+    [sister library page](../sister-itaca.md)). The adapter that emits
+    ITACA datasets lives here, behind a future optional `[itaca]`
+    extra; ITACA stays solver-agnostic and never imports
+    pyflightstream (its DD-22 and DD-23 record the same seam from the
+    other side). AD-06 remains in force; it evolves per structure as
+    ITACA capabilities land, each migration an evidenced change, never
+    a wholesale replacement.
+
 ## Command-line surface
 
 Four console entry points, one per operational concern: `pyfs-qa`
