@@ -5,6 +5,7 @@
 # it under docs/, a deliberate small deviation recorded at M0.
 site_name: pyflightstream
 site_description: Version-aware, didactic Python driver for FlightStream
+site_url: https://nevesgeovana.github.io/pyflightstream/
 repo_url: https://github.com/nevesgeovana/pyflightstream
 
 theme:

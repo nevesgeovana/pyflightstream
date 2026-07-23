@@ -1,0 +1,46 @@
+# Publish the ProperDocs site to GitHub Pages on every push to main.
+# The reference, compatibility matrix, and architecture pages are
+# generated at build time from the command database, so the published
+# site can never drift from the code. Pages source must be set to
+# "GitHub Actions" in the repository settings for the deploy job.
+name: docs
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time; do not cancel a running deploy.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package with dev extras
+        run: pip install -e .[dev,fsi,geom]
+      - name: Build the docs (strict)
+        run: properdocs build --strict
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

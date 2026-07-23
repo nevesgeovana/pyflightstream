@@ -190,7 +190,14 @@ Deprecation messages naming v0.3.0 refer to this release.
 * Published package metadata completed per the PyPA well-known
   guidance (audit 2026-07-23): trove classifiers (beta status,
   science audience, Python versions, physics topic) and the
-  Changelog and Issues project URLs join the Repository link.
+  Documentation, Changelog, and Issues project URLs join the
+  Repository link.
+* The documentation site is published to GitHub Pages on every push
+  to main (`nevesgeovana.github.io/pyflightstream`), so the generated
+  command reference, compatibility matrix, and architecture pages are
+  reachable without a local build. The unused `mkdocstrings[python]`
+  dev dependency was dropped (it was never wired into the build; the
+  offline `help()` and `overview()` remain the docstring surface).
 * Repository top level reduced to the public essentials: the
   author's session records left Git versioning (history preserved),
   and a `deprecated/` folder now groups discontinued public items.

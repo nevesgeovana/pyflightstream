@@ -52,7 +52,6 @@ dev = [
     # still pull the mkdocs library during the ecosystem transition.
     "properdocs",
     "mkdocs-material",
-    "mkdocstrings[python]",
     "mkdocs-gen-files",
     "mkdocs-literate-nav",
 ]
@@ -65,6 +64,7 @@ pyfs-matrix = "pyflightstream.cases.cli:main"
 
 [project.urls]
 Repository = "https://github.com/nevesgeovana/pyflightstream"
+Documentation = "https://nevesgeovana.github.io/pyflightstream/"
 Changelog = "https://github.com/nevesgeovana/pyflightstream/blob/main/CHANGELOG.md"
 Issues = "https://github.com/nevesgeovana/pyflightstream/issues"
 
