@@ -36,7 +36,7 @@ Compare each claim against the code, not against memory:
 1. README.md: status line, feature list, extras, CLI table, folder
    map, dev-setup extras versus `[project.scripts]`, `pyproject.toml`
    extras, and the CI install line.
-2. docs/index.md and mkdocs nav: dead or missing links; every example
+2. docs/index.md and the properdocs.yml nav: dead or missing links; every example
    in `examples/` renders on the site (`scripts/gen_docs_pages.py`
    EXAMPLES list); planned-next items that already shipped.
 3. CONTRIBUTING.md: setup, tier claims, style claims versus the
