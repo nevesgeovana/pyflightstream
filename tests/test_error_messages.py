@@ -55,16 +55,16 @@ def test_malformed_canonical_identifier_names_the_scheme():
 # --- solver_settings --------------------------------------------------------
 
 
-def test_solver_settings_without_vorticity_names_the_silent_zero_drag():
-    """The mandatory selection is explained by its physical consequence."""
+def test_solver_settings_empty_vorticity_selection_names_the_two_drag_methods():
+    """An empty list is refused by naming the omission that means the default."""
     script = Script(version="26.12")
     with pytest.raises(
         CommandArgumentError,
-        match=r"requires vorticity_drag_boundaries: induced drag comes from surface "
-        r"vorticity integration only on the listed boundaries.*silently reports zero "
-        r"induced drag \(SRC-003 p\.202\).*Pass 'all'",
+        match=r"vorticity_drag_boundaries is an empty sequence.*Omit the argument "
+        r"\(or pass None\).*surface pressure integration \(SRC-003 p\.202\).*"
+        r"selection filter matched no boundary",
     ):
-        helpers.solver_settings(script)
+        helpers.solver_settings(script, vorticity_drag_boundaries=[])
 
 
 def test_solver_settings_mode_refusal_names_both_regimes():
@@ -74,7 +74,7 @@ def test_solver_settings_mode_refusal_names_both_regimes():
         match=r"mode takes STEADY or UNSTEADY, got 'CRUISE': the solver time regime "
         r"is one of the two \(SRC-003 p\.341\)",
     ):
-        helpers.solver_settings(script, vorticity_drag_boundaries="all", mode="CRUISE")
+        helpers.solver_settings(script, mode="CRUISE")
 
 
 def test_unsteady_without_time_stepping_names_both_missing_parameters():
@@ -86,7 +86,7 @@ def test_unsteady_without_time_stepping_names_both_missing_parameters():
         r"time stepping is defined by the step count and the step size "
         r"\(SRC-003 p\.341\)",
     ):
-        helpers.solver_settings(script, vorticity_drag_boundaries="all", mode="UNSTEADY")
+        helpers.solver_settings(script, mode="UNSTEADY")
 
 
 def test_time_stepping_outside_unsteady_mode_offers_both_remedies():
@@ -96,7 +96,7 @@ def test_time_stepping_outside_unsteady_mode_offers_both_remedies():
         match=r"time_iterations and delta_time belong to the unsteady solver; pass "
         r"mode='UNSTEADY' with them, or drop them for a steady run",
     ):
-        helpers.solver_settings(script, vorticity_drag_boundaries="all", time_iterations=10)
+        helpers.solver_settings(script, time_iterations=10)
 
 
 # --- workspace input library ------------------------------------------------

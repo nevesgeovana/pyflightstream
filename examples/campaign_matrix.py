@@ -98,6 +98,11 @@ def steady(case: SimCase, script) -> None:
     helpers.initialize_solver(script)
     helpers.solver_settings(
         script,
+        # Every boundary of this clean wing carries a trailing edge, so
+        # the vorticity integration applies to all of them. On a mixed
+        # geometry, list the lifting boundaries instead: a bluff body on
+        # this list reports zero induced drag (SRC-003 p.202), and
+        # omitting the argument keeps the solver's pressure integration.
         vorticity_drag_boundaries="all",
         aoa=case.point["alpha"],
         velocity=case.velocity,

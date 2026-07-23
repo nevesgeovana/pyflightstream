@@ -16,10 +16,16 @@ SET_VORTICITY_DRAG_BOUNDARIES:
   notes: >
     Boundaries whose induced drag is computed from surface vorticity
     circulation integration; -1 selects all boundaries. Boundaries
-    without trailing-edge boundary conditions on this list silently
-    report zero induced drag (SRC-003 p.202); bluff bodies belong to
-    surface-pressure integration instead, which is why the results
-    layer refuses blind per-boundary drag aggregation.
+    without trailing-edge boundary conditions on this list report zero
+    induced drag (SRC-003 p.202);
+    bluff bodies belong to surface-pressure integration instead, which
+    is why the results layer never sums per-boundary drag of its own
+    accord and reports the solver's per-surface and total rows as
+    printed. Boundaries left off the list, including every boundary
+    when the command is never emitted, use that surface-pressure
+    integration, which the manual also prescribes for all components
+    in ground effect (SRC-003 p.202): not emitting this command is a
+    valid drag setup, not a missing one.
 
 DELETE_VORTICITY_DRAG_BOUNDARIES:
   layout: bare

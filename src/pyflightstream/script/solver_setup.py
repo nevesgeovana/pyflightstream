@@ -50,8 +50,9 @@ __all__ = [
 SNAPSHOT_FAMILIES = ("runtime_settings", "solver_settings", "advanced_settings")
 
 #: The induced-drag boundary selection, snapshotted although it lives in
-#: the solver_analysis chapter: it is the required decision of
-#: :func:`pyflightstream.script.helpers.solver_settings`.
+#: the solver_analysis chapter: it is the drag-method decision of
+#: :func:`pyflightstream.script.helpers.solver_settings`, recorded
+#: whether the caller made it or left the solver default in place.
 VORTICITY_COMMAND = "SET_VORTICITY_DRAG_BOUNDARIES"
 
 #: Minimum pressure coefficient (dimensionless Cp) the library emits
@@ -59,7 +60,9 @@ VORTICITY_COMMAND = "SET_VORTICITY_DRAG_BOUNDARIES"
 #: default is -20 (SRC-003 p.221), which clips the suction peaks of
 #: rotor blades; -100 is the author's library default of 2026-07-22,
 #: retiring the earlier reference-velocity workaround. The physics
-#: reference re-validation under this default is queued as PLN-023.
+#: references were re-validated under this default on a licensed
+#: 26.120 machine: 30 of 30 metrics bit-identical, report
+#: reports/physics/PHY-26120_2026-07-23_reseed-cp100-2026-07-23.
 LIBRARY_MINIMUM_CP = -100
 
 _EXPLICIT: Literal["explicit"] = "explicit"
@@ -182,14 +185,23 @@ class FlagRecord(BaseModel):
         command exists in the script's FlightStream version, because
         defaults are per-version facts.
     value : JSON value
-        Effective value in helper vocabulary (bool for toggles, list
-        for boundary selections, mapping for the unsteady mode and the
-        bulk separation); None when unknown.
+        Effective value in helper vocabulary (bool for toggles,
+        mapping for the unsteady mode and the bulk separation); None
+        when unknown. A boundary selection is a list of indices or
+        labels, or the string ``all``; the empty list is the recorded
+        no-selection default of the induced-drag flag, so read the
+        provenance before reading an empty value: ``[]`` with
+        ``default`` is knowledge (no boundary was selected), None with
+        ``unknown`` is the absence of it.
     emitted : bool
-        Whether the helper emits a script line for this flag (the
-        induced-drag selection is emitted deferred, at the solver
-        start). A documented-but-unemitted default is the solver's own
-        behavior, assuming the opened file did not override it.
+        Whether the script this snapshot describes carries the
+        emission. The induced-drag selection is emitted deferred, at
+        the first curated call reaching the analysis phase, and may
+        have been emitted by an earlier settings call on the same
+        script, so this is a fact about the script rather than about
+        the single call. A documented-but-unemitted default is the
+        solver's own behavior, assuming the opened file did not
+        override it.
     evidence : str, optional
         Citation of a ``default`` value; None for explicit values (the
         script line is the evidence) and for unknown flags.
@@ -286,7 +298,8 @@ def _minimum_cp_evidence(entry: CommandEntry) -> str:
     """Compose the citation trail of the emitted library minimum-Cp."""
     return (
         f"library default {LIBRARY_MINIMUM_CP} (author decision of 2026-07-22; physics "
-        f"reference re-validation queued as PLN-023); solver default {entry.default} "
+        "references re-validated under it, 30 of 30 metrics bit-identical, report "
+        f"PHY-26120_2026-07-23_reseed-cp100-2026-07-23); solver default {entry.default} "
         f"({entry.default_ref})"
     )
 
@@ -340,6 +353,92 @@ def _family_record(
     return FlagRecord(**base, provenance=_UNKNOWN, value=None, emitted=False)
 
 
+def with_vorticity_selection(
+    setup: SolverSetup,
+    selection: Sequence[int] | Literal["all"],
+) -> SolverSetup:
+    """Return the snapshot with the induced-drag selection replaced.
+
+    Helper-facing like :func:`build_setup`, and deliberately outside
+    ``__all__``: the snapshot is built by the curated helpers, never
+    hand-stamped by a caller.
+
+    The deprecated
+    :func:`pyflightstream.script.helpers.analysis_setup` selection path
+    emits its own SET_VORTICITY_DRAG_BOUNDARIES after the settings call
+    already built the snapshot. Restamping the record keeps the manifest
+    describing the script that will actually run: a snapshot that says
+    "no selection" while the script selects boundaries would be the
+    provenance record lying about its own script.
+
+    Parameters
+    ----------
+    setup : SolverSetup
+        Snapshot built by the settings call.
+    selection : sequence of int, or ``"all"``
+        Boundaries the later call selected, as resolved 1-based
+        indices, the same vocabulary the settings call records.
+
+    Returns
+    -------
+    SolverSetup
+        A new snapshot; the input is left untouched (the model is
+        frozen).
+    """
+    record = setup.flags[VORTICITY_COMMAND].model_copy(
+        update={
+            "provenance": _EXPLICIT,
+            "value": _normalize(selection),
+            "emitted": True,
+            "evidence": None,
+        }
+    )
+    return setup.model_copy(update={"flags": {**setup.flags, VORTICITY_COMMAND: record}})
+
+
+def _vorticity_record(
+    entry: CommandEntry,
+    passed: Mapping[str, object],
+    *,
+    available: bool,
+) -> FlagRecord:
+    """Build the snapshot record of the induced-drag boundary selection.
+
+    The selection is optional, so its record has two shapes. A passed
+    selection is ``explicit`` and emitted (deferred to the analysis
+    phase). No selection is the documented solver behavior rather than
+    an absence of knowledge: the script places no boundary on the
+    vorticity CDi list, and boundaries outside that list keep the
+    surface pressure integration of the solver, a complete induced-drag
+    calculation (SRC-003 p.202). That case is recorded as a ``default``
+    carrying the empty selection, so a reader of the manifest sees that
+    the script selected no boundary instead of an unexplained blank.
+    The record describes the script, not the session: a simulation file
+    opened by the script can carry a selection of its own, the same
+    caveat the module docstring states for the settings families. On a
+    FlightStream version without the command the library claims
+    nothing: per-version facts need the command to exist.
+    """
+    base = {"command": entry.name, "family": entry.chapter}
+    selection = passed.get("vorticity_drag_boundaries")
+    if selection is not None:
+        return FlagRecord(**base, provenance=_EXPLICIT, value=_normalize(selection), emitted=True)
+    if available:
+        return FlagRecord(
+            **base,
+            provenance=_DEFAULT,
+            value=[],
+            emitted=False,
+            evidence=(
+                "the script emits no selection, so it places no boundary on the "
+                "vorticity CDi list; boundaries outside that list use the solver's "
+                "surface pressure integration (SRC-003 p.202). A simulation file "
+                "opened by the script may carry a selection of its own"
+            ),
+        )
+    return FlagRecord(**base, provenance=_UNKNOWN, value=None, emitted=False)
+
+
 def build_setup(
     *,
     version: str,
@@ -359,8 +458,13 @@ def build_setup(
         FlightStream version of the script, canonical or alias.
     passed : mapping of str to object
         The helper keywords exactly as received (None meaning not
-        passed), plus the validated ``bulk_separation`` model and the
-        upper-cased ``mode``.
+        passed), plus the validated ``bulk_separation`` model, the
+        upper-cased ``mode``, and the effective
+        ``vorticity_drag_boundaries`` selection: labels already
+        resolved to indices, and carried forward from an earlier
+        settings call of the same script when this one omitted it,
+        because the snapshot describes the script rather than the
+        single call.
     minimum_cp_default_emitted : bool
         Whether the helper emitted the library minimum-Cp default (it
         does whenever ``minimum_cp`` was not passed and the command
@@ -399,13 +503,10 @@ def build_setup(
             available=name in view,
             minimum_cp_default_emitted=minimum_cp_default_emitted,
         )
-    vorticity_entry = registry.commands[VORTICITY_COMMAND]
-    flags[VORTICITY_COMMAND] = FlagRecord(
-        command=VORTICITY_COMMAND,
-        family=vorticity_entry.chapter,
-        provenance=_EXPLICIT,
-        value=_normalize(passed["vorticity_drag_boundaries"]),
-        emitted=True,
+    flags[VORTICITY_COMMAND] = _vorticity_record(
+        registry.commands[VORTICITY_COMMAND],
+        passed,
+        available=VORTICITY_COMMAND in view,
     )
     return SolverSetup(fs_version=resolve(version).canonical, flags=flags)
 
@@ -422,11 +523,19 @@ def script_from_setup(script: Script, setup: SolverSetup) -> SolverSetup:
     declarations (:meth:`~pyflightstream.script.Script.declare_existing`)
     on the target script.
 
+    Replay onto a fresh script: the induced-drag selection is the one
+    flag with per-script rather than per-call lifetime, so a target
+    script that already carries a selection keeps it, and the returned
+    snapshot then records that selection instead of the stored one.
+    The campaign loop builds one script per point, which is the shape
+    this function is written for.
+
     Parameters
     ----------
     script : Script
         Script under construction, bound to a FlightStream version in
-        which every explicit flag of the snapshot exists.
+        which every explicit flag of the snapshot exists; fresh, per
+        the note above.
     setup : SolverSetup
         Stored snapshot, for example
         ``SolverSetup.model_validate_json(...)`` of a manifest record.

@@ -500,6 +500,7 @@ helpers.solver_settings(script,
 \end{lstlisting}
   \begin{itemize}
     \item \code{solver\_settings} emits only what you pass, so it serves both the initial setup and re-emission between campaign points.
+    \item Add \code{vorticity\_drag\_boundaries=[...]} to compute the induced drag of the lifting boundaries from the surface vorticity integration. Omitted on the first settings call, no command is emitted and every boundary keeps the solver's surface pressure integration (SRC-003 p.202); omitted on a later settings call of the same script, the selection of the earlier call stands. The snapshot records the effective choice either way.
     \item Reference area and length set the coefficient normalization ($Q\,S_{ref}$ forces, $Q\,S_{ref}\,L_{ref}$ moments; SRC-003 p.223).
   \end{itemize}
 \end{frame}
@@ -507,15 +508,14 @@ helpers.solver_settings(script,
 \begin{frame}[fragile]{Analysis selection and exports}
 \begin{lstlisting}
 helpers.analysis_setup(script,
-    load_units="COEFFICIENTS",
-    vorticity_drag_boundaries="all")   # induced drag source
+    load_units="COEFFICIENTS")
 
 helpers.export_results(script,
     spreadsheet="loads.txt",           # the quantitative output
     vtk="surface.vtk", vtk_variables=["CP_REFERENCE"])
 \end{lstlisting}
   \begin{itemize}
-    \item Boundaries without trailing-edge boundary conditions silently report zero induced drag from the vorticity integration (SRC-003 p.202); select the drag boundaries deliberately.
+    \item The induced-drag boundary selection belongs to \code{solver\_settings} since v0.3.0 (the \code{analysis\_setup} keyword still works and warns); the emission lands at the first curated call that reaches the analysis phase (\code{start\_solver}, \code{sweep}, \code{analysis\_setup}, or \code{export\_results}), so a raw \code{script.emit("START\_SOLVER")} does not flush it.
     \item The plain \code{CP} export variable is flagged for depreciation (SRC-003 p.352); the helper warns and this guide uses \code{CP\_REFERENCE}.
   \end{itemize}
 \end{frame}
@@ -586,8 +586,7 @@ script.emit("AUTO_DETECT_WAKE_TERMINATION_NODES")
     \item Analysis and export:
   \end{enumerate}
 \begin{lstlisting}
-helpers.analysis_setup(script, load_units="COEFFICIENTS",
-                       vorticity_drag_boundaries="all")
+helpers.analysis_setup(script, load_units="COEFFICIENTS")
 helpers.export_results(script, spreadsheet="loads.txt")
 script.emit("EXPORT_LOG", str((workdir / "log.txt").resolve()))
 script.emit("CLOSE_FLIGHTSTREAM")
@@ -1016,7 +1015,7 @@ samples = parse_residual_history(log_text)
     \item \textbf{Silent exit 0.} If \code{--script} names a missing file, the solver exits with code 0 and zero outputs. Always resolve the script path absolute, and treat "no outputs" as failure (the campaign loop does).
     \item \textbf{Relative paths resolve against the solver working directory.} Imported geometry: absolute. EXPORT\_LOG: absolute, or it fails silently.
     \item \textbf{The hidden solver idles after STOP.} A headless session that hits STOP does not exit; the executor's timeout is your safety net, and the log pair is the halt evidence.
-    \item \textbf{Zero induced drag is not always good news.} Boundaries without trailing-edge boundary conditions report zero from the vorticity integration; select drag boundaries deliberately.
+    \item \textbf{Zero induced drag is not always good news.} A boundary without a user-defined trailing-edge condition, a bluff body such as a tubular fuselage or a pod, reports zero induced drag once it is placed on the vorticity CDi list; left off the list it keeps the surface pressure integration instead (SRC-003 p.202). This is why \code{vorticity\_drag\_boundaries="all"} is unsafe on a mixed geometry.
     \item \textbf{The transitional boundary layer model has a validity window.} Stated valid for chord Reynolds numbers between 500000 and 1500000 (SRC-003 p.203); outside it, select LAMINAR or TURBULENT explicitly.
   \end{itemize}
 \end{frame}

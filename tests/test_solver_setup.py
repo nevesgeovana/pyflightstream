@@ -1,6 +1,7 @@
 """Tier 1: solver-setup snapshot, provenance, deferral, and regeneration."""
 
 import json
+import warnings
 
 import pytest
 
@@ -19,6 +20,7 @@ from pyflightstream.script.solver_setup import (
     BulkSeparation,
     SolverSetup,
     script_from_setup,
+    with_vorticity_selection,
 )
 from pyflightstream.workspace import RunRecord, RunStatus
 
@@ -62,7 +64,7 @@ def test_provenance_markers_and_default_evidence():
     assert minimum_cp.value == LIBRARY_MINIMUM_CP
     assert minimum_cp.emitted
     assert "SRC-003 p.221" in minimum_cp.evidence
-    assert "PLN-023" in minimum_cp.evidence
+    assert "reseed-cp100" in minimum_cp.evidence
     boundary_layer = flags["SET_BOUNDARY_LAYER_TYPE"]
     assert boundary_layer.provenance == "default"
     assert boundary_layer.value == "TRANSITIONAL"
@@ -93,14 +95,146 @@ def test_defaults_of_commands_absent_from_the_version_stay_unknown():
     assert setup.flags["SET_BOUNDARY_LAYER_TYPE"].provenance == "unknown"
 
 
-# --- required vorticity decision --------------------------------------------
+# --- the optional vorticity selection ---------------------------------------
 
 
-def test_solver_settings_requires_the_vorticity_decision():
+def test_an_unset_selection_emits_nothing_and_leaves_the_solver_default():
+    # SRC-003 p.202: boundaries outside the vorticity CDi list use the
+    # solver's surface pressure integration, a complete drag calculation.
+    # Omitting the selection must therefore build a valid script, not a
+    # refusal (the legacy reproduction path leaves the list unset).
     script = Script(version="26.12")
-    with pytest.raises(CommandArgumentError, match="zero induced drag"):
-        helpers.solver_settings(script)
+    setup = helpers.solver_settings(script, aoa=3.0, velocity=30.0)
+    helpers.start_solver(script)
+    text = script.render()
+    assert VORTICITY_COMMAND not in text
+    assert "SOLVER_SET_AOA 3.0" in text and "START_SOLVER" in text
+    record = setup.flags[VORTICITY_COMMAND]
+    assert record.provenance == "default"
+    assert record.value == [] and not record.emitted
+    assert "SRC-003 p.202" in record.evidence
+    # The snapshot stays total, with the flag counted as a default.
+    counts = setup.provenance_counts()
+    assert counts["explicit"] == 2  # aoa and velocity
+    assert counts["default"] == 4  # minimum_cp, boundary_layer, farfield, vorticity
+    assert counts["explicit"] + counts["default"] + counts["unknown"] == len(setup.flags)
+
+
+def test_an_unset_selection_stays_unknown_without_the_command_in_the_version():
+    # 26.000 records no evidence for the selection command, so the
+    # library claims no default there (invariant 3, honest unknown).
+    script = Script(version="26.0")
+    setup = helpers.solver_settings(script)
+    record = setup.flags[VORTICITY_COMMAND]
+    assert record.provenance == "unknown"
+    assert record.value is None and record.evidence is None and not record.emitted
+
+
+def test_an_unset_selection_round_trips_through_the_snapshot():
+    first = Script(version="26.12")
+    setup = helpers.solver_settings(first, aoa=3.0)
+    helpers.start_solver(first)
+    second = Script(version="26.12")
+    regenerated = script_from_setup(
+        second, SolverSetup.model_validate_json(setup.model_dump_json())
+    )
+    helpers.start_solver(second)
+    assert second.render() == first.render()
+    assert VORTICITY_COMMAND not in second.render()
+    assert regenerated == setup
+
+
+@pytest.mark.parametrize("empty", [[], ()])
+def test_an_empty_selection_is_refused_and_emits_nothing(empty):
+    script = Script(version="26.12")
+    with pytest.raises(CommandArgumentError, match="empty sequence"):
+        helpers.solver_settings(script, vorticity_drag_boundaries=empty)
     assert script.render() == "\n"  # nothing was emitted
+
+
+def test_a_second_settings_call_keeps_the_selection_in_script_and_snapshot():
+    # solver_settings emits only what it is passed, so a second call on
+    # the same script must not drop the selection of the first: the
+    # script would lose the vorticity integration silently and the
+    # snapshot would record a default that never applied.
+    script = Script(version="26.12")
+    helpers.solver_settings(script, vorticity_drag_boundaries=[1, 2], velocity=30.0)
+    setup = helpers.solver_settings(script, aoa=5.0)
+    helpers.start_solver(script)
+    text = script.render()
+    assert "SET_VORTICITY_DRAG_BOUNDARIES 2\n1,2" in text
+    assert text.count(VORTICITY_COMMAND) == 1  # kept, not rearmed
+    record = setup.flags[VORTICITY_COMMAND]
+    assert record.provenance == "explicit" and record.value == [1, 2] and record.emitted
+
+
+def test_the_deprecated_selection_restamps_the_snapshot():
+    # The deprecated path emits its own selection after the snapshot was
+    # built; the record must follow, or the manifest would describe a
+    # script that was never built.
+    script = Script(version="26.12")
+    settings_setup = helpers.solver_settings(script, aoa=3.0)
+    script.emit("START_SOLVER")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        helpers.analysis_setup(script, vorticity_drag_boundaries=[1])
+    # Nothing was deferred, so the warning must not claim a replacement.
+    assert "replaces the selection deferred" not in str(caught[0].message)
+    assert "SET_VORTICITY_DRAG_BOUNDARIES 1\n1" in script.render()
+    record = script.solver_setup.flags[VORTICITY_COMMAND]
+    assert record.provenance == "explicit" and record.value == [1] and record.emitted
+    assert record.evidence is None
+    # The returned snapshot is frozen: restamping produced a new one.
+    assert settings_setup.flags[VORTICITY_COMMAND].provenance == "default"
+
+
+def test_the_deprecated_selection_records_resolved_indices_not_labels():
+    # One vocabulary in the manifest: both paths store 1-based indices,
+    # so a stored snapshot is readable without the label declarations.
+    script = Script(version="26.12")
+    script.declare_existing(boundaries={"wing": 1, "tail": 2})
+    helpers.solver_settings(script, aoa=3.0)
+    script.emit("START_SOLVER")
+    with pytest.warns(DeprecationWarning):
+        helpers.analysis_setup(script, vorticity_drag_boundaries=["tail"])
+    assert script.solver_setup.flags[VORTICITY_COMMAND].value == [2]
+
+
+def test_a_failed_deprecated_call_leaves_script_and_snapshot_untouched():
+    # The label resolves at call time, before any emission or record, so
+    # a bad label cannot leave a snapshot claiming a selection the
+    # script does not carry, nor destroy the deferred one.
+    script = Script(version="26.12")
+    script.declare_existing(boundaries={"wing": 1})
+    setup = helpers.solver_settings(script, vorticity_drag_boundaries=["wing"])
+    script.emit("START_SOLVER")
+    with pytest.raises(ScriptReferenceError, match="analysis_setup"):
+        helpers.analysis_setup(script, load_units="COEFFICIENTS", vorticity_drag_boundaries=["gh"])
+    assert script.solver_setup is setup  # the record was not restamped
+    assert "SET_LOADS_AND_MOMENTS_UNITS" not in script.render()
+    # The deferred selection survived and still reaches the script.
+    helpers.export_results(script, spreadsheet="C:/out/loads.txt")
+    assert "SET_VORTICITY_DRAG_BOUNDARIES 1\n1" in script.render()
+
+
+def test_the_deprecated_path_refuses_an_empty_selection_too():
+    script = Script(version="26.12")
+    helpers.solver_settings(script, vorticity_drag_boundaries="all")
+    script.emit("START_SOLVER")
+    with pytest.raises(CommandArgumentError, match="empty sequence"):
+        helpers.analysis_setup(script, vorticity_drag_boundaries=[])
+    assert VORTICITY_COMMAND not in script.render()  # the selection survives
+
+
+@pytest.mark.parametrize("selection", ["all", [1, 2]])
+def test_with_vorticity_selection_restamps_without_touching_the_input(selection):
+    script = Script(version="26.12")
+    setup = helpers.solver_settings(script, aoa=3.0)
+    restamped = with_vorticity_selection(setup, selection)
+    record = restamped.flags[VORTICITY_COMMAND]
+    assert record.provenance == "explicit" and record.emitted
+    assert record.value == selection and record.evidence is None
+    assert setup.flags[VORTICITY_COMMAND].provenance == "default"  # input untouched
 
 
 def test_a_bare_vorticity_label_is_rejected_with_the_fix():
@@ -286,7 +420,12 @@ def test_analysis_setup_vorticity_is_deprecated_but_works():
     script = Script(version="26.12")
     helpers.solver_settings(script, vorticity_drag_boundaries="all")
     script.emit("START_SOLVER")
-    with pytest.warns(DeprecationWarning, match="required parameter of\\s+solver_settings"):
+    with pytest.warns(
+        DeprecationWarning,
+        match=r"deprecated.*will leave analysis_setup in a future minor "
+        r"release; this explicit call replaces the selection deferred by "
+        r"solver_settings",
+    ):
         helpers.analysis_setup(script, vorticity_drag_boundaries=[1])
     text = script.render()
     # The deprecated explicit call replaced the deferred selection.

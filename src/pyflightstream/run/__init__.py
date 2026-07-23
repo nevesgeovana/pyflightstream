@@ -52,7 +52,6 @@ from pyflightstream.results import (
     parse_residual_history,
 )
 from pyflightstream.script import Script
-from pyflightstream.script.solver_setup import SolverSetup
 from pyflightstream.versions import FsVersion, resolve
 from pyflightstream.workspace import (
     CampaignWorkspace,
@@ -870,8 +869,8 @@ def _execute_point(
     # Provenance (decision 4 of 2026-07-22): a script built through the
     # curated solver_settings helper carries the snapshot of every
     # solver flag's effective value; record it with the run.
-    setup = getattr(script, "solver_setup", None)
-    if isinstance(setup, SolverSetup):
+    setup = script.solver_setup
+    if setup is not None:
         base["solver_setup"] = setup.model_dump(mode="json")
     script_path, script_sha = workspace.write_script(case.sim_id, f"{stem}.txt", script.render())
     base["script_sha256"] = script_sha

@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping, Sequence
+from typing import TYPE_CHECKING, Literal
 
 from pyflightstream.commands import (
     ArgSpec,
@@ -56,6 +57,11 @@ from pyflightstream.script.entities import (
     ScriptReferenceError,
 )
 from pyflightstream.versions import FsVersion
+
+if TYPE_CHECKING:  # annotation only: the builder core does not depend
+    # on the snapshot model at import time (the reverse import, from
+    # solver_setup back to here, is the one that must stay deferred)
+    from pyflightstream.script.solver_setup import SolverSetup
 
 __all__ = [
     "CommandArgumentError",
@@ -228,6 +234,12 @@ class Script:
         mesh boundaries the script created or declared (SAD Section
         4.2); backs the cross-reference checks and the label-to-index
         resolution of entity citations.
+    solver_setup : SolverSetup or None
+        Snapshot of the effective solver flags and their provenance,
+        attached by
+        :func:`pyflightstream.script.helpers.solver_settings` and
+        serialized into the run manifest; None until a settings call
+        builds it.
     """
 
     def __init__(self, version: str | FsVersion, registry: CommandRegistry | None = None):
@@ -239,6 +251,17 @@ class Script:
         self._phase_index: int | None = None
         self._phase_setter: tuple[str, int] | None = None
         self.entities = EntityRegistry()
+        self.solver_setup: SolverSetup | None = None
+        # Induced-drag boundary selection, owned by the helpers: the
+        # command is analysis phase, so the settings call records it
+        # here and a later helper flushes it into the script. The
+        # pending slot empties at the flush; the selection slot keeps
+        # the choice this script made, so a second settings call that
+        # omits the argument neither drops the line already emitted nor
+        # lets the snapshot disagree with the script. Both hold
+        # resolved 1-based boundary indices, never labels.
+        self._pending_vorticity: list[int] | Literal["all"] | None = None
+        self._vorticity_selection: list[int] | Literal["all"] | None = None
 
     @property
     def num_local_frames(self) -> int:

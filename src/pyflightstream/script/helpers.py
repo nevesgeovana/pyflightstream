@@ -26,15 +26,15 @@ to indices at emission through the script's entity registry.
 
 Provenance: :func:`solver_settings` is the single entry point for every
 solver flag of the runtime_settings, solver_settings, and
-advanced_settings families. It requires the induced-drag boundary
-selection (``vorticity_drag_boundaries``), emits the library minimum-Cp
-default when the caller does not choose one, and attaches a
+advanced_settings families. It carries the optional induced-drag
+boundary selection (``vorticity_drag_boundaries``), emits the library
+minimum-Cp default when the caller does not choose one, and attaches a
 :class:`~pyflightstream.script.solver_setup.SolverSetup` snapshot of
 every effective flag value to the script (``script.solver_setup``) for
 the run manifest. The induced-drag selection itself is an
-analysis-phase command, so its emission is deferred and lands right
-after the solver starts: :func:`start_solver` (or the first analysis or
-export helper call) flushes it.
+analysis-phase command, so when it is passed its emission is deferred
+and lands right after the solver starts: :func:`start_solver` (or the
+first analysis or export helper call) flushes it.
 """
 
 from __future__ import annotations
@@ -52,6 +52,7 @@ from pyflightstream.script.solver_setup import (
     BulkSeparation,
     SolverSetup,
     build_setup,
+    with_vorticity_selection,
 )
 
 
@@ -62,18 +63,18 @@ def _toggle(value: bool) -> str:
 def _flush_pending_vorticity(script: Script) -> None:
     """Emit the deferred induced-drag boundary selection, if one waits.
 
-    :func:`solver_settings` records the required selection but cannot
-    emit it in place: SET_VORTICITY_DRAG_BOUNDARIES is an
+    :func:`solver_settings` records the selection it was given but
+    cannot emit it in place: SET_VORTICITY_DRAG_BOUNDARIES is an
     analysis-phase command (SRC-003 p.350) and the settings are emitted
     in the init phase, before the solver starts. The selection is
     therefore flushed by :func:`start_solver`, by :func:`sweep` right
     after SWEEPER_START, and by the first :func:`analysis_setup` or
     :func:`export_results` call that reaches the analysis phase.
     """
-    pending = getattr(script, "_pyfs_pending_vorticity", None)
+    pending = script._pending_vorticity
     if pending is None:
         return
-    script._pyfs_pending_vorticity = None
+    script._pending_vorticity = None
     if pending == "all":
         script.emit("SET_VORTICITY_DRAG_BOUNDARIES", -1)
     else:
@@ -97,6 +98,25 @@ def _reject_bare_label(helper: str, argument: str, value: object, *, allows_all:
     raise CommandArgumentError(
         f"{helper}: {argument} takes {accepted}; a single entity label goes in a "
         f"list, for example [{value!r}]"
+    )
+
+
+def _reject_empty_selection(helper: str, argument: str, value: list[object]) -> None:
+    """Reject an empty induced-drag selection, naming both ways out.
+
+    An empty sequence would emit SET_VORTICITY_DRAG_BOUNDARIES naming
+    no boundary, which is not how the solver default is expressed: the
+    default is the command never being emitted at all (SRC-003 p.202).
+    The realistic way to reach an empty sequence is a selection filter
+    that matched nothing, so the message names that diagnosis too.
+    """
+    if len(value) > 0:
+        return
+    raise CommandArgumentError(
+        f"{helper}: {argument} is an empty sequence, which would emit a selection "
+        "command naming no boundary. Omit the argument (or pass None) to leave every "
+        "boundary on the solver default, surface pressure integration (SRC-003 "
+        "p.202); if the list was computed, the selection filter matched no boundary."
     )
 
 
@@ -481,18 +501,26 @@ def solver_settings(
 
     Two flags have library-level behavior:
 
-    - ``vorticity_drag_boundaries`` is required: induced drag comes
-      from surface vorticity integration only on the listed
-      boundaries, and an unset list silently reports zero induced drag
-      (SRC-003 p.202). The selection is an analysis-phase command, so
-      its emission is deferred and lands right after the solver starts
-      (see :func:`start_solver`).
+    - ``vorticity_drag_boundaries`` selects the boundaries whose
+      induced drag comes from surface vorticity integration. Omitting
+      it leaves this script's selection as it stands: nothing, on the
+      first settings call, which is the solver default of surface
+      pressure integration on every boundary (SRC-003 p.202); the
+      selection of the earlier call, on a second settings call of the
+      same script, since the line it emitted stays in the script. The
+      selection is an analysis-phase command, so when it is passed its
+      emission is deferred to the first curated call that reaches the
+      analysis phase: :func:`start_solver`, :func:`sweep`,
+      :func:`analysis_setup`, or :func:`export_results`. A raw
+      ``script.emit("START_SOLVER")`` does not flush it.
     - ``minimum_cp`` unset emits ``SOLVER_MINIMUM_CP -100``: the
       solver's own default -20 (SRC-003 p.221) clips the suction peaks
       of rotor blades, so -100 is the library default (author decision
       of 2026-07-22, retiring the earlier reference-velocity
-      workaround); pass the flag to override. The physics reference
-      re-validation under this default is queued as PLN-023. On a
+      workaround); pass the flag to override. The physics references
+      were re-validated under this default, 30 of 30 metrics
+      bit-identical (report
+      PHY-26120_2026-07-23_reseed-cp100-2026-07-23). On a
       FlightStream version without the command nothing is emitted and
       the snapshot honestly records the flag as unknown.
 
@@ -500,12 +528,25 @@ def solver_settings(
     ----------
     script : Script
         Script under construction.
-    vorticity_drag_boundaries : sequence of int or str, or ``"all"``
-        Required. Boundaries whose induced drag comes from surface
-        vorticity integration, by 1-based index or declared boundary
-        label; ``"all"`` selects every boundary (-1 form). Boundaries
-        without trailing-edge boundary conditions silently report zero
-        induced drag (SRC-003 p.202).
+    vorticity_drag_boundaries : sequence of int or str, ``"all"``, or None
+        Boundaries whose induced drag comes from surface vorticity
+        integration, by 1-based index or declared boundary label;
+        ``"all"`` selects every boundary (-1 form). The manual
+        recommends the list for boundaries carrying a user-defined
+        trailing-edge condition, a wing for instance, and advises
+        against bluff bodies such as a tubular fuselage: a bluff body
+        placed on this list reports zero induced drag, which is why
+        ``"all"`` is unsafe on a mixed geometry (SRC-003 p.202). None (the
+        default) emits no selection command and leaves every boundary
+        on the solver's own surface pressure integration, which the
+        manual also prescribes for every component in ground effect
+        (SRC-003 p.202); an empty sequence is refused, because the
+        solver default is expressed by omitting the argument, not by
+        selecting nothing. A second settings call on the same script
+        may omit the argument: the selection of the earlier call stays
+        in the script and in the snapshot. There is no way to unselect
+        on a script that already selected; build a fresh
+        :class:`~pyflightstream.script.Script` for that.
     mode : str, optional
         Solver time regime: ``STEADY`` (SET_SOLVER_STEADY) or
         ``UNSTEADY`` (SET_SOLVER_UNSTEADY, physical time stepping,
@@ -600,13 +641,6 @@ def solver_settings(
         The snapshot of effective flag values and provenance, also
         attached to the script as ``script.solver_setup``.
     """
-    if vorticity_drag_boundaries is None:
-        raise CommandArgumentError(
-            "solver_settings requires vorticity_drag_boundaries: induced drag comes "
-            "from surface vorticity integration only on the listed boundaries, and an "
-            "unset list silently reports zero induced drag (SRC-003 p.202). Pass 'all' "
-            "for every boundary, or the lifting boundaries by index or declared label."
-        )
     _reject_bare_label(
         "solver_settings", "vorticity_drag_boundaries", vorticity_drag_boundaries, allows_all=True
     )
@@ -638,17 +672,28 @@ def solver_settings(
                 "solver_settings: bulk_separation takes a BulkSeparation (name, "
                 f"separation_type, diameter, boundaries; SRC-003 p.342): {error}"
             ) from error
-    # Resolve the required induced-drag selection before any emission,
-    # so a bad label or index leaves the script untouched; the emission
-    # itself is deferred to the analysis phase (see the docstring).
-    if vorticity_drag_boundaries == "all":
-        pending: list[int] | Literal["all"] = "all"
+    # Resolve the induced-drag selection before any emission, so a bad
+    # label or index leaves the script untouched; the emission itself is
+    # deferred to the analysis phase (see the docstring). Unset on the
+    # first settings call means the command is never emitted and the
+    # solver default applies; unset on a re-emission call keeps the
+    # selection the earlier call chose, so a per-point re-emission
+    # neither drops it from the script nor from the snapshot.
+    selection: list[int] | Literal["all"] | None
+    if vorticity_drag_boundaries is None:
+        selection = script._vorticity_selection
+    elif vorticity_drag_boundaries == "all":
+        selection = "all"
     else:
-        pending = [
+        # Materialize once: a computed selection may arrive as any
+        # iterable, and the emptiness check must not consume it.
+        items = list(vorticity_drag_boundaries)
+        _reject_empty_selection("solver_settings", "vorticity_drag_boundaries", items)
+        selection = [
             script.resolve_boundary(
                 item, context="solver_settings: argument 'vorticity_drag_boundaries'"
             )
-            for item in vorticity_drag_boundaries
+            for item in items
         ]
 
     if upper_mode == "STEADY":
@@ -724,7 +769,9 @@ def solver_settings(
     if aeroelastic_rbf_type is not None:
         script.emit("AEROELASTIC_RBF_TYPE", aeroelastic_rbf_type)
 
-    script._pyfs_pending_vorticity = pending
+    if vorticity_drag_boundaries is not None:
+        script._vorticity_selection = selection
+        script._pending_vorticity = selection
 
     passed: dict[str, object] = {
         "mode": upper_mode,
@@ -758,7 +805,10 @@ def solver_settings(
         "aeroelastic_rbf_type": (
             aeroelastic_rbf_type.upper() if aeroelastic_rbf_type is not None else None
         ),
-        "vorticity_drag_boundaries": vorticity_drag_boundaries,
+        # The effective selection, which on a re-emission call is the one
+        # the earlier call chose: the snapshot must describe the script,
+        # not just this call.
+        "vorticity_drag_boundaries": selection,
     }
     setup = build_setup(
         version=script.version.canonical,
@@ -774,11 +824,13 @@ def start_solver(script: Script) -> None:
 
     Emits START_SOLVER (SRC-003 p.338) and then the
     SET_VORTICITY_DRAG_BOUNDARIES emission that
-    :func:`solver_settings` recorded: the selection is an
+    :func:`solver_settings` recorded, if any: the selection is an
     analysis-phase command (SRC-003 p.350) that cannot precede the
-    exec phase, while forgetting it silently zeroes the induced-drag
-    accounting (SRC-003 p.202); pairing it with the solver start is
-    what makes the required decision actually reach the script.
+    exec phase, so pairing it with the solver start is what makes a
+    selection built during the settings call actually reach the
+    script. When no selection was passed nothing is flushed and the
+    solver default applies, which is surface pressure integration on
+    every boundary (SRC-003 p.202).
 
     Parameters
     ----------
@@ -972,31 +1024,51 @@ def analysis_setup(
         Restrict the analysis to inviscid loads and moments.
     vorticity_drag_boundaries : sequence of int or str, ``"all"``, or None
         Deprecated here since v0.3.0: the induced-drag boundary
-        selection is a required parameter of :func:`solver_settings`
-        and will leave analysis_setup in a future minor release.
-        Passing it still works (with a DeprecationWarning) and
-        replaces any selection deferred by :func:`solver_settings`.
-        Boundaries whose induced drag comes from surface vorticity
-        integration, by index or declared label; boundaries without
-        trailing-edge boundary conditions silently report zero induced
-        drag (SRC-003 p.202).
+        selection belongs to :func:`solver_settings` and will leave
+        analysis_setup in a future minor release. Passing it still
+        works (with a DeprecationWarning) and replaces any selection
+        deferred by :func:`solver_settings`. Boundaries whose induced
+        drag comes from surface vorticity integration, by index or
+        declared label; a bluff body without a user-defined
+        trailing-edge condition reports zero induced drag when placed
+        on this list (SRC-003 p.202). The replacement is recorded in
+        ``script.solver_setup``, which is the snapshot to serialize; a
+        snapshot object returned by an earlier :func:`solver_settings`
+        call is frozen and keeps the state of that call.
     """
     _reject_bare_label("analysis_setup", "boundaries", boundaries, allows_all=False)
     _reject_bare_label(
         "analysis_setup", "vorticity_drag_boundaries", vorticity_drag_boundaries, allows_all=True
     )
+    # Resolve this call's own selection before anything is emitted or
+    # recorded, exactly as solver_settings does: a bad label must leave
+    # the script, the deferred selection, and the snapshot untouched.
+    chosen: list[int] | Literal["all"] | None = None
     if vorticity_drag_boundaries is not None:
+        if vorticity_drag_boundaries == "all":
+            chosen = "all"
+        else:
+            items = list(vorticity_drag_boundaries)
+            _reject_empty_selection("analysis_setup", "vorticity_drag_boundaries", items)
+            chosen = [
+                script.resolve_boundary(
+                    item, context="analysis_setup: argument 'vorticity_drag_boundaries'"
+                )
+                for item in items
+            ]
+        replaced = (
+            "; this explicit call replaces the selection deferred by solver_settings"
+            if script._pending_vorticity is not None
+            else ""
+        )
         warnings.warn(
             "analysis_setup(vorticity_drag_boundaries=...) is deprecated: the "
-            "induced-drag boundary selection is a required parameter of "
-            "solver_settings since v0.3.0 and will leave analysis_setup in a future "
-            "minor release; this explicit call replaces the selection deferred by "
-            "solver_settings",
+            "induced-drag boundary selection is a parameter of solver_settings "
+            "since v0.3.0 and will leave analysis_setup in a future minor "
+            f"release{replaced}",
             DeprecationWarning,
             stacklevel=2,
         )
-        if getattr(script, "_pyfs_pending_vorticity", None) is not None:
-            script._pyfs_pending_vorticity = None
     # symmetry_loads first: it is an init-phase setting consumed by the
     # in-solve monitors (per-step force plots), so a call mixing it
     # with the analysis-phase selections is only valid before
@@ -1015,8 +1087,10 @@ def analysis_setup(
         )
     ):
         # The call reaches the analysis phase: land the selection
-        # deferred by solver_settings before the analysis choices.
-        _flush_pending_vorticity(script)
+        # deferred by solver_settings before the analysis choices,
+        # unless this call carries its own, which replaces it below.
+        if chosen is None:
+            _flush_pending_vorticity(script)
     if loads_frame is not None:
         script.emit("SET_SOLVER_ANALYSIS_LOADS_FRAME", loads_frame)
     if moments_model is not None:
@@ -1027,14 +1101,18 @@ def analysis_setup(
         script.emit("SET_SOLVER_ANALYSIS_BOUNDARIES", len(boundaries), list(boundaries))
     if inviscid_only is not None:
         script.emit("SET_INVISCID_LOADS", _toggle(inviscid_only))
-    if vorticity_drag_boundaries == "all":
+    if chosen == "all":
         script.emit("SET_VORTICITY_DRAG_BOUNDARIES", -1)
-    elif vorticity_drag_boundaries is not None:
-        script.emit(
-            "SET_VORTICITY_DRAG_BOUNDARIES",
-            len(vorticity_drag_boundaries),
-            list(vorticity_drag_boundaries),
-        )
+    elif chosen is not None:
+        script.emit("SET_VORTICITY_DRAG_BOUNDARIES", len(chosen), list(chosen))
+    if chosen is not None:
+        # Every emission of this call succeeded, so the script state and
+        # the snapshot may now record the replacement: a failure above
+        # leaves the selection solver_settings deferred still pending.
+        script._pending_vorticity = None
+        script._vorticity_selection = chosen
+        if script.solver_setup is not None:
+            script.solver_setup = with_vorticity_selection(script.solver_setup, chosen)
 
 
 def export_results(

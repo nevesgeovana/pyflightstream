@@ -7,6 +7,17 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### API surface delta
+
+* `solver_settings(vorticity_drag_boundaries=...)` is optional again
+  (a relaxation, so no caller breaks). Omitted on a script that has not
+  selected yet, it emits no selection command and the snapshot records
+  the flag as `default` with an empty selection and its citation, or as
+  `unknown` on a FlightStream version where the command has no recorded
+  evidence; omitted on a second settings call of the same script, the
+  selection of the earlier call stands, in the script and in the
+  snapshot. An empty sequence is refused.
+
 ### Added
 
 * House conventions page on the docs site
@@ -24,6 +35,38 @@ FlightStream versions.
 
 ### Fixed
 
+* `solver_settings(vorticity_drag_boundaries=...)` is optional again,
+  and the guard that made it mandatory in v0.3.0 is gone: it stated the
+  inverse of the manual page it cited. Boundaries left off the vorticity
+  CDi list use the solver's surface pressure integration, a complete
+  induced-drag calculation; the zero-drag pitfall happens the other way
+  around, to a bluff body without a user-defined trailing edge that is
+  put *on* the list, which also made the guard's suggested remedy
+  (`"all"`) the very trap it claimed to prevent (SRC-003 p.202).
+  Omitting the argument now emits no selection command and the
+  solver-setup snapshot records the flag as a `default` with an empty
+  selection and the citation, so the manifest still says which
+  boundaries used vorticity integration (none). An empty sequence is
+  refused (the same refusal now guards the deprecated `analysis_setup`
+  keyword) with a message pointing at the omission that means the
+  solver default. This restores the pre-v0.3.0 reproduction path (a
+  legacy setup that never sets the list), which the guard had broken.
+  The documentation carrying the inverted claim moved with it: the
+  helper docstrings, the user guide (including the pitfalls slide),
+  SRS FR-22 and its revision history, the command-database note, the
+  examples, and the api-designer reviewer charter, which cited the
+  guard as a didactic precedent (PLN-075).
+* The deprecated `analysis_setup(vorticity_drag_boundaries=...)` no
+  longer leaves the solver-setup snapshot describing a script that was
+  never built: it now restamps the induced-drag record it overrides,
+  records resolved boundary indices like the settings path rather than
+  raw labels, and resolves and emits before touching the snapshot, so a
+  bad label leaves the script, the deferred selection, and the record
+  untouched. The corrected snapshot is `script.solver_setup`; a
+  snapshot returned by an earlier `solver_settings` call is frozen at
+  its own state. `Script` declares `solver_setup` and its induced-drag
+  state as real attributes instead of carrying them as patched-on
+  names.
 * CI lint stage restored to green: the `ruff` dev dependency is pinned
   to `0.15.22` (matching the pre-commit hook) and Markdown files are
   excluded from ruff via `extend-exclude`. An unpinned ruff had begun
@@ -71,9 +114,11 @@ plus the protocol and library-review adoptions of the ultraplan week.
   `to_csv`, `run_frame`, `sweep_frame`); `reference.CONVENTIONS`;
   `EntityRegistry`; the `pyfs-workspace` and `pyfs-matrix` CLIs.
 * Incompatible changes: `solver_settings` requires
-  `vorticity_drag_boundaries`; the behavior selectors of `help`,
-  `overview`, `run_campaign`, `register_option`, and `read_matrix`
-  are keyword-only; `pyflightstream.files` and
+  `vorticity_drag_boundaries` (superseded: the requirement rested on a
+  misread of SRC-003 p.202 and was removed, see Unreleased); the
+  behavior selectors of `help`, `overview`, `run_campaign`,
+  `register_option`, and `read_matrix` are keyword-only;
+  `pyflightstream.files` and
   `pyflightstream.cases.matrix_legacy` are renamed (import shims kept
   through v0.4.0); converted campaigns carry `matrix_*` variable keys
   (were `legacy_*`).
@@ -158,7 +203,8 @@ PHY-05/06 across versions.
   workspace input library (id model, empty-library remedy, available
   ids listing), and the run-matrix reader (verified codes and layout).
   A refactor that keeps the exception type but drops the explanation
-  now fails the suite.
+  now fails the suite. The mandatory-selection pin is superseded in
+  Unreleased by the empty-selection refusal (SRC-003 p.202).
 * `pyflightstream.exceptions`: single public catalog of all 25
   exception and warning classes (pandas errors model); completeness
   is test-asserted mechanically, so a new exception class must join
@@ -188,13 +234,17 @@ PHY-05/06 across versions.
 
 * `solver_settings` now requires `vorticity_drag_boundaries`
   (breaking; forgetting the selection silently zeroes the
-  induced-drag accounting) and emits `SOLVER_MINIMUM_CP -100` by
+  induced-drag accounting. Superseded: that rationale states the
+  inverse of SRC-003 p.202, the requirement was removed in Unreleased,
+  and boundaries left off the list keep the solver's surface pressure
+  integration) and emits `SOLVER_MINIMUM_CP -100` by
   default when the flag is not passed, retiring the earlier
   reference-velocity workaround for rotor Cp clipping (override by
   passing the parameter). The PHY references were re-validated under
   the emitted default on a licensed 26.120 machine (build 7012026):
   all 30 metrics reproduce bit-identically, so no reference value
-  changed (report `PHY-26120_2026-07-23_reseed-cp100`).
+  changed (report
+  `reports/physics/PHY-26120_2026-07-23_reseed-cp100-2026-07-23.md`).
 * The run-matrix vocabulary drops the word "legacy" everywhere users
   see it: `LegacyMatrixError` and `LegacyRow` are renamed
   `MatrixError` and `MatrixRow`, and `to_campaign`/`convert_matrix`

@@ -205,14 +205,21 @@ Milestones and session records are listed in the
     but that plot format is not among them.
 
 !!! requirement "FR-22 Per-boundary drag honesty <span class='srs-implemented'>implemented</span>"
-    *Origin: PP-5. Evidence: the v0.3 line; the required vorticity
-    selection with the physical cause in the refusal (SRC-003 p.202).*
+    *Origin: PP-5. Evidence: the v0.3 line, corrected by PLN-075 after
+    a re-reading of the manual page; the vorticity selection of
+    `solver_settings` with its two drag methods documented and
+    snapshotted (SRC-003 p.202).*
 
     Per-boundary drag bookkeeping respects the documented vorticity
-    CDi pitfall: boundaries without trailing-edge conditions report
-    zero induced drag. The API does not aggregate blindly, and the
-    vorticity selection is a mandatory, explicit input of the solver
-    settings.
+    CDi pitfall: a boundary without a user-defined trailing-edge
+    condition reports zero induced drag once it is assigned to the
+    vorticity CDi list. The API does not aggregate blindly, the
+    vorticity selection is an explicit input of the solver settings,
+    and leaving it unset is the documented solver default (surface
+    pressure integration on every boundary), recorded as such in the
+    solver-setup snapshot rather than refused. On a FlightStream
+    version where the selection command has no recorded evidence, the
+    snapshot states unknown instead of claiming the default.
 
 ## FSI
 

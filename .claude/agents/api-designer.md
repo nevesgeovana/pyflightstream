@@ -17,10 +17,15 @@ aerodynamics vocabulary, not in implementation vocabulary.
    sweep, polar, manifest, probe) consistently with the existing
    surface; implementation jargon leaking into a signature is a
    finding.
-2. Call ergonomics: required parameters are truly required (the
-   didactic-refusal precedent: `vorticity_drag_boundaries` is
-   mandatory because forgetting it silently zeroes induced drag);
-   defaults are evidence-backed, never guessed; boolean traps and
+2. Call ergonomics: required parameters are truly required, and no
+   more: a parameter is mandatory only where omitting it silently
+   changes the physics and the cited evidence says so. The cautionary
+   precedent is `vorticity_drag_boundaries`, made mandatory on a
+   misread of the manual, which made the documented solver default
+   inexpressible and shipped a refusal whose citation stated the
+   inverse of the page (PLN-075); a refusal must cite evidence that
+   actually says what the message claims. Defaults are
+   evidence-backed, never guessed; boolean traps and
    positional ambiguity are findings. New public signatures take
    keyword-only parameters after the primary positional argument
    (library-review adoption, 2026-07-23: positional debt is paid
