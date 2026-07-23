@@ -52,6 +52,7 @@ and .gitignore; a rename must touch all three.
 from __future__ import annotations
 
 import json
+import os
 import re
 import shlex
 import subprocess
@@ -63,10 +64,18 @@ ATTESTATION = ".claude/.role_review_attestation.json"
 # while any incident is open and blocking for this repository: a defect
 # is fixed at its structural cause before more work ships on top of it
 # (author's decision 2026-07-23, after three failures in one session).
-INCIDENT_CHECKER = Path(
-    r"C:\Users\geova\OneDrive\Education\ResearchHub\shared_incidents\check_incidents.py"
-)
-REPO_NAME = "pyflightstream"
+# The ledger lives outside the repository (it is shared with the sister
+# library and holds private session material), so its location is
+# machine configuration, never a literal in a committed file: this repo
+# is public, and a hard-coded personal path both publishes a local
+# layout and denies every push from any other clone. Set
+# PYFS_INCIDENT_LEDGER to the folder holding check_incidents.py. When it
+# is unset the incident gate does not apply, so a fork or a contributor
+# is unaffected; when it is set but unusable the gate blocks, because a
+# configured ledger that cannot be read must not read as "nothing is
+# wrong".
+LEDGER_ENV = "PYFS_INCIDENT_LEDGER"
+CHECKER_NAME = "check_incidents.py"
 # A version tag argument: v followed by a digit, then version-ish
 # characters (covers v0.3.0 and pre-releases like v0.3.0rc1, matching
 # the release workflow's `v*` publish trigger). Anchored to the whole
@@ -182,29 +191,42 @@ def _pushed_commits(root: Path, target: str) -> list[str]:
     return [c for c in listed.splitlines() if c]
 
 
-def _blocking_incidents() -> tuple[bool, str]:
-    """Ask the shared ledger whether an open incident blocks this repo.
+def _blocking_incidents(repo_name: str) -> tuple[bool, str, str]:
+    """Ask the configured ledger whether an open incident blocks this repo.
 
-    Returns ``(blocked, detail)``. A missing checker is NOT treated as
-    "nothing is wrong": the ledger is part of the protocol, so if it
-    cannot be consulted the gate says so and blocks, the same way it
-    fails closed everywhere else.
+    Returns ``(blocked, kind, detail)``. ``kind`` separates the failure
+    classes, because they have opposite remedies: ``"incident"`` means a
+    real open blocking incident, ``"unreachable"`` means the ledger is
+    configured but could not be consulted. When the ledger is not
+    configured at all the check does not apply and nothing blocks.
     """
-    if not INCIDENT_CHECKER.is_file():
-        return True, f"the incident checker is missing at {INCIDENT_CHECKER}"
+    configured = os.environ.get(LEDGER_ENV, "").strip()
+    if not configured:
+        return False, "", ""
+    checker = Path(configured)
+    if checker.is_dir():
+        checker = checker / CHECKER_NAME
+    if not checker.is_file():
+        return (
+            True,
+            "unreachable",
+            f"{LEDGER_ENV} points at {configured}, where {CHECKER_NAME} is not readable",
+        )
     try:
         done = subprocess.run(
-            [sys.executable, str(INCIDENT_CHECKER), REPO_NAME],
+            [sys.executable, str(checker), repo_name],
             capture_output=True,
             text=True,
             check=False,
-            timeout=20,
+            timeout=10,
         )
     except (OSError, ValueError, subprocess.SubprocessError) as error:
-        return True, f"the incident checker could not run ({type(error).__name__}: {error})"
+        return True, "unreachable", f"the checker could not run ({type(error).__name__}: {error})"
     if done.returncode == 0:
-        return False, ""
-    return True, (done.stdout.strip() or done.stderr.strip() or "checker reported a blocking state")
+        return False, "", ""
+    detail = done.stdout.strip() or done.stderr.strip() or "the checker reported a blocking state"
+    kind = "unreachable" if "UNREADABLE" in detail else "incident"
+    return True, kind, detail
 
 
 def _is_release_push(args_after_push: list[str], root: Path) -> tuple[bool, str | None]:
@@ -278,33 +300,55 @@ def main() -> None:
         # An open blocking incident stops every push, before the review
         # question is even asked: no new work ships on top of a defect
         # whose structural cause is still unfixed.
-        blocked, detail = _blocking_incidents()
+        # The repository identity comes from the checkout, not a literal,
+        # so the same file works unchanged in the sister repository.
+        repo_name = root.name
+        blocked, kind, detail = _blocking_incidents(repo_name)
+        if blocked and kind == "unreachable":
+            _decide(
+                "deny",
+                f"INCIDENT GATE: the incident ledger is configured but could not be consulted:\n"
+                f"{detail}\n"
+                f"Resync or repair it, or correct {LEDGER_ENV}, then push. The gate blocks rather "
+                "than assume nothing is wrong; if an incident file is named as unreadable, repair "
+                "its header block (id, status, blocking, repos, and blocking_reason when blocking "
+                "is false).",
+            )
         if blocked:
             _decide(
                 "deny",
-                "INCIDENT GATE: the shared incident ledger reports something that blocks a push "
-                f"from {REPO_NAME}:\n{detail}\n"
-                "Fix the incident at its structural cause, give it a guard and the evidence that "
-                "the guard blocks the original failure, and set its status to fixed in "
-                f"{INCIDENT_CHECKER.parent}. Marking it non-blocking to get past this gate is the "
-                "failure this protocol exists to prevent; if it genuinely cannot reach a user or "
-                "a repository, say so in blocking_reason and let the author decide.",
+                "INCIDENT GATE: the shared incident ledger has an open incident that blocks a "
+                f"push from {repo_name}:\n{detail}\n"
+                "Run the incident-analyst agent, fix the incident at its structural cause, give "
+                "it a guard and the evidence that the guard blocks the original failure when "
+                "re-run, and set its status to fixed. Marking it non-blocking to get past this "
+                "gate is the failure this protocol exists to prevent; if it genuinely cannot "
+                "reach a user or a repository, say so in blocking_reason and let the author "
+                "decide.",
             )
 
         # The attestation must cover EVERY commit the push makes new, not
         # just the tip: checking the tip alone let unpushed ancestors ship
         # unreviewed (PLN-082).
         pushed = _pushed_commits(root, target)
+        # The ref being pushed is ALWAYS in scope, even when it moves zero
+        # new commits. Set containment over an empty range is vacuously
+        # true, and the ordinary release order (push the branch, then push
+        # the tag) leaves the tagged commit already on the remote: checking
+        # only the range let an unattested tag publish to PyPI. A gate whose
+        # assertion can be discharged by having nothing to assert about is
+        # not a gate.
+        in_scope = list(dict.fromkeys([*pushed, target]))
         review = att.get("review") or {}
         covered = set(review.get("commits") or ([review["head"]] if review.get("head") else []))
-        missing = [c for c in pushed if c not in covered]
+        missing = [c for c in in_scope if c not in covered]
         if missing:
             listed = ", ".join(c[:12] for c in missing[:8])
             more = f" and {len(missing) - 8} more" if len(missing) > 8 else ""
             _decide(
                 "deny",
-                f"ROLE-REVIEW GATE: {len(missing)} of the {len(pushed)} commit(s) this push would "
-                f"make new are not covered by any role-review attestation: {listed}{more}. "
+                f"ROLE-REVIEW GATE: {len(missing)} of the {len(in_scope)} commit(s) in scope for "
+                f"this push are not covered by any role-review attestation: {listed}{more}. "
                 "Run the role-review skill (the specialist agents: architect, QA, V&V, tech "
                 "writer, API designer as applicable) over the WHOLE pushed range, not only the "
                 "tip, fix or register every finding, and let the skill write the attestation. Do "
@@ -317,13 +361,15 @@ def main() -> None:
             rel_covered = set(
                 release.get("commits") or ([release["head"]] if release.get("head") else [])
             )
-            rel_missing = [c for c in pushed if c not in rel_covered]
+            rel_missing = [c for c in in_scope if c not in rel_covered]
             if rel_missing:
                 _decide(
                     "deny",
                     "RELEASE GATE: this is a release-grade push (a version tag or --tags) but the "
-                    f"release attestation does not cover {len(rel_missing)} of the {len(pushed)} "
-                    "commit(s) being released. Run the release skill end to end (full-scope audit "
+                    f"release attestation does not cover {len(rel_missing)} of the "
+                    f"{len(in_scope)} commit(s) being released, including the tagged commit "
+                    "itself when the branch was pushed first. Run the release skill end to end "
+                    "(full-scope audit "
                     "plus the role-review sweep of every item), which writes the release "
                     "attestation over the whole range, before tagging or pushing the release.",
                 )
