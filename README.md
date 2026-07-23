@@ -2,15 +2,14 @@
 
 [![ci](https://github.com/nevesgeovana/pyflightstream/actions/workflows/ci.yml/badge.svg)](https://github.com/nevesgeovana/pyflightstream/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/pyflightstream)](https://pypi.org/project/pyflightstream/)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21482925.svg)](https://doi.org/10.5281/zenodo.21482925)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21482924.svg)](https://doi.org/10.5281/zenodo.21482924)
 
 Version-aware, didactic Python driver for the FlightStream panel-method
 solver. Successor of the author's legacy research scripts. MIT licensed.
 
-Status: v0.2.0 is public on [PyPI](https://pypi.org/project/pyflightstream/)
-with the archived release on Zenodo (DOI recorded in CITATION.cff).
-Development continues toward v0.3.0; CHANGELOG.md carries the release
-history.
+Status: v0.3.0 is public on [PyPI](https://pypi.org/project/pyflightstream/),
+archived on Zenodo (DOI recorded in CITATION.cff). CHANGELOG.md carries
+the release history.
 
 ```
 pip install pyflightstream

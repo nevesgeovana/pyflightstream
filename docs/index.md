@@ -3,7 +3,7 @@
 Version-aware, didactic Python driver for the FlightStream panel-method
 solver. MIT licensed.
 
-Status: v0.2.0 is public on PyPI; the changelog records what each
+Status: v0.3.0 is public on PyPI; the changelog records what each
 release adds. Four command-line tools ship with the package: `pyfs-qa`
 (probes, physics regression, drift), `pyfs-workspace` (campaign
 workspace init), `pyfs-matrix` (run-matrix convert and pre-flight),
@@ -56,11 +56,14 @@ The three QA tiers behind the statuses:
 * Tier 3 runs a physics regression matrix and a cross-version drift
   suite; reports live under `reports/physics/`.
 
+The [campaign from a run matrix](examples/campaign_matrix.md) example
+already walks the run-matrix to `campaign.toml` to pre-flight path
+end to end; the LaTeX user guide (`guide/`) covers the full workflow.
+
 ## Planned next
 
-* Getting started guide: install, license prerequisites, first steady
-  polar.
-* Campaign tutorial: the workspace input library, pre-flight, and
-  resumable sweeps.
-* Migrating run-matrix files to campaign.toml (the `pyfs-matrix` CLI
-  already converts and pre-flights them).
+* Getting started tutorial page: install, license prerequisites,
+  first steady polar (the material exists in the user guide; this is
+  the docs-site how-to page).
+* Campaign tutorial page: the workspace input library, pre-flight,
+  and resumable sweeps as a narrated docs-site walkthrough.

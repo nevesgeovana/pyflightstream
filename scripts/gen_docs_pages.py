@@ -13,6 +13,7 @@ import mkdocs_gen_files
 
 from pyflightstream.overview import markdown_overview
 from pyflightstream.reference import (
+    conventions_markdown,
     markdown_compatibility_matrix,
     markdown_reference_pages,
     percent_script_markdown,
@@ -36,6 +37,12 @@ with mkdocs_gen_files.open("architecture.md", "w") as page:
 
 with mkdocs_gen_files.open("compatibility.md", "w") as page:
     page.write(markdown_compatibility_matrix())
+
+# House conventions, from the same single source as pyflightstream.help()
+# (reference.conventions_markdown), so the site and the offline help can
+# never disagree.
+with mkdocs_gen_files.open("conventions.md", "w") as page:
+    page.write("# House conventions\n\n" + conventions_markdown())
 
 for script_name in EXAMPLES:
     source = (Path("examples") / script_name).read_text(encoding="utf-8")

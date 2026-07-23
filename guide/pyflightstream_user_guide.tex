@@ -289,7 +289,7 @@ v.canonical                # "26.120"
     \begin{tikzpicture}[node distance=3.2mm,
       lay/.style={draw=deepblue,thick,rounded corners,fill=softgray,minimum width=46mm,minimum height=7mm,align=center,font=\small}]
       \node[lay] (qa) {\textbf{post / qa}: physics matrix, drift, probes};
-      \node[lay,below=of qa] (run) {\textbf{run / files}: executor, campaign loop, workspace};
+      \node[lay,below=of qa] (run) {\textbf{run / workspace}: executor, campaign loop, workspace};
       \node[lay,below=of run] (cases) {\textbf{cases}: SIM model, sweeps, run matrix};
       \node[lay,below=of cases] (script) {\textbf{script / results}: builder, helpers, parsers};
       \node[lay,below=of script] (cmd) {\textbf{commands}: the evidence database};
@@ -308,7 +308,7 @@ v.canonical                # "26.120"
       \begin{itemize}
         \item one validated script (\code{script}),
         \item one executed run (\code{run} + \code{results}),
-        \item a whole campaign (\code{cases} + \code{files}).
+        \item a whole campaign (\code{cases} + \code{workspace}).
       \end{itemize}
       \item The \code{qa} layer is how the library trusts itself; you rarely call it, but you benefit from every report it commits.
     \end{itemize}
@@ -326,7 +326,7 @@ v.canonical                # "26.120"
     script & validating emission, phase order, layouts, helpers & \code{Script}, 16 curated helpers \\
     results & parsing solver output into typed reports & \code{parse\_loads}, \code{parse\_residual\_history} \\
     cases & what to run: SIM model, sweeps, recipes & \code{Campaign}, \code{SimCase}, \code{SweepAxis} \\
-    files & managed run workspace and manifest & \code{CampaignWorkspace}, \code{RunRecord} \\
+    workspace & managed run workspace and manifest & \code{CampaignWorkspace}, \code{RunRecord} \\
     run & how to run it: executor and campaign loop & \code{LocalExecutor}, \code{run\_campaign} \\
     qa & probes, physics matrix, drift, geometry & \code{pyfs-qa} CLI, \code{WingSpec} \\
     \bottomrule

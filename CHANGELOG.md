@@ -7,6 +7,22 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+* House conventions page on the docs site
+  (`reference.conventions_markdown`, the same source as the offline
+  `help()` conventions section), wired into the generator and nav.
+
+### Fixed
+
+* Post-release front-page currency: README and the docs home announce
+  v0.3.0 as public (they lagged at v0.2.0), the SRS roadmap moves the
+  v0.3.0 release to Delivered, the standards page moves the Sybil
+  executable-examples row to Adopted, the README DOI badge points at
+  the Zenodo concept DOI, the CHANGELOG gains its `[Unreleased]` and
+  `[0.3.0]` link references, and the user guide architecture labels
+  use `workspace` (not the deprecated `files`).
+
 ## [0.3.0] - 2026-07-23
 
 The v0.3.0 line: the usage-feedback workstreams (PLN-022) triaged from
@@ -446,5 +462,7 @@ the repository seeding and this tag (milestones M0 through M5).
 * 26.000: registered, no recorded evidence yet (honest empty column;
   backfill planned for v0.2+).
 
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.3.0
 [0.2.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.2.0
 [0.1.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.1.0

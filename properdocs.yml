@@ -57,6 +57,7 @@ nav:
       - Roadmap: srs/roadmap.md
   - Command reference: reference/
   - Compatibility matrix: compatibility.md
+  - House conventions: conventions.md
   - Mesh inputs and GUI-only operations: mesh-inputs.md
   - Sister library (ITACA): sister-itaca.md
   - Examples:

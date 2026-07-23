@@ -19,13 +19,13 @@ private session records carry the day-to-day detail.
 | M7 | Far-field extraction: probe lattices, planar grids with geometry gating, conservation ledgers, licensed round trip | started 2026-07-21, core delivered |
 | v0.2.0 | First public release: PyPI, Zenodo DOI, citation metadata | 2026-07-22 |
 | Usage-feedback line | FR-30 to FR-36: labels, provenance, tables, workspace input library, pre-flight and resume, matrix first-class, two-level help | 2026-07-22 |
+| v0.3.0 | Second public release: PyPI, Zenodo DOI, the usage-feedback line plus the options/exceptions/testing modules, the ProperDocs migration with a published docs site, role-based review, ITACA co-development (AD-07), and the licensed 26.1x evidence session | 2026-07-23 |
 
 ## Open lines
 
 | Line | Content | Gate |
 |---|---|---|
 | Licensed evidence queue | OBJ export group-name probe (FR-30 inspector), undocumented solver defaults (FR-31), physics reference re-validation under the new minimum-Cp default, mesh-refinement and solver-flag physics cases, FSI family sweep, broken-command re-probes, 26.100 backfill | Licensed machine sessions |
-| v0.3.0 release | Promote the Unreleased changelog; user guide refresh; metadata completeness | The author calls the release |
 | Post-processing completion | FR-20 (labeled result arrays, interpolation, trim extraction) and FR-21 (established plot-file writers) | Design session |
 | Process adoption backlog | VCS-derived versioning, executable doc examples, mechanical repo review, supply-chain posture, support-window declaration (see [standards](standards.md)) | The author's per-item decisions |
 | Integrations | The RPT-008 decision list: pyvista viz extra, documented external-tool bridges | The author's review |
