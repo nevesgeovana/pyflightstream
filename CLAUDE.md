@@ -55,6 +55,13 @@ move in the same session. Facts live in one home; version-bearing
 files agree (test-enforced). The periodic `audit` skill sweeps for
 drift; findings are updated or deleted, never left for later.
 
+Role passes (adopted 2026-07-23): before a work item closes, the
+`role-review` skill has run its applicable reviewer passes
+(architect, QA, V&V, tech writer, API designer; charters in
+`.claude/agents/`) on the item's diff, and every finding is fixed or
+registered in the plan. The author keeps the non-delegable seats:
+product owner, aerodynamics domain expert, numerical analyst.
+
 ## Layout
 
 src layout per the SAD. Dependencies flow downward:

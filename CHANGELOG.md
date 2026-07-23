@@ -91,6 +91,13 @@ the author's first outside-the-repo use of 0.2.0, delivered 2026-07-22.
 * Repository top level reduced to the public essentials: the
   author's session records left Git versioning (history preserved),
   and a `deprecated/` folder now groups discontinued public items.
+* Role-based review process: five reviewer charters in
+  `.claude/agents/` (architect, QA engineer, V&V engineer, technical
+  writer, API designer) and the `role-review` skill that runs the
+  applicable passes on a work item's diff before it closes, per the
+  team-role model adopted 2026-07-23; the definition of done cites
+  the passes, and the author keeps the non-delegable seats (product
+  owner, domain expert, numerical analyst).
 
 ## [0.2.0] - 2026-07-22
 
