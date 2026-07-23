@@ -15,9 +15,18 @@ ITACA repository mirrors the same structure with its own specifics.
 ## 1. Resolve the work item's diff
 
 `$ARGUMENTS` may be a git range (`main..HEAD`, `HEAD~2..`), `staged`,
-or `last-commit`. Default when empty: the uncommitted changes
-(staged plus unstaged) if any exist, else the last commit. Produce
-the file list and keep the item's intent in one sentence; the
+or `last-commit`.
+
+Default when empty: the uncommitted changes (staged plus unstaged)
+PLUS every commit not yet on a remote, that is
+`git rev-list HEAD --not --remotes` together with the working tree.
+That default is not a convenience. The push gate requires the
+attestation to cover every commit the push makes new, so reviewing only
+the tip leaves the earlier commits unreviewed and the push blocked.
+Reviewing `last-commit` while three commits sit unpushed is the exact
+mistake PLN-082 records.
+
+Produce the file list and keep the item's intent in one sentence; the
 reviewers receive both and read the repository themselves.
 
 ## 2. Decide the applicable passes

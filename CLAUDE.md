@@ -79,6 +79,26 @@ skill's closing step and lives in
 made after attesting re-arms the gate: an unreviewed commit never
 ships.
 
+Structural-fix rule and the shared incident ledger (adopted
+2026-07-23, after three failures hit one private file in a single
+session and two of them had been silent for many sessions): unlike the
+research environment, where a workaround is acceptable, a defect in
+these two libraries is fixed at its STRUCTURAL cause on its FIRST
+occurrence, in the session where it appears. Every problem and its fix
+is recorded in the incident ledger shared with ITACA (protocol and
+format in its README; one file per incident, id from a timestamp,
+because two of the founding failures were caused by concurrent writes
+to a shared table with a central counter). An incident is only `fixed`
+when it carries a `guard`, the mechanism that makes recurrence
+impossible, AND `guard_evidence`, proof the guard blocks the original
+failure when re-run. A symptom fix, an untested guard, or documentation
+offered as a guard leaves it open. The `incident-analyst` agent
+(`.claude/agents/`) owns this analysis; the five review charters all
+look at a change about to land, not at a failure that happened. The
+push gate reads the ledger and denies a push while an open incident
+blocks this repository, and the same gate requires the role-review
+attestation to cover EVERY commit the push makes new, not just the tip.
+
 PyPI publishing is trusted publishing only (OIDC), never a manual
 token upload: a pushed `vX.Y.Z` tag triggers
 `.github/workflows/release.yml`, which builds and publishes from the
