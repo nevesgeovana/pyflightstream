@@ -29,7 +29,27 @@ class UnknownVersionError(ValueError):
     any entry of the ordered list in ``commands/_meta.yaml``. The message
     lists every known version so the caller can correct the input or
     register the new version first.
+
+    Attributes
+    ----------
+    version : str or None
+        The identifier that failed to resolve, when the refusal came
+        from a lookup (``None`` for a malformed canonical identifier).
+    known : tuple of str
+        Canonical identifiers of every registered version, in release
+        order, so callers can react without parsing the message.
     """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        version: str | None = None,
+        known: tuple[str, ...] = (),
+    ) -> None:
+        super().__init__(message)
+        self.version = version
+        self.known = known
 
 
 @dataclass(frozen=True)
@@ -187,5 +207,7 @@ def resolve(version: str | FsVersion) -> FsVersion:
         f"FlightStream version {version!r} is not registered. Known versions, "
         f"in release order: {known}. Canonical identifiers use the 26.XXX "
         "three-digit scheme; register new versions in commands/_meta.yaml, "
-        "which is the only ordering authority."
+        "which is the only ordering authority.",
+        version=version,
+        known=tuple(v.canonical for v in known_versions()),
     )

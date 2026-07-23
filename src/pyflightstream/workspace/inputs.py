@@ -53,7 +53,31 @@ class InputArtifactError(RuntimeError):
     model, or when a geometry or profile id matches more than one
     staged file. Input mistakes must surface at resolution time, before
     any solver run consumes the artifact.
+
+    Attributes
+    ----------
+    kind : str or None
+        Artifact kind of the failed resolution (``"reference"``,
+        ``"setup"``, ...), when the refusal is a miss.
+    artifact_id : str or None
+        The id that failed to resolve, when the refusal is a miss.
+    available : tuple of str
+        Ids that would have resolved for the kind, so callers can
+        offer choices without parsing the message.
     """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        kind: str | None = None,
+        artifact_id: str | None = None,
+        available: tuple[str, ...] = (),
+    ) -> None:
+        super().__init__(message)
+        self.kind = kind
+        self.artifact_id = artifact_id
+        self.available = available
 
 
 class PointXyz(BaseModel):
@@ -220,12 +244,21 @@ def _check_id(artifact_id: str, kind: str) -> None:
         raise InputArtifactError(
             f"{kind} id {artifact_id!r} is not a valid artifact id: ids are file "
             "name stems (letters, digits, dot, underscore, hyphen). The id selects "
-            "a file inside the library; it is never a path."
+            "a file inside the library; it is never a path.",
+            kind=kind,
+            artifact_id=artifact_id,
         )
 
 
-def _miss(kind: str, artifact_id: str, directory: Path, suffix: str | None = ".toml") -> str:
-    """Compose the didactic not-found message listing what exists."""
+def _miss(
+    kind: str, artifact_id: str, directory: Path, suffix: str | None = ".toml"
+) -> InputArtifactError:
+    """Build the didactic not-found refusal listing what exists.
+
+    Returns the exception (structured: kind, artifact_id, available)
+    instead of a bare message, so every miss site raises with the same
+    attributes.
+    """
     ids = available_ids(directory, suffix)
     if ids:
         listing = f"available {kind} ids: {', '.join(ids)}"
@@ -235,7 +268,12 @@ def _miss(kind: str, artifact_id: str, directory: Path, suffix: str | None = ".t
             "(create it with CampaignWorkspace.init or pyfs-workspace init, then "
             "add the artifact file)"
         )
-    return f"no {kind} artifact with id {artifact_id!r}; {listing}"
+    return InputArtifactError(
+        f"no {kind} artifact with id {artifact_id!r}; {listing}",
+        kind=kind,
+        artifact_id=artifact_id,
+        available=tuple(ids),
+    )
 
 
 def _load_toml(path: Path, kind: str) -> dict[str, Any]:
@@ -285,7 +323,7 @@ def resolve_reference(inputs_dir: Path, artifact_id: str) -> ReferenceArtifact:
     directory = Path(inputs_dir) / "references"
     path = directory / f"{artifact_id}.toml"
     if not path.is_file():
-        raise InputArtifactError(_miss("reference", artifact_id, directory))
+        raise _miss("reference", artifact_id, directory)
     data = _load_toml(path, "reference")
     return _validate(ReferenceArtifact, data, path, "reference")
 
@@ -318,7 +356,7 @@ def resolve_setup(inputs_dir: Path, artifact_id: str) -> SetupArtifact:
     directory = Path(inputs_dir) / "setups"
     path = directory / f"{artifact_id}.toml"
     if not path.is_file():
-        raise InputArtifactError(_miss("setup", artifact_id, directory))
+        raise _miss("setup", artifact_id, directory)
     data = _load_toml(path, "setup")
     return _validate(SetupArtifact, {"settings": data}, path, "setup")
 
@@ -348,7 +386,7 @@ def resolve_group(inputs_dir: Path, artifact_id: str) -> GroupsArtifact:
     directory = Path(inputs_dir) / "groups"
     path = directory / f"{artifact_id}.toml"
     if not path.is_file():
-        raise InputArtifactError(_miss("group", artifact_id, directory))
+        raise _miss("group", artifact_id, directory)
     data = _load_toml(path, "group")
     return _validate(GroupsArtifact, {"groups": data}, path, "group")
 
@@ -363,7 +401,7 @@ def _resolve_file(inputs_dir: Path, kind: str, subdir: str, artifact_id: str) ->
         if path.is_file() and path.stem == artifact_id
     )
     if not matches:
-        raise InputArtifactError(_miss(kind, artifact_id, directory, suffix=None))
+        raise _miss(kind, artifact_id, directory, suffix=None)
     if len(matches) > 1:
         names = ", ".join(path.name for path in matches)
         raise InputArtifactError(
