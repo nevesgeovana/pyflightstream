@@ -64,7 +64,10 @@ Deprecation messages naming v0.3.0 refer to this release.
   name the option, the value, and the accepted form). First
   registered knobs: `qa.scratch_root`, `qa.probe_timeout_s`,
   `qa.case_timeout_s`; the `pyfs-qa` CLI scratch and timeout defaults
-  now read from them.
+  now read from them. `get_option`, `set_option`, `reset_option`,
+  `describe_option`, and `option_context` are re-exported at the
+  package top level (pandas-style access); path options accept
+  `pathlib.Path`.
 * The public import surface is now affirmed by test (scipy
   `_public_api` model): `tests/test_public_api.py` declares every
   public module; a new module must join the list consciously or carry
@@ -123,6 +126,13 @@ Deprecation messages naming v0.3.0 refer to this release.
   (previously `legacy_*`; campaign files converted earlier keep their
   old keys and stay loadable, test-pinned). `read_matrix` makes
   `active_only` keyword-only, matching the rest of the module.
+* Behavior-selecting arguments are keyword-only where the naming
+  conventions already claim it (breaking, inside the unreleased v0.3
+  window): `help(version, *, path, open_browser)`,
+  `overview(*, path, open_browser)`, `run_campaign(campaign,
+  executor, workspace, *, assess, recipes, resume)`, and
+  `register_option(key, *, default, doc, validator)`. Positional
+  calls to these selectors now raise `TypeError`.
 * The motivation narrative (README, docs home, SRS introduction, user
   guide) now frames version drift as the natural counterpart of an
   actively developed solver whose team is responsive and consolidates
@@ -163,6 +173,10 @@ Deprecation messages naming v0.3.0 refer to this release.
   staleness audit: README rewritten to the released state, docs home
   updated, all three examples rendered on the site, CONTRIBUTING
   setup corrected.
+* `pyflightstream.exceptions` now imports on a base install without
+  the `[fsi]` extra: `StaleLoadsError` moved to `pyflightstream.fsi.state`
+  (still re-exported by `fsi.driver`) so the catalog no longer pulls
+  PyNite through the FSI modules on import.
 
 ### Evidence (licensed 26.1x session, 2026-07-23)
 
@@ -184,6 +198,13 @@ Deprecation messages naming v0.3.0 refer to this release.
 
 ### Added (documentation and process)
 
+* Executable documentation examples in CI (Sybil): the docstring
+  doctests and the python code blocks in the root README and `docs/`
+  run as a CI step with warnings promoted to errors, so a stale
+  example fails the build; `sybil` joins the `[dev]` extra. Three
+  path-scoped Sybils leave the default `pytest` run untouched;
+  CONTRIBUTING documents the local command. The README quickstart and
+  the four example blocks execute green on 3.11 and 3.12.
 * Mesh inputs and GUI-only operations policy page in the docs
   (PLN-028): the supported GUI-once-then-script workflow when a step
   has no scripting command, the two canonical mesh input routes
