@@ -96,8 +96,7 @@ offered as a guard leaves it open. The `incident-analyst` agent
 (`.claude/agents/`) owns this analysis; the five review charters all
 look at a change about to land, not at a failure that happened. The
 push gate reads the ledger and denies a push while an open incident
-blocks this repository, and the same gate requires the role-review
-attestation to cover EVERY commit the push makes new, not just the tip.
+blocks this repository.
 
 PyPI publishing is trusted publishing only (OIDC), never a manual
 token upload: a pushed `vX.Y.Z` tag triggers

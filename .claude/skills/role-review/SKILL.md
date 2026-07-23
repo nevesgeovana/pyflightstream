@@ -85,9 +85,14 @@ committed (the attestation must name the commit that will be pushed):
 python .claude/hooks/write_attestation.py review architect,qa,vv,tech-writer,api-designer
 ```
 
-Pass the passes you actually ran (comma-separated). The script stamps
-the current HEAD into `.claude/.role_review_attestation.json` (local,
+Pass the passes you actually ran (comma-separated). The script stamps HEAD and every commit not yet on a remote into `.claude/.role_review_attestation.json` (local,
 gitignored). If you commit anything more after this, the gate blocks
 again until you re-review and re-attest the new HEAD: an unreviewed
 commit never ships. Never write the attestation without running the
 agents; that defeats the seat that catches your own blind spots.
+
+The attestation is necessary, not sufficient: the same gate denies any
+push while the shared incident ledger has an open blocking incident for
+this repository. If it does, run the `incident-analyst` agent, fix the
+incident at its structural cause with a guard and guard evidence, and
+set its status to fixed before pushing.

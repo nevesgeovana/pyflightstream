@@ -7,14 +7,16 @@ Usage:
 
 <passes> is a comma-separated list of the reviewer passes that actually
 ran (architect,qa,vv,tech-writer,api-designer). The attestation stamps
-the current HEAD; the git-push gate (role_review_gate.py) allows the
-push only while the stamped head equals the commit being pushed.
+HEAD together with every commit not yet on a remote, which is the range
+the next push would make new; the git-push gate (role_review_gate.py)
+allows the push only while that list covers every commit in scope,
+including the ref being pushed.
 
 Run this ONLY after the specialist agents have actually run and their
 findings are fixed or registered. Stamping without running the agents
 defeats the protocol this file exists to enforce. The ``passes`` field
 is an audit annotation, not an enforced gate input: the gate checks
-only that an attestation covers the pushed commit, so the honesty of
+only that an attestation covers the pushed range, so the honesty of
 the passes list rests on the operator, not the mechanism.
 
 The record's timestamp is the HEAD commit's committer date

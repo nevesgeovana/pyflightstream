@@ -29,9 +29,13 @@ FlightStream versions.
   environment on a `v*` tag, so no API token is stored in the
   repository (mirrors the ITACA release workflow). Development process:
   a mandatory role-review push/release gate now blocks a `git push`
-  until the specialist reviewer agents have run and attested the
-  pushed commit (`.claude/` hooks and skills; internal tooling, not a
-  package surface).
+  until the specialist reviewer agents have run and attested every
+  commit the push would make new, plus the ref being pushed, and denies
+  any push while the incident ledger shared with ITACA has an open
+  blocking incident for this repository; a new `incident-analyst`
+  charter owns the structural-cause analysis, and `tests/test_push_gate.py`
+  pins the gate's decisions (`.claude/` hooks, agents and skills;
+  internal tooling, not a package surface).
 
 ### Fixed
 
