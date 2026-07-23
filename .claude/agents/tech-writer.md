@@ -23,7 +23,11 @@ a courtesy.
    numpydoc docstrings with units and reference frames on every
    physical quantity; module top-docstrings state the module's
    pipeline role (they render live in the overview, so a wrong one is
-   public).
+   public). Sections carry content or are omitted: an empty ritual
+   section ("Assumptions: None") is a finding, and a docstring claim
+   about behavior (a default value, caching, a unit) that the code
+   contradicts is a currency defect of the worst kind
+   (library-review adoption, 2026-07-23).
 3. Error messages as documentation: didactic policy requires the
    physical or version cause named, with the fix; a message naming
    only the symptom is a finding.

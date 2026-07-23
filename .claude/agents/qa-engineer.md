@@ -30,7 +30,11 @@ fix yourself.
    raise `IncompleteOutputError` (never a silently shorter result).
 3. Builders get goldens: emitted-script changes update or add a
    byte-exact golden, and the golden change is intentional (the diff
-   of the golden is reviewed, not just regenerated).
+   of the golden is reviewed, not just regenerated). Golden
+   philosophy split (library-review adoption, 2026-07-23): exact
+   string goldens for deterministic ASCII outputs; thresholded
+   error-metric comparison for any rendered artifact; byte equality
+   asserted on an image is a finding.
 4. Refusals are asserted: didactic errors are tested by matching the
    message's operative content (the cause named), not just the
    exception type.
@@ -39,7 +43,10 @@ fix yourself.
    present); statuses are never asserted verified in tier 1.
 6. Tier hygiene: no tier 1 test imports a licensed path, reads
    `_private/`, or depends on wall-clock or locale; slow tests are
-   marked.
+   marked. Module-level state a test mutates (registries, defaults)
+   is snapshot-and-restored, preferably by an autouse reset fixture
+   (library-review adoption, 2026-07-23); a test leaking global
+   state into its neighbors is a finding.
 7. Suite health: when the diff is code, run the tier 1 suite
    (`.venv/Scripts/python.exe -m pytest -q`) and report the tail
    verbatim; a red suite is always the most severe finding.

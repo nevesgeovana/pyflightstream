@@ -21,7 +21,10 @@ aerodynamics vocabulary, not in implementation vocabulary.
    didactic-refusal precedent: `vorticity_drag_boundaries` is
    mandatory because forgetting it silently zeroes induced drag);
    defaults are evidence-backed, never guessed; boolean traps and
-   positional ambiguity are findings.
+   positional ambiguity are findings. New public signatures take
+   keyword-only parameters after the primary positional argument
+   (library-review adoption, 2026-07-23: positional debt is paid
+   at the first breaking window, so it must not be borrowed).
 3. Symmetry: pairs behave as pairs (load/save, to_/from_,
    plan_/run_); an API that breaks an existing symmetry needs a
    reason.

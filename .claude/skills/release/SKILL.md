@@ -18,6 +18,10 @@ then move on. References for the practices: docs/srs/standards.md.
    release notes as a known gap.
 4. Run the `audit` skill (full scope) and close or plan every finding.
    A release never ships over an unread audit.
+5. Deprecation deadline: no shim survives past its recorded removal
+   version (check the shims by hand until the tier 1 deadline-guard
+   test lands), and every version string inside a shim's warning
+   matches the version being released.
 
 ## Pause point 2: version, everywhere at once
 
@@ -37,7 +41,11 @@ The version-bearing files move together, in one commit:
 Rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD`, then recreate
 an empty `## [Unreleased]` section above it (the currency test
 requires it to exist). Release notes for the tag derive from this
-entry: human-readable, not a commit log.
+entry: human-readable, not a commit log. The entry names its
+API-surface delta explicitly (library-review adoption, 2026-07-23):
+new public names, incompatible changes, and deprecations each get a
+line or an explicit "none", so a reader can judge upgrade risk from
+the changelog alone.
 
 ## Pause point 4: build and tag
 

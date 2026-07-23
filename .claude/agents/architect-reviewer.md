@@ -47,7 +47,10 @@ failure mode).
    and the right home (runtime, extra, or dev).
 5. Deprecations: renamed or moved public names keep a shim for one
    minor release with a DeprecationWarning, per the files-to-workspace
-   precedent.
+   precedent; the deprecation records its removal version so expiry
+   is enforceable (library-review adoption, 2026-07-23: the support
+   window is policy, not per-call improvisation), and a shim past
+   its recorded horizon is a finding.
 6. Cross-layer data: values crossing layers travel as declared types
    (models, dataclasses, typed dicts already in the code), not as
    ad-hoc dicts.

@@ -94,6 +94,20 @@ for structural improvement opportunities in what already shipped:
 5. Test-shape: new public APIs since the last audit with no direct
    test file, fixtures grown stale relative to the current solver
    output format.
+6. Code-smell greps (library-review adoption, 2026-07-23; each smell
+   was found shipped in a reviewed library): mutable default
+   arguments (`= {}` / `= []`) on public signatures; bare `except:`;
+   environment or data-file probes not anchored on `__file__` (test:
+   import the package from a foreign working directory); module-level
+   state mutated inside a function without a `global` declaration;
+   save/restore or cleanup paths with no test asserting the restore.
+7. Public-surface inventory as data: diff the exported-name list
+   (each subpackage `__all__` plus the top-level exports) against the
+   previous audit's report; an export that appeared or vanished
+   without a changelog line is a finding. Documentation-drift is a
+   real failure class, not a formality: reviewed libraries shipped
+   docstring-versus-code default mismatches and stale version claims;
+   that is the concrete rationale behind pause point 2.
 
 ## Closing
 
