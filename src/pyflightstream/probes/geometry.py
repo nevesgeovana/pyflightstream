@@ -93,7 +93,9 @@ def load_surface_mesh(path: str | Path, *, require_watertight: bool = True):
         undefined.
     """
     trimesh = _trimesh()
-    mesh = trimesh.load(str(path), force="mesh")
+    # load_mesh is the typed loader; the load(force="mesh") form is the
+    # deprecated content-dependent compatibility wrapper.
+    mesh = trimesh.load_mesh(str(path))
     if require_watertight and not mesh.is_watertight:
         raise OpenMeshError(
             f"the surface mesh {path} is not watertight, so inside/outside is "
