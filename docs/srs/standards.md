@@ -30,11 +30,11 @@ adopted, with the reason recorded so the evaluation is not repeated.
 | Practice | Reference | Gate |
 |---|---|---|
 | VCS-derived version (single authority = the Git tag) | [setuptools-scm](https://setuptools-scm.readthedocs.io/en/latest/) / [hatch-vcs](https://github.com/ofek/hatch-vcs) | Build-backend change; the author decides the vehicle |
-| Executable documentation examples in CI | [Sybil](https://sybil.readthedocs.io/en/latest/), [pytest doctest](https://docs.pytest.org/en/stable/how-to/doctest.html) | Wiring session plus docstring example sweep |
+| Executable documentation examples in CI | [Sybil](https://sybil.readthedocs.io/en/latest/) (chosen by the author 2026-07-23 over plain pytest doctest: docs markdown examples are tested too) | Wiring session plus docstring example sweep |
 | Normative repo checks | [pyOpenSci packaging guide](https://www.pyopensci.org/python-package-guide/), [Scientific Python Development Guide](https://learn.scientific-python.org/development/), [sp-repo-review](https://github.com/scientific-python/repo-review) | The audit skill runs the checklist manually today; the mechanical runner is backlog |
 | Supply-chain posture | [OpenSSF Best Practices](https://www.bestpractices.dev/en/criteria/0), [Scorecard](https://github.com/ossf/scorecard), [SPEC 8](https://scientific-python.org/specs/spec-0008/), [PyPI Trusted Publishers](https://docs.pypi.org/trusted-publishers/) | CI and publishing changes; solo-maintainer subset only (code-review and branch-protection checks are accepted misses, documented) |
 | Support-window policy | [SPEC 0](https://scientific-python.org/specs/spec-0000/) | Declare the Python and dependency support windows against the published schedule |
-| pyproject metadata completeness | [PyPA pyproject guide](https://packaging.python.org/en/latest/guides/writing-pyproject-toml/) | Classifiers and well-known URLs at the next release |
+| pyproject metadata completeness | [PyPA pyproject guide](https://packaging.python.org/en/latest/guides/writing-pyproject-toml/) | Classifiers and well-known URLs landed 2026-07-23 (audit); remaining: the SPDX license expression, deferred with the build-backend item |
 | pyOpenSci peer-review self-audit | [EiC checklist](https://www.pyopensci.org/software-peer-review/how-to/editor-in-chief-guide.html) | Run as self-audit; includes the generative-AI-use disclosure item, relevant to this project's AI-assisted sessions |
 
 ## Considered, not adopted

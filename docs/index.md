@@ -41,6 +41,9 @@ added, never dropped.
 * [Mesh inputs and GUI-only operations](mesh-inputs.md): the supported
   workflow when a step exists in the GUI but has no scripting command,
   the canonical mesh input routes, and the mesh format policy.
+* [Sister library (ITACA)](sister-itaca.md): the co-development model,
+  the division of labor, and the cross-requirement convention shared
+  with the ITACA analysis library.
 
 ## Evidence discipline
 
