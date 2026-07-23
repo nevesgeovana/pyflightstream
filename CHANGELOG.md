@@ -67,6 +67,24 @@ the author's first outside-the-repo use of 0.2.0, delivered 2026-07-22.
 * `__version__` now derives from the installed metadata (the
   published 0.2.0 wheel answered `0.0.1.dev0`), and the package
   docstring no longer describes the M0 skeleton.
+* The public documentation caught up with the code after a full
+  staleness audit: README rewritten to the released state, docs home
+  updated, all three examples rendered on the site, CONTRIBUTING
+  setup corrected.
+
+### Added (documentation and process)
+
+* The Software Requirements Specification is published as a living
+  document in the docs (`docs/srs/`): founding requirements with
+  implementation statuses, the usage-feedback requirements, explicit
+  non-requirements, architectural rules, standards alignment with
+  verified references, and the roadmap.
+* Documentation-currency policy (SRS NFR-11) with Tier 1 guards:
+  version-bearing metadata files must agree, the changelog always
+  carries its Unreleased section, SRS requirement ids never repeat.
+* Repository top level reduced to the public essentials: the
+  author's session records left Git versioning (history preserved),
+  and a `deprecated/` folder now groups discontinued public items.
 
 ## [0.2.0] - 2026-07-22
 
