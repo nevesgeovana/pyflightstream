@@ -7,8 +7,10 @@ FlightStream versions.
 
 ## [Unreleased]
 
-The usage-feedback line (PLN-022): the seven workstreams triaged from
-the author's first outside-the-repo use of 0.2.0, delivered 2026-07-22.
+The v0.3.0 line: the usage-feedback workstreams (PLN-022) triaged from
+the author's first outside-the-repo use of 0.2.0, delivered 2026-07-22,
+plus the protocol and library-review adoptions of the ultraplan week.
+Deprecation messages naming v0.3.0 refer to this release.
 
 ### Added
 
@@ -78,6 +80,23 @@ the author's first outside-the-repo use of 0.2.0, delivered 2026-07-22.
   ids listing), and the run-matrix reader (verified codes and layout).
   A refactor that keeps the exception type but drops the explanation
   now fails the suite.
+* `pyflightstream.exceptions`: single public catalog of all 25
+  exception and warning classes (pandas errors model); completeness
+  is test-asserted mechanically, so a new exception class must join
+  the catalog in its defining commit. Structured refusals:
+  `UnknownVersionError` now carries `version` and `known`,
+  `InputArtifactError` carries `kind`, `artifact_id`, and
+  `available`, so callers react without parsing messages.
+* `pyflightstream.testing`: public assertions with quantified
+  violation reports under the golden philosophy split;
+  `assert_records_close` (count, violating keys, worst offender) and
+  `assert_scripts_equal` (first differing line, total differing
+  count, exact by policy).
+* House conventions get a single home: `reference.CONVENTIONS`
+  (naming, unit suffixes, keyword-only selectors, refusal style)
+  rendered by `pyflightstream.help()` with a tier 1 adherence audit
+  (`tests/test_conventions.py`) sweeping the code against the
+  mechanical rules.
 * Test-isolation hygiene: an autouse fixture snapshots every
   module-level registry and cached mutable default (physics and SMI
   cases, probe specs, derived flag map, sweep codes, entity nouns,
