@@ -50,7 +50,12 @@ dev = [
     # Executable examples in CI: docstring doctests and markdown code
     # blocks (INB-006 item 1e, decision Q-007). Config in conftest.py.
     "sybil",
-    "ruff",
+    # Pinned to the pre-commit hook version (.pre-commit-config.yaml,
+    # ruff-pre-commit v0.15.22) so CI, the local hook, and developer
+    # machines format identically. Ruff changes formatting between
+    # releases by design, so an unpinned dev install drifts from the
+    # hook; bump both together (PLN-024).
+    "ruff==0.15.22",
     "pre-commit",
     # Docs build tool (license evidence: reports/RPT-009). The material
     # theme and the nav plugins keep their mkdocs package names and
@@ -93,6 +98,16 @@ addopts = "-m 'not needs_flightstream'"
 line-length = 100
 target-version = "py311"
 src = ["src"]
+# Markdown is out of ruff's scope: committed .md files (the root
+# README.md, the docs pages, and the illustrative developer READMEs under
+# src/ such as fsi/README.md) are prose plus code samples, not .py sources
+# the formatter should reformat. Ruff gained experimental Markdown
+# formatting in a later release, so an unpinned CI install reformats the
+# python fences inside those files and fails `ruff format --check`;
+# excluding *.md keeps the formatter's authority to .py files regardless of
+# the installed ruff version. (Which markdown code blocks are executed is
+# Sybil's job, configured in conftest.py, and is independent of ruff.)
+extend-exclude = ["*.md"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "N", "D"]

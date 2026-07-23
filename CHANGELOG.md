@@ -24,6 +24,15 @@ FlightStream versions.
 
 ### Fixed
 
+* CI lint stage restored to green: the `ruff` dev dependency is pinned
+  to `0.15.22` (matching the pre-commit hook) and Markdown files are
+  excluded from ruff via `extend-exclude`. An unpinned ruff had begun
+  reformatting the Python code samples inside `fsi/README.md` (an
+  illustrative developer README, not a `.py` source the formatter
+  owns), failing `ruff format --check`. The pin restores the known-good
+  formatter and keeps CI, the hook, and developer machines identical;
+  the `*.md` exclude makes the formatter's scope version-independent for
+  any later ruff (PLN-024).
 * Role-review gate before lane D caught residual user-guide staleness
   the v0.3.0 refresh missed: the Tier 2 pitfalls slide still listed
   `NEW_SURFACE_SECTION_DISTRIBUTION` as broken (it was promoted to
