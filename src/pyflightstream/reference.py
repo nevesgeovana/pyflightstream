@@ -47,6 +47,107 @@ code { font-family: ui-monospace, monospace; }
 
 
 # ---------------------------------------------------------------------------
+# House conventions (PLN-032): single home, rendered by both layers.
+# ---------------------------------------------------------------------------
+
+#: The naming and nomenclature conventions of the package, one
+#: (title, text) pair per rule. This tuple is the single home of the
+#: conventions: ``help()`` renders it as a section, the docs page is
+#: generated from :func:`conventions_markdown`, and the tier 1
+#: adherence audit (``tests/test_conventions.py``) enforces the
+#: mechanical rules against the code.
+CONVENTIONS: tuple[tuple[str, str], ...] = (
+    (
+        "Units ride the names",
+        "Every physical quantity carries its SI unit as a name suffix: "
+        "area_m2, chord_m, pitch_deg, timeout_s, mass_per_length_kg_per_m; "
+        "sectional line densities end in _per_m. A number without a unit "
+        "suffix is dimensionless by declaration (mach, ratio, fraction, "
+        "relaxation), never an unstated unit.",
+    ),
+    (
+        "Reference frames are explicit",
+        "Positions and axes name their frame: artifact points live in the "
+        "simulation geometry frame, planar probe grids prescribe an "
+        "explicit origin-plus-axes FrameDefinition, and the cylindrical "
+        "probe lattice pins the z-up convention by test. No quantity "
+        "changes frame silently.",
+    ),
+    (
+        "Two name registers, never mixed",
+        "FlightStream native commands keep the manual's exact UPPER_SNAKE "
+        "spelling (SET_AOA, START_SOLVER) and are emitted, cited, and "
+        "stored verbatim; everything the library itself owns (functions, "
+        "parameters, artifact kinds) is lowercase snake_case English.",
+    ),
+    (
+        "Versions use the canonical scheme",
+        "FlightStream versions are canonical 26.XXX identifiers with "
+        "exactly three fractional digits (26.120), the vendor display "
+        "name is an alias (26.12), and ordering comes only from the "
+        "registered list position, never from parsing the identifier.",
+    ),
+    (
+        "Indices state their base",
+        "Boundary, frame, and other solver entity indices are 1-based, "
+        "following the FlightStream convention, and every entity-citing "
+        "argument also accepts a declared label; Python-side sequences "
+        "stay 0-based. Docstrings state the base wherever an index "
+        "crosses the boundary between the two worlds.",
+    ),
+    (
+        "Ids are stems, not paths",
+        "Workspace input artifacts are selected by id, and an id is the "
+        "file name stem inside the library (letters, digits, dot, "
+        "underscore, hyphen); it is never a path, and naming templates "
+        "are output-only (the manifest stays the identity authority).",
+    ),
+    (
+        "Refusals teach",
+        "Error messages name the physical or version cause and the "
+        "remedy, main refusal wordings are pinned by test, and every "
+        "exception class is importable from pyflightstream.exceptions; "
+        "structured refusals carry their facts as attributes.",
+    ),
+    (
+        "Options are declared knobs",
+        "Machine and QA tuning goes through the exact-key options "
+        "registry (pyflightstream.options); anything that changes a "
+        "physical result belongs in the case definition or workspace, "
+        "recorded by the manifest, never in an option.",
+    ),
+    (
+        "Behavior selectors are keyword-only",
+        "Arguments that select behavior (active_only, resume, "
+        "open_browser) are keyword-only, so call sites read as prose "
+        "and new parameters never break positional calls.",
+    ),
+)
+
+
+def conventions_markdown() -> str:
+    """Render the house conventions as a markdown section.
+
+    Returns
+    -------
+    str
+        One heading plus one titled paragraph per convention; the docs
+        build consumes this so the site and ``help()`` can never
+        disagree (single home, NFR-11).
+    """
+    blocks = [f"### {title}\n\n{text}" for title, text in CONVENTIONS]
+    return "## Naming conventions\n\n" + "\n\n".join(blocks) + "\n"
+
+
+def _conventions_html() -> str:
+    """Render the conventions section of the HTML reference."""
+    blocks = "\n".join(
+        f"<h3>{html.escape(title)}</h3>\n<p>{html.escape(text)}</p>" for title, text in CONVENTIONS
+    )
+    return "<h2>Naming conventions</h2>\n" + blocks
+
+
+# ---------------------------------------------------------------------------
 # Shared extraction helpers (both rendering layers sit on these).
 # ---------------------------------------------------------------------------
 
@@ -388,6 +489,7 @@ def render_html(version: str | FsVersion | None = None) -> str:
         f"<title>pyflightstream command reference</title><style>{_STYLE}</style></head>"
         "<body>\n<h1>pyflightstream command reference</h1>\n"
         f'<p class="meta">{html.escape(_database_meta_sentence(entry_count, scope))}</p>\n'
+        f"{_conventions_html()}\n"
         f"{_coverage_html()}\n"
         f"{body}\n</body></html>\n"
     )

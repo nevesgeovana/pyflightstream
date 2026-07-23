@@ -101,7 +101,13 @@ for structural improvement opportunities in what already shipped:
    import the package from a foreign working directory); module-level
    state mutated inside a function without a `global` declaration;
    save/restore or cleanup paths with no test asserting the restore.
-7. Public-surface inventory as data: diff the exported-name list
+7. Conventions adherence (PLN-032): read the house conventions in
+   `pyflightstream.reference.CONVENTIONS` (their single home) and
+   sweep new code against them; the mechanical unit-suffix rule is
+   enforced by tests/test_conventions.py, whose dimensionless/debt
+   whitelist is itself audit material (a class (b) debt entry that
+   could now be renamed through a deprecation cycle is a finding).
+8. Public-surface inventory as data: diff the exported-name list
    (each subpackage `__all__` plus the top-level exports) against the
    previous audit's report; an export that appeared or vanished
    without a changelog line is a finding. Documentation-drift is a
