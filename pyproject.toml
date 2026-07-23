@@ -36,6 +36,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# matplotlib is PSF/BSD-style, MIT-compatible (NFR-02); it backs the
+# plotting examples only, no core code imports it.
 plot = ["matplotlib"]
 # Geometry gate of the probe planner: containment culling and
 # distance-to-surface queries (license evidence reports/RPT-003).

@@ -148,7 +148,10 @@ for point in plan.points:
 # ## 5. Running it (licensed)
 #
 # On a licensed machine the same campaign runs with
-# `run_campaign(campaign, LocalExecutor(fs_exe), workspace)`, and
-# `resume=True` skips points already in the manifest, so a sweep can
-# grow point by point across sessions. The pre-flight above is the
+# `run_campaign(campaign, LocalExecutor(fs_exe), workspace,
+# assess=LoadsAssessor("loads.txt"))`. The assessor is required: the
+# loop refuses to invent convergence evidence, so you name how each
+# point is judged. `resume=True` skips points already in the manifest,
+# so a sweep can grow point by point across sessions. The pre-flight
+# above is the
 # zero-cost rehearsal of exactly that run.

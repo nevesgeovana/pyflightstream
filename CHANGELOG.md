@@ -15,6 +15,17 @@ FlightStream versions.
 
 ### Fixed
 
+* Role-review gate before lane D caught residual user-guide staleness
+  the v0.3.0 refresh missed: the Tier 2 pitfalls slide still listed
+  `NEW_SURFACE_SECTION_DISTRIBUTION` as broken (it was promoted to
+  verified in the licensed session), the install slide said "not yet
+  on PyPI", the runtime-dependency list omitted xarray, and `post`
+  and `fsi` were called reserved seams though both shipped; all
+  corrected. The `NEW_SURFACE_SECTION_DISTRIBUTION` database note
+  dropped its pending-re-probe language now that the re-probe decided,
+  the `campaign_matrix` example's licensed `run_campaign` call names
+  the required `assess`, and the `[plot]` extra records its
+  matplotlib license note.
 * Post-release front-page currency: README and the docs home announce
   v0.3.0 as public (they lagged at v0.2.0), the SRS roadmap moves the
   v0.3.0 release to Delivered, the standards page moves the Sybil

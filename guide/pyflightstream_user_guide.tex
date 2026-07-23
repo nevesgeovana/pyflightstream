@@ -135,8 +135,8 @@
 
 \begin{frame}[fragile]{Installation and requirements}
   \begin{itemize}
-    \item Python 3.11 or newer. Runtime dependencies: numpy, pandas, pydantic, pyyaml.
-    \item Install from the repository (not yet on PyPI; planned for the public release):
+    \item Python 3.11 or newer. Runtime dependencies: numpy, pandas, pydantic, pyyaml, xarray.
+    \item Install from PyPI (\code{pip install pyflightstream}); contributors use the editable clone below:
   \end{itemize}
 \begin{lstlisting}[style=txt]
 git clone https://github.com/nevesgeovana/pyflightstream.git
@@ -333,7 +333,7 @@ v.canonical                # "26.120"
   \end{tabular}
   \vspace{2mm}
   \begin{itemize}
-    \item \code{post} (labeled result arrays) and \code{fsi} (fluid structure seam) are reserved seams for the next milestones.
+    \item \code{post} (flow-visualization writers) and \code{fsi} (the aeroelastic coupling seam, behind the \code{[fsi]} extra) are delivered subpackages.
   \end{itemize}
 \end{frame}
 
@@ -966,7 +966,7 @@ samples = parse_residual_history(log_text)
     \column{0.55\textwidth}
     \begin{itemize}
       \item The docs site renders every command against every registered version; the same data backs \code{pyflightstream.help()}.
-      \item Current evidence: 26.120 fully covered (65 {\color{statusblue}verified}, 74 {\color{statusgreen}documented}, 3 {\color{statusred}broken}, 2 removed); 26.100 partially backfilled (37 documented); 26.000 registered, honestly empty.
+      \item Current evidence: 26.120 fully covered (65 {\color{statusblue}verified}, 74 {\color{statusgreen}documented}, 3 {\color{statusred}broken}, 2 removed); 26.100 partially backfilled (37 documented, 1 removed); 26.000 registered, honestly empty.
     \end{itemize}
     \column{0.43\textwidth}
     \begin{block}{When the builder refuses your version}
@@ -1003,12 +1003,11 @@ samples = parse_residual_history(log_text)
     AIR\_ALTITUDE ignores its units argument and applies feet & set the fluid state through FLUID\_PROPERTIES \\
     SET\_MOTION\_START\_TIME aborts the script & converge the base flow another way; await re-probe \\
     NEW\_OFF\_BODY\_STREAMLINE aborts the script & use probe lattices for off-body data \\
-    NEW\_SURFACE\_SECTION\_ DISTRIBUTION aborts the script & use the section export family instead \\
     \bottomrule
   \end{tabular}
   \vspace{2mm}
   \begin{itemize}
-    \item All four carry {\color{statusred}\textbf{broken}} status in the database with the committed report cited; the builder still emits them (they are grammatically valid), but the matrix and the reference warn you.
+    \item All three carry {\color{statusred}\textbf{broken}} status in the database with the committed report cited; the builder still emits them (they are grammatically valid), but the matrix and the reference warn you. (NEW\_SURFACE\_SECTION\_DISTRIBUTION was in this list until the 2026-07-23 licensed re-probe promoted it to {\color{statusblue}\textbf{verified}} on the corrected phase and grammar.)
   \end{itemize}
 \end{frame}
 
