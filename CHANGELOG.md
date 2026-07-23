@@ -61,6 +61,12 @@ the author's first outside-the-repo use of 0.2.0, delivered 2026-07-22.
   DeprecationWarning for one minor release), and the
   `analysis_setup(vorticity_drag_boundaries=...)` path is deprecated
   toward `solver_settings`.
+* The motivation narrative (README, docs home, SRS introduction, user
+  guide) now frames version drift as the natural counterpart of an
+  actively developed solver whose team is responsive and consolidates
+  user requests through intermediate hotfix builds into stable
+  releases, instead of reading as criticism of the changelog; the
+  documented facts and citations are unchanged.
 
 ### Fixed
 

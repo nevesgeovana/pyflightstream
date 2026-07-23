@@ -17,9 +17,12 @@ failure structurally impossible.
 
 ### The version-drift problem
 
-FlightStream changes its ASCII scripting commands between versions
-with incomplete changelogs. Documented examples from the v26.12 manual
-(SRC-003):
+FlightStream is under active development, and its team is notably
+responsive: user requests land quickly, often first in intermediate
+hotfix builds that consolidate into stable releases. The natural
+counterpart of that pace is an ASCII scripting command set that
+evolves between versions faster than any single document can track.
+Documented examples from the v26.12 manual (SRC-003):
 
 - `SONIC_VELOCITY` is no longer supported (SRC-003 p.328).
 - The `CP` export variable is deprecated in favor of `CP_REFERENCE`
@@ -27,9 +30,10 @@ with incomplete changelogs. Documented examples from the v26.12 manual
 - A slipstream wake stabilization script variable present in earlier
   versions is missing in v26.1.
 
-The predecessor toolchain handled these breaks by commenting commands
+The predecessor toolchain handled these changes by commenting commands
 in and out per version; nothing recorded which command works in which
-version. This recurring pain is the primary design driver.
+version. That gap, on the toolchain side rather than the solver side,
+is the primary design driver.
 
 ### The ecosystem gap
 

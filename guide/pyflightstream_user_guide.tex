@@ -111,13 +111,13 @@
     \column{0.55\textwidth}
     \begin{itemize}
       \item FlightStream is scripted through ASCII command files: one command grammar per line, executed top to bottom (SRC-003 p.279).
-      \item The command set changes between solver versions, and the changelog is incomplete.
-      \item Failures are often silent: a missing script file exits with code 0 and produces nothing; a wrong argument may be ignored.
+      \item The solver moves fast, with intermediate hotfix builds consolidating user requests into stable releases; the command set evolves from version to version with it.
+      \item In script mode, failures can be quiet: a missing script file exits with code 0 and produces nothing; an invalid argument may be ignored.
       \item Research campaigns need hundreds of runs across solver versions, with reproducible provenance.
     \end{itemize}
     \column{0.43\textwidth}
     \begin{alertblock}{The failure mode}
-      You upgrade the solver, your old script still "runs", and three weeks later you discover half the outputs were built with a command the new version quietly ignores.
+      You upgrade the solver, your old script still "runs", and three weeks later you discover half the outputs were built with a command that no longer applies in the new version.
     \end{alertblock}
   \end{columns}
 \end{frame}

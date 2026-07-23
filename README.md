@@ -18,11 +18,16 @@ Optional extras: `[fsi]` (aeroelastic coupling, PyNiteFEA), `[geom]`
 
 ## Why this package
 
-FlightStream is scripted through an ASCII command file whose commands
-change between solver versions, and not every change reaches the
-changelog. This package makes the FlightStream version an explicit
-input: every command it emits is validated against a per-version
-command database, and old versions are only ever added, never dropped.
+FlightStream is scripted through an ASCII command file, and the solver
+is under active development: the FlightStream team is responsive to
+user requests and works with intermediate hotfix builds that
+consolidate into stable releases. A fast-moving solver naturally means
+a scripting command set that evolves from version to version, faster
+than any single document can track. This package makes the
+FlightStream version an explicit input: every command it emits is
+validated against a per-version command database, and old versions are
+only ever added, never dropped, so campaigns stay reproducible across
+that evolution.
 
 Every database entry carries a manual page citation, and its status per
 version (documented, verified, broken) can only be promoted by citing a

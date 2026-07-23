@@ -280,8 +280,9 @@ case over half a revolution; full evidence in
 * The implemented scripting interface is the Aeroelastic Coupling
   Toolbox family (SRC-003 pp.375-376; `aeroelastic_coupling.yaml` in
   the command database). The `SET_MOTION_FSI` pair of the motion
-  chapter is rejected as unrecognized by the build: stale manual
-  section, tracked as candidate broken (PLN-019).
+  chapter is rejected as unrecognized by the build; the manual section
+  appears to predate the current interface, tracked as candidate
+  broken (PLN-019).
 * The executable is called bare, no arguments, once per time step,
   with its working directory equal to
   `SET_AEROELASTIC_WORKING_DIRECTORY`; its console output lands in
