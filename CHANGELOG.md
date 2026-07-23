@@ -178,6 +178,11 @@ Deprecation messages naming v0.3.0 refer to this release.
 * Documentation-currency policy (SRS NFR-11) with Tier 1 guards:
   version-bearing metadata files must agree, the changelog always
   carries its Unreleased section, SRS requirement ids never repeat.
+* README opens with status badges and a runnable quickstart snippet
+  (validated build plus the didactic version refusal), and its
+  feature list caught up with the cycle (options registry, exceptions
+  catalog, testing assertions); live counts now stay with the
+  generated compatibility matrix instead of hardcoded prose.
 * Published package metadata completed per the PyPA well-known
   guidance (audit 2026-07-23): trove classifiers (beta status,
   science audience, Python versions, physics topic) and the

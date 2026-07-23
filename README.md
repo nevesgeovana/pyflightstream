@@ -1,16 +1,42 @@
 # pyflightstream
 
+[![ci](https://github.com/nevesgeovana/pyflightstream/actions/workflows/ci.yml/badge.svg)](https://github.com/nevesgeovana/pyflightstream/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/pyflightstream)](https://pypi.org/project/pyflightstream/)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21482925.svg)](https://doi.org/10.5281/zenodo.21482925)
+
 Version-aware, didactic Python driver for the FlightStream panel-method
 solver. Successor of the author's legacy research scripts. MIT licensed.
 
 Status: v0.2.0 is public on [PyPI](https://pypi.org/project/pyflightstream/)
-with the archived release on Zenodo (DOI 10.5281/zenodo.21482925; see
-CITATION.cff). Development continues toward v0.3.0; CHANGELOG.md carries
-the release history.
+with the archived release on Zenodo (DOI recorded in CITATION.cff).
+Development continues toward v0.3.0; CHANGELOG.md carries the release
+history.
 
 ```
 pip install pyflightstream
 ```
+
+A first taste, no solver required (build time is where errors surface):
+
+```python
+from pyflightstream.commands import CommandNotInVersionError
+from pyflightstream.script import Script
+
+script = Script(version="26.12")  # the FlightStream version is explicit input
+script.emit("NEW_SIMULATION")
+script.emit("IMPORT", "METER", "STL", "wing.stl", clear=True)
+script.emit("SOLVER_SET_AOA", 4.0)
+script.emit("START_SOLVER")
+print(script.render())  # validated ASCII script, ready for the solver
+
+try:
+    Script(version="26.0").emit("SOLVER_SET_AOA", 4.0)
+except CommandNotInVersionError as error:
+    print(error)  # refused: no recorded evidence for that version
+```
+
+The worked examples in `examples/` take it from here to executed
+polars, campaigns, and coupled aeroelastic runs.
 
 Optional extras: `[fsi]` (aeroelastic coupling, PyNiteFEA), `[geom]`
 (probe-survey geometry gating, trimesh/rtree/scipy), `[plot]`
@@ -36,9 +62,10 @@ honest gaps are reported as such.
 
 ## What ships
 
-- Command database: 144 commands with per-version evidence and manual
-  citations, browsable offline via `pyflightstream.help()` (including a
-  manual-coverage section) and as a generated docs site.
+- Command database with per-version evidence and a manual citation on
+  every entry, browsable offline via `pyflightstream.help()` (including
+  a manual-coverage section) and as a generated docs site; the
+  compatibility matrix carries the live counts.
 - Validating script builder with curated helpers: phase ordering,
   didactic refusals at build time, entity labels (recipes can name
   frames, actuators, motions, and boundaries instead of raw indices),
@@ -59,6 +86,11 @@ honest gaps are reported as such.
   subpackage (structural beam, coupled driver, replay harness).
 - Architecture overview from the live module docstrings via
   `pyflightstream.overview()`.
+- Predictable surfaces: a declared-options registry
+  (`pyflightstream.options`), one public exception catalog
+  (`pyflightstream.exceptions`), test assertions with quantified
+  reports (`pyflightstream.testing`), and the house conventions
+  rendered by `help()`.
 
 ## Command-line tools
 
