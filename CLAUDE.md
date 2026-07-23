@@ -47,6 +47,14 @@ public functions have numpydoc docstrings; the docs build; and the
 change needing solver evidence has its probe report committed or an
 issue tracking the pending probe.
 
+Documentation currency (SRS NFR-11, adopted 2026-07-22): a change to
+the public surface (API, CLIs, extras, behavior, deprecations) is done
+only when CHANGELOG.md's Unreleased section describes it and the
+public pages it invalidates (README, docs, SRS requirement statuses)
+move in the same session. Facts live in one home; version-bearing
+files agree (test-enforced). The periodic `audit` skill sweeps for
+drift; findings are updated or deleted, never left for later.
+
 ## Layout
 
 src layout per the SAD. Dependencies flow downward:

@@ -33,6 +33,20 @@ Under two pages. Then append the session row to `logbook.csv`, update
 STATUS.md (milestone table, current focus, open questions), and commit
 everything together.
 
+Public-surface pause point (DO-CONFIRM, before the closing commit;
+NFR-11 of the SRS): if the session changed anything user-visible
+(public API, CLIs, extras, behavior, deprecations), confirm that
+
+1. `CHANGELOG.md` Unreleased describes the change;
+2. the affected public pages moved with it (README claims, docs
+   pages, the gen_docs_pages EXAMPLES list when examples changed);
+3. new or amended requirements landed in `docs/srs/` with status and
+   evidence.
+
+A session that cannot complete an item records it as a plan.csv item
+in the same close; silent deferral is the failure mode this pause
+point exists to prevent.
+
 ## `in <file>`
 
 Read the given file (typically a capture from a web session). Then:
