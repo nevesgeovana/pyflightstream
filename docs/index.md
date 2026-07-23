@@ -21,6 +21,9 @@ added, never dropped.
 
 ## The documentation
 
+* [Software Requirements Specification](srs/index.md): the living SRS,
+  from the founding requirements to the usage-feedback line, each with
+  origin, status, and evidence.
 * [Architecture overview](architecture.md): the layered pipeline and one
   section per subpackage, generated at every docs build from the live
   module docstrings. `pyflightstream.overview()` renders the same page

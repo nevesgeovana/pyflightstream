@@ -9,3 +9,63 @@
 [data-md-color-scheme="slate"] .status-removed { color: #e08a8a; }
 [data-md-color-scheme="slate"] .status-verified { color: #7ab3e0; }
 [data-md-color-scheme="slate"] .status-broken { color: #e08a8a; font-weight: bold; }
+
+/* SRS requirement boxes: custom admonition types mirroring the author's
+   SRS template (requirement, non-requirement, decision). Usage:
+   !!! requirement "FR-01 (implemented)" */
+.md-typeset .admonition.requirement,
+.md-typeset details.requirement {
+  border-color: #c8681e;
+}
+.md-typeset .requirement > .admonition-title,
+.md-typeset .requirement > summary {
+  background-color: rgba(200, 104, 30, 0.08);
+}
+.md-typeset .requirement > .admonition-title::before,
+.md-typeset .requirement > summary::before {
+  background-color: #c8681e;
+  -webkit-mask-image: var(--md-admonition-icon--note);
+          mask-image: var(--md-admonition-icon--note);
+}
+
+.md-typeset .admonition.nonrequirement,
+.md-typeset details.nonrequirement {
+  border-color: #a02323;
+}
+.md-typeset .nonrequirement > .admonition-title,
+.md-typeset .nonrequirement > summary {
+  background-color: rgba(160, 35, 35, 0.08);
+}
+.md-typeset .nonrequirement > .admonition-title::before,
+.md-typeset .nonrequirement > summary::before {
+  background-color: #a02323;
+  -webkit-mask-image: var(--md-admonition-icon--note);
+          mask-image: var(--md-admonition-icon--note);
+}
+
+.md-typeset .admonition.decision,
+.md-typeset details.decision {
+  border-color: #b3841f;
+}
+.md-typeset .decision > .admonition-title,
+.md-typeset .decision > summary {
+  background-color: rgba(179, 132, 31, 0.10);
+}
+.md-typeset .decision > .admonition-title::before,
+.md-typeset .decision > summary::before {
+  background-color: #b3841f;
+  -webkit-mask-image: var(--md-admonition-icon--note);
+          mask-image: var(--md-admonition-icon--note);
+}
+
+/* Requirement status tags */
+.srs-implemented { color: #1a6e2f; font-variant: small-caps; font-weight: bold; }
+.srs-pending { color: #6b7280; font-variant: small-caps; font-weight: bold; }
+.srs-draft { color: #c8681e; font-variant: small-caps; font-weight: bold; }
+.srs-deferred { color: #14508a; font-variant: small-caps; font-weight: bold; }
+.srs-deprecated { color: #a33030; font-variant: small-caps; font-weight: bold; }
+[data-md-color-scheme="slate"] .srs-implemented { color: #5fbf7a; }
+[data-md-color-scheme="slate"] .srs-pending { color: #9ca3af; }
+[data-md-color-scheme="slate"] .srs-draft { color: #e0a06a; }
+[data-md-color-scheme="slate"] .srs-deferred { color: #7ab3e0; }
+[data-md-color-scheme="slate"] .srs-deprecated { color: #e08a8a; }

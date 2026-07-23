@@ -41,6 +41,17 @@ extra_css:
 nav:
   - Home: index.md
   - Architecture: architecture.md
+  - SRS:
+      - srs/index.md
+      - Introduction: srs/introduction.md
+      - Philosophy: srs/philosophy.md
+      - Scope: srs/scope.md
+      - Data and evidence model: srs/data-model.md
+      - Architecture: srs/architecture-srs.md
+      - Functional requirements: srs/functional-requirements.md
+      - Non-functional requirements: srs/nonfunctional-requirements.md
+      - Standards alignment: srs/standards.md
+      - Roadmap: srs/roadmap.md
   - Command reference: reference/
   - Compatibility matrix: compatibility.md
   - Examples:
