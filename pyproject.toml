@@ -10,6 +10,20 @@ readme = "README.md"
 license = {text = "MIT"}
 authors = [{name = "Geovana Neves"}]
 requires-python = ">=3.11"
+# PyPA well-known metadata (audit 2026-07-23). The SPDX license
+# expression form is deferred with the VCS-versioning item: it needs a
+# setuptools floor bump, and the build toolchain does not move in a
+# release week (PLN-024).
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Physics",
+]
 # xarray confirmed as a runtime dependency by the author's far-field
 # extraction instruction of 2026-07-21 (PLN-006 closed): the farfield
 # ledgers live on labeled (station, r, psi) arrays.
@@ -51,6 +65,8 @@ pyfs-matrix = "pyflightstream.cases.cli:main"
 
 [project.urls]
 Repository = "https://github.com/nevesgeovana/pyflightstream"
+Changelog = "https://github.com/nevesgeovana/pyflightstream/blob/main/CHANGELOG.md"
+Issues = "https://github.com/nevesgeovana/pyflightstream/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]

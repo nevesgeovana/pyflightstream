@@ -178,6 +178,10 @@ Deprecation messages naming v0.3.0 refer to this release.
 * Documentation-currency policy (SRS NFR-11) with Tier 1 guards:
   version-bearing metadata files must agree, the changelog always
   carries its Unreleased section, SRS requirement ids never repeat.
+* Published package metadata completed per the PyPA well-known
+  guidance (audit 2026-07-23): trove classifiers (beta status,
+  science audience, Python versions, physics topic) and the
+  Changelog and Issues project URLs join the Repository link.
 * Repository top level reduced to the public essentials: the
   author's session records left Git versioning (history preserved),
   and a `deprecated/` folder now groups discontinued public items.
