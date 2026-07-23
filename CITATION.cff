@@ -9,6 +9,10 @@ license: MIT
 version: 0.2.0
 date-released: 2026-07-22
 repository-code: "https://github.com/nevesgeovana/pyflightstream"
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.21482925
+    description: "Zenodo archive of release v0.2.0"
 abstract: >-
   Version-aware Python driver for the FlightStream panel-method
   solver: a command database with per-version evidence statuses backed
