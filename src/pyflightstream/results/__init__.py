@@ -19,6 +19,13 @@ precise discriminator.
 
 Number forms follow the solver's printing: ``.000`` (no leading
 zero), ``4380000.`` (trailing point), and ``1.000E-05`` all parse.
+
+On top of the parsers, a pandas tabular layer turns the parsed
+results into DataFrames: :func:`to_dataframe`/:func:`to_csv` for each
+parser, :func:`parse_run_loads` for one run's coefficients, and
+:func:`run_frame`/:func:`sweep_frame` for one run or a whole sweep
+read from the manifest (the manifest, an execution-layer artifact, is
+imported lazily so the layer rule is not violated at module load).
 """
 
 from __future__ import annotations
