@@ -72,7 +72,7 @@
 \title[pyflightstream User Guide]{pyflightstream User Guide}
 \subtitle{A version-aware, didactic Python driver for the FlightStream solver}
 \author[G. Neves]{Geovana Neves}
-\institute[]{pyflightstream 0.1.0, MIT licensed}
+\institute[]{pyflightstream 0.3.0, MIT licensed}
 \date{July 2026}
 
 \AtBeginSection[]{
@@ -93,7 +93,7 @@
   \small
   \begin{description}
     \item[Part I] Why the library exists, how to install it, and the mental model: versions, the evidence-backed command database, and the layered architecture.
-    \item[Part II] Hands on: your first validated script in ten minutes, and the tour of the fourteen curated helpers.
+    \item[Part II] Hands on: your first validated script in ten minutes, and the tour of the sixteen curated helpers.
     \item[Part III] The recipes: a literal step by step for every supported simulation type, from a single steady point to batch campaigns.
     \item[Part IV] Reading results, living with versions, the real solver pitfalls (all evidence backed), and where the quality assurance confidence comes from.
   \end{description}
@@ -202,7 +202,7 @@ v.canonical                # "26.120"
   \begin{columns}[T]
     \column{0.52\textwidth}
     \begin{itemize}
-      \item 116 commands, one YAML file per manual chapter, loaded and validated at import.
+      \item 144 commands, one YAML file per manual chapter, loaded and validated at import.
       \item Every entry carries: layout grammar, emission phase, typed arguments, a manual page citation, and per-version evidence.
       \item Statuses are never hand edited: promotions happen only through committed probe reports.
     \end{itemize}
@@ -263,7 +263,7 @@ v.canonical                # "26.120"
   \end{tabular}
   \vspace{3mm}
   \begin{itemize}
-    \item Tier 2 asks: does this command do what the manual says, on this build? 64 commands verified and 4 found broken on 26.120.
+    \item Tier 2 asks: does this command do what the manual says, on this build? 65 commands verified and 3 found broken on 26.120.
     \item Tier 3 asks: does the physics still hold? A synthetic wing polar is anchored to finite-wing theory; a cross-version drift suite compares solver builds on identical inputs.
   \end{itemize}
 \end{frame}
@@ -323,7 +323,7 @@ v.canonical                # "26.120"
     \midrule
     versions & canonical identifiers, ordering, aliases & \code{FsVersion}, \code{resolve}, \code{known\_versions} \\
     commands & per-version grammar and evidence & \code{CommandRegistry}, \code{CommandEntry} \\
-    script & validating emission, phase order, layouts, helpers & \code{Script}, 14 curated helpers \\
+    script & validating emission, phase order, layouts, helpers & \code{Script}, 16 curated helpers \\
     results & parsing solver output into typed reports & \code{parse\_loads}, \code{parse\_residual\_history} \\
     cases & what to run: SIM model, sweeps, recipes & \code{Campaign}, \code{SimCase}, \code{SweepAxis} \\
     files & managed run workspace and manifest & \code{CampaignWorkspace}, \code{RunRecord} \\
@@ -451,7 +451,7 @@ if not result.failed:
 \section{The Curated Helpers}
 % =====================================================================
 
-\begin{frame}{Why helpers, and why only fourteen}
+\begin{frame}{Why helpers, and why only sixteen}
   \begin{columns}[T]
     \column{0.55\textwidth}
     \begin{itemize}
@@ -461,8 +461,8 @@ if not result.failed:
     \end{itemize}
     \column{0.43\textwidth}
     \small
-    \begin{block}{The fourteen}
-      free\_stream, atmosphere, solver\_settings, initialize\_solver, sweep, analysis\_setup, export\_results, probe\_points, probe\_line, probes\_from\_file, export\_probes, actuator\_disc, rotary\_motion, unsteady\_solver
+    \begin{block}{The sixteen}
+      free\_stream, atmosphere, solver\_settings, initialize\_solver, start\_solver, coordinate\_frame, sweep, analysis\_setup, export\_results, probe\_points, probe\_line, probes\_from\_file, export\_probes, actuator\_disc, rotary\_motion, unsteady\_solver
     \end{block}
   \end{columns}
 \end{frame}
@@ -858,7 +858,7 @@ def steady_point(case: SimCase, script: Script) -> None:
 \begin{frame}[fragile]{Recipe 7: campaigns (3/3), run with provenance}
 \begin{lstlisting}
 from pyflightstream.cases import load_campaign
-from pyflightstream.files import CampaignWorkspace
+from pyflightstream.workspace import CampaignWorkspace
 from pyflightstream.run import LocalExecutor, run_campaign
 from pyflightstream.results import LoadsAssessor
 
@@ -966,7 +966,7 @@ samples = parse_residual_history(log_text)
     \column{0.55\textwidth}
     \begin{itemize}
       \item The docs site renders every command against every registered version; the same data backs \code{pyflightstream.help()}.
-      \item Current evidence (v0.1.0): 26.120 fully covered (64 {\color{statusblue}verified}, 47 {\color{statusgreen}documented}, 4 {\color{statusred}broken}, 1 removed); 26.100 partially backfilled (28 documented); 26.000 registered, honestly empty.
+      \item Current evidence: 26.120 fully covered (65 {\color{statusblue}verified}, 74 {\color{statusgreen}documented}, 3 {\color{statusred}broken}, 2 removed); 26.100 partially backfilled (37 documented); 26.000 registered, honestly empty.
     \end{itemize}
     \column{0.43\textwidth}
     \begin{block}{When the builder refuses your version}
@@ -1095,17 +1095,22 @@ samples = parse_residual_history(log_text)
   \end{columns}
 \end{frame}
 
-\begin{frame}[fragile]{Cheat sheet: the QA command line}
+\begin{frame}[fragile]{Cheat sheet: the four command-line tools}
 \begin{lstlisting}[style=txt]
 pyfs-qa probe            --version ... --fs-exe ...   # Tier 2 probes
 pyfs-qa apply-compat     REPORT.yaml                  # promote statuses
 pyfs-qa physics          --version ... --fs-exe ...   # Tier 3 matrix
 pyfs-qa drift            --fs-exe 26.100=A.exe --fs-exe 26.120=B.exe
+pyfs-qa cases                                         # print Tier 3 matrix
 pyfs-qa update-reference --case ... --reason "..."    # guarded write
+pyfs-workspace init      DIR                          # scaffold a workspace
+pyfs-matrix convert      matrix.fs -o campaign.toml   # run matrix to campaign
+pyfs-fsi                 (aeroelastic coupling executable)
 \end{lstlisting}
   \begin{itemize}
-    \item All of these require a licensed machine and write dated report pairs (markdown plus YAML) under \code{reports/}.
-    \item You only need them when contributing evidence; as a user, you consume their committed results through the matrix.
+    \item The \code{pyfs-qa} tools (and \code{pyfs-fsi}) require a licensed machine and write dated report pairs (markdown plus YAML) under \code{reports/}; \code{pyfs-qa cases} runs nothing.
+    \item \code{pyfs-workspace} and \code{pyfs-matrix} run anywhere: they scaffold the workspace tree and turn a run matrix into a campaign.
+    \item As a user you consume the licensed results through the matrix; you only run the licensed tools when contributing evidence.
   \end{itemize}
 \end{frame}
 

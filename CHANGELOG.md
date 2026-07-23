@@ -205,6 +205,12 @@ Deprecation messages naming v0.3.0 refer to this release.
   path-scoped Sybils leave the default `pytest` run untouched;
   CONTRIBUTING documents the local command. The README quickstart and
   the four example blocks execute green on 3.11 and 3.12.
+* The user guide (`guide/`) is refreshed to the v0.3 surface
+  (PLN-030): version 0.3.0, sixteen curated helpers (with
+  `start_solver` and `coordinate_frame`), 144 commands, the current
+  26.120 evidence counts, the `workspace` import path, and a
+  four-tool command-line cheat sheet (`pyfs-qa` including `cases`,
+  `pyfs-workspace`, `pyfs-matrix`, `pyfs-fsi`).
 * Mesh inputs and GUI-only operations policy page in the docs
   (PLN-028): the supported GUI-once-then-script workflow when a step
   has no scripting command, the two canonical mesh input routes
