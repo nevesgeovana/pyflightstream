@@ -47,6 +47,44 @@ the author's first outside-the-repo use of 0.2.0, delivered 2026-07-22.
 * `pyfs-qa cases`: the Tier 3 physics registry printed as a numbered
   test matrix.
 * Command schema: optional evidence-cited default metadata.
+* Deprecation ledger (`pyflightstream._deprecations`): every shim's
+  removal promise recorded as a concrete version, with a Tier 1
+  deadline guard that fails the suite when a shim survives past its
+  recorded removal version or its warning stops citing it. Both live
+  shims (`files`, `cases.matrix_legacy`) are registered with removal
+  at v0.4.0, and their warnings now state that exact version instead
+  of "a future minor release".
+* `pyflightstream.options`: the declared-knob registry in the pandas
+  `register_option` model (D1 adoption), with per-key validators,
+  `option_context`, and `describe_option`. Keys are exact by design
+  (never pattern-matched) and refusals follow the openmdao message
+  contract (unknown keys list every registered key; rejected values
+  name the option, the value, and the accepted form). First
+  registered knobs: `qa.scratch_root`, `qa.probe_timeout_s`,
+  `qa.case_timeout_s`; the `pyfs-qa` CLI scratch and timeout defaults
+  now read from them.
+* The public import surface is now affirmed by test (scipy
+  `_public_api` model): `tests/test_public_api.py` declares every
+  public module; a new module must join the list consciously or carry
+  a leading underscore, deprecated modules are documented by the
+  ledger alone, and every public module must import cleanly (or
+  refuse with the install remedy) and carry its pipeline docstring.
+  Lazy loading deliberately not adopted (D3 resolution).
+* Tier 1 wording pins for the main didactic refusals
+  (`tests/test_error_messages.py`, xarray pattern): versions,
+  `solver_settings` (mandatory vorticity selection with the
+  zero-induced-drag cause, mode regime, unsteady time stepping),
+  workspace input library (id model, empty-library remedy, available
+  ids listing), and the run-matrix reader (verified codes and layout).
+  A refactor that keeps the exception type but drops the explanation
+  now fails the suite.
+* Test-isolation hygiene: an autouse fixture snapshots every
+  module-level registry and cached mutable default (physics and SMI
+  cases, probe specs, derived flag map, sweep codes, entity nouns,
+  the cached command database and manual-edition map) before each
+  test and restores it after, so a mutating test cannot leak state;
+  the inventory lives in one place in `tests/conftest.py` and the
+  mechanism is itself tested.
 
 ### Changed
 
@@ -82,12 +120,14 @@ the author's first outside-the-repo use of 0.2.0, delivered 2026-07-22.
 ### Deprecated
 
 * `pyflightstream.files`, in favor of `pyflightstream.workspace`: the
-  shim re-exports everything with a DeprecationWarning for one minor
-  release. The `analysis_setup(vorticity_drag_boundaries=...)` path
-  is deprecated toward `solver_settings`.
+  shim re-exports everything with a DeprecationWarning until its
+  recorded removal at v0.4.0 (deprecation ledger, deadline-guarded).
+  The `analysis_setup(vorticity_drag_boundaries=...)` path is
+  deprecated toward `solver_settings`.
 * `pyflightstream.cases.matrix_legacy`, in favor of
-  `pyflightstream.cases.matrix`: the shim re-exports everything for
-  one minor release, keeping `LegacyMatrixError` and `LegacyRow` as
+  `pyflightstream.cases.matrix`: the shim re-exports everything until
+  its recorded removal at v0.4.0 (deprecation ledger,
+  deadline-guarded), keeping `LegacyMatrixError` and `LegacyRow` as
   aliases of the renamed classes. Both shims attribute their
   DeprecationWarning to the importing line on Python 3.12+, so plain
   script runs see it too.
