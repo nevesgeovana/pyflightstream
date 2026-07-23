@@ -57,7 +57,7 @@ NEW_SURFACE_SECTION_DISTRIBUTION:
       required: false
   manual_ref: "SRC-003 p.364"
   versions:
-    "26.120": {status: broken, report: "reports/compat/CMP-26120_2026-07-21_full.yaml", note: "the documented grammar (without INCLUDE_SYMMETRY) aborted the probe script; a working 26.120 script carries the undocumented INCLUDE_SYMMETRY keyword ahead of SURFACES (2026-07-21 legacy-case reproduction); re-probe with the extended grammar pending (PLN-012)"}
+    "26.120": {status: broken, report: "reports/compat/CMP-26120_2026-07-21_full.yaml", note: "the documented grammar (without INCLUDE_SYMMETRY) aborted the probe script; a working 26.120 script carries the undocumented INCLUDE_SYMMETRY keyword ahead of SURFACES (2026-07-21 case-reproduction run); re-probe with the extended grammar pending (PLN-012)"}
   notes: >
     Creates NUM_SECTIONS sections at once; the surface indices follow
     the SURFACES line. The manual grammar (SRC-003 p.364) aborted the
@@ -65,11 +65,11 @@ NEW_SURFACE_SECTION_DISTRIBUTION:
     carries an INCLUDE_SYMMETRY keyword the manual does not list; the
     keyword is declared optional here until the re-probe decides
     (PLN-012). Phase init on empirical evidence (2026-07-21
-    legacy-case reproduction): the cut planes freeze at creation
+    case-reproduction run): the cut planes freeze at creation
     against the current geometry pose, so distributions over moving
     boundaries must be created before the motion runs; the working
-    legacy script creates them pre-solve, and the aborting probe ran
-    the command post-solve, making the phase a candidate abort cause.
+    reproduction script creates them pre-solve, and the aborting probe
+    ran the command post-solve, making the phase a candidate abort cause.
 
 COMPUTE_SURFACE_SECTIONAL_LOADS:
   layout: inline

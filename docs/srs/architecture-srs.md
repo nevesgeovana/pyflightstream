@@ -77,7 +77,7 @@ structural side of the aeroelastic loop), `probes` and `farfield`
 
 Four console entry points, one per operational concern: `pyfs-qa`
 (evidence tiers 2 and 3), `pyfs-workspace` (workspace initialization),
-`pyfs-matrix` (legacy matrix conversion and pre-flight), and
+`pyfs-matrix` (run-matrix conversion and pre-flight), and
 `pyfs-fsi` (the coupling-loop executable). CLIs are thin argument
 layers over the public Python API; execution paths always require the
 explicit executable.

@@ -6,7 +6,7 @@ way the workspace organizes its outputs. A support library under
 stable id (the file name stem), so a campaign line can select its
 reference data, solver preset, boundary groups, geometry, and profile
 by id instead of by path; the pattern is translated from the author's
-legacy research workflow. Artifacts are TOML, never executable code:
+research workflow. Artifacts are TOML, never executable code:
 they are validated by pydantic models at load time and fail with a
 didactic message naming the file and the available ids.
 
@@ -27,7 +27,7 @@ The library tree, created by ``CampaignWorkspace.init``:
 - ``inputs/executables.toml``: the build registry, mapping a
   FlightStream build id to its executable path; an explicit override
   path bypasses the registry, and that override is the only way to run
-  an unregistered build (the manual mode of the legacy workflow).
+  an unregistered build (the MANUAL mode of the run matrix).
 """
 
 from __future__ import annotations
@@ -432,7 +432,7 @@ def resolve_profile(inputs_dir: Path, artifact_id: str) -> Path:
 def resolve_executable(inputs_dir: Path, build_id: str, override: str | Path | None = None) -> Path:
     """Resolve the FlightStream executable of one build id.
 
-    Two explicit modes, translated from the legacy manual pattern:
+    Two explicit modes, translated from the run matrix's MANUAL pattern:
 
     - Registry mode (default): the build id must exist in
       ``inputs/executables.toml``, a top-level TOML table mapping build

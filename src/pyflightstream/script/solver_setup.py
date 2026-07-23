@@ -58,7 +58,7 @@ VORTICITY_COMMAND = "SET_VORTICITY_DRAG_BOUNDARIES"
 #: whenever the caller does not pass ``minimum_cp``. The solver's own
 #: default is -20 (SRC-003 p.221), which clips the suction peaks of
 #: rotor blades; -100 is the author's library default of 2026-07-22,
-#: retiring the legacy reference-velocity workaround. The physics
+#: retiring the earlier reference-velocity workaround. The physics
 #: reference re-validation under this default is queued as PLN-023.
 LIBRARY_MINIMUM_CP = -100
 

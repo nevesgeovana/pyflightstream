@@ -5,9 +5,9 @@ by ``sim_id``) is one solver configuration with its sweep; a
 :class:`Campaign` groups cases with the FlightStream version and the
 executable path, both required and explicit: nothing is read from
 environment variables or guessed (SAD Section 5). Native persistence
-is ``campaign.toml``; the legacy pipe-delimited ``matriz.fs`` matrix
-of the predecessor scripts will be read unchanged, forever, by the
-legacy reader (FR-10, next step of milestone M2).
+is ``campaign.toml``; the pipe-delimited ``matrix.fs`` run matrix
+is read unchanged, forever, by the matrix reader
+(:mod:`pyflightstream.cases.matrix`, FR-10).
 
 Script recipes are explicitly imported functions satisfying the
 :class:`ScriptRecipe` protocol: ``build(case, script) -> None``. The

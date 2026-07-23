@@ -8,8 +8,8 @@ from pyflightstream.cases.cli import main
 from pyflightstream.workspace import CampaignWorkspace
 
 FIXTURES = Path(__file__).parent / "fixtures"
-FIXTURE = FIXTURES / "matrix_legacy.fs"
-REGISTRY_FIXTURE = FIXTURES / "matrix_legacy_registry.fs"
+FIXTURE = FIXTURES / "matrix.fs"
+REGISTRY_FIXTURE = FIXTURES / "matrix_registry.fs"
 RECIPE_ARGS = [
     "--recipe",
     "003=recipes.steady_polar:build",
@@ -37,7 +37,7 @@ def convert_args(*extra):
         "convert",
         str(FIXTURE),
         "--name",
-        "legacy",
+        "matrix",
         "--fs-version",
         "26.12",
         "--fs-exe",
@@ -51,7 +51,7 @@ def test_convert_prints_the_canonical_campaign_toml(capsys):
     assert main(convert_args()) == 0
     out = capsys.readouterr().out
     data = tomllib.loads(out)
-    assert data["campaign"]["name"] == "legacy"
+    assert data["campaign"]["name"] == "matrix"
     assert len(data["sim"]) == 6
     assert data["sim"][0]["sim_id"] == "9001"
 
@@ -77,7 +77,7 @@ def test_convert_reports_an_unmapped_code_didactically(capsys):
         "convert",
         str(FIXTURE),
         "--name",
-        "legacy",
+        "matrix",
         "--fs-version",
         "26.12",
         "--fs-exe",
@@ -116,7 +116,7 @@ def plan_args(workspace, recipe_reference):
         "--workspace",
         str(workspace.root),
         "--name",
-        "legacy",
+        "matrix",
         "--fs-version",
         "26.120",
         "--recipe",

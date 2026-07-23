@@ -326,7 +326,7 @@ def _build_wing_point_script(
     script.emit("SET_FREESTREAM", "CONSTANT")
     if unsteady is not None:
         # Physical time stepping selected before initialization, the
-        # order the 2026-07-21 legacy-case reproduction proved.
+        # order the 2026-07-21 case-reproduction run proved.
         script.emit("SET_SOLVER_UNSTEADY", unsteady[0], unsteady[1])
     script.emit(
         "INITIALIZE_SOLVER",
@@ -344,7 +344,7 @@ def _build_wing_point_script(
     script.emit("SOLVER_SET_ITERATIONS", PHY01_ITERATIONS)
     script.emit("SOLVER_SET_CONVERGENCE", PHY01_CONVERGENCE)
     if symmetry_loads is not None:
-        # Phase init since the legacy-case reproduction of 2026-07-21:
+        # Phase init since the case-reproduction run of 2026-07-21:
         # the setting is consumed during the solve by the unsteady
         # per-step monitors, so it precedes START_SOLVER; the exported
         # loads read the same state either way (HND-013 calibration).
@@ -764,7 +764,7 @@ PHYSICS_CASES: dict[str, PhysicsCase] = {
 # PHY-05 promotes the shareable generic-blade case into the matrix: the
 # BladeSpec blade (public analytic shape laws, qa.geometry) under
 # PERIODIC 6 with rotary motion and physical time stepping, the flow
-# the 2026-07-21 legacy-case reproduction proved command by command.
+# the 2026-07-21 case-reproduction run proved command by command.
 # PHY-06 anchors the unsteady solver against the steady one: a time
 # march of the static PHY-01 wing must asymptote to the steady
 # solution. Both are 26.120-only until the motion, coordinate-system,

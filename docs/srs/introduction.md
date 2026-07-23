@@ -58,7 +58,7 @@ property and migrates freely.
 
 | Stakeholder | Interest |
 |---|---|
-| The author (owner, maintainer) | Runs FlightStream campaigns for her research; needs the legacy run-matrix files to keep working |
+| The author (owner, maintainer) | Runs FlightStream campaigns for her research; needs her existing run-matrix files to keep working |
 | Aerospace engineers without software background | Primary external audience; need a didactic API, readable errors, and worked examples |
 | Future contributors | Need tests, contribution rules, and a command database they can extend with evidence |
 | Research groups and co-authors | Need reproducible run provenance for publications |
@@ -78,7 +78,7 @@ the items it answers.
 | BRF-05 | Developed in a dedicated repository, separate from the author's research workspace |
 | BRF-06 | Private GitHub first; public at a presentable release |
 | BRF-07 | FlightStream versions supported at launch: 26.0, 26.1, 26.12 |
-| BRF-08 | The existing legacy run-matrix workflow keeps working unchanged |
+| BRF-08 | The existing run-matrix workflow keeps working unchanged |
 | BRF-09 | Examples are percent-format `.py` scripts rendered in the docs; no committed notebooks |
 | BRF-10 | Clean-room command emitter; no AGPL-derived code |
 | BRF-11 | FSI: only an extension seam at v0.1; no structural solver inside the package at launch |
@@ -90,7 +90,7 @@ the items it answers.
 | BRF-17 | Version-comparison test cases use simple synthetic geometries plus local-only research cases whose geometry never enters the repository |
 | BRF-18 | The author's prior analysis pipelines are the design reference for the post-processing layer |
 | BRF-19 | FlightStream versions are identified as 26.XXX with a three-digit fractional part; the last digit indexes intermediate hotfix builds |
-| BRF-20 | The workspace organizes inputs as well as outputs: a support library of reusable artifacts selected by id, per the author's legacy research workflow (usage-feedback review, 2026-07-22) |
+| BRF-20 | The workspace organizes inputs as well as outputs: a support library of reusable artifacts selected by id, per the author's research workflow (usage-feedback review, 2026-07-22) |
 
 ## Pain-point catalog
 

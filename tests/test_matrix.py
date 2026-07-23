@@ -1,23 +1,25 @@
-"""Tier 1: legacy matrix reader and convert-matrix (FR-10, FR-11).
+"""Tier 1: run-matrix reader and convert-matrix (FR-10, FR-11).
 
-The fixture mirrors the verified 15-column layout of the predecessor
-run matrix (first data row shaped like the real POL 9001 case);
-names and values are synthetic.
+The fixture mirrors the verified 15-column layout of the run matrix
+(first data row shaped like the real POL 9001 case); names and
+values are synthetic.
 """
 
+import importlib
+import sys
 from pathlib import Path
 
 import pytest
 
 from pyflightstream.cases import load_campaign
-from pyflightstream.cases.matrix_legacy import (
-    LegacyMatrixError,
+from pyflightstream.cases.matrix import (
+    MatrixError,
     convert_matrix,
     read_matrix,
     to_campaign,
 )
 
-FIXTURE = Path(__file__).parent / "fixtures" / "matrix_legacy.fs"
+FIXTURE = Path(__file__).parent / "fixtures" / "matrix.fs"
 RECIPES = {"003": "recipes.steady_polar:build", "004": "recipes.beta_sweep:build"}
 
 
@@ -34,7 +36,7 @@ def test_read_matrix_parses_the_verified_layout():
     assert rows[1].hidden is True
 
 
-def test_run_filtering_follows_the_legacy_flag():
+def test_run_filtering_follows_the_run_flag():
     assert len(read_matrix(FIXTURE)) == 6
     everything = read_matrix(FIXTURE, active_only=False)
     assert [row.run for row in everything] == [1, 1, 0, 1, 1, 1, 0, 1]
@@ -113,47 +115,108 @@ def test_unverified_sweep_code_is_refused_with_evidence_language(tmp_path):
     text = FIXTURE.read_text(encoding="utf-8").replace("| AL/BE ", "| J     ")
     bad = tmp_path / "matrix.fs"
     bad.write_text(text, encoding="utf-8")
-    with pytest.raises(LegacyMatrixError, match="verified legacy\\s+codes"):
+    with pytest.raises(MatrixError, match="verified\\s+codes"):
         read_matrix(bad)
 
 
 def test_header_deviation_is_refused(tmp_path):
     bad = tmp_path / "matrix.fs"
     bad.write_text("A | B | C\n1 | 2 | 3\n", encoding="utf-8")
-    with pytest.raises(LegacyMatrixError, match="verified 15-column layout"):
+    with pytest.raises(MatrixError, match="verified 15-column layout"):
+        read_matrix(bad)
+
+
+def test_empty_matrix_file_is_refused(tmp_path):
+    bad = tmp_path / "matrix.fs"
+    bad.write_text("\n-----\n\n", encoding="utf-8")
+    with pytest.raises(MatrixError, match="no matrix content"):
+        read_matrix(bad)
+
+
+def test_truncated_row_is_refused_naming_the_row(tmp_path):
+    lines = FIXTURE.read_text(encoding="utf-8").splitlines()
+    # Drop the last cell of the first data row (POL 9001, file line 3).
+    lines[2] = lines[2].rsplit("|", 1)[0].rstrip()
+    bad = tmp_path / "matrix.fs"
+    bad.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    with pytest.raises(MatrixError, match=r"data row 1 of .* holds 14 cells"):
         read_matrix(bad)
 
 
 def test_to_campaign_maps_codes_and_preserves_them():
     campaign = to_campaign(
-        FIXTURE, name="legacy", fs_version="26.12", fs_exe="C:/fs.exe", recipes=RECIPES
+        FIXTURE, name="matrix", fs_version="26.12", fs_exe="C:/fs.exe", recipes=RECIPES
     )
     case = campaign.sims[0]
     assert case.sim_id == "9001"
     assert case.reynolds == 4.38e6
     assert case.recipe == "recipes.steady_polar:build"
-    assert case.variables["legacy_ref"] == "003"
-    assert case.variables["legacy_fs_build"] == "MANUAL"
-    assert case.variables["legacy_hidden"] is False
+    assert case.variables["matrix_ref"] == "003"
+    assert case.variables["matrix_fs_build"] == "MANUAL"
+    assert case.variables["matrix_hidden"] is False
     assert case.variables["SYMMETRY_TYPE"] == "PERIODIC 6"
 
 
 def test_unmapped_script_code_is_refused():
-    with pytest.raises(LegacyMatrixError, match="no recipe\\s+mapping"):
-        to_campaign(FIXTURE, name="legacy", fs_version="26.12", fs_exe="C:/fs.exe", recipes={})
+    with pytest.raises(MatrixError, match="no recipe\\s+mapping"):
+        to_campaign(FIXTURE, name="matrix", fs_version="26.12", fs_exe="C:/fs.exe", recipes={})
 
 
 def test_convert_matrix_round_trips_through_load_campaign(tmp_path):
     text = convert_matrix(
-        FIXTURE, name="legacy", fs_version="26.12", fs_exe="C:/fs.exe", recipes=RECIPES
+        FIXTURE, name="matrix", fs_version="26.12", fs_exe="C:/fs.exe", recipes=RECIPES
     )
     path = tmp_path / "campaign.toml"
     path.write_text(text, encoding="utf-8")
     campaign = load_campaign(path)
     direct = to_campaign(
-        FIXTURE, name="legacy", fs_version="26.12", fs_exe="C:/fs.exe", recipes=RECIPES
+        FIXTURE, name="matrix", fs_version="26.12", fs_exe="C:/fs.exe", recipes=RECIPES
     )
     assert campaign == direct
     # The escaped newline survives the TOML round trip verbatim.
     full = next(sim for sim in campaign.sims if sim.sim_id == "9006")
     assert full.variables["NOTE"] == "first line\\nsecond line"
+
+
+def test_earlier_conversions_with_legacy_keys_stay_loadable(tmp_path):
+    # The changelog promise: campaign.toml files converted before the
+    # matrix_* rename keep their legacy_* variable keys and load
+    # verbatim; variables are free-keyed by design.
+    path = tmp_path / "campaign.toml"
+    path.write_text(
+        '[campaign]\nname = "old"\nfs_version = "26.12"\nfs_exe = "C:/fs.exe"\n\n'
+        '[[sim]]\nsim_id = "9001"\naircraft = "TestWing"\n'
+        'sweep = {type = "alpha", values = [0.0]}\n'
+        'recipe = "recipes.steady_polar:build"\n'
+        "[sim.variables]\n"
+        'legacy_ref = "003"\nlegacy_hidden = false\n',
+        encoding="utf-8",
+    )
+    campaign = load_campaign(path)
+    assert campaign.sims[0].variables["legacy_ref"] == "003"
+    assert campaign.sims[0].variables["legacy_hidden"] is False
+
+
+# --- the deprecated pyflightstream.cases.matrix_legacy shim -----------------
+
+
+def test_matrix_legacy_shim_reexports_and_warns():
+    sys.modules.pop("pyflightstream.cases.matrix_legacy", None)
+    with pytest.warns(DeprecationWarning, match="pyflightstream.cases.matrix"):
+        shim = importlib.import_module("pyflightstream.cases.matrix_legacy")
+    import pyflightstream.cases.matrix as canonical
+
+    # The whole canonical surface, name by name: a name later dropped
+    # from matrix.__all__ must fail here, not vanish silently.
+    assert set(shim.__all__) == set(canonical.__all__) | {"LegacyMatrixError", "LegacyRow"}
+    for name in canonical.__all__:
+        assert getattr(shim, name) is getattr(canonical, name)
+    # Same objects, so old except/isinstance code keeps working.
+    assert shim.LegacyMatrixError is canonical.MatrixError
+    assert shim.LegacyRow is canonical.MatrixRow
+
+
+def test_matrix_legacy_shim_names_the_removal_horizon():
+    sys.modules.pop("pyflightstream.cases.matrix_legacy", None)
+    with pytest.warns(DeprecationWarning, match="future minor release"):
+        importlib.import_module("pyflightstream.cases.matrix_legacy")

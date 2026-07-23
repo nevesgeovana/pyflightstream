@@ -290,7 +290,7 @@ v.canonical                # "26.120"
       lay/.style={draw=deepblue,thick,rounded corners,fill=softgray,minimum width=46mm,minimum height=7mm,align=center,font=\small}]
       \node[lay] (qa) {\textbf{post / qa}: physics matrix, drift, probes};
       \node[lay,below=of qa] (run) {\textbf{run / files}: executor, campaign loop, workspace};
-      \node[lay,below=of run] (cases) {\textbf{cases}: SIM model, sweeps, legacy matrix};
+      \node[lay,below=of run] (cases) {\textbf{cases}: SIM model, sweeps, run matrix};
       \node[lay,below=of cases] (script) {\textbf{script / results}: builder, helpers, parsers};
       \node[lay,below=of script] (cmd) {\textbf{commands}: the evidence database};
       \node[lay,below=of cmd] (ver) {\textbf{versions}: 26.XXX scheme, ordering};
@@ -887,17 +887,20 @@ records = run_campaign(campaign,
   \end{itemize}
 \end{frame}
 
-\begin{frame}[fragile]{Recipe 7 addendum: migrating a legacy run matrix}
+\begin{frame}[fragile]{Recipe 7 addendum: migrating a run matrix}
   \begin{itemize}
-    \item Coming from spreadsheet-driven run matrices (the 15-column layout with AL and BE sweep codes)? The reader converts them losslessly:
+    \item Coming from spreadsheet-driven run matrices (the pipe-delimited 15-column layout with AL and BE sweep codes)? The reader converts them losslessly:
   \end{itemize}
 \begin{lstlisting}
-from pyflightstream.cases.matrix_legacy import convert_matrix
-convert_matrix("run_matrix.csv", "campaign.toml")
-# unknown legacy codes are preserved as legacy_* variables,
+from pyflightstream.cases.matrix import convert_matrix
+text = convert_matrix("matrix.fs", name="wing2026",
+    fs_version="26.120", fs_exe="C:/fs/FlightStream.exe",
+    recipes={"003": "recipes.steady_polar:build"})
+# the matrix codes are preserved as matrix_* variables,
 # nothing is dropped; the TOML round-trips through load_campaign
 \end{lstlisting}
   \begin{itemize}
+    \item One-command form: the \code{pyfs-matrix convert} CLI takes the same inputs as flags and writes the file via \code{-o campaign.toml}.
     \item Convert once, review the TOML in a diff, then live natively in the campaign format.
   \end{itemize}
 \end{frame}

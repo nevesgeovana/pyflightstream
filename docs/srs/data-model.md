@@ -75,8 +75,8 @@ Input artifacts are declarative TOML validated by pydantic, resolved
 by stable id with didactic misses (the error lists what exists and
 where to put what is missing). The executables registry maps build ids
 to paths; an unregistered build runs only through an explicit override
-path. Campaign definitions (native TOML or the legacy matrix) compose
-cases by referencing artifacts by id, translating the author's legacy
+path. Campaign definitions (native TOML or the run matrix) compose
+cases by referencing artifacts by id, translating the author's
 research workflow into validated form.
 
 ## Provenance chain

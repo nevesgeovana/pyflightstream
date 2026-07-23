@@ -181,7 +181,7 @@ def test_two_scripts_do_not_share_state():
 
 
 def test_unsteady_monitoring_commands_render_the_manual_grammar():
-    # 2026-07-21 legacy-case backfill (SRC-003 pp.344-348, 355): the
+    # 2026-07-21 case-reproduction backfill (SRC-003 pp.344-348, 355): the
     # unsteady plot blocks render exactly as the manual samples.
     script = Script(version="26.12")
     script.emit("NEW_SIMULATION")

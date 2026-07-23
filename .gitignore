@@ -21,7 +21,7 @@ site/
 # Local run scratch, one root for every tier (runs/probes, runs/physics,
 # runs/drift, runs/fsi, campaign workspaces); the committed evidence is
 # the reports/ tree, never the scratch. Convention recorded at HND-035
-# session close; the legacy per-tier roots (probe_runs/, physics_runs/,
+# session close; the earlier per-tier roots (probe_runs/, physics_runs/,
 # drift_runs*/, fsi_runs/) moved under runs/ the same day.
 runs/
 

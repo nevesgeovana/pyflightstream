@@ -90,6 +90,6 @@ implemented without a shipped test behind it.
 | Command database | The machine-readable registry of FlightStream script commands with per-version evidence |
 | Manifest | The append-only `runs.json` record that is the sole authority on run identity |
 | Probe | A minimal solver run asserting one command's real effect on a licensed machine |
-| SIM | The native unit of work (a simulation case with a `sim_id`); the legacy vocabulary used POLAR/POL |
+| SIM | The native unit of work (a simulation case with a `sim_id`); the run-matrix vocabulary uses POLAR/POL |
 | Tier 1/2/3 | The QA ladder: CI-runnable tests / licensed command-validity probes / licensed physics regression |
 | Workspace | The managed folder tree owning inputs, runs, and post-processing outputs |

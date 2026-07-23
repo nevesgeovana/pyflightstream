@@ -445,7 +445,9 @@ def run_campaign(
     recipes : dict of str to ScriptRecipe, optional
         Named recipe registry consulted before treating
         :attr:`SimCase.recipe` as a ``module:function`` reference;
-        the legacy matrix reader will register its recipe names here.
+        the run-matrix entry
+        (:func:`pyflightstream.cases.matrix.run_matrix`) forwards its
+        recipe registry here.
     resume : bool
         With True, points whose ``run_id`` is already in the manifest
         are skipped without execution, so a campaign can grow sweep

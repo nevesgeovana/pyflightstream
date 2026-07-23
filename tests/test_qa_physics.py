@@ -266,7 +266,7 @@ def test_phy05_script_pins_the_proven_unsteady_flow():
     assert f"SET_MOTION_ROTOR_RPM 1 {PHY05_RPM}" in text
     assert f"TIME_ITERATIONS 54\nDELTA_TIME {PHY05_DELTA_TIME_S}" in text
     assert "SET_WAKE_TERMINATION_TIME_STEPS -36" in text
-    # In-solve consumers precede the solve (2026-07-21 reproduction).
+    # In-solve consumers precede the solve (2026-07-21 case-reproduction run).
     assert text.index("SET_ANALYSIS_SYMMETRY_LOADS DISABLE") < text.index("START_SOLVER")
     assert text.index("SET_SOLVER_UNSTEADY") < text.index("INITIALIZE_SOLVER")
 

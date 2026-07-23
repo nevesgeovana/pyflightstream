@@ -101,12 +101,12 @@ Milestones and session records are listed in the
     SIM with a `sim_id`. A campaign declares its FlightStream version
     and executable path explicitly; neither is guessed.
 
-!!! requirement "FR-10 Legacy matrix reader, forever <span class='srs-implemented'>implemented</span>"
+!!! requirement "FR-10 Run-matrix reader, forever <span class='srs-implemented'>implemented</span>"
     *Origin: BRF-08. Evidence: milestone M2; the verified 15-column
     layout and its fixtures.*
 
-    A legacy reader consumes the author's historical pipe-delimited
-    run-matrix format unchanged, forever. Rows with RUN = 1 are
+    A dedicated reader consumes the pipe-delimited run-matrix
+    format unchanged, forever. Rows with RUN = 1 are
     active; the sweep columns define alpha, beta, or advance-ratio
     sweeps; the variables column holds KEY:VALUE pairs.
 
@@ -114,10 +114,10 @@ Milestones and session records are listed in the
     *Origin: BRF-08, BRF-16. Evidence: milestone M2; TOML round-trip
     tests; the `pyfs-matrix convert` CLI (v0.3 line).*
 
-    A convert command turns a legacy matrix into the native campaign
-    format, one command, optional, and lossless. The legacy POL
-    column maps to the native `sim_id`; legacy reference codes are
-    preserved verbatim.
+    A convert command turns a run matrix into the native campaign
+    format, one command, optional, and lossless. The matrix POL
+    column maps to the native `sim_id`; the matrix reference codes
+    are preserved verbatim.
 
 !!! requirement "FR-12 Recipes as explicit protocol <span class='srs-implemented'>implemented</span>"
     *Origin: PP-7. Evidence: milestone M2; recipe registry tests.*
@@ -196,13 +196,13 @@ Milestones and session records are listed in the
     far-field ledgers on xarray; the interpolation and trim API
     remains open.
 
-!!! requirement "FR-21 Legacy-compatible plot-file writers <span class='srs-pending'>pending</span>"
+!!! requirement "FR-21 Established plot-file writers <span class='srs-pending'>pending</span>"
     *Origin: BRF-01.*
 
-    Plot files byte-compatible with the predecessor writer, with a
-    reader making the pair round-trip testable. Not yet started;
-    VTK and Tecplot probe-data writers exist in `post/` but the
-    legacy plot format is not among them.
+    Plot files byte-compatible with the author's established plot
+    format, with a reader making the pair round-trip testable. Not
+    yet started; VTK and Tecplot probe-data writers exist in `post/`
+    but that plot format is not among them.
 
 !!! requirement "FR-22 Per-boundary drag honesty <span class='srs-implemented'>implemented</span>"
     *Origin: PP-5. Evidence: the v0.3 line; the required vorticity
@@ -352,7 +352,7 @@ the session records.
     *Origin: usage feedback, amending the posture of FR-10/FR-11.
     Evidence: the v0.3 line; resolution hit and miss tests.*
 
-    The legacy matrix is a first-class interface of the file-managed
+    The run matrix is a first-class interface of the file-managed
     modality: its reference columns resolve against the workspace
     input library, and one call takes a matrix through conversion,
     pre-flight, and execution. The native campaign format remains

@@ -69,12 +69,13 @@ SET_ANALYSIS_SYMMETRY_LOADS:
   notes: >
     Includes the loads of symmetry boundaries in the analysis; relevant
     to half-model and periodic runs. Phase init on empirical evidence
-    (2026-07-21 legacy-case reproduction on build 7012026): the
+    (2026-07-21 case-reproduction run on build 7012026): the
     unsteady per-step force plots consume this setting during the
     solve, and leaving it at the post-PERIODIC default ENABLE recorded
     six-fold symmetric-copy sums while the export-time loads were
     unaffected; the setting therefore precedes START_SOLVER. The
-    post-MIRROR default is also ENABLE (HND-013 calibration).
+    post-MIRROR default is also ENABLE (HND-013 calibration;
+    reports/physics/PHY-26120_2026-07-21_phy02-symmetry-phase-reval.yaml).
 
 SET_LOADS_AND_MOMENTS_UNITS:
   layout: inline

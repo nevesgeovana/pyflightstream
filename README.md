@@ -52,8 +52,8 @@ honest gaps are reported as such.
 - Runner and parsers: headless execution, anchor-based parsers for the
   solver outputs, and a pandas table layer (per-result tables, one wide
   row per run, whole-sweep DataFrame straight from the manifest).
-- Legacy run-matrix support as a first-class interface: read, convert,
-  pre-flight, and run the author's historical 15-column matrix format.
+- Run-matrix support as a first-class interface: read, convert,
+  pre-flight, and run the pipe-delimited 15-column matrix format.
 - Far-field probe surveys (planar grids, geometry gating, VTK/Tecplot
   writers, conservation ledgers on xarray) and an aeroelastic coupling
   subpackage (structural beam, coupled driver, replay harness).
@@ -66,7 +66,7 @@ honest gaps are reported as such.
 |---|---|
 | `pyfs-qa` | Tier 2 command-validity probes, Tier 3 physics regression and cross-version drift, status promotion from committed reports |
 | `pyfs-workspace` | Initialize the managed campaign workspace tree |
-| `pyfs-matrix` | Convert and pre-flight legacy run matrices |
+| `pyfs-matrix` | Convert and pre-flight run matrices |
 | `pyfs-fsi` | The structural executable of the aeroelastic coupling loop |
 
 ## Supported FlightStream versions
@@ -85,7 +85,7 @@ docs is generated from the database at build time.
 |---|---|
 | `src/pyflightstream/` | The package, one subpackage per pipeline stage (versions, commands, script, results, cases, run, workspace, post, qa, plus fsi, probes, farfield) |
 | `src/pyflightstream/commands/` | The command database: what exists in which FlightStream version, with manual page citations |
-| `tests/` | Tier 1 tests (448), runnable anywhere, no FlightStream needed |
+| `tests/` | Tier 1 tests, runnable anywhere, no FlightStream needed |
 | `reports/` | Committed evidence from licensed machines: command validity (compat), physics regression, drift, and research cards |
 | `docs/` | Documentation source (mkdocs); reference pages are generated from the database, never committed |
 | `examples/` | Runnable example scripts in percent format |

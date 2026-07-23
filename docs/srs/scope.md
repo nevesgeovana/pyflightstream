@@ -7,8 +7,8 @@ engineering results:
 
 - The per-version command database with evidence-backed statuses.
 - Validating script construction (builder plus curated helpers).
-- Campaign and case modeling, including the legacy run-matrix format
-  as a first-class interface.
+- Campaign and case modeling, including the pipe-delimited run-matrix
+  format as a first-class interface.
 - Headless execution with a manifest recording every outcome.
 - Output parsing and tabular post-processing.
 - The managed workspace: input-artifact library, run layout, naming,

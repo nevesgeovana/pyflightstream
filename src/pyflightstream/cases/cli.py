@@ -1,13 +1,13 @@
 """The ``pyfs-matrix`` command line.
 
-Pipeline role: drives the legacy run matrix as a first-class interface
+Pipeline role: drives the run matrix as a first-class interface
 of the file-managed modality from a terminal. ``pyfs-matrix convert``
 emits the native ``campaign.toml`` equivalent of a matrix (FR-11), the
 canonical internal form; ``pyfs-matrix plan`` binds the matrix codes
 to the workspace input library and pre-flights every point without
 executing anything. There is deliberately no ``run`` subcommand:
 execution stays a Python-API decision
-(:func:`pyflightstream.cases.matrix_legacy.run_matrix`) with an
+(:func:`pyflightstream.cases.matrix.run_matrix`) with an
 explicit executable path, because the solver quality judgment and the
 recipe registry are code, not command-line strings.
 """
@@ -17,8 +17,8 @@ from __future__ import annotations
 import argparse
 import sys
 
-from pyflightstream.cases.matrix_legacy import (
-    LegacyMatrixError,
+from pyflightstream.cases.matrix import (
+    MatrixError,
     convert_matrix,
     plan_matrix,
 )
@@ -39,7 +39,7 @@ def _parse_recipes(pairs: list[str]) -> dict[str, str]:
 
 
 def _add_common_arguments(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("matrix", help="the legacy pipe-delimited run matrix file")
+    parser.add_argument("matrix", help="the pipe-delimited run matrix file")
     parser.add_argument(
         "--name",
         required=True,
@@ -55,7 +55,7 @@ def _add_common_arguments(parser: argparse.ArgumentParser) -> None:
         action="append",
         default=[],
         metavar="CODE=MODULE:FUNCTION",
-        help="FS_SCRIPT code to recipe reference (repeatable); replaces the legacy "
+        help="FS_SCRIPT code to recipe reference (repeatable); replaces the "
         "import-by-number system",
     )
 
@@ -64,7 +64,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="pyfs-matrix",
         description=(
-            "Legacy run-matrix tooling: the matrix is a first-class interface of the "
+            "Run-matrix tooling: the matrix is a first-class interface of the "
             "file-managed modality, with campaign.toml as the canonical internal form."
         ),
     )
@@ -127,7 +127,7 @@ def _cmd_convert(args: argparse.Namespace, recipes: dict[str, str]) -> int:
             fs_exe=args.fs_exe,
             recipes=recipes,
         )
-    except (LegacyMatrixError, OSError, ValueError) as error:
+    except (MatrixError, OSError, ValueError) as error:
         print(f"matrix not converted: {error}", file=sys.stderr)
         return 2
     if args.output:
@@ -152,7 +152,7 @@ def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
             recipes=recipes,
             fs_exe=args.fs_exe,
         )
-    except (LegacyMatrixError, InputArtifactError, OSError, ValueError) as error:
+    except (MatrixError, InputArtifactError, OSError, ValueError) as error:
         print(f"matrix not planned: {error}", file=sys.stderr)
         return 2
     print(plan.summary())

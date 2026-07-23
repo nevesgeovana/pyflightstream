@@ -36,7 +36,7 @@ the author's first outside-the-repo use of 0.2.0, delivered 2026-07-22.
 * Tabular results layer on pandas: `to_dataframe`/`to_csv` for every
   parser, `run_frame` (one wide row per run), and `sweep_frame` (the
   whole sweep from the manifest).
-* The legacy run matrix as a first-class interface: `resolve_matrix`,
+* The run matrix as a first-class interface: `resolve_matrix`,
   `plan_matrix`, and `run_matrix` bind the matrix columns to the
   workspace input library; new `pyfs-matrix` CLI (convert, plan);
   the matrix fixture grows to eight rows.
@@ -53,20 +53,35 @@ the author's first outside-the-repo use of 0.2.0, delivered 2026-07-22.
 * `solver_settings` now requires `vorticity_drag_boundaries`
   (breaking; forgetting the selection silently zeroes the
   induced-drag accounting) and emits `SOLVER_MINIMUM_CP -100` by
-  default when the flag is not passed, retiring the legacy
+  default when the flag is not passed, retiring the earlier
   reference-velocity workaround for rotor Cp clipping (override by
   passing the parameter; PHY reference re-validation queued).
-* `pyflightstream.files` is deprecated in favor of
-  `pyflightstream.workspace` (the shim re-exports everything with a
-  DeprecationWarning for one minor release), and the
-  `analysis_setup(vorticity_drag_boundaries=...)` path is deprecated
-  toward `solver_settings`.
+* The run-matrix vocabulary drops the word "legacy" everywhere users
+  see it: `LegacyMatrixError` and `LegacyRow` are renamed
+  `MatrixError` and `MatrixRow`, and `to_campaign`/`convert_matrix`
+  now preserve the matrix codes as `matrix_*` case variables
+  (previously `legacy_*`; campaign files converted earlier keep their
+  old keys and stay loadable, test-pinned). `read_matrix` makes
+  `active_only` keyword-only, matching the rest of the module.
 * The motivation narrative (README, docs home, SRS introduction, user
   guide) now frames version drift as the natural counterpart of an
   actively developed solver whose team is responsive and consolidates
   user requests through intermediate hotfix builds into stable
   releases, instead of reading as criticism of the changelog; the
   documented facts and citations are unchanged.
+
+### Deprecated
+
+* `pyflightstream.files`, in favor of `pyflightstream.workspace`: the
+  shim re-exports everything with a DeprecationWarning for one minor
+  release. The `analysis_setup(vorticity_drag_boundaries=...)` path
+  is deprecated toward `solver_settings`.
+* `pyflightstream.cases.matrix_legacy`, in favor of
+  `pyflightstream.cases.matrix`: the shim re-exports everything for
+  one minor release, keeping `LegacyMatrixError` and `LegacyRow` as
+  aliases of the renamed classes. Both shims attribute their
+  DeprecationWarning to the importing line on Python 3.12+, so plain
+  script runs see it too.
 
 ### Fixed
 
@@ -146,8 +161,8 @@ committed report.
   Tier 3 matrix with a per-version evidence gate; the `BladeSpec`
   generic propeller blade generator (public analytic shape laws).
 * Command database grown from 116 to 144 entries: motion, unsteady
-  solver, scenes, and advanced-settings backfill from the legacy-case
-  reproduction; the mesh-import family; the Aeroelastic Coupling
+  solver, scenes, and advanced-settings backfill from the
+  case-reproduction run; the mesh-import family; the Aeroelastic Coupling
   Toolbox family; per-version argument grammars
   (`versions.<v>.args`) with hotfix inheritance for the 26.1/26.12
   manual delta.
@@ -213,9 +228,9 @@ the repository seeding and this tag (milestones M0 through M5).
   and an append-only run manifest; local headless executor using the
   documented `-hidden --script` invocation.
 * `cases`: SIM campaign model with TOML loading, recipe registry,
-  campaign loop with six run statuses, and the legacy 15-column
-  run-matrix reader with lossless code preservation and TOML
-  round-trip conversion.
+  campaign loop with six run statuses, and the pipe-delimited
+  15-column run-matrix reader with lossless code preservation and
+  TOML round-trip conversion.
 * `results`: loads and residual-history parsers with sanitized
   fixtures from real 26.120 output; version cross-check recording the
   solver-reported version and build verbatim.

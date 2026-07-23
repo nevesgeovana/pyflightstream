@@ -490,7 +490,7 @@ def solver_settings(
     - ``minimum_cp`` unset emits ``SOLVER_MINIMUM_CP -100``: the
       solver's own default -20 (SRC-003 p.221) clips the suction peaks
       of rotor blades, so -100 is the library default (author decision
-      of 2026-07-22, retiring the legacy reference-velocity
+      of 2026-07-22, retiring the earlier reference-velocity
       workaround); pass the flag to override. The physics reference
       re-validation under this default is queued as PLN-023. On a
       FlightStream version without the command nothing is emitted and
