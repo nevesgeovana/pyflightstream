@@ -178,6 +178,10 @@ Deprecation messages naming v0.3.0 refer to this release.
 * Documentation-currency policy (SRS NFR-11) with Tier 1 guards:
   version-bearing metadata files must agree, the changelog always
   carries its Unreleased section, SRS requirement ids never repeat.
+* CONTRIBUTING discloses the AI-assisted development model and the
+  process safeguards around it (evidence discipline, role-based
+  review, the author's non-delegable seats, the clean-room rule
+  extended to the AI), per the pyOpenSci disclosure item.
 * README opens with status badges and a runnable quickstart snippet
   (validated build plus the didactic version refusal), and its
   feature list caught up with the cycle (options registry, exceptions

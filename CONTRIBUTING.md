@@ -61,6 +61,20 @@ matrix without running anything, and the committed reports live under
 * House style: no em or en dash characters in Markdown or docstrings
   (enforced by tests/test_house_style.py).
 
+## AI-assisted development disclosure
+
+This project is developed with AI assistance (Claude, working in
+sessions directed by the author). The safeguards are process, not
+trust: every command database change is evidence-backed (manual
+citation or committed probe report; hard invariant 3), physics and
+solver claims come from executed runs recorded under `reports/`,
+role-based reviewer passes run on every work item's diff before it
+closes, and the author keeps the non-delegable seats (product owner,
+domain expert, numerical analyst). The clean-room rule extends to the
+AI: it never reads the AGPL pyFlightscript package. Contributors are
+welcome to use AI assistance under the same rules; you remain
+responsible for what you submit.
+
 ## License note
 
 MIT. Contributions must be original work or MIT-compatible. Contributions
