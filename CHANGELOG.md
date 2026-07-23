@@ -112,7 +112,10 @@ Deprecation messages naming v0.3.0 refer to this release.
   induced-drag accounting) and emits `SOLVER_MINIMUM_CP -100` by
   default when the flag is not passed, retiring the earlier
   reference-velocity workaround for rotor Cp clipping (override by
-  passing the parameter; PHY reference re-validation queued).
+  passing the parameter). The PHY references were re-validated under
+  the emitted default on a licensed 26.120 machine (build 7012026):
+  all 30 metrics reproduce bit-identically, so no reference value
+  changed (report `PHY-26120_2026-07-23_reseed-cp100`).
 * The run-matrix vocabulary drops the word "legacy" everywhere users
   see it: `LegacyMatrixError` and `LegacyRow` are renamed
   `MatrixError` and `MatrixRow`, and `to_campaign`/`convert_matrix`
