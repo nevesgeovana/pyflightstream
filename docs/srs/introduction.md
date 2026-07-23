@@ -115,5 +115,5 @@ tree (2026-07-21). The requirements exist to eliminate them.
 - pyFlightscript repositories (AGPL-3.0, deprecated): prior art for
   scope only, never read at code level.
 - The committed evidence trail: `reports/` (probe compat reports,
-  physics regression reports, research cards) and the session records
-  (`handoffs/`, `STATUS.md`).
+  physics regression reports, research cards). The author's session
+  records are private and cited by HND id where relevant.

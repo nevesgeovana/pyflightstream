@@ -65,10 +65,15 @@ survives only as a deprecation shim.)
 ## Session protocol
 
 Every working session starts by stating its objective against
-STATUS.md, and ends with /handoff out, which writes the session
-handoff under handoffs/, appends the logbook.csv row, and updates
-STATUS.md. Planning lives in plan.csv via /plan. These session
-documents are committed and must satisfy the same guards as the rest
-of the repository. Conversation with the author may be in Portuguese;
+_private/STATUS.md, and ends with /handoff out, which writes the
+session handoff under _private/handoffs/, appends the
+_private/logbook.csv row, and updates _private/STATUS.md. Planning
+lives in _private/plan.csv via /plan. Since 2026-07-23 (author's
+decision) the session documents live in _private/ (OneDrive-synced,
+never committed); they still satisfy the same content guards as the
+repository (English, no dashes, invariant 5 wording). Committed
+history before that date keeps the old in-repo copies. Public items
+being discontinued move to the committed deprecated/ folder, never
+scattered at the top level. Conversation with the author may be in Portuguese;
 every committed artifact is in English (invariant 6). The design
 documents (SRS, SAD, Bootstrap Kit) are local-only in _private/design/.

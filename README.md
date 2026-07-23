@@ -6,7 +6,7 @@ solver. Successor of the author's legacy research scripts. MIT licensed.
 Status: v0.2.0 is public on [PyPI](https://pypi.org/project/pyflightstream/)
 with the archived release on Zenodo (DOI 10.5281/zenodo.21482925; see
 CITATION.cff). Development continues toward v0.3.0; CHANGELOG.md carries
-the release history and STATUS.md the day-to-day state.
+the release history.
 
 ```
 pip install pyflightstream
@@ -85,7 +85,7 @@ docs is generated from the database at build time.
 | `docs/` | Documentation source (mkdocs); reference pages are generated from the database, never committed |
 | `examples/` | Runnable example scripts in percent format |
 | `guide/` | LaTeX source of the user guide (the built pdf never enters Git) |
-| `handoffs/`, `STATUS.md`, `plan.csv`, `logbook.csv` | The session protocol: dated working records and the current state |
+| `deprecated/` | Discontinued public items, grouped here instead of scattered at the top level |
 | `.claude/skills/` | Maintenance procedures (version updates, command additions, QA runs, releases) |
 | `_private/` | Local only, never committed: FlightStream manuals, executables, research geometry |
 

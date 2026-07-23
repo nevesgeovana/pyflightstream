@@ -1,8 +1,8 @@
 # Roadmap
 
-The delivered milestones and the open lines. STATUS.md in the
-repository is the live, detailed state; this chapter is the SRS-level
-summary and is updated when milestones close.
+The delivered milestones and the open lines. This chapter is the
+SRS-level summary and is updated when milestones close; the author's
+private session records carry the day-to-day detail.
 
 ## Delivered
 
@@ -35,8 +35,8 @@ summary and is updated when milestones close.
 ## Requirement-to-work traceability
 
 Every functional requirement above carries its status and evidence
-inline. The working queue itself lives in the repository's `plan.csv`
-(stable PLN ids, evidence-citing status changes) and the session
-records under `handoffs/`; committed reports under `reports/` are the
-evidence terminal. This SRS points at those records rather than
-duplicating them, per the single-home rule of NFR-11.
+inline. The working queue and session records live in the author's
+private planning files (stable PLN and HND ids); committed reports
+under `reports/` are the public evidence terminal. This SRS points at
+those records rather than duplicating them, per the single-home rule
+of NFR-11.
