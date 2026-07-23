@@ -27,7 +27,17 @@ jobs:
       - name: Tier 1 tests
         run: pytest
       - name: Docs build
-        run: mkdocs build --strict
+        run: properdocs build --strict
+      - name: Docs hook effect check
+        # The scripts/docs_hooks.py exclusion must keep the literate-nav
+        # input out of the rendered site; strict mode alone would not
+        # fail on an extra unlisted page (dual-namespace note in the
+        # hook).
+        run: |
+          if [ -e site/reference/SUMMARY ] || [ -e site/reference/SUMMARY.md ] || [ -e site/reference/SUMMARY/index.html ]; then
+            echo "reference/SUMMARY leaked into the rendered site"
+            exit 1
+          fi
 
   guard:
     # Repository-wide guards for the hard invariants (CLAUDE.md).

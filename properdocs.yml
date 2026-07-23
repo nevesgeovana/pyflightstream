@@ -1,6 +1,8 @@
-# Docs configuration. Kept at the repository root (mkdocs requires the
-# config file outside docs_dir); the DLV-004 tree placed it under docs/,
-# a deliberate small deviation recorded at M0.
+# Docs configuration for ProperDocs (the maintained MkDocs fork; the
+# repository migrated after a green drop-in test, 2026-07-23, license
+# evidence reports/RPT-009). Kept at the repository root (the builder
+# requires the config file outside docs_dir); the DLV-004 tree placed
+# it under docs/, a deliberate small deviation recorded at M0.
 site_name: pyflightstream
 site_description: Version-aware, didactic Python driver for FlightStream
 repo_url: https://github.com/nevesgeovana/pyflightstream

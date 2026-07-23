@@ -15,7 +15,7 @@ dist/
 .pytest_cache/
 .ruff_cache/
 
-# mkdocs build output
+# Docs build output (ProperDocs)
 site/
 
 # Local run scratch, one root for every tier (runs/probes, runs/physics,

@@ -1,6 +1,6 @@
 """Generate the docs reference and compatibility pages at build time.
 
-Executed by the mkdocs-gen-files plugin (configured in mkdocs.yml).
+Executed by the mkdocs-gen-files plugin (configured in properdocs.yml).
 Every page is virtual: nothing generated here is committed, so the
 published site can never drift from the command database. The single
 rendering source is ``pyflightstream.reference``, shared with the

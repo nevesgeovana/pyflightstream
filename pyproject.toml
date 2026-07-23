@@ -33,6 +33,10 @@ dev = [
     "pytest",
     "ruff",
     "pre-commit",
+    # Docs build tool (license evidence: reports/RPT-009). The material
+    # theme and the nav plugins keep their mkdocs package names and
+    # still pull the mkdocs library during the ecosystem transition.
+    "properdocs",
     "mkdocs-material",
     "mkdocstrings[python]",
     "mkdocs-gen-files",

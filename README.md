@@ -87,7 +87,7 @@ docs is generated from the database at build time.
 | `src/pyflightstream/commands/` | The command database: what exists in which FlightStream version, with manual page citations |
 | `tests/` | Tier 1 tests, runnable anywhere, no FlightStream needed |
 | `reports/` | Committed evidence from licensed machines: command validity (compat), physics regression, drift, and research cards |
-| `docs/` | Documentation source (mkdocs); reference pages are generated from the database, never committed |
+| `docs/` | Documentation source (ProperDocs); reference pages are generated from the database, never committed |
 | `examples/` | Runnable example scripts in percent format |
 | `guide/` | LaTeX source of the user guide (the built pdf never enters Git) |
 | `deprecated/` | Discontinued public items, grouped here instead of scattered at the top level |
@@ -105,7 +105,7 @@ pytest
 Tier 1 (the pytest suite) runs anywhere. Tier 2 (command validity
 probes) and Tier 3 (physics regression) require a local FlightStream
 license and are documented in CONTRIBUTING.md. The docs build with
-`mkdocs build --strict`.
+`properdocs build --strict`.
 
 ## License
 
