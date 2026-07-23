@@ -3,7 +3,11 @@
 Version-aware, didactic Python driver for the FlightStream panel-method
 solver. MIT licensed.
 
-Status: pre-alpha; the changelog records what each release adds.
+Status: v0.2.0 is public on PyPI; the changelog records what each
+release adds. Four command-line tools ship with the package: `pyfs-qa`
+(probes, physics regression, drift), `pyfs-workspace` (campaign
+workspace init), `pyfs-matrix` (legacy matrix convert and pre-flight),
+and `pyfs-fsi` (the aeroelastic coupling executable).
 
 ## The idea in one paragraph
 
@@ -46,7 +50,7 @@ The three QA tiers behind the statuses:
 
 * Getting started guide: install, license prerequisites, first steady
   polar.
-* Steady polar example rendered from the percent-format script in
-  `examples/`.
-* Campaign tutorial: the native campaign format and the legacy matrix.
-* Migrating from legacy run-matrix scripts.
+* Campaign tutorial: the workspace input library, pre-flight, and
+  resumable sweeps.
+* Migrating from legacy run-matrix scripts (the `pyfs-matrix` CLI
+  already converts and pre-flights them).

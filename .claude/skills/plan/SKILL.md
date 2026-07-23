@@ -7,9 +7,9 @@ disable-model-invocation: true
 
 Operation: `$ARGUMENTS`
 
-The milestone map (M0 to M5, v0.1.0, v0.2+) comes from the Bootstrap
-Kit (`_private/design/DLV-004`, Section 7) and is mirrored in
-STATUS.md. `plan.csv` holds the working items with stable PLN ids.
+The milestone map (M0 to M7, v0.1.0, v0.2.0 public, v0.3+) comes from
+the Bootstrap Kit (`_private/design/DLV-004`, Section 7) and is
+mirrored in STATUS.md, which is the up-to-date authority. `plan.csv` holds the working items with stable PLN ids.
 Rules: never renumber or silently rewrite existing rows; a status
 change cites its evidence (commit, test run, committed report); new
 rows are added only for items agreed in conversation.

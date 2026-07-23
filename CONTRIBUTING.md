@@ -7,10 +7,13 @@ the evidence traceable, and the license clean.
 ## Setup
 
 ```
-pip install -e .[dev]
+pip install -e .[dev,fsi,geom]
 pre-commit install
 pytest
 ```
+
+The `fsi` and `geom` extras are part of the full Tier 1 suite (the FSI
+and geometry-gate tests import them); CI installs the same set.
 
 ## Hard invariants
 
@@ -44,7 +47,9 @@ probe suite needs to reproduce and classify the break.
 * Tier 3 (`pyfs-qa physics`, licensed machine): physics regression matrix
   with WARN and FAIL tolerance bands; reference updates demand a reason.
 
-Tiers 2 and 3 arrive at milestones M3 and M4.
+All three tiers are operational; `pyfs-qa cases` prints the Tier 3
+matrix without running anything, and the committed reports live under
+`reports/compat/` and `reports/physics/`.
 
 ## Style
 

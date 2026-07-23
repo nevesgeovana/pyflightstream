@@ -5,6 +5,69 @@ All notable changes to pyflightstream. The format follows
 follow [SemVer](https://semver.org/) and are decoupled from
 FlightStream versions.
 
+## [Unreleased]
+
+The usage-feedback line (PLN-022): the seven workstreams triaged from
+the author's first outside-the-repo use of 0.2.0, delivered 2026-07-22.
+
+### Added
+
+* `workspace` package (renamed from `files`): the campaign workspace
+  now organizes inputs as well as outputs, with a declarative
+  input-artifact library under `inputs/` (references, solver-setup
+  presets, boundary groups, geometries, profiles, and an executables
+  registry by build id with an explicit-override rule), output naming
+  templates (`NamingTemplate`, output-only by design: the manifest
+  stays the sole identity authority and no parse-back API exists),
+  `CampaignWorkspace.init()` behind the new `pyfs-workspace` CLI,
+  campaign pre-flight (`plan_campaign`, zero solver time), and
+  resumable incremental sweeps (`run_campaign(resume=True)`).
+* Entity label registry in the script builder: frames, actuators,
+  motions, and boundaries can carry user labels; every entity-citing
+  argument accepts index or label; `declare_existing` accepts named
+  boundary inventories; boundary range checks apply once declared.
+* Solver-setup provenance: `solver_settings` becomes the single entry
+  point for all 28 commands of the runtime, solver, and advanced
+  settings families and returns a `SolverSetup` snapshot recording
+  every flag's effective value with provenance (explicit,
+  evidence-backed default, or unknown, never guessed); the snapshot
+  rides the run manifest and `script_from_setup` regenerates the
+  script from it.
+* Tabular results layer on pandas: `to_dataframe`/`to_csv` for every
+  parser, `run_frame` (one wide row per run), and `sweep_frame` (the
+  whole sweep from the manifest).
+* The legacy run matrix as a first-class interface: `resolve_matrix`,
+  `plan_matrix`, and `run_matrix` bind the matrix columns to the
+  workspace input library; new `pyfs-matrix` CLI (convert, plan);
+  the matrix fixture grows to eight rows.
+* Two-level help: `pyflightstream.overview()` renders the
+  architecture from the live module docstrings (docs Architecture
+  page from the same source), and the command reference gains a
+  manual-coverage section with explicit gap notes.
+* `pyfs-qa cases`: the Tier 3 physics registry printed as a numbered
+  test matrix.
+* Command schema: optional evidence-cited default metadata.
+
+### Changed
+
+* `solver_settings` now requires `vorticity_drag_boundaries`
+  (breaking; forgetting the selection silently zeroes the
+  induced-drag accounting) and emits `SOLVER_MINIMUM_CP -100` by
+  default when the flag is not passed, retiring the legacy
+  reference-velocity workaround for rotor Cp clipping (override by
+  passing the parameter; PHY reference re-validation queued).
+* `pyflightstream.files` is deprecated in favor of
+  `pyflightstream.workspace` (the shim re-exports everything with a
+  DeprecationWarning for one minor release), and the
+  `analysis_setup(vorticity_drag_boundaries=...)` path is deprecated
+  toward `solver_settings`.
+
+### Fixed
+
+* `__version__` now derives from the installed metadata (the
+  published 0.2.0 wheel answered `0.0.1.dev0`), and the package
+  docstring no longer describes the M0 skeleton.
+
 ## [0.2.0] - 2026-07-22
 
 First public release (PyPI and Zenodo). Milestones M6 (FSI) and M7

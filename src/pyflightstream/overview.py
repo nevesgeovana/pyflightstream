@@ -43,9 +43,8 @@ ul { margin: 0.4rem 0 0.8rem 1.2rem; }
 # last. Every module imports only modules of the rows below its own;
 # the CLAUDE.md layout rule (versions <- commands <- script/results <-
 # cases <- run/workspace <- post/qa) is the authority for the core
-# stack (the CLAUDE.md text still spells the row "files"; workspace is
-# its renamed successor and pyflightstream.files is the deprecation
-# shim).
+# stack; pyflightstream.files is the deprecation shim of the renamed
+# workspace row and is deliberately not a section here.
 _CORE_LAYERS: tuple[tuple[tuple[str, ...], str], ...] = (
     (("post", "qa"), "engineering data | probe and regression evidence"),
     (("run", "workspace"), "headless execution | input library, run layout, manifest"),

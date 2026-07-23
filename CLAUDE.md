@@ -50,8 +50,9 @@ issue tracking the pending probe.
 ## Layout
 
 src layout per the SAD. Dependencies flow downward:
-versions <- commands <- script/results <- cases <- run/files <- post/qa.
-Never import upward.
+versions <- commands <- script/results <- cases <- run/workspace <- post/qa.
+Never import upward. (`workspace` is the renamed `files`; the old name
+survives only as a deprecation shim.)
 
 ## Session protocol
 

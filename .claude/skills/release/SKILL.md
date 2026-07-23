@@ -13,7 +13,10 @@ Cut a release with the evidence checks that make it trustworthy.
 2. Verify Tier 1 is green in CI, and that compat and physics reports are
    current for the flagship FlightStream version.
 3. Bump the SemVer version in `pyproject.toml` (package versioning is
-   decoupled from FlightStream versions).
+   decoupled from FlightStream versions), and carry it into every
+   other place that states a version: `CITATION.cff` (`version` and
+   `date-released`) and the user guide title in
+   `guide/pyflightstream_user_guide.tex`.
 4. Assemble the changelog from merged changes.
 5. Build the sdist and wheel; tag the release.
 6. Public releases additionally audit hard invariants 1, 2, and 5 with

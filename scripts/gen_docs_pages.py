@@ -18,7 +18,11 @@ from pyflightstream.reference import (
     percent_script_markdown,
 )
 
-EXAMPLES = ["steady_polar.py"]
+EXAMPLES = [
+    "steady_polar.py",
+    "wing_static_deflection.py",
+    "fsi_campbell_diagram.py",
+]
 
 for path, content in markdown_reference_pages().items():
     with mkdocs_gen_files.open(f"reference/{path}", "w") as page:

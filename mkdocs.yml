@@ -45,3 +45,5 @@ nav:
   - Compatibility matrix: compatibility.md
   - Examples:
       - Steady polar: examples/steady_polar.md
+      - Wing static deflection: examples/wing_static_deflection.md
+      - FSI Campbell diagram: examples/fsi_campbell_diagram.md
