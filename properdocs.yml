@@ -61,5 +61,6 @@ nav:
   - Sister library (ITACA): sister-itaca.md
   - Examples:
       - Steady polar: examples/steady_polar.md
+      - Campaign from a run matrix: examples/campaign_matrix.md
       - Wing static deflection: examples/wing_static_deflection.md
       - FSI Campbell diagram: examples/fsi_campbell_diagram.md

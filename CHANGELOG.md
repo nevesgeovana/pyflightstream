@@ -211,6 +211,10 @@ Deprecation messages naming v0.3.0 refer to this release.
   26.120 evidence counts, the `workspace` import path, and a
   four-tool command-line cheat sheet (`pyfs-qa` including `cases`,
   `pyfs-workspace`, `pyfs-matrix`, `pyfs-fsi`).
+* New worked example `examples/campaign_matrix.py` (rendered on the
+  docs site): the campaign side end to end without a license, run
+  matrix to `campaign.toml` to a zero-solver `plan_campaign`
+  pre-flight reporting the ready sweep points.
 * Mesh inputs and GUI-only operations policy page in the docs
   (PLN-028): the supported GUI-once-then-script workflow when a step
   has no scripting command, the two canonical mesh input routes

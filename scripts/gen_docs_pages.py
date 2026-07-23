@@ -20,6 +20,7 @@ from pyflightstream.reference import (
 
 EXAMPLES = [
     "steady_polar.py",
+    "campaign_matrix.py",
     "wing_static_deflection.py",
     "fsi_campbell_diagram.py",
 ]
