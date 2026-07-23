@@ -51,6 +51,18 @@ All three tiers are operational; `pyfs-qa cases` prints the Tier 3
 matrix without running anything, and the committed reports live under
 `reports/compat/` and `reports/physics/`.
 
+Executable examples: the docstring doctests and the python code blocks
+in the root README and `docs/` are run in CI so a stale example fails.
+Run them locally the same way CI does (warnings promoted to errors):
+
+```
+pytest src/pyflightstream README.md docs -W error
+```
+
+The plain `pytest` above (Tier 1) does not collect these, so run this
+command after editing a docstring example or a README/docs snippet.
+`pip install -e .[dev,fsi,geom]` already pulls the runner (`sybil`).
+
 ## Style
 
 * ruff handles lint and format; run `pre-commit run -a` before pushing.
