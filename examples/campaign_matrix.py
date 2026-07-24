@@ -73,6 +73,13 @@ print("--- campaign.toml (first lines) ---")
 print("\n".join(campaign_toml.splitlines()[:8]))
 
 # %% [markdown]
+# Conversion carries the matrix codes, not output names: the matrix has
+# no such column, so a converted `[[sim]]` declares none. Add
+# `outputs = ["loads_{point}.txt"]` to each one before running: the loop
+# collects only declared outputs, and every point of a case runs in the
+# same folder, so the name has to carry the point.
+
+# %% [markdown]
 # ## 3. The recipe
 #
 # A recipe turns one swept point into script emissions. It receives
@@ -108,7 +115,10 @@ def steady(case: SimCase, script) -> None:
         velocity=case.velocity,
     )
     helpers.start_solver(script)
-    script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", "loads.txt")
+    # case.outputs carries the declared names with the point rendered
+    # in, so what the script exports is what the loop collects, and one
+    # sweep point cannot overwrite the evidence of another.
+    script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", case.outputs[0])
     script.emit("CLOSE_FLIGHTSTREAM")
 
 
@@ -138,7 +148,7 @@ campaign = Campaign(
             geometry=str(geometry),
             sweep=SweepAxis(type="alpha", values=[0.0, 2.0, 4.0]),
             recipe="steady",
-            outputs=["loads.txt"],
+            outputs=["loads_{point}.txt"],
         )
     ],
 )
@@ -154,7 +164,7 @@ for point in plan.points:
 #
 # On a licensed machine the same campaign runs with
 # `run_campaign(campaign, LocalExecutor(fs_exe), workspace,
-# assess=LoadsAssessor("loads.txt"))`. The assessor is required: the
+# assess=LoadsAssessor())`. The assessor is required: the
 # loop refuses to invent convergence evidence, so you name how each
 # point is judged. `resume=True` skips points already in the manifest,
 # so a sweep can grow point by point across sessions. The pre-flight

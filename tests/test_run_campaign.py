@@ -41,10 +41,18 @@ class StubSolver(LocalExecutor):
         self.code = code
 
     def _argv(self, script_path: Path) -> list[str]:
-        return [sys.executable, "-c", self.code]
+        return [sys.executable, "-c", self.code, str(script_path)]
 
 
-WRITES_LOADS = "import pathlib; pathlib.Path('loads.txt').write_text('LOADS')"
+# The stub writes the file the script asks the solver to export, so a
+# per-point output name (loads_{point}.txt) is honored like the solver
+# would honor it.
+WRITES_LOADS = (
+    "import pathlib, sys; "
+    "lines = pathlib.Path(sys.argv[1]).read_text().splitlines(); "
+    "[pathlib.Path(lines[i + 1]).write_text('LOADS') "
+    "for i, line in enumerate(lines) if line == 'EXPORT_SOLVER_ANALYSIS_SPREADSHEET']"
+)
 WRITES_NOTHING = "pass"
 CRASHES_WITH_LOG = (
     "import pathlib, sys; "
@@ -66,7 +74,7 @@ def steady_recipe(case, script):
         convergence=case.solver.convergence,
     )
     helpers.start_solver(script)
-    script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", "loads.txt")
+    script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", case.outputs[0])
     script.emit("CLOSE_FLIGHTSTREAM")
 
 
@@ -82,7 +90,7 @@ def diverged(case, execution, sim_dir):
     return Assessment(status=RunStatus.FAILED_DIVERGED, error="residual grew monotonically")
 
 
-def make_campaign(tmp_path, *, recipe="steady", alphas=(0.0, 2.0), outputs=("loads.txt",)):
+def make_campaign(tmp_path, *, recipe="steady", alphas=(0.0, 2.0), outputs=("loads_{point}.txt",)):
     geometry = tmp_path / "wing.fsm"
     geometry.write_bytes(b"geometry")
     case = SimCase(
@@ -114,7 +122,8 @@ def test_dry_run_records_every_point_end_to_end(tmp_path):
     assert all(record.status is RunStatus.CONVERGED for record in records)
     assert all(record.fs_version_requested == "26.120" for record in records)
     assert records[0].iterations == 120
-    assert records[0].outputs == ["raw/loads.txt"]
+    assert records[0].outputs == ["raw/loads_a+00.0.txt"]
+    assert records[1].outputs == ["raw/loads_a+02.0.txt"]  # both points survive
     assert "wing.fsm" in records[0].inputs_sha256
     assert not records[0].raw_flag
     # The solver-setup snapshot of the built script rode into the manifest.
@@ -204,13 +213,16 @@ def copies_fixture_as(fixture: str, target: str) -> str:
 
 
 def test_loads_assessor_closes_the_convergence_judgment_end_to_end(tmp_path):
+    # No loads file is named: the assessor reads the case's first
+    # declared output as the loop rendered it for this point, which is
+    # the only form that works for a sweep (the name carries the point).
     campaign = make_campaign(tmp_path, alphas=(0.0,))
     workspace = CampaignWorkspace(tmp_path / "camp")
     records = run_campaign(
         campaign,
-        StubSolver(copies_fixture_as("loads_steady_26.120.txt", "loads.txt")),
+        StubSolver(copies_fixture_as("loads_steady_26.120.txt", "loads_a+00.0.txt")),
         workspace,
-        assess=LoadsAssessor("loads.txt", requested_version=campaign.fs_version),
+        assess=LoadsAssessor(requested_version=campaign.fs_version),
         recipes={"steady": steady_recipe},
     )
     record = records[0]
@@ -441,3 +453,80 @@ def test_plan_marks_ready_and_already_recorded_points(tmp_path):
     payload = json.loads(plan.plan_file.read_text(encoding="utf-8"))
     assert payload["campaign"] == "camp"
     assert {point["status"] for point in payload["points"]} == {"READY", "ALREADY_RECORDED"}
+
+
+# --- per-point output names: no point may overwrite another's evidence ------
+
+
+@pytest.mark.parametrize(
+    ("outputs", "blocked"),
+    [
+        (("loads.txt",), True),  # constant: both points write the same file
+        (("loads_{point}.txt",), False),
+        (("loads_{alpha}.txt",), False),  # any template that distinguishes them
+        (("loads_{mach}.txt",), True),  # renders per case, not per point
+        (("loads_{point}.txt", "log.txt"), True),  # one colliding name is enough
+    ],
+)
+def test_output_names_that_two_points_would_share_block_the_case(tmp_path, outputs, blocked):
+    campaign = make_campaign(tmp_path, alphas=(0.0, 2.0), outputs=outputs)
+    campaign.sims[0].mach = 0.2
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    plan = plan_campaign(campaign, workspace, recipes={"steady": steady_recipe})
+    statuses = {point.status for point in plan.points}
+    if blocked:
+        assert statuses == {PlanStatus.BLOCKED}
+        assert "would write the output" in plan.points[0].error
+    else:
+        assert PlanStatus.BLOCKED not in statuses
+
+
+def test_a_single_point_case_may_name_its_output_constantly(tmp_path):
+    campaign = make_campaign(tmp_path, alphas=(0.0,), outputs=("loads.txt",))
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    plan = plan_campaign(campaign, workspace, recipes={"steady": steady_recipe})
+    assert [point.status for point in plan.points] == [PlanStatus.READY]
+
+
+def test_a_registered_callable_meets_the_same_protocol_check(tmp_path):
+    # The registry path skips resolve_recipe, so without its own check a
+    # loose builder would fail per point with a bare TypeError instead.
+    campaign = make_campaign(tmp_path)
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    plan = plan_campaign(campaign, workspace, recipes={"steady": lambda workdir: None})
+    assert {point.status for point in plan.points} == {PlanStatus.BLOCKED}
+    assert "does not satisfy the ScriptRecipe protocol" in plan.points[0].error
+
+
+def test_the_assessor_says_what_it_could_not_read(tmp_path):
+    # A converted matrix declares no outputs, so the default assessor
+    # has nothing to judge; it must say so as a point status, not raise.
+    campaign = make_campaign(tmp_path, alphas=(0.0,), outputs=())
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    with pytest.raises(CampaignErrors):
+        run_campaign(
+            campaign,
+            StubSolver(WRITES_LOADS),
+            workspace,
+            assess=LoadsAssessor(),
+            recipes={"steady": lambda case, script: script.emit("OPEN", case.geometry)},
+        )
+    record = workspace.read_manifest()[0]
+    assert record.status is RunStatus.FAILED_INCOMPLETE_OUTPUT
+    assert "no single collected output reads as a loads table" in record.error
+
+
+def test_the_assessor_says_which_named_file_is_missing(tmp_path):
+    campaign = make_campaign(tmp_path, alphas=(0.0,))
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    with pytest.raises(CampaignErrors):
+        run_campaign(
+            campaign,
+            StubSolver(WRITES_LOADS),
+            workspace,
+            assess=LoadsAssessor("not_exported.txt"),
+            recipes={"steady": steady_recipe},
+        )
+    record = workspace.read_manifest()[0]
+    assert "no collected output named 'not_exported.txt'" in record.error
+    assert "loads_a+00.0.txt" in record.error  # what was collected

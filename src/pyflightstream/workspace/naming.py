@@ -134,11 +134,12 @@ class NamingTemplate(BaseModel):
     ) -> str:
         """Render the placeholders inside one declared output name.
 
-        A name without placeholders passes through unchanged, so
-        existing campaigns keep their exact output names. With
-        placeholders (for example ``"loads_{point}.txt"``) each point
-        exports under a unique name, which avoids a later point of the
-        same simulation overwriting an earlier export.
+        A name without placeholders passes through unchanged, which
+        only a single-point case may declare: with placeholders (for
+        example ``"loads_{point}.txt"``) each point exports under a
+        unique name, and the campaign loop blocks a case whose points
+        would render the same name, because a later point of the same
+        simulation would otherwise overwrite an earlier export.
 
         Parameters
         ----------

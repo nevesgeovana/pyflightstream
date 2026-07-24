@@ -67,6 +67,17 @@ def test_solver_settings_empty_vorticity_selection_names_the_two_drag_methods():
         helpers.solver_settings(script, vorticity_drag_boundaries=[])
 
 
+def test_solver_settings_toggle_refusal_names_both_vocabularies():
+    """A flag written in the solver's words is read, anything else refused."""
+    script = Script(version="26.12")
+    with pytest.raises(
+        CommandArgumentError,
+        match=r"solver_settings: viscous_coupling takes True or False, or the solver's "
+        r"own ENABLE or DISABLE; got 'YES'",
+    ):
+        helpers.solver_settings(script, viscous_coupling="YES")
+
+
 def test_solver_settings_mode_refusal_names_both_regimes():
     script = Script(version="26.12")
     with pytest.raises(

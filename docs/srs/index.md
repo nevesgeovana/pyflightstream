@@ -10,7 +10,7 @@ requirements trace to evidence. It follows the author's SRS template
 | Field | Value |
 |---|---|
 | Document | pyflightstream Software Requirements Specification |
-| Version | 1.1.2 |
+| Version | 1.1.3 |
 | Status | Living document |
 | Author | Geovana Neves |
 | First published | 2026-07-22 |
@@ -79,6 +79,7 @@ implemented without a shipped test behind it.
 
 | Version | Date | Change |
 |---|---|---|
+| 1.1.3 | 2026-07-23 | FR-33 gains the per-point output-name rule: a case whose sweep points would render the same output name is blocked before it runs, because they share one simulation folder (incident INC-20260723-2113) |
 | 1.1.2 | 2026-07-23 | FR-22 restated after a re-reading of the manual page (SRC-003 p.202): the vorticity CDi selection is an optional input, leaving it unset is the documented solver default (surface pressure integration on every boundary) and is recorded in the solver-setup snapshot rather than refused, and the snapshot states unknown on a version without recorded evidence for the command (PLN-075) |
 | 1.1.1 | 2026-07-23 | Standards alignment updated: the docs toolchain row moved to ProperDocs after the green drop-in test (this row also repairs the missed increment of that edit), the Sybil vehicle recorded on the executable-examples backlog row, and the pyproject metadata row updated for the landed classifiers and URLs |
 | 1.1.0 | 2026-07-23 | Role-based review model added to the standards alignment; AD-07 co-development with ITACA added to the architecture chapter, with the sister library page and the ITACA adapter open line |

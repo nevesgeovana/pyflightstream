@@ -45,7 +45,14 @@ from pathlib import Path
 from typing import Protocol
 
 import pyflightstream
-from pyflightstream.cases import Campaign, ScriptRecipe, SimCase, point_tag, resolve_recipe
+from pyflightstream.cases import (
+    Campaign,
+    ScriptRecipe,
+    SimCase,
+    check_recipe,
+    point_tag,
+    resolve_recipe,
+)
 from pyflightstream.results import (
     IncompleteOutputError,
     parse_loads,
@@ -273,6 +280,15 @@ class OutcomeAssessor(Protocol):
         ...
 
 
+def _read_loads(path: Path, requested_version: str | FsVersion | None):
+    """Parse one collected file as a loads table, or say why not."""
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+        return parse_loads(text, requested_version=requested_version), None
+    except (OSError, IncompleteOutputError, ValueError) as error:
+        return None, str(error)
+
+
 class LoadsAssessor:
     """The standard solver-quality judgment, built on the run outputs.
 
@@ -296,9 +312,15 @@ class LoadsAssessor:
 
     Parameters
     ----------
-    loads_file : str
-        Name of the loads spreadsheet among the case's declared
-        outputs (collected into ``raw/``).
+    loads_file : str, optional
+        Name of the loads spreadsheet among the collected outputs, by
+        file name (any directory part of the declared name is dropped
+        by collection). None, the default, finds the collected output
+        that parses as a loads table, the same rule
+        :func:`pyflightstream.results.tables.loads_table` uses on the
+        manifest: a swept case names its outputs per point
+        (``loads_{point}.txt``), so no single literal could name them
+        all, and the content is what identifies the file anyway.
     log_file : str, optional
         Name of the exported solver log (EXPORT_LOG), when the recipe
         declares one; enables the residual-based judgment.
@@ -309,7 +331,8 @@ class LoadsAssessor:
 
     def __init__(
         self,
-        loads_file: str,
+        loads_file: str | None = None,
+        *,
         log_file: str | None = None,
         requested_version: str | FsVersion | None = None,
     ):
@@ -320,14 +343,47 @@ class LoadsAssessor:
     def __call__(self, case: SimCase, execution: ExecutionResult, sim_dir: Path) -> Assessment:
         """Judge one executed point from its collected outputs."""
         raw = Path(sim_dir) / "raw"
-        try:
-            text = (raw / self.loads_file).read_text(encoding="utf-8", errors="replace")
-            report = parse_loads(text, requested_version=self.requested_version)
-        except (OSError, IncompleteOutputError, ValueError) as error:
-            return Assessment(
-                status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
-                error=f"loads spreadsheet unusable: {error}",
-            )
+        collected = sorted(path for path in raw.glob("*") if path.is_file())
+        if self.loads_file is not None:
+            wanted = Path(self.loads_file).name
+            found = [path for path in collected if path.name == wanted]
+            if not found:
+                return Assessment(
+                    status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
+                    error=(
+                        f"no collected output named {wanted!r} to judge; collected: "
+                        f"{', '.join(path.name for path in collected) or 'nothing'}. The "
+                        "name must match the file the recipe exported, or leave "
+                        "LoadsAssessor() unnamed to judge whichever output parses as a "
+                        "loads table"
+                    ),
+                )
+            report, error = _read_loads(found[0], self.requested_version)
+            if report is None:
+                return Assessment(
+                    status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
+                    error=f"loads spreadsheet {wanted!r} unusable: {error}",
+                )
+        else:
+            usable = [
+                (path, report)
+                for path, (report, _) in (
+                    (path, _read_loads(path, self.requested_version)) for path in collected
+                )
+                if report
+            ]
+            if len(usable) != 1:
+                names = ", ".join(path.name for path in collected) or "nothing"
+                reason = "none of them parses" if not usable else "several of them parse"
+                return Assessment(
+                    status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
+                    error=(
+                        f"no single collected output reads as a loads table ({reason}); "
+                        f"collected: {names}. Name the file with "
+                        "LoadsAssessor('<name>')"
+                    ),
+                )
+            report = usable[0][1]
         stamp = {
             "fs_version_reported": report.fs_version_reported,
             "fs_build": report.fs_build,
@@ -340,8 +396,26 @@ class LoadsAssessor:
                 error=f"non-finite Total coefficients: {', '.join(diverged)}",
                 **stamp,
             )
-        if self.log_file is not None and (raw / self.log_file).is_file():
-            log_text = (raw / self.log_file).read_text(encoding="utf-8", errors="replace")
+        log_path = None
+        if self.log_file is not None:
+            wanted_log = Path(self.log_file).name
+            matches = [path for path in collected if path.name == wanted_log]
+            if not matches:
+                return Assessment(
+                    status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
+                    error=(
+                        f"no collected output named {wanted_log!r} to read residuals "
+                        f"from; collected: "
+                        f"{', '.join(path.name for path in collected) or 'nothing'}. A "
+                        "solver log of a swept case carries the point in its name, so "
+                        "name it as the recipe exported it, or drop log_file and accept "
+                        "the iteration-count judgment"
+                    ),
+                    **stamp,
+                )
+            log_path = matches[0]
+        if log_path is not None:
+            log_text = log_path.read_text(encoding="utf-8", errors="replace")
             try:
                 final = parse_residual_history(log_text)[-1]
             except (IncompleteOutputError, ValueError) as error:
@@ -479,7 +553,7 @@ def run_campaign(
     for case in campaign.sims:
         sim_dir = workspace.create_sim(case.sim_id)
         recipe, preparation_error, inputs_sha256, staged_geometry = _prepare_case(
-            case, workspace, recipes
+            campaign, case, workspace, recipes
         )
         for point in case.sweep.points():
             run_id = _run_id(campaign, case, point)
@@ -698,7 +772,7 @@ def plan_campaign(
     points: list[PointPlan] = []
     for case in campaign.sims:
         workspace.create_sim(case.sim_id)
-        case_error = _plan_case_error(case, workspace, recipes)
+        case_error = _plan_case_error(campaign, case, workspace, recipes)
         recipe = None
         if case_error is None:
             recipe = (
@@ -727,16 +801,22 @@ def plan_campaign(
 
 
 def _plan_case_error(
+    campaign: Campaign,
     case: SimCase,
     workspace: CampaignWorkspace,
     recipes: dict[str, ScriptRecipe] | None,
 ) -> str | None:
-    """Return what blocks a whole case (recipe or geometry), or None."""
+    """Return what blocks a whole case (recipe, outputs, geometry), or None."""
     try:
-        if not (recipes and case.recipe in recipes):
+        if recipes and case.recipe in recipes:
+            check_recipe(case.recipe, recipes[case.recipe])
+        else:
             resolve_recipe(case.recipe)
     except ValueError as error:
         return str(error)
+    collision = _output_collision(campaign, case, workspace)
+    if collision is not None:
+        return collision
     if case.geometry is not None and not Path(case.geometry).is_file():
         return (
             f"geometry file {case.geometry} does not exist; the campaign loop "
@@ -788,7 +868,43 @@ def _plan_point(
     return PointPlan(**base, script_name=script_name, status=PlanStatus.READY)
 
 
+def _output_collision(
+    campaign: Campaign, case: SimCase, workspace: CampaignWorkspace
+) -> str | None:
+    """Return why this case's output names collide, or None.
+
+    Every point of a case executes in the same simulation folder and its
+    declared outputs are collected into ``raw/`` under their own names,
+    so two points that render the same output name overwrite each
+    other's evidence while the manifest lists the survivor for both
+    (incident INC-20260723-2113-pyflightstream). The check renders the
+    names the way the loop will, so it judges the actual collision
+    rather than the presence of a particular placeholder: any naming
+    template that distinguishes the points passes.
+    """
+    seen: dict[str, str] = {}
+    for point in case.sweep.points():
+        try:
+            _, names = _point_names(campaign, case, point, workspace)
+        except NamingTemplateError:
+            return None  # the rendering error is reported by the point itself
+        tag = point_tag(point)
+        for name in names:
+            if name in seen and seen[name] != tag:
+                return (
+                    f"sim {case.sim_id!r} would write the output {name!r} for both point "
+                    f"{seen[name]} and point {tag}: every point of a case runs in the "
+                    "same folder and its outputs are collected under their own names, so "
+                    "the second would overwrite the first and the manifest would list "
+                    "one file for both. Name the outputs per point, for example "
+                    "'loads_{point}.txt', and export case.outputs[i] from the recipe"
+                )
+            seen.setdefault(name, tag)
+    return None
+
+
 def _prepare_case(
+    campaign: Campaign,
     case: SimCase,
     workspace: CampaignWorkspace,
     recipes: dict[str, ScriptRecipe] | None,
@@ -802,10 +918,16 @@ def _prepare_case(
     try:
         if recipes and case.recipe in recipes:
             recipe = recipes[case.recipe]
+            # A registered callable skips resolve_recipe, so the protocol
+            # check has to happen here too: both routes cross one gate.
+            check_recipe(case.recipe, recipe)
         else:
             recipe = resolve_recipe(case.recipe)
     except ValueError as error:
         return None, str(error), {}, None
+    collision = _output_collision(campaign, case, workspace)
+    if collision is not None:
+        return recipe, collision, {}, None
     inputs_sha256: dict[str, str] = {}
     staged_geometry: str | None = None
     if case.geometry is not None:

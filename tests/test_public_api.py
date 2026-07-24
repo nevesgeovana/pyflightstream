@@ -64,6 +64,7 @@ PUBLIC_MODULES = [
     "pyflightstream.script.entities",
     "pyflightstream.script.helpers",
     "pyflightstream.script.solver_setup",
+    "pyflightstream.script.toggles",
     "pyflightstream.testing",
     "pyflightstream.versions",
     "pyflightstream.workspace",

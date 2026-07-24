@@ -10,6 +10,7 @@ from pyflightstream.script import (
     ScriptReferenceError,
     helpers,
 )
+from pyflightstream.script.toggles import SOLVER_TOGGLE_WORDS, resolve_toggle
 
 GOLDENS = Path(__file__).parent / "goldens"
 
@@ -255,3 +256,158 @@ def test_export_results_warns_on_the_deprecated_cp_variable():
     script = Script(version="26.12")
     with pytest.warns(UserWarning, match=r"CP_REFERENCE or CP_FREESTREAM \(SRC-003 p\.352\)"):
         helpers.export_results(script, vtk="C:/out/a.vtk", vtk_variables=["CP", "VX"])
+
+
+# --- the solver's own on/off vocabulary in the helpers ----------------------
+
+
+@pytest.mark.parametrize("written", ["DISABLE", "disable", " Disable "])
+def test_a_toggle_written_in_the_solver_words_emits_that_state(written):
+    # 'DISABLE' is a truthy Python string: read as a bare bool it would
+    # emit ENABLE and invert the physics of the run in silence.
+    script = Script(version="26.12")
+    setup = helpers.solver_settings(script, viscous_coupling=written)
+    assert "SET_SOLVER_VISCOUS_COUPLING DISABLE" in script.render()
+    assert setup.flags["SET_SOLVER_VISCOUS_COUPLING"].value is False
+
+
+#: Every solver_settings toggle, with the command it switches. The
+#: helper unpacks them one by one, so a transposed line would invert two
+#: flags of a real run; each pair is asserted rather than one sample.
+SETTINGS_TOGGLES = [
+    ("forced_iterations", "SOLVER_SET_FORCED_ITERATIONS"),
+    ("viscous_coupling", "SET_SOLVER_VISCOUS_COUPLING"),
+    ("reynolds_averaged_drag", "REYNOLDS_AVERAGED_DRAG_FORCES"),
+    ("mesh_induced_wake_velocity", "SOLVER_SET_MESH_INDUCED_WAKE_VELOCITY"),
+    ("unsteady_pressure_and_kutta", "SOLVER_UNSTEADY_PRESSURE_AND_KUTTA"),
+    ("wake_on_wake_induction", "SET_WAKE_ON_WAKE_INDUCTION"),
+    ("additional_wake_relaxation", "ADDITIONAL_WAKE_RELAXATION_ITERATION"),
+]
+
+
+@pytest.mark.parametrize(("argument", "command"), SETTINGS_TOGGLES)
+def test_every_settings_toggle_reaches_its_own_command(argument, command):
+    script = Script(version="26.12")
+    setup = helpers.solver_settings(script, **{argument: "DISABLE"})
+    assert f"{command} DISABLE" in script.render()
+    assert setup.flags[command].value is False
+
+
+#: One toggle per helper that takes them, with the arguments the helper
+#: needs to reach its emissions, and a call state that already has
+#: something in the script (so a late refusal would be visible).
+HELPER_TOGGLES = [
+    ("solver_settings", "viscous_coupling", {}),
+    ("analysis_setup", "symmetry_loads", {}),
+    ("initialize_solver", "wall_collision_avoidance", {}),
+    ("sweep", "clear_solution", {"aoa": [0.0, 2.0]}),
+    ("export_results", "vtk_wake", {"spreadsheet": "loads.txt"}),
+    ("export_probes", "update", {"path": "C:/out/probes.txt"}),
+    ("sweep", "start", {"aoa": [0.0]}),
+    (
+        "actuator_disc",
+        "enable",
+        {
+            "name": "prop",
+            "frame": 1,
+            "axis": "X",
+            "offset": 0.0,
+            "r_tip": 0.9,
+            "r_hub": 0.1,
+            "rpm": 2400.0,
+        },
+    ),
+]
+
+
+@pytest.mark.parametrize(("helper", "argument", "arguments"), HELPER_TOGGLES)
+def test_a_toggle_outside_both_vocabularies_refuses_before_emitting(helper, argument, arguments):
+    script = Script(version="26.12")
+    with pytest.raises(
+        CommandArgumentError,
+        match=rf"{helper}: {argument} takes True or False, or the solver's "
+        r"own ENABLE or DISABLE; got 'YES'",
+    ):
+        getattr(helpers, helper)(script, **{argument: "YES"}, **arguments)
+    assert script.render() == "\n"  # nothing was emitted
+
+
+def test_analysis_setup_reads_the_solver_words_too():
+    script = Script(version="26.12")
+    # symmetry_loads is an init-phase setting, so it goes before the
+    # solver starts and the analysis selections after it.
+    helpers.analysis_setup(script, symmetry_loads="ENABLE")
+    script.emit("START_SOLVER")
+    helpers.analysis_setup(script, inviscid_only="DISABLE")
+    text = script.render()
+    assert "SET_ANALYSIS_SYMMETRY_LOADS ENABLE" in text
+    assert "SET_INVISCID_LOADS DISABLE" in text
+
+
+def test_the_export_refusal_does_not_consume_the_deferred_selection():
+    # export_results flushes the induced-drag selection; a refusal after
+    # that flush would leave the selection unrecoverable on a retry.
+    script = Script(version="26.12")
+    helpers.solver_settings(script, vorticity_drag_boundaries="all")
+    script.emit("START_SOLVER")
+    with pytest.raises(CommandArgumentError, match="vtk_wake"):
+        helpers.export_results(script, spreadsheet="loads.txt", vtk_wake="YES")
+    helpers.export_results(script, spreadsheet="loads.txt")
+    assert "SET_VORTICITY_DRAG_BOUNDARIES -1" in script.render()
+
+
+# --- the toggle resolver itself ---------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [(True, True), (False, False), ("ENABLE", True), ("disable", False), (" Enable ", True)],
+)
+def test_resolve_toggle_accepts_both_vocabularies(value, expected):
+    assert resolve_toggle(value, context="x") is expected
+
+
+@pytest.mark.parametrize("value", [1, 0, None, "", "true", "yes", "on", "MAYBE", 1.0])
+def test_resolve_toggle_refuses_everything_else(value):
+    # 1 and 0 are refused deliberately: accepting them would put the
+    # decision back on truthiness, which is what inverted 'DISABLE'.
+    with pytest.raises(ValueError, match="takes True or False, or the solver's own"):
+        resolve_toggle(value, context="a flag")
+
+
+def test_the_vocabulary_cannot_be_extended_at_runtime():
+    # A writable vocabulary would let one caller change what every
+    # helper and every settings field accepts, process wide.
+    with pytest.raises(TypeError):
+        SOLVER_TOGGLE_WORDS["ON"] = True
+
+
+@pytest.mark.parametrize(
+    ("call", "expected"),
+    [
+        (lambda script: helpers.sweep(script, aoa=[0.0], start="DISABLE"), "SWEEPER_START"),
+        (
+            lambda script: helpers.export_probes(script, "C:/out/p.txt", update="DISABLE"),
+            "UPDATE_PROBE_POINTS",
+        ),
+    ],
+)
+def test_a_gate_written_in_the_solver_words_gates(call, expected):
+    # These two decide whether a command is emitted at all, so reading
+    # them as bare truthiness would run what the caller switched off.
+    script = Script(version="26.12")
+    call(script)
+    assert expected not in script.render()
+
+
+def test_a_per_surface_flag_in_the_solver_words_renders_that_state():
+    script = Script(version="26.12")
+    helpers.initialize_solver(script, surfaces=[(1, "DISABLE"), (2, True)])
+    assert "1,DISABLE" in script.render() and "2,ENABLE" in script.render()
+
+
+def test_a_per_surface_flag_outside_both_vocabularies_refuses():
+    script = Script(version="26.12")
+    with pytest.raises(CommandArgumentError, match="initialize_solver: surfaces"):
+        helpers.initialize_solver(script, surfaces=[(1, "YES")])
+    assert script.render() == "\n"

@@ -344,7 +344,11 @@ the session records.
     (references, setups, groups, geometries, profiles, executables by
     build id) resolved by stable id with didactic misses. Output
     naming is templatable and output-only: the manifest stays the
-    sole identity authority and no parse-back API exists.
+    sole identity authority and no parse-back API exists. A case whose
+    sweep points would render the same output name is blocked before
+    it runs, because every point of a case executes in one simulation
+    folder and a shared name destroys the evidence of all but the last
+    (incident INC-20260723-2113).
 
 !!! requirement "FR-34 Pre-flight and resume <span class='srs-implemented'>implemented</span>"
     *Origin: usage feedback. Evidence: the v0.3 line; pre-flight and

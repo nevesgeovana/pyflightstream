@@ -18,6 +18,14 @@ settings (pp.339-343), solver initialization (p.337), sweeps (p.406),
 analysis and export selection (pp.350-354), and probe management
 (pp.362-363).
 
+Toggles: every parameter that switches a solver flag on or off takes a
+Python bool or the solver's own ``ENABLE`` and ``DISABLE`` (any case),
+resolved by :func:`pyflightstream.script.toggles.resolve_toggle` before
+the helper emits anything; a word in neither vocabulary is refused
+naming the helper and the argument. A setup carried over from the
+solver speaks that vocabulary, and a bare string is truthy in Python,
+so reading it is what keeps ``'DISABLE'`` from emitting ENABLE.
+
 Entity citations by label: every parameter that cites a frame,
 actuator, motion, or mesh boundary accepts the 1-based index or the
 label registered at creation (``label=``) or declared through
@@ -54,9 +62,32 @@ from pyflightstream.script.solver_setup import (
     build_setup,
     with_vorticity_selection,
 )
+from pyflightstream.script.toggles import Toggle, resolve_toggle
+
+
+def _read(helper: str, argument: str, value: Toggle) -> bool:
+    """Resolve one toggle, re-raising in the script layer's vocabulary."""
+    try:
+        return resolve_toggle(value, context=f"{helper}: {argument}")
+    except ValueError as error:
+        raise CommandArgumentError(str(error)) from error
+
+
+def _optional_toggle(helper: str, argument: str, value: Toggle | None) -> bool | None:
+    """Resolve an optional toggle up front, before the helper emits."""
+    if value is None:
+        return None
+    return _read(helper, argument, value)
 
 
 def _toggle(value: bool) -> str:
+    """Render a resolved toggle as the solver writes it.
+
+    Takes a bool only: every helper resolves its toggles through
+    :func:`_read` or :func:`_optional_toggle` before emitting, so a
+    string never reaches this function and truthiness is never the
+    thing that decides a flag.
+    """
     return "ENABLE" if value else "DISABLE"
 
 
@@ -261,7 +292,7 @@ def actuator_disc(
     profile_force_unit: str = "NEWTONS",
     n_blades: int | None = None,
     swirl: float | None = None,
-    enable: bool = True,
+    enable: Toggle = True,
     label: str | None = None,
 ) -> int:
     """Create and configure one propeller actuator disc (SRC-003 pp.323-324).
@@ -308,7 +339,7 @@ def actuator_disc(
         Fraction between 0 and 1 of the swirl velocity kept
         downstream; below 1 mimics a de-swirling stator
         (SRC-003 p.186).
-    enable : bool
+    enable : bool or 'ENABLE' or 'DISABLE'
         Emit ENABLE_ACTUATOR at the end.
     label : str, optional
         Label registered for the created actuator in the script's
@@ -320,6 +351,7 @@ def actuator_disc(
     int
         Index of the created actuator, for later citations.
     """
+    enable = _read("actuator_disc", "enable", enable)
     if (thrust is None) == (profile is None):
         raise CommandArgumentError(
             "actuator_disc takes exactly one thrust specification: a net thrust "
@@ -469,21 +501,21 @@ def solver_settings(
     ref_length: float | None = None,
     iterations: int | None = None,
     convergence: float | None = None,
-    forced_iterations: bool | None = None,
+    forced_iterations: Toggle | None = None,
     max_threads: int | None = None,
     boundary_layer: str | None = None,
-    viscous_coupling: bool | None = None,
+    viscous_coupling: Toggle | None = None,
     viscous_excluded: Sequence[int | str] | None = None,
     bulk_separation: BulkSeparation | Mapping | None = None,
     convergence_iterations: int | None = None,
     minimum_cp: float | None = None,
-    reynolds_averaged_drag: bool | None = None,
-    mesh_induced_wake_velocity: bool | None = None,
+    reynolds_averaged_drag: Toggle | None = None,
+    mesh_induced_wake_velocity: Toggle | None = None,
     farfield_layers: int | None = None,
-    unsteady_pressure_and_kutta: bool | None = None,
+    unsteady_pressure_and_kutta: Toggle | None = None,
     wake_termination_time_steps: int | None = None,
-    wake_on_wake_induction: bool | None = None,
-    additional_wake_relaxation: bool | None = None,
+    wake_on_wake_induction: Toggle | None = None,
+    additional_wake_relaxation: Toggle | None = None,
     aeroelastic_rbf_type: str | None = None,
 ) -> SolverSetup:
     """Set the solver flags, record their provenance, and return the snapshot.
@@ -581,7 +613,7 @@ def solver_settings(
         Solver iteration count.
     convergence : float, optional
         Residual threshold declaring convergence (SRC-003 p.200).
-    forced_iterations : bool, optional
+    forced_iterations : bool or 'ENABLE' or 'DISABLE', optional
         Run the full iteration count regardless of convergence.
     max_threads : int, optional
         Parallel core count.
@@ -589,7 +621,7 @@ def solver_settings(
         ``LAMINAR``, ``TRANSITIONAL``, or ``TURBULENT``; the default
         transitional model is stated valid for chord Reynolds numbers
         between 500000 and 1500000 (SRC-003 p.203).
-    viscous_coupling : bool, optional
+    viscous_coupling : bool or 'ENABLE' or 'DISABLE', optional
         Couple the semi-empirical boundary layer model to the
         potential flow solution (attached-flow viscosity only,
         SRC-003 pp.207-208).
@@ -608,25 +640,25 @@ def solver_settings(
     minimum_cp : float, optional
         Lower limiter on the pressure coefficient, dimensionless
         (SRC-003 p.345); see the library-default note above.
-    reynolds_averaged_drag : bool, optional
+    reynolds_averaged_drag : bool or 'ENABLE' or 'DISABLE', optional
         Toggle the Reynolds-averaged (flat plate) boundary layer
         calculations (SRC-003 p.344).
-    mesh_induced_wake_velocity : bool, optional
+    mesh_induced_wake_velocity : bool or 'ENABLE' or 'DISABLE', optional
         Toggle the mesh-induced wake velocity computation
         (SRC-003 p.344).
     farfield_layers : int, optional
         Far-field agglomeration layer count, integer between 1 and 5;
         the solver default is 3 (SRC-003 p.344).
-    unsteady_pressure_and_kutta : bool, optional
+    unsteady_pressure_and_kutta : bool or 'ENABLE' or 'DISABLE', optional
         Toggle the unsteady Bernoulli and Kutta terms of the unsteady
         solver (SRC-003 p.344).
     wake_termination_time_steps : int, optional
         Time steps after which a fully faded wake vortex filament edge
         is removed (SRC-003 p.344).
-    wake_on_wake_induction : bool, optional
+    wake_on_wake_induction : bool or 'ENABLE' or 'DISABLE', optional
         Toggle the wake-on-wake induced velocity computation
         (SRC-003 pp.344-345).
-    additional_wake_relaxation : bool, optional
+    additional_wake_relaxation : bool or 'ENABLE' or 'DISABLE', optional
         Perform one additional wake relaxation iteration
         (SRC-003 p.345).
     aeroelastic_rbf_type : str, optional
@@ -645,6 +677,28 @@ def solver_settings(
         "solver_settings", "vorticity_drag_boundaries", vorticity_drag_boundaries, allows_all=True
     )
     _reject_bare_label("solver_settings", "viscous_excluded", viscous_excluded, allows_all=False)
+    # Read every toggle before the first emission, so a value in neither
+    # vocabulary refuses on an untouched script, and so the snapshot
+    # records booleans whichever vocabulary the caller wrote.
+    toggles = {
+        "forced_iterations": forced_iterations,
+        "viscous_coupling": viscous_coupling,
+        "reynolds_averaged_drag": reynolds_averaged_drag,
+        "mesh_induced_wake_velocity": mesh_induced_wake_velocity,
+        "unsteady_pressure_and_kutta": unsteady_pressure_and_kutta,
+        "wake_on_wake_induction": wake_on_wake_induction,
+        "additional_wake_relaxation": additional_wake_relaxation,
+    }
+    read = {
+        name: _optional_toggle("solver_settings", name, value) for name, value in toggles.items()
+    }
+    forced_iterations = read["forced_iterations"]
+    viscous_coupling = read["viscous_coupling"]
+    reynolds_averaged_drag = read["reynolds_averaged_drag"]
+    mesh_induced_wake_velocity = read["mesh_induced_wake_velocity"]
+    unsteady_pressure_and_kutta = read["unsteady_pressure_and_kutta"]
+    wake_on_wake_induction = read["wake_on_wake_induction"]
+    additional_wake_relaxation = read["additional_wake_relaxation"]
     upper_mode = mode.upper() if mode is not None else None
     if upper_mode is not None and upper_mode not in ("STEADY", "UNSTEADY"):
         raise CommandArgumentError(
@@ -845,11 +899,11 @@ def initialize_solver(
     script: Script,
     *,
     solver_model: str = "INCOMPRESSIBLE",
-    surfaces: Sequence[tuple[int | str, bool]] | Literal["all"] = "all",
+    surfaces: Sequence[tuple[int | str, Toggle]] | Literal["all"] = "all",
     wake_termination_x: float | str = "DEFAULT",
     symmetry: str = "NONE",
     periodic_copies: int | None = None,
-    wall_collision_avoidance: bool | None = None,
+    wall_collision_avoidance: Toggle | None = None,
 ) -> None:
     """Initialize the solver, covering the extended forms (SRC-003 p.337).
 
@@ -861,7 +915,7 @@ def initialize_solver(
         ``INCOMPRESSIBLE``, ``SUBSONIC_PRANDTL_GLAUERT``,
         ``TRANSONIC_FIELD_PANEL``, ``TANGENT_CONE``, or
         ``MODIFIED_NEWTONIAN``.
-    surfaces : sequence of (int or str, bool) pairs or ``"all"``
+    surfaces : sequence of (int or str, toggle) pairs or ``"all"``
         ``"all"`` initializes every boundary (-1 form); a sequence of
         ``(surface, quad_mesher)`` pairs initializes those surfaces
         with the quad mesher toggled per surface. Each surface is a
@@ -879,7 +933,7 @@ def initialize_solver(
     periodic_copies : int, optional
         Number of periodic copies; required with PERIODIC symmetry
         and forbidden otherwise.
-    wall_collision_avoidance : bool, optional
+    wall_collision_avoidance : bool or 'ENABLE' or 'DISABLE', optional
         Applies to solver models 1 to 3.
     """
     if (symmetry.upper() == "PERIODIC") != (periodic_copies is not None):
@@ -893,6 +947,9 @@ def initialize_solver(
             f"INITIALIZE_SOLVER: periodic_copies must be a positive count, got "
             f"{periodic_copies} (SRC-003 p.337)"
         )
+    wall_collision_avoidance = _optional_toggle(
+        "initialize_solver", "wall_collision_avoidance", wall_collision_avoidance
+    )
     arguments: dict[str, object] = {
         "solver_model": solver_model,
         "wake_termination_x": str(wake_termination_x),
@@ -906,7 +963,7 @@ def initialize_solver(
         resolved = [
             (
                 script.resolve_boundary(index, context="INITIALIZE_SOLVER: argument 'surfaces'"),
-                quad_mesher,
+                _read("initialize_solver", "surfaces (quad mesher flag)", quad_mesher),
             )
             for index, quad_mesher in surfaces
         ]
@@ -927,10 +984,10 @@ def sweep(
     aoa: Sequence[float] | None = None,
     beta: Sequence[float] | None = None,
     velocity_file: str | None = None,
-    clear_solution: bool | None = None,
-    ref_velocity_same: bool | None = None,
+    clear_solution: Toggle | None = None,
+    ref_velocity_same: Toggle | None = None,
     post_run_script: str | None = None,
-    start: bool = True,
+    start: Toggle = True,
     export_spreadsheet: str | None = None,
 ) -> None:
     """Configure and run a Sweeper Toolbox sweep (SRC-003 p.406).
@@ -945,15 +1002,15 @@ def sweep(
         Custom side-slip values in deg.
     velocity_file : str, optional
         Path of the custom velocity list file.
-    clear_solution : bool, optional
+    clear_solution : bool or 'ENABLE' or 'DISABLE', optional
         Clear the solution between sweep runs instead of reusing it.
-    ref_velocity_same : bool, optional
+    ref_velocity_same : bool or 'ENABLE' or 'DISABLE', optional
         Keep the reference velocity equal to the free-stream velocity
         at every sweep point.
     post_run_script : str, optional
         Script executed after each sweep point, for example a surface
         section extraction script.
-    start : bool
+    start : bool or 'ENABLE' or 'DISABLE'
         Emit SWEEPER_START after the configuration. Starting the sweep
         also lands the induced-drag selection deferred by
         :func:`solver_settings`, right after SWEEPER_START: the
@@ -967,6 +1024,9 @@ def sweep(
             "sweep needs at least one axis (aoa, beta, or velocity_file); a sweep "
             "without values has nothing to run (SRC-003 p.406)"
         )
+    clear_solution = _optional_toggle("sweep", "clear_solution", clear_solution)
+    ref_velocity_same = _optional_toggle("sweep", "ref_velocity_same", ref_velocity_same)
+    start = _read("sweep", "start", start)
     if aoa is not None:
         script.emit("SWEEPER_SET_AOA_SWEEP", "CUSTOM", list(aoa))
     if beta is not None:
@@ -991,10 +1051,10 @@ def analysis_setup(
     *,
     loads_frame: int | str | None = None,
     moments_model: str | None = None,
-    symmetry_loads: bool | None = None,
+    symmetry_loads: Toggle | None = None,
     load_units: str | None = None,
     boundaries: Sequence[int | str] | None = None,
-    inviscid_only: bool | None = None,
+    inviscid_only: Toggle | None = None,
     vorticity_drag_boundaries: Sequence[int | str] | Literal["all"] | None = None,
 ) -> None:
     """Select how loads and moments are analyzed (SRC-003 pp.350-351).
@@ -1009,7 +1069,7 @@ def analysis_setup(
         creation label.
     moments_model : str, optional
         ``PRESSURE`` (solver default) or ``VORTICITY``.
-    symmetry_loads : bool, optional
+    symmetry_loads : bool or 'ENABLE' or 'DISABLE', optional
         Include symmetry boundary loads; relevant to half-model runs.
     load_units : str, optional
         ``COEFFICIENTS``, ``NEWTONS``, ``KILO-NEWTONS``,
@@ -1020,7 +1080,7 @@ def analysis_setup(
         (SRC-003 p.351). Indices are verified against the inventory
         declared with declare_existing(boundaries=...) when one
         exists.
-    inviscid_only : bool, optional
+    inviscid_only : bool or 'ENABLE' or 'DISABLE', optional
         Restrict the analysis to inviscid loads and moments.
     vorticity_drag_boundaries : sequence of int or str, ``"all"``, or None
         Deprecated here since v0.3.0: the induced-drag boundary
@@ -1040,6 +1100,8 @@ def analysis_setup(
     _reject_bare_label(
         "analysis_setup", "vorticity_drag_boundaries", vorticity_drag_boundaries, allows_all=True
     )
+    symmetry_loads = _optional_toggle("analysis_setup", "symmetry_loads", symmetry_loads)
+    inviscid_only = _optional_toggle("analysis_setup", "inviscid_only", inviscid_only)
     # Resolve this call's own selection before anything is emitted or
     # recorded, exactly as solver_settings does: a bad label must leave
     # the script, the deferred selection, and the snapshot untouched.
@@ -1123,7 +1185,7 @@ def export_results(
     vtk: str | None = None,
     vtk_boundaries: Sequence[int | str] | Literal["all"] = "all",
     vtk_variables: Sequence[str] | Literal["all"] | None = None,
-    vtk_wake: bool = False,
+    vtk_wake: Toggle = False,
     force_distributions: str | None = None,
 ) -> None:
     """Export the solver results that were requested (SRC-003 pp.352-354).
@@ -1147,12 +1209,13 @@ def export_results(
         current selection. ``CP`` is flagged for depreciation in favor
         of ``CP_REFERENCE`` and ``CP_FREESTREAM`` (SRC-003 p.352); the
         helper warns when it is requested.
-    vtk_wake : bool
+    vtk_wake : bool or 'ENABLE' or 'DISABLE'
         Include the wake in the VTK variable selection.
     force_distributions : str, optional
         Path of the force distribution vectors export, all boundaries.
     """
     _reject_bare_label("export_results", "vtk_boundaries", vtk_boundaries, allows_all=True)
+    vtk_wake = _read("export_results", "vtk_wake", vtk_wake)
     # Exports read the analysis state: land the induced-drag selection
     # deferred by solver_settings before the first export command.
     _flush_pending_vorticity(script)
@@ -1250,7 +1313,7 @@ def probes_from_file(script: Script, path: str, *, units: str, frame: int | str 
     script.emit("PROBE_POINTS_IMPORT", units, frame, path)
 
 
-def export_probes(script: Script, path: str, *, update: bool = True) -> None:
+def export_probes(script: Script, path: str, *, update: Toggle = True) -> None:
     """Export the probe values, refreshing them first (SRC-003 pp.362-363).
 
     Parameters
@@ -1259,12 +1322,12 @@ def export_probes(script: Script, path: str, *, update: bool = True) -> None:
         Script under construction.
     path : str
         Export file path.
-    update : bool
+    update : bool or 'ENABLE' or 'DISABLE'
         Emit UPDATE_PROBE_POINTS first, so the export reflects the
         current solution; the manual instructs refreshing before
         exporting (SRC-003 p.362).
     """
-    if update:
+    if _read("export_probes", "update", update):
         script.emit("UPDATE_PROBE_POINTS")
     script.emit("EXPORT_PROBE_POINTS", path)
 

@@ -123,6 +123,17 @@ CONVENTIONS: tuple[tuple[str, str], ...] = (
         "open_browser) are keyword-only, so call sites read as prose "
         "and new parameters never break positional calls.",
     ),
+    (
+        "Toggles read both vocabularies",
+        "A solver flag is a Python bool, and the solver's own ENABLE and "
+        "DISABLE are read as True and False by every helper argument and "
+        "every settings field that switches one, because a setup carried "
+        "over from the solver speaks that vocabulary. Each helper reads "
+        "its toggles before it emits anything, and refuses a value in "
+        "neither vocabulary naming the helper and the argument. "
+        "Truthiness is never consulted, since a non-empty string is "
+        "truthy and 'DISABLE' would otherwise silently emit ENABLE.",
+    ),
 )
 
 

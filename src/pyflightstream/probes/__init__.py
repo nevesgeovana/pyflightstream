@@ -40,6 +40,7 @@ from pyflightstream.probes.planar import (
     RefinementBand,
 )
 from pyflightstream.script import Script, helpers
+from pyflightstream.script.toggles import Toggle
 
 __all__ = [
     "ProbeLattice",
@@ -432,7 +433,7 @@ def emit_probe_import(
     script.emit("PROBE_POINTS_IMPORT", units, frame, str(path))
 
 
-def emit_probe_export(script: Script, path: str | Path, *, update: bool = True) -> None:
+def emit_probe_export(script: Script, path: str | Path, *, update: Toggle = True) -> None:
     """Emit the post-solve probe refresh and export (SRC-003 pp.362-363).
 
     UPDATE_PROBE_POINTS refreshes the probe values from the current
@@ -446,7 +447,7 @@ def emit_probe_export(script: Script, path: str | Path, *, update: bool = True) 
         Version-bound script builder.
     path : str or pathlib.Path
         Export destination as the solver machine sees it.
-    update : bool
+    update : bool or 'ENABLE' or 'DISABLE'
         Whether to refresh probe values first; disable only when an
         update was already emitted.
     """

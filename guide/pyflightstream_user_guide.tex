@@ -256,7 +256,7 @@ v.canonical                # "26.120"
     \toprule
     Tier & What it checks & Where it runs & Evidence artifact \\
     \midrule
-    1 & schema, builder goldens, parsers & CI, no solver & green test suite (179 tests) \\
+    1 & schema, builder goldens, parsers & CI, no solver & green test suite in continuous integration, no solver needed \\
     2 & per-command validity probes & licensed machine & \code{reports/compat/} \\
     3 & physics regression and drift & licensed machine & \code{reports/physics/} \\
     \bottomrule
@@ -500,6 +500,7 @@ helpers.solver_settings(script,
 \end{lstlisting}
   \begin{itemize}
     \item \code{solver\_settings} emits only what you pass, so it serves both the initial setup and re-emission between campaign points.
+    \item Every flag argument takes a Python bool or the solver's own \code{ENABLE} and \code{DISABLE} (any case): a setup carried over from the solver speaks that vocabulary. The helper resolves it before emitting anything, and refuses a word in neither vocabulary naming the helper and the argument, so \code{'DISABLE'} can never reach the script as ENABLE.
     \item Add \code{vorticity\_drag\_boundaries=[...]} to compute the induced drag of the lifting boundaries from the surface vorticity integration. Omitted on the first settings call, no command is emitted and every boundary keeps the solver's surface pressure integration (SRC-003 p.202); omitted on a later settings call of the same script, the selection of the earlier call stands. The snapshot records the effective choice either way.
     \item Reference area and length set the coefficient normalization ($Q\,S_{ref}$ forces, $Q\,S_{ref}\,L_{ref}$ moments; SRC-003 p.223).
   \end{itemize}
@@ -825,10 +826,11 @@ reynolds = 4.38e6
 mach = 0.1441
 sweep = {type = "alpha", values = [-4.0, 0.0, 4.0, 8.0]}
 recipe = "my_recipes:steady_point"
-outputs = ["loads.txt"]
+outputs = ["loads_{point}.txt"]
 \end{lstlisting}
   \begin{itemize}
     \item Sweep axes: \code{alpha}, \code{beta}, \code{alpha\_beta} (pairs), \code{advance\_ratio}.
+    \item Output names carry \code{\{point\}}: every point of a case runs in the same simulation folder, so a constant name would let each point overwrite the previous one's evidence. A multi-point case that declares a constant name is refused before anything runs.
   \end{itemize}
 \end{frame}
 
@@ -841,15 +843,16 @@ from pyflightstream.script import Script, helpers
 def steady_point(case: SimCase, script: Script) -> None:
     script.emit("NEW_SIMULATION")
     script.emit("IMPORT", "METER", "STL",
-                str(case.staged_geometry), clear=True)
+                str(case.geometry), clear=True)
     ...  # skeleton as in recipe 1
     helpers.solver_settings(script,
         aoa=case.point["alpha"], ...)
-    helpers.export_results(script, spreadsheet="loads.txt")
+    helpers.export_results(script,
+        spreadsheet=case.outputs[0])
     script.emit("CLOSE_FLIGHTSTREAM")
 \end{lstlisting}
   \begin{itemize}
-    \item The loop fills \code{case.point} per sweep point and stages the geometry; output paths stay relative, so evidence lands inside the managed simulation folder.
+    \item The loop fills \code{case.point} per sweep point, stages the geometry, and renders the declared output names for that point into \code{case.outputs}; export what it hands you and evidence lands inside the managed simulation folder, one file per point.
     \item Recipes are imported functions, resolvable by name registry or \code{module:function} reference: explicit and versionable.
   \end{itemize}
 \end{frame}
@@ -858,14 +861,15 @@ def steady_point(case: SimCase, script: Script) -> None:
 \begin{lstlisting}
 from pyflightstream.cases import load_campaign
 from pyflightstream.workspace import CampaignWorkspace
-from pyflightstream.run import LocalExecutor, run_campaign
-from pyflightstream.results import LoadsAssessor
+from pyflightstream.run import (LocalExecutor, run_campaign,
+                               LoadsAssessor)
 
 campaign = load_campaign("campaign.toml")
 records = run_campaign(campaign,
     executor=LocalExecutor(campaign.fs_exe),
     workspace=CampaignWorkspace("C:/work/campaign_root"),
-    assess=LoadsAssessor())
+    assess=LoadsAssessor())   # judges whichever collected
+                              # output reads as a loads table
 \end{lstlisting}
   \begin{center}
   \begin{tikzpicture}[node distance=3mm,
@@ -901,6 +905,37 @@ text = convert_matrix("matrix.fs", name="wing2026",
   \begin{itemize}
     \item One-command form: the \code{pyfs-matrix convert} CLI takes the same inputs as flags and writes the file via \code{-o campaign.toml}.
     \item Convert once, review the TOML in a diff, then live natively in the campaign format.
+    \item Conversion carries the matrix codes, not output names: the matrix has no such column. Add \code{outputs = ["loads\_\{point\}.txt"]} to each converted \code{[[sim]]} before running, because the loop collects only declared outputs and a swept case needs one name per point.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Recipe 7 addendum: migrating a loose script builder}
+  \textbf{The other half of coming from a driver script:} the campaign loop calls the \code{ScriptRecipe} protocol, \code{build(case, script) -> None}. A builder with the old signature is refused by \code{resolve\_recipe}, so \code{pyfs-matrix plan} blocks every point of the case before anything runs, naming the signature it found.
+\begin{lstlisting}
+# before: the loose form an old driver called directly
+def build_polar(workdir) -> Script:
+    script = Script(version="26.12")
+    script.emit("OPEN", r"C:\cases\wing.fsm")
+    helpers.solver_settings(script, aoa=4.0, ...)
+    helpers.export_results(script,
+        spreadsheet=str(workdir / "loads.txt"))
+    return script
+
+# after: the protocol the managed loop calls
+def build_polar(case: SimCase, script: Script) -> None:
+    script.emit("OPEN", str(case.geometry))
+    helpers.solver_settings(script,
+        aoa=case.point["alpha"], ...)
+    helpers.export_results(script,
+        spreadsheet=case.outputs[0])
+    script.emit("CLOSE_FLIGHTSTREAM")
+\end{lstlisting}
+  \begin{itemize}
+    \item \textbf{Do not create the Script.} The campaign owns it, already bound to the campaign's FlightStream version; emit into the one you are given and return None.
+    \item \textbf{Take the geometry from the case.} The loop rewrites \code{case.geometry} to the staged copy it hashed, so opening it opens exactly the file the manifest names.
+    \item \textbf{Take the point from the case.} A hard-coded angle becomes \code{case.point["alpha"]}; the loop fills \code{case.point} per sweep point.
+    \item \textbf{Export the names you were handed.} An absolute \code{workdir} path becomes \code{case.outputs[i]}: the loop renders the declared names for the point being built, and collects exactly those. Every point of a case runs in the same folder, so a constant name would overwrite the previous point's evidence, and declaring one is refused.
+    \item \textbf{Give it an address.} The function must live in an importable module and be named in the case as \code{"package.module:function"}; that string is what the loop resolves.
   \end{itemize}
 \end{frame}
 

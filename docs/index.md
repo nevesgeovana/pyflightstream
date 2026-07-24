@@ -38,6 +38,9 @@ added, never dropped.
   are filled only by evidence: a manual citation for `documented`, a
   committed probe report for `verified` and `broken`. Empty cells are
   honest gaps awaiting backfill.
+* [House conventions](conventions.md): the naming and nomenclature rules
+  the library holds itself to, generated from `reference.CONVENTIONS`,
+  the same source as the offline `help()` section.
 * [Mesh inputs and GUI-only operations](mesh-inputs.md): the supported
   workflow when a step exists in the GUI but has no scripting command,
   the canonical mesh input routes, and the mesh format policy.

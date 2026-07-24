@@ -9,6 +9,29 @@ FlightStream versions.
 
 ### API surface delta
 
+* Solver toggles read the solver's own vocabulary as well as Python
+  booleans: `ENABLE` and `DISABLE` (any case) are accepted by every
+  helper argument and every `cases.SolverSettings` field that switches a
+  flag, resolved before the helper emits anything, and stored and
+  snapshotted as bools. New public module
+  `pyflightstream.script.toggles` (`resolve_toggle`,
+  `SOLVER_TOGGLE_WORDS`, the `Toggle` annotation), used by both the
+  helpers and the case models so the vocabulary has one home, plus
+  `cases.SolverToggle`, the annotated field type any settings model can
+  reuse.
+* `LoadsAssessor()` now takes no argument by default and reads the
+  case's first declared output as the loop rendered it for that point,
+  which is what a swept case needs; naming the file explicitly still
+  works.
+* Incompatible changes: a toggle value in neither vocabulary is refused
+  where a truthy string used to pass silently (a helper call passing
+  `'yes'`, and a settings file or preset whose flag reads `"true"`,
+  `"on"`, `"1"` or `0`, which pydantic's lax bool parsing used to
+  accept); a multi-point case whose declared output names lack the
+  `{point}` placeholder is refused, because those points would
+  overwrite each other's evidence; and a recipe reference whose
+  callable does not take `(case, script)` is refused at resolution
+  instead of raising a bare `TypeError` once per point.
 * `solver_settings(vorticity_drag_boundaries=...)` is optional again
   (a relaxation, so no caller breaks). Omitted on a script that has not
   selected yet, it emits no selection command and the snapshot records
@@ -20,6 +43,17 @@ FlightStream versions.
 
 ### Added
 
+* User guide section on migrating a loose script builder to the
+  `ScriptRecipe` protocol: the before and after of
+  `build(workdir) -> Script` becoming `build(case, script) -> None`,
+  with the five moves it takes (do not create the Script, open
+  `case.geometry` so the run identity is the staged file, read the
+  point from the case, export the rendered `case.outputs` names, and
+  give the function an importable address). This is the path of
+  everyone arriving from a driver script, and it was documented
+  nowhere (feedback channel item 4, PLN-074).
+* House conventions gain "Toggles read both vocabularies", rendered in
+  `help()` and on the docs site from the same `CONVENTIONS` home.
 * House conventions page on the docs site
   (`reference.conventions_markdown`, the same source as the offline
   `help()` conventions section), wired into the generator and nav.
@@ -39,6 +73,50 @@ FlightStream versions.
 
 ### Fixed
 
+* A settings preset written in the solver's own words no longer fails
+  to convert, and the same words can no longer invert a run in silence.
+  `viscous_coupling = 'DISABLE'` in a settings file was refused with a
+  bool-parsing message that named neither the vocabulary nor the
+  translation; passing the same string to `solver_settings` emitted
+  `ENABLE`, because a non-empty Python string is truthy and the toggle
+  renderer only tested truthiness. Both directions of the vocabulary now
+  live in one place (`script.toggles.resolve_toggle`), the helpers read their
+  toggles before the first emission, and a word in neither vocabulary is
+  refused naming the helper and the argument. Every release up to and
+  including v0.3.0 is affected: a toggle passed as `'DISABLE'` emitted
+  ENABLE, and the solver-setup snapshot recorded the inverted value as
+  if it had been chosen. Runs whose recipes passed Python booleans are
+  unaffected; to check an archived campaign, read the toggle lines of
+  the rendered scripts under the managed simulation folders, or the
+  `solver_setup` block of `runs.json`. Incident
+  INC-20260723-2027-pyflightstream (feedback channel item 2, PLN-074).
+* A swept case no longer loses the evidence of every point but the
+  last. All points of a case run in the same simulation folder and are
+  collected into `raw/` under their own names, so a declared output
+  without the `{point}` placeholder was written, collected, and
+  overwritten once per point, while the manifest listed the surviving
+  file for all of them. The campaign loop now renders every point's
+  output names before running the case and blocks it when two points
+  would write the same one, so the check judges the actual collision
+  rather than the presence of a particular placeholder (any template
+  that distinguishes the points passes, and `{mach}`, which does not,
+  is caught). The campaign example and the guide teach
+  `outputs = ["loads_{point}.txt"]` with the recipe exporting
+  `case.outputs[0]`, and `LoadsAssessor()` finds the loads table by
+  content, so per-point evidence and convergence judgment are no longer
+  exclusive. Incident INC-20260723-2113-pyflightstream.
+* The user guide's flagship campaign listing imported `LoadsAssessor`
+  from `pyflightstream.results`, where it does not exist; the guard
+  below now checks every `from pyflightstream... import ...` line the
+  guide teaches.
+* The user guide taught `case.staged_geometry`, which `SimCase` never
+  had: the campaign loop stages the geometry and rewrites
+  `case.geometry`. A reader copying the campaign recipe got an
+  `AttributeError` on their first point. Both occurrences corrected, and
+  `tests/test_guide_api_names.py` now asserts that every `case.`,
+  `helpers.` and `script.` name the guide teaches exists, and that every
+  import line it shows resolves, so an unexecutable sample cannot ship
+  again. Incident INC-20260723-2041-pyflightstream (PLN-084).
 * `solver_settings(vorticity_drag_boundaries=...)` is optional again,
   and the guard that made it mandatory in v0.3.0 is gone: it stated the
   inverse of the manual page it cited. Boundaries left off the vorticity

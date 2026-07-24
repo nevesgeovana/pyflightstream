@@ -23,13 +23,36 @@ from __future__ import annotations
 import tomllib
 from collections.abc import Callable, Iterator
 from importlib import import_module
+from inspect import Parameter, signature
 from pathlib import Path
-from typing import Literal, Protocol, runtime_checkable
+from typing import Annotated, Literal, Protocol, runtime_checkable
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
 
 from pyflightstream.script import Script
+from pyflightstream.script.toggles import resolve_toggle
 from pyflightstream.versions import resolve
+
+__all__ = [
+    "Campaign",
+    "ReferenceData",
+    "ScriptRecipe",
+    "SimCase",
+    "SolverSettings",
+    "SolverToggle",
+    "SweepAxis",
+    "check_recipe",
+    "load_campaign",
+    "point_tag",
+    "resolve_recipe",
+]
 
 _TAG_PREFIXES = (("alpha", "a"), ("beta", "b"), ("advance_ratio", "j"))
 
@@ -44,7 +67,9 @@ class ScriptRecipe(Protocol):
     campaign's FlightStream version; they emit the whole script,
     usually through the curated helpers. Output files must use paths
     relative to the execution directory, so the collected evidence
-    stays inside the managed simulation folder.
+    stays inside the managed simulation folder, and must be the names
+    the loop rendered into :attr:`SimCase.outputs`: those are the ones
+    it collects, and they carry the sweep point.
     """
 
     def __call__(self, case: SimCase, script: Script) -> None:
@@ -137,6 +162,28 @@ class ReferenceData(BaseModel):
     velocity: float | None = None
 
 
+def _resolve_settings_toggle(value: object) -> object:
+    """Resolve a settings toggle in either vocabulary, before validation.
+
+    Runs ahead of pydantic's bool parsing, and resolves every value
+    itself rather than only strings, so the settings field and the
+    helper keyword it mirrors accept exactly the same thing: True and
+    False, and the solver's own ENABLE and DISABLE. Pydantic's lax
+    coercions (``"yes"``, ``"on"``, ``1``) are deliberately not
+    accepted here, because a settings file that says ``1`` for a flag
+    the solver writes as a word is more likely a mistake than an
+    intent. The refusal is a ValueError, which pydantic reports as a
+    ValidationError naming the field, so the message survives.
+    """
+    if value is None:
+        return value
+    return resolve_toggle(value, context="a solver settings toggle")
+
+
+#: Settings toggle: a bool, or the solver's own ENABLE and DISABLE.
+SolverToggle = Annotated[bool, BeforeValidator(_resolve_settings_toggle)]
+
+
 class SolverSettings(BaseModel):
     """Solver runtime settings of one case.
 
@@ -151,25 +198,38 @@ class SolverSettings(BaseModel):
     convergence : float
         Residual threshold declaring convergence (SRC-003 p.200).
     forced_iterations : bool, optional
-        Run the full iteration count regardless of convergence.
+        Run the full iteration count regardless of convergence. The
+        solver's own words are accepted too (see below).
     boundary_layer : str, optional
         ``LAMINAR``, ``TRANSITIONAL``, or ``TURBULENT``.
     viscous_coupling : bool, optional
         Couple the boundary layer model to the potential solution.
+        The solver's own words are accepted too (see below).
     max_threads : int, optional
         Parallel core count.
     timeout_s : float, optional
         Wall-clock limit for one point's solver process; enforced by
         the executor, not by FlightStream.
+
+    Notes
+    -----
+    The toggles accept the solver's own vocabulary as well as Python
+    booleans: ``viscous_coupling = 'DISABLE'`` in a settings file means
+    False, the same as ``viscous_coupling = false``. A settings preset
+    carried over from the solver speaks ENABLE and DISABLE, and a
+    preset is often mixed (one flag in each vocabulary), so the model
+    reads both and stores the bool
+    (:func:`pyflightstream.script.toggles.resolve_toggle`). Any other
+    string is refused by name.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     iterations: int = 500
     convergence: float = 1e-5
-    forced_iterations: bool | None = None
+    forced_iterations: SolverToggle | None = None
     boundary_layer: str | None = None
-    viscous_coupling: bool | None = None
+    viscous_coupling: SolverToggle | None = None
     max_threads: int | None = None
     timeout_s: float | None = None
 
@@ -193,7 +253,9 @@ class SimCase(BaseModel):
     velocity : float, optional
         Free-stream velocity in m/s.
     geometry : str, optional
-        Path of the simulation (.fsm) file; the campaign loop stages
+        Path of the geometry or simulation file the recipe opens or
+        imports (an ``.fsm`` for OPEN, a mesh file for IMPORT); the
+        campaign loop stages
         it into ``inputs/`` and rewrites this field to the staged
         copy, so recipes OPEN exactly what the manifest hashed.
     sweep : SweepAxis
@@ -211,7 +273,12 @@ class SimCase(BaseModel):
     outputs : list of str
         Output files the recipe's script exports, relative to the
         execution directory; the loop collects them into ``raw/`` and
-        a missing one marks the point FAILED_INCOMPLETE_OUTPUT.
+        a missing one marks the point FAILED_INCOMPLETE_OUTPUT. Names
+        may carry the naming placeholders, and the loop renders them
+        for the point being built before the recipe runs, so a recipe
+        exports ``case.outputs[i]`` rather than a literal. Every point
+        of a case runs in one folder, so a case whose points would
+        render the same output name is blocked before it runs.
     point : dict of str to float
         The current sweep point; filled by the campaign loop before
         the recipe builds, empty on the authored case.
@@ -329,4 +396,45 @@ def resolve_recipe(reference: str) -> Callable[[SimCase, Script], None]:
         raise ValueError(
             f"recipe {reference!r} does not name a callable in {module_name!r}; found {recipe!r}"
         )
+    check_recipe(reference, recipe)
     return recipe
+
+
+def check_recipe(reference: str, recipe: Callable) -> None:
+    """Refuse a callable the campaign loop could not call.
+
+    The loose form of a script builder, ``build(workdir) -> Script``,
+    is what everyone arriving from a driver script has; called by the
+    loop it raises a bare TypeError once per point, after the pre-flight
+    has already accepted the campaign. Refusing at resolution names the
+    protocol and the signature found, once, before anything runs.
+    Callables whose signature cannot be read (builtins, C extensions)
+    pass: the library does not refuse what it cannot inspect.
+    """
+    try:
+        parameters = signature(recipe).parameters.values()
+    except (TypeError, ValueError):
+        return
+    positional = [
+        parameter
+        for parameter in parameters
+        if parameter.kind
+        in (Parameter.POSITIONAL_ONLY, Parameter.POSITIONAL_OR_KEYWORD, Parameter.VAR_POSITIONAL)
+    ]
+    if any(parameter.kind is Parameter.VAR_POSITIONAL for parameter in positional):
+        return
+    required = [parameter for parameter in positional if parameter.default is Parameter.empty]
+    unfillable = [
+        parameter.name
+        for parameter in parameters
+        if parameter.kind is Parameter.KEYWORD_ONLY and parameter.default is Parameter.empty
+    ]
+    if len(positional) >= 2 and len(required) <= 2 and not unfillable:
+        return
+    found = ", ".join(parameter.name for parameter in parameters) or "no arguments"
+    raise ValueError(
+        f"recipe {reference!r} does not satisfy the ScriptRecipe protocol: the campaign "
+        f"loop calls build(case, script) -> None, and this one takes ({found}). A loose "
+        "builder that creates and returns its own Script emits into a script the loop "
+        "never sees; take the case and the script it hands you, and return None."
+    )
