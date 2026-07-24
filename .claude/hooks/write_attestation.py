@@ -66,7 +66,7 @@ def main() -> int:
     # The commits this attestation covers: everything reachable from HEAD
     # that is not yet on any remote, which is exactly what the next push
     # would make newly available. Stamping only HEAD let unpushed
-    # ancestors ship unreviewed (PLN-082): the gate compares this list
+    # ancestors ship unreviewed (PLN-20260723-2146-gate-range-defect): the gate compares this list
     # against the range the push actually moves.
     listed = _git(root, "rev-list", head, "--not", "--remotes")
     commits = [c for c in listed.splitlines() if c] or [head]

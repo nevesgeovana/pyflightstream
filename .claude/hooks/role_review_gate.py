@@ -40,10 +40,10 @@ Extended 2026-07-23 after the sister library's review found two holes:
   (``git rev-list <target> --not --remotes``), not just the tip. v2
   compared one commit, so any commit already on the branch but not yet
   on the remote shipped unreviewed; itaca demonstrated it by pushing
-  across an intermediate commit no attestation ever named (PLN-082).
+  across an intermediate commit no attestation ever named (PLN-20260723-2146-gate-range-defect).
 - A push is denied while the shared incident ledger has an open,
   blocking incident for this repository, so no new work ships on top of
-  a defect whose structural cause is still unfixed (PLN-084).
+  a defect whose structural cause is still unfixed (PLN-20260723-2145-incident-gate-wiring).
 
 The attestation path is duplicated in write_attestation.py:ATTESTATION
 and .gitignore; a rename must touch all three.
@@ -329,7 +329,7 @@ def main() -> None:
 
         # The attestation must cover EVERY commit the push makes new, not
         # just the tip: checking the tip alone let unpushed ancestors ship
-        # unreviewed (PLN-082).
+        # unreviewed (PLN-20260723-2146-gate-range-defect).
         pushed = _pushed_commits(root, target)
         # The ref being pushed is ALWAYS in scope, even when it moves zero
         # new commits. Set containment over an empty range is vacuously
