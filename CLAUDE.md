@@ -93,23 +93,19 @@ made after attesting re-arms the gate: an unreviewed commit never
 ships.
 
 Structural-fix rule and the shared incident ledger (adopted
-2026-07-23, after three failures hit one private file in a single
-session and two of them had been silent for many sessions): unlike the
-research environment, where a workaround is acceptable, a defect in
-these two libraries is fixed at its STRUCTURAL cause on its FIRST
-occurrence, in the session where it appears. Every problem and its fix
-is recorded in the incident ledger shared with ITACA (protocol and
-format in its README; one file per incident, id from a timestamp,
-because two of the founding failures were caused by concurrent writes
-to a shared table with a central counter). An incident is only `fixed`
-when it carries a `guard`, the mechanism that makes recurrence
-impossible, AND `guard_evidence`, proof the guard blocks the original
-failure when re-run. A symptom fix, an untested guard, or documentation
-offered as a guard leaves it open. The `incident-analyst` agent
-(`.claude/agents/`) owns this analysis; the five review charters all
-look at a change about to land, not at a failure that happened. The
-push gate reads the ledger and denies a push while an open incident
-blocks this repository.
+2026-07-23): a defect in these two libraries is fixed at its STRUCTURAL
+cause on its FIRST occurrence, in the session where it appears, not on
+its second. The fix is not complete until it carries a guard that makes
+recurrence impossible and the evidence that the guard blocks the
+original failure when re-run. That headline is kept here so a clone
+reads the rule without leaving the repository; the full policy
+statement, including why documentation is not a guard and why a guard
+must be proven by mutation, lives in the shared ledger's own README, the
+cross-repo authority both libraries point at (located by
+`PYFS_INCIDENT_LEDGER`; one file per incident, id from a timestamp). The
+`incident-analyst` agent (`.claude/agents/`) drafts the record; whether
+an incident blocks is the author's call, and the push gate denies a push
+while a blocking incident is open for this repository.
 
 PyPI publishing is trusted publishing only (OIDC), never a manual
 token upload: a pushed `vX.Y.Z` tag triggers
@@ -147,12 +143,12 @@ both live in the gitignored `.claude/settings.local.json`, so a fresh
 clone must set them:
 
 - `PYFS_PLAN_CHECKER` names the plan-ledger validator the `plan` skill
-  runs; the skill (`.claude/skills/plan/SKILL.md`) is the single home of
-  which checker and how it is invoked. Do not name the file here: today
-  it points at `check_plan.py`. The kit checker `check_plan_kit.py` is
-  vendored and drift-guarded but is NOT yet the active validator; adopting
-  it waits on the counter-id migration, which is paused and routed to
-  coordination (see `_private/plan/PLN-20260724-1808`). Unset skips
+  runs; the skill (`.claude/skills/plan/SKILL.md`) holds the authoritative
+  description of how it is invoked. As a summary that defers to the skill:
+  it currently points at the vendored kit `check_plan_kit.py`, which
+  grandfathers the legacy counter ids listed in
+  `_private/plan/legacy_ids.txt` (shape guard only; every other guard
+  still applies) and requires timestamp ids for new work. Unset skips
   validation; set but unreadable is a configuration error to report and,
   unlike the incident ledger below, does not block a push.
 - `PYFS_INCIDENT_LEDGER` names the shared incident ledger directory (the

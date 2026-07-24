@@ -49,12 +49,17 @@ Operations:
   agreed items and update `_private/STATUS.md`'s current focus.
 
 After writing, run the validator so a malformed entry surfaces now
-rather than in a later session. `check_plan.py` is a shared kit
-artifact whose location is machine configuration, held in the
+rather than in a later session. The validator is the vendored kit
+`check_plan_kit.py` (Option C: the strict guards plus the union
+vocabulary), whose location is machine configuration held in the
 `PYFS_PLAN_CHECKER` environment variable (set in
 `.claude/settings.local.json`, never a literal path in this committed
 file, mirroring how `PYFS_INCIDENT_LEDGER` locates the incident
-ledger). Read the variable; never assume a path.
+ledger). Read the variable; never assume a path. The counter ids
+`PLN-001`..`PLN-088` are grandfathered from the timestamp-id shape guard
+by `_private/plan/legacy_ids.txt` (that waiver only; every other guard
+still applies, and a new counter-shaped id is still rejected), which is
+why the renumber rule above holds without failing the checker.
 
 - **Unset means the check is skipped**, not failed: a clone that never
   configured the validator can still work, exactly as an unset incident
@@ -77,6 +82,4 @@ or in bash:
 python "$PYFS_PLAN_CHECKER" _private/plan
 ```
 
-A non-zero exit names the failing entry and check. When the S5 kit
-build vendors the checker at a repo-relative path, repoint the variable
-there.
+A non-zero exit names the failing entry and check.
