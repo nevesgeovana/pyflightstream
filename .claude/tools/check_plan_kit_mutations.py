@@ -1,9 +1,9 @@
 # ITACA / pyflightstream shared process kit
-# kit-version: 0.1.0
+# kit-version: 0.2.2
 # artifact: check_plan_kit_mutations.py
-# body-sha256: e434e5be6e3c796ab297b0d110e37b58aa213b8199b77367db134f51ed77ed2f
+# body-sha256: cef4d90a31b11e8642f78ed47a4fad20c3f5c1a6e33dd36e6ddb60dc7390c4aa
 # canonical-source: BUILT for the kit: the mutation test for check_plan_kit.py, adapted from itaca's check_plan_entries_mutations.py with a union-vocabulary control added.
-# note: this file is the CANONICAL kit master. Repositories vendor a derived copy carrying this same header; a tier-1 drift test in each repo recomputes the body sha256 and asserts it equals the declared value for the kit-version above. Do not hand-edit a vendored copy; promotion is a reviewed seat step at the coordination level.
+# note: derived copy; canonical master at the coordination level (`_private/kit`); do not hand-edit, re-vendor on promotion.
 # END KIT PROVENANCE (body verbatim below)
 #!/usr/bin/env python3
 """Mutation test the kit plan checker: every check must be able to fail.
@@ -21,9 +21,20 @@ import sys
 import tempfile
 from pathlib import Path
 
-CHECKER = "C:/WORK/ClaudeProjects/_private/kit/check_plan_kit.py"
+# Locate the checker as a SIBLING of this test, never by an absolute path.
+# A hardcoded machine-specific path into the coordination tree (the old
+# `C:/WORK/ClaudeProjects/_private/kit/check_plan_kit.py`) violates the
+# kit's "no literal path in a committed file" rule and means a vendored
+# copy would test the coordination master, not its own vendored checker,
+# and fail on any other machine. This is the exact shape
+# check_side_effect_guard_mutations.py already uses.
+CHECKER = str(Path(__file__).resolve().parent / "check_plan_kit.py")
+# The GOOD fixture id is repo-NEUTRAL (no ITC-/PLN- library flavor), so
+# this test carries no repository's identity into a shared artifact. It is
+# still valid under the checker's timestamp-id guard
+# (<PREFIX>-<YYYYMMDD>-<HHMM>-<slug>).
 GOOD = """---
-id: ITC-20260723-2042-a-good-entry
+id: PLN-20260101-0000-neutral-fixture
 milestone: M1
 priority: P1
 status: open
@@ -47,26 +58,26 @@ A statement.
 
 # (name, filename, content, the substring the checker must print)
 CASES = [
-    ("sequential id", "ITC-001-a-good-entry.md",
-     GOOD.replace("ITC-20260723-2042-a-good-entry", "ITC-001-a-good-entry"),
+    ("sequential id", "PLN-001-neutral-fixture.md",
+     GOOD.replace("PLN-20260101-0000-neutral-fixture", "PLN-001-neutral-fixture"),
      "central counter"),
-    ("id not matching filename", "ITC-20260723-2042-renamed.md", GOOD,
+    ("id not matching filename", "PLN-20260101-0000-renamed.md", GOOD,
      "does not match the filename"),
-    ("illegal status", "ITC-20260723-2042-a-good-entry.md",
+    ("illegal status", "PLN-20260101-0000-neutral-fixture.md",
      GOOD.replace("status: open", "status: nearly"), "is not one of"),
-    ("illegal priority", "ITC-20260723-2042-a-good-entry.md",
+    ("illegal priority", "PLN-20260101-0000-neutral-fixture.md",
      GOOD.replace("priority: P1", "priority: urgent"), "is not one of"),
-    ("missing key", "ITC-20260723-2042-a-good-entry.md",
+    ("missing key", "PLN-20260101-0000-neutral-fixture.md",
      GOOD.replace("ref: REQ-1\n", ""), "missing or empty required key"),
-    ("empty value", "ITC-20260723-2042-a-good-entry.md",
+    ("empty value", "PLN-20260101-0000-neutral-fixture.md",
      GOOD.replace("ref: REQ-1", "ref:"), "missing or empty required key"),
-    ("no header block", "ITC-20260723-2042-a-good-entry.md",
+    ("no header block", "PLN-20260101-0000-neutral-fixture.md",
      "just some prose\n", "does not open with a --- header block"),
-    ("unclosed header", "ITC-20260723-2042-a-good-entry.md",
+    ("unclosed header", "PLN-20260101-0000-neutral-fixture.md",
      "---\nid: x\n", "never closed"),
-    ("empty body", "ITC-20260723-2042-a-good-entry.md",
+    ("empty body", "PLN-20260101-0000-neutral-fixture.md",
      GOOD.replace("A statement.\n", ""), "body is empty"),
-    ("dropped without a reason", "ITC-20260723-2042-a-good-entry.md",
+    ("dropped without a reason", "PLN-20260101-0000-neutral-fixture.md",
      GOOD.replace("status: open", "status: dropped"), "must say why"),
 ]
 
@@ -85,7 +96,7 @@ def main() -> int:
         # The unmutated entry must pass, or every case below proves nothing.
         control = base / "control"
         control.mkdir()
-        (control / "ITC-20260723-2042-a-good-entry.md").write_text(GOOD, encoding="utf-8")
+        (control / "PLN-20260101-0000-neutral-fixture.md").write_text(GOOD, encoding="utf-8")
         code, out = run(control)
         if code != 0:
             print(f"CONTROL FAILED: a valid entry was rejected\n{out}")
@@ -122,8 +133,8 @@ def main() -> int:
         # A duplicate id needs two files, so it gets its own folder.
         folder = base / "duplicate_id"
         folder.mkdir()
-        (folder / "ITC-20260723-2042-a-good-entry.md").write_text(GOOD, encoding="utf-8")
-        (folder / "ITC-20260723-2042-a-copy.md").write_text(GOOD, encoding="utf-8")
+        (folder / "PLN-20260101-0000-neutral-fixture.md").write_text(GOOD, encoding="utf-8")
+        (folder / "PLN-20260101-0000-a-copy.md").write_text(GOOD, encoding="utf-8")
         code, out = run(folder)
         if code == 0 or "id already used by" not in out:
             print(f"NOT CAUGHT: duplicate id\n{out}")

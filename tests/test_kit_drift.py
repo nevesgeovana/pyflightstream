@@ -10,7 +10,7 @@ kept the defect it had reported.
 
 This test is the mechanism. For every vendored file it splits the body at the
 ``END KIT PROVENANCE`` marker, recomputes the sha256, and asserts it equals
-the value the kit 0.2.1 manifest declares. A hand-edit changes the body, the
+the value the kit 0.2.2 manifest declares. A hand-edit changes the body, the
 recomputed hash no longer matches, and CI goes red. The fixture is the
 manifest itself (the version and hashes this repository vendored); the test
 never reaches into the coordination tree at run time, so it needs no
@@ -18,12 +18,12 @@ cross-repo filesystem access and cannot deadlock a push.
 
 Two deliberate wrinkles, both documented in the kit ``README.md``:
 
-* The kit version is 0.2.1. ``role_review_gate.py`` carries a 0.2.1 body (the
-  heredoc-stripper regression fix, INC-20260724-0912, which the 0.2.0
-  promotion had re-forked in); the two S3 side-effect-guard files carry a
-  0.2.0 body; the artifacts untouched since S5 keep their 0.1.0 body and
-  header. The manifest pins each file to its own hash and body version, so a
-  mixed manifest is correct, not drift.
+* The kit version is 0.2.2. Five files carry a 0.2.2 body: the gate
+  (``role_review_gate.py``, deny-message taxonomy), both side-effect-guard
+  files, and both plan-checker files (de-hardcoded mutation companion, and
+  the legacy-id grandfather exemption). The artifacts untouched since S5 keep
+  their 0.1.0 body and header. The manifest pins each file to its own hash
+  and body version, so a mixed manifest is correct, not drift.
 * ``role_review_gate.py`` carries the ONE permitted per-repo difference: the
   incident-ledger environment variable is ``PYFS_INCIDENT_LEDGER`` here and
   ``ITACA_INCIDENT_LEDGER`` in the canonical (itaca) body the manifest hash
@@ -45,13 +45,13 @@ REPO = Path(__file__).resolve().parents[1]
 CANONICAL_LEDGER_VAR = "ITACA_INCIDENT_LEDGER"
 REPO_LEDGER_VAR = "PYFS_INCIDENT_LEDGER"
 
-# The kit 0.2.1 manifest, verbatim from the kit README.md. Each entry is
+# The kit 0.2.2 manifest, verbatim from the kit README.md. Each entry is
 # (repo-relative path, declared kit-version, body-sha256). This is the
 # fixture: the test asserts the vendored file reproduces it.
 MANIFEST: dict[str, tuple[str, str]] = {
     ".claude/hooks/role_review_gate.py": (
-        "0.2.1",
-        "60f13fa5080a99592c8beb766cfd8b901b38fa638ca15804e6be5f46518f5801",
+        "0.2.2",
+        "762297b3d7752710aa6146719e8c4540b6b05bbf851f71f5a66105b9db58134e",
     ),
     ".claude/hooks/write_attestation.py": (
         "0.1.0",
@@ -73,20 +73,20 @@ MANIFEST: dict[str, tuple[str, str]] = {
         "0da13e4da525c1c470dc4429ef6c557a3b74600ad817c534344e999180786383",
     ),
     ".claude/tools/check_plan_kit.py": (
-        "0.1.0",
-        "4a18d1aa061b92c7fc677c16479730b25cdd6b759625857d4c1720628a5415a6",
+        "0.2.2",
+        "d7b7126a83ad96196c5a063d3b6d6c771747af84e590a9c97a3d702b057b9e52",
     ),
     ".claude/tools/check_plan_kit_mutations.py": (
-        "0.1.0",
-        "e434e5be6e3c796ab297b0d110e37b58aa213b8199b77367db134f51ed77ed2f",
+        "0.2.2",
+        "cef4d90a31b11e8642f78ed47a4fad20c3f5c1a6e33dd36e6ddb60dc7390c4aa",
     ),
     ".claude/tools/check_side_effect_guard.py": (
-        "0.2.0",
-        "f11972715660cdcda4fd06cd29925276369878eedafefb007e3cbafaf64d3456",
+        "0.2.2",
+        "ba9007941dcc44887e31d70dc74be8efe409f51a249d2b79398e66c276e9810c",
     ),
     ".claude/tools/check_side_effect_guard_mutations.py": (
-        "0.2.0",
-        "fc5e7fdabd50a7784e53f0e8a636e87ff19e19260c9a711fb05892f78c1ad97f",
+        "0.2.2",
+        "af5674911c06e5c67c5a178374c6c79245be25c8e9d1eb742667fc2f4bd8decb",
     ),
 }
 

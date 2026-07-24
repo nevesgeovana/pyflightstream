@@ -1,9 +1,9 @@
 # ITACA / pyflightstream shared process kit
-# kit-version: 0.2.0
+# kit-version: 0.2.2
 # artifact: check_side_effect_guard_mutations.py
-# body-sha256: fc5e7fdabd50a7784e53f0e8a636e87ff19e19260c9a711fb05892f78c1ad97f
+# body-sha256: af5674911c06e5c67c5a178374c6c79245be25c8e9d1eb742667fc2f4bd8decb
 # canonical-source: BUILT for the kit: the mutation test for check_side_effect_guard.py, proving the S3 guard fails when a side-effecting skill is not human-only and passes when it is or when no side-effects are declared.
-# note: this file is the CANONICAL kit master. Repositories vendor a derived copy carrying this same header; a tier-1 drift test in each repo recomputes the body sha256 and asserts it equals the declared value for the kit-version above. Do not hand-edit a vendored copy; promotion is a reviewed seat step at the coordination level.
+# note: derived copy; canonical master at the coordination level (`_private/kit`); do not hand-edit, re-vendor on promotion.
 # END KIT PROVENANCE (body verbatim below)
 #!/usr/bin/env python3
 """Mutation tests for check_side_effect_guard.py (S3 side-effecting-skill
@@ -136,6 +136,46 @@ def main() -> int:
         results.append(ok)
     finally:
         shutil.rmtree(d, ignore_errors=True)
+
+    # (0.2.2) Exit-code taxonomy and observability. A missing skills dir is
+    # a CONFIG error (exit 2), distinct from a guard violation (exit 1). An
+    # empty-but-valid dir is a distinct reported outcome, not a silent pass.
+    # A clean tree prints the checked-count line rather than nothing.
+
+    # A missing directory -> CONFIG error, exit 2 (NOT exit 1). This must
+    # fail if the guard reverts to conflating a missing dir with a
+    # violation. mkdtemp then remove, so the path is guaranteed absent.
+    missing = Path(tempfile.mkdtemp(prefix="s3guard_missing_"))
+    shutil.rmtree(missing, ignore_errors=True)
+    proc = run_guard(missing)
+    ok = proc.returncode == 2 and "does not exist" in proc.stderr
+    print(f"{'PASS' if ok else 'FAIL'} missing_dir_is_config_error_exit_2: "
+          f"exit={proc.returncode} (expected 2)")
+    if not ok:
+        print(f"     stdout={proc.stdout!r} stderr={proc.stderr!r}")
+    results.append(ok)
+
+    # An empty-but-valid directory -> exit 0 with the DISTINCT no-skills
+    # outcome, not a silent vacuous pass.
+    results.append(
+        case(
+            "empty_dir_reports_no_skills_outcome",
+            [],
+            expect_exit=0,
+            expect_in_out="no */SKILL.md found",
+        )
+    )
+
+    # A clean tree -> exit 0 AND the checked-count observability line, so a
+    # pass is never indistinguishable from a run that examined nothing.
+    results.append(
+        case(
+            "clean_tree_prints_checked_count",
+            [("reader", {"name": "reader"})],
+            expect_exit=0,
+            expect_in_out="checked 1 skill(s)",
+        )
+    )
 
     passed = sum(1 for r in results if r)
     print()

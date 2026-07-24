@@ -1,9 +1,9 @@
 # ITACA / pyflightstream shared process kit
-# kit-version: 0.2.0
+# kit-version: 0.2.2
 # artifact: check_side_effect_guard.py
-# body-sha256: f11972715660cdcda4fd06cd29925276369878eedafefb007e3cbafaf64d3456
+# body-sha256: ba9007941dcc44887e31d70dc74be8efe409f51a249d2b79398e66c276e9810c
 # canonical-source: BUILT for the kit (S3 side-effecting-skill guard). Structural replacement for the hardcoded 3-entry side-effect allowlist the 2026-07-23 review flagged: single-source, a skill declares its own side-effects in frontmatter and the guard asserts declares-side-effects -> disable-model-invocation: true. Consolidates the twice-authored side-effect justification (skill frontmatter AND a separate test map, already drifted) onto the frontmatter as the one source.
-# note: this file is the CANONICAL kit master. Repositories vendor a derived copy carrying this same header; a tier-1 drift test in each repo recomputes the body sha256 and asserts it equals the declared value for the kit-version above. Do not hand-edit a vendored copy; promotion is a reviewed seat step at the coordination level.
+# note: derived copy; canonical master at the coordination level (`_private/kit`); do not hand-edit, re-vendor on promotion.
 # END KIT PROVENANCE (body verbatim below)
 #!/usr/bin/env python3
 """S3 guard: a side-effecting skill must be human-invoked only.
@@ -26,15 +26,21 @@ moment it forgets the disable flag.
 Residual, stated honestly (route to the reviewer charter, not a code
 gap): the guard enforces "declares side effects -> must be human-only".
 It cannot INFER that a skill has side effects it failed to declare; that
-judgement is the API-designer / architect seat's, made when the skill is
+judgment is the API-designer / architect seat's, made when the skill is
 written or reviewed. The structural win is that the fact now lives with
 the skill and the marker cannot drift from a second copy, not that intent
 is machine-derived.
 
-Exit code 0 when every side-effecting skill is human-only; 1 (with the
-offending skills printed one per line) otherwise. No third-party deps;
-standalone so it can be a tier-1 test in either repository over its own
-``.claude/skills`` tree.
+Exit codes are a taxonomy, so a caller can tell the failure classes
+apart: 0 when every side-effecting skill is human-only (a checked-count
+line is always printed, so a clean run is never mistaken for an absent
+one, and a tree with no ``*/SKILL.md`` at all is reported as its own
+distinct outcome rather than a silent pass); 1 when a real guard
+violation is found (the offending skills printed one per line); 2 for a
+CONFIG error (a missing skills directory or wrong usage), which is the
+operator pointing the guard at the wrong place, not a skill defect. No
+third-party deps; standalone so it can be a tier-1 test in either
+repository over its own ``.claude/skills`` tree.
 
 Usage:
     check_side_effect_guard.py <skills-dir>   # e.g. .claude/skills
@@ -87,13 +93,25 @@ def _has_side_effects(value: str) -> bool:
     return bool(cleaned) and cleaned not in ("false", "none", "no", "[]", "{}")
 
 
-def audit(skills_dir: Path) -> list[tuple[str, str]]:
-    """Return (skill-path, reason) for each side-effecting skill not human-only."""
+def audit(skills_dir: Path) -> tuple[list[tuple[str, str]], int, int]:
+    """Audit a skills tree for side-effecting skills that are not human-only.
+
+    Returns ``(offenders, checked, side_effecting)``: ``offenders`` is
+    ``(skill-path, reason)`` for each side-effecting skill missing the
+    disable flag, ``checked`` is how many ``*/SKILL.md`` files were
+    examined, and ``side_effecting`` how many of those declared side
+    effects. The counts let the caller emit an observability line so a
+    clean tree and an EMPTY tree are not both reported as silent success.
+    """
     offenders: list[tuple[str, str]] = []
+    checked = 0
+    side_effecting = 0
     for skill_md in sorted(skills_dir.glob("*/SKILL.md")):
+        checked += 1
         fields = _frontmatter(skill_md.read_text(encoding="utf-8"))
         if not _has_side_effects(fields.get("side-effects", "")):
             continue
+        side_effecting += 1
         if not _is_true(fields.get("disable-model-invocation", "")):
             offenders.append(
                 (
@@ -102,7 +120,7 @@ def audit(skills_dir: Path) -> list[tuple[str, str]]:
                     "disable-model-invocation: true",
                 )
             )
-    return offenders
+    return offenders, checked, side_effecting
 
 
 def main() -> int:
@@ -111,11 +129,33 @@ def main() -> int:
         return 2
     root = Path(sys.argv[1])
     if not root.is_dir():
-        print(f"UNREADABLE {root}: skills directory missing", file=sys.stderr)
-        return 1
-    offenders = audit(root)
+        # A CONFIG error, not a guard violation: the directory does not
+        # exist, so the operator pointed the guard at the wrong place. It
+        # gets its own exit code (2) so a caller cannot confuse "you gave
+        # me the wrong path" with "a skill is unguarded" (exit 1). The old
+        # message called an absent directory "UNREADABLE", which is
+        # self-contradictory (it is not unreadable, it is absent) and gave
+        # no remedy.
+        print(
+            f"NO SKILLS DIRECTORY: {root} does not exist. Pass the path to "
+            "the skills tree to check (for example .claude/skills).",
+            file=sys.stderr,
+        )
+        return 2
+    offenders, checked, side_effecting = audit(root)
     for path, reason in offenders:
         print(f"UNGUARDED {path}: {reason}")
+    # Always print what was checked, so a passing run is never
+    # indistinguishable from one that examined nothing.
+    print(
+        f"checked {checked} skill(s), {side_effecting} side-effecting, "
+        f"{len(offenders)} unguarded"
+    )
+    if checked == 0:
+        # A DISTINCT outcome, not silent success: an empty (or wrong but
+        # existing) directory used to exit 0 with no output, hiding a
+        # misconfiguration behind a vacuous pass.
+        print(f"no */SKILL.md found under {root}")
     return 1 if offenders else 0
 
 

@@ -330,12 +330,19 @@ def test_a_push_the_gate_cannot_scope_is_denied(repo: Path) -> None:
 
 
 def test_a_deletion_refspec_is_denied(repo: Path) -> None:
-    """A push that removes a remote ref is not something the gate can bless."""
+    """A push that removes a remote ref is not something the gate can bless.
+
+    v0.2.2 reframes it as a policy stop: a deletion's scope IS resolvable, so
+    it no longer shares the "cannot determine scope" wrapper. It is tagged
+    [policy], with the honest reason.
+    """
     head = add_commit(repo, "one")
     attest(repo, [head])
     decision, reason = judge(repo, f"{PUSH} origin :main")
     assert decision == "deny"
-    assert "cannot determine" in reason
+    assert "role-review gate: [policy]" in reason
+    assert "deletes a published remote ref" in reason
+    assert "guesses at its own scope" not in reason
 
 
 def test_an_open_blocking_incident_denies(repo: Path, tmp_path: Path) -> None:
@@ -761,7 +768,7 @@ def test_a_multi_tag_release_deny_names_every_tag(repo: Path) -> None:
     decision, reason = judge(repo, f"{PUSH} origin v9.9.8 v9.9.9")
     assert decision == "deny"
     assert "v9.9.8" in reason and "v9.9.9" in reason, reason
-    assert "release" in reason
+    assert "role-review gate: [release]" in reason
 
 
 def test_the_final_allow_writes_one_observability_line(repo: Path) -> None:
@@ -783,3 +790,43 @@ def test_the_final_allow_writes_one_observability_line(repo: Path) -> None:
     )
     assert done.stdout.strip() == "", "the final allow must stay a silent permission outcome"
     assert "role-review gate: evaluated and ALLOWED" in done.stderr, done.stderr
+
+
+def test_the_deny_bracket_taxonomy_matches_the_remedy_class(repo: Path, tmp_path: Path) -> None:
+    """v0.2.2 gave every deny path a bracketed sub-kind matching its remedy.
+
+    The two POLICY stops whose scope is fully resolvable (unconditional force,
+    ref deletion) are [policy], no longer sharing the scope wrapper that
+    stated a cause the code knew was false. A genuinely unresolvable option is
+    [scope]. A misconfigured/unreadable ledger is [ledger] (fix config/infra),
+    distinct from a real open incident's [incident] (run the analyst). No
+    allow/deny decision changed; only the message taxonomy.
+    """
+    head = add_commit(repo, "one")
+    attest(repo, [head])
+
+    _, force = judge(repo, f"{PUSH} --force origin main")
+    assert "role-review gate: [policy]" in force
+
+    _, deletion = judge(repo, f"{PUSH} origin :main")
+    assert "role-review gate: [policy]" in deletion
+
+    _, unknown = judge(repo, f"{PUSH} --frobnicate origin main")
+    assert "role-review gate: [scope]" in unknown
+
+    _, ledger = judge(repo, f"{PUSH} origin main", ledger=str(tmp_path / "nowhere"))
+    assert "role-review gate: [ledger]" in ledger
+
+    # A non-repo working directory: the "looks like a push but no repo" stop.
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    done = subprocess.run(
+        [sys.executable, str(HOOK)],
+        input=json.dumps({"tool_name": "Bash", "tool_input": {"command": f"{PUSH} origin main"}}),
+        capture_output=True,
+        text=True,
+        cwd=outside,
+        env=hook_env(),
+    )
+    repo_deny = json.loads(done.stdout)["hookSpecificOutput"]["permissionDecisionReason"]
+    assert "role-review gate: [repo]" in repo_deny

@@ -1,9 +1,9 @@
 # ITACA / pyflightstream shared process kit
-# kit-version: 0.2.1
+# kit-version: 0.2.2
 # artifact: role_review_gate.py
-# body-sha256: 60f13fa5080a99592c8beb766cfd8b901b38fa638ca15804e6be5f46518f5801
+# body-sha256: 762297b3d7752710aa6146719e8c4540b6b05bbf851f71f5a66105b9db58134e
 # canonical-source: itaca hardened basis. The coordination flavor (ClaudeProjects/.claude/hooks/role_review_gate.py) is a DOCUMENTED SUPERSET, not drift: it swaps the single LEDGER_ENV constant for a per-target LEDGER_ENV_BY_REPO map so one gate can resolve the right ledger var when it targets either repo via git -C <repo>. A repo vendoring this canonical body uses its own single ledger var.
-# note: this file is the CANONICAL kit master. Repositories vendor a derived copy carrying this same header; a tier-1 drift test in each repo recomputes the body sha256 and asserts it equals the declared value for the kit-version above. Do not hand-edit a vendored copy; promotion is a reviewed seat step at the coordination level.
+# note: derived copy; canonical master at the coordination level (`_private/kit`); do not hand-edit, re-vendor on promotion.
 # END KIT PROVENANCE (body verbatim below)
 #!/usr/bin/env python3
 r"""Mandatory role-review gate on git push (PreToolUse hook, Bash + PowerShell).
@@ -474,18 +474,25 @@ AUTHOR_ONLY_OPTIONS = frozenset({"-f", "--force"})
 
 def _push_scope(
     args_after_push: list[str], root: Path
-) -> tuple[list[str], str, str, str]:
+) -> tuple[list[str], str, str, str, str]:
     """Resolve the commits this push sends, or say why it cannot.
 
-    Returns ``(commits, problem, fix, remote)``. A non-empty ``problem``
-    means the gate could not determine what the push sends and must deny:
-    a guard that guesses at its own scope is not a guard. ``fix`` is the
-    remedy for that specific problem, because one shared remedy told a
-    user deleting a remote ref to push one. ``remote`` is the resolved
-    target remote name (positional or config-derived), so the caller can
-    scope the push range to that remote alone rather than trusting every
-    remote-tracking ref; it is ``""`` when a problem short-circuits
-    before the remote is known.
+    Returns ``(commits, problem, fix, remote, kind)``. A non-empty
+    ``problem`` means the push is refused. ``kind`` names WHY, because two
+    of the refusals are not scope failures at all: ``"policy"`` marks a
+    stop whose scope IS resolvable but which no attestation can license
+    (an unconditional force, a deletion refspec), and ``"scope"`` marks a
+    genuinely unresolvable range (an unknown option, a config-driven
+    matching push, an unresolvable ref). The caller frames the two
+    differently: stating "a guard that guesses at its own scope proves
+    nothing" over a policy stop asserts a cause the code knows is false.
+    ``kind`` is ``""`` when there is no problem. ``fix`` is the remedy for
+    that specific problem, because one shared remedy told a user deleting
+    a remote ref to push one. ``remote`` is the resolved target remote
+    name (positional or config-derived), so the caller can scope the push
+    range to that remote alone rather than trusting every remote-tracking
+    ref; it is ``""`` when a problem short-circuits before the remote is
+    known.
 
     The first non-option token is the remote; the rest are refspecs,
     whose source side (before ``:``) is resolved locally.
@@ -513,6 +520,7 @@ def _push_scope(
                 "if you meant a safe update; otherwise stop and confirm with "
                 "Geovana.",
                 "",
+                "policy",
             )
         if name in VALUE_OPTIONS:
             if "=" not in tok:
@@ -529,6 +537,7 @@ def _push_scope(
             "to delete or rewrite a published ref, that is an author "
             "decision, not something an attestation covers.",
             "",
+            "scope",
         )
 
     refspecs = positional[1:]
@@ -567,11 +576,12 @@ def _push_scope(
                 "name the branch or the tag explicitly (for example "
                 "`origin main`) so the gate can resolve what is being sent.",
                 remote,
+                "scope",
             )
         head = _git(root, "rev-parse", "HEAD")
         if not head:
-            return [], "HEAD does not resolve", "make at least one commit.", remote
-        return [head], "", "", remote
+            return [], "HEAD does not resolve", "make at least one commit.", remote, "scope"
+        return [head], "", "", remote, ""
 
     commits: list[str] = []
     for spec in refspecs:
@@ -584,6 +594,7 @@ def _push_scope(
                 "something a review attestation covers. Stop and confirm it "
                 "with Geovana.",
                 remote,
+                "policy",
             )
         commit = _git(root, "rev-list", "-n", "1", source)
         if not commit:
@@ -593,9 +604,10 @@ def _push_scope(
                 "check the spelling, or create the branch or tag locally "
                 "before pushing it.",
                 remote,
+                "scope",
             )
         commits.append(commit)
-    return commits, "", "", remote
+    return commits, "", "", remote, ""
 
 
 def _push_refs(args_after_push: list[str]) -> list[str]:
@@ -697,7 +709,7 @@ def main() -> None:
             # Looks like a git push but no repo resolves: fail closed.
             _decide(
                 "deny",
-                f"{GATE_PREFIX} this looks like a git push but no git "
+                f"{GATE_PREFIX} [repo] this looks like a git push but no git "
                 f"repository resolves from {base}. Run it from inside the "
                 "repo (or fix the -C path); the gate must be able to check "
                 "the role-review attestation before a push.",
@@ -708,7 +720,7 @@ def main() -> None:
         if not head:
             _decide(
                 "deny",
-                f"{GATE_PREFIX} could not read HEAD (no commits yet, or "
+                f"{GATE_PREFIX} [repo] could not read HEAD (no commits yet, or "
                 "a detached or corrupt checkout). Make at least one commit "
                 "and confirm `git rev-parse HEAD` succeeds from the repo "
                 "root, then push.",
@@ -718,11 +730,21 @@ def main() -> None:
         # The refs this push actually sends, resolved from the command.
         # Scoping from HEAD instead let a push of any other ref clear the
         # gate whenever HEAD happened to be attested.
-        targets, problem, remedy, remote = _push_scope(args_after_push, root)
+        targets, problem, remedy, remote, kind = _push_scope(args_after_push, root)
         if problem:
+            if kind == "policy":
+                # The scope IS resolvable here; the stop is a policy call
+                # (unconditional force, deletion refspec). Framing it with
+                # the "guesses at its own scope" tail would state a cause
+                # the code knows is false, so that tail is omitted.
+                _decide(
+                    "deny",
+                    f"{GATE_PREFIX} [policy] refused on policy, not scope: "
+                    f"{problem}. {remedy}",
+                )
             _decide(
                 "deny",
-                f"{GATE_PREFIX} the gate cannot determine which commits "
+                f"{GATE_PREFIX} [scope] the gate cannot determine which commits "
                 f"this push sends, because {problem}. {remedy} Refusing is "
                 "deliberate: a guard that guesses at its own scope proves "
                 "nothing.",
@@ -749,7 +771,7 @@ def main() -> None:
         if blocked and kind == "unreachable":
             _decide(
                 "deny",
-                f"{GATE_PREFIX} [incident] the incident ledger is configured but "
+                f"{GATE_PREFIX} [ledger] the incident ledger is configured but "
                 f"could not be consulted:\n{detail}\n"
                 f"Resync or repair it, or correct {LEDGER_ENV}, then push. The gate "
                 "blocks rather than assume nothing is wrong; if an incident file is "
@@ -868,7 +890,7 @@ def main() -> None:
     except Exception as error:  # a gate must fail closed
         _decide(
             "deny",
-            f"{GATE_PREFIX} the gate could not be evaluated for this "
+            f"{GATE_PREFIX} [gate] the gate could not be evaluated for this "
             f"push ({type(error).__name__}: {error}). Failing closed. "
             "Resolve the error, then push. If the gate itself is broken, "
             "stop and tell Geovana: turning the gate off to ship is an "

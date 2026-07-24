@@ -3,7 +3,7 @@
 # artifact: snap.sh
 # body-sha256: 0da13e4da525c1c470dc4429ef6c557a3b74600ad817c534344e999180786383
 # canonical-source: local-only _private snapshot tool, shared across all three workspaces plus the shared incident ledger.
-# note: this file is the CANONICAL kit master. Repositories vendor a derived copy carrying this same header; a tier-1 drift test in each repo recomputes the body sha256 and asserts it equals the declared value for the kit-version above. Do not hand-edit a vendored copy; promotion is a reviewed seat step at the coordination level.
+# note: derived copy; canonical master at the coordination level (`_private/kit`); do not hand-edit, re-vendor on promotion.
 # END KIT PROVENANCE (body verbatim below)
 #!/usr/bin/env bash
 # Local-only version control for the _private trees of both repositories.

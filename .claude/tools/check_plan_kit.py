@@ -1,9 +1,9 @@
 # ITACA / pyflightstream shared process kit
-# kit-version: 0.1.0
+# kit-version: 0.2.2
 # artifact: check_plan_kit.py
-# body-sha256: 4a18d1aa061b92c7fc677c16479730b25cdd6b759625857d4c1720628a5415a6
+# body-sha256: d7b7126a83ad96196c5a063d3b6d6c771747af84e590a9c97a3d702b057b9e52
 # canonical-source: BUILT for the kit (Option C, author decision 2026-07-24): the strict guards of itaca's check_plan_entries.py merged with the UNION of both ledgers' vocabularies. Supersedes both check_plan.py and check_plan_entries.py.
-# note: this file is the CANONICAL kit master. Repositories vendor a derived copy carrying this same header; a tier-1 drift test in each repo recomputes the body sha256 and asserts it equals the declared value for the kit-version above. Do not hand-edit a vendored copy; promotion is a reviewed seat step at the coordination level.
+# note: derived copy; canonical master at the coordination level (`_private/kit`); do not hand-edit, re-vendor on promotion.
 # END KIT PROVENANCE (body verbatim below)
 #!/usr/bin/env python3
 """Validate a one-file-per-entry plan ledger (shared kit checker).
@@ -52,6 +52,36 @@ What it asserts:
   * the id has the timestamp shape, so no entry silently reintroduces a
     central counter;
   * no id repeats across the folder.
+
+Legacy id exemption (per-repo, config-driven; author decision 2026-07-24,
+Option 1 "grandfather"). The timestamp-id SHAPE guard rejects a
+pre-existing counter id, which is right for new work but cannot be
+imposed retroactively: pyflightstream's counter ids (PLN-001..088) are
+cited in committed public files, so renumbering them is off the table.
+The escape hatch is a file named ``legacy_ids.txt`` located in the SAME
+plan directory being validated (the directory holding the entry ``*.md``
+files), read at run time relative to that directory, never an absolute
+path:
+
+  * one id per line; blank lines and lines beginning with ``#`` are
+    ignored; surrounding whitespace is stripped;
+  * an absent file means NO exemptions, so a repository that never had
+    counter ids (itaca's case) is unaffected and its behavior is
+    unchanged;
+  * a listed id is exempt from the SHAPE guard ONLY. Every other guard
+    still applies to it unchanged: ``ref`` required, known status, known
+    priority, dropped-must-say-why, id-matches-filename, no reused id. A
+    legacy id with no ``ref`` still fails;
+  * the exemption is by EXACT id string match, never a pattern or prefix,
+    so a NEW counter-shaped id that is not on the list (PLN-089 and
+    onward) is still rejected. That is what keeps the set finite and
+    non-abusable.
+
+This config is per-repo documented state: it lives with the repository
+that needs it (committed and auditable there), never in the kit body.
+Hardcoding any repository's ids into the shared checker would couple the
+kit to one library and defeat the drift test. The list is meant to be a
+finite, shrinking set a repository retires as it re-ids old entries.
 """
 
 from __future__ import annotations
@@ -69,6 +99,34 @@ PRIORITIES = ("P0", "P1", "P2", "P3")
 # PLN), the timestamp is what removes the central counter. This guard is
 # kept from the strict checker even though the vocabulary is widened.
 ID_SHAPE = re.compile(r"^[A-Z]{2,4}-\d{8}-\d{4}-[a-z0-9]+(?:-[a-z0-9]+)*$")
+# Per-repo legacy id exemptions live in this file, IN the plan directory
+# being checked (never a literal in the kit body). See the module
+# docstring for the full contract; it exempts only the shape guard.
+LEGACY_IDS_FILE = "legacy_ids.txt"
+
+
+def load_legacy_ids(root: Path) -> frozenset[str]:
+    """Read the shape-guard exemptions from ``<plan-dir>/legacy_ids.txt``.
+
+    Resolved relative to the plan directory under test, so the checker
+    carries no absolute path and a vendored copy reads the exemptions of
+    the repository it is validating. An absent (or unreadable) file yields
+    an empty set: no exemptions, behavior unchanged. One id per line;
+    blank lines and ``#`` comment lines are ignored; whitespace stripped.
+    """
+    path = root / LEGACY_IDS_FILE
+    if not path.is_file():
+        return frozenset()
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except OSError:
+        return frozenset()
+    ids = {
+        stripped
+        for line in raw.splitlines()
+        if (stripped := line.strip()) and not stripped.startswith("#")
+    }
+    return frozenset(ids)
 
 
 def parse(path: Path) -> tuple[dict[str, str], str, list[str]]:
@@ -102,8 +160,14 @@ def parse(path: Path) -> tuple[dict[str, str], str, list[str]]:
     return header, "\n".join(lines[end + 1 :]).strip(), problems
 
 
-def check_entry(path: Path) -> list[str]:
-    """Return every problem found in one entry file."""
+def check_entry(path: Path, legacy_ids: frozenset[str] = frozenset()) -> list[str]:
+    """Return every problem found in one entry file.
+
+    ``legacy_ids`` are the ids exempt from the SHAPE guard ONLY (the
+    grandfather set read from ``legacy_ids.txt``); every other guard still
+    applies to them. An empty set (the default and the absent-file case)
+    exempts nothing.
+    """
     header, body, problems = parse(path)
     if not header:
         return problems
@@ -122,7 +186,10 @@ def check_entry(path: Path) -> list[str]:
     entry_id = header.get("id", "")
     if entry_id and entry_id != path.stem:
         problems.append(f"id {entry_id!r} does not match the filename {path.stem!r}")
-    if entry_id and not ID_SHAPE.match(entry_id):
+    # The shape guard is the ONLY guard the legacy list waives, and only by
+    # EXACT id match: a counter-shaped id not on the list is still rejected,
+    # which is what keeps the exemption finite and closed to new ids.
+    if entry_id and entry_id not in legacy_ids and not ID_SHAPE.match(entry_id):
         problems.append(
             f"id {entry_id!r} is not <PREFIX>-<YYYYMMDD>-<HHMM>-<slug>; a sequential "
             "id would reintroduce the central counter this shape removes"
@@ -150,10 +217,14 @@ def main() -> int:
         print(f"no entries in {root}")
         return 0
 
+    # Read the per-repo shape-guard exemptions from the plan directory
+    # under test (absent file -> no exemptions).
+    legacy_ids = load_legacy_ids(root)
+
     failures = 0
     seen: dict[str, Path] = {}
     for path in entries:
-        problems = check_entry(path)
+        problems = check_entry(path, legacy_ids)
         header, _, _ = parse(path)
         entry_id = header.get("id", "")
         if entry_id:

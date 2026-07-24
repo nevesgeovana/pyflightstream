@@ -4,7 +4,7 @@ kit-version: 0.1.0
 artifact: incident-analyst.md
 body-sha256: 9d2bc1bb38d6c249969cb268ce6e9b778457059d691a87cecda172f83f475eac
 canonical-source: itaca superset (canonical). Carries the empty-scope structural-cause shape and the exact-character-claims section that the pyflightstream copy lacked; pyflightstream re-derives its stamped copy from this.
-note: this file is the CANONICAL kit master. Repositories vendor a derived copy carrying this same header; a tier-1 drift test in each repo recomputes the body sha256 and asserts it equals the declared value for the kit-version above. Do not hand-edit a vendored copy; promotion is a reviewed seat step at the coordination level.
+note: derived copy; canonical master at the coordination level (`_private/kit`); do not hand-edit, re-vendor on promotion.
 END KIT PROVENANCE (body verbatim below)
 -->
 ---
