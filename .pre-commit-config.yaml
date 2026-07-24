@@ -1,6 +1,14 @@
 # Pre-commit hooks: fast guards that run before every local commit.
 # The heavier house-style and database-schema guards run as tier 1 tests
 # (tests/test_house_style.py, tests/test_command_db.py) and in CI.
+#
+# The vendored shared-process-kit copies are byte-exact derivations of the
+# coordination kit master and are guarded by the tier-1 drift test
+# (tests/test_kit_drift.py), not by these hooks: a whitespace trim, an
+# end-of-file newline, or a ruff reformat changes the body bytes and breaks
+# the sha256 pin. They are excluded from every hook here; fixes are made in
+# the kit and re-vendored. (ruff also force-excludes them via pyproject.)
+exclude: '^\.claude/(tools/|hooks/(role_review_gate|write_attestation)\.py|agents/incident-analyst\.md$)'
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0

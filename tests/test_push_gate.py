@@ -349,7 +349,10 @@ def test_an_open_blocking_incident_denies(repo: Path, tmp_path: Path) -> None:
     ledger = stub_ledger(tmp_path / "ledger", 1, "INC-1 open and blocking for")
     decision, reason = judge(repo, f"{PUSH} origin main", ledger=ledger)
     assert decision == "deny"
-    assert "INCIDENT GATE" in reason
+    # v0.2.0 folded the three divergent prefixes ("INCIDENT GATE:",
+    # "RELEASE GATE:", "ROLE-REVIEW GATE:") into one "role-review gate:"
+    # voice with a bracketed sub-kind.
+    assert "role-review gate: [incident]" in reason
     assert "INC-1 open and blocking for" in reason
     # The two failure classes have opposite remedies and must not share
     # a message: this one is a real incident, not an unreadable ledger.
@@ -393,7 +396,7 @@ def test_the_deny_names_the_range_to_review(repo: Path) -> None:
     tip = add_commit(repo, "two")
     decision, reason = judge(repo, f"{PUSH} origin main")
     assert decision == "deny"
-    assert "ROLE-REVIEW GATE" in reason
+    assert "role-review gate: [review]" in reason
     assert f"{tip} --not --remotes" in reason, reason
 
 
@@ -632,3 +635,151 @@ def test_the_review_deny_names_the_ref_that_is_behind_head(repo: Path) -> None:
     # Naming HEAD here is the loop: the writer would stamp HEAD, which
     # does not cover the tag, and the same denial repeats.
     assert "<passes,that,ran> v0.1.0" in reason, reason
+
+
+# ---------------------------------------------------------------------------
+# v0.2.0/0.2.1 gate, vendored from the shared process kit. These encode the
+# NEW contract, so they would fail on the pre-vendor gate: they are written
+# failing-test-first per the structural-fix rule, alongside the gate they
+# exercise.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("force", ["-f", "--force"])
+def test_bare_force_is_denied_as_author_only(repo: Path, force: str) -> None:
+    """Unconditional force rewrites published history, which no attestation
+    covers (author call, 2026-07-24).
+
+    It denies even when the range is fully attested: the refusal is on
+    policy, not scope, so review cannot license it.
+    """
+    head = add_commit(repo, "one")
+    attest(repo, [head])
+    decision, reason = judge(repo, f"{PUSH} {force} origin main")
+    assert decision == "deny", force
+    assert "rewrites published history" in reason, reason
+    assert "--force-with-lease" in reason, reason
+
+
+@pytest.mark.parametrize("safe", ["--force-with-lease", "--force-if-includes"])
+def test_safe_force_variants_ride_the_attestation_path(repo: Path, safe: str) -> None:
+    """The safe force variants refuse on their own when the remote moved, so
+    they stay on the normal attestation path rather than being refused as
+    author-only. An attested push with one must clear the gate.
+    """
+    head = add_commit(repo, "one")
+    attest(repo, [head])
+    assert decide(repo, f"{PUSH} {safe} origin main") == "allow", safe
+
+
+def test_a_shell_wrapped_push_is_detected(repo: Path) -> None:
+    """``bash -c "git push"`` runs a real push inside a quoted token whose
+    basename is the shell, not git.
+
+    The pre-v0.2.0 gate looked only for a git executable and failed OPEN on
+    this; v0.2.0 recognizes the wrapper by shell family and recurses on the
+    inner command.
+    """
+    add_commit(repo, "one")
+    assert decide(repo, f'bash -c "{PUSH} origin main"') == "deny"
+
+
+def test_a_nested_shell_wrapped_push_is_detected(repo: Path) -> None:
+    """A single nesting must not defeat the gate: recursion is bounded but
+    deeper than one level.
+    """
+    add_commit(repo, "one")
+    cmd = 'bash -c "bash -c ' + "'" + f"{PUSH} origin main" + "'" + '"'
+    assert decide(repo, cmd) == "deny"
+
+
+def test_the_heredoc_stripper_removes_the_body() -> None:
+    """Independent liveness guard for INC-20260724-0912, re-forked by the
+    0.2.0 kit body and fixed in 0.2.1.
+
+    A stray control byte inside the heredoc-opener regex made the stripper
+    match nothing. The neighbouring
+    test_a_heredoc_commit_that_mentions_the_push_is_not_a_push pins the
+    end-to-end DECISION; this one asserts the underlying property directly on
+    `_strip_heredocs`, so a dead stripper fails even if some other path
+    happened to reach the same allow. It imports the vendored hook module by
+    path.
+    """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("gate_under_test", HOOK)
+    gate = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(gate)
+    cmd = f"git commit -F- <<'MSG'\ndocument the {PUSH} gate\nMSG"
+    stripped = gate._strip_heredocs(cmd)
+    assert stripped != cmd, "the stripper did nothing: the opener regex is dead"
+    assert "document the" not in stripped, "the heredoc body survived stripping"
+    assert gate._find_git_push(cmd)[0] is False, "a stripped heredoc must not read as a push"
+
+
+def test_a_commit_only_on_another_remote_is_still_in_scope_for_origin(
+    repo: Path, tmp_path: Path
+) -> None:
+    """v0.2.0 scopes the pushed range to the TARGET remote.
+
+    The pushed range is `<tip> --not --remotes=<remote>` for a known remote,
+    not the bare `--not --remotes`. So an ancestor already on a DIFFERENT
+    remote is no longer treated as already-shipped to origin: it stays in
+    scope and must be attested. Bare `--remotes` would exclude it and let it
+    reach origin unreviewed.
+    """
+    other = tmp_path / "other.git"
+    subprocess.run(["git", "init", "--bare", "-q", str(other)], check=True)
+    git(repo, "remote", "add", "other", str(other))
+    ancestor = add_commit(repo, "ancestor")
+    tip = add_commit(repo, "tip")
+    # Publish only the ancestor to the OTHER remote, never to origin.
+    git(repo, "push", "-q", "other", f"{ancestor}:refs/heads/main")
+    git(repo, "fetch", "-q", "other")
+    # Attest only the tip; the ancestor is covered by no attestation.
+    attest(repo, [tip])
+    decision, reason = judge(repo, f"{PUSH} origin main")
+    assert decision == "deny"
+    assert ancestor[:12] in reason, (
+        "an ancestor present only on another remote must count as in-scope for a push to origin"
+    )
+
+
+def test_a_multi_tag_release_deny_names_every_tag(repo: Path) -> None:
+    """The release deny must name ALL version tags being pushed.
+
+    A multi-tag push that reported only the first tag left the writer command
+    short, so a second tag stayed uncovered and the same denial repeated. The
+    review gate is satisfied here (the commit is review-attested) so control
+    reaches the release check, which must list both tags.
+    """
+    head = add_commit(repo, "one")
+    attest(repo, [head])  # review only, no release attestation
+    git(repo, "tag", "v9.9.8")
+    git(repo, "tag", "v9.9.9")
+    decision, reason = judge(repo, f"{PUSH} origin v9.9.8 v9.9.9")
+    assert decision == "deny"
+    assert "v9.9.8" in reason and "v9.9.9" in reason, reason
+    assert "release" in reason
+
+
+def test_the_final_allow_writes_one_observability_line(repo: Path) -> None:
+    """A passing gate must not be indistinguishable from an absent one.
+
+    The final all-checks-passed allow prints one stderr line naming the repo
+    and the in-scope count, while staying a silent (non-``allow``) permission
+    outcome so it does not auto-approve and bypass the normal permission flow.
+    """
+    head = add_commit(repo, "one")
+    attest(repo, [head])
+    done = subprocess.run(
+        [sys.executable, str(HOOK)],
+        input=json.dumps({"tool_name": "Bash", "tool_input": {"command": f"{PUSH} origin main"}}),
+        capture_output=True,
+        text=True,
+        cwd=repo,
+        env=hook_env(),
+    )
+    assert done.stdout.strip() == "", "the final allow must stay a silent permission outcome"
+    assert "role-review gate: evaluated and ALLOWED" in done.stderr, done.stderr

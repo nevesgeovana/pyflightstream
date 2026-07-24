@@ -107,7 +107,21 @@ src = ["src"]
 # excluding *.md keeps the formatter's authority to .py files regardless of
 # the installed ruff version. (Which markdown code blocks are executed is
 # Sybil's job, configured in conftest.py, and is independent of ruff.)
-extend-exclude = ["*.md"]
+#
+# The vendored shared-process-kit copies (.claude/tools/ and the two
+# .claude/hooks/ scripts) are byte-exact derivations of the coordination kit
+# master, guarded by the tier-1 drift test (tests/test_kit_drift.py), NOT by
+# ruff: a reformat or a lint autofix changes the body bytes and breaks the
+# sha256 pin. Their canonical home is the kit; a real fix is made there and
+# re-vendored. force-exclude makes the exclusion hold even when pre-commit
+# passes the files to ruff explicitly.
+extend-exclude = [
+    "*.md",
+    ".claude/tools/**",
+    ".claude/hooks/role_review_gate.py",
+    ".claude/hooks/write_attestation.py",
+]
+force-exclude = true
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "N", "D"]

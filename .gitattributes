@@ -1,0 +1,11 @@
+# Vendored shared-process-kit artifacts are hashed byte-for-byte by the
+# tier-1 drift test (tests/test_kit_drift.py), which splits each file at its
+# END KIT PROVENANCE marker and asserts the body sha256 equals the kit
+# manifest value. A checkout that rewrote CRLF<->LF would change the body
+# bytes and break the hash, so these paths are pinned to LF and marked
+# non-text. snap.sh sets core.autocrlf false operationally for the same
+# reason; this rule is the in-repo half.
+.claude/hooks/role_review_gate.py text eol=lf
+.claude/hooks/write_attestation.py text eol=lf
+.claude/agents/incident-analyst.md text eol=lf
+.claude/tools/** text eol=lf

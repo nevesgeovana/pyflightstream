@@ -1,3 +1,10 @@
+# ITACA / pyflightstream shared process kit
+# kit-version: 0.1.0
+# artifact: write_attestation.py
+# body-sha256: 0c6aa3f9bc7e68aadb921463371b0f4a30a3f4bd9da9f1e3915bc48e8f243a91
+# canonical-source: itaca. No divergence between the copies.
+# note: this file is the CANONICAL kit master. Repositories vendor a derived copy carrying this same header; a tier-1 drift test in each repo recomputes the body sha256 and asserts it equals the declared value for the kit-version above. Do not hand-edit a vendored copy; promotion is a reviewed seat step at the coordination level.
+# END KIT PROVENANCE (body verbatim below)
 #!/usr/bin/env python3
 """Write the role-review or release attestation that clears the push gate.
 
@@ -56,7 +63,10 @@ def _git(root: Path, *args: str) -> str:
 
 def main() -> int:
     """Stamp the resolved ref into the attestation for the given kind."""
-    usage = f"usage: write_attestation.py {'|'.join(KINDS)} <{','.join(KNOWN_PASSES)}> [<ref> ...]"
+    usage = (
+        f"usage: write_attestation.py {'|'.join(KINDS)} "
+        f"<{','.join(KNOWN_PASSES)}> [<ref> ...]"
+    )
     if len(sys.argv) < 3 or sys.argv[1] not in KINDS:
         print(usage, file=sys.stderr)
         return 2
@@ -105,7 +115,11 @@ def main() -> int:
 
     att_path = root / ATTESTATION
     try:
-        att = json.loads(att_path.read_text(encoding="utf-8")) if att_path.is_file() else {}
+        att = (
+            json.loads(att_path.read_text(encoding="utf-8"))
+            if att_path.is_file()
+            else {}
+        )
     except (json.JSONDecodeError, ValueError, OSError):
         att = {}
 

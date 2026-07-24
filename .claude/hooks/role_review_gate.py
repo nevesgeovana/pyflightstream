@@ -1,3 +1,10 @@
+# ITACA / pyflightstream shared process kit
+# kit-version: 0.2.1
+# artifact: role_review_gate.py
+# body-sha256: 60f13fa5080a99592c8beb766cfd8b901b38fa638ca15804e6be5f46518f5801
+# canonical-source: itaca hardened basis. The coordination flavor (ClaudeProjects/.claude/hooks/role_review_gate.py) is a DOCUMENTED SUPERSET, not drift: it swaps the single LEDGER_ENV constant for a per-target LEDGER_ENV_BY_REPO map so one gate can resolve the right ledger var when it targets either repo via git -C <repo>. A repo vendoring this canonical body uses its own single ledger var.
+# note: this file is the CANONICAL kit master. Repositories vendor a derived copy carrying this same header; a tier-1 drift test in each repo recomputes the body sha256 and asserts it equals the declared value for the kit-version above. Do not hand-edit a vendored copy; promotion is a reviewed seat step at the coordination level.
+# END KIT PROVENANCE (body verbatim below)
 #!/usr/bin/env python3
 r"""Mandatory role-review gate on git push (PreToolUse hook, Bash + PowerShell).
 
@@ -102,6 +109,72 @@ def _allow_silently() -> None:
 
 _SEPARATORS = ";|&"
 
+# One human-facing prefix for every deny reason. The gate used to speak
+# under three name prefixes ("INCIDENT GATE:", "RELEASE GATE:",
+# "ROLE-REVIEW GATE:"), so a reader could not filter or recognize its
+# voice. Every deny now opens with this token; a sub-kind follows in
+# brackets, e.g. "role-review gate: [incident] ...".
+GATE_PREFIX = "role-review gate:"
+
+# Shell wrappers whose command-flag argument carries a command line of
+# its own. A `bash -c "git push"` tokenizes with `"git push"` as a single
+# quoted token whose basename is not git, so a gate that only looked for
+# a git executable missed it and failed OPEN.
+#
+# The flag that introduces that inline command is matched by SHELL
+# FAMILY, not by an exact string set. An exact set is the same
+# denylist/exact-match class the gate was hardened to kill for git
+# options: `bash -lc`, `powershell -command`, `powershell -Comm` and the
+# like all run a real push while matching no literal in a fixed set, so
+# they failed OPEN. Each family's rule below is deliberately generous
+# (it may over-trigger to a DENY, which is safe) rather than precise.
+_POSIX_SHELLS = frozenset({"bash", "sh", "dash", "zsh", "ksh"})
+_PWSH_SHELLS = frozenset({"pwsh", "powershell"})
+_CMD_SHELLS = frozenset({"cmd"})
+_SHELL_WRAPPERS = _POSIX_SHELLS | _PWSH_SHELLS | _CMD_SHELLS
+# A POSIX short-flag CLUSTER that contains `c`: `-c`, `-lc`, `-ec`, `-xc`.
+# The `c` is case-sensitive (POSIX short flags are), the cluster is not.
+_POSIX_C_CLUSTER = re.compile(r"^-[A-Za-z]*c[A-Za-z]*$")
+# How deep to chase nested wrappers (`bash -c "bash -c 'git push'"`).
+# Bounded hard so a crafted command cannot drive unbounded recursion, but
+# more than 1 so a single nesting does not defeat the gate.
+_WRAP_MAX_DEPTH = 4
+
+
+def _shell_family(basename: str) -> str | None:
+    """The wrapper family of a shell basename, or None if not a wrapper."""
+    if basename in _POSIX_SHELLS:
+        return "posix"
+    if basename in _PWSH_SHELLS:
+        return "pwsh"
+    if basename in _CMD_SHELLS:
+        return "cmd"
+    return None
+
+
+def _is_wrapper_command_flag(family: str, flag: str) -> bool:
+    """Does ``flag`` make this wrapper read its NEXT token as a command?
+
+    Matched per family so the real forms are all caught:
+    - POSIX: any single-dash short-flag cluster containing ``c``
+      (``-c``, ``-lc``, ``-ec``); case-sensitive on the ``c``.
+    - PowerShell/pwsh: ``-`` or ``/`` then a case-insensitive non-empty
+      prefix of ``command`` (``-Command``, ``-command``, ``-Comm``,
+      ``-C``, ``/command``); PowerShell accepts unambiguous prefixes and
+      is case-insensitive.
+    - cmd: ``/c`` or ``-c``, case-insensitive on the ``c``.
+    """
+    if family == "posix":
+        return bool(_POSIX_C_CLUSTER.match(flag))
+    if family == "pwsh":
+        if flag[:1] not in ("-", "/"):
+            return False
+        rest = flag[1:].lower()
+        return bool(rest) and "command".startswith(rest)
+    if family == "cmd":
+        return flag.lower() in ("/c", "-c")
+    return False
+
 
 def _strip_heredocs(command: str) -> str:
     """Remove heredoc bodies before the command is tokenized.
@@ -162,7 +235,9 @@ def _unquote(token: str) -> str:
     return token.strip(_SEPARATORS)
 
 
-def _find_git_push(command: str) -> tuple[bool, str | None, list[str]]:
+def _find_git_push(
+    command: str, _depth: int = 0
+) -> tuple[bool, str | None, list[str]]:
     """Detect a git push in a possibly-compound command.
 
     Returns ``(is_push, git_c_path, args_after_push)``. ``git_c_path`` is
@@ -178,7 +253,9 @@ def _find_git_push(command: str) -> tuple[bool, str | None, list[str]]:
     treating it as a push we could not confirm safe.
     """
     try:
-        tokens = _split_on_separators(shlex.split(_strip_heredocs(command), posix=False))
+        tokens = _split_on_separators(
+            shlex.split(_strip_heredocs(command), posix=False)
+        )
     except ValueError:
         if re.search(r"\bgit\b", command) and re.search(r"\bpush\b", command):
             return True, None, []
@@ -187,7 +264,32 @@ def _find_git_push(command: str) -> tuple[bool, str | None, list[str]]:
     i = 0
     while i < len(tokens):
         exe = _unquote(tokens[i]).replace("\\", "/").rsplit("/", 1)[-1].lower()
-        if exe not in ("git", "git.exe"):
+        if exe.endswith(".exe"):
+            exe = exe[:-4]
+        # Shell-wrapped push: `bash -c "git push"`, `bash -lc "git push"`,
+        # `powershell -command "git push"`, `cmd /c "git push"`, and
+        # nested `bash -c "bash -c 'git push'"`. The wrapped command is a
+        # single quoted token whose basename is the shell, not git, so a
+        # gate that only looks for a git executable misses it and fails
+        # OPEN. Recognize the command flag by SHELL FAMILY (not a literal
+        # set) and recurse on the UNQUOTED wrapper argument, up to
+        # _WRAP_MAX_DEPTH so a single nesting cannot defeat it. This is
+        # fail-closed by design: a benign `bash -c "echo git push"` is
+        # flagged as a push and denied, which is acceptable for a gate
+        # that must never miss a real one.
+        family = _shell_family(exe)
+        if _depth < _WRAP_MAX_DEPTH and family is not None:
+            k = i + 1
+            while k < len(tokens):
+                flag = _unquote(tokens[k])
+                if _is_wrapper_command_flag(family, flag) and k + 1 < len(tokens):
+                    inner = _unquote(tokens[k + 1])
+                    found, git_c, after = _find_git_push(inner, _depth + 1)
+                    if found:
+                        return True, git_c, after
+                    break
+                k += 1
+        if exe != "git":
             i += 1
             continue
         # Walk global options (-C <path>, --git-dir=..., -c k=v, ...) to
@@ -227,7 +329,19 @@ def _git(root: Path, *args: str) -> str:
         return ""
 
 
-def _pushed_commits(root: Path, target: str) -> list[str]:
+def _known_remotes(root: Path) -> list[str]:
+    """The remotes configured in this checkout.
+
+    Used to decide whether a resolved remote name can safely scope the
+    push range. A positional argument the operator typed might be a URL
+    or a typo rather than a configured remote; scoping to an unknown name
+    would be meaningless, so the caller only narrows to names in this
+    list and otherwise falls back to excluding all remotes.
+    """
+    return [r for r in _git(root, "remote").splitlines() if r.strip()]
+
+
+def _pushed_commits(root: Path, target: str, remote: str = "") -> list[str]:
     """List the commits this push would make newly available on the remote.
 
     ``git rev-list <target> --not --remotes`` is everything reachable
@@ -235,8 +349,20 @@ def _pushed_commits(root: Path, target: str) -> list[str]:
     real range a push moves, and it needs no refspec parsing, so
     ``git push``, ``git push origin main`` and a tag push are all handled
     the same way. Empty means the remote already has everything.
+
+    When ``remote`` is a known configured remote, the excluded set is
+    narrowed to THAT remote only (``--not --remotes=<remote>``), because
+    the bare ``--remotes`` form trusted every remote-tracking ref: a
+    commit already on a DIFFERENT remote was treated as already-shipped
+    and could reach the target remote unattested. In the single-remote
+    common case ``--remotes`` == ``--remotes=origin``, so behavior is
+    unchanged. Narrowing the excluded set can only ADD commits to the
+    range, never drop one, so this is strictly fail-safe.
     """
-    listed = _git(root, "rev-list", target, "--not", "--remotes")
+    if remote and remote in _known_remotes(root):
+        listed = _git(root, "rev-list", target, "--not", f"--remotes={remote}")
+    else:
+        listed = _git(root, "rev-list", target, "--not", "--remotes")
     return [c for c in listed.splitlines() if c]
 
 
@@ -258,7 +384,8 @@ def _blocking_incidents(repo_name: str) -> tuple[bool, str, str]:
         return (
             True,
             "unreachable",
-            f"{LEDGER_ENV} points at {configured}, where {CHECKER_NAME} is not readable",
+            f"{LEDGER_ENV} points at {configured}, where {CHECKER_NAME} is "
+            "not readable",
         )
     try:
         done = subprocess.run(
@@ -276,7 +403,11 @@ def _blocking_incidents(repo_name: str) -> tuple[bool, str, str]:
         )
     if done.returncode == 0:
         return False, "", ""
-    detail = done.stdout.strip() or done.stderr.strip() or "the checker reported a blocking state"
+    detail = (
+        done.stdout.strip()
+        or done.stderr.strip()
+        or "the checker reported a blocking state"
+    )
     return True, "unreachable" if "UNREADABLE" in detail else "incident", detail
 
 
@@ -294,8 +425,10 @@ SAFE_OPTIONS = frozenset(
     {
         "-u",
         "--set-upstream",
-        "-f",
-        "--force",
+        # --force-with-lease and --force-if-includes stay SAFE: each
+        # refuses on its own if the remote moved under it, so they ride
+        # the normal attestation path instead of rewriting blindly.
+        # Unconditional -f / --force are NOT here; see AUTHOR_ONLY_OPTIONS.
         "--force-with-lease",
         "--force-if-includes",
         "-q",
@@ -322,16 +455,37 @@ SAFE_OPTIONS = frozenset(
 # Options that consume the following token as their value, so that token
 # is not a refspec and must not be read as one.
 VALUE_OPTIONS = frozenset({"-o", "--push-option", "--receive-pack", "--exec", "--repo"})
+# Unconditional force is an author decision (author call, 2026-07-24):
+# --force / -f rewrite published history, which no review attestation can
+# license. The safe variants (--force-with-lease, --force-if-includes)
+# stay on the attestation path because they refuse when the remote moved.
+#
+# Exact-string match is CORRECT here, unlike the ref-adding options that
+# needed an allowlist: `--force` is git's exact long option, and a shorter
+# prefix like `--forc` is ambiguous against --force-with-lease and
+# --force-if-includes, so git errors rather than running it. There is thus
+# no unambiguous prefix to normalize. Residual (not over-engineered here):
+# a combined short-flag cluster such as `-fu` would carry force without
+# matching `-f` exactly; that class is the same residual the POSIX-cluster
+# note raises for wrappers, and is left to the option-parser hardening
+# backlog rather than guessed at.
+AUTHOR_ONLY_OPTIONS = frozenset({"-f", "--force"})
 
 
-def _push_scope(args_after_push: list[str], root: Path) -> tuple[list[str], str, str]:
+def _push_scope(
+    args_after_push: list[str], root: Path
+) -> tuple[list[str], str, str, str]:
     """Resolve the commits this push sends, or say why it cannot.
 
-    Returns ``(commits, problem, fix)``. A non-empty ``problem`` means
-    the gate could not determine what the push sends and must deny: a
-    guard that guesses at its own scope is not a guard. ``fix`` is the
+    Returns ``(commits, problem, fix, remote)``. A non-empty ``problem``
+    means the gate could not determine what the push sends and must deny:
+    a guard that guesses at its own scope is not a guard. ``fix`` is the
     remedy for that specific problem, because one shared remedy told a
-    user deleting a remote ref to push one.
+    user deleting a remote ref to push one. ``remote`` is the resolved
+    target remote name (positional or config-derived), so the caller can
+    scope the push range to that remote alone rather than trusting every
+    remote-tracking ref; it is ``""`` when a problem short-circuits
+    before the remote is known.
 
     The first non-option token is the remote; the rest are refspecs,
     whose source side (before ``:``) is resolved locally.
@@ -346,6 +500,20 @@ def _push_scope(args_after_push: list[str], root: Path) -> tuple[list[str], str,
             positional.append(tok)
             continue
         name = tok.split("=", 1)[0]
+        if name in AUTHOR_ONLY_OPTIONS:
+            # Checked before the safe/unknown handling: an unconditional
+            # force is refused on policy, not scope. The scope IS
+            # resolvable here; the point is that rewriting published
+            # history is not something an attestation covers.
+            return (
+                [],
+                f"{tok} is an unconditional force that rewrites published history",
+                "rewriting published history is an author decision, not "
+                "something a review attestation covers. Use --force-with-lease "
+                "if you meant a safe update; otherwise stop and confirm with "
+                "Geovana.",
+                "",
+            )
         if name in VALUE_OPTIONS:
             if "=" not in tok:
                 index += 1  # its value is not a refspec
@@ -360,6 +528,7 @@ def _push_scope(args_after_push: list[str], root: Path) -> tuple[list[str], str,
             "release-grade and needs the release attestation). If you meant "
             "to delete or rewrite a published ref, that is an author "
             "decision, not something an attestation covers.",
+            "",
         )
 
     refspecs = positional[1:]
@@ -397,11 +566,12 @@ def _push_scope(args_after_push: list[str], root: Path) -> tuple[list[str], str,
                 "sends is decided by configuration the command does not show",
                 "name the branch or the tag explicitly (for example "
                 "`origin main`) so the gate can resolve what is being sent.",
+                remote,
             )
         head = _git(root, "rev-parse", "HEAD")
         if not head:
-            return [], "HEAD does not resolve", "make at least one commit."
-        return [head], "", ""
+            return [], "HEAD does not resolve", "make at least one commit.", remote
+        return [head], "", "", remote
 
     commits: list[str] = []
     for spec in refspecs:
@@ -413,16 +583,19 @@ def _push_scope(args_after_push: list[str], root: Path) -> tuple[list[str], str,
                 "removing a published ref is an author decision, not "
                 "something a review attestation covers. Stop and confirm it "
                 "with Geovana.",
+                remote,
             )
         commit = _git(root, "rev-list", "-n", "1", source)
         if not commit:
             return (
                 [],
                 f"the ref {source!r} does not resolve in this checkout",
-                "check the spelling, or create the branch or tag locally before pushing it.",
+                "check the spelling, or create the branch or tag locally "
+                "before pushing it.",
+                remote,
             )
         commits.append(commit)
-    return commits, "", ""
+    return commits, "", "", remote
 
 
 def _push_refs(args_after_push: list[str]) -> list[str]:
@@ -524,7 +697,7 @@ def main() -> None:
             # Looks like a git push but no repo resolves: fail closed.
             _decide(
                 "deny",
-                "role-review gate: this looks like a git push but no git "
+                f"{GATE_PREFIX} this looks like a git push but no git "
                 f"repository resolves from {base}. Run it from inside the "
                 "repo (or fix the -C path); the gate must be able to check "
                 "the role-review attestation before a push.",
@@ -535,7 +708,7 @@ def main() -> None:
         if not head:
             _decide(
                 "deny",
-                "role-review gate: could not read HEAD (no commits yet, or "
+                f"{GATE_PREFIX} could not read HEAD (no commits yet, or "
                 "a detached or corrupt checkout). Make at least one commit "
                 "and confirm `git rev-parse HEAD` succeeds from the repo "
                 "root, then push.",
@@ -545,11 +718,11 @@ def main() -> None:
         # The refs this push actually sends, resolved from the command.
         # Scoping from HEAD instead let a push of any other ref clear the
         # gate whenever HEAD happened to be attested.
-        targets, problem, remedy = _push_scope(args_after_push, root)
+        targets, problem, remedy, remote = _push_scope(args_after_push, root)
         if problem:
             _decide(
                 "deny",
-                "role-review gate: the gate cannot determine which commits "
+                f"{GATE_PREFIX} the gate cannot determine which commits "
                 f"this push sends, because {problem}. {remedy} Refusing is "
                 "deliberate: a guard that guesses at its own scope proves "
                 "nothing.",
@@ -557,7 +730,11 @@ def main() -> None:
 
         att_path = root / ATTESTATION
         try:
-            att = json.loads(att_path.read_text(encoding="utf-8")) if att_path.is_file() else {}
+            att = (
+                json.loads(att_path.read_text(encoding="utf-8"))
+                if att_path.is_file()
+                else {}
+            )
         except (json.JSONDecodeError, ValueError, OSError):
             att = {}
 
@@ -572,8 +749,8 @@ def main() -> None:
         if blocked and kind == "unreachable":
             _decide(
                 "deny",
-                "INCIDENT GATE: the incident ledger is configured but could not be "
-                f"consulted:\n{detail}\n"
+                f"{GATE_PREFIX} [incident] the incident ledger is configured but "
+                f"could not be consulted:\n{detail}\n"
                 f"Resync or repair it, or correct {LEDGER_ENV}, then push. The gate "
                 "blocks rather than assume nothing is wrong; if an incident file is "
                 "named as unreadable, repair its header block (id, status, blocking, "
@@ -582,8 +759,8 @@ def main() -> None:
         if blocked:
             _decide(
                 "deny",
-                "INCIDENT GATE: the shared incident ledger has an open incident that "
-                f"blocks a push from {repo_name}:\n{detail}\n"
+                f"{GATE_PREFIX} [incident] the shared incident ledger has an open "
+                f"incident that blocks a push from {repo_name}:\n{detail}\n"
                 "Run the incident-analyst agent, fix the incident at its structural "
                 "cause, give it a guard and the evidence that the guard blocks the "
                 "original failure when re-run, and set its status to fixed. Marking it "
@@ -602,11 +779,13 @@ def main() -> None:
         # discharged by having nothing to assert about is not a guard.
         in_scope: list[str] = []
         for ref_commit in targets:
-            in_scope.extend(_pushed_commits(root, ref_commit))
+            in_scope.extend(_pushed_commits(root, ref_commit, remote))
             in_scope.append(ref_commit)
         in_scope = list(dict.fromkeys(in_scope))
         review = att.get("review") or {}
-        covered = set(review.get("commits") or ([review["head"]] if review.get("head") else []))
+        covered = set(
+            review.get("commits") or ([review["head"]] if review.get("head") else [])
+        )
         missing = [c for c in in_scope if c not in covered]
         if missing:
             listed = ", ".join(c[:12] for c in missing[:8])
@@ -625,8 +804,9 @@ def main() -> None:
             refs = " ".join(_push_refs(args_after_push)) or "HEAD"
             _decide(
                 "deny",
-                f"ROLE-REVIEW GATE: {len(missing)} of the {len(in_scope)} commit(s) in "
-                f"scope for this push are not covered by any role-review attestation: "
+                f"{GATE_PREFIX} [review] {len(missing)} of the {len(in_scope)} "
+                f"commit(s) in scope for this push are not covered by any "
+                f"role-review attestation: "
                 f"{listed}{more}. Run the role-review skill (the specialist agents: "
                 "architect, QA, V&V, tech writer, API designer as applicable) over the "
                 f"WHOLE pushed range, which is `{span}`, not only the tip; read "
@@ -641,20 +821,26 @@ def main() -> None:
             )
 
         if is_release:
-            # The tag the operator must pass to the writer, so the
-            # prescribed command stamps the ref being pushed rather than
-            # HEAD, which a tag behind HEAD would never match.
-            release_ref = (_release_refs(args_after_push) or ["<tag>"])[0]
+            # The tags the operator must pass to the writer, so the
+            # prescribed command stamps every ref being pushed rather than
+            # HEAD, which a tag behind HEAD would never match. Name ALL
+            # release refs: a multi-tag push that reported only the first
+            # left the writer command short, so a second tag stayed
+            # uncovered and the same denial repeated.
+            release_refs = _release_refs(args_after_push) or ["<tag>"]
+            release_ref = " ".join(release_refs)
             release = att.get("release") or {}
             rel_covered = set(
-                release.get("commits") or ([release["head"]] if release.get("head") else [])
+                release.get("commits")
+                or ([release["head"]] if release.get("head") else [])
             )
             rel_missing = [c for c in in_scope if c not in rel_covered]
             if rel_missing:
                 _decide(
                     "deny",
-                    "RELEASE GATE: this is a release-grade push (an explicit version "
-                    "tag) but the release attestation does not cover "
+                    f"{GATE_PREFIX} [release] this is a release-grade push (explicit "
+                    f"version tag(s): {', '.join(release_refs)}) but the release "
+                    "attestation does not cover "
                     f"{len(rel_missing)} of the {len(in_scope)} commit(s) being "
                     "released, including the tagged commit itself when the branch was "
                     "pushed first. Run the role-review skill over the whole release "
@@ -667,12 +853,22 @@ def main() -> None:
                 )
 
         # Attestation covers the pushed commit: let the normal permission
-        # flow proceed.
+        # flow proceed. Emit ONE observability line to stderr first, so a
+        # passing gate no longer looks exactly like an absent one in the
+        # logs. This is deliberately NOT a permissionDecision "allow":
+        # that would auto-approve and bypass the normal permission flow.
+        # The early out-of-scope allows (unparseable payload, not a push)
+        # stay silent; only this final, all-checks-passed allow speaks.
+        print(
+            f"{GATE_PREFIX} evaluated and ALLOWED a push of "
+            f"{len(in_scope)} commit(s) from {repo_name}",
+            file=sys.stderr,
+        )
         _allow_silently()
     except Exception as error:  # a gate must fail closed
         _decide(
             "deny",
-            "role-review gate: the gate could not be evaluated for this "
+            f"{GATE_PREFIX} the gate could not be evaluated for this "
             f"push ({type(error).__name__}: {error}). Failing closed. "
             "Resolve the error, then push. If the gate itself is broken, "
             "stop and tell Geovana: turning the gate off to ship is an "

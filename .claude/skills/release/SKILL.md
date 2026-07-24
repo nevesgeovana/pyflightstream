@@ -1,7 +1,7 @@
 ---
 name: release
 description: Cut a pyflightstream release, checking definition of done, evidence currency, SemVer bump, changelog, and tag. Public releases add the invariants audit.
-# Side effect: cuts the version tag, which triggers the PyPI publish workflow. Never model-invoked.
+side-effects: cuts the version tag, which triggers the PyPI publish workflow (an OIDC trusted publish that reading cannot undo)
 disable-model-invocation: true
 ---
 

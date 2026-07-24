@@ -1,76 +1,80 @@
 """Tier 1 guard: a skill with a side effect is never model-invocable.
 
 Two of the project's skills spend something the model must not decide to
-spend on its own. `release` cuts the version tag, and the tag triggers
-the PyPI publish workflow, so a model-initiated invocation publishes.
-`run-physics` and `run-validity` consume the licensed solver machine,
-which is a scarce seat the author schedules deliberately.
+spend on its own. ``release`` cuts the version tag, and the tag triggers the
+PyPI publish workflow, so a model-initiated invocation publishes.
+``run-physics`` and ``run-validity`` consume the licensed solver machine, a
+scarce seat the author schedules deliberately; ``fts-version-update`` spends a
+probe run and appends to the append-only version list.
 
-`handoff` and `plan` already carried `disable-model-invocation: true`
-when the other three did not, which is the signature of a convention
-rather than a guard: the pattern was known and applied unevenly, and
-nothing noticed for a release cycle. This test is the mechanism that
-replaces the convention.
+This used to be enforced by a hardcoded ``SIDE_EFFECTING`` map in this file:
+the side-effect justification lived in two places (the skill frontmatter AND
+this map) and had already drifted (the map never listed
+``fts-version-update``, which carried no invocation guard at all). The
+structural fix, vendored from the shared process kit as
+``check_side_effect_guard.py`` (S3), makes the declaration single-source: a
+skill names its own side effects in a ``side-effects:`` frontmatter field, and
+the guard asserts the implication ``declares side-effects ->
+disable-model-invocation: true``. There is no second list to keep in sync, so
+a new side-effecting skill that carries the marker is caught the moment it
+forgets the disable flag.
 
-A skill declares its side effect by naming it in a comment on the line
-above the field, so the reason travels with the declaration and a new
-skill cannot claim the exemption silently.
+Stated residual (the guard's own docstring routes it to the reviewer seat,
+not a code gap): the guard cannot INFER that a skill has side effects it
+failed to declare. That judgement is the api-designer / architect pass, made
+when a skill is written or reviewed. The win is that the fact now travels with
+the skill and cannot drift from a second copy.
 """
 
 from __future__ import annotations
 
+import subprocess
+import sys
 from pathlib import Path
 
-import pytest
-
-SKILLS = Path(__file__).resolve().parents[1] / ".claude" / "skills"
-
-# Skills that spend something irreversible or scarce. Adding a skill that
-# publishes, tags, deploys, or consumes the licensed machine means adding
-# it here as well; that is the point of the list being explicit rather
-# than inferred from the text.
-SIDE_EFFECTING = {
-    "release": "cuts the version tag, which triggers the PyPI publish workflow",
-    "run-physics": "consumes the licensed solver machine (tier 3)",
-    "run-validity": "consumes the licensed solver machine (tier 2)",
-}
+REPO = Path(__file__).resolve().parents[1]
+SKILLS = REPO / ".claude" / "skills"
+GUARD = REPO / ".claude" / "tools" / "check_side_effect_guard.py"
+GUARD_MUTATIONS = REPO / ".claude" / "tools" / "check_side_effect_guard_mutations.py"
 
 
-def frontmatter(name: str) -> list[str]:
-    """The frontmatter lines of one skill, without the delimiters."""
-    path = SKILLS / name / "SKILL.md"
-    assert path.is_file(), f"skill {name} has no SKILL.md at {path}"
-    lines = path.read_text(encoding="utf-8").splitlines()
-    assert lines and lines[0].strip() == "---", f"{name}: no frontmatter block"
-    end = lines.index("---", 1)
-    return lines[1:end]
+def test_no_side_effecting_skill_is_model_invocable() -> None:
+    """Run the vendored S3 guard over the real skills tree; it must pass.
 
-
-@pytest.mark.parametrize("name", sorted(SIDE_EFFECTING))
-def test_side_effecting_skill_is_not_model_invocable(name: str) -> None:
-    """The model must not be able to publish or spend a licensed seat."""
-    fields = [line for line in frontmatter(name) if not line.lstrip().startswith("#")]
-    declared = [line for line in fields if line.startswith("disable-model-invocation:")]
-    assert declared, (
-        f"{name} has a side effect ({SIDE_EFFECTING[name]}) but does not declare "
-        "disable-model-invocation. The model must not decide to invoke it."
+    Every skill that declares ``side-effects:`` must also declare
+    ``disable-model-invocation: true``. A regression (someone drops the
+    disable flag from release while keeping its side-effects field) turns this
+    red.
+    """
+    done = subprocess.run(
+        [sys.executable, str(GUARD), str(SKILLS)],
+        capture_output=True,
+        text=True,
     )
-    value = declared[0].partition(":")[2].strip().lower()
-    assert value == "true", f"{name}: disable-model-invocation is {value!r}, expected true"
-
-
-@pytest.mark.parametrize("name", sorted(SIDE_EFFECTING))
-def test_side_effecting_skill_states_why(name: str) -> None:
-    """The reason travels with the declaration, so it survives an edit."""
-    block = frontmatter(name)
-    commented = [line for line in block if line.lstrip().startswith("#")]
-    assert any("side effect" in line.lower() for line in commented), (
-        f"{name}: the frontmatter declares disable-model-invocation without a comment "
-        "naming the side effect. A future editor who does not know why will remove it."
+    assert done.returncode == 0, (
+        f"a side-effecting skill is not human-only:\n{done.stdout}\n{done.stderr}"
     )
+
+
+def test_the_side_effect_guard_can_still_fail() -> None:
+    """The guard ships with a mutation test, because a guard that cannot fail
+    the case it exists to catch manufactures confidence.
+
+    The kit companion builds throwaway skill fixtures under the OS temp dir
+    and proves the guard denies an unguarded side-effecting skill and passes a
+    guarded one. Running it here keeps the vendored guard proven in CI.
+    """
+    done = subprocess.run(
+        [sys.executable, str(GUARD_MUTATIONS)],
+        capture_output=True,
+        text=True,
+    )
+    assert done.returncode == 0, f"guard mutation test failed:\n{done.stdout}\n{done.stderr}"
 
 
 def test_every_skill_has_a_parsable_frontmatter() -> None:
     """A skill whose frontmatter cannot be read is not exempt by accident."""
     for path in sorted(SKILLS.glob("*/SKILL.md")):
-        frontmatter(path.parent.name)
+        lines = path.read_text(encoding="utf-8").splitlines()
+        assert lines and lines[0].strip() == "---", f"{path.parent.name}: no frontmatter block"
+        assert "---" in lines[1:], f"{path.parent.name}: frontmatter block never closes"

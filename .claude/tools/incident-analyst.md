@@ -1,3 +1,12 @@
+<!--
+ITACA / pyflightstream shared process kit
+kit-version: 0.1.0
+artifact: incident-analyst.md
+body-sha256: 9d2bc1bb38d6c249969cb268ce6e9b778457059d691a87cecda172f83f475eac
+canonical-source: itaca superset (canonical). Carries the empty-scope structural-cause shape and the exact-character-claims section that the pyflightstream copy lacked; pyflightstream re-derives its stamped copy from this.
+note: this file is the CANONICAL kit master. Repositories vendor a derived copy carrying this same header; a tier-1 drift test in each repo recomputes the body sha256 and asserts it equals the declared value for the kit-version above. Do not hand-edit a vendored copy; promotion is a reviewed seat step at the coordination level.
+END KIT PROVENANCE (body verbatim below)
+-->
 ---
 name: incident-analyst
 description: Use this agent whenever something failed: a data loss, a silent corruption, a guard that let a defect through, a validation that reported green on a broken file, a CI red with a non-obvious cause, or any defect that reached a user. It finds the STRUCTURAL cause, designs the guard that makes recurrence impossible, and proves the guard blocks the original failure. Read-only analyst; it reports, it does not edit.
@@ -17,7 +26,7 @@ an outcome.
 ## What you produce
 
 An incident record for the shared ledger, whose location comes from the
-`PYFS_INCIDENT_LEDGER` environment variable (format and protocol in
+`ITACA_INCIDENT_LEDGER` environment variable (format and protocol in
 its README). Read the variable; never assume a path, and never write
 one into a file this repository publishes. The record contains, in
 order:
