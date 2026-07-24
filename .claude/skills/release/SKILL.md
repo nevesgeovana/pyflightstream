@@ -59,17 +59,22 @@ the changelog alone.
    once (no private material, no generated docs).
 2. Role-review the whole release diff with the specialist agents (the
    `role-review` skill, not paraphrased manual checks) and drive every
-   finding to fixed or registered, then write BOTH attestations for
-   the release commit so the push gate opens:
+   finding to fixed or registered, then write BOTH attestations,
+   naming the tag ref so the record covers the ref actually pushed (the
+   writer stamps HEAD by default, and a tag that sits behind HEAD would
+   never become covered):
    ```
-   python .claude/hooks/write_attestation.py review architect,qa,vv,tech-writer,api-designer
-   python .claude/hooks/write_attestation.py release architect,qa,vv,tech-writer,api-designer
+   python .claude/hooks/write_attestation.py review architect,qa,vv,tech-writer,api-designer vX.Y.Z
+   python .claude/hooks/write_attestation.py release architect,qa,vv,tech-writer,api-designer vX.Y.Z
    ```
    The release attestation is what the git-push gate
-   (`.claude/hooks/role_review_gate.py`) requires for any version-tag
-   or `--tags` push; without it the release push is blocked. This
-   pause point exists because a past release shipped paraphrased
-   checks instead of the agents.
+   (`.claude/hooks/role_review_gate.py`) requires for a version-tag
+   push, that is `git push origin vX.Y.Z`; without it the release push
+   is blocked. The blanket forms (`--all`, `--mirror`, `--tags`,
+   `--follow-tags`) are refused outright as unscopable, so a release is
+   pushed by naming the tag, never with `--tags`. This pause point
+   exists because a past release shipped paraphrased checks instead of
+   the agents.
 3. Annotated tag; push with CI green.
 
 ## Pause point 5: public releases only

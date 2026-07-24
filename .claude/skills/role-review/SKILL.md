@@ -82,14 +82,19 @@ finding is fixed or registered, and after the reviewed work is
 committed (the attestation must name the commit that will be pushed):
 
 ```
-python .claude/hooks/write_attestation.py review architect,qa,vv,tech-writer,api-designer
+python .claude/hooks/write_attestation.py review architect,qa,vv,tech-writer,api-designer [<ref> ...]
 ```
 
-Pass the passes you actually ran (comma-separated). The script stamps HEAD and every commit not yet on a remote into `.claude/.role_review_attestation.json` (local,
-gitignored). If you commit anything more after this, the gate blocks
-again until you re-review and re-attest the new HEAD: an unreviewed
-commit never ships. Never write the attestation without running the
-agents; that defeats the seat that catches your own blind spots.
+Pass the passes you actually ran (comma-separated). Name every ref the
+push sends; the writer defaults to HEAD, so a ref that sits behind HEAD
+(a tag, or a branch that is not checked out) never becomes covered and
+the gate keeps denying with the same message. The script stamps each
+named ref together with every commit not yet on a remote into
+`.claude/.role_review_attestation.json` (local, gitignored). If you
+commit anything more after this, the gate blocks again until you
+re-review and re-attest the new HEAD: an unreviewed commit never ships.
+Never write the attestation without running the agents; that defeats
+the seat that catches your own blind spots.
 
 The attestation is necessary, not sufficient: the same gate denies any
 push while the shared incident ledger has an open blocking incident for

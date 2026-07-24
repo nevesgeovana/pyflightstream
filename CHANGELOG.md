@@ -73,6 +73,40 @@ FlightStream versions.
 
 ### Fixed
 
+* The role-review push gate no longer lets a release reach PyPI with no
+  release attestation. Its release detection was a denylist of exact
+  option spellings (`--tags`, `--follow-tags`) plus a version-tag
+  pattern that did not accept the `refs/tags/vX` form, so
+  `git push --follow-tag origin main` (git accepts any unambiguous
+  option prefix) and `git push origin HEAD:refs/tags/vX` both cleared as
+  ordinary branch pushes and, with the branch already pushed and
+  review-attested, shipped the tag with no release attestation into the
+  live trusted-publishing workflow. The hardened gate and multi-ref
+  attestation writer were promoted from the sister library as one
+  matched change: option handling is now a fail-closed allowlist that
+  denies any leading-dash token it cannot prove ref-neutral, release
+  classification reads both sides of a refspec, push scope is resolved
+  per ref (and per the remote the command would actually use), the
+  repository identity for the incident query comes from
+  `pyproject.toml` rather than the checkout folder, and
+  `write_attestation.py` validates the pass names and covers every named
+  ref in one run so a branch-and-tag release is attestable. Both
+  original inputs were reproduced allowing against the pre-port gate and
+  denying against the ported gate. `tests/test_push_gate.py` grows to
+  the sister library's end-to-end case set and a new
+  `tests/test_write_attestation.py` pins the writer. Incident
+  INC-20260724-0839-pyflightstream (`.claude/` hooks; internal tooling,
+  not a package surface).
+* The push gate no longer falsely blocks a commit whose message is a
+  heredoc that mentions a push. The gate's `_strip_heredocs`, which is
+  meant to drop heredoc bodies before tokenizing, carried a stray
+  U+0001 control byte at the end of its opener regex (invisible in an
+  editor), so the pattern matched nothing, the stripper was dead, and
+  the body was tokenized: a routine `git commit` documenting a push was
+  denied. The byte is removed and a test pins all three delimiter
+  forms. Same control-byte class as INC-20260724-0410-shared. Incident
+  INC-20260724-0912-pyflightstream (`.claude/` hooks; internal tooling,
+  not a package surface).
 * A settings preset written in the solver's own words no longer fails
   to convert, and the same words can no longer invert a run in silence.
   `viscous_coupling = 'DISABLE'` in a settings file was refused with a

@@ -69,10 +69,14 @@ agents): "role-review" means invoking the `role-review` skill so the
 real reviewer agents run, never a hand-written paraphrase of their
 charters. A PreToolUse hook (`.claude/hooks/role_review_gate.py`, on
 the Bash and PowerShell tools) blocks a `git push` until an
-attestation stamped by the role-review skill covers the commit being
-pushed; a release-grade push (a version tag or `--tags`)
-additionally requires the release attestation from the release skill
-(full-scope audit plus the role-review sweep of every item). The
+attestation stamped by the role-review skill covers every commit the
+push makes new plus each ref it sends; a release-grade push (naming a
+version tag, for example `git push origin vX.Y.Z`) additionally
+requires the release attestation from the release skill (full-scope
+audit plus the role-review sweep of every item). The blanket forms
+(`--all`, `--mirror`, `--tags`, `--follow-tags`) are refused outright
+as unscopable, so a release is pushed by naming the tag, never with
+`--tags`. The
 attestation is written by `.claude/hooks/write_attestation.py` as the
 skill's closing step and lives in
 `.claude/.role_review_attestation.json` (local, gitignored). A commit
