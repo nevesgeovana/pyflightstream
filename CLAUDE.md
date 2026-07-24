@@ -118,7 +118,7 @@ Every working session starts by stating its objective against
 _private/STATUS.md, and ends with /handoff out, which writes the
 session handoff under _private/handoffs/, appends the
 _private/logbook.csv row, and updates _private/STATUS.md. Planning
-lives in _private/plan.csv via /plan. Since 2026-07-23 (author's
+lives in _private/plan/, one file per item, via /plan. Since 2026-07-23 (author's
 decision) the session documents live in _private/ (OneDrive-synced,
 never committed); they still satisfy the same content guards as the
 repository (English, no dashes, invariant 5 wording). Committed

@@ -101,7 +101,7 @@ def test_attested_range_is_allowed(repo: Path) -> None:
 
 
 def test_attesting_only_the_tip_is_denied(repo: Path) -> None:
-    """The PLN-082 hole: unpushed ancestors must not ride along.
+    """The PLN-20260723-2146-gate-range-defect hole: unpushed ancestors must not ride along.
 
     This is the defect the range check exists for, so the fixture forces
     two unpushed commits rather than letting the case skip itself when

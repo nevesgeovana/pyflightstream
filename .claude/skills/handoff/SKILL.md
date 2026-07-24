@@ -20,7 +20,7 @@ or "the author's legacy scripts").
 Since 2026-07-23 the session documents live in `_private/` (the
 OneDrive-synced junction), never committed: handoffs under
 `_private/handoffs/`, the logbook at `_private/logbook.csv`, the state
-file at `_private/STATUS.md`, planning at `_private/plan.csv`. The
+file at `_private/STATUS.md`, planning at `_private/plan/`. The
 closing commit covers only repository changes.
 
 ## `out`
@@ -51,7 +51,7 @@ NFR-11 of the SRS): if the session changed anything user-visible
    evidence.
 
 A session that cannot complete an item records it as a
-`_private/plan.csv` item in the same close; silent deferral is the
+`_private/plan/` item in the same close; silent deferral is the
 failure mode this pause point exists to prevent.
 
 ## `in <file>`
@@ -60,7 +60,7 @@ Read the given file (typically a capture from a web session). Then:
 
 1. Extract decisions, findings, and next actions.
 2. Update `_private/STATUS.md` and stage candidate items in
-   `_private/plan.csv` marked proposed, for Geovana to confirm via
+   `_private/plan/` marked proposed, for Geovana to confirm via
    `/plan`.
 3. Allocate its HND number, rename it into `_private/handoffs/`, and
    log it.

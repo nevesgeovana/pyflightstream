@@ -24,7 +24,7 @@ That default is not a convenience. The push gate requires the
 attestation to cover every commit the push makes new, so reviewing only
 the tip leaves the earlier commits unreviewed and the push blocked.
 Reviewing `last-commit` while three commits sit unpushed is the exact
-mistake PLN-082 records.
+mistake PLN-20260723-2146-gate-range-defect records.
 
 Produce the file list and keep the item's intent in one sentence; the
 reviewers receive both and read the repository themselves.
@@ -53,7 +53,7 @@ them what to read. Wait for all passes before acting on any finding.
 ## 4. Update or fix, never leave for later
 
 For each finding, in severity order: fix it in-session, or register
-it as a `_private/plan.csv` item naming the decision owner, or record
+it as a `_private/plan/` item naming the decision owner, or record
 in the session notes why it is not a defect (with the reviewer named,
 so the disagreement is auditable). Findings that require a
 non-delegable seat (product owner, domain expert, numerical analyst;

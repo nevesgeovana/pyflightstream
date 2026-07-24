@@ -9,7 +9,7 @@ Scope: `$ARGUMENTS` (default `full`). This is a DO-CONFIRM checklist
 the checklist-design principles recorded in docs/srs/standards.md.
 Findings follow one rule, from Google's documentation practice:
 **update or delete, never leave-for-later**. A finding that cannot be
-fixed in-session becomes a `_private/plan.csv` item with an owner
+fixed in-session becomes a `_private/plan/` item with an owner
 decision named.
 
 Output: a dated report in `_private/progress/` (the author reads it on

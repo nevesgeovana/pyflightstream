@@ -15,9 +15,11 @@ structural cause on its first occurrence.** These libraries ship, so
 
 ## What you produce
 
-An incident record for the shared ledger at
-`C:\Users\geova\OneDrive\Education\ResearchHub\shared_incidents\`
-(format and protocol in its README), containing, in order:
+An incident record for the shared ledger, whose location is machine
+configuration in `PYFS_INCIDENT_LEDGER` and never a literal in a
+committed file (the reasoning is in `.claude/hooks/role_review_gate.py`,
+the single home of that rule). Its README carries the format and the
+protocol. The record contains, in order:
 
 1. **Symptom**: what was observed, verbatim where possible. Quote the
    error, the row counts, the CI line. No paraphrase at this step.
