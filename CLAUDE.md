@@ -63,6 +63,15 @@ registered in the plan. The author keeps the non-delegable seats:
 product owner, domain expert, numerical analyst (seat definitions in
 `.claude/skills/role-review/ROLE_TEMPLATE.md`).
 
+Side-effecting skills: a skill that spends something a read cannot undo
+(publishes, tags, deploys, promotes a status, or consumes the licensed
+solver seat) declares it in a `side-effects:` frontmatter field naming
+what it spends, and sets `disable-model-invocation: true` so the model
+cannot fire it. The vendored kit guard `check_side_effect_guard.py`
+(tier 1, over `.claude/skills`) enforces the implication; it cannot infer
+an undeclared side effect, so declaring the field when you author such a
+skill is the API-designer/architect pass's check, not the guard's.
+
 Mandatory push and release gate (adopted 2026-07-23, after the v0.3.0
 release ran paraphrased manual checks instead of the specialist
 agents): "role-review" means invoking the `role-review` skill so the
@@ -131,3 +140,30 @@ being discontinued move to the committed deprecated/ folder, never
 scattered at the top level. Conversation with the author may be in Portuguese;
 every committed artifact is in English (invariant 6). The design
 documents (SRS, SAD, Bootstrap Kit) are local-only in _private/design/.
+
+Machine configuration (never a literal path in a committed file). Two
+environment variables locate the local, machine-specific tooling, and
+both live in the gitignored `.claude/settings.local.json`, so a fresh
+clone must set them:
+
+- `PYFS_PLAN_CHECKER` names the plan-ledger validator the `plan` skill
+  runs; the skill (`.claude/skills/plan/SKILL.md`) is the single home of
+  which checker and how it is invoked. Do not name the file here: today
+  it points at `check_plan.py`. The kit checker `check_plan_kit.py` is
+  vendored and drift-guarded but is NOT yet the active validator; adopting
+  it waits on the counter-id migration, which is paused and routed to
+  coordination (see `_private/plan/PLN-20260724-1808`). Unset skips
+  validation; set but unreadable is a configuration error to report and,
+  unlike the incident ledger below, does not block a push.
+- `PYFS_INCIDENT_LEDGER` names the shared incident ledger directory (the
+  `incident-analyst` agent and the push gate read it; the reasoning lives
+  in `.claude/hooks/role_review_gate.py`, the single home of that rule).
+  Unset means the incident check does not apply; set but unreadable
+  blocks a push.
+
+Weakness stated, not hidden: an omitted `PYFS_PLAN_CHECKER` degrades to a
+silent skip (no validation), so this documentation is the only thing that
+makes the omission visible. The load-bearing guard is the tier-1 kit
+drift test (`tests/test_kit_drift.py`), which fails in CI if the vendored
+checker is missing or drifts from the kit; the env var only points the
+`plan` skill at whichever checker is active.

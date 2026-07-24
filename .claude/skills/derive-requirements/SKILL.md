@@ -1,8 +1,12 @@
 ---
 name: derive-requirements
 description: Derive the SRS requirements that reality already implies but the document does not yet state, map the sister library's requirements onto this repository, and audit requirement-to-test traceability. Use when an implemented behavior has no FR or NFR behind it, when a coverage or traceability gap needs closing, when itaca ships a requirement that AD-07 says may cross the boundary, when the author asks to derive, complement, mirror, or reconcile requirements, or before a release that claims the SRS is current. Produces candidate requirements and a traceability artifact; it never finalizes a requirement, because acceptance is the author's non-delegable seat.
-allowed-tools: Read, Write, Edit, Grep, Glob, Bash
-disable-model-invocation: false
+# Human-invoked only (author product-owner decision, PLN-20260724-1449,
+# 2026-07-24): mechanical derivation is delegable but the author's
+# acceptance of a requirement is not, and a non-delegable seat deserves a
+# mechanism, not a prose stop. Option 2 now; the derive/promote split
+# (Option 3) is the target when the engineering is funded.
+disable-model-invocation: true
 argument-hint: "[implicit|itaca-map|traceability|full]"
 ---
 
