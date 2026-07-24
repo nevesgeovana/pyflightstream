@@ -49,5 +49,34 @@ Operations:
   agreed items and update `_private/STATUS.md`'s current focus.
 
 After writing, run the validator so a malformed entry surfaces now
-rather than in a later session:
-`python C:\WORK\_private_snapshots\check_plan.py _private/plan`
+rather than in a later session. `check_plan.py` is a shared kit
+artifact whose location is machine configuration, held in the
+`PYFS_PLAN_CHECKER` environment variable (set in
+`.claude/settings.local.json`, never a literal path in this committed
+file, mirroring how `PYFS_INCIDENT_LEDGER` locates the incident
+ledger). Read the variable; never assume a path.
+
+- **Unset means the check is skipped**, not failed: a clone that never
+  configured the validator can still work, exactly as an unset incident
+  ledger does not apply. Say plainly in the session record that the
+  ledger was written but not machine-validated, so the skipped check is
+  visible and not mistaken for a pass.
+- Set but pointing at no readable checker is a configuration error to
+  report to the author, not a silent skip.
+
+When it is set and readable, run it against the ledger folder. In
+PowerShell (this environment's primary shell):
+
+```
+python "$env:PYFS_PLAN_CHECKER" _private/plan
+```
+
+or in bash:
+
+```
+python "$PYFS_PLAN_CHECKER" _private/plan
+```
+
+A non-zero exit names the failing entry and check. When the S5 kit
+build vendors the checker at a repo-relative path, repoint the variable
+there.

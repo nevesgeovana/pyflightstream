@@ -41,3 +41,6 @@ guide/*.vrb
 
 # Role-review push-gate attestation (local session state, never versioned)
 .claude/.role_review_attestation.json
+
+# Local machine configuration (absolute paths: incident ledger, plan checker)
+.claude/settings.local.json

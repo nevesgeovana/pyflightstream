@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python .claude/hooks/role_review_gate.py",
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/role_review_gate.py\"",
             "timeout": 30,
             "statusMessage": "Checking the role-review push gate"
           }

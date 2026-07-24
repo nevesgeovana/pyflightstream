@@ -71,3 +71,14 @@ findings most severe first, each with file:line, the defect in one
 sentence, why it matters structurally, and the suggested fix. An
 explicit "no findings" with the list of checks performed is a valid
 and useful result.
+
+## Exact-character claims
+
+A finding that turns on a specific character inside source text (an
+escape, a slash, a control sequence, a quote) must be confirmed by
+parsing the file or by reading its raw bytes before it is reported.
+Never by reading tool output: the search tool on this machine renders
+the same bytes two ways, and a forward slash inside a string has twice
+been reported as a backslash escape. One of those findings prescribed
+editing a correct literal and would have introduced the defect it
+described. See INC-20260724-0410-shared in the incident ledger.

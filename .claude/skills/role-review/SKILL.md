@@ -96,6 +96,13 @@ re-review and re-attest the new HEAD: an unreviewed commit never ships.
 Never write the attestation without running the agents; that defeats
 the seat that catches your own blind spots.
 
+Push the branch and any tag by name, in separate commands.
+`--follow-tags`, `--tags`, `--all` and `--mirror` are denied: the gate
+cannot resolve what they send without asking the remote, and
+`--follow-tags` is how an unattested tag reached a publish workflow
+once. Keep the attestation write and the push in separate commands too,
+since the hook reads the whole command string and would see the push.
+
 The attestation is necessary, not sufficient: the same gate denies any
 push while the shared incident ledger has an open blocking incident for
 this repository. If it does, run the `incident-analyst` agent, fix the
