@@ -1,6 +1,8 @@
 ---
 name: run-validity
 description: Run the Tier 2 command-validity probe suite for a FlightStream version and promote database statuses from the report. Requires a licensed machine.
+# Side effect: consumes the licensed solver machine (tier 2) and promotes database statuses. Never model-invoked.
+disable-model-invocation: true
 ---
 
 # run-validity

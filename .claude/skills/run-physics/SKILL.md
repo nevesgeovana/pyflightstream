@@ -1,6 +1,8 @@
 ---
 name: run-physics
 description: Run the Tier 3 physics regression matrix and the cross-version drift suite, compare against stored references, and write the report. Requires a licensed machine.
+# Side effect: consumes the licensed solver machine (tier 3). Never model-invoked.
+disable-model-invocation: true
 ---
 
 # run-physics
