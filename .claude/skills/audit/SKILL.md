@@ -10,10 +10,18 @@ the checklist-design principles recorded in docs/srs/standards.md.
 Findings follow one rule, from Google's documentation practice:
 **update or delete, never leave-for-later**. A finding that cannot be
 fixed in-session becomes a `_private/plan/` item with an owner
-decision named.
+decision named. The plan ledger stays in this repository; it did not
+move to the coordination hub (`PLN-20260727-1542-plan-ledger-stays`).
 
-Output: a dated report in `_private/progress/` (the author reads it on
-mobile) listing every finding with file:line evidence, what was fixed
+Output: a dated report in `<session-root>/progress/`. `<session-root>` is
+a placeholder, not shell syntax: resolve the `PYFS_SESSION_ROOT`
+environment variable (`$env:PYFS_SESSION_ROOT` in PowerShell) and use
+its value; CLAUDE.md's Session protocol is the single home of that rule.
+`PYFS_SESSION_ROOT` is machine configuration in
+`.claude/settings.local.json` (never a literal path here); unset or
+unreadable is a configuration error to report and stop on, never a
+silent skip. The report lists every finding with file:line evidence,
+what was fixed
 in-session (with commits), and what became a plan item. Fixes to
 committed files land as one commit per concern, pushed with CI green.
 
@@ -56,6 +64,14 @@ Compare each claim against the code, not against memory:
    and link.
 8. `.claude/skills/*`: stale paths, counts, milestone maps, folder
    names inside every skill file.
+9. `CLAUDE.md`: the machine-configuration block against
+   `.claude/settings.local.json` and against what each skill and hook
+   actually reads. A variable documented but read by nothing, or read
+   but undocumented, is a finding. `tests/test_env_contract.py` covers
+   the mechanical half; this item covers what it cannot, namely whether
+   the stated unset and unreadable behaviour still matches reality.
+   CLAUDE.md is the single home of the fresh-clone contract and the one
+   file that can silently misdescribe a new checkout.
 
 ## Pause point 3: external-guide conformance
 

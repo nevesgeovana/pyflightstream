@@ -24,14 +24,21 @@ downstream of it runs on a candidate she has not accepted.
 
 Read first, every run: `docs/srs/index.md` (the id scheme, the status
 vocabulary, the revision-history discipline), `CLAUDE.md` (the
-invariants and the three non-delegable seats), and this repository's
-`_private/inbox/SESSION_PROMPT_DeriveSRSRequirements_2026-07-24.md`,
-the founding brief this skill formalizes.
+invariants and the three non-delegable seats), and
+`<session-root>/inbox/_archive/SESSION_PROMPT_DeriveSRSRequirements_2026-07-24.md`,
+the founding brief this skill formalizes. `<session-root>` is a
+placeholder, not shell syntax: resolve the `PYFS_SESSION_ROOT`
+environment variable (`$env:PYFS_SESSION_ROOT` in PowerShell) and use
+its value; CLAUDE.md's Session protocol is the single home of that rule.
+`PYFS_SESSION_ROOT` is machine configuration in
+`.claude/settings.local.json` (never a literal path here); unset or
+unreadable is a configuration error to report and stop on, never a
+silent skip.
 
 ## Phase 0: frame the run and stage the register
 
-1. State the objective against `_private/STATUS.md`, as every session
-   does.
+1. State the objective against `<session-root>/STATUS.md`, as every
+   session does.
 2. Open a proposal register as a plan item under `_private/plan/` with
    a timestamp id (`/plan add`, `status: planned`). The register, not
    the SRS, is where candidates live until Phase 4. This reuses the

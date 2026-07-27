@@ -70,6 +70,27 @@ FlightStream versions.
   charter owns the structural-cause analysis, and `tests/test_push_gate.py`
   pins the gate's decisions (`.claude/` hooks, agents and skills;
   internal tooling, not a package surface).
+* Development process: the session documents (state file, handoffs,
+  logbook, inbox, progress reports) moved out of the repository-local
+  private tree into the coordination hub, where they gain version
+  control, and are located by a new `PYFS_SESSION_ROOT` environment
+  variable read by the `handoff`, `plan`, `audit` and
+  `derive-requirements` skills. Unlike the two existing
+  machine-configuration variables it is documented as stop-on-unset
+  rather than skip-on-unset, because a session that cannot find its
+  state file would otherwise close by writing its record nowhere. The
+  plan ledger and the design documents deliberately did NOT move: a
+  repository's own plan and architecture are its own facts. Two new
+  tier-1 guards came with it, `tests/test_env_contract.py` (the
+  documented variables and their consumers agree, and no skill prints
+  the bash-form variable as a path, which in PowerShell expands to
+  nothing silently) and a house-style check that no committed file
+  re-hardcodes a migrated session path; `tests/test_plan_checker.py`
+  now also pins that the plan checker fails loud on an unresolvable
+  path and, deliberately, that it exits zero on an empty ledger
+  directory, which is a weakness recorded rather than hidden
+  (`.claude/` skills and `CLAUDE.md`; internal tooling, not a package
+  surface).
 
 ### Fixed
 

@@ -1,16 +1,25 @@
 """Tier 1: the vendored shared-process-kit copies match the kit manifest.
 
-The coordination level owns a shared process kit
-(``C:\\WORK\\ClaudeProjects\\_private\\kit``); each library carries a DERIVED
-copy of every shared artifact, stamped with the kit version and a body
-sha256. A change to a shared artifact is made in the kit and re-vendored,
-never hand-edited here, because a hand-edit is exactly the drift this level
-exists to stop: the gate fix that once sat in one repository while the other
-kept the defect it had reported.
+The coordination level owns a shared process kit, at ``ClaudeCoordinator/kit``
+since 2026-07-27 (moved from the coordination ``_private/kit``, now retired).
+Each library carries a DERIVED copy of every shared artifact, stamped with the
+kit version and a body sha256. A change to a shared artifact is made in the kit
+and re-vendored, never hand-edited here, because a hand-edit is exactly the
+drift this level exists to stop: the gate fix that once sat in one repository
+while the other kept the defect it had reported.
+
+The nine vendored provenance headers here still name the retired
+``_private/kit`` path. They are hash-pinned bodies, so correcting them here
+would be the hand-edit just forbidden. They will NOT correct themselves on the
+next re-vendor either: the kit ``README.md`` still prescribes the old wording
+for a vendored copy to carry, so a re-vendor performed to the letter
+reproduces the stale pointer. The kit-side wording fix and the re-vendor are
+tracked together as ``PLN-20260727-1707-kit-lag-0-2-3``.
 
 This test is the mechanism. For every vendored file it splits the body at the
 ``END KIT PROVENANCE`` marker, recomputes the sha256, and asserts it equals
-the value the kit 0.2.2 manifest declares. A hand-edit changes the body, the
+the value this repository PINNED when it vendored at kit 0.2.2. A hand-edit
+changes the body, the
 recomputed hash no longer matches, and CI goes red. The fixture is the
 manifest itself (the version and hashes this repository vendored); the test
 never reaches into the coordination tree at run time, so it needs no
@@ -18,7 +27,11 @@ cross-repo filesystem access and cannot deadlock a push.
 
 Two deliberate wrinkles, both documented in the kit ``README.md``:
 
-* The kit version is 0.2.2. Five files carry a 0.2.2 body: the gate
+* This repository pins the kit 0.2.2 manifest. The kit itself has since moved
+  to 0.2.3 (``ClaudeCoordinator/kit/README.md``), so the pins below are
+  deliberately historical, not current; the re-vendor is
+  ``PLN-20260727-1707-kit-lag-0-2-3``. Do not read the version below as the
+  kit's version. Five files carry a 0.2.2 body: the gate
   (``role_review_gate.py``, deny-message taxonomy), both side-effect-guard
   files, and both plan-checker files (de-hardcoded mutation companion, and
   the legacy-id grandfather exemption). The artifacts untouched since S5 keep

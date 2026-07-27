@@ -124,23 +124,65 @@ survives only as a deprecation shim.)
 ## Session protocol
 
 Every working session starts by stating its objective against
-_private/STATUS.md, and ends with /handoff out, which writes the
-session handoff under _private/handoffs/, appends the
-_private/logbook.csv row, and updates _private/STATUS.md. Planning
-lives in _private/plan/, one file per item, via /plan. Since 2026-07-23 (author's
-decision) the session documents live in _private/ (OneDrive-synced,
-never committed); they still satisfy the same content guards as the
-repository (English, no dashes, invariant 5 wording). Committed
-history before that date keeps the old in-repo copies. Public items
-being discontinued move to the committed deprecated/ folder, never
-scattered at the top level. Conversation with the author may be in Portuguese;
-every committed artifact is in English (invariant 6). The design
-documents (SRS, SAD, Bootstrap Kit) are local-only in _private/design/.
+`<session-root>/STATUS.md`, and ends with /handoff out, which writes the
+session handoff under `<session-root>/handoffs/`, appends the
+`<session-root>/logbook.csv` row, and updates
+`<session-root>/STATUS.md`. Planning lives in _private/plan/, one file
+per item, via /plan.
 
-Machine configuration (never a literal path in a committed file). Two
-environment variables locate the local, machine-specific tooling, and
-both live in the gitignored `.claude/settings.local.json`, so a fresh
-clone must set them:
+`<session-root>` is a placeholder, not shell syntax: resolve the
+`PYFS_SESSION_ROOT` environment variable and use its value. The
+placeholder is written this way on purpose. The bash form
+`$PYFS_SESSION_ROOT/STATUS.md` is an undefined variable in PowerShell,
+this environment's primary shell, where it interpolates to the empty
+string with no error and yields `/STATUS.md` at the current drive root.
+That is the silent failure this variable exists to prevent, so its own
+documentation must not print it. In a PowerShell command write
+`$env:PYFS_SESSION_ROOT`; in bash, `$PYFS_SESSION_ROOT`.
+
+Since 2026-07-23 (author's decision) the session documents are not
+committed to THIS repository; since 2026-07-27 (author's decision,
+executed by this repository's own session) they live in the coordination
+hub rather than in _private/, located by PYFS_SESSION_ROOT below. Note
+what changed: the hub is a git repository with a remote, so the
+documents are now committed and versioned THERE. They were previously in
+no repository at all.
+
+Content guards, stated as the residual rather than as a guarantee: the
+session documents are supposed to satisfy the same guards as this
+repository (English, no dashes, invariant 5 wording), and the migrated
+set does NOT. `tests/test_house_style.py` skips `_private/` by design,
+so the guard never applied to these files while they lived there, and it
+cannot reach them now that they live in another repository. Three
+migrated files carry the forbidden predecessor-toolchain identifier and
+several are in Portuguese. The sweep is owned at the hub and is
+registered as PLN-20260727-1704-migrated-set-unswept; do not read the
+first sentence of this paragraph as a claim that it has run.
+
+Committed history from before 2026-07-23 keeps the old in-repo copies.
+Nothing from the 2026-07-23 to 2026-07-27 window was ever committed
+anywhere.
+
+The plan ledger and the design documents did NOT move: a repository's
+own plan and architecture are its own facts, which is the coordination
+charter's own rule (determination
+PLN-20260727-1542-plan-ledger-stays). They stay local-only in
+_private/plan/ and _private/design/, alongside the categories that can
+never move at all: the licensed manual, the solver executables and the
+research geometry. The local design documents are the SAD and the
+Bootstrap Kit; the SRS is no longer among them, having gone public on
+2026-07-23 as docs/srs/ (a living document superseding the private
+DLV-002).
+
+Public items being discontinued move to the committed deprecated/
+folder, never scattered at the top level. Conversation with the author
+may be in Portuguese; every committed artifact is in English
+(invariant 6).
+
+Machine configuration (never a literal path in a committed file). Three
+environment variables locate the local, machine-specific tooling and
+state, and all live in the gitignored `.claude/settings.local.json`, so
+a fresh clone must set them:
 
 - `PYFS_PLAN_CHECKER` names the plan-ledger validator the `plan` skill
   runs; the skill (`.claude/skills/plan/SKILL.md`) holds the authoritative
@@ -156,10 +198,72 @@ clone must set them:
   in `.claude/hooks/role_review_gate.py`, the single home of that rule).
   Unset means the incident check does not apply; set but unreadable
   blocks a push.
+- `PYFS_SESSION_ROOT` names the session-document home in the
+  coordination hub, read by the `handoff`, `plan`, `audit` and
+  `derive-requirements` skills. It must name the directory that DIRECTLY
+  contains this repository's `STATUS.md`, `logbook.csv`, `handoffs/`,
+  `inbox/` and `progress/`. Check that shape before the first write: the
+  hub root also carries a
+  `STATUS.md` and a `coordination/logbook.csv` of its own, so a variable
+  set one or two levels too high is readable, passes every rule stated
+  here, and makes a pyflightstream session overwrite the coordination
+  level's state file. Unset or unreadable is a configuration error to
+  report and stop on, never a skip. The asymmetry with the two above is
+  deliberate: an unset validator leaves a ledger written but unchecked,
+  which is degraded and recoverable, whereas an unset session root would
+  let a session believe it closed while writing its record nowhere
+  (`PLN-20260727-1541-session-root-indirection`).
 
-Weakness stated, not hidden: an omitted `PYFS_PLAN_CHECKER` degrades to a
-silent skip (no validation), so this documentation is the only thing that
-makes the omission visible. The load-bearing guard is the tier-1 kit
-drift test (`tests/test_kit_drift.py`), which fails in CI if the vendored
-checker is missing or drifts from the kit; the env var only points the
-`plan` skill at whichever checker is active.
+Two names collide across the boundary and the collision is deliberate,
+not an oversight. The session root has an `archive/` (the migrated inbox
+history, INB-001 onward) and this repository keeps its own
+`_private/archive/` (the superseded plan table). They are different
+folders with the same name in different homes; say which one you mean.
+The tier-1 guard in `tests/test_house_style.py` deliberately does NOT
+list `archive` among the migrated names, because `_private/archive/` is
+still a legitimate path here.
+
+A fourth variable, `CLAUDE_PROJECT_DIR`, appears in
+`.claude/settings.json` and in the `plan` skill's validator command. It
+is NOT in the list above and must not be added to
+`.claude/settings.local.json`: the harness provides it at run time
+rather than the clone configuring it. Where it is empty the paths built
+from it collapse to a drive-relative path (`/_private/plan` resolves
+against the current drive), which the tool it feeds rejects loudly so
+long as no such directory exists at that drive root. It is used as the
+anchor anyway because the alternative is worse: `git rev-parse` resolves
+whichever repository the current directory sits in, and since 2026-07-27
+a session routinely has two, so its failure mode is to silently validate
+a DIFFERENT repository. Loud-and-contingent beats silent-and-wrong.
+
+Summary of the three, because the unset and unreadable columns differ
+per variable and the difference is the trap:
+
+| Variable | Unset | Set but unreadable | Enforced by |
+|---|---|---|---|
+| `PYFS_PLAN_CHECKER` | skips validation | report, does not block a push | instruction only (the drift test guards the checker body, not this behaviour) |
+| `PYFS_INCIDENT_LEDGER` | check does not apply | blocks a push | `role_review_gate.py`, tier-1 `test_push_gate.py` |
+| `PYFS_SESSION_ROOT` | stop, configuration error | stop, configuration error | **instruction only, see below** |
+
+Weakness stated, not hidden, for both variables that have one.
+
+An omitted `PYFS_PLAN_CHECKER` degrades to a silent skip (no
+validation), so this documentation is the only thing that makes the
+omission visible. The load-bearing guard is the tier-1 kit drift test
+(`tests/test_kit_drift.py`), which fails in CI if the vendored checker is
+missing or drifts from the kit; the env var only points the `plan` skill
+at whichever checker is active.
+
+`PYFS_SESSION_ROOT` makes the strongest promise of the three and has the
+weakest enforcement: **no code reads it.** No hook, no test and no
+module in `src/` consults it, because its consumer is an agent following
+a skill, not a program. A session that ignores the stop rule fails
+exactly as quietly as an unset variable would. Two mechanical backstops
+exist and neither is the contract itself: `tests/test_house_style.py`
+asserts that no committed file re-hardcodes a migrated session path, and
+`tests/test_env_contract.py` asserts that every skill naming the
+variable also states the stop rule and that the variable is documented
+here. Closing the gap properly is registered as
+PLN-20260727-1712-session-root-has-no-guard. Under this repository's own
+structural-fix rule, documentation is not a guard, and this paragraph
+exists so the strong wording above is not mistaken for a mechanism.

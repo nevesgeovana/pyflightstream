@@ -5,6 +5,7 @@ files, per the project style. Binary and local-only content guards run in
 pre-commit and in the CI guard job.
 """
 
+import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -52,3 +53,56 @@ def test_no_private_names():
             if word.lower() in text:
                 offenders.append(f"{path.relative_to(REPO_ROOT)}: names {word}")
     assert not offenders, "\n".join(offenders)
+
+
+# The session documents (state file, handoffs, logbook, inbox, progress
+# reports) left `_private/` for the coordination hub on 2026-07-27 and are
+# located by PYFS_SESSION_ROOT. Nothing enforced that move: it was five
+# documents edited by hand, and a later edit re-hardcoding a retired path
+# would be invisible until a session wrote its handoff into a folder that
+# no longer exists. This guard is the mechanism that migration lacked.
+#
+# `archive` is deliberately ABSENT from this list. Two folders share that
+# name across the boundary: the session root has one (the migrated inbox
+# history) and this repository keeps `_private/archive/` for the superseded
+# plan table, which the `plan` skill still cites correctly. Forbidding the
+# name outright would fail a legitimate path.
+MIGRATED_SESSION_DIRS = ("STATUS.md", "logbook.csv", "handoffs", "inbox", "progress")
+# Both separators. The backslash spelling is the MORE likely mistake on this
+# machine, because a PowerShell block in a skill writes paths that way, and it
+# produces the identical defect.
+MIGRATED_PATH = re.compile(
+    r"_private[/\\](" + "|".join(re.escape(name) for name in MIGRATED_SESSION_DIRS) + r")\b"
+)
+
+# No exemption list. The nine vendored kit bodies were exempted here at first,
+# defensively, and the exemption was then verified to be unnecessary: none of
+# them names a migrated session path. The stale prose they DO carry is
+# `_private/kit`, which is not on the list above. A permanently silenced push
+# gate is worse than a hypothetical future conflict, so the silence was
+# removed. If a re-vendor ever does introduce one of these paths into a kit
+# body, this guard should fire and the fix belongs in the kit.
+
+
+def test_no_committed_path_to_a_migrated_session_document():
+    """No committed file names a session document under ``_private/``.
+
+    The plan ledger, the design documents and the licensed local assets DID
+    stay in ``_private/``, so this guard names the five migrated entries
+    explicitly rather than forbidding ``_private/`` wholesale.
+
+    Scope, stated so the limit is visible: ``iter_style_checked_files`` yields
+    ``*.md`` and ``*.py`` only, so ``.github/workflows/*.yml``,
+    ``.claude/settings.json`` and ``.claude/tools/snap.sh`` are outside this
+    guard. The first two carry no such path today and the third is a
+    hash-pinned kit body tracked by PLN-20260727-1707-kit-lag-0-2-3.
+    """
+    offenders = []
+    for path in iter_style_checked_files():
+        relative = path.relative_to(REPO_ROOT)
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        for match in MIGRATED_PATH.finditer(text):
+            offenders.append(f"{relative}: names the migrated _private/{match.group(1)}")
+    assert not offenders, (
+        "session documents live under PYFS_SESSION_ROOT since 2026-07-27:\n" + "\n".join(offenders)
+    )

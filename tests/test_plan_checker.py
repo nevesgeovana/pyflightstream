@@ -24,6 +24,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 PLAN_MUTATIONS = REPO / ".claude" / "tools" / "check_plan_kit_mutations.py"
+PLAN_CHECKER = REPO / ".claude" / "tools" / "check_plan_kit.py"
 
 
 def test_the_plan_checker_can_still_fail() -> None:
@@ -36,4 +37,48 @@ def test_the_plan_checker_can_still_fail() -> None:
     assert done.returncode == 0, (
         "the kit plan checker failed its mutation test (a guard could not fail "
         f"the case it exists to catch):\n{done.stdout}\n{done.stderr}"
+    )
+
+
+def _run_checker(target: Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, str(PLAN_CHECKER), str(target)],
+        capture_output=True,
+        text=True,
+    )
+
+
+def test_a_path_that_does_not_resolve_fails_loud(tmp_path: Path) -> None:
+    """A missing ledger directory exits non-zero and says so.
+
+    The `plan` skill anchors the ledger path on CLAUDE_PROJECT_DIR precisely
+    because a mistyped or stale path must not read as a clean ledger. That
+    argument depends on this exit code, and nothing asserted it until the
+    2026-07-27 migration moved trees out of `_private/`.
+    """
+    done = _run_checker(tmp_path / "nowhere")
+    assert done.returncode == 1, f"stdout={done.stdout!r} stderr={done.stderr!r}"
+    assert "not a directory" in (done.stdout + done.stderr)
+
+
+def test_an_empty_ledger_directory_exits_zero_and_says_it_checked_nothing(
+    tmp_path: Path,
+) -> None:
+    """An empty directory exits 0. This pins a WEAKNESS, not a guarantee.
+
+    A checker aimed at a directory that exists but holds no entries reports
+    success while validating nothing, which is the exact failure mode the
+    2026-07-27 migration made reachable: a tree can now move out from under a
+    configured path. The sister library registered the same defect
+    independently the same day.
+
+    The test asserts the CURRENT contract so a re-vendor cannot change it
+    silently. If the kit later decides an empty ledger should exit non-zero,
+    this test is the thing that must change with it, deliberately.
+    """
+    done = _run_checker(tmp_path)
+    assert done.returncode == 0, f"stdout={done.stdout!r} stderr={done.stderr!r}"
+    assert "no entries" in (done.stdout + done.stderr), (
+        "an empty ledger must at least SAY it checked nothing; silence here "
+        "would be indistinguishable from a clean ledger"
     )
