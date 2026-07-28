@@ -95,7 +95,9 @@ def test_no_committed_path_to_a_migrated_session_document():
     ``*.md`` and ``*.py`` only, so ``.github/workflows/*.yml``,
     ``.claude/settings.json`` and ``.claude/tools/snap.sh`` are outside this
     guard. The first two carry no such path today and the third is a
-    hash-pinned kit body tracked by PLN-20260727-1707-kit-lag-0-2-3.
+    hash-pinned kit body whose stale wording is tracked by
+    PLN-20260727-1854-kit-side-residue (the re-vendor entry that first
+    carried it has since closed, and a closed entry is not a tracker).
     """
     offenders = []
     for path in iter_style_checked_files():

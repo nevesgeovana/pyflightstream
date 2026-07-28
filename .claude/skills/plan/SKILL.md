@@ -125,16 +125,25 @@ missing directory for a perfectly clean ledger. If `CLAUDE_PROJECT_DIR`
 is empty the path collapses to `/_private/plan`, which the checker
 rejects loudly rather than validating something else.
 
-Read the exit code carefully. Five outcomes exist and only the first is
-a clean ledger; two of the others look like something they are not.
+Read the OUTPUT, not just the exit code. Seven outcomes exist over three
+exit codes, only the first is a clean ledger, two of the others look like
+something they are not, and exit 2 is shared by two unrelated causes.
 
 | Exit | Output | Meaning |
 |---|---|---|
 | 0 | `N entries checked ... 0 bad` (count is zero) | clean ledger |
 | 0 | `no entries in <path>` | **the directory exists but is empty: nothing was validated** |
 | 1 | one or a few `FAIL` blocks naming the entry and the guard | a real ledger defect |
-| 1 | **every** `PLN-0##` id fails the shape guard at once | **`legacy_ids.txt` is missing or unreadable, NOT 88 bad entries** |
+| 1 | **every** `PLN-0##` id fails the shape guard at once | **`legacy_ids.txt` is MISSING, NOT 88 bad entries** |
+| 2 | `CONFIG ERROR: legacy_ids.txt exists at <path> but could not be read` | the exemption list is present but unreadable; nothing was validated |
+| 2 | `usage: check_plan_kit.py <plan-directory>` | **wrong argument count, NOT a config problem**; nothing was checked |
 | 1 | `not a directory: <path>` | the path does not resolve, or `CLAUDE_PROJECT_DIR` was empty; nothing was checked |
+
+Rows five and six share exit 2, which is why this table is keyed on the
+output line. The usage row is reachable by accident in this environment's
+primary shell: an unquoted ledger path containing a space splits into two
+arguments, and a reader keying on the code alone goes to repair a
+`legacy_ids.txt` that is fine.
 
 Rows two and four are the dangerous ones.
 
@@ -147,19 +156,40 @@ defect independently the same day.
 
 **Row four** is worse, because it is loud in a way that points at the
 wrong fix. `legacy_ids.txt` lives in `_private/plan/` beside the
-entries. If it goes missing or unreadable the vendored checker returns
-an empty exemption set silently, so all of `PLN-001`..`PLN-088` fail the
-timestamp-shape guard at once, each with a message saying the id "would
-reintroduce the central counter". A reader who trusts row three reads
-that as 88 real defects and reaches for renumbering, which the rules
-above forbid outright and which is how a wrong citation once leaked into
-a committed file. The signature to recognize is the count: a real defect
-is one or a few entries, never every legacy id simultaneously.
+entries. If it goes MISSING the checker returns an empty exemption set
+silently, so all of `PLN-001`..`PLN-088` fail the timestamp-shape guard
+at once, each with a message saying the id "would reintroduce the
+central counter". A reader who trusts row three reads that as 88 real
+defects and reaches for renumbering, which the rules above forbid
+outright and which is how a wrong citation once leaked into a committed
+file. The signature to recognize is the count: a real defect is one or a
+few entries, never every legacy id simultaneously.
 
-Verified 2026-07-27 against the vendored kit 0.2.2, which is what this
-repository runs. Kit 0.2.3 replaces row four with an explicit
-`CONFIG ERROR:` exit 2; that row is NOT in the vendored checker today
-and must not be relied on until the re-vendor
-(`PLN-20260727-1707-kit-lag-0-2-3`), which is also when this table
-changes. `tests/test_plan_checker.py` pins rows two and five so a
-re-vendor cannot change them silently.
+**Row five is the half of row four that kit 0.2.3 fixed, and only that
+half.** A file that is present but unreadable (wrong permissions, or
+bytes that are not UTF-8) is now reported by name and exits 2 BEFORE
+validating anything, so it can no longer masquerade as 88 ledger
+defects. An ABSENT file deliberately stays silent, because a repository
+that never had counter ids must be unaffected by a feature it does not
+use. So the trap survives for the deletion case and is closed for the
+corruption case; do not read row five as retiring row four.
+
+One more trap inside row five, in the checker's own remedy. Its message
+ends "fix the file's permissions or re-save it as UTF-8, or remove it if
+there are no exemptions." **The third remedy is the wrong one here.**
+`_private/plan/legacy_ids.txt` holds the 88 grandfathered ids, so
+removing it does not clear the error, it converts row five into row
+four. Take the first two.
+
+Verified 2026-07-27 against the vendored kit 0.2.3, which is what this
+repository runs since the re-vendor closing
+`PLN-20260727-1707-kit-lag-0-2-3`. `tests/test_plan_checker.py` pins
+rows two, four, five and six with six tests, so a future re-vendor
+cannot change any of them silently. The mapping is not one test per row
+and deliberately so: row five has TWO, because its two failure arms are
+different exceptions behind one exit code (bytes that are not UTF-8
+raise `UnicodeDecodeError`, which is not an `OSError`, while the
+permission failure that kit 0.2.2 actually got wrong is an `OSError`,
+reachable only from a unit test on this platform). The row-four test
+states in its own docstring that it pins a weakness rather than a
+guarantee.

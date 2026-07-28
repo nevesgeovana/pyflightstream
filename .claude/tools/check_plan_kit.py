@@ -1,9 +1,9 @@
 # ITACA / pyflightstream shared process kit
-# kit-version: 0.2.2
+# kit-version: 0.2.3
 # artifact: check_plan_kit.py
-# body-sha256: d7b7126a83ad96196c5a063d3b6d6c771747af84e590a9c97a3d702b057b9e52
+# body-sha256: 386ce05647b5e2fa194a0aaf50c334b6ad77c2e7eef4800bcb63ce3f36e32786
 # canonical-source: BUILT for the kit (Option C, author decision 2026-07-24): the strict guards of itaca's check_plan_entries.py merged with the UNION of both ledgers' vocabularies. Supersedes both check_plan.py and check_plan_entries.py.
-# note: derived copy; canonical master at the coordination level (`_private/kit`); do not hand-edit, re-vendor on promotion.
+# note: derived copy; canonical master at the coordination level (`ClaudeCoordinator/kit`); do not hand-edit, re-vendor on promotion.
 # END KIT PROVENANCE (body verbatim below)
 #!/usr/bin/env python3
 """Validate a one-file-per-entry plan ledger (shared kit checker).
@@ -56,32 +56,38 @@ What it asserts:
 Legacy id exemption (per-repo, config-driven; author decision 2026-07-24,
 Option 1 "grandfather"). The timestamp-id SHAPE guard rejects a
 pre-existing counter id, which is right for new work but cannot be
-imposed retroactively: pyflightstream's counter ids (PLN-001..088) are
-cited in committed public files, so renumbering them is off the table.
-The escape hatch is a file named ``legacy_ids.txt`` located in the SAME
-plan directory being validated (the directory holding the entry ``*.md``
-files), read at run time relative to that directory, never an absolute
-path:
+imposed retroactively: a repository adopting this checker may already
+carry legacy counter ids (illustratively ``PREFIX-001`` through
+``PREFIX-NNN``) cited across many of its files, so renumbering them is
+off the table. The escape hatch is a file named ``legacy_ids.txt``
+located in the SAME plan directory being validated (the directory holding
+the entry ``*.md`` files), read at run time relative to that directory,
+never an absolute path:
 
   * one id per line; blank lines and lines beginning with ``#`` are
     ignored; surrounding whitespace is stripped;
-  * an absent file means NO exemptions, so a repository that never had
-    counter ids (itaca's case) is unaffected and its behavior is
-    unchanged;
+  * an ABSENT file means NO exemptions, so a repository that never had
+    counter ids is unaffected and its behavior is unchanged. A file that
+    EXISTS but cannot be read (permissions, or bytes that are not UTF-8)
+    is a CONFIGURATION ERROR: it is reported by name to stderr and the
+    checker exits nonzero BEFORE validating, rather than silently
+    yielding no exemptions and then failing every grandfathered entry at
+    once with no cause named;
   * a listed id is exempt from the SHAPE guard ONLY. Every other guard
     still applies to it unchanged: ``ref`` required, known status, known
     priority, dropped-must-say-why, id-matches-filename, no reused id. A
     legacy id with no ``ref`` still fails;
   * the exemption is by EXACT id string match, never a pattern or prefix,
-    so a NEW counter-shaped id that is not on the list (PLN-089 and
-    onward) is still rejected. That is what keeps the set finite and
-    non-abusable.
+    so a NEW counter-shaped id that is not on the list (the next
+    ``PREFIX-NNN`` and onward) is still rejected. That is what keeps the
+    set finite and non-abusable.
 
-This config is per-repo documented state: it lives with the repository
-that needs it (committed and auditable there), never in the kit body.
-Hardcoding any repository's ids into the shared checker would couple the
-kit to one library and defeat the drift test. The list is meant to be a
-finite, shrinking set a repository retires as it re-ids old entries.
+This config is per-repo documented state: it is auditable in the repo
+that needs it (committed where the plan tree is committed; in the local
+``_private/`` tree otherwise), never in the kit body. Hardcoding any
+repository's ids into the shared checker would couple the kit to one
+library and defeat the drift test. The list is meant to be a finite,
+shrinking set a repository retires as it re-ids old entries.
 """
 
 from __future__ import annotations
@@ -105,22 +111,40 @@ ID_SHAPE = re.compile(r"^[A-Z]{2,4}-\d{8}-\d{4}-[a-z0-9]+(?:-[a-z0-9]+)*$")
 LEGACY_IDS_FILE = "legacy_ids.txt"
 
 
+class LegacyIdsUnreadable(Exception):
+    """``legacy_ids.txt`` exists but could not be read.
+
+    Raised (rather than swallowed into an empty set) so the caller reports
+    a configuration error and stops, instead of silently granting no
+    exemptions and then failing every grandfathered entry at once with no
+    cause named. Absent is fine and silent; present-but-unreadable is not.
+    """
+
+
 def load_legacy_ids(root: Path) -> frozenset[str]:
     """Read the shape-guard exemptions from ``<plan-dir>/legacy_ids.txt``.
 
     Resolved relative to the plan directory under test, so the checker
     carries no absolute path and a vendored copy reads the exemptions of
-    the repository it is validating. An absent (or unreadable) file yields
-    an empty set: no exemptions, behavior unchanged. One id per line;
-    blank lines and ``#`` comment lines are ignored; whitespace stripped.
+    the repository it is validating. An ABSENT file yields an empty set:
+    no exemptions, behavior unchanged. A file that EXISTS but cannot be
+    read (permissions, or bytes that are not UTF-8) raises
+    ``LegacyIdsUnreadable`` so it is reported as a config error rather than
+    silently treated as "no exemptions". One id per line; blank lines and
+    ``#`` comment lines are ignored; whitespace stripped.
     """
     path = root / LEGACY_IDS_FILE
     if not path.is_file():
         return frozenset()
     try:
         raw = path.read_text(encoding="utf-8")
-    except OSError:
-        return frozenset()
+    except (OSError, UnicodeDecodeError) as error:
+        raise LegacyIdsUnreadable(
+            f"{LEGACY_IDS_FILE} exists at {path} but could not be read "
+            f"({type(error).__name__}: {error}). This is a configuration "
+            "error, not a validation failure: fix the file's permissions or "
+            "re-save it as UTF-8, or remove it if there are no exemptions."
+        ) from error
     ids = {
         stripped
         for line in raw.splitlines()
@@ -218,8 +242,16 @@ def main() -> int:
         return 0
 
     # Read the per-repo shape-guard exemptions from the plan directory
-    # under test (absent file -> no exemptions).
-    legacy_ids = load_legacy_ids(root)
+    # under test (absent file -> no exemptions). A file that exists but is
+    # unreadable is a CONFIG error: report it by name and exit distinctly
+    # (2, not the validation-failure 1) before validating anything, so it
+    # is never mistaken for "no exemptions" that then fails every legacy
+    # entry.
+    try:
+        legacy_ids = load_legacy_ids(root)
+    except LegacyIdsUnreadable as error:
+        print(f"CONFIG ERROR: {error}", file=sys.stderr)
+        return 2
 
     failures = 0
     seen: dict[str, Path] = {}

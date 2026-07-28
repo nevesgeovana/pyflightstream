@@ -3,12 +3,23 @@
 Adopting the kit plan checker (``check_plan_kit.py``) turns on a real waiver of
 the timestamp-id shape guard, which the checker's own docstring names as the
 guard against the silent central-counter regression (itaca founding failure
-number two). The kit ships a mutation companion, but it never writes a
-``legacy_ids.txt``, so the exemption BRANCH the adoption relies on is otherwise
-unexercised in this repository's suite. A future kit re-vendor that turned the
-exact-string exemption into a prefix match, widened it beyond the shape guard,
-or resolved the file by an absolute path would keep the rest of the suite
-green while re-opening exactly the regression the guard exists to stop.
+number two). A future kit re-vendor that turned the exact-string exemption into
+a prefix match, widened it beyond the shape guard, or resolved the file by an
+absolute path would keep the rest of the suite green while re-opening exactly
+the regression the guard exists to stop.
+
+Why this file still exists after kit 0.2.3, since the premise it was written
+under no longer holds. It was written because the kit's mutation companion
+"never writes a ``legacy_ids.txt``", leaving the exemption branch unexercised
+here. That is now false: the 0.2.3 companion writes one and covers five
+boundaries, a superset of the four below. What survives the correction is a
+different and narrower argument, and it is the reason to keep rather than
+delete: the companion is a VENDORED, hash-pinned body. A future promotion that
+DROPPED those cases would remove the coverage and this repository's suite would
+stay green, because the drift test only asserts that the vendored body matches
+whatever the kit currently publishes. These four boundaries are pinned in a
+file the kit cannot change, which is the only way a repository keeps a guarantee
+it did not author.
 
 This test exercises the vendored checker against throwaway plan directories in
 the OS temp dir (never ``_private``), pinning the four boundaries of the
