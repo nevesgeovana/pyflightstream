@@ -39,6 +39,16 @@ structural side of the aeroelastic loop), `probes` and `farfield`
     example pages from the example scripts. Nothing generated is
     committed.
 
+    One stated exception, and its condition:
+    `reports/requirements-index.json` IS generated and committed,
+    because its consumer is a dashboard outside this repository that
+    cannot run a generator here and reads the file directly. The
+    condition that makes it safe is that a Tier 1 test regenerates and
+    compares, and a second test sweeps the SRS independently so a
+    parser miss cannot pass as a clean regeneration. An exception
+    without that pair is the staleness this decision exists to
+    prevent.
+
 !!! decision "AD-03 No global mutable state"
     Script construction and every other stateful operation happen on
     objects; two scripts, two campaigns, or two workspaces never

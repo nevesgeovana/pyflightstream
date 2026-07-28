@@ -55,6 +55,7 @@ nav:
       - Non-functional requirements: srs/nonfunctional-requirements.md
       - Standards alignment: srs/standards.md
       - Roadmap: srs/roadmap.md
+      - Acceptance mapping: requirement-mapping.md
   - Command reference: reference/
   - Compatibility matrix: compatibility.md
   - House conventions: conventions.md

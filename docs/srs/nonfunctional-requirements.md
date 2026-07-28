@@ -1,12 +1,58 @@
 # Non-functional requirements
 
 !!! requirement "NFR-01 Didactic policy <span class='srs-implemented'>implemented</span>"
-    *Origin: BRF-04.*
+    *Origin: BRF-04. Split into four singular claims 2026-07-27, each
+    with its own identifier, so each can be falsified on its own; this
+    box is the umbrella and adds nothing the four do not say.*
 
-    Every public function has a numpydoc docstring with units and
-    reference frames; every module states its pipeline role in its
-    top docstring; error messages name the physical or version cause,
-    not the internal symptom; the docs include worked examples.
+    The package is didactic by construction: NFR-01a to NFR-01d state
+    what that means in four claims.
+
+!!! requirement "NFR-01a Docstrings carry units and frames <span class='srs-implemented'>implemented</span>"
+    *Origin: Phase 4 split of NFR-01, accepted 2026-07-27. Evidence:
+    the numpydoc convention enforced by ruff (NFR-09) for the docstring
+    STRUCTURE, and the unit-suffix audit of
+    `tests/test_conventions.py` for model fields. That units and frames
+    are actually stated in the prose of every public function is
+    checked by review, because the tools check shape and not meaning,
+    and this tag says so rather than letting the badge imply a guard.*
+
+    Every public function has a numpydoc docstring stating units and
+    reference frames.
+
+!!! requirement "NFR-01b Modules state their pipeline role <span class='srs-implemented'>implemented</span>"
+    *Origin: Phase 4 split of NFR-01, accepted 2026-07-27. Evidence:
+    `tests/test_package_imports.py`, which asserts a non-empty top
+    docstring on every subpackage, and the architecture overview, which
+    renders them. What is guarded is that the docstring EXISTS at
+    subpackage level; that its text states a pipeline role, for every
+    one of the modules below that level, is a review check.*
+
+    Every module's top docstring states its role in the pipeline.
+
+!!! requirement "NFR-01c Errors name the cause, not the symptom <span class='srs-implemented'>implemented</span>"
+    *Origin: Phase 4 split of NFR-01, accepted 2026-07-27, absorbing
+    the C3 acceptance on error content. Evidence:
+    `tests/test_error_messages.py` and the attribute cases of
+    `tests/test_exceptions_catalog.py`, which pin a named list of
+    errors rather than enumerating every raise site. The list is the
+    guard's scope, in the manner NFR-24 states for its own.*
+
+    Every raised error names the physical or version cause rather than
+    the internal symptom, identifies the object or version involved and
+    the operation attempted, states a suggested fix where a remedy is
+    known, and carries the machine-readable attributes a caller needs
+    to recover.
+
+!!! requirement "NFR-01d Worked examples per workflow <span class='srs-implemented'>implemented</span>"
+    *Origin: Phase 4 split of NFR-01, accepted 2026-07-27. Evidence:
+    the executable examples run in CI (Sybil), which prove the examples
+    that exist still work. Nothing enumerates the public workflows and
+    checks one example per workflow, so the per-workflow coverage is a
+    review check and the badge covers the examples' correctness.*
+
+    The published docs include at least one worked example per public
+    workflow.
 
 !!! requirement "NFR-02 Licensing <span class='srs-implemented'>implemented</span>"
     *Origin: BRF-02, BRF-10.*
@@ -78,9 +124,24 @@
 !!! requirement "NFR-07 Reproducibility <span class='srs-implemented'>implemented</span>"
     *Origin: PP-6.*
 
-    A run is reproducible from its manifest entry alone: inputs
-    hashed, versions recorded, solver setup snapshotted, script
-    regenerable. Publications cite run ids.
+    A run's INPUTS and invocation are reproducible from its manifest
+    entry alone: input hashes, versions, the solver-setup snapshot, and
+    a regenerable script reconstruct the exact call. Publications cite
+    run ids.
+
+    Reproducibility of the solver's numerical results is bounded by the
+    FlightStream determinism boundary and is not asserted here.
+    Reworded 2026-07-27, because the original promised something this
+    package cannot deliver and does not control: the same inputs on the
+    same build reproduce, and that is a property of the solver, which
+    this repository has measured but does not own. Promising it here
+    would have made a vendor change look like a defect in this package.
+
+    The provenance model behind it is the static-origin and
+    operation-log split the manifest already implements. A standardized
+    interoperability export of that provenance was proposed with it and
+    the author deferred that half, so it is a candidate rather than a
+    promise.
 
 !!! requirement "NFR-08 Confidentiality <span class='srs-implemented'>implemented</span>"
     No employer or third-party proprietary content, no proprietary
@@ -88,6 +149,13 @@
     repository. Synthetic geometry only in tests and examples; local
     research cases contribute only aggregated coefficients to
     committed reports.
+
+    Aggregated is defined rather than left to judgment, accepted
+    2026-07-27: integrated force and moment coefficients and their
+    sweep-indexed scalars, and never a per-panel or per-node field from
+    which a geometry or a pressure distribution could be reconstructed.
+    The line matters because the two are the same numbers at different
+    resolutions, and only the second leaks the shape.
 
 !!! requirement "NFR-09 Style <span class='srs-implemented'>implemented</span>"
     ruff for lint and format; numpydoc convention; naming checks
@@ -141,11 +209,98 @@
     with a DOI. The citation file is the single home of the citation
     facts.
 
-Identifiers NFR-13 to NFR-18 and NFR-21 are RESERVED, not missing. They
-were accepted in the same 2026-07-27 batch as the five below and are
-written by the lanes that own their subjects; identifiers are assigned
-at acceptance and never renumbered, so the gap is the convention working
-rather than an omission.
+!!! requirement "NFR-13 Traceability closure <span class='srs-pending'>pending</span>"
+    *Origin: Phase 4 review theme 1, accepted 2026-07-27, absorbing the
+    T3 traceability acceptance and the TRC-01 marker convention, which
+    is the mechanism this requirement asserts.*
+
+    A Tier 1 test asserts requirement-to-test closure: every
+    requirement whose status is not pending resolves to at least one
+    marked falsifying test, and every requirement marker resolves to an
+    identifier defined in the SRS. Each Tier 1 test that falsifies a
+    requirement declares that requirement's identifier in a
+    machine-readable marker.
+
+    Pending, and the gap it measures is the reason it exists. The code
+    is tested; what is thin is the chain that lets a requirement prove
+    itself by a cited test. `reports/requirements-index.json` publishes
+    the current numbers so the gap is visible rather than asserted, and
+    NFR-13 is what turns them into a gate.
+
+!!! requirement "NFR-14 Confidentiality commit guard <span class='srs-pending'>pending</span>"
+    *Origin: Phase 4 review, accepted 2026-07-27.*
+
+    A Tier 1 guard rejects the commit of any file whose extension is in
+    the known geometry or mesh set unless its path is in the
+    synthetic-fixtures allowlist.
+
+    This extends the pdf-rejection pattern NFR-03 already uses to the
+    class NFR-08 forbids, which is today enforced by discipline rather
+    than by a guard. Under this repository's own structural-fix rule
+    that difference is exactly the kind that eventually costs an
+    incident.
+
+!!! requirement "NFR-15 Manifest hash canonicalization <span class='srs-pending'>pending</span>"
+    *Origin: Phase 4 review, accepted 2026-07-27, absorbing the M3b
+    state-hash mirror.*
+
+    The manifest input and script hashes are computed with a named
+    algorithm over a canonical serialization that excludes wall-clock
+    timestamps, absolute paths, and wall time, so two runs with
+    identical inputs produce identical hashes. The determinism this
+    promises is bounded to one platform and one set of library
+    versions, and that boundary is stated rather than implied.
+
+    Pending because the hashes exist and the canonicalization rule is
+    not written down, which means nothing stops a volatile field
+    entering one.
+
+!!! requirement "NFR-16 Test-coverage floor <span class='srs-pending'>pending</span>"
+    *Origin: Phase 4 review, accepted 2026-07-27, absorbing the M5
+    coverage mirror.*
+
+    The Tier 1 suite holds statement coverage at or above a stated
+    floor, set against measured coverage rather than aspiration, and CI
+    fails when coverage falls below it.
+
+    Pending, and the floor is deliberately unnamed here: it is set from
+    a first measurement, which has not been taken. Naming a number
+    before measuring is how a floor becomes either theatre or an
+    obstacle.
+
+!!! requirement "NFR-17 One float-comparison convention <span class='srs-pending'>pending</span>"
+    *Origin: Phase 4 review, accepted 2026-07-27.*
+
+    The repository defines one float-comparison convention, a named
+    helper with default absolute and relative tolerances, and every
+    numerical-equivalence assertion references it rather than an ad hoc
+    literal.
+
+!!! requirement "NFR-18 Manifest schema version <span class='srs-pending'>pending</span>"
+    *Origin: Phase 4 review, accepted 2026-07-27.*
+
+    The `runs.json` manifest records a manifest schema version, and
+    manifest keys are added, renamed, or removed only under the
+    deprecation policy of NFR-20, so a run cited in a publication stays
+    readable across package versions.
+
+    Pending, and the manifest carries no version field today. Note the
+    dependency this creates on NFR-20's window: before 1.0 that policy
+    does not bind, so what protects a cited run until then is this
+    requirement's own promise plus the changelog, not the policy.
+
+!!! requirement "NFR-21 Support and compatibility window <span class='srs-pending'>pending</span>"
+    *Origin: Phase 4 review, accepted 2026-07-27.*
+
+    Each release states the range of FlightStream versions and the
+    range of Python versions it supports, and a supported version
+    leaves that range only after a release that announces the removal.
+
+    The FlightStream half is already promised more strongly by NFR-04,
+    which never drops a supported solver version. What this adds is the
+    Python half and the announcement, and it is the requirement NFR-22
+    rule 3 will act on when a core dependency's ceiling narrows the
+    range.
 
 !!! requirement "NFR-19 Result column-schema stability <span class='srs-implemented'>implemented</span>"
     *Origin: Phase 4 review theme 5, accepted 2026-07-27. Evidence:
@@ -357,3 +512,42 @@ rather than an omission.
     row fails, as does emptying a row a listed term relies on. The
     glossed-at-first-use half is a documentation review check, because
     no cheap test distinguishes a first use from a later one.
+
+!!! requirement "NFR-25 Optional-dependency error shape <span class='srs-pending'>pending</span>"
+    *Origin: the C9 acceptance and the M6 mirror of the same subject,
+    2026-07-27, which the author accepted as elevating AD-05 to a
+    tested requirement.*
+
+    A missing optional dependency raises a typed error carrying the
+    exact `pip install pyflightstream[<extra>]` remedy, never a bare
+    ImportError.
+
+    This is AD-05's promise made falsifiable, which is what the
+    acceptance asked for: a decision states an intent, and only a
+    requirement with a test behind it can be broken visibly.
+
+    Pending, and the measurement is the reason. Of the three sites that
+    raise on a missing extra, one raises a package type
+    (`probes/geometry.py`) and two raise stdlib errors directly,
+    `results/tables.py` an `ImportError` and `fsi/beam.py` a
+    `ModuleNotFoundError`. All three carry the exact pip remedy, so the
+    didactic half is real and the TYPED half is not, which is the half
+    the word "never a bare ImportError" promises. No test exercises the
+    missing-extra path at all, and the acceptance said one must be
+    written.
+
+!!! requirement "NFR-26 One term per level for the unit of work <span class='srs-pending'>pending</span>"
+    *Origin: the TERM-unit-of-work acceptance, 2026-07-27, allocated an
+    identifier by this consolidation.*
+
+    The unit of work is named SIM at the case level and datapoint at
+    the execution level throughout the SRS and the docs, and every other
+    term for it is either replaced or given a glossary entry mapping it
+    to one of those two.
+
+    Pending, and the honest reason is that the alternatives are still in
+    use: case, simulation, run, point and sweep point all appear, some
+    of them correctly in their own register. Sorting which are synonyms
+    to replace and which are distinct concepts to gloss is the work this
+    requirement names, and it is the sibling of NFR-24 for the domain
+    vocabulary rather than the software one.

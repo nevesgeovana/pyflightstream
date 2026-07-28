@@ -108,7 +108,7 @@ FlightStream versions.
   line, which is where a copy records that its body was built for the
   kit rather than adapted from the AGPL predecessor (`.claude/tools/`,
   `tests/test_kit_drift.py`; internal tooling, not a package surface).
-* SRS 1.2.1: the author's Phase 4 acceptance batch begins landing.
+* SRS 1.2.0 to 1.3.0: the author's Phase 4 acceptance batch, landed in full.
   NFR-19 (result column-schema stability), NFR-20 (deprecation policy),
   NFR-22 (dependency version envelope, with the pre-1.0 pin form and
   the Python-ceiling propagation), NFR-23 (layering guard) and NFR-24
@@ -119,8 +119,54 @@ FlightStream versions.
   write a version specifier against a 0.x package, and NFR-19 states
   that its column schema lives in the `results/tables.py` docstrings and
   that no rendered API reference is planned. AD-05, AD-06 and AD-07 are
-  restated; the glossary gains the software terms NFR-24 requires. The
+  restated; the glossary gains the software terms NFR-24 requires.
+
+    Phase 5 consolidation, same day: the batch is now written in full
+    rather than in part. Twenty-six identifiers are added, covering the
+    far-field ledgers (FR-38), the public exception hierarchy (FR-39),
+    the options registry (FR-40), the ITACA adapter (FR-41), the
+    reference-frame and sign conventions (FR-42), the console
+    entry-point contract (FR-44), the strict manifest record (FR-45),
+    the closed terminal-status set (FR-46), the probe-data export
+    writers (FR-47), the public test-support assertions (FR-48),
+    traceability closure (NFR-13), a confidentiality commit guard
+    (NFR-14), manifest hash canonicalization (NFR-15), a coverage floor
+    (NFR-16), one float-comparison convention (NFR-17), a manifest
+    schema version (NFR-18), the support window (NFR-21), the
+    optional-dependency error shape (NFR-25), and one term per level for
+    the unit of work (NFR-26), plus the accepted splits of FR-02, FR-22,
+    FR-30, FR-31, FR-33 and NFR-01 into singular claims that a single
+    test can falsify. Ten requirements are reworded to say something
+    checkable: FR-06 drops "no hidden logic" for a property of the
+    emitted script, FR-08 names the attestation that verifies it rather
+    than implying a test that cannot exist, FR-10 scopes "forever" to
+    the external format and stops an unknown column being dropped
+    silently, FR-11 replaces "lossless" with a reverse conversion, FR-20
+    loses its status narration, FR-26 states its metric and that its
+    bands are measured, FR-31 adds the per-version completeness
+    confirmation, NFR-07 scopes reproducibility to the inputs and names
+    the solver determinism boundary it does not control, and NFR-08
+    defines "aggregated" as a line rather than a judgment.
+
+    Two of her acceptances contradict each other and the SRS says so
+    rather than silently picking one: FR-46 closes the terminal-status
+    set at six values and FR-37 asks for a status the set does not
+    contain. Which one moves is the product owner's call.
+
+    The
   user-facing consequences are in Deprecated below.
+
+* The requirement set is published as a machine-readable index at
+  `reports/requirements-index.json`, generated from `docs/srs` by
+  `scripts/gen_requirements_index.py` and checked against it by a Tier 1
+  test, carrying each requirement's id, statement and mandatory or
+  deferred priority plus the two traceability counts (how many
+  requirement ids any test cites, over the total). It exists because the
+  external dashboard that consumes those numbers was maintaining them by
+  hand and had fallen behind the SRS. New public page: the
+  [acceptance mapping](https://nevesgeovana.github.io/pyflightstream/requirement-mapping/),
+  which records which accepted item became which identifier, including
+  the twenty-four that arrived without an identifier of their own.
 
 ### Deprecated
 

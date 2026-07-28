@@ -1,0 +1,466 @@
+{
+ "source": "docs/srs",
+ "generated_by": "scripts/gen_requirements_index.py",
+ "traceability": {
+  "cited_by_a_test": 10,
+  "total": 91,
+  "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
+ },
+ "requirements": [
+  {
+   "id": "FR-01",
+   "text": "The package ships a machine-readable database of FlightStream script commands. Each entry records name, layout grammar, typed arguments, the version span in which it exists, per-version argument differences, and a manual page citation.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-02",
+   "text": "The database covers versions 26.0, 26.1, and 26.12 at launch, with an explicit ordered version list. Version ordering never relies on string or float comparison (\"26.1\" < \"26.12\" fails both).",
+   "priority": "M"
+  },
+  {
+   "id": "FR-02a",
+   "text": "The canonical version identifier is 26.XXX with exactly three fractional digits: the first two carry the official minor release, the last indexes intermediate hotfix builds (0 = the official release). Launch set: 26.000, 26.100, 26.120. The registry stores display aliases so users may write \"26.12\" and get 26.120.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-02b",
+   "text": "Version ordering never relies on string or float comparison, and the ordered list in commands/_meta.yaml is the sole ordering authority, so that 26.100 sorts before 26.120.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-03",
+   "text": "Each command carries a per-version status: documented, verified, broken, or removed. Documented and verified are distinct because the manual and the solver disagree in practice. Statuses are promoted only by committed probe reports.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-04",
+   "text": "Building a script with a command that does not exist in the target version fails at build time, before any solver run, with an error that cites the manual and suggests the successor command when one is known.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-05",
+   "text": "Script construction uses an object bound to a version-specific registry view, so two scripts build concurrently without interference. This is the script-construction consequence of AD-03, which is the single home of the no-global-mutable-state rule.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-06",
+   "text": "A curated set of thin helpers covers the common steady and unsteady workflows, and each helper emits only database-validated commands, adding no emitted line the command database does not define.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-07",
+   "text": "A raw-emission escape hatch allows arbitrary lines, and its use is recorded in the run manifest, so no run silently depends on unvalidated commands.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-08",
+   "text": "The emitter layer is specified exclusively from the official manual and from probe evidence, and its clean-room provenance is verified by the contribution attestation recorded per change rather than by a runtime test. No code, structure, or docstrings derive from the AGPL ecosystem predecessor.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-08a",
+   "text": "Database entries carry a script phase. The builder validates ordering at build time: pre-solver definitions emitted after solver initialization are rejected with a didactic error, and referencing an undefined entity fails at build time, not run time.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-09",
+   "text": "Cases and campaigns are typed data objects. The unit of work is a SIM with a sim_id. A campaign declares its FlightStream version and executable path per AD-04, which is the single home of the explicit-never-guessed rule.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-10",
+   "text": "A dedicated reader consumes the documented pipe-delimited run-matrix format: rows with RUN = 1 are active, the sweep columns define alpha, beta, or advance-ratio sweeps, and the variables column holds KEY:VALUE pairs. A column the reader does not recognize is preserved and reported rather than silently dropped.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-11",
+   "text": "A convert command turns a run matrix into the native campaign format in one optional invocation, and a reverse conversion reproduces every field of the original matrix, verified by a round-trip (glossary) test. The matrix POL column maps to the native sim_id; the matrix reference codes are preserved verbatim.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-12",
+   "text": "Script recipes are explicitly imported functions conforming to a documented protocol, replacing the predecessor's runtime file lookup by numeric code.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-13",
+   "text": "Execution goes through an executor interface. The local executor uses subprocess with a timeout, checks return codes, and never uses shell=True (glossary).",
+   "priority": "M"
+  },
+  {
+   "id": "FR-14",
+   "text": "A campaign run records every datapoint outcome. Failures are collected and reported at the end as a structured error; a silent skip is structurally impossible.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-15",
+   "text": "An HPC executor submits runs through a cluster submission path. The executor interface must allow this without changes to the campaign model. Deferred; no cluster path ships today.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-16",
+   "text": "Output parsers locate data by anchors (labeled values, delimited tables), never by absolute line offsets.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-17",
+   "text": "An output file without its expected footer is FAILED_INCOMPLETE_OUTPUT, not a shorter table.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-18",
+   "text": "The FlightStream version reported in outputs is cross-checked against the requested version; a mismatch raises a warning recorded in the manifest.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-19",
+   "text": "Every campaign writes runs.json recording per run: identity, case point, versions and build, package version, input and script hashes, status, iterations, residual, wall time, outputs, and error text. Folder names are never authoritative.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-20",
+   "text": "The result-array API provides labeled multidimensional arrays, interpolation along named axes, axis re-parameterization, and trim extraction by interpolating a moment coefficient to zero.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-21",
+   "text": "Plot files byte-compatible with the author's established plot format, with a reader making the pair round-trip testable. Not yet started; VTK and Tecplot probe-data writers exist in post/ but that plot format is not among them.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-22",
+   "text": "Per-boundary drag bookkeeping respects the documented vorticity CDi pitfall: a boundary without a user-defined trailing-edge condition reports zero induced drag once it is assigned to the vorticity CDi list. The API does not aggregate blindly, the vorticity selection is an explicit input of the solver settings, and leaving it unset is the documented solver default (surface pressure integration on every boundary), recorded as such in the solver-setup snapshot rather than refused. On a FlightStream version where the selection command has no recorded evidence, the snapshot states unknown instead of claiming the default.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-22a",
+   "text": "A boundary without a user-defined trailing-edge condition, once assigned to the vorticity induced-drag list, returns a not-computed sentinel distinguishable from a physical zero.",
+   "priority": "D"
+  },
+  {
+   "id": "FR-22b",
+   "text": "The vorticity induced-drag selection is an explicit solver-settings input, and leaving it unset is recorded in the solver-setup snapshot as the documented default, which is surface-pressure integration on every boundary.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-22c",
+   "text": "On a FlightStream version with no recorded evidence for the selection command, the snapshot states unknown rather than the default.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-23a",
+   "text": "From M6 the structural coupling tool is the fsi subpackage: config schema, loads parser, beam builder, centrifugal terms, kinematics, node generation, coupling driver, and the pyfs-fsi entry point. The structural dependency enters only as the optional [fsi] extra, never vendored, with committed license evidence.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-24",
+   "text": "A CI-runnable suite covers database integrity, emission validation including removed and renamed command scenarios, parser fixtures, golden scripts, and matrix reader equivalence. FlightStream itself is never required in CI.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-25",
+   "text": "A probe harness runs per-command probe scripts on a licensed machine, asserts real effects, and promotes results into database statuses through committed compatibility reports.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-26",
+   "text": "A physics regression matrix on synthetic geometry guards physical sanity per release. Each guarded coefficient is compared against a committed reference with a per-coefficient error metric, absolute for coefficients that pass through zero and relative otherwise, and with WARN and FAIL band values derived from measured run-to-run repeatability rather than chosen. A reference update states its reason.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-27",
+   "text": "Version-comparison cases come in two classes: synthetic geometries, committable and generated by the suite; and local research cases whose geometry never enters the repository, with only aggregated coefficients in the committed reports.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-28",
+   "text": "The package creates and names per-campaign and per-simulation folder trees itself, standardized English names derived from sim_id and the manifest. No user hand-builds a run folder.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-29",
+   "text": "The package stages inputs into the run folder, records their hashes in the manifest, collects outputs to declared locations, and provides archive and cleanup operations that refuse to touch folders whose manifest is missing or inconsistent.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-30",
+   "text": "FlightStream is index-parameterized; pyflightstream identifies entities by label. The builder registry tracks frames, actuators, motions, and boundaries with optional labels; every entity-citing argument accepts index or label; declared boundary inventories are range-checked; undeclared stays permissive because the total lives in the geometry file.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-30a",
+   "text": "The builder registry identifies frames, actuators, motions, and boundaries by optional label rather than by the solver's positional index.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-30b",
+   "text": "Every entity-citing argument accepts either an index or a label.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-30c",
+   "text": "A declared boundary inventory is range-checked, and an undeclared inventory stays permissive, because the total lives in the geometry file rather than in the script.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-31",
+   "text": "The solver settings helper is the single entry point for every solver flag and returns a snapshot recording each flag's effective value with provenance: explicit, evidence-cited default, or unknown (never guessed). The snapshot rides the manifest, and a script can be regenerated from it. The set of physics-material flags carried as unknown is confirmed complete per supported version, and the confirmation is recorded in that version's compatibility report.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-31a",
+   "text": "The solver-settings helper is the single entry point for every solver flag and returns a snapshot recording each flag's effective value with its provenance: explicit, evidence-cited default, or unknown, never guessed.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-31b",
+   "text": "The snapshot rides the manifest, and a runnable script is regenerated from it.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-31c",
+   "text": "The set of physics-material flags carried as unknown in the solver-setup snapshot is confirmed complete per supported version, and the confirmation is recorded in that version's compatibility report.",
+   "priority": "D"
+  },
+  {
+   "id": "FR-32",
+   "text": "Every parser result converts to a tidy table (glossary) and to csv; a run merges into one wide row (identity, conditions, coefficients, with identity cross-checks); a whole sweep assembles from the manifest alone.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-33",
+   "text": "The workspace organizes inputs: declarative TOML artifacts (references, setups, groups, geometries, profiles, executables by build id) resolved by stable id with didactic misses. Output naming is templatable and output-only: the manifest stays the sole identity authority and no parse-back API exists. A case whose sweep points would render the same output name is blocked before it runs, because every point of a case executes in one simulation folder and a shared name destroys the evidence of all but the last (incident INC-20260723-2113).",
+   "priority": "M"
+  },
+  {
+   "id": "FR-33a",
+   "text": "The workspace organizes declarative TOML input artifacts (references, setups, groups, geometries, profiles, and executables by build id) resolved by stable id, with a didactic message when an id misses.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-33b",
+   "text": "Output naming is templatable and output-only; the manifest is the sole identity authority and no parse-back API exists.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-33c",
+   "text": "A case whose sweep points would render the same output name is blocked before it runs, because every point of the case executes in one simulation folder.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-34",
+   "text": "A campaign can be pre-flighted with zero solver time (recipes resolved, scripts dry-run built, folders allocated, geometry verified, plan written) and re-run with resume semantics that skip manifest-recorded points, enabling incremental sweeps.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-35",
+   "text": "The run matrix is a first-class interface of the file-managed modality: its reference columns resolve against the workspace input library, and one call takes a matrix through conversion, pre-flight, and execution. The native campaign format remains the canonical internal form.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-36",
+   "text": "Help has two zoom levels: the command reference (with a manual-coverage section stating what the database does and does not yet cover) and the architecture overview generated from the live module docstrings. Both render offline and in the docs from single sources.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-37",
+   "text": "A datapoint whose recorded residual does not reach the configured convergence threshold terminates with a status distinct from a completed one, even when the output footer is structurally complete.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-38",
+   "text": "The far-field subpackage computes the mass, momentum, swirl, crossflow-kinetic-energy, and rothalpy conservation ledgers on the survey lattice, evaluates gates G1, G3, and G4 and the near-field versus far-field spurious diagnostic, and records each ledger and gate outcome in the run outputs.",
+   "priority": "D"
+  },
+  {
+   "id": "FR-39",
+   "text": "Every exception raised by the public API derives from a single documented base exception, each type is documented with the condition that raises it, and every exception and warning is re-exported from one catalog module, so that a class defined outside the catalog fails the suite.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-40",
+   "text": "Every user-facing option or parameter is declared in a single registry recording its type, default, and validation rule, and the CLIs and the Python API resolve options through that registry; setting an unknown option, or a value outside its declared domain, raises an error naming the option and its allowed values. Every registered option name is a stable public contract, which is the form she chose against the review's recommended narrowing.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-41",
+   "text": "The package emits ITACA datasets from the manifest and the results schema, with a documented field mapping.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-42",
+   "text": "The package states the reference-frame and sign conventions for reported forces, moments, and rotor quantities, naming the positive axis directions, the moment reference point, and the rotor-rotation sign, and every coefficient the results layer emits conforms to them.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-44",
+   "text": "The package provides four documented console entry points, one per operational concern, and their commands and flags change only under the deprecation policy of NFR-20.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-45",
+   "text": "The manifest record rejects unknown fields and duplicate run identifiers; its field set is fixed and validated at construction.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-46",
+   "text": "Every executed point terminates in exactly one value of a closed set of six status values, and a seventh cannot be introduced silently.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-47",
+   "text": "The package exposes public assertion helpers that compare records and scripts and report the quantified violation on failure, so a user can assert against this package's outputs in their own tests.",
+   "priority": "M"
+  },
+  {
+   "id": "NFR-01",
+   "text": "The package is didactic by construction: NFR-01a to NFR-01d state what that means in four claims.",
+   "priority": "M"
+  },
+  {
+   "id": "NFR-01a",
+   "text": "Every public function has a numpydoc docstring stating units and reference frames.",
+   "priority": "M"
+  },
+  {
+   "id": "NFR-01b",
+   "text": "Every module's top docstring states its role in the pipeline.",
+   "priority": "M"
+  },
+  {
+   "id": "NFR-01c",
+   "text": "Every raised error names the physical or version cause rather than the internal symptom, identifies the object or version involved and the operation attempted, states a suggested fix where a remedy is known, and carries the machine-readable attributes a caller needs to recover.",
+   "priority": "M"
+  },
+  {
+   "id": "NFR-01d",
+   "text": "The published docs include at least one worked example per public workflow.",
+   "priority": "M"
+  },
+  {
+   "id": "NFR-02",
+   "text": "MIT license; no AGPL-derived code; dependency licenses must be clearly MIT-compatible, with committed license-evidence cards before adoption (RPT-002, RPT-003, RPT-008 are the precedents).",
+   "priority": "M"
+  },
+  {
+   "id": "NFR-03",
+   "text": "The repository never reproduces FlightStream manual text, screenshots, or example blocks. Manual facts appear only as paraphrases with page citations. The manual itself never enters the repository; repository guards reject pdf files.",
+   "priority": "M"
+  },
+  {
+   "id": "NFR-04",
+   "text": "Supported FlightStream versions are only added, never dropped. The package version follows SemVer, decoupled from FlightStream version numbers; while the package is at 0.x, the API is unstable by SemVer's own rule.",
+   "priority": "M"
+  },
+  {
+   "id": "NFR-05",
+   "text": "Windows is the primary execution target (FlightStream runs on Windows); the package itself is pure Python >= 3.11 and passes CI on Linux. HPC submission stays a deferred executor (FR-15).",
+   "priority": "M"
+  },
+  {
+   "id": "NFR-06",
+   "text": "Runtime dependencies form a minimal, public, permissively licensed set; heavier needs live behind optional extras; no private or absolute-path dependencies, ever. The standing engineering policy prefers existing public libraries over in-house code for generic needs.",
+   "priority": "M"
+  },
+  {
+   "id": "NFR-07",
+   "text": "A run's INPUTS and invocation are reproducible from its manifest entry alone: input hashes, versions, the solver-setup snapshot, and a regenerable script reconstruct the exact call. Publications cite run ids.",
+   "priority": "M"
+  },
+  {
+   "id": "NFR-08",
+   "text": "No employer or third-party proprietary content, no proprietary geometry, no research-specific aircraft data ever enter the repository. Synthetic geometry only in tests and examples; local research cases contribute only aggregated coefficients to committed reports.",
+   "priority": "M"
+  },
+  {
+   "id": "NFR-09",
+   "text": "ruff for lint and format; numpydoc convention; naming checks exempted for standard aerodynamic symbols (CL, CDi, J, CT). House style forbids em and en dash characters in Markdown and docstrings, enforced by a Tier 1 test.",
+   "priority": "M"
+  },
+  {
+   "id": "NFR-10",
+   "text": "Every folder, file, module, function, and identifier in the repository is in English.",
+   "priority": "M"
+  },
+  {
+   "id": "NFR-11",
+   "text": "Documentation may never drift silently from the code. The mechanisms, in force from 2026-07-22:",
+   "priority": "M"
+  },
+  {
+   "id": "NFR-12",
+   "text": "Every public release carries citation metadata: CITATION.cff is validated and its version and date match the tag before tagging (release-skill pause point), and the GitHub release is archived with a DOI. The citation file is the single home of the citation facts.",
+   "priority": "M"
+  },
+  {
+   "id": "NFR-13",
+   "text": "A Tier 1 test asserts requirement-to-test closure: every requirement whose status is not pending resolves to at least one marked falsifying test, and every requirement marker resolves to an identifier defined in the SRS. Each Tier 1 test that falsifies a requirement declares that requirement's identifier in a machine-readable marker.",
+   "priority": "M"
+  },
+  {
+   "id": "NFR-14",
+   "text": "A Tier 1 guard rejects the commit of any file whose extension is in the known geometry or mesh set unless its path is in the synthetic-fixtures allowlist.",
+   "priority": "M"
+  },
+  {
+   "id": "NFR-15",
+   "text": "The manifest input and script hashes are computed with a named algorithm over a canonical serialization that excludes wall-clock timestamps, absolute paths, and wall time, so two runs with identical inputs produce identical hashes. The determinism this promises is bounded to one platform and one set of library versions, and that boundary is stated rather than implied.",
+   "priority": "M"
+  },
+  {
+   "id": "NFR-16",
+   "text": "The Tier 1 suite holds statement coverage at or above a stated floor, set against measured coverage rather than aspiration, and CI fails when coverage falls below it.",
+   "priority": "M"
+  },
+  {
+   "id": "NFR-17",
+   "text": "The repository defines one float-comparison convention, a named helper with default absolute and relative tolerances, and every numerical-equivalence assertion references it rather than an ad hoc literal.",
+   "priority": "M"
+  },
+  {
+   "id": "NFR-18",
+   "text": "The runs.json manifest records a manifest schema version, and manifest keys are added, renamed, or removed only under the deprecation policy of NFR-20, so a run cited in a publication stays readable across package versions.",
+   "priority": "M"
+  },
+  {
+   "id": "NFR-19",
+   "text": "Every table the results layer produces exposes a documented column schema. Where this requirement additionally promises STABILITY, in the scope stated below, a change to that schema is announced in the changelog's API surface delta, and from 1.0 a column is renamed or removed only under NFR-20. Documentation is universal; the stability promise is not, and separating the two is what lets the exclusion below be an exclusion from a promise rather than from the docs.",
+   "priority": "M"
+  },
+  {
+   "id": "NFR-20",
+   "text": "This policy takes effect at 1.0. From 1.0, a public API element (function, parameter, CLI flag, manifest key, or result column) is removed only after the warning has shipped in at least one released minor version, naming the replacement and the removal version, and is still present in the last release before the removal; the removal itself lands in a MAJOR release. Stated as releases rather than as \"one full minor\" because the latter has no meaning when a major follows a minor directly. Naming the removal release is not a detail: a policy that says only \"after a warning\" permits deleting public API in a minor, which NFR-04's SemVer commitment forbids, and this requirement exists to stop a reader having to reconcile the two.",
+   "priority": "M"
+  },
+  {
+   "id": "NFR-21",
+   "text": "Each release states the range of FlightStream versions and the range of Python versions it supports, and a supported version leaves that range only after a release that announces the removal.",
+   "priority": "M"
+  },
+  {
+   "id": "NFR-22",
+   "text": "This requirement is the single home of how dependency versions are declared. Three rules:",
+   "priority": "M"
+  },
+  {
+   "id": "NFR-23",
+   "text": "A Tier 1 mechanism enforces AD-01: a module that imports from a layer above its own fails the suite, rather than being caught by review.",
+   "priority": "M"
+  },
+  {
+   "id": "NFR-24",
+   "text": "Each software term on this requirement's list (clean-room, golden, round-trip, escape hatch, tidy table, shim, substrate, shell=True) has a glossary entry and is glossed at its first use in the SRS. The list is the authority: a chapter that introduces a new software term adds it here, and the guard follows.",
+   "priority": "M"
+  },
+  {
+   "id": "NFR-25",
+   "text": "A missing optional dependency raises a typed error carrying the exact pip install pyflightstream[<extra>] remedy, never a bare ImportError.",
+   "priority": "M"
+  },
+  {
+   "id": "NFR-26",
+   "text": "The unit of work is named SIM at the case level and datapoint at the execution level throughout the SRS and the docs, and every other term for it is either replaced or given a glossary entry mapping it to one of those two.",
+   "priority": "M"
+  }
+ ]
+}

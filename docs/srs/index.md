@@ -10,7 +10,7 @@ requirements trace to evidence. It follows the author's SRS template
 | Field | Value |
 |---|---|
 | Document | pyflightstream Software Requirements Specification |
-| Version | 1.2.2 |
+| Version | 1.3.0 |
 | Status | Living document |
 | Author | Geovana Neves |
 | First published | 2026-07-22 |
@@ -41,14 +41,18 @@ or ambiguous.
    rules, with the generated [architecture overview](../architecture.md)
    as the live companion.
 6. [Functional requirements](functional-requirements.md): FR-01 to
-   FR-36, each with origin, status, and evidence.
+   FR-48, each with origin, status, and evidence.
 7. [Non-functional requirements](nonfunctional-requirements.md):
-   NFR-01 to NFR-12, plus NFR-19, NFR-20 and NFR-22 to NFR-24 from the
-   2026-07-27 acceptance batch (NFR-13 to NFR-18 and NFR-21 are
-   reserved identifiers their own lanes write).
+   NFR-01 to NFR-26.
 8. [Standards alignment](standards.md): the external practices this
    project adopts, with references.
 9. [Roadmap](roadmap.md): delivered milestones and the open lines.
+
+The requirement set is also published as a machine-readable index at
+`reports/requirements-index.json`, generated from these pages and
+checked against them by two Tier 1 tests; which accepted item became
+which identifier is recorded in the
+[acceptance mapping](../requirement-mapping.md).
 
 ## Conventions
 
@@ -94,6 +98,7 @@ ledger and its deadline guard exist, and the policy itself starts at
 
 | Version | Date | Change |
 |---|---|---|
+| 1.3.0 | 2026-07-27 | Phase 5 consolidated: the author's acceptance batch is now written in full rather than in part. Thirty-six identifiers are added, counting each split letter as the identifier it is: nineteen whole ones (FR-37 to FR-42, FR-44 to FR-47, NFR-13 to NFR-18, NFR-21, NFR-25, NFR-26) plus seventeen split letters (FR-02b, FR-22a/b/c, FR-30a/b/c, FR-31a/b/c, FR-33a/b/c, NFR-01a/b/c/d). The nine accepted rewords are performed (FR-06, FR-08, FR-10, FR-11, FR-20, FR-26, FR-31, NFR-07, NFR-08; the brief counted ten by including FR-02b, which is a split), and the three remaining single-home edits land, so FR-05 cites AD-03 and FR-09 cites AD-04 rather than restating them. C7 is NOT given an identifier: she accepted it folded under the post-processing line, so the probe-data writers are recorded in FR-21 where she put them. The reserved-identifier convention is retired by writing the requirements it held. Two acceptances of the same batch are recorded as CONTRADICTING each other, FR-37 against FR-46 over whether the terminal-status set opens to a seventh value, which is the product owner's call and is stated in both. The set is published as a machine-readable index with its traceability numbers, and the mapping from each accepted item to its identifier is recorded so the check is re-runnable |
 | 1.2.2 | 2026-07-27 | Two further seat answers about the v0.4.0 breaking window. NFR-20's list of accepted consequences is opened rather than left closed at two, and gains the third: v0.4.0 also converts optional parameters of the tabular layer to keyword-only, which is a public PARAMETER breaking in a minor with no warning release, the same posture applied to the element kind NFR-20 names second. The run row's `frame` column is deliberately NOT renamed, which changes no requirement text: once the functions lose the pandas sense of the word, the column's name means what it says, and NFR-19's stability promise is kept rather than spent |
 | 1.2.1 | 2026-07-27 | Three seat answers taken the same day the batch landed, each closing a question the batch itself raised. NFR-20's 0.x bounds (a break lands only in a minor, a patch never changes the public surface) are confirmed as the author's decision, so the provenance qualifier that marked them as a review proposal is removed. NFR-19 stops naming an open half: the column schema is documented in the source module and the docs site will not gain a rendered API reference for its sake, which is now the requirement's stated position rather than a gap, and the corresponding roadmap line is withdrawn. The v0.4.0 rename window additionally takes `to_dataframe` to `to_table`, so no name in the results layer survives the substrate change describing a library it no longer returns |
 | 1.2.0 | 2026-07-27 | The author's Phase 4 acceptance batch begins landing, and with it one architectural move: pandas and xarray leave the runtime set at v0.5.0 and the sister library becomes a core dependency. AD-06 restated (invalidated, not adapted), AD-07 restated from a future optional extra to a core dependency, AD-05 stops restating the dependency set, NFR-06 gives the set one home with the release that changes it, and five requirements are added: NFR-19 (result column-schema stability, written substrate-neutral, separating universal documentation from a scoped stability promise and naming what the promise excludes), NFR-20 (deprecation policy: it states in its own text that it governs from 1.0, which supersedes the 2026-07-23 answer that had put a deprecation cycle on the `run_frame`/`sweep_frame` rename; that from 1.0 the removal itself lands in a major release, so it cannot be read against NFR-04's SemVer commitment; that within 0.x a break lands only in a minor and never in a patch, a bound codified by the API-design review and awaiting the author's confirmation, which arrived the same day, see 1.2.1; and that its code-enforced half covers module shims only. Its status is pending, because the policy does not bind until 1.0), NFR-22 (dependency version envelope, with the pre-1.0 pin form, the Python-ceiling propagation that no requirement covered, and NFR-02's license-evidence obligation for the new core dependency), NFR-23 (layering guard, accepted as this package's own rather than a mirror) and NFR-24 (software jargon glossed, with the glossary rows it requires). The conventions section gains the rule that distinguishes an implemented requirement with a named open half from a pending one whose mechanism already ships, and NFR-11 gains the home-of-record clause that covers a copy which can be neither generated nor linked |

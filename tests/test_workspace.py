@@ -93,6 +93,38 @@ def test_collect_refuses_missing_declared_outputs(tmp_path):
         workspace.collect_outputs("9001", [tmp_path / "never_written.txt"])
 
 
+def test_the_manifest_record_refuses_an_unknown_field():
+    """FR-45: the field set is fixed, not merely conventional.
+
+    The duplicate-id half of FR-45 is covered below. This is the other
+    half, and it rested on a single `extra="forbid"` in the model config
+    that no test observed: relaxing it to the pydantic default would
+    have kept the whole suite green while the manifest silently began
+    accepting anything a caller passed.
+    """
+    with pytest.raises(ValidationError):
+        make_record(provenance_note="not a field of this model")
+
+
+def test_the_terminal_status_set_is_exactly_the_six_it_declares():
+    """FR-46: a seventh status cannot be introduced silently.
+
+    Pinned as a set rather than by using the members, because using them
+    is what every other test does and none of it notices an addition.
+    A seventh value is precisely what FR-37 asks for, so this assertion
+    is the one that will fail when that question is answered, which is
+    the point: it makes the answer deliberate.
+    """
+    assert {status.value for status in RunStatus} == {
+        "CONVERGED",
+        "COMPLETED_MAX_ITER",
+        "FAILED_EXECUTION",
+        "FAILED_SCRIPT",
+        "FAILED_INCOMPLETE_OUTPUT",
+        "FAILED_DIVERGED",
+    }
+
+
 def test_manifest_round_trip_and_unique_run_id(tmp_path):
     workspace = CampaignWorkspace(tmp_path)
     workspace.append_record(make_record())
