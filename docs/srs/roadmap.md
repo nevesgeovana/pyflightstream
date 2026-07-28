@@ -32,7 +32,6 @@ private session records carry the day-to-day detail.
 | ITACA migration | AD-06 and AD-07: pandas and xarray leave the runtime set, ITACA becomes a core dependency, and the manifest, solver-setup snapshot and result tables become ITACA structures with provenance (supersedes both the RPT-008 on-hold entry and the `[itaca]` optional extra this row used to describe) | The far-field halves land in ITACA's `pproc/` and `aerospace/` first; the removal release is v0.5.0 (NFR-06) |
 | HPC executor | FR-15 | Research-group cluster path |
 | Docs toolchain | The generator's upstream governance question | The author's decision |
-| Published API reference | NFR-19's open half: the result column schemas are documented in source docstrings, which a reader cannot open from the docs site, because the site publishes no Python API reference (mkdocstrings was considered and dropped at v0.3.0) | The author's scope call: whether a rendered API reference belongs in this documentation set at all |
 
 ## Requirement-to-work traceability
 

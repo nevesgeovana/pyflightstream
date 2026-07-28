@@ -108,11 +108,17 @@ FlightStream versions.
   line, which is where a copy records that its body was built for the
   kit rather than adapted from the AGPL predecessor (`.claude/tools/`,
   `tests/test_kit_drift.py`; internal tooling, not a package surface).
-* SRS 1.2.0: the author's Phase 4 acceptance batch begins landing.
+* SRS 1.2.1: the author's Phase 4 acceptance batch begins landing.
   NFR-19 (result column-schema stability), NFR-20 (deprecation policy),
   NFR-22 (dependency version envelope, with the pre-1.0 pin form and
   the Python-ceiling propagation), NFR-23 (layering guard) and NFR-24
-  (software jargon glossed) are added; AD-05, AD-06 and AD-07 are
+  (software jargon glossed) are added; two of them were sharpened by
+  seat answers the same day, so NFR-20 now states as the author's own
+  decision that within 0.x a break lands only in a MINOR release and a
+  patch never changes the public surface, which is what lets a user
+  write a version specifier against a 0.x package, and NFR-19 states
+  that its column schema lives in the `results/tables.py` docstrings and
+  that no rendered API reference is planned. AD-05, AD-06 and AD-07 are
   restated; the glossary gains the software terms NFR-24 requires. The
   user-facing consequences are in Deprecated below.
 
@@ -145,14 +151,23 @@ will be.
     not your schedule: pin `pyflightstream<0.5` and stay on the
     pandas/xarray surface.
 
-* **`run_frame` and `sweep_frame` are renamed to `run_table` and
-  `sweep_table` in v0.4.0, directly, with no aliases and no warning.**
+* **`to_dataframe`, `run_frame` and `sweep_frame` are renamed to
+  `to_table`, `run_table` and `sweep_table` in v0.4.0, directly, with no
+  aliases and no warning.**
   Signatures and behavior are otherwise unchanged, so the migration is
-  a mechanical rename at the call site. A 2026-07-23 decision had put a
-  deprecation cycle on it; the policy above supersedes that. The rename
-  removes the collision between the pandas word "frame" and the
-  aerodynamic reference frame, which is a real ambiguity in a library
-  that reports both.
+  a mechanical rename at the call site. All four names are imported
+  from `pyflightstream.results`, and `to_csv` is NOT among them: it
+  keeps its name, because csv is a format rather than a library.
+
+    All three move in one window on purpose. `to_dataframe` names a
+    library it stops returning at v0.5.0, so leaving it would edit the
+    same call sites in two consecutive minors for one decision, and the
+    other two remove the collision between the pandas word "frame" and
+    the aerodynamic reference frame, which is a real ambiguity in a
+    library that reports both. A 2026-07-23 decision had put a
+    deprecation cycle on the `run_frame`/`sweep_frame` pair; the policy
+    above supersedes that. `to_dataframe` entered the window on
+    2026-07-27 and never had a cycle promised.
 
 * **Erratum to the 0.3.0 notes**, which said the ITACA data adapter
   "is declared as a pyflightstream `[itaca]` extra". It was not: no

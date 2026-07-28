@@ -153,8 +153,7 @@ rather than an omission.
     `results/tables.py`; `tests/test_tables.py` pins the run row's
     COMPLETE column list against a literal, so a column added or
     reordered in the middle fails the suite rather than passing the
-    per-name lookups. The implemented status covers the
-    documented-schema half; the open half is named at the end.*
+    per-name lookups.*
 
     Every table the results layer produces exposes a documented column
     schema. Where this requirement additionally promises STABILITY, in
@@ -187,10 +186,20 @@ rather than an omission.
       solver's own printed header. This package reports what the solver
       prints and cannot promise a vendor's column set will not move.
 
-    The schema is documented today only in the source docstrings, which
-    is a home a user cannot open from the docs site, since the site
-    publishes no Python API reference. Publishing one is the open half
-    of this requirement.
+    Where the schema is documented, decided 2026-07-27 rather than left
+    as an open half. It lives in the docstrings of `results/tables.py`.
+    The only other copy is the deliberate literal in the test named
+    above, which exists precisely so a schema change costs two files. The docs site publishes no Python API reference
+    and will not gain one for this requirement's sake (mkdocstrings was
+    evaluated and declined at v0.3.0), so a reader who wants the exact
+    column set opens that module. The cost is stated rather than
+    softened, because this SRS declares a readership that does not read
+    source by preference: the honest form of the promise is that
+    `overview()` and the Architecture page carry the narrative, both
+    rendering the same module docstrings, the changelog carries the
+    announcement, and the module carries the list. Not `help()`, which
+    renders the FlightStream command reference and says nothing about
+    result tables.
 
 !!! requirement "NFR-20 API deprecation and removal policy <span class='srs-pending'>pending</span>"
     *Origin: Phase 4 review theme 5; the window decided by the author
@@ -222,16 +231,14 @@ rather than an omission.
     surface delta of the release that lands it.
     Two bounds on that, so a 0.x user can still write a version
     specifier: a break lands only in a MINOR release (0.N.0), and a
-    patch release never changes the public surface. Provenance, because
-    the rest of this requirement carries the author's decision and this
-    sentence does not: the two bounds were codified by the API-design
-    review of 2026-07-27 from intended practice, and they await the
-    author's confirmation. The package has never shipped a patch
-    release, so they generalize from no observation. Two consequences the
+    patch release never changes the public surface. Both bounds are the
+    author's decision of 2026-07-27, taken on the API-design review's
+    proposal and knowing that the package has never shipped a patch
+    release, so they state intent rather than describe history. Two consequences the
     author accepted knowingly: v0.5.0 removes the tidy table with no
-    exit path, and v0.4.0 renames `run_frame` and `sweep_frame`
-    directly, superseding the 2026-07-23 answer that had put a
-    deprecation cycle on them. A declared posture is not the same as a
+    exit path, and v0.4.0 renames `to_dataframe`, `run_frame` and
+    `sweep_frame` directly (the 2026-07-23 answer that had put a
+    deprecation cycle on the last two is superseded). A declared posture is not the same as a
     warned user.
 
     A promise ALREADY recorded is kept regardless of version. Every live
