@@ -41,13 +41,30 @@ SKILLS = sorted(
     if "tools" not in path.relative_to(REPO / ".claude").parts
 )
 HOOKS = sorted((REPO / ".claude" / "hooks").glob("*.py"))
+# The vendored shell tools, added 2026-07-28 with the kit 0.2.4 re-vendor.
+#
+# They sit under `.claude/tools/`, which SKILLS excludes on the grounds that a
+# hash-pinned body cannot be corrected here. That reasoning is about where a
+# FIX would land, and it does not survive contact with either check: both ask
+# what a file USES, and the remedy on either side is an edit to CLAUDE.md,
+# which is entirely correctable here. So the shell tools join both directions,
+# not one. (An earlier draft of this change added them to the
+# used-must-be-documented check only, and documenting the new variable then
+# made it look like configuration nobody reads.)
+#
+# The hole this closes was measured rather than imagined: kit 0.2.4 introduced
+# COORD_SHARED_LEDGER_TREE into snap.sh, and the guard stayed green over an
+# undocumented machine variable for two independent reasons, the file type and
+# the prefix. A guard that reports nothing is the failure mode this repository
+# registers most, so both reasons are removed.
+SHELL_TOOLS = sorted((REPO / ".claude" / "tools").glob("*.sh"))
 
 # `CLAUDE_PROJECT_DIR` is in scope alongside the PYFS_ family: the `plan`
 # skill's validator command depends on it, so a variable this guard could not
 # see would be exactly the blind spot the guard exists to remove. The scan
 # surface is `.claude/` only, never `src/`, where `PYFS_` is also a
 # FlightStream identifier prefix on a dozen unrelated names.
-VARIABLE = re.compile(r"\b(?:PYFS|CLAUDE)_[A-Z0-9_]+\b")
+VARIABLE = re.compile(r"\b(?:PYFS|CLAUDE|COORD)_[A-Z0-9_]+\b")
 
 # The stop rule for PYFS_SESSION_ROOT. Matched on meaning rather than one
 # exact sentence, because forcing copy-paste wording is itself a defect this
@@ -82,11 +99,16 @@ def test_every_variable_used_is_documented_in_claude_md() -> None:
     """
     documented = _documented()
     offenders = []
-    for path in SKILLS + HOOKS:
+    for path in SKILLS + HOOKS + SHELL_TOOLS:
         for name in set(VARIABLE.findall(_text(path))):
             if name not in documented:
                 offenders.append(f"{path.relative_to(REPO)}: uses undocumented {name}")
-    assert not offenders, "\n".join(offenders)
+    assert not offenders, (
+        "\n".join(offenders)
+        + "\n\nCLAUDE.md is the single home for machine configuration. If the file "
+        "above is a vendored kit body, document the variable in CLAUDE.md; do not "
+        "edit the pinned body here."
+    )
 
 
 def test_every_documented_variable_is_actually_used() -> None:
@@ -96,7 +118,7 @@ def test_every_documented_variable_is_actually_used() -> None:
     outlived its consumer costs a maintainer real time.
     """
     used: set[str] = set()
-    for path in SKILLS + HOOKS:
+    for path in SKILLS + HOOKS + SHELL_TOOLS:
         used.update(VARIABLE.findall(_text(path)))
     unused = sorted(_documented() - used)
     assert not unused, f"documented in CLAUDE.md but read by nothing: {unused}"

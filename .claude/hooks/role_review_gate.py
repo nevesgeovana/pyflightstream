@@ -1,9 +1,9 @@
 # ITACA / pyflightstream shared process kit
-# kit-version: 0.2.2
+# kit-version: 0.2.4
 # artifact: role_review_gate.py
-# body-sha256: 762297b3d7752710aa6146719e8c4540b6b05bbf851f71f5a66105b9db58134e
+# body-sha256: 0a927d38feaed7b78b86e0d4dc860e80141ca46f55423bd0914adc88eb4b65b9
 # canonical-source: itaca hardened basis. The coordination flavor (ClaudeProjects/.claude/hooks/role_review_gate.py) is a DOCUMENTED SUPERSET, not drift: it swaps the single LEDGER_ENV constant for a per-target LEDGER_ENV_BY_REPO map so one gate can resolve the right ledger var when it targets either repo via git -C <repo>. A repo vendoring this canonical body uses its own single ledger var.
-# note: derived copy; canonical master at the coordination level (`_private/kit`); do not hand-edit, re-vendor on promotion.
+# note: derived copy; canonical master at the coordination level (`ClaudeCoordinator/kit`); do not hand-edit, re-vendor on promotion.
 # END KIT PROVENANCE (body verbatim below)
 #!/usr/bin/env python3
 r"""Mandatory role-review gate on git push (PreToolUse hook, Bash + PowerShell).
@@ -518,7 +518,7 @@ def _push_scope(
                 "rewriting published history is an author decision, not "
                 "something a review attestation covers. Use --force-with-lease "
                 "if you meant a safe update; otherwise stop and confirm with "
-                "Geovana.",
+                "the author.",
                 "",
                 "policy",
             )
@@ -592,7 +592,7 @@ def _push_scope(
                 f"the refspec {spec!r} deletes a published remote ref",
                 "removing a published ref is an author decision, not "
                 "something a review attestation covers. Stop and confirm it "
-                "with Geovana.",
+                "with the author.",
                 remote,
                 "policy",
             )
@@ -893,7 +893,7 @@ def main() -> None:
             f"{GATE_PREFIX} [gate] the gate could not be evaluated for this "
             f"push ({type(error).__name__}: {error}). Failing closed. "
             "Resolve the error, then push. If the gate itself is broken, "
-            "stop and tell Geovana: turning the gate off to ship is an "
+            "stop and tell the author: turning the gate off to ship is an "
             "author decision, not a workaround, and it is the exact move "
             "this protocol exists to prevent.",
         )

@@ -1,9 +1,9 @@
 # ITACA / pyflightstream shared process kit
-# kit-version: 0.1.0
+# kit-version: 0.2.4
 # artifact: snap.sh
-# body-sha256: 0da13e4da525c1c470dc4429ef6c557a3b74600ad817c534344e999180786383
+# body-sha256: 7c9573aabe398576dd00c2a8a5acf0312fa289ff497ae56681225954d843f4cd
 # canonical-source: local-only _private snapshot tool, shared across all three workspaces plus the shared incident ledger.
-# note: derived copy; canonical master at the coordination level (`_private/kit`); do not hand-edit, re-vendor on promotion.
+# note: derived copy; canonical master at the coordination level (`ClaudeCoordinator/kit`); do not hand-edit, re-vendor on promotion.
 # END KIT PROVENANCE (body verbatim below)
 #!/usr/bin/env bash
 # Local-only version control for the _private trees of both repositories.
@@ -37,10 +37,12 @@ BASE="/c/WORK/_private_snapshots"
 declare -A TREES=(
   [pyflightstream]="/c/WORK/ClaudeProjects/pyflightstream/_private"
   [itaca]="/c/WORK/ClaudeProjects/itaca/_private"
-  # The shared incident ledger read by both push gates. It lives in
-  # OneDrive so the author can add entries from her phone, and is
-  # versioned here for the same reason the _private trees are.
-  [shared]="/c/Users/geova/OneDrive/Education/ResearchHub/shared_incidents"
+  # The shared incident ledger read by both push gates. Its location is
+  # MACHINE CONFIGURATION, never a literal here: it lived under a personal
+  # user profile and a private cloud tree, inside this hashed body, in a
+  # file vendored into a public repository. Set COORD_SHARED_LEDGER_TREE to
+  # point at it; unset, the shared tree is simply skipped.
+  [shared]="${COORD_SHARED_LEDGER_TREE:-}"
 )
 
 g() { # g <repo> <git args...>
@@ -53,8 +55,15 @@ ensure() { # create the repo on first use
   [ -d "$BASE/${repo}_private.git" ] && return 0
   [ -d "${TREES[$repo]}" ] || return 1
   git --git-dir="$BASE/${repo}_private.git" --work-tree="${TREES[$repo]}" init -q
-  g "$repo" config user.name "Geovana Neves"
-  g "$repo" config user.email "geovanan90@gmail.com"
+  # Identity comes from the AMBIENT git configuration, never from this file.
+  # It used to be two literals here, which put a full name and a personal
+  # email address inside a hashed kit body that is vendored into a public
+  # repository. A snapshot tool needs an author, not this author.
+  local snap_name snap_email
+  snap_name=$(git config --get user.name 2>/dev/null || true)
+  snap_email=$(git config --get user.email 2>/dev/null || true)
+  g "$repo" config user.name "${snap_name:-private-snapshot}"
+  g "$repo" config user.email "${snap_email:-private-snapshot@localhost}"
   g "$repo" config core.autocrlf false   # restores must be byte exact
   g "$repo" config core.safecrlf false
   echo "created $BASE/${repo}_private.git"

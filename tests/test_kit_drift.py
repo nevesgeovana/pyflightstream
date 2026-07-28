@@ -8,17 +8,21 @@ and re-vendored, never hand-edited here, because a hand-edit is exactly the
 drift this level exists to stop: the gate fix that once sat in one repository
 while the other kept the defect it had reported.
 
-Seven of the nine vendored provenance headers still name the retired
-``_private/kit`` path. They are hash-pinned bodies, so correcting them here
-would be the hand-edit just forbidden. The two re-vendored at 0.2.3 corrected
-themselves, and they did so by a route worth naming, because the kit
-``README.md`` still prescribes the old wording and a re-vendor performed to
-its letter would have reproduced the stale pointer: the ``note:`` line sits
-ABOVE ``END KIT PROVENANCE``, so it is not hashed, and the kit's own rule is
-that a vendored copy RESTAMPS it. Writing the current path there is therefore
-the prescribed per-copy restamp with a corrected target, not a hand-edit of a
-pinned body. The remaining seven correct themselves on their next re-vendor;
-the kit-side wording fix stays the coordination level's.
+Four of the nine vendored provenance headers still name the retired
+``_private/kit`` path. Not because a hashed body forbids the correction: the
+``note:`` line is NOT hashed (see below), so it could be corrected at any
+time. They are stale for the ordinary reason that they have not been
+re-vendored since the path moved, and this repository has chosen to let the
+re-vendor carry the correction rather than to touch nine headers by hand. The
+five re-vendored since (two at 0.2.3, three at 0.2.4) corrected themselves,
+and they did so by a route worth naming, because the kit ``README.md`` still
+prescribes the old wording and a re-vendor performed to its letter would have
+reproduced the stale pointer: the
+``note:`` line sits ABOVE ``END KIT PROVENANCE``, so it is not hashed, and the
+kit's own rule is that a vendored copy RESTAMPS it. Writing the current path
+there is therefore the prescribed per-copy restamp with a corrected target,
+not a hand-edit of a pinned body. The remaining four correct themselves on
+their next re-vendor; the kit-side wording fix stays the coordination level's.
 
 This test is the mechanism. For every vendored file it splits the body at the
 ``END KIT PROVENANCE`` marker, recomputes the sha256, and asserts it equals
@@ -28,16 +32,45 @@ the manifest itself (the version and hashes this repository vendored); the
 test never reaches into the coordination tree at run time, so it needs no
 cross-repo filesystem access and cannot deadlock a push.
 
-Two deliberate wrinkles, both documented in the kit ``README.md``:
+Four notes on reading the manifest below. The first and the last are the
+kit's own wrinkles, documented in its ``README.md``; the middle two are this
+repository's record of one promotion and its own caveat about this test.
 
 * The manifest below is MIXED, and that is correct rather than drift: it pins
-  each file to its own body hash and body version. Two files carry a 0.2.3
+  each file to its own body hash and body version. Three files carry a 0.2.4
+  body (``role_review_gate.py``, ``incident-analyst.md`` and ``snap.sh``,
+  re-vendored 2026-07-28 for the privacy promotion below), two carry a 0.2.3
   body (both plan-checker files, re-vendored 2026-07-27 for the legacy-id
   grandfather hardening that this repository's own adoption review produced),
-  three carry a 0.2.2 body (the gate ``role_review_gate.py`` deny-message
-  taxonomy and both side-effect-guard files), and the artifacts untouched
-  since S5 keep their 0.1.0 body. Do not read any single version below as the
-  kit's version.
+  two carry a 0.2.2 body (both side-effect-guard files), and the artifacts
+  untouched since S5 keep their 0.1.0 body. Do not read any single version
+  below as the kit's version.
+* The 0.2.4 promotion was made for privacy, and it is two changes of very
+  different weight rather than one. It mattered here because
+  ``.claude/tools/snap.sh`` is TRACKED and this remote is public, so a hashed
+  kit body was publishing a personal name, a personal email address and a
+  personal user-profile path. Removing them from HEAD stops them spreading; it
+  does not unpublish them.
+
+  The first change is text only. Three first-name occurrences in the gate's
+  deny messages and one in the analyst charter became "the author". For the
+  gate this is verified rather than asserted: every replacement sits inside a
+  deny ``reason``/``remedy`` string literal, none in a condition, a return
+  value, a constant set or a comparison, so no allow or deny decision moved.
+
+  The second change is behaviour, and calling the whole promotion
+  behaviour-neutral would be false. ``snap.sh`` stopped setting the snapshot
+  repositories' git identity from two literals and now reads the ambient git
+  configuration with a neutral fallback, and the shared-ledger tree stopped
+  being a literal and became ``COORD_SHARED_LEDGER_TREE``. Its comment says an
+  unset variable means the tree is "simply skipped". That is NOT what happens
+  once the snapshot repository exists, which is the state of the machine this
+  tool runs on: ``ensure()`` returns early on the git-dir test before it ever
+  tests the tree, so the run reports ``snapshot taken (0 file(s))`` after four
+  git failures. A recovery tool reporting a snapshot it did not take is the
+  defect, the body is hash-pinned so it is not correctable here, and it is
+  registered as PLN-20260728-1615-snap-shared-tree-false-success against the
+  coordination level that owns the master.
 * What this test CANNOT see, stated because its green is easily over-read: it
   detects a hand-edit and it does not detect falling behind. The inlined
   manifest is a frozen copy by design, so a kit promotion this repository has
@@ -69,22 +102,23 @@ REPO_LEDGER_VAR = "PYFS_INCIDENT_LEDGER"
 
 # The vendored manifest, mixed body versions by design (see the module
 # docstring). Each entry is (repo-relative path, declared kit-version,
-# body-sha256, note target). The first three come verbatim from the kit
-# README.md and are the fixture the body assertions use.
+# body-sha256, note target). The kit-version and the body-sha256 come verbatim
+# from the kit README.md and are the fixture the body assertions use.
 #
 # The note target is this repository's own record, NOT the kit's. The `note:`
 # line sits above END KIT PROVENANCE, so it is outside the hashed body and no
 # hash can see it; it is also the one field a vendored copy is required to
 # restamp. Recording the expected target here is what makes the difference
 # between a prescribed restamp and an undetected hand-edit of the header: the
-# seven files still naming the retired `_private/kit` path record that fact,
-# so their next re-vendor changes this table deliberately rather than
-# invisibly.
+# files above that still name the retired `_private/kit` path record that
+# fact, so their next re-vendor changes this table deliberately rather than
+# invisibly. The count lives in the module docstring and deliberately not
+# here, because carrying it twice is how it went stale the last time.
 MANIFEST: dict[str, tuple[str, str, str]] = {
     ".claude/hooks/role_review_gate.py": (
-        "0.2.2",
-        "762297b3d7752710aa6146719e8c4540b6b05bbf851f71f5a66105b9db58134e",
-        "_private/kit",
+        "0.2.4",
+        "0a927d38feaed7b78b86e0d4dc860e80141ca46f55423bd0914adc88eb4b65b9",
+        "ClaudeCoordinator/kit",
     ),
     ".claude/hooks/write_attestation.py": (
         "0.1.0",
@@ -95,9 +129,9 @@ MANIFEST: dict[str, tuple[str, str, str]] = {
     # runtime agent (.claude/agents/incident-analyst.md) is a derivation of
     # this file, guarded separately below.
     ".claude/tools/incident-analyst.md": (
-        "0.1.0",
-        "9d2bc1bb38d6c249969cb268ce6e9b778457059d691a87cecda172f83f475eac",
-        "_private/kit",
+        "0.2.4",
+        "891fa0bce811aade6fe58494d99db2f048987871cf5487fda77d9ff180ef7beb",
+        "ClaudeCoordinator/kit",
     ),
     ".claude/tools/check_incidents.py": (
         "0.1.0",
@@ -105,9 +139,9 @@ MANIFEST: dict[str, tuple[str, str, str]] = {
         "_private/kit",
     ),
     ".claude/tools/snap.sh": (
-        "0.1.0",
-        "0da13e4da525c1c470dc4429ef6c557a3b74600ad817c534344e999180786383",
-        "_private/kit",
+        "0.2.4",
+        "7c9573aabe398576dd00c2a8a5acf0312fa289ff497ae56681225954d843f4cd",
+        "ClaudeCoordinator/kit",
     ),
     ".claude/tools/check_plan_kit.py": (
         "0.2.3",

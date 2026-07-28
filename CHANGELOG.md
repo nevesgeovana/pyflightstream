@@ -108,6 +108,53 @@ FlightStream versions.
   line, which is where a copy records that its body was built for the
   kit rather than adapted from the AGPL predecessor (`.claude/tools/`,
   `tests/test_kit_drift.py`; internal tooling, not a package surface).
+* Documentation and process: the shared process kit is re-vendored to
+  0.2.4 for the push gate, the incident-analyst charter and the private
+  snapshot tool, a promotion whose reason is privacy rather than
+  behaviour. `.claude/tools/snap.sh` is tracked and this remote is
+  public, and its hashed body set the snapshot repositories' git
+  identity from a personal name and a personal email address and located
+  the shared ledger at an absolute path under a personal user profile.
+  The 0.2.4 body reads the ambient git configuration with a neutral
+  fallback and locates the shared tree through a new
+  `COORD_SHARED_LEDGER_TREE`; three occurrences of a personal first name
+  in the gate's deny messages and one in the analyst charter now read
+  "the author", as do one line each in the `handoff` and `plan` skills.
+  No allow or deny decision changed, which was verified per replacement
+  rather than assumed: each sits inside a deny message string, none in a
+  condition, a return value, a constant set or a comparison. Removing
+  the identifiers from HEAD stops them spreading and does not unpublish
+  them; they remain in this repository's published history, and the
+  address is in the author metadata of every commit already on the
+  remote. Two things arrived with the promotion and are recorded rather
+  than smoothed. The new variable is documented in `CLAUDE.md`, which is
+  the only place it CAN be documented because the body that introduced
+  it is hash-pinned. And the 0.2.4 body's claim that an unset variable
+  skips the shared tree is false once the snapshot repository exists,
+  where it instead reports a snapshot it did not take; that is a kit
+  defect, registered against the coordination level that owns the
+  master, with the interim mitigation in `CLAUDE.md`
+  (`.claude/`, `CLAUDE.md`, `README.md`, `tests/`; internal tooling, not
+  a package surface).
+* The rule that machine-specific values never appear in a committed file
+  stops being prose. A tier-1 guard now fails on an email address or a
+  user-profile path in any TRACKED file, scanning `git ls-files` rather
+  than Markdown and Python only, which is how the file that leaked sat
+  outside every house-style guard by file type. The author's name is
+  deliberately NOT guarded: it is published on purpose in `LICENSE`,
+  `CITATION.cff`, `pyproject.toml`, the SRS and the guide, and guarding
+  a string that is meant to be published would need an allow-list long
+  enough to be its own defect. The guard carries its own falsification,
+  asserting that it fires on both shapes and stays quiet on the
+  impersonal forms the tree legitimately holds (a reserved
+  documentation domain, a loopback address, a forge no-reply sender, and
+  an action version pin, which is the mail shape without a dotted
+  top-level domain). Separately, `tests/test_env_contract.py` now reads
+  the vendored shell tools and the `COORD_` prefix, closing the two
+  independent reasons a new machine variable stayed invisible to the
+  guard built for exactly that (`tests/test_house_style.py`,
+  `tests/test_env_contract.py`; internal tooling, not a package
+  surface).
 * SRS 1.2.0 to 1.3.0: the author's Phase 4 acceptance batch, landed in full.
   NFR-19 (result column-schema stability), NFR-20 (deprecation policy),
   NFR-22 (dependency version envelope, with the pre-1.0 pin form and

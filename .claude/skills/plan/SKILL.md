@@ -73,7 +73,7 @@ Operations:
   `status: planned` and say so in the note.
 * `next`: propose the next work window: which items, in what order,
   with what acceptance criteria, against the current milestone's exit
-  criterion. Never decide alone; iterate with Geovana, then `add` the
+  criterion. Never decide alone; iterate with the author, then `add` the
   agreed items and update `<session-root>/STATUS.md`'s current
   focus.
 

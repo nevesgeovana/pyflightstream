@@ -101,8 +101,11 @@ Read the given file (typically a capture from a web session). Then:
 
 1. Extract decisions, findings, and next actions.
 2. Update `<session-root>/STATUS.md` and stage candidate items in
-   `_private/plan/` marked proposed, for Geovana to confirm via
-   `/plan`.
+   `_private/plan/` carrying `status: planned` and saying in the note
+   that they are proposed and unconfirmed, for the author to confirm
+   via `/plan`. The ledger has no `proposed` status and the validator
+   refuses one; `planned` is the form the `plan` skill prescribes for
+   exactly this state.
 3. Allocate its HND number, rename it into
    `<session-root>/handoffs/`, and log it.
 

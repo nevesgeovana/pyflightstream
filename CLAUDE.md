@@ -179,10 +179,13 @@ folder, never scattered at the top level. Conversation with the author
 may be in Portuguese; every committed artifact is in English
 (invariant 6).
 
-Machine configuration (never a literal path in a committed file). Three
+Machine configuration (never a literal path in a committed file). Four
 environment variables locate the local, machine-specific tooling and
 state, and all live in the gitignored `.claude/settings.local.json`, so
-a fresh clone must set them:
+a fresh clone must set them. The rule in the first sentence is enforced
+since 2026-07-28 by `tests/test_house_style.py`, which fails on an email
+address or a user-profile path in any tracked file; it was prose until a
+vendored tool published both on the public remote:
 
 - `PYFS_PLAN_CHECKER` names the plan-ledger validator the `plan` skill
   runs; the skill (`.claude/skills/plan/SKILL.md`) holds the authoritative
@@ -208,11 +211,38 @@ a fresh clone must set them:
   set one or two levels too high is readable, passes every rule stated
   here, and makes a pyflightstream session overwrite the coordination
   level's state file. Unset or unreadable is a configuration error to
-  report and stop on, never a skip. The asymmetry with the two above is
+  report and stop on, never a skip. The asymmetry with the plan checker
+  and the incident ledger is
   deliberate: an unset validator leaves a ledger written but unchecked,
   which is degraded and recoverable, whereas an unset session root would
   let a session believe it closed while writing its record nowhere
   (`PLN-20260727-1541-session-root-indirection`).
+- `COORD_SHARED_LEDGER_TREE` names the shared incident-ledger work tree
+  that the vendored `.claude/tools/snap.sh` snapshots. It is the one
+  variable here without the `PYFS_` prefix, and that is not an
+  oversight: the tree is owned at the coordination level and shared with
+  the sister library, so the kit names it. It is listed here anyway
+  because a fresh clone reads THIS file and nothing else, and because
+  the variable arrived inside a hash-pinned body that cannot document
+  itself. It is unrelated to `PYFS_INCIDENT_LEDGER` above despite the
+  similar name: that one LOCATES the ledger the push gate consults,
+  this one names the tree the snapshot tool backs up. If both point at
+  the same directory on a machine, that is a coincidence of setup and
+  neither reads the other. Unset means the shared tree is skipped and
+  no push is blocked. Read the next paragraph before relying on that
+  word: it is what the tool's comment claims, not what it does.
+
+  The 0.2.4 body is defective here and the defect is registered as
+  `PLN-20260728-1615-snap-shared-tree-false-success` against the
+  coordination level, which owns the master. `ensure()` returns early
+  when the snapshot repository already exists, before it ever tests the
+  tree, so on a machine that has snapshotted the shared tree before,
+  an unset variable does not skip: the run prints four git failures and
+  then `snapshot taken (0 file(s))`. A recovery tool reporting a
+  snapshot it did not take is the reason this is written down rather
+  than left for the next reader to discover. Until 0.2.5 lands, set the
+  variable or read the output of `snap.sh` rather than trusting its
+  last line.
 
 Two names collide across the boundary and the collision is deliberate,
 not an oversight. The session root has an `archive/` (the migrated inbox
@@ -223,7 +253,7 @@ The tier-1 guard in `tests/test_house_style.py` deliberately does NOT
 list `archive` among the migrated names, because `_private/archive/` is
 still a legitimate path here.
 
-A fourth variable, `CLAUDE_PROJECT_DIR`, appears in
+A fifth variable, `CLAUDE_PROJECT_DIR`, appears in
 `.claude/settings.json` and in the `plan` skill's validator command. It
 is NOT in the list above and must not be added to
 `.claude/settings.local.json`: the harness provides it at run time
@@ -236,7 +266,7 @@ whichever repository the current directory sits in, and since 2026-07-27
 a session routinely has two, so its failure mode is to silently validate
 a DIFFERENT repository. Loud-and-contingent beats silent-and-wrong.
 
-Summary of the three, because the unset and unreadable columns differ
+Summary of the four, because the unset and unreadable columns differ
 per variable and the difference is the trap:
 
 | Variable | Unset | Set but unreadable | Enforced by |
@@ -244,6 +274,7 @@ per variable and the difference is the trap:
 | `PYFS_PLAN_CHECKER` | skips validation | report, does not block a push | instruction only (the drift test guards the checker body, not this behaviour) |
 | `PYFS_INCIDENT_LEDGER` | check does not apply | blocks a push | `role_review_gate.py`, tier-1 `test_push_gate.py` |
 | `PYFS_SESSION_ROOT` | stop, configuration error | stop, configuration error | **instruction only, see below** |
+| `COORD_SHARED_LEDGER_TREE` | shared tree skipped, and see the defect above | same skip | documented-here only; `tests/test_env_contract.py` enforces that it IS documented, not what it does |
 
 Weakness stated, not hidden, for both variables that have one.
 
@@ -254,7 +285,7 @@ omission visible. The load-bearing guard is the tier-1 kit drift test
 missing or drifts from the kit; the env var only points the `plan` skill
 at whichever checker is active.
 
-`PYFS_SESSION_ROOT` makes the strongest promise of the three and has the
+`PYFS_SESSION_ROOT` makes the strongest promise of the four and has the
 weakest enforcement: **no code reads it.** No hook, no test and no
 module in `src/` consults it, because its consumer is an agent following
 a skill, not a program. A session that ignores the stop rule fails

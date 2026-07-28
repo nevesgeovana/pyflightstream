@@ -1,10 +1,10 @@
 <!--
 ITACA / pyflightstream shared process kit
-kit-version: 0.1.0
+kit-version: 0.2.4
 artifact: incident-analyst.md
-body-sha256: 9d2bc1bb38d6c249969cb268ce6e9b778457059d691a87cecda172f83f475eac
+body-sha256: 891fa0bce811aade6fe58494d99db2f048987871cf5487fda77d9ff180ef7beb
 canonical-source: itaca superset (canonical). Carries the empty-scope structural-cause shape and the exact-character-claims section that the pyflightstream copy lacked; pyflightstream re-derives its stamped copy from this.
-note: derived copy; canonical master at the coordination level (`_private/kit`); do not hand-edit, re-vendor on promotion.
+note: derived copy; canonical master at the coordination level (`ClaudeCoordinator/kit`); do not hand-edit, re-vendor on promotion.
 END KIT PROVENANCE (body verbatim below)
 -->
 ---
@@ -96,7 +96,7 @@ overstates its own evidence is the same defect class it is investigating.
 
 You report, you do not edit. Severity and the `blocking` flag are
 proposals; whether an open incident blocks a push is an author-seat call
-(Geovana holds the non-delegable seats), and the ledger requires a
+(the author holds the non-delegable seats), and the ledger requires a
 written justification whenever `blocking` is false. If you find yourself
 arguing that an incident should not block because fixing it is
 inconvenient, say that out loud in the record and route it to the

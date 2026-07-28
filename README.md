@@ -127,10 +127,12 @@ docs is generated from the database at build time.
 
 ## Development setup
 
-Maintainers: three machine-specific environment variables locate local
+Maintainers: several machine-specific environment variables locate local
 tooling and session state and are not in Git. A fresh clone must set
 them in `.claude/settings.local.json`; `CLAUDE.md` (Session protocol)
-is their single home and states what each one does when unset.
+is their single home, lists them, and states what each one does when
+unset. The count is deliberately not repeated here: it lived in two
+places and went stale in this one.
 
 ```
 pip install -e .[dev,fsi,geom]
