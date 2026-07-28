@@ -151,23 +151,51 @@ will be.
     not your schedule: pin `pyflightstream<0.5` and stay on the
     pandas/xarray surface.
 
-* **`to_dataframe`, `run_frame` and `sweep_frame` are renamed to
-  `to_table`, `run_table` and `sweep_table` in v0.4.0, directly, with no
-  aliases and no warning.**
-  Signatures and behavior are otherwise unchanged, so the migration is
-  a mechanical rename at the call site. All four names are imported
-  from `pyflightstream.results`, and `to_csv` is NOT among them: it
-  keeps its name, because csv is a format rather than a library.
+* **The tabular layer is renamed in v0.4.0, directly, with no aliases
+  and no warning.** Behavior is unchanged; the names and one argument
+  form are what move. Everything below is imported from
+  `pyflightstream.results`.
 
-    All three move in one window on purpose. `to_dataframe` names a
-    library it stops returning at v0.5.0, so leaving it would edit the
-    same call sites in two consecutive minors for one decision, and the
-    other two remove the collision between the pandas word "frame" and
-    the aerodynamic reference frame, which is a real ambiguity in a
-    library that reports both. A 2026-07-23 decision had put a
-    deprecation cycle on the `run_frame`/`sweep_frame` pair; the policy
-    above supersedes that. `to_dataframe` entered the window on
-    2026-07-27 and never had a cycle promised.
+    What breaks. Three names: `to_dataframe` becomes `to_table`,
+    `run_frame` becomes `run_table`, `sweep_frame` becomes
+    `sweep_table`. And one argument form, riding the same window: the
+    optional parameters below become keyword-only, so passing them
+    positionally stops working.
+
+    ```
+    to_table(result)                                  # was to_dataframe
+    run_table(record, *, loads=None)                  # was run_frame
+    sweep_table(workspace, *, loads_file=None)        # was sweep_frame
+    parse_run_loads(workspace, record, *, loads_file=None)   # name unchanged
+    ```
+
+    What survives. `to_csv` keeps its name, csv being a format rather
+    than a library. The run row's `frame` column keeps its name too:
+    once `run_frame` is `run_table`, the word carries only its
+    aerodynamic sense on the public surface, which is exactly what that
+    column means.
+
+    What to do. Rename the three, and pass `loads` and `loads_file` by
+    name. The keyword form already works today, so that half of the
+    edit can be made now and carried through the rename unchanged. The
+    names themselves have no both-version form, since no alias ships.
+
+    Why one window. `to_dataframe` names a library it stops returning at
+    v0.5.0, and the other two collide with the aerodynamic reference
+    frame, which is a real ambiguity in a package that reports both;
+    doing them separately would edit the same call sites twice for one
+    decision. The keyword-only conversion joins them because those call
+    sites are already being edited, with `run_campaign` as the shipped
+    precedent for the form, and because after 1.0 the policy above would
+    make the same change cost a warning release plus a major.
+    `parse_run_loads` is the one exception to the zero-cost argument: it
+    is not renamed, so its callers pay one edit rather than none, which
+    was accepted over leaving a fourth positional site behind.
+
+    A 2026-07-23 decision had put a deprecation cycle on the
+    `run_frame`/`sweep_frame` pair; the policy above supersedes that.
+    `to_dataframe` entered the window on 2026-07-27 and never had a
+    cycle promised.
 
 * **Erratum to the 0.3.0 notes**, which said the ITACA data adapter
   "is declared as a pyflightstream `[itaca]` extra". It was not: no

@@ -234,12 +234,17 @@ rather than an omission.
     patch release never changes the public surface. Both bounds are the
     author's decision of 2026-07-27, taken on the API-design review's
     proposal and knowing that the package has never shipped a patch
-    release, so they state intent rather than describe history. Two consequences the
-    author accepted knowingly: v0.5.0 removes the tidy table with no
-    exit path, and v0.4.0 renames `to_dataframe`, `run_frame` and
-    `sweep_frame` directly (the 2026-07-23 answer that had put a
-    deprecation cycle on the last two is superseded). A declared posture is not the same as a
-    warned user.
+    release, so they state intent rather than describe history.
+
+    Consequences the author accepted knowingly, among them: v0.5.0
+    removes the tidy table with no exit path; v0.4.0 renames
+    `to_dataframe`, `run_frame` and `sweep_frame` directly (the
+    2026-07-23 answer that had put a deprecation cycle on the last two
+    is superseded); and v0.4.0 also converts optional parameters of the
+    tabular layer to keyword-only, which is a public PARAMETER breaking
+    in a minor with no warning release, the same posture applied to the
+    element kind this requirement names second. A declared posture is
+    not the same as a warned user.
 
     A promise ALREADY recorded is kept regardless of version. Every live
     MODULE shim ([glossary](index.md#glossary)) is an entry in the
