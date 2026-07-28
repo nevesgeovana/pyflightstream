@@ -86,11 +86,81 @@ FlightStream versions.
   the bash-form variable as a path, which in PowerShell expands to
   nothing silently) and a house-style check that no committed file
   re-hardcodes a migrated session path; `tests/test_plan_checker.py`
-  now also pins that the plan checker fails loud on an unresolvable
-  path and, deliberately, that it exits zero on an empty ledger
-  directory, which is a weakness recorded rather than hidden
-  (`.claude/` skills and `CLAUDE.md`; internal tooling, not a package
-  surface).
+  now also pins the plan checker's exit taxonomy, seven tests over the
+  six documented outcomes plus the usage branch that shares an exit code
+  with one of them, including two weaknesses recorded rather than hidden
+  (an empty ledger directory exits zero, and a DELETED exemption list
+  stays silent while every legacy id fails at once) (`.claude/` skills
+  and `CLAUDE.md`; internal tooling, not a package surface).
+* Documentation and process: the shared process kit is re-vendored from
+  0.2.2 to 0.2.3 for the plan checker and its mutation companion, a
+  promotion this repository's own adoption review produced and then ran
+  three days behind. The hardening it brings is that a `legacy_ids.txt`
+  which exists but cannot be read is now a named `CONFIG ERROR` at exit
+  2 before validation, instead of being swallowed into an empty
+  exemption set and reported as 88 ledger defects pointing at the one
+  fix the plan rules forbid. Also recorded, because the drift test's
+  green is easy to over-read: that test detects a hand-edit and cannot
+  detect falling behind, which is why the lag was invisible. The drift
+  test also gained pins on the two provenance-header fields that sit
+  outside the body hash and that no assertion previously reached: the
+  `note:` target of each vendored copy, and the `canonical-source:`
+  line, which is where a copy records that its body was built for the
+  kit rather than adapted from the AGPL predecessor (`.claude/tools/`,
+  `tests/test_kit_drift.py`; internal tooling, not a package surface).
+* SRS 1.2.0: the author's Phase 4 acceptance batch begins landing.
+  NFR-19 (result column-schema stability), NFR-20 (deprecation policy),
+  NFR-22 (dependency version envelope, with the pre-1.0 pin form and
+  the Python-ceiling propagation), NFR-23 (layering guard) and NFR-24
+  (software jargon glossed) are added; AD-05, AD-06 and AD-07 are
+  restated; the glossary gains the software terms NFR-24 requires. The
+  user-facing consequences are in Deprecated below.
+
+### Deprecated
+
+Keep a Changelog's sense of the word, soon-to-be removed, and NOT the
+runtime-warning sense: nothing below emits a warning, because the
+policy that would require one takes effect at 1.0 (SRS NFR-20). This
+section is the notice, and for the removals it is the only one there
+will be.
+
+* **pandas and xarray leave the runtime dependencies at v0.5.0, and
+  ITACA becomes a core dependency in their place** (SRS AD-06 and
+  AD-07, the author's decision of 2026-07-27). Nothing changes in this
+  release: both are still declared, still imported, and everything
+  works exactly as it does today.
+
+    What actually breaks at v0.5.0, stated in full rather than by its
+    most visible case. The tabular layer (`results.tables`) stops
+    returning pandas DataFrames. AND the far-field and plot-writer
+    surface goes with it: `farfield` takes and returns
+    `xarray.Dataset`/`DataArray` in the signatures of some fifteen
+    public functions (`lattice_dataset`, `mass_closure`, `shaft_torque`,
+    `azimuthal_harmonics` and the rest of the ledgers), and
+    `post.writers` consumes those structures. A rotor or far-field user
+    is affected as much as a table user.
+
+    What survives: the column NAMES and their units are unchanged (SRS
+    NFR-19); the container type is what changes. What to do if that is
+    not your schedule: pin `pyflightstream<0.5` and stay on the
+    pandas/xarray surface.
+
+* **`run_frame` and `sweep_frame` are renamed to `run_table` and
+  `sweep_table` in v0.4.0, directly, with no aliases and no warning.**
+  Signatures and behavior are otherwise unchanged, so the migration is
+  a mechanical rename at the call site. A 2026-07-23 decision had put a
+  deprecation cycle on it; the policy above supersedes that. The rename
+  removes the collision between the pandas word "frame" and the
+  aerodynamic reference frame, which is a real ambiguity in a library
+  that reports both.
+
+* **Erratum to the 0.3.0 notes**, which said the ITACA data adapter
+  "is declared as a pyflightstream `[itaca]` extra". It was not: no
+  such extra was ever added to `pyproject.toml`, and none will be.
+  ITACA arrives as a core, non-optional dependency instead (AD-07).
+  A released entry is never rewritten, so that one carries a
+  supersession note in place and the correction itself lives here,
+  which is what this file already does for three 0.3.0 entries.
 
 ### Fixed
 
@@ -528,7 +598,9 @@ PHY-05/06 across versions.
   libraries may generate requirements for each other, the docs gain
   the sister library page describing the division of labor and the
   cross-requirement convention, and the future data adapter is
-  declared as a pyflightstream `[itaca]` extra (ITACA stays
+  declared as a pyflightstream `[itaca]` extra (superseded: no such
+  extra was ever added to `pyproject.toml` and none will be; ITACA
+  arrives as a core dependency, see Unreleased) (ITACA stays
   solver-agnostic and never imports this package).
 
 ## [0.2.0] - 2026-07-22

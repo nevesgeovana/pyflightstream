@@ -317,7 +317,7 @@ class LoadsAssessor:
         file name (any directory part of the declared name is dropped
         by collection). None, the default, finds the collected output
         that parses as a loads table, the same rule
-        :func:`pyflightstream.results.tables.loads_table` uses on the
+        :func:`pyflightstream.results.tables.parse_run_loads` uses on the
         manifest: a swept case names its outputs per point
         (``loads_{point}.txt``), so no single literal could name them
         all, and the content is what identifies the file anyway.

@@ -53,9 +53,11 @@ _UNIT_SUFFIX = re.compile(
 
 #: Field names accepted without a unit suffix, each with its reason.
 #: Class (a): dimensionless by physics. Class (b): naming debt pinned
-#: by a released file format or interface; renaming needs its own
-#: deprecation cycle (registered with lane C at the 2026-07-23 session,
-#: candidate plan item). New entries join with a stated reason.
+#: by a released file format or interface; renaming one is a public
+#: rename announced in the changelog's API surface delta, and a
+#: deprecation cycle is owed only from 1.0 (SRS NFR-20, which replaced
+#: the 2026-07-23 posture this comment used to state). New entries join
+#: with a stated reason.
 _DIMENSIONLESS_OR_DEBT = {
     # (a) dimensionless by physics or by construction
     "stiffness_scale_factor",  # multiplier on EI/GJ

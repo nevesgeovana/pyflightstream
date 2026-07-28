@@ -29,9 +29,10 @@ private session records carry the day-to-day detail.
 | Post-processing completion | FR-20 (labeled result arrays, interpolation, trim extraction) and FR-21 (established plot-file writers) | Design session |
 | Process adoption backlog | VCS-derived versioning, executable doc examples, mechanical repo review, supply-chain posture, support-window declaration (see [standards](standards.md)) | The author's per-item decisions |
 | Integrations | The RPT-008 decision list: pyvista viz extra, documented external-tool bridges | The author's review |
-| ITACA adapter | The `[itaca]` extra of AD-07: manifest, solver-setup snapshot, and result tables exported as ITACA datasets with provenance (supersedes the RPT-008 on-hold entry) | Dedicated session; ITACA capability per structure |
+| ITACA migration | AD-06 and AD-07: pandas and xarray leave the runtime set, ITACA becomes a core dependency, and the manifest, solver-setup snapshot and result tables become ITACA structures with provenance (supersedes both the RPT-008 on-hold entry and the `[itaca]` optional extra this row used to describe) | The far-field halves land in ITACA's `pproc/` and `aerospace/` first; the removal release is v0.5.0 (NFR-06) |
 | HPC executor | FR-15 | Research-group cluster path |
 | Docs toolchain | The generator's upstream governance question | The author's decision |
+| Published API reference | NFR-19's open half: the result column schemas are documented in source docstrings, which a reader cannot open from the docs site, because the site publishes no Python API reference (mkdocstrings was considered and dropped at v0.3.0) | The author's scope call: whether a rendered API reference belongs in this documentation set at all |
 
 ## Requirement-to-work traceability
 

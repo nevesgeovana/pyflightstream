@@ -53,8 +53,9 @@ without anyone noticing (PP-5, PP-6). The design answer is structural:
   not a shorter table.
 - Run identity lives in the manifest, never in folder names; names are
   generated conveniences and are never parsed back.
-- The escape hatch (`raw` emission) exists but is recorded in the
-  manifest, so no run silently depends on unvalidated commands.
+- The escape hatch ([glossary](index.md#glossary)) is `raw` emission: it
+  exists, but it is recorded in the manifest, so no run silently depends
+  on unvalidated commands.
 
 ## Clean room
 

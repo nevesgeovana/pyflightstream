@@ -75,3 +75,85 @@ def test_srs_requirement_ids_are_unique() -> None:
             )
             seen[req_id] = page.name
     assert len(seen) >= 40, "The SRS requirement sweep found suspiciously few ids."
+
+
+def _glossary_rows() -> dict[str, str]:
+    """Return the SRS glossary as ``{term: meaning}``, lowercased keys.
+
+    The section runs to the next heading rather than to end of file, so a
+    section appended after the glossary cannot silently widen the term
+    source.
+    """
+    index = (REPO_ROOT / "docs" / "srs" / "index.md").read_text(encoding="utf-8")
+    body = index.partition("## Glossary")[2]
+    assert body, "the SRS index lost its Glossary section"
+    rows: dict[str, str] = {}
+    for line in body.splitlines():
+        if line.startswith("## "):
+            break
+        if not line.startswith("|") or line.count("|") < 3:
+            continue
+        cells = line.split("|")
+        term = cells[1].strip().strip("`")
+        if term.lower() in ("term", "") or set(term) <= {"-", ":"}:
+            continue
+        rows[term.lower()] = cells[2].strip()
+    return rows
+
+
+def _terms_nfr24_names() -> list[str]:
+    """Parse the term list out of NFR-24's own text.
+
+    Derived rather than duplicated, deliberately. A hand-maintained copy of
+    this list here would pass whenever a term is added to the requirement
+    and not to the glossary, which is the exact direction of drift NFR-24
+    exists to stop; the constant that used to sit here had that hole.
+    """
+    text = (REPO_ROOT / "docs" / "srs" / "nonfunctional-requirements.md").read_text(
+        encoding="utf-8"
+    )
+    body = text.partition("NFR-24")[2]
+    assert body, "NFR-24 is gone from the SRS"
+    anchor = "requirement's list ("
+    assert anchor in body, (
+        f"NFR-24 no longer carries its term list behind {anchor!r}. The list is "
+        "the requirement's own text and this parse follows it; if the wording "
+        "moved, move this anchor with it deliberately."
+    )
+    start = body.index(anchor) + len(anchor)
+    terms = [term.strip().strip("`") for term in body[start : body.index(")", start)].split(",")]
+    return [term for term in terms if term]
+
+
+def test_every_software_term_nfr24_names_has_a_glossary_row() -> None:
+    """NFR-24: the declared audience is not a software audience.
+
+    The SRS states a readership of aerodynamicists, so an unglossed
+    software term is a clarity defect rather than a style nit. This test is
+    the falsifiable half of the requirement: naming a new term in NFR-24
+    without adding its glossary row fails here, and so does deleting or
+    emptying a row a named term still relies on.
+
+    The requirement's other half, glossing a term at its FIRST use, stays a
+    documentation review check. No cheap test tells a first use from a
+    later one, and claiming this test covered both would be exactly the
+    overstated guard this repository's incident record warns about.
+    """
+    named = _terms_nfr24_names()
+    assert len(named) >= 6, (
+        f"NFR-24's term list parsed as {named}, which is too short to be the "
+        "real list; the parse or the requirement text changed shape"
+    )
+    rows = _glossary_rows()
+
+    missing = [term for term in named if term.lower() not in rows]
+    assert not missing, (
+        f"NFR-24 names software terms with no SRS glossary row: {missing}. "
+        f"Glossary terms found: {sorted(rows)}"
+    )
+
+    empty = [term for term in named if not rows[term.lower()]]
+    assert not empty, (
+        f"these glossary rows exist but gloss nothing: {empty}. A row with an "
+        "empty meaning satisfies the letter of NFR-24 and none of its purpose."
+    )

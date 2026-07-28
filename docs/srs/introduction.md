@@ -47,9 +47,10 @@ licensed Python driver for FlightStream. pyflightstream fills that gap.
 ### The licensing constraint
 
 pyflightstream is MIT licensed. Because the ecosystem predecessor is
-AGPL-3.0, the command-emitter layer is a clean-room implementation,
-specified only from the official manual and from observed solver
-behavior on licensed machines. The AGPL code is never read at code
+AGPL-3.0, the command-emitter layer is a clean-room implementation
+([glossary](index.md#glossary), where this and the other software
+terms of this document are defined): specified only from the official
+manual and from observed solver behavior on licensed machines. The AGPL code is never read at code
 level. The author's own logic in her legacy scripts (run-matrix
 driver, output parsers, writers, axis transforms) is her intellectual
 property and migrates freely.

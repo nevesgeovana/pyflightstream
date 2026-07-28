@@ -128,6 +128,64 @@ def test_to_dataframe_refuses_unknown_inputs_didactically():
 # --- step 2: run-level merge -------------------------------------------
 
 
+#: The complete run-row column schema, written out rather than derived from
+#: `_RUN_IDENTITY_COLUMNS` / `_RUN_OUTCOME_COLUMNS`. Deriving it would move
+#: with the code and prove nothing. SRS NFR-19 promises that these names and
+#: their units are a public contract and that a change to them is ANNOUNCED;
+#: the other tests in this module pin fragments and per-name lookups, which
+#: catch a rename but not a column silently ADDED in the middle. This literal
+#: makes any schema change a deliberate two-file edit, which is what
+#: "announced" has to mean mechanically.
+#:
+#: Order is NOT part of the promise (NFR-19 says so explicitly). It is
+#: asserted here anyway because a list comparison is the readable form, and a
+#: pure reorder failing this test is the intended prompt to check the
+#: changelog, not a defect claim.
+RUN_ROW_SCHEMA = [
+    "run_id",
+    "sim_id",
+    "alpha",
+    "fs_version_requested",
+    "fs_version_reported",
+    "fs_build",
+    "package_version",
+    "status",
+    "iterations",
+    "residual",
+    "wall_time_s",
+    "frame",
+    "force_units",
+    "moment_units",
+    "Cx",
+    "Cy",
+    "Cz",
+    "CL",
+    "CDi",
+    "CDo",
+    "CMx",
+    "CMy",
+    "CMz",
+]
+
+
+def test_run_frame_exposes_the_documented_column_schema():
+    """NFR-19: the run row's full column set is the public contract.
+
+    `alpha` is the sweep-axis column of this fixture; a case swept on another
+    axis carries that axis's name instead, which is why the sweep axis sits
+    between the identity block and the version block rather than at the end.
+    """
+    loads = parse_loads(read_fixture("loads_steady_26.120.txt"))
+    record = make_record(
+        iterations=312, residual=3.2e-6, wall_time_s=41.5, outputs=["raw/loads.txt"]
+    )
+    assert list(run_frame(record, loads).columns) == RUN_ROW_SCHEMA, (
+        "the run-row column schema changed. SRS NFR-19 makes these names a "
+        "public contract: announce the change in the changelog's API surface "
+        "delta and update this list in the same commit."
+    )
+
+
 def test_run_frame_joins_identity_conditions_and_total_coefficients():
     loads = parse_loads(read_fixture("loads_steady_26.120.txt"))
     record = make_record(

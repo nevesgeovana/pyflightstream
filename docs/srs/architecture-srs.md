@@ -50,28 +50,72 @@ structural side of the aeroelastic loop), `probes` and `farfield`
     from the filesystem.
 
 !!! decision "AD-05 Optional heavy dependencies behind extras"
-    The core runtime set stays minimal (numpy, pandas, PyYAML,
-    pydantic, xarray). Structural analysis (`[fsi]`), geometry gating
-    (`[geom]`), and plotting (`[plot]`) are optional extras with
-    license evidence recorded before adoption; a missing extra fails
-    with the didactic install hint, never an ImportError traceback.
+    The core runtime set stays minimal; [NFR-06](nonfunctional-requirements.md)
+    is its single home and this decision does not restate it.
+    Structural analysis (`[fsi]`), geometry gating (`[geom]`), and
+    plotting (`[plot]`) are optional extras with license evidence
+    recorded before adoption; a missing extra fails with the didactic
+    install hint, never an ImportError traceback.
 
-!!! decision "AD-06 Domain structures in their domains"
-    Tables are pandas; multidimensional labeled fields are xarray.
-    The two never substitute for each other.
+!!! decision "AD-06 One substrate for results (restated 2026-07-27)"
+    Tabular results and multidimensional labeled fields rest on one
+    substrate ([glossary](index.md#glossary)): the sister library's
+    structures over NumPy. pandas and xarray leave the runtime set.
 
-!!! decision "AD-07 Co-development with ITACA (2026-07-23)"
+    This decision previously read "tables are pandas; multidimensional
+    labeled fields are xarray, and the two never substitute". The
+    author's decision of 2026-07-27 does not adapt that reading, it
+    invalidates it: the package stops carrying its own table and
+    labeled-field stack. The old text is recorded here rather than
+    deleted, because a decision that changes content is only readable
+    against what it replaced.
+
+    Transition, stated because the code and this decision do not yet
+    agree. pandas and xarray are still declared and still imported at
+    three sites in `src/` (`results/tables.py`, `farfield/__init__.py`,
+    `post/writers.py`, with the test suite as a fourth surface), and
+    they stay through v0.4.0. v0.5.0 removes them, that release number
+    being stated by [NFR-06](nonfunctional-requirements.md) as its home
+    of record. There is no deprecation cycle in between and that is
+    deliberate:
+    [NFR-20](nonfunctional-requirements.md) governs from 1.0, so a
+    consumer finds out on upgrade. The accepted cost is stated in the
+    decision record, not softened here.
+
+    Who "a consumer" means is worth naming, because the shorthand for
+    this decision has been "the tidy table"
+    ([glossary](index.md#glossary)) and that is the smaller half.
+    `farfield` carries xarray in the SIGNATURES of its public ledger
+    functions, so a rotor or far-field user is affected exactly
+    as much as a table user. The changelog notice states both.
+
+!!! decision "AD-07 ITACA as a core dependency (2026-07-23, restated 2026-07-27)"
     pyflightstream and [ITACA](https://github.com/nevesgeovana/itaca)
     are sister libraries by the same author, born integrated: each may
     generate requirements for the other, and each documents awareness
     of the other's architecture (see the
-    [sister library page](../sister-itaca.md)). The adapter that emits
-    ITACA datasets lives here, behind a future optional `[itaca]`
-    extra; ITACA stays solver-agnostic and never imports
-    pyflightstream (its DD-22 and DD-23 record the same seam from the
-    other side). AD-06 remains in force; it evolves per structure as
-    ITACA capabilities land, each migration an evidenced change, never
-    a wholesale replacement.
+    [sister library page](../sister-itaca.md)). ITACA stays
+    solver-agnostic and never imports pyflightstream (its DD-22 and
+    DD-23 record the same seam from the other side), so anything
+    crossing the seam takes generic arrays and never FlightStream
+    probes.
+
+    What changed on 2026-07-27: ITACA was a *future optional* `[itaca]`
+    extra and becomes a *core runtime dependency*, because AD-06 now
+    rests on it. Two things follow that are easy to get wrong.
+
+    - This is a creation, not a promotion. No `[itaca]` extra has ever
+      existed here; the string does not appear in `pyproject.toml`. A
+      review pass that asserted otherwise was wrong.
+    - The dependency's own metadata propagates to ours: its version pin
+      form and its `requires-python` ceiling are governed by
+      [NFR-22](nonfunctional-requirements.md), which is their single
+      home.
+
+    The direction is not a change of direction. The sister already
+    recorded that this driver's pandas and xarray usage migrates to it;
+    what the author changed is the pace and the granularity, from per
+    structure to one move.
 
 ## Command-line surface
 

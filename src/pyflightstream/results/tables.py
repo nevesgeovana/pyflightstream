@@ -1,4 +1,4 @@
-"""Tabular views of parsed FlightStream results, on pandas.
+"""Tabular views of parsed FlightStream results, on pandas for now.
 
 Pipeline role: turns the typed parser outputs of
 :mod:`pyflightstream.results` (and, when the optional ``[fsi]`` extra
@@ -6,8 +6,12 @@ is installed, the sectional loads report of
 :mod:`pyflightstream.fsi.loads`) into tidy :class:`pandas.DataFrame`
 tables, then assembles run-level and sweep-level tables by joining the
 campaign manifest records with the parsed coefficient tables. Tables
-are the pandas domain of the package; labeled physical fields stay on
-xarray in :mod:`pyflightstream.farfield` (PLN-006 division).
+rest on pandas today and labeled physical fields on xarray in
+:mod:`pyflightstream.farfield`; both substrates leave the runtime set
+at the release SRS NFR-06 names (SRS AD-06, which replaced the division
+this docstring used to state as permanent). Downstream code should
+depend on the documented column schema (SRS NFR-19), not on the
+library holding the values.
 
 Three steps of one ladder:
 
@@ -511,7 +515,7 @@ def _run_row(record: RunRecord, loads: LoadsReport | None) -> dict[str, object]:
 
 
 def _as_workspace(workspace: CampaignWorkspace | str | Path) -> CampaignWorkspace:
-    """Coerce a root path to the managed workspace of the files layer.
+    """Coerce a root path to the managed workspace of the workspace layer.
 
     The import is deferred to the call (module docstring): tabulating
     results must not make the parsing layer import the execution

@@ -62,7 +62,8 @@ Milestones and session records are listed in the
     interference.
 
 !!! requirement "FR-06 Curated helpers <span class='srs-implemented'>implemented</span>"
-    *Origin: BRF-04. Evidence: milestone M2; helper goldens.*
+    *Origin: BRF-04. Evidence: milestone M2; helper goldens
+    ([glossary](index.md#glossary)).*
 
     A curated set of thin helpers covers the common steady and
     unsteady workflows. Helpers emit database-validated commands and
@@ -112,7 +113,8 @@ Milestones and session records are listed in the
 
 !!! requirement "FR-11 Lossless one-command conversion <span class='srs-implemented'>implemented</span>"
     *Origin: BRF-08, BRF-16. Evidence: milestone M2; TOML round-trip
-    tests; the `pyfs-matrix convert` CLI (v0.3 line).*
+    tests ([glossary](index.md#glossary)); the `pyfs-matrix convert`
+    CLI (v0.3 line).*
 
     A convert command turns a run matrix into the native campaign
     format, one command, optional, and lossless. The matrix POL
@@ -134,7 +136,7 @@ Milestones and session records are listed in the
 
     Execution goes through an executor interface. The local executor
     uses subprocess with a timeout, checks return codes, and never
-    uses shell=True.
+    uses `shell=True` ([glossary](index.md#glossary)).
 
 !!! requirement "FR-14 Every point terminates in a status <span class='srs-implemented'>implemented</span>"
     *Origin: PP-5, BRF-12. Evidence: milestone M2; campaign-loop
@@ -193,7 +195,8 @@ Milestones and session records are listed in the
     re-parameterization, and trim extraction by interpolating a
     moment coefficient to zero. Partially covered today: sweep
     assembly landed as tabular results (FR-32) and field data as the
-    far-field ledgers on xarray; the interpolation and trim API
+    far-field ledgers, which are xarray structures until v0.5.0
+    ([AD-06](architecture-srs.md)); the interpolation and trim API
     remains open.
 
 !!! requirement "FR-21 Established plot-file writers <span class='srs-pending'>pending</span>"
@@ -331,10 +334,17 @@ the session records.
     *Origin: usage feedback. Evidence: the v0.3 line; table tests on
     the sanitized fixtures.*
 
-    Every parser result converts to a tidy DataFrame and to csv; a
-    run merges into one wide row (identity, conditions, coefficients,
-    with identity cross-checks); a whole sweep assembles from the
-    manifest alone.
+    Every parser result converts to a tidy table
+    ([glossary](index.md#glossary)) and to csv; a run merges into one
+    wide row (identity, conditions, coefficients, with identity
+    cross-checks); a whole sweep assembles from the manifest alone.
+
+    The tidy table is a pandas DataFrame today and stops being one at
+    v0.5.0 ([AD-06](architecture-srs.md) is the decision;
+    [NFR-06](nonfunctional-requirements.md) is the home of the release
+    number). The shape is the
+    requirement, not the library holding it, and the column schema that
+    survives the change is [NFR-19](nonfunctional-requirements.md).
 
 !!! requirement "FR-33 Input-artifact library and naming templates <span class='srs-implemented'>implemented</span>"
     *Origin: BRF-20. Evidence: the v0.3 line; artifact and
