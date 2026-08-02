@@ -40,8 +40,19 @@ def _project_version() -> str:
     return data["project"]["version"]
 
 
+# Every deliberate re-import below is wrapped in the restored_module
+# fixture (tests/conftest.py), which puts sys.modules back afterwards.
+# These tests are where the damage was measured: pyflightstream.versions
+# was used here as an "importable stand-in", so the session went on with
+# two FsVersion classes and the failure surfaced three test modules away
+# from its cause.
+
+
 def _fresh_import(module: str):
-    """Import the shim as a user would, DeprecationWarning silenced."""
+    """Import the shim as a user would, DeprecationWarning silenced.
+
+    The caller owns the restore; see the ``restored_module`` fixture.
+    """
     sys.modules.pop(module, None)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", DeprecationWarning)
@@ -59,7 +70,7 @@ def test_removal_promise_is_well_formed(entry: DeprecatedModule) -> None:
 
 
 @pytest.mark.parametrize("entry", DEPRECATED_MODULES, ids=lambda e: e.module)
-def test_no_shim_survives_its_removal_version(entry: DeprecatedModule) -> None:
+def test_no_shim_survives_its_removal_version(entry: DeprecatedModule, restored_module) -> None:
     """The deadline itself: an expired shim fails the suite.
 
     Before the recorded removal version the shim must exist (a ledger
@@ -70,11 +81,12 @@ def test_no_shim_survives_its_removal_version(entry: DeprecatedModule) -> None:
     """
     current = parse_version(_project_version())
     expired = current >= parse_version(entry.removal_version)
-    try:
-        _fresh_import(entry.module)
-        importable = True
-    except ModuleNotFoundError:
-        importable = False
+    with restored_module(entry.module):
+        try:
+            _fresh_import(entry.module)
+            importable = True
+        except ModuleNotFoundError:
+            importable = False
     if expired:
         assert not importable, (
             f"{entry.module} promised removal in v{entry.removal_version} "
@@ -91,7 +103,7 @@ def test_no_shim_survives_its_removal_version(entry: DeprecatedModule) -> None:
         )
 
 
-def test_the_guard_itself_fires_on_an_expired_shim(monkeypatch) -> None:
+def test_the_guard_itself_fires_on_an_expired_shim(monkeypatch, restored_module) -> None:
     """Prove the deadline branch, which stays dormant until v0.4.0.
 
     A synthetic ledger entry for a real importable module expires
@@ -108,7 +120,7 @@ def test_the_guard_itself_fires_on_an_expired_shim(monkeypatch) -> None:
     )
     monkeypatch.setattr(sys.modules[__name__], "_project_version", lambda: "0.0.2")
     with pytest.raises(AssertionError, match="promised removal in v0.0.2"):
-        test_no_shim_survives_its_removal_version(entry)
+        test_no_shim_survives_its_removal_version(entry, restored_module)
 
 
 def test_parse_version_refuses_non_semver_strings() -> None:
@@ -119,7 +131,9 @@ def test_parse_version_refuses_non_semver_strings() -> None:
 
 
 @pytest.mark.parametrize("entry", DEPRECATED_MODULES, ids=lambda e: e.module)
-def test_shim_warning_states_the_recorded_removal_version(entry: DeprecatedModule) -> None:
+def test_shim_warning_states_the_recorded_removal_version(
+    entry: DeprecatedModule, restored_module
+) -> None:
     """The warning users see cites the exact version the ledger enforces.
 
     Release skill pause point 1 checks the same fact by eye; here it is
@@ -128,10 +142,11 @@ def test_shim_warning_states_the_recorded_removal_version(entry: DeprecatedModul
     """
     if parse_version(_project_version()) >= parse_version(entry.removal_version):
         pytest.skip("expired shim; the deadline test above already fails the suite")
-    sys.modules.pop(entry.module, None)
-    with pytest.warns(DeprecationWarning) as caught:
-        importlib.import_module(entry.module)
-    messages = [str(w.message) for w in caught]
+    with restored_module(entry.module):
+        sys.modules.pop(entry.module, None)
+        with pytest.warns(DeprecationWarning) as caught:
+            importlib.import_module(entry.module)
+        messages = [str(w.message) for w in caught]
     assert any(
         f"removed in v{entry.removal_version}" in m and entry.replacement in m for m in messages
     ), (

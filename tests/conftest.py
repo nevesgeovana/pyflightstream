@@ -14,6 +14,9 @@ closed-form clamped-beam answers, which the WP3 and WP4 benchmarks
 compare against.
 """
 
+import contextlib
+import sys
+
 import pytest
 
 from pyflightstream import options as _options
@@ -55,6 +58,40 @@ def _mutable_module_state() -> list[dict]:
     ]
 
 
+@pytest.fixture
+def restored_module():
+    """Context manager putting ``sys.modules[name]`` back as it was.
+
+    For the shim tests, which import a module the way a user would and
+    therefore have to pop it first. Popping a package module and
+    re-importing it leaves the process holding TWO copies: the new one
+    under the name, and the old one inside every module that already did
+    ``from it import Thing``. Where the module defines a class,
+    ``isinstance`` then fails between the two halves of the package.
+
+    Not hypothetical, and not cheap to diagnose. Three test modules did
+    this, one of them on ``pyflightstream.versions`` itself as an
+    "importable stand-in", and the damage surfaced in an unrelated
+    module later in the session as a version that would not resolve
+    against a registry listing it. The autouse fixture below now fails
+    any test that leaves a replaced module behind, which is what found
+    the other two.
+    """
+
+    @contextlib.contextmanager
+    def _restore(name: str):
+        before = sys.modules.get(name)
+        try:
+            yield
+        finally:
+            if before is not None:
+                sys.modules[name] = before
+            else:
+                sys.modules.pop(name, None)
+
+    return _restore
+
+
 @pytest.fixture(autouse=True)
 def _restore_module_registries():
     """Snapshot and restore the module registries around every test.
@@ -65,11 +102,32 @@ def _restore_module_registries():
     pre-clear snapshot into it is a no-op by content.
     """
     saved = [dict(state) for state in _mutable_module_state()]
+    modules = {
+        name: module
+        for name, module in sys.modules.items()
+        if name == "pyflightstream" or name.startswith("pyflightstream.")
+    }
     yield
     for state, snapshot in zip(_mutable_module_state(), saved, strict=True):
         if state != snapshot:
             state.clear()
             state.update(snapshot)
+    replaced = sorted(
+        name
+        for name, module in modules.items()
+        if sys.modules.get(name) is not module and name in sys.modules
+    )
+    assert not replaced, (
+        f"this test left a DIFFERENT module object in sys.modules for {replaced}. "
+        "Popping a package module and re-importing it leaves the process holding two "
+        "copies of it, the new one under the name and the old one inside every module "
+        "that already did `from it import Thing`, so isinstance fails between the two "
+        "halves of the package. The failure then surfaces in an unrelated test module "
+        "later in the session with no visible connection to its cause, which is how "
+        "this went unnoticed until a run-time version check met two FsVersion classes. "
+        "Restore sys.modules in a finally block (see _module_registry_restored in "
+        "tests/test_deprecation_deadline.py)."
+    )
 
 
 def make_uniform_blade_config(

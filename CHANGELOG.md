@@ -95,6 +95,21 @@ FlightStream versions.
   Registered versions are now 26.000, 26.100, 26.120, 26.121; the last
   digit indexes vendor hotfix builds, so 26.121 is hotfix build 1 of
   the 26.12 release (SRS FR-02c, new).
+* **A campaign pointed at the wrong FlightStream installation now stops
+  before its first point**, not after its last. `run.check_solver_identity`
+  is new and public: it runs the cheapest possible script (a sentinel, a
+  log export, and close), reads the build number out of the exported
+  log, and refuses when it is not the build the campaign's version
+  declares. `run_campaign` calls it once, lazily, just before the first
+  point that will really execute, so a resume with nothing pending still
+  spends no solver process, and takes `preflight=False` to skip it.
+
+  Layered rather than sole. A mismatch is refused there on positive
+  evidence; an identity the check cannot read warns and falls through to
+  the parse-time comparison below, because refusing on an unreadable log
+  would make the guard's own failure mode "no campaign runs at all".
+  Nothing is checked, and no solver process spent, for a version with no
+  registered build.
 * **A run can now tell which solver build actually produced it.** The
   registry records each version's vendor build number (`FsVersion.build`,
   new, read from `commands/_meta.yaml`), and parsing a loads or probe

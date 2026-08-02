@@ -39,8 +39,12 @@ from __future__ import annotations
 import enum
 import json
 import math
+import re
+import shutil
 import subprocess
+import tempfile
 import time
+import warnings
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Protocol
@@ -57,6 +61,7 @@ from pyflightstream.cases import (
 )
 from pyflightstream.results import (
     IncompleteOutputError,
+    VersionMismatchWarning,
     parse_loads,
     parse_residual_history,
 )
@@ -517,6 +522,104 @@ class CampaignErrors(PyflightstreamError, RuntimeError):  # noqa: N818 (the SAD 
         )
 
 
+_IDENTITY_MARKER = "PYFS_PREFLIGHT"
+_BUILD_LINE = re.compile(r"build\s*#?\s*(?P<build>\d+)", re.IGNORECASE)
+
+
+def check_solver_identity(
+    executor: Executor,
+    version: FsVersion,
+    workdir: Path,
+    *,
+    timeout_s: float = 60.0,
+) -> None:
+    """Refuse before the campaign runs if the wrong solver build is configured.
+
+    The build-time refusal of an ambiguous vendor name settles which
+    build a campaign ASKED for; it cannot show which one is installed at
+    ``fs_exe``, and the version string the solver prints cannot either,
+    because every registered 26.1x prints the same one. This runs the
+    cheapest possible script (a PRINT sentinel, a log export, and close)
+    and reads the build number out of the exported log, so a campaign
+    pointed at the wrong installation stops before its first point
+    instead of after its last.
+
+    Layered rather than sole: a mismatch is refused HERE, on positive
+    evidence, and every parsed result is still cross-checked against the
+    registered build afterwards. So an identity this cannot read
+    degrades to the parse-time check rather than to nothing, which is
+    why the unreadable case warns instead of refusing. Refusing there
+    would make the guard's own failure mode "no campaign runs at all".
+
+    Does nothing at all when the version has no registered build: there
+    is nothing to compare, so no solver process is spent.
+
+    Parameters
+    ----------
+    executor : Executor
+        The executor the campaign will use, so the check exercises the
+        same executable.
+    version : FsVersion
+        Version the campaign declares.
+    workdir : Path
+        Scratch directory for the sentinel script and its log.
+    timeout_s : float, keyword-only
+        Wall-clock limit for the sentinel run, in seconds.
+
+    Raises
+    ------
+    ExecutorConfigurationError
+        When the exported log names a build that is not the registered
+        build of ``version``.
+
+    Warns
+    -----
+    VersionMismatchWarning
+        When the log carries no readable build number, so the installed
+        build could be confirmed neither right nor wrong.
+    """
+    if version.build is None:
+        return
+    workdir.mkdir(parents=True, exist_ok=True)
+    log_path = workdir / "preflight_log.txt"
+    if log_path.exists():
+        log_path.unlink()
+    script = Script(version)
+    script.comment("pre-flight: which FlightStream build is actually installed")
+    script.emit("PRINT", _IDENTITY_MARKER)
+    script.emit("EXPORT_LOG", log_path)
+    script.emit("CLOSE_FLIGHTSTREAM")
+    script_path = workdir / "preflight.txt"
+    script_path.write_text(script.render(), encoding="utf-8")
+    executor.run_script(script_path, working_dir=workdir, timeout_s=timeout_s)
+
+    if log_path.exists():
+        # Real 26.120 hidden-mode exports carry NUL bytes (RPT-001).
+        text = log_path.read_text(encoding="utf-8", errors="replace").replace("\x00", "")
+    else:
+        text = ""
+    found = _BUILD_LINE.search(text)
+    if found is None:
+        warnings.warn(
+            f"the pre-flight could not read a build number from the solver, so the "
+            f"installation at the campaign's executable was neither confirmed nor "
+            f"refused as {version.canonical} (build #{version.build}). Every parsed "
+            "result is still cross-checked against the registered build.",
+            VersionMismatchWarning,
+            stacklevel=2,
+        )
+        return
+    installed = found.group("build")
+    if installed != version.build:
+        raise ExecutorConfigurationError(
+            f"the executable is FlightStream build #{installed}, but the campaign "
+            f"declares {version.canonical}, which is build #{version.build}. Nothing "
+            "ran. The printed version string cannot show this, because both builds of "
+            "a minor release print the same one, and they differ in behaviour; check "
+            "fs_exe against the installation folder of the version the campaign names."
+        )
+
+
 def run_campaign(
     campaign: Campaign,
     executor: Executor,
@@ -525,6 +628,7 @@ def run_campaign(
     assess: OutcomeAssessor,
     recipes: dict[str, ScriptRecipe] | None = None,
     resume: bool = False,
+    preflight: bool = True,
 ) -> list[RunRecord]:
     """Run every point of a campaign, recording each in the manifest.
 
@@ -594,7 +698,15 @@ def run_campaign(
         declared input no longer matches the hash its recorded points
         were run against.
     """
-    canonical = resolve(campaign.fs_version).canonical
+    version = resolve(campaign.fs_version)
+    canonical = version.canonical
+    # The pre-flight is LAZY, fired just before the first point executes
+    # rather than here. A campaign with nothing left to run must spend no
+    # solver process at all: that is what a resume with nothing pending
+    # means, and a test pins it. Firing it here also spent a process
+    # before the duplicate-run_id refusal below, which raises without
+    # executing anything.
+    pending_preflight = [preflight]
     manifest = {record.run_id: record for record in workspace.read_manifest()}
     recorded = set(manifest)
     records: list[RunRecord] = []
@@ -639,6 +751,17 @@ def run_campaign(
             conflict = _staged_inputs_conflict(campaign, case, workspace, manifest, already)
             if conflict is not None:
                 raise WorkspaceError(conflict)
+        if pending_preflight[0]:
+            # First point that will really run: confirm the installed build
+            # before spending the campaign on it. Scratch goes to a temp
+            # directory, not the managed workspace, whose layout is checked
+            # elsewhere and whose emptiness a no-op resume asserts.
+            pending_preflight[0] = False
+            preflight_dir = Path(tempfile.mkdtemp(prefix="pyfs-preflight-"))
+            try:
+                check_solver_identity(executor, version, preflight_dir)
+            finally:
+                shutil.rmtree(preflight_dir, ignore_errors=True)
         sim_dir = workspace.create_sim(case.sim_id)
         recipe, preparation_error, inputs_sha256, staged_geometry = _prepare_case(
             campaign, case, workspace, recipes
