@@ -341,6 +341,87 @@ will be.
 
 ### Fixed
 
+* **The eight blocker findings of the independent review are fixed, and
+  every release up to and including v0.3.0 carries all of them.** They
+  are one class in eight places, which is why they are listed together:
+  a step that reduced, rendered or resumed its input before validating
+  it, and so produced a plausible result from data that could not
+  support one. **None of them raised, warned, set a flag or returned a
+  non-zero status**, so a user of 0.3.0 cannot tell the failing case
+  from the correct one from the library's own output. Each fix is at
+  the structural cause and carries a guard proven by mutation against
+  the pre-fix body.
+
+  * *Command injection through any string or path argument.* A newline
+    inside an emitted argument became a line boundary, so the text
+    after it became the next command while `raw_flag` stayed False, the
+    flag whose only job is to record that a script holds something
+    unvalidated. `comment()` had the same hole. Text arguments now
+    refuse a line terminator (new `ScriptLineBreakError`, subclassing
+    `CommandArgumentError`), `comment()` prefixes every physical line,
+    and `emit()` re-checks the rendered block so a future argument type
+    cannot reopen it. `Script.raw()` remains the sanctioned route for
+    unvalidated text, and still sets the flag.
+  * *A NaN residual published as CONVERGED.* `max(velocity, pressure)`
+    was tested for NaN after the fact, but every comparison against NaN
+    is False, so `max` returned the other column: a NaN pressure
+    residual was swallowed and the point converged on a residual that
+    is not the one that decided it. An infinite residual reported
+    `COMPLETED_MAX_ITER`, a status asserting the solver merely ran out
+    of iterations. Both are now `FAILED_DIVERGED`.
+  * *Missing far-field samples became a physical reduction.*
+    `plane_integral` inherited xarray's `skipna=True`, so an absent
+    sample left the sum while its ring weight stayed in the geometry,
+    shrinking flux, force, torque and energy in exact proportion to how
+    much data was missing. It now propagates NaN, and the new
+    `farfield.sample_coverage` reports the finite fraction so the
+    result is diagnosable rather than merely opaque.
+  * *A cross-check that could not fail.* The harmonic transverse-flux
+    path summed azimuthal orders up to `n/2 - 1`, omitting Nyquist, so
+    on the one signal class where the two documented-independent paths
+    disagree the check returned zero. It now sums the true half-band
+    with Nyquist counted once.
+  * *`resume` corrupted the manifest it protects.* Inputs were staged
+    before the already-recorded test, so a resume with nothing to do
+    called the solver zero times and still replaced the staged input
+    while the manifest kept the old hash. Pending points are now
+    decided before anything is prepared, and a partial resume whose
+    input changed is refused.
+  * *Declared outputs could leave the run, and collisions destroyed
+    data.* An output name such as `../outside.txt` skipped validation
+    entirely and was then collected with a MOVE, taking a file the run
+    did not own. Two outputs, or two staged inputs, sharing a base name
+    silently overwrote each other while the manifest recorded both.
+    Names are now contained, and every collision is refused before
+    anything moves.
+  * *Two sweep points could share one `run_id`.* Point tags format at
+    one decimal, so alpha 1.01 and 1.04 collide; nothing refused it and
+    the duplicate surfaced only when the second point tried to record,
+    leaving a half-executed campaign. Ambiguous sweeps and duplicate
+    `sim_id`s are refused at load. The tag format is deliberately
+    unchanged: it is run identity and appears in every existing
+    manifest.
+  * *An all-NaN blade passed every structural check.* Each validator is
+    a comparison, and NaN fails them all, so it satisfied
+    increasing-radii, positive-chord, positive-stiffness and
+    nonnegative-inertia at once. Non-finite values are now refused
+    first. Separately, a resumed FSI `state.json` was validated for
+    types but never for shape, so a run resumed on memory from a
+    differently shaped blade; new `fsi.state.check_state_matches_config`
+    refuses it.
+
+  Incompatible by intent: input that used to be accepted and produce a
+  wrong answer is now refused. If a campaign, blade configuration or
+  recipe starts failing to load, the refusal names the value and what
+  it would have produced.
+* The author's given name no longer ships inside the wheel. It sat in
+  the `reason:` field of `qa/references/PHY-06.yaml`, which is declared
+  package data, so it travelled to every machine that installed the
+  library. The field itself is kept, including the probe reports it
+  cites, which are the provenance that makes the reference defensible;
+  only the attribution is rewritten. The name stays where it is
+  authorship rather than incident (`LICENSE`, `CITATION.cff`, `README`,
+  the docs), and a tier-1 guard now scopes the refusal to `src/`.
 * The role-review push gate no longer lets a release reach PyPI with no
   release attestation. Its release detection was a denylist of exact
   option spellings (`--tags`, `--follow-tags`) plus a version-tag
