@@ -498,10 +498,14 @@ def test_a_placeholder_cannot_smuggle_an_escape_back_in():
     renders into an escape.
     """
     template = NamingTemplate()
-    with pytest.raises(NamingTemplateError):
-        template.render_output(
-            "{campaign}/loads.txt", campaign="../..", sim="1", point={"alpha": 0.0}
-        )
+    # The value is ".." and not "../..": a value containing a slash is already
+    # refused by the pre-existing portable-name check, so the original version
+    # of this test passed on the PRE-FIX body for a reason that had nothing to
+    # do with containment. The role-review QA pass measured that. ".." survives
+    # the character check (a dot is portable) and reaches the new one, so
+    # match= pins which refusal fired.
+    with pytest.raises(NamingTemplateError, match="climbs out"):
+        template.render_output("{campaign}/loads.txt", campaign="..", sim="1", point={"alpha": 0.0})
 
 
 def test_an_ordinary_output_name_still_passes_through(tmp_path):

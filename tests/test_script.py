@@ -369,8 +369,17 @@ def test_every_line_terminator_python_knows_is_refused(terminator):
     arrive as two lines because ``render`` joins what ``splitlines`` split.
     """
     script = Script("26.12")
-    with pytest.raises(ScriptLineBreakError):
+    with pytest.raises(ScriptLineBreakError) as caught:
         script.emit("IMPORT", "METER", "STL", f"wing.stl{terminator}START_SOLVER")
+    # Assert the MESSAGE too, not only the type. The role-review QA pass
+    # measured that the refusal named the wrong cause for seven of these
+    # nine: it partitioned on a newline, found nothing for CR, VT, FF, FS,
+    # NEL and the two Unicode separators, and so reported "the value ends with a
+    # line break" while quoting the whole injected string back as the safe
+    # prefix. Only the LF case asserted the text, so nothing noticed.
+    message = str(caught.value)
+    assert "START_SOLVER" in message, message
+    assert "would render as 2 script lines" in message, message
 
 
 def test_a_trailing_line_terminator_is_refused_too():
@@ -404,3 +413,29 @@ def test_an_ordinary_path_still_emits_unchanged():
     script.emit("IMPORT", "METER", "STL", "C:/cases/wing.stl")
     assert "C:/cases/wing.stl" in script.render()
     assert script.raw_flag is False
+
+
+def test_the_emit_choke_point_catches_what_the_argument_checks_miss(monkeypatch):
+    """The guard that closes the CLASS rather than the case, exercised.
+
+    The argument-level checks cover the two text types that exist today. The
+    loop in emit() covers the invariant: one element of _lines renders as one
+    physical line, whatever produced it. The role-review QA pass measured that
+    deleting that loop left the whole suite green, which is precisely the
+    recurrence the structural-fix rule requires a proven guard against, so the
+    formatter is monkeypatched to smuggle a break past the type checks.
+    """
+    import pyflightstream.script as script_module
+
+    original = script_module.Script._format_scalar
+
+    def leaky(self, value):
+        rendered = original(self, value)
+        return rendered.replace("wing.stl", "wing.stl\nSTART_SOLVER")
+
+    monkeypatch.setattr(script_module.Script, "_format_scalar", leaky)
+    script = Script("26.12")
+    with pytest.raises(ScriptLineBreakError) as caught:
+        script.emit("IMPORT", "METER", "STL", "wing.stl")
+    assert "START_SOLVER" in str(caught.value)
+    assert "START_SOLVER" not in script.render()

@@ -187,22 +187,39 @@ def _reject_line_break(entry: CommandEntry, spec: ArgSpec, value: str) -> None:
     """Refuse a value that would become more than one script line."""
     if _is_one_line(value):
         return
-    first, _, rest = value.replace("\r\n", "\n").partition("\n")
-    injected = rest.strip().splitlines()[0] if rest.strip() else ""
-    consequence = (
-        f"the text after the break would become the next command ({injected!r})"
-        if injected
-        else "the value ends with a line break"
-    )
+    # Split the SAME way the guard decides, with splitlines, so the message
+    # describes the value the check actually saw. An earlier version
+    # partitioned on "\n", which is only two of the nine terminators
+    # splitlines recognizes: for CR, VT, FF, FS, NEL and the two Unicode
+    # separators it found nothing, so it reported "the value ends with a line
+    # break" (false) and offered the WHOLE injected string back as the safe
+    # prefix. A didactic refusal that misnames its own cause is worse than a
+    # terse one, and it was wrong on seven of the nine cases the guard covers.
+    parts = value.splitlines()
+    first = parts[0] if parts else ""
+    injected = next((part.strip() for part in parts[1:] if part.strip()), "")
+    # splitlines drops a trailing terminator, so count it back: "A\n" is one
+    # line of text plus a break and would merge with whatever came next. The
+    # keepends form is what distinguishes "A\n" (two) from "A\nB" (two) from
+    # "A\nB\n" (three) without special-casing any of them.
+    kept = value.splitlines(keepends=True)
+    ends_with_break = bool(kept) and kept[-1] != parts[-1]
+    lines = len(parts) + (1 if ends_with_break else 0)
+    if injected:
+        consequence = f"the text after the break would become the next command ({injected!r})"
+    else:
+        consequence = (
+            "the value ends with a line break, so the next command would be appended to this line"
+        )
     raise ScriptLineBreakError(
         f"{entry.name}: argument {spec.name!r} contains a line terminator, so it "
-        f"would render as {len(value.splitlines()) or 1} script lines instead of "
-        f"one, and {consequence}. FlightStream reads one command per line, so "
-        f"this would emit a command nobody validated while the script still "
-        f"reported itself as fully validated. Remove the break (the value up to "
-        f"it is {first!r}), or, if unvalidated script text is genuinely wanted, "
-        f"append it with Script.raw(), which sets raw_flag so the script records "
-        f"that it was not checked ({entry.manual_ref})"
+        f"would render as {lines} script lines instead of one, and {consequence}. "
+        f"FlightStream reads one command per line, so this would emit a command "
+        f"nobody validated while the script still reported itself as fully "
+        f"validated. Remove the break (the value up to it is {first!r}), or, if "
+        f"unvalidated script text is genuinely wanted, append it with "
+        f"Script.raw(), which sets raw_flag so the script records that it was "
+        f"not checked ({entry.manual_ref})"
     )
 
 

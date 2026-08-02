@@ -287,6 +287,17 @@ def test_no_committed_path_to_a_migrated_session_document():
 GIVEN_NAME = "Geo" + "vana"
 
 
+def _names_the_author(text: str) -> bool:
+    """Whether ``text`` carries the author's given name.
+
+    Factored out so the tree scan and the mutation proof run the SAME
+    code, which is the only arrangement under which the proof proves
+    anything about the scan. Mirrors ``_identifier_offenses`` above and
+    exists for the same reason.
+    """
+    return GIVEN_NAME.lower() in text.lower()
+
+
 def test_no_personal_name_inside_the_installed_package():
     """The shipped surface carries no personal name.
 
@@ -303,7 +314,7 @@ def test_no_personal_name_inside_the_installed_package():
             text = path.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             continue
-        if GIVEN_NAME.lower() in text.lower():
+        if _names_the_author(text):
             offenders.append(str(relative))
     assert not offenders, (
         "a file inside the installed package carries the author's given name:\n"
@@ -328,12 +339,19 @@ def test_the_shipped_name_guard_fires_on_what_it_exists_to_catch():
         + GIVEN_NAME
         + "''s instruction'"
     )
-    assert GIVEN_NAME.lower() in original.lower(), (
-        "the reconstruction no longer contains what the guard looks for"
+    # Run the DETECTOR, not the `in` operator. The first version of this test
+    # asserted `GIVEN_NAME in original`, which exercises str.__contains__ and
+    # would stay green if the scan above were scoped wrongly or filtered to
+    # the wrong file types. The role-review QA pass measured that.
+    assert _names_the_author(original), (
+        "the detector does not fire on the exact line that shipped in the wheel"
     )
     # And the replacement that shipped instead must NOT fire, so the guard is
     # a guard rather than a refusal of the whole sentence.
     replacement = (
         "reason: 'metric set redefined to the full polar trend on the author''s instruction'"
     )
-    assert GIVEN_NAME.lower() not in replacement.lower()
+    assert not _names_the_author(replacement), (
+        "the detector fires on the replacement, so it refuses the sentence "
+        "rather than the identifier"
+    )

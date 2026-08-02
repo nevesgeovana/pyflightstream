@@ -258,3 +258,45 @@ def test_dt_mismatch_beyond_print_precision_is_refused(tmp_path):
     write_loads(tmp_path, 100)
     with pytest.raises(ValueError, match="different run"):
         driver.coupling_step(tmp_path)
+
+
+# The CALL SITE of the PYFS-012 resume guard, added after the role-review QA
+# pass measured that deleting the call from coupling_step left the entire
+# suite green: every assertion about the guard called the function directly,
+# so the wiring that makes it fire in a real resume was unprotected.
+
+
+def _resume_with_a_reshaped_config(tmp_path, *, frozen: bool):
+    """Run five calls, then swap in a config with a different station count."""
+    run_dir = tmp_path / ("frozen" if frozen else "live")
+    stage_run(run_dir)
+    run_sequence(run_dir, 5)
+    # One more blade than the run recorded. model_copy is deliberate: it
+    # skips validation, which is exactly how a user produces this state by
+    # hand-editing config.json between calls.
+    reshaped = driver_config().model_copy(update={"blade_count": driver_config().blade_count + 1})
+    dump_config(reshaped, run_dir / driver.CONFIG_FILE)
+    write_loads(run_dir, 100 + 40 * 5)
+    if frozen:
+        (run_dir / driver.FROZEN_FILE).write_text("0.0 0.0 0.0\n", encoding="utf-8")
+    return run_dir
+
+
+def test_a_resume_on_a_reshaped_config_is_refused_by_coupling_step(tmp_path):
+    """The guard fires through the public entry point, not only when called."""
+    run_dir = _resume_with_a_reshaped_config(tmp_path, frozen=False)
+    with pytest.raises(ValueError, match="does not describe the configured blade"):
+        driver.coupling_step(run_dir)
+
+
+def test_the_resume_check_runs_before_the_frozen_branch(tmp_path):
+    """Placement, which the commit message load-bears on and nothing pinned.
+
+    A frozen run replays the same per-blade arrays, so a check placed after
+    the frozen branch would let exactly this case through. Moving the call
+    below `if (run_dir / FROZEN_FILE).is_file()` makes this test fail and the
+    one above pass, which is why both exist.
+    """
+    run_dir = _resume_with_a_reshaped_config(tmp_path, frozen=True)
+    with pytest.raises(ValueError, match="does not describe the configured blade"):
+        driver.coupling_step(run_dir)

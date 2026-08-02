@@ -300,7 +300,11 @@ def coupling_step(run_dir: str | Path) -> StepResult:
     # here, at the single point where a persisted state meets its config,
     # and before the frozen-run branch below, because a frozen run replays
     # the same arrays and inherits the same mismatch.
-    check_state_matches_config(state, cfg.blade_count, len(cfg.blade.station_radii_m))
+    check_state_matches_config(
+        state,
+        blade_count=cfg.blade_count,
+        station_count=len(cfg.blade.station_radii_m),
+    )
 
     if (run_dir / FROZEN_FILE).is_file():
         return _frozen_step(run_dir, cfg, state)

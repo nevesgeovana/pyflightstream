@@ -11,6 +11,7 @@ import pytest
 import xarray as xr
 
 from pyflightstream.farfield import (
+    axial_flux,
     axial_force,
     azimuthal_harmonics,
     crossflow_kinetic_energy,
@@ -277,12 +278,143 @@ def test_the_two_paths_still_agree_on_an_ordinary_mode():
     shape = (1, lattice.n_r, lattice.n_psi)
     psi = lattice.psi[None, None, :]
     signal = np.broadcast_to(np.cos(psi), shape).copy()
+    # u carries the same mode, so the product mean is NONZERO. With u = 1 the
+    # product mean is zero at every order and the assertion below degenerates
+    # to zero equals zero, which the role-review QA pass measured passing
+    # against a harmonic path that returns 0.0 unconditionally and against the
+    # doubled-Nyquist mutant this test exists to catch.
     ds = cylindrical_components(
         lattice_dataset(
             lattice,
-            {"u": np.ones(shape), "v": np.zeros(shape), "w": signal},
+            {"u": 1.0 + signal, "v": np.zeros(shape), "w": signal},
         )
     )
     quadrature = float(transverse_flux(ds, RHO, component="w", method="quadrature")[0])
     harmonic = float(transverse_flux(ds, RHO, component="w", method="harmonic")[0])
+    assert abs(quadrature) > 1.0, (
+        f"the fixture is degenerate: quadrature={quadrature!r}, so an agreement "
+        "assertion would prove nothing"
+    )
+    assert harmonic == pytest.approx(quadrature, rel=1e-10)
+
+
+# The PYFS-010 class across the WHOLE public ledger surface, added after the
+# role-review passes measured that the original fix closed one reduction and
+# left the siblings open. Under this repository's structural-fix rule that is
+# the same defect on its first occurrence, not a second occurrence.
+#
+# Measured on the pre-fix body of this commit, with one NaN sample in an
+# otherwise uniform field: transverse_flux(method="harmonic") returned 24.0298
+# where the quadrature returned nan (the two are documented as independent
+# verifications of the same number); symmetry_floor returned 0.0, meaning
+# "perfectly axisymmetric", from a plane with a hole in it; and mass_closure
+# reported relative_spread 0.0 while its own mdot was nan.
+
+
+def _holed():
+    """A one-station lattice whose fields carry exactly one missing sample."""
+    lattice = build_lattice(tip_radius=1.0, stations=(0.0,), lateral_radius=None)
+    shape = (1, lattice.n_r, lattice.n_psi)
+    fields = {
+        "u": np.full(shape, V_INF),
+        "v": np.zeros(shape),
+        "w": np.full(shape, 1.0),
+        "p_prime": np.zeros(shape),
+    }
+    for name in fields:
+        fields[name] = fields[name].copy()
+        fields[name][0, 0, 0] = np.nan
+    return cylindrical_components(lattice_dataset(lattice, fields))
+
+
+@pytest.mark.parametrize(
+    "name,call",
+    [
+        ("mass_flux", lambda ds: mass_flux(ds, RHO)),
+        ("axial_flux", lambda ds: axial_flux(ds, RHO, V_INF)),
+        (
+            "transverse_flux quadrature",
+            lambda ds: transverse_flux(ds, RHO, component="w", method="quadrature"),
+        ),
+        (
+            "transverse_flux harmonic",
+            lambda ds: transverse_flux(ds, RHO, component="w", method="harmonic"),
+        ),
+        ("shaft_torque", lambda ds: shaft_torque(ds, RHO)),
+        ("crossflow_kinetic_energy", lambda ds: crossflow_kinetic_energy(ds, RHO)["total"]),
+        ("symmetry_floor", lambda ds: symmetry_floor(ds["u"])),
+        ("mass_closure", lambda ds: mass_closure(ds, RHO)["relative_spread"]),
+    ],
+)
+def test_no_ledger_reports_a_number_from_an_incomplete_plane(name, call):
+    """One missing sample must reach the answer, in every channel.
+
+    A ledger that silently drops it returns a value smaller in exact
+    proportion to the missing data, which is indistinguishable from a real
+    physical reduction. That is the whole finding, and it is a property of
+    the SURFACE rather than of plane_integral, which is why this is
+    parametrized over the public functions rather than asserted once.
+    """
+    result = np.asarray(call(_holed()))
+    assert np.isnan(result).any(), f"{name} returned {result!r} from a plane with a missing sample"
+
+
+def test_the_same_ledgers_are_finite_on_a_complete_plane():
+    """The control.
+
+    Without it the parametrization above is satisfied by a module that
+    returns NaN unconditionally.
+    """
+    lattice = build_lattice(tip_radius=1.0, stations=(0.0,), lateral_radius=None)
+    shape = (1, lattice.n_r, lattice.n_psi)
+    ds = cylindrical_components(
+        lattice_dataset(
+            lattice,
+            {
+                "u": np.full(shape, V_INF),
+                "v": np.zeros(shape),
+                "w": np.full(shape, 1.0),
+                "p_prime": np.zeros(shape),
+            },
+        )
+    )
+    assert np.isfinite(np.asarray(mass_flux(ds, RHO))).all()
+    assert np.isfinite(np.asarray(symmetry_floor(ds["u"])))
+    assert np.isfinite(np.asarray(mass_closure(ds, RHO)["relative_spread"]))
+    assert np.isfinite(np.asarray(transverse_flux(ds, RHO, component="w", method="harmonic"))).all()
+
+
+def test_the_two_transverse_paths_agree_on_incompleteness():
+    """They are documented as independent verifications of one number.
+
+    Before this fix the quadrature path returned nan and the harmonic path
+    returned a finite 24.0298 from the same holed plane, so the cross-check
+    disagreed silently in exactly the situation it exists to catch.
+    """
+    ds = _holed()
+    quadrature = np.asarray(transverse_flux(ds, RHO, component="w", method="quadrature"))
+    harmonic = np.asarray(transverse_flux(ds, RHO, component="w", method="harmonic"))
+    assert np.isnan(quadrature).all() and np.isnan(harmonic).all()
+
+
+def test_the_two_paths_agree_at_an_odd_azimuth_count():
+    """The odd-n branch of the Parseval weights, which had no test.
+
+    At odd n there is no self-conjugate order, so every order above zero is
+    paired and the Nyquist special case must NOT be taken. The review
+    measured the pre-fix body returning 3.7e-30 against 1.5707963 here.
+    """
+    lattice = build_lattice(tip_radius=1.0, stations=(0.0,), lateral_radius=None, n_psi=15)
+    shape = (1, lattice.n_r, lattice.n_psi)
+    psi = lattice.psi[None, None, :]
+    signal = np.broadcast_to(np.cos(7.0 * psi), shape).copy()
+    ds = cylindrical_components(
+        lattice_dataset(
+            lattice,
+            {"u": 1.0 + signal, "v": np.zeros(shape), "w": signal},
+        )
+    )
+    quadrature = float(transverse_flux(ds, RHO, component="w", method="quadrature")[0])
+    harmonic = float(transverse_flux(ds, RHO, component="w", method="harmonic")[0])
+    assert abs(quadrature) > 1.0
     assert harmonic == pytest.approx(quadrature, rel=1e-10)

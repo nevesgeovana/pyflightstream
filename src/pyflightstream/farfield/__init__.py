@@ -317,7 +317,7 @@ def symmetry_floor(da: xr.DataArray, *, m_max: int = 6) -> float:
         ``max_{m>=1} |c_m|`` over all remaining dims, in field units.
     """
     harmonics = azimuthal_harmonics(da, m_max=m_max)
-    return float(np.abs(harmonics.sel(m=slice(1, None))).max())
+    return float(np.abs(harmonics.sel(m=slice(1, None))).max(skipna=False))
 
 
 def mass_flux(ds: xr.Dataset, rho: float) -> xr.DataArray:
@@ -336,8 +336,8 @@ def mass_closure(ds: xr.Dataset, rho: float) -> xr.Dataset:
         per run, judged against the case tolerance.
     """
     mdot = mass_flux(ds, rho)
-    mean = mdot.mean()
-    spread = float((np.abs(mdot - mean)).max() / np.abs(mean))
+    mean = mdot.mean(skipna=False)
+    spread = float((np.abs(mdot - mean)).max(skipna=False) / np.abs(mean))
     return xr.Dataset({"mdot": mdot, "relative_spread": xr.DataArray(spread)})
 
 
@@ -432,10 +432,12 @@ def transverse_flux(
     u_hat = _half_spectrum(ds["u"], half)
     c_hat = _half_spectrum(ds[component], half)
     weights = _parseval_weights(ds.sizes["psi"], half)
-    product_mean = (np.real(u_hat * np.conj(c_hat)) * xr.DataArray(weights, dims=("m",))).sum("m")
+    product_mean = (np.real(u_hat * np.conj(c_hat)) * xr.DataArray(weights, dims=("m",))).sum(
+        "m", skipna=False
+    )
     ring_area = ring_sample_weights(ds) * ds.sizes["psi"]
     scale = float(ds.attrs["tip_radius"]) ** 2
-    return (rho * product_mean * ring_area).sum("r") * scale
+    return (rho * product_mean * ring_area).sum("r", skipna=False) * scale
 
 
 def transverse_force(
@@ -559,7 +561,7 @@ def in_plane_moment(
         g_hat_1 = azimuthal_harmonics(g, m_max=1).sel(m=1)
         projected = np.real(g_hat_1) if axis == "y" else -np.imag(g_hat_1)
         ring_area = ring_sample_weights(ds) * ds.sizes["psi"]
-        loading = (projected * ds.coords["r"] * ring_area).sum("r") * tip**3
+        loading = (projected * ds.coords["r"] * ring_area).sum("r", skipna=False) * tip**3
     else:
         raise ValueError(f"unknown method {method!r}; use 'quadrature' or 'harmonic'")
 
@@ -592,7 +594,7 @@ def crossflow_kinetic_energy(ds: xr.Dataset, rho: float) -> xr.Dataset:
     xarray.Dataset
         ``total``, ``swirl``, and ``induced`` fluxes per station (W).
     """
-    v_theta_0 = ds["v_theta"].mean("psi")
+    v_theta_0 = ds["v_theta"].mean("psi", skipna=False)
     total = plane_integral(ds, 0.5 * rho * (ds["v_r"] ** 2 + ds["v_theta"] ** 2) * ds["u"])
     swirl = plane_integral(ds, 0.5 * rho * v_theta_0**2 * ds["u"])
     return xr.Dataset({"total": total, "swirl": swirl, "induced": total - swirl})

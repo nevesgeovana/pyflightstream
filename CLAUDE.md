@@ -101,8 +101,10 @@ original failure when re-run. That headline is kept here so a clone
 reads the rule without leaving the repository; the full policy
 statement, including why documentation is not a guard and why a guard
 must be proven by mutation, lives in the shared ledger's own README, the
-cross-repo authority both libraries point at (located by
-`COORD_INCIDENT_LEDGER`; one file per incident, id from a timestamp). The
+cross-repo authority both libraries point at (located by the two ledger
+variables documented under Machine configuration below, the gate reading one
+and the analyst still reading the other; one file per incident, id from a
+timestamp). The
 `incident-analyst` agent (`.claude/agents/`) drafts the record; whether
 an incident blocks is the author's call, and the push gate denies a push
 while a blocking incident is open for this repository.
@@ -284,9 +286,13 @@ vendored tool published both on the public remote:
   an unset variable does not skip: the run prints four git failures and
   then `snapshot taken (0 file(s))`. A recovery tool reporting a
   snapshot it did not take is the reason this is written down rather
-  than left for the next reader to discover. Until 0.2.5 lands, set the
-  variable or read the output of `snap.sh` rather than trusting its
-  last line.
+  than left for the next reader to discover. Until this repository
+  RE-VENDORS the `snap.sh` row, set the variable or read the output of
+  `snap.sh` rather than trusting its last line. Note what changed since
+  this paragraph was written: 0.2.5 has landed, so the fixed body
+  EXISTS and the wait is now on this clone taking it, not on the kit
+  producing it. That row is still 0.2.4 here; kit master was 0.2.17
+  when PFS-1 measured the adoption surface on 2026-08-02.
 
 Two names collide across the boundary and the collision is deliberate,
 not an oversight. The session root has an `archive/` (the migrated inbox
@@ -335,7 +341,7 @@ omission visible. The load-bearing guard is the tier-1 kit drift test
 missing or drifts from the kit; the env var only points the `plan` skill
 at whichever checker is active.
 
-`PYFS_SESSION_ROOT` makes the strongest promise of the four and has the
+`PYFS_SESSION_ROOT` makes the strongest promise of the five and has the
 weakest enforcement: **no code reads it.** No hook, no test and no
 module in `src/` consults it, because its consumer is an agent following
 a skill, not a program. A session that ignores the stop rule fails

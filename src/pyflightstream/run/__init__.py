@@ -300,8 +300,10 @@ class LoadsAssessor:
 
     - NaN or infinite Total coefficients: FAILED_DIVERGED.
     - With a log: the final velocity and pressure residuals against
-      the run's convergence limit (SRC-003 p.200); NaN residuals are
-      a divergence.
+      the run's convergence limit (SRC-003 p.200). A NaN or infinite
+      residual in EITHER column is a divergence, judged before the two
+      are combined: reducing them first cannot preserve the invalidity
+      of one of them.
     - Without a log, steady mode: an iteration counter below the
       requested limit means the threshold stopped the solver
       (CONVERGED); reaching the limit means COMPLETED_MAX_ITER.
@@ -562,10 +564,17 @@ def run_campaign(
         are skipped without execution, so a campaign can grow sweep
         points and re-run into the same root; the manifest's
         append-only duplicate rejection is what makes the skip safe.
+        A case with nothing left to run is not prepared at all, so a
+        resume that executes nothing also STAGES nothing: skipping is a
+        read-only operation on the simulation folder. A case with some
+        points recorded and some pending is prepared, and is refused
+        when its staged input no longer hashes to what the recorded
+        points ran against, because re-staging would retire the evidence
+        those records point at.
         With False (the default) a duplicate point raises
         :class:`~pyflightstream.workspace.WorkspaceError` before
-        anything executes, because silently redoing recorded evidence
-        would fork the run identity.
+        anything executes or is staged, because silently redoing
+        recorded evidence would fork the run identity.
 
     Returns
     -------
@@ -579,7 +588,10 @@ def run_campaign(
     CampaignErrors
         After the loop, when at least one executed point failed.
     WorkspaceError
-        On the first already-recorded point when ``resume`` is False.
+        On the first already-recorded point when ``resume`` is False;
+        or, with ``resume`` True, when a partially recorded case's
+        declared input no longer matches the hash its recorded points
+        were run against.
     """
     canonical = resolve(campaign.fs_version).canonical
     manifest = {record.run_id: record for record in workspace.read_manifest()}
@@ -999,7 +1011,14 @@ def _staged_inputs_conflict(
     current = _sha256(origin)
     name = origin.name
     for run_id in already:
-        recorded_hashes = manifest[run_id].inputs_sha256 or {}
+        record = manifest.get(run_id)
+        if record is None:
+            # Recorded during THIS call rather than read from disk: it staged
+            # the same inputs by construction, so it constrains nothing.
+            # `recorded` grows as points execute while `manifest` is read once,
+            # so the two stop being equal and indexing would raise.
+            continue
+        recorded_hashes = record.inputs_sha256 or {}
         was = recorded_hashes.get(name)
         if was is None or was == current:
             continue

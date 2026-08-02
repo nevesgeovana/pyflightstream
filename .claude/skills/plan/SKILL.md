@@ -83,7 +83,7 @@ rather than in a later session. The validator is the vendored kit
 vocabulary), whose location is machine configuration held in the
 `PYFS_PLAN_CHECKER` environment variable (set in
 `.claude/settings.local.json`, never a literal path in this committed
-file, mirroring how `PYFS_INCIDENT_LEDGER` locates the incident
+file, mirroring how `COORD_INCIDENT_LEDGER` locates the shared incident
 ledger). Read the variable; never assume a path. The counter ids
 `PLN-001`..`PLN-088` are grandfathered from the timestamp-id shape guard
 by `_private/plan/legacy_ids.txt` (that waiver only; every other guard

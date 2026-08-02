@@ -173,7 +173,7 @@ def load_state(path: str | Path) -> FsiState:
     return FsiState.model_validate_json(Path(path).read_text(encoding="utf-8"))
 
 
-def check_state_matches_config(state: FsiState, blade_count: int, station_count: int) -> None:
+def check_state_matches_config(state: FsiState, *, blade_count: int, station_count: int) -> None:
     """Refuse a resumed state whose shape disagrees with the configuration.
 
     PYFS-012, second half. ``state.json`` carries per-blade, per-station
@@ -189,13 +189,29 @@ def check_state_matches_config(state: FsiState, blade_count: int, station_count:
     the relaxation continues from a structure that does not exist. The run
     keeps producing numbers and its convergence log keeps looking healthy.
 
+    The two counts are KEYWORD-ONLY, and deliberately so: they are
+    same-typed integers, so a positional call transposing them type-checks,
+    runs, and yields either a spurious refusal or a silent acceptance of the
+    exact mismatch this function exists to catch. That is the same shape as
+    the defects it was written for.
+
+    They are scalars rather than an ``FsiConfig`` so this module keeps its
+    import surface to pydantic alone. Stated honestly, because an earlier
+    version of this docstring claimed the split kept
+    :mod:`pyflightstream.exceptions` importable without the ``[fsi]`` extra
+    and a review pass measured that false: ``exceptions`` already reaches
+    ``fsi.config`` transitively through the ``fsi`` package ``__init__``. The
+    real reasons are narrower and still hold: this module is the one the
+    persisted state belongs to, it is exercised directly by the state tests,
+    and nothing here needs the rest of a configuration.
+
     Parameters
     ----------
     state : FsiState
         State just loaded from disk.
-    blade_count : int
+    blade_count : int, keyword-only
         ``blade_count`` of the configuration about to be used.
-    station_count : int
+    station_count : int, keyword-only
         Number of radial stations of the configuration about to be used.
 
     Raises
