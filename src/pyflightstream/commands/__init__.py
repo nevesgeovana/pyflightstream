@@ -578,7 +578,8 @@ class CommandRegistry:
         Parameters
         ----------
         version : str or FsVersion
-            Canonical identifier, display alias, or resolved version.
+            Canonical identifier, a vendor release name that identifies
+            exactly one registered build, or a resolved version.
 
         Returns
         -------

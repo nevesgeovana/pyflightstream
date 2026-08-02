@@ -280,7 +280,9 @@ def to_campaign(
     name : str
         Campaign name; the matrix has none, so it is explicit input.
     fs_version : str
-        FlightStream version, canonical or alias; the FS_BUILD
+        FlightStream version, canonical identifier (26.120); a vendor
+        release name works only where it names exactly one registered
+        build. The FS_BUILD
         column does not identify one, so it is explicit input.
     fs_exe : str
         Explicit executable path (never guessed, SAD Section 5).
@@ -554,7 +556,9 @@ def resolve_matrix(
     name : str
         Campaign name; the matrix has none, so it is explicit input.
     fs_version : str
-        FlightStream version, canonical or alias; the FS_BUILD column
+        FlightStream version, canonical identifier (26.120); a vendor
+        release name works only where it names exactly one registered
+        build. The FS_BUILD column
         selects an executable, not a command-database version, so the
         version stays explicit input.
     recipes : mapping of str to str

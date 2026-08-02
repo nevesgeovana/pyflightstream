@@ -38,7 +38,8 @@ possible form: they are not merely incomplete, they were not reissued.
 The new edition has **no source id yet**, so the six commands documented
 only in it are not registered. Registered as
 `PLN-20260803-0942-the-26121-manual-edition-has-no-source-id`, which
-carries the full transcription so the work is a copy, not a re-reading.
+carries the paraphrased signatures and their page numbers so the later
+work is a registration, not a re-reading.
 
 ## 2. Command surface diff, 26.120 manual to 26.121 manual
 
@@ -100,11 +101,11 @@ the old manual, so these are ingestion gaps, not version changes.
 These are errors in the vendor's document, recorded because the database
 is drafted from it and a reader of the citation will meet them.
 
-1. **26.121 p. 346**: the sample under the heading for the Stratford
-   bulk separation "all boundary list" invokes
-   `CREATE_CYLINDRICAL_BULK_SEPARATION` instead, and with two arguments
-   where the cylindrical form takes three. Two defects in one four-line
-   sample.
+1. **26.121 p. 346**: the sample block introduced as the Stratford
+   bulk separation case for all boundaries invokes
+   `CREATE_CYLINDRICAL_BULK_SEPARATION` instead, and passes two
+   arguments where the cylindrical form's own signature takes three.
+   Two defects in one sample.
 2. **26.121 p. 386** (the function index) spells the same command
    `CREATE_STARTFORD_BULK_SEPARATION`, against `STRATFORD` on pp.
    345-346. This family has now produced three spellings across two
@@ -113,9 +114,9 @@ is drafted from it and a reader of the citation will meet them.
    that the solver accepted only the header spelling. The index is not
    a reliable source for this database.
 3. **26.121 pp. 315-316**: `DELETE_SURFACES` declares one parameter,
-   `INDEX`, but its samples show `DELETE_SURFACES 2 4 7` under a
-   "delete multiple existing surfaces" heading. Whether that is three
-   indices or a count of 2 followed by indices 4 and 7 is not
+   `INDEX`, while one of its samples, introduced as the multiple-surface
+   case, passes three bare integers on the command line. Whether those
+   are three indices, or a count of two followed by two indices, is not
    determinable from the page, and the two readings delete different
    surfaces. A probe question, flagged in the plan item.
 4. **26.121 p. 315** names the parameter `iNDEX` in the table and
@@ -125,56 +126,94 @@ is drafted from it and a reader of the citation will meet them.
 
 Tier 2 run, 109 probe specifications, `--fsm` a synthetic wing session.
 
-| | 26.120 (`CMP-26120_2026-07-21_full`) | 26.121 (`CMP-26121_2026-08-02_full`) |
-|---|---|---|
-| verified | 64 | 65 |
-| broken | 4 | 3 |
-| unprobed | 44 | 75 |
+| | 26.120, run of 2026-07-21 | 26.120 as the database stands | 26.121, this run |
+|---|---|---|---|
+| verified | 64 | 65 | 65 |
+| broken | 4 | 3 | 3 |
+| unprobed | 44 | - | 75 |
+| commands in the run | 112 | - | 143 |
 
-The unprobed count is not comparable between the two runs: this run used
-a different, deliberately minimal session file, so more specifications
-found no session state to act on. Coverage of the judged set is what the
-comparison below rests on.
+**Read the first two columns before reading any transition below.** The
+2026-07-21 run is not the 26.120 state of record. A re-probe on
+2026-07-23 (`CMP-26120_2026-07-23_pln012`) corrected a probe
+specification and moved `NEW_SURFACE_SECTION_DISTRIBUTION` to `verified`
+on the pre-hotfix build, which is what the database carries today. An
+earlier draft of this report compared only against 2026-07-21 and
+credited the hotfix with that change; it is corrected in 4.1.
 
-### 4.1 Working on 26.121, broken on 26.120 (2)
+The unprobed counts are not comparable, and the session file is not why.
+The denominators differ: the database held 112 commands with an evidence
+row at the July run and 143 at this one, and 44 + 31 = 75 exactly. One
+specification lost coverage, named in 4.4.
 
-**`AIR_ALTITUDE` is fixed by the hotfix, and it was a units defect.**
-On 26.120 the command ran and its `METERS` argument read as ignored: an
+**Three variables separate the two runs, not one.** The solver build
+(#7012026 to #7262026), the harness version (`package_version`
+0.0.1.dev0 to 0.3.0, and the probe specifications changed inside that
+window), and the session file. No transition below can be attributed to
+the vendor build alone from this evidence, and the wording throughout
+says what was observed rather than what caused it. The disambiguating
+run is cheap and was not made: both executables are local, so probing
+26.120 with this harness and this session file would isolate the build.
+
+### 4.1 Verified here, broken in the 2026-07-21 run (2), of which ONE is a hotfix candidate
+
+**`AIR_ALTITUDE`: the 26.120 defect does not reproduce on 26.121.** On
+26.120 the command ran and its `METERS` argument read as ignored: an
 altitude of 5000 m produced a density of 1.056 kg/m^3, which is the
-5000 **foot** standard state, not the 5000 m one. On 26.121 the same
-probe observes 0.736 kg/m^3, the 5000 m standard-atmosphere density.
-Anyone who set altitude in metres on 26.120 was flying at the wrong
-density, silently.
+5000 **foot** standard state, not the 5000 m one. That was observed
+twice on build #7012026, in the 2026-07-21 and 2026-07-23 runs. On
+26.121 the same assertion observes 0.736 kg/m^3, the 5000 m
+standard-atmosphere density. This is the strongest candidate for a
+vendor fix in the run, and it is still a candidate: the harness moved
+too, and the assertion is a substring test against a dump whose
+formatting the session carries. Anyone who set altitude in metres on
+26.120 was solving at the wrong density silently, and that half is
+established independently of this run.
 
-**`NEW_SURFACE_SECTION_DISTRIBUTION` is fixed by the hotfix.** On 26.120
-script processing aborted at the command (the log exported before it
-exists, the one after it never appeared). On 26.121 the command
-completes and the effect is observed: the all-sections export written
-afterwards carries the distribution. Note this is the same command whose
-signature gained `INCLUDE_SYMMETRY` in the new manual (2.3): a documented
-change and a behavioural fix landing together.
+**`NEW_SURFACE_SECTION_DISTRIBUTION` was NOT fixed by the hotfix.** It is
+`verified` on 26.120 as well, and has been since the 2026-07-23 re-probe,
+whose evidence sentence is character-for-character the one this run
+produced. The 2026-07-21 abort was a defect in this project's own probe
+specification, which ran the command post-solve and omitted the optional
+`INCLUDE_SYMMETRY` keyword; the entry's own note in
+`commands/surface_sections.yaml` records that. Recorded here because the
+error ran the other way from the usual one: it credited the vendor with a
+correction this project made itself.
 
 ### 4.2 Still broken on 26.121 (2)
 
 `NEW_OFF_BODY_STREAMLINE` and `SET_MOTION_START_TIME`, both with the same
-signature as on 26.120: script processing aborts at the command. The
-hotfix did not touch either. `SET_MOTION_START_TIME` is load-bearing for
-any blade-passage average, since it sets the transient offset that
-decides which leading time steps to discard.
+signature as on 26.120: script processing aborts at the command. Neither
+changed. `SET_MOTION_START_TIME` is load-bearing for any blade-passage
+average, since it sets the transient offset that decides which leading
+time steps to discard.
 
-### 4.3 Newly measured broken on 26.121 (1)
+### 4.3 Ran clean on 26.120, aborts here (1)
 
-`SWEEPER_REF_VELOCITY_SAME` aborts script processing. It was unprobed in
-the 26.120 full run, so this is a first measurement rather than a
-regression; whether 26.120 shares the fault is not established here.
+`SWEEPER_REF_VELOCITY_SAME` aborts script processing on 26.121. Its
+26.120 record is `unprobed`, and `unprobed` covers two different states
+in this schema: not exercised, and exercised without an observable
+effect. This one is the second. The 2026-07-21 record says so in words,
+"the command ran without a script abort or logged error, but its effect
+is not observable with the current instruments", with both sentinels
+true, a return code of 0 and a wall time recorded.
 
-### 4.4 Coverage lost, and why it is not a version finding
+So it did not abort on 26.120 and it does abort here. That is an outcome
+change in the direction of a regression, and an earlier draft of this
+report called it a first measurement, which reads the softer of the two
+meanings of `unprobed`. It is not attributed to the build, for the reason
+given above: the harness moved too.
 
-`SET_INVISCID_LOADS` was verified on 26.120 and is unprobed here. Its
-effect assertion requires the run's viscous default drag to be nonzero
-so that enabling inviscid-only can be seen to zero it, and on this
-session file it is not. An artifact of the session file, not of the
-build.
+### 4.4 Coverage lost (1)
+
+`SET_INVISCID_LOADS` was verified on 26.120 and is unprobed here, the
+only specification that lost coverage. Its effect assertion needs the
+run's viscous default drag to be nonzero so that enabling inviscid-only
+can be seen to zero it, and the effect returned unobservable. The
+committed record does not say WHICH of the three unobservable branches
+fired (a missing file, a missing row, an unparseable field), so the
+cause is not established; an earlier draft asserted the session file,
+which the record does not support.
 
 ## 5. Rename checklist for the human (skill step 7)
 
@@ -183,10 +222,10 @@ Three suspected renames, none of them applied.
 
 1. `SURFACE_DELETE` + `SURFACE_CLEARALL` -> `DELETE_SURFACES`.
    The evidence for a merge is strong: the new command's samples cover
-   both jobs (`DELETE_SURFACES 1` and `DELETE_SURFACES -1`), and both
-   old commands vanish in the same edition. The grammar changes as well
-   as the name: `SURFACE_DELETE` was a keyword block taking `SURFACE 5`
-   on the following line, `DELETE_SURFACES` takes the index inline.
+   both jobs, a single index and the delete-everything sentinel, and
+   both old commands vanish in the same edition. The grammar changes as
+   well as the name: `SURFACE_DELETE` was a keyword block taking its
+   index on a following keyword line, `DELETE_SURFACES` takes it inline.
    **Question for the human:** record as one `removed` pair with
    `successor: DELETE_SURFACES`, or as two independent removals?
 

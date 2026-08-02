@@ -211,7 +211,9 @@ def run_drift(
     Parameters
     ----------
     version_a, version_b : str
-        Baseline and compared versions, canonical or alias. The same
+        Baseline and compared versions, canonical identifiers (26.120);
+        a vendor release name works only where it names exactly one
+        registered build. The same
         version twice is the degenerate self-comparison that proves
         the machinery.
     fs_exes : dict of str to path

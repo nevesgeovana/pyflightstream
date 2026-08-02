@@ -346,7 +346,9 @@ class Campaign(BaseModel):
     name : str
         Campaign name; prefixes every ``run_id``.
     fs_version : str
-        FlightStream version, canonical or alias; validated against
+        FlightStream version, canonical identifier (26.120); a vendor
+        release name works only where it names exactly one registered
+        build. Validated against
         the registered versions at load time, resolved to canonical in
         the manifest.
     fs_exe : str

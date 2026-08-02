@@ -360,7 +360,8 @@ def test_the_shipped_name_guard_fires_on_what_it_exists_to_catch():
 # ---------------------------------------------------------------------------
 # NFR-14: research geometry never enters the repository.
 #
-# BRF-003 theme 2 calls this the one IRREVERSIBLE breach, and until now it was
+# SRS NFR-14 asks for this guard and NFR-08 states the wider rule; the breach
+# is the one this project treats as irreversible, and until now it was
 # enforced by discipline alone. Measured before this guard existed, on a real
 # case rather than in the abstract: a 37 kB synthetic-but-research-shaped .stl
 # added under examples/ and staged passed the ENTIRE tier-1 suite (863 tests)

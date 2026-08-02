@@ -174,11 +174,17 @@ def test_the_fsi_state_module_does_not_import_its_config_module():
     """The layering constraint the validator convention must not break.
 
     check_state_matches_config takes two integer counts rather than the
-    FsiConfig that holds them, so fsi.state does not import fsi.config.
-    That is what keeps the exception catalog importable without the
-    [fsi] extra, since state.py carries StaleLoadsError. A convention
-    saying "pass the object, not its fields" would quietly undo it, so
-    the direction is pinned here rather than trusted to prose.
+    FsiConfig that holds them, so fsi.state keeps its import surface to
+    pydantic. A convention saying "pass the object, not its fields"
+    would quietly undo that, so the direction is pinned here rather than
+    trusted to prose.
+
+    NOT the reason, stated because an earlier wording of the convention
+    claimed it and a review pass measured it false: this does NOT keep
+    pyflightstream.exceptions importable without the [fsi] extra. The
+    catalog imports fsi.loads and fsi.state, which executes the fsi
+    package __init__, which imports fsi.config regardless. Verified by
+    importing the catalog and reading sys.modules.
     """
     import ast
     from pathlib import Path

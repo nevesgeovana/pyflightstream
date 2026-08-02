@@ -229,7 +229,7 @@
 
 !!! requirement "NFR-14 Confidentiality commit guard <span class='srs-implemented'>implemented</span>"
     *Origin: Phase 4 review, accepted 2026-07-27. Evidence: PFS-3
-    (2026-08-03);
+    (2026-08-02);
     `tests/test_house_style.py::test_no_geometry_file_is_tracked_outside_the_synthetic_allowlist`
     walks every tracked path and fails on a geometry suffix outside the
     allowlist, with

@@ -583,7 +583,8 @@ def probe_version(
     Parameters
     ----------
     version : str or FsVersion
-        Target version, canonical or alias.
+        Target version, canonical identifier (26.120); a vendor release
+        name works only where it names exactly one registered build.
     workroot : str or Path
         Root directory receiving one working subdirectory per probe;
         scratch evidence, never committed (the report is the evidence).

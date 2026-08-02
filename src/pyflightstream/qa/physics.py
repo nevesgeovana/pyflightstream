@@ -371,7 +371,9 @@ def build_phy01_script(
     Parameters
     ----------
     version : str
-        Target FlightStream version, canonical or alias.
+        Target FlightStream version, canonical identifier (26.120); a
+        vendor release name works only where it names exactly one
+        registered build.
     alpha_deg : float
         Angle of attack in degrees, positive nose up.
     stl_path : str or Path
@@ -408,7 +410,9 @@ def build_phy02_script(
     Parameters
     ----------
     version : str
-        Target FlightStream version, canonical or alias.
+        Target FlightStream version, canonical identifier (26.120); a
+        vendor release name works only where it names exactly one
+        registered build.
     half : bool
         Build the mirrored open-root half model instead of the
         full-span baseline.
@@ -811,7 +815,9 @@ def build_phy05_script(
     Parameters
     ----------
     version : str
-        Target FlightStream version, canonical or alias.
+        Target FlightStream version, canonical identifier (26.120); a
+        vendor release name works only where it names exactly one
+        registered build.
     stl_path : str or Path
         The generated blade STL to import (meters, absolute path).
     loads_name, log_name : str
@@ -1103,7 +1109,9 @@ def build_smi_script(
     Parameters
     ----------
     version : str
-        Target FlightStream version, canonical or alias.
+        Target FlightStream version, canonical identifier (26.120); a
+        vendor release name works only where it names exactly one
+        registered build.
     fsm_path : str or Path
         Local .fsm file; must be absolute (the solver runs inside the
         case scratch directory).
@@ -1429,7 +1437,9 @@ def run_physics(
     Parameters
     ----------
     version : str
-        Target version, canonical or alias; every script is validated
+        Target version, canonical identifier (26.120); a vendor release
+        name works only where it names exactly one registered build.
+        Every script is validated
         against this version's database view.
     fs_exe : str or Path
         Explicit FlightStream executable path (never guessed).

@@ -455,7 +455,7 @@ def test_every_declared_count_is_a_known_count_name():
     This walks the whole database and fails on any int scalar that
     introduces a list argument from outside the known set, so the next
     new spelling fails the suite instead of shipping unchecked. Two
-    commands were escaping when it was written (PFS-8, 2026-08-03):
+    commands were escaping when it was written (PFS-8, 2026-08-02):
     UNSTEADY_SOLVER_NEW_FORCE_PLOT (`boundaries`) and
     ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS (`num_index`).
     """

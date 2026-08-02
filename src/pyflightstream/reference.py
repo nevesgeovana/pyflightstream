@@ -154,14 +154,18 @@ CONVENTIONS: tuple[tuple[str, str], ...] = (
         "call can raise.",
     ),
     (
-        "A validator takes what it needs, not the object that holds it",
-        "A check_ function takes the individual values it compares, not "
-        "the configuration object carrying them, whenever taking the "
-        "object would force an import against the dependency direction. "
-        "check_state_matches_config takes two integer counts rather than "
-        "the config, so fsi.state never imports fsi.config and the "
-        "exception catalog stays importable without the [fsi] extra. "
-        "Convenience at one call site is not worth an upward import.",
+        "A validator takes the values it compares where the object would "
+        "reverse the dependency direction",
+        "Where taking a configuration object would make a lower module "
+        "import a higher one, a check_ function takes the individual "
+        "values instead: check_state_matches_config takes two integer "
+        "counts, so fsi.state keeps its import surface to pydantic and "
+        "the module owning the persisted state needs nothing else. Such "
+        "decomposed values are KEYWORD-ONLY, because same-typed scalars "
+        "transpose silently in a positional call, which is the shape of "
+        "the defect the check exists to catch. Convenience at one call "
+        "site is not worth an upward import, and neither rule generalises "
+        "to a validator whose object is already below it.",
     ),
 )
 
@@ -551,7 +555,9 @@ def help(  # noqa: A001
     Parameters
     ----------
     version : str, FsVersion, or None
-        Optional version filter, canonical or alias; see
+        Optional version filter, canonical identifier (26.120); a vendor
+        release name works only where it names exactly one registered
+        build. See
         :func:`render_html`.
     path : str or Path, optional
         Where to write the page. Defaults to a stable file name in the

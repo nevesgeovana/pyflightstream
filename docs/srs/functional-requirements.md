@@ -36,7 +36,7 @@ Milestones and session records are listed in the
     user may write that name wherever it names exactly one build.
 
 !!! requirement "FR-02c Ambiguous vendor names are refused <span class='srs-implemented'>implemented</span>"
-    *Origin: BRF-03, BRF-19. Evidence: PFS-8 (2026-08-03); the
+    *Origin: BRF-03, BRF-19. Evidence: PFS-8 (2026-08-02); the
     ambiguous-alias tests in `tests/test_versions.py`.*
 
     The vendor ships every hotfix build of a minor release under the
@@ -640,7 +640,7 @@ the base could not offer while it bundled several.
 !!! requirement "FR-39 Public exception hierarchy <span class='srs-implemented'>implemented</span>"
     *Origin: Phase 4 review, accepted 2026-07-27, absorbing the C2
     catalog acceptance and the M1 typed-hierarchy mirror. Evidence:
-    PFS-2 (2026-08-03); `src/pyflightstream/exceptions.py`;
+    PFS-2 (2026-08-02); `src/pyflightstream/exceptions.py`;
     `tests/test_exceptions_catalog.py`.*
 
     Every exception raised by the public API derives from a single

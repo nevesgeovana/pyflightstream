@@ -74,7 +74,8 @@ def test_comparison_with_other_types_is_rejected():
 
 
 # --------------------------------------------------------------------------
-# The ambiguous-alias guard (PFS-8, SEAT-FTSALIAS answered 2026-08-03).
+# The ambiguous-alias guard (PFS-8, 2026-08-02, implementing
+# SEAT-FTSALIAS as the author answered it).
 # --------------------------------------------------------------------------
 
 

@@ -94,7 +94,7 @@ _ORDERED_PHASES = (
 # says so. `test_every_declared_count_is_a_known_count_name` in
 # tests/test_script.py closes that class by walking the database and
 # failing on any int scalar that introduces a list from outside this set.
-# It was added after two commands were found escaping (PFS-8, 2026-08-03).
+# It was added after two commands were found escaping (PFS-8, 2026-08-02).
 _COUNT_ARG_NAMES = {
     "boundaries",
     "count",
@@ -315,7 +315,9 @@ class Script:
     Parameters
     ----------
     version : str or FsVersion
-        Target FlightStream version, canonical or alias; every
+        Target FlightStream version, canonical identifier (26.120); a
+        vendor release name works only where it names exactly one
+        registered build. Every
         emission is validated against this version's command view.
     registry : CommandRegistry, optional
         Alternative database, used by tests; defaults to the packaged

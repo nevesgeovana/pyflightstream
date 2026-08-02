@@ -51,7 +51,9 @@ def _build_parser() -> argparse.ArgumentParser:
     probe.add_argument(
         "--version",
         required=True,
-        help="target FlightStream version, canonical or alias (for example 26.120)",
+        help="target FlightStream version: canonical identifier (for example "
+        "26.120); a vendor release name works only where it names exactly one "
+        "registered build",
     )
     probe.add_argument(
         "--fs-exe",
@@ -109,7 +111,9 @@ def _build_parser() -> argparse.ArgumentParser:
     physics.add_argument(
         "--version",
         required=True,
-        help="target FlightStream version, canonical or alias (for example 26.120)",
+        help="target FlightStream version: canonical identifier (for example "
+        "26.120); a vendor release name works only where it names exactly one "
+        "registered build",
     )
     physics.add_argument(
         "--fs-exe",

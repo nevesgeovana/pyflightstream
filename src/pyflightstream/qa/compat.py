@@ -22,7 +22,6 @@ import yaml
 
 from pyflightstream.commands import CommandEntry
 from pyflightstream.qa.probes import ProbeOutcome, ProbeRun
-from pyflightstream.versions import known_versions
 
 COMPAT_SCHEMA = "pyflightstream-compat-report/1"
 
@@ -219,6 +218,15 @@ def apply_compat(
     if commands_dir is None:
         commands_dir = Path(str(resources.files("pyflightstream.commands")))
     commands_dir = Path(commands_dir)
+    order = _release_order(commands_dir)
+    if canonical not in order:
+        raise ValueError(
+            f"the report names FlightStream version {canonical!r}, which the version "
+            f"registry beside {commands_dir} does not list. Register it in "
+            "commands/_meta.yaml first (the ordered list is the only ordering "
+            "authority); nothing was written. Registered: "
+            f"{', '.join(sorted(order, key=order.__getitem__))}"
+        )
 
     targets = {
         name: body
@@ -236,7 +244,9 @@ def apply_compat(
             continue
         for name in names:
             body = pending.pop(name)
-            text = _rewrite_version_line(text, chapter_path.name, name, canonical, body, citation)
+            text = _rewrite_version_line(
+                text, chapter_path.name, name, canonical, body, citation, order
+            )
         chapter_path.write_text(text, encoding="utf-8")
         _validate_chapter(chapter_path, names)
         promotions.extend((name, targets[name]["outcome"], chapter_path.name) for name in names)
@@ -251,8 +261,49 @@ def apply_compat(
 _VERSION_LINE = re.compile(r'^(\s+)"(\d{2}\.\d{3})":\s*\{.*\}\s*$')
 
 
+def _release_order(commands_dir: Path) -> dict[str, int]:
+    """Return canonical identifier to release position for one command tree.
+
+    Read from ``_meta.yaml`` INSIDE ``commands_dir``, not from the
+    installed package. The two are the same tree in normal use and
+    different whenever a caller points ``apply_compat`` at a copy, and
+    placing a line into one tree using another tree's ordering is two
+    authorities for one edit. ``known_versions`` is also cached for the
+    process, so it would answer with the registry as it was before a
+    version registered in the same run.
+
+    Parameters
+    ----------
+    commands_dir : Path
+        Chapter directory being edited; its ``_meta.yaml`` is the
+        ordering authority for that tree (CLAUDE.md invariant 4).
+
+    Returns
+    -------
+    dict of str to int
+        Position per canonical identifier, oldest first. Empty when the
+        directory carries no ``_meta.yaml``, which is the shape a test
+        fixture of loose chapter files has; the caller then refuses the
+        report rather than guessing a position.
+    """
+    meta_path = commands_dir / "_meta.yaml"
+    if not meta_path.is_file():
+        return {}
+    meta = yaml.safe_load(meta_path.read_text(encoding="utf-8")) or {}
+    return {
+        str(entry["canonical"]): position
+        for position, entry in enumerate(meta.get("versions") or [])
+    }
+
+
 def _rewrite_version_line(
-    text: str, chapter: str, name: str, canonical: str, body: dict, citation: str
+    text: str,
+    chapter: str,
+    name: str,
+    canonical: str,
+    body: dict,
+    citation: str,
+    order: dict[str, int],
 ) -> str:
     """Write one command's evidence for ``canonical``, rewriting or inserting.
 
@@ -303,12 +354,14 @@ def _rewrite_version_line(
 
     if not recorded:
         raise ValueError(
-            f"{chapter}: no single-line version entry at all in {name}, so there is "
-            f"nothing to pattern the new {canonical!r} entry on; promote this entry "
-            "manually reviewable or normalize the block first"
+            f"{chapter}: {name} records no version as a single-line entry, so this "
+            f"promotion has no line to copy the shape of the new {canonical!r} entry "
+            f"from. Rewrite the versions: block of {name} as one line per version "
+            "(for example '\"26.120\": {status: documented}') and re-run "
+            "pyfs-qa apply-compat; a status is promoted from a committed report, "
+            "never hand-edited (CLAUDE.md invariant 3)."
         )
 
-    order = {version.canonical: version.index for version in known_versions()}
     position = order[canonical]
     indent = recorded[0][1]
     insert_at = next(

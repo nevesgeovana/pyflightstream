@@ -455,7 +455,9 @@ def build_setup(
     Parameters
     ----------
     version : str
-        FlightStream version of the script, canonical or alias.
+        FlightStream version of the script, canonical identifier
+        (26.120); a vendor release name works only where it names
+        exactly one registered build.
     passed : mapping of str to object
         The helper keywords exactly as received (None meaning not
         passed), plus the validated ``bulk_separation`` model, the

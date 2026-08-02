@@ -48,7 +48,9 @@ def _add_common_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--fs-version",
         required=True,
-        help="FlightStream version, canonical or alias (for example 26.120)",
+        help="FlightStream version: canonical identifier (for example 26.120); "
+        "a vendor release name works only where it names exactly one registered "
+        "build",
     )
     parser.add_argument(
         "--recipe",

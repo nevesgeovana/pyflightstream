@@ -63,14 +63,14 @@ FlightStream versions.
 * House conventions gain two entries, in the same `CONVENTIONS` home
   that feeds `help()` and the docs site: **diagnostics are nouns and
   validators say `check_`** (`sample_coverage` beside `check_recipe`),
-  and **a validator takes what it needs, not the object that holds
-  it**. The second is a layering rule wearing a naming hat:
-  `check_state_matches_config` takes two integer counts rather than the
-  config object, so `fsi.state` never imports `fsi.config` and the
-  exception catalog stays importable without the `[fsi]` extra. Both
-  halves that can be checked mechanically now are: a `check_` function
-  returning a value fails the suite, and so does `fsi.state` importing
-  `fsi.config`.
+  and **a validator takes the values it compares where the object would
+  reverse the dependency direction**. The second is a layering rule
+  wearing a naming hat: `check_state_matches_config` takes two integer
+  counts rather than the config object, so `fsi.state` keeps its import
+  surface to pydantic, and those counts are keyword-only because
+  same-typed scalars transpose silently. Both halves that can be checked
+  mechanically now are: a `check_` function returning a value fails the
+  suite, and so does `fsi.state` importing `fsi.config`.
 * **FlightStream 26.121 is registered, and the vendor name "26.12" stops
   resolving.** The vendor ships the hotfix build under the same release
   name as 26.120, so that name now identifies two registered builds.
@@ -95,6 +95,12 @@ FlightStream versions.
   Registered versions are now 26.000, 26.100, 26.120, 26.121; the last
   digit indexes vendor hotfix builds, so 26.121 is hotfix build 1 of
   the 26.12 release (SRS FR-02c, new).
+* `pyfs-qa probe`, `physics` and `drift` now refuse an unresolvable
+  `--version` with the library's own message on stderr and exit code 2,
+  instead of a traceback. Both refusals it covers are ordinary user
+  error: an unregistered identifier, and a vendor name shared by several
+  builds. A wrapper keying on the exit code sees 2 where it used to see
+  1.
 * `UNSTEADY_SOLVER_DELETE_ALL_PLOTS` joins the command database
   (`documented`, SRC-003 p.347). It was documented in the 26.12 manual
   and never registered; the gap surfaced while diffing the 26.121
@@ -136,20 +142,27 @@ FlightStream versions.
 * **FlightStream 26.121 is onboarded with solver evidence, not just
   registration**: `reports/compat/CMP-26121_2026-08-02_full.yaml` is a
   licensed tier-2 run of 109 probe specifications against solver build
-  #7262026, and 68 statuses are promoted from it. Two commands the
-  hotfix FIXES are now recorded as such:
+  #7262026, and 68 statuses are promoted from it.
 
-    * `AIR_ALTITUDE` was `broken` on 26.120 because its `METERS`
-      argument read as ignored (5000 m gave the 5000 *foot* standard
-      density, 1.056 kg/m^3); on 26.121 the same probe observes
-      0.736 kg/m^3, the 5000 m value. Anyone setting altitude in metres
-      on 26.120 was solving at the wrong density, silently.
-    * `NEW_SURFACE_SECTION_DISTRIBUTION` aborted script processing on
-      26.120 and completes with its effect observed on 26.121.
+  One command changed for the better: `AIR_ALTITUDE` was `broken` on
+  26.120 because its `METERS` argument read as ignored (5000 m gave the
+  5000 *foot* standard density, 1.056 kg/m^3, observed twice on the
+  pre-hotfix build); on 26.121 the same assertion observes
+  0.736 kg/m^3, the 5000 m value. Anyone setting altitude in metres on
+  26.120 was solving at the wrong density, silently, and that half
+  stands on the 26.120 evidence alone.
 
-  `NEW_OFF_BODY_STREAMLINE` and `SET_MOTION_START_TIME` remain broken on
-  both builds, and `SWEEPER_REF_VELOCITY_SAME` is measured broken for
-  the first time.
+  One changed the other way: `SWEEPER_REF_VELOCITY_SAME` ran without a
+  script abort on 26.120 and aborts on 26.121.
+  `NEW_OFF_BODY_STREAMLINE` and `SET_MOTION_START_TIME` are broken on
+  both builds.
+
+  Attribution is deliberately withheld, because three things differ
+  between the two runs and not one: the solver build, the probe harness
+  (0.0.1.dev0 to 0.3.0, with the specifications changing inside that
+  window), and the session file. The run establishes what was observed
+  on each build, not what the vendor changed. The disambiguating run,
+  this harness against the 26.120 executable, was not made.
 * `reports/RPT-014_26121-manual-diff-and-probe_2026-08-02.md`: the
   26.121 onboarding record. It documents that the hotfix carries its own
   manual edition (413 pages against 410, every scripting-reference

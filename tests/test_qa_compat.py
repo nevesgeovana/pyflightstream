@@ -49,9 +49,24 @@ RUN_SCRIPT:
 """
 
 
+#: The fixture tree carries its own ordered version list, because the
+#: promotion reads the release order from the directory it EDITS rather
+#: than from the installed package: pointing apply_compat at a copy and
+#: ordering the edit by another tree's registry is two authorities for
+#: one edit, and the installed one is process-cached besides.
+META_FIXTURE = """\
+versions:
+  - canonical: "26.120"
+    alias: "26.12"
+  - canonical: "26.121"
+    alias: "26.12"
+"""
+
+
 def write_chapter_fixture(commands_dir):
     commands_dir.mkdir()
     (commands_dir / "script_controls.yaml").write_text(CHAPTER_FIXTURE, encoding="utf-8")
+    (commands_dir / "_meta.yaml").write_text(META_FIXTURE, encoding="utf-8")
 
 
 def make_run():
@@ -153,6 +168,7 @@ def test_apply_compat_refuses_unknown_commands(tmp_path):
 def test_apply_compat_refuses_a_multiline_version_entry(tmp_path):
     commands_dir = tmp_path / "commands"
     commands_dir.mkdir()
+    (commands_dir / "_meta.yaml").write_text(META_FIXTURE, encoding="utf-8")
     (commands_dir / "fake.yaml").write_text(
         "FAKE_CMD:\n"
         "  layout: bare\n"
@@ -165,7 +181,7 @@ def test_apply_compat_refuses_a_multiline_version_entry(tmp_path):
         encoding="utf-8",
     )
     report_path = write_report(tmp_path, {"FAKE_CMD": {"outcome": "verified", "detail": "x"}})
-    with pytest.raises(ValueError, match="no single-line version entry"):
+    with pytest.raises(ValueError, match="records no version as a single-line entry"):
         apply_compat(report_path, repo_root=tmp_path, commands_dir=commands_dir)
 
 
@@ -216,6 +232,7 @@ def test_apply_compat_onboards_a_version_the_command_does_not_record_yet(tmp_pat
 def test_apply_compat_still_refuses_a_block_with_no_line_to_pattern_on(tmp_path):
     commands_dir = tmp_path / "commands"
     commands_dir.mkdir()
+    (commands_dir / "_meta.yaml").write_text(META_FIXTURE, encoding="utf-8")
     (commands_dir / "fake.yaml").write_text(
         "FAKE_CMD:\n"
         "  layout: bare\n"
@@ -232,5 +249,69 @@ def test_apply_compat_still_refuses_a_block_with_no_line_to_pattern_on(tmp_path)
         {"FAKE_CMD": {"outcome": "verified", "detail": "x"}},
         version="26.121",
     )
-    with pytest.raises(ValueError, match="nothing to pattern the new"):
+    with pytest.raises(ValueError) as caught:
         apply_compat(report_path, repo_root=tmp_path, commands_dir=commands_dir)
+    message = str(caught.value)
+    # Pin the REMEDY, not only the diagnosis. The first wording of this
+    # refusal said "promote this entry manually reviewable or normalize the
+    # block first", whose only actionable reading told the user to hand-edit
+    # a status, which invariant 3 forbids outright. Only the diagnosis half
+    # was pinned, so the broken half was free to drift.
+    assert "no line to copy the shape" in message
+    assert "one line per version" in message
+    assert "never hand-edited" in message
+    assert "manually" not in message
+
+
+def test_apply_compat_refuses_a_report_naming_an_unregistered_version(tmp_path):
+    """An unregistered version must be named, not raise a bare KeyError.
+
+    The release position of the line being inserted is looked up in the
+    tree's own ordered version list. Before the architect pass that
+    lookup was an unguarded subscript, so a report naming a version the
+    registry does not carry escaped `apply_compat` as KeyError('26.130'),
+    from a public function whose Raises section promises ValueError and
+    whose siblings all name their cause.
+    """
+    commands_dir = tmp_path / "commands"
+    write_chapter_fixture(commands_dir)
+    report_path = write_report(
+        tmp_path,
+        {"PRINT": {"outcome": "verified", "detail": "effect observed"}},
+        version="26.130",
+    )
+    with pytest.raises(ValueError, match="does not list"):
+        apply_compat(report_path, repo_root=tmp_path, commands_dir=commands_dir)
+    # Nothing was written before the refusal.
+    assert "26.130" not in (commands_dir / "script_controls.yaml").read_text(encoding="utf-8")
+
+
+def test_apply_compat_orders_by_the_tree_it_edits_not_the_installed_registry(tmp_path):
+    """The ordering authority is the _meta.yaml beside the chapters.
+
+    Pointing apply_compat at a copy and ordering the edit by the
+    INSTALLED registry is two authorities for one edit. Here the copy
+    declares a release order the installed package does not have, and
+    the inserted line must follow the copy.
+    """
+    commands_dir = tmp_path / "commands"
+    write_chapter_fixture(commands_dir)
+    # A tree in which 26.121 is OLDER than 26.120, which the installed
+    # registry says the opposite of. The insert must follow this file.
+    (commands_dir / "_meta.yaml").write_text(
+        'versions:\n  - canonical: "26.121"\n    alias: "a"\n'
+        '  - canonical: "26.120"\n    alias: "b"\n',
+        encoding="utf-8",
+    )
+    report_path = write_report(
+        tmp_path,
+        {"PRINT": {"outcome": "verified", "detail": "effect observed"}},
+        version="26.121",
+    )
+    apply_compat(report_path, repo_root=tmp_path, commands_dir=commands_dir)
+
+    lines = (commands_dir / "script_controls.yaml").read_text(encoding="utf-8").splitlines()
+    block = lines[lines.index("PRINT:") :]
+    recorded = [line.strip() for line in block[:12] if '": {status' in line]
+    assert recorded[0].startswith('"26.121"'), recorded
+    assert recorded[1].startswith('"26.120"'), recorded
