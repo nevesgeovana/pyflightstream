@@ -754,10 +754,18 @@ def test_a_nan_in_the_pressure_column_is_not_swallowed(tmp_path):
 
 
 def test_a_nan_in_the_velocity_column_is_still_caught(tmp_path):
-    """Row 4: this one already worked, and is here so the fix cannot lose it.
+    """Row 4, and it is EVIDENCE rather than the control it was labelled.
 
-    A guard that fired only for the first column was the whole defect; a fix
-    that moved the hole to the other column would pass the test above.
+    The label was wrong and the QA re-run pass measured it. The pre-fix body
+    did reach FAILED_DIVERGED here, because max(nan, 2.62e-8) is nan and the
+    old post-hoc NaN test fired. But the old message read "final residuals
+    are NaN", so the assertion below on "velocity" fails against it, which
+    makes this case fail on the mutant like the other two.
+
+    The group's only true control is test_the_pristine_log_is_still_converged.
+    Recorded rather than quietly relabelled, because a reader who trusts the
+    labels believes this group has a control it does not have, and the next
+    edit could delete the real evidence as redundant.
     """
     assessment = _assess_log(tmp_path, _log_with("NaN", LAST_VELOCITY))
     assert assessment.status is RunStatus.FAILED_DIVERGED

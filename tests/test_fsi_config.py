@@ -194,3 +194,33 @@ def test_a_matching_state_passes_and_an_empty_one_is_not_a_mismatch():
         station_count=3,
     )
     check_state_matches_config(FsiState(), blade_count=3, station_count=5)
+
+
+@pytest.mark.parametrize("bad", [float("inf"), float("-inf"), float("nan")])
+def test_a_non_finite_scalar_is_refused_too(bad):
+    """The SCALAR half of PYFS-012, closed after the QA re-run pass argued it.
+
+    The list guard covers the per-station distributions. The scalar fields
+    were left to their pydantic bounds, and a bound is a comparison:
+    Field(ge=0.0) accepts infinity, because inf >= 0 is True. So
+    omega_rad_per_s could be infinite, which is the centrifugal-tension
+    source, one line above the fields the guard was written for. NaN happened
+    to be caught by the same bound, which is what made the hole look closed.
+    """
+    with pytest.raises(ValidationError):
+        make_uniform_blade_config().model_copy(
+            update={"omega_rad_per_s": bad}
+        ).__class__.model_validate(
+            make_uniform_blade_config().model_dump() | {"omega_rad_per_s": bad}
+        )
+
+
+def test_check_state_matches_config_refuses_positional_counts():
+    """The keyword-only guard, which had no test.
+
+    Its whole justification is that two same-typed ints transposed silently
+    give either a spurious refusal or a silent acceptance of the exact
+    mismatch the function exists to catch.
+    """
+    with pytest.raises(TypeError):
+        check_state_matches_config(FsiState(), 3, 11)

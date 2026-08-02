@@ -311,19 +311,35 @@ def test_the_two_paths_still_agree_on_an_ordinary_mode():
 # reported relative_spread 0.0 while its own mdot was nan.
 
 
-def _holed():
-    """A one-station lattice whose fields carry exactly one missing sample."""
-    lattice = build_lattice(tip_radius=1.0, stations=(0.0,), lateral_radius=None)
-    shape = (1, lattice.n_r, lattice.n_psi)
+def _holed(*, holes=("u", "v", "w", "p_prime"), stations=(-1.0, 0.0, 1.0), station=1):
+    """A lattice with exactly one missing sample, in the named fields only.
+
+    THREE stations by default and a hole in ONE of them. The first version of
+    this fixture used a single station and holed every field at the same
+    index, and the re-run review passes measured that four of the seven
+    reductions this commit fixed were unguarded by it: an all-NaN array
+    reduces to NaN whether or not skipna is set, so mass_closure's mean and
+    max, the in_plane_moment loading sum, and the v_theta azimuthal mean all
+    passed against the UNFIXED body. A fixture that cannot fail is not
+    evidence, and a multi-station plane with one dead station is what
+    distinguishes "skipped it" from "propagated it".
+
+    ``holes`` selects which fields lose the sample, so a caller can leave the
+    axial velocity finite and reach the transverse-only channels; with every
+    field holed, plane_integral alone forces NaN and the sibling reductions
+    are never exercised.
+    """
+    lattice = build_lattice(tip_radius=1.0, stations=stations, lateral_radius=None)
+    shape = (len(stations), lattice.n_r, lattice.n_psi)
     fields = {
         "u": np.full(shape, V_INF),
         "v": np.zeros(shape),
         "w": np.full(shape, 1.0),
         "p_prime": np.zeros(shape),
     }
-    for name in fields:
+    for name in holes:
         fields[name] = fields[name].copy()
-        fields[name][0, 0, 0] = np.nan
+        fields[name][station, 0, 0] = np.nan
     return cylindrical_components(lattice_dataset(lattice, fields))
 
 
@@ -344,6 +360,21 @@ def _holed():
         ("crossflow_kinetic_energy", lambda ds: crossflow_kinetic_energy(ds, RHO)["total"]),
         ("symmetry_floor", lambda ds: symmetry_floor(ds["u"])),
         ("mass_closure", lambda ds: mass_closure(ds, RHO)["relative_spread"]),
+        # The public entry points a user actually calls, absent from the first
+        # version of this list and added when the re-run passes named them.
+        ("axial_force", lambda ds: axial_force(ds, RHO, V_INF, inlet=-1.0, outlet=0.0)),
+        (
+            "transverse_force",
+            lambda ds: transverse_force(ds, RHO, inlet=-1.0, outlet=0.0)["total"],
+        ),
+        (
+            "in_plane_moment total",
+            lambda ds: in_plane_moment(ds, RHO, V_INF, inlet=-1.0, outlet=0.0)["total"],
+        ),
+        (
+            "in_plane_moment loading",
+            lambda ds: in_plane_moment(ds, RHO, V_INF, inlet=-1.0, outlet=0.0)["loading_term"],
+        ),
     ],
 )
 def test_no_ledger_reports_a_number_from_an_incomplete_plane(name, call):
@@ -394,7 +425,11 @@ def test_the_two_transverse_paths_agree_on_incompleteness():
     ds = _holed()
     quadrature = np.asarray(transverse_flux(ds, RHO, component="w", method="quadrature"))
     harmonic = np.asarray(transverse_flux(ds, RHO, component="w", method="harmonic"))
-    assert np.isnan(quadrature).all() and np.isnan(harmonic).all()
+    # Per station: the holed one dies in both paths, the live ones survive in
+    # both. Asserting NaN everywhere would demand the fix destroy good data.
+    assert np.isnan(quadrature[1]) and np.isnan(harmonic[1])
+    assert np.isfinite(quadrature[0]) and np.isfinite(harmonic[0])
+    assert np.isfinite(quadrature[2]) and np.isfinite(harmonic[2])
 
 
 def test_the_two_paths_agree_at_an_odd_azimuth_count():
@@ -418,3 +453,40 @@ def test_the_two_paths_agree_at_an_odd_azimuth_count():
     harmonic = float(transverse_flux(ds, RHO, component="w", method="harmonic")[0])
     assert abs(quadrature) > 1.0
     assert harmonic == pytest.approx(quadrature, rel=1e-10)
+
+
+def test_the_swirl_channel_sees_a_hole_that_is_only_in_the_transverse_field():
+    """The residual the first fixture could not reach.
+
+    crossflow_kinetic_energy["swirl"] is built on an azimuthal MEAN of
+    v_theta, not on plane_integral, so it is the one channel whose
+    correctness depends on that reduction alone. With u left finite, the
+    pre-fix body returned swirl = 2.4e-32, a confident "no swirl", from a
+    plane with a dead sample, while the sibling "total" was NaN. The two
+    numbers disagreed in the same returned object and nothing said so.
+    """
+    ds = _holed(holes=("v", "w"))
+    energy = crossflow_kinetic_energy(ds, RHO)
+    assert np.isnan(np.asarray(energy["swirl"])).any(), (
+        f"swirl came back {np.asarray(energy['swirl'])!r} from a holed plane"
+    )
+
+
+def test_mass_closure_sees_one_dead_station_among_live_ones():
+    """The measurement the commit message quoted, now reproducible.
+
+    relative_spread is the scalar gate G1 judges. With one dead station of
+    three, the pre-fix mean and max skipped it and the gate reported a
+    plausible spread over the survivors; the quoted 0.0 is only reachable
+    with at least two stations, which the first fixture did not have.
+    """
+    ds = _holed(holes=("u",))
+    closure = mass_closure(ds, RHO)
+    mdot = np.asarray(closure["mdot"])
+    assert np.isnan(mdot[1]), "the holed station should carry NaN"
+    assert np.isfinite(mdot[0]) and np.isfinite(mdot[2]), (
+        "the live stations must stay live, or this proves nothing about skipping"
+    )
+    assert np.isnan(np.asarray(closure["relative_spread"])), (
+        "the closure judgment was taken over the surviving stations"
+    )

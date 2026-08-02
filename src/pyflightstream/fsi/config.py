@@ -83,7 +83,15 @@ class BladeProperties(BaseModel):
         axis; the total pitch is geometric plus elastic twist.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    # allow_inf_nan=False closes the SCALAR half of PYFS-012. The list guard
+    # below covers the per-station distributions; the scalar fields were left
+    # to their bounds, and a bound is a comparison: Field(ge=0.0) accepts
+    # infinity, because inf >= 0 is True. An infinite omega_rad_per_s is the
+    # centrifugal-tension source, so the hole was one line above the fields
+    # the guard was written for. Raised by the QA re-run pass, which argued
+    # correctly that registering it while fixing the sibling reductions in
+    # the same commit contradicts the structural-fix rule.
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
     station_radii_m: list[float] = Field(min_length=2)
     chord_m: list[float]
@@ -238,7 +246,15 @@ class PhaseSchedule(BaseModel):
         Phase 4 length [revolutions] recording theta(r, psi) per blade.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    # allow_inf_nan=False closes the SCALAR half of PYFS-012. The list guard
+    # below covers the per-station distributions; the scalar fields were left
+    # to their bounds, and a bound is a comparison: Field(ge=0.0) accepts
+    # infinity, because inf >= 0 is True. An infinite omega_rad_per_s is the
+    # centrifugal-tension source, so the hole was one line above the fields
+    # the guard was written for. Raised by the QA re-run pass, which argued
+    # correctly that registering it while fixing the sibling reductions in
+    # the same commit contradicts the structural-fix rule.
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
     wake_development_revolutions: float = Field(default=1.0, gt=0.0)
     coupling_relaxation: float = Field(default=0.4, gt=0.0, le=1.0)
@@ -284,7 +300,15 @@ class FsiConfig(BaseModel):
         for the FSIDisp ordering (FSI-R14).
     """
 
-    model_config = ConfigDict(extra="forbid")
+    # allow_inf_nan=False closes the SCALAR half of PYFS-012. The list guard
+    # below covers the per-station distributions; the scalar fields were left
+    # to their bounds, and a bound is a comparison: Field(ge=0.0) accepts
+    # infinity, because inf >= 0 is True. An infinite omega_rad_per_s is the
+    # centrifugal-tension source, so the hole was one line above the fields
+    # the guard was written for. Raised by the QA re-run pass, which argued
+    # correctly that registering it while fixing the sibling reductions in
+    # the same commit contradicts the structural-fix rule.
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
     blade_count: int = Field(ge=1)
     omega_rad_per_s: float = Field(ge=0.0)

@@ -4,8 +4,8 @@ CLAUDE.md documents five environment variables that a fresh clone must set.
 The floor below pins the three long-standing ones (`PYFS_PLAN_CHECKER`,
 `PYFS_INCIDENT_LEDGER`, `PYFS_SESSION_ROOT`); `COORD_INCIDENT_LEDGER` and
 `COORD_SHARED_LEDGER_TREE` arrived from the kit and are covered by the
-derivation rather than by the floor. The skills and hooks read them, and the
-skills and hooks read them. Nothing kept the two sides in agreement until the
+derivation rather than by the floor. The skills and hooks read them, and
+nothing kept the two sides in agreement until the
 2026-07-27 session-document migration made the cost visible: a variable
 introduced in five hand-edited documents, with no mechanism to notice a sixth
 skill adopting it, or a rename landing in one home only.
