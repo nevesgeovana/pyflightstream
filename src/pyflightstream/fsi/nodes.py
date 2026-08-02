@@ -421,6 +421,29 @@ def write_fsidisp(path: str | Path, translations: np.ndarray) -> None:
         raise ValueError(
             f"FSIDisp rows must be (n_nodes, 3) translation vectors, got {translations.shape}"
         )
+    # PYFS-013. The shape check was the only one, so a NaN or infinite
+    # displacement was formatted straight to disk and handed to the
+    # solver as a node position. Measured at HEAD: a row went out as
+    # "nan,0.0000000000000000e+00,inf". Downstream that is not a crash,
+    # it is a deformed blade the solver accepts, and the coupling loop
+    # then relaxes toward it and writes the next file from it.
+    #
+    # The refusal names the ROWS rather than a count, because the
+    # caller's next question is which node moved wrong, and the node
+    # map is indexed by exactly that.
+    finite = np.isfinite(translations)
+    if not finite.all():
+        bad = sorted({int(index) for index in np.nonzero(~finite)[0]})
+        shown = ", ".join(str(index) for index in bad[:8])
+        more = "" if len(bad) <= 8 else f" and {len(bad) - 8} more"
+        raise ValueError(
+            f"FSIDisp rows {shown}{more} hold a non-finite displacement, so the "
+            "structural solve did not produce a blade shape. Writing it would hand "
+            "the solver a node position that is not a position, and the coupling "
+            "loop would relax toward it. Check the structural solve's convergence "
+            "before this call; row indices are node indices in the node map's "
+            "import order."
+        )
     lines = [",".join(_DISP_FORMAT.format(v) for v in row) for row in translations]
     Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
 

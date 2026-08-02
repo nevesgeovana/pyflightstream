@@ -7,6 +7,7 @@ precision. The node file and the FSIDisp ordering map come from the
 same generator (FSI-R14), which these tests hold to its contract.
 """
 
+import math
 from pathlib import Path
 
 import numpy as np
@@ -209,3 +210,54 @@ def test_wp1_fixture_formats_are_readable():
     # The dry-run nodes sit on the pitch axis, span along the third column.
     assert np.all(imported[:, :2] == 0.0)
     assert np.all(np.diff(imported[:, 2]) > 0.0)
+
+
+def test_write_fsidisp_refuses_a_non_finite_displacement(tmp_path):
+    """PYFS-013. The shape check was the only one.
+
+    Measured at HEAD before the fix: a row went to disk as
+    "nan,0.0000000000000000e+00,inf". Downstream that is not a crash,
+    it is a deformed blade the solver accepts, and the coupling loop
+    relaxes toward it and writes the next file from it.
+
+    LIVE DATA BESIDE THE DEAD DATA: rows 0 and 2 are ordinary
+    displacements, only row 1 is poisoned. An all-bad array would be
+    refused by almost any check, including ones that never look at the
+    values; this one has to find the single bad row among good ones,
+    and the assertions below pin that it names WHICH row.
+    """
+    target = tmp_path / "FSIDisp.txt"
+    rows = np.array(
+        [
+            [0.001, 0.002, 0.003],
+            [0.004, math.nan, math.inf],
+            [0.005, 0.006, 0.007],
+        ]
+    )
+    with pytest.raises(ValueError) as caught:
+        nodes.write_fsidisp(target, rows)
+    message = str(caught.value)
+    assert "FSIDisp rows 1" in message, message
+    assert "non-finite" in message
+    # Nothing was written: a refusal that leaves a partial file behind
+    # is worse than none, because the next read would succeed.
+    assert not target.exists()
+
+    # The control. The same call with the poisoned row healed must
+    # write, or the test above would pass on a function that refused
+    # everything.
+    rows[1] = [0.004, 0.005, 0.006]
+    nodes.write_fsidisp(target, rows)
+    assert len(target.read_text(encoding="utf-8").strip().splitlines()) == 3
+
+
+def test_write_fsidisp_names_several_bad_rows_and_stops_listing(tmp_path):
+    # The message is a diagnosis, so it must stay readable when a whole
+    # solve diverged rather than one node.
+    rows = np.full((30, 3), math.nan)
+    rows[7] = [0.1, 0.2, 0.3]
+    with pytest.raises(ValueError) as caught:
+        nodes.write_fsidisp(tmp_path / "FSIDisp.txt", rows)
+    message = str(caught.value)
+    assert "and 21 more" in message, message
+    assert " 7," not in message and not message.split("rows ")[1].startswith("7")

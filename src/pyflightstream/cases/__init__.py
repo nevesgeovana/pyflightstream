@@ -191,11 +191,17 @@ class ReferenceData(BaseModel):
         velocity such as the rotor tip speed (SRC-003 p.201).
     """
 
-    model_config = ConfigDict(extra="forbid")
+    # PYFS-016. A reference area or length of zero divides every
+    # coefficient by zero; a negative one flips the sign of every
+    # coefficient in the report while the run looks healthy; an
+    # infinite one drives them all to zero. All three were measured
+    # accepted at HEAD. These are DIVISORS of the published numbers,
+    # which is why the bound is a refusal rather than a warning.
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
-    area: float
-    length: float
-    velocity: float | None = None
+    area: float = Field(gt=0.0)
+    length: float = Field(gt=0.0)
+    velocity: float | None = Field(default=None, gt=0.0)
 
 
 def _resolve_settings_toggle(value: object) -> object:
@@ -261,13 +267,28 @@ class SolverSettings(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    iterations: int = 500
-    convergence: float = 1e-5
+    # PYFS-016. Every bound below was measured ACCEPTED before it was
+    # written: zero and negative iterations, a zero and a negative
+    # timeout, a zero and a NaN convergence threshold, zero threads.
+    # None of those describes a run that can happen, and the NaN
+    # threshold is the one that does not even fail loudly: it compares
+    # false against every residual, so the solver burns its whole
+    # iteration budget and the run is recorded as having met a target
+    # it never met.
+    #
+    # allow_inf_nan=False stops the NaN and infinity half; the
+    # per-field bounds stop the zero and negative half. Both are
+    # needed, because a numeric constraint does not reject NaN on its
+    # own: every comparison against NaN is false, so ge and gt pass it.
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+
+    iterations: int = Field(default=500, ge=1)
+    convergence: float = Field(default=1e-5, gt=0.0)
     forced_iterations: SolverToggle | None = None
     boundary_layer: str | None = None
     viscous_coupling: SolverToggle | None = None
-    max_threads: int | None = None
-    timeout_s: float | None = None
+    max_threads: int | None = Field(default=None, ge=1)
+    timeout_s: float | None = Field(default=None, gt=0.0)
 
 
 class SimCase(BaseModel):

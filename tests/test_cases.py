@@ -5,6 +5,7 @@ from pydantic import ValidationError
 
 from pyflightstream.cases import (
     Campaign,
+    ReferenceData,
     SimCase,
     SolverSettings,
     SweepAxis,
@@ -259,3 +260,68 @@ def test_two_cases_sharing_a_sim_id_are_refused():
         )
         == 2
     )
+
+
+# --- PYFS-016: the case models refuse impossible physics --------------------
+
+
+@pytest.mark.parametrize(
+    ("label", "kwargs"),
+    [
+        ("iterations zero", {"iterations": 0}),
+        ("iterations negative", {"iterations": -5}),
+        ("timeout zero", {"timeout_s": 0.0}),
+        ("timeout negative", {"timeout_s": -1.0}),
+        ("convergence zero", {"convergence": 0.0}),
+        ("convergence negative", {"convergence": -1e-5}),
+        ("convergence NaN", {"convergence": float("nan")}),
+        ("convergence infinite", {"convergence": float("inf")}),
+        ("threads zero", {"max_threads": 0}),
+        ("threads negative", {"max_threads": -2}),
+    ],
+)
+def test_solver_settings_refuses_a_run_that_cannot_happen(label, kwargs):
+    """PYFS-016. Every one of these was measured ACCEPTED at HEAD.
+
+    The NaN convergence threshold is the one worth naming: it compares
+    false against every residual, so the solver runs its whole
+    iteration budget and the run is then recorded as having met a
+    target it never met. That is a silent wrong number, not a crash.
+    """
+    with pytest.raises(ValidationError):
+        SolverSettings(**kwargs)
+
+
+@pytest.mark.parametrize(
+    ("label", "kwargs"),
+    [
+        ("area zero", {"area": 0.0, "length": 1.0}),
+        ("area negative", {"area": -1.0, "length": 1.0}),
+        ("area infinite", {"area": float("inf"), "length": 1.0}),
+        ("area NaN", {"area": float("nan"), "length": 1.0}),
+        ("length zero", {"area": 1.0, "length": 0.0}),
+        ("length negative", {"area": 1.0, "length": -1.0}),
+        ("velocity zero", {"area": 1.0, "length": 1.0, "velocity": 0.0}),
+        ("velocity negative", {"area": 1.0, "length": 1.0, "velocity": -3.0}),
+    ],
+)
+def test_reference_data_refuses_a_divisor_that_breaks_every_coefficient(label, kwargs):
+    """PYFS-016. These are the DIVISORS of every published coefficient.
+
+    Zero divides by zero, negative flips the sign of every coefficient
+    while the run looks healthy, and infinite drives them all to zero.
+    All four shapes were measured accepted at HEAD.
+    """
+    with pytest.raises(ValidationError):
+        ReferenceData(**kwargs)
+
+
+def test_the_bounds_still_admit_an_ordinary_case():
+    # The control. Without it, a model that refused everything would
+    # pass both tests above.
+    settings = SolverSettings(iterations=500, convergence=1e-5, max_threads=4, timeout_s=1800.0)
+    assert settings.iterations == 500
+    reference = ReferenceData(area=1.5, length=0.4, velocity=30.0)
+    assert reference.area == 1.5
+    # velocity stays optional, which the sweep relies on.
+    assert ReferenceData(area=1.5, length=0.4).velocity is None
