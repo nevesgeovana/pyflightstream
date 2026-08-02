@@ -281,6 +281,21 @@ FlightStream versions.
 
 ### Added
 
+* **A tracked file may no longer name the workspace container's
+  absolute path.** CLAUDE.md has always said machine configuration is
+  never a literal path in a committed file; a tier-1 guard now holds
+  it, alongside the email-address and user-profile-path checks that
+  landed on 2026-07-28.
+
+  Not an absolute-path shape, which was measured to be the wrong guard:
+  32 tracked files match one and 30 of them are illustrative solver
+  paths in examples, goldens and fixtures (`C:/cases/wing.fsm`). The
+  guard keys on the container directory's name, which is what separates
+  a path that teaches from a path that leaks, and is the same on any
+  clone. The two files that carry it today are hash-pinned vendored kit
+  bodies this repository cannot edit, so they are allowlisted by name
+  with their kit rows, the allowlist itself is checked for stale
+  entries, and the fix is routed to the level that owns those bodies.
 * **FlightStream 26.121 is onboarded with solver evidence, not just
   registration**: `reports/compat/CMP-26121_2026-08-02_full.yaml` is a
   licensed tier-2 run of 109 probe specifications against solver build

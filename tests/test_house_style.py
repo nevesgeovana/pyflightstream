@@ -489,3 +489,116 @@ def test_the_geometry_guard_fires_on_what_it_exists_to_catch():
     )
     # And the guard must not be vacuous: a suffix outside the set is untouched.
     assert _geometry_offenses(["README.md", "examples/steady_polar.py"]) == []
+
+
+# --- The container directory's absolute path (PYFS-023) --------------------
+#
+# The identifier guard above catches an email address and a user-profile path.
+# It does not catch the other machine-specific literal CLAUDE.md forbids: an
+# absolute path into the directory that holds this repository and its sibling
+# workspaces. Scanning every tracked file for an absolute-path SHAPE is not the
+# guard, and measuring said so: 32 tracked files match one, and 30 of them are
+# illustrative solver paths in examples, goldens and fixtures
+# (`C:/cases/wing.fsm`, `C:/path/to/FlightStream.exe`). Those are
+# documentation. The container's name is what separates a path that teaches
+# from a path that leaks, and it is machine independent, so the guard reads it
+# rather than the drive letter.
+#
+# Assembled from fragments for the reason PROFILE_PATH_SHAPE gives: this file
+# is scanned too, and a guard that is its own only offender is no guard.
+CONTAINER_DIRECTORY = "Claude" + "Projects"
+
+#: Tracked files allowed to name it, each with the reason. Both are
+#: hash-pinned vendored kit bodies: CLAUDE.md's rule is that a vendored body is
+#: corrected by a kit promotion at the coordination level, never by an edit
+#: here, so allowlisting them is the honest state rather than a concession. The
+#: routing is registered as PLN-20260803-1500. Remove each entry as its kit row
+#: is re-vendored, and delete the allowlist when the last one goes.
+CONTAINER_PATH_ALLOWLIST = {
+    ".claude/tools/snap.sh": "vendored kit body, row at 0.2.4; three literals",
+    ".claude/tools/check_plan_kit_mutations.py": "vendored kit body; one literal",
+}
+
+
+def _container_offenders() -> list[str]:
+    """Return tracked files naming the container directory, minus the allowlist."""
+    offenders = []
+    for path in _tracked_files():
+        relative = path.relative_to(REPO_ROOT).as_posix()
+        if relative in CONTAINER_PATH_ALLOWLIST:
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        if CONTAINER_DIRECTORY in text:
+            offenders.append(relative)
+    return offenders
+
+
+def test_no_tracked_file_names_the_container_directory():
+    """A path into the workspace container is machine configuration.
+
+    CLAUDE.md states the rule ("never a literal path in a committed file") and
+    until now only prose held it for this shape. The remote is public, so the
+    literal names the author's machine layout to everyone who clones.
+    """
+    offenders = _container_offenders()
+    assert not offenders, (
+        "these tracked files carry an absolute path into the workspace "
+        "container, which is machine configuration and belongs in the "
+        "gitignored .claude/settings.local.json:\n" + "\n".join(offenders)
+    )
+
+
+def test_the_container_guard_fires_on_what_it_exists_to_catch():
+    """Mutation proof, per the structural-fix rule.
+
+    Run against the shapes actually found in the two vendored bodies,
+    reconstructed here rather than quoted, plus the illustrative solver paths
+    that must NOT fire: a guard that also refuses `C:/cases/wing.fsm` would be
+    turned off within a week.
+    """
+    leaks = (
+        "/c/WORK/" + CONTAINER_DIRECTORY + "/pyflightstream/_private",
+        "C:/WORK/" + CONTAINER_DIRECTORY + "/_private/kit/check_plan_kit.py",
+        "C:" + chr(92) + "WORK" + chr(92) + CONTAINER_DIRECTORY,
+    )
+    for leak in leaks:
+        assert CONTAINER_DIRECTORY in leak, leak
+    for benign in (
+        "C:/cases/wing.fsm",
+        "C:/path/to/FlightStream.exe",
+        "D:/scratch",
+        "/w/wing.stl",
+    ):
+        assert CONTAINER_DIRECTORY not in benign, (
+            f"the guard would fire on the illustrative path {benign!r}, which is "
+            "documentation and must stay"
+        )
+
+
+def test_the_container_allowlist_has_no_stale_entry():
+    """An allowlist that outlives its files silently widens the guard.
+
+    Each entry names a vendored body awaiting a kit promotion. When one is
+    re-vendored the literal goes, and so must its entry; when the file stops
+    being tracked at all, the entry is dead. Either way this fails rather than
+    letting the exemption drift into covering something else.
+    """
+    tracked = {path.relative_to(REPO_ROOT).as_posix() for path in _tracked_files()}
+    missing = sorted(set(CONTAINER_PATH_ALLOWLIST) - tracked)
+    assert not missing, (
+        f"allowlisted paths {missing} are not tracked; remove the entry rather "
+        "than leaving an exemption for a file that no longer exists"
+    )
+    unneeded = sorted(
+        name
+        for name in CONTAINER_PATH_ALLOWLIST
+        if CONTAINER_DIRECTORY not in (REPO_ROOT / name).read_text(encoding="utf-8")
+    )
+    assert not unneeded, (
+        f"allowlisted paths {unneeded} no longer carry the literal, so the kit "
+        "promotion landed; delete the entry and close its half of "
+        "PLN-20260803-1500"
+    )
