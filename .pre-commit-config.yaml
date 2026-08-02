@@ -60,5 +60,8 @@ repos:
           research geometry never enters Git (invariant 5, NFR-14); keep it in
           _private/ or generate synthetic geometry from pyflightstream.qa.geometry
         language: fail
-        files: '\.(stl|tri|p3d|inp|lawgs|vtk|ac|fac|obj|fsm|step|stp|iges|igs|sat|x_t|x_b|3dm|msh|cgns|ply|off|nas|bdf)$'
+        # (?i) is load-bearing: the tier-1 detector lowercases the suffix
+        # before comparing, so without it blade.STL is refused by the suite
+        # and waved through at commit time. Two answers to one defect class.
+        files: '(?i)\.(stl|tri|p3d|inp|lawgs|vtk|ac|fac|obj|fsm|step|stp|iges|igs|sat|x_t|x_b|3dm|msh|cgns|ply|off|nas|bdf)$'
         exclude: '^(tests/fixtures/cube\.obj|tests/goldens/planar_probes\.vtk)$'
