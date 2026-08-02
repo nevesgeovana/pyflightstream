@@ -95,6 +95,26 @@ FlightStream versions.
   Registered versions are now 26.000, 26.100, 26.120, 26.121; the last
   digit indexes vendor hotfix builds, so 26.121 is hotfix build 1 of
   the 26.12 release (SRS FR-02c, new).
+* **A run can now tell which solver build actually produced it.** The
+  registry records each version's vendor build number (`FsVersion.build`,
+  new, read from `commands/_meta.yaml`), and parsing a loads or probe
+  export compares it against the build the output printed, warning when
+  they differ.
+
+  This is the run-time half of the alias refusal above, and without it
+  that refusal was only half a guard: it settled which build the run
+  ASKED for and could not show which one ran. The version string cannot
+  show it either, because 26.120 and 26.121 both print "26.1" and they
+  differ in behaviour, `AIR_ALTITUDE` being the measured case. So a user
+  who took the refusal seriously, moved to 26.121 and left `fs_exe`
+  pointing at the 26.120 install got no warning at all, on exactly the
+  command whose units defect that build carries.
+
+  Build numbers are evidence, not configuration: each is taken from a
+  committed report's `solver_identity` for its own version, and a
+  tier-1 guard fails if a registered build appears in no such report.
+  26.000 has none registered, because no committed report records one;
+  there the version-string check remains, unchanged.
 * `pyfs-qa probe`, `physics` and `drift` now refuse an unresolvable
   `--version` with the library's own message on stderr and exit code 2,
   instead of a traceback. Both refusals it covers are ordinary user

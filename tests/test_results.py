@@ -137,3 +137,82 @@ def test_parse_probe_points_checks_completeness_and_version():
         parse_probe_points(text, requested_version="26.0")
     with pytest.raises(KeyError, match="not in this export"):
         parse_probe_points(text).field("entropy")
+
+
+def test_the_build_number_catches_the_hotfix_the_version_string_cannot(recwarn):
+    """The run-time half of the ambiguous-alias refusal (PLN-20260802-2013).
+
+    The concrete case, and the reason this exists: a user takes the
+    build-time refusal of the vendor name seriously, changes fs_version
+    to 26.121, and leaves fs_exe pointing at the 26.120 install. Both
+    builds print "26.1", so the version-string check cannot see it, and
+    AIR_ALTITUDE reads its METERS argument on one build and not on the
+    other. Before the build was registered and compared, this was
+    silent.
+    """
+    import warnings
+
+    text = read_fixture("loads_steady_26.120.txt")  # footer: build #7012026
+
+    with pytest.warns(VersionMismatchWarning) as caught:
+        parse_loads(text, requested_version="26.121")
+    message = str(caught[0].message)
+    assert "#7012026" in message, message
+    assert "#7262026" in message, message
+    assert "26.121" in message, message
+
+    # The control that makes the case above mean something: asking for
+    # the build that actually ran must stay silent. Without this, a
+    # check that warned unconditionally would pass the test above.
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        parse_loads(text, requested_version="26.120")
+
+
+def test_a_coarse_mismatch_still_warns_where_no_build_is_registered():
+    # 26.000 has no committed report recording a build, so the check
+    # falls back to the version string, which is enough for a mismatch
+    # this coarse. The fallback must not be lost to the new path.
+    text = read_fixture("loads_steady_26.120.txt")
+    with pytest.warns(VersionMismatchWarning, match="wrong executable may have run"):
+        parse_loads(text, requested_version="26.000")
+
+
+def test_every_registered_build_comes_from_a_committed_report(recwarn):
+    """A build number is evidence, so it may not be typed in from memory.
+
+    Each registered build must appear in the solver_identity of some
+    committed report for that same version. This is the invariant-3 rule
+    applied to the registry: nothing about solver behaviour is recorded
+    without the evidence that observed it.
+    """
+    import glob
+
+    import yaml
+
+    from pyflightstream.versions import known_versions
+
+    observed: dict[str, set[str]] = {}
+    for path in glob.glob("reports/**/*.yaml", recursive=True):
+        with open(path, encoding="utf-8") as handle:
+            document = yaml.safe_load(handle)
+        if not isinstance(document, dict):
+            continue
+        version = document.get("fs_version")
+        for line in document.get("solver_identity") or ():
+            digits = "".join(ch for ch in str(line).split("build")[-1] if ch.isdigit())
+            if version and digits:
+                observed.setdefault(str(version), set()).add(digits)
+
+    registered = {v.canonical: v.build for v in known_versions() if v.build is not None}
+    assert registered, "no build is registered; this test would prove nothing"
+    unevidenced = {
+        canonical: build
+        for canonical, build in registered.items()
+        if build not in observed.get(canonical, set())
+    }
+    assert not unevidenced, (
+        f"these registered build numbers appear in no committed report for their own "
+        f"version: {unevidenced}. A build number is solver evidence; record it from a "
+        "report's solver_identity, never from memory (CLAUDE.md invariant 3)."
+    )

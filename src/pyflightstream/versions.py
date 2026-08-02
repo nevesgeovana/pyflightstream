@@ -137,11 +137,19 @@ class FsVersion:
         Position in the ordered list of ``commands/_meta.yaml``. All
         ordering comparisons delegate to this index, never to string or
         float comparison of the identifiers.
+    build : str or None
+        Vendor build number this version's solver prints in its output
+        footer, without the leading ``#``; ``None`` where no committed
+        report records one. It is the only thing that tells two builds
+        of one minor release apart at run time, because they print the
+        same version string: 26.120 and 26.121 both print "26.1".
+        Registered from committed evidence, never guessed.
     """
 
     canonical: str
     alias: str
     index: int
+    build: str | None = None
 
     def __post_init__(self) -> None:
         """Reject identifiers that do not follow the canonical scheme."""
@@ -210,7 +218,12 @@ def known_versions() -> tuple[FsVersion, ...]:
     )
     meta = yaml.safe_load(meta_text)
     return tuple(
-        FsVersion(canonical=entry["canonical"], alias=str(entry["alias"]), index=position)
+        FsVersion(
+            canonical=entry["canonical"],
+            alias=str(entry["alias"]),
+            index=position,
+            build=None if entry.get("build") is None else str(entry["build"]),
+        )
         for position, entry in enumerate(meta["versions"])
     )
 

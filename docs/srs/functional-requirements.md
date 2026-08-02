@@ -52,6 +52,17 @@ Milestones and session records are listed in the
     ambiguous, which is accepted: the alternative is returning a
     solver build the caller did not choose.
 
+    The refusal has a run-time counterpart, and needs one. Refusing at
+    build time only settles which build the run ASKED for; it cannot
+    show which one actually ran, and the version string the solver
+    prints does not either, because every registered 26.1x prints
+    "26.1". So the registry records each version's vendor build number,
+    from a committed report and never guessed, and results parsing
+    compares it against the build printed in the output, warning when
+    they differ. Where a version has no registered build and shares its
+    vendor name, the parse says so rather than reporting agreement it
+    cannot establish.
+
 !!! requirement "FR-03 Evidence-backed per-version statuses <span class='srs-implemented'>implemented</span>"
     *Origin: BRF-03. Evidence: milestone M1 (schema), M3 (first
     promotions); committed compat reports.*

@@ -38,7 +38,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from pyflightstream._errors import PyflightstreamError
-from pyflightstream.versions import FsVersion, resolve
+from pyflightstream.versions import FsVersion, known_versions, resolve
 
 _DASHED_LINE = re.compile(r"^-{4,}$")
 _SOFTWARE_LINE = re.compile(
@@ -304,7 +304,7 @@ def parse_loads(text: str, requested_version: str | FsVersion | None = None) -> 
     forced = _optional_labeled_value(text, "Force solver to run all iterations")
     reported = software.group("version")
     if requested_version is not None:
-        _cross_check_version(reported, requested_version)
+        _cross_check_version(reported, requested_version, software.group("build"))
     return LoadsReport(
         angle_of_attack_deg=parse_number(labeled_value(text, "Angle of attack (Deg)")),
         sideslip_deg=parse_number(labeled_value(text, "Side-slip angle (Deg)")),
@@ -336,8 +336,48 @@ def _optional_number(text: str, label: str) -> float | None:
     return None if value is None else parse_number(value)
 
 
-def _cross_check_version(reported: str, requested: str | FsVersion) -> None:
-    alias = resolve(requested).alias
+def _cross_check_version(
+    reported: str, requested: str | FsVersion, reported_build: str | None = None
+) -> None:
+    """Warn when the solver that ran is not the one the run asked for.
+
+    Two checks, and the BUILD one is the load-bearing half. The version
+    string a solver prints does not identify a build: every registered
+    26.1x prints "26.1", so comparing it cannot tell 26.120 from 26.121,
+    and those two differ in behaviour (AIR_ALTITUDE reads its METERS
+    argument on one and not on the other, RPT-014). Where the registry
+    records the build number, that is what is compared.
+
+    The version-string check stays as the fallback for a version with no
+    registered build, and it still catches the coarse case of running a
+    26.0 executable for a 26.1 campaign.
+
+    Parameters
+    ----------
+    reported : str
+        Version string printed in the output footer, verbatim.
+    requested : str or FsVersion
+        Version the run asked for.
+    reported_build : str, optional
+        Build number printed in the same footer, without the leading
+        ``#``. When absent, only the version string is checked.
+    """
+    version = resolve(requested)
+    if version.build is not None and reported_build is not None:
+        if reported_build != version.build:
+            warnings.warn(
+                f"the output was produced by FlightStream build #{reported_build}, but "
+                f"the run requested {version.canonical}, which is build "
+                f"#{version.build}; the wrong executable ran. The version string alone "
+                f"cannot show this, because both print {reported!r}: check the fs_exe "
+                "path against the installation of the version the campaign names. The "
+                "reported string and build are recorded verbatim in the manifest "
+                "(FR-18).",
+                VersionMismatchWarning,
+                stacklevel=3,
+            )
+        return
+    alias = version.alias
     consistent = alias == reported or alias.startswith(reported) or reported.startswith(alias)
     if not consistent:
         warnings.warn(
@@ -347,6 +387,26 @@ def _cross_check_version(reported: str, requested: str | FsVersion) -> None:
             VersionMismatchWarning,
             stacklevel=3,
         )
+    elif version.build is None and _shares_alias(version):
+        warnings.warn(
+            f"the output reports FlightStream {reported!r}, which cannot confirm that "
+            f"{version.canonical} ran: its vendor name is shared with "
+            f"{', '.join(other.canonical for other in _shares_alias(version))} and no "
+            "build number is registered for it, so nothing here distinguishes the "
+            f"builds. The output's own build is #{reported_build or 'not printed'}; "
+            "register it in commands/_meta.yaml from a committed report to close this.",
+            VersionMismatchWarning,
+            stacklevel=3,
+        )
+
+
+def _shares_alias(version: FsVersion) -> tuple[FsVersion, ...]:
+    """Other registered versions carrying the same vendor release name."""
+    return tuple(
+        other
+        for other in known_versions()
+        if other.alias == version.alias and other.canonical != version.canonical
+    )
 
 
 @dataclass(frozen=True)
@@ -541,7 +601,7 @@ def parse_probe_points(text: str, requested_version=None) -> ProbePointsReport:
             f"{len(parsed_rows)} rows; the solver stopped mid-write"
         )
     if requested_version is not None:
-        _cross_check_version(software.group("version"), requested_version)
+        _cross_check_version(software.group("version"), requested_version, software.group("build"))
     return ProbePointsReport(
         columns=columns,
         values=np.asarray(parsed_rows, dtype=float),

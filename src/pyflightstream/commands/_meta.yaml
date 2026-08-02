@@ -2,19 +2,31 @@
 # This list is the only ordering authority (CLAUDE.md invariant 4).
 # canonical: 26.XXX scheme, last digit indexes vendor hotfix builds.
 # alias: the vendor-facing release name.
+# build: the vendor build number this version's solver prints in its own
+#   output footer, without the leading '#'. Optional, and recorded only
+#   from a committed report's solver_identity, never guessed: it is what
+#   lets a run tell WHICH build actually produced its results, since the
+#   printed version line does not (every build below prints "26.1").
+#   26.000 has none because no committed report records one.
 versions:
   - canonical: "26.000"
     alias: "26.0"
   - canonical: "26.100"
     alias: "26.1"
+    # reports/physics/PHY-26100_2026-07-21_smi01-triage-rerun.yaml
+    build: "5012026"
   - canonical: "26.120"
     alias: "26.12"
+    # reports/compat/CMP-26120_2026-07-21_full.yaml
+    build: "7012026"
   # The vendor ships this hotfix build under the SAME release name as
   # 26.120, so the alias below is deliberately NOT unique. Recording the
   # vendor's own name is the point; the ambiguity is refused at
   # resolution time (versions.resolve), not hidden here.
   - canonical: "26.121"
     alias: "26.12"
+    # reports/compat/CMP-26121_2026-08-02_full.yaml
+    build: "7262026"
 
 manual_editions:
   "26.100": >
