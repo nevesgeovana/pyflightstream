@@ -456,3 +456,125 @@ def test_no_parse_back_api_exists_anywhere_in_the_workspace_package():
             if not name.startswith("_") and pattern.search(name):
                 offenders.append(f"{owner_class.__name__}.{name}")
     assert offenders == [], f"parse-back API is forbidden (SAD Section 6): {offenders}"
+
+
+# PYFS-005, the REV-002 blocker reproduced at ecc212e, and the only one of
+# the eight that DESTROYS DATA rather than misreporting it.
+#
+# One invariant in three places: a declared name that escapes the run, or
+# that collides with another, silently took or overwrote a file. Collection
+# uses shutil.move, so "collected" never meant copied.
+
+
+def test_an_output_name_that_climbs_out_of_the_run_is_refused():
+    """The review's published probe.
+
+    Measured before the fix: rendered "../outside.txt", resolved outside
+    sim_1, collected as raw/outside.txt, and outside_exists=False. The file
+    was not read, it was TAKEN, because render_output short-circuited at
+    naming.py:156 whenever the name held no brace and so never reached any
+    validation at all.
+    """
+    template = NamingTemplate()
+    with pytest.raises(NamingTemplateError, match=r"climbs out"):
+        template.render_output("../outside.txt", campaign="camp", sim="1", point={"alpha": 0.0})
+
+
+def test_an_absolute_output_name_is_refused():
+    """The sibling the probe did not use and the same consequence.
+
+    An absolute name needs no '..' to leave the run folder.
+    """
+    template = NamingTemplate()
+    for name in ("/etc/passwd", "C:/Windows/system.ini", r"\server\share\x.txt"):
+        with pytest.raises(NamingTemplateError, match="absolute"):
+            template.render_output(name, campaign="camp", sim="1", point={"alpha": 0.0})
+
+
+def test_a_placeholder_cannot_smuggle_an_escape_back_in():
+    """Containment is re-checked after rendering, not only before.
+
+    Checking only the template would leave the hole open to any value that
+    renders into an escape.
+    """
+    template = NamingTemplate()
+    with pytest.raises(NamingTemplateError):
+        template.render_output(
+            "{campaign}/loads.txt", campaign="../..", sim="1", point={"alpha": 0.0}
+        )
+
+
+def test_an_ordinary_output_name_still_passes_through(tmp_path):
+    """The control: names with and without placeholders both still work."""
+    template = NamingTemplate()
+    assert (
+        template.render_output("loads.txt", campaign="c", sim="1", point={"alpha": 0.0})
+        == "loads.txt"
+    )
+    assert (
+        template.render_output("loads_{point}.txt", campaign="c", sim="1", point={"alpha": 2.0})
+        == "loads_a+02.0.txt"
+    )
+    # a subfolder is legitimate and must not be caught by the containment check
+    assert (
+        template.render_output("sub/loads.txt", campaign="c", sim="1", point={"alpha": 0.0})
+        == "sub/loads.txt"
+    )
+
+
+def test_two_outputs_colliding_on_one_name_are_refused_before_any_move(tmp_path):
+    """The review's second sub-claim.
+
+    Measured before the fix: outputs ["a/loads.txt", "b/loads.txt"] passed
+    the pre-flight, BOTH were moved to raw/loads.txt, the manifest recorded
+    ['raw/loads.txt', 'raw/loads.txt'], and only B's content survived.
+    """
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    for folder, content in (("a", "A"), ("b", "B")):
+        (tmp_path / folder).mkdir()
+        (tmp_path / folder / "loads.txt").write_text(content, encoding="utf-8")
+
+    with pytest.raises(WorkspaceError, match="same name"):
+        workspace.collect_outputs("1", [tmp_path / "a" / "loads.txt", tmp_path / "b" / "loads.txt"])
+    # refused BEFORE moving: both sources still where they were
+    assert (tmp_path / "a" / "loads.txt").read_text(encoding="utf-8") == "A"
+    assert (tmp_path / "b" / "loads.txt").read_text(encoding="utf-8") == "B"
+
+
+def test_collecting_onto_an_existing_raw_name_is_refused(tmp_path):
+    """A second run must not silently destroy the first run's evidence."""
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    (tmp_path / "loads.txt").write_text("first", encoding="utf-8")
+    workspace.collect_outputs("1", [tmp_path / "loads.txt"])
+
+    (tmp_path / "loads.txt").write_text("second", encoding="utf-8")
+    with pytest.raises(WorkspaceError, match="already in raw/"):
+        workspace.collect_outputs("1", [tmp_path / "loads.txt"])
+    assert (workspace.sim_dir("1") / "raw" / "loads.txt").read_text(encoding="utf-8") == "first"
+
+
+def test_two_inputs_sharing_a_base_name_are_refused(tmp_path):
+    """The review's third sub-claim.
+
+    Measured before the fix: stage_inputs with two different mesh.obj
+    sources returned ONE hash entry and the staged file held the second
+    source's content, so the manifest recorded one hash for two declared
+    inputs and the run claimed reproducibility from a file never staged.
+    """
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    for folder, content in (("a", "A"), ("b", "B")):
+        (tmp_path / folder).mkdir()
+        (tmp_path / folder / "mesh.obj").write_text(content, encoding="utf-8")
+
+    with pytest.raises(WorkspaceError, match="base name"):
+        workspace.stage_inputs("1", [tmp_path / "a" / "mesh.obj", tmp_path / "b" / "mesh.obj"])
+
+
+def test_staging_distinct_names_still_records_one_hash_each(tmp_path):
+    """The control for the refusal above."""
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    (tmp_path / "mesh.obj").write_text("A", encoding="utf-8")
+    (tmp_path / "wing.stl").write_text("B", encoding="utf-8")
+    hashes = workspace.stage_inputs("1", [tmp_path / "mesh.obj", tmp_path / "wing.stl"])
+    assert sorted(hashes) == ["mesh.obj", "wing.stl"]
+    assert len(set(hashes.values())) == 2

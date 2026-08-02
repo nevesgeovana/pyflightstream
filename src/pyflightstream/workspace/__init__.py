@@ -375,6 +375,25 @@ class CampaignWorkspace:
             :attr:`RunRecord.inputs_sha256`.
         """
         sim = self.create_sim(sim_id)
+        # PYFS-005, the staging half of the same collision class. Two sources
+        # with the same base name staged onto one file: the second copy won,
+        # and the returned dict carried ONE entry, so the manifest recorded a
+        # single hash for what the case declared as two inputs. The run then
+        # claimed to be reproducible from inputs one of which was never
+        # staged at all.
+        seen: dict[str, str] = {}
+        for source in sources:
+            name = Path(source).name
+            if name in seen and str(source) != seen[name]:
+                raise WorkspaceError(
+                    f"two declared inputs share the base name {name!r} "
+                    f"({seen[name]} and {source}). Staging copies each into "
+                    "inputs/ under its base name, so the second would overwrite "
+                    "the first and the manifest would record one hash for two "
+                    "inputs. Rename one, or stage them from directories the "
+                    "recipe references separately."
+                )
+            seen[name] = str(source)
         hashes: dict[str, str] = {}
         for source in sources:
             origin = Path(source)
@@ -445,10 +464,45 @@ class CampaignWorkspace:
                 "declared output marks the point FAILED_INCOMPLETE_OUTPUT; outputs are "
                 "never silently dropped."
             )
+        # PYFS-005, the collision half. Collection MOVES, so two declared
+        # outputs whose base names agree used to land on one file in raw/:
+        # both moves ran, only the second content survived, and the manifest
+        # recorded the same name twice as though two artifacts existed. A
+        # campaign then carried a record naming evidence that had been
+        # overwritten by other evidence, with nothing anywhere saying so.
+        #
+        # Detected before any move rather than during, so a refusal leaves
+        # every source where it was instead of half-collecting.
+        destinations: dict[str, list[str]] = {}
+        for path in produced:
+            destinations.setdefault(Path(path).name, []).append(str(path))
+        clashing = {name: sources for name, sources in destinations.items() if len(sources) > 1}
+        if clashing:
+            detail = "; ".join(
+                f"raw/{name} from {' and '.join(sources)}" for name, sources in clashing.items()
+            )
+            raise WorkspaceError(
+                f"two or more declared outputs collect to the same name: {detail}. "
+                "Collection moves each output into raw/, so the later one would "
+                "overwrite the earlier and the manifest would record one name "
+                "twice while only the last content survived. Declare outputs whose "
+                "base names differ, or use a per-point placeholder such as "
+                "loads_{point}.txt so each point exports under its own name."
+            )
         collected: list[str] = []
         for path in produced:
             origin = Path(path)
-            shutil.move(str(origin), sim / "raw" / origin.name)
+            destination = sim / "raw" / origin.name
+            if destination.exists():
+                raise WorkspaceError(
+                    f"cannot collect {origin} into raw/{origin.name}: that name is "
+                    "already in raw/ from an earlier point or run. Collection moves "
+                    "the file, so continuing would destroy the collected evidence "
+                    "and leave two manifest records pointing at one file. Use a "
+                    "per-point output name, or archive the simulation before "
+                    "re-running it."
+                )
+            shutil.move(str(origin), destination)
             collected.append(f"raw/{origin.name}")
         return collected
 

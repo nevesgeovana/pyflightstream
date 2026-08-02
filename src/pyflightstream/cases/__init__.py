@@ -105,6 +105,42 @@ class SweepAxis(BaseModel):
                 raise ValueError(f"a {self.type} sweep takes {expected}, got {value!r}")
         return self
 
+    @model_validator(mode="after")
+    def _points_have_distinct_tags(self) -> SweepAxis:
+        """Refuse a sweep whose points cannot be told apart by run_id.
+
+        PYFS-003. ``point_tag`` formats at one decimal, so alpha 1.01 and
+        1.04 both render ``a+01.0``. The tag ENDS the ``run_id``, so two
+        points of one case then shared one manifest identity.
+
+        What made that expensive was where it surfaced. Nothing refused the
+        sweep, the pre-flight reported both points READY under the same id,
+        and the manifest's duplicate rejection only fired when the SECOND
+        point tried to record. By then the first had executed, written its
+        script and appended its record, so the campaign was left
+        half-executed with a manifest that looks complete for the id it
+        holds. The refusal belongs at the sweep, where it costs nothing.
+
+        Widening the tag was the other option and is not taken: the tag is
+        IDENTITY, it ends every ``run_id`` already in every existing
+        manifest, and any fixed precision collides at some spacing anyway.
+        Refusing the ambiguous sweep is exact; a wider tag would only move
+        the collision.
+        """
+        seen: dict[str, dict[str, float]] = {}
+        for point in self.points():
+            tag = point_tag(point)
+            if tag in seen:
+                raise ValueError(
+                    f"sweep points {seen[tag]!r} and {point!r} both tag as {tag!r}, "
+                    "so they would share one run_id and one set of file names. "
+                    "Point tags are fixed at one decimal because they are run "
+                    "IDENTITY and appear in every existing manifest. Separate the "
+                    "values by at least 0.1, or split them across simulations."
+                )
+            seen[tag] = point
+        return self
+
     def points(self) -> Iterator[dict[str, float]]:
         """Iterate the sweep as named point coordinates.
 
@@ -333,6 +369,36 @@ class Campaign(BaseModel):
     def _version_is_registered(cls, value: str) -> str:
         resolve(value)
         return value
+
+    @model_validator(mode="after")
+    def _sim_ids_are_distinct(self) -> Campaign:
+        """Refuse two cases claiming the same ``sim_id``.
+
+        PYFS-003, second half. ``sim_id`` selects the simulation folder AND
+        sits in the middle of every ``run_id``, so two cases sharing one
+        would stage into the same ``inputs/``, write into the same
+        ``scripts/``, collect into the same ``raw/``, and produce colliding
+        identities for any points whose tags agree. The model accepted it
+        without complaint and the pre-flight reported both as READY.
+
+        Checked here rather than in the workspace because it is a property
+        of the campaign as declared, knowable with no filesystem at all.
+        """
+        seen: set[str] = set()
+        duplicated: set[str] = set()
+        for case in self.sims:
+            if case.sim_id in seen:
+                duplicated.add(case.sim_id)
+            seen.add(case.sim_id)
+        if duplicated:
+            raise ValueError(
+                f"campaign {self.name!r} declares more than one case with sim_id "
+                f"{', '.join(repr(sim) for sim in sorted(duplicated))}. The sim_id names the "
+                "simulation folder and sits inside every run_id, so the cases would "
+                "share one staging area, one script folder and one output folder. "
+                "Give each case its own sim_id."
+            )
+        return self
 
 
 def load_campaign(path: str | Path) -> Campaign:

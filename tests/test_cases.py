@@ -187,3 +187,73 @@ def test_settings_toggles_refuse_the_lax_bool_forms(value):
     # a call.
     with pytest.raises(ValidationError, match="True or False, or the solver's own"):
         SolverSettings(viscous_coupling=value)
+
+
+# PYFS-003, the REV-002 blocker reproduced at ecc212e.
+
+
+def test_a_sweep_whose_points_share_a_tag_is_refused():
+    """The review's published probe.
+
+    Measured before the fix: point_tag({'alpha': 1.01}) and
+    point_tag({'alpha': 1.04}) both returned 'a+01.0', the pre-flight
+    reported [('c/sim_1/a+01.0', 'READY'), ('c/sim_1/a+01.0', 'READY')],
+    and nothing refused anything. The tag ENDS the run_id, so the two
+    points shared one manifest identity.
+
+    Why refusing beats widening the tag: the tag is identity and already
+    appears in every existing manifest, and any fixed precision collides at
+    some spacing. Widening moves the collision, refusing removes it.
+    """
+    with pytest.raises(ValidationError, match="both tag as"):
+        SweepAxis(type="alpha", values=[1.01, 1.04])
+
+
+def test_the_collision_is_refused_for_paired_and_propeller_sweeps_too():
+    """The same arithmetic applies to every axis, so the guard must too."""
+    with pytest.raises(ValidationError, match="both tag as"):
+        SweepAxis(type="alpha_beta", values=[(1.01, 0.0), (1.04, 0.0)])
+    with pytest.raises(ValidationError, match="both tag as"):
+        SweepAxis(type="advance_ratio", values=[0.81, 0.84])
+
+
+def test_points_a_tenth_apart_are_still_accepted():
+    """The control: the guard must refuse only what actually collides."""
+    sweep = SweepAxis(type="alpha", values=[1.0, 1.1, 1.2])
+    assert [point_tag(point) for point in sweep.points()] == [
+        "a+01.0",
+        "a+01.1",
+        "a+01.2",
+    ]
+
+
+def test_two_cases_sharing_a_sim_id_are_refused():
+    """The second half of the same finding.
+
+    Measured before the fix: Campaign accepted two SimCases with
+    sim_id="1" without complaint, so both staged into one inputs/, wrote
+    into one scripts/, and collected into one raw/.
+    """
+
+    def case(sim_id):
+        return SimCase(
+            sim_id=sim_id,
+            aircraft="TestWing",
+            velocity=30.0,
+            sweep=SweepAxis(type="alpha", values=[0.0]),
+            recipe="pkg.mod:build",
+            outputs=["loads_{point}.txt"],
+        )
+
+    with pytest.raises(ValidationError, match="more than one case with sim_id"):
+        Campaign(
+            name="camp",
+            fs_version="26.12",
+            fs_exe="x",
+            sims=[case("1"), case("1")],
+        )
+    # the control: distinct ids are fine
+    assert (
+        len(Campaign(name="camp", fs_version="26.12", fs_exe="x", sims=[case("1"), case("2")]).sims)
+        == 2
+    )

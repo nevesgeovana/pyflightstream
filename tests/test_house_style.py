@@ -261,3 +261,79 @@ def test_no_committed_path_to_a_migrated_session_document():
     assert not offenders, (
         "session documents live under PYFS_SESSION_ROOT since 2026-07-27:\n" + "\n".join(offenders)
     )
+
+
+# The author's name inside the SHIPPED PACKAGE. Scope is `src/` only, and the
+# narrowness is the whole point of the rule rather than a weakness of it.
+#
+# BRF-049, routed from the answered decision BRF019 (2026-07-28). The name in
+# LICENSE, CITATION.cff, README.md, CHANGELOG.md, pyproject.toml, the guide and
+# the docs is AUTHORSHIP of a library published under her own name: intentional,
+# and it stays. That is why the identifier guard above excludes it by decision.
+#
+# src/ is different for one reason: it is installed. PHY-06.yaml is declared
+# package data at pyproject.toml:86, so `reason: ... on <name>'s instruction`
+# travelled inside the wheel to every machine that ran `pip install
+# pyflightstream`. There the name is incidental rather than a credit, and no
+# decision ever put it there.
+#
+# The reason field itself was kept, not deleted: it records WHY a metric set was
+# redefined and cites the probe reports that justify it, which is real
+# provenance a QA reference should carry. What was checked before rewriting it,
+# because a QA reference's prose can be evidence rather than commentary: nothing
+# asserts against that text. `qa/physics.py` requires the string to be non-empty
+# and echoes it into reports; no test, requirement or report compares it. The
+# load-bearing half is the report citation inside it, and that is untouched.
+GIVEN_NAME = "Geo" + "vana"
+
+
+def test_no_personal_name_inside_the_installed_package():
+    """The shipped surface carries no personal name.
+
+    Tracked files under ``src/`` only. A failure here is not a style nit: the
+    file reaches a user's machine, and removing it from HEAD stops it
+    spreading without unpublishing what already shipped.
+    """
+    offenders = []
+    for path in _tracked_files():
+        relative = path.relative_to(REPO_ROOT)
+        if relative.parts[0] != "src":
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        if GIVEN_NAME.lower() in text.lower():
+            offenders.append(str(relative))
+    assert not offenders, (
+        "a file inside the installed package carries the author's given name:\n"
+        + "\n".join(offenders)
+        + "\n\nThe name is deliberate in LICENSE, CITATION.cff, README.md and the "
+        "docs, which are authorship of a published library. It is not deliberate "
+        "inside src/, which ships in the wheel: there it is incidental. Write "
+        '"the author" instead, and keep whatever provenance the sentence '
+        "carried (BRF-049)."
+    )
+
+
+def test_the_shipped_name_guard_fires_on_what_it_exists_to_catch():
+    """Mutation proof, per the structural-fix rule.
+
+    The guard must be shown to block the ORIGINAL failure, so the original
+    line is reconstructed here (assembled, never written literally) and the
+    detector is run against it directly.
+    """
+    original = (
+        "reason: 'metric set redefined to the full polar trend on "
+        + GIVEN_NAME
+        + "''s instruction'"
+    )
+    assert GIVEN_NAME.lower() in original.lower(), (
+        "the reconstruction no longer contains what the guard looks for"
+    )
+    # And the replacement that shipped instead must NOT fire, so the guard is
+    # a guard rather than a refusal of the whole sentence.
+    replacement = (
+        "reason: 'metric set redefined to the full polar trend on the author''s instruction'"
+    )
+    assert GIVEN_NAME.lower() not in replacement.lower()

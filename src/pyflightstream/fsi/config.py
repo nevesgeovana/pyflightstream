@@ -16,6 +16,7 @@ right-handed triad. Per-station distributions are sampled at
 import hashlib
 import json
 import logging
+import math
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -96,6 +97,57 @@ class BladeProperties(BaseModel):
     cg_offset_chordwise_m: list[float]
     cg_offset_normal_m: list[float]
     geometric_pitch_deg: list[float]
+
+    @model_validator(mode="before")
+    @classmethod
+    def _every_distribution_is_finite(cls, data: object) -> object:
+        """Refuse NaN or infinity anywhere in a per-station distribution.
+
+        PYFS-012, and it runs BEFORE every other check in this class
+        because those checks cannot express it.
+
+        Every validator below decides validity with a comparison: radii
+        march if ``outboard <= inboard`` is False, chord is positive if
+        ``v <= 0.0`` is False, inertia is nonnegative if ``v < 0.0`` is
+        False. Every comparison against NaN is False, so a NaN satisfies
+        all of them at once. An all-NaN blade passed this entire model,
+        and it is not a near miss: it is the ONLY value that passes every
+        physical check without describing a blade.
+
+        The consequence is a static solve on a structure with no
+        properties, which produces NaN deflections that the coupling loop
+        then relaxes, writes into FSIDisp, and feeds back to the solver.
+        The review measured exactly that downstream in PYFS-013.
+
+        ``mode="before"`` is deliberate. Running after would let the
+        comparison-based validators see the NaN first and pass it through,
+        so the refusal has to come first to be the one that fires.
+        """
+        if not isinstance(data, dict):
+            return data
+        offenders: list[str] = []
+        for name, value in data.items():
+            if not isinstance(value, (list, tuple)):
+                continue
+            for index, item in enumerate(value):
+                if isinstance(item, bool) or not isinstance(item, (int, float)):
+                    continue
+                if not math.isfinite(item):
+                    offenders.append(f"{name}[{index}]={item!r}")
+        if offenders:
+            shown = ", ".join(offenders[:6])
+            more = f" (and {len(offenders) - 6} more)" if len(offenders) > 6 else ""
+            raise ValueError(
+                f"blade distributions carry non-finite values: {shown}{more}. NaN "
+                "and infinity are not merely out of range: every check in this "
+                "model is a comparison, and a comparison against NaN is False, so "
+                "such a value satisfies the increasing-radii, positive-chord, "
+                "positive-stiffness and nonnegative-inertia checks simultaneously "
+                "while describing no blade at all. It usually means a property "
+                "table was read with a missing column or interpolated outside its "
+                "support."
+            )
+        return data
 
     @field_validator("station_radii_m")
     @classmethod

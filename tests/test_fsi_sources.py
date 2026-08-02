@@ -59,7 +59,15 @@ NON_PHYSICS_PUBLIC = {
         "read_fsidisp",
     },
     "driver": {"coupling_step"},
-    "state": {"initial_state", "load_state", "write_state_atomic"},
+    # check_state_matches_config is a SHAPE check on a resumed state, not an
+    # equation: it compares array dimensions against the configured blade
+    # count and station count and cites no physical source (PYFS-012).
+    "state": {
+        "check_state_matches_config",
+        "initial_state",
+        "load_state",
+        "write_state_atomic",
+    },
 }
 
 

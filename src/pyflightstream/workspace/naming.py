@@ -28,6 +28,7 @@ existing campaign roots, goldens, and manifests stay valid.
 from __future__ import annotations
 
 import re
+from pathlib import PurePosixPath, PureWindowsPath
 from string import Formatter
 
 from pydantic import BaseModel, ConfigDict, field_validator
@@ -153,10 +154,30 @@ class NamingTemplate(BaseModel):
         str
             The rendered output name.
         """
+        # PYFS-005. Containment is checked FIRST and unconditionally.
+        #
+        # This function used to return `name` untouched whenever it held no
+        # brace, on the reasoning that a name with no placeholder has nothing
+        # to render. True, and irrelevant: the check it skipped was not about
+        # placeholders. A declared output of "../outside.txt" holds no brace,
+        # so it took the early return, never reached any validation, resolved
+        # OUTSIDE the simulation folder, and was then collected with
+        # shutil.move, which does not copy. The file was not read, it was
+        # taken, and the run recorded it as its own evidence.
+        #
+        # An early return that also skips a check the slow path performs is
+        # the shape to distrust here, so the check moved ahead of it.
+        _check_output_containment(name)
         if "{" not in name and "}" not in name:
             return name
         _check_placeholders(name, _POINT_PLACEHOLDERS, "output name")
-        return _render(name, _values(campaign, sim, point, mach), "output name", check_name=False)
+        rendered = _render(
+            name, _values(campaign, sim, point, mach), "output name", check_name=False
+        )
+        # Re-checked after rendering: a placeholder value could reintroduce
+        # what the template did not contain.
+        _check_output_containment(rendered)
+        return rendered
 
     def render_archive(self, *, sim: str, campaign: str | None = None) -> str:
         """Render the archive file stem of one simulation.
@@ -233,6 +254,41 @@ def _check_placeholders(template: str, known: tuple[str, ...], role: str) -> Non
         )
     if not fields and not template:
         raise NamingTemplateError(f"the {role} template is empty; a name needs content")
+
+
+def _check_output_containment(name: str) -> None:
+    """Refuse a declared output name that leaves the simulation folder.
+
+    An output name is a name, not a route. It may carry subdirectories,
+    because a solver export can legitimately land in a subfolder, but it may
+    not be absolute, may not start from a drive or share, and may not climb
+    out with ``..``. The consequence of allowing it is not a confusing path:
+    collection MOVES the file, so a name that resolves outside the run takes
+    a file the run does not own and records it as evidence it produced
+    (PYFS-005).
+
+    Checked on the string rather than by resolving against the run folder,
+    so the refusal does not depend on what happens to exist on disk and
+    reads the same on every platform.
+    """
+    if not name or not name.strip():
+        raise NamingTemplateError("an output name is empty; declare the file the recipe exports.")
+    candidate = PurePosixPath(name.replace("\\", "/"))
+    if candidate.is_absolute() or PureWindowsPath(name).is_absolute():
+        raise NamingTemplateError(
+            f"the output name {name!r} is an absolute path. Declared outputs are "
+            "named relative to the simulation folder, because collection moves "
+            "them into raw/ and an absolute name would move a file from outside "
+            "the run into the run's own evidence."
+        )
+    if any(part == ".." for part in candidate.parts):
+        raise NamingTemplateError(
+            f"the output name {name!r} climbs out of the simulation folder with "
+            "'..'. Collection MOVES a declared output into raw/, so this would "
+            "not copy a file from outside the run, it would take it: the source "
+            "would be gone and the run would record it as evidence it produced. "
+            "Name outputs relative to the simulation folder."
+        )
 
 
 def _render(template: str, values: dict[str, object], role: str, check_name: bool = True) -> str:

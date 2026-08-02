@@ -173,6 +173,78 @@ def load_state(path: str | Path) -> FsiState:
     return FsiState.model_validate_json(Path(path).read_text(encoding="utf-8"))
 
 
+def check_state_matches_config(state: FsiState, blade_count: int, station_count: int) -> None:
+    """Refuse a resumed state whose shape disagrees with the configuration.
+
+    PYFS-012, second half. ``state.json`` carries per-blade, per-station
+    arrays (the relaxation memory, the warm-start twist, the phase 4
+    recordings) and validates only that they are lists of lists of floats.
+    Nothing tied those shapes to the configuration they were produced
+    under, so a 5-station, 3-blade config resumed happily on a 3-station,
+    2-blade state and NOTHING WAS RAISED.
+
+    What happens then is not a crash. The arrays are consumed positionally,
+    so blade 3 has no memory, stations 4 and 5 read off the end or are
+    silently truncated by whichever numpy broadcast gets there first, and
+    the relaxation continues from a structure that does not exist. The run
+    keeps producing numbers and its convergence log keeps looking healthy.
+
+    Parameters
+    ----------
+    state : FsiState
+        State just loaded from disk.
+    blade_count : int
+        ``blade_count`` of the configuration about to be used.
+    station_count : int
+        Number of radial stations of the configuration about to be used.
+
+    Raises
+    ------
+    ValueError
+        If any persisted array disagrees with the configured shape. The
+        message names the array and both shapes, because the usual cause
+        is resuming into a run directory whose config was edited.
+    """
+    problems: list[str] = []
+
+    def check(label: str, rows: list[list[float]] | None) -> None:
+        if rows is None:
+            return
+        if len(rows) != blade_count:
+            problems.append(
+                f"{label} holds {len(rows)} blade(s) but the configuration declares {blade_count}"
+            )
+            return
+        for index, row in enumerate(rows):
+            if len(row) != station_count:
+                problems.append(
+                    f"{label} blade {index} holds {len(row)} station(s) but the "
+                    f"configuration declares {station_count}"
+                )
+
+    # previous_displacements is deliberately NOT checked here. It holds
+    # FSIDisp NODE rows, whose count comes from the staged node map and the
+    # blade layout rather than from (blade_count, station_count); checking it
+    # against the station grid would refuse every healthy run. Its shape guard
+    # belongs with the layout verification that already reads the node map,
+    # and not having it here is a gap rather than a decision.
+    check("previous_twist_rad", state.previous_twist_rad)
+    for record in state.recorded_twist:
+        check(f"recorded_twist step {record.step}", record.elastic_twist_rad)
+
+    if problems:
+        raise ValueError(
+            "the persisted state does not describe the configured blade: "
+            + "; ".join(problems)
+            + ". A resumed run consumes these arrays positionally, so continuing "
+            "would relax the new configuration against memory from a different "
+            "structure and keep producing plausible numbers. Either restore the "
+            "configuration this state was produced under, or start a new run "
+            "directory; state.json is not portable across a config change that "
+            "moves stations or blades."
+        )
+
+
 def write_state_atomic(state: FsiState, path: str | Path) -> None:
     """Persist the state atomically: temporary file plus rename (FSI-R13).
 

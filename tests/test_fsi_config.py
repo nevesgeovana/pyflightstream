@@ -4,7 +4,14 @@ import pytest
 from conftest import make_uniform_blade_config
 from pydantic import ValidationError
 
-from pyflightstream.fsi.config import FsiConfig, config_hash, dump_config, load_config
+from pyflightstream.fsi.config import (
+    BladeProperties,
+    FsiConfig,
+    config_hash,
+    dump_config,
+    load_config,
+)
+from pyflightstream.fsi.state import FsiState, check_state_matches_config
 
 
 def test_round_trip_load_validate_dump(tmp_path, uniform_blade_config):
@@ -83,3 +90,107 @@ def test_relaxation_factor_bounded():
     data["phases"]["coupling_relaxation"] = 1.5
     with pytest.raises(ValidationError):
         FsiConfig.model_validate(data)
+
+
+# PYFS-012, the REV-002 blocker. Its probe was designed by PFS-0 rather than
+# published by the review, and both halves of the claim held.
+
+
+def _uniform_blade_kwargs(n=4):
+    """The smallest valid blade, as a plain dict, for mutation per field."""
+    return dict(
+        station_radii_m=[0.2 + 0.2 * i for i in range(n)],
+        chord_m=[0.1] * n,
+        mass_per_length_kg_per_m=[2.0] * n,
+        inertia_major_kg_m=[1.0e-3] * n,
+        inertia_minor_kg_m=[2.0e-4] * n,
+        bending_stiffness_n_m2=[120.0] * n,
+        torsion_stiffness_n_m2=[40.0] * n,
+        elastic_axis_offset_chordwise_m=[0.0] * n,
+        elastic_axis_offset_normal_m=[0.0] * n,
+        cg_offset_chordwise_m=[0.0] * n,
+        cg_offset_normal_m=[0.0] * n,
+        geometric_pitch_deg=[0.0] * n,
+    )
+
+
+def test_an_all_nan_blade_is_refused():
+    """PFS-0's probe: every distribution NaN, and nothing complained.
+
+    NaN is not a near miss here, it is the single value that satisfies EVERY
+    check in the model at once, because each of them is a comparison and a
+    comparison against NaN is False. Radii "strictly increase", chord is
+    "positive", stiffness is "positive", inertia is "nonnegative".
+    """
+    kwargs = {name: [float("nan")] * 4 for name in _uniform_blade_kwargs()}
+    with pytest.raises(ValidationError, match="non-finite"):
+        BladeProperties(**kwargs)
+
+
+@pytest.mark.parametrize("field", sorted(_uniform_blade_kwargs()))
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+def test_a_single_non_finite_entry_is_refused_in_every_distribution(field, bad):
+    """One bad value in any one of the twelve distributions.
+
+    Parametrized over every field rather than sampling one, because the
+    defect was that the checks are per-field comparisons: a guard written
+    for the fields someone happened to think of would leave the rest open.
+    """
+    kwargs = _uniform_blade_kwargs()
+    kwargs[field] = list(kwargs[field])
+    kwargs[field][2] = bad
+    with pytest.raises(ValidationError, match="non-finite"):
+        BladeProperties(**kwargs)
+
+
+def test_an_ordinary_blade_is_still_accepted():
+    """The control: the guard must cost a real blade nothing."""
+    blade = BladeProperties(**_uniform_blade_kwargs())
+    assert len(blade.station_radii_m) == 4
+
+
+def test_the_ordinary_physical_refusals_still_fire():
+    """The other control.
+
+    A guard that ran first and swallowed everything would satisfy the tests
+    above while removing the checks it was added in front of.
+    """
+    kwargs = _uniform_blade_kwargs()
+    kwargs["chord_m"] = [0.1, -0.1, 0.1, 0.1]
+    with pytest.raises(ValidationError, match="positive"):
+        BladeProperties(**kwargs)
+
+    kwargs = _uniform_blade_kwargs()
+    kwargs["station_radii_m"] = [0.2, 0.2, 0.6, 0.8]
+    with pytest.raises(ValidationError, match="strictly increase"):
+        BladeProperties(**kwargs)
+
+
+def test_a_state_from_a_different_blade_shape_is_refused():
+    """The second half: resume validated the state's TYPES, never its SHAPE.
+
+    PFS-0 measured a 5-station, 3-blade config resuming on a 3-station,
+    2-blade state with nothing raised. The arrays are consumed positionally,
+    so the run keeps producing plausible numbers from memory belonging to a
+    structure that does not exist.
+    """
+    state = FsiState(previous_twist_rad=[[0.0] * 3, [0.0] * 3])
+    with pytest.raises(ValueError, match="does not describe the configured blade"):
+        check_state_matches_config(state, blade_count=3, station_count=5)
+
+    # blade count alone
+    with pytest.raises(ValueError, match="blade"):
+        check_state_matches_config(state, blade_count=3, station_count=3)
+    # station count alone
+    with pytest.raises(ValueError, match="station"):
+        check_state_matches_config(state, blade_count=2, station_count=5)
+
+
+def test_a_matching_state_passes_and_an_empty_one_is_not_a_mismatch():
+    """The control, including the first call of a run, which has no memory."""
+    check_state_matches_config(
+        FsiState(previous_twist_rad=[[0.0] * 3, [0.0] * 3]),
+        blade_count=2,
+        station_count=3,
+    )
+    check_state_matches_config(FsiState(), blade_count=3, station_count=5)

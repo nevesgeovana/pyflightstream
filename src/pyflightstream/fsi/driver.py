@@ -61,6 +61,7 @@ from pyflightstream.fsi.state import (
     RecordedTwist,
     RevolutionSample,
     StaleLoadsError,
+    check_state_matches_config,
     initial_state,
     load_state,
     write_state_atomic,
@@ -295,6 +296,11 @@ def coupling_step(run_dir: str | Path) -> StepResult:
     cfg = load_config(run_dir / CONFIG_FILE)
     state_path = run_dir / STATE_FILE
     state = load_state(state_path) if state_path.is_file() else initial_state()
+    # PYFS-012: a resumed state must describe the configured blade. Checked
+    # here, at the single point where a persisted state meets its config,
+    # and before the frozen-run branch below, because a frozen run replays
+    # the same arrays and inherits the same mismatch.
+    check_state_matches_config(state, cfg.blade_count, len(cfg.blade.station_radii_m))
 
     if (run_dir / FROZEN_FILE).is_file():
         return _frozen_step(run_dir, cfg, state)
