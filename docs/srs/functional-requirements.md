@@ -813,3 +813,38 @@ The allocation is recorded in the
     growing an argument for it, and a waiver for a command that is not
     broken in the target version is accepted and records nothing,
     because one recipe is meant to run against several versions.
+
+!!! requirement "FR-49 Named per-version support levels <span class='srs-implemented'>implemented</span>"
+    *Origin: the independent review's finding PYFS-019, reproduced
+    2026-07-28 and again at HEAD on 2026-08-02. Evidence:
+    `src/pyflightstream/support.py`; `tests/test_support.py`.*
+
+    A registered version reports its support level as one of four named
+    values, ascending: `registered` (ordered, no command carries
+    evidence, nothing can be built), `documented` (commands drafted
+    from the manual, none measured against a running solver),
+    `verified` (probe evidence measured on this version) and
+    `operational` (verified, and the minimal end-to-end workflow builds
+    for it). Every level is derived from the command database; none is
+    declared.
+
+    The level is reported by the public surface, at the top of the
+    package, and the published claims agree with it by test rather than
+    by care.
+
+    `operational` is the level whose claim is checked by performing it:
+    a documented minimal workflow from geometry to a loads file is
+    built, in a tier 1 test, for every version reported at that level.
+    That is what separates it from `verified`, where a version can
+    carry probe evidence for a scattering of commands while a link of
+    the chain is missing.
+
+    Why the taxonomy is a requirement rather than a docs improvement:
+    registering a version made every surface call it supported, and the
+    distance between two versions wearing that one word was measured.
+    26.000 is registered, is accepted by `Script(version="26.000")` and
+    by a campaign, and carries evidence for zero of the database's
+    commands, so nothing whatever can be built for it. Read with FR-02:
+    versions are only ever added, never dropped, so the registry
+    accumulates entries whose evidence has not caught up, and this
+    requirement is what keeps that honest as the list grows.

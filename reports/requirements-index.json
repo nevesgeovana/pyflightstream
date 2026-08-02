@@ -2,8 +2,8 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 17,
-  "total": 93,
+  "cited_by_a_test": 18,
+  "total": 94,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -320,6 +320,11 @@
   {
    "id": "FR-48",
    "text": "Emitting a command whose per-version record is broken raises at build time. The refusal has one documented way through: a waiver naming the command and the caller's justification, which lets the command emit and records the command, the version, the committed probe report and the justification in the script and in the run manifest.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-49",
+   "text": "A registered version reports its support level as one of four named values, ascending: registered (ordered, no command carries evidence, nothing can be built), documented (commands drafted from the manual, none measured against a running solver), verified (probe evidence measured on this version) and operational (verified, and the minimal end-to-end workflow builds for it). Every level is derived from the command database; none is declared.",
    "priority": "M"
   },
   {

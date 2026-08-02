@@ -9,6 +9,36 @@ FlightStream versions.
 
 ### API surface delta
 
+* **"Supported" was one word covering four states, and is now four
+  named values** (SRS FR-49, new). New public names at the top of the
+  package: `SupportLevel`, `support_table()`, `version_support()`,
+  `support_level()`, plus the `pyflightstream.support` module with
+  `minimal_workflow()`. Purely additive.
+
+  ```python
+  >>> import pyflightstream
+  >>> pyflightstream.support_level("26.000")
+  <SupportLevel.REGISTERED: 'registered'>
+  ```
+
+  Registering a version made every public surface call it supported.
+  26.000 is registered, is accepted by `Script(version="26.000")` and
+  by a campaign, and carries evidence for zero of the database's
+  commands, so nothing whatever can be built for it. The README said so
+  in a sentence; nothing said it in a value a caller could read.
+
+  The levels ascend `registered`, `documented`, `verified`,
+  `operational`, and every one is derived from the command database
+  rather than declared in a file, for the same reason a command status
+  is: a hand-set level outlives the fact behind it. Today that reads
+  26.000 registered, 26.100 documented, 26.120 and 26.121 operational.
+
+  `operational` is the level that claims a user can get from geometry
+  to a loads file, and its claim is checked by performing it:
+  `minimal_workflow(version)` builds the shortest complete script, and
+  a tier 1 test builds it for every version reported operational. The
+  README's version table is pinned to the derived values by a test, so
+  the published claim and the computed fact cannot drift.
 * **A command a probe measured broken is refused at emission, and the
   way through is recorded** (SRS FR-48, new). **Breaking within 0.x**:
   a recipe that emitted `AIR_ALTITUDE`, `NEW_OFF_BODY_STREAMLINE`,

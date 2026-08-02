@@ -42,8 +42,11 @@ def test_package_docstring_is_the_didactic_front_door():
 
 
 def test_overview_is_exported_next_to_help():
-    # The two offline pages plus the pandas-style options quintet
-    # (role-review adoption 2026-07-23).
+    # The two offline pages, the pandas-style options quintet
+    # (role-review adoption 2026-07-23), and the support-level quartet
+    # (FR-49): the question "is my FlightStream version usable here?"
+    # is answered at the top of the package rather than by knowing
+    # which module to import.
     assert set(pyflightstream.__all__) == {
         "__version__",
         "help",
@@ -53,6 +56,10 @@ def test_overview_is_exported_next_to_help():
         "reset_option",
         "describe_option",
         "option_context",
+        "SupportLevel",
+        "support_level",
+        "support_table",
+        "version_support",
     }
     assert callable(pyflightstream.overview)
 
@@ -87,6 +94,7 @@ def test_overview_sections_match_the_deliverable_list():
         "options",
         "exceptions",
         "testing",
+        "support",
     )
 
 

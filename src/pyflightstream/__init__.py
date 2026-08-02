@@ -67,7 +67,20 @@ from pyflightstream.options import (  # noqa: E402
 from pyflightstream.overview import overview  # noqa: E402
 from pyflightstream.reference import help  # noqa: E402
 
+# Support levels are exported at the top because the question they
+# answer ("is my FlightStream version actually usable here?") is the
+# first one a new user asks, and until FR-49 the package answered it
+# only by implication: every registered version was called supported,
+# including 26.000, which carries evidence for no command at all.
+from pyflightstream.support import (  # noqa: E402
+    SupportLevel,
+    support_level,
+    support_table,
+    version_support,
+)
+
 __all__ = [
+    "SupportLevel",
     "__version__",
     "describe_option",
     "get_option",
@@ -76,4 +89,7 @@ __all__ = [
     "overview",
     "reset_option",
     "set_option",
+    "support_level",
+    "support_table",
+    "version_support",
 ]

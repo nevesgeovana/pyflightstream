@@ -59,8 +59,9 @@ _SIDE_BRANCHES: tuple[tuple[str, str], ...] = (
     ("probes, farfield", "probe lattices and far-field conservation ledgers"),
     ("reference, overview", "presentation: command reference and this page"),
     (
-        "options, exceptions, testing",
-        "cross-cutting support: declared knobs | exception catalog | quantified assertions",
+        "options, exceptions, testing, support",
+        "cross-cutting support: declared knobs | exception catalog | "
+        "quantified assertions | per-version support levels",
     ),
 )
 
@@ -83,6 +84,7 @@ _SECTIONS: tuple[str, ...] = (
     "options",
     "exceptions",
     "testing",
+    "support",
 )
 
 _ROLE_PATTERN = re.compile(r":(?:mod|class|func|meth|attr|data|obj|exc):`~?([^`]+)`")

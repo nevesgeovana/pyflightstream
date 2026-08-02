@@ -106,17 +106,39 @@ honest gaps are reported as such.
 
 ## Supported FlightStream versions
 
-Registered: 26.000, 26.100, 26.120, 26.121 (canonical 26.XXX scheme;
-the last digit indexes vendor hotfix builds, so 26.121 is hotfix build
-1 of the 26.12 release). The vendor ships both 26.120 and 26.121 under
-the one release name "26.12", so that name no longer selects a build
-and is refused with both candidates named; pass the canonical
-identifier. The ordered list in
-`src/pyflightstream/commands/_meta.yaml` is the only ordering
-authority. Evidence is strongest on 26.120 (probed on a licensed
-machine); 26.100 is partially backfilled from the manuals; the 26.000
-column is honestly empty until probed. The compatibility matrix in the
-docs is generated from the database at build time.
+"Supported" covered four different states, so it is now four named
+values (`pyflightstream.SupportLevel`), every one of them derived from
+the evidence rather than declared:
+
+| Version | Vendor name | Support level | What that means here |
+|---|---|---|---|
+| 26.000 | 26.0 | `registered` | Ordered in the registry, no command carries evidence for it, so nothing can be built yet |
+| 26.100 | 26.1 | `documented` | Commands drafted from the manual with page citations, none measured against a running solver |
+| 26.120 | 26.12 | `operational` | Probe evidence from a licensed machine, and the minimal end-to-end workflow builds |
+| 26.121 | 26.12 | `operational` | The same, re-probed in full on hotfix build 1 |
+
+```python
+import pyflightstream
+
+for row in pyflightstream.support_table():
+    print(row.summary)
+```
+
+`operational` is the level that claims a user can get from geometry to
+a loads file, and it is checkable rather than asserted: it holds only
+when `pyflightstream.support.minimal_workflow(version)` builds, which a
+tier 1 test builds for every version reported at that level.
+
+Canonical identifiers use the 26.XXX scheme, the last digit indexing
+vendor hotfix builds, so 26.121 is hotfix build 1 of the 26.12 release.
+The vendor ships both 26.120 and 26.121 under the one release name
+"26.12", so that name no longer selects a build and is refused with
+both candidates named; pass the canonical identifier. The ordered list
+in `src/pyflightstream/commands/_meta.yaml` is the only ordering
+authority, and it orders releases, not support: 26.100 is newer than
+26.000 and both sit below 26.120. Supported versions are only ever
+added, never dropped. The compatibility matrix in the docs is generated
+from the database at build time.
 
 ## What is each folder?
 
