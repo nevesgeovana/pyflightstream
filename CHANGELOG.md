@@ -198,6 +198,21 @@ FlightStream versions.
   window), and the session file. The run establishes what was observed
   on each build, not what the vendor changed. The disambiguating run,
   this harness against the 26.120 executable, was not made.
+* `reports/RPT-015_bulk-separation-family-acceptance_2026-08-02.md`:
+  the bulk-separation family probed on both builds, because RPT-014's
+  rename checklist held one item that was a physics question rather than
+  a naming one. It turned out to rest on a false premise and is
+  withdrawn rather than answered.
+  `CREATE_STRATFORD_BULK_SEPARATION` is **not new in 26.121**: the
+  26.120 solver accepts it too, where no manual documents it, so the new
+  edition documented an existing command rather than introducing one.
+  And `CREATE_BULK_SEPARATION`, which the database records as
+  `documented` for 26.120, is **refused by the 26.120 solver in every
+  documented form**, including the three-argument one RPT-012 ran
+  successfully on 26.100. No status moves on this report: it came from
+  an ad-hoc probe rather than the harness, so `apply-compat` cannot read
+  it, and a status promoted outside that path is what invariant 3
+  forbids. Registered instead.
 * `reports/RPT-014_26121-manual-diff-and-probe_2026-08-02.md`: the
   26.121 onboarding record. It documents that the hotfix carries its own
   manual edition (413 pages against 410, every scripting-reference
