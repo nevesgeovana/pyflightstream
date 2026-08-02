@@ -21,7 +21,7 @@ def test_render_html_covers_the_whole_database():
 
 
 def test_render_html_version_scope_keeps_removed_visible():
-    page = render_html("26.12")
+    page = render_html("26.120")
     assert "Scope: FlightStream 26.120" in page
     assert "<code>SONIC_VELOCITY</code>" in page
     assert "26.120: removed" in page

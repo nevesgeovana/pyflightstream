@@ -8,6 +8,7 @@ SET_SOLVER_STEADY:
   versions:
     "26.100": {status: documented, note: "SRC-725 p.340, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-02_full.yaml"}
 
 SET_SOLVER_UNSTEADY:
   layout: keyword_block
@@ -21,6 +22,7 @@ SET_SOLVER_UNSTEADY:
   manual_ref: "SRC-003 p.341"
   versions:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-02_full.yaml"}
   notes: >
     Physical time stepping. For rotary cases the manual recommends 8
     to 12 degrees of blade rotation per time step and at least two

@@ -111,7 +111,7 @@ def test_resolve_matrix_applies_reference_and_setup_to_the_cases(tmp_path):
             FIXTURE,
             workspace,
             name="matrix",
-            fs_version="26.12",
+            fs_version="26.120",
             recipes=RECIPES,
             fs_exe="C:/fs/FlightStream.exe",
         )
@@ -158,7 +158,7 @@ def test_missing_reference_names_the_row_the_id_and_the_folder(tmp_path):
             FIXTURE,
             workspace,
             name="matrix",
-            fs_version="26.12",
+            fs_version="26.120",
             recipes=RECIPES,
             fs_exe="C:/fs/FlightStream.exe",
         )
@@ -173,7 +173,7 @@ def test_missing_setup_and_group_are_didactic_too(tmp_path):
             FIXTURE,
             workspace,
             name="matrix",
-            fs_version="26.12",
+            fs_version="26.120",
             recipes=RECIPES,
             fs_exe="C:/fs/FlightStream.exe",
         )
@@ -184,7 +184,7 @@ def test_missing_setup_and_group_are_didactic_too(tmp_path):
             FIXTURE,
             workspace,
             name="matrix",
-            fs_version="26.12",
+            fs_version="26.120",
             recipes=RECIPES,
             fs_exe="C:/fs/FlightStream.exe",
         )
@@ -193,7 +193,7 @@ def test_missing_setup_and_group_are_didactic_too(tmp_path):
 def test_manual_build_requires_the_explicit_override(tmp_path):
     workspace = make_library(tmp_path)
     with pytest.raises(MatrixError, match="MANUAL.*fs_exe"):
-        resolve_matrix(FIXTURE, workspace, name="matrix", fs_version="26.12", recipes=RECIPES)
+        resolve_matrix(FIXTURE, workspace, name="matrix", fs_version="26.120", recipes=RECIPES)
 
 
 def test_unregistered_build_points_at_the_registry_and_the_override(tmp_path):
@@ -215,7 +215,7 @@ def test_mixed_builds_are_refused(tmp_path):
         [row.format(n=1, build="26.100"), row.format(n=2, build="26.120")],
     )
     with pytest.raises(MatrixError, match="2 FS_BUILD values"):
-        resolve_matrix(matrix, workspace, name="matrix", fs_version="26.12", recipes=RECIPES)
+        resolve_matrix(matrix, workspace, name="matrix", fs_version="26.120", recipes=RECIPES)
 
 
 @pytest.mark.filterwarnings("ignore:setup preset")
@@ -229,7 +229,7 @@ def test_bad_setup_value_is_refused_didactically(tmp_path):
             FIXTURE,
             workspace,
             name="matrix",
-            fs_version="26.12",
+            fs_version="26.120",
             recipes=RECIPES,
             fs_exe="C:/fs/FlightStream.exe",
         )

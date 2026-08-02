@@ -104,11 +104,11 @@ def test_read_refuses_a_non_report_file(tmp_path):
         read_compat_report(stray)
 
 
-def write_report(tmp_path, commands):
+def write_report(tmp_path, commands, version="26.120"):
     report_dir = tmp_path / "reports" / "compat"
-    report_dir.mkdir(parents=True)
-    path = report_dir / "CMP-26120_2026-07-21.yaml"
-    document = {"schema": COMPAT_SCHEMA, "fs_version": "26.120", "commands": commands}
+    report_dir.mkdir(parents=True, exist_ok=True)
+    path = report_dir / f"CMP-{version.replace('.', '')}_2026-07-21.yaml"
+    document = {"schema": COMPAT_SCHEMA, "fs_version": version, "commands": commands}
     path.write_text(yaml.safe_dump(document), encoding="utf-8")
     return path
 
@@ -166,4 +166,71 @@ def test_apply_compat_refuses_a_multiline_version_entry(tmp_path):
     )
     report_path = write_report(tmp_path, {"FAKE_CMD": {"outcome": "verified", "detail": "x"}})
     with pytest.raises(ValueError, match="no single-line version entry"):
+        apply_compat(report_path, repo_root=tmp_path, commands_dir=commands_dir)
+
+
+def test_apply_compat_onboards_a_version_the_command_does_not_record_yet(tmp_path):
+    """The first probe run of a new version judges commands with no line for it.
+
+    A version starts life recorded only in _meta.yaml, so every command
+    still carries lines for the older versions alone. Refusing there
+    would leave a whole licensed run unpromotable, and the only route
+    left would be a hand edit, which invariant 3 forbids. The new line
+    is inserted at its release position among the ones already there.
+    """
+    commands_dir = tmp_path / "commands"
+    write_chapter_fixture(commands_dir)
+    report_path = write_report(
+        tmp_path,
+        {
+            "PRINT": {"outcome": "verified", "detail": "effect observed"},
+            "STOP": {"outcome": "broken", "detail": "did not halt"},
+        },
+        version="26.121",
+    )
+
+    promotions = apply_compat(report_path, repo_root=tmp_path, commands_dir=commands_dir)
+    assert sorted(promotions) == [
+        ("PRINT", "verified", "script_controls.yaml"),
+        ("STOP", "broken", "script_controls.yaml"),
+    ]
+
+    text = (commands_dir / "script_controls.yaml").read_text(encoding="utf-8")
+    lines = text.splitlines()
+
+    # The older evidence survives untouched, and the new line sits after
+    # it, at the same indentation, in release order.
+    for command, status in (("PRINT", "verified"), ("STOP", "broken")):
+        block = lines[lines.index(f"{command}:") :]
+        recorded = [line for line in block[:12] if '": {status' in line]
+        assert recorded[0].strip().startswith('"26.120": {status: documented}'), recorded
+        assert recorded[1].strip().startswith(f'"26.121": {{status: {status},'), recorded
+        assert recorded[1].startswith("    "), recorded[1]
+        assert "CMP-" in recorded[1]
+
+    # RUN_SCRIPT was not judged, so it gains nothing.
+    run_block = lines[lines.index("RUN_SCRIPT:") :]
+    assert not [line for line in run_block if "26.121" in line]
+
+
+def test_apply_compat_still_refuses_a_block_with_no_line_to_pattern_on(tmp_path):
+    commands_dir = tmp_path / "commands"
+    commands_dir.mkdir()
+    (commands_dir / "fake.yaml").write_text(
+        "FAKE_CMD:\n"
+        "  layout: bare\n"
+        "  phase: control\n"
+        "  args: []\n"
+        '  manual_ref: "SRC-003 p.281"\n'
+        "  versions:\n"
+        '    "26.120":\n'
+        "      status: documented\n",
+        encoding="utf-8",
+    )
+    report_path = write_report(
+        tmp_path,
+        {"FAKE_CMD": {"outcome": "verified", "detail": "x"}},
+        version="26.121",
+    )
+    with pytest.raises(ValueError, match="nothing to pattern the new"):
         apply_compat(report_path, repo_root=tmp_path, commands_dir=commands_dir)

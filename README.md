@@ -21,7 +21,7 @@ A first taste, no solver required (build time is where errors surface):
 from pyflightstream.commands import CommandNotInVersionError
 from pyflightstream.script import Script
 
-script = Script(version="26.12")  # the FlightStream version is explicit input
+script = Script(version="26.120")  # the FlightStream version is explicit input
 script.emit("NEW_SIMULATION")
 script.emit("IMPORT", "METER", "STL", "wing.stl", clear=True)
 script.emit("SOLVER_SET_AOA", 4.0)
@@ -102,8 +102,12 @@ honest gaps are reported as such.
 
 ## Supported FlightStream versions
 
-Registered: 26.000, 26.100, 26.120 (canonical 26.XXX scheme; the last
-digit indexes vendor hotfix builds). The ordered list in
+Registered: 26.000, 26.100, 26.120, 26.121 (canonical 26.XXX scheme;
+the last digit indexes vendor hotfix builds, so 26.121 is hotfix build
+1 of the 26.12 release). The vendor ships both 26.120 and 26.121 under
+the one release name "26.12", so that name no longer selects a build
+and is refused with both candidates named; pass the canonical
+identifier. The ordered list in
 `src/pyflightstream/commands/_meta.yaml` is the only ordering
 authority. Evidence is strongest on 26.120 (probed on a licensed
 machine); 26.100 is partially backfilled from the manuals; the 26.000

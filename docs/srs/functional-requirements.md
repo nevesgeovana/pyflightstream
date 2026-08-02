@@ -32,7 +32,25 @@ Milestones and session records are listed in the
     fractional digits: the first two carry the official minor release,
     the last indexes intermediate hotfix builds (0 = the official
     release). Launch set: 26.000, 26.100, 26.120. The registry stores
-    display aliases so users may write "26.12" and get 26.120.
+    the vendor release name of each build as a display alias, and a
+    user may write that name wherever it names exactly one build.
+
+!!! requirement "FR-02c Ambiguous vendor names are refused <span class='srs-implemented'>implemented</span>"
+    *Origin: BRF-03, BRF-19. Evidence: PFS-8 (2026-08-03); the
+    ambiguous-alias tests in `tests/test_versions.py`.*
+
+    The vendor ships every hotfix build of a minor release under the
+    one release name, so a display alias can name more than one
+    registered build: 26.120 and 26.121 are both shipped as "26.12".
+    Resolution refuses such a name rather than returning any of the
+    builds carrying it, and the refusal names every candidate so the
+    caller can choose. A canonical identifier is matched across the
+    whole registry before any alias is considered, so a build is never
+    shadowed by an earlier entry whose alias equals its canonical.
+
+    This makes the vendor name a breaking input wherever it became
+    ambiguous, which is accepted: the alternative is returning a
+    solver build the caller did not choose.
 
 !!! requirement "FR-03 Evidence-backed per-version statuses <span class='srs-implemented'>implemented</span>"
     *Origin: BRF-03. Evidence: milestone M1 (schema), M3 (first

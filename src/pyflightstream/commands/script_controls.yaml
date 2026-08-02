@@ -9,6 +9,7 @@ STOP:
   manual_ref: "SRC-003 p.281"
   versions:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-02_full.yaml"}
   notes: >
     Halts script processing at this location; the manual suggests it
     for debugging partial scripts (SRC-003 p.280).
@@ -22,6 +23,7 @@ PRINT:
   manual_ref: "SRC-003 p.281"
   versions:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-02_full.yaml"}
   notes: >
     Writes a user-defined message to the log window; useful as a
     sentinel marker in probe scripts.
@@ -35,5 +37,6 @@ RUN_SCRIPT:
   manual_ref: "SRC-003 p.281"
   versions:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-02_full.yaml"}
   notes: >
     Calls another script file from within the running script.

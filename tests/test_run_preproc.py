@@ -38,7 +38,7 @@ class FakeMeshExporter:
 def test_export_runs_the_documented_script_and_returns_the_mesh(tmp_path):
     executor = FakeMeshExporter()
     mesh = export_surface_mesh(
-        tmp_path / "case.fsm", tmp_path / "pre", version="26.12", executor=executor
+        tmp_path / "case.fsm", tmp_path / "pre", version="26.120", executor=executor
     )
     assert mesh.is_file()
     assert mesh.name == "surface_mesh.obj"
@@ -51,13 +51,13 @@ def test_failed_run_raises_with_the_log_excerpt(tmp_path):
     executor = FakeMeshExporter(write_mesh=False, return_code=1)
     with pytest.raises(SurfaceMeshExportError, match="returned 1.*solver said no"):
         export_surface_mesh(
-            tmp_path / "case.fsm", tmp_path / "pre", version="26.12", executor=executor
+            tmp_path / "case.fsm", tmp_path / "pre", version="26.120", executor=executor
         )
 
 
 def test_missing_executor_and_exe_is_refused(tmp_path):
     with pytest.raises(ExecutorConfigurationError, match="fs_exe"):
-        export_surface_mesh(tmp_path / "case.fsm", tmp_path / "pre", version="26.12")
+        export_surface_mesh(tmp_path / "case.fsm", tmp_path / "pre", version="26.120")
 
 
 def test_version_without_evidence_refuses_didactically(tmp_path):

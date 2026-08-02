@@ -31,7 +31,7 @@ from pyflightstream.qa.physics import (
     write_physics_report,
 )
 from pyflightstream.qa.probes import ProbeEnvironmentError, probe_version
-from pyflightstream.versions import resolve
+from pyflightstream.versions import AmbiguousVersionAliasError, UnknownVersionError, resolve
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -253,8 +253,37 @@ def _cmd_cases(args: argparse.Namespace) -> int:
     return 0
 
 
+def _resolve_or_report(version: str) -> str | None:
+    """Resolve one user-typed version, reporting a refusal instead of raising.
+
+    A version string reaches every ``pyfs-qa`` subcommand straight from
+    argparse, and both refusals it can meet (unregistered identifier,
+    vendor name shared by several builds) are ordinary user error.
+    Letting them propagate showed a traceback where the library's own
+    message already says what to do.
+
+    Parameters
+    ----------
+    version : str
+        Canonical identifier or vendor release name, as typed.
+
+    Returns
+    -------
+    str or None
+        The canonical identifier, or ``None`` when the refusal has
+        already been printed and the caller should exit 2.
+    """
+    try:
+        return resolve(version).canonical
+    except (AmbiguousVersionAliasError, UnknownVersionError) as error:
+        print(f"version not resolved: {error}", file=sys.stderr)
+        return None
+
+
 def _cmd_probe(args: argparse.Namespace) -> int:
-    canonical = resolve(args.version).canonical
+    canonical = _resolve_or_report(args.version)
+    if canonical is None:
+        return 2
     commands = None
     if args.commands:
         commands = [name.strip() for name in args.commands.split(",") if name.strip()]
@@ -285,7 +314,9 @@ def _cmd_probe(args: argparse.Namespace) -> int:
 
 
 def _cmd_physics(args: argparse.Namespace) -> int:
-    canonical = resolve(args.version).canonical
+    canonical = _resolve_or_report(args.version)
+    if canonical is None:
+        return 2
     cases = None
     if args.cases:
         cases = [name.strip() for name in args.cases.split(",") if name.strip()]
@@ -334,8 +365,16 @@ def _cmd_drift(args: argparse.Namespace) -> int:
         if not separator or not path:
             print(f"--fs-exe expects VERSION=PATH, got {item!r}", file=sys.stderr)
             return 2
-        fs_exes[resolve(version.strip()).canonical] = path.strip()
-    canonicals = [resolve(version).canonical for version in versions]
+        canonical = _resolve_or_report(version.strip())
+        if canonical is None:
+            return 2
+        fs_exes[canonical] = path.strip()
+    canonicals = []
+    for version in versions:
+        canonical = _resolve_or_report(version)
+        if canonical is None:
+            return 2
+        canonicals.append(canonical)
     missing = [canonical for canonical in canonicals if canonical not in fs_exes]
     if missing:
         print(

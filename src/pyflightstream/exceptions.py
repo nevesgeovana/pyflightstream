@@ -23,7 +23,9 @@ wants the refusal next to the physics it explains); this module only
 re-exports. Structured refusals carry their facts as attributes where
 the message alone would force parsing: see
 :class:`~pyflightstream.versions.UnknownVersionError` (``version``,
-``known``) and
+``known``),
+:class:`~pyflightstream.versions.AmbiguousVersionAliasError` (``alias``,
+``candidates``) and
 :class:`~pyflightstream.workspace.InputArtifactError` (``kind``,
 ``artifact_id``, ``available``).
 """
@@ -56,7 +58,7 @@ from pyflightstream.script import (
     ScriptOrderError,
     ScriptReferenceError,
 )
-from pyflightstream.versions import UnknownVersionError
+from pyflightstream.versions import AmbiguousVersionAliasError, UnknownVersionError
 from pyflightstream.workspace import (
     InputArtifactError,
     NamingTemplateError,
@@ -65,6 +67,7 @@ from pyflightstream.workspace import (
 
 __all__ = [
     "AmbiguousLoadsError",
+    "AmbiguousVersionAliasError",
     "AnchorNotFoundError",
     "CampaignErrors",
     "CommandArgumentError",

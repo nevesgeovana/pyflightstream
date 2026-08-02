@@ -46,7 +46,7 @@ def build_steady_polar(script: Script) -> None:
 
 
 def test_steady_polar_matches_the_golden():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     build_steady_polar(script)
     golden = (GOLDENS / "steady_polar_26.120.txt").read_text(encoding="utf-8")
     assert script.render() == golden
@@ -54,13 +54,13 @@ def test_steady_polar_matches_the_golden():
 
 
 def test_removed_command_raises_with_citation():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     with pytest.raises(CommandNotInVersionError, match=r"SRC-003 p\.328"):
         script.emit("SONIC_VELOCITY", 340.0)
 
 
 def test_phase_order_is_enforced_with_a_didactic_message():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     script.emit(
         "INITIALIZE_SOLVER",
         solver_model="INCOMPRESSIBLE",
@@ -73,7 +73,7 @@ def test_phase_order_is_enforced_with_a_didactic_message():
 
 
 def test_control_commands_are_exempt_from_phase_ordering():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     script.emit("START_SOLVER")
     script.emit("PRINT", "solver finished")
     script.emit("SAVEAS", "C:/cases/wing_done.fsm")
@@ -81,7 +81,7 @@ def test_control_commands_are_exempt_from_phase_ordering():
 
 
 def test_enum_membership_and_case_normalization():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     script.emit("SET_SOLVER_STEADY")
     script.emit("SET_BOUNDARY_LAYER_TYPE", "transitional")
     assert "SET_BOUNDARY_LAYER_TYPE TRANSITIONAL" in script.render()
@@ -90,7 +90,7 @@ def test_enum_membership_and_case_normalization():
 
 
 def test_argument_type_errors_cite_the_manual():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     with pytest.raises(CommandArgumentError, match=r"SRC-003 p\.339"):
         script.emit("SOLVER_SET_ITERATIONS", "many")
     with pytest.raises(CommandArgumentError, match="requires argument"):
@@ -100,19 +100,19 @@ def test_argument_type_errors_cite_the_manual():
 
 
 def test_count_versus_list_consistency():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     with pytest.raises(CommandArgumentError, match="declared count is 2"):
         script.emit("SET_VTK_EXPORT_VARIABLES", 2, "DISABLE", ["VX", "VY", "VZ"])
 
 
 def test_payload_lines_rendering_with_newline_separator():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     script.emit("SET_VTK_EXPORT_VARIABLES", 3, "DISABLE", ["CP_REFERENCE", "VX", "VTOT"])
     assert script.render() == ("SET_VTK_EXPORT_VARIABLES 3 DISABLE\nCP_REFERENCE\nVX\nVTOT\n\n")
 
 
 def test_param_lines_rendering_mixes_keys_and_bare_paths():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     script.emit("PROBE_POINTS_IMPORT", "INCH", 1, "C:/probes/lattice.txt")
     assert script.render() == (
         "PROBE_POINTS_IMPORT\nUNITS INCH\nFRAME 1\nC:/probes/lattice.txt\n\n"
@@ -120,21 +120,21 @@ def test_param_lines_rendering_mixes_keys_and_bare_paths():
 
 
 def test_inline_own_line_path_renders_after_the_command():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     script.declare_existing(actuators=2)
     script.emit("SET_PROP_ACTUATOR_PROFILE", 2, "NEWTONS", 4, "C:/props/thrust.txt")
     assert script.render() == ("SET_PROP_ACTUATOR_PROFILE 2 NEWTONS 4\nC:/props/thrust.txt\n\n")
 
 
 def test_comma_separated_payload_list():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     script.declare_existing(motions=1)
     script.emit("SET_MOTION_BOUNDARIES", 1, 4, [1, 2, 3, 5])
     assert script.render() == "SET_MOTION_BOUNDARIES 1 4\n1,2,3,5\n\n"
 
 
 def test_import_renders_the_manual_keyword_block():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     script.emit("IMPORT", "METER", "STL", "C:/geometry/wing.stl", clear=True)
     assert script.render() == (
         "IMPORT\nUNITS METER\nFILE_TYPE STL\nFILE C:/geometry/wing.stl\nCLEAR\n\n"
@@ -142,7 +142,7 @@ def test_import_renders_the_manual_keyword_block():
 
 
 def test_import_without_clear_omits_the_presence_keyword():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     script.emit("IMPORT", "METER", "TRI", "C:/geometry/wing.tri")
     rendered = script.render()
     assert "CLEAR" not in rendered
@@ -150,13 +150,13 @@ def test_import_without_clear_omits_the_presence_keyword():
 
 
 def test_import_clear_must_be_a_bool():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     with pytest.raises(CommandArgumentError, match="True or False"):
         script.emit("IMPORT", "METER", "STL", "C:/geometry/wing.stl", clear="CLEAR")
 
 
 def test_ccs_import_renders_its_toggles_and_path():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     script.emit("CCS_IMPORT", "ENABLE", "DISABLE", "ENABLE", "C:/geometry/model.csv")
     assert script.render() == (
         "CCS_IMPORT\nCLOSE_COMPONENT_ENDS ENABLE\nUPDATE_PROPERTIES DISABLE\n"
@@ -165,21 +165,21 @@ def test_ccs_import_renders_its_toggles_and_path():
 
 
 def test_export_surface_mesh_takes_the_path_on_its_own_line():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     script.emit("EXPORT_SURFACE_MESH", "OBJ", -1, "C:/geometry/all.obj")
     assert script.render() == "EXPORT_SURFACE_MESH OBJ -1\nC:/geometry/all.obj\n\n"
 
 
 def test_raw_bypasses_validation_and_sets_the_flag():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     script.raw("SOME_UNKNOWN_COMMAND 1 2")
     assert script.raw_flag
     assert "SOME_UNKNOWN_COMMAND 1 2" in script.render()
 
 
 def test_two_scripts_do_not_share_state():
-    first = Script(version="26.12")
-    second = Script(version="26.12")
+    first = Script(version="26.120")
+    second = Script(version="26.120")
     first.emit("START_SOLVER")
     second.emit("CREATE_NEW_COORDINATE_SYSTEM")
     assert "CREATE_NEW_COORDINATE_SYSTEM" not in first.render()
@@ -188,7 +188,7 @@ def test_two_scripts_do_not_share_state():
 def test_unsteady_monitoring_commands_render_the_manual_grammar():
     # 2026-07-21 case-reproduction backfill (SRC-003 pp.344-348, 355): the
     # unsteady plot blocks render exactly as the manual samples.
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     script.emit("NEW_SIMULATION")
     script.emit(
         "UNSTEADY_SOLVER_NEW_FORCE_PLOT",
@@ -219,7 +219,7 @@ def test_unsteady_monitoring_commands_render_the_manual_grammar():
 def test_bulk_separation_renders_the_grammar_of_its_target_version():
     # 26.1 versus 26.12 manual delta (SRC-725 p.341 / SRC-003 p.342):
     # 26.12 inserts SEPARATION_TYPE as the second argument.
-    later = Script(version="26.12")
+    later = Script(version="26.120")
     later.emit("CREATE_BULK_SEPARATION", "GEAR", "FLAT_PLATE", 3, 0.2, [1, 3, 5])
     assert later.render() == "CREATE_BULK_SEPARATION GEAR FLAT_PLATE 3 0.2\n1,3,5\n\n"
     earlier = Script(version="26.1")
@@ -236,7 +236,7 @@ def test_bulk_separation_renders_the_grammar_of_its_target_version():
 
 
 def test_export_surface_sections_exists_only_from_26120():
-    later = Script(version="26.12")
+    later = Script(version="26.120")
     later.emit("EXPORT_SURFACE_SECTIONS", 2)
     assert "EXPORT_SURFACE_SECTIONS 2" in later.render()
     with pytest.raises(CommandNotInVersionError, match="no recorded evidence"):
@@ -248,11 +248,11 @@ def test_volume_section_boundary_layer_is_removed_at_26120():
     earlier.emit("VOLUME_SECTION_BOUNDARY_LAYER", 2, "DISABLE")
     assert "VOLUME_SECTION_BOUNDARY_LAYER 2 DISABLE" in earlier.render()
     with pytest.raises(CommandNotInVersionError, match=r"SRC-725 p\.365"):
-        Script(version="26.12").emit("VOLUME_SECTION_BOUNDARY_LAYER", 2, "DISABLE")
+        Script(version="26.120").emit("VOLUME_SECTION_BOUNDARY_LAYER", 2, "DISABLE")
 
 
 def test_ccs_control_surface_space_axis_pair_is_26120_only():
-    later = Script(version="26.12")
+    later = Script(version="26.120")
     later.emit(
         "NEW_CCS_WING_CONTROL_SURFACE",
         name="Aileron",
@@ -323,7 +323,7 @@ def test_a_newline_in_a_path_argument_cannot_inject_a_command():
     ``s.emit("IMPORT", "METER", "STL", "wing.stl\nSTART_SOLVER", clear=True)``
     used to render START_SOLVER as its own line with ``raw_flag`` False.
     """
-    script = Script("26.12")
+    script = Script("26.120")
     with pytest.raises(ScriptLineBreakError) as caught:
         script.emit("IMPORT", "METER", "STL", "wing.stl\nSTART_SOLVER", clear=True)
     message = str(caught.value)
@@ -341,7 +341,7 @@ def test_a_newline_in_a_comment_cannot_inject_a_command():
     A comment is not refused, because commenting every line is what the
     caller meant. What must not survive is an uncommented second line.
     """
-    script = Script("26.12")
+    script = Script("26.120")
     script.comment("hello\nSTART_SOLVER")
     lines = script.render().splitlines()
     assert lines == ["# hello", "# START_SOLVER"]
@@ -350,7 +350,7 @@ def test_a_newline_in_a_comment_cannot_inject_a_command():
 
 def test_every_line_of_a_multi_line_comment_is_commented():
     """Including the blank one, which becomes a bare ``#`` and not a gap."""
-    script = Script("26.12")
+    script = Script("26.120")
     script.comment("first\n\nthird")
     assert script.render().splitlines() == ["# first", "#", "# third"]
 
@@ -368,7 +368,7 @@ def test_every_line_terminator_python_knows_is_refused(terminator):
     against CR and LF would let the other seven through, and they still
     arrive as two lines because ``render`` joins what ``splitlines`` split.
     """
-    script = Script("26.12")
+    script = Script("26.120")
     with pytest.raises(ScriptLineBreakError) as caught:
         script.emit("IMPORT", "METER", "STL", f"wing.stl{terminator}START_SOLVER")
     # Assert the MESSAGE too, not only the type. The role-review QA pass
@@ -389,7 +389,7 @@ def test_a_trailing_line_terminator_is_refused_too():
     break" would allow it, and the next command would then be appended to
     this line's own physical line. The invariant is one line, not one command.
     """
-    script = Script("26.12")
+    script = Script("26.120")
     with pytest.raises(ScriptLineBreakError):
         script.emit("IMPORT", "METER", "STL", "wing.stl\n")
 
@@ -401,7 +401,7 @@ def test_raw_remains_the_sanctioned_route_and_still_flags():
     appended at all, the fix would have removed a capability rather than
     closed a hole.
     """
-    script = Script("26.12")
+    script = Script("26.120")
     script.raw("START_SOLVER")
     assert "START_SOLVER" in script.render()
     assert script.raw_flag is True
@@ -409,7 +409,7 @@ def test_raw_remains_the_sanctioned_route_and_still_flags():
 
 def test_an_ordinary_path_still_emits_unchanged():
     """The guard must not cost a legitimate call anything."""
-    script = Script("26.12")
+    script = Script("26.120")
     script.emit("IMPORT", "METER", "STL", "C:/cases/wing.stl")
     assert "C:/cases/wing.stl" in script.render()
     assert script.raw_flag is False
@@ -434,8 +434,45 @@ def test_the_emit_choke_point_catches_what_the_argument_checks_miss(monkeypatch)
         return rendered.replace("wing.stl", "wing.stl\nSTART_SOLVER")
 
     monkeypatch.setattr(script_module.Script, "_format_scalar", leaky)
-    script = Script("26.12")
+    script = Script("26.120")
     with pytest.raises(ScriptLineBreakError) as caught:
         script.emit("IMPORT", "METER", "STL", "wing.stl")
     assert "START_SOLVER" in str(caught.value)
     assert "START_SOLVER" not in script.render()
+
+
+def test_every_declared_count_is_a_known_count_name():
+    """A count argument the emitter does not recognise checks nothing.
+
+    The count-versus-list consistency check keys on the ARGUMENT NAME
+    (`_COUNT_ARG_NAMES`), because the vendor spells the count
+    differently per command. So a command whose count carries a new
+    spelling is emitted with no consistency check at all, and the
+    solver, which reads the count and then that many tokens, consumes
+    the following command line as data. That is a silent corruption of
+    the script, not a syntax error, and nothing reported it.
+
+    This walks the whole database and fails on any int scalar that
+    introduces a list argument from outside the known set, so the next
+    new spelling fails the suite instead of shipping unchecked. Two
+    commands were escaping when it was written (PFS-8, 2026-08-03):
+    UNSTEADY_SOLVER_NEW_FORCE_PLOT (`boundaries`) and
+    ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS (`num_index`).
+    """
+    from pyflightstream.commands import ArgType, CommandRegistry
+    from pyflightstream.script import _COUNT_ARG_NAMES
+
+    escaping = []
+    for name, entry in sorted(CommandRegistry.load().commands.items()):
+        candidate = None
+        for spec in entry.args:
+            if spec.is_list:
+                if candidate is not None and candidate not in _COUNT_ARG_NAMES:
+                    escaping.append(f"{name}: {candidate!r} introduces {spec.name!r}")
+                candidate = None
+            elif spec.type is ArgType.INT:
+                candidate = spec.name
+    assert not escaping, (
+        "these int arguments introduce a list but are not in _COUNT_ARG_NAMES, so "
+        "their count is never checked against the list it declares: " + "; ".join(escaping)
+    )

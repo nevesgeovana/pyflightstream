@@ -261,7 +261,7 @@ def test_full_run_against_seeded_reference_passes(tmp_path):
 def test_phy05_script_pins_the_proven_unsteady_flow():
     from pyflightstream.qa.physics import PHY05_DELTA_TIME_S, PHY05_RPM, build_phy05_script
 
-    text = build_phy05_script("26.12", "C:/work/blade.stl", "loads.txt", "log.txt").render()
+    text = build_phy05_script("26.120", "C:/work/blade.stl", "loads.txt", "log.txt").render()
     assert "SYMMETRY PERIODIC 6" in text
     assert f"SET_MOTION_ROTOR_RPM 1 {PHY05_RPM}" in text
     assert f"TIME_ITERATIONS 54\nDELTA_TIME {PHY05_DELTA_TIME_S}" in text
@@ -280,10 +280,10 @@ def test_phy06_unsteady_script_differs_from_steady_only_by_time_stepping():
 
     for alpha in PHY06_ALPHAS_DEG:
         steady = _build_wing_point_script(
-            "PHY-06", "26.12", alpha, "C:/w/wing.stl", "l.txt", "g.txt"
+            "PHY-06", "26.120", alpha, "C:/w/wing.stl", "l.txt", "g.txt"
         ).render()
         unsteady = build_phy06_unsteady_script(
-            "26.12", alpha, "C:/w/wing.stl", "l.txt", "g.txt"
+            "26.120", alpha, "C:/w/wing.stl", "l.txt", "g.txt"
         ).render()
         extra = [
             line

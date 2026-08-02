@@ -10,6 +10,7 @@ CREATE_NEW_COORDINATE_SYSTEM:
   manual_ref: "SRC-003 p.329"
   versions:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-02_full.yaml"}
   notes: >
     Appends a new local coordinate system; configure it afterwards
     with the SET_COORDINATE_SYSTEM commands or EDIT_COORDINATE_SYSTEM.
@@ -49,6 +50,7 @@ EDIT_COORDINATE_SYSTEM:
   manual_ref: "SRC-003 p.329"
   versions:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-02_full.yaml"}
   notes: >
     Full edit of a local frame: origin and the three axis vectors,
     all expressed in the reference frame.

@@ -88,7 +88,7 @@ def test_geometry_validators_carry_the_physical_cause():
 
 
 def test_emission_renders_version_validated_probe_lines():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     count = emit_probe_points(script, small_lattice())
     text = script.render()
     assert count == 2 * 8
@@ -118,7 +118,7 @@ def test_probe_csv_follows_the_documented_import_format(tmp_path):
     assert lines[0] == str(count)
     assert len(lines) == count + 1
     assert all(line.endswith(",1") for line in lines[1:])
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     emit_probe_import(script, path, units="METER", frame=1)
     rendered = script.render()
     assert "PROBE_POINTS_IMPORT\nUNITS METER\nFRAME 1\n" in rendered

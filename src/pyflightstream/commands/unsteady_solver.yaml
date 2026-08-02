@@ -54,6 +54,20 @@ UNSTEADY_SOLVER_NEW_FLUID_PLOT:
     lives in the caller, the same preformatted-token convention as the
     per-surface lines of INITIALIZE_SOLVER.
 
+UNSTEADY_SOLVER_DELETE_ALL_PLOTS:
+  layout: bare
+  phase: setup
+  args: []
+  manual_ref: "SRC-003 p.347"
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Removes every unsteady solver plot, force and fluid alike, in one
+    call; there is no documented per-plot delete. Found missing from
+    this chapter while diffing the 26.121 manual against the database
+    (PFS-8): it is documented in the 26.12 manual too, so its absence
+    was a gap in the original ingestion rather than a version change.
+
 UNSTEADY_SOLVER_EXPORT_PLOTS:
   layout: param_lines
   phase: export

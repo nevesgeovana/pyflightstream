@@ -57,7 +57,7 @@ def test_malformed_canonical_identifier_names_the_scheme():
 
 def test_solver_settings_empty_vorticity_selection_names_the_two_drag_methods():
     """An empty list is refused by naming the omission that means the default."""
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     with pytest.raises(
         CommandArgumentError,
         match=r"vorticity_drag_boundaries is an empty sequence.*Omit the argument "
@@ -69,7 +69,7 @@ def test_solver_settings_empty_vorticity_selection_names_the_two_drag_methods():
 
 def test_solver_settings_toggle_refusal_names_both_vocabularies():
     """A flag written in the solver's words is read, anything else refused."""
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     with pytest.raises(
         CommandArgumentError,
         match=r"solver_settings: viscous_coupling takes True or False, or the solver's "
@@ -79,7 +79,7 @@ def test_solver_settings_toggle_refusal_names_both_vocabularies():
 
 
 def test_solver_settings_mode_refusal_names_both_regimes():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     with pytest.raises(
         CommandArgumentError,
         match=r"mode takes STEADY or UNSTEADY, got 'CRUISE': the solver time regime "
@@ -90,7 +90,7 @@ def test_solver_settings_mode_refusal_names_both_regimes():
 
 def test_unsteady_without_time_stepping_names_both_missing_parameters():
     """Physical time stepping needs the step count and the step size together."""
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     with pytest.raises(
         CommandArgumentError,
         match=r"mode='UNSTEADY' needs both time_iterations and delta_time: physical "
@@ -101,7 +101,7 @@ def test_unsteady_without_time_stepping_names_both_missing_parameters():
 
 
 def test_time_stepping_outside_unsteady_mode_offers_both_remedies():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     with pytest.raises(
         CommandArgumentError,
         match=r"time_iterations and delta_time belong to the unsteady solver; pass "

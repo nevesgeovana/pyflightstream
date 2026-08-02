@@ -145,7 +145,7 @@ def test_truncated_row_is_refused_naming_the_row(tmp_path):
 
 def test_to_campaign_maps_codes_and_preserves_them():
     campaign = to_campaign(
-        FIXTURE, name="matrix", fs_version="26.12", fs_exe="C:/fs.exe", recipes=RECIPES
+        FIXTURE, name="matrix", fs_version="26.120", fs_exe="C:/fs.exe", recipes=RECIPES
     )
     case = campaign.sims[0]
     assert case.sim_id == "9001"
@@ -159,18 +159,18 @@ def test_to_campaign_maps_codes_and_preserves_them():
 
 def test_unmapped_script_code_is_refused():
     with pytest.raises(MatrixError, match="no recipe\\s+mapping"):
-        to_campaign(FIXTURE, name="matrix", fs_version="26.12", fs_exe="C:/fs.exe", recipes={})
+        to_campaign(FIXTURE, name="matrix", fs_version="26.120", fs_exe="C:/fs.exe", recipes={})
 
 
 def test_convert_matrix_round_trips_through_load_campaign(tmp_path):
     text = convert_matrix(
-        FIXTURE, name="matrix", fs_version="26.12", fs_exe="C:/fs.exe", recipes=RECIPES
+        FIXTURE, name="matrix", fs_version="26.120", fs_exe="C:/fs.exe", recipes=RECIPES
     )
     path = tmp_path / "campaign.toml"
     path.write_text(text, encoding="utf-8")
     campaign = load_campaign(path)
     direct = to_campaign(
-        FIXTURE, name="matrix", fs_version="26.12", fs_exe="C:/fs.exe", recipes=RECIPES
+        FIXTURE, name="matrix", fs_version="26.120", fs_exe="C:/fs.exe", recipes=RECIPES
     )
     assert campaign == direct
     # The escaped newline survives the TOML round trip verbatim.
@@ -184,7 +184,7 @@ def test_earlier_conversions_with_legacy_keys_stay_loadable(tmp_path):
     # verbatim; variables are free-keyed by design.
     path = tmp_path / "campaign.toml"
     path.write_text(
-        '[campaign]\nname = "old"\nfs_version = "26.12"\nfs_exe = "C:/fs.exe"\n\n'
+        '[campaign]\nname = "old"\nfs_version = "26.120"\nfs_exe = "C:/fs.exe"\n\n'
         '[[sim]]\nsim_id = "9001"\naircraft = "TestWing"\n'
         'sweep = {type = "alpha", values = [0.0]}\n'
         'recipe = "recipes.steady_polar:build"\n'

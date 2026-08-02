@@ -55,6 +55,64 @@ class UnknownVersionError(ValueError):
         self.known = known
 
 
+class AmbiguousVersionAliasError(ValueError):
+    """A vendor release name identifies more than one registered build.
+
+    The vendor reuses a single release name across the hotfix builds of
+    one minor release: 26.120 and 26.121 are both shipped as "26.12".
+    A display alias therefore cannot select a build, and returning
+    either one would hand the caller a silently wrong solver. The
+    registry records the vendor's own name (that name is a fact about
+    the world) and refuses it at resolution time, so the caller sees
+    the choice instead of inheriting it.
+
+    Attributes
+    ----------
+    alias : str
+        The vendor release name that matched more than one entry.
+    candidates : tuple of str
+        Canonical identifiers sharing that name, in release order, so
+        callers can offer the choice without parsing the message.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        alias: str,
+        candidates: tuple[str, ...] = (),
+    ) -> None:
+        super().__init__(message)
+        self.alias = alias
+        self.candidates = candidates
+
+
+def _build_note(canonical: str) -> str:
+    """Describe what the hotfix digit of a canonical identifier means.
+
+    Parameters
+    ----------
+    canonical : str
+        Canonical identifier in the ``26.XXX`` scheme.
+
+    Returns
+    -------
+    str
+        ``"the official release"`` when the last digit is 0, otherwise
+        ``"hotfix build N"``. The last digit indexes vendor hotfix
+        builds, so 0 is the release the vendor named.
+    """
+    hotfix = int(canonical[-1])
+    return "the official release" if hotfix == 0 else f"hotfix build {hotfix}"
+
+
+def _and_join(parts: list[str]) -> str:
+    """Join phrases as prose so a two-build refusal reads as a sentence."""
+    if len(parts) <= 1:
+        return "".join(parts)
+    return f"{', '.join(parts[:-1])} and {parts[-1]}"
+
+
 @dataclass(frozen=True)
 class FsVersion:
     """One registered FlightStream version.
@@ -186,8 +244,9 @@ def resolve(version: str | FsVersion) -> FsVersion:
     Parameters
     ----------
     version : str or FsVersion
-        Canonical identifier (``"26.120"``), display alias (``"26.12"``),
-        or an already resolved :class:`FsVersion`, returned unchanged.
+        Canonical identifier (``"26.120"``), a display alias that names
+        exactly one registered build (``"26.1"``), or an already
+        resolved :class:`FsVersion`, returned unchanged.
 
     Returns
     -------
@@ -196,16 +255,45 @@ def resolve(version: str | FsVersion) -> FsVersion:
 
     Raises
     ------
+    AmbiguousVersionAliasError
+        If the string is a display alias that more than one registered
+        version carries. The vendor reuses one release name across the
+        hotfix builds of a minor release, so the alias names no single
+        build; the message names every candidate.
     UnknownVersionError
         If the identifier matches no registered version. The message
         lists the known versions; new versions are only added through
         the ordered list in ``commands/_meta.yaml``.
+
+    Notes
+    -----
+    Canonical identifiers are matched across the whole registry before
+    any alias is considered, so a canonical never loses to an earlier
+    entry that happens to carry it as an alias. Aliases are then
+    matched exhaustively rather than first-wins, which is what turns a
+    duplicate into a refusal instead of into whichever build the
+    ordered list happens to reach first.
     """
     if isinstance(version, FsVersion):
         return version
-    for registered in known_versions():
-        if version in (registered.canonical, registered.alias):
-            return registered
+    registered = known_versions()
+    for entry in registered:
+        if version == entry.canonical:
+            return entry
+    matching = tuple(entry for entry in registered if version == entry.alias)
+    if len(matching) == 1:
+        return matching[0]
+    if matching:
+        builds = _and_join([f"{e.canonical} ({_build_note(e.canonical)})" for e in matching])
+        raise AmbiguousVersionAliasError(
+            f"FlightStream vendor name {version!r} identifies more than one registered "
+            f"build: {builds}. The vendor ships every hotfix of a minor release under "
+            "the same name, so this name cannot select one and returning either would "
+            "silently pick a solver you did not choose. Pass the canonical 26.XXX "
+            "identifier of the build you mean.",
+            alias=version,
+            candidates=tuple(e.canonical for e in matching),
+        )
     known = ", ".join(f"{v.canonical} (vendor name {v.alias})" for v in known_versions())
     raise UnknownVersionError(
         f"FlightStream version {version!r} is not registered. Known versions, "

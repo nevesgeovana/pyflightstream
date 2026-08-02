@@ -9,6 +9,34 @@ FlightStream versions.
 
 ### API surface delta
 
+* **FlightStream 26.121 is registered, and the vendor name "26.12" stops
+  resolving.** The vendor ships the hotfix build under the same release
+  name as 26.120, so that name now identifies two registered builds.
+  `versions.resolve` refuses it with the new
+  `AmbiguousVersionAliasError` (catalogued, carrying `alias` and
+  `candidates`) naming both candidates, instead of returning one of
+  them. Every caller that passed the vendor name must pass a canonical
+  identifier: `Script(version="26.120")`, `--version 26.120`,
+  `fs_version = "26.120"`.
+
+  Incompatible by intent, and the alternative was worse: `resolve`
+  matched canonical-or-alias and returned the first hit in release
+  order, so once 26.121 was registered the vendor name would have
+  handed back the pre-hotfix solver silently. A caller who wrote the
+  vendor name meaning "the current 26.12" would have got the build
+  before the hotfix, with no error anywhere. The refusal is loud; the
+  old behaviour was not.
+
+  Resolution also matches canonical identifiers across the whole
+  registry before considering any alias, so an entry can no longer be
+  shadowed by an earlier one carrying its canonical as an alias.
+  Registered versions are now 26.000, 26.100, 26.120, 26.121; the last
+  digit indexes vendor hotfix builds, so 26.121 is hotfix build 1 of
+  the 26.12 release (SRS FR-02c, new).
+* `UNSTEADY_SOLVER_DELETE_ALL_PLOTS` joins the command database
+  (`documented`, SRC-003 p.347). It was documented in the 26.12 manual
+  and never registered; the gap surfaced while diffing the 26.121
+  manual against the database.
 * Solver toggles read the solver's own vocabulary as well as Python
   booleans: `ENABLE` and `DISABLE` (any case) are accepted by every
   helper argument and every `cases.SolverSettings` field that switches a
@@ -43,6 +71,33 @@ FlightStream versions.
 
 ### Added
 
+* **FlightStream 26.121 is onboarded with solver evidence, not just
+  registration**: `reports/compat/CMP-26121_2026-08-02_full.yaml` is a
+  licensed tier-2 run of 109 probe specifications against solver build
+  #7262026, and 68 statuses are promoted from it. Two commands the
+  hotfix FIXES are now recorded as such:
+
+    * `AIR_ALTITUDE` was `broken` on 26.120 because its `METERS`
+      argument read as ignored (5000 m gave the 5000 *foot* standard
+      density, 1.056 kg/m^3); on 26.121 the same probe observes
+      0.736 kg/m^3, the 5000 m value. Anyone setting altitude in metres
+      on 26.120 was solving at the wrong density, silently.
+    * `NEW_SURFACE_SECTION_DISTRIBUTION` aborted script processing on
+      26.120 and completes with its effect observed on 26.121.
+
+  `NEW_OFF_BODY_STREAMLINE` and `SET_MOTION_START_TIME` remain broken on
+  both builds, and `SWEEPER_REF_VELOCITY_SAME` is measured broken for
+  the first time.
+* `reports/RPT-014_26121-manual-diff-and-probe_2026-08-02.md`: the
+  26.121 onboarding record. It documents that the hotfix carries its own
+  manual edition (413 pages against 410, every scripting-reference
+  citation shifted by +3) while the vendor release-notes PDF is
+  byte-identical between the two installs and documents none of it; the
+  six commands the new edition adds and the three it drops; two
+  signature changes on commands already in the database; four defects in
+  the vendor's own document; and the human decision checklist for three
+  suspected renames, one of which (`FLAT_PLATE` bulk separation to
+  Stratford) is a physics question and not a naming one.
 * User guide section on migrating a loose script builder to the
   `ScriptRecipe` protocol: the before and after of
   `build(workdir) -> Script` becoming `build(case, script) -> None`,
@@ -341,6 +396,33 @@ will be.
 
 ### Fixed
 
+* **`pyfs-qa apply-compat` could not promote the first probe run of a
+  newly registered FlightStream version**, which is the one run a
+  version onboarding exists to produce. It rewrote an existing
+  single-line version entry and refused when the command had none, but
+  a version starts life recorded only in `commands/_meta.yaml`, so on
+  its first run every judged command has no line to rewrite. The whole
+  run was unpromotable, and the only route left was a hand edit, which
+  invariant 3 forbids. It now inserts the entry at the version's release
+  position among the lines already there. A command whose version block
+  holds no single-line entry to pattern on is still refused loudly.
+* **Two commands were emitted with no count-versus-list check at all,
+  which the solver turns into a corrupted script rather than an error.**
+  A command that declares how many indices follow makes the solver read
+  that many tokens; a count disagreeing with its list therefore makes it
+  consume the next command line as data. The check keyed on the
+  argument's NAME against a hand-kept set, because the vendor spells the
+  count differently per command, so `UNSTEADY_SOLVER_NEW_FORCE_PLOT`
+  (count spelled `boundaries`) and `ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS`
+  (spelled `num_index`) escaped it entirely: `boundaries=3` with two
+  indices rendered without complaint.
+
+  Both names join the set, and the class is closed rather than the two
+  instances: a tier-1 guard now walks the whole database and fails on
+  any integer argument that introduces a list from outside the known
+  set, so the next new spelling fails the suite instead of shipping
+  unchecked. Found while diffing the 26.121 manual; the second instance
+  was found by the guard, not by reading.
 * **The eight blocker findings of the independent review are fixed, and
   every release up to and including v0.3.0 carries all of them.** They
   are one class in eight places, which is why they are listed together:

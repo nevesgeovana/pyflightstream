@@ -91,7 +91,7 @@ def test_version_cross_check_is_prefix_lax_and_warns_on_mismatch():
 
     with warnings.catch_warnings():
         warnings.simplefilter("error")
-        parse_loads(text, requested_version="26.12")
+        parse_loads(text, requested_version="26.120")
     with pytest.warns(VersionMismatchWarning, match="wrong executable"):
         parse_loads(text, requested_version="26.0")
 

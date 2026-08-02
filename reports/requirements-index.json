@@ -3,7 +3,7 @@
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
   "cited_by_a_test": 13,
-  "total": 91,
+  "total": 92,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -19,12 +19,17 @@
   },
   {
    "id": "FR-02a",
-   "text": "The canonical version identifier is 26.XXX with exactly three fractional digits: the first two carry the official minor release, the last indexes intermediate hotfix builds (0 = the official release). Launch set: 26.000, 26.100, 26.120. The registry stores display aliases so users may write \"26.12\" and get 26.120.",
+   "text": "The canonical version identifier is 26.XXX with exactly three fractional digits: the first two carry the official minor release, the last indexes intermediate hotfix builds (0 = the official release). Launch set: 26.000, 26.100, 26.120. The registry stores the vendor release name of each build as a display alias, and a user may write that name wherever it names exactly one build.",
    "priority": "M"
   },
   {
    "id": "FR-02b",
    "text": "Version ordering never relies on string or float comparison, and the ordered list in commands/_meta.yaml is the sole ordering authority, so that 26.100 sorts before 26.120.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-02c",
+   "text": "The vendor ships every hotfix build of a minor release under the one release name, so a display alias can name more than one registered build: 26.120 and 26.121 are both shipped as \"26.12\". Resolution refuses such a name rather than returning any of the builds carrying it, and the refusal names every candidate so the caller can choose. A canonical identifier is matched across the whole registry before any alias is considered, so a build is never shadowed by an earlier entry whose alias equals its canonical.",
    "priority": "M"
   },
   {

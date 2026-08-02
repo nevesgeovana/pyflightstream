@@ -82,14 +82,28 @@ _ORDERED_PHASES = (
     Phase.EXPORT,
 )
 
+# Argument names that declare how many items the list argument after
+# them carries. The solver reads the count, then reads that many tokens,
+# so a count disagreeing with its list makes the solver consume the next
+# command line as data: a silent corruption, never a syntax error.
+#
+# The vendor spells this argument differently per command, so the set is
+# a name list and not a type rule. That is the hazard: a command whose
+# count carries a new spelling escapes the check entirely and nothing
+# says so. `test_every_declared_count_is_a_known_count_name` in
+# tests/test_script.py closes that class by walking the database and
+# failing on any int scalar that introduces a list from outside this set.
+# It was added after two commands were found escaping (PFS-8, 2026-08-03).
 _COUNT_ARG_NAMES = {
+    "boundaries",
     "count",
-    "surfaces",
-    "numpts",
     "num_boundaries",
-    "num_variables",
     "num_frames",
+    "num_index",
     "num_sections",
+    "num_variables",
+    "numpts",
+    "surfaces",
 }
 
 # Cross-reference ledger (SAD Section 4.2): commands that create an

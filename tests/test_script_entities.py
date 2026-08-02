@@ -23,21 +23,21 @@ def make_frame(script, label=None):
 
 
 def test_frame_label_resolves_to_its_index_at_emission():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     assert make_frame(script, label="disc_frame") == 2
     script.emit("SET_COORDINATE_SYSTEM_ORIGIN", "disc_frame", 1.2, 0.0, 0.0, "METER")
     assert "SET_COORDINATE_SYSTEM_ORIGIN 2 1.2 0.0 0.0 METER" in script.render()
 
 
 def test_emit_level_label_on_a_creation_command():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     script.emit("CREATE_NEW_COORDINATE_SYSTEM", label="wake_frame")
     helpers.probes_from_file(script, "C:/probes/lattice.txt", units="METER", frame="wake_frame")
     assert "FRAME 2" in script.render()
 
 
 def test_actuator_label_creation_and_resolution():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     make_frame(script, label="disc_frame")
     index = helpers.actuator_disc(
         script,
@@ -60,7 +60,7 @@ def test_actuator_label_creation_and_resolution():
 
 
 def test_motion_label_creation_and_resolution():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     make_frame(script, label="rotor_frame")
     motion_id = helpers.rotary_motion(
         script,
@@ -79,7 +79,7 @@ def test_motion_label_creation_and_resolution():
 
 
 def test_duplicate_label_for_the_same_kind_is_rejected():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     make_frame(script, label="disc")
     with pytest.raises(ScriptLabelError, match="already names local coordinate system 2"):
         make_frame(script, label="disc")
@@ -88,14 +88,14 @@ def test_duplicate_label_for_the_same_kind_is_rejected():
 
 
 def test_duplicate_boundary_label_is_rejected():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     script.declare_existing(boundaries={"wing": 1})
     with pytest.raises(ScriptLabelError, match="already names mesh boundary 1"):
         script.declare_existing(boundaries={"wing": 2})
 
 
 def test_unknown_boundary_label_lists_the_known_ones():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     script.declare_existing(boundaries={"fuselage": 1, "wing": 2})
     with pytest.raises(ScriptReferenceError, match="unknown mesh boundary label 'tail'") as info:
         helpers.analysis_setup(script, boundaries=["tail"])
@@ -104,13 +104,13 @@ def test_unknown_boundary_label_lists_the_known_ones():
 
 
 def test_unknown_label_message_when_none_are_registered():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     with pytest.raises(ScriptReferenceError, match="no local coordinate system labels"):
         script.emit("SET_COORDINATE_SYSTEM_ORIGIN", "missing", 0.0, 0.0, 0.0, "METER")
 
 
 def test_boundary_mapping_declares_labels_and_range():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     assert script.num_boundaries is None
     script.declare_existing(boundaries={"fuselage": 1, "wing": 2})
     assert script.num_boundaries == 2
@@ -120,7 +120,7 @@ def test_boundary_mapping_declares_labels_and_range():
 
 
 def test_boundary_index_out_of_declared_range_is_didactic():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     script.declare_existing(boundaries={"fuselage": 1, "wing": 2})
     with pytest.raises(ScriptReferenceError, match="valid indices run 1 to 2") as info:
         helpers.solver_settings(script, vorticity_drag_boundaries=[3])
@@ -129,7 +129,7 @@ def test_boundary_index_out_of_declared_range_is_didactic():
 
 
 def test_boundary_declaration_by_count():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     script.declare_existing(boundaries=2)
     assert script.num_boundaries == 2
     script.emit("SET_VORTICITY_DRAG_BOUNDARIES", 2, [1, 2])
@@ -139,7 +139,7 @@ def test_boundary_declaration_by_count():
 
 
 def test_boundary_count_argument_above_the_inventory_is_rejected():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     script.declare_existing(boundaries=2)
     with pytest.raises(ScriptReferenceError, match="counts 3 mesh boundaries"):
         script.emit("SET_VORTICITY_DRAG_BOUNDARIES", 3, [1, 2, 3])
@@ -149,27 +149,27 @@ def test_undeclared_boundaries_stay_permissive():
     # The boundary total lives in the geometry file, so without a
     # declaration the builder cannot verify citations and must accept
     # them unchanged, as before the registry existed.
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     script.emit("SET_VORTICITY_DRAG_BOUNDARIES", 5, [7, 9, 11, 13, 15])
     assert "SET_VORTICITY_DRAG_BOUNDARIES 5\n7,9,11,13,15" in script.render()
 
 
 def test_initialize_solver_surfaces_accept_boundary_labels():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     script.declare_existing(boundaries={"wing": 1, "fuselage": 2, "tail": 3})
     helpers.initialize_solver(script, surfaces=[("wing", True), ("tail", False)])
     assert "SURFACES 2\n1,ENABLE\n3,DISABLE" in script.render()
 
 
 def test_initialize_solver_surface_index_outside_inventory_is_rejected():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     script.declare_existing(boundaries=2)
     with pytest.raises(ScriptReferenceError, match="valid indices run 1 to 2"):
         helpers.initialize_solver(script, surfaces=[(3, True)])
 
 
 def test_a_bare_label_string_is_rejected_with_the_fix():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     with pytest.raises(CommandArgumentError, match=r"\['wing'\]"):
         helpers.analysis_setup(script, boundaries="wing")
     with pytest.raises(CommandArgumentError, match="the string 'all'"):
@@ -177,13 +177,13 @@ def test_a_bare_label_string_is_rejected_with_the_fix():
 
 
 def test_label_on_a_non_creation_command_is_rejected():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     with pytest.raises(CommandArgumentError, match="does not create"):
         script.emit("START_SOLVER", label="solve")
 
 
 def test_deleting_an_entity_drops_its_dangling_label():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     script.emit("CREATE_NEW_ACTUATOR", "PROPELLER", name="left prop", label="left")
     script.emit("CREATE_NEW_ACTUATOR", "PROPELLER", name="right prop", label="right")
     script.emit("DELETE_ACTUATOR", 2)
@@ -193,7 +193,7 @@ def test_deleting_an_entity_drops_its_dangling_label():
 
 
 def test_boundary_declarations_merge_count_and_mapping():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     script.declare_existing(boundaries={"wing": 2})
     assert script.num_boundaries == 2
     script.declare_existing(boundaries=1)
@@ -202,7 +202,7 @@ def test_boundary_declarations_merge_count_and_mapping():
 
 
 def test_boundary_mapping_validates_labels_and_indices():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     with pytest.raises(ScriptLabelError, match="positive 1-based"):
         script.declare_existing(boundaries={"wing": 0})
     with pytest.raises(ScriptLabelError, match="non-empty string"):
@@ -212,8 +212,8 @@ def test_boundary_mapping_validates_labels_and_indices():
 
 
 def test_two_scripts_have_independent_registries():
-    first = Script(version="26.12")
-    second = Script(version="26.12")
+    first = Script(version="26.120")
+    second = Script(version="26.120")
     first.declare_existing(boundaries={"wing": 1})
     assert second.num_boundaries is None
     with pytest.raises(ScriptReferenceError, match="unknown mesh boundary label"):

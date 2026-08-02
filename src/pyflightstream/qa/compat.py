@@ -22,6 +22,7 @@ import yaml
 
 from pyflightstream.commands import CommandEntry
 from pyflightstream.qa.probes import ProbeOutcome, ProbeRun
+from pyflightstream.versions import known_versions
 
 COMPAT_SCHEMA = "pyflightstream-compat-report/1"
 
@@ -178,11 +179,15 @@ def apply_compat(
     """Promote database statuses from a committed compat report.
 
     Every command the report judged ``verified`` or ``broken`` gets its
-    version line in the chapter YAML rewritten to the new status with
-    the report cited in the ``report`` field; ``unprobed`` commands are
-    untouched. The edit is line-level on the flow-mapping version
-    lines, so chapter comments and layout survive; a version entry
-    spanning several lines is refused loudly rather than mangled.
+    version line in the chapter YAML written with the new status and the
+    report cited in the ``report`` field; ``unprobed`` commands are
+    untouched. A command that already records the version is rewritten
+    in place; one that does not gains the line at its release position,
+    which is what the first probe run of a newly registered version
+    needs. The edit is line-level on the flow-mapping version lines, so
+    chapter comments and layout survive; a command whose version block
+    holds no single-line entry to pattern on is refused loudly rather
+    than mangled.
 
     Parameters
     ----------
@@ -243,10 +248,30 @@ def apply_compat(
     return promotions
 
 
+_VERSION_LINE = re.compile(r'^(\s+)"(\d{2}\.\d{3})":\s*\{.*\}\s*$')
+
+
 def _rewrite_version_line(
     text: str, chapter: str, name: str, canonical: str, body: dict, citation: str
 ) -> str:
-    """Rewrite one command's version line to its promoted status."""
+    """Write one command's evidence for ``canonical``, rewriting or inserting.
+
+    A version the command already records is rewritten in place. A
+    version it does not record yet is INSERTED, at its release position
+    among the lines already there, taking their indentation.
+
+    The insert is what onboarding a new FlightStream version needs: the
+    first probe run of a new version judges commands that carry no line
+    for it at all, since a version starts life recorded nowhere but
+    ``_meta.yaml``. Refusing there would leave the run's evidence
+    unpromotable and the only remaining route a hand edit, which
+    invariant 3 forbids outright.
+
+    Still refused loudly: a command whose ``versions:`` block holds no
+    single-line flow-mapping entry to pattern the new one on. That block
+    is either multi-line or malformed, and guessing its shape is how a
+    mechanical edit mangles a file.
+    """
     lines = text.splitlines()
     start = None
     end = len(lines)
@@ -259,22 +284,43 @@ def _rewrite_version_line(
             break
     if start is None:
         raise ValueError(f"{chapter}: command block {name} not found")
-    pattern = re.compile(rf'^(\s+)"{re.escape(canonical)}":\s*\{{.*\}}\s*$')
-    for index in range(start, end):
-        match = pattern.match(lines[index])
-        if match is None:
-            continue
-        status = body["outcome"]
-        fields = f'status: {status}, report: "{citation}"'
-        if status == ProbeOutcome.BROKEN.value:
-            note = str(body.get("detail", "")).replace('"', "'").replace("\n", " ")[:140]
-            fields += f', note: "{note}"'
-        lines[index] = f'{match.group(1)}"{canonical}": {{{fields}}}'
-        return "\n".join(lines) + "\n"
-    raise ValueError(
-        f"{chapter}: no single-line version entry for {canonical!r} in {name}; "
-        "promote this entry manually reviewable or normalize the block first"
+
+    status = body["outcome"]
+    fields = f'status: {status}, report: "{citation}"'
+    if status == ProbeOutcome.BROKEN.value:
+        note = str(body.get("detail", "")).replace('"', "'").replace("\n", " ")[:140]
+        fields += f', note: "{note}"'
+
+    recorded = [
+        (index, match.group(1), match.group(2))
+        for index in range(start, end)
+        if (match := _VERSION_LINE.match(lines[index])) is not None
+    ]
+    for index, indent, recorded_canonical in recorded:
+        if recorded_canonical == canonical:
+            lines[index] = f'{indent}"{canonical}": {{{fields}}}'
+            return "\n".join(lines) + "\n"
+
+    if not recorded:
+        raise ValueError(
+            f"{chapter}: no single-line version entry at all in {name}, so there is "
+            f"nothing to pattern the new {canonical!r} entry on; promote this entry "
+            "manually reviewable or normalize the block first"
+        )
+
+    order = {version.canonical: version.index for version in known_versions()}
+    position = order[canonical]
+    indent = recorded[0][1]
+    insert_at = next(
+        (
+            index
+            for index, _, recorded_canonical in recorded
+            if order.get(recorded_canonical, -1) > position
+        ),
+        recorded[-1][0] + 1,
     )
+    lines.insert(insert_at, f'{indent}"{canonical}": {{{fields}}}')
+    return "\n".join(lines) + "\n"
 
 
 def _validate_chapter(chapter_path: Path, names: list[str]) -> None:

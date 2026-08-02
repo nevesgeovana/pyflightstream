@@ -65,7 +65,7 @@ print(f"active matrix rows: {[row.pol for row in rows]}")
 campaign_toml = convert_matrix(
     matrix_path,
     name="wing_steady",
-    fs_version="26.12",
+    fs_version="26.120",
     fs_exe="C:/FlightStream/26.12/FlightStream.exe",
     recipes={"003": "examples.campaign_matrix:steady"},
 )
@@ -138,7 +138,7 @@ geometry.write_bytes(b"stand-in geometry for the pre-flight")
 
 campaign = Campaign(
     name="wing_steady",
-    fs_version="26.12",
+    fs_version="26.120",
     fs_exe=sys.executable,
     sims=[
         SimCase(

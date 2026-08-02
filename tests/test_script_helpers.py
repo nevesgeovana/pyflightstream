@@ -115,7 +115,7 @@ def build_rotor_unsteady(script: Script) -> None:
 
 
 def test_actuator_polar_matches_the_golden():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     build_actuator_polar(script)
     golden = (GOLDENS / "actuator_polar_26.120.txt").read_text(encoding="utf-8")
     assert script.render() == golden
@@ -123,7 +123,7 @@ def test_actuator_polar_matches_the_golden():
 
 
 def test_rotor_unsteady_matches_the_golden():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     build_rotor_unsteady(script)
     golden = (GOLDENS / "rotor_unsteady_26.120.txt").read_text(encoding="utf-8")
     assert script.render() == golden
@@ -131,7 +131,7 @@ def test_rotor_unsteady_matches_the_golden():
 
 
 def test_initialize_solver_periodic_requires_copies_and_only_then():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     with pytest.raises(CommandArgumentError, match="PERIODIC symmetry appends"):
         helpers.initialize_solver(script, symmetry="PERIODIC")
     with pytest.raises(CommandArgumentError, match="PERIODIC symmetry appends"):
@@ -141,19 +141,19 @@ def test_initialize_solver_periodic_requires_copies_and_only_then():
 
 
 def test_periodic_copies_join_the_symmetry_line():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     helpers.initialize_solver(script, symmetry="PERIODIC", periodic_copies=6)
     assert "SYMMETRY PERIODIC 6" in script.render()
 
 
 def test_surface_toggles_render_one_line_per_surface():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     helpers.initialize_solver(script, surfaces=[(1, True), (3, False)])
     assert "SURFACES 2\n1,ENABLE\n3,DISABLE\n" in script.render()
 
 
 def test_surface_toggle_count_mismatch_is_rejected_at_emit_level():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     with pytest.raises(CommandArgumentError, match="declared count is 2"):
         script.emit(
             "INITIALIZE_SOLVER",
@@ -166,7 +166,7 @@ def test_surface_toggle_count_mismatch_is_rejected_at_emit_level():
 
 
 def test_free_stream_conditional_combinations():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     with pytest.raises(CommandArgumentError, match="ROTATION takes exactly"):
         helpers.free_stream(script, "ROTATION", frame=2, axis="X")
     with pytest.raises(CommandArgumentError, match="CUSTOM takes exactly"):
@@ -178,7 +178,7 @@ def test_free_stream_conditional_combinations():
 
 
 def test_atmosphere_paths_are_mutually_exclusive():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     with pytest.raises(CommandArgumentError, match="not both"):
         helpers.atmosphere(script, altitude=1000.0, density=1.2)
     with pytest.raises(CommandArgumentError, match="all five fluid properties"):
@@ -186,7 +186,7 @@ def test_atmosphere_paths_are_mutually_exclusive():
 
 
 def test_frame_reference_must_exist_before_citation():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     script.declare_existing(actuators=1)
     with pytest.raises(ScriptReferenceError, match="declare_existing"):
         script.emit("SET_ACTUATOR_AXIS", 1, 2, "X", 0.0)
@@ -195,7 +195,7 @@ def test_frame_reference_must_exist_before_citation():
 
 
 def test_actuator_and_motion_references_are_checked():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     with pytest.raises(ScriptReferenceError, match="cites actuator 1"):
         script.emit("SET_PROP_ACTUATOR_RPM", 1, 900.0)
     with pytest.raises(ScriptReferenceError, match="cites motion 1"):
@@ -203,13 +203,13 @@ def test_actuator_and_motion_references_are_checked():
 
 
 def test_the_reference_frame_is_always_valid():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     helpers.probes_from_file(script, "C:/probes/lattice.txt", units="METER", frame=1)
     assert "FRAME 1" in script.render()
 
 
 def test_deleting_shrinks_the_reference_ledger():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     script.emit("CREATE_NEW_ACTUATOR", "PROPELLER", name="prop")
     script.emit("DELETE_ACTUATOR", 1)
     with pytest.raises(ScriptReferenceError, match="cites actuator 1"):
@@ -217,7 +217,7 @@ def test_deleting_shrinks_the_reference_ledger():
 
 
 def test_actuator_disc_needs_exactly_one_thrust_specification():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     script.emit("CREATE_NEW_COORDINATE_SYSTEM")
     common = dict(frame=2, axis="X", offset=0.0, r_tip=0.9, r_hub=0.1, rpm=2000.0)
     with pytest.raises(CommandArgumentError, match="exactly one thrust specification"):
@@ -231,7 +231,7 @@ def test_actuator_disc_needs_exactly_one_thrust_specification():
 
 
 def test_actuator_disc_returns_sequential_indices():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     script.emit("CREATE_NEW_COORDINATE_SYSTEM")
     common = dict(axis="X", offset=0.0, r_tip=0.9, r_hub=0.1, rpm=2000.0, thrust=500.0)
     assert helpers.actuator_disc(script, "left", frame=2, **common) == 1
@@ -239,7 +239,7 @@ def test_actuator_disc_returns_sequential_indices():
 
 
 def test_rotary_motion_all_boundaries_form_and_index():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     script.emit("CREATE_NEW_COORDINATE_SYSTEM")
     motion_id = helpers.rotary_motion(script, frame=2, axis="X", rpm=1200.0)
     assert motion_id == 1
@@ -247,13 +247,13 @@ def test_rotary_motion_all_boundaries_form_and_index():
 
 
 def test_sweep_requires_an_axis():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     with pytest.raises(CommandArgumentError, match="at least one axis"):
         helpers.sweep(script)
 
 
 def test_export_results_warns_on_the_deprecated_cp_variable():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     with pytest.warns(UserWarning, match=r"CP_REFERENCE or CP_FREESTREAM \(SRC-003 p\.352\)"):
         helpers.export_results(script, vtk="C:/out/a.vtk", vtk_variables=["CP", "VX"])
 
@@ -265,7 +265,7 @@ def test_export_results_warns_on_the_deprecated_cp_variable():
 def test_a_toggle_written_in_the_solver_words_emits_that_state(written):
     # 'DISABLE' is a truthy Python string: read as a bare bool it would
     # emit ENABLE and invert the physics of the run in silence.
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     setup = helpers.solver_settings(script, viscous_coupling=written)
     assert "SET_SOLVER_VISCOUS_COUPLING DISABLE" in script.render()
     assert setup.flags["SET_SOLVER_VISCOUS_COUPLING"].value is False
@@ -287,7 +287,7 @@ SETTINGS_TOGGLES = [
 
 @pytest.mark.parametrize(("argument", "command"), SETTINGS_TOGGLES)
 def test_every_settings_toggle_reaches_its_own_command(argument, command):
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     setup = helpers.solver_settings(script, **{argument: "DISABLE"})
     assert f"{command} DISABLE" in script.render()
     assert setup.flags[command].value is False
@@ -322,7 +322,7 @@ HELPER_TOGGLES = [
 
 @pytest.mark.parametrize(("helper", "argument", "arguments"), HELPER_TOGGLES)
 def test_a_toggle_outside_both_vocabularies_refuses_before_emitting(helper, argument, arguments):
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     with pytest.raises(
         CommandArgumentError,
         match=rf"{helper}: {argument} takes True or False, or the solver's "
@@ -333,7 +333,7 @@ def test_a_toggle_outside_both_vocabularies_refuses_before_emitting(helper, argu
 
 
 def test_analysis_setup_reads_the_solver_words_too():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     # symmetry_loads is an init-phase setting, so it goes before the
     # solver starts and the analysis selections after it.
     helpers.analysis_setup(script, symmetry_loads="ENABLE")
@@ -347,7 +347,7 @@ def test_analysis_setup_reads_the_solver_words_too():
 def test_the_export_refusal_does_not_consume_the_deferred_selection():
     # export_results flushes the induced-drag selection; a refusal after
     # that flush would leave the selection unrecoverable on a retry.
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     helpers.solver_settings(script, vorticity_drag_boundaries="all")
     script.emit("START_SOLVER")
     with pytest.raises(CommandArgumentError, match="vtk_wake"):
@@ -395,19 +395,19 @@ def test_the_vocabulary_cannot_be_extended_at_runtime():
 def test_a_gate_written_in_the_solver_words_gates(call, expected):
     # These two decide whether a command is emitted at all, so reading
     # them as bare truthiness would run what the caller switched off.
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     call(script)
     assert expected not in script.render()
 
 
 def test_a_per_surface_flag_in_the_solver_words_renders_that_state():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     helpers.initialize_solver(script, surfaces=[(1, "DISABLE"), (2, True)])
     assert "1,DISABLE" in script.render() and "2,ENABLE" in script.render()
 
 
 def test_a_per_surface_flag_outside_both_vocabularies_refuses():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     with pytest.raises(CommandArgumentError, match="initialize_solver: surfaces"):
         helpers.initialize_solver(script, surfaces=[(1, "YES")])
     assert script.render() == "\n"

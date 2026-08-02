@@ -102,7 +102,7 @@ def make_campaign(tmp_path, *, recipe="steady", alphas=(0.0, 2.0), outputs=("loa
         recipe=recipe,
         outputs=list(outputs),
     )
-    return Campaign(name="camp", fs_version="26.12", fs_exe=sys.executable, sims=[case])
+    return Campaign(name="camp", fs_version="26.120", fs_exe=sys.executable, sims=[case])
 
 
 def test_dry_run_records_every_point_end_to_end(tmp_path):

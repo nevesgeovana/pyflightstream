@@ -9,6 +9,12 @@ versions:
     alias: "26.1"
   - canonical: "26.120"
     alias: "26.12"
+  # The vendor ships this hotfix build under the SAME release name as
+  # 26.120, so the alias below is deliberately NOT unique. Recording the
+  # vendor's own name is the point; the ambiguity is refused at
+  # resolution time (versions.resolve), not hidden here.
+  - canonical: "26.121"
+    alias: "26.12"
 
 manual_editions:
   "26.100": >

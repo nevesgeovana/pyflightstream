@@ -18,6 +18,7 @@ SWEEPER_SET_AOA_SWEEP:
   manual_ref: "SRC-003 p.406"
   versions:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-02_full.yaml"}
   notes: >
     CUSTOM takes the angle of attack list inline, space separated.
 
@@ -35,6 +36,7 @@ SWEEPER_SET_BETA_SWEEP:
   manual_ref: "SRC-003 p.406"
   versions:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-02_full.yaml"}
 
 SWEEPER_SET_VELOCITY_SWEEP:
   layout: inline
@@ -65,6 +67,7 @@ SWEEPER_POST_RUN_SCRIPT:
   manual_ref: "SRC-003 p.406"
   versions:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-02_full.yaml"}
   notes: >
     Per-run post-processing script executed after each sweep point,
     for example a surface section extraction script.
@@ -92,6 +95,7 @@ SWEEPER_REF_VELOCITY_SAME:
   manual_ref: "SRC-003 p.406"
   versions:
     "26.120": {status: documented}
+    "26.121": {status: broken, report: "reports/compat/CMP-26121_2026-08-02_full.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing)"}
   notes: >
     Keeps the reference velocity equal to the free-stream velocity at
     every sweep point.
@@ -103,6 +107,7 @@ SWEEPER_START:
   manual_ref: "SRC-003 p.406"
   versions:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-02_full.yaml"}
 
 SWEEPER_EXPORT_SPREADSHEET:
   layout: inline
@@ -113,3 +118,4 @@ SWEEPER_EXPORT_SPREADSHEET:
   manual_ref: "SRC-003 p.406"
   versions:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-02_full.yaml"}

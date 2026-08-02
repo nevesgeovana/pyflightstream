@@ -33,8 +33,9 @@ Per-version statuses and their evidence rules:
 
 The ordered version list in `_meta.yaml` is the only version-ordering
 authority (never string or float comparison). Canonical identifiers
-use the 26.XXX scheme; display aliases map user-facing forms like
-"26.12" to 26.120.
+use the 26.XXX scheme; display aliases record the vendor release name
+of each build and resolve only where that name identifies exactly one
+build (FR-02c).
 
 ## The run manifest
 

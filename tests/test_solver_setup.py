@@ -43,7 +43,7 @@ def test_every_family_command_is_a_snapshot_flag():
 
 
 def test_the_snapshot_itself_covers_every_family_command():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     setup = helpers.solver_settings(script, vorticity_drag_boundaries="all")
     assert set(setup.flags) == family_commands() | {VORTICITY_COMMAND}
     assert setup.fs_version == "26.120"
@@ -53,7 +53,7 @@ def test_the_snapshot_itself_covers_every_family_command():
 
 
 def test_provenance_markers_and_default_evidence():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     setup = helpers.solver_settings(script, aoa=2.0, vorticity_drag_boundaries="all")
     flags = setup.flags
     aoa = flags["SOLVER_SET_AOA"]
@@ -103,7 +103,7 @@ def test_an_unset_selection_emits_nothing_and_leaves_the_solver_default():
     # solver's surface pressure integration, a complete drag calculation.
     # Omitting the selection must therefore build a valid script, not a
     # refusal (the legacy reproduction path leaves the list unset).
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     setup = helpers.solver_settings(script, aoa=3.0, velocity=30.0)
     helpers.start_solver(script)
     text = script.render()
@@ -131,10 +131,10 @@ def test_an_unset_selection_stays_unknown_without_the_command_in_the_version():
 
 
 def test_an_unset_selection_round_trips_through_the_snapshot():
-    first = Script(version="26.12")
+    first = Script(version="26.120")
     setup = helpers.solver_settings(first, aoa=3.0)
     helpers.start_solver(first)
-    second = Script(version="26.12")
+    second = Script(version="26.120")
     regenerated = script_from_setup(
         second, SolverSetup.model_validate_json(setup.model_dump_json())
     )
@@ -146,7 +146,7 @@ def test_an_unset_selection_round_trips_through_the_snapshot():
 
 @pytest.mark.parametrize("empty", [[], ()])
 def test_an_empty_selection_is_refused_and_emits_nothing(empty):
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     with pytest.raises(CommandArgumentError, match="empty sequence"):
         helpers.solver_settings(script, vorticity_drag_boundaries=empty)
     assert script.render() == "\n"  # nothing was emitted
@@ -157,7 +157,7 @@ def test_a_second_settings_call_keeps_the_selection_in_script_and_snapshot():
     # the same script must not drop the selection of the first: the
     # script would lose the vorticity integration silently and the
     # snapshot would record a default that never applied.
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     helpers.solver_settings(script, vorticity_drag_boundaries=[1, 2], velocity=30.0)
     setup = helpers.solver_settings(script, aoa=5.0)
     helpers.start_solver(script)
@@ -172,7 +172,7 @@ def test_the_deprecated_selection_restamps_the_snapshot():
     # The deprecated path emits its own selection after the snapshot was
     # built; the record must follow, or the manifest would describe a
     # script that was never built.
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     settings_setup = helpers.solver_settings(script, aoa=3.0)
     script.emit("START_SOLVER")
     with warnings.catch_warnings(record=True) as caught:
@@ -191,7 +191,7 @@ def test_the_deprecated_selection_restamps_the_snapshot():
 def test_the_deprecated_selection_records_resolved_indices_not_labels():
     # One vocabulary in the manifest: both paths store 1-based indices,
     # so a stored snapshot is readable without the label declarations.
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     script.declare_existing(boundaries={"wing": 1, "tail": 2})
     helpers.solver_settings(script, aoa=3.0)
     script.emit("START_SOLVER")
@@ -204,7 +204,7 @@ def test_a_failed_deprecated_call_leaves_script_and_snapshot_untouched():
     # The label resolves at call time, before any emission or record, so
     # a bad label cannot leave a snapshot claiming a selection the
     # script does not carry, nor destroy the deferred one.
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     script.declare_existing(boundaries={"wing": 1})
     setup = helpers.solver_settings(script, vorticity_drag_boundaries=["wing"])
     script.emit("START_SOLVER")
@@ -218,7 +218,7 @@ def test_a_failed_deprecated_call_leaves_script_and_snapshot_untouched():
 
 
 def test_the_deprecated_path_refuses_an_empty_selection_too():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     helpers.solver_settings(script, vorticity_drag_boundaries="all")
     script.emit("START_SOLVER")
     with pytest.raises(CommandArgumentError, match="empty sequence"):
@@ -228,7 +228,7 @@ def test_the_deprecated_path_refuses_an_empty_selection_too():
 
 @pytest.mark.parametrize("selection", ["all", [1, 2]])
 def test_with_vorticity_selection_restamps_without_touching_the_input(selection):
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     setup = helpers.solver_settings(script, aoa=3.0)
     restamped = with_vorticity_selection(setup, selection)
     record = restamped.flags[VORTICITY_COMMAND]
@@ -238,18 +238,18 @@ def test_with_vorticity_selection_restamps_without_touching_the_input(selection)
 
 
 def test_a_bare_vorticity_label_is_rejected_with_the_fix():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     with pytest.raises(CommandArgumentError, match=r"\['wing'\]"):
         helpers.solver_settings(script, vorticity_drag_boundaries="wing")
 
 
 def test_vorticity_labels_resolve_and_range_check_at_call_time():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     script.declare_existing(boundaries={"wing": 1, "tail": 2})
     helpers.solver_settings(script, vorticity_drag_boundaries=["tail"])
     helpers.start_solver(script)
     assert "START_SOLVER\nSET_VORTICITY_DRAG_BOUNDARIES 1\n2" in script.render()
-    bad = Script(version="26.12")
+    bad = Script(version="26.120")
     bad.declare_existing(boundaries=2)
     with pytest.raises(ScriptReferenceError, match="solver_settings"):
         helpers.solver_settings(bad, vorticity_drag_boundaries=[3])
@@ -260,7 +260,7 @@ def test_vorticity_labels_resolve_and_range_check_at_call_time():
 
 
 def test_vorticity_defers_until_the_solver_starts():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     helpers.solver_settings(script, vorticity_drag_boundaries="all")
     assert VORTICITY_COMMAND not in script.render()
     helpers.start_solver(script)
@@ -271,7 +271,7 @@ def test_vorticity_defers_until_the_solver_starts():
 
 
 def test_export_results_flushes_a_pending_selection():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     helpers.solver_settings(script, vorticity_drag_boundaries=[1, 2])
     script.emit("START_SOLVER")
     helpers.export_results(script, spreadsheet="C:/out/loads.txt")
@@ -281,7 +281,7 @@ def test_export_results_flushes_a_pending_selection():
 
 
 def test_analysis_setup_flushes_only_when_it_reaches_the_analysis_phase():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     helpers.solver_settings(script, vorticity_drag_boundaries="all")
     # symmetry_loads alone is an init-phase call: no flush yet.
     helpers.analysis_setup(script, symmetry_loads=True)
@@ -297,13 +297,13 @@ def test_analysis_setup_flushes_only_when_it_reaches_the_analysis_phase():
 
 
 def test_minimum_cp_library_default_is_emitted_when_unset():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     helpers.solver_settings(script, vorticity_drag_boundaries="all")
     assert "SOLVER_MINIMUM_CP -100" in script.render()
 
 
 def test_minimum_cp_override_wins_and_is_explicit():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     setup = helpers.solver_settings(script, vorticity_drag_boundaries="all", minimum_cp=-40)
     text = script.render()
     assert "SOLVER_MINIMUM_CP -40" in text
@@ -316,7 +316,7 @@ def test_minimum_cp_override_wins_and_is_explicit():
 
 
 def test_unsteady_mode_needs_both_time_arguments():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     with pytest.raises(CommandArgumentError, match="both time_iterations and delta_time"):
         helpers.solver_settings(script, vorticity_drag_boundaries="all", mode="UNSTEADY")
     with pytest.raises(CommandArgumentError, match="belong to the unsteady solver"):
@@ -326,7 +326,7 @@ def test_unsteady_mode_needs_both_time_arguments():
 
 
 def test_steady_mode_and_bulk_separation_emit():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     helpers.solver_settings(
         script,
         vorticity_drag_boundaries="all",
@@ -385,7 +385,7 @@ ROUND_TRIP_KWARGS = dict(
 
 
 def test_round_trip_regenerates_identical_lines():
-    first = Script(version="26.12")
+    first = Script(version="26.120")
     setup = helpers.solver_settings(first, **ROUND_TRIP_KWARGS)
     helpers.start_solver(first)
     assert first.solver_setup is setup
@@ -394,7 +394,7 @@ def test_round_trip_regenerates_identical_lines():
     restored = SolverSetup.model_validate_json(payload)
     assert restored == setup
 
-    second = Script(version="26.12")
+    second = Script(version="26.120")
     regenerated = script_from_setup(second, restored)
     helpers.start_solver(second)
     assert second.render() == first.render()
@@ -403,10 +403,10 @@ def test_round_trip_regenerates_identical_lines():
 
 
 def test_round_trip_with_defaults_only():
-    first = Script(version="26.12")
+    first = Script(version="26.120")
     setup = helpers.solver_settings(first, vorticity_drag_boundaries="all")
     helpers.start_solver(first)
-    second = Script(version="26.12")
+    second = Script(version="26.120")
     script_from_setup(second, SolverSetup.model_validate_json(setup.model_dump_json()))
     helpers.start_solver(second)
     assert second.render() == first.render()
@@ -417,7 +417,7 @@ def test_round_trip_with_defaults_only():
 
 
 def test_analysis_setup_vorticity_is_deprecated_but_works():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     helpers.solver_settings(script, vorticity_drag_boundaries="all")
     script.emit("START_SOLVER")
     with pytest.warns(
@@ -451,7 +451,7 @@ def make_record(**overrides) -> RunRecord:
 
 
 def test_manifest_record_round_trips_with_the_snapshot():
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     setup = helpers.solver_settings(script, aoa=2.0, vorticity_drag_boundaries="all")
     record = make_record(solver_setup=setup.model_dump(mode="json"))
     reloaded = RunRecord.model_validate(json.loads(record.model_dump_json()))

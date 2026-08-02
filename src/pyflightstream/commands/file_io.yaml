@@ -15,6 +15,7 @@ OPEN:
   versions:
     "26.100": {status: documented, note: "SRC-725 p.281, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-02_full.yaml"}
   notes: >
     Opens an existing simulation (.fsm) file. The optional
     LOAD_SOLVER_INITIALIZATION ENABLE line loads the solver
@@ -30,6 +31,7 @@ SAVEAS:
   versions:
     "26.100": {status: documented, note: "SRC-725 p.281, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-02_full.yaml"}
   notes: >
     Saves the current simulation to the given .fsm path.
 
@@ -41,6 +43,7 @@ NEW_SIMULATION:
   versions:
     "26.100": {status: documented, note: "SRC-725 p.281, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-02_full.yaml"}
 
 CLOSE_FLIGHTSTREAM:
   layout: bare
@@ -50,6 +53,7 @@ CLOSE_FLIGHTSTREAM:
   versions:
     "26.100": {status: documented, note: "SRC-725 p.281, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-02_full.yaml"}
   notes: >
     Closes FlightStream and exits; the natural last command of a
     headless batch script.
@@ -64,6 +68,7 @@ EXPORT_LOG:
   versions:
     "26.100": {status: documented, note: "SRC-725 p.282, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-02_full.yaml"}
   notes: >
     Exports the log window messages to a text file; the probe harness
     reads it for sentinel markers and error patterns.
@@ -78,5 +83,6 @@ OUTPUT_SETTINGS_AND_STATUS:
   versions:
     "26.100": {status: documented, note: "SRC-725 p.282, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-02_full.yaml"}
   notes: >
     Writes the fluid properties and solver status to a file.

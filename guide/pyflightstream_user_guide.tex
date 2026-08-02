@@ -157,7 +157,7 @@ pip install -e .[dev]     # with tests, lint, docs tooling
 \begin{lstlisting}
 import pyflightstream
 pyflightstream.help()          # whole database, opens in the browser
-pyflightstream.help("26.12")   # scoped to one FlightStream version
+pyflightstream.help("26.120")   # scoped to one FlightStream version
 \end{lstlisting}
   \begin{itemize}
     \item The same renderer feeds the published documentation site, so the offline page and the site can never disagree.
@@ -174,15 +174,18 @@ pyflightstream.help("26.12")   # scoped to one FlightStream version
     \column{0.55\textwidth}
     \begin{itemize}
       \item Vendor names ("26.1", "26.12") do not sort: neither string nor float comparison orders them correctly.
+      \item A vendor name can also name more than one build: 26.120 and 26.121 both ship as "26.12". Resolution refuses such a name and lists the candidates, rather than returning one of them.
       \item Canonical identifiers use three fractional digits: \code{26.100}, \code{26.120}. The last digit indexes vendor hotfix builds.
       \item The ordered list in the database metadata is the only ordering authority; versions are appended, never removed.
     \end{itemize}
 \begin{lstlisting}
 from pyflightstream.versions import resolve, known_versions
-v = resolve("26.12")       # alias accepted
+v = resolve("26.120")       # canonical
 v.canonical                # "26.120"
+resolve("26.1")            # unambiguous vendor name, accepted
+resolve("26.12")           # AmbiguousVersionAliasError: 26.120 or 26.121?
 [str(k) for k in known_versions()]
-# ["26.000", "26.100", "26.120"]
+# ["26.000", "26.100", "26.120", "26.121"]
 \end{lstlisting}
     \column{0.42\textwidth}
     \begin{center}
@@ -370,7 +373,7 @@ v.canonical                # "26.120"
 \begin{lstlisting}
 from pyflightstream.script import Script
 
-script = Script(version="26.12")        # alias or canonical
+script = Script(version="26.120")        # canonical identifier
 script.comment("my first validated script")
 script.emit("NEW_SIMULATION")
 script.emit("IMPORT", "METER", "STL", "C:/work/wing.stl", clear=True)
@@ -429,7 +432,7 @@ result = executor.run_script(script_path, working_dir=workdir,
                              timeout_s=900.0)
 if not result.failed:
     report = parse_loads((workdir / "loads.txt").read_text(),
-                         requested_version="26.12")
+                         requested_version="26.120")
     print(report.total["CL"], report.total["CDi"])
 \end{lstlisting}
   \begin{itemize}
@@ -564,7 +567,7 @@ helpers.export_probes(script, "probes_out.txt", update=True)
   \end{enumerate}
 \begin{lstlisting}
 from pyflightstream.script import Script, helpers
-script = Script(version="26.12")
+script = Script(version="26.120")
 script.emit("NEW_SIMULATION")
 script.emit("IMPORT", "METER", "STL",
             str(stl_path.resolve()), clear=True)
@@ -815,7 +818,7 @@ helpers.export_probes(script, "probes_out.txt", update=True)
 \begin{lstlisting}[style=txt]
 [campaign]
 name = "wing_steady_sweep"
-fs_version = "26.12"
+fs_version = "26.120"
 fs_exe = 'C:\FlightStream\26.12\FlightStream.exe'
 
 [[sim]]
@@ -914,7 +917,7 @@ text = convert_matrix("matrix.fs", name="wing2026",
 \begin{lstlisting}
 # before: the loose form an old driver called directly
 def build_polar(workdir) -> Script:
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     script.emit("OPEN", r"C:\cases\wing.fsm")
     helpers.solver_settings(script, aoa=4.0, ...)
     helpers.export_results(script,
@@ -966,7 +969,7 @@ def build_polar(case: SimCase, script: Script) -> None:
 
 \begin{frame}[fragile]{The loads report}
 \begin{lstlisting}
-report = parse_loads(text, requested_version="26.12")
+report = parse_loads(text, requested_version="26.120")
 report.total          # {"CL": ..., "CDi": ..., "CDo": ..., "CMy": ...}
 report.surfaces       # per-boundary rows, keyed by name
 report.current_iteration, report.requested_iterations

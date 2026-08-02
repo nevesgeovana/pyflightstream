@@ -43,12 +43,23 @@ def test_meta_versions_are_canonical_and_aliased():
         assert entry["alias"], entry
 
 
-def test_meta_versions_are_unique():
+def test_meta_canonical_identifiers_are_unique():
+    # Canonical identifiers must stay unique: they are the key every
+    # command's `versions:` block cites and the only thing that selects
+    # one build.
+    #
+    # Display aliases are NOT asserted unique, and that is the vendor's
+    # doing rather than a relaxation: 26.120 and 26.121 both ship under
+    # the one vendor name, so recording that name means recording a
+    # duplicate. The duplicate is refused where it would do harm, at
+    # resolution time, and the guards for that live in
+    # tests/test_versions.py (test_a_shared_alias_is_refused_and_names_
+    # every_candidate and its non-vacuity companion). Asserting
+    # uniqueness here instead would force the registry to invent a name
+    # the vendor never used.
     meta = load_meta()
     canonicals = [entry["canonical"] for entry in meta["versions"]]
-    aliases = [entry["alias"] for entry in meta["versions"]]
     assert len(canonicals) == len(set(canonicals))
-    assert len(aliases) == len(set(aliases))
 
 
 def test_command_files_satisfy_schema():
@@ -166,27 +177,27 @@ def test_view_raises_for_absent_evidence_and_removed():
     )
     registry = CommandRegistry(commands={"SONIC_VELOCITY": removed})
     with pytest.raises(CommandNotInVersionError, match="removed in FlightStream 26.120"):
-        registry.for_version("26.12")["SONIC_VELOCITY"]
+        registry.for_version("26.120")["SONIC_VELOCITY"]
     with pytest.raises(CommandNotInVersionError, match="Last documented in 26.100"):
-        registry.for_version("26.12")["SONIC_VELOCITY"]
+        registry.for_version("26.120")["SONIC_VELOCITY"]
     assert registry.for_version("26.1")["SONIC_VELOCITY"] is removed
     with pytest.raises(CommandNotInVersionError, match="no recorded evidence"):
         registry.for_version("26.0")["SONIC_VELOCITY"]
     with pytest.raises(CommandNotInVersionError, match="not in the command database"):
-        registry.for_version("26.12")["NEVER_DRAFTED"]
+        registry.for_version("26.120")["NEVER_DRAFTED"]
 
 
 def test_view_contains_and_iter():
     entry = make_entry()
     registry = CommandRegistry(commands={"SET_EXAMPLE": entry})
-    view = registry.for_version("26.12")
+    view = registry.for_version("26.120")
     assert "SET_EXAMPLE" in view
     assert list(view) == ["SET_EXAMPLE"]
     assert "SET_EXAMPLE" not in registry.for_version("26.0")
 
 
 def test_core_steady_path_is_available_in_26_120():
-    view = CommandRegistry.load().for_version("26.12")
+    view = CommandRegistry.load().for_version("26.120")
     core = [
         "OPEN",
         "SET_FREESTREAM",
@@ -216,7 +227,7 @@ def test_version_args_override_resolves_through_the_view():
         }
     )
     registry = CommandRegistry(commands={"SET_EXAMPLE": entry})
-    assert [spec.name for spec in registry.for_version("26.12")["SET_EXAMPLE"].args] == ["value"]
+    assert [spec.name for spec in registry.for_version("26.120")["SET_EXAMPLE"].args] == ["value"]
     assert [spec.name for spec in registry.for_version("26.1")["SET_EXAMPLE"].args] == [
         "value",
         "extra",
@@ -244,7 +255,7 @@ def test_version_args_override_obeys_the_layout_rules():
 
 def test_bulk_separation_grammar_is_version_sensitive():
     registry = CommandRegistry.load()
-    in_26120 = [spec.name for spec in registry.for_version("26.12")["CREATE_BULK_SEPARATION"].args]
+    in_26120 = [spec.name for spec in registry.for_version("26.120")["CREATE_BULK_SEPARATION"].args]
     in_26100 = [spec.name for spec in registry.for_version("26.1")["CREATE_BULK_SEPARATION"].args]
     assert "separation_type" in in_26120
     assert "separation_type" not in in_26100

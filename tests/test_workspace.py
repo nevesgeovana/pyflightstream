@@ -177,7 +177,7 @@ def test_clean_removes_the_recorded_sim(tmp_path):
 
 
 def test_builder_to_manifest_flow_records_the_raw_flag(tmp_path):
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     script.emit("START_SOLVER")
     script.raw("SOME_UNKNOWN_COMMAND 1")
     workspace = CampaignWorkspace(tmp_path)

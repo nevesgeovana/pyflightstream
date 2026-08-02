@@ -16,7 +16,7 @@ from pyflightstream.cases import (
 CAMPAIGN_TOML = """
 [campaign]
 name = "wing_steady_sweep"
-fs_version = "26.12"
+fs_version = "26.120"
 fs_exe = 'C:\\FlightStream\\26.12\\FlightStream.exe'
 
 [[sim]]
@@ -39,7 +39,7 @@ def test_load_campaign_reads_the_sad_shape(tmp_path):
     path.write_text(CAMPAIGN_TOML, encoding="utf-8")
     campaign = load_campaign(path)
     assert campaign.name == "wing_steady_sweep"
-    assert campaign.fs_version == "26.12"
+    assert campaign.fs_version == "26.120"
     case = campaign.sims[0]
     assert case.sim_id == "9001"
     assert case.variables["symmetry"] == "PERIODIC 6"
@@ -248,12 +248,14 @@ def test_two_cases_sharing_a_sim_id_are_refused():
     with pytest.raises(ValidationError, match="more than one case with sim_id"):
         Campaign(
             name="camp",
-            fs_version="26.12",
+            fs_version="26.120",
             fs_exe="x",
             sims=[case("1"), case("1")],
         )
     # the control: distinct ids are fine
     assert (
-        len(Campaign(name="camp", fs_version="26.12", fs_exe="x", sims=[case("1"), case("2")]).sims)
+        len(
+            Campaign(name="camp", fs_version="26.120", fs_exe="x", sims=[case("1"), case("2")]).sims
+        )
         == 2
     )

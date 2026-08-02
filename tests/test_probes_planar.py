@@ -119,7 +119,7 @@ def test_grid_emission_goes_through_the_documented_import(tmp_path):
     assert count == 4
     assert lines[0] == "4"
     assert lines[1] == "1.0,0.0,0.0,1"
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     emit_probe_import(script, csv, units="METER", frame=1)
     assert "PROBE_POINTS_IMPORT\nUNITS METER\nFRAME 1\n" in script.render()
     with pytest.raises(CommandNotInVersionError, match="no recorded evidence"):
@@ -128,7 +128,7 @@ def test_grid_emission_goes_through_the_documented_import(tmp_path):
 
 def test_coordinate_frame_helper_mirrors_the_frame_definition():
     frame = yz_frame()
-    script = Script(version="26.12")
+    script = Script(version="26.120")
     index = coordinate_frame(
         script,
         name="probe_plane",
