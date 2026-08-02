@@ -125,6 +125,37 @@ def test_a_shared_alias_is_refused_and_names_every_candidate():
         assert set(excinfo.value.candidates) == set(canonicals)
 
 
+def test_the_refusal_says_which_candidate_is_which_build():
+    """Naming the candidates is not enough; the caller has to choose.
+
+    The parenthetical after each identifier is the only thing in the
+    message that distinguishes the builds, so it is the operative
+    content. A QA pass measured it unasserted: making _build_note return
+    "the official release" unconditionally left the whole suite green
+    while the refusal read "26.120 (the official release) and 26.121
+    (the official release)", which names two candidates and helps with
+    neither.
+    """
+    with pytest.raises(AmbiguousVersionAliasError) as excinfo:
+        resolve("26.12")
+    message = str(excinfo.value)
+    assert "26.120 (the official release)" in message, message
+    assert "26.121 (hotfix build 1)" in message, message
+
+
+@pytest.mark.parametrize(
+    ("canonical", "expected"),
+    [
+        ("26.000", "the official release"),
+        ("26.120", "the official release"),
+        ("26.121", "hotfix build 1"),
+        ("26.125", "hotfix build 5"),
+    ],
+)
+def test_the_hotfix_digit_reads_as_the_build_it_indexes(canonical, expected):
+    assert versions._build_note(canonical) == expected
+
+
 def test_a_unique_alias_still_resolves_to_its_own_entry():
     unique, _ = _aliases_by_count()
     assert unique, "the registry must keep at least one unambiguous alias"

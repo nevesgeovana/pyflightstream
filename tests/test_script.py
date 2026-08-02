@@ -476,3 +476,49 @@ def test_every_declared_count_is_a_known_count_name():
         "these int arguments introduce a list but are not in _COUNT_ARG_NAMES, so "
         "their count is never checked against the list it declares: " + "; ".join(escaping)
     )
+
+
+@pytest.mark.parametrize(
+    ("command", "kwargs", "list_arg"),
+    [
+        (
+            "UNSTEADY_SOLVER_NEW_FORCE_PLOT",
+            {
+                "frame": 1,
+                "units": "NEWTONS",
+                "parameter": "CL",
+                "name": "thrust",
+                "boundaries": 2,
+                "boundary_indices": [1, 2, 3],
+            },
+            "boundary_indices",
+        ),
+        (
+            "ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS",
+            {"num_index": 2, "frame_indices": [2, 3, 4]},
+            "frame_indices",
+        ),
+    ],
+)
+def test_the_two_commands_that_escaped_the_count_check_now_refuse(command, kwargs, list_arg):
+    """The consequence of the fix, not just the shape of it.
+
+    test_every_declared_count_is_a_known_count_name proves the argument
+    NAME is in the checked set. That is the structural half and it would
+    stay green if _check_counts itself regressed. These two pin the
+    refusal on the exact commands that were escaping, so the check is
+    tied to the commands rather than to a set literal.
+
+    The consequence being prevented is not a syntax error: the solver
+    reads the declared count and then that many tokens, so a short list
+    makes it consume the following command line as data.
+    """
+    script = Script(version="26.120")
+    script.entities.declare_boundaries(6)
+    script.entities.declare("frames", 6)
+    with pytest.raises(CommandArgumentError) as caught:
+        script.emit(command, **kwargs)
+    message = str(caught.value)
+    assert "the declared count is 2" in message, message
+    assert list_arg in message, message
+    assert "SRC-003" in message, message

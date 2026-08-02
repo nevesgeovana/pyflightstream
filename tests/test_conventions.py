@@ -10,10 +10,12 @@ new unsuffixed physical quantity fails the suite.
 
 from __future__ import annotations
 
+import ast
 import importlib
 import inspect
 import re
 import warnings
+from pathlib import Path
 
 from pydantic import BaseModel
 from test_public_api import PUBLIC_MODULES
@@ -140,6 +142,48 @@ def test_float_model_fields_carry_units_or_a_stated_reason():
 # --- mechanical adherence audit: diagnostics versus validators --------------
 
 
+def _imported_module_names(source: str, package: str) -> set[str]:
+    """Every module ``source`` imports, as absolute dotted names.
+
+    Normalised rather than collected raw, which is the difference between
+    a guard and a guard-shaped thing. ``from X import y`` may import the
+    NAME y from module X or the MODULE X.y, and the source alone cannot
+    tell which, so both readings are recorded; a false positive here
+    would only over-refuse an import direction, while the false negative
+    the raw version had let the reversal through.
+
+    Parameters
+    ----------
+    source : str
+        Python source text.
+    package : str
+        Dotted package the source lives in, used to resolve the leading
+        dots of a relative import.
+
+    Returns
+    -------
+    set of str
+        Absolute dotted module names, plus ``module.name`` for every
+        name a ``from`` import binds.
+    """
+    found: set[str] = set()
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.Import):
+            found.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            if node.level:
+                parts = package.split(".")
+                base = ".".join(parts[: len(parts) - node.level + 1])
+                base = f"{base}.{node.module}" if node.module else base
+            else:
+                base = node.module or ""
+            if not base:
+                continue
+            found.add(base)
+            found.update(f"{base}.{alias.name}" for alias in node.names)
+    return found
+
+
 def test_check_prefixed_functions_return_nothing():
     """The check_ prefix promises a refusal, not a measurement.
 
@@ -150,6 +194,7 @@ def test_check_prefixed_functions_return_nothing():
     mechanically decidable and stays prose.
     """
     offenders = []
+    inspected = set()
     for name in PUBLIC_MODULES:
         try:
             with warnings.catch_warnings():
@@ -157,12 +202,31 @@ def test_check_prefixed_functions_return_nothing():
                 module = importlib.import_module(name)
         except ImportError:
             continue
-        for attr, obj in inspect.getmembers(module, inspect.isfunction):
+        # Methods too, not only module-level functions: inspect.isfunction
+        # over a MODULE does not return them, and half of this package's
+        # check_ callables are methods (Entities.check_index,
+        # Entities.check_boundary_count). A QA pass measured the earlier
+        # version staying green while check_index was given a return
+        # annotation.
+        candidates = list(inspect.getmembers(module, inspect.isfunction))
+        for _, cls in inspect.getmembers(module, inspect.isclass):
+            if getattr(cls, "__module__", "").startswith("pyflightstream"):
+                candidates.extend(inspect.getmembers(cls, inspect.isfunction))
+        for attr, obj in candidates:
             if not attr.startswith("check_") or not obj.__module__.startswith("pyflightstream"):
                 continue
+            inspected.add(f"{obj.__module__}.{obj.__qualname__}")
             annotation = inspect.signature(obj).return_annotation
             if annotation not in (None, "None", inspect.Signature.empty):
-                offenders.append(f"{obj.__module__}.{attr} -> {annotation}")
+                offenders.append(f"{obj.__module__}.{obj.__qualname__} -> {annotation}")
+    # Non-vacuity: the walk swallows ImportError per module, so a scan that
+    # found nothing would report green. Four check_ callables are known to
+    # exist; fewer means the scan stopped seeing them, not that they left.
+    assert len(inspected) >= 4, (
+        f"the scan found only {sorted(inspected)}; at least four check_ callables "
+        "exist in this package, so a smaller number means the walk is broken "
+        "rather than that the convention is satisfied"
+    )
     assert not offenders, (
         f"check_ functions {offenders} return a value; a check_ function refuses "
         "and returns nothing (house convention). Name a function that MEASURES "
@@ -186,18 +250,51 @@ def test_the_fsi_state_module_does_not_import_its_config_module():
     package __init__, which imports fsi.config regardless. Verified by
     importing the catalog and reading sys.modules.
     """
-    import ast
-    from pathlib import Path
-
-    source = Path(inspect.getfile(importlib.import_module("pyflightstream.fsi.state")))
-    imported = set()
-    for node in ast.walk(ast.parse(source.read_text(encoding="utf-8"))):
-        if isinstance(node, ast.ImportFrom) and node.module:
-            imported.add(node.module)
-        elif isinstance(node, ast.Import):
-            imported.update(alias.name for alias in node.names)
+    module_name = "pyflightstream.fsi.state"
+    package = module_name.rsplit(".", 1)[0]
+    source = Path(inspect.getfile(importlib.import_module(module_name)))
+    imported = _imported_module_names(source.read_text(encoding="utf-8"), package)
     assert "pyflightstream.fsi.config" not in imported, (
         "pyflightstream.fsi.state imports pyflightstream.fsi.config; that "
         "reverses the dependency direction and drags the config model into "
         "every import of the exception catalog. Pass the fields, not the object."
     )
+
+
+def test_the_import_scan_sees_the_spelling_this_package_actually_uses():
+    """Mutation proof for the scan above, on the form that defeated it.
+
+    The first version collected `node.module` alone, so it caught
+    `from pyflightstream.fsi.config import FsiConfig` and MISSED
+    `from pyflightstream.fsi import config`. That miss is not exotic: it
+    is this package's own idiom, written exactly that way in
+    fsi/centrifugal.py and fsi/driver.py. A QA pass added the missed
+    spelling to state.py and the guard stayed green, which makes it a
+    guard that could not fail against the import a reader would write.
+
+    Every spelling below must be seen, so the scan is proved against the
+    forms rather than against one of them.
+    """
+    package = "pyflightstream.fsi"
+    target = "pyflightstream.fsi.config"
+    for source in (
+        "from pyflightstream.fsi.config import FsiConfig",
+        "import pyflightstream.fsi.config",
+        "from pyflightstream.fsi import config",
+        "from .config import FsiConfig",
+        "from . import config",
+        "from pyflightstream.fsi import beam, config",
+    ):
+        assert target in _imported_module_names(source, package), (
+            f"the scan does not see {source!r} as importing {target}"
+        )
+    # And it must not fire on an import that is genuinely something else,
+    # or it would refuse the module's real dependencies.
+    for source in (
+        "from pyflightstream.fsi import beam",
+        "from pydantic import BaseModel",
+        "from . import nodes",
+    ):
+        assert target not in _imported_module_names(source, package), (
+            f"the scan wrongly reads {source!r} as importing {target}"
+        )

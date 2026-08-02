@@ -62,6 +62,44 @@ def test_meta_canonical_identifiers_are_unique():
     assert len(canonicals) == len(set(canonicals))
 
 
+def test_every_alias_is_the_vendor_name_of_its_own_canonical():
+    """An alias must be a prefix of the canonical it belongs to.
+
+    This replaces what the alias-uniqueness assertion used to catch, and
+    it is needed because dropping that assertion left the alias DATA with
+    no guard at all: the behavioural tests in tests/test_versions.py
+    derive the shared and unique sets from whatever is registered, so
+    they accommodate a duplicate rather than judging it.
+
+    A QA pass measured the hole by onboarding a synthetic 26.130 whose
+    alias was pasted from its neighbour as "26.12" instead of "26.13",
+    updating only the two hardcoded version lists a real onboarding
+    touches. The whole suite passed. Three things would then be wrong at
+    once: resolve("26.13") refuses the name the vendor printed on that
+    build, resolve("26.12") refuses while naming a build that never
+    shipped under it, and the published compatibility matrix prints the
+    wrong vendor name.
+
+    The prefix rule holds for the deliberate duplicate, which is the
+    point: 26.120 and 26.121 both legitimately carry "26.12", and both
+    start with it. A pasted "26.12" on 26.130 does not.
+    """
+    meta = load_meta()
+    wrong = [
+        f"{entry['canonical']} carries alias {entry['alias']!r}"
+        for entry in meta["versions"]
+        if not entry["canonical"].startswith(str(entry["alias"]))
+    ]
+    assert not wrong, (
+        "these aliases are not a prefix of their own canonical identifier, so "
+        "they name a different build than the entry they sit on: "
+        + "; ".join(wrong)
+        + ". The alias records the vendor's release name for THIS build; two "
+        "entries may share one (a hotfix ships under its base release's name), "
+        "but an alias belonging to another release is a paste."
+    )
+
+
 def test_command_files_satisfy_schema():
     meta = load_meta()
     known_versions = {entry["canonical"] for entry in meta["versions"]}
