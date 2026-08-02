@@ -42,3 +42,23 @@ repos:
         entry: _private/ is local only and never enters Git (invariants 1 and 5)
         language: fail
         files: '^_private/'
+      # Geometry and mesh files (invariant 5, SRS NFR-08 and NFR-14). The
+      # authority for the suffix list is IMPORT's file_type enum in
+      # commands/mesh_import_export.yaml plus the saved-simulation .fsm and
+      # the CAD interchange formats research geometry arrives in.
+      #
+      # This is the SECOND of two guards for the same class, not the only
+      # one. tests/test_house_style.py holds the tier-1 walk NFR-14 asks
+      # for, over every tracked path with the same suffix set and the same
+      # allowlist; this hook exists because the breach is irreversible once
+      # pushed, so it is worth refusing at the moment of the commit rather
+      # than at the next test run. The two lists must move together, and the
+      # tier-1 guard is the one with the mutation proof.
+      - id: forbid-geometry
+        name: forbid geometry and mesh files
+        entry: >
+          research geometry never enters Git (invariant 5, NFR-14); keep it in
+          _private/ or generate synthetic geometry from pyflightstream.qa.geometry
+        language: fail
+        files: '\.(stl|tri|p3d|inp|lawgs|vtk|ac|fac|obj|fsm|step|stp|iges|igs|sat|x_t|x_b|3dm|msh|cgns|ply|off|nas|bdf)$'
+        exclude: '^(tests/fixtures/cube\.obj|tests/goldens/planar_probes\.vtk)$'

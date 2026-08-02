@@ -9,6 +9,26 @@ FlightStream versions.
 
 ### API surface delta
 
+* **Research geometry can no longer enter the repository unnoticed**
+  (SRS NFR-14, which was pending). A tier-1 guard walks every tracked
+  path and fails on any geometry or mesh extension outside a small
+  allowlist of provably synthetic fixtures, and a `forbid-geometry`
+  pre-commit hook refuses the same class at commit time.
+
+  This closes the one breach this project calls irreversible: a push
+  publishes, and deleting the file afterwards does not unpublish it from
+  any clone that already fetched. It was enforced by discipline alone
+  until now, and discipline was measured to be all there was: a 37 kB
+  mesh added under `examples/` and staged passed the entire tier-1 suite
+  and the CI guard job, which looks only for pdf, notebook and
+  `_private/` paths.
+
+  The suffix set is derived rather than invented: `IMPORT`'s
+  `file_type` enum in the command database, plus the saved simulation
+  `.fsm`, plus the CAD interchange formats research geometry arrives in.
+  Stated as a residual rather than hidden: the guard keys on extension,
+  so geometry carried in a generic container (a node list in a `.csv`)
+  is outside it, and NFR-08 stays a discipline for that.
 * **`PyflightstreamError` is the package base exception, and every
   exception the package raises now descends from it** (SRS FR-39, which
   was pending on exactly this clause). One except clause catches the

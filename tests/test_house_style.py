@@ -355,3 +355,136 @@ def test_the_shipped_name_guard_fires_on_what_it_exists_to_catch():
         "the detector fires on the replacement, so it refuses the sentence "
         "rather than the identifier"
     )
+
+
+# ---------------------------------------------------------------------------
+# NFR-14: research geometry never enters the repository.
+#
+# BRF-003 theme 2 calls this the one IRREVERSIBLE breach, and until now it was
+# enforced by discipline alone. Measured before this guard existed, on a real
+# case rather than in the abstract: a 37 kB synthetic-but-research-shaped .stl
+# added under examples/ and staged passed the ENTIRE tier-1 suite (863 tests)
+# and the CI guard job's own grep, which looks only for pdf, ipynb and
+# _private/. Nothing in the repository objected to a tracked mesh.
+#
+# The extension set below is derived from the command database rather than
+# invented: IMPORT's file_type enum in commands/mesh_import_export.yaml is the
+# authority on what this solver reads, and .fsm is a first-class geometry
+# artifact in workspace/inputs.py (a saved simulation carries the mesh). The
+# CAD-interchange suffixes are added because research geometry ARRIVES in them
+# even though the solver does not read them directly.
+#
+# WHAT THIS GUARD DOES NOT COVER, stated so its scope is not mistaken for the
+# invariant. It keys on EXTENSION, which is what NFR-14 asks for and which
+# cannot see geometry carried in a generic container: tests/fixtures/fsi/
+# structural_nodes.csv is a node coordinate list and no extension rule will
+# ever fire on it. NFR-08 is wider than NFR-14 and stays a discipline for that
+# residual. This guard also runs on the TREE, not on the built wheel; the
+# artifact-side check is a separate mechanism this repository has not vendored.
+GEOMETRY_SUFFIXES = frozenset(
+    {
+        # IMPORT file_type enum (commands/mesh_import_export.yaml)
+        ".stl",
+        ".tri",
+        ".p3d",
+        ".inp",
+        ".lawgs",
+        ".vtk",
+        ".ac",
+        ".fac",
+        ".obj",
+        # saved simulation: carries the mesh (workspace/inputs.py, file_io.yaml)
+        ".fsm",
+        # CAD and mesh interchange research geometry arrives in
+        ".step",
+        ".stp",
+        ".iges",
+        ".igs",
+        ".sat",
+        ".x_t",
+        ".x_b",
+        ".3dm",
+        ".msh",
+        ".cgns",
+        ".ply",
+        ".off",
+        ".nas",
+        ".bdf",
+    }
+)
+
+#: Tracked paths allowed to carry a geometry extension, each with the reason
+#: it is provably synthetic. A path joins this list only with such a reason;
+#: "it was already there" is not one.
+SYNTHETIC_GEOMETRY_ALLOWLIST = {
+    # Hand-written in the file's own header: a closed unit cube, 8 vertices and
+    # 12 triangles, for the probe geometry gate. No research content possible.
+    "tests/fixtures/cube.obj",
+    # VTK POLYDATA golden with two points at (0,0,0) and (1,0,0): an
+    # output-FORMAT golden, not a geometry input.
+    "tests/goldens/planar_probes.vtk",
+}
+
+
+def _geometry_offenses(relative_posix_paths):
+    """Tracked paths carrying a geometry extension without an allowlist entry.
+
+    Factored out so the tree scan and the mutation proof run the SAME code,
+    for the reason ``_names_the_author`` states above.
+    """
+    return sorted(
+        path
+        for path in relative_posix_paths
+        if Path(path).suffix.lower() in GEOMETRY_SUFFIXES
+        and path not in SYNTHETIC_GEOMETRY_ALLOWLIST
+    )
+
+
+def test_no_geometry_file_is_tracked_outside_the_synthetic_allowlist():
+    """NFR-14. Research geometry entering Git is the irreversible breach.
+
+    Irreversible is meant literally: a push publishes it, and removing it
+    from HEAD afterwards does not unpublish it from any clone, fork or
+    mirror that already fetched. So the guard runs on every tracked path,
+    all extensions, and fails loudly rather than skipping.
+    """
+    offenders = _geometry_offenses(
+        str(path.relative_to(REPO_ROOT).as_posix()) for path in _tracked_files()
+    )
+    assert not offenders, (
+        "these tracked files carry a geometry or mesh extension and are not in "
+        "the synthetic-fixtures allowlist:\n"
+        + "\n".join(offenders)
+        + "\n\nResearch geometry never enters this repository (CLAUDE.md "
+        "invariant 5, SRS NFR-08 and NFR-14). Keep it in _private/ or in the "
+        "research workspace and reference it from a local QA run. If the file "
+        "really is synthetic, generate it from pyflightstream.qa.geometry "
+        "instead of committing it, or add it to SYNTHETIC_GEOMETRY_ALLOWLIST "
+        "with the reason it cannot carry research content."
+    )
+
+
+def test_the_geometry_guard_fires_on_what_it_exists_to_catch():
+    """Mutation proof, per the structural-fix rule.
+
+    Runs the DETECTOR against the exact case measured red above, plus the
+    live tree, so the proof is about the scan and not about ``str.endswith``.
+    """
+    leak = "examples/leaked_blade.stl"
+    assert _geometry_offenses([leak]) == [leak], (
+        "the detector does not fire on a mesh committed under examples/, which "
+        "is the case measured passing the whole suite before this guard existed"
+    )
+    # Every allowlisted path must be recognised as allowlisted, or the entry is
+    # dead and the file it names is unguarded by accident rather than decision.
+    assert _geometry_offenses(sorted(SYNTHETIC_GEOMETRY_ALLOWLIST)) == []
+    # The allowlist must not be a list of paths that no longer exist: a stale
+    # entry silently widens the exemption for whatever later takes that name.
+    tracked = {str(path.relative_to(REPO_ROOT).as_posix()) for path in _tracked_files()}
+    stale = sorted(SYNTHETIC_GEOMETRY_ALLOWLIST - tracked)
+    assert not stale, (
+        f"allowlisted paths {stale} are not tracked; remove the entry rather "
+        "than leaving an exemption waiting for a future file of that name"
+    )
+    # And the guard must not be vacuous: a suffix outside the set is untouched.
+    assert _geometry_offenses(["README.md", "examples/steady_polar.py"]) == []

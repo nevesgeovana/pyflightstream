@@ -227,18 +227,42 @@
     the current numbers so the gap is visible rather than asserted, and
     NFR-13 is what turns them into a gate.
 
-!!! requirement "NFR-14 Confidentiality commit guard <span class='srs-pending'>pending</span>"
-    *Origin: Phase 4 review, accepted 2026-07-27.*
+!!! requirement "NFR-14 Confidentiality commit guard <span class='srs-implemented'>implemented</span>"
+    *Origin: Phase 4 review, accepted 2026-07-27. Evidence: PFS-3
+    (2026-08-03);
+    `tests/test_house_style.py::test_no_geometry_file_is_tracked_outside_the_synthetic_allowlist`
+    walks every tracked path and fails on a geometry suffix outside the
+    allowlist, with
+    `test_the_geometry_guard_fires_on_what_it_exists_to_catch` as its
+    mutation proof; the `forbid-geometry` pre-commit hook refuses the
+    same class at commit time.*
 
     A Tier 1 guard rejects the commit of any file whose extension is in
     the known geometry or mesh set unless its path is in the
     synthetic-fixtures allowlist.
 
     This extends the pdf-rejection pattern NFR-03 already uses to the
-    class NFR-08 forbids, which is today enforced by discipline rather
-    than by a guard. Under this repository's own structural-fix rule
-    that difference is exactly the kind that eventually costs an
+    class NFR-08 forbids, which was until PFS-3 enforced by discipline
+    rather than by a guard. Under this repository's own structural-fix
+    rule that difference is exactly the kind that eventually costs an
     incident.
+
+    Measured before the guard existed, on a real case rather than in the
+    abstract: a 37 kB mesh added under `examples/` and staged passed the
+    entire tier-1 suite and the CI guard job, which looks only for pdf,
+    notebook and `_private/` paths. The suffix set is derived from
+    `IMPORT`'s `file_type` enum in the command database, plus the saved
+    simulation `.fsm`, plus the CAD interchange formats research
+    geometry arrives in.
+
+    Scope stated as a residual, not as a guarantee: the guard keys on
+    EXTENSION, which is what this requirement asks for and which cannot
+    see geometry carried in a generic container. A node coordinate list
+    in a `.csv` is invisible to it, and one is tracked
+    (`tests/fixtures/fsi/structural_nodes.csv`). NFR-08 is the wider
+    requirement and stays a discipline for that residual. The guard also
+    walks the TREE, not the built wheel; an artifact-side check exists as
+    a shared-kit tool this repository has not vendored.
 
 !!! requirement "NFR-15 Manifest hash canonicalization <span class='srs-pending'>pending</span>"
     *Origin: Phase 4 review, accepted 2026-07-27, absorbing the M3b
