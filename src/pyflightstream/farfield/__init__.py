@@ -43,6 +43,7 @@ __all__ = [
     "cylindrical_components",
     "ring_sample_weights",
     "plane_integral",
+    "sample_coverage",
     "azimuthal_harmonics",
     "symmetry_floor",
     "mass_flux",
@@ -179,7 +180,47 @@ def plane_integral(ds: xr.Dataset, integrand: xr.DataArray) -> xr.DataArray:
         integrand units times square meters.
     """
     scale = float(ds.attrs["tip_radius"]) ** 2
-    return (integrand * ring_sample_weights(ds)).sum(dim=("r", "psi")) * scale
+    # PYFS-010. skipna=False is the whole fix and it is not a preference.
+    #
+    # xarray's sum defaults to skipna=True for float arrays, so a sample that
+    # did not converge was DROPPED FROM THE SUM while its ring weight stayed
+    # in the geometry. The integral then came back smaller in exact proportion
+    # to how much data was missing: a uniform field of pi with one sample of
+    # four absent returned 3*pi/4, a number that is not wrong-looking, does not
+    # raise, does not propagate NaN, and is indistinguishable from a real
+    # physical reduction of flux, force, torque or energy. Every far-field
+    # ledger is built on this function, so every one of them inherited it.
+    #
+    # Propagating instead of skipping makes the missing data arrive as NaN,
+    # which is loud and which the downstream assessors already refuse. Use
+    # sample_coverage() below to ask HOW much is missing before deciding
+    # whether a plane is usable.
+    return (integrand * ring_sample_weights(ds)).sum(dim=("r", "psi"), skipna=False) * scale
+
+
+def sample_coverage(integrand: xr.DataArray) -> xr.DataArray:
+    """Fraction of ``(r, psi)`` samples that are finite, per remaining dim.
+
+    The diagnostic half of PYFS-010. :func:`plane_integral` now returns NaN
+    when any sample is missing, which says THAT a plane is unusable and not
+    how far off it is; this says how much of the plane was actually sampled,
+    so a caller can distinguish one dead probe from a half-empty lattice.
+
+    Parameters
+    ----------
+    integrand : xarray.DataArray
+        Any array with dims including ``(r, psi)``.
+
+    Returns
+    -------
+    xarray.DataArray
+        Coverage in ``[0, 1]``; 1.0 means every sample is finite. Dims
+        other than ``(r, psi)`` are preserved, so a swept ledger reports
+        one coverage per point rather than one for the whole sweep.
+    """
+    finite = xr.apply_ufunc(np.isfinite, integrand)
+    total = integrand.sizes["r"] * integrand.sizes["psi"]
+    return finite.sum(dim=("r", "psi")) / total
 
 
 def azimuthal_harmonics(da: xr.DataArray, *, m_max: int = 6) -> xr.DataArray:
@@ -221,6 +262,45 @@ def azimuthal_harmonics(da: xr.DataArray, *, m_max: int = 6) -> xr.DataArray:
     }
     coords["m"] = np.arange(m_max + 1)
     return xr.DataArray(kept, dims=dims, coords=coords)
+
+
+def _half_spectrum(da: xr.DataArray, half: int) -> xr.DataArray:
+    """Azimuthal orders ``0..half`` with no anti-aliasing cap.
+
+    The Parseval sum in :func:`transverse_flux` needs every order
+    the grid carries, including Nyquist. :func:`azimuthal_harmonics` cannot
+    supply that and should not: its cap exists so that STORED harmonics are
+    unaliased, which is a different question from reconstructing a product
+    the grid already determines. Kept private so the two do not get confused
+    (PYFS-011).
+    """
+    n = da.sizes["psi"]
+    axis = da.dims.index("psi")
+    spectrum = np.fft.fft(da.values, axis=axis) / n
+    kept = np.take(spectrum, np.arange(half + 1), axis=axis)
+    dims = tuple("m" if dim == "psi" else dim for dim in da.dims)
+    coords = {
+        name: coord
+        for name, coord in da.coords.items()
+        if name != "psi" and "psi" not in coord.dims
+    }
+    coords["m"] = np.arange(half + 1)
+    return xr.DataArray(kept, dims=dims, coords=coords)
+
+
+def _parseval_weights(n: int, half: int) -> np.ndarray:
+    """Multiplicity of each order ``0..half`` in the real-field Parseval sum.
+
+    Order 0 appears once. Orders with a distinct conjugate partner appear
+    twice. For EVEN ``n`` the Nyquist order ``n/2`` is its own conjugate and
+    appears once; giving it 2 double counts it, which is the error opposite
+    to the one PYFS-011 records and just as silent.
+    """
+    weights = np.full(half + 1, 2.0)
+    weights[0] = 1.0
+    if n % 2 == 0:
+        weights[half] = 1.0
+    return weights
 
 
 def symmetry_floor(da: xr.DataArray, *, m_max: int = 6) -> float:
@@ -325,12 +405,33 @@ def transverse_flux(
         return plane_integral(ds, rho * ds["u"] * ds[component])
     if method != "harmonic":
         raise ValueError(f"unknown method {method!r}; use 'quadrature' or 'harmonic'")
-    m_max = ds.sizes["psi"] // 2 - 1
-    u_hat = azimuthal_harmonics(ds["u"], m_max=m_max)
-    c_hat = azimuthal_harmonics(ds[component], m_max=m_max)
-    # Parseval for real fields: mean(u c) over psi = sum_m Re[u_m conj(c_m)]
-    # with orders m >= 1 counted twice (conjugate pairs).
-    weights = np.where(np.arange(m_max + 1) == 0, 1.0, 2.0)
+    # PYFS-011. The spectrum used here runs to the true half-band, Nyquist
+    # INCLUDED, and that is the fix.
+    #
+    # It used to run to m_max = n_psi//2 - 1, borrowed from the storage API's
+    # anti-aliasing cap. That cap is right for harmonics this library STORES
+    # and wrong for a Parseval sum, which needs every order the grid carries
+    # or it is not the same number. The omitted order was exactly the one a
+    # discrete grid represents most marginally, so the failure was invisible
+    # in every ordinary case and total in one: at 16 azimuths a pure Nyquist
+    # signal gave quadrature = pi and harmonic = 0.0. These two paths are
+    # documented as INDEPENDENT VERIFICATIONS of the same number (DLV-006
+    # Sec. 3.3), so on the one class of signal where they disagreed, the
+    # cross-check returned zero and reported nothing. A verification that
+    # cannot fail is not a verification.
+    #
+    # Odd n is the same defect: at n=15 the cap gave m_max=6 and dropped
+    # order 7, which the grid does carry.
+    #
+    # Weighting, which is why this is not simply a bigger m_max. Orders
+    # 1..(n-1)/2 are conjugate pairs and count twice; order 0 counts once;
+    # and for EVEN n the Nyquist order n/2 is its own conjugate and counts
+    # ONCE. Giving it weight 2 would double it, which is the mirror-image
+    # error and is what a careless widening of the cap would have produced.
+    half = ds.sizes["psi"] // 2
+    u_hat = _half_spectrum(ds["u"], half)
+    c_hat = _half_spectrum(ds[component], half)
+    weights = _parseval_weights(ds.sizes["psi"], half)
     product_mean = (np.real(u_hat * np.conj(c_hat)) * xr.DataArray(weights, dims=("m",))).sum("m")
     ring_area = ring_sample_weights(ds) * ds.sizes["psi"]
     scale = float(ds.attrs["tip_radius"]) ** 2

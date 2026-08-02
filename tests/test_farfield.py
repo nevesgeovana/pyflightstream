@@ -21,6 +21,7 @@ from pyflightstream.farfield import (
     mass_closure,
     mass_flux,
     plane_integral,
+    sample_coverage,
     shaft_torque,
     spurious_diagnostic,
     symmetry_floor,
@@ -179,3 +180,109 @@ def test_radicand_guard_masks_and_reports_the_fraction():
 def test_spurious_diagnostic_reports_counts():
     counts = spurious_diagnostic(101.0, 100.0, rho_inf=RHO, v_inf=V_INF, s_ref=1.0)
     assert counts == pytest.approx(2.0 * 1.0 / (RHO * V_INF**2) * 1e4)
+
+
+# PYFS-010 and PYFS-011, two REV-002 blockers reproduced at ecc212e. They are
+# one class in two places: a reduction that silently discarded part of its
+# input and returned a plausible number for the rest.
+
+
+def test_a_missing_sample_no_longer_shrinks_the_integral():
+    """The review's published probe: uniform pi, one of four samples NaN.
+
+    Measured before the fix: 2.356194490192345, which is exactly 3*pi/4.
+    xarray's sum defaults to skipna=True, so the absent sample was dropped
+    from the sum while its ring weight stayed in the geometry. The integral
+    came back short in exact proportion to the missing data, with no error,
+    no NaN and no coverage indicator, which is indistinguishable from a real
+    physical reduction of flux.
+    """
+    lattice = build_lattice(tip_radius=1.0, stations=(0.0,), lateral_radius=None)
+    shape = (1, lattice.n_r, lattice.n_psi)
+    field = np.full(shape, np.pi)
+    ds = lattice_dataset(lattice, {"u": field})
+    complete = float(plane_integral(ds, ds["u"])[0])
+
+    holed = field.copy()
+    holed[0, 0, 0] = np.nan
+    ds_holed = lattice_dataset(lattice, {"u": holed})
+    result = float(plane_integral(ds_holed, ds_holed["u"])[0])
+
+    assert np.isfinite(complete)
+    assert np.isnan(result), (
+        f"a missing sample produced the finite value {result!r} instead of NaN; "
+        f"the complete field integrates to {complete!r}"
+    )
+
+
+def test_sample_coverage_says_how_much_is_missing():
+    """NaN says the plane is unusable; this says how far from usable.
+
+    Without it the fix trades a silently wrong number for an opaque one.
+    """
+    lattice = build_lattice(tip_radius=1.0, stations=(0.0,), lateral_radius=None)
+    shape = (1, lattice.n_r, lattice.n_psi)
+    field = np.full(shape, np.pi)
+    ds = lattice_dataset(lattice, {"u": field})
+    assert float(sample_coverage(ds["u"])[0]) == 1.0
+
+    holed = field.copy()
+    holed[0, 0, 0] = np.nan
+    ds_holed = lattice_dataset(lattice, {"u": holed})
+    total = lattice.n_r * lattice.n_psi
+    assert float(sample_coverage(ds_holed["u"])[0]) == pytest.approx((total - 1) / total)
+
+
+def _nyquist_dataset(n_psi_target):
+    """A one-station lattice carrying a pure alternating azimuthal signal.
+
+    The Nyquist mode is the highest frequency a discrete azimuth grid can
+    represent: +1, -1, +1, -1 around the ring.
+    """
+    lattice = build_lattice(tip_radius=1.0, stations=(0.0,), lateral_radius=None)
+    n_psi = lattice.n_psi
+    shape = (1, lattice.n_r, n_psi)
+    sign = np.cos(np.arange(n_psi) * np.pi)  # +1, -1, +1, ... exactly
+    signal = np.broadcast_to(sign, shape).copy()
+    ds = lattice_dataset(lattice, {"u": signal, "v": np.zeros(shape), "w": signal})
+    return cylindrical_components(ds), n_psi
+
+
+def test_the_harmonic_path_no_longer_returns_zero_on_the_nyquist_mode():
+    """The review's published pair: quadrature pi, harmonic 0.0.
+
+    The two paths are documented as INDEPENDENT VERIFICATIONS of the same
+    number (DLV-006 Sec. 3.3). The harmonic path summed orders 0..n/2-1,
+    omitting Nyquist, so on the one class of signal where the two disagreed
+    the cross-check returned zero and reported nothing. A verification that
+    cannot fail is not a verification.
+    """
+    ds, _ = _nyquist_dataset(None)
+    quadrature = transverse_flux(ds, RHO, component="w", method="quadrature")
+    harmonic = transverse_flux(ds, RHO, component="w", method="harmonic")
+    assert float(quadrature[0]) != pytest.approx(0.0, abs=1e-12), (
+        "the fixture no longer carries a Nyquist signal, so this proves nothing"
+    )
+    assert float(harmonic[0]) == pytest.approx(float(quadrature[0]), rel=1e-10)
+
+
+def test_the_two_paths_still_agree_on_an_ordinary_mode():
+    """The control, and the guard against overcorrecting.
+
+    Giving the Nyquist order weight 2 rather than 1 would fix the test above
+    and break this one, because it double counts an order that is its own
+    conjugate. Both directions have to be pinned.
+    """
+    lattice = build_lattice(tip_radius=1.0, stations=(0.0,), lateral_radius=None)
+    shape = (1, lattice.n_r, lattice.n_psi)
+    psi = lattice.psi[None, None, :]
+    signal = np.broadcast_to(np.cos(psi), shape).copy()
+    ds = cylindrical_components(
+        lattice_dataset(
+            lattice,
+            {"u": np.ones(shape), "v": np.zeros(shape), "w": signal},
+        )
+    )
+    quadrature = float(transverse_flux(ds, RHO, component="w", method="quadrature")[0])
+    harmonic = float(transverse_flux(ds, RHO, component="w", method="harmonic")[0])
+    assert harmonic == pytest.approx(quadrature, rel=1e-10)

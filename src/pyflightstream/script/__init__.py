@@ -68,6 +68,7 @@ __all__ = [
     "EntityRegistry",
     "Script",
     "ScriptLabelError",
+    "ScriptLineBreakError",
     "ScriptOrderError",
     "ScriptReferenceError",
 ]
@@ -146,6 +147,65 @@ class CommandArgumentError(ValueError):
     """
 
 
+class ScriptLineBreakError(CommandArgumentError):
+    """A value would have become more than one line of the script.
+
+    FlightStream reads a script one command per physical line, and this
+    library's contract is that every line it writes came from a
+    validated command. A line terminator inside an argument breaks both
+    at once: the text after it is not an argument any more, it is the
+    next COMMAND, and the manifest still presents the script as fully
+    validated because ``raw_flag`` was never set.
+
+    The escape hatch for genuinely unvalidated text is
+    :meth:`Script.raw`, which exists precisely so that this refusal has
+    an answer: it appends the text and sets ``raw_flag``, so the script
+    carries the fact that something in it was not checked (FR-07).
+
+    Subclasses :class:`CommandArgumentError` so existing handlers keep
+    working; caught on its own it identifies this one cause.
+    """
+
+
+def _is_one_line(text: str) -> bool:
+    r"""Report whether ``text`` renders as exactly one physical line.
+
+    Defined by ``str.splitlines`` rather than by a list of forbidden
+    characters, because the property that matters is not "contains
+    ``\n``" but "the number of lines this renders as is not one". Python
+    breaks lines on a dozen code points beyond CR and LF (form feed, next
+    line, the Unicode line and paragraph separators), and a check written
+    as a character denylist would pass a value that still arrives at the
+    solver as two lines. A trailing terminator counts: ``"A\n"`` is one
+    line of text plus a break, and appending it would silently merge with
+    whatever came next.
+    """
+    return text == "" or text.splitlines() == [text]
+
+
+def _reject_line_break(entry: CommandEntry, spec: ArgSpec, value: str) -> None:
+    """Refuse a value that would become more than one script line."""
+    if _is_one_line(value):
+        return
+    first, _, rest = value.replace("\r\n", "\n").partition("\n")
+    injected = rest.strip().splitlines()[0] if rest.strip() else ""
+    consequence = (
+        f"the text after the break would become the next command ({injected!r})"
+        if injected
+        else "the value ends with a line break"
+    )
+    raise ScriptLineBreakError(
+        f"{entry.name}: argument {spec.name!r} contains a line terminator, so it "
+        f"would render as {len(value.splitlines()) or 1} script lines instead of "
+        f"one, and {consequence}. FlightStream reads one command per line, so "
+        f"this would emit a command nobody validated while the script still "
+        f"reported itself as fully validated. Remove the break (the value up to "
+        f"it is {first!r}), or, if unvalidated script text is genuinely wanted, "
+        f"append it with Script.raw(), which sets raw_flag so the script records "
+        f"that it was not checked ({entry.manual_ref})"
+    )
+
+
 def _type_error(entry: CommandEntry, spec: ArgSpec, expected: str, value: object) -> None:
     raise CommandArgumentError(
         f"{entry.name}: argument {spec.name!r} expects {expected}, got {value!r} "
@@ -174,10 +234,16 @@ def _check_scalar(entry: CommandEntry, spec: ArgSpec, value: object) -> object:
     if spec.type is ArgType.PATH:
         if not isinstance(value, (str, os.PathLike)):
             _type_error(entry, spec, "a path", value)
-        return str(value)
+        rendered = str(value)
+        # A path is the likeliest carrier: it comes from user input, from a
+        # directory listing, or from a filename the operator typed, and none
+        # of those forbid a newline.
+        _reject_line_break(entry, spec, rendered)
+        return rendered
     if spec.type is ArgType.STR:
         if not isinstance(value, str):
             _type_error(entry, spec, "a string", value)
+        _reject_line_break(entry, spec, value)
         return value
     if spec.type is ArgType.ENUM:
         return _match_enum(entry, spec, value)
@@ -206,6 +272,7 @@ def _check_list(entry: CommandEntry, spec: ArgSpec, value: object) -> list:
         for item in items:
             if not isinstance(item, str):
                 _type_error(entry, spec, "a sequence of strings", value)
+            _reject_line_break(entry, spec, item)
         return items
     return [_match_enum(entry, spec, item) for item in items]
 
@@ -412,6 +479,24 @@ class Script:
         self._check_phase(entry)
         self._check_references(entry, bound)
         block, multiline = self._render_command(entry, bound)
+        # The choke point, and the reason this guard is here rather than only
+        # in the type checks above. Those close the two argument types known
+        # to carry text today; this closes the INVARIANT, which is that one
+        # element of _lines renders as exactly one physical line. Every route
+        # into the script passes through here, so a future argument type, a
+        # new layout, or a formatter that learns to interpolate cannot
+        # reopen the hole without tripping this. It is cheap: a string scan
+        # over a handful of short lines per command.
+        for line in block:
+            if not _is_one_line(line):
+                raise ScriptLineBreakError(
+                    f"{entry.name} rendered a line containing a line terminator "
+                    f"({line!r}), so the script would carry a command that no "
+                    "argument check saw. Every value reaching a script line is "
+                    "validated one line at a time; if this command has an "
+                    "argument type that is not line-checked, that check is the "
+                    f"fix, not this message ({entry.manual_ref})"
+                )
         self._lines.extend(block)
         if multiline:
             self._lines.append("")
@@ -426,8 +511,22 @@ class Script:
         self._lines.extend(text.splitlines())
 
     def comment(self, text: str) -> None:
-        """Append a comment line; FlightStream ignores lines starting with #."""
-        self._lines.append(f"# {text}")
+        """Append a comment; FlightStream ignores lines starting with ``#``.
+
+        A multi-line ``text`` becomes one comment line per physical line,
+        each independently prefixed. That is a fix rather than a
+        convenience: prefixing only the first line left every line after
+        it as an ordinary script line, so a comment carrying a newline
+        emitted an unvalidated command with ``raw_flag`` still False,
+        which is the comment half of the same defect the argument checks
+        above refuse. Commenting each line keeps the caller's intent (it
+        is all commentary) and cannot inject.
+
+        A blank line inside ``text`` becomes a bare ``#`` rather than an
+        empty line, so the block stays visibly one comment.
+        """
+        lines = text.splitlines() or [""]
+        self._lines.extend(f"# {line}" if line else "#" for line in lines)
 
     def render(self) -> str:
         """Return the complete script text, newline terminated."""

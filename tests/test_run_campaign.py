@@ -530,3 +530,261 @@ def test_the_assessor_says_which_named_file_is_missing(tmp_path):
     record = workspace.read_manifest()[0]
     assert "no collected output named 'not_exported.txt'" in record.error
     assert "loads_a+00.0.txt" in record.error  # what was collected
+
+
+# PYFS-004, the REV-002 blocker reproduced at ecc212e. The review published
+# five steps and they are all asserted below in one test, in its order, so
+# the reproduction and the guard are the same artifact.
+#
+# The defect was an ORDERING one: run_campaign called _prepare_case (which
+# calls stage_inputs, a copy) once per case at :555, and only then tested
+# `run_id in recorded` per point at :560. So a resume with nothing left to
+# run still re-staged: the executor was called 0 times and returned [],
+# which looks like a correct no-op, while the staged input was silently
+# replaced OLD -> NEW and the manifest kept OLD's sha256. The manifest
+# stopped describing the bytes on disk, and no output said so.
+#
+# The fix decides what is pending BEFORE preparing anything, and it decides
+# it at the CASE level, because that is the level staging works at.
+
+
+def test_a_resume_with_nothing_pending_does_not_restage(tmp_path):
+    """The review's five published steps, in order."""
+    campaign = make_campaign(tmp_path)
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    geometry = Path(campaign.sims[0].geometry)
+
+    # 1. first run records both points and the manifest hashes OLD
+    first = run_campaign(
+        campaign,
+        StubSolver(WRITES_LOADS),
+        workspace,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+    )
+    assert len(first) == 2
+    staged = workspace.sim_dir("9001") / "inputs" / geometry.name
+    assert staged.read_bytes() == b"geometry"
+    recorded_hash = first[0].inputs_sha256[geometry.name]
+
+    # the input changes underneath, which is the whole scenario
+    geometry.write_bytes(b"geometry NEW")
+
+    # 2. resume returns nothing and the executor is never called
+    calls = []
+
+    class CountingSolver(StubSolver):
+        def _argv(self, script_path):
+            calls.append(script_path)
+            return super()._argv(script_path)
+
+    resumed = run_campaign(
+        campaign,
+        CountingSolver(WRITES_LOADS),
+        workspace,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+        resume=True,
+    )
+    assert resumed == []
+    assert calls == []
+
+    # 3, 4 and 5: the staged copy is UNTOUCHED, so the manifest still
+    # describes it. This is the assertion that failed before the fix.
+    assert staged.read_bytes() == b"geometry", (
+        "the staged input was replaced by a resume that ran nothing"
+    )
+    manifest = {record.run_id: record for record in workspace.read_manifest()}
+    still = manifest[first[0].run_id].inputs_sha256[geometry.name]
+    assert still == recorded_hash
+    from pyflightstream.workspace import _sha256
+
+    assert _sha256(staged) == still, "the manifest hash no longer matches the file on disk"
+
+
+def test_a_partial_resume_refuses_when_the_input_changed(tmp_path):
+    """The half the review did not reach, and it is the same defect.
+
+    With one point recorded and one pending, staging is legitimate: the
+    pending point needs its inputs. But re-staging CHANGED content retires
+    the evidence behind the recorded point, leaving one manifest describing
+    two different input sets. Refusing is the only answer that keeps
+    inputs_sha256 a fact about the run.
+    """
+    campaign = make_campaign(tmp_path, alphas=(0.0,))
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    geometry = Path(campaign.sims[0].geometry)
+    run_campaign(
+        campaign,
+        StubSolver(WRITES_LOADS),
+        workspace,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+    )
+
+    # add a second point, so the case is partially recorded, and change the input
+    campaign.sims[0].sweep = SweepAxis(type="alpha", values=[0.0, 2.0])
+    geometry.write_bytes(b"geometry NEW")
+
+    with pytest.raises(WorkspaceError, match="has changed since"):
+        run_campaign(
+            campaign,
+            StubSolver(WRITES_LOADS),
+            workspace,
+            assess=converged,
+            recipes={"steady": steady_recipe},
+            resume=True,
+        )
+    # and the refusal happened BEFORE staging: the old copy survives
+    staged = workspace.sim_dir("9001") / "inputs" / geometry.name
+    assert staged.read_bytes() == b"geometry"
+
+
+def test_a_partial_resume_runs_the_new_point_when_the_input_is_unchanged(tmp_path):
+    """The control: the refusal above must not have cost resume its purpose."""
+    campaign = make_campaign(tmp_path, alphas=(0.0,))
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    run_campaign(
+        campaign,
+        StubSolver(WRITES_LOADS),
+        workspace,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+    )
+
+    campaign.sims[0].sweep = SweepAxis(type="alpha", values=[0.0, 2.0])
+    resumed = run_campaign(
+        campaign,
+        StubSolver(WRITES_LOADS),
+        workspace,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+        resume=True,
+    )
+    assert len(resumed) == 1, "only the new point should run"
+    assert [record.run_id for record in workspace.read_manifest()] == [
+        "camp/sim_9001/a+00.0",
+        "camp/sim_9001/a+02.0",
+    ]
+
+
+def test_a_rerun_without_resume_still_refuses_before_anything_executes(tmp_path):
+    """The pre-existing contract, re-asserted because the fix moved the check.
+
+    The docstring always promised the refusal came "before anything
+    executes". It now also comes before anything is STAGED, which is what
+    the promise had to mean to be worth anything.
+    """
+    campaign = make_campaign(tmp_path)
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    run_campaign(
+        campaign,
+        StubSolver(WRITES_LOADS),
+        workspace,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+    )
+    geometry = Path(campaign.sims[0].geometry)
+    geometry.write_bytes(b"geometry NEW")
+
+    with pytest.raises(WorkspaceError, match="already in the manifest"):
+        run_campaign(
+            campaign,
+            StubSolver(WRITES_LOADS),
+            workspace,
+            assess=converged,
+            recipes={"steady": steady_recipe},
+        )
+    staged = workspace.sim_dir("9001") / "inputs" / geometry.name
+    assert staged.read_bytes() == b"geometry"
+
+
+# PYFS-007, the REV-002 blocker reproduced at ecc212e. The review's evidence
+# was the real 26.120 residual log with one character changed in the last
+# PRESSURE residual, and its four measured rows are the four cases below.
+#
+# The defect was `max(velocity, pressure)` followed by a NaN test on the
+# RESULT. Every comparison against NaN is False, so Python's max returns its
+# first argument: max(9.6e-8, nan) is 9.6e-08. A NaN in the second column was
+# swallowed, the test below never fired, and the point was published
+# CONVERGED carrying a residual that is not the residual that decided it.
+# Infinity was the same class in a different disguise: inf <= limit is False,
+# so an infinite residual read as COMPLETED_MAX_ITER, which asserts the
+# solver merely ran out of iterations.
+#
+# The fix judges every component BEFORE combining them. Reducing a set of
+# numbers cannot be trusted to preserve the invalidity of one of them.
+
+LAST_VELOCITY = "+9.6000000E-8"
+LAST_PRESSURE = "+2.6200000E-8"
+
+
+def _log_with(replacement: str, column: str) -> str:
+    """The real fixture with one final-row residual replaced."""
+    text = (FIXTURES / "log_residuals_26.120.txt").read_text(encoding="utf-8")
+    lines = text.splitlines(keepends=True)
+    for index, line in enumerate(lines):
+        if line.startswith("1575"):
+            lines[index] = line.replace(column, replacement.ljust(len(column)))
+            break
+    else:  # pragma: no cover - the fixture changed
+        raise AssertionError("the final iteration row is no longer 1575")
+    return "".join(lines)
+
+
+def _assess_log(tmp_path, text):
+    make_raw(tmp_path, "loads_unsteady_26.120.txt")
+    make_raw(tmp_path, "", name="log.txt", text=text)
+    return LoadsAssessor("loads.txt", log_file="log.txt")(None, None, tmp_path)
+
+
+def test_a_nan_in_the_pressure_column_is_not_swallowed(tmp_path):
+    """Row 2 of the review's table, and the one that was wrong.
+
+    Measured before the fix: status=CONVERGED, iterations=1575,
+    residual=9.6e-08, which is the VELOCITY residual reported as though it
+    had decided a judgment the NaN should have prevented.
+    """
+    assessment = _assess_log(tmp_path, _log_with("NaN", LAST_PRESSURE))
+    assert assessment.status is RunStatus.FAILED_DIVERGED
+    assert assessment.iterations == 1575
+    assert "pressure" in assessment.error
+    # and it must not report the other column's value as "the" residual
+    assert assessment.residual is None
+
+
+def test_a_nan_in_the_velocity_column_is_still_caught(tmp_path):
+    """Row 4: this one already worked, and is here so the fix cannot lose it.
+
+    A guard that fired only for the first column was the whole defect; a fix
+    that moved the hole to the other column would pass the test above.
+    """
+    assessment = _assess_log(tmp_path, _log_with("NaN", LAST_VELOCITY))
+    assert assessment.status is RunStatus.FAILED_DIVERGED
+    assert "velocity" in assessment.error
+
+
+def test_an_infinite_residual_is_divergence_and_not_an_iteration_limit(tmp_path):
+    """Row 3: measured COMPLETED_MAX_ITER with residual=inf before the fix.
+
+    COMPLETED_MAX_ITER is a claim that the solver ran to its iteration cap
+    with a finite residual it simply did not reduce far enough. An infinite
+    residual is a different event and must not borrow that status.
+    """
+    assessment = _assess_log(tmp_path, _log_with("Inf", LAST_PRESSURE))
+    assert assessment.status is RunStatus.FAILED_DIVERGED
+    assert "pressure" in assessment.error
+
+
+def test_the_pristine_log_is_still_converged(tmp_path):
+    """Row 1, the control.
+
+    Without this the three above are satisfied by an assessor that calls
+    everything diverged.
+    """
+    assessment = _assess_log(
+        tmp_path, (FIXTURES / "log_residuals_26.120.txt").read_text(encoding="utf-8")
+    )
+    assert assessment.status is RunStatus.CONVERGED
+    assert assessment.iterations == 1575
+    assert assessment.residual == pytest.approx(9.6e-8)

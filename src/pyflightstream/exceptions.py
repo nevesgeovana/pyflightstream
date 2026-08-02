@@ -52,6 +52,7 @@ from pyflightstream.run import (
 from pyflightstream.script import (
     CommandArgumentError,
     ScriptLabelError,
+    ScriptLineBreakError,
     ScriptOrderError,
     ScriptReferenceError,
 )
@@ -80,6 +81,7 @@ __all__ = [
     "PhysicsEnvironmentError",
     "ProbeEnvironmentError",
     "ScriptLabelError",
+    "ScriptLineBreakError",
     "ScriptOrderError",
     "ScriptReferenceError",
     "StaleLoadsError",

@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import enum
 import json
+import math
 import subprocess
 import time
 from dataclasses import asdict, dataclass, field
@@ -66,6 +67,7 @@ from pyflightstream.workspace import (
     RunRecord,
     RunStatus,
     WorkspaceError,
+    _sha256,
 )
 
 _LOG_NAME = "FlightStreamLog.txt"
@@ -424,14 +426,47 @@ class LoadsAssessor:
                     error=f"solver log unusable: {error}",
                     **stamp,
                 )
-            residual = max(final.velocity_residual, final.pressure_residual)
-            if residual != residual:  # NaN
+            # PYFS-007. Every component is judged BEFORE they are combined,
+            # and that order is the fix rather than a detail of it.
+            #
+            # This was `max(velocity, pressure)` followed by a NaN test on the
+            # result. Python's max returns the first argument when the
+            # comparison is False, and every comparison against NaN is False,
+            # so max(9.6e-8, nan) is 9.6e-08: a NaN in the SECOND position was
+            # swallowed and the test below it never fired. The point was then
+            # published CONVERGED, carrying a residual that is not the residual
+            # that decided it. The guard only ever worked when the NaN happened
+            # to land in the velocity column.
+            #
+            # Infinity is the same class and was also wrong: inf <= limit is
+            # False, so an infinite residual read as COMPLETED_MAX_ITER, which
+            # says the solver ran out of iterations. It did not; it diverged.
+            #
+            # Reducing a set of numbers cannot be trusted to preserve the
+            # invalidity of one of them, so validity is established first.
+            components = {
+                "velocity": final.velocity_residual,
+                "pressure": final.pressure_residual,
+            }
+            nonfinite = [
+                f"{name}={value!r}"
+                for name, value in components.items()
+                if value is None or not math.isfinite(value)
+            ]
+            if nonfinite:
                 return Assessment(
                     status=RunStatus.FAILED_DIVERGED,
                     iterations=final.iteration,
-                    error="final residuals are NaN",
+                    error=(
+                        "non-finite final residual(s): "
+                        f"{', '.join(nonfinite)}. A residual that is NaN or "
+                        "infinite is not a small number, so no convergence "
+                        "judgment can be made from it; the solver diverged or "
+                        "the log is corrupt at that iteration"
+                    ),
                     **stamp,
                 )
+            residual = max(components.values())
             converged = residual <= report.convergence_limit
             return Assessment(
                 status=RunStatus.CONVERGED if converged else RunStatus.COMPLETED_MAX_ITER,
@@ -547,26 +582,55 @@ def run_campaign(
         On the first already-recorded point when ``resume`` is False.
     """
     canonical = resolve(campaign.fs_version).canonical
-    recorded = {record.run_id for record in workspace.read_manifest()}
+    manifest = {record.run_id: record for record in workspace.read_manifest()}
+    recorded = set(manifest)
     records: list[RunRecord] = []
     failures: list[RunRecord] = []
     for case in campaign.sims:
+        # PYFS-004. Which points of this case still need running is decided
+        # BEFORE anything is prepared, because preparation is not read-only:
+        # _prepare_case stages the inputs, and staging overwrites the copy in
+        # inputs/ that the already-recorded points were run against. Deciding
+        # afterwards meant a resume with nothing left to do still replaced the
+        # staged file while the manifest kept the OLD hash, so the manifest
+        # stopped describing the bytes on disk and nothing reported it. The
+        # skip has to happen at the CASE, because that is the level staging
+        # works at; skipping per point (which is what the loop below did) is
+        # already too late.
+        case_points = list(case.sweep.points())
+        run_ids = [_run_id(campaign, case, point) for point in case_points]
+        already = [run_id for run_id in run_ids if run_id in recorded]
+        if already and not resume:
+            raise WorkspaceError(
+                f"run_id {already[0]!r} is already in the manifest of "
+                f"{workspace.root}; re-running a recorded point would fork the "
+                "run identity. Pass resume=True to skip recorded points (and "
+                "run only the new ones), or archive the simulation / choose a "
+                "new campaign root to redo it."
+            )
+        pending = [
+            (point, run_id)
+            for point, run_id in zip(case_points, run_ids, strict=True)
+            if run_id not in recorded
+        ]
+        if not pending:
+            # Nothing to run, so nothing may be touched. This is the case the
+            # review reproduced, and the fix is the whole of it: return without
+            # creating the sim directory or staging anything.
+            continue
+        if already:
+            # Partially recorded: some points ran against the inputs staged
+            # last time. Re-staging different content would silently retire
+            # the evidence behind those records, so the inputs are verified
+            # rather than overwritten.
+            conflict = _staged_inputs_conflict(campaign, case, workspace, manifest, already)
+            if conflict is not None:
+                raise WorkspaceError(conflict)
         sim_dir = workspace.create_sim(case.sim_id)
         recipe, preparation_error, inputs_sha256, staged_geometry = _prepare_case(
             campaign, case, workspace, recipes
         )
-        for point in case.sweep.points():
-            run_id = _run_id(campaign, case, point)
-            if run_id in recorded:
-                if resume:
-                    continue
-                raise WorkspaceError(
-                    f"run_id {run_id!r} is already in the manifest of "
-                    f"{workspace.root}; re-running a recorded point would fork the "
-                    "run identity. Pass resume=True to skip recorded points (and "
-                    "run only the new ones), or archive the simulation / choose a "
-                    "new campaign root to redo it."
-                )
+        for point, run_id in pending:
             record = _execute_point(
                 campaign=campaign,
                 canonical=canonical,
@@ -900,6 +964,54 @@ def _output_collision(
                     "'loads_{point}.txt', and export case.outputs[i] from the recipe"
                 )
             seen.setdefault(name, tag)
+    return None
+
+
+def _staged_inputs_conflict(
+    campaign: Campaign,
+    case: SimCase,
+    workspace: CampaignWorkspace,
+    manifest: dict[str, RunRecord],
+    already: list[str],
+) -> str | None:
+    """Refuse a partial resume whose inputs changed since the recorded points.
+
+    Returns the refusal message, or None when resuming is safe.
+
+    Staging is a copy, so on a partial resume the file the new points would
+    run against replaces the one the recorded points DID run against. If the
+    source changed in between, the campaign would end up with one manifest
+    holding two sets of records that used different inputs, distinguishable
+    only by a hash the later staging has already overwritten. Comparing
+    before staging is what keeps the manifest's ``inputs_sha256`` a fact
+    about the run rather than about whatever was last copied (NFR-07).
+
+    A recorded point with no ``inputs_sha256`` (a case with no geometry, or a
+    record from a preparation failure) constrains nothing and is skipped.
+    """
+    if case.geometry is None:
+        return None
+    origin = Path(case.geometry)
+    if not origin.is_file():
+        # Absent sources are stage_inputs' refusal to make, with its own
+        # message; anticipating it here would report the wrong cause.
+        return None
+    current = _sha256(origin)
+    name = origin.name
+    for run_id in already:
+        recorded_hashes = manifest[run_id].inputs_sha256 or {}
+        was = recorded_hashes.get(name)
+        if was is None or was == current:
+            continue
+        return (
+            f"cannot resume {campaign.name}/sim_{case.sim_id}: its input {name!r} "
+            f"has changed since {run_id!r} ran. The manifest records "
+            f"{was[:12]}... for that point and {origin} now hashes to "
+            f"{current[:12]}.... Resuming would stage the new content over the "
+            "copy the recorded points used, leaving one manifest describing two "
+            "different sets of inputs. Restore the original input to resume, or "
+            "archive the simulation and run it again as new evidence."
+        )
     return None
 
 

@@ -5,7 +5,12 @@ from pathlib import Path
 import pytest
 
 from pyflightstream.commands import CommandNotInVersionError
-from pyflightstream.script import CommandArgumentError, Script, ScriptOrderError
+from pyflightstream.script import (
+    CommandArgumentError,
+    Script,
+    ScriptLineBreakError,
+    ScriptOrderError,
+)
 
 GOLDENS = Path(__file__).parent / "goldens"
 
@@ -292,3 +297,110 @@ def test_probe_family_is_available_in_26100():
     text = script.render()
     assert "NEW_PROBE_POINT VOLUME 1.0 0.5 0.0" in text
     assert "EXPORT_PROBE_POINTS\nC:/probes/out.txt" in text
+
+
+# PYFS-001, the review REV-002 blocker reproduced at ecc212e. The published
+# probe is reproduced verbatim as the first case, so a reader can compare
+# this file against the review without translating anything.
+#
+# The defect: _check_scalar type-checked a STR and returned it unexamined,
+# _format_scalar was str(value), and render() joins with "\n". So a newline
+# inside any string or path argument became a LINE BOUNDARY, the text after
+# it became the next command, and raw_flag stayed False, which is the flag
+# whose entire job is to record that a script contains something nobody
+# validated (FR-06, FR-07, FR-08a).
+#
+# Structural fix in three parts, and the third is the one that closes the
+# class rather than the case: the two text argument types reject a line
+# terminator with a message naming the consequence; comment() prefixes every
+# physical line; and emit() checks the RENDERED block, so a future argument
+# type or layout cannot reopen the hole without tripping it.
+
+
+def test_a_newline_in_a_path_argument_cannot_inject_a_command():
+    """The review's published probe, verbatim.
+
+    ``s.emit("IMPORT", "METER", "STL", "wing.stl\nSTART_SOLVER", clear=True)``
+    used to render START_SOLVER as its own line with ``raw_flag`` False.
+    """
+    script = Script("26.12")
+    with pytest.raises(ScriptLineBreakError) as caught:
+        script.emit("IMPORT", "METER", "STL", "wing.stl\nSTART_SOLVER", clear=True)
+    message = str(caught.value)
+    # The message must name the injected command, not merely say "invalid".
+    assert "START_SOLVER" in message
+    assert "raw" in message
+    # Nothing was appended: the refusal happens before the script is touched.
+    assert "START_SOLVER" not in script.render()
+    assert script.raw_flag is False
+
+
+def test_a_newline_in_a_comment_cannot_inject_a_command():
+    """``comment("hello\nSTART_SOLVER")`` used to emit a bare command line.
+
+    A comment is not refused, because commenting every line is what the
+    caller meant. What must not survive is an uncommented second line.
+    """
+    script = Script("26.12")
+    script.comment("hello\nSTART_SOLVER")
+    lines = script.render().splitlines()
+    assert lines == ["# hello", "# START_SOLVER"]
+    assert script.raw_flag is False
+
+
+def test_every_line_of_a_multi_line_comment_is_commented():
+    """Including the blank one, which becomes a bare ``#`` and not a gap."""
+    script = Script("26.12")
+    script.comment("first\n\nthird")
+    assert script.render().splitlines() == ["# first", "#", "# third"]
+
+
+@pytest.mark.parametrize(
+    "terminator",
+    ["\n", "\r\n", "\r", "\x0b", "\x0c", "\x1c", "\x85", "\u2028", "\u2029"],
+    ids=["lf", "crlf", "cr", "vt", "ff", "fs", "nel", "line-sep", "para-sep"],
+)
+def test_every_line_terminator_python_knows_is_refused(terminator):
+    """Not just ``\n``.
+
+    The guard is defined by ``str.splitlines`` rather than by a denylist of
+    characters, precisely so this parametrization passes. A denylist written
+    against CR and LF would let the other seven through, and they still
+    arrive as two lines because ``render`` joins what ``splitlines`` split.
+    """
+    script = Script("26.12")
+    with pytest.raises(ScriptLineBreakError):
+        script.emit("IMPORT", "METER", "STL", f"wing.stl{terminator}START_SOLVER")
+
+
+def test_a_trailing_line_terminator_is_refused_too():
+    """``"wing.stl\n"`` injects nothing by itself and still must not pass.
+
+    It carries no second command, so a check asking "is there text after the
+    break" would allow it, and the next command would then be appended to
+    this line's own physical line. The invariant is one line, not one command.
+    """
+    script = Script("26.12")
+    with pytest.raises(ScriptLineBreakError):
+        script.emit("IMPORT", "METER", "STL", "wing.stl\n")
+
+
+def test_raw_remains_the_sanctioned_route_and_still_flags():
+    """The refusal has an answer, and the answer is the one that records itself.
+
+    This is the control for the whole group: if unvalidated text could not be
+    appended at all, the fix would have removed a capability rather than
+    closed a hole.
+    """
+    script = Script("26.12")
+    script.raw("START_SOLVER")
+    assert "START_SOLVER" in script.render()
+    assert script.raw_flag is True
+
+
+def test_an_ordinary_path_still_emits_unchanged():
+    """The guard must not cost a legitimate call anything."""
+    script = Script("26.12")
+    script.emit("IMPORT", "METER", "STL", "C:/cases/wing.stl")
+    assert "C:/cases/wing.stl" in script.render()
+    assert script.raw_flag is False
