@@ -1,8 +1,8 @@
 # ITACA / pyflightstream shared process kit
-# kit-version: 0.2.4
+# kit-version: 0.2.16
 # artifact: role_review_gate.py
-# body-sha256: 0a927d38feaed7b78b86e0d4dc860e80141ca46f55423bd0914adc88eb4b65b9
-# canonical-source: itaca hardened basis. The coordination flavor (ClaudeProjects/.claude/hooks/role_review_gate.py) is a DOCUMENTED SUPERSET, not drift: it swaps the single LEDGER_ENV constant for a per-target LEDGER_ENV_BY_REPO map so one gate can resolve the right ledger var when it targets either repo via git -C <repo>. A repo vendoring this canonical body uses its own single ledger var.
+# body-sha256: 8dd77671321f5d4f76d44ee9ae5ff5eb72288586ba20a31251039fc5e28d8f3a
+# canonical-source: itaca hardened basis, and at 0.2.8 the per-target LEDGER_ENV_BY_REPO superset is RETIRED rather than documented: author decision LEDGER-ENVVAR gives every workspace ONE variable, COORD_INCIDENT_LEDGER, and an absent one now DENIES. There is no coordination flavor left to diverge, so a vendored copy and this master differ in nothing at all. Measured cause: the derived-name fallback meant the coordination repository resolved a variable that had never existed, and unset read as does-not-apply, so the level that writes the incidents was the only one of three this gate did not stop. 0.2.16 gives _strip_heredocs a POWERSHELL branch (ITC-20260801-2245: a here-string leaves an odd quote count, shlex raises, and the fail-closed fallback denies a COMMIT whose message merely mentions push, on the word pre-push alone) and closes a fail-OPEN found by running that fix's own new fixture against the pre-fix body (INC-20260802-1450-shared: an unterminated heredoc opener dropped every remaining line and a real git push went with them, reachable in two lines with no heredoc). Both branches now strip nothing when an opener is never terminated. See coordination/DESIGN_HUB-12_kit_batch.md item 1.
 # note: derived copy; canonical master at the coordination level (`ClaudeCoordinator/kit`); do not hand-edit, re-vendor on promotion.
 # END KIT PROVENANCE (body verbatim below)
 #!/usr/bin/env python3
@@ -75,9 +75,53 @@ ATTESTATION = ".claude/.role_review_attestation.json"
 # The shared incident ledger is located by environment variable, never by
 # a literal path in a committed file: a hard-coded personal path would
 # publish a local layout and deny every push from any other clone, with a
-# remedy the reader cannot perform. Unset means the check does not apply;
-# set but unreadable blocks.
-LEDGER_ENV = "PYFS_INCIDENT_LEDGER"
+# remedy the reader cannot perform.
+# ONE variable for every workspace that shares this ledger, and ABSENT DENIES.
+# Until 0.2.8 the sentence here read "unset means the check does not apply",
+# which is the defect LEDGER-ENVVAR removed and which survived the promotion
+# that removed it, sitting one line above its own replacement. Caught by the
+# architecture lens of the 0.2.8 push review, while no repository outside the
+# coordination level had vendored this body: one day later it would have been
+# a body change, a new hash and a re-vendor in three repositories.
+# Author decision LEDGER-ENVVAR, 2026-07-29 (kit 0.2.8).
+#
+# What it replaces, and why the replacement is not cosmetic. The coordination
+# flavor of this gate carried a per-target MAP from repository name to variable
+# name, with a fallback that derived one from the name. An unset variable
+# returned "not blocked", so a repository whose derived name nobody had ever
+# exported read as "no ledger applies here" and pushed freely.
+#
+# Measured by executing this module rather than by reading it, on 2026-07-29,
+# with a blocking shared incident open in the ledger:
+#
+#     itaca              ITACA_...              set    blocked=True
+#     pyflightstream     PYFS_...               set    blocked=True
+#     ClaudeCoordinator  CLAUDECOORDINATOR_...  UNSET  blocked=False
+#
+# The three names are abbreviated on purpose. A scaffolded project rewrites
+# every literal matching the ledger-variable shape in this body to its own,
+# so spelling the retired names in full would make them mutate on vendoring
+# and change the body hash. A comment that cannot survive being vendored is a
+# comment that will be wrong in every copy but this one.
+#
+# The workspace that WRITES the incidents and SHIPS this gate was the only one
+# of the three it did not stop. Nothing was misconfigured and nothing raised:
+# the name was derived, the variable had never existed, and absence read as
+# does-not-apply. That is the same shape as every other entry in
+# INC-20260729-0854-shared, one level down: a well-formed green answer over a
+# question that was never asked.
+#
+# One name cannot be derived wrongly, and absent-denies cannot read as absent-
+# does-not-apply. A repository that genuinely has no ledger says so by pointing
+# the variable at one; it does not say so by silence.
+#
+# DEPLOYMENT, and it comes BEFORE the vendor rather than after. This variable
+# exists nowhere until someone exports it, and this gate runs as a PreToolUse
+# hook on every shell command. So a copy vendored before the variable is set
+# denies every command in that repository until it is. Export it first, in
+# every workspace that vendors this body, then vendor. Recoverable in one
+# export either way, but recovering is not the same as planning.
+LEDGER_ENV = "COORD_INCIDENT_LEDGER"
 CHECKER_NAME = "check_incidents.py"
 # A version tag argument: v followed by a digit, then version-ish
 # characters (covers v0.3.0 and pre-releases like v0.3.0rc1, matching
@@ -139,6 +183,11 @@ _POSIX_C_CLUSTER = re.compile(r"^-[A-Za-z]*c[A-Za-z]*$")
 # Bounded hard so a crafted command cannot drive unbounded recursion, but
 # more than 1 so a single nesting does not defeat the gate.
 _WRAP_MAX_DEPTH = 4
+# A PowerShell here-string OPENER: `@'` or `@"` as the last thing on its
+# line. PowerShell requires the opener to end the line and the terminator
+# (`'@` / `"@`) to start one at column 0, so both halves are anchored here
+# rather than searched for anywhere. See _strip_powershell_herestrings.
+_PWSH_HERE_OPEN = re.compile(r"@(['\"])[ \t]*$")
 
 
 def _shell_family(basename: str) -> str | None:
@@ -177,28 +226,150 @@ def _is_wrapper_command_flag(family: str, flag: str) -> bool:
 
 
 def _strip_heredocs(command: str) -> str:
-    """Remove heredoc bodies before the command is tokenized.
+    """Remove heredoc and here-string bodies before the command is tokenized.
 
     A heredoc body is data the shell feeds to another program, not a
     command it runs. Leaving it in means a commit message that merely
     describes a push blocks the commit that documents it, which is both
     a false positive and an incentive to write vaguer messages.
+
+    BOTH BRANCHES STRIP NOTHING WHEN THE OPENER IS NEVER TERMINATED, and
+    that rule is the whole of ``INC-20260802-1450-shared``. It is stated
+    here as well as in each branch because it is the only property of this
+    function a caller depends on: stripping can only ever REMOVE tokens
+    from what is scanned, so a branch that guesses at an unterminated
+    opener can hide a push, and neither of them guesses.
+
+    POWERSHELL RUNS FIRST. With both branches conservative the order no
+    longer changes an answer, and it is kept because the here-string is
+    the narrower, anchored form: its opener must END a line and its
+    terminator must START one at column 0, while the heredoc pattern
+    matches ``<<WORD`` anywhere including inside a quoted message. Letting
+    the precise branch consume its own text first leaves the loose one
+    less to match against.
+    """
+    return _strip_bash_heredocs(_strip_powershell_herestrings(command))
+
+
+def _strip_powershell_herestrings(command: str) -> str:
+    """Remove PowerShell here-string bodies (``@'`` ... ``'@``).
+
+    ADDED 0.2.16, from ``ITC-20260801-2245``, the gate cannot parse a
+    PowerShell here-string. ``_strip_heredocs`` existed for exactly this
+    false positive and its own docstring named it, and it handled the BASH
+    form only, in a workspace whose primary shell is PowerShell.
+
+    THE MEASURED DEFECT. A here-string opens ``@'`` and closes ``'@``, so
+    the body carries an odd number of quotes, ``shlex.split(...,
+    posix=False)`` raises, and the gate takes its documented fail-CLOSED
+    branch: raw text matching ``\\bgit\\b`` and ``\\bpush\\b`` is a push.
+    So ``git commit -m @'...'@`` whose MESSAGE describes a push is DENIED
+    as a push. Worse in practice than that sentence sounds: a hyphen is a
+    word boundary, so ``pre-push`` alone satisfies the pattern, and every
+    message in an adoption lane names that tier. The workaround in use was
+    ``git commit -F <file>``.
+
+    THE OPENER's two characters become an empty quoted token, so the line
+    they sat on still tokenizes; the body is dropped; the terminator's own
+    line KEEPS whatever follows the two-character delimiter, because a
+    PowerShell pipeline may follow it and a real ``git push`` there must
+    still be seen.
+
+    THE TERMINATOR MUST SIT AT COLUMN 0, which is PowerShell's own rule:
+    an indented ``'@`` is a parse error there, so treating one as a
+    terminator would strip lines the shell never would.
+
+    AN UNCLOSED HERE-STRING STRIPS NOTHING. The command is returned
+    unchanged, so every token after the opener is still scanned. The bash
+    branch below now applies the same rule, for the reason recorded in its
+    own docstring; do not make either of them guess at an opener whose
+    terminator never arrived, because guessing there is what hid a push.
+
+    THE FALLBACK IS NOT RELAXED. It is the half that is correct: a command
+    whose quotes do not balance is still treated as a push that could not
+    be confirmed safe. What this branch removes is the false POSITIVE that
+    fallback produced on an ordinary commit message, and it removes it by
+    making the text parseable rather than by weakening the refusal.
+
+    AND THE FALLBACK IS NOT A NET, which is the lesson
+    ``INC-20260802-1450-shared`` cost. ``shlex(posix=False)`` does NOT
+    raise on every unbalanced quote: given ``git commit -m @'`` it returns
+    ``@'`` as an ordinary token and parses on. So a stripping bug that
+    removes a real push produces a clean parse with a push missing from
+    it, and nothing downstream notices. Every branch here has to be right
+    on its own; none of them may lean on the fallback to catch it.
     """
     lines = command.splitlines()
     kept: list[str] = []
     index = 0
     while index < len(lines):
         line = lines[index]
-        kept.append(line)
+        opener = _PWSH_HERE_OPEN.search(line)
+        if opener is None:
+            kept.append(line)
+            index += 1
+            continue
+        quote = opener.group(1)
+        terminator = quote + "@"
+        end = index + 1
+        while end < len(lines) and not lines[end].startswith(terminator):
+            end += 1
+        if end >= len(lines):
+            return command  # unterminated: strip nothing, fail closed
+        kept.append(line[: opener.start()] + quote + quote + lines[end][2:])
+        index = end + 1
+    return "\n".join(kept)
+
+
+def _strip_bash_heredocs(command: str) -> str:
+    """Remove bash heredoc bodies (``<<EOF`` ... ``EOF``).
+
+    AN UNTERMINATED OPENER STRIPS NOTHING, changed at 0.2.16 from
+    ``INC-20260802-1450-shared``, an unterminated heredoc opener hides a
+    real push. Through 0.2.15 an opener with no matching delimiter line
+    dropped EVERY remaining line, and a ``git push`` among them went with
+    them. That is the fail-OPEN direction in the one body whose whole
+    purpose is to fail closed, and it is reachable in two lines with no
+    heredoc anywhere in the command::
+
+        git commit -m "see the <<EOF form"
+        git push origin main
+
+    The opener pattern matches ``<<EOF`` INSIDE the quoted message, finds
+    no ``EOF`` line, and takes the push with it. MEASURED against the 0.2.8
+    body, which is what both libraries vendor: ``is_push=False``. It was
+    found by executing this promotion's own new fixture against the pre-fix
+    body, not by reading, and the shape it was found in is why: the
+    unbalanced quote a here-string leaves does NOT make
+    ``shlex(posix=False)`` raise, so the documented fail-closed fallback
+    never runs and the token stream is simply short a push.
+
+    The repair is the rule the PowerShell branch above already applies, so
+    the two are now symmetric and a reader has nothing to reconcile: a
+    heredoc whose delimiter never arrives is not a heredoc this function
+    understands, so it strips nothing and leaves the command as written.
+    That direction can only ever ADD tokens to what is scanned, so it
+    cannot hide a push, and a genuine terminated heredoc is untouched.
+    """
+    lines = command.splitlines()
+    kept: list[str] = []
+    index = 0
+    while index < len(lines):
+        line = lines[index]
         opener = re.search(r"<<-?\s*(['\"]?)([A-Za-z_]\w*)", line)
+        kept.append(line)
         index += 1
         if opener is None:
             continue
         delimiter = opener.group(2)
-        while index < len(lines) and lines[index].strip() != delimiter:
-            index += 1
-        if index < len(lines):
-            index += 1  # drop the closing delimiter line too
+        end = index
+        while end < len(lines) and lines[end].strip() != delimiter:
+            end += 1
+        if end >= len(lines):
+            # Unterminated: strip nothing at all, from this opener onward.
+            # See the docstring; dropping the remainder hid a real push.
+            return command
+        index = end + 1  # drop the body and the closing delimiter line
     return "\n".join(kept)
 
 
@@ -376,7 +547,18 @@ def _blocking_incidents(repo_name: str) -> tuple[bool, str, str]:
     """
     configured = os.environ.get(LEDGER_ENV, "").strip()
     if not configured:
-        return False, "", ""
+        # ABSENT DENIES. It used to return "not blocked", which is how the
+        # coordination repository pushed past a blocking incident it had
+        # itself written: the variable it derived had never existed, and
+        # unset read as does-not-apply. A guard that treats its own missing
+        # configuration as permission is not a guard.
+        return (
+            True,
+            "unconfigured",
+            f"{LEDGER_ENV} is not set, so the shared incident ledger was never "
+            f"consulted and this push is refused rather than allowed on a "
+            f"question nobody asked",
+        )
     checker = Path(configured)
     if checker.is_dir():
         checker = checker / CHECKER_NAME
@@ -768,6 +950,24 @@ def main() -> None:
         # answer, and allow.
         repo_name = _repo_identity(root)
         blocked, kind, detail = _blocking_incidents(repo_name)
+        if blocked and kind == "unconfigured":
+            # Its own bracketed sub-kind, because the remedy is neither
+            # "repair the ledger" nor "run the analyst": it is one export,
+            # and a message that does not say so turns a deployment step
+            # into a mystery on every shell command.
+            _decide(
+                "deny",
+                f"{GATE_PREFIX} [config] {detail}.\n"
+                f"Set {LEDGER_ENV} to the shared incident ledger directory (the "
+                f"one holding {CHECKER_NAME}), in this machine's environment or "
+                f"in the agent settings that carry it, then retry. It is machine "
+                f"configuration and never a literal in a committed file, which is "
+                f"why this gate cannot default it for you.\n"
+                f"This denial is EXPECTED the first time a repository vendors kit "
+                f"0.2.8 without exporting the variable first. Absent used to read "
+                f"as does-not-apply, and the workspace whose variable had never "
+                f"existed pushed past a blocking incident it had written itself.",
+            )
         if blocked and kind == "unreachable":
             _decide(
                 "deny",
@@ -824,13 +1024,32 @@ def main() -> None:
             # all of it. git accepts several tips in one rev-list.
             span = " ".join(targets) + " --not --remotes"
             refs = " ".join(_push_refs(args_after_push)) or "HEAD"
+            # The lens list is the operator's actual instruction, so it is
+            # half of the vocabulary and has to move with it. Through kit
+            # 0.2.5 this message named five lenses and write_attestation.py
+            # accepted five tokens, and the two agreed on a set that had no
+            # numerical seat in it: nothing could record a numerical pass, so
+            # nothing asked for one, so none ever ran. Extending the writer's
+            # tuple alone would have left the sentence a human reads still
+            # silent about the lens that was missing.
             _decide(
                 "deny",
                 f"{GATE_PREFIX} [review] {len(missing)} of the {len(in_scope)} "
                 f"commit(s) in scope for this push are not covered by any "
                 f"role-review attestation: "
-                f"{listed}{more}. Run the role-review skill (the specialist agents: "
-                "architect, QA, V&V, tech writer, API designer as applicable) over the "
+                f"{listed}{more}. Run the role-review skill. "
+                "This is the PUSH moment of the review policy "
+                "(kit review-policy.md), so the expected lenses here are "
+                "architect, QA and V&V, in ONE round, asking only whether the "
+                "code does what its message says it does; a text finding is "
+                "registered and does not stop this push. The tech writer and "
+                "API designer lenses belong to RELEASE, before a tag, not "
+                "here. Add the "
+                "numerical-analyst and integration-reviewer lenses at the "
+                "coordination level where a change is numerical or crosses "
+                "repositories. The three moments are GATE, PUSH and RELEASE; "
+                "kit review-policy.md says why they are named that and not "
+                "otherwise. Review the "
                 f"WHOLE pushed range, which is `{span}`, not only the tip; read "
                 f"it with `git log --oneline {span}`. Fix or register every "
                 "finding, then attest with `python .claude/hooks/"
@@ -865,7 +1084,11 @@ def main() -> None:
                     "attestation does not cover "
                     f"{len(rel_missing)} of the {len(in_scope)} commit(s) being "
                     "released, including the tagged commit itself when the branch was "
-                    "pushed first. Run the role-review skill over the whole release "
+                    "pushed first. This is the RELEASE moment of the review policy "
+                    "(kit review-policy.md): the FULL panel, every lens including "
+                    "tech writer and API designer, the artifact boundary, and a "
+                    "review OF the guards rather than only through them. Run the "
+                    "role-review skill over the whole release "
                     "diff (every applicable pass, full scope, not the last item only), "
                     "fix or register every finding, then write the release attestation "
                     "with `python .claude/hooks/write_attestation.py release "

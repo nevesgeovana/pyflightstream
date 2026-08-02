@@ -37,14 +37,34 @@ kit's own wrinkles, documented in its ``README.md``; the middle two are this
 repository's record of one promotion and its own caveat about this test.
 
 * The manifest below is MIXED, and that is correct rather than drift: it pins
-  each file to its own body hash and body version. Three files carry a 0.2.4
-  body (``role_review_gate.py``, ``incident-analyst.md`` and ``snap.sh``,
-  re-vendored 2026-07-28 for the privacy promotion below), two carry a 0.2.3
-  body (both plan-checker files, re-vendored 2026-07-27 for the legacy-id
-  grandfather hardening that this repository's own adoption review produced),
-  two carry a 0.2.2 body (both side-effect-guard files), and the artifacts
-  untouched since S5 keep their 0.1.0 body. Do not read any single version
-  below as the kit's version.
+  each file to its own body hash and body version. One file carries a 0.2.16
+  body (``role_review_gate.py``, re-vendored 2026-08-02 for the fail-open
+  described below), two carry a 0.2.4 body (``incident-analyst.md`` and
+  ``snap.sh``, re-vendored 2026-07-28 for the privacy promotion below), two
+  carry a 0.2.3 body (both plan-checker files, re-vendored 2026-07-27 for the
+  legacy-id grandfather hardening that this repository's own adoption review
+  produced), two carry a 0.2.2 body (both side-effect-guard files), and the
+  artifacts untouched since S5 keep their 0.1.0 body. Do not read any single
+  version below as the kit's version.
+* This repository is DELIBERATELY BEHIND on eight of the nine rows, and the gap
+  is measured rather than unknown. Against kit master 0.2.17 on 2026-08-02: six
+  of the nine vendored files are behind, and the kit manifest carries 25 further
+  rows this repository has never vendored at all, for an adoption surface of 31
+  artifacts. Only ``role_review_gate.py`` was taken, because it alone was
+  blocking (see the next bullet); absorbing the other thirty was declined as
+  scope, not overlooked. The bullet below on what this test cannot see is the
+  reason that decision has to be written down somewhere a reader will find it.
+* ``role_review_gate.py`` sits at 0.2.16 because the 0.2.4 body it replaced had
+  a FAIL-OPEN, ``INC-20260802-1450-shared``: ``_strip_heredocs`` treated an
+  unterminated heredoc opener as licence to drop every remaining line, so a
+  two-line command whose first line merely MENTIONED ``<<EOF`` in a commit
+  message took the real push on the second line with it, and the gate returned
+  without requiring an attestation, reading the ledger, or checking for a
+  release tag. Measured here before the re-vendor, against the deployed 0.2.4
+  body: three reduced reproductions each drew NO DECISION at all while the
+  control (a bare unattested push) denied; on the 0.2.16 body all four deny and
+  neither pinned heredoc behaviour moved. The permanent cases are in
+  ``tests/test_push_gate.py``.
 * The 0.2.4 promotion was made for privacy, and it is two changes of very
   different weight rather than one. It mattered here because
   ``.claude/tools/snap.sh`` is TRACKED and this remote is public, so a hashed
@@ -79,13 +99,27 @@ repository's record of one promotion and its own caveat about this test.
   reported it (``PLN-20260727-1707-kit-lag-0-2-3``). Whether the libraries
   gain a hub-reachable staleness check is the author's design call and is
   deliberately not decided by this test.
-* ``role_review_gate.py`` carries the ONE permitted per-repo difference: the
-  incident-ledger environment variable is ``PYFS_INCIDENT_LEDGER`` here and
-  ``ITACA_INCIDENT_LEDGER`` in the canonical (itaca) body the manifest hash
-  is computed over. The test normalizes that single token back to the
-  canonical name before hashing, which is why the gate body still reproduces
-  the manifest value while the runtime file reads the right variable for this
-  repository. Nothing else in a vendored body may differ.
+* ``role_review_gate.py`` USED to carry the one permitted per-repo difference,
+  and no longer does. The incident-ledger environment variable was
+  ``PYFS_INCIDENT_LEDGER`` here and ``ITACA_INCIDENT_LEDGER`` in the canonical
+  body, and this test normalized that single token before hashing. Kit 0.2.8
+  retired the split under the author decision ``LEDGER-ENVVAR``: every
+  workspace now reads ONE name, ``COORD_INCIDENT_LEDGER``, so the vendored body
+  and the master differ in NOTHING and the normalization is gone. The two
+  constants survive because the incident-analyst derivation below still needs
+  them; that artifact keeps its own per-repo substitution.
+
+  The rename is not cosmetic and the reason belongs here rather than only in a
+  changelog: an ABSENT variable used to mean "the check does not apply" and now
+  DENIES. That is what let the coordination repository push past a blocking
+  incident it had itself written, resolving a variable that had never existed.
+  A guard that reads its own missing configuration as permission is not a
+  guard. The practical consequence for a fresh clone is that
+  ``COORD_INCIDENT_LEDGER`` must be exported BEFORE this body is in place, not
+  after: this file is a PreToolUse hook on every shell command, so a copy
+  vendored ahead of the variable denies everything until it is set.
+  ``ITACA_INCIDENT_LEDGER`` below is therefore a historical name kept for the
+  analyst derivation alone, and is not what the gate reads.
 """
 
 from __future__ import annotations
@@ -116,8 +150,8 @@ REPO_LEDGER_VAR = "PYFS_INCIDENT_LEDGER"
 # here, because carrying it twice is how it went stale the last time.
 MANIFEST: dict[str, tuple[str, str, str]] = {
     ".claude/hooks/role_review_gate.py": (
-        "0.2.4",
-        "0a927d38feaed7b78b86e0d4dc860e80141ca46f55423bd0914adc88eb4b65b9",
+        "0.2.16",
+        "8dd77671321f5d4f76d44ee9ae5ff5eb72288586ba20a31251039fc5e28d8f3a",
         "ClaudeCoordinator/kit",
     ),
     ".claude/hooks/write_attestation.py": (
@@ -165,8 +199,14 @@ MANIFEST: dict[str, tuple[str, str, str]] = {
     ),
 }
 
-# The single file that carries the one permitted per-repo difference.
-NORMALIZE_LEDGER_VAR = {".claude/hooks/role_review_gate.py"}
+# Files whose body carries a per-repo substitution and must be normalized back
+# to the canonical name before hashing. EMPTY since the 0.2.16 gate re-vendor:
+# kit 0.2.8 gave every workspace one ledger variable, so no vendored BODY
+# differs from its master any more. Kept as a named, empty set rather than
+# deleted, because the mechanism is what makes the "nothing else may differ"
+# rule checkable, and the next artifact that needs a per-repo token should
+# rejoin this set rather than reinvent the normalization.
+NORMALIZE_LEDGER_VAR: set[str] = set()
 
 # The `canonical-source:` line of each vendored copy, pinned as a sha256
 # prefix of its value. Like `note:` it sits above the hash boundary and no
@@ -175,7 +215,7 @@ NORMALIZE_LEDGER_VAR = {".claude/hooks/role_review_gate.py"}
 # adapted from the AGPL predecessor (hard invariant 2). Fingerprinted rather
 # than quoted so this table stays one line per file.
 CANONICAL_SOURCE: dict[str, str] = {
-    ".claude/hooks/role_review_gate.py": "e2ad526f8de01276",
+    ".claude/hooks/role_review_gate.py": "716d08ccad269a20",
     ".claude/hooks/write_attestation.py": "eec6cd09a22cd4ed",
     ".claude/tools/incident-analyst.md": "5d082c68aa0e7a75",
     ".claude/tools/check_incidents.py": "e3cd74c877e000cb",

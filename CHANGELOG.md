@@ -108,6 +108,47 @@ FlightStream versions.
   line, which is where a copy records that its body was built for the
   kit rather than adapted from the AGPL predecessor (`.claude/tools/`,
   `tests/test_kit_drift.py`; internal tooling, not a package surface).
+* Documentation and process: the push gate is re-vendored from the kit at
+  0.2.16, alone, to close a FAIL-OPEN it carried at 0.2.4
+  (`INC-20260802-1450-shared`). `_strip_heredocs` removes heredoc bodies
+  before tokenizing so a commit message that merely describes a push is
+  not misread as one; its opener pattern matched anywhere in a line,
+  including inside a quoted commit message, and when no matching
+  delimiter ever arrived it dropped every remaining line. A real push on
+  the next line went with them, and the gate returned without requiring
+  an attestation, reading the ledger, or checking for a release tag. Not
+  a weaker refusal: no refusal, reachable in two lines of ordinary shell
+  with no heredoc anywhere in them. Measured here against the deployed
+  0.2.4 body before it was replaced: three reduced reproductions each
+  produced no decision at all while a bare unattested push denied; on the
+  0.2.16 body all four deny, and neither pinned heredoc behaviour moved.
+  The cases are now permanent in `tests/test_push_gate.py` and were
+  proven by mutation, failing on the 0.2.4 body restored from git.
+  TWO THINGS RIDE THIS VENDOR that are not the heredoc fix, both from kit
+  0.2.8, and both change behaviour. The incident-ledger variable the gate
+  reads is renamed from `PYFS_INCIDENT_LEDGER` to
+  `COORD_INCIDENT_LEDGER`, retiring the last per-repo difference between
+  a vendored body and its master; `PYFS_INCIDENT_LEDGER` stays live for
+  the `incident-analyst` agent, whose charter is a hash-pinned body on a
+  kit row NOT taken here, so a clone now sets both to the same directory.
+  And an unset variable now DENIES a push where it used to mean the check
+  did not apply, which sounds like a courtesy to a fork and was measured
+  to be something else: the level that writes the incidents pushed past a
+  blocking incident of its own authorship, on a variable name that had
+  never existed. Order matters on a fresh clone and is the reverse of the
+  obvious one: export the variable BEFORE this body is in place, since a
+  PreToolUse hook without its configuration denies every command. The
+  rest of the kit is deliberately NOT adopted; see below (`.claude/`,
+  `CLAUDE.md`, `tests/`; internal tooling, not a package surface).
+* Measured and NOT adopted, recorded so the gap is a decision rather than
+  a discovery: against kit master 0.2.17 on 2026-08-02, six of the nine
+  kit artifacts this repository vendors are behind their masters and the
+  kit manifest carries 25 further rows never vendored here, an adoption
+  surface of 31 artifacts. Only the push gate was taken, because it alone
+  was blocking. The earlier estimate of "17 findings across 8 files" was
+  measured against kit 0.2.7 in July and is superseded by this one
+  (`tests/test_kit_drift.py` records the same numbers next to the pins;
+  internal tooling, not a package surface).
 * Documentation and process: the shared process kit is re-vendored to
   0.2.4 for the push gate, the incident-analyst charter and the private
   snapshot tool, a promotion whose reason is privacy rather than

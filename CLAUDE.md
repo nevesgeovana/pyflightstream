@@ -102,7 +102,7 @@ reads the rule without leaving the repository; the full policy
 statement, including why documentation is not a guard and why a guard
 must be proven by mutation, lives in the shared ledger's own README, the
 cross-repo authority both libraries point at (located by
-`PYFS_INCIDENT_LEDGER`; one file per incident, id from a timestamp). The
+`COORD_INCIDENT_LEDGER`; one file per incident, id from a timestamp). The
 `incident-analyst` agent (`.claude/agents/`) drafts the record; whether
 an incident blocks is the author's call, and the push gate denies a push
 while a blocking incident is open for this repository.
@@ -179,10 +179,13 @@ folder, never scattered at the top level. Conversation with the author
 may be in Portuguese; every committed artifact is in English
 (invariant 6).
 
-Machine configuration (never a literal path in a committed file). Four
+Machine configuration (never a literal path in a committed file). Five
 environment variables locate the local, machine-specific tooling and
 state, and all live in the gitignored `.claude/settings.local.json`, so
-a fresh clone must set them. The rule in the first sentence is enforced
+a fresh clone must set them. It was four until 2026-08-02, when the
+0.2.16 gate vendor split the incident ledger into the variable the GATE
+reads and the one the ANALYST still reads; the two are listed separately
+below rather than merged, because they will not stay the same for long. The rule in the first sentence is enforced
 since 2026-07-28 by `tests/test_house_style.py`, which fails on an email
 address or a user-profile path in any tracked file; it was prose until a
 vendored tool published both on the public remote:
@@ -196,11 +199,50 @@ vendored tool published both on the public remote:
   still applies) and requires timestamp ids for new work. Unset skips
   validation; set but unreadable is a configuration error to report and,
   unlike the incident ledger below, does not block a push.
-- `PYFS_INCIDENT_LEDGER` names the shared incident ledger directory (the
-  `incident-analyst` agent and the push gate read it; the reasoning lives
-  in `.claude/hooks/role_review_gate.py`, the single home of that rule).
-  Unset means the incident check does not apply; set but unreadable
-  blocks a push.
+- `COORD_INCIDENT_LEDGER` names the shared incident ledger directory that
+  THE PUSH GATE reads (the reasoning lives in
+  `.claude/hooks/role_review_gate.py`, the single home of that rule).
+  **Unset DENIES every push, and set but unreadable also blocks.** There
+  is no configuration of this variable under which the gate proceeds
+  without an answer.
+
+  Two things about it are easy to get wrong, so both are stated rather
+  than left to be discovered.
+
+  It replaced `PYFS_INCIDENT_LEDGER` on 2026-08-02 when the 0.2.16 gate
+  body was vendored, under the coordination-level decision
+  `LEDGER-ENVVAR`: every workspace now reads ONE name, so the kit master
+  and each vendored copy differ in nothing at all. Both variables are
+  live here and they are NOT interchangeable, because the rename has not
+  reached the other consumer yet: the gate reads this one, and the
+  `incident-analyst` agent still reads `PYFS_INCIDENT_LEDGER` below. Set
+  both, to the same directory, until that agent is re-vendored.
+
+  And the unset behaviour INVERTED rather than tightened. It used to mean
+  the incident check did not apply, which sounds like a courtesy to a
+  fork and was measured to be something else: the coordination
+  repository, which is the level that WRITES the incidents, derived a
+  variable name that had never existed, read unset as does-not-apply,
+  and pushed past a blocking incident of its own authorship. Of three
+  workspaces the gate stopped two, and the silence was in the one with
+  the most to lose. A guard that reads its own missing configuration as
+  permission is not a guard. A genuine fork exports the variable at any
+  readable ledger, which the deny text names.
+
+  ORDER MATTERS ON A FRESH CLONE, and it is the reverse of the obvious
+  one: export this variable BEFORE the gate body is in place, not after.
+  The gate is a PreToolUse hook on every shell command, so a clone that
+  has the body and not the variable denies every command until it is
+  set. Recoverable in one export, but recovering is not the same as
+  planning.
+- `PYFS_INCIDENT_LEDGER` names the same directory for the
+  `incident-analyst` agent, which is the only consumer it has left since
+  the gate moved to `COORD_INCIDENT_LEDGER` above. It is not read by any
+  hook, so it blocks nothing on its own: unset degrades the analyst
+  rather than a push. It survives because the agent charter is a
+  hash-pinned vendored body (`.claude/tools/incident-analyst.md`, kit row
+  still at 0.2.4 here) and cannot be corrected in this repository; it
+  goes away on that row's next re-vendor, and this bullet goes with it.
 - `PYFS_SESSION_ROOT` names the session-document home in the
   coordination hub, read by the `handoff`, `plan`, `audit` and
   `derive-requirements` skills. It must name the directory that DIRECTLY
@@ -218,15 +260,17 @@ vendored tool published both on the public remote:
   let a session believe it closed while writing its record nowhere
   (`PLN-20260727-1541-session-root-indirection`).
 - `COORD_SHARED_LEDGER_TREE` names the shared incident-ledger work tree
-  that the vendored `.claude/tools/snap.sh` snapshots. It is the one
-  variable here without the `PYFS_` prefix, and that is not an
-  oversight: the tree is owned at the coordination level and shared with
-  the sister library, so the kit names it. It is listed here anyway
-  because a fresh clone reads THIS file and nothing else, and because
-  the variable arrived inside a hash-pinned body that cannot document
-  itself. It is unrelated to `PYFS_INCIDENT_LEDGER` above despite the
-  similar name: that one LOCATES the ledger the push gate consults,
-  this one names the tree the snapshot tool backs up. If both point at
+  that the vendored `.claude/tools/snap.sh` snapshots. It carries the
+  `COORD_` prefix rather than `PYFS_`, and that is not an oversight: the
+  tree is owned at the coordination level and shared with the sister
+  library, so the kit names it. (It was the only such variable until
+  2026-08-02; `COORD_INCIDENT_LEDGER` above now shares the prefix for the
+  same reason, and sharing a prefix is all they share.) It is listed here
+  anyway because a fresh clone reads THIS file and nothing else, and
+  because the variable arrived inside a hash-pinned body that cannot
+  document itself. It is unrelated to both ledger variables above despite
+  the similar name: those LOCATE the ledger the push gate and the analyst
+  consult, this one names the tree the snapshot tool backs up. If both point at
   the same directory on a machine, that is a coincidence of setup and
   neither reads the other. Unset means the shared tree is skipped and
   no push is blocked. Read the next paragraph before relying on that
@@ -253,7 +297,7 @@ The tier-1 guard in `tests/test_house_style.py` deliberately does NOT
 list `archive` among the migrated names, because `_private/archive/` is
 still a legitimate path here.
 
-A fifth variable, `CLAUDE_PROJECT_DIR`, appears in
+A sixth variable, `CLAUDE_PROJECT_DIR`, appears in
 `.claude/settings.json` and in the `plan` skill's validator command. It
 is NOT in the list above and must not be added to
 `.claude/settings.local.json`: the harness provides it at run time
@@ -266,15 +310,21 @@ whichever repository the current directory sits in, and since 2026-07-27
 a session routinely has two, so its failure mode is to silently validate
 a DIFFERENT repository. Loud-and-contingent beats silent-and-wrong.
 
-Summary of the four, because the unset and unreadable columns differ
+Summary of the five, because the unset and unreadable columns differ
 per variable and the difference is the trap:
 
 | Variable | Unset | Set but unreadable | Enforced by |
 |---|---|---|---|
 | `PYFS_PLAN_CHECKER` | skips validation | report, does not block a push | instruction only (the drift test guards the checker body, not this behaviour) |
-| `PYFS_INCIDENT_LEDGER` | check does not apply | blocks a push | `role_review_gate.py`, tier-1 `test_push_gate.py` |
+| `COORD_INCIDENT_LEDGER` | **blocks a push** | blocks a push | `role_review_gate.py`, tier-1 `test_push_gate.py` |
+| `PYFS_INCIDENT_LEDGER` | degrades the `incident-analyst` agent, blocks nothing | same | instruction only; no hook reads it since 2026-08-02 |
 | `PYFS_SESSION_ROOT` | stop, configuration error | stop, configuration error | **instruction only, see below** |
 | `COORD_SHARED_LEDGER_TREE` | shared tree skipped, and see the defect above | same skip | documented-here only; `tests/test_env_contract.py` enforces that it IS documented, not what it does |
+
+`COORD_INCIDENT_LEDGER` is the only row whose two columns agree, and that
+is the point of it rather than an accident of drafting: it is the one
+variable for which there is no configuration that lets a push proceed on
+a question nobody asked.
 
 Weakness stated, not hidden, for both variables that have one.
 

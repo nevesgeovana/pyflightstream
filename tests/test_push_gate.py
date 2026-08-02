@@ -22,9 +22,24 @@ Each test builds a throwaway repository with a local bare remote, so
 nothing here touches the real checkout, the real attestation, or the
 shared incident ledger. The hook is invoked exactly as the harness
 invokes it: the PreToolUse payload on stdin, a permission decision on
-stdout. The incident-ledger variable is stripped from every hook
-subprocess so the suite is hermetic; inheriting it would make every case
-depend on the state of a ledger outside the repository.
+stdout.
+
+HOW HERMETICITY IS OBTAINED, because the mechanism inverted on
+2026-08-02 and the old sentence would now be actively misleading. It
+used to be enough to STRIP the incident-ledger variable from every hook
+subprocess: unset meant the incident check did not apply, so an absent
+variable was the neutral state. Kit 0.2.8 made an absent variable DENY,
+for the reason recorded on ``test_an_unconfigured_ledger_now_denies``,
+and neutral-by-absence stopped existing. Stripping the variable would
+now make every allow case fail for a reason that has nothing to do with
+what it tests.
+
+So the neutral state is no longer "no ledger" but "a ledger that is
+readable and reports clean", and ``hook_env`` supplies one: a stub
+``check_incidents.py`` in a throwaway directory that exits 0 whatever it
+is asked. The suite is hermetic in the sense that matters, which is that
+it never reads the author's real ledger, and it can still express the
+genuinely-absent case by passing ``ledger=UNSET``.
 """
 
 from __future__ import annotations
@@ -33,13 +48,22 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
 
 HOOK = Path(__file__).resolve().parents[1] / ".claude" / "hooks" / "role_review_gate.py"
 ATTESTATION = Path(".claude") / ".role_review_attestation.json"
-LEDGER_ENV = "PYFS_INCIDENT_LEDGER"
+# The variable the GATE reads. Renamed from PYFS_INCIDENT_LEDGER when the
+# 0.2.16 body was vendored on 2026-08-02: kit 0.2.8 gave every workspace one
+# name under the author decision LEDGER-ENVVAR. This constant must track the
+# gate body, not the repository's other consumers: `.claude/agents/`
+# incident-analyst.md still reads PYFS_INCIDENT_LEDGER and is a different
+# artifact on a different kit row. Pointing this at the wrong name does not
+# fail loudly, it makes `hook_env` stop suppressing the real ledger and the
+# suite silently depends on one author's machine.
+LEDGER_ENV = "COORD_INCIDENT_LEDGER"
 # Built by concatenation so this file never contains the literal command
 # it tests; the gate scans command text and would flag work on this file.
 PUSH = "git" + " push"
@@ -51,21 +75,47 @@ def git(repo: Path, *args: str) -> str:
     return done.stdout.strip()
 
 
-def hook_env(ledger: str | None = None) -> dict[str, str]:
+# Sentinel for "the variable is genuinely absent", which is now a distinct
+# state from "not specified by this test" and has the opposite outcome. A
+# plain None cannot carry both meanings any more.
+UNSET = object()
+
+
+def _clean_ledger() -> str:
+    """A throwaway ledger directory whose checker always reports clean.
+
+    Created once per session and cached. This is the NEUTRAL state for every
+    case that is not about incidents: readable, answers 0, names no repository.
+    Deliberately not the author's real ledger, whose contents change and whose
+    open blocking entries would otherwise fail tests about refspec parsing.
+    """
+    global _CLEAN_LEDGER
+    if _CLEAN_LEDGER is None:
+        folder = Path(tempfile.mkdtemp(prefix="pyfs-clean-ledger-"))
+        _CLEAN_LEDGER = stub_ledger(folder, 0, "clean")
+    return _CLEAN_LEDGER
+
+
+_CLEAN_LEDGER: str | None = None
+
+
+def hook_env(ledger: str | object | None = None) -> dict[str, str]:
     """The environment a hook subprocess runs in.
 
-    The incident-ledger variable is dropped unless the caller sets it, so
-    the suite stays hermetic: inheriting a real ledger path would make
-    every case depend on state outside the repository, and a real open
-    incident would then fail tests that are not about incidents at all.
+    ``ledger`` is a path to use, ``UNSET`` to remove the variable entirely, or
+    ``None`` (the default) for the clean stub above. The author's real ledger
+    is never inherited in any of the three: a real open incident would fail
+    tests that are not about incidents at all, which is precisely what the
+    blocking entry that prompted this vendor would have done to 24 of them.
     """
     env = {k: v for k, v in os.environ.items() if k != LEDGER_ENV}
-    if ledger is not None:
-        env[LEDGER_ENV] = ledger
+    if ledger is UNSET:
+        return env
+    env[LEDGER_ENV] = _clean_ledger() if ledger is None else str(ledger)
     return env
 
 
-def judge(repo: Path, command: str, ledger: str | None = None) -> tuple[str, str]:
+def judge(repo: Path, command: str, ledger: str | object | None = None) -> tuple[str, str]:
     """Run the hook on ``command`` and return (decision, reason)."""
     done = subprocess.run(
         [sys.executable, str(HOOK)],
@@ -81,7 +131,7 @@ def judge(repo: Path, command: str, ledger: str | None = None) -> tuple[str, str
     return str(out["permissionDecision"]), str(out.get("permissionDecisionReason", ""))
 
 
-def decide(repo: Path, command: str, ledger: str | None = None) -> str:
+def decide(repo: Path, command: str, ledger: str | object | None = None) -> str:
     """Run the hook on ``command`` and return its permission decision."""
     return judge(repo, command, ledger)[0]
 
@@ -214,15 +264,32 @@ def test_a_configured_but_unreadable_ledger_blocks(repo: Path, tmp_path: Path) -
     assert decide(repo, f"{PUSH} origin main", ledger=str(tmp_path / "nowhere")) == ("deny")
 
 
-def test_an_unconfigured_ledger_does_not_block_a_fork(repo: Path) -> None:
-    """Without the environment variable the incident gate does not apply.
+def test_an_unconfigured_ledger_now_denies(repo: Path) -> None:
+    """Without the environment variable the push is REFUSED, not waved through.
 
-    The shared ledger is one author's local artifact. A clone that never
-    configured it must still be able to push once its work is reviewed.
+    This test asserted the opposite until 2026-08-02, and the inversion is the
+    substance of the kit 0.2.8 promotion rather than a detail of it. The old
+    contract reasoned that the shared ledger is one author's local artifact, so
+    a clone that never configured it should still be able to push once its work
+    was reviewed. That reasoning is about a FORK, and it was applied to the
+    variable being absent, which is a different question with the same symptom.
+
+    What it cost, measured at the coordination level and not hypothesized: the
+    repository that WRITES the incidents derived a ledger variable name that
+    had never existed, unset read as does-not-apply, and it pushed past a
+    blocking incident of its own authorship. Of the three workspaces, the gate
+    stopped two and the silence was in the one with the most to lose.
+
+    So the rule is now that a guard may not read its own missing configuration
+    as permission. The remedy for a genuine fork is to export the variable at a
+    ledger it can read, which is one line and is named in the deny text; the
+    remedy for the old behaviour was nothing, because nothing was reported.
     """
     head = add_commit(repo, "one")
     attest(repo, [head])
-    assert decide(repo, f"{PUSH} origin main") == "allow"
+    decision, reason = judge(repo, f"{PUSH} origin main", ledger=UNSET)
+    assert decision == "deny"
+    assert LEDGER_ENV in reason, reason
 
 
 def test_a_trailing_command_does_not_defeat_the_gate(repo: Path) -> None:
@@ -256,6 +323,87 @@ def test_a_heredoc_commit_that_mentions_the_push_is_not_a_push(repo: Path) -> No
     for opener, closer in (("<<'MSG'", "MSG"), ("<<MSG", "MSG"), ('<<"MSG"', "MSG")):
         cmd = f"git commit -F- {opener}\ndocument the {PUSH} gate\n{closer}"
         assert decide(repo, cmd) == "allow", opener
+
+
+# INC-20260802-1450-shared. Kept as a table rather than three separate
+# functions because the point is the CLASS: every one of these is two lines of
+# ordinary shell with no heredoc in it anywhere, and the label is what a
+# failure prints.
+UNTERMINATED_OPENER_CASES = [
+    (
+        "a message naming <<EOF, then a real push on the next line",
+        f'git commit -m "see the <<EOF form"\n{PUSH} origin main',
+    ),
+    (
+        "the same with the opener inside a -m and a trailing &&",
+        f'git commit -m "about <<HEREDOC" && \\\n{PUSH} origin main',
+    ),
+    (
+        "a << that is not a heredoc at all, then a real push",
+        f'git commit -m "a << b"\n{PUSH} origin main',
+    ),
+]
+
+
+@pytest.mark.parametrize("label,command", UNTERMINATED_OPENER_CASES, ids=lambda v: v[:40])
+def test_an_unterminated_heredoc_opener_does_not_swallow_a_real_push(
+    repo: Path, label: str, command: str
+) -> None:
+    """A heredoc opener that never terminates must strip NOTHING.
+
+    INC-20260802-1450-shared, and it is the worst shape this mechanism has: a
+    FAIL-OPEN. ``_strip_heredocs`` removes heredoc bodies before tokenizing so
+    that a commit message merely describing a push does not read as one. Its
+    opener pattern matched anywhere in a line, including inside a quoted commit
+    message, and when no matching delimiter line ever arrived it dropped every
+    remaining line. The real push on the next line went with them, and the gate
+    returned without requiring an attestation, reading the ledger, or checking
+    for a release tag. Not a weaker refusal: no refusal.
+
+    Measured here against the deployed 0.2.4 body before it was replaced, all
+    three cases returned NO DECISION AT ALL while the control below denied.
+
+    The structural rule the fix encodes, and the reason this test asserts on
+    every branch rather than sampling one: stripping can only ever REMOVE
+    tokens from what is scanned, so for an input the stripper does not
+    understand there is exactly one safe direction, and it is to strip nothing.
+    Do not weaken this to "the parse fails and the raw-text fallback catches
+    it". That fallback is not a net. ``shlex.split(posix=False)`` does not
+    raise on every unbalanced quote (given ``git commit -m @'`` it returns
+    ``@'`` as an ordinary token and parses on), so a stripping bug produces a
+    CLEAN parse with the push missing from it and nothing downstream notices.
+    """
+    decision, reason = judge(repo, command)
+    assert decision == "deny", (
+        f"{label}: the gate returned {decision!r} on a command containing a "
+        "real push. An empty decision here is the fail-open, not an allow."
+    )
+    assert reason, f"{label}: denied with no reason text"
+
+
+def test_the_control_for_the_unterminated_opener_cases_denies(repo: Path) -> None:
+    """A bare unattested push denies, so the cases above can see a deny at all.
+
+    Without this the three above are unfalsifiable: a harness that could never
+    produce a deny would pass them for the wrong reason. This is the same
+    control that was measured alongside the red run.
+    """
+    add_commit(repo, "one")
+    assert decide(repo, f"{PUSH} origin main") == "deny"
+
+
+def test_a_terminated_heredoc_does_not_hide_a_push_after_it(repo: Path) -> None:
+    """Stripping stops at the delimiter, so a push AFTER the body is still seen.
+
+    The companion pin to the allow case above. Together they bound the fix from
+    both sides: an unterminated opener must strip nothing, and a terminated one
+    must strip exactly its own body and no more. A fix that satisfied only the
+    fail-open could have been written by disabling the stripper entirely, and
+    this is the assertion that would have caught it.
+    """
+    add_commit(repo, "one")
+    cmd = f"git commit -F- <<MSG\na message\nMSG\n{PUSH} origin main"
+    assert decide(repo, cmd) == "deny"
 
 
 def test_a_dash_c_push_from_outside_the_repo_is_recognized(repo: Path, tmp_path: Path) -> None:
