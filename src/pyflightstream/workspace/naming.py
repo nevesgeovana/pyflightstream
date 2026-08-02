@@ -33,6 +33,7 @@ from string import Formatter
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
+from pyflightstream._errors import PyflightstreamError
 from pyflightstream.cases import point_tag
 
 _POINT_PLACEHOLDERS = ("campaign", "sim", "point", "alpha", "beta", "mach", "advance_ratio")
@@ -42,7 +43,7 @@ _ARCHIVE_PLACEHOLDERS = ("campaign", "sim")
 _UNSAFE_CHARS = re.compile(r'[<>:"/\\|?*\s]')
 
 
-class NamingTemplateError(ValueError):
+class NamingTemplateError(PyflightstreamError, ValueError):
     """A naming template cannot be validated or rendered.
 
     Raised when a template names an unknown placeholder, when a

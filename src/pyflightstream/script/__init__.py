@@ -42,6 +42,7 @@ import os
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Literal
 
+from pyflightstream._errors import PyflightstreamError
 from pyflightstream.commands import (
     ArgSpec,
     ArgType,
@@ -142,7 +143,7 @@ _COUNT_REFERENCE_ARGS = {
 }
 
 
-class ScriptOrderError(ValueError):
+class ScriptOrderError(PyflightstreamError, ValueError):
     """A command was emitted after its phase had already passed.
 
     The script builder tracks the highest phase reached (geometry,
@@ -152,7 +153,7 @@ class ScriptOrderError(ValueError):
     """
 
 
-class CommandArgumentError(ValueError):
+class CommandArgumentError(PyflightstreamError, ValueError):
     """An emitted argument does not satisfy the database specification.
 
     The message names the command, the argument, the expectation, and

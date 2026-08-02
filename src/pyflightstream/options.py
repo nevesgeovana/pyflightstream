@@ -48,8 +48,10 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
 
+from pyflightstream._errors import PyflightstreamError
 
-class OptionError(KeyError):
+
+class OptionError(PyflightstreamError, KeyError):
     """An option key is unknown, or a value fails its validator.
 
     Raised with the didactic message contract of the module: unknown

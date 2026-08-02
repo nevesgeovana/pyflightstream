@@ -42,6 +42,7 @@ import numpy as np
 import yaml
 
 import pyflightstream
+from pyflightstream._errors import PyflightstreamError
 from pyflightstream.qa.geometry import BladeSpec, WingSpec, generate_blade_stl, generate_wing_stl
 from pyflightstream.results import IncompleteOutputError, LoadsReport, parse_loads
 from pyflightstream.run import ExecutionResult, LocalExecutor
@@ -76,7 +77,7 @@ __all__ = [
 ]
 
 
-class PhysicsEnvironmentError(RuntimeError):
+class PhysicsEnvironmentError(PyflightstreamError, RuntimeError):
     """The physics run cannot start as configured.
 
     Raised before any case runs: a missing executable or an unknown

@@ -37,6 +37,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from pyflightstream._errors import PyflightstreamError
 from pyflightstream.versions import FsVersion, resolve
 
 _DASHED_LINE = re.compile(r"^-{4,}$")
@@ -46,7 +47,7 @@ _SOFTWARE_LINE = re.compile(
 )
 
 
-class AnchorNotFoundError(ValueError):
+class AnchorNotFoundError(PyflightstreamError, ValueError):
     """A printed label or table header was not found in the output.
 
     Anchor-based parsing refuses to fall back to line offsets; a
@@ -55,7 +56,7 @@ class AnchorNotFoundError(ValueError):
     """
 
 
-class IncompleteOutputError(ValueError):
+class IncompleteOutputError(PyflightstreamError, ValueError):
     """The output file ends before its structural terminator.
 
     A loads spreadsheet without its footer or a table without its

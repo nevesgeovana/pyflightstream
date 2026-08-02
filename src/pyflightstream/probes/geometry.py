@@ -21,6 +21,7 @@ from pathlib import Path
 
 import numpy as np
 
+from pyflightstream._errors import PyflightstreamError
 from pyflightstream.probes.planar import (
     GeometryGateReport,
     PlanarProbeGrid,
@@ -35,7 +36,7 @@ __all__ = [
 ]
 
 
-class GeometryEngineMissingError(ImportError):
+class GeometryEngineMissingError(PyflightstreamError, ImportError):
     """The optional geometry engine is not installed.
 
     Point-in-body containment and distance-to-surface queries need
@@ -44,7 +45,7 @@ class GeometryEngineMissingError(ImportError):
     """
 
 
-class OpenMeshError(ValueError):
+class OpenMeshError(PyflightstreamError, ValueError):
     """The surface mesh is not watertight.
 
     Inside/outside is undefined for an open surface (a half model cut

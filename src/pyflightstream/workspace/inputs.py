@@ -39,13 +39,15 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
+from pyflightstream._errors import PyflightstreamError
+
 INPUT_KINDS = ("geometries", "references", "setups", "groups", "profiles")
 EXECUTABLES_FILE = "executables.toml"
 
 _ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 
-class InputArtifactError(RuntimeError):
+class InputArtifactError(PyflightstreamError, RuntimeError):
     """An input artifact cannot be resolved or validated.
 
     Raised when an id is unknown (the message lists the available ids

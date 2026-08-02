@@ -36,6 +36,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pyflightstream
+from pyflightstream._errors import PyflightstreamError
 from pyflightstream.commands import CommandRegistry
 from pyflightstream.run import ExecutionResult, Executor, LocalExecutor
 from pyflightstream.script import Script
@@ -95,7 +96,7 @@ class Requires(enum.StrEnum):
     SOLUTION = "solution"
 
 
-class ProbeEnvironmentError(RuntimeError):
+class ProbeEnvironmentError(PyflightstreamError, RuntimeError):
     """The probe environment is unusable, so no command was judged.
 
     Raised when the baseline probe fails (solver not starting, license

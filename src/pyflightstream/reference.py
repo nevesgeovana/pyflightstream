@@ -85,8 +85,12 @@ CONVENTIONS: tuple[tuple[str, str], ...] = (
         "Versions use the canonical scheme",
         "FlightStream versions are canonical 26.XXX identifiers with "
         "exactly three fractional digits (26.120), the vendor display "
-        "name is an alias (26.12), and ordering comes only from the "
-        "registered list position, never from parsing the identifier.",
+        "name is recorded as an alias (26.12), and ordering comes only "
+        "from the registered list position, never from parsing the "
+        "identifier. An alias resolves only where it names exactly one "
+        "build: the vendor ships every hotfix of a minor release under "
+        "one name, so 26.12 names both 26.120 and 26.121 and is refused "
+        "with both named rather than resolving to either.",
     ),
     (
         "Indices state their base",
@@ -108,7 +112,11 @@ CONVENTIONS: tuple[tuple[str, str], ...] = (
         "Error messages name the physical or version cause and the "
         "remedy, main refusal wordings are pinned by test, and every "
         "exception class is importable from pyflightstream.exceptions; "
-        "structured refusals carry their facts as attributes.",
+        "structured refusals carry their facts as attributes. Every "
+        "exception descends from PyflightstreamError, so one except "
+        "clause catches the package, and each also keeps the "
+        "standard-library base it would have had, so catching "
+        "ValueError or RuntimeError still works.",
     ),
     (
         "Options are declared knobs",
@@ -133,6 +141,27 @@ CONVENTIONS: tuple[tuple[str, str], ...] = (
         "neither vocabulary naming the helper and the argument. "
         "Truthiness is never consulted, since a non-empty string is "
         "truthy and 'DISABLE' would otherwise silently emit ENABLE.",
+    ),
+    (
+        "Diagnostics are nouns, validators say check_",
+        "A function that MEASURES a property of a result is named for the "
+        "quantity it returns, as a noun: sample_coverage beside "
+        "ring_sample_weights, symmetry_floor, spurious_diagnostic, "
+        "mass_closure. A function that REFUSES an invalid combination "
+        "carries the check_ prefix and returns nothing: check_recipe, "
+        "check_state_matches_config. The two are different jobs and the "
+        "name says which, so a reader knows before opening it whether a "
+        "call can raise.",
+    ),
+    (
+        "A validator takes what it needs, not the object that holds it",
+        "A check_ function takes the individual values it compares, not "
+        "the configuration object carrying them, whenever taking the "
+        "object would force an import against the dependency direction. "
+        "check_state_matches_config takes two integer counts rather than "
+        "the config, so fsi.state never imports fsi.config and the "
+        "exception catalog stays importable without the [fsi] extra. "
+        "Convenience at one call site is not worth an upward import.",
     ),
 )
 

@@ -50,6 +50,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from pyflightstream._errors import PyflightstreamError
 from pyflightstream.workspace.inputs import (
     EXECUTABLES_FILE,
     INPUT_KINDS,
@@ -98,7 +99,7 @@ _EXECUTABLES_TEMPLATE = """\
 """
 
 
-class WorkspaceError(RuntimeError):
+class WorkspaceError(PyflightstreamError, RuntimeError):
     """A file-management operation was refused or impossible.
 
     The refusals protect run evidence: archiving or cleaning without a

@@ -38,6 +38,7 @@ from importlib import resources
 import yaml
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
+from pyflightstream._errors import PyflightstreamError
 from pyflightstream.versions import FsVersion, known_versions, resolve
 
 _MANUAL_REF_PATTERN = re.compile(r"^SRC-\d{3} pp?\.\d+")
@@ -137,7 +138,7 @@ class ListSeparator(enum.StrEnum):
     NEWLINE = "newline"
 
 
-class CommandNotInVersionError(LookupError):
+class CommandNotInVersionError(PyflightstreamError, LookupError):
     """A command is unavailable in the requested FlightStream version.
 
     Raised by a per-version view when the command is removed in that

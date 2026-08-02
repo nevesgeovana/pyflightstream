@@ -637,10 +637,10 @@ the base could not offer while it bundled several.
     generic half of this machinery to the sister library, so what stays
     here is the FlightStream-side application and the lattice adapter.
 
-!!! requirement "FR-39 Public exception hierarchy <span class='srs-pending'>pending</span>"
+!!! requirement "FR-39 Public exception hierarchy <span class='srs-implemented'>implemented</span>"
     *Origin: Phase 4 review, accepted 2026-07-27, absorbing the C2
     catalog acceptance and the M1 typed-hierarchy mirror. Evidence:
-    `src/pyflightstream/exceptions.py`;
+    PFS-2 (2026-08-03); `src/pyflightstream/exceptions.py`;
     `tests/test_exceptions_catalog.py`.*
 
     Every exception raised by the public API derives from a single
@@ -649,13 +649,21 @@ the base could not offer while it bundled several.
     re-exported from one catalog module, so that a class defined
     outside the catalog fails the suite.
 
-    Pending on its first clause, which is the load-bearing one for a
-    user: there is no single base class today. The catalog exists, it
-    is complete, and a class outside it fails the suite
-    (`tests/test_exceptions_catalog.py`), but the types derive from
-    stdlib bases, so a caller cannot catch everything this package
-    raises with one except clause. That is the half a user asked for
-    and the half not yet built.
+    The base is `PyflightstreamError`. Each exception keeps the
+    standard-library base it derived from before, as a second base, so
+    the change is purely widening: `except ValueError` and
+    `except RuntimeError` catch exactly what they used to, and
+    `except PyflightstreamError` now catches the package. Two guards,
+    not one: membership in the catalog and descent from the base are
+    asserted separately, because a class can join `__all__` and still be
+    invisible to a single except clause.
+
+    The base parents the exceptions and not the one catalogued warning.
+    The first clause of this requirement says exception, the third says
+    exception and warning, and those are deliberately different sets: a
+    warning is delivered through the warnings machinery and selected by
+    category, and naming it an `Error` would mislead the reader of a
+    traceback.
 
     The family names are this package's own (version, physics, IO,
     evidence). Only the pattern is borrowed from the sister library,

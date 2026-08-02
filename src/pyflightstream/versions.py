@@ -19,10 +19,12 @@ from importlib import resources
 
 import yaml
 
+from pyflightstream._errors import PyflightstreamError
+
 _CANONICAL_PATTERN = re.compile(r"^\d{2}\.\d{3}$")
 
 
-class UnknownVersionError(ValueError):
+class UnknownVersionError(PyflightstreamError, ValueError):
     """A FlightStream version identifier is not in the ordered registry.
 
     Raised when a canonical identifier or display alias does not match
@@ -55,7 +57,7 @@ class UnknownVersionError(ValueError):
         self.known = known
 
 
-class AmbiguousVersionAliasError(ValueError):
+class AmbiguousVersionAliasError(PyflightstreamError, ValueError):
     """A vendor release name identifies more than one registered build.
 
     The vendor reuses a single release name across the hotfix builds of

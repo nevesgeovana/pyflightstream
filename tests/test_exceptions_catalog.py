@@ -63,6 +63,93 @@ def test_every_defined_exception_is_in_the_catalog():
     )
 
 
+def test_every_catalogued_exception_descends_from_the_package_base():
+    """One except clause must catch everything the package raises (FR-39).
+
+    The totality companion of the membership test above: that one fails
+    when a class does not JOIN the catalog, this one fails when a class
+    joins it without joining the hierarchy. Both are needed, because a
+    catalogued class that derives only from a builtin is invisible to
+    `except PyflightstreamError` while looking perfectly present in
+    `__all__`.
+
+    Warnings are deliberately outside the hierarchy. FR-39 asks for a
+    base of every raised EXCEPTION and a catalog of every exception AND
+    warning; those are two different sets, and a warning delivered
+    through the warnings machinery and selected by category is not an
+    Error whatever else it is.
+    """
+    catalogued = {name: getattr(exceptions, name) for name in exceptions.__all__}
+    errors = {
+        name: cls
+        for name, cls in catalogued.items()
+        if not (isinstance(cls, type) and issubclass(cls, Warning))
+    }
+    assert errors, "the catalog holds no exceptions at all; the scan is broken"
+
+    orphans = {
+        name: [base.__name__ for base in cls.__mro__[1:] if base is not object]
+        for name, cls in errors.items()
+        if not issubclass(cls, exceptions.PyflightstreamError)
+    }
+    assert not orphans, (
+        f"catalogued exceptions {sorted(orphans)} do not descend from "
+        "PyflightstreamError, so `except PyflightstreamError` misses them; give "
+        "each the base as its FIRST base and keep its standard-library base as "
+        f"the second. Their bases today: {orphans}"
+    )
+
+
+def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
+    """Adding the base must not have moved any class off its builtin.
+
+    The whole promise of the change is that it is additive, so this
+    pins the standard-library base of every catalogued exception. If a
+    later edit re-parents one of these onto a different builtin (or
+    drops the builtin entirely), code in the wild that catches
+    ValueError or RuntimeError silently stops catching it.
+    """
+    expected_builtin = {
+        "AmbiguousLoadsError": ValueError,
+        "AmbiguousVersionAliasError": ValueError,
+        "AnchorNotFoundError": ValueError,
+        "CampaignErrors": RuntimeError,
+        "CommandArgumentError": ValueError,
+        "CommandNotInVersionError": LookupError,
+        "ExecutorConfigurationError": ValueError,
+        "GeometryEngineMissingError": ImportError,
+        "IncompleteOutputError": ValueError,
+        "InputArtifactError": RuntimeError,
+        "LoadsNotFoundError": ValueError,
+        "MatrixError": ValueError,
+        "NamingTemplateError": ValueError,
+        "OpenMeshError": ValueError,
+        "OptionError": KeyError,
+        "PhysicsEnvironmentError": RuntimeError,
+        "ProbeEnvironmentError": RuntimeError,
+        "ScriptLabelError": ValueError,
+        "ScriptLineBreakError": ValueError,
+        "ScriptOrderError": ValueError,
+        "ScriptReferenceError": ValueError,
+        "StaleLoadsError": ValueError,
+        "SurfaceMeshExportError": RuntimeError,
+        "UnitsError": ValueError,
+        "UnknownVersionError": ValueError,
+        "VersionMismatchWarning": UserWarning,
+        "WorkspaceError": RuntimeError,
+    }
+    catalogued = set(exceptions.__all__) - {"PyflightstreamError"}
+    assert catalogued == set(expected_builtin), (
+        "the catalog changed without this table moving with it; add the new "
+        "class and the standard-library base its users are entitled to keep"
+    )
+    for name, builtin in expected_builtin.items():
+        assert issubclass(getattr(exceptions, name), builtin), (
+            f"{name} no longer derives from {builtin.__name__}; that silently "
+            "breaks every caller catching the builtin"
+        )
+
+
 def test_the_catalog_all_matches_its_names():
     for name in exceptions.__all__:
         cls = getattr(exceptions, name)

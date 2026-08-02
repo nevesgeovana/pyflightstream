@@ -26,10 +26,12 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from pyflightstream._errors import PyflightstreamError
+
 logger = logging.getLogger(__name__)
 
 
-class StaleLoadsError(ValueError):
+class StaleLoadsError(PyflightstreamError, ValueError):
     """The loads file did not advance between calls (FSI-R12).
 
     A call receiving the same solver iteration as the previous one is

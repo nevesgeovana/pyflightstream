@@ -58,6 +58,7 @@ from dataclasses import dataclass
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from pyflightstream._errors import PyflightstreamError
 from pyflightstream.fsi.config import FsiConfig, frame_embedding
 from pyflightstream.results import (
     AnchorNotFoundError,
@@ -75,7 +76,7 @@ EXPECTED_COLUMNS = ("Offset", "Chord", "X_QC", "Z_QC", "Fx", "Fz", "Moment")
 _SPAN_TOLERANCE = 0.01
 
 
-class UnitsError(ValueError):
+class UnitsError(PyflightstreamError, ValueError):
     """The export does not carry the asserted SI units (FSI-R03).
 
     Unit errors in the coupling loop are silent and produce plausible

@@ -21,6 +21,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from pyflightstream._errors import PyflightstreamError
+
 #: Entity kinds the registry tracks, in the vocabulary of the builder.
 ENTITY_KINDS = ("frames", "actuators", "motions", "boundaries")
 
@@ -35,7 +37,7 @@ _NOUNS = {
 }
 
 
-class ScriptReferenceError(ValueError):
+class ScriptReferenceError(PyflightstreamError, ValueError):
     """A command cites an entity that does not exist at that point.
 
     FlightStream resolves frame, actuator, motion, and mesh boundary
@@ -49,7 +51,7 @@ class ScriptReferenceError(ValueError):
     """
 
 
-class ScriptLabelError(ValueError):
+class ScriptLabelError(PyflightstreamError, ValueError):
     """A label registration collides with a label already recorded.
 
     Labels identify exactly one entity per kind, because they resolve

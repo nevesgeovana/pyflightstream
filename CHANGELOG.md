@@ -9,6 +9,48 @@ FlightStream versions.
 
 ### API surface delta
 
+* **`PyflightstreamError` is the package base exception, and every
+  exception the package raises now descends from it** (SRS FR-39, which
+  was pending on exactly this clause). One except clause catches the
+  package:
+
+  ```python
+  from pyflightstream.exceptions import PyflightstreamError
+  ```
+
+  Purely additive, and deliberately so: every type keeps the
+  standard-library base it already had as a second base, so
+  `UnknownVersionError` is still a `ValueError`, `WorkspaceError` still
+  a `RuntimeError`, `OptionError` still a `KeyError`. No `except` clause
+  that worked before stops working, and a table in
+  `tests/test_exceptions_catalog.py` pins each of those builtin bases so
+  a later edit cannot quietly move one.
+
+  The base parents the exceptions and not `VersionMismatchWarning`,
+  which is a warning: it stays in the catalog, because the catalog
+  covers exceptions and warnings alike, and it stays out of the
+  hierarchy, because calling it an `Error` would mislead whoever reads
+  the traceback. Two separate guards now run: one fails when a class
+  does not join the catalog, one fails when it joins the catalog
+  without joining the hierarchy.
+
+  Why it lands before any renaming: a name is the dispatch key only
+  while there is no base to catch. With the base in place, renaming a
+  leaf stops costing a deprecation cycle, so the naming questions the
+  API vocabulary review raised get answered later and more cheaply.
+  The cause-versus-rule split in the current names is therefore left
+  open on purpose, not overlooked.
+* House conventions gain two entries, in the same `CONVENTIONS` home
+  that feeds `help()` and the docs site: **diagnostics are nouns and
+  validators say `check_`** (`sample_coverage` beside `check_recipe`),
+  and **a validator takes what it needs, not the object that holds
+  it**. The second is a layering rule wearing a naming hat:
+  `check_state_matches_config` takes two integer counts rather than the
+  config object, so `fsi.state` never imports `fsi.config` and the
+  exception catalog stays importable without the `[fsi]` extra. Both
+  halves that can be checked mechanically now are: a `check_` function
+  returning a value fails the suite, and so does `fsi.state` importing
+  `fsi.config`.
 * **FlightStream 26.121 is registered, and the vendor name "26.12" stops
   resolving.** The vendor ships the hotfix build under the same release
   name as 26.120, so that name now identifies two registered builds.

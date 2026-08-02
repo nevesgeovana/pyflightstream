@@ -135,3 +135,63 @@ def test_float_model_fields_carry_units_or_a_stated_reason():
         "(house convention). Suffix the field, or whitelist it with a "
         "stated reason."
     )
+
+
+# --- mechanical adherence audit: diagnostics versus validators --------------
+
+
+def test_check_prefixed_functions_return_nothing():
+    """The check_ prefix promises a refusal, not a measurement.
+
+    Half of the diagnostics-versus-validators convention is mechanical:
+    a function named check_ exists to raise, so it must not also hand
+    back a value that a caller could mistake for the measurement. The
+    noun half (a measurement is named for what it returns) is not
+    mechanically decidable and stays prose.
+    """
+    offenders = []
+    for name in PUBLIC_MODULES:
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", DeprecationWarning)
+                module = importlib.import_module(name)
+        except ImportError:
+            continue
+        for attr, obj in inspect.getmembers(module, inspect.isfunction):
+            if not attr.startswith("check_") or not obj.__module__.startswith("pyflightstream"):
+                continue
+            annotation = inspect.signature(obj).return_annotation
+            if annotation not in (None, "None", inspect.Signature.empty):
+                offenders.append(f"{obj.__module__}.{attr} -> {annotation}")
+    assert not offenders, (
+        f"check_ functions {offenders} return a value; a check_ function refuses "
+        "and returns nothing (house convention). Name a function that MEASURES "
+        "for the quantity it returns instead."
+    )
+
+
+def test_the_fsi_state_module_does_not_import_its_config_module():
+    """The layering constraint the validator convention must not break.
+
+    check_state_matches_config takes two integer counts rather than the
+    FsiConfig that holds them, so fsi.state does not import fsi.config.
+    That is what keeps the exception catalog importable without the
+    [fsi] extra, since state.py carries StaleLoadsError. A convention
+    saying "pass the object, not its fields" would quietly undo it, so
+    the direction is pinned here rather than trusted to prose.
+    """
+    import ast
+    from pathlib import Path
+
+    source = Path(inspect.getfile(importlib.import_module("pyflightstream.fsi.state")))
+    imported = set()
+    for node in ast.walk(ast.parse(source.read_text(encoding="utf-8"))):
+        if isinstance(node, ast.ImportFrom) and node.module:
+            imported.add(node.module)
+        elif isinstance(node, ast.Import):
+            imported.update(alias.name for alias in node.names)
+    assert "pyflightstream.fsi.config" not in imported, (
+        "pyflightstream.fsi.state imports pyflightstream.fsi.config; that "
+        "reverses the dependency direction and drags the config model into "
+        "every import of the exception catalog. Pass the fields, not the object."
+    )

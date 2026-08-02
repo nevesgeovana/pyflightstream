@@ -46,6 +46,7 @@ from pathlib import Path
 from typing import Protocol
 
 import pyflightstream
+from pyflightstream._errors import PyflightstreamError
 from pyflightstream.cases import (
     Campaign,
     ScriptRecipe,
@@ -73,7 +74,7 @@ from pyflightstream.workspace import (
 _LOG_NAME = "FlightStreamLog.txt"
 
 
-class ExecutorConfigurationError(ValueError):
+class ExecutorConfigurationError(PyflightstreamError, ValueError):
     """The executor cannot run as configured.
 
     Raised at construction time, because a missing solver executable
@@ -491,7 +492,7 @@ class LoadsAssessor:
         )
 
 
-class CampaignErrors(RuntimeError):  # noqa: N818 (the SAD Section 7 name)
+class CampaignErrors(PyflightstreamError, RuntimeError):  # noqa: N818 (the SAD Section 7 name)
     """One or more campaign points failed; raised after the loop.
 
     Every failed point is listed with its status and error text, and
@@ -1168,7 +1169,7 @@ def _execute_point(
     )
 
 
-class SurfaceMeshExportError(RuntimeError):
+class SurfaceMeshExportError(PyflightstreamError, RuntimeError):
     """The pre-processing surface-mesh export did not produce its file.
 
     Raised by :func:`export_surface_mesh` when the solver run failed

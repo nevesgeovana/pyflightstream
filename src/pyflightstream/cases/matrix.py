@@ -49,6 +49,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
 
+from pyflightstream._errors import PyflightstreamError
 from pyflightstream.cases import (
     Campaign,
     ReferenceData,
@@ -100,7 +101,7 @@ _COLUMNS = (
 _SWEEP_CODES = {"AL": "alpha", "BE": "beta"}
 
 
-class MatrixError(ValueError):
+class MatrixError(PyflightstreamError, ValueError):
     """A run-matrix file does not match the verified layout.
 
     The reader supports exactly the verified format (FR-10); a

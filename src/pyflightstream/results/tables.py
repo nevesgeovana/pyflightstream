@@ -49,6 +49,7 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
+from pyflightstream._errors import PyflightstreamError
 from pyflightstream.results import (
     IncompleteOutputError,
     LoadsReport,
@@ -95,7 +96,7 @@ _POINT_PRINTBACK = (("alpha", "angle_of_attack_deg"), ("beta", "sideslip_deg"))
 _POINT_TOLERANCE_DEG = 5e-4
 
 
-class LoadsNotFoundError(ValueError):
+class LoadsNotFoundError(PyflightstreamError, ValueError):
     """No collected output of a run yields its loads spreadsheet.
 
     Expected for failed points: a run that stopped before
@@ -105,7 +106,7 @@ class LoadsNotFoundError(ValueError):
     """
 
 
-class AmbiguousLoadsError(ValueError):
+class AmbiguousLoadsError(PyflightstreamError, ValueError):
     """Several collected outputs of one run parse as loads spreadsheets.
 
     The resolver refuses to guess which table is the run's coefficient

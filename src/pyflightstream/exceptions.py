@@ -9,6 +9,15 @@ fails the suite. The catalog imports on a base install; only the
 modules an optional extra gates keep their classes in import-light
 homes.
 
+Every exception here descends from :class:`PyflightstreamError`, so one
+except clause catches everything the package raises (SRS FR-39), and
+each also keeps the standard-library base it had before that class
+existed, so ``except ValueError`` and ``except RuntimeError`` keep
+catching exactly what they used to. The one member outside that
+hierarchy is :class:`~pyflightstream.results.VersionMismatchWarning`,
+which is a warning: it is catalogued, because the catalog covers
+exceptions and warnings alike, and it is not an ``Error``.
+
 Examples
 --------
 >>> from pyflightstream.exceptions import MatrixError
@@ -17,6 +26,10 @@ Examples
 ... except MatrixError as error:
 ...     print(error)
 demo
+
+>>> from pyflightstream.exceptions import PyflightstreamError
+>>> issubclass(MatrixError, PyflightstreamError), issubclass(MatrixError, ValueError)
+(True, True)
 
 The classes stay defined in their home modules (the didactic policy
 wants the refusal next to the physics it explains); this module only
@@ -32,6 +45,7 @@ the message alone would force parsing: see
 
 from __future__ import annotations
 
+from pyflightstream._errors import PyflightstreamError
 from pyflightstream.cases.matrix import MatrixError
 from pyflightstream.commands import CommandNotInVersionError
 from pyflightstream.fsi.loads import UnitsError
@@ -83,6 +97,7 @@ __all__ = [
     "OptionError",
     "PhysicsEnvironmentError",
     "ProbeEnvironmentError",
+    "PyflightstreamError",
     "ScriptLabelError",
     "ScriptLineBreakError",
     "ScriptOrderError",
