@@ -3,7 +3,7 @@
 import pytest
 import yaml
 
-from pyflightstream.commands import CommandEntry
+from pyflightstream.commands import CommandEntry, CommandRegistry
 from pyflightstream.qa import (
     COMPAT_SCHEMA,
     ProbeOutcome,
@@ -13,6 +13,7 @@ from pyflightstream.qa import (
     read_compat_report,
     write_compat_report,
 )
+from pyflightstream.qa.compat import _NOTE_CUT_MARKER, _NOTE_LIMIT, _one_line_note
 
 # A chapter fixture with documented statuses, independent of the live
 # database files (which carry real promotions as evidence lands).
@@ -315,3 +316,94 @@ def test_apply_compat_orders_by_the_tree_it_edits_not_the_installed_registry(tmp
     recorded = [line.strip() for line in block[:12] if '": {status' in line]
     assert recorded[0].startswith('"26.121"'), recorded
     assert recorded[1].startswith('"26.120"'), recorded
+
+
+# --- a capped note that hides its own cap ----------------------------------
+
+
+def test_a_note_too_long_for_one_line_says_that_it_was_cut():
+    """The cap is fine; a cap that hides itself is not.
+
+    A `note` lives on one flow-mapping line, so it is capped at 140
+    characters. The cap used to cut mid-word and say nothing: the
+    AIR_ALTITUDE entry read "reports the 5000 m standa", dropping the
+    sentence that carried the measured diagnosis (1.056 kg/m^3 observed
+    against 0.736 expected, which is the 5000 ft standard state). That
+    note is not decoration any more, because FR-48's refusal shows it to
+    whoever tried to emit the command, and a refusal that looks like a
+    corrupt database is one that gets worked around.
+    """
+    detail = (
+        "the command ran (script processing continued past it) but its effect was "
+        "not observed; expected: the settings dump reports the 5000 m standard "
+        "atmosphere density"
+    )
+    note = _one_line_note(detail)
+    assert len(note) <= 140
+    assert note.endswith(" [...]"), note
+    # Cut at a word boundary, so the last word of the extract is a word.
+    assert not note.removesuffix(" [...]").endswith(("stand", "standa", "standar")), note
+    assert detail.startswith(note.removesuffix(" [...]"))
+
+
+def test_a_note_that_fits_is_left_exactly_as_it_is():
+    """The control.
+
+    Without it, a mutation that marks every note as cut would leave the
+    test above green while every short note in the database grew a
+    trailing marker claiming text that does not exist.
+    """
+    detail = "script processing aborted at the command: the END sentinel never appeared"
+    assert _one_line_note(detail) == detail
+    assert "[...]" not in _one_line_note(detail)
+
+
+def test_a_note_is_safe_to_embed_in_a_double_quoted_scalar():
+    """Quotes and newlines would end the scalar or break the line."""
+    note = _one_line_note('the dump said "5000" and\nthen  stopped')
+    assert '"' not in note
+    assert note == "the dump said '5000' and then stopped"
+
+
+def test_the_live_database_carries_no_note_cut_mid_word():
+    """The data, not only the renderer.
+
+    Fixing the function leaves every note promoted before it untouched,
+    so this walks what actually ships. AIR_ALTITUDE's was repaired by
+    re-running apply-compat over the committed report, which is the only
+    sanctioned write path for a status or its note (CLAUDE.md invariant
+    3), never by editing the YAML.
+
+    Keyed on the length being EXACTLY the cap, which is the old
+    truncator's fingerprint: it sliced at ``[:140]``, so every note it
+    cut is 140 characters and every note it left alone is shorter. Notes
+    longer than the cap exist and are fine, because a `removed` note is
+    written by hand rather than promoted from a report and never passes
+    through this renderer. The residual, stated rather than hidden: a
+    hand-written note of exactly 140 characters would trip this
+    falsely, and clearing it costs one word.
+    """
+    registry = CommandRegistry.load()
+    cut_short = [
+        (name, canonical, record.note)
+        for name, entry in registry.commands.items()
+        for canonical, record in entry.versions.items()
+        if record.note is not None
+        and len(record.note) == _NOTE_LIMIT
+        and not record.note.endswith(_NOTE_CUT_MARKER)
+    ]
+    assert not cut_short, (
+        f"these notes sit exactly on the one-line cap with no {_NOTE_CUT_MARKER} "
+        f"marker, so they were cut and say nothing about it: {cut_short}"
+    )
+    # The control: without it, a database whose notes were all short (or
+    # all absent) would report green over nothing at all.
+    promoted = [
+        record.note
+        for entry in registry.commands.values()
+        for record in entry.versions.values()
+        if record.note is not None and record.report is not None
+    ]
+    assert len(promoted) >= 5, (
+        f"too few promoted notes for this guard to mean anything: {len(promoted)}"
+    )

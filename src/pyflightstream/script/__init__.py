@@ -9,10 +9,22 @@ failures are silent or cryptic.
 A :class:`Script` is an ordinary object bound to one FlightStream
 version; two scripts coexist safely, and there is no module-level
 state. Emission is checked in order: command exists in the version,
-argument binding and types, enum membership, count-versus-list
-consistency, phase ordering, and cross references. The ``raw()``
-escape hatch bypasses validation and flags the script for the run
-manifest.
+command is not recorded broken there, argument binding and types, enum
+membership, count-versus-list consistency, phase ordering, and cross
+references. The ``raw()`` escape hatch bypasses validation and flags
+the script for the run manifest.
+
+A command whose per-version record is ``broken`` is refused by default
+(FR-48), because a probe measured that it does not do what the manual
+says, so emitting it hands the run a wrong number rather than an
+error. AIR_ALTITUDE on 26.120 is the sharp case: the licensed sweep of
+2026-07-23 diagnosed the solver reading its METERS argument as feet,
+so the altitude the script asked for is not the altitude that flew,
+and nothing in the run says so because the script was fully validated.
+Refusing to emit it is the only place that fact can still reach the
+caller. :meth:`Script.allow_broken` is the recorded way through the
+refusal, and the QA probe layer is its first caller, because
+re-measuring a broken record is the run that can unrecord it.
 
 Cross references (SAD Section 4.2): an :class:`EntityRegistry` counts
 the local coordinate systems, actuators, and motions the script
@@ -42,6 +54,8 @@ import os
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Literal
 
+from pydantic import BaseModel, ConfigDict
+
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.commands import (
     ArgSpec,
@@ -51,6 +65,7 @@ from pyflightstream.commands import (
     Layout,
     ListSeparator,
     Phase,
+    Status,
 )
 from pyflightstream.script.entities import (
     EntityRegistry,
@@ -65,6 +80,8 @@ if TYPE_CHECKING:  # annotation only: the builder core does not depend
     from pyflightstream.script.solver_setup import SolverSetup
 
 __all__ = [
+    "BrokenCommandError",
+    "BrokenCommandUse",
     "CommandArgumentError",
     "EntityRegistry",
     "Script",
@@ -160,6 +177,70 @@ class CommandArgumentError(PyflightstreamError, ValueError):
     the manual citation of the entry, so the fix can be checked against
     the manual directly.
     """
+
+
+class BrokenCommandError(PyflightstreamError, RuntimeError):
+    """A command recorded ``broken`` in the target version was emitted.
+
+    ``broken`` is the one status backed by a probe that measured the
+    command failing to do what the manual documents (CLAUDE.md
+    invariant 3), so the database already knows the emission is wrong
+    before the solver ever sees it. Unlike a removed command, this one
+    exists and the solver accepts the line: the run therefore produces
+    numbers, and they are the wrong numbers, with nothing in the
+    manifest to distinguish them from right ones. That is why the
+    refusal happens here rather than being left to a warning.
+
+    A ``RuntimeError`` rather than a ``ValueError`` because no argument
+    is at fault: the call is well formed and the recorded state of the
+    world is what refuses it, the same shape as
+    :class:`~pyflightstream.workspace.WorkspaceError`.
+
+    The refusal has an answer, deliberately, because two callers
+    legitimately need the command: a probe re-measuring the record, and
+    an operator who has established that the defect does not reach
+    their case. :meth:`Script.allow_broken` is that answer, and it
+    records what it waived (see :class:`BrokenCommandUse`).
+    """
+
+
+class BrokenCommandUse(BaseModel):
+    """One command emitted although its record in this version is broken.
+
+    Provenance, not configuration: the script collects one of these per
+    waived command and the run manifest carries them, so a run that
+    depended on a command known not to work says so in its own record
+    instead of looking like every other run (the same promise
+    ``raw_flag`` makes for unvalidated text, FR-07).
+
+    Attributes
+    ----------
+    command : str
+        Command name as emitted.
+    version : str
+        Canonical identifier of the version whose record is broken;
+        carried because the same command is fine in another version and
+        a manifest read later has no other way to know which was meant.
+    report : str
+        Repository-relative path of the committed probe report that
+        recorded the breakage. Never optional: ``broken`` cannot exist
+        without it (evidence rule, CLAUDE.md invariant 3).
+    note : str, optional
+        The database's paraphrase of what the probe observed, when the
+        record carries one.
+    reason : str
+        The caller's justification, as passed to
+        :meth:`Script.allow_broken`. This is the field no automated
+        check can supply, which is why the method demands it.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    command: str
+    version: str
+    report: str
+    note: str | None = None
+    reason: str
 
 
 class ScriptLineBreakError(CommandArgumentError):
@@ -330,6 +411,11 @@ class Script:
     raw_flag : bool
         True once ``raw()`` was used; recorded in the run manifest so
         unvalidated scripts stay identifiable (FR-07).
+    broken_commands : tuple of BrokenCommandUse
+        Commands emitted under a :meth:`allow_broken` waiver, one entry
+        per command, recorded in the run manifest for the same reason
+        as ``raw_flag`` (FR-48). Empty for a script that emitted
+        nothing broken, whether or not waivers were registered.
     entities : EntityRegistry
         Label-aware ledger of the frames, actuators, motions, and
         mesh boundaries the script created or declared (SAD Section
@@ -348,6 +434,16 @@ class Script:
         self._view = view
         self.version: FsVersion = view.version
         self.raw_flag = False
+        # Broken-command waivers (FR-48): the justification per command
+        # name the caller allowed, and the record of the ones actually
+        # emitted. Two dicts rather than one because a waiver that is
+        # never exercised must leave no trace in the manifest: a recipe
+        # is version portable, so a waiver written for the version where
+        # the command is broken travels to the version where it is not,
+        # and recording it there would report a dependency the run does
+        # not have.
+        self._broken_waivers: dict[str, str] = {}
+        self._broken_uses: dict[str, BrokenCommandUse] = {}
         self._lines: list[str] = []
         self._phase_index: int | None = None
         self._phase_setter: tuple[str, int] | None = None
@@ -389,6 +485,17 @@ class Script:
         statically by the builder.
         """
         return self.entities.count("boundaries")
+
+    @property
+    def broken_commands(self) -> tuple[BrokenCommandUse, ...]:
+        """Commands emitted under a waiver, in the order first emitted.
+
+        One entry per command however many times it was emitted: every
+        field of the entry is a property of the command, the version and
+        the waiver, so repeating the emission would repeat the record
+        without adding a fact.
+        """
+        return tuple(self._broken_uses.values())
 
     def declare_existing(
         self,
@@ -489,6 +596,9 @@ class Script:
         CommandNotInVersionError
             If the command does not exist in this version; the message
             carries the manual citation and successor when known.
+        BrokenCommandError
+            If the command's record in this version is ``broken`` and
+            no :meth:`allow_broken` waiver covers it.
         CommandArgumentError
             If an argument violates the typed specification, or if
             ``label`` is given on a command that creates nothing.
@@ -501,6 +611,14 @@ class Script:
             If ``label`` is already taken for this entity kind.
         """
         entry = self._view[name]
+        # Before argument binding, on purpose. A broken record is a fact
+        # about the command and not about this call, so it is the more
+        # important of the two errors when both apply; refusing first
+        # also lets the class guard in tests/test_script.py walk the
+        # whole database and emit each broken command with no arguments
+        # at all, which is what makes that guard writable for commands
+        # whose grammars have nothing in common.
+        self._check_not_broken(entry)
         if label is not None:
             if entry.name not in _CREATION_COMMANDS:
                 raise CommandArgumentError(
@@ -544,6 +662,61 @@ class Script:
         self.raw_flag = True
         self._lines.extend(text.splitlines())
 
+    def allow_broken(self, name: str, /, *, reason: str) -> None:
+        """Permit one command recorded ``broken`` to be emitted (FR-48).
+
+        Registers a waiver for ``name``; a later :meth:`emit` of it then
+        appends the command instead of raising
+        :class:`BrokenCommandError`, and records what was waived in
+        :attr:`broken_commands`, which the run manifest carries.
+
+        Two callers legitimately need this. A tier 2 probe re-measuring
+        the record cannot avoid emitting the command, since emitting it
+        is the measurement; and an operator may have established that
+        the recorded defect does not reach their case, which is a
+        judgement no database can make for them. ``reason`` is required
+        because it is the only part of the record nothing else can
+        supply.
+
+        Parameters
+        ----------
+        name : str
+            Command name as in the database; positional-only for the
+            same reason as in :meth:`emit`.
+        reason : str
+            Why this run may emit it anyway. Recorded verbatim in the
+            manifest; a blank string is refused.
+
+        Raises
+        ------
+        CommandNotInVersionError
+            If the command is unknown, removed in this version, or has
+            no recorded evidence for it. Checked here rather than left
+            to the emission so a typo in the name fails at the waiver,
+            where it was made.
+        CommandArgumentError
+            If ``reason`` is blank.
+
+        Notes
+        -----
+        A waiver for a command that is **not** broken in this version is
+        accepted and does nothing. That is deliberate: the same recipe
+        is meant to run against several versions, and AIR_ALTITUDE is
+        broken in 26.120 and verified in 26.121, so refusing the
+        unnecessary waiver would make a recipe fail on the version that
+        fixed the defect. Nothing is recorded in that case, so the
+        manifest never reports a dependency the run did not have.
+        """
+        entry = self._view[name]
+        if not reason.strip():
+            raise CommandArgumentError(
+                f"allow_broken({name!r}) needs a reason: the waiver is recorded in the "
+                "run manifest so a later reader can tell whether the run may be "
+                "trusted, and an empty justification records nothing they can use "
+                f"({entry.manual_ref})"
+            )
+        self._broken_waivers[entry.name] = reason
+
     def comment(self, text: str) -> None:
         """Append a comment; FlightStream ignores lines starting with ``#``.
 
@@ -565,6 +738,41 @@ class Script:
     def render(self) -> str:
         """Return the complete script text, newline terminated."""
         return "\n".join(self._lines) + "\n"
+
+    def _check_not_broken(self, entry: CommandEntry) -> None:
+        """Refuse a command a probe measured broken, unless it was waived."""
+        record = entry.status_in(self.version)
+        if record is None or record.status is not Status.BROKEN:
+            return
+        observed = record.note or "a committed probe measured it not behaving as documented"
+        reason = self._broken_waivers.get(entry.name)
+        if reason is None:
+            raise BrokenCommandError(
+                f"{entry.name} is recorded broken in FlightStream "
+                f"{self.version.canonical}: {observed}. The evidence is "
+                f"{record.report} ({entry.manual_ref}). Emitting it would put a "
+                "command in the script that a probe measured not to work, and the "
+                "solver accepts the line, so the run would return numbers that "
+                "nothing marks as wrong. If this run needs the command anyway, and "
+                "re-probing it is the case that does, call "
+                f"Script.allow_broken({entry.name!r}, reason=...) first: the command "
+                "then emits and the script and the run manifest record it, its "
+                "report and your justification."
+            )
+        # setdefault, not assignment: the entry describes the command and
+        # the waiver, so a second emission of the same command adds no
+        # fact, and the first emission is the one whose position in the
+        # script a reader would look for.
+        self._broken_uses.setdefault(
+            entry.name,
+            BrokenCommandUse(
+                command=entry.name,
+                version=self.version.canonical,
+                report=record.report,
+                note=record.note,
+                reason=reason,
+            ),
+        )
 
     def _bind(self, entry: CommandEntry, args: tuple, kwargs: dict) -> dict[str, object]:
         specs = entry.args

@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from pyflightstream.script import (
+    BrokenCommandError,
     CommandArgumentError,
     Script,
     ScriptReferenceError,
@@ -22,7 +23,21 @@ def build_actuator_polar(script: Script) -> None:
     script.emit("AUTO_DETECT_TRAILING_EDGES")
     script.emit("AUTO_DETECT_WAKE_TERMINATION_NODES")
     helpers.free_stream(script)
-    helpers.atmosphere(script, altitude=1000.0)
+    # Explicit properties rather than altitude=1000.0, which is what this
+    # golden pinned until FR-48 landed. AIR_ALTITUDE is recorded broken on
+    # 26.120: the solver reads its METERS argument as feet, so the pinned
+    # script asked for 1000 m and would have flown at 305 m. Pinning that
+    # rendering taught the one call this library exists to prevent. The
+    # altitude path is still covered, on the version that fixed it, by
+    # test_the_altitude_path_is_pinned_where_the_command_works.
+    helpers.atmosphere(
+        script,
+        density=1.225,
+        pressure=101325.0,
+        temperature=288.15,
+        viscosity=1.789e-5,
+        specific_heat_ratio=1.4,
+    )
     script.emit("CREATE_NEW_COORDINATE_SYSTEM")
     script.emit("SET_COORDINATE_SYSTEM_ORIGIN", 2, 1.2, 0.0, 0.0, "METER")
     helpers.actuator_disc(
@@ -86,7 +101,14 @@ def build_rotor_unsteady(script: Script) -> None:
         axis="X",
         rpm=1200.0,
         boundaries=[1, 2],
-        start_time=0.05,
+        # start_time=0.05 was pinned here until FR-48 landed.
+        # SET_MOTION_START_TIME is recorded broken on 26.120 AND on
+        # 26.121: the solver ABORTS script processing at the line, so
+        # every command after it never ran. This golden therefore pinned
+        # the text of a script that stops a third of the way through,
+        # and unlike the altitude case there is no registered version
+        # where the pin would be valid. The refusal is pinned instead,
+        # by test_the_motion_start_time_path_refuses_on_every_version.
         wake_stabilization_blades=3,
     )
     helpers.unsteady_solver(script, time_iterations=180, delta_time=0.000556)
@@ -411,3 +433,90 @@ def test_a_per_surface_flag_outside_both_vocabularies_refuses():
     with pytest.raises(CommandArgumentError, match="initialize_solver: surfaces"):
         helpers.initialize_solver(script, surfaces=[(1, "YES")])
     assert script.render() == "\n"
+
+
+# --- FR-48 reaches the curated helpers, because that is where recipes ---
+# --- meet these commands. The two goldens above used to pin the two   ---
+# --- paths below; the coverage moved here rather than disappearing.   ---
+
+
+def test_the_altitude_path_is_pinned_where_the_command_works():
+    """26.121 verified AIR_ALTITUDE, so the helper still renders it there.
+
+    The actuator golden stopped pinning this rendering on 26.120, where
+    the command is broken. Losing the pin entirely would have traded one
+    defect for a coverage hole, so it is asserted on the version whose
+    hotfix repaired the command, which is also the honest place for it.
+    """
+    script = Script(version="26.121")
+    helpers.atmosphere(script, altitude=1000.0)
+    assert script.render().splitlines() == ["AIR_ALTITUDE 1000.0 METERS"]
+    assert script.broken_commands == ()
+
+
+def test_the_altitude_path_refuses_on_the_version_that_reads_metres_as_feet():
+    """The helper is a caller, so the refusal has to reach through it.
+
+    This is the call PYFS-002 was about: `atmosphere(altitude=1000.0)`
+    against 26.120 built a script that flew at roughly 305 m and said
+    nothing. A user reaches the emitter through the helpers far more
+    often than through emit(), so a refusal that only fired at emit()
+    would miss the path that matters.
+    """
+    script = Script(version="26.120")
+    with pytest.raises(BrokenCommandError) as caught:
+        helpers.atmosphere(script, altitude=1000.0)
+    assert "AIR_ALTITUDE" in str(caught.value)
+    assert script.render() == "\n"
+
+
+def test_the_altitude_path_still_works_under_a_waiver():
+    """The waiver rides on the script, so every helper honours it.
+
+    Registering it on the Script rather than passing it through each
+    helper signature is what makes this true without every helper
+    growing an argument for it.
+    """
+    script = Script(version="26.120")
+    script.allow_broken("AIR_ALTITUDE", reason="reproducing an older run")
+    helpers.atmosphere(script, altitude=1000.0)
+    assert script.render().splitlines() == ["AIR_ALTITUDE 1000.0 METERS"]
+    assert [use.command for use in script.broken_commands] == ["AIR_ALTITUDE"]
+
+
+@pytest.mark.parametrize("canonical", ["26.120", "26.121"])
+def test_the_motion_start_time_path_refuses_on_every_version(canonical):
+    """No registered version accepts SET_MOTION_START_TIME.
+
+    Both records say the solver ABORTS script processing at the line, so
+    everything after it never ran. The rotor golden used to pin exactly
+    that script. Parametrized over both versions because the hotfix
+    repaired AIR_ALTITUDE and did not repair this one, and a reader
+    could reasonably assume otherwise.
+    """
+    script = Script(version=canonical)
+    script.emit("CREATE_NEW_COORDINATE_SYSTEM")
+    with pytest.raises(BrokenCommandError) as caught:
+        helpers.rotary_motion(
+            script,
+            frame=2,
+            axis="X",
+            rpm=1200.0,
+            boundaries=[1, 2],
+            start_time=0.05,
+        )
+    assert "SET_MOTION_START_TIME" in str(caught.value)
+
+
+def test_rotary_motion_without_a_start_time_needs_no_waiver():
+    """The control: only the broken argument path is refused.
+
+    Without this, a mutation refusing the whole helper would leave the
+    test above green while rotary_motion stopped working at all.
+    """
+    script = Script(version="26.120")
+    script.emit("CREATE_NEW_COORDINATE_SYSTEM")
+    helpers.rotary_motion(script, frame=2, axis="X", rpm=1200.0, boundaries=[1, 2])
+    rendered = script.render()
+    assert "SET_MOTION_ROTOR_RPM 1 1200.0" in rendered
+    assert "SET_MOTION_START_TIME" not in rendered

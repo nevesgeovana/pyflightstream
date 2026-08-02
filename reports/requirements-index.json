@@ -2,8 +2,8 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 16,
-  "total": 92,
+  "cited_by_a_test": 17,
+  "total": 93,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -315,6 +315,11 @@
   {
    "id": "FR-47",
    "text": "The package exposes public assertion helpers that compare records and scripts and report the quantified violation on failure, so a user can assert against this package's outputs in their own tests.",
+   "priority": "M"
+  },
+  {
+   "id": "FR-48",
+   "text": "Emitting a command whose per-version record is broken raises at build time. The refusal has one documented way through: a waiver naming the command and the caller's justification, which lets the command emit and records the command, the version, the committed probe report and the justification in the script and in the run manifest.",
    "priority": "M"
   },
   {

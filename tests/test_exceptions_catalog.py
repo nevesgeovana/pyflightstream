@@ -113,6 +113,7 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
         "AmbiguousLoadsError": ValueError,
         "AmbiguousVersionAliasError": ValueError,
         "AnchorNotFoundError": ValueError,
+        "BrokenCommandError": RuntimeError,
         "CampaignErrors": RuntimeError,
         "CommandArgumentError": ValueError,
         "CommandNotInVersionError": LookupError,

@@ -260,6 +260,49 @@ def apply_compat(
 
 _VERSION_LINE = re.compile(r'^(\s+)"(\d{2}\.\d{3})":\s*\{.*\}\s*$')
 
+# A note lives on one flow-mapping line of a chapter file, so it is
+# capped. The cap is not the problem; a cap that hides itself is. The
+# marker below is what makes the cut visible.
+_NOTE_LIMIT = 140
+_NOTE_CUT_MARKER = " [...]"
+
+
+def _one_line_note(detail: str) -> str:
+    """Render a probe detail as the one-line ``note:`` of a version entry.
+
+    Collapses whitespace, replaces the double quotes that would end the
+    YAML scalar, and caps the length. A capped note ENDS WITH
+    ``[...]``, cut at a word boundary, because the note reaches human
+    readers in two places where a silent cut misleads: the compatibility
+    reference, and the refusal that
+    :class:`~pyflightstream.script.BrokenCommandError` raises when a
+    recipe emits the command. Before the marker existed, that refusal
+    ended mid-word ("reports the 5000 m standa"), which reads as a
+    corrupted database rather than as an extract. The full text is in
+    the committed report the same entry cites, and the marker is what
+    tells the reader to go there.
+
+    Parameters
+    ----------
+    detail : str
+        The probe report's ``detail`` field, any length, any whitespace.
+
+    Returns
+    -------
+    str
+        A single line safe to embed in a double-quoted YAML scalar, at
+        most :data:`_NOTE_LIMIT` characters.
+    """
+    text = " ".join(detail.replace('"', "'").split())
+    if len(text) <= _NOTE_LIMIT:
+        return text
+    head = text[: _NOTE_LIMIT - len(_NOTE_CUT_MARKER)]
+    # Cut at a word boundary when there is one to cut at; a single word
+    # longer than the limit has none, and a hard cut with the marker
+    # still beats a hard cut without it.
+    trimmed = head.rsplit(" ", 1)[0].rstrip(" ,;:") if " " in head else head
+    return f"{trimmed}{_NOTE_CUT_MARKER}"
+
 
 def _release_order(commands_dir: Path) -> dict[str, int]:
     """Return canonical identifier to release position for one command tree.
@@ -339,8 +382,7 @@ def _rewrite_version_line(
     status = body["outcome"]
     fields = f'status: {status}, report: "{citation}"'
     if status == ProbeOutcome.BROKEN.value:
-        note = str(body.get("detail", "")).replace('"', "'").replace("\n", " ")[:140]
-        fields += f', note: "{note}"'
+        fields += f', note: "{_one_line_note(str(body.get("detail", "")))}"'
 
     recorded = [
         (index, match.group(1), match.group(2))

@@ -155,6 +155,16 @@ class RunRecord(BaseModel):
     raw_flag : bool
         True when the script used the ``raw()`` escape hatch and its
         content bypassed database validation (FR-07).
+    broken_commands : list of dict
+        Serialized
+        :class:`~pyflightstream.script.BrokenCommandUse` entries, one
+        per command the script emitted under an ``allow_broken`` waiver:
+        the command, the version whose record is broken, the committed
+        probe report, the recorded observation and the caller's
+        justification (FR-48). Empty for the ordinary run, which is the
+        point: a run that leaned on a command known not to work is
+        distinguishable from one that did not, forever, without
+        re-reading the script.
     solver_setup : dict, optional
         Serialized solver-setup snapshot
         (:class:`pyflightstream.script.solver_setup.SolverSetup`) of
@@ -189,6 +199,7 @@ class RunRecord(BaseModel):
     script_sha256: str
     inputs_sha256: dict[str, str] = Field(default_factory=dict)
     raw_flag: bool
+    broken_commands: list[dict] = Field(default_factory=list)
     solver_setup: dict | None = None
     status: RunStatus
     iterations: int | None = None

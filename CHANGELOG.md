@@ -9,6 +9,58 @@ FlightStream versions.
 
 ### API surface delta
 
+* **A command a probe measured broken is refused at emission, and the
+  way through is recorded** (SRS FR-48, new). **Breaking within 0.x**:
+  a recipe that emitted `AIR_ALTITUDE`, `NEW_OFF_BODY_STREAMLINE`,
+  `SET_MOTION_START_TIME` or `SWEEPER_REF_VELOCITY_SAME` against a
+  version whose record is `broken` now raises `BrokenCommandError`
+  where it used to build a script.
+
+  `broken` is the one status backed by a probe that WATCHED the command
+  fail, and it was the one status the emitter did not act on. The
+  consequence is not a crash. An absent command produces no run at all;
+  a broken one produces a complete run with wrong numbers in it. On
+  26.120 the solver reads AIR_ALTITUDE's METERS argument as feet
+  (`reports/compat/CMP-26120_2026-07-23_pln012.yaml`), so
+  `atmosphere(script, altitude=1000.0)` asked for 1000 m, flew at
+  roughly 305 m, and wrote a manifest calling the script fully
+  validated.
+
+  ```python
+  script.allow_broken("AIR_ALTITUDE", reason="reproducing a 2026-07 run")
+  helpers.atmosphere(script, altitude=1000.0)
+  ```
+
+  The waiver emits the command and records it: `script.broken_commands`
+  and the new `broken_commands` field of `RunRecord` carry the command,
+  the version, the committed report, the recorded observation and the
+  justification. The same promise `raw_flag` makes for unvalidated
+  text, for a case that is worse, because a raw line at least looks
+  unusual. `reason` is required; it is the only field nothing
+  automated can supply.
+
+  Registered on the script rather than passed per call, so it reaches
+  the curated helpers without every helper growing an argument, and a
+  waiver for a command that is not broken in the target version is
+  accepted and records nothing: AIR_ALTITUDE is broken in 26.120 and
+  verified in 26.121, and one recipe is meant to run against both.
+
+  Two of this repository's own goldens were pinning the mistake and
+  were corrected in the same change, which is the part worth reading
+  before dismissing this as defensive: the actuator polar golden pinned
+  `altitude=1000.0` on 26.120, and the rotor unsteady golden pinned
+  `SET_MOTION_START_TIME`, at which the solver ABORTS script
+  processing, so everything after it never ran. The altitude rendering
+  is still pinned, on 26.121, where the hotfix repaired the command.
+* **A truncated evidence note now says that it is truncated.** The
+  `note` a compat promotion writes into the command database is capped
+  at one line, and the cap used to cut mid-word with nothing to show
+  for it: AIR_ALTITUDE's read "reports the 5000 m standa", losing the
+  measured diagnosis that followed. The cut is now made at a word
+  boundary and marked `[...]`, because that note is what the new
+  `BrokenCommandError` shows the caller, and a refusal that looks like
+  a corrupt database is a refusal that gets worked around.
+
 * **Research geometry can no longer enter the repository unnoticed**
   (SRS NFR-14, which was pending). A tier-1 guard walks every tracked
   path and fails on any geometry or mesh extension outside a small

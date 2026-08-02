@@ -66,6 +66,7 @@ from pyflightstream.run import (
     SurfaceMeshExportError,
 )
 from pyflightstream.script import (
+    BrokenCommandError,
     CommandArgumentError,
     ScriptLabelError,
     ScriptLineBreakError,
@@ -83,6 +84,7 @@ __all__ = [
     "AmbiguousLoadsError",
     "AmbiguousVersionAliasError",
     "AnchorNotFoundError",
+    "BrokenCommandError",
     "CampaignErrors",
     "CommandArgumentError",
     "CommandNotInVersionError",

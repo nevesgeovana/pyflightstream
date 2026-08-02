@@ -1221,6 +1221,7 @@ def _execute_point(
         "inputs_sha256": inputs_sha256,
         "script_sha256": "",
         "raw_flag": False,
+        "broken_commands": [],
     }
     if preparation_error is not None or recipe is None:
         error = preparation_error or "recipe resolution failed"
@@ -1252,6 +1253,12 @@ def _execute_point(
     script_path, script_sha = workspace.write_script(case.sim_id, f"{stem}.txt", script.render())
     base["script_sha256"] = script_sha
     base["raw_flag"] = script.raw_flag
+    # FR-48: a recipe may waive a command the database records broken.
+    # The waiver is the recipe's, so the record of it belongs with the
+    # run, not with the recipe: this is the only place a reader of the
+    # manifest can learn that the numbers below came from a command a
+    # probe measured not to work.
+    base["broken_commands"] = [use.model_dump(mode="json") for use in script.broken_commands]
 
     result = executor.run_script(script_path, working_dir=sim_dir, timeout_s=case.solver.timeout_s)
     if result.failed:

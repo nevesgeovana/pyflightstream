@@ -779,3 +779,37 @@ The allocation is recorded in the
     The package exposes public assertion helpers that compare records
     and scripts and report the quantified violation on failure, so a
     user can assert against this package's outputs in their own tests.
+
+## Independent review remediation (2026-08-02)
+
+!!! requirement "FR-48 Broken commands are refused, and waivers are recorded <span class='srs-implemented'>implemented</span>"
+    *Origin: the independent review's finding PYFS-002, reproduced
+    2026-07-28 and again at HEAD on 2026-08-02. Evidence:
+    `Script.allow_broken` and the emission refusal in
+    `src/pyflightstream/script/__init__.py`; `broken_commands` on
+    `RunRecord`; the database-driven refusal guard and the waiver
+    guards in `tests/test_script.py`,
+    `tests/test_script_helpers.py` and `tests/test_run_campaign.py`.*
+
+    Emitting a command whose per-version record is `broken` raises at
+    build time. The refusal has one documented way through: a waiver
+    naming the command and the caller's justification, which lets the
+    command emit and records the command, the version, the committed
+    probe report and the justification in the script and in the run
+    manifest.
+
+    Why this is not covered by FR-04, which refuses a command absent
+    from the target version: an absent command produces no run at all,
+    whereas a broken one produces a complete run with wrong numbers in
+    it. `AIR_ALTITUDE` on 26.120 is the measured case, its METERS
+    argument read as feet
+    (`reports/compat/CMP-26120_2026-07-23_pln012.yaml`). Until this
+    requirement landed, `broken` was the only status backed by a probe
+    that watched the command fail and the only status the emitter did
+    not act on.
+
+    The waiver is registered on the script rather than passed per call,
+    so it reaches the curated helper layer without every helper
+    growing an argument for it, and a waiver for a command that is not
+    broken in the target version is accepted and records nothing,
+    because one recipe is meant to run against several versions.

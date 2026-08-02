@@ -668,7 +668,9 @@ def markdown_reference_pages() -> dict[str, str]:
             f"{len(members)} entries. Statuses follow the evidence rules of "
             "CLAUDE.md invariant 3: `documented` cites the manual, `verified` "
             "and `broken` cite a committed probe report, `removed` records "
-            "the manual page stating the removal.",
+            "the manual page stating the removal. A `broken` status is also "
+            "a refusal: the script builder will not emit that command for "
+            "that version without an explicit recorded waiver (FR-48).",
             "",
         ]
         page_lines.extend(_entry_markdown(entry) for entry in members)

@@ -4,13 +4,15 @@ from pathlib import Path
 
 import pytest
 
-from pyflightstream.commands import CommandNotInVersionError
+from pyflightstream.commands import CommandNotInVersionError, CommandRegistry, Status
 from pyflightstream.script import (
+    BrokenCommandError,
     CommandArgumentError,
     Script,
     ScriptLineBreakError,
     ScriptOrderError,
 )
+from pyflightstream.versions import known_versions
 
 GOLDENS = Path(__file__).parent / "goldens"
 
@@ -22,6 +24,15 @@ def build_steady_polar(script: Script) -> None:
     script.emit("AUTO_DETECT_TRAILING_EDGES")
     script.emit("AUTO_DETECT_WAKE_TERMINATION_NODES")
     script.emit("SET_FREESTREAM", "CONSTANT")
+    # AIR_ALTITUDE is recorded broken on 26.120, so the emitter refuses
+    # it without a waiver (FR-48). Waived here at zero, the one altitude
+    # the recorded METERS-as-FEET defect cannot change. The golden text
+    # is unchanged by this call, which is the point of asserting it
+    # below: a waiver records a fact about the run and emits no line.
+    script.allow_broken(
+        "AIR_ALTITUDE",
+        reason="sea level, where the recorded units defect changes nothing",
+    )
     script.emit("AIR_ALTITUDE", 0.0, "METERS")
     script.emit(
         "INITIALIZE_SOLVER",
@@ -522,3 +533,176 @@ def test_the_two_commands_that_escaped_the_count_check_now_refuse(command, kwarg
     assert "the declared count is 2" in message, message
     assert list_arg in message, message
     assert "SRC-003" in message, message
+
+
+# --- FR-48: a command a probe measured broken is refused at emission ----
+#
+# PYFS-002 of the independent review. VersionView.__getitem__ refuses a
+# REMOVED command and a command with no recorded evidence, and had no
+# branch at all for BROKEN, so the one status backed by a probe that
+# WATCHED the command fail was the one status the emitter ignored. The
+# consequence is not a crash: the solver accepts the line, the run
+# returns numbers, and nothing distinguishes them from right ones.
+
+
+def _broken_pairs():
+    """Every (canonical version, command) the database records broken.
+
+    Read from the database rather than listed here, so a command
+    promoted to broken by a future probe joins the guard on the day the
+    promotion lands, with nobody remembering to add it.
+    """
+    registry = CommandRegistry.load()
+    return [
+        (version.canonical, name)
+        for version in known_versions()
+        for name, entry in sorted(registry.commands.items())
+        if (record := entry.status_in(version)) is not None and record.status is Status.BROKEN
+    ]
+
+
+def test_the_broken_refusal_has_something_to_refuse():
+    """Guard the guard: an empty parametrization passes silently.
+
+    test_every_broken_record_is_refused_at_emission is parametrized from
+    the database, so it would report green over zero cases if the last
+    broken record were ever promoted away or lost in an edit. That is
+    the failure mode where a guard stops guarding without failing, so
+    the count is asserted separately.
+    """
+    pairs = _broken_pairs()
+    assert len(pairs) >= 3, (
+        "no command is recorded broken in any version, so the FR-48 refusal has "
+        f"nothing to prove itself against; pairs found: {pairs}"
+    )
+
+
+@pytest.mark.parametrize(("canonical", "command"), _broken_pairs())
+def test_every_broken_record_is_refused_at_emission(canonical, command):
+    """The whole class, not the one command the review happened to name.
+
+    Emitted with NO arguments on purpose. These commands share no
+    grammar, and the refusal is a fact about the command rather than
+    about the call, so it fires before argument binding; passing nothing
+    is what lets one guard cover every one of them. If the check were
+    ever moved below _bind, this test would report a
+    CommandArgumentError instead and fail.
+
+    The control at the end is not decoration. Without it, a mutation
+    that refuses EVERY command (say, dropping the status test) leaves
+    this test green while the emitter refuses to build anything.
+    """
+    script = Script(version=canonical)
+    with pytest.raises(BrokenCommandError):
+        script.emit(command)
+    script.emit("NEW_SIMULATION")
+    assert script.render().splitlines() == ["NEW_SIMULATION"], (
+        "the refusal must not consume the script: nothing was appended for the "
+        "refused command, and an unrelated command still emits"
+    )
+    assert script.broken_commands == ()
+
+
+def test_the_broken_refusal_names_its_evidence_and_the_way_through():
+    """A refusal the reader cannot act on is a refusal they will delete.
+
+    Four things have to be in the message: which version (the same
+    command is verified in 26.121), what was observed, the committed
+    report that observed it, and the call that proceeds anyway. The
+    manual citation comes along because every emission error carries
+    one.
+    """
+    script = Script(version="26.120")
+    with pytest.raises(BrokenCommandError) as caught:
+        script.emit("AIR_ALTITUDE", 5000.0, "METERS")
+    message = str(caught.value)
+    assert "26.120" in message, message
+    assert "reports/compat/CMP-26120_2026-07-23_pln012.yaml" in message, message
+    assert "SRC-003 p.328" in message, message
+    assert "allow_broken" in message, message
+
+
+def test_the_same_command_emits_freely_in_the_version_that_fixed_it():
+    """26.121 verified AIR_ALTITUDE, so 26.121 must not refuse it.
+
+    The refusal reads the record of the TARGET version, not of the
+    command. A guard keyed on the command name would pass every test
+    above and quietly block the hotfix that repaired it.
+    """
+    script = Script(version="26.121")
+    script.emit("AIR_ALTITUDE", 5000.0, "METERS")
+    assert script.render().splitlines() == ["AIR_ALTITUDE 5000.0 METERS"]
+    assert script.broken_commands == ()
+
+
+def test_a_waiver_lets_the_command_emit_and_records_what_it_waived():
+    """The second half of the assertion PYFS-002 owes.
+
+    Refusing alone would be no fix: the probe layer must emit these
+    commands, and an operator may know the defect misses their case. So
+    the waiver emits, and what it emits is recorded with the evidence
+    and the justification, which is what a manifest reader needs to
+    judge the numbers later.
+    """
+    script = Script(version="26.120")
+    script.allow_broken("AIR_ALTITUDE", reason="re-probing the units defect")
+    script.emit("AIR_ALTITUDE", 5000.0, "METERS")
+    assert script.render().splitlines() == ["AIR_ALTITUDE 5000.0 METERS"]
+    (use,) = script.broken_commands
+    assert use.command == "AIR_ALTITUDE"
+    assert use.version == "26.120"
+    assert use.report == "reports/compat/CMP-26120_2026-07-23_pln012.yaml"
+    assert use.reason == "re-probing the units defect"
+    assert use.note and "effect was not observed" in use.note
+
+
+def test_a_waiver_records_one_entry_however_often_the_command_is_emitted():
+    """Every field is a property of the command, not of the emission."""
+    script = Script(version="26.120")
+    script.allow_broken("AIR_ALTITUDE", reason="re-probing the units defect")
+    for altitude in (0.0, 1000.0, 5000.0):
+        script.emit("AIR_ALTITUDE", altitude, "METERS")
+    assert len(script.render().splitlines()) == 3
+    assert len(script.broken_commands) == 1
+
+
+def test_a_waiver_needs_a_justification():
+    """The reason is the only field nothing else can supply.
+
+    A waiver without one records that the run leaned on a broken command
+    and gives the reader no way to tell whether that was considered, so
+    it is worth less than the refusal it replaces.
+    """
+    script = Script(version="26.120")
+    with pytest.raises(CommandArgumentError, match="needs a reason"):
+        script.allow_broken("AIR_ALTITUDE", reason="   ")
+    with pytest.raises(BrokenCommandError):
+        script.emit("AIR_ALTITUDE", 5000.0, "METERS")
+
+
+def test_a_waiver_for_an_unknown_command_fails_where_the_typo_was_made():
+    """Resolved through the version view, so a typo cannot sit silent.
+
+    Left unchecked, `allow_broken("AIR_ALTITUD", ...)` would register a
+    waiver nothing ever matches and the emission would refuse with a
+    message about the command being broken, sending the reader to look
+    at the database instead of at their own line.
+    """
+    script = Script(version="26.120")
+    with pytest.raises(CommandNotInVersionError):
+        script.allow_broken("AIR_ALTITUD", reason="typo")
+
+
+def test_a_waiver_for_a_command_that_is_not_broken_here_records_nothing():
+    """A recipe is version portable and the waiver has to be too.
+
+    AIR_ALTITUDE is broken in 26.120 and verified in 26.121. One recipe
+    is meant to run against both, so the waiver it carries for the first
+    must be accepted by the second, and must NOT make the second report
+    a dependency on a broken command that this version does not have.
+    """
+    script = Script(version="26.121")
+    script.allow_broken("AIR_ALTITUDE", reason="broken in 26.120, harmless here")
+    script.emit("AIR_ALTITUDE", 5000.0, "METERS")
+    assert script.render().splitlines() == ["AIR_ALTITUDE 5000.0 METERS"]
+    assert script.broken_commands == ()

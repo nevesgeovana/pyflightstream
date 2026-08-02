@@ -69,7 +69,11 @@ honest gaps are reported as such.
   didactic refusals at build time, entity labels (recipes can name
   frames, actuators, motions, and boundaries instead of raw indices),
   and a solver-setup provenance snapshot recording the effective value
-  of every solver flag per run.
+  of every solver flag per run. A command a probe measured `broken` in
+  the target version is refused too, because that one produces a
+  complete run with wrong numbers rather than no run at all; the
+  waiver that emits it anyway records the report and the reason in the
+  manifest.
 - Campaign workspace: an input-artifact library (references, solver
   presets, boundary groups, geometries, profiles, executables by build
   id), a run manifest as the single identity authority, output naming

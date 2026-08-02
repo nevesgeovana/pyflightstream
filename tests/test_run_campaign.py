@@ -796,3 +796,106 @@ def test_the_pristine_log_is_still_converged(tmp_path):
     assert assessment.status is RunStatus.CONVERGED
     assert assessment.iterations == 1575
     assert assessment.residual == pytest.approx(9.6e-8)
+
+
+# --- FR-48: a waived broken command reaches the manifest --------------------
+
+
+def waived_altitude_recipe(case, script):
+    """steady_recipe plus the one command 26.120 records broken."""
+    script.emit("OPEN", case.geometry)
+    helpers.free_stream(script)
+    script.allow_broken(
+        "AIR_ALTITUDE",
+        reason="reproducing a run made before the units defect was found",
+    )
+    helpers.atmosphere(script, altitude=1000.0)
+    helpers.initialize_solver(script)
+    helpers.solver_settings(
+        script,
+        vorticity_drag_boundaries="all",
+        aoa=case.point["alpha"],
+        velocity=case.velocity,
+        iterations=case.solver.iterations,
+        convergence=case.solver.convergence,
+    )
+    helpers.start_solver(script)
+    script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", case.outputs[0])
+    script.emit("CLOSE_FLIGHTSTREAM")
+
+
+def refused_altitude_recipe(case, script):
+    """The same recipe without the waiver: the campaign must not run it."""
+    script.emit("OPEN", case.geometry)
+    helpers.atmosphere(script, altitude=1000.0)
+
+
+def test_a_waived_broken_command_rides_into_the_manifest(tmp_path):
+    """The half of PYFS-002 that outlives the session.
+
+    Refusing at build time protects the run being built. This protects
+    every reader afterwards: the numbers in this campaign came from a
+    solver told to fly at an altitude the manual's command does not
+    deliver on this build, and the manifest is the only place that can
+    still say so once the script is one file among hundreds.
+    """
+    campaign = make_campaign(tmp_path, recipe="waived")
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    records = run_campaign(
+        campaign,
+        StubSolver(WRITES_LOADS),
+        workspace,
+        assess=converged,
+        recipes={"waived": waived_altitude_recipe},
+    )
+    assert all(record.status is RunStatus.CONVERGED for record in records)
+    for record in records:
+        (use,) = record.broken_commands
+        assert use["command"] == "AIR_ALTITUDE"
+        assert use["version"] == "26.120"
+        assert use["report"] == "reports/compat/CMP-26120_2026-07-23_pln012.yaml"
+        assert use["reason"].startswith("reproducing a run")
+    # It survives the round trip through runs.json, which is the point.
+    assert workspace.read_manifest()[0].broken_commands == records[0].broken_commands
+    # The control: the ordinary recipe records nothing, so an empty list
+    # keeps meaning "this run leaned on nothing broken".
+    plain_root = tmp_path / "plain"
+    plain_root.mkdir()
+    plain = make_campaign(plain_root)
+    plain_workspace = CampaignWorkspace(plain_root / "camp")
+    plain_records = run_campaign(
+        plain,
+        StubSolver(WRITES_LOADS),
+        plain_workspace,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+    )
+    assert plain_records[0].broken_commands == []
+
+
+def test_an_unwaived_broken_command_fails_the_point_before_the_solver(tmp_path):
+    """A recipe that emits it without a waiver never reaches the solver.
+
+    FAILED_SCRIPT, not a converged point with wrong numbers, which is
+    what this campaign produced before FR-48.
+    """
+    campaign = make_campaign(tmp_path, recipe="refused")
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    with pytest.raises(CampaignErrors) as caught:
+        run_campaign(
+            campaign,
+            StubSolver(WRITES_LOADS),
+            workspace,
+            assess=converged,
+            recipes={"refused": refused_altitude_recipe},
+        )
+    records = workspace.read_manifest()
+    assert len(records) == 2
+    assert all(record.status is RunStatus.FAILED_SCRIPT for record in records)
+    assert all("AIR_ALTITUDE" in record.error for record in records)
+    assert all("BrokenCommandError" in record.error for record in records)
+    # Nothing was waived, so nothing is recorded as waived: the refusal
+    # and the record are separate mechanisms and must not stand in for
+    # each other.
+    assert all(record.broken_commands == [] for record in records)
+    assert len(caught.value.failures) == 2
