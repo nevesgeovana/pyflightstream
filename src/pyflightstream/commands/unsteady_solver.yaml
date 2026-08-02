@@ -47,6 +47,24 @@ UNSTEADY_SOLVER_NEW_FLUID_PLOT:
   manual_ref: "SRC-003 p.347"
   versions:
     "26.120": {status: documented}
+    "26.121":
+      status: documented
+      note: >
+        SRC-740 p.350 extends PARAMETER with the six boundary-layer
+        values, so the 26.121 grammar differs from the 26.120 one in
+        its enum alone; the args override below carries it.
+      args:
+        - name: frame
+          type: int
+        - name: parameter
+          type: enum
+          values: [CP_FREE, CP_REF, MACH, VELOCITY, VX, VY, VZ, STATIC_PRESSURE_RATIO,
+                   BL_MOMENTUM_THICKNESS, BL_DISPLACEMENT_THICKNESS, BL_TOTAL_THICKNESS,
+                   BL_SHAPE_FACTOR, BL_SKIN_FRICTION, BL_TRANSITION_MARKER]
+        - name: name
+          type: str
+        - name: vertex
+          type: str
   notes: >
     Samples one fluid property per solver time step at a fixed vertex.
     VERTEX takes the three coordinates preformatted on one line
@@ -80,3 +98,38 @@ UNSTEADY_SOLVER_EXPORT_PLOTS:
   notes: >
     Exports every unsteady solver plot (force and fluid) with one
     column per plot and one row per time step.
+
+NEW_UNSTEADY_SOLVER_SURFACE_PROBE:
+  layout: inline
+  phase: setup
+  args:
+    - name: name
+      type: str
+    - name: parameter
+      type: enum
+      values: [CP_FREE, CP_REF, MACH, VELOCITY, VX, VY, VZ, STATIC_PRESSURE_RATIO,
+               BL_MOMENTUM_THICKNESS, BL_DISPLACEMENT_THICKNESS, BL_TOTAL_THICKNESS,
+               BL_SHAPE_FACTOR, BL_SKIN_FRICTION, BL_TRANSITION_MARKER]
+    - name: csys
+      type: int
+    - name: x
+      type: float
+      unit: length units of the named coordinate system
+    - name: y
+      type: float
+      unit: length units of the named coordinate system
+    - name: z
+      type: float
+      unit: length units of the named coordinate system
+  manual_ref: "SRC-740 p.350"
+  versions:
+    "26.121": {status: documented}
+  notes: >
+    Samples one surface property per solver time step at a fixed
+    vertex, the surface counterpart of UNSTEADY_SOLVER_NEW_FLUID_PLOT.
+    New in the 26.121 manual edition, and it is where the six
+    boundary-layer parameters enter the unsteady vocabulary:
+    displacement, momentum and total thickness, shape factor, skin
+    friction and the transition marker. CSYS is 1-based, index 1 being
+    the reference frame; the coordinates are inline here, unlike the
+    fluid plot's preformatted VERTEX line.

@@ -117,6 +117,11 @@ tree (2026-07-21). The requirements exist to eliminate them.
   enters the repository).
 - SRC-725: the 26.1 manual edition, the second citation source of the
   database.
+- SRC-740: the 26.12 hotfix-1 manual edition, shipped with the 26.121
+  build (licensed; local, never in the repository). A separate source
+  rather than a re-issue of SRC-003, because its scripting reference is
+  shifted by three pages throughout, so an SRC-003 page number does not
+  address the same page in it.
 - pyFlightscript repositories (AGPL-3.0, deprecated): prior art for
   scope only, never read at code level.
 - The committed evidence trail: `reports/` (probe compat reports,

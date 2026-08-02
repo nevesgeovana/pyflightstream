@@ -136,6 +136,31 @@ FlightStream versions.
   error: an unregistered identifier, and a vendor name shared by several
   builds. A wrapper keying on the exit code sees 2 where it used to see
   1.
+* **The 26.121 manual edition is registered as SRC-740**, a separate
+  source rather than a re-issue of SRC-003, and the edition entry says
+  why: its scripting reference is shifted by three pages throughout, so
+  an SRC-003 page number does not address the same page in it.
+
+  Two of the commands it documents join the database with a 26.121
+  status only, so a 26.120 script still refuses them:
+  `DELETE_SURFACES` (p.315) and `NEW_UNSTEADY_SOLVER_SURFACE_PROBE`
+  (p.350), the latter being where the six boundary-layer parameters
+  enter the unsteady vocabulary. `UNSTEADY_SOLVER_NEW_FLUID_PLOT` gains
+  a 26.121 grammar override for the same six values SRC-740 adds to its
+  `PARAMETER` enum.
+
+  `DELETE_SURFACES` is registered narrow, with the single index its
+  parameter table declares, because one of its samples passes three
+  bare integers under a multiple-surface heading and the two readings
+  delete different surfaces.
+
+  The other four are **not** landed, and the reason is worth stating:
+  they belong to the settings families, where a command is not
+  registered by a database entry alone. A tier-1 guard requires every
+  such command to carry a snapshot flag and a keyword on the public
+  `solver_settings()` helper, because a solver setting the snapshot
+  does not know is a run whose manifest describes the solver state
+  incompletely. They are backed out rather than shipped half-wired.
 * `UNSTEADY_SOLVER_DELETE_ALL_PLOTS` joins the command database
   (`documented`, SRC-003 p.347). It was documented in the 26.12 manual
   and never registered; the gap surfaced while diffing the 26.121

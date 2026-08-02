@@ -34,3 +34,12 @@ manual_editions:
     _private/exe/FlightStream_26100/), scripting reference from p.278;
     cited in version notes as "SRC-725 p.N"
   "26.120": "SRC-003: FlightStream User Manual v2612, scripting reference pp. 286-371"
+  "26.121": >
+    SRC-740: Altair FlightStream User Manual, 26.12 hotfix build 1
+    edition (local, _private/exe/FlightStream_26121/), 413 pages against
+    410 for SRC-003, scripting reference pp. 289-374. Every page
+    citation of SRC-003 shifts by +3 in this edition, so an SRC-003
+    page number does NOT address the same page here; that is why the
+    two are separate sources rather than one re-issue. The vendor
+    release-notes pdf is byte-identical between the two installs and
+    documents none of the difference (RPT-014).

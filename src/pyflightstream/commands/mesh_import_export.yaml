@@ -70,3 +70,24 @@ EXPORT_SURFACE_MESH:
     Exports one geometry surface (first surface is index 1) or all
     surfaces (-1) to STL, TRI, or OBJ; the destination path follows on
     the next line (SRC-003 pp.307-308).
+
+DELETE_SURFACES:
+  layout: inline
+  phase: geometry
+  args:
+    - name: index
+      type: int
+  manual_ref: "SRC-740 p.315"
+  versions:
+    "26.121": {status: documented}
+  notes: >
+    Deletes a mesh surface by 1-based index; the page's samples also
+    show -1 for every surface. New in the 26.121 manual edition, where
+    it replaces the SURFACE_DELETE keyword block and SURFACE_CLEARALL
+    of SRC-003 pp.312-313; neither of those was ever registered here,
+    so there is no removal to record against them.
+    ARITY NOT DETERMINABLE FROM THE PAGE, and deliberately registered
+    narrow: the parameter table declares one INDEX, while one sample
+    passes three bare integers under a multiple-surface heading. Those
+    two readings delete different surfaces, so the single-index form is
+    registered and the multi-index form awaits a probe (RPT-014).
