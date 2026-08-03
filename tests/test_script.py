@@ -577,6 +577,7 @@ def test_the_broken_refusal_has_something_to_refuse():
     )
 
 
+@pytest.mark.requirement("FR-48")
 @pytest.mark.parametrize(("canonical", "command"), _broken_pairs())
 def test_every_broken_record_is_refused_at_emission(canonical, command):
     """The whole class, not the one command the review happened to name.

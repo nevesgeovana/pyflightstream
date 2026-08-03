@@ -98,6 +98,11 @@ markers = [
     "needs_flightstream: requires a local FlightStream installation and license",
     "validity: tier 2 per-command probe tests",
     "physics: tier 3 physics regression matrix (slow)",
+    # NFR-13 traceability: requirement("FR-48") on a test declares that
+    # the test FALSIFIES that requirement. tests/test_traceability.py
+    # holds every marker to a live identifier and ratchets the covered
+    # set, so the marker cannot name a requirement that was withdrawn.
+    "requirement(identifier): the SRS requirement this test falsifies",
 ]
 addopts = "-m 'not needs_flightstream'"
 

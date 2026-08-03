@@ -62,6 +62,7 @@ def test_the_declaration_covers_every_example():
     assert on_disk, "no examples found at all; the glob is wrong"
 
 
+@pytest.mark.requirement("NFR-01d")
 @pytest.mark.parametrize("name", sorted(EXAMPLE_EXTRAS))
 def test_each_example_runs(name):
     """The examples execute, which nothing checked before.

@@ -2,7 +2,7 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 23,
+  "cited_by_a_test": 26,
   "total": 96,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
@@ -10,482 +10,770 @@
   {
    "id": "FR-01",
    "text": "The package ships a machine-readable database of FlightStream script commands. Each entry records name, layout grammar, typed arguments, the version span in which it exists, per-version argument differences, and a manual page citation.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: BRF-03, PP-8. Evidence: milestone M1; the database and its Tier 1 schema tests.*",
+   "verification": "evidence"
   },
   {
    "id": "FR-02",
    "text": "The database covers versions 26.0, 26.1, and 26.12 at launch, with an explicit ordered version list. Version ordering never relies on string or float comparison (\"26.1\" < \"26.12\" fails both).",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: BRF-07, BRF-19. Evidence: milestone M1; versions tests.*",
+   "verification": "evidence"
   },
   {
    "id": "FR-02a",
    "text": "The canonical version identifier is 26.XXX with exactly three fractional digits: the first two carry the official minor release, the last indexes intermediate hotfix builds (0 = the official release). Launch set: 26.000, 26.100, 26.120. The registry stores the vendor release name of each build as a display alias, and a user may write that name wherever it names exactly one build.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: BRF-19. Evidence: milestone M1.*",
+   "verification": "evidence"
   },
   {
    "id": "FR-02b",
    "text": "Version ordering never relies on string or float comparison, and the ordered list in commands/_meta.yaml is the sole ordering authority, so that 26.100 sorts before 26.120.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: Phase 4 split of FR-02, accepted 2026-07-27. Evidence: milestone M1; tests/test_versions.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-02c",
    "text": "The vendor ships every hotfix build of a minor release under the one release name, so a display alias can name more than one registered build: 26.120 and 26.121 are both shipped as \"26.12\". Resolution refuses such a name rather than returning any of the builds carrying it, and the refusal names every candidate so the caller can choose. A canonical identifier is matched across the whole registry before any alias is considered, so a build is never shadowed by an earlier entry whose alias equals its canonical.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: BRF-03, BRF-19. Evidence: PFS-8 (2026-08-02); the ambiguous-alias tests in tests/test_versions.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-03",
    "text": "Each command carries a per-version status: documented, verified, broken, or removed. Documented and verified are distinct because the manual and the solver disagree in practice. Statuses are promoted only by committed probe reports.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: BRF-03. Evidence: milestone M1 (schema), M3 (first promotions); committed compat reports.*",
+   "verification": "evidence"
   },
   {
    "id": "FR-04",
    "text": "Building a script with a command that does not exist in the target version fails at build time, before any solver run, with an error that cites the manual and suggests the successor command when one is known.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: BRF-03, PP-8. Evidence: milestone M1; refusal tests and the worked example's didactic 26.0 refusal.*",
+   "verification": "evidence"
   },
   {
    "id": "FR-05",
    "text": "Script construction uses an object bound to a version-specific registry view, so two scripts build concurrently without interference. This is the script-construction consequence of AD-03, which is the single home of the no-global-mutable-state rule.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: PP-2. Evidence: milestone M2; concurrent-build tests.*",
+   "verification": "evidence"
   },
   {
    "id": "FR-06",
    "text": "A curated set of thin helpers covers the common steady and unsteady workflows, and each helper emits only database-validated commands, adding no emitted line the command database does not define.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: BRF-04. Evidence: milestone M2; helper goldens (glossary).*",
+   "verification": "evidence"
   },
   {
    "id": "FR-07",
    "text": "A raw-emission escape hatch allows arbitrary lines, and its use is recorded in the run manifest, so no run silently depends on unvalidated commands.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: BRF-12. Evidence: milestone M2; the manifest raw flag.*",
+   "verification": "evidence"
   },
   {
    "id": "FR-08",
    "text": "The emitter layer is specified exclusively from the official manual and from probe evidence, and its clean-room provenance is verified by the contribution attestation recorded per change rather than by a runtime test. No code, structure, or docstrings derive from the AGPL ecosystem predecessor.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: BRF-10. Evidence: repository invariant; contribution policy.*",
+   "verification": "review"
   },
   {
    "id": "FR-08a",
    "text": "Database entries carry a script phase. The builder validates ordering at build time: pre-solver definitions emitted after solver initialization are rejected with a didactic error, and referencing an undefined entity fails at build time, not run time.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: BRF-13. Evidence: milestone M1 (phases in the schema), M2 (builder enforcement); phase tests.*",
+   "verification": "evidence"
   },
   {
    "id": "FR-09",
    "text": "Cases and campaigns are typed data objects. The unit of work is a SIM with a sim_id. A campaign declares its FlightStream version and executable path per AD-04, which is the single home of the explicit-never-guessed rule.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: BRF-01, BRF-16. Evidence: milestone M2.*",
+   "verification": "evidence"
   },
   {
    "id": "FR-10",
    "text": "A dedicated reader consumes the documented pipe-delimited run-matrix format: rows with RUN = 1 are active, the sweep columns define alpha, beta, or advance-ratio sweeps, and the variables column holds KEY:VALUE pairs. A column the reader does not recognize is preserved and reported rather than silently dropped.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: BRF-08. Evidence: milestone M2; the verified 15-column layout and its fixtures.*",
+   "verification": "evidence"
   },
   {
    "id": "FR-11",
    "text": "A convert command turns a run matrix into the native campaign format in one optional invocation, and a reverse conversion reproduces every field of the original matrix, verified by a round-trip (glossary) test. The matrix POL column maps to the native sim_id; the matrix reference codes are preserved verbatim.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: BRF-08, BRF-16. Evidence: milestone M2; TOML round-trip tests (glossary); the pyfs-matrix convert CLI (v0.3 line).*",
+   "verification": "evidence"
   },
   {
    "id": "FR-12",
    "text": "Script recipes are explicitly imported functions conforming to a documented protocol, replacing the predecessor's runtime file lookup by numeric code.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: PP-7. Evidence: milestone M2; recipe registry tests.*",
+   "verification": "evidence"
   },
   {
    "id": "FR-13",
    "text": "Execution goes through an executor interface. The local executor uses subprocess with a timeout, checks return codes, and never uses shell=True (glossary).",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: PP-5. Evidence: milestone M2; the executor tests and the documented headless invocation (SRC-003 pp.279-280).*",
+   "verification": "evidence"
   },
   {
    "id": "FR-14",
    "text": "A campaign run records every datapoint outcome. Failures are collected and reported at the end as a structured error; a silent skip is structurally impossible.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: PP-5, BRF-12. Evidence: milestone M2; campaign-loop tests.*",
+   "verification": "evidence"
   },
   {
    "id": "FR-15",
    "text": "An HPC executor submits runs through a cluster submission path. The executor interface must allow this without changes to the campaign model. Deferred; no cluster path ships today.",
-   "priority": "M"
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: BRF-01.*",
+   "verification": "none"
   },
   {
    "id": "FR-16",
    "text": "Output parsers locate data by anchors (labeled values, delimited tables), never by absolute line offsets.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: PP-4. Evidence: milestone M2; parser fixtures from real solver output.*",
+   "verification": "evidence"
   },
   {
    "id": "FR-17",
    "text": "An output file without its expected footer is FAILED_INCOMPLETE_OUTPUT, not a shorter table.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: PP-5. Evidence: milestone M2; incomplete-output tests.*",
+   "verification": "evidence"
   },
   {
    "id": "FR-18",
    "text": "The FlightStream version reported in outputs is cross-checked against the requested version; a mismatch raises a warning recorded in the manifest.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: BRF-03. Evidence: milestone M2; the lax cross-check recording string and build verbatim.*",
+   "verification": "evidence"
   },
   {
    "id": "FR-19",
    "text": "Every campaign writes runs.json recording per run: identity, case point, versions and build, package version, input and script hashes, status, iterations, residual, wall time, outputs, and error text. Folder names are never authoritative.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: PP-6. Evidence: milestone M2; manifest tests; extended by FR-31.*",
+   "verification": "evidence"
   },
   {
    "id": "FR-20",
    "text": "The result-array API provides labeled multidimensional arrays, interpolation along named axes, axis re-parameterization, and trim extraction by interpolating a moment coefficient to zero.",
-   "priority": "M"
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: BRF-01, BRF-18.*",
+   "verification": "none"
   },
   {
    "id": "FR-21",
    "text": "Plot files byte-compatible with the author's established plot format, with a reader making the pair round-trip testable. Not yet started; VTK and Tecplot probe-data writers exist in post/ but that plot format is not among them.",
-   "priority": "M"
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: BRF-01.*",
+   "verification": "none"
   },
   {
    "id": "FR-22",
    "text": "Per-boundary drag bookkeeping respects the documented vorticity CDi pitfall: a boundary without a user-defined trailing-edge condition reports zero induced drag once it is assigned to the vorticity CDi list. The API does not aggregate blindly, the vorticity selection is an explicit input of the solver settings, and leaving it unset is the documented solver default (surface pressure integration on every boundary), recorded as such in the solver-setup snapshot rather than refused. On a FlightStream version where the selection command has no recorded evidence, the snapshot states unknown instead of claiming the default.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: PP-5. Evidence: the v0.3 line, corrected by PLN-075 after a re-reading of the manual page; the vorticity selection of solver_settings with its two drag methods documented and snapshotted (SRC-003 p.202).*",
+   "verification": "review"
   },
   {
    "id": "FR-22a",
    "text": "A boundary without a user-defined trailing-edge condition, once assigned to the vorticity induced-drag list, returns a not-computed sentinel distinguishable from a physical zero.",
-   "priority": "D"
+   "priority": "D",
+   "status": "deferred",
+   "evidence": "*Origin: Phase 4 split of FR-22, accepted 2026-07-27.*",
+   "verification": "review"
   },
   {
    "id": "FR-22b",
    "text": "The vorticity induced-drag selection is an explicit solver-settings input, and leaving it unset is recorded in the solver-setup snapshot as the documented default, which is surface-pressure integration on every boundary.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: Phase 4 split of FR-22, accepted 2026-07-27. Evidence: the v0.3 line; solver-setup snapshot tests.*",
+   "verification": "review"
   },
   {
    "id": "FR-22c",
    "text": "On a FlightStream version with no recorded evidence for the selection command, the snapshot states unknown rather than the default.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: Phase 4 split of FR-22, accepted 2026-07-27. Evidence: the v0.3 line; solver-setup snapshot tests.*",
+   "verification": "review"
   },
   {
    "id": "FR-23a",
    "text": "From M6 the structural coupling tool is the fsi subpackage: config schema, loads parser, beam builder, centrifugal terms, kinematics, node generation, coupling driver, and the pyfs-fsi entry point. The structural dependency enters only as the optional [fsi] extra, never vendored, with committed license evidence.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: amendment of 2026-07-21. Evidence: milestone M6; the coupled near-rigid pilot report and the frozen replay.*",
+   "verification": "evidence"
   },
   {
    "id": "FR-24",
    "text": "A CI-runnable suite covers database integrity, emission validation including removed and renamed command scenarios, parser fixtures, golden scripts, and matrix reader equivalence. FlightStream itself is never required in CI.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: PP-9. Evidence: the Tier 1 suite in CI on every push.*",
+   "verification": "review"
   },
   {
    "id": "FR-25",
    "text": "A probe harness runs per-command probe scripts on a licensed machine, asserts real effects, and promotes results into database statuses through committed compatibility reports.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: BRF-03. Evidence: milestone M3; the committed compat reports and the promotion mechanism.*",
+   "verification": "evidence"
   },
   {
    "id": "FR-26",
    "text": "A physics regression matrix on synthetic geometry guards physical sanity per release. Each guarded coefficient is compared against a committed reference with a per-coefficient error metric, absolute for coefficients that pass through zero and relative otherwise, and with WARN and FAIL band values derived from measured run-to-run repeatability rather than chosen. A reference update states its reason.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: BRF-12, BRF-17. Evidence: milestones M4 onward; the banded-reference reports. Expansion (mesh refinement, solver-flag cases) queued for licensed sessions.*",
+   "verification": "evidence"
   },
   {
    "id": "FR-27",
    "text": "Version-comparison cases come in two classes: synthetic geometries, committable and generated by the suite; and local research cases whose geometry never enters the repository, with only aggregated coefficients in the committed reports.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: BRF-17. Evidence: milestone M4; the drift suite and its committed reports.*",
+   "verification": "evidence"
   },
   {
    "id": "FR-28",
    "text": "The package creates and names per-campaign and per-simulation folder trees itself, standardized English names derived from sim_id and the manifest. No user hand-builds a run folder.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: BRF-15, BRF-14. Evidence: milestone M2; extended by FR-33.*",
+   "verification": "evidence"
   },
   {
    "id": "FR-29",
    "text": "The package stages inputs into the run folder, records their hashes in the manifest, collects outputs to declared locations, and provides archive and cleanup operations that refuse to touch folders whose manifest is missing or inconsistent.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: BRF-15, PP-6, PP-7. Evidence: milestone M2; archive refusal tests.*",
+   "verification": "evidence"
   },
   {
    "id": "FR-30",
    "text": "FlightStream is index-parameterized; pyflightstream identifies entities by label. The builder registry tracks frames, actuators, motions, and boundaries with optional labels; every entity-citing argument accepts index or label; declared boundary inventories are range-checked; undeclared stays permissive because the total lives in the geometry file.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: usage feedback. Evidence: the v0.3 line; registry tests. The fsm-to-obj boundary inspector is <span class='srs-deferred'>deferred</span> behind a licensed probe (does the OBJ export write one named group per boundary?).*",
+   "verification": "review"
   },
   {
    "id": "FR-30a",
    "text": "The builder registry identifies frames, actuators, motions, and boundaries by optional label rather than by the solver's positional index.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: Phase 4 split of FR-30, accepted 2026-07-27. Evidence: the v0.3 line; tests/test_script_entities.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-30b",
    "text": "Every entity-citing argument accepts either an index or a label.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: Phase 4 split of FR-30, accepted 2026-07-27. Evidence: the v0.3 line; tests/test_script_entities.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-30c",
    "text": "A declared boundary inventory is range-checked, and an undeclared inventory stays permissive, because the total lives in the geometry file rather than in the script.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: Phase 4 split of FR-30, accepted 2026-07-27. Evidence: the v0.3 line; tests/test_script_entities.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-31",
    "text": "The solver settings helper is the single entry point for every solver flag and returns a snapshot recording each flag's effective value with provenance: explicit, evidence-cited default, or unknown (never guessed). The snapshot rides the manifest, and a script can be regenerated from it. The set of physics-material flags carried as unknown is confirmed complete per supported version, and the confirmation is recorded in that version's compatibility report.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: usage feedback. Evidence: the v0.3 line; snapshot round-trip tests. Evidence for the remaining unknown defaults is <span class='srs-deferred'>deferred</span> to the licensed queue.*",
+   "verification": "review"
   },
   {
    "id": "FR-31a",
    "text": "The solver-settings helper is the single entry point for every solver flag and returns a snapshot recording each flag's effective value with its provenance: explicit, evidence-cited default, or unknown, never guessed.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: Phase 4 split of FR-31, accepted 2026-07-27. Evidence: the v0.3 line; tests/test_solver_setup.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-31b",
    "text": "The snapshot rides the manifest, and a runnable script is regenerated from it.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: Phase 4 split of FR-31, accepted 2026-07-27. Evidence: the v0.3 line; tests/test_solver_setup.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-31c",
    "text": "The set of physics-material flags carried as unknown in the solver-setup snapshot is confirmed complete per supported version, and the confirmation is recorded in that version's compatibility report.",
-   "priority": "D"
+   "priority": "D",
+   "status": "deferred",
+   "evidence": "*Origin: the FR-31 flag-completeness acceptance, 2026-07-27, allocated its own identifier here.*",
+   "verification": "review"
   },
   {
    "id": "FR-32",
    "text": "Every parser result converts to a tidy table (glossary) and to csv; a run merges into one wide row (identity, conditions, coefficients, with identity cross-checks); a whole sweep assembles from the manifest alone.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: usage feedback. Evidence: the v0.3 line; table tests on the sanitized fixtures.*",
+   "verification": "review"
   },
   {
    "id": "FR-33",
    "text": "The workspace organizes inputs: declarative TOML artifacts (references, setups, groups, geometries, profiles, executables by build id) resolved by stable id with didactic misses. Output naming is templatable and output-only: the manifest stays the sole identity authority and no parse-back API exists. A case whose sweep points would render the same output name is blocked before it runs, because every point of a case executes in one simulation folder and a shared name destroys the evidence of all but the last (incident INC-20260723-2113).",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: BRF-20. Evidence: the v0.3 line; artifact and no-parse-back tests.*",
+   "verification": "review"
   },
   {
    "id": "FR-33a",
    "text": "The workspace organizes declarative TOML input artifacts (references, setups, groups, geometries, profiles, and executables by build id) resolved by stable id, with a didactic message when an id misses.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: Phase 4 split of FR-33, accepted 2026-07-27. Evidence: the v0.3 line; tests/test_workspace.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-33b",
    "text": "Output naming is templatable and output-only; the manifest is the sole identity authority and no parse-back API exists.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: Phase 4 split of FR-33, accepted 2026-07-27. Evidence: the v0.3 line; the no-parse-back guard in tests/test_workspace.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-33c",
    "text": "A case whose sweep points would render the same output name is blocked before it runs, because every point of the case executes in one simulation folder.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: Phase 4 split of FR-33, accepted 2026-07-27, giving the incident guard its own identifier. Evidence: incident INC-20260723-2113; tests/test_run_campaign.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-34",
    "text": "A campaign can be pre-flighted with zero solver time (recipes resolved, scripts dry-run built, folders allocated, geometry verified, plan written) and re-run with resume semantics that skip manifest-recorded points, enabling incremental sweeps.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: usage feedback. Evidence: the v0.3 line; pre-flight and resume tests.*",
+   "verification": "review"
   },
   {
    "id": "FR-35",
    "text": "The run matrix is a first-class interface of the file-managed modality: its reference columns resolve against the workspace input library, and one call takes a matrix through conversion, pre-flight, and execution. The native campaign format remains the canonical internal form.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: usage feedback, amending the posture of FR-10/FR-11. Evidence: the v0.3 line; resolution hit and miss tests.*",
+   "verification": "review"
   },
   {
    "id": "FR-36",
    "text": "Help has two zoom levels: the command reference (with a manual-coverage section stating what the database does and does not yet cover) and the architecture overview generated from the live module docstrings. Both render offline and in the docs from single sources.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: usage feedback. Evidence: the v0.3 line; overview and coverage tests.*",
+   "verification": "review"
   },
   {
    "id": "FR-37",
    "text": "A datapoint whose recorded residual does not reach the configured convergence threshold terminates with a status distinct from a completed one, even when the output footer is structurally complete.",
-   "priority": "M"
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: Phase 4 review, accepted 2026-07-27.*",
+   "verification": "none"
   },
   {
    "id": "FR-38",
    "text": "The far-field subpackage computes the mass, momentum, swirl, crossflow-kinetic-energy, and rothalpy conservation ledgers on the survey lattice, evaluates gates G1, G3, and G4 and the near-field versus far-field spurious diagnostic, and records each ledger and gate outcome in the run outputs.",
-   "priority": "D"
+   "priority": "D",
+   "status": "deferred",
+   "evidence": "*Origin: Phase 4 review, accepted 2026-07-27, absorbing the C11 acceptance of the same subject. Evidence for the delivered half: milestone M7; the G0 synthetic gate in tests/test_farfield.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-39",
    "text": "Every exception raised by the public API derives from a single documented base exception, each type is documented with the condition that raises it, and every exception and warning is re-exported from one catalog module, so that a class defined outside the catalog fails the suite.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: Phase 4 review, accepted 2026-07-27, absorbing the C2 catalog acceptance and the M1 typed-hierarchy mirror. Evidence: PFS-2 (2026-08-02); src/pyflightstream/exceptions.py; tests/test_exceptions_catalog.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-40",
    "text": "Every user-facing option or parameter is declared in a single registry recording its type, default, and validation rule, and the CLIs and the Python API resolve options through that registry; setting an unknown option, or a value outside its declared domain, raises an error naming the option and its allowed values. Every registered option name is a stable public contract, which is the form she chose against the review's recommended narrowing.",
-   "priority": "M"
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: Phase 4 review, accepted 2026-07-27, absorbing the C1 acceptance of the same subject.*",
+   "verification": "none"
   },
   {
    "id": "FR-41",
    "text": "The package emits ITACA datasets from the manifest and the results schema, with a documented field mapping.",
-   "priority": "M"
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: Phase 4 review, accepted 2026-07-27.*",
+   "verification": "none"
   },
   {
    "id": "FR-42",
    "text": "The package states the reference-frame and sign conventions for reported forces, moments, and rotor quantities, naming the positive axis directions, the moment reference point, and the rotor-rotation sign, and every coefficient the results layer emits conforms to them.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: Phase 4 review, accepted 2026-07-27. Evidence: reference.CONVENTIONS, rendered offline and on the docs site from one source; tests/test_conventions.py. The implemented status covers the STATING half: the conventions are published from one home and guarded there. That every emitted coefficient conforms to them is asserted by no test, and saying so here is the alternative to a badge that implies one.*",
+   "verification": "test"
   },
   {
    "id": "FR-43",
    "text": "A conservation ledger's imbalance is reported against a stated acceptance band, and a run whose imbalance leaves the band is reported as such rather than as a number the reader must judge.",
-   "priority": "D"
+   "priority": "D",
+   "status": "deferred",
+   "evidence": "*Origin: Phase 4 review, accepted 2026-07-27, recorded in the mapping register as blocked by evidence. Written into this chapter 2026-08-02, on review finding PYFS-022: the identifier was allocated in the mapping and the requirement box was never transcribed, so an accepted item existed with no requirement anywhere.*",
+   "verification": "review"
   },
   {
    "id": "FR-44",
    "text": "The package provides four documented console entry points, one per operational concern, and their commands and flags change only under the deprecation policy of NFR-20.",
-   "priority": "M"
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the C4 acceptance, 2026-07-27, in the FULL-contract form she chose against the review's own recommendation of a narrower one.*",
+   "verification": "none"
   },
   {
    "id": "FR-45",
    "text": "The manifest record rejects unknown fields and duplicate run identifiers; its field set is fixed and validated at construction.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: the C5 acceptance, 2026-07-27. Evidence: both halves pinned in tests/test_workspace.py, the unknown-field refusal by a test added with this consolidation after review found the clause resting on a model-config line no assertion observed.*",
+   "verification": "test"
   },
   {
    "id": "FR-46",
    "text": "Every executed point terminates in exactly one value of a closed set of six status values, and a seventh cannot be introduced silently.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: the C6 acceptance, 2026-07-27. Evidence: the member set of RunStatus pinned in tests/test_workspace.py, added with this consolidation; using the members, which the campaign tests do, does not notice an addition.*",
+   "verification": "test"
   },
   {
    "id": "FR-47",
    "text": "The package exposes public assertion helpers that compare records and scripts and report the quantified violation on failure, so a user can assert against this package's outputs in their own tests.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: the C8 acceptance, 2026-07-27. Evidence: src/pyflightstream/testing.py; tests/test_testing.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-48",
    "text": "Emitting a command whose per-version record is broken raises at build time. The refusal has one documented way through: a waiver naming the command and the caller's justification, which lets the command emit and records the command, the version, the committed probe report and the justification in the script and in the run manifest.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: the independent review's finding PYFS-002, reproduced 2026-07-28 and again at HEAD on 2026-08-02. Evidence: Script.allow_broken and the emission refusal in src/pyflightstream/script/__init__.py; broken_commands on RunRecord; the database-driven refusal guard and the waiver guards in tests/test_script.py, tests/test_script_helpers.py and tests/test_run_campaign.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-49",
    "text": "A registered version reports its support level as one of four named values, ascending: registered (ordered, no command carries evidence, nothing can be built), documented (commands drafted from the manual, none measured against a running solver), verified (probe evidence measured on this version) and operational (verified, and the minimal end-to-end workflow builds for it). Every level is derived from the command database; none is declared.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: the independent review's finding PYFS-019, reproduced 2026-07-28 and again at HEAD on 2026-08-02. Evidence: src/pyflightstream/support.py; tests/test_support.py.*",
+   "verification": "test"
   },
   {
    "id": "NFR-01",
    "text": "The package is didactic by construction: NFR-01a to NFR-01d state what that means in four claims.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: BRF-04. Split into four singular claims 2026-07-27, each with its own identifier, so each can be falsified on its own; this box is the umbrella and adds nothing the four do not say.*",
+   "verification": "review"
   },
   {
    "id": "NFR-01a",
    "text": "Every public function has a numpydoc docstring stating units and reference frames.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: Phase 4 split of NFR-01, accepted 2026-07-27. Evidence: the numpydoc convention enforced by ruff (NFR-09) for the docstring STRUCTURE, and the unit-suffix audit of tests/test_conventions.py for model fields. That units and frames are actually stated in the prose of every public function is checked by review, because the tools check shape and not meaning, and this tag says so rather than letting the badge imply a guard.*",
+   "verification": "test"
   },
   {
    "id": "NFR-01b",
    "text": "Every module's top docstring states its role in the pipeline.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: Phase 4 split of NFR-01, accepted 2026-07-27. Evidence: tests/test_package_imports.py, which asserts a non-empty top docstring on every subpackage, and the architecture overview, which renders them. What is guarded is that the docstring EXISTS at subpackage level; that its text states a pipeline role, for every one of the modules below that level, is a review check.*",
+   "verification": "test"
   },
   {
    "id": "NFR-01c",
    "text": "Every raised error names the physical or version cause rather than the internal symptom, identifies the object or version involved and the operation attempted, states a suggested fix where a remedy is known, and carries the machine-readable attributes a caller needs to recover.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: Phase 4 split of NFR-01, accepted 2026-07-27, absorbing the C3 acceptance on error content. Evidence: tests/test_error_messages.py and the attribute cases of tests/test_exceptions_catalog.py, which pin a named list of errors rather than enumerating every raise site. The list is the guard's scope, in the manner NFR-24 states for its own.*",
+   "verification": "test"
   },
   {
    "id": "NFR-01d",
    "text": "Evidence line corrected 2026-08-03 (review finding PYFS-026). It said the executable examples ran in CI under Sybil, and Sybil runs docstring doctests and markdown code blocks: the four examples/*.py were in no CI step at all, so the badge rested on a mechanism that did not cover them. They are the first code a new user runs.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: Phase 4 split of NFR-01, accepted 2026-07-27. Evidence: tests/test_examples.py runs each of the examples/*.py and holds each to the extras it declares; the Sybil run covers the docstring doctests and the markdown code blocks. Nothing enumerates the public workflows and checks one example per workflow, so the per-workflow coverage is a review check and the badge covers the examples' correctness.*",
+   "verification": "test"
   },
   {
    "id": "NFR-02",
    "text": "MIT license; no AGPL-derived code; dependency licenses must be clearly MIT-compatible, with committed license-evidence cards before adoption (RPT-002, RPT-003, RPT-008 are the precedents).",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: BRF-02, BRF-10.*",
+   "verification": "review"
   },
   {
    "id": "NFR-03",
    "text": "The repository never reproduces FlightStream manual text, screenshots, or example blocks. Manual facts appear only as paraphrases with page citations. The manual itself never enters the repository; repository guards reject pdf files.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "",
+   "verification": "review"
   },
   {
    "id": "NFR-04",
    "text": "Supported FlightStream versions are only added, never dropped. The package version follows SemVer, decoupled from FlightStream version numbers; while the package is at 0.x, the API is unstable by SemVer's own rule.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: BRF-07.*",
+   "verification": "review"
   },
   {
    "id": "NFR-05",
    "text": "Windows is the primary execution target (FlightStream runs on Windows); the package itself is pure Python >= 3.11 and passes CI on Linux AND on Windows, at both declared Python bounds. HPC submission stays a deferred executor (FR-15).",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "",
+   "verification": "review"
   },
   {
    "id": "NFR-06",
    "text": "Runtime dependencies form a minimal, public, permissively licensed set; heavier needs live behind optional extras; no private or absolute-path dependencies, ever. The standing engineering policy prefers existing public libraries over in-house code for generic needs.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: PP-9. Runtime set restated 2026-07-27 under AD-06 and AD-07.*",
+   "verification": "review"
   },
   {
    "id": "NFR-07",
    "text": "A run's INPUTS and invocation are reproducible from its manifest entry alone: input hashes, versions, the solver-setup snapshot, and a regenerable script reconstruct the exact call. Publications cite run ids.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: PP-6.*",
+   "verification": "review"
   },
   {
    "id": "NFR-08",
    "text": "No employer or third-party proprietary content, no proprietary geometry, no research-specific aircraft data ever enter the repository. Synthetic geometry only in tests and examples; local research cases contribute only aggregated coefficients to committed reports.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "",
+   "verification": "review"
   },
   {
    "id": "NFR-09",
    "text": "ruff for lint and format; numpydoc convention; naming checks exempted for standard aerodynamic symbols (CL, CDi, J, CT). House style forbids em and en dash characters in Markdown and docstrings, enforced by a Tier 1 test.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "",
+   "verification": "review"
   },
   {
    "id": "NFR-10",
    "text": "Every folder, file, module, function, and identifier in the repository is in English.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: BRF-14.*",
+   "verification": "review"
   },
   {
    "id": "NFR-11",
    "text": "Documentation may never drift silently from the code. The mechanisms, in force from 2026-07-22:",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: the 2026-07-22 staleness audit, which found the public documentation frozen at earlier milestones while the code moved. Evidence: the process rules below plus the consistency guard test.*",
+   "verification": "evidence"
   },
   {
    "id": "NFR-12",
    "text": "Every public release carries citation metadata: CITATION.cff is validated and its version and date match the tag before tagging (release-skill pause point), and the GitHub release is archived with a DOI. The citation file is the single home of the citation facts.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: the v0.2.0 public release.*",
+   "verification": "review"
   },
   {
    "id": "NFR-13",
    "text": "A Tier 1 test asserts requirement-to-test closure: every requirement whose status is not pending resolves to at least one marked falsifying test, and every requirement marker resolves to an identifier defined in the SRS. Each Tier 1 test that falsifies a requirement declares that requirement's identifier in a machine-readable marker.",
-   "priority": "M"
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: Phase 4 review theme 1, accepted 2026-07-27, absorbing the T3 traceability acceptance and the TRC-01 marker convention, which is the mechanism this requirement asserts.*",
+   "verification": "none"
   },
   {
    "id": "NFR-14",
    "text": "A Tier 1 guard rejects the commit of any file whose extension is in the known geometry or mesh set unless its path is in the synthetic-fixtures allowlist.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: Phase 4 review, accepted 2026-07-27. Evidence: PFS-3 (2026-08-02); tests/test_house_style.py::test_no_geometry_file_is_tracked_outside_the_synthetic_allowlist walks every tracked path and fails on a geometry suffix outside the allowlist, with test_the_geometry_guard_fires_on_what_it_exists_to_catch as its mutation proof; the forbid-geometry pre-commit hook refuses the same class at commit time.*",
+   "verification": "test"
   },
   {
    "id": "NFR-15",
    "text": "The manifest input and script hashes are computed with a named algorithm over a canonical serialization that excludes wall-clock timestamps, absolute paths, and wall time, so two runs with identical inputs produce identical hashes. The determinism this promises is bounded to one platform and one set of library versions, and that boundary is stated rather than implied.",
-   "priority": "M"
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: Phase 4 review, accepted 2026-07-27, absorbing the M3b state-hash mirror.*",
+   "verification": "none"
   },
   {
    "id": "NFR-16",
    "text": "The Tier 1 suite holds STATEMENT and BRANCH coverage at or above a stated floor, set against measured coverage rather than aspiration, and CI fails when either falls below it.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: Phase 4 review, accepted 2026-07-27, absorbing the M5 coverage mirror. Measured for the first time 2026-08-02 (session PFS-B1, review finding PYFS-024). Evidence: [tool.coverage.report] fail_under in pyproject.toml; the coverage job of .github/workflows/ci.yml.*",
+   "verification": "evidence"
   },
   {
    "id": "NFR-17",
    "text": "The repository defines one float-comparison convention, a named helper with default absolute and relative tolerances, and every numerical-equivalence assertion references it rather than an ad hoc literal.",
-   "priority": "M"
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: Phase 4 review, accepted 2026-07-27.*",
+   "verification": "none"
   },
   {
    "id": "NFR-18",
    "text": "The runs.json manifest records a manifest schema version, and manifest keys are added, renamed, or removed only under the deprecation policy of NFR-20, so a run cited in a publication stays readable across package versions.",
-   "priority": "M"
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: Phase 4 review, accepted 2026-07-27.*",
+   "verification": "none"
   },
   {
    "id": "NFR-19",
    "text": "Every table the results layer produces exposes a documented column schema. Where this requirement additionally promises STABILITY, in the scope stated below, a change to that schema is announced in the changelog's API surface delta, and from 1.0 a column is renamed or removed only under NFR-20. Documentation is universal; the stability promise is not, and separating the two is what lets the exclusion below be an exclusion from a promise rather than from the docs.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: Phase 4 review theme 5, accepted 2026-07-27. Evidence: the column schemas documented in the docstrings of results/tables.py; tests/test_tables.py pins the run row's COMPLETE column list against a literal, so a column added or reordered in the middle fails the suite rather than passing the per-name lookups.*",
+   "verification": "test"
   },
   {
    "id": "NFR-20",
    "text": "This policy takes effect at 1.0. From 1.0, a public API element (function, parameter, CLI flag, manifest key, or result column) is removed only after the warning has shipped in at least one released minor version, naming the replacement and the removal version, and is still present in the last release before the removal; the removal itself lands in a MAJOR release. Stated as releases rather than as \"one full minor\" because the latter has no meaning when a major follows a minor directly. Naming the removal release is not a detail: a policy that says only \"after a warning\" permits deleting public API in a minor, which NFR-04's SemVer commitment forbids, and this requirement exists to stop a reader having to reconcile the two.",
-   "priority": "M"
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: Phase 4 review theme 5; the window decided by the author 2026-07-27 and recorded in the revision history. Pending because the policy it states begins at 1.0 and the package is at 0.x; the recorded-promise mechanism it relies on is already shipped and guarded (the ledger in pyflightstream._deprecations and the Tier 1 deadline guard tests/test_deprecation_deadline.py).*",
+   "verification": "none"
   },
   {
    "id": "NFR-21",
    "text": "Each release states the range of FlightStream versions and the range of Python versions it supports, and a supported version leaves that range only after a release that announces the removal.",
-   "priority": "M"
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: Phase 4 review, accepted 2026-07-27.*",
+   "verification": "none"
   },
   {
    "id": "NFR-22",
    "text": "This requirement is the single home of how dependency versions are declared. Three rules:",
-   "priority": "M"
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: Phase 4 review theme 3 plus the numerical seat, accepted 2026-07-27; the pre-1.0 pin form and the ceiling rule added the same day, covering dependency metadata that no requirement reached.*",
+   "verification": "none"
   },
   {
    "id": "NFR-23",
    "text": "A Tier 1 mechanism enforces AD-01: a module that imports from a layer above its own fails the suite, rather than being caught by review.",
-   "priority": "M"
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the ITACA mirror review (item M2), accepted 2026-07-27 as a new requirement rather than a mirror.*",
+   "verification": "none"
   },
   {
    "id": "NFR-24",
    "text": "Each software term on this requirement's list (clean-room, golden, round-trip, escape hatch, tidy table, shim, substrate, shell=True) has a glossary entry and is glossed at its first use in the SRS. The list is the authority: a chapter that introduces a new software term adds it here, and the guard follows.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: Phase 4 review theme 7 (item TERM-software-jargon), accepted 2026-07-27. Evidence: the glossary in the SRS index, pinned by tests/test_metadata_currency.py.*",
+   "verification": "test"
   },
   {
    "id": "NFR-25",
    "text": "A missing optional dependency raises a typed error carrying the exact pip install pyflightstream[<extra>] remedy, never a bare ImportError.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: the C9 acceptance and the M6 mirror of the same subject, 2026-07-27, which the author accepted as elevating AD-05 to a tested requirement. Evidence: pyflightstream.extras.MissingExtraError and require_extra; tests/test_extras.py, parametrized over every extra.*",
+   "verification": "test"
   },
   {
    "id": "NFR-26",
    "text": "The unit of work is named SIM at the case level and datapoint at the execution level throughout the SRS and the docs, and every other term for it is either replaced or given a glossary entry mapping it to one of those two.",
-   "priority": "M"
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the TERM-unit-of-work acceptance, 2026-07-27, allocated an identifier by this consolidation.*",
+   "verification": "none"
   },
   {
    "id": "NFR-27",
    "text": "A static type checker runs over the whole package in CI, and the modules it does not yet pass are exempted BY NAME rather than by a blanket setting, so the exemption list is the debt and shrinks.",
-   "priority": "M"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: the independent review's finding PYFS-026, 2026-08-03. Evidence: [tool.mypy] in pyproject.toml; the types job of .github/workflows/ci.yml.*",
+   "verification": "review"
   }
  ]
 }

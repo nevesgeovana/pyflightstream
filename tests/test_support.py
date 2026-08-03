@@ -50,6 +50,7 @@ def test_the_levels_are_a_closed_named_set_in_ascending_order():
     )
 
 
+@pytest.mark.requirement("FR-49")
 def test_a_version_with_no_evidence_is_reported_registered_and_not_supported():
     """The finding, stated as its own assertion.
 
@@ -101,6 +102,7 @@ def test_the_level_is_derived_from_the_database_and_not_declared():
         assert row.level is expected, version.canonical
 
 
+@pytest.mark.requirement("FR-49")
 @pytest.mark.parametrize(
     "canonical",
     [row.canonical for row in support_table() if row.level is SupportLevel.OPERATIONAL],

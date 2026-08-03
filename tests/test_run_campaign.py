@@ -1154,6 +1154,7 @@ def test_the_vcs_pair_is_none_together_and_never_guesses(tmp_path, monkeypatch):
 # --- PYFS-015: the record plus the staged inputs must reproduce the run ----
 
 
+@pytest.mark.requirement("NFR-07")
 def test_a_recorded_run_reconstructs_from_the_manifest_alone(tmp_path):
     """The round trip the finding asks for.
 

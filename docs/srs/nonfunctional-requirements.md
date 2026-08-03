@@ -244,6 +244,21 @@
     the current numbers so the gap is visible rather than asserted, and
     NFR-13 is what turns them into a gate.
 
+
+    Partly delivered 2026-08-03 (review finding PYFS-020) and still
+    pending, because the closure this requirement names is not reached.
+    What landed: the published index now carries `status`, `evidence`
+    and a `verification` method per requirement, where it published id,
+    text and priority alone; a `requirement` pytest marker declares
+    that a test FALSIFIES a requirement; and `tests/test_traceability.py`
+    holds every marker to a live identifier and ratchets the covered
+    set so it cannot shrink by accident.
+
+    Why it stays pending rather than moving: 96 requirements exist and
+    the marked set is a fraction of them. Marking a requirement on a
+    test that does not actually falsify it would be worse than leaving
+    it unmarked, because the index would then count a trace that is not
+    one, so the set grows by hand, one verified pair per commit.
 !!! requirement "NFR-14 Confidentiality commit guard <span class='srs-implemented'>implemented</span>"
     *Origin: Phase 4 review, accepted 2026-07-27. Evidence: PFS-3
     (2026-08-02);
@@ -566,10 +581,12 @@
     glossed-at-first-use half is a documentation review check, because
     no cheap test distinguishes a first use from a later one.
 
-!!! requirement "NFR-25 Optional-dependency error shape <span class='srs-pending'>pending</span>"
+!!! requirement "NFR-25 Optional-dependency error shape <span class='srs-implemented'>implemented</span>"
     *Origin: the C9 acceptance and the M6 mirror of the same subject,
     2026-07-27, which the author accepted as elevating AD-05 to a
-    tested requirement.*
+    tested requirement. Evidence:
+    `pyflightstream.extras.MissingExtraError` and `require_extra`;
+    `tests/test_extras.py`, parametrized over every extra.*
 
     A missing optional dependency raises a typed error carrying the
     exact `pip install pyflightstream[<extra>]` remedy, never a bare
@@ -579,15 +596,21 @@
     acceptance asked for: a decision states an intent, and only a
     requirement with a test behind it can be broken visibly.
 
-    Pending, and the measurement is the reason. Of the three sites that
-    raise on a missing extra, one raises a package type
-    (`probes/geometry.py`) and two raise stdlib errors directly,
-    `results/tables.py` an `ImportError` and `fsi/beam.py` a
-    `ModuleNotFoundError`. All three carry the exact pip remedy, so the
-    didactic half is real and the TYPED half is not, which is the half
-    the word "never a bare ImportError" promises. No test exercises the
-    missing-extra path at all, and the acceptance said one must be
-    written.
+    Implemented 2026-08-03 (review finding PYFS-025). What it was
+    pending on, stated here because the shape of the fix is the
+    interesting part: three sites raised three different types, one a
+    package type and two stdlib errors, each with its own hand-written
+    remedy string, and no test exercised the missing-extra path at all.
+    There is one type now, and the remedy is COMPOSED from the extra's
+    name rather than written, so a message cannot name an extra that
+    does not exist. A tier 1 test asserts the shape per extra, and an
+    AST guard refuses any raise that writes the remedy by hand.
+
+    One residual, stated rather than left: the missing-extra paths are
+    verified by construction and by source, not by uninstalling the
+    extras, because the suite runs with them installed. What that
+    leaves unverified is the import machinery of each gate, not the
+    shape of its refusal.
 
 !!! requirement "NFR-26 One term per level for the unit of work <span class='srs-pending'>pending</span>"
     *Origin: the TERM-unit-of-work acceptance, 2026-07-27, allocated an

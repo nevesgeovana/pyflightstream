@@ -1,0 +1,158 @@
+"""Tier 1: requirement markers resolve, and the covered set only grows.
+
+REV-002 finding PYFS-020, which is NFR-13 itself. The published
+requirement index carried ``id``, ``text`` and ``priority`` and nothing
+about status, evidence or how each requirement is verified; and
+traceability was measured by searching for an identifier ANYWHERE under
+``tests/``, a number the generator's own ``method`` field called an
+upper bound rather than a measure.
+
+Two halves land here. The index now publishes ``status``, ``evidence``
+and ``verification`` (that half is in the generator). This module is
+the other: a ``requirement`` marker declares that a test FALSIFIES a
+requirement, every marker must resolve to a live identifier, and the
+covered set is a ratchet.
+
+Read as a RATCHET rather than as closure, because it is not closure. 96
+requirements exist and the marked set is a fraction of them. Naming a
+requirement on a test that does not actually falsify it would be worse
+than leaving it unmarked, so the set grows as each one is verified by
+hand, and this module makes sure it never shrinks silently.
+
+The markers are read with ``ast`` rather than through a pytest plugin:
+a static read cannot be fooled by a test that is skipped, deselected or
+never collected on this platform, and "the marker exists" is a fact
+about the source.
+"""
+
+from __future__ import annotations
+
+import ast
+import json
+import re
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[1]
+TESTS = REPO / "tests"
+INDEX = REPO / "reports" / "requirements-index.json"
+
+#: The covered set may only GROW. This is the floor, raised in the same
+#: commit that marks a new requirement, exactly like the coverage floor
+#: in pyproject: the measurement is the fact and this is the promise.
+MARKED_FLOOR = 8
+
+
+def _marked() -> dict[str, list[str]]:
+    """Return {requirement id: [test names]} from the marker decorators."""
+    found: dict[str, list[str]] = {}
+    for path in sorted(TESTS.rglob("test_*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.FunctionDef | ast.ClassDef):
+                continue
+            for decorator in node.decorator_list:
+                if not isinstance(decorator, ast.Call):
+                    continue
+                target = decorator.func
+                parts = []
+                while isinstance(target, ast.Attribute):
+                    parts.append(target.attr)
+                    target = target.value
+                if parts[:1] != ["requirement"] or "mark" not in parts:
+                    continue
+                for argument in decorator.args:
+                    if isinstance(argument, ast.Constant) and isinstance(argument.value, str):
+                        found.setdefault(argument.value, []).append(
+                            f"{path.relative_to(REPO).as_posix()}::{node.name}"
+                        )
+    return found
+
+
+def _live_identifiers() -> set[str]:
+    payload = json.loads(INDEX.read_text(encoding="utf-8"))
+    return {entry["id"] for entry in payload["requirements"]}
+
+
+def test_every_marker_resolves_to_a_live_requirement():
+    """A marker naming a withdrawn or misspelled identifier traces nothing.
+
+    This is the half of NFR-13 that is closed rather than ratcheted: it
+    holds completely today and cannot silently stop holding.
+    """
+    live = _live_identifiers()
+    marked = _marked()
+    assert marked, "no requirement markers found at all; the AST scan is broken"
+    dangling = sorted(set(marked) - live)
+    assert not dangling, (
+        f"these markers name identifiers the SRS does not publish: {dangling}. A "
+        "marker that resolves to nothing is worse than no marker, because the "
+        "index counts it"
+    )
+
+
+def test_the_marked_set_only_grows():
+    """The ratchet. 96 requirements exist and the marked set is a fraction.
+
+    Marking a requirement on a test that does not actually falsify it
+    would be worse than leaving it unmarked, so the set grows by hand,
+    one verified pair at a time, and this stops it shrinking by accident
+    when a test is renamed or deleted.
+    """
+    marked = _marked()
+    assert len(marked) >= MARKED_FLOOR, (
+        f"{len(marked)} requirements carry a falsifying test and the recorded "
+        f"floor is {MARKED_FLOOR}. If a test was deliberately removed, lower the "
+        "floor in the same commit and say why"
+    )
+
+
+def test_the_published_index_carries_status_evidence_and_verification():
+    """NFR-13 asks for these three, and the first edition published none.
+
+    A consumer of the index could not tell an implemented requirement
+    from a pending one, nor find what backs either.
+    """
+    payload = json.loads(INDEX.read_text(encoding="utf-8"))
+    entries = payload["requirements"]
+    assert entries, "the published index is empty"
+    for entry in entries:
+        assert set(entry) >= {"id", "text", "status", "evidence", "verification"}, entry
+        assert entry["status"] in {"implemented", "pending", "deferred", "draft"}, entry
+        assert entry["verification"] in {"test", "evidence", "review", "none"}, entry
+    # A pending requirement is verified by nothing, by definition; an
+    # implemented one must claim SOMETHING. Without this the field could
+    # be a constant and still satisfy the membership check above.
+    for entry in entries:
+        if entry["status"] == "pending":
+            assert entry["verification"] == "none", entry["id"]
+        if entry["status"] == "implemented":
+            assert entry["verification"] != "none", entry["id"]
+    kinds = {entry["verification"] for entry in entries}
+    assert len(kinds) >= 3, f"verification collapsed to {kinds}; it is not classifying"
+
+
+def test_the_traceability_number_still_says_what_it_measures():
+    """The generous count must keep declaring itself generous.
+
+    The published number counts a bare mention anywhere under tests/,
+    which is not a falsifying test. It travels to a dashboard where the
+    docstring does not, so the payload carries its own caveat; dropping
+    the caveat would turn an upper bound into a claim.
+    """
+    payload = json.loads(INDEX.read_text(encoding="utf-8"))
+    method = payload["traceability"]["method"]
+    assert "upper bound" in method, method
+    assert payload["traceability"]["total"] == len(payload["requirements"])
+
+
+def test_the_marker_is_registered_so_a_typo_is_not_silent():
+    """An unregistered pytest mark is a warning, not an error, by default.
+
+    The marker is declared in pyproject, and this asserts the
+    declaration, because a renamed marker would otherwise make every
+    marked test lose its trace while the suite stayed green.
+    """
+    config = (REPO / "pyproject.toml").read_text(encoding="utf-8")
+    assert re.search(r'"requirement\(identifier\):', config), (
+        "the requirement marker is not registered in pyproject's markers list"
+    )

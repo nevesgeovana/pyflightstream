@@ -61,6 +61,7 @@ def test_each_extra_names_the_distributions_it_installs(extra):
     )
 
 
+@pytest.mark.requirement("NFR-25")
 @pytest.mark.parametrize("extra", sorted(EXTRAS))
 def test_the_refusal_carries_the_exact_install_command(extra):
     """One type, and a remedy composed from the extra's own name.
@@ -156,6 +157,7 @@ def test_every_extra_has_a_license_card(extra):
     )
 
 
+@pytest.mark.requirement("NFR-02")
 def test_every_runtime_dependency_has_a_license_card():
     """The set that reaches every user, which is the one that had no card."""
     with open(REPO / "pyproject.toml", "rb") as handle:

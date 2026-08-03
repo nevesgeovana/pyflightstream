@@ -9,6 +9,25 @@ FlightStream versions.
 
 ### API surface delta
 
+* **The requirement index says how each requirement is verified, and a
+  test can now declare which requirement it falsifies** (SRS NFR-13,
+  partially delivered and still pending; NFR-25 moves to implemented).
+  No runtime change.
+
+  The index published `id`, `text` and `priority`, so a consumer could
+  not tell an implemented requirement from a pending one nor find what
+  backs either. It now carries `status`, `evidence` and a
+  `verification` method, where the distinction that matters is `test`
+  (something fails when the requirement stops holding) against `review`
+  (a human checks it and nothing fails). Today that reads 25 test, 27
+  evidence, 27 review, 17 none.
+
+  A `requirement` pytest marker declares that a test falsifies a
+  requirement. Every marker must resolve to a live identifier, and the
+  covered set is a ratchet. NFR-13 stays **pending** on purpose: 96
+  requirements exist and 8 are marked. Marking one on a test that does
+  not actually falsify it would be worse than leaving it unmarked,
+  because the index would then count a trace that is not one.
 * **The package is type checked, and the worked examples run**
   (SRS NFR-27, new; NFR-01d's evidence line corrected). No runtime
   change; `mypy` joins `[dev]` and a `types` job joins CI.

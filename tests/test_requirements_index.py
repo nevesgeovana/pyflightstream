@@ -88,9 +88,16 @@ def test_the_index_carries_the_fields_its_consumer_reads() -> None:
     entries = payload["requirements"]
     assert entries, "the index is empty"
     for entry in entries:
-        assert set(entry) == {"id", "text", "priority"}, (
+        # A SUPERSET, not an exact match. The three below are the
+        # contract and removing one empties a column the dashboard
+        # reads; a JSON consumer ignores a key it does not know, so an
+        # ADDITION breaks nobody. Pinned as equality until 2026-08-03,
+        # when NFR-13 required status, evidence and a verification
+        # method to join them (review finding PYFS-020) and the
+        # equality would have made the requirement unimplementable.
+        assert set(entry) >= {"id", "text", "priority"}, (
             f"{entry.get('id')} carries fields {sorted(entry)}; the consumer "
-            "reads exactly id, text and priority"
+            "reads at least id, text and priority"
         )
         assert entry["text"], f"{entry['id']} has no statement text"
         assert entry["priority"] in ("M", "D"), (

@@ -81,6 +81,39 @@ def _statement(body: str) -> str:
     return ""
 
 
+def _evidence(body: str) -> str:
+    """Return the requirement's origin and evidence tag, as written.
+
+    The italic first paragraph of a box carries both. Empty where a box
+    has none, which is itself a fact worth publishing: a requirement
+    with no evidence line is one nobody can check.
+    """
+    for para in re.split(r"\n\s*\n", body):
+        stripped = para.strip()
+        if stripped.startswith("*Origin"):
+            return _plain(" ".join(line.strip() for line in stripped.splitlines()))
+    return ""
+
+
+def _verification(body: str, status: str) -> str:
+    """Classify HOW a requirement is verified, from its evidence line.
+
+    Four values, and the distinction NFR-13 needs is between the first
+    two. ``test`` means something fails when the requirement stops
+    holding. ``review`` means a human checks it and nothing fails. A
+    requirement badged implemented and verified by review is not wrong,
+    but a reader is entitled to know which it is rather than to assume.
+    """
+    if status in {"pending", "draft"}:
+        return "none"
+    evidence = _evidence(body).lower()
+    if "tests/" in evidence or "test_" in evidence:
+        return "test"
+    if "milestone" in evidence or "report" in evidence:
+        return "evidence"
+    return "review"
+
+
 def collect() -> list[dict[str, str]]:
     """Parse the live requirement set out of the SRS.
 
@@ -110,6 +143,14 @@ def collect() -> list[dict[str, str]]:
                     "id": m.group("id"),
                     "text": _statement(body),
                     "priority": "D" if status == "deferred" else "M",
+                    # NFR-13 asks the index to carry status, evidence and a
+                    # verification method, and the first edition published id,
+                    # text and priority alone: a consumer could not tell an
+                    # implemented requirement from a pending one, nor find what
+                    # backs it (review finding PYFS-020).
+                    "status": status,
+                    "evidence": _evidence(body),
+                    "verification": _verification(body, status),
                 }
             )
     entries.sort(key=_sort_key)

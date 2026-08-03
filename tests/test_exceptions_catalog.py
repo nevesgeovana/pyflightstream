@@ -63,6 +63,7 @@ def test_every_defined_exception_is_in_the_catalog():
     )
 
 
+@pytest.mark.requirement("FR-39")
 def test_every_catalogued_exception_descends_from_the_package_base():
     """One except clause must catch everything the package raises (FR-39).
 

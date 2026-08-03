@@ -9,6 +9,8 @@ import re
 import subprocess
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SKIP_DIRS = {
     ".git",
@@ -441,6 +443,7 @@ def _geometry_offenses(relative_posix_paths):
     )
 
 
+@pytest.mark.requirement("NFR-14")
 def test_no_geometry_file_is_tracked_outside_the_synthetic_allowlist():
     """NFR-14. Research geometry entering Git is the irreversible breach.
 
