@@ -1111,6 +1111,33 @@ def test_the_manifest_records_a_hash_per_collected_output(tmp_path):
 # --- PYFS-017, the manifest half: which code actually ran ------------------
 
 
+def _package_is_tracked() -> bool:
+    """True when the imported package sits in a tracked git work tree.
+
+    An editable install does; a wheel installed into site-packages does
+    not, and `package_vcs_state` documents `(None, None)` for that case.
+    Two tests below asserted the editable reading unconditionally, so
+    they failed against an installed wheel: found by dry-running the
+    release workflow's test-artifact job locally before tagging, which
+    is the only configuration in which that job runs (2026-08-03).
+    """
+    import subprocess
+
+    import pyflightstream
+
+    package_dir = Path(pyflightstream.__file__).resolve().parent
+    try:
+        result = subprocess.run(
+            ["git", "ls-files", "--error-unmatch", "__init__.py"],
+            cwd=package_dir,
+            capture_output=True,
+            check=False,
+        )
+    except OSError:
+        return False
+    return result.returncode == 0
+
+
 def test_the_manifest_records_the_package_commit_and_dirty_state(tmp_path):
     """`package_version` cannot tell two commits of one tag apart.
 
@@ -1130,18 +1157,22 @@ def test_the_manifest_records_the_package_commit_and_dirty_state(tmp_path):
     )
     commit, dirty = package_vcs_state()
     record = records[0]
+    # The invariant that holds either way: the record says exactly what
+    # package_vcs_state said, and never something else.
     assert record.package_commit == commit
     assert record.package_dirty is dirty
-    # This suite runs from a tracked work tree, so the pair is knowable here.
-    # If that ever stops being true the assertion below says so rather than
-    # letting the test pass over two Nones and prove nothing.
-    assert commit is not None, (
-        "the test suite is not running from a tracked work tree, so this guard "
-        "cannot see whether the commit is recorded"
-    )
-    assert len(commit) == 40
-    assert isinstance(dirty, bool)
     assert workspace.read_manifest()[0].package_commit == commit
+
+    if _package_is_tracked():
+        assert commit is not None and len(commit) == 40
+        assert isinstance(dirty, bool)
+    else:
+        # An INSTALLED wheel has no repository to ask, which is the
+        # documented (None, None). Asserted rather than skipped, because
+        # this is precisely the configuration the release workflow's
+        # test-artifact job runs in, and a skip there would leave the
+        # release leg proving nothing about the field.
+        assert (commit, dirty) == (None, None)
 
 
 def test_the_vcs_pair_is_none_together_and_never_guesses(tmp_path, monkeypatch):
@@ -1161,9 +1192,14 @@ def test_the_vcs_pair_is_none_together_and_never_guesses(tmp_path, monkeypatch):
     finally:
         monkeypatch.undo()
         package_vcs_state.cache_clear()
-    # The control: with git back, the pair is populated again, so the test
-    # above is about the failure path and not about a permanently empty cache.
-    assert package_vcs_state()[0] is not None
+    # The control: with git back, the cache is not permanently empty, so the
+    # test above is about the failure path rather than about a dead cache.
+    # What "populated" means depends on where the package came from, and both
+    # readings are the documented behaviour.
+    if _package_is_tracked():
+        assert package_vcs_state()[0] is not None
+    else:
+        assert package_vcs_state() == (None, None)
 
 
 # --- PYFS-015: the record plus the staged inputs must reproduce the run ----
