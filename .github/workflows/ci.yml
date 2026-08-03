@@ -24,14 +24,14 @@ jobs:
         os: [ubuntu-latest, windows-latest]
         python-version: ["3.11", "3.12"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
         with:
           # Full history: tests/test_clean_room.py walks every commit
           # since its baseline, and a shallow clone does not contain it.
           # The test fails rather than skips when it cannot reach the
           # baseline, so a forgotten fetch-depth is loud (FR-08).
           fetch-depth: 0
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install package with dev extras
@@ -57,10 +57,10 @@ jobs:
     # only with a commit that explains it (NFR-16).
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
         with:
           fetch-depth: 0  # the clean-room walk, as in the test job
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
         with:
           python-version: "3.12"
       - name: Install package with dev extras
@@ -75,8 +75,8 @@ jobs:
     # a newly dirty clean one fails here.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
         with:
           python-version: "3.12"
       - name: Install package with dev extras
@@ -87,8 +87,8 @@ jobs:
   docs:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
         with:
           python-version: "3.12"
       - name: Install package with dev extras
@@ -110,7 +110,7 @@ jobs:
     # Repository-wide guards for the hard invariants (CLAUDE.md).
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
       - name: No pdf, notebook, or _private content tracked
         run: |
           bad=$(git ls-files | grep -Ei '\.pdf$|\.ipynb$|^_private/' || true)

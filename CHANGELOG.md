@@ -9,6 +9,30 @@ FlightStream versions.
 
 ### API surface delta
 
+* **Publication is coupled to the gates, and to the exact wheel they
+  tested** (REV010-016, REV010-019). Release process only; no runtime
+  change.
+
+  `publish` depended on `build` alone, so a tag could publish while CI
+  was failing, and what shipped had never been exercised: CI installs
+  the source in editable mode and tests that instead. The release
+  workflow now builds once, records the wheel's SHA-256, installs
+  **that wheel** into clean jobs on Linux and Windows at both declared
+  Pythons, runs the tier-1 suite and the executable examples against
+  it, runs the lint, type, coverage and docs gates, and re-checks the
+  digest immediately before publishing. `publish` waits for all of it.
+
+  Every action in all three workflows is pinned by commit digest: a tag
+  is mutable and can be repointed at new code with nothing appearing in
+  this repository's diff. The release build installs pinned `pip`,
+  `build` and `twine` rather than whatever is current. The docs
+  workflow no longer grants `pages: write` and `id-token: write` at
+  workflow scope, where the dependency-installing build job also
+  received them; only `deploy` asks for them.
+
+  New `tests/test_workflow_supply_chain.py` holds all of this as
+  repository guards, so a regression fails tier 1 rather than waiting
+  for a reviewer to notice.
 * **The development tree no longer identifies as the last release**
   (REV010-015). `pyproject.toml` and `CITATION.cff` read
   `0.4.0.dev0`; the release commit sets `0.4.0`.
