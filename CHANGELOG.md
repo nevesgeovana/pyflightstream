@@ -9,6 +9,24 @@ FlightStream versions.
 
 ### API surface delta
 
+* **The SRS stops being the only judge of its own shape** (SRS
+  FR-43, new and deferred; a new `tests/test_srs_consistency.py`). No
+  runtime change.
+
+  The document stated its own shape in several places, each maintained
+  by hand: the chapter list's identifier range, the acceptance mapping,
+  the roadmap backlog. One parser now derives the set and the tests
+  assert the prose against it, so a claim about the requirement set can
+  no longer be true only on the day it was written.
+
+  It found a seventh drift instance on its first run, past the six the
+  review listed: the acceptance mapping recorded an accepted item
+  against `FR-43` and no such requirement had ever been written. FR-43
+  is added rather than the mapping row removed, because deleting the
+  row would hide an acceptance. Its band stays unnamed and the
+  requirement is `deferred`: the sister library computes the imbalance
+  and returns no acceptance criterion, and setting the number is the
+  numerical-analyst seat.
 * **A recorded run reconstructs from the manifest alone** (new
   `run.reconstruct()` and `run.Reconstruction`; `RunRecord` gains
   `manifest_schema`, `fs_exe`, `fs_exe_sha256`, `argv`, `cwd`,

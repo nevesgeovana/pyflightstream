@@ -2,8 +2,8 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 18,
-  "total": 94,
+  "cited_by_a_test": 22,
+  "total": 95,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -296,6 +296,11 @@
    "id": "FR-42",
    "text": "The package states the reference-frame and sign conventions for reported forces, moments, and rotor quantities, naming the positive axis directions, the moment reference point, and the rotor-rotation sign, and every coefficient the results layer emits conforms to them.",
    "priority": "M"
+  },
+  {
+   "id": "FR-43",
+   "text": "A conservation ledger's imbalance is reported against a stated acceptance band, and a run whose imbalance leaves the band is reported as such rather than as a number the reader must judge.",
+   "priority": "D"
   },
   {
    "id": "FR-44",

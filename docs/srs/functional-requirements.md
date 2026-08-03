@@ -734,6 +734,28 @@ The five below carry acceptances that arrived with no requirement id.
 The allocation is recorded in the
 [mapping register](../requirement-mapping.md).
 
+!!! requirement "FR-43 Conservation imbalance acceptance band <span class='srs-deferred'>deferred</span>"
+    *Origin: Phase 4 review, accepted 2026-07-27, recorded in the
+    [mapping register](../requirement-mapping.md) as blocked by
+    evidence. Written into this chapter 2026-08-02, on review finding
+    PYFS-022: the identifier was allocated in the mapping and the
+    requirement box was never transcribed, so an accepted item existed
+    with no requirement anywhere.*
+
+    A conservation ledger's imbalance is reported against a stated
+    acceptance band, and a run whose imbalance leaves the band is
+    reported as such rather than as a number the reader must judge.
+
+    Deferred, and the band is deliberately unnamed here for the same
+    reason NFR-16's floor was until it was measured: the sister library
+    computes the imbalance and returns no acceptance criterion, because
+    what counts as acceptable depends on the case, the mesh and the
+    solver context, which live on this side. Setting the number is the
+    numerical-analyst seat, which is not delegable, and it needs
+    licensed solver evidence that does not exist yet.
+
+    Read with FR-38, which delivers the ledgers this band would judge.
+
 !!! requirement "FR-44 Console entry-point contract <span class='srs-pending'>pending</span>"
     *Origin: the C4 acceptance, 2026-07-27, in the FULL-contract form
     she chose against the review's own recommendation of a narrower
