@@ -1188,7 +1188,7 @@ def test_a_recorded_run_reconstructs_from_the_manifest_alone(tmp_path):
 
     # The round trip: read the manifest back from disk and rebuild.
     reloaded = workspace.read_manifest()[0]
-    rebuilt = reconstruct(reloaded, workspace)
+    rebuilt = reconstruct(reloaded, workspace=workspace)
     assert rebuilt.argv == tuple(record.argv)
     assert rebuilt.cwd == record.cwd
     assert rebuilt.timeout_s == record.timeout_s
@@ -1216,15 +1216,15 @@ def test_reconstruction_says_so_when_an_artifact_changed(tmp_path):
         recipes={"steady": steady_recipe},
     )
     record = workspace.read_manifest()[0]
-    assert reconstruct(record, workspace).faithful
+    assert reconstruct(record, workspace=workspace).faithful
 
     edited = workspace.sim_dir("9001") / record.outputs[0]
     edited.write_text("TAMPERED", encoding="utf-8")
-    rebuilt = reconstruct(record, workspace)
+    rebuilt = reconstruct(record, workspace=workspace)
     assert not rebuilt.faithful
-    assert rebuilt.verified[record.outputs[0]] is False
+    assert rebuilt.verified[record.outputs[0]] == "differs"
     # Only the edited artifact is reported changed.
-    assert rebuilt.verified[record.script_path] is True
+    assert rebuilt.verified[record.script_path] == "match"
 
     # Each artifact class is checked SEPARATELY, and this half is here
     # because a mutation proved it was not: replacing the script's own
@@ -1233,13 +1233,21 @@ def test_reconstruction_says_so_when_an_artifact_changed(tmp_path):
     # per-class witness.
     script = workspace.sim_dir("9001") / record.script_path
     script.write_text("STOP\n", encoding="utf-8")
-    after_script = reconstruct(record, workspace)
-    assert after_script.verified[record.script_path] is False
+    after_script = reconstruct(record, workspace=workspace)
+    assert after_script.verified[record.script_path] == "differs"
 
     staged = workspace.sim_dir("9001") / "inputs" / "wing.fsm"
     staged.write_bytes(b"REPLACED")
-    after_input = reconstruct(record, workspace)
-    assert after_input.verified["inputs/wing.fsm"] is False
+    after_input = reconstruct(record, workspace=workspace)
+    assert after_input.verified["inputs/wing.fsm"] == "differs"
+
+    # And a DELETED artifact is "missing", not "differs": nothing changed,
+    # the evidence is gone, and the two have different answers (somebody
+    # edited a result, against restore it from archive/).
+    (workspace.sim_dir("9001") / record.outputs[0]).unlink()
+    after_delete = reconstruct(record, workspace=workspace)
+    assert after_delete.verified[record.outputs[0]] == "missing"
+    assert not after_delete.faithful
 
 
 def test_reconstruction_refuses_an_unknown_manifest_schema(tmp_path):
@@ -1256,10 +1264,10 @@ def test_reconstruction_refuses_an_unknown_manifest_schema(tmp_path):
     record = workspace.read_manifest()[0]
     future = record.model_copy(update={"manifest_schema": "pyfs-manifest/99"})
     with pytest.raises(WorkspaceError, match="manifest schema"):
-        reconstruct(future, workspace)
+        reconstruct(future, workspace=workspace)
     # The control: the known schema still reconstructs, so the refusal is
     # about the value and not about the check being unconditional.
-    assert reconstruct(record, workspace).faithful
+    assert reconstruct(record, workspace=workspace).faithful
 
 
 def test_reconstruction_refuses_a_record_whose_script_is_gone(tmp_path):
@@ -1276,7 +1284,7 @@ def test_reconstruction_refuses_a_record_whose_script_is_gone(tmp_path):
     record = workspace.read_manifest()[0]
     (workspace.sim_dir("9001") / record.script_path).unlink()
     with pytest.raises(WorkspaceError, match="is not at"):
-        reconstruct(record, workspace)
+        reconstruct(record, workspace=workspace)
 
 
 def test_a_recipe_without_retrievable_source_records_no_hash(tmp_path):
@@ -1288,3 +1296,55 @@ def test_a_recipe_without_retrievable_source_records_no_hash(tmp_path):
     assert _recipe_digest(None) is None
     assert _recipe_digest(steady_recipe) is not None
     assert _recipe_digest(len) is None  # C-implemented, no source
+
+
+def test_a_run_can_be_reconstructed_by_its_run_id(tmp_path):
+    """The manifest names runs by id, so the helper should accept one.
+
+    Reaching a run by list position, which is what the first version
+    forced, is the raw-index-instead-of-label shape: `run_id` is this
+    layer's named entity and it is what a reader of the manifest has.
+    """
+    campaign = make_campaign(tmp_path, alphas=(0.0,))
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    run_campaign(
+        campaign,
+        StubSolver(WRITES_LOADS),
+        workspace,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+    )
+    rebuilt = reconstruct("camp/sim_9001/a+00.0", workspace=workspace)
+    assert rebuilt.faithful
+    with pytest.raises(WorkspaceError, match=r"no run 'camp/sim_9001/a\+99.9'"):
+        reconstruct("camp/sim_9001/a+99.9", workspace=workspace)
+
+
+def test_the_plan_reports_a_waived_command_before_any_solver_time(tmp_path):
+    """The pre-flight already knows, and used to say nothing.
+
+    `_plan_point` builds the same script in dry run, so the waiver is
+    determined at plan time; a waived point nonetheless planned READY,
+    indistinguishable from a clean one, and the operator learned of the
+    dependency only from the manifest, after the solver ran.
+    """
+    campaign = make_campaign(tmp_path, recipe="waived", alphas=(0.0,))
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    plan = plan_campaign(
+        campaign, workspace, recipes={"waived": waived_altitude_recipe}, write_plan=False
+    )
+    point = plan.points[0]
+    assert point.status is PlanStatus.READY
+    assert point.broken_commands == ("AIR_ALTITUDE",)
+    assert point.raw is False
+    assert "waive a command recorded broken: AIR_ALTITUDE" in plan.summary()
+
+
+def test_an_ordinary_plan_reports_no_waiver(tmp_path):
+    """The control: the line appears only when there is something to say."""
+    campaign = make_campaign(tmp_path, alphas=(0.0,))
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    plan = plan_campaign(campaign, workspace, recipes={"steady": steady_recipe}, write_plan=False)
+    assert plan.points[0].broken_commands == ()
+    assert "waive a command" not in plan.summary()
+    assert "escape hatch" not in plan.summary()

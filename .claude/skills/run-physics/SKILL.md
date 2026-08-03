@@ -18,7 +18,7 @@ Run the physics regression evidence for one FlightStream version.
 
 ## Steps
 
-1. Run the physics matrix: `pyfs-qa physics --version <v>`.
+1. Run the physics matrix: `pyfs-qa physics --fs-version <v>`.
 2. Compare each metric against its stored reference using the WARN and
    FAIL tolerance bands stored with the reference.
 3. Triage every WARN and FAIL: physics change in the solver, database

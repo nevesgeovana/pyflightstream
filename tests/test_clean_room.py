@@ -64,7 +64,15 @@ def _commits_under_review() -> list[str]:
         "This test fails rather than skips, because a provenance guard that "
         "reports nothing when it cannot run reports green."
     )
-    return [line for line in result.stdout.split() if line]
+    commits = [line for line in result.stdout.split() if line]
+    assert commits, (
+        f"no commit is reachable from HEAD and not from the baseline "
+        f"{BASELINE[:7]}, so this guard would examine nothing and pass.\n\n"
+        "Either HEAD is the baseline (nothing to review, which is not a state "
+        "this repository pushes from), or the checkout is shallow: set "
+        "`fetch-depth: 0` on actions/checkout for the job that runs pytest."
+    )
+    return commits
 
 
 def _trailer_values(commit: str) -> list[str]:
@@ -188,9 +196,31 @@ def test_the_declaration_says_what_fr08_says():
     requirement = (REPO / "docs" / "srs" / "functional-requirements.md").read_text(encoding="utf-8")
     start = requirement.index('!!! requirement "FR-08 ')
     body = requirement[start : requirement.index("\n!!! requirement", start + 10)]
+    # Collapsed, because the requirement is hard-wrapped: "official
+    # manual" spans a line break in FR-08's own text, and the phrase
+    # check below read that as the phrase being absent.
+    body = " ".join(body.split())
     assert TRAILER in body, (
         f"FR-08 does not name the {TRAILER} trailer, so its evidence line points at "
         "a mechanism this test invented on its own"
     )
+    # One operand each. Written as `A or B` this loop could not fail:
+    # all three phrases are literal substrings of DECLARATION, so the
+    # left operand was true on every iteration and `body` was never
+    # consulted. The test claimed to stop FR-08's prose drifting away
+    # from the trailer and was satisfied entirely by the trailer.
     for phrase in ("official manual", "probe evidence", "AGPL"):
-        assert phrase.lower() in DECLARATION.lower() or phrase.lower() in body.lower(), phrase
+        assert phrase.lower() in body.lower(), (
+            f"FR-08's text no longer says {phrase!r}, so the requirement and the "
+            "trailer have drifted apart"
+        )
+        assert phrase.lower() in DECLARATION.lower(), (
+            f"the declared trailer no longer says {phrase!r}"
+        )
+    # And the trailer contributors are told to write must be the one the
+    # guard enforces, or the suite rejects a correctly followed procedure.
+    contributing = (REPO / "CONTRIBUTING.md").read_text(encoding="utf-8")
+    assert DECLARATION in contributing, (
+        "CONTRIBUTING.md quotes a different declaration from the one this "
+        "guard enforces, so a contributor who follows it would be refused"
+    )

@@ -4,7 +4,6 @@ import hashlib
 import importlib
 import json
 import re
-import sys
 import zipfile
 from pathlib import Path
 
@@ -190,24 +189,18 @@ def test_builder_to_manifest_flow_records_the_raw_flag(tmp_path):
     assert record.script_sha256 == digest
 
 
-# --- the deprecated pyflightstream.files shim -------------------------------
+# --- the removed pyflightstream.files shim ----------------------------------
 
 
-def test_files_shim_warns_and_reexports_the_workspace_api(restored_module):
-    with restored_module("pyflightstream.files"):
-        sys.modules.pop("pyflightstream.files", None)
-        with pytest.warns(DeprecationWarning, match="pyflightstream.workspace"):
-            shim = importlib.import_module("pyflightstream.files")
-        assert shim.CampaignWorkspace is CampaignWorkspace
-        assert shim.RunRecord is RunRecord
-        assert shim.RunStatus is RunStatus
-        assert shim.WorkspaceError is WorkspaceError
-        assert shim.NamingTemplate is NamingTemplate
-        # The removal promise is stated in the warning itself, as the
-        # concrete version recorded in the deprecation ledger.
-        sys.modules.pop("pyflightstream.files", None)
-        with pytest.warns(DeprecationWarning, match=r"removed in v0\.4\.0"):
-            importlib.import_module("pyflightstream.files")
+def test_the_files_shim_is_gone():
+    """v0.4.0 removed it on the horizon its ledger entry recorded.
+
+    Replaces the re-export tests rather than deleting them: a removal
+    promised in a released changelog is a promise, and a partial revert
+    that re-added the module would otherwise be caught by nothing.
+    """
+    with pytest.raises(ModuleNotFoundError):
+        importlib.import_module("pyflightstream.files")
 
 
 # --- Workspace.init and the CLI ---------------------------------------------

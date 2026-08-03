@@ -27,7 +27,7 @@ from __future__ import annotations
 
 from pyflightstream._errors import PyflightstreamError
 
-__all__ = ["EXTRAS", "MissingExtraError", "require_extra"]
+__all__ = ["EXTRAS", "MissingExtraError", "missing_extra"]
 
 #: The optional extras of this package, and the distributions each one
 #: installs. Kept beside the refusal that cites them, and asserted
@@ -80,8 +80,14 @@ class MissingExtraError(PyflightstreamError, ImportError):
         )
 
 
-def require_extra(extra: str, *, package: str, purpose: str) -> MissingExtraError:
+def missing_extra(extra: str, *, package: str, purpose: str) -> MissingExtraError:
     """Build the refusal for a missing extra, for a ``raise ... from``.
+
+    A NOUN, not a check. It was called ``require_extra`` for one review
+    cycle, and that name promises a guard: written as a bare statement it
+    would build the exception, discard it and continue, with nothing in
+    the linter to notice. The failure mode of the misuse would have been
+    silence, which is the class this module exists to close.
 
     Returns the exception rather than raising it, so the call site keeps
     its ``raise ... from error`` and the original ``ImportError`` stays

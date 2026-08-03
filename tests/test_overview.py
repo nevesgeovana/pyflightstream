@@ -91,10 +91,29 @@ def test_overview_sections_match_the_deliverable_list():
         "probes",
         "farfield",
         "reference",
+        "overview",
         "options",
         "exceptions",
+        "extras",
         "testing",
         "support",
+    )
+    # The literal tuple above enforces "somebody edited this list", not
+    # "the list covers the public surface": `extras` landed as a public
+    # module and was missing here while this test passed. So the two are
+    # compared, and a new public top-level module now fails here.
+    from test_public_api import PUBLIC_MODULES
+
+    top_level = {
+        name.split(".", 1)[1]
+        for name in PUBLIC_MODULES
+        if name.count(".") == 1 and not name.endswith(".cli")
+    }
+    documented = set(_SECTIONS)
+    assert top_level - documented == set(), (
+        f"public modules {sorted(top_level - documented)} are absent from the "
+        "architecture overview, so the published page documents less than the "
+        "package offers"
     )
 
 

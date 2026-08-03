@@ -28,7 +28,7 @@ Onboard a new FlightStream version end to end.
 4. Propose database edits with page citations, status `documented`.
 5. Regenerate golden scripts for the new version.
 6. On a licensed machine, run the Tier 2 probe suite
-   (`pyfs-qa probe --version <v>`); flag every manual-versus-reality
+   (`pyfs-qa probe --fs-version <v>`); flag every manual-versus-reality
    discrepancy prominently: documented but broken, or working but changed
    without documentation.
 7. Present a human-decision checklist for suspected renames. A rename is

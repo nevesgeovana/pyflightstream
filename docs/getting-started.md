@@ -16,7 +16,7 @@ Optional extras, each gating one subsystem:
 | Extra | What it adds |
 |---|---|
 | `[fsi]` | The aeroelastic coupling loop (PyNiteFEA) |
-| `[geom]` | Containment culling for probe lattices (trimesh) |
+| `[geom]` | Containment culling for probe lattices (trimesh, rtree, scipy) |
 | `[plot]` | matplotlib, for the plotting examples only |
 
 Reach one without installing it and you get a single typed refusal
@@ -156,9 +156,14 @@ and every build-time refusal above.
 
 <!-- skip: next -->
 ```python
-from pyflightstream.run import LocalExecutor, run_campaign
+from pyflightstream.run import LoadsAssessor, LocalExecutor, run_campaign
 
-records = run_campaign(campaign, LocalExecutor(campaign.fs_exe), workspace)
+records = run_campaign(
+    campaign,
+    LocalExecutor(campaign.fs_exe),
+    workspace,
+    assess=LoadsAssessor(),
+)
 ```
 
 Every point lands in the manifest with exactly one terminal status.

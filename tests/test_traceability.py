@@ -99,10 +99,14 @@ def test_the_marked_set_only_grows():
     when a test is renamed or deleted.
     """
     marked = _marked()
-    assert len(marked) >= MARKED_FLOOR, (
+    assert len(marked) == MARKED_FLOOR, (
         f"{len(marked)} requirements carry a falsifying test and the recorded "
-        f"floor is {MARKED_FLOOR}. If a test was deliberately removed, lower the "
-        "floor in the same commit and say why"
+        f"floor is {MARKED_FLOOR}.\n\n"
+        "EQUALITY, not a minimum, and that is the point: with `>=` the next "
+        "commit that marks a requirement without raising the floor silently "
+        "reintroduces the slack the ratchet exists to remove. Marking one more "
+        "means raising this number in the same commit; removing one means "
+        "lowering it and saying why."
     )
 
 
@@ -155,4 +159,70 @@ def test_the_marker_is_registered_so_a_typo_is_not_silent():
     config = (REPO / "pyproject.toml").read_text(encoding="utf-8")
     assert re.search(r'"requirement\(identifier\):', config), (
         "the requirement marker is not registered in pyproject's markers list"
+    )
+
+
+# --- the type-check ratchet, pinned so it can only shrink -------------------
+#
+# `[tool.mypy]` exempts the modules that were not clean on 2026-08-03 and its
+# comment says "an exemption is removed as its module is typed, never added".
+# By this repository's own structural-fix rule, documentation is not a guard.
+
+
+#: The exemptions as measured on 2026-08-03, 21 of 53 modules. Removing one
+#: means deleting its override AND its line here, in the same commit.
+MYPY_EXEMPTIONS = frozenset(
+    {
+        "pyflightstream.cases",
+        "pyflightstream.cases.matrix",
+        "pyflightstream.commands",
+        "pyflightstream.farfield",
+        "pyflightstream.fsi.driver",
+        "pyflightstream.fsi.nodes",
+        "pyflightstream.post.writers",
+        "pyflightstream.probes.geometry",
+        "pyflightstream.probes.planar",
+        "pyflightstream.qa.cli",
+        "pyflightstream.qa.physics",
+        "pyflightstream.qa.probes",
+        "pyflightstream.qa.specs",
+        "pyflightstream.results.tables",
+        "pyflightstream.run",
+        "pyflightstream.script",
+        "pyflightstream.script.entities",
+        "pyflightstream.script.helpers",
+        "pyflightstream.script.solver_setup",
+        "pyflightstream.workspace.inputs",
+        "pyflightstream.workspace.naming",
+    }
+)
+
+
+def test_the_type_check_exemption_list_only_shrinks():
+    """A new exemption is a decision, not a config edit.
+
+    The ratchet's whole value is that the list is the debt. Appending to
+    it silently would turn the check into permission to leave new code
+    unchecked, which is what a blanket setting would have been.
+    """
+    import tomllib
+
+    with open(REPO / "pyproject.toml", "rb") as handle:
+        config = tomllib.load(handle)
+    declared = {
+        override["module"]
+        for override in config["tool"]["mypy"].get("overrides", [])
+        if override.get("ignore_errors")
+    }
+    added = sorted(declared - MYPY_EXEMPTIONS)
+    assert not added, (
+        f"these modules were newly exempted from the type check: {added}. The "
+        "exemption list is the debt recorded on 2026-08-03 and it only shrinks; "
+        "type the module instead, or record the addition here with its reason"
+    )
+    removed = sorted(MYPY_EXEMPTIONS - declared)
+    assert not removed, (
+        f"these modules are typed now and their entries are still listed here: "
+        f"{removed}. Delete them from MYPY_EXEMPTIONS in the same commit that "
+        "removes the override, so the two cannot drift"
     )

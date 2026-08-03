@@ -25,10 +25,12 @@ def build_actuator_polar(script: Script) -> None:
     helpers.free_stream(script)
     # Explicit properties rather than altitude=1000.0, which is what this
     # golden pinned until FR-48 landed. AIR_ALTITUDE is recorded broken on
-    # 26.120: the solver reads its METERS argument as feet, so the pinned
-    # script asked for 1000 m and would have flown at 305 m. Pinning that
+    # 26.120: the observed density at 5000 m was the 5000 FOOT standard
+    # state, so the METERS argument read as ignored and the pinned script
+    # would not have solved at the altitude it names. Pinning that
     # rendering taught the one call this library exists to prevent. The
-    # altitude path is still covered, on the version that fixed it, by
+    # altitude path is still covered, on the version where the command
+    # is recorded verified, by
     # test_the_altitude_path_is_pinned_where_the_command_works.
     helpers.atmosphere(
         script,
@@ -441,12 +443,14 @@ def test_a_per_surface_flag_outside_both_vocabularies_refuses():
 
 
 def test_the_altitude_path_is_pinned_where_the_command_works():
-    """26.121 verified AIR_ALTITUDE, so the helper still renders it there.
+    """26.121 records AIR_ALTITUDE verified, so the helper renders it there.
 
     The actuator golden stopped pinning this rendering on 26.120, where
-    the command is broken. Losing the pin entirely would have traded one
-    defect for a coverage hole, so it is asserted on the version whose
-    hotfix repaired the command, which is also the honest place for it.
+    the command is recorded broken. Losing the pin entirely would have
+    traded one defect for a coverage hole, so it is asserted on the
+    version where the command is recorded verified. Not "where the
+    hotfix repaired it": RPT-014 declines that attribution, because the
+    harness and the session file moved between the two runs too.
     """
     script = Script(version="26.121")
     helpers.atmosphere(script, altitude=1000.0)
@@ -458,9 +462,10 @@ def test_the_altitude_path_refuses_on_the_version_that_reads_metres_as_feet():
     """The helper is a caller, so the refusal has to reach through it.
 
     This is the call PYFS-002 was about: `atmosphere(altitude=1000.0)`
-    against 26.120 built a script that flew at roughly 305 m and said
-    nothing. A user reaches the emitter through the helpers far more
-    often than through emit(), so a refusal that only fired at emit()
+    against 26.120 built a script whose altitude the solver was measured
+    not to apply as metres, and said nothing. A user reaches the emitter
+    through the helpers far more often than through emit(), so a refusal
+    that only fired at emit()
     would miss the path that matters.
     """
     script = Script(version="26.120")

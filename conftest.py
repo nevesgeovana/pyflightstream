@@ -45,14 +45,11 @@ if _SYBIL:
         parsers=[DocTestParser()],
         path="src/pyflightstream",
         patterns=["*.py"],
-        # Active skiplist (per Q-007): the deprecation shims hold no
-        # examples and importing them warns by design; excluded as a
-        # precaution so a future doctest under a shim that imports it
-        # cannot drag its DeprecationWarning into the -W error run.
-        excludes=[
-            "files/__init__.py",
-            "cases/matrix_legacy.py",
-        ],
+        # The skiplist held the two deprecation shims and is empty since
+        # v0.4.0 removed them (Q-007). Kept as a named absence rather than
+        # deleted: the next shim needs the same exclusion, because a doctest
+        # under one would drag its DeprecationWarning into the -W error run.
+        excludes=[],
     )
 
     #: python code blocks in the docs tree (all user-facing pages).

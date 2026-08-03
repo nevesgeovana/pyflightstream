@@ -40,7 +40,8 @@ a recipe is your code, resolved by a dotted name, and it can be edited
 between two runs that record the same name. The name says which
 function; the hash says which version of it.
 
-**What it produced.** `outputs` with a hash each, `status`,
+**What it produced.** `outputs`, the collected files, with a hash each in
+`outputs_sha256` keyed by the same relative name; then `status`,
 `iterations`, `residual`, `wall_time_s`, plus `solver_setup`, the
 snapshot of every solver flag with its provenance: explicit, a
 documented default with its manual citation, or honestly unknown.
@@ -60,7 +61,7 @@ which fields exist.
 ```python
 from pyflightstream.run import reconstruct
 
-rebuilt = reconstruct(record, workspace)
+rebuilt = reconstruct(record, workspace=workspace)
 print(rebuilt.argv)
 print(rebuilt.cwd)
 print(rebuilt.timeout_s)

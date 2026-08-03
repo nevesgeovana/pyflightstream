@@ -7,6 +7,7 @@ pre-commit and in the CI guard job.
 
 import re
 import subprocess
+from collections.abc import Iterable
 from pathlib import Path
 
 import pytest
@@ -523,20 +524,37 @@ CONTAINER_PATH_ALLOWLIST = {
 }
 
 
-def _container_offenders() -> list[str]:
-    """Return tracked files naming the container directory, minus the allowlist."""
-    offenders = []
+def _container_offenders(entries: Iterable[tuple[str, str]]) -> list[str]:
+    """Return which of ``(relative_path, text)`` name the container directory.
+
+    Takes its input rather than reading the tree, so the detector can be
+    driven with synthetic content. That is not a style preference: the
+    first version read `_tracked_files()` itself, which left its
+    "mutation proof" with nothing to drive and no way to fail. The
+    geometry detector next door was already written this way.
+    """
+    return [
+        relative
+        for relative, text in entries
+        if relative not in CONTAINER_PATH_ALLOWLIST and CONTAINER_DIRECTORY in text
+    ]
+
+
+def _tracked_text() -> list[tuple[str, str]]:
+    """Every tracked file as ``(relative_path, text)``.
+
+    A file that cannot be decoded is yielded as an EMPTY string rather
+    than skipped, so the detector sees one entry per tracked file and a
+    future binary-with-a-literal cannot vanish between the two.
+    """
+    entries = []
     for path in _tracked_files():
-        relative = path.relative_to(REPO_ROOT).as_posix()
-        if relative in CONTAINER_PATH_ALLOWLIST:
-            continue
         try:
             text = path.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
-            continue
-        if CONTAINER_DIRECTORY in text:
-            offenders.append(relative)
-    return offenders
+            text = ""
+        entries.append((path.relative_to(REPO_ROOT).as_posix(), text))
+    return entries
 
 
 def test_no_tracked_file_names_the_container_directory():
@@ -546,7 +564,7 @@ def test_no_tracked_file_names_the_container_directory():
     until now only prose held it for this shape. The remote is public, so the
     literal names the author's machine layout to everyone who clones.
     """
-    offenders = _container_offenders()
+    offenders = _container_offenders(_tracked_text())
     assert not offenders, (
         "these tracked files carry an absolute path into the workspace "
         "container, which is machine configuration and belongs in the "
@@ -557,10 +575,16 @@ def test_no_tracked_file_names_the_container_directory():
 def test_the_container_guard_fires_on_what_it_exists_to_catch():
     """Mutation proof, per the structural-fix rule.
 
+    The DETECTOR is driven, which the first version of this test did not
+    do: it compared a constant against strings built from that constant,
+    so the detector could have returned an empty list unconditionally and
+    every assertion would still have passed. Caught by the QA pass of
+    2026-08-03, and the repair is the seam rather than more assertions.
+
     Run against the shapes actually found in the two vendored bodies,
-    reconstructed here rather than quoted, plus the illustrative solver paths
-    that must NOT fire: a guard that also refuses `C:/cases/wing.fsm` would be
-    turned off within a week.
+    reconstructed here rather than quoted, plus the illustrative solver
+    paths that must NOT fire: a guard that also refuses
+    `C:/cases/wing.fsm` would be turned off within a week.
     """
     leaks = (
         "/c/WORK/" + CONTAINER_DIRECTORY + "/pyflightstream/_private",
@@ -568,17 +592,26 @@ def test_the_container_guard_fires_on_what_it_exists_to_catch():
         "C:" + chr(92) + "WORK" + chr(92) + CONTAINER_DIRECTORY,
     )
     for leak in leaks:
-        assert CONTAINER_DIRECTORY in leak, leak
+        assert _container_offenders([("some/file.sh", leak)]) == ["some/file.sh"], leak
     for benign in (
         "C:/cases/wing.fsm",
         "C:/path/to/FlightStream.exe",
         "D:/scratch",
         "/w/wing.stl",
     ):
-        assert CONTAINER_DIRECTORY not in benign, (
-            f"the guard would fire on the illustrative path {benign!r}, which is "
+        assert _container_offenders([("examples/x.py", benign)]) == [], (
+            f"the guard fires on the illustrative path {benign!r}, which is "
             "documentation and must stay"
         )
+    # The exemption branch needs a witness too, or an allowlist that
+    # stopped being consulted would look exactly like a clean tree.
+    allowlisted = next(iter(CONTAINER_PATH_ALLOWLIST))
+    assert _container_offenders([(allowlisted, leaks[0])]) == []
+
+    # And the live scan must see a plausible number of files, or the
+    # tree walk could be empty while every assertion above passes.
+    entries = _tracked_text()
+    assert len(entries) > 50, f"the tracked-file walk yielded {len(entries)} entries"
 
 
 def test_the_container_allowlist_has_no_stale_entry():

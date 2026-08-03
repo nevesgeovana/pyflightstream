@@ -32,6 +32,14 @@ the solver outputs, so :func:`run_campaign` takes an
 :class:`OutcomeAssessor`; the standard implementation is
 :class:`LoadsAssessor`, built on the anchor-based parsers of
 :mod:`pyflightstream.results`.
+
+Afterwards, :func:`reconstruct` reads one manifest record back into the
+invocation that produced it: the command line, the working directory,
+the effective timeout and the script text, with a per-artifact verdict
+on whether each file still hashes to what the record says. That is the
+collectable half of NFR-07's promise, and :func:`package_vcs_state`
+supplies the other end of it, recording which commit of this package
+ran.
 """
 
 from __future__ import annotations
@@ -79,6 +87,28 @@ from pyflightstream.workspace import (
     WorkspaceError,
     _sha256,
 )
+
+__all__ = [
+    "Assessment",
+    "CampaignErrors",
+    "CampaignPlan",
+    "ExecutionResult",
+    "Executor",
+    "ExecutorConfigurationError",
+    "LoadsAssessor",
+    "LocalExecutor",
+    "OutcomeAssessor",
+    "PlanStatus",
+    "PointPlan",
+    "Reconstruction",
+    "SurfaceMeshExportError",
+    "check_solver_identity",
+    "export_surface_mesh",
+    "package_vcs_state",
+    "plan_campaign",
+    "reconstruct",
+    "run_campaign",
+]
 
 _LOG_NAME = "FlightStreamLog.txt"
 
@@ -637,28 +667,43 @@ class Reconstruction:
         Wall-clock limit that was applied.
     script_text : str
         Text of the generated script, read from the workspace.
-    verified : dict of str to bool
+    verified : dict of str to str
         One entry per artifact whose recorded hash was checked against
         the file on disk today: the script, each staged input, each
-        collected output, and the solver executable. False means the
-        file changed since the run, which is exactly what a
-        reconstruction needs to say out loud rather than discover
-        halfway through.
+        collected output, and the solver executable. Three values, and
+        the third exists because collapsing it into the second was
+        wrong: ``"match"``, ``"differs"`` (the file is there and its
+        bytes moved, so somebody edited a result), and ``"missing"``
+        (the file cannot be read at all, so the evidence is gone and the
+        answer is to restore it from ``archive/``). Those are different
+        problems with different answers.
     """
 
     argv: tuple[str, ...]
     cwd: str
     timeout_s: float | None
     script_text: str
-    verified: dict[str, bool]
+    verified: dict[str, str]
 
     @property
     def faithful(self) -> bool:
         """Whether every checked artifact still matches its recorded hash."""
-        return all(self.verified.values())
+        return all(state == "match" for state in self.verified.values())
 
 
-def reconstruct(record: RunRecord, workspace: CampaignWorkspace) -> Reconstruction:
+def _record_by_id(workspace: CampaignWorkspace, run_id: str) -> RunRecord:
+    """Find one manifest record by its run identity, or refuse by name."""
+    records = workspace.read_manifest()
+    for record in records:
+        if record.run_id == run_id:
+            return record
+    known = ", ".join(sorted(entry.run_id for entry in records)) or "none"
+    raise WorkspaceError(
+        f"no run {run_id!r} in the manifest of {workspace.root}. Recorded runs: {known}"
+    )
+
+
+def reconstruct(run: RunRecord | str, *, workspace: CampaignWorkspace) -> Reconstruction:
     """Rebuild one recorded run's invocation from the manifest.
 
     The promise of NFR-07 is that the record plus the staged inputs
@@ -669,11 +714,16 @@ def reconstruct(record: RunRecord, workspace: CampaignWorkspace) -> Reconstructi
 
     Parameters
     ----------
-    record : RunRecord
+    run : RunRecord or str
         A manifest row, as :meth:`CampaignWorkspace.read_manifest`
-        returns it.
+        returns it, or the ``run_id`` of one. The id form exists so a
+        caller can name the run they mean instead of reaching it by list
+        position, which is what a reader of the manifest actually has.
     workspace : CampaignWorkspace
-        The workspace the record belongs to.
+        The workspace the run belongs to. Keyword-only, so this cannot
+        be confused with
+        :func:`~pyflightstream.results.tables.parse_run_loads`, whose
+        two positional arguments are the same pair in the other order.
 
     Returns
     -------
@@ -684,11 +734,12 @@ def reconstruct(record: RunRecord, workspace: CampaignWorkspace) -> Reconstructi
     Raises
     ------
     WorkspaceError
-        If the record was written under a manifest schema this version
-        does not know, or carries no script path, or the script is not
-        where it says. Refusing beats reconstructing something that is
-        not the run.
+        If no record carries the given ``run_id``, if the record was
+        written under a manifest schema this version does not know, or
+        carries no script path, or the script is not where it says.
+        Refusing beats reconstructing something that is not the run.
     """
+    record = run if isinstance(run, RunRecord) else _record_by_id(workspace, run)
     if record.manifest_schema != MANIFEST_SCHEMA:
         raise WorkspaceError(
             f"run {record.run_id!r} was written under manifest schema "
@@ -711,13 +762,20 @@ def reconstruct(record: RunRecord, workspace: CampaignWorkspace) -> Reconstructi
             "names it, so the simulation folder was archived, cleaned or edited; "
             "restore it before reconstructing."
         )
-    verified = {record.script_path: _file_digest(script) == record.script_sha256}
+
+    def state(path: str | Path, recorded: str) -> str:
+        digest = _file_digest(path)
+        if digest is None:
+            return "missing"
+        return "match" if digest == recorded else "differs"
+
+    verified = {record.script_path: state(script, record.script_sha256)}
     for name, digest in record.inputs_sha256.items():
-        verified[f"inputs/{name}"] = _file_digest(sim / "inputs" / name) == digest
+        verified[f"inputs/{name}"] = state(sim / "inputs" / name, digest)
     for name, digest in record.outputs_sha256.items():
-        verified[name] = _file_digest(sim / name) == digest
+        verified[name] = state(sim / name, digest)
     if record.fs_exe and record.fs_exe_sha256:
-        verified[record.fs_exe] = _file_digest(record.fs_exe) == record.fs_exe_sha256
+        verified[record.fs_exe] = state(record.fs_exe, record.fs_exe_sha256)
     return Reconstruction(
         argv=tuple(record.argv),
         cwd=record.cwd or str(sim),
@@ -880,7 +938,7 @@ def check_solver_identity(
             f"the executable is FlightStream build #{installed}, but the campaign "
             f"declares {version.canonical}, which is build #{version.build}. Nothing "
             "ran. The printed version string cannot show this, because both builds of "
-            "a minor release print the same one, and they differ in behaviour; check "
+            "a minor release print the same one, and their records differ; check "
             "fs_exe against the installation folder of the version the campaign names."
         )
 
@@ -1127,6 +1185,15 @@ class PointPlan:
         The pre-flight status.
     error : str or None
         What blocks the point, for BLOCKED entries.
+    broken_commands : tuple of str
+        Commands the point's script emits under an ``allow_broken``
+        waiver. Known at plan time, because the dry run builds the same
+        script, and reported here so an operator learns the campaign
+        leans on a command a probe measured broken BEFORE spending
+        solver time rather than from the manifest afterwards.
+    raw : bool
+        Whether the point's script used the ``raw()`` escape hatch.
+        Same reason.
     """
 
     run_id: str
@@ -1135,6 +1202,8 @@ class PointPlan:
     script_name: str | None
     status: PlanStatus
     error: str | None = None
+    broken_commands: tuple[str, ...] = ()
+    raw: bool = False
 
 
 @dataclass(frozen=True)
@@ -1184,6 +1253,19 @@ class CampaignPlan:
         ]
         for entry in self.blocked:
             lines.append(f"  {entry.run_id}: {entry.error}")
+        # A point that waives a broken command, or uses the raw escape
+        # hatch, plans READY and is otherwise indistinguishable from a
+        # clean one. The operator should learn that here rather than
+        # from the manifest, after the solver time is spent.
+        waiving = [entry for entry in self.points if entry.broken_commands]
+        if waiving:
+            commands = sorted({name for entry in waiving for name in entry.broken_commands})
+            lines.append(
+                f"  {len(waiving)} point(s) waive a command recorded broken: {', '.join(commands)}"
+            )
+        unvalidated = [entry for entry in self.points if entry.raw]
+        if unvalidated:
+            lines.append(f"  {len(unvalidated)} point(s) use the raw() escape hatch")
         return "\n".join(lines)
 
 
@@ -1329,9 +1411,27 @@ def _plan_point(
             status=PlanStatus.BLOCKED,
             error=f"{type(error).__name__}: {error}",
         )
+    # The dry run built the same script the campaign will, so the two
+    # provenance flags are already determined here. Reported at plan time
+    # rather than only in the manifest: an operator who learns from the
+    # manifest that a point leaned on a broken command has already spent
+    # the solver time (PYFS-002, and the pre-flight promise of FR-14).
+    waived = tuple(use.command for use in script.broken_commands)
     if run_id in recorded:
-        return PointPlan(**base, script_name=script_name, status=PlanStatus.ALREADY_RECORDED)
-    return PointPlan(**base, script_name=script_name, status=PlanStatus.READY)
+        return PointPlan(
+            **base,
+            script_name=script_name,
+            status=PlanStatus.ALREADY_RECORDED,
+            broken_commands=waived,
+            raw=script.raw_flag,
+        )
+    return PointPlan(
+        **base,
+        script_name=script_name,
+        status=PlanStatus.READY,
+        broken_commands=waived,
+        raw=script.raw_flag,
+    )
 
 
 def _output_collision(

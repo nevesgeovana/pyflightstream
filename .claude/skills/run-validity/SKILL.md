@@ -15,7 +15,7 @@ Produce and apply command-validity evidence for one FlightStream version.
 
 ## Steps
 
-1. Run `pyfs-qa probe --version <v>` on the licensed machine. Each probe
+1. Run `pyfs-qa probe --fs-version <v>` on the licensed machine. Each probe
    executes one command in a minimal model with a sentinel export.
 2. Collect the three failure signals per command: sentinel missing
    (script aborted), log error patterns, and failed effect assertions

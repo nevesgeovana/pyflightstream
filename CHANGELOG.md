@@ -85,8 +85,9 @@ FlightStream versions.
   backs either. It now carries `status`, `evidence` and a
   `verification` method, where the distinction that matters is `test`
   (something fails when the requirement stops holding) against `review`
-  (a human checks it and nothing fails). Today that reads 25 test, 27
-  evidence, 27 review, 17 none.
+  (a human checks it and nothing fails). Today that reads 27 test, 27
+  evidence, 26 review, 16 none, and the generated
+  `reports/requirements-index.json` is the home of record for those four.
 
   A `requirement` pytest marker declares that a test falsifies a
   requirement. Every marker must resolve to a live identifier, and the
@@ -356,9 +357,10 @@ FlightStream versions.
   a broken one produces a complete run with wrong numbers in it. On
   26.120 the solver reads AIR_ALTITUDE's METERS argument as feet
   (`reports/compat/CMP-26120_2026-07-23_pln012.yaml`), so
-  `atmosphere(script, altitude=1000.0)` asked for 1000 m, flew at
-  roughly 305 m, and wrote a manifest calling the script fully
-  validated.
+  `atmosphere(script, altitude=1000.0)` would have asked for 1000 in
+  whatever unit the solver defaulted to, and written a manifest
+  calling the script fully validated. The measurement is at one
+  altitude only: at 5000 the default read as feet.
 
   ```python
   script.allow_broken("AIR_ALTITUDE", reason="reproducing a 2026-07 run")
@@ -385,7 +387,11 @@ FlightStream versions.
   `altitude=1000.0` on 26.120, and the rotor unsteady golden pinned
   `SET_MOTION_START_TIME`, at which the solver ABORTS script
   processing, so everything after it never ran. The altitude rendering
-  is still pinned, on 26.121, where the hotfix repaired the command.
+  is still pinned, on 26.121, where the command is recorded verified.
+  Not "where the hotfix fixed it": RPT-014 refuses that attribution in
+  its own words, because three variables separate the two runs (the
+  build, the harness and the session file) and the disambiguating
+  probe has not been made.
 * **A truncated evidence note now says that it is truncated.** The
   `note` a compat promotion writes into the command database is capped
   at one line, and the cap used to cut mid-word with nothing to show
@@ -464,7 +470,7 @@ FlightStream versions.
   `AmbiguousVersionAliasError` (catalogued, carrying `alias` and
   `candidates`) naming both candidates, instead of returning one of
   them. Every caller that passed the vendor name must pass a canonical
-  identifier: `Script(version="26.120")`, `--version 26.120`,
+  identifier: `Script(version="26.120")`, `--fs-version 26.120`,
   `fs_version = "26.120"`.
 
   Incompatible by intent, and the alternative was worse: `resolve`
@@ -506,7 +512,7 @@ FlightStream versions.
   that refusal was only half a guard: it settled which build the run
   ASKED for and could not show which one ran. The version string cannot
   show it either, because 26.120 and 26.121 both print "26.1" and they
-  differ in behaviour, `AIR_ALTITUDE` being the measured case. So a user
+  carry different records, `AIR_ALTITUDE` being the measured case. So a user
   who took the refusal seriously, moved to 26.121 and left `fs_exe`
   pointing at the 26.120 install got no warning at all, on exactly the
   command whose units defect that build carries.
@@ -517,7 +523,7 @@ FlightStream versions.
   26.000 has none registered, because no committed report records one;
   there the version-string check remains, unchanged.
 * `pyfs-qa probe`, `physics` and `drift` now refuse an unresolvable
-  `--version` with the library's own message on stderr and exit code 2,
+  `--fs-version` (`--fs-versions` on `drift`) with the library's own message on stderr and exit code 2,
   instead of a traceback. Both refusals it covers are ordinary user
   error: an unregistered identifier, and a vendor name shared by several
   builds. A wrapper keying on the exit code sees 2 where it used to see
@@ -582,6 +588,22 @@ FlightStream versions.
   evidence; omitted on a second settings call of the same script, the
   selection of the earlier call stands, in the script and in the
   snapshot. An empty sequence is refused.
+
+### Removed
+
+* **`pyflightstream.files` and `pyflightstream.cases.matrix_legacy` are
+  gone**, on the horizon their own deprecation-ledger entries recorded:
+  `removal_version="0.4.0"`, set when they were introduced in v0.3.0.
+  Import `pyflightstream.workspace` and `pyflightstream.cases.matrix`
+  instead; `LegacyMatrixError` was already `MatrixError` and `LegacyRow`
+  already `MatrixRow` through the shim, so only the module path moves.
+
+  Kept rather than extended because NFR-20 says a promise already
+  recorded is kept regardless of version, and because the deadline guard
+  would otherwise have turned the suite red at the release commit's
+  version bump, which is the worst moment to discover a removal window.
+  The deprecation ledger is now empty and the machinery stays: the
+  policy binds from 1.0 and the next shim registers there.
 
 ### Added
 
@@ -891,52 +913,11 @@ will be.
     not your schedule: pin `pyflightstream<0.5` and stay on the
     pandas/xarray surface.
 
-* **The tabular layer is renamed in v0.4.0, directly, with no aliases
-  and no warning.** Behavior is unchanged; the names and one argument
-  form are what move. Everything below is imported from
-  `pyflightstream.results`.
-
-    What breaks. Three names: `to_dataframe` becomes `to_table`,
-    `run_frame` becomes `run_table`, `sweep_frame` becomes
-    `sweep_table`. And one argument form, riding the same window: the
-    optional parameters below become keyword-only, so passing them
-    positionally stops working.
-
-    ```
-    to_table(result)                                  # was to_dataframe
-    run_table(record, *, loads=None)                  # was run_frame
-    sweep_table(workspace, *, loads_file=None)        # was sweep_frame
-    parse_run_loads(workspace, record, *, loads_file=None)   # name unchanged
-    ```
-
-    What survives. `to_csv` keeps its name, csv being a format rather
-    than a library. The run row's `frame` column keeps its name too:
-    once `run_frame` is `run_table`, the word carries only its
-    aerodynamic sense on the public surface, which is exactly what that
-    column means.
-
-    What to do. Rename the three, and pass `loads` and `loads_file` by
-    name. The keyword form already works today, so that half of the
-    edit can be made now and carried through the rename unchanged. The
-    names themselves have no both-version form, since no alias ships.
-
-    Why one window. `to_dataframe` names a library it stops returning at
-    v0.5.0, and the other two collide with the aerodynamic reference
-    frame, which is a real ambiguity in a package that reports both;
-    doing them separately would edit the same call sites twice for one
-    decision. The keyword-only conversion joins them because those call
-    sites are already being edited, with `run_campaign` as the shipped
-    precedent for the form, and because after 1.0 the policy above would
-    make the same change cost a warning release plus a major.
-    `parse_run_loads` is the one exception to the zero-cost argument: it
-    is not renamed, so its callers pay one edit rather than none, which
-    was accepted over leaving a fourth positional site behind.
-
-    A 2026-07-23 decision had put a deprecation cycle on the
-    `run_frame`/`sweep_frame` pair; the policy above supersedes that.
-    `to_dataframe` entered the window on 2026-07-27 and never had a
-    cycle promised.
-
+* **The tabular layer rename has LANDED**, so the forward notice that
+  stood here is now a record rather than a warning. What it announced
+  is in this release's API surface delta above; the notice as it was
+  written stands unaltered in the v0.3.0 notes, which is where a reader
+  looking for the warning they were given will find it.
 * **Erratum to the 0.3.0 notes**, which said the ITACA data adapter
   "is declared as a pyflightstream `[itaca]` extra". It was not: no
   such extra was ever added to `pyproject.toml`, and none will be.

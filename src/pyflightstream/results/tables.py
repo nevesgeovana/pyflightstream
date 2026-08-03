@@ -50,7 +50,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 
 from pyflightstream._errors import PyflightstreamError
-from pyflightstream.extras import require_extra
+from pyflightstream.extras import missing_extra
 from pyflightstream.results import (
     IncompleteOutputError,
     LoadsReport,
@@ -171,7 +171,7 @@ def to_table(result: object) -> pd.DataFrame:
     if sectional_type is not None and isinstance(result, sectional_type):
         return _sectional_loads_frame(result)
     if sectional_type is None and _looks_like_sectional(result):
-        raise require_extra(
+        raise missing_extra(
             "fsi",
             package="pyflightstream.fsi.loads",
             purpose=("tabulating an object that looks like a SectionalLoadsReport"),

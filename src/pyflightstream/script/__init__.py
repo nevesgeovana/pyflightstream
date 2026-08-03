@@ -17,10 +17,11 @@ the script for the run manifest.
 A command whose per-version record is ``broken`` is refused by default
 (FR-48), because a probe measured that it does not do what the manual
 says, so emitting it hands the run a wrong number rather than an
-error. AIR_ALTITUDE on 26.120 is the sharp case: the licensed sweep of
-2026-07-23 diagnosed the solver reading its METERS argument as feet,
-so the altitude the script asked for is not the altitude that flew,
-and nothing in the run says so because the script was fully validated.
+error. AIR_ALTITUDE on 26.120 is the sharp case: the licensed sweeps observed
+the 5000 FOOT standard density where 5000 metres was asked for, so the
+METERS argument read as ignored and the altitude the script asked for
+would not be the altitude solved, with nothing in the run saying so
+because the script was fully validated.
 Refusing to emit it is the only place that fact can still reach the
 caller. :meth:`Script.allow_broken` is the recorded way through the
 refusal, and the QA probe layer is its first caller, because
@@ -232,6 +233,13 @@ class BrokenCommandUse(BaseModel):
         The caller's justification, as passed to
         :meth:`Script.allow_broken`. This is the field no automated
         check can supply, which is why the method demands it.
+    first_line : str
+        The script line the first waived emission rendered. The reason
+        is written for a particular call, and a script-lifetime waiver
+        covers every later one, so a reader who has only the reason
+        cannot tell which emission it was written for: the QA prelude's
+        justification, for instance, holds at an altitude of zero and
+        nowhere else. This is the fact that lets them check.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -241,6 +249,7 @@ class BrokenCommandUse(BaseModel):
     report: str
     note: str | None = None
     reason: str
+    first_line: str = ""
 
 
 class ScriptLineBreakError(CommandArgumentError):
@@ -618,7 +627,7 @@ class Script:
         # whole database and emit each broken command with no arguments
         # at all, which is what makes that guard writable for commands
         # whose grammars have nothing in common.
-        self._check_not_broken(entry)
+        waived = self._check_not_broken(entry)
         if label is not None:
             if entry.name not in _CREATION_COMMANDS:
                 raise CommandArgumentError(
@@ -649,6 +658,14 @@ class Script:
                     "argument type that is not line-checked, that check is the "
                     f"fix, not this message ({entry.manual_ref})"
                 )
+        if waived and not self._broken_uses[entry.name].first_line:
+            # The reason was written for ONE call and the waiver covers
+            # every later one, so the record keeps the line the first
+            # waived emission produced. Set here rather than in the
+            # status check, because that runs before rendering.
+            self._broken_uses[entry.name] = self._broken_uses[entry.name].model_copy(
+                update={"first_line": block[0] if block else ""}
+            )
         self._lines.extend(block)
         if multiline:
             self._lines.append("")
@@ -702,18 +719,23 @@ class Script:
         A waiver for a command that is **not** broken in this version is
         accepted and does nothing. That is deliberate: the same recipe
         is meant to run against several versions, and AIR_ALTITUDE is
-        broken in 26.120 and verified in 26.121, so refusing the
-        unnecessary waiver would make a recipe fail on the version that
-        fixed the defect. Nothing is recorded in that case, so the
-        manifest never reports a dependency the run did not have.
+        recorded broken in 26.120 and verified in 26.121, so refusing
+        the unnecessary waiver would make a recipe fail on the version
+        where the command is recorded working. Nothing is recorded in
+        that case, so the manifest never reports a dependency the run
+        did not have.
         """
         entry = self._view[name]
         if not reason.strip():
+            # No manual citation here, deliberately. The manual page for the
+            # command says nothing about waiver justifications; the rule is
+            # this library's, from FR-48, and a refusal that cites a page
+            # silent on its own rule sends the reader somewhere useless.
             raise CommandArgumentError(
-                f"allow_broken({name!r}) needs a reason: the waiver is recorded in the "
-                "run manifest so a later reader can tell whether the run may be "
-                "trusted, and an empty justification records nothing they can use "
-                f"({entry.manual_ref})"
+                f"allow_broken({name!r}) needs a reason: the waiver is recorded in "
+                "the run manifest so a later reader can tell whether the run may "
+                "be trusted, and an empty justification records nothing they can "
+                "use (SRS FR-48)"
             )
         self._broken_waivers[entry.name] = reason
 
@@ -739,11 +761,15 @@ class Script:
         """Return the complete script text, newline terminated."""
         return "\n".join(self._lines) + "\n"
 
-    def _check_not_broken(self, entry: CommandEntry) -> None:
-        """Refuse a command a probe measured broken, unless it was waived."""
+    def _check_not_broken(self, entry: CommandEntry) -> bool:
+        """Refuse a command a probe measured broken, unless it was waived.
+
+        Returns whether this emission is being waived, so the caller can
+        record which line the waiver actually covered.
+        """
         record = entry.status_in(self.version)
         if record is None or record.status is not Status.BROKEN:
-            return
+            return False
         observed = record.note or "a committed probe measured it not behaving as documented"
         reason = self._broken_waivers.get(entry.name)
         if reason is None:
@@ -773,6 +799,7 @@ class Script:
                 reason=reason,
             ),
         )
+        return True
 
     def _bind(self, entry: CommandEntry, args: tuple, kwargs: dict) -> dict[str, object]:
         specs = entry.args

@@ -123,7 +123,7 @@ def parse_number(token: str) -> float:
         ) from error
 
 
-def parse_count(token: str, label: str) -> int:
+def parse_count(token: str, *, label: str) -> int:
     """Parse a solver-printed COUNT, refusing anything but a whole number.
 
     Iteration numbers and limits are counts, and every one of them used
@@ -411,13 +411,14 @@ def parse_loads(text: str, requested_version: str | FsVersion | None = None) -> 
         sideslip_deg=parse_number(labeled_value(text, "Side-slip angle (Deg)")),
         freestream_velocity_m_s=parse_number(labeled_value(text, "Freestream velocity (m/s)")),
         requested_iterations=parse_count(
-            labeled_value(text, "Requested solver iterations"), "Requested solver iterations"
+            labeled_value(text, "Requested solver iterations"),
+            label="Requested solver iterations",
         ),
         convergence_limit=parse_number(labeled_value(text, "Solver convergence limit")),
         solver_mode=labeled_value(text, "Solver mode:"),
         current_iteration=parse_count(
             labeled_value(text, "Current solver iteration number:"),
-            "Current solver iteration number",
+            label="Current solver iteration number",
         ),
         solver_model=_optional_labeled_value(text, "Solver model:"),
         forced_iterations=_parse_solver_flag(forced, "Force solver to run all iterations"),
@@ -448,9 +449,12 @@ def _cross_check_version(
     Two checks, and the BUILD one is the load-bearing half. The version
     string a solver prints does not identify a build: every registered
     26.1x prints "26.1", so comparing it cannot tell 26.120 from 26.121,
-    and those two differ in behaviour (AIR_ALTITUDE reads its METERS
-    argument on one and not on the other, RPT-014). Where the registry
-    records the build number, that is what is compared.
+    and those two are recorded differently: AIR_ALTITUDE is broken on
+    26.120 and verified on 26.121 (RPT-014, which declines to attribute
+    the change to the build, because the harness and the session file
+    moved with it). Whatever the cause, the two builds cannot be told
+    apart by the printed version string, so where the registry records
+    the build number, that is what is compared.
 
     The version-string check stays as the fallback for a version with no
     registered build, and it still catches the coarse case of running a
@@ -561,7 +565,7 @@ def parse_residual_history(text: str) -> list[ResidualSample]:
                 f"residual row {row!r} holds fewer than three columns (iteration, "
                 "velocity residual, pressure residual); the log table layout changed"
             )
-        iteration = parse_count(row[0], "the residual table's iteration counter")
+        iteration = parse_count(row[0], label="the residual table's iteration counter")
         # PYFS-009. The counter was read and never checked, so a history of
         # [1, 2, 1574, 2] parsed clean. That shape is two runs' logs
         # concatenated, or a table that wrapped, and the CONVERGENCE JUDGMENT
@@ -693,7 +697,9 @@ def parse_probe_points(text: str, requested_version=None) -> ProbePointsReport:
             "the probe export has no software footer; the file ends before the "
             "closing block, so the solver stopped before finishing this export"
         )
-    declared = int(parse_number(labeled_value(text, "Number of Probe Points:")))
+    declared = parse_count(
+        labeled_value(text, "Number of Probe Points:"), label="Number of Probe Points"
+    )
     header_line = next(
         (line.strip() for line in text.splitlines() if line.strip().startswith("X, Y, Z,")),
         None,
@@ -726,8 +732,9 @@ def parse_probe_points(text: str, requested_version=None) -> ProbePointsReport:
         values=np.asarray(parsed_rows, dtype=float),
         angle_of_attack_deg=parse_number(labeled_value(text, "Angle of attack (Deg)")),
         freestream_velocity_m_s=parse_number(labeled_value(text, "Freestream velocity (m/s)")),
-        current_iteration=int(
-            parse_number(labeled_value(text, "Current solver iteration number:"))
+        current_iteration=parse_count(
+            labeled_value(text, "Current solver iteration number:"),
+            label="the probe export's iteration counter",
         ),
         reported_version=software.group("version"),
         reported_build=software.group("build"),
@@ -759,6 +766,7 @@ __all__ = [
     "delimited_table",
     "labeled_value",
     "parse_loads",
+    "parse_count",
     "parse_number",
     "parse_probe_points",
     "parse_residual_history",

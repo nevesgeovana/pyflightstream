@@ -72,9 +72,9 @@ from pyflightstream.workspace.naming import NamingTemplate, NamingTemplateError
 __all__ = [
     "EXECUTABLES_FILE",
     "INPUT_KINDS",
+    "MANIFEST_SCHEMA",
     "CampaignWorkspace",
     "GroupsArtifact",
-    "MANIFEST_SCHEMA",
     "InputArtifactError",
     "NamingTemplate",
     "NamingTemplateError",

@@ -100,22 +100,9 @@ class DeprecatedModule:
 #: Every live deprecation shim of the package, one entry each. The
 #: Tier 1 deadline guard iterates this tuple; an empty tuple means the
 #: package currently makes no deprecation promises.
-DEPRECATED_MODULES: tuple[DeprecatedModule, ...] = (
-    DeprecatedModule(
-        module="pyflightstream.files",
-        replacement="pyflightstream.workspace",
-        deprecated_since="0.3.0",
-        removal_version="0.4.0",
-        extra="The API is unchanged.",
-    ),
-    DeprecatedModule(
-        module="pyflightstream.cases.matrix_legacy",
-        replacement="pyflightstream.cases.matrix",
-        deprecated_since="0.3.0",
-        removal_version="0.4.0",
-        extra=(
-            "LegacyMatrixError is now MatrixError and LegacyRow is now "
-            "MatrixRow; everything else is unchanged."
-        ),
-    ),
-)
+#: Empty since v0.4.0, when `pyflightstream.files` and
+#: `pyflightstream.cases.matrix_legacy` were removed on the horizon their
+#: own entries recorded. The machinery stays rather than going with them:
+#: NFR-20's policy binds from 1.0, and the next shim registers here rather
+#: than rebuilding the guard.
+DEPRECATED_MODULES: tuple[DeprecatedModule, ...] = ()

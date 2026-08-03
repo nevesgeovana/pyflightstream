@@ -6,7 +6,6 @@ values are synthetic.
 """
 
 import importlib
-import sys
 from pathlib import Path
 
 import pytest
@@ -197,30 +196,21 @@ def test_earlier_conversions_with_legacy_keys_stay_loadable(tmp_path):
     assert campaign.sims[0].variables["legacy_hidden"] is False
 
 
-# --- the deprecated pyflightstream.cases.matrix_legacy shim -----------------
+# --- the removed pyflightstream.cases.matrix_legacy shim --------------------
 
 
-def test_matrix_legacy_shim_reexports_and_warns(restored_module):
-    with restored_module("pyflightstream.cases.matrix_legacy"):
-        sys.modules.pop("pyflightstream.cases.matrix_legacy", None)
-        with pytest.warns(DeprecationWarning, match="pyflightstream.cases.matrix"):
-            shim = importlib.import_module("pyflightstream.cases.matrix_legacy")
-        import pyflightstream.cases.matrix as canonical
+def test_the_matrix_legacy_shim_is_gone():
+    """v0.4.0 removed it on the horizon its ledger entry recorded.
 
-        # The whole canonical surface, name by name: a name later dropped
-        # from matrix.__all__ must fail here, not vanish silently.
-        assert set(shim.__all__) == set(canonical.__all__) | {"LegacyMatrixError", "LegacyRow"}
-        for name in canonical.__all__:
-            assert getattr(shim, name) is getattr(canonical, name)
-        # Same objects, so old except/isinstance code keeps working.
-        assert shim.LegacyMatrixError is canonical.MatrixError
-        assert shim.LegacyRow is canonical.MatrixRow
-
-
-def test_matrix_legacy_shim_names_the_removal_horizon(restored_module):
-    # The concrete removal version recorded in the deprecation ledger,
-    # not a vague horizon.
-    with restored_module("pyflightstream.cases.matrix_legacy"):
-        sys.modules.pop("pyflightstream.cases.matrix_legacy", None)
-        with pytest.warns(DeprecationWarning, match=r"removed in v0\.4\.0"):
-            importlib.import_module("pyflightstream.cases.matrix_legacy")
+    The shim tests that used to live here asserted the re-exports and the
+    stated removal version. They are replaced rather than deleted,
+    because a removal promised in a released changelog is itself a
+    promise: a partial revert that re-added the module would otherwise be
+    caught by nothing.
+    """
+    with pytest.raises(ModuleNotFoundError):
+        importlib.import_module("pyflightstream.cases.matrix_legacy")
+    # And the canonical names it forwarded to are still the ones it named.
+    canonical = importlib.import_module("pyflightstream.cases.matrix")
+    assert hasattr(canonical, "MatrixError")
+    assert hasattr(canonical, "MatrixRow")

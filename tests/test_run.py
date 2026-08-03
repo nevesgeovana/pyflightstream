@@ -114,7 +114,7 @@ def test_the_preflight_refuses_the_wrong_build_before_anything_runs(tmp_path):
     The case: a user takes the build-time refusal seriously, moves the
     campaign to 26.121, and leaves fs_exe pointing at the 26.120
     install. Both builds print "26.1", so the version string cannot
-    show it, and they differ in behaviour.
+    show it, and their recorded evidence differs.
     """
     from pyflightstream.run import check_solver_identity
     from pyflightstream.versions import resolve

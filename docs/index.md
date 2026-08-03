@@ -71,8 +71,5 @@ end to end; the LaTeX user guide (`guide/`) covers the full workflow.
 
 ## Planned next
 
-* Getting started tutorial page: install, license prerequisites,
-  first steady polar (the material exists in the user guide; this is
-  the docs-site how-to page).
 * Campaign tutorial page: the workspace input library, pre-flight,
   and resumable sweeps as a narrated docs-site walkthrough.

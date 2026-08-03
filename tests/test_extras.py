@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pytest
 
-from pyflightstream.extras import EXTRAS, MissingExtraError, require_extra
+from pyflightstream.extras import EXTRAS, MissingExtraError, missing_extra
 
 REPO = Path(__file__).resolve().parents[1]
 
@@ -44,6 +44,10 @@ def test_the_extras_table_matches_the_packaging():
     reader away confident.
     """
     declared = set(_declared_extras()) - NOT_USER_FACING
+    assert declared, (
+        "pyproject declares no user-facing extra, so the three parametrized "
+        "tests below would run over nothing and pass"
+    )
     assert set(EXTRAS) == declared, (
         f"pyflightstream.extras.EXTRAS names {sorted(EXTRAS)} and pyproject "
         f"declares {sorted(declared)} (ignoring {sorted(NOT_USER_FACING)})"
@@ -70,7 +74,7 @@ def test_the_refusal_carries_the_exact_install_command(extra):
     asks. The remedy is built rather than written, so it cannot drift
     from the name that makes it work.
     """
-    error = require_extra(extra, package="somepkg", purpose="the thing")
+    error = missing_extra(extra, package="somepkg", purpose="the thing")
     assert isinstance(error, MissingExtraError)
     assert isinstance(error, ImportError)
     assert error.extra == extra
@@ -83,10 +87,28 @@ def test_the_refusal_carries_the_exact_install_command(extra):
 def test_a_refusal_cannot_name_an_extra_that_does_not_exist():
     """The failure mode the composed remedy exists to prevent."""
     with pytest.raises(ValueError, match="not an extra of this package"):
-        require_extra("geometry", package="trimesh", purpose="the gate")
+        missing_extra("geometry", package="trimesh", purpose="the gate")
     # The control: the real name is accepted, so the refusal is about the
     # value and not about the check being unconditional.
-    assert require_extra("geom", package="trimesh", purpose="the gate").extra == "geom"
+    assert missing_extra("geom", package="trimesh", purpose="the gate").extra == "geom"
+
+
+def _remedies_in_raises(source: str) -> list[int]:
+    """Line numbers of raises whose literals write an install remedy by hand.
+
+    Takes source text rather than a path, so the scan itself can be
+    driven with synthetic input; a negative assertion over the tree
+    cannot otherwise be told from a scan that finds nothing.
+    """
+    found = []
+    for node in ast.walk(ast.parse(source)):
+        if not isinstance(node, ast.Raise):
+            continue
+        for inner in ast.walk(node):
+            if isinstance(inner, ast.Constant) and isinstance(inner.value, str):
+                if "pip install pyflightstream[" in inner.value:
+                    found.append(node.lineno)
+    return sorted(set(found))
 
 
 def test_every_gated_path_raises_the_shared_type():
@@ -98,25 +120,30 @@ def test_every_gated_path_raises_the_shared_type():
     finding: an install remedy appears in this package only inside the
     one class that builds it.
     """
+    # The scan finds what it is looking for. Without this the whole test
+    # is satisfied by a wrong rglob root or an over-broad skip, which is
+    # the shape a negative assertion always has.
+    hand_written = 'raise ImportError("needs it: pip install pyflightstream[fsi]")'
+    assert _remedies_in_raises(hand_written) == [1], "the scan cannot find a remedy"
+    # And it does NOT fire on the same string in a docstring, which is the
+    # case an earlier line-based version got wrong.
+    in_prose = '"""Install with pip install pyflightstream[geom]."""\nx = 1\n'
+    assert _remedies_in_raises(in_prose) == [], "the scan flags documentation"
+
     offenders = []
     for path in sorted((REPO / "src").rglob("*.py")):
         if path.name == "extras.py":
             continue  # the one home of the string
-        tree = ast.parse(path.read_text(encoding="utf-8"))
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.Raise):
-                continue
-            # Only the literals INSIDE a raise. A module docstring or a
-            # comment naming the install command is documentation and is
-            # meant to stay: probes/geometry.py's own top-docstring does
-            # exactly that, and an earlier version of this guard flagged
-            # it, which would have taught the reader to delete the prose
-            # instead of the duplication.
-            for inner in ast.walk(node):
-                if isinstance(inner, ast.Constant) and isinstance(inner.value, str):
-                    if "pip install pyflightstream[" in inner.value:
-                        rel = path.relative_to(REPO).as_posix()
-                        offenders.append(f"{rel}:{node.lineno}")
+        # Only the literals INSIDE a raise. A module docstring or a
+        # comment naming the install command is documentation and is
+        # meant to stay: probes/geometry.py's own top-docstring does
+        # exactly that, and an earlier version of this guard flagged it,
+        # which would have taught the reader to delete the prose instead
+        # of the duplication.
+        rel = path.relative_to(REPO).as_posix()
+        offenders += [
+            f"{rel}:{line}" for line in _remedies_in_raises(path.read_text(encoding="utf-8"))
+        ]
     assert not offenders, (
         "these raises write an install remedy by hand instead of using "
         "MissingExtraError, which is how three paths came to print three "

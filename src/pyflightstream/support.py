@@ -59,6 +59,7 @@ from pyflightstream.versions import FsVersion, known_versions, resolve
 
 __all__ = [
     "MINIMAL_WORKFLOW_COMMANDS",
+    "SUPPORT_LADDER",
     "SupportLevel",
     "VersionSupport",
     "minimal_workflow",

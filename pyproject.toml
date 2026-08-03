@@ -52,7 +52,7 @@ dev = [
     # suite's runtime and a developer running one test file does not need
     # a whole-package number. The job passes --cov explicitly.
     "pytest-cov",
-    # The NFR-26 type-check ratchet; config in [tool.mypy] below.
+    # The NFR-27 type-check ratchet; config in [tool.mypy] below.
     "mypy",
     # Executable examples in CI: docstring doctests and markdown code
     # blocks (INB-006 item 1e, decision Q-007). Config in conftest.py.
@@ -139,7 +139,7 @@ exclude_also = [
 ]
 
 
-# --- mypy (NFR-26 half of review finding PYFS-026) -------------------
+# --- mypy (NFR-27, from review finding PYFS-026) -------------------
 # The package had never been type checked. The first run reported 223 errors
 # in 21 of 53 modules, so a blanket adoption would have meant either 223
 # rushed annotations or a permanently red check, and both teach the reader to

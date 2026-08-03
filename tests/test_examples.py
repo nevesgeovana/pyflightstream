@@ -42,6 +42,13 @@ EXAMPLE_EXTRAS: dict[str, frozenset[str]] = {
 GATED_SUBPACKAGES = {"pyflightstream.fsi": "fsi", "pyflightstream.probes.geometry": "geom"}
 
 
+def _root_artifacts() -> list[str]:
+    """Names of the artifacts an example or a docs block leaves at the root."""
+    found = [path.name for path in REPO.glob("*.png")]
+    found += [name for name in ("runs", "site_check") if (REPO / name).exists()]
+    return sorted(found)
+
+
 def _example_paths() -> list[Path]:
     return sorted(EXAMPLES.glob("*.py"))
 
@@ -149,14 +156,37 @@ def test_nothing_leaves_an_artifact_in_the_repository_root():
     direction: the docs examples run under Sybil, with the repository as
     their working directory.
     """
-    artifacts = sorted(path.name for path in REPO.glob("*.png"))
-    assert not artifacts, (
-        f"the repository root holds {artifacts}; something ran an example with "
-        "the repository as its working directory"
+    assert _root_artifacts() == [], (
+        f"the repository root holds {_root_artifacts()}; something ran an "
+        "example or a docs code block with the repository as its working "
+        "directory. Mark such a block `<!-- skip: next -->`, or pass a "
+        "temporary cwd"
     )
-    stray = [name for name in ("runs", "site_check") if (REPO / name).exists()]
-    assert not stray, (
-        f"the repository root holds {stray}; a code block built a campaign "
-        "workspace there. Mark the block `<!-- skip: next -->` if it needs a "
-        "workspace a doc build cannot populate"
-    )
+
+
+def test_the_cleanliness_detector_can_actually_see_an_artifact():
+    """The guard above is a negative assertion, so it needs a witness.
+
+    In CI both of its halves are green by construction: the docs blocks
+    that would write `runs/` are executed in a later step than the tier 1
+    run, and matplotlib is not in the CI install, so the PNGs are never
+    written there either. A detector that quietly stopped detecting would
+    look exactly like a clean tree. This drives it.
+    """
+    made = []
+    try:
+        for name in ("_guard_witness.png",):
+            (REPO / name).write_bytes(b"")
+            made.append(REPO / name)
+        (REPO / "runs").mkdir(exist_ok=True)
+        made.append(REPO / "runs")
+        found = _root_artifacts()
+        assert "_guard_witness.png" in found, found
+        assert "runs" in found, found
+    finally:
+        for path in made:
+            if path.is_dir():
+                path.rmdir()
+            elif path.exists():
+                path.unlink()
+    assert _root_artifacts() == []
