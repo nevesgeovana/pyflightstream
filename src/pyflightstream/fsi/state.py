@@ -44,6 +44,52 @@ class StaleLoadsError(PyflightstreamError, ValueError):
     """
 
 
+class TwistIterationError(PyflightstreamError, RuntimeError):
+    """The inner twist iteration ran out of solves above its tolerance.
+
+    ``solve_rotating_static`` iterates the beam solve until the twist
+    distribution stops moving, and returns the last iterate whatever
+    happens. Above tolerance that iterate is NOT a solution: the twist
+    was still changing when the solve budget ran out, so the deflections
+    computed from it describe a blade shape the structural model never
+    settled on.
+
+    Until this class existed the driver read only ``solution`` from that
+    result, never ``twist_residual_rad``, and wrote those deflections
+    straight into ``FSIDisp.txt``. The solver then flew the unconverged
+    shape, the coupled run continued, and the only trace was a
+    ``logger.warning`` nobody reads in a batch run (PYFS-013). Writing
+    the file is the irreversible step, so the refusal is placed before
+    it.
+
+    Defined here (the import-light state module) so the exception
+    catalog stays importable without the ``[fsi]`` extra; the driver
+    raises it.
+
+    Attributes
+    ----------
+    residuals_rad : tuple of float
+        Final twist residual per blade [rad], in blade order.
+    tolerance_rad : float
+        Threshold they were judged against [rad].
+    inner_solves : int
+        Solves the worst blade spent before giving up.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        residuals_rad: tuple[float, ...] = (),
+        tolerance_rad: float = 0.0,
+        inner_solves: int = 0,
+    ) -> None:
+        super().__init__(message)
+        self.residuals_rad = residuals_rad
+        self.tolerance_rad = tolerance_rad
+        self.inner_solves = inner_solves
+
+
 class LoadSample(BaseModel):
     """One call's aerodynamic load densities, in the averaging buffer.
 

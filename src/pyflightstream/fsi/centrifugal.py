@@ -200,11 +200,28 @@ class RotatingSolution:
         Beam solves spent in the inner twist iteration (FSI-R11).
     twist_residual_rad : float
         Largest twist change of the last inner iteration [rad].
+    tolerance_rad : float
+        Threshold the residual was judged against [rad]. Carried on the
+        result rather than left in a module constant, so a caller can
+        state its own verdict without importing a private name, and so
+        the number reaches the FSI log and the state where a later
+        reader needs it (PYFS-013).
+    converged : bool
+        Whether the inner twist iteration reached the tolerance. False
+        means the returned ``solution`` is the last iterate, not a
+        solution: the twist distribution was still moving when the
+        solve budget ran out.
     """
 
     solution: beam.StaticBeamSolution
     inner_solves: int
     twist_residual_rad: float
+    tolerance_rad: float = _INNER_TOLERANCE_RAD
+
+    @property
+    def converged(self) -> bool:
+        """Whether the inner twist iteration reached its tolerance."""
+        return self.twist_residual_rad < self.tolerance_rad
 
 
 def solve_rotating_static(
@@ -271,7 +288,10 @@ def solve_rotating_static(
         )
     logger.debug("rotating static solve: %d inner solves", solve_count)
     return RotatingSolution(
-        solution=solution, inner_solves=solve_count, twist_residual_rad=residual
+        solution=solution,
+        inner_solves=solve_count,
+        twist_residual_rad=residual,
+        tolerance_rad=_INNER_TOLERANCE_RAD,
     )
 
 

@@ -134,6 +134,7 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
         "ScriptReferenceError": ValueError,
         "StaleLoadsError": ValueError,
         "SurfaceMeshExportError": RuntimeError,
+        "TwistIterationError": RuntimeError,
         "UnitsError": ValueError,
         "UnknownVersionError": ValueError,
         "VersionMismatchWarning": UserWarning,

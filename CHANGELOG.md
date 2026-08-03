@@ -9,6 +9,24 @@ FlightStream versions.
 
 ### API surface delta
 
+* **An unconverged twist iterate is no longer flown.** **Breaking
+  within 0.x**: the FSI driver raises the new `TwistIterationError`
+  where it used to write the displacements.
+
+  `solve_rotating_static` returns its last iterate whatever happens,
+  and above tolerance that iterate is not a solution: the twist was
+  still moving when the solve budget ran out. The driver read
+  `result.solution` and never `result.twist_residual_rad`, so those
+  deflections went into `FSIDisp.txt`, the solver flew a blade shape
+  the structural model never settled on, and the only trace was a
+  `logger.warning` nobody reads in a batch run. The refusal sits one
+  line above the write, because the write is the irreversible act.
+
+  `RotatingSolution` gains `tolerance_rad` and a `converged` property,
+  and the convergence log gains `twist_residual_rad` and
+  `twist_tolerance_rad` beside the inner-solve count it already
+  carried. Phase 1 leaves both cells empty rather than zero: no solve
+  ran, and a zero would read as a perfectly converged iteration.
 * **CI runs on Windows for the first time, and the coverage floor of
   SRS NFR-16 exists.** No public API change; both are build and
   process.

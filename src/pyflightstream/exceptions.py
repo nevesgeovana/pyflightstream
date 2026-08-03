@@ -49,7 +49,7 @@ from pyflightstream._errors import PyflightstreamError
 from pyflightstream.cases.matrix import MatrixError
 from pyflightstream.commands import CommandNotInVersionError
 from pyflightstream.fsi.loads import UnitsError
-from pyflightstream.fsi.state import StaleLoadsError
+from pyflightstream.fsi.state import StaleLoadsError, TwistIterationError
 from pyflightstream.options import OptionError
 from pyflightstream.probes.geometry import GeometryEngineMissingError, OpenMeshError
 from pyflightstream.qa.physics import PhysicsEnvironmentError
@@ -106,6 +106,7 @@ __all__ = [
     "ScriptReferenceError",
     "StaleLoadsError",
     "SurfaceMeshExportError",
+    "TwistIterationError",
     "UnitsError",
     "UnknownVersionError",
     "VersionMismatchWarning",

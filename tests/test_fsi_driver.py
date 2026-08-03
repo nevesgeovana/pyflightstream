@@ -11,12 +11,13 @@ state.json.
 
 import re
 import shutil
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
 import pytest
 
-from pyflightstream.fsi import driver, kinematics, nodes
+from pyflightstream.fsi import centrifugal, driver, kinematics, nodes
 from pyflightstream.fsi.config import (
     BladeProperties,
     FsiConfig,
@@ -25,7 +26,12 @@ from pyflightstream.fsi.config import (
     dump_config,
 )
 from pyflightstream.fsi.loads import SectionFamily, SectionFamilyMap
-from pyflightstream.fsi.state import initial_state, load_state, write_state_atomic
+from pyflightstream.fsi.state import (
+    TwistIterationError,
+    initial_state,
+    load_state,
+    write_state_atomic,
+)
 
 FIXTURES = Path(__file__).parent / "fixtures" / "fsi"
 CALL2 = (FIXTURES / "FS_SurfaceSection_Loads_call0002.txt").read_text(encoding="utf-8")
@@ -300,3 +306,83 @@ def test_the_resume_check_runs_before_the_frozen_branch(tmp_path):
     run_dir = _resume_with_a_reshaped_config(tmp_path, frozen=True)
     with pytest.raises(ValueError, match="does not describe the configured blade"):
         driver.coupling_step(run_dir)
+
+
+# --- PYFS-013: an unconverged twist iterate is not a solution --------------
+
+
+def test_an_unconverged_twist_iteration_is_not_written(tmp_path, monkeypatch):
+    """The driver read `solution` and never `twist_residual_rad`.
+
+    `solve_rotating_static` returns its last iterate whatever happens, with
+    only a `logger.warning` when the solve budget ran out above tolerance,
+    and nobody reads a warning in a batch run. The deflections went straight
+    into FSIDisp.txt, the solver flew a blade shape the structural model
+    never settled on, and the coupled run carried on.
+
+    The refusal sits one line above the write, because the write is the
+    irreversible act.
+    """
+    cfg = stage_run(tmp_path)
+    write_loads(tmp_path, 100)
+    driver.coupling_step(tmp_path)  # phase 1 writes zeros, no solve
+
+    real = centrifugal.solve_rotating_static
+
+    def unconverged(*args, **kwargs):
+        result = real(*args, **kwargs)
+        return replace(result, twist_residual_rad=result.tolerance_rad * 10.0)
+
+    monkeypatch.setattr(centrifugal, "solve_rotating_static", unconverged)
+    written_before = (tmp_path / driver.DISPLACEMENT_FILE).read_bytes()
+
+    write_loads(tmp_path, 140)
+    with pytest.raises(TwistIterationError) as caught:
+        driver.coupling_step(tmp_path)
+
+    assert "did not converge" in str(caught.value)
+    assert "blade 0" in str(caught.value)
+    assert caught.value.tolerance_rad > 0.0
+    assert len(caught.value.residuals_rad) == cfg.blade_count
+    assert all(r > caught.value.tolerance_rad for r in caught.value.residuals_rad)
+    # The file is exactly what the previous call left: nothing was applied.
+    assert (tmp_path / driver.DISPLACEMENT_FILE).read_bytes() == written_before
+
+
+def test_a_converged_step_still_writes(tmp_path):
+    """The control.
+
+    Without it, a refusal that fired on every solve would leave the test
+    above green while the coupling loop could not run at all.
+    """
+    stage_run(tmp_path)
+    results = run_sequence(tmp_path, 4)
+    assert [r.phase for r in results] == [1, 2, 2, 3]
+    assert (tmp_path / driver.DISPLACEMENT_FILE).is_file()
+    assert np.any(results[-1].displacements != 0.0)
+
+
+def test_the_convergence_log_carries_the_residual_and_its_tolerance(tmp_path):
+    """The number that decides the refusal has to be in the record.
+
+    A run that survived is only trustworthy if a reader can see how close
+    each step came to not surviving. The residual and the tolerance it was
+    judged against are now columns, beside the inner-solve count that was
+    already there.
+    """
+    stage_run(tmp_path)
+    run_sequence(tmp_path, 4)
+    lines = (tmp_path / driver.LOG_FILE).read_text(encoding="utf-8").splitlines()
+    header = next(line for line in lines if line.startswith("call,"))
+    columns = header.split(",")
+    assert "twist_residual_rad" in columns
+    assert "twist_tolerance_rad" in columns
+    rows = [line.split(",") for line in lines if line and not line.startswith(("#", "call,"))]
+    residual = columns.index("twist_residual_rad")
+    tolerance = columns.index("twist_tolerance_rad")
+    # Phase 1 ran no solve, so its cells are EMPTY rather than zero: a zero
+    # would read as a perfectly converged iteration.
+    assert rows[0][residual] == ""
+    assert rows[0][tolerance] == ""
+    for row in rows[1:]:
+        assert float(row[residual]) < float(row[tolerance])

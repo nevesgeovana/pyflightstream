@@ -61,6 +61,7 @@ from pyflightstream.fsi.state import (
     RecordedTwist,
     RevolutionSample,
     StaleLoadsError,
+    TwistIterationError,
     check_state_matches_config,
     initial_state,
     load_state,
@@ -82,13 +83,16 @@ _LOG_HEADER = (
     "# quasi-steady model: azimuthal (1P) content is trustworthy only where\n"
     "# n Omega / omega_n stays at or below about 0.3 (DLV-007 Section 4.1)\n"
     "call,step,phase,revolutions,solver_iteration,total_normal_force_n,"
-    "tip_flap_m,tip_twist_deg,inner_solves,relaxation,config_hash\n"
+    "tip_flap_m,tip_twist_deg,inner_solves,twist_residual_rad,"
+    "twist_tolerance_rad,relaxation,config_hash\n"
 )
 
 
 # StaleLoadsError lives in pyflightstream.fsi.state (import-light) so
 # the exception catalog imports without the [fsi] extra; re-exported
 # here because the driver is the module that raises it.
+# TwistIterationError lives there for the same reason, and is raised
+# here for the same reason.
 
 
 @dataclass(frozen=True)
@@ -202,6 +206,7 @@ def _append_log(run_dir: Path, row: dict[str, object]) -> None:
         f"{row['call']},{row['step']},{row['phase']},{row['revolutions']},"
         f"{row['solver_iteration']},{row['total_normal_force_n']},"
         f"{row['tip_flap_m']},{row['tip_twist_deg']},{row['inner_solves']},"
+        f"{row['twist_residual_rad']},{row['twist_tolerance_rad']},"
         f"{row['relaxation']},{row['config_hash']}\n"
     )
     if not path.is_file():
@@ -256,6 +261,8 @@ def _frozen_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> StepResult:
             "tip_flap_m": "",
             "tip_twist_deg": "",
             "inner_solves": "",
+            "twist_residual_rad": "",
+            "twist_tolerance_rad": "",
             "relaxation": "",
             "config_hash": config_hash(cfg),
         },
@@ -391,6 +398,10 @@ def coupling_step(run_dir: str | Path) -> StepResult:
         solutions: tuple[beam.StaticBeamSolution, ...] | None = None
         written = zeros
         inner_solves = 0
+        # No solve ran, so there is no residual. Empty rather than zero:
+        # zero would read as a perfectly converged iteration.
+        twist_residual = None
+        twist_tolerance = None
     else:
         if phase == 4:
             relaxation = 1.0
@@ -428,6 +439,33 @@ def coupling_step(run_dir: str | Path) -> StepResult:
         written = relax_displacements(previous, computed, relaxation)
         state.previous_twist_rad = [list(sol.elastic_twist_rad) for sol in solutions]
         inner_solves = max(result.inner_solves for result in solved)
+        twist_residual = max(result.twist_residual_rad for result in solved)
+        twist_tolerance = solved[0].tolerance_rad
+        # PYFS-013. Refused HERE, one line above the write, because the
+        # write is the irreversible act: once FSIDisp.txt exists the
+        # solver reads it and the coupled run flies whatever shape it
+        # holds. The driver used to take result.solution and never look
+        # at result.twist_residual_rad, so an iterate that was still
+        # moving when the solve budget ran out was applied exactly like
+        # a converged one, and the only trace was a logger.warning that
+        # nobody reads in a batch run.
+        unconverged = [index for index, result in enumerate(solved) if not result.converged]
+        if unconverged:
+            residuals = tuple(result.twist_residual_rad for result in solved)
+            named = ", ".join(f"blade {i} at {residuals[i]:.3e} rad" for i in unconverged)
+            raise TwistIterationError(
+                f"the inner twist iteration did not converge after {inner_solves} solves "
+                f"({named}, tolerance {twist_tolerance:.1e} rad), so the deflections "
+                "describe a blade shape the structural model never settled on. They are "
+                "NOT written: the solver would fly them and the run would continue as "
+                "though they were a solution. The usual cause is a propeller moment "
+                "unusually strong for this blade stiffness; check the torsional "
+                "stiffness distribution and the chordwise mass offsets of the "
+                "configuration.",
+                residuals_rad=residuals,
+                tolerance_rad=twist_tolerance,
+                inner_solves=inner_solves,
+            )
     nodes.write_fsidisp(run_dir / DISPLACEMENT_FILE, written)
     state.previous_displacements = written.tolist()
 
@@ -483,6 +521,8 @@ def coupling_step(run_dir: str | Path) -> StepResult:
             "tip_flap_m": f"{max(abs(v) for v in tip_flap_m):.6e}",
             "tip_twist_deg": f"{max(abs(v) for v in tip_twist_deg):.6e}",
             "inner_solves": inner_solves,
+            "twist_residual_rad": "" if twist_residual is None else f"{twist_residual:.6e}",
+            "twist_tolerance_rad": ("" if twist_tolerance is None else f"{twist_tolerance:.1e}"),
             "relaxation": "" if relaxation is None else f"{relaxation:.3f}",
             "config_hash": config_hash(cfg),
         },
