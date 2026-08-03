@@ -374,8 +374,8 @@ def check_state_matches_config(
             "or relaxation policy. What does not survive is the meaning of the "
             "displacements, the relaxation memory and the convergence history in "
             "this file, all of which the other model produced. Start a fresh run "
-            "directory, or pass allow_config_change=True to carry that memory "
-            "across deliberately."
+            "directory, or put an empty file named 'fsi_allow_config_change' in "
+            "this one to carry that memory across deliberately."
         )
 
 

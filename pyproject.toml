@@ -47,6 +47,13 @@ geom = ["trimesh", "rtree", "scipy"]
 fsi = ["PyNiteFEA>=3.0"]
 dev = [
     "pytest",
+    # PEP 440 version parsing for tests/test_version_identity.py
+    # (REV010-015). Declared rather than relied on as pytest's transitive
+    # dependency: the architect pass found tier 1 importing it with
+    # nothing in this file naming it, so a pytest release that dropped
+    # the edge would turn a guard into a collection error. Apache-2.0 and
+    # BSD-2-Clause dual, MIT-compatible.
+    "packaging",
     # The coverage floor of NFR-16, enforced by the CI `coverage` job.
     # Not in pytest's addopts: instrumentation costs about a third of the
     # suite's runtime and a developer running one test file does not need

@@ -372,7 +372,7 @@ def _bind_case_conditions(case: SimCase | None, report: LoadsReport) -> Conditio
     # attribute is the case default.
     if case.velocity is not None:
         requested.setdefault("velocity", case.velocity)
-    return bind_conditions(requested, report)
+    return bind_conditions(requested, reported=report)
 
 
 class OutcomeAssessor(Protocol):

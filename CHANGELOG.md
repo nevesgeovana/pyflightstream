@@ -20,8 +20,9 @@ FlightStream versions.
   that the evidence is narrower than the supported rows: replaying
   archived fixtures shows the machine runs, not that its physics is
   right for a case nobody has measured. The rotary two-way coupling
-  is listed as **not validated**, which the FSI design has always
-  said and no public page did.
+  is listed as **not validated**, which `reports/RPT-007` and the
+  roadmap's M6 row have said since 2026-07-21 and which no page a
+  reader lands on repeated.
 * **Six documentation claims corrected, and guarded** (REV010-017,
   REV010-018).
 
@@ -349,9 +350,12 @@ FlightStream versions.
   backs either. It now carries `status`, `evidence` and a
   `verification` method, where the distinction that matters is `test`
   (something fails when the requirement stops holding) against `review`
-  (a human checks it and nothing fails). Today that reads 27 test, 27
-  evidence, 26 review, 16 none, and the generated
-  `reports/requirements-index.json` is the home of record for those four.
+  (a human checks it and nothing fails). The generated
+  `reports/requirements-index.json` is the home of record for that
+  distribution; the four numbers are deliberately not copied here,
+  because a hand-copied count beside a generated artifact is the exact
+  drift this bullet is about, and it drifted within this same Unreleased
+  block when NFR-18 moved from pending to implemented.
 
   A `requirement` pytest marker declares that a test falsifies a
   requirement. Every marker must resolve to a live identifier, and the
@@ -381,7 +385,7 @@ FlightStream versions.
 * **Every optional extra refuses the same way, and every dependency
   has a license card** (SRS NFR-02; new public
   `pyflightstream.extras` with `MissingExtraError`, `EXTRAS` and
-  `require_extra`). **Breaking within 0.x** for one narrow clause: the
+  `missing_extra`). **Breaking within 0.x** for one narrow clause: the
   `[fsi]` import gate raised a bare `ModuleNotFoundError` and now
   raises `MissingExtraError`, which is an `ImportError` but not a
   `ModuleNotFoundError`.

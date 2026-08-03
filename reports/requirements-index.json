@@ -561,7 +561,7 @@
   },
   {
    "id": "NFR-01d",
-   "text": "Evidence line corrected 2026-08-03 (review finding PYFS-026). It said the executable examples ran in CI under Sybil, and Sybil runs docstring doctests and markdown code blocks: the four examples/*.py were in no CI step at all, so the badge rested on a mechanism that did not cover them. They are the first code a new user runs.",
+   "text": "The published docs include at least one worked example per public workflow.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: Phase 4 split of NFR-01, accepted 2026-07-27. Evidence: tests/test_examples.py runs each of the examples/*.py and holds each to the extras it declares; the Sybil run covers the docstring doctests and the markdown code blocks. Nothing enumerates the public workflows and checks one example per workflow, so the per-workflow coverage is a review check and the badge covers the examples' correctness.*",

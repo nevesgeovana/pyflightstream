@@ -112,10 +112,15 @@ class ConditionBinding:
         compared. Kept rather than dropped: "not checked" and "checked
         and matched" are different states and a reader must be able to
         tell them apart.
+    unbound : tuple of str
+        Requested axes :data:`FIELD_BINDINGS` does not know at all, so
+        nothing could compare them. Distinct from `unprinted`, which is
+        an axis the package knows and this export happens not to print.
     """
 
     checks: tuple[ConditionCheck, ...] = ()
     unprinted: tuple[str, ...] = ()
+    unbound: tuple[str, ...] = ()
 
     @property
     def mismatches(self) -> tuple[ConditionCheck, ...]:
@@ -123,12 +128,26 @@ class ConditionBinding:
         return tuple(check for check in self.checks if not check.within)
 
     @property
-    def matched(self) -> bool:
-        """True when every comparable field agrees.
+    def compared(self) -> bool:
+        """True when at least one field was actually compared.
 
-        An empty binding is vacuously matched, which is why the caller
-        must consult `checks` before treating this as evidence: nothing
-        compared is not the same as everything agreed.
+        The distinction this whole module is about, expressed as a
+        value: "nothing was checked" and "everything agreed" are
+        different claims about a result, and a caller must be able to
+        ask which one it has.
+        """
+        return bool(self.checks)
+
+    @property
+    def mismatch_free(self) -> bool:
+        """True when no comparable field disagrees.
+
+        NAMED FOR WHAT IT MEASURES, deliberately. This was `matched`,
+        which returns True for a binding that compared nothing, so a
+        caller writing the obvious ``if binding.matched:`` re-created
+        REV010-001 at the API level (api-designer pass, 2026-08-03).
+        Ask :attr:`compared` alongside it, or read :attr:`mismatches`
+        directly, which is what both real consumers do.
         """
         return not self.mismatches
 
@@ -143,8 +162,8 @@ class ConditionBinding:
 
 def bind_conditions(
     requested: Mapping[str, float],
-    reported: object,
     *,
+    reported: object,
     bindings: tuple[tuple[str, str, float, str], ...] = FIELD_BINDINGS,
 ) -> ConditionBinding:
     """Compare a requested operating point against a parsed export.
@@ -158,9 +177,17 @@ def bind_conditions(
     reported : object
         A parsed report carrying the attributes named in `bindings`,
         in practice a :class:`~pyflightstream.results.LoadsReport`.
-        Typed loosely on purpose: this module sits below the run layer
-        and must not import it back, and the only thing it needs is
-        attribute access.
+
+        Typed loosely because the comparison is duck typed: any object
+        exposing the attributes in `bindings` can be compared, which is
+        what lets a test drive the table without constructing a parsed
+        report. NOT for a layering reason. An earlier version of this
+        docstring said this module "sits below the run layer and must
+        not import it back", which is false about `LoadsReport`: it
+        lives in :mod:`pyflightstream.results`, the SAME layer as this
+        module, so nothing about the layer rule requires `object` here
+        (architect pass, 2026-08-03). A wrong rationale propagates,
+        which is why it is corrected rather than deleted.
     bindings : tuple, optional
         The axis-to-attribute table; defaults to
         :data:`FIELD_BINDINGS`. Passed explicitly by tests so the
@@ -180,6 +207,14 @@ def bind_conditions(
     """
     checks: list[ConditionCheck] = []
     unprinted: list[str] = []
+    known = {axis for axis, _, _, _ in bindings}
+    # A requested axis this table does not know is UNBOUND, not absent.
+    # The loop below iterates the table rather than the request, so such an
+    # axis used to be dropped with no trace and a sweep over it recorded a
+    # binding that looked complete (QA pass, 2026-08-03).
+    unbound = tuple(
+        sorted(axis for axis, value in requested.items() if axis not in known and value is not None)
+    )
     for axis, attribute, tolerance, unit in bindings:
         if axis not in requested or requested[axis] is None:
             continue
@@ -199,7 +234,7 @@ def bind_conditions(
                 unit=unit,
             )
         )
-    return ConditionBinding(checks=tuple(checks), unprinted=tuple(unprinted))
+    return ConditionBinding(checks=tuple(checks), unprinted=tuple(unprinted), unbound=unbound)
 
 
 __all__ = [

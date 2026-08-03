@@ -82,6 +82,10 @@ DISPLACEMENT_FILE = "FSIDisp.txt"
 FAMILY_MAP_FILE = "fsi_family_map.json"
 LOG_FILE = "fsi_convergence_log.csv"
 FROZEN_FILE = "fsi_frozen_displacements.txt"
+# Presence carries the operator's decision to resume across a changed
+# configuration (REV010-009). A marker rather than a flag, because the
+# executable is invoked bare; see the call site in coupling_step.
+ALLOW_CONFIG_CHANGE_FILE = "fsi_allow_config_change"
 
 _LOG_HEADER = (
     "# pyflightstream FSI convergence log (FSI-R09, FSI-R15)\n"
@@ -418,6 +422,15 @@ def coupling_step(run_dir: str | Path) -> StepResult:
         # row, which is what made the omission easy to miss: the value
         # existed and simply was not consulted where it decides anything.
         config_hash=config_hash(cfg),
+        # A RUN-FOLDER MARKER rather than a keyword a caller passes, because
+        # there is no caller to pass it: FlightStream invokes this executable
+        # bare, coupling_step takes only the directory, and pyfs-fsi exposes
+        # no such flag. The refusal message named allow_config_change=True,
+        # which the user who meets it in pyfs_fsi_error.log has nowhere to
+        # put (api-designer pass, 2026-08-03). The precedent is FROZEN_FILE:
+        # a marker file is how this driver already takes a per-run decision
+        # from a bare invocation.
+        allow_config_change=(run_dir / ALLOW_CONFIG_CHANGE_FILE).is_file(),
     )
     if state.config_hash is None:
         # First contact with a state that predates the field, or one just
@@ -600,10 +613,15 @@ def coupling_step(run_dir: str | Path) -> StepResult:
         )
         if phase == 3 and len(state.revolution_history) >= 2:
             last, previous_rev = state.revolution_history[-1], state.revolution_history[-2]
-            # REV010-010. BOTH criteria, which is what the configuration
-            # documentation and the normative FSI design have always said:
-            # structural twist constant AND revolution-averaged thrust
-            # stable. Only the first was tested, so the workflow could
+            # REV010-010. BOTH criteria, which is what this package's own
+            # configuration docstring has said since the field existed:
+            # structural twist constant AND the integrated normal force
+            # stable between consecutive revolutions. The force compared is
+            # the one SAMPLED at the revolution-completing call rather than
+            # a mean over the revolution; the two coincide only when the
+            # steps per revolution divide evenly, and where they do not the
+            # sampled azimuth drifts and 1P content can read as an unsettled
+            # thrust (V and V pass, 2026-08-03). Only the first was tested, so the workflow could
             # promote itself to its final recording phase while the
             # aerodynamic loading was still oscillating materially, and the
             # recording it then made would be of a state it had declared

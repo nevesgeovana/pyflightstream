@@ -80,7 +80,8 @@ instead of the agents.
 claim more** (REV010-018, corrected 2026-08-03). It is a record that
 the local workflow ran and which passes it says it ran. It is NOT
 proof that the reviewer agents ran: the `passes` field is recorded and
-never checked, the file is local and gitignored, any process that can
+never checked BY THE GATE (the writer validates the names, so the
+sentence is about enforcement rather than about validation), the file is local and gitignored, any process that can
 write it clears the gate, and no release job consumes it. The hook's
 own module docstring has said this from the start; this section used
 to call the attestation mechanical evidence that the reviewer agents

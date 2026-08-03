@@ -6,8 +6,13 @@ authors:
   - family-names: Neves
     given-names: Geovana
 license: MIT
+# A development version has no release date, so this file states none.
+# It said 2026-07-23, the v0.3.0 date, alongside version 0.4.0.dev0, so
+# a citation generated from this tree asserted a release date for an
+# artifact that was never released, which is REV010-015 in the citation
+# record rather than in the wheel (architect and tech-writer passes,
+# 2026-08-03). The release commit sets both fields together.
 version: 0.4.0.dev0
-date-released: 2026-07-23
 repository-code: "https://github.com/nevesgeovana/pyflightstream"
 identifiers:
   - type: doi

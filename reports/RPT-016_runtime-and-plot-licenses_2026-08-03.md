@@ -78,13 +78,21 @@ MIT-compatible. NFR-02 satisfied for that set as it stands on the date
 above.
 
 `[dev]` is deliberately outside that sentence and only properdocs
-(RPT-009) is carded of its ten distributions. It installs pytest,
-pytest-cov, mypy, sybil, ruff, pre-commit and three mkdocs packages, all
+(RPT-009) is carded of its eleven distributions. It installs pytest,
+packaging, pytest-cov, mypy, sybil, ruff, pre-commit and three mkdocs
+packages, all
 of which are widely used permissive projects, and none of which ships in
 the wheel or is reachable by a user of this package. NFR-02's wording
 carries no dev-only carve-out, so this is a stated gap rather than a
-satisfied clause: carding the nine is registered as
+satisfied clause: carding the ten is registered as
 PLN-20260803-2110.
+
+`packaging` was added to `[dev]` on 2026-08-03 after the architect pass
+found `tests/test_version_identity.py` importing it while nothing
+declared it, so it resolved only as pytest's transitive dependency and
+was outside this enumeration and therefore outside the registered gap
+as well. It is Apache-2.0 and BSD-2-Clause dual licensed, which is
+MIT-compatible, and it is uncarded like the other nine.
 
 ## What this card does NOT establish
 

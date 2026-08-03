@@ -13,6 +13,7 @@ warning text must state the exact recorded removal version.
 from __future__ import annotations
 
 import importlib
+import re
 import sys
 import tomllib
 import warnings
@@ -30,14 +31,33 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 def _project_version() -> str:
-    """Read the version being built from pyproject.toml.
+    """Read the RELEASE the version being built belongs to.
 
     The file is the version authority of the release commit; installed
     metadata can lag it in an editable checkout, so the guard reads
     the file directly.
+
+    A development or pre-release suffix is stripped, and that is the
+    whole point of this function rather than an incidental tidy-up.
+    ``parse_version`` accepts only three dot-separated integers,
+    deliberately, because a removal promise is recorded against a plain
+    release. When the project moved to ``0.4.0.dev0`` for REV010-015
+    this reader began handing it a four-part string, so every deadline
+    check would have raised ValueError. It was invisible because
+    ``DEPRECATED_MODULES`` is currently empty, which parametrizes those
+    tests over nothing: the guard would have surfaced as an unexplained
+    crash in the commit that registers the next shim, which is the
+    worst moment to discover it (architect pass, 2026-08-03).
+
+    ``0.4.0.dev0`` is treated as ``0.4.0`` because a promise recorded
+    for removal at 0.4.0 comes due in the development series that
+    becomes 0.4.0; treating the dev version as still-0.3.x would let a
+    shim outlive its horizon for the whole cycle in which it is meant
+    to be removed.
     """
     data = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
-    return data["project"]["version"]
+    declared = data["project"]["version"]
+    return re.split(r"[-+]|\.dev|[abr]c?\d", declared)[0]
 
 
 # Every deliberate re-import below is wrapped in the restored_module
@@ -155,3 +175,37 @@ def test_shim_warning_states_the_recorded_removal_version(
         "message must come from the ledger entry (single home, NFR-11). "
         f"Warnings seen: {messages}"
     )
+
+
+# --- the guard's own input contract ----------------------------------------
+#
+# Found by the architect pass on 2026-08-03. DEPRECATED_MODULES is empty, so
+# every deadline test above is parametrized over nothing and the machinery
+# is exercised by no case at all. Moving pyproject to 0.4.0.dev0 for
+# REV010-015 therefore broke the deadline check invisibly: parse_version
+# accepts three dot-separated integers only, and would have raised on the
+# four-part string in the next commit that registered a shim.
+
+
+@pytest.mark.parametrize(
+    ("declared", "expected"),
+    [
+        ("0.4.0", (0, 4, 0)),
+        ("0.4.0.dev0", (0, 4, 0)),
+        ("0.4.0rc1", (0, 4, 0)),
+        ("0.4.0a1", (0, 4, 0)),
+        ("1.0.0+local", (1, 0, 0)),
+    ],
+)
+def test_the_deadline_guard_reads_a_development_version(monkeypatch, declared, expected):
+    """A dev version belongs to the release it becomes, for deadline
+    purposes: a promise recorded for removal at 0.4.0 comes due in the
+    series that becomes 0.4.0, not one cycle later."""
+    monkeypatch.setattr(tomllib, "loads", lambda _text: {"project": {"version": declared}})
+    assert parse_version(_project_version()) == expected
+
+
+def test_the_real_project_version_is_still_parseable():
+    """The live case, so a future version scheme that this stripper cannot
+    handle fails here rather than in the commit that adds the next shim."""
+    assert parse_version(_project_version()) >= (0, 4, 0)

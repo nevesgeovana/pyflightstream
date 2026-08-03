@@ -37,13 +37,26 @@ def _pyproject_version() -> str:
         return tomllib.load(handle)["project"]["version"]
 
 
-def _unreleased_body() -> str:
-    """Return the text of the changelog's Unreleased section.
+def _unreleased_body(text: str | None = None) -> str:
+    """Return the text of a changelog's Unreleased section.
 
-    Empty string when the section is absent or holds nothing but
-    whitespace and headings.
+    Parameters
+    ----------
+    text : str, optional
+        Changelog text. Defaults to the repository's CHANGELOG.md. The
+        parameter exists so the reader can be driven on literals: a
+        version of this that could only read the live file made its own
+        test go red at the release commit, which is the failure mode
+        this whole file was written to avoid (QA pass, 2026-08-03).
+
+    Returns
+    -------
+    str
+        Empty when the section is absent or holds nothing but
+        whitespace and headings.
     """
-    text = CHANGELOG.read_text(encoding="utf-8")
+    if text is None:
+        text = CHANGELOG.read_text(encoding="utf-8")
     match = re.search(r"^## \[Unreleased\]\s*$(.*?)^## \[", text, re.M | re.S)
     if match is None:
         return ""
@@ -52,6 +65,20 @@ def _unreleased_body() -> str:
     # nothing under it is an empty section, not an unreleased change.
     without_headings = re.sub(r"^#+ .*$", "", body, flags=re.M)
     return without_headings.strip()
+
+
+def release_identity_holds(version: str, unreleased: str) -> bool:
+    """The rule itself: a FINAL version and unreleased behavior may not coexist.
+
+    Extracted so the guard below and its parametrized cases assert the
+    same function. They used to recompute the expression independently,
+    which meant the parametrization exercised `packaging`'s prerelease
+    classification rather than this repository's rule.
+    """
+    if not unreleased.strip():
+        return True
+    parsed = parse_version(version)
+    return parsed.is_prerelease or parsed.is_devrelease
 
 
 def test_a_final_version_never_coexists_with_unreleased_behavior():
@@ -65,7 +92,7 @@ def test_a_final_version_never_coexists_with_unreleased_behavior():
     parsed = parse_version(version)
     if not _unreleased_body():
         pytest.skip("nothing unreleased; a final version is exactly right here")
-    assert parsed.is_prerelease or parsed.is_devrelease, (
+    assert release_identity_holds(version, _unreleased_body()), (
         f"pyproject.toml declares the final version {version!r} while CHANGELOG.md's "
         "Unreleased section describes behavior that is not in that release. A wheel "
         "built here would import as a released version and behave differently from "
@@ -81,17 +108,41 @@ def test_the_version_is_a_valid_pep440_string():
     parse_version(_pyproject_version())
 
 
+_FULL = """## [Unreleased]
+
+### API surface delta
+
+* something landed
+
+## [0.3.0] - x
+"""
+_EMPTY = """## [Unreleased]
+
+### API surface delta
+
+## [0.3.0] - x
+"""
+_ABSENT = """## [0.3.0] - x
+
+* released
+"""
+
+
 def test_the_unreleased_reader_can_tell_empty_from_full():
     """Mutation proof for the condition the guard rests on.
 
-    Without this, `_unreleased_body` could return "" unconditionally and
+    Without it, `_unreleased_body` could return "" unconditionally and
     the guard above would skip forever while reporting green.
+
+    Driven on literals rather than on the live file. The first version
+    asserted that THIS repository currently has unreleased entries,
+    which is true today and false at exactly the release commit the
+    guard exists to protect: the release workflow runs pytest inside the
+    checkout, so it would have failed the release (QA pass, 2026-08-03).
     """
-    assert _unreleased_body(), (
-        "this repository currently HAS unreleased entries, so the reader "
-        "returning nothing would mean it is broken rather than that the "
-        "section is empty"
-    )
+    assert _unreleased_body(_FULL) == "* something landed"
+    assert _unreleased_body(_EMPTY) == ""
+    assert _unreleased_body(_ABSENT) == ""
 
 
 @pytest.mark.parametrize(
@@ -108,6 +159,4 @@ def test_the_rule_itself_accepts_and_refuses_the_right_pairs(version, unreleased
     """The rule driven directly, so it is exercised for states this
     repository is not currently in. The test above can only ever see one
     of these five, which is why it is not enough on its own."""
-    parsed = parse_version(version)
-    holds = bool(not unreleased.strip() or parsed.is_prerelease or parsed.is_devrelease)
-    assert holds is should_pass, (version, unreleased)
+    assert release_identity_holds(version, unreleased) is should_pass, (version, unreleased)

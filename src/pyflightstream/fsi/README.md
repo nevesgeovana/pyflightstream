@@ -236,7 +236,7 @@ and the printed value is cross-checked at print precision:
 |---|---|
 | 1, wake development | zero displacements on the rigid blade |
 | 2, averaged coupling | loads averaged over the window, relaxed updates (FSI-R07) |
-| 3, convergence watch | as 2; tip response logged per revolution, convergence when the tip twist change per revolution drops below tolerance (FSI-R09) |
+| 3, convergence watch | as 2; tip response and integrated normal force logged per revolution, convergence when BOTH hold across consecutive revolutions: tip twist change below `tip_twist_tolerance_deg` AND relative change of the integrated normal force below `thrust_tolerance_fraction` (FSI-R09). The thrust half was documented and unimplemented until 2026-08-03, REV010-010 |
 | 4, recording | instantaneous loads, lambda = 1 by design, twist recorded per step |
 
 Freshness is asserted, not assumed: every call must see an advancing

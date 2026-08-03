@@ -166,7 +166,7 @@ def reject_duplicate_columns(columns: Sequence[str], *, what: str) -> None:
         )
 
 
-def reject_trailing_export(text: str, end: int, *, what: str) -> None:
+def reject_trailing_export(text: str, *, what: str) -> None:
     """Refuse a file that holds a second complete export after the first.
 
     The footer is located with a first-match search and the table helper
@@ -181,17 +181,25 @@ def reject_trailing_export(text: str, end: int, *, what: str) -> None:
     ----------
     text : str
         Complete file text.
-    end : int
-        Offset just past the first export's software footer.
     what : str
         Name of the export, for the error message.
 
     Raises
     ------
     ValueError
-        If a second software footer follows the first.
+        If the file holds more than one software footer.
+
+    Notes
+    -----
+    This took a second positional argument, an offset just past the
+    first footer, until 2026-08-03. Only the module-private footer
+    regex could produce that value, so a public function required
+    reading the source to call it, and the offset froze an internal
+    convention into the public contract (architect and api-designer
+    passes). The function owns the whole rule now: it counts footers
+    itself.
     """
-    if _SOFTWARE_LINE.search(text, end) is not None:
+    if len(_SOFTWARE_LINE.findall(text)) > 1:
         raise ValueError(
             f"the {what} holds more than one complete export: a second software "
             "footer follows the first. Only the first was read, so which export "
@@ -201,7 +209,7 @@ def reject_trailing_export(text: str, end: int, *, what: str) -> None:
         )
 
 
-def parse_count(token: str, *, label: str, minimum: int = 0) -> int:
+def parse_count(token: str, *, label: str, minimum: int = 0, counts: str = "iterations") -> int:
     """Parse a solver-printed COUNT, refusing anything but a whole number.
 
     Iteration numbers and limits are counts, and every one of them used
@@ -232,6 +240,14 @@ def parse_count(token: str, *, label: str, minimum: int = 0) -> int:
         iteration budget passes ``minimum=1``, because a solve of zero
         iterations is not a solve that could have produced the export
         the number is printed in.
+    counts : str
+        What the field counts, named in the error message. REV010-007
+        routed the FSI sectional parser and the probe parser through
+        this function, and the messages went on saying "this field
+        counts iterations" about surface sections and probe points,
+        which is a didactic-policy defect exactly where it matters
+        most, in the terminal a user is standing at (api-designer
+        pass, 2026-08-03).
 
     Returns
     -------
@@ -249,17 +265,26 @@ def parse_count(token: str, *, label: str, minimum: int = 0) -> int:
     if value != whole:
         raise ValueError(
             f"{label} printed {token!r}, which is not a whole number. This field "
-            "counts iterations, so a fractional value means the export is "
+            f"counts {counts}, so a fractional value means the export is "
             "malformed or the label matched the wrong line; truncating it would "
             "hand every reader downstream a count that looks ordinary"
         )
     if whole < minimum:
+        # Two different impossibilities, so two different sentences. Below
+        # zero is a direction error; below one is an existence error, and
+        # telling a user that zero surface sections "run backwards" would
+        # be worse than saying nothing.
+        why = (
+            f"{counts} do not run backwards"
+            if minimum <= 0
+            else f"an export cannot have been produced by fewer than {minimum} of them"
+        )
         raise ValueError(
             f"{label} printed {token!r}, and this field cannot be below {minimum}: "
-            "it counts iterations, which do not run backwards. A value below the "
-            "floor means the export is malformed or the label matched the wrong "
-            "line, and accepting it would carry an impossible count into a "
-            "terminal run status that reads as ordinary"
+            f"it counts {counts}, and {why}. A value below the floor means the "
+            "export is malformed or the label matched the wrong line, and "
+            "accepting it would carry an impossible count into a terminal run "
+            "status that reads as ordinary"
         )
     return whole
 
@@ -485,7 +510,7 @@ def parse_loads(text: str, requested_version: str | FsVersion | None = None) -> 
     # helper stops at the first closing separator, so a second complete
     # export was invisible to every guard below, including the duplicate
     # Total refusal that exists for exactly this class of confusion.
-    reject_trailing_export(text, software.end(), what="loads spreadsheet")
+    reject_trailing_export(text, what="loads spreadsheet")
     header_cells = labeled_value(text, "Surface,")
     columns = [cell.strip() for cell in header_cells.split(",") if cell.strip()]
     # PYFS-009, now shared with the probe parser (REV010-003). A repeated
@@ -830,7 +855,9 @@ def parse_probe_points(text: str, requested_version=None) -> ProbePointsReport:
             "closing block, so the solver stopped before finishing this export"
         )
     declared = parse_count(
-        labeled_value(text, "Number of Probe Points:"), label="Number of Probe Points"
+        labeled_value(text, "Number of Probe Points:"),
+        label="Number of Probe Points",
+        counts="probe points",
     )
     header_line = next(
         (line.strip() for line in text.splitlines() if line.strip().startswith("X, Y, Z,")),
@@ -849,7 +876,7 @@ def parse_probe_points(text: str, requested_version=None) -> ProbePointsReport:
     # Cp_ref twice returned the Mach value under the Cp label. A pressure
     # coefficient reading 0.086 is not obviously wrong to anyone.
     reject_duplicate_columns(columns, what="probe export")
-    reject_trailing_export(text, software.end(), what="probe export")
+    reject_trailing_export(text, what="probe export")
     rows = delimited_table(text, "X, Y, Z,")
     parsed_rows = []
     for row in rows:
@@ -881,6 +908,18 @@ def parse_probe_points(text: str, requested_version=None) -> ProbePointsReport:
     )
 
 
+# The operating-point binding is part of the public face of this layer
+# too, so it is re-exported beside the tabular names rather than being
+# reachable only as pyflightstream.results.conditions (api-designer and
+# architect passes, 2026-08-03). It imports nothing from this package,
+# so the import is unconditional and cycle-free.
+from pyflightstream.results.conditions import (  # noqa: E402
+    FIELD_BINDINGS,
+    ConditionBinding,
+    ConditionCheck,
+    bind_conditions,
+)
+
 # Tabular views (pandas) build on the parsers above, so their import
 # must follow the definitions; __all__ re-exports them as part of the
 # public face of the results layer.
@@ -897,24 +936,28 @@ from pyflightstream.results.tables import (  # noqa: E402
 __all__ = [
     "AmbiguousLoadsError",
     "AnchorNotFoundError",
+    "ConditionBinding",
+    "ConditionCheck",
+    "FIELD_BINDINGS",
     "IncompleteOutputError",
     "LoadsNotFoundError",
     "LoadsReport",
     "ProbePointsReport",
-    "SOLVER_MODES",
     "ResidualSample",
+    "SOLVER_MODES",
     "VersionMismatchWarning",
+    "bind_conditions",
     "classify_solver_mode",
     "delimited_table",
     "labeled_value",
-    "parse_loads",
     "parse_count",
-    "reject_duplicate_columns",
-    "reject_trailing_export",
+    "parse_loads",
     "parse_number",
     "parse_probe_points",
     "parse_residual_history",
     "parse_run_loads",
+    "reject_duplicate_columns",
+    "reject_trailing_export",
     "run_table",
     "sweep_table",
     "to_csv",

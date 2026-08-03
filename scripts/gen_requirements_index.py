@@ -39,9 +39,10 @@ requirements carried falsifying markers (REV010-017).
 
 The top level carries ``source``, ``generated_by``, ``traceability``
 and ``requirements``. ``traceability`` counts how many requirement ids
-a test cites through the ``requirement`` marker, which is a floor that
-only rises; it is not a claim that the cited tests falsify their
-requirements.
+are MENTIONED anywhere under ``tests/``, which is an upper bound rather
+than a measure; the marker ratchet is a separate and smaller number,
+held in ``tests/test_traceability.py``. See :func:`traceability` for
+why the looser count is reported at all.
 
 What the index does NOT carry, and why. Only ``requirement`` boxes are
 published. Architecture decisions (AD-xx) and non-requirements
@@ -188,8 +189,13 @@ def traceability(ids: list[str]) -> dict[str, object]:
     ``method`` field, because the number travels to a dashboard where
     the docstring does not. It counts a bare mention anywhere in a test
     module, which includes a mention in a module docstring or a
-    comment; a mention is not a falsifying test, and under the marker
-    convention NFR-13 asks for, today's honest count would be zero.
+    comment; a mention is not a falsifying test. Under the marker
+    convention NFR-13 asks for, eight requirements carry a falsifying
+    marker today (the ratchet is `MARKED_FLOOR` in
+    tests/test_traceability.py), and this number counts far more than
+    that because it counts mentions. It read "today's honest count
+    would be zero" until 2026-08-03, which was true when the markers
+    did not exist and stayed in place after they landed.
 
     So the number is an upper bound on traceability, not a measure of
     it. Reporting it flatters the gap, which is the direction that

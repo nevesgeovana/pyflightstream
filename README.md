@@ -36,9 +36,10 @@ except CommandNotInVersionError as error:
 
 The worked examples in `examples/` take it from here to executed
 polars, campaign matrices, a static wing deflection, and a Campbell
-diagram. There is deliberately no coupled aeroelastic example: see
-the capability status below for what the FSI subpackage does and does
-not claim.
+diagram. No example runs the coupled loop: it needs a licensed solver in the
+loop, and the rotary case is solver-blocked (`reports/RPT-007`). The
+capability status below says what the FSI subpackage does and does not
+claim.
 
 Optional extras: `[fsi]` (aeroelastic coupling, PyNiteFEA), `[geom]`
 (probe-survey geometry gating, trimesh/rtree/scipy), `[plot]`
@@ -116,7 +117,7 @@ table is that boundary.
 | Far-field ledgers and probe surveys | **experimental** | tier 1 on synthetic fields; the licensed far-field acceptance work is deferred, not done |
 | FSI structural beam and modal analysis | **experimental** | tier 1 against analytic beam solutions; `examples/wing_static_deflection.py`, `examples/fsi_campbell_diagram.py` |
 | FSI coupled driver (the four-phase loop) | **experimental** | tier 1 offline replay on archived WP1 fixtures only; never run against a live solver in CI |
-| Rotary two-way coupling | **not validated** | stated as unvalidated in the FSI design; no acceptance evidence exists |
+| Rotary two-way coupling | **not validated** | `reports/RPT-007` states two-way rotor FSI is blocked in this build; `docs/srs/roadmap.md` records it in the M6 row; no acceptance evidence exists |
 
 Experimental means the interface may change without the deprecation
 window of NFR-20, and that the evidence behind it is narrower than

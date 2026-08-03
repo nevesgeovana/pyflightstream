@@ -7,6 +7,13 @@ on:
   push:
   pull_request:
 
+# REV010-019. Declared explicitly rather than left absent: an absent block
+# is not "grants nothing", it falls back to the repository default token,
+# which can be read-write on every scope. Nothing in this workflow writes
+# anything back to the repository.
+permissions:
+  contents: read
+
 jobs:
   test:
     # Windows is where this package is USED, because FlightStream runs on

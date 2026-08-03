@@ -157,3 +157,30 @@ def test_every_software_term_nfr24_names_has_a_glossary_row() -> None:
         f"these glossary rows exist but gloss nothing: {empty}. A row with an "
         "empty meaning satisfies the letter of NFR-24 and none of its purpose."
     )
+
+
+def test_a_development_version_states_no_release_date() -> None:
+    """A version that was never released has no release date.
+
+    CITATION.cff carried `version: 0.4.0.dev0` beside
+    `date-released: 2026-07-23`, the v0.3.0 date, so a citation
+    generated from the development tree asserted a release date for an
+    artifact that does not exist. That is REV010-015 in the citation
+    record rather than in the wheel (architect and tech-writer passes,
+    2026-08-03), and the version test above could not see it because it
+    compares only the version string.
+    """
+    from packaging.version import parse as parse_version
+
+    citation = yaml.safe_load((REPO_ROOT / "CITATION.cff").read_text(encoding="utf-8"))
+    version = parse_version(_pyproject_version())
+    if version.is_prerelease or version.is_devrelease:
+        assert "date-released" not in citation, (
+            f"CITATION.cff declares the development version {_pyproject_version()!r} and a "
+            f"date-released of {citation.get('date-released')!r}. Remove the date until the "
+            "release commit sets both together."
+        )
+    else:
+        assert "date-released" in citation, (
+            "a final version must state its release date in CITATION.cff"
+        )

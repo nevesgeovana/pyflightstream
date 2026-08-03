@@ -35,11 +35,27 @@ from pyflightstream.fsi.state import (
 
 FIXTURES = Path(__file__).parent / "fixtures" / "fsi"
 CALL2 = (FIXTURES / "FS_SurfaceSection_Loads_call0002.txt").read_text(encoding="utf-8")
-# A second REAL export from the same run: 665.1 N of integrated normal
-# force against call0002's 801.7 N, a 17% difference (REV010-010).
+# A second REAL export from the same run. Integrated over the printed
+# offsets, the raw Fz column gives 665.1 N against call0002's 801.7 N.
+#
+# Three things that sentence must not be read as saying (V and V pass,
+# 2026-08-03). Those are section-frame numbers: under driver_config,
+# which spins the rotor at 8 deg pitch, the value the driver actually
+# records is the ROTOR-frame normal force, about 729 N against 899 N.
+# The driver's own metric divides by the LAST value, so its reading here
+# is about 23%, not the 17% the larger denominator gives. And the source
+# run is 18 unsteady steps of 10 deg (RPT-005), so calls 2 and 18 are
+# 160 deg apart inside wake development: the run never completed a
+# revolution, and the two revolutions below exist only in this harness's
+# synthetic Omega. What is true and is all this test needs: the two real
+# exports differ far more than the 2% tolerance.
 CALL18 = (FIXTURES / "FS_SurfaceSection_Loads_call0018.txt").read_text(encoding="utf-8")
 # Two families of 50 (RPT-005 finding 6): the meshed blade, then a
-# zero-load non-blade family.
+# non-blade family. It is zero-load in call0002 and NOT in call0018,
+# whose second family carries 25 loaded rows an order of magnitude above
+# the blade; is_blade=False excludes it either way, and the earlier
+# 'zero-load' wording was false about the fixture this range promoted to
+# evidence (V and V pass, 2026-08-03).
 FAMILY_MAP = SectionFamilyMap(
     families=[
         SectionFamily(name="blade_1", count=50),
@@ -567,10 +583,10 @@ def test_the_phase3_verdict_needs_both_criteria():
 def _run_with_changing_loads(run_dir, calls, switch_at, first_iteration=100):
     """Replay with a DIFFERENT real export from the switch call onward.
 
-    The two committed WP1 exports integrate to 801.7 N and 665.1 N of
-    normal force, a 17% difference, so switching between them at a
-    revolution boundary produces a genuinely unsettled thrust from
-    measured solver output rather than from a scaled fixture.
+    The two committed WP1 exports carry materially different loads (see
+    the note beside CALL18), so switching between them at a revolution
+    boundary produces a genuinely unsettled thrust from measured solver
+    output rather than from a scaled fixture.
     """
     results = []
     for i in range(calls):
@@ -591,8 +607,9 @@ def test_a_run_whose_thrust_has_not_settled_stays_in_phase_3(tmp_path):
     stage_run(tmp_path)
     results = _run_with_changing_loads(tmp_path, 11, switch_at=5)
     assert 4 not in [r.phase for r in results], (
-        "phase 4 began although the integrated thrust moved 17% between the "
-        "two revolutions the decision was made on"
+        "phase 4 began although the integrated normal force the driver records "
+        "moved far more than thrust_tolerance_fraction between the two "
+        "revolutions the decision was made on"
     )
     state = load_state(tmp_path / driver.STATE_FILE)
     assert state.phase == 3
@@ -632,3 +649,31 @@ def test_the_driver_refuses_a_resume_under_a_changed_configuration(tmp_path):
     write_loads(tmp_path, 500)
     with pytest.raises(ValueError, match="was created under configuration"):
         driver.coupling_step(tmp_path)
+
+
+def test_the_marker_file_carries_the_config_change_decision(tmp_path):
+    """The refusal's remedy must be reachable from a bare invocation.
+
+    FlightStream calls this executable with no arguments, coupling_step
+    takes only the directory, and pyfs-fsi exposes no such flag, so a
+    message naming `allow_config_change=True` prescribed something the
+    user reading pyfs_fsi_error.log had nowhere to put (api-designer
+    pass, 2026-08-03). A run-folder marker is the precedent this driver
+    already uses for frozen mode.
+    """
+    cfg = stage_run(tmp_path)
+    run_sequence(tmp_path, 3)
+    changed = FsiConfig.model_validate({**cfg.model_dump(), "stiffness_scale_factor": 999.0})
+    dump_config(changed, tmp_path / driver.CONFIG_FILE)
+    write_loads(tmp_path, 500)
+
+    # Without the marker: refused, and the message names the marker.
+    with pytest.raises(ValueError, match="fsi_allow_config_change") as caught:
+        driver.coupling_step(tmp_path)
+    assert "was created under configuration" in str(caught.value)
+
+    # With it: the resume proceeds.
+    (tmp_path / driver.ALLOW_CONFIG_CHANGE_FILE).write_text("", encoding="utf-8")
+    write_loads(tmp_path, 540)
+    result = driver.coupling_step(tmp_path)
+    assert result.call == 4

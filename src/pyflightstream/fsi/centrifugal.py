@@ -383,8 +383,18 @@ def campbell_sweep(
     CampbellData
         Frequency tracks of the sweep.
     """
+    # Every point is validated BEFORE the first solve, not per iteration.
+    # Validating inside the loop refused a bad Omega only after paying for
+    # the earlier points, and the changelog said "before the first solve"
+    # while the code meant "before its own solve" (api-designer pass,
+    # 2026-08-03). Every value is known at call time, so there is no reason
+    # to spend thirty modal solves and then refuse.
+    points = [
+        FsiConfig.model_validate({**cfg.model_dump(), "omega_rad_per_s": float(omega)})
+        for omega in omegas_rad_per_s
+    ]
     results = []
-    for omega in omegas_rad_per_s:
+    for point in points:
         # REV010-012. This was model_copy(update=...), which assigns without
         # validating: FsiConfig refuses a negative or non-finite Omega at
         # construction, and the sweep walked straight past that guarantee.
@@ -393,7 +403,6 @@ def campbell_sweep(
         # some terms use Omega squared while other branches require Omega
         # greater than zero. Validating each point through the model the
         # function already accepts costs one dict round trip.
-        point = FsiConfig.model_validate({**cfg.model_dump(), "omega_rad_per_s": float(omega)})
         results.append(rotating_frequencies(point, n_modes=n_modes))
     return CampbellData(
         omegas_rad_per_s=tuple(float(w) for w in omegas_rad_per_s),

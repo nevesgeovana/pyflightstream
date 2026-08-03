@@ -155,3 +155,30 @@ def test_the_revision_history_is_ordered_and_its_top_row_is_the_document_version
     )
     ordered = sorted(rows, key=lambda v: tuple(int(part) for part in v.split(".")), reverse=True)
     assert rows == ordered, f"the revision history is not in descending version order: {rows}"
+
+
+def test_no_requirement_publishes_a_dated_change_note_as_its_statement():
+    """A correction note is not a requirement.
+
+    The index generator publishes the first non-italic paragraph of each
+    box as the requirement text. NFR-01d carried its 2026-08-03 evidence
+    correction ABOVE the statement, so the external dashboard received
+    that note as a mandatory requirement and the statement was published
+    nowhere (tech-writer pass, 2026-08-03). Ordering is a property a
+    reader cannot see and a generator depends on, which is what makes it
+    worth a guard.
+    """
+    import json
+    import re
+
+    index = json.loads((REPO / "reports" / "requirements-index.json").read_text(encoding="utf-8"))
+    note = re.compile(
+        r"^[A-Z][\w\s]{0,40}(corrected|added|narrowed|reworded|updated|split)\b.{0,40}\d{4}-\d{2}-\d{2}",
+        re.I,
+    )
+    offenders = [entry["id"] for entry in index["requirements"] if note.match(entry["text"])]
+    assert not offenders, (
+        f"{offenders} publish a dated change note as the requirement statement. The "
+        "generator takes the first non-italic paragraph, so the statement must come "
+        "first and any note about a change must follow it."
+    )

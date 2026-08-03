@@ -566,7 +566,7 @@ def _check_point_printback(record: RunRecord, report: LoadsReport, name: str) ->
     # shared bind_conditions, called by the assessor before the status is
     # decided and by this reader afterwards, so the two can never disagree
     # about what counts as the same point.
-    binding = bind_conditions(record.point, report)
+    binding = bind_conditions(record.point, reported=report)
     if binding.mismatches:
         raise ValueError(
             f"the loads spreadsheet {name!r} of run {record.run_id!r} is evidence "

@@ -83,14 +83,32 @@ _SPAN_TOLERANCE = 0.01
 #
 # This one is calibrated from evidence rather than chosen: a section cut
 # puts the outermost section centroids inboard of the geometric ends, so
-# some margin is physical and expected. Measured on the committed WP1
-# export (FS_SurfaceSection_Loads_call0002.txt) against the blade it was
-# cut on, the real margins are 2.49% of span at the root and 2.31% at
-# the tip. 5% accepts that with room and still refuses the case this
-# finding was raised for, where sections covering [0.8, 1.2] m of a
-# blade spanning [0.25, 1.85] m leave 34% uncovered at the root and 41%
-# at the tip and are spread across the whole blade by constant
-# extrapolation.
+# some margin is physical and expected.
+#
+# Measured on the committed WP1 export
+# (tests/fixtures/fsi/FS_SurfaceSection_Loads_call0002.txt, blade_1
+# extremes 0.2899 m and 1.813 m) against THE BLADE IT WAS CUT ON, whose
+# 11 imported pitch-axis nodes are the committed fixture
+# tests/fixtures/fsi/structural_nodes.csv, root 0.274320 m and tip
+# 1.828800 m; RPT-006 Section 2 states the same span as 0.274 to 1.829 m.
+# Span 1.554480 m, so the real margins are 1.00% at the root and 1.02%
+# at the tip.
+#
+# 5% accepts that with room and still refuses the case this finding was
+# raised for, where sections covering [0.8, 1.2] m of a blade spanning
+# [0.25, 1.85] m leave 34% uncovered at the root and 41% at the tip and
+# are spread across the whole blade by constant extrapolation.
+#
+# Corrected 2026-08-03 by the V and V pass, and the correction is the
+# instructive part. This comment first reported 2.49% and 2.31% and
+# attributed them to "the blade it was cut on". Those numbers are exact
+# for the SYNTHETIC test blade [0.25, 1.85] in
+# tests/test_fsi_loads.py:fixture_covering_config, which is deliberately
+# wider than the physical one; roughly 60% of each quoted margin was
+# that config's outward rounding rather than the section cut. The
+# constant is unchanged because 5% clears the real 1.0% by more than it
+# cleared the wrong number, but a tolerance justified by a measurement
+# of something else is the exact defect class REV-010 was raised about.
 _COVERAGE_MARGIN = 0.05
 
 
@@ -476,6 +494,7 @@ def parse_sectional_loads(text: str) -> SectionalLoadsReport:
         labeled_value(text, "Number of Surface Sections:"),
         label="Number of Surface Sections",
         minimum=1,
+        counts="surface sections",
     )
     rows = delimited_table(text, _TABLE_ANCHOR)
     parsed_rows: list[list[float]] = []

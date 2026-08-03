@@ -37,12 +37,41 @@ def _workflow_files() -> list[Path]:
 
 
 def _uses_references(document: dict) -> list[str]:
+    """Every third-party reference a workflow can pull in.
+
+    Job-level ``uses`` (a reusable workflow) counts as well as step-level
+    ``uses``. The first version read steps only, and the QA pass proved
+    the hole: adding a job that calls
+    ``someorg/shared/.github/workflows/build.yml@v1`` left the suite
+    green, so a reusable workflow pinned to a mutable tag could re-enter
+    the release path with nothing in this repository's diff, which is
+    REV010-019's own statement of the risk.
+    """
     found: list[str] = []
     for job in (document.get("jobs") or {}).values():
+        if "uses" in job:
+            found.append(job["uses"])
         for step in job.get("steps") or []:
             if "uses" in step:
                 found.append(step["uses"])
     return found
+
+
+def test_the_extractor_sees_job_level_uses() -> None:
+    """Proof for the extractor itself, the way _PINNED has its own proof.
+
+    Without this, a regression that dropped job-level `uses` again would
+    leave every pin test green.
+    """
+    document = {
+        "jobs": {
+            "reusable": {"uses": "someorg/shared/.github/workflows/build.yml@v1"},
+            "normal": {"steps": [{"uses": "actions/checkout@" + "a" * 40}, {"run": "echo"}]},
+        }
+    }
+    found = _uses_references(document)
+    assert "someorg/shared/.github/workflows/build.yml@v1" in found
+    assert len(found) == 2
 
 
 @pytest.mark.parametrize("path", _workflow_files(), ids=lambda p: p.name)
@@ -116,7 +145,18 @@ def test_no_workflow_grants_write_scopes_to_every_job() -> None:
     needs them."""
     for path in _workflow_files():
         document = yaml.safe_load(path.read_text(encoding="utf-8"))
-        top = document.get("permissions") or {}
+        top = document.get("permissions")
+        # An ABSENT block is not "grants nothing": GitHub then falls back to
+        # the repository default token permissions, which can be read-write
+        # on every scope, so deleting the block is strictly MORE privilege
+        # than the state this guard refuses. The first version used
+        # `document.get("permissions") or {}` and the QA pass proved it:
+        # deleting docs.yml's block entirely left the suite green.
+        assert top is not None, (
+            f"{path.name} declares no workflow-scope permissions block, so its jobs "
+            "inherit the repository default token, which can be read-write on every "
+            "scope. Declare `permissions:` explicitly, granting only reads."
+        )
         if not isinstance(top, dict):
             pytest.fail(f"{path.name} sets permissions to {top!r} rather than a mapping")
         granted = {name for name, level in top.items() if level == "write"}

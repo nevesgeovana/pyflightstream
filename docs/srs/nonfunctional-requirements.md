@@ -53,6 +53,9 @@
     coverage is a review check and the badge covers the examples'
     correctness.*
 
+    The published docs include at least one worked example per public
+    workflow.
+
     Evidence line corrected 2026-08-03 (review finding PYFS-026). It
     said the executable examples ran in CI under Sybil, and Sybil runs
     docstring doctests and markdown code blocks: the four
@@ -60,8 +63,12 @@
     mechanism that did not cover them. They are the first code a new
     user runs.
 
-    The published docs include at least one worked example per public
-    workflow.
+    Paragraph order corrected 2026-08-03 (tech-writer pass). The note
+    above sat before the statement, and the index generator publishes
+    the first non-italic paragraph as the requirement text, so the
+    external dashboard received this correction note as NFR-01d's
+    mandatory requirement and the actual statement was published
+    nowhere.
 
 !!! requirement "NFR-02 Licensing <span class='srs-implemented'>implemented</span>"
     *Origin: BRF-02, BRF-10.*

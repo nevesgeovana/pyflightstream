@@ -9,6 +9,7 @@ from conftest import make_uniform_blade_config
 
 from pyflightstream.fsi.config import FsiConfig
 from pyflightstream.fsi.loads import (
+    _COVERAGE_MARGIN,
     SectionFamily,
     SectionFamilyMap,
     UnitsError,
@@ -24,7 +25,8 @@ FIXTURES = Path(__file__).parent / "fixtures" / "fsi"
 CALL2 = (FIXTURES / "FS_SurfaceSection_Loads_call0002.txt").read_text(encoding="utf-8")
 CALL18 = (FIXTURES / "FS_SurfaceSection_Loads_call0018.txt").read_text(encoding="utf-8")
 # The dry run's export concatenates two families of 50 sections
-# (RPT-005 finding 6): the meshed blade first, then a zero-load family.
+# (RPT-005 finding 6): the meshed blade first, then a non-blade family,
+# which is zero-load in call0002 and loaded in call0018.
 TWO_FAMILIES = SectionFamilyMap(
     families=[SectionFamily(name="blade_1", count=50), SectionFamily(name="hub", count=50)]
 )
@@ -338,29 +340,73 @@ def test_sections_covering_only_mid_span_are_refused():
         to_elastic_axis(mid, cfg)
 
 
-def test_the_real_export_still_covers_its_blade():
-    """The control, and the reason the margin is 5% rather than 1%.
+def test_the_real_export_covers_the_blade_it_was_cut_on():
+    """The calibration, asserted rather than only stated in prose.
 
-    Measured on this fixture against the blade it was cut on: the real
-    margins are 2.49% of span at the root and 2.31% at the tip, because a
+    The blade of the WP1 dry run is the committed fixture
+    structural_nodes.csv (11 imported pitch-axis nodes, root 0.274320 m,
+    tip 1.828800 m; RPT-006 Section 2 states the same span). Against it
+    the export's real margins are 1.00% and 1.02% of span, because a
     section cut puts the outermost centroids inboard of the geometric
-    ends. A tolerance tighter than the evidence would have refused every
-    genuine export, which is how a guard gets disabled instead of fixed.
+    ends.
+
+    This assertion exists because the V and V pass of 2026-08-03 found
+    the constant justified by 2.49% and 2.31%, which are the margins
+    against the SYNTHETIC wider blade used by fixture_covering_config
+    below. The numbers now live in an assertion that re-measures them on
+    every run instead of in three prose sites that agreed with each
+    other and not with the fixture.
     """
-    report = parse_sectional_loads(CALL2)
-    block = report.split(TWO_FAMILIES)["blade_1"]
+    nodes = np.loadtxt(FIXTURES / "structural_nodes.csv", delimiter=",")
+    root, tip = float(nodes[:, 2].min()), float(nodes[:, 2].max())
+    assert (root, tip) == pytest.approx((0.274320, 1.828800))
+    span = tip - root
+
+    block = parse_sectional_loads(CALL2).split(TWO_FAMILIES)["blade_1"]
+    root_margin = (block.offset_m.min() - root) / span
+    tip_margin = (tip - block.offset_m.max()) / span
+    assert root_margin == pytest.approx(0.0100, abs=5e-4)
+    assert tip_margin == pytest.approx(0.0102, abs=5e-4)
+    # And that is what the constant has to accept, with room.
+    assert max(root_margin, tip_margin) < _COVERAGE_MARGIN
+
+
+def test_the_real_export_still_passes_the_coverage_check():
+    """The control: the refusals below must not be a check that refuses
+    every export."""
+    block = parse_sectional_loads(CALL2).split(TWO_FAMILIES)["blade_1"]
     loads = to_elastic_axis(block, fixture_covering_config())
     assert len(loads.radius_m) == len(block.offset_m)
 
 
 @pytest.mark.parametrize("end", ["root", "tip"])
 def test_one_uncovered_end_is_enough_to_refuse(end):
-    """Either end alone, so a test passing on both-ends-missing cannot hide
-    a check that only looks at one of them."""
-    report = parse_sectional_loads(CALL2)
-    block = report.split(TWO_FAMILIES)["blade_1"]
+    """Either end ALONE, and the sections stay inside the configured blade.
+
+    The first version of this test shifted the whole section set outside
+    the blade, so both cases were caught by the pre-existing containment
+    check at the top of to_elastic_axis and the new coverage check could
+    be halved with the suite still green. The QA pass proved it: keeping
+    only the root half of the `or` left 59 passed, and keeping only the
+    tip half did too. Each case now shrinks ONE end while every section
+    remains within the configured span, so only the new check can fire,
+    and the message is pinned.
+    """
+    block = parse_sectional_loads(CALL2).split(TWO_FAMILIES)["blade_1"]
     cfg = fixture_covering_config()
+    stations = np.asarray(cfg.blade.station_radii_m, dtype=float)
+    span = stations[-1] - stations[0]
     offsets = np.asarray(block.offset_m, dtype=float)
-    shifted = offsets + 0.5 if end == "root" else offsets - 0.5
-    with pytest.raises(ValueError):
-        to_elastic_axis(dataclasses.replace(block, offset_m=shifted), cfg)
+
+    if end == "root":
+        # Leave the root a quarter of the span short; the tip stays covered.
+        kept = np.linspace(stations[0] + 0.25 * span, offsets.max(), len(offsets))
+    else:
+        kept = np.linspace(offsets.min(), stations[-1] - 0.25 * span, len(offsets))
+    assert kept.min() >= stations[0] and kept.max() <= stations[-1], (
+        "the mutated sections must stay INSIDE the blade, or the pre-existing "
+        "containment check fires and this test proves nothing about coverage"
+    )
+
+    with pytest.raises(ValueError, match="of the configured blade span"):
+        to_elastic_axis(dataclasses.replace(block, offset_m=kept), cfg)

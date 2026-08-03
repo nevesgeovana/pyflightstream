@@ -151,3 +151,25 @@ def test_a_valid_sweep_still_runs():
     data = centrifugal.campbell_sweep(make_cfg(), [0.0, 20.0], n_modes=2)
     assert data.omegas_rad_per_s == (0.0, 20.0)
     assert len(data.modal_results) == 2
+
+
+def test_no_point_is_solved_when_a_later_sweep_value_is_invalid(monkeypatch):
+    """Whole-sweep validation, not per point.
+
+    Validating inside the loop refused a bad Omega only after paying for
+    every earlier solve, while the changelog said "before the first
+    solve" (api-designer pass, 2026-08-03).
+    """
+    calls = []
+    original = centrifugal.rotating_frequencies
+
+    def counting(cfg, n_modes=6):
+        calls.append(cfg.omega_rad_per_s)
+        return original(cfg, n_modes=n_modes)
+
+    monkeypatch.setattr(centrifugal, "rotating_frequencies", counting)
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        centrifugal.campbell_sweep(make_cfg(), [0.0, 10.0, 20.0, -1.0], n_modes=2)
+    assert calls == [], "three valid points were solved before the fourth was refused"

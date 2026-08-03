@@ -270,9 +270,13 @@ class PhaseSchedule(BaseModel):
     coupling_relaxation: float = Field(default=0.4, gt=0.0, le=1.0)
     averaging_window_revolutions: float = Field(default=1.0, gt=0.0)
     tip_twist_tolerance_deg: float = Field(default=0.05, gt=0.0)
-    # REV010-010. The normative acceptance model is TWO criteria, and the
-    # driver tested one: structural twist constant AND revolution-averaged
-    # thrust stable. The total normal force was computed and written to the
+    # REV010-010. The acceptance model is TWO criteria and the driver
+    # tested one: structural twist constant AND integrated normal force
+    # stable between consecutive revolutions. Say SAMPLED rather than
+    # averaged: the value compared is the integrated normal force of the
+    # call that completes the revolution, not a mean over it, and the two
+    # coincide only when the steps-per-revolution is an integer (V and V
+    # pass, 2026-08-03). The total normal force was computed and written to the
     # convergence log and never compared with anything, so a run could
     # promote itself to its final recording phase while the aerodynamic
     # loading was still oscillating materially between revolutions. The

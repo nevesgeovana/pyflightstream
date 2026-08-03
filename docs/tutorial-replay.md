@@ -5,7 +5,9 @@ a report is still true. This page is about answering that from the
 record rather than from memory.
 
 The promise is NFR-07: the manifest record plus the staged inputs
-reproduce the run. What follows is how to collect on it, and what to do
+reproduce the run's INPUTS and INVOCATION. Not its numbers: solver
+determinism is a property of FlightStream, which this package measures
+and does not own, and the requirement says so. What follows is how to collect on it, and what to do
 when the answer is that they no longer do.
 
 ## What a record keeps
@@ -79,16 +81,23 @@ the executor may have gained a flag, or lost one, since the run.
 if rebuilt.faithful:
     print("every artifact still hashes to what the record says")
 else:
-    for name, unchanged in rebuilt.verified.items():
-        if not unchanged:
-            print("changed since the run:", name)
+    for name, state in rebuilt.verified.items():
+        if state != "match":
+            print(f"{name}: {state}")
 ```
 
-`verified` reports per artifact rather than as one boolean, and the
-distinction matters: "the output moved but the script did not" and "the
-script moved but the output did not" are different problems with
-different answers. The first says somebody edited a result. The second
-says the run you are looking at is not the run that produced it.
+`verified` maps each artifact to one of three states, `"match"`,
+`"differs"` or `"missing"`, rather than to a boolean. Three, not two,
+because a deleted artifact is a different problem from a changed one:
+"somebody edited this result" and "this result is gone, restore it from
+`archive/`" have different answers, and collapsing them would tell you
+the wrong one.
+
+The per-artifact reporting matters for the same reason. "The output
+moved but the script did not" and "the script moved but the output did
+not" are different problems: the first says somebody edited a result,
+the second says the run you are looking at is not the run that produced
+it.
 
 The executable is checked too, when the record captured its hash. A
 solver upgraded in place is the quietest way for a reproduction to
@@ -112,7 +121,13 @@ the record depends on.
 
 ## When reconstruction refuses
 
-Two refusals, and both are the answer rather than an obstacle.
+Three refusals, and each is the answer rather than an obstacle.
+
+**A record that names no manifest schema.** It was written before the
+field existed, so nothing in the row says which layout it follows and
+reconstructing it would mean assuming the current one. This is the
+first refusal an older manifest meets. Read it with the version that
+wrote it, or migrate the manifest deliberately.
 
 **An unknown manifest schema.** The record was written by a version of
 this package that knew fields this one does not, or meant them
