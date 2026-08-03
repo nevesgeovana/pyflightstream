@@ -47,6 +47,11 @@ geom = ["trimesh", "rtree", "scipy"]
 fsi = ["PyNiteFEA>=3.0"]
 dev = [
     "pytest",
+    # The coverage floor of NFR-16, enforced by the CI `coverage` job.
+    # Not in pytest's addopts: instrumentation costs about a third of the
+    # suite's runtime and a developer running one test file does not need
+    # a whole-package number. The job passes --cov explicitly.
+    "pytest-cov",
     # Executable examples in CI: docstring doctests and markdown code
     # blocks (INB-006 item 1e, decision Q-007). Config in conftest.py.
     "sybil",
@@ -93,6 +98,38 @@ markers = [
     "physics: tier 3 physics regression matrix (slow)",
 ]
 addopts = "-m 'not needs_flightstream'"
+
+# NFR-16, the test-coverage floor. The requirement states the rule and
+# deliberately does NOT state the number: it lives here, where the tool that
+# enforces it reads it, so raising the floor is one edit rather than two
+# statements drifting apart.
+[tool.coverage.run]
+source = ["pyflightstream"]
+branch = true
+
+[tool.coverage.report]
+# First measurement, whole tier 1 suite, 2026-08-02 (session PFS-B1, review
+# finding PYFS-024): 6774 statements with 515 missing and 2058 branches with
+# 213 partial, a branch-mode total of 90.69 percent, under the exclusions
+# below. Without them it is 6780 statements and 91 percent; the pair is
+# recorded so a later reader can tell which number the floor sits under.
+#
+# The floor is set BELOW that, on purpose and twice over. It is a ratchet
+# against regression rather than a target to be gamed, so the measurement is
+# the fact and this is the promise; and the measurement above was taken on
+# Windows while the floor is enforced on Linux, where the Windows-only
+# branches count as uncovered. Four points absorbs both. Raise it when the
+# suite earns it, in a commit that says so.
+fail_under = 87
+show_missing = true
+exclude_also = [
+    # An annotation-only import block never executes at run time.
+    "if TYPE_CHECKING:",
+    # A defensive branch that exists to be impossible is not coverage debt.
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "@overload",
+]
 
 [tool.ruff]
 line-length = 100

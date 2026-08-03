@@ -9,9 +9,19 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    # Windows is where this package is USED, because FlightStream runs on
+    # Windows (NFR-05), and until 2026-08-02 nothing here had ever run on it:
+    # a Windows-only path could break and every check stayed green. Both
+    # declared Python bounds now run on both platforms, which is four legs.
+    # The docs build and the guards stay on Linux alone below, because they
+    # test the repository rather than the package's behaviour on a platform.
+    runs-on: ${{ matrix.os }}
     strategy:
+      # Each leg is evidence about a different platform, so a failure on one
+      # must not cancel the others: knowing WHICH legs fail is the point.
+      fail-fast: false
       matrix:
+        os: [ubuntu-latest, windows-latest]
         python-version: ["3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
@@ -32,6 +42,33 @@ jobs:
         # Q-007), with warnings promoted to errors; the shim skiplist
         # is in the root conftest.py.
         run: pytest src/pyflightstream README.md docs -W error
+
+  coverage:
+    # One leg, not four. Coverage is a property of the test suite rather than
+    # of a platform, and four measurements would be four numbers to reconcile
+    # with one floor. The floor lives in pyproject
+    # ([tool.coverage.report] fail_under) so the number has one home and moves
+    # only with a commit that explains it (NFR-16).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package with dev extras
+        run: pip install -e .[dev,fsi,geom]
+      - name: Tier 1 with the coverage floor
+        run: pytest --cov --cov-branch --cov-report=term-missing
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package with dev extras
+        run: pip install -e .[dev,fsi,geom]
       - name: Docs build
         run: properdocs build --strict
       - name: Docs hook effect check

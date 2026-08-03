@@ -44,3 +44,11 @@ guide/*.vrb
 
 # Local machine configuration (absolute paths: incident ledger, plan checker)
 .claude/settings.local.json
+
+# Coverage data and reports (NFR-16). The measurement is a local
+# artifact; the FLOOR it is checked against is versioned, in
+# pyproject.toml's [tool.coverage.report].
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/

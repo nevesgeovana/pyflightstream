@@ -9,6 +9,26 @@ FlightStream versions.
 
 ### API surface delta
 
+* **CI runs on Windows for the first time, and the coverage floor of
+  SRS NFR-16 exists.** No public API change; both are build and
+  process.
+
+  NFR-05 has always said Windows is the primary execution target,
+  because FlightStream runs on Windows, and CI ran on `ubuntu-latest`
+  alone: the platform every user is on was the one platform nothing
+  tested. The test job is now two platforms by the two declared Python
+  bounds, four legs, with `fail-fast` off so a failure on one leg does
+  not hide the others. The docs build and the repository guards moved
+  to their own Linux-only jobs, because they test the repository rather
+  than the package on a platform.
+
+  NFR-16 has been pending since 2026-07-27 with its floor deliberately
+  unnamed until a first measurement. Here it is, whole tier 1 suite:
+  6774 statements with 515 missing, 2058 branches with 213 partial, a
+  branch-mode total of **90.69%**. The floor is set below that, at 87, in
+  `pyproject.toml` where the tool reads it, and it moves as a ratchet
+  in a commit that explains it. The margin absorbs the difference
+  between the Windows measurement and the Linux enforcement.
 * **`RunRecord` records which commit of this package ran**
   (`package_commit`, `package_dirty`), from the new public
   `run.package_vcs_state()`. Additive.

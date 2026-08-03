@@ -78,7 +78,15 @@
 !!! requirement "NFR-05 Platforms <span class='srs-implemented'>implemented</span>"
     Windows is the primary execution target (FlightStream runs on
     Windows); the package itself is pure Python >= 3.11 and passes CI
-    on Linux. HPC submission stays a deferred executor (FR-15).
+    on Linux AND on Windows, at both declared Python bounds. HPC
+    submission stays a deferred executor (FR-15).
+
+    The Windows leg was added 2026-08-02 (review finding PYFS-024) and
+    the gap it closes is worth naming: this requirement said Windows
+    was the primary target and CI ran on Linux alone, so the platform
+    the package exists to serve was the one platform nothing tested. A
+    Windows-only break could have reached a user with every check
+    green.
 
     The floor is stated here; the UPPER bound is governed by NFR-22
     rule 3, which narrows it when a core dependency declares one. Said
@@ -279,18 +287,30 @@
     not written down, which means nothing stops a volatile field
     entering one.
 
-!!! requirement "NFR-16 Test-coverage floor <span class='srs-pending'>pending</span>"
+!!! requirement "NFR-16 Test-coverage floor <span class='srs-implemented'>implemented</span>"
     *Origin: Phase 4 review, accepted 2026-07-27, absorbing the M5
-    coverage mirror.*
+    coverage mirror. Measured for the first time 2026-08-02 (session
+    PFS-B1, review finding PYFS-024). Evidence:
+    `[tool.coverage.report] fail_under` in `pyproject.toml`; the
+    `coverage` job of `.github/workflows/ci.yml`.*
 
-    The Tier 1 suite holds statement coverage at or above a stated
-    floor, set against measured coverage rather than aspiration, and CI
-    fails when coverage falls below it.
+    The Tier 1 suite holds STATEMENT and BRANCH coverage at or above a
+    stated floor, set against measured coverage rather than aspiration,
+    and CI fails when either falls below it.
 
-    Pending, and the floor is deliberately unnamed here: it is set from
-    a first measurement, which has not been taken. Naming a number
-    before measuring is how a floor becomes either theatre or an
-    obstacle.
+    The number is deliberately NOT written here. It lives in
+    `pyproject.toml`, where the tool that enforces it reads it, so
+    raising the floor is one edit in one place rather than a number in
+    two homes drifting apart. This requirement states the rule; the
+    build states the value.
+
+    Two things about how the floor is set, because a floor set wrongly
+    is worse than none. It is set BELOW the first measurement, with
+    margin, so it is a ratchet against regression rather than a target
+    to be gamed: the measurement is the fact and the floor is the
+    promise. And it is enforced on ONE CI leg rather than on all four,
+    because coverage is a property of the test suite and four
+    measurements would be four numbers to reconcile with one floor.
 
 !!! requirement "NFR-17 One float-comparison convention <span class='srs-pending'>pending</span>"
     *Origin: Phase 4 review, accepted 2026-07-27.*

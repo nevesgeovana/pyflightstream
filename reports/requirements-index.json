@@ -369,7 +369,7 @@
   },
   {
    "id": "NFR-05",
-   "text": "Windows is the primary execution target (FlightStream runs on Windows); the package itself is pure Python >= 3.11 and passes CI on Linux. HPC submission stays a deferred executor (FR-15).",
+   "text": "Windows is the primary execution target (FlightStream runs on Windows); the package itself is pure Python >= 3.11 and passes CI on Linux AND on Windows, at both declared Python bounds. HPC submission stays a deferred executor (FR-15).",
    "priority": "M"
   },
   {
@@ -424,7 +424,7 @@
   },
   {
    "id": "NFR-16",
-   "text": "The Tier 1 suite holds statement coverage at or above a stated floor, set against measured coverage rather than aspiration, and CI fails when coverage falls below it.",
+   "text": "The Tier 1 suite holds STATEMENT and BRANCH coverage at or above a stated floor, set against measured coverage rather than aspiration, and CI fails when either falls below it.",
    "priority": "M"
   },
   {
