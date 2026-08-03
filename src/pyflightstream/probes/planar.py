@@ -29,6 +29,8 @@ from typing import Literal
 import numpy as np
 from pydantic import BaseModel, ConfigDict, model_validator
 
+from pyflightstream.probes.errors import ProbeGeometryError
+
 __all__ = [
     "FrameDefinition",
     "AxisSpec",
@@ -90,7 +92,7 @@ class FrameDefinition(BaseModel):
         y_raw = np.asarray(data["y_axis"], dtype=float)
         y_perp = y_raw - np.dot(y_raw, x) * x
         if float(np.linalg.norm(y_perp)) < _DEGENERATE:
-            raise ValueError(
+            raise ProbeGeometryError(
                 "y_axis is parallel to x_axis; two independent in-plane "
                 "directions are needed to define a plane"
             )
@@ -174,32 +176,32 @@ class AxisSpec(BaseModel):
     @model_validator(mode="after")
     def _specification_is_consistent(self) -> AxisSpec:
         if self.stop <= self.start:
-            raise ValueError("stop must exceed start: an axis needs a positive extent")
+            raise ProbeGeometryError("stop must exceed start: an axis needs a positive extent")
         if self.distribution == "uniform":
             if (self.spacing is None) == (self.count is None):
-                raise ValueError(
+                raise ProbeGeometryError(
                     "a uniform axis takes exactly one of spacing (element size) "
                     "or count (number of points)"
                 )
             if self.ratio is not None:
-                raise ValueError("ratio only applies to the geometric distribution")
+                raise ProbeGeometryError("ratio only applies to the geometric distribution")
         else:
             if self.count is None or self.spacing is not None:
-                raise ValueError(
+                raise ProbeGeometryError(
                     f"the {self.distribution} distribution varies its element size, "
                     "so it takes count, never spacing"
                 )
             if self.distribution == "geometric" and (self.ratio is None or self.ratio <= 1.0):
-                raise ValueError(
+                raise ProbeGeometryError(
                     "the geometric distribution needs ratio > 1: it is the growth "
                     "factor of consecutive element sizes away from the clustered end"
                 )
             if self.distribution == "cosine" and self.ratio is not None:
-                raise ValueError("ratio only applies to the geometric distribution")
+                raise ProbeGeometryError("ratio only applies to the geometric distribution")
         if self.spacing is not None and self.spacing <= 0.0:
-            raise ValueError("spacing must be positive: it is the element size")
+            raise ProbeGeometryError("spacing must be positive: it is the element size")
         if self.count is not None and self.count < 2:
-            raise ValueError("count must be at least 2: an axis needs both endpoints")
+            raise ProbeGeometryError("count must be at least 2: an axis needs both endpoints")
         return self
 
     @property
@@ -263,12 +265,12 @@ class RefinementBand(BaseModel):
     @model_validator(mode="after")
     def _band_is_physical(self) -> RefinementBand:
         if self.distance <= 0.0:
-            raise ValueError(
+            raise ProbeGeometryError(
                 "distance must be positive: it is the thickness of the "
                 "near-surface band that gets the finer sampling"
             )
         if self.factor < 2:
-            raise ValueError("factor must be at least 2, otherwise nothing is refined")
+            raise ProbeGeometryError("factor must be at least 2, otherwise nothing is refined")
         return self
 
 
@@ -437,7 +439,7 @@ class PlannedProbes:
         """
         positions = np.asarray(positions, dtype=float)
         if positions.shape != self.points.shape:
-            raise ValueError(
+            raise ProbeGeometryError(
                 f"the export holds {len(positions)} probes but this plan placed "
                 f"{len(self.points)}; the export does not belong to this plan"
             )
@@ -445,7 +447,7 @@ class PlannedProbes:
         mismatch = np.abs(positions - self.points) / scale
         worst = int(np.argmax(mismatch.max(axis=1)))
         if float(mismatch.max()) > rtol:
-            raise ValueError(
+            raise ProbeGeometryError(
                 f"probe row {worst} sits at {positions[worst].tolist()} but the plan "
                 f"placed {self.points[worst].tolist()}; the row order contract is "
                 "broken (solver reordering, or an export from a different plan)"

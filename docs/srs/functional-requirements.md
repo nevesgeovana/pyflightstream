@@ -675,8 +675,10 @@ the base could not offer while it bundled several.
 !!! requirement "FR-39 Public exception hierarchy <span class='srs-implemented'>implemented</span>"
     *Origin: Phase 4 review, accepted 2026-07-27, absorbing the C2
     catalog acceptance and the M1 typed-hierarchy mirror. Evidence:
-    PFS-2 (2026-08-02); `src/pyflightstream/exceptions.py`;
-    `tests/test_exceptions_catalog.py`.*
+    PFS-2 (2026-08-02); the 70-site sweep of 2026-08-03;
+    `src/pyflightstream/exceptions.py`;
+    `tests/test_exceptions_catalog.py`, whose third guard walks every
+    exported public name for bare standard-library raises.*
 
     Every exception raised by the public API derives from a single
     documented base exception, each type is documented with the
@@ -688,10 +690,26 @@ the base could not offer while it bundled several.
     standard-library base it derived from before, as a second base, so
     the change is purely widening: `except ValueError` and
     `except RuntimeError` catch exactly what they used to, and
-    `except PyflightstreamError` now catches the package. Two guards,
-    not one: membership in the catalog and descent from the base are
-    asserted separately, because a class can join `__all__` and still be
-    invisible to a single except clause.
+    `except PyflightstreamError` now catches the package. THREE guards,
+    not one: membership in the catalog, descent from the base, and the
+    absence of a bare standard-library `raise` inside any exported
+    public name, asserted separately, because a class can join `__all__`
+    and still be invisible to a single except clause, and a function can
+    raise past the catalog entirely.
+
+    The third guard was added 2026-08-03 and it is why the first clause
+    is true rather than nearly true. The two class-level guards inspect
+    CLASSES and never a `raise` statement, so 70 sites across 11 modules
+    raised a bare `ValueError`, `RuntimeError`, `TypeError` or
+    `KeyError` while this requirement read implemented. An independent
+    review found three of them; walking the tree found seventy. All 70
+    now raise a catalogued class, seven of which were added for the
+    conditions that had no home: `MalformedOutputError` and
+    `FieldNotInExportError` (results), `ProbeGeometryError` (probes),
+    `CampaignConfigError` (cases), `FarfieldInputError` (far field),
+    `QaEvidenceError` (QA evidence) and `UnknownExtraError` (extras).
+    Every one keeps its standard-library base, so no handler in the
+    wild caught less afterwards than before.
 
     The base parents the exceptions and not the one catalogued warning.
     The first clause of this requirement says exception, the third says

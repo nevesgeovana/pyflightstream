@@ -30,6 +30,7 @@ from typing import TYPE_CHECKING, Literal
 from pydantic import BaseModel, ConfigDict, JsonValue
 
 from pyflightstream.commands import CommandEntry, CommandRegistry
+from pyflightstream.script import CommandArgumentError
 from pyflightstream.versions import resolve
 
 if TYPE_CHECKING:  # typing only; the runtime import would be circular
@@ -261,7 +262,7 @@ class SolverSetup(BaseModel):
                 continue
             spec = _SPEC_BY_COMMAND.get(name)
             if spec is None:
-                raise ValueError(
+                raise CommandArgumentError(
                     f"snapshot flag {name!r} has no solver_settings parameter; the "
                     "snapshot model and the helper must cover the same flag set "
                     "(see FLAG_SPECS in pyflightstream.script.solver_setup)"

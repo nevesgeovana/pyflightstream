@@ -22,6 +22,8 @@ from pathlib import Path
 
 import numpy as np
 
+from pyflightstream.qa.errors import QaEvidenceError
+
 __all__ = [
     "WingSpec",
     "BladeSpec",
@@ -64,14 +66,14 @@ class WingSpec:
     def __post_init__(self) -> None:
         """Reject definitions outside the implemented 4-digit family."""
         if len(self.naca) != 4 or not self.naca.isdigit():
-            raise ValueError(
+            raise QaEvidenceError(
                 f"NACA designation {self.naca!r} is not four digits; the generator "
                 "implements the 4-digit family only"
             )
         if self.chord_m <= 0 or self.span_m <= 0:
-            raise ValueError("chord_m and span_m must be positive lengths in meters")
+            raise QaEvidenceError("chord_m and span_m must be positive lengths in meters")
         if self.n_chord < 4 or self.n_span < 2:
-            raise ValueError("mesh needs at least 4 chordwise and 2 spanwise panels")
+            raise QaEvidenceError("mesh needs at least 4 chordwise and 2 spanwise panels")
 
     @property
     def area_m2(self) -> float:
@@ -286,18 +288,18 @@ class BladeSpec:
     def __post_init__(self) -> None:
         """Reject definitions the loft cannot mesh sensibly."""
         if len(self.naca) != 4 or not self.naca.isdigit():
-            raise ValueError(
+            raise QaEvidenceError(
                 f"NACA designation {self.naca!r} is not four digits; the generator "
                 "implements the 4-digit family only"
             )
         if self.r_tip_m <= 0 or not 0.0 < self.hub_ratio < 1.0:
-            raise ValueError("r_tip_m must be positive and hub_ratio inside (0, 1)")
+            raise QaEvidenceError("r_tip_m must be positive and hub_ratio inside (0, 1)")
         if self.chord_root_ratio <= 0 or self.chord_tip_ratio <= 0:
-            raise ValueError("chord ratios must be positive")
+            raise QaEvidenceError("chord ratios must be positive")
         if self.advance_ratio_design <= 0:
-            raise ValueError("advance_ratio_design must be positive")
+            raise QaEvidenceError("advance_ratio_design must be positive")
         if self.n_chord < 4 or self.n_span < 2:
-            raise ValueError("mesh needs at least 4 chordwise and 2 radial panels")
+            raise QaEvidenceError("mesh needs at least 4 chordwise and 2 radial panels")
 
     @property
     def r_hub_m(self) -> float:

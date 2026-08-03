@@ -48,6 +48,32 @@ _SOFTWARE_LINE = re.compile(
 )
 
 
+class MalformedOutputError(PyflightstreamError, ValueError):
+    """An output file is present and whole but cannot be read as itself.
+
+    The sibling of :class:`IncompleteOutputError`, and deliberately a
+    different type: incomplete means the solver stopped mid-write, this
+    means the bytes are all there and do not describe what the file
+    claims to be. A duplicated column, a second concatenated export, a
+    fractional or negative count, and a token that is not a number all
+    land here.
+
+    Added 2026-08-03 for FR-39: these conditions raised a bare
+    ``ValueError``, so ``except PyflightstreamError`` did not catch
+    them. It keeps ``ValueError`` as a second base, so an existing
+    ``except ValueError`` catches exactly what it caught before.
+    """
+
+
+class FieldNotInExportError(PyflightstreamError, KeyError):
+    """A named field is not among the columns an export printed.
+
+    ``KeyError`` as the second base, because that is what a mapping
+    lookup by name has always raised here and user code catching it
+    must keep working (FR-39).
+    """
+
+
 class AnchorNotFoundError(PyflightstreamError, ValueError):
     """A printed label or table header was not found in the output.
 
@@ -118,7 +144,7 @@ def parse_number(token: str) -> float:
     try:
         return float(token)
     except ValueError as error:
-        raise ValueError(
+        raise MalformedOutputError(
             f"{token!r} is not a solver-printed number; expected forms like "
             "'.000', '4380000.', or '1.000E-05'"
         ) from error
@@ -157,7 +183,7 @@ def reject_duplicate_columns(columns: Sequence[str], *, what: str) -> None:
         else:
             seen[key] = column
     if repeated:
-        raise ValueError(
+        raise MalformedOutputError(
             f"the {what} header names {', '.join(sorted(repeated))} more than once, "
             "so a row cannot say which column a value came from: the repeated name "
             "takes the other column's value and that other quantity disappears "
@@ -200,7 +226,7 @@ def reject_trailing_export(text: str, *, what: str) -> None:
     itself.
     """
     if len(_SOFTWARE_LINE.findall(text)) > 1:
-        raise ValueError(
+        raise MalformedOutputError(
             f"the {what} holds more than one complete export: a second software "
             "footer follows the first. Only the first was read, so which export "
             "this file is evidence of would have been decided by position rather "
@@ -263,7 +289,7 @@ def parse_count(token: str, *, label: str, minimum: int = 0, counts: str = "iter
     value = parse_number(token)
     whole = int(value)
     if value != whole:
-        raise ValueError(
+        raise MalformedOutputError(
             f"{label} printed {token!r}, which is not a whole number. This field "
             f"counts {counts}, so a fractional value means the export is "
             "malformed or the label matched the wrong line; truncating it would "
@@ -279,7 +305,7 @@ def parse_count(token: str, *, label: str, minimum: int = 0, counts: str = "iter
             if minimum <= 0
             else f"an export cannot have been produced by fewer than {minimum} of them"
         )
-        raise ValueError(
+        raise MalformedOutputError(
             f"{label} printed {token!r}, and this field cannot be below {minimum}: "
             f"it counts {counts}, and {why}. A value below the floor means the "
             "export is malformed or the label matched the wrong line, and "
@@ -525,7 +551,7 @@ def parse_loads(text: str, requested_version: str | FsVersion | None = None) -> 
     for row in rows:
         name, values = row[0], row[1:]
         if len(values) != len(columns):
-            raise ValueError(
+            raise MalformedOutputError(
                 f"loads row for {name!r} holds {len(values)} values but the header "
                 f"names {len(columns)} columns; the table layout changed"
             )
@@ -537,7 +563,7 @@ def parse_loads(text: str, requested_version: str | FsVersion | None = None) -> 
             # silence, so a concatenated or double-exported file published
             # whichever total came last as though it were the only one.
             if total is not None:
-                raise ValueError(
+                raise MalformedOutputError(
                     "the loads table holds more than one Total row, so which total the "
                     "run produced is not determined by the file. Two exports were "
                     "concatenated, or the table was written twice; the second used to "
@@ -546,7 +572,7 @@ def parse_loads(text: str, requested_version: str | FsVersion | None = None) -> 
             total = parsed
         else:
             if name in surfaces:
-                raise ValueError(
+                raise MalformedOutputError(
                     f"the loads table names the surface {name!r} more than once, so "
                     "its coefficients are not determined by the file: the later row "
                     "used to replace the earlier and the report carried one surface "
@@ -718,7 +744,7 @@ def parse_residual_history(text: str) -> list[ResidualSample]:
     history: list[ResidualSample] = []
     for row in rows:
         if len(row) < 3:
-            raise ValueError(
+            raise MalformedOutputError(
                 f"residual row {row!r} holds fewer than three columns (iteration, "
                 "velocity residual, pressure residual); the log table layout changed"
             )
@@ -730,7 +756,7 @@ def parse_residual_history(text: str) -> list[ResidualSample]:
         # to an earlier iteration of a different solve. A monotonic counter is
         # what makes "the last row" mean "the final state".
         if history and iteration <= history[-1].iteration:
-            raise ValueError(
+            raise MalformedOutputError(
                 f"the residual table's iteration counter goes from "
                 f"{history[-1].iteration} to {iteration}, so it does not increase. "
                 "The final row is the convergence evidence of the run, and it is only "
@@ -809,7 +835,7 @@ class ProbePointsReport:
         try:
             index = self.columns.index(name)
         except ValueError as error:
-            raise KeyError(
+            raise FieldNotInExportError(
                 f"column {name!r} is not in this export; available: {', '.join(self.columns)}"
             ) from error
         return self.values[:, index]
@@ -882,7 +908,7 @@ def parse_probe_points(text: str, requested_version=None) -> ProbePointsReport:
     for row in rows:
         cells = [cell for cell in row if cell]
         if len(cells) != len(columns):
-            raise ValueError(
+            raise MalformedOutputError(
                 f"a probe row holds {len(cells)} values but the header names "
                 f"{len(columns)} columns; the table layout changed"
             )

@@ -9,6 +9,43 @@ FlightStream versions.
 
 ### API surface delta
 
+* **Every public refusal now carries the package's base exception**
+  (SRS FR-39, whose first clause was false in 70 places). **Widening
+  only**: every new class keeps its standard-library base, so an
+  existing `except ValueError` or `except RuntimeError` catches exactly
+  what it caught before, and `except PyflightstreamError` now catches
+  these too.
+
+  FR-39 has read *implemented* since 2026-07-27 and its two guards
+  inspect exception CLASSES, never a `raise` statement. An independent
+  review found three public functions raising a bare `ValueError`;
+  walking the tree found **70 sites across 11 modules**. Seven
+  catalogued classes are added for the conditions that had no home:
+
+  * `results.MalformedOutputError`, the sibling of
+    `IncompleteOutputError` for a file that is whole and still cannot
+    be read as itself (a duplicated column, a second concatenated
+    export, an impossible count).
+  * `results.FieldNotInExportError`, for a field name absent from an
+    export's columns; `KeyError` stays as its second base.
+  * `probes.ProbeGeometryError`, shared by the cylindrical lattice, the
+    planar grids and the geometry gate.
+  * `cases.CampaignConfigError`, for a campaign or recipe that cannot
+    be used as written.
+  * `farfield.FarfieldInputError`, for fields a reduction cannot
+    integrate.
+  * `qa.QaEvidenceError`, for a committed QA artifact that cannot be
+    read as the evidence it claims.
+  * `extras.UnknownExtraError`, for a name used as an extra that this
+    package does not have.
+
+  New `pyflightstream.probes.errors` and `pyflightstream.qa.errors`
+  hold the two shared classes, because the package `__init__` imports
+  the submodules that raise them.
+
+  A third guard walks every exported public name for bare
+  standard-library raises, so the clause stays true. It is the one that
+  measured 70 when the review had reported three.
 * **The FSI and probe paths are declared experimental, behind an
   explicit boundary** (author's decision, 2026-08-03; REV010-017).
   Documentation only.

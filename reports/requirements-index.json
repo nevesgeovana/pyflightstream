@@ -444,7 +444,7 @@
    "text": "Every exception raised by the public API derives from a single documented base exception, each type is documented with the condition that raises it, and every exception and warning is re-exported from one catalog module, so that a class defined outside the catalog fails the suite.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: Phase 4 review, accepted 2026-07-27, absorbing the C2 catalog acceptance and the M1 typed-hierarchy mirror. Evidence: PFS-2 (2026-08-02); src/pyflightstream/exceptions.py; tests/test_exceptions_catalog.py.*",
+   "evidence": "*Origin: Phase 4 review, accepted 2026-07-27, absorbing the C2 catalog acceptance and the M1 typed-hierarchy mirror. Evidence: PFS-2 (2026-08-02); the 70-site sweep of 2026-08-03; src/pyflightstream/exceptions.py; tests/test_exceptions_catalog.py, whose third guard walks every exported public name for bare standard-library raises.*",
    "verification": "test"
   },
   {

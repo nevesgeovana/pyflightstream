@@ -113,22 +113,22 @@ class ProbeLattice(BaseModel):
     @model_validator(mode="after")
     def _geometry_is_physical(self) -> ProbeLattice:
         if self.tip_radius <= 0.0:
-            raise ValueError("tip_radius must be positive: it is the reference length R")
+            raise ProbeGeometryError("tip_radius must be positive: it is the reference length R")
         if not self.stations:
-            raise ValueError("a lattice needs at least one annular plane station")
+            raise ProbeGeometryError("a lattice needs at least one annular plane station")
         if any(b <= a for a, b in zip(self.stations, self.stations[1:], strict=False)):
-            raise ValueError("stations must be strictly increasing in x/R")
+            raise ProbeGeometryError("stations must be strictly increasing in x/R")
         if len(self.ring_edges) < 2:
-            raise ValueError("ring_edges must bound at least one ring")
+            raise ProbeGeometryError("ring_edges must bound at least one ring")
         if self.ring_edges[0] <= 0.0:
-            raise ValueError(
+            raise ProbeGeometryError(
                 "the first ring edge must be positive: r = 0 is a coordinate "
                 "singularity of the cylindrical quadrature, so rings start off-axis"
             )
         if any(b <= a for a, b in zip(self.ring_edges, self.ring_edges[1:], strict=False)):
-            raise ValueError("ring_edges must be strictly increasing in r/R")
+            raise ProbeGeometryError("ring_edges must be strictly increasing in r/R")
         if self.n_psi < 8:
-            raise ValueError(
+            raise ProbeGeometryError(
                 "n_psi must be at least 8: the ledgers need azimuthal harmonics "
                 "up to order 1 without aliasing, plus margin for the distortion "
                 "content downstream surfaces see"
@@ -138,7 +138,7 @@ class ProbeLattice(BaseModel):
         # the other side, it is a sign error that the quadrature integrates
         # as though it were geometry.
         if self.lateral_radius is not None and self.lateral_radius <= 0.0:
-            raise ValueError(
+            raise ProbeGeometryError(
                 "lateral_radius must be positive: it is the radius r/R of the "
                 "lateral closure cylinder, and a non-positive value is a sign "
                 "error rather than a cylinder on the other side of the axis"
@@ -146,9 +146,9 @@ class ProbeLattice(BaseModel):
         if any(
             b <= a for a, b in zip(self.lateral_stations, self.lateral_stations[1:], strict=False)
         ):
-            raise ValueError("lateral_stations must be strictly increasing in x/R")
+            raise ProbeGeometryError("lateral_stations must be strictly increasing in x/R")
         if (self.lateral_radius is None) != (len(self.lateral_stations) == 0):
-            raise ValueError(
+            raise ProbeGeometryError(
                 "lateral_radius and lateral_stations come together: the lateral "
                 "cylinder closes the control volume on the side, so it needs both "
                 "a radius and ring stations (or neither)"
@@ -474,3 +474,6 @@ def emit_probe_export(script: Script, path: str | Path, *, update: Toggle = True
         update was already emitted.
     """
     helpers.export_probes(script, str(path), update=update)
+
+
+from pyflightstream.probes.errors import ProbeGeometryError  # noqa: E402,F401

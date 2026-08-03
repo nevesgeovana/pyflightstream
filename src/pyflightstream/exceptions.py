@@ -46,18 +46,35 @@ the message alone would force parsing: see
 from __future__ import annotations
 
 from pyflightstream._errors import PyflightstreamError
+from pyflightstream.cases import (
+    CampaignConfigError,
+)
 from pyflightstream.cases.matrix import MatrixError
 from pyflightstream.commands import CommandNotInVersionError
-from pyflightstream.extras import MissingExtraError
+from pyflightstream.extras import (
+    MissingExtraError,
+    UnknownExtraError,
+)
+from pyflightstream.farfield import (
+    FarfieldInputError,
+)
 from pyflightstream.fsi.loads import UnitsError
 from pyflightstream.fsi.state import StaleLoadsError, TwistIterationError
 from pyflightstream.options import OptionError
+from pyflightstream.probes.errors import (
+    ProbeGeometryError,
+)
 from pyflightstream.probes.geometry import GeometryEngineMissingError, OpenMeshError
+from pyflightstream.qa.errors import (
+    QaEvidenceError,
+)
 from pyflightstream.qa.physics import PhysicsEnvironmentError
 from pyflightstream.qa.probes import ProbeEnvironmentError
 from pyflightstream.results import (
     AnchorNotFoundError,
+    FieldNotInExportError,
     IncompleteOutputError,
+    MalformedOutputError,
     VersionMismatchWarning,
 )
 from pyflightstream.results.tables import AmbiguousLoadsError, LoadsNotFoundError
@@ -86,14 +103,18 @@ __all__ = [
     "AmbiguousVersionAliasError",
     "AnchorNotFoundError",
     "BrokenCommandError",
+    "CampaignConfigError",
     "CampaignErrors",
     "CommandArgumentError",
     "CommandNotInVersionError",
     "ExecutorConfigurationError",
+    "FarfieldInputError",
+    "FieldNotInExportError",
     "GeometryEngineMissingError",
     "IncompleteOutputError",
     "InputArtifactError",
     "LoadsNotFoundError",
+    "MalformedOutputError",
     "MatrixError",
     "MissingExtraError",
     "NamingTemplateError",
@@ -101,7 +122,9 @@ __all__ = [
     "OptionError",
     "PhysicsEnvironmentError",
     "ProbeEnvironmentError",
+    "ProbeGeometryError",
     "PyflightstreamError",
+    "QaEvidenceError",
     "ScriptLabelError",
     "ScriptLineBreakError",
     "ScriptOrderError",
@@ -110,6 +133,7 @@ __all__ = [
     "SurfaceMeshExportError",
     "TwistIterationError",
     "UnitsError",
+    "UnknownExtraError",
     "UnknownVersionError",
     "VersionMismatchWarning",
     "WorkspaceError",

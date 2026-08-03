@@ -36,6 +36,7 @@ from collections.abc import Mapping
 import numpy as np
 import xarray as xr
 
+from pyflightstream._errors import PyflightstreamError
 from pyflightstream.probes import ProbeLattice
 
 __all__ = [
@@ -60,6 +61,17 @@ __all__ = [
     "to_counts",
     "spurious_diagnostic",
 ]
+
+
+class FarfieldInputError(PyflightstreamError, ValueError):
+    """A far-field reduction was given fields it cannot integrate.
+
+    A lattice dataset missing a coordinate the ledger needs, a harmonic
+    request the azimuthal sampling cannot resolve, a flux or moment
+    call whose arrays do not agree on shape or frame.
+
+    Added 2026-08-03 for FR-39, keeping ``ValueError`` as a second base.
+    """
 
 
 def lattice_dataset(lattice: ProbeLattice, fields: Mapping[str, np.ndarray]) -> xr.Dataset:
@@ -87,7 +99,7 @@ def lattice_dataset(lattice: ProbeLattice, fields: Mapping[str, np.ndarray]) -> 
     for name, values in fields.items():
         array = np.asarray(values, dtype=float)
         if array.shape != shape:
-            raise ValueError(
+            raise FarfieldInputError(
                 f"field {name!r} has shape {array.shape}, but this lattice samples "
                 f"{shape} (stations, rings, azimuths)"
             )
@@ -248,7 +260,7 @@ def azimuthal_harmonics(da: xr.DataArray, *, m_max: int = 6) -> xr.DataArray:
     _delta_psi(da)
     n = da.sizes["psi"]
     if m_max >= n // 2:
-        raise ValueError(
+        raise FarfieldInputError(
             f"m_max={m_max} needs more than {2 * m_max} uniform azimuths to avoid "
             f"aliasing; this grid has {n}"
         )
@@ -404,7 +416,7 @@ def transverse_flux(
     if method == "quadrature":
         return plane_integral(ds, rho * ds["u"] * ds[component])
     if method != "harmonic":
-        raise ValueError(f"unknown method {method!r}; use 'quadrature' or 'harmonic'")
+        raise FarfieldInputError(f"unknown method {method!r}; use 'quadrature' or 'harmonic'")
     # PYFS-011. The spectrum used here runs to the true half-band, Nyquist
     # INCLUDED, and that is the fix.
     #
@@ -550,7 +562,7 @@ def in_plane_moment(
         lever = ds.coords["r"] * np.sin(ds.coords["psi"])
         component = "v"
     else:
-        raise ValueError(f"axis must be 'y' or 'z', got {axis!r}")
+        raise FarfieldInputError(f"axis must be 'y' or 'z', got {axis!r}")
 
     g = rho * ds["u"] * (ds["u"] - v_inf) + ds["p_prime"]
     tip = float(ds.attrs["tip_radius"])
@@ -563,7 +575,7 @@ def in_plane_moment(
         ring_area = ring_sample_weights(ds) * ds.sizes["psi"]
         loading = (projected * ds.coords["r"] * ring_area).sum("r", skipna=False) * tip**3
     else:
-        raise ValueError(f"unknown method {method!r}; use 'quadrature' or 'harmonic'")
+        raise FarfieldInputError(f"unknown method {method!r}; use 'quadrature' or 'harmonic'")
 
     arm_flux = transverse_flux(ds, rho, component=component)
     arm = -ds.coords["station"] * tip * arm_flux

@@ -57,3 +57,5 @@ __all__ = [
     "region_printed",
     "write_compat_report",
 ]
+
+from pyflightstream.qa.errors import QaEvidenceError  # noqa: E402,F401

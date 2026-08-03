@@ -23,6 +23,7 @@ import numpy as np
 
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.extras import MissingExtraError
+from pyflightstream.probes.errors import ProbeGeometryError
 from pyflightstream.probes.planar import (
     GeometryGateReport,
     PlanarProbeGrid,
@@ -183,15 +184,15 @@ def apply_geometry_gate(
     if mesh is None and mesh_path is not None:
         mesh = load_surface_mesh(mesh_path)
     if grid.refinement is not None and mesh is None:
-        raise ValueError(
+        raise ProbeGeometryError(
             "the grid prescribes a near-surface refinement band, but no surface "
             "mesh was given; the band is measured from the surface, so pass mesh "
             "or mesh_path (export one with pyflightstream.run.export_surface_mesh)"
         )
     if standoff < 0.0:
-        raise ValueError("standoff must be zero or positive: it is a wall margin")
+        raise ProbeGeometryError("standoff must be zero or positive: it is a wall margin")
     if standoff > 0.0 and mesh is None:
-        raise ValueError(
+        raise ProbeGeometryError(
             "a standoff margin is measured from the surface, so it needs a mesh; "
             "pass mesh or mesh_path, or drop the margin"
         )

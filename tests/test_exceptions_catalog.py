@@ -13,6 +13,7 @@ from __future__ import annotations
 import importlib
 import inspect
 import warnings
+from pathlib import Path
 
 import pytest
 from test_public_api import PUBLIC_MODULES
@@ -113,21 +114,27 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
     expected_builtin = {
         "AmbiguousLoadsError": ValueError,
         "AmbiguousVersionAliasError": ValueError,
+        "CampaignConfigError": ValueError,
         "AnchorNotFoundError": ValueError,
         "BrokenCommandError": RuntimeError,
         "CampaignErrors": RuntimeError,
         "CommandArgumentError": ValueError,
         "CommandNotInVersionError": LookupError,
         "ExecutorConfigurationError": ValueError,
+        "FarfieldInputError": ValueError,
+        "FieldNotInExportError": KeyError,
         "GeometryEngineMissingError": ImportError,
         "IncompleteOutputError": ValueError,
         "InputArtifactError": RuntimeError,
         "LoadsNotFoundError": ValueError,
+        "MalformedOutputError": ValueError,
         "MatrixError": ValueError,
         "MissingExtraError": ImportError,
         "NamingTemplateError": ValueError,
         "OpenMeshError": ValueError,
         "OptionError": KeyError,
+        "ProbeGeometryError": ValueError,
+        "QaEvidenceError": ValueError,
         "PhysicsEnvironmentError": RuntimeError,
         "ProbeEnvironmentError": RuntimeError,
         "ScriptLabelError": ValueError,
@@ -139,6 +146,7 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
         "TwistIterationError": RuntimeError,
         "UnitsError": ValueError,
         "UnknownVersionError": ValueError,
+        "UnknownExtraError": ValueError,
         "VersionMismatchWarning": UserWarning,
         "WorkspaceError": RuntimeError,
     }
@@ -194,3 +202,96 @@ def test_input_artifact_id_refusal_carries_kind_and_id(tmp_path):
     assert caught.value.kind == "reference"
     assert caught.value.artifact_id == "../outside"
     assert caught.value.available == ()
+
+
+# --- FR-39, the clause the class-level guards could not see ----------------
+#
+# The two guards above assert things about exception CLASSES: that each is
+# catalogued and that each descends from the base. Neither looks at a
+# `raise` statement, so a public function raising a bare ValueError was
+# invisible to both, and FR-39's first clause ("every exception raised by
+# the public API derives from a single documented base") was false in 70
+# places while the requirement read implemented.
+#
+# Measured 2026-08-03 after an independent review flagged three of them.
+# Three was the number I reported from reading the finding; 70 is the
+# number from walking the tree, which is the difference this guard exists
+# to remove.
+
+_BARE = {"ValueError", "RuntimeError", "TypeError", "KeyError", "LookupError", "ImportError"}
+
+
+def _exported_bare_raises() -> list[str]:
+    """Every `raise BareStdlibError(...)` inside an exported public name."""
+    import ast
+    import importlib
+    import warnings
+
+    from test_public_api import PUBLIC_MODULES
+
+    offenders: list[str] = []
+    for name in PUBLIC_MODULES:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            try:
+                module = importlib.import_module(name)
+            except ImportError:
+                continue  # an extra is not installed; covered by test_extras
+        exported = set(getattr(module, "__all__", []) or [])
+        if not exported or not getattr(module, "__file__", None):
+            continue
+        source = Path(module.__file__)
+        tree = ast.parse(source.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.ClassDef)):
+                continue
+            if node.name not in exported:
+                continue
+            for sub in ast.walk(node):
+                if isinstance(sub, ast.Raise) and isinstance(sub.exc, ast.Call):
+                    raised = getattr(sub.exc.func, "id", None) or getattr(sub.exc.func, "attr", "")
+                    if raised in _BARE:
+                        offenders.append(
+                            f"{name}.{node.name} -> {raised} ({source.name}:{sub.lineno})"
+                        )
+    return offenders
+
+
+def test_no_exported_public_name_raises_a_bare_stdlib_error() -> None:
+    offenders = _exported_bare_raises()
+    assert not offenders, (
+        f"{len(offenders)} raise site(s) inside exported public names raise a bare "
+        "standard-library exception, so `except PyflightstreamError` does not catch "
+        "them and FR-39's first clause is false there. Raise the catalogued class "
+        "for the condition; every one of them keeps its standard-library base, so "
+        "an existing `except ValueError` catches exactly what it caught before.\n  "
+        + "\n  ".join(sorted(offenders)[:15])
+    )
+
+
+def test_the_bare_raise_detector_can_find_one() -> None:
+    """Mutation proof for the walker the guard rests on.
+
+    Without it, a detector that returned an empty list would report the
+    requirement satisfied forever, which is the shape this whole sweep
+    was raised about.
+    """
+    import ast
+
+    tree = ast.parse(
+        "__all__ = ['f']\n"
+        "def f():\n"
+        "    raise ValueError('x')\n"
+        "def _g():\n"
+        "    raise ValueError('y')\n"
+    )
+    found = [
+        sub
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef) and node.name == "f"
+        for sub in ast.walk(node)
+        if isinstance(sub, ast.Raise)
+        and isinstance(sub.exc, ast.Call)
+        and getattr(sub.exc.func, "id", "") in _BARE
+    ]
+    assert len(found) == 1

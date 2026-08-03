@@ -43,6 +43,7 @@ import yaml
 
 import pyflightstream
 from pyflightstream._errors import PyflightstreamError
+from pyflightstream.qa.errors import QaEvidenceError
 from pyflightstream.qa.geometry import BladeSpec, WingSpec, generate_blade_stl, generate_wing_stl
 from pyflightstream.results import IncompleteOutputError, LoadsReport, parse_loads
 from pyflightstream.run import ExecutionResult, LocalExecutor
@@ -134,9 +135,11 @@ class MetricSpec:
     def __post_init__(self) -> None:
         """Reject band declarations that could never judge coherently."""
         if self.kind not in ("rel", "abs"):
-            raise ValueError(f"metric {self.name}: kind must be 'rel' or 'abs', got {self.kind!r}")
+            raise QaEvidenceError(
+                f"metric {self.name}: kind must be 'rel' or 'abs', got {self.kind!r}"
+            )
         if not 0 < self.warn < self.fail:
-            raise ValueError(
+            raise QaEvidenceError(
                 f"metric {self.name}: bands need 0 < warn < fail, got {self.warn}, {self.fail}"
             )
 
@@ -1330,7 +1333,7 @@ def load_reference(case_id: str, references_dir: str | Path | None = None) -> Ca
         return None
     document = yaml.safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(document, dict) or document.get("schema") != REFERENCE_SCHEMA:
-        raise ValueError(
+        raise QaEvidenceError(
             f"{path} is not a physics reference (expected schema {REFERENCE_SCHEMA!r})"
         )
     metrics = {
@@ -1750,20 +1753,20 @@ def update_reference(
         case.
     """
     if not reason or not reason.strip():
-        raise ValueError(
+        raise QaEvidenceError(
             "a reference update requires a reason string; references move only "
             "deliberately (SAD Section 11)"
         )
     registry = registered_cases(include_smi=True)
     case = registry.get(case_id)
     if case is None:
-        raise ValueError(
+        raise QaEvidenceError(
             f"unknown physics case {case_id!r}; registered: {', '.join(sorted(registry))}"
         )
     report = read_physics_report(report_path)
     case_body = report.get("cases", {}).get(case_id)
     if not case_body or not case_body.get("metrics"):
-        raise ValueError(f"{report_path} carries no measured metrics for {case_id}")
+        raise QaEvidenceError(f"{report_path} carries no measured metrics for {case_id}")
     existing = load_reference(case_id, references_dir)
     specs = case.specs_by_name
     metrics: dict[str, dict] = {}
@@ -1774,7 +1777,7 @@ def update_reference(
         elif name in specs:
             warn, fail, kind = specs[name].warn, specs[name].fail, specs[name].kind
         else:
-            raise ValueError(
+            raise QaEvidenceError(
                 f"metric {name!r} is neither in the existing reference nor declared "
                 f"by {case_id}; declare it in the case's metric specifications first"
             )

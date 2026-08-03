@@ -20,6 +20,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from types import MappingProxyType
 
+from pyflightstream.script import CommandArgumentError
+
 __all__ = ["SOLVER_TOGGLE_WORDS", "Toggle", "resolve_toggle"]
 
 #: The solver's own words for an on/off flag, immutable: extending the
@@ -72,6 +74,6 @@ def resolve_toggle(value: object, *, context: str = "a solver toggle") -> bool:
         word = value.strip().upper()
         if word in SOLVER_TOGGLE_WORDS:
             return SOLVER_TOGGLE_WORDS[word]
-    raise ValueError(
+    raise CommandArgumentError(
         f"{context} takes True or False, or the solver's own ENABLE or DISABLE; got {value!r}"
     )

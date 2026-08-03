@@ -44,6 +44,18 @@ EXTRAS: dict[str, tuple[str, ...]] = {
 }
 
 
+class UnknownExtraError(PyflightstreamError, ValueError):
+    """A name was used as an optional extra and this package has no such extra.
+
+    Raised at the refusal-building step rather than at import: naming a
+    nonexistent extra would send the reader to an install command that
+    fails, which is worse than the missing dependency it was trying to
+    explain.
+
+    Added 2026-08-03 for FR-39, keeping ``ValueError`` as a second base.
+    """
+
+
 class MissingExtraError(PyflightstreamError, ImportError):
     """A code path needs an optional extra that is not installed.
 
@@ -65,7 +77,7 @@ class MissingExtraError(PyflightstreamError, ImportError):
 
     def __init__(self, *, extra: str, package: str, purpose: str) -> None:
         if extra not in EXTRAS:
-            raise ValueError(
+            raise UnknownExtraError(
                 f"{extra!r} is not an extra of this package; the extras are "
                 f"{', '.join(sorted(EXTRAS))}. A refusal that names a nonexistent "
                 "extra sends the reader to an install command that fails."

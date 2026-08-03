@@ -36,6 +36,7 @@ from pydantic import (
     model_validator,
 )
 
+from pyflightstream._errors import PyflightstreamError
 from pyflightstream.script import Script
 from pyflightstream.script.toggles import resolve_toggle
 from pyflightstream.versions import resolve
@@ -55,6 +56,19 @@ __all__ = [
 ]
 
 _TAG_PREFIXES = (("alpha", "a"), ("beta", "b"), ("advance_ratio", "j"))
+
+
+class CampaignConfigError(PyflightstreamError, ValueError):
+    """A campaign or case definition cannot be used as written.
+
+    A sweep point that cannot be tagged, a campaign file that does not
+    load, a recipe that does not resolve to a callable or whose
+    signature the loop cannot call. Distinct from
+    :class:`~pyflightstream.cases.matrix.MatrixError`, which is about
+    the pipe-delimited run-matrix format specifically.
+
+    Added 2026-08-03 for FR-39, keeping ``ValueError`` as a second base.
+    """
 
 
 @runtime_checkable
@@ -102,7 +116,7 @@ class SweepAxis(BaseModel):
         for value in self.values:
             if pairs != isinstance(value, tuple):
                 expected = "[alpha, beta] pairs" if pairs else "scalar values"
-                raise ValueError(f"a {self.type} sweep takes {expected}, got {value!r}")
+                raise CampaignConfigError(f"a {self.type} sweep takes {expected}, got {value!r}")
         return self
 
     @model_validator(mode="after")
@@ -131,7 +145,7 @@ class SweepAxis(BaseModel):
         for point in self.points():
             tag = point_tag(point)
             if tag in seen:
-                raise ValueError(
+                raise CampaignConfigError(
                     f"sweep points {seen[tag]!r} and {point!r} both tag as {tag!r}, "
                     "so they would share one run_id and one set of file names. "
                     "Point tags are fixed at one decimal because they are run "
@@ -172,7 +186,7 @@ def point_tag(point: dict[str, float]) -> str:
     """
     parts = [f"{prefix}{point[axis]:+05.1f}" for axis, prefix in _TAG_PREFIXES if axis in point]
     if not parts:
-        raise ValueError(f"point {point!r} has no known axis (alpha, beta, advance_ratio)")
+        raise CampaignConfigError(f"point {point!r} has no known axis (alpha, beta, advance_ratio)")
     return "_".join(parts)
 
 
@@ -414,7 +428,7 @@ class Campaign(BaseModel):
                 duplicated.add(case.sim_id)
             seen.add(case.sim_id)
         if duplicated:
-            raise ValueError(
+            raise CampaignConfigError(
                 f"campaign {self.name!r} declares more than one case with sim_id "
                 f"{', '.join(repr(sim) for sim in sorted(duplicated))}. The sim_id names the "
                 "simulation folder and sits inside every run_id, so the cases would "
@@ -446,7 +460,7 @@ def load_campaign(path: str | Path) -> Campaign:
     with open(path, "rb") as handle:
         data = tomllib.load(handle)
     if "campaign" not in data:
-        raise ValueError(
+        raise CampaignConfigError(
             f"{path} has no [campaign] table; campaign.toml needs [campaign] with "
             "name, fs_version, and fs_exe, plus one [[sim]] entry per case"
         )
@@ -470,19 +484,19 @@ def resolve_recipe(reference: str) -> Callable[[SimCase, Script], None]:
     """
     module_name, separator, function_name = reference.partition(":")
     if not separator or not module_name or not function_name:
-        raise ValueError(
+        raise CampaignConfigError(
             f"recipe reference {reference!r} is not of the form 'package.module:function'"
         )
     try:
         module = import_module(module_name)
     except ImportError as error:
-        raise ValueError(
+        raise CampaignConfigError(
             f"recipe module {module_name!r} cannot be imported: {error}. Recipes are "
             "explicitly imported functions; check the module path and the environment."
         ) from error
     recipe = getattr(module, function_name, None)
     if not callable(recipe):
-        raise ValueError(
+        raise CampaignConfigError(
             f"recipe {reference!r} does not name a callable in {module_name!r}; found {recipe!r}"
         )
     check_recipe(reference, recipe)
@@ -521,7 +535,7 @@ def check_recipe(reference: str, recipe: Callable) -> None:
     if len(positional) >= 2 and len(required) <= 2 and not unfillable:
         return
     found = ", ".join(parameter.name for parameter in parameters) or "no arguments"
-    raise ValueError(
+    raise CampaignConfigError(
         f"recipe {reference!r} does not satisfy the ScriptRecipe protocol: the campaign "
         f"loop calls build(case, script) -> None, and this one takes ({found}). A loose "
         "builder that creates and returns its own Script emits into a script the loop "
