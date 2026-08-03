@@ -9,6 +9,26 @@ FlightStream versions.
 
 ### API surface delta
 
+* **An ambiguous export is refused instead of resolved by position**
+  (REV010-003, REV010-006). **Breaking** for files that were being
+  silently half-read.
+
+  `parse_probe_points` did not require unique header names, while
+  `ProbePointsReport.field` returns the first tuple index of a name and
+  `fields()` collapses duplicates into one key. A header rewritten from
+  `Mach, Cp_ref` to `Cp_ref, Cp_ref` was accepted and
+  `field("Cp_ref")[0]` returned the Mach value. The loads parser has
+  refused this since PYFS-009; both call the shared
+  `results.reject_duplicate_columns` now, which also compares case
+  folded, so `Cp_ref` and `CP_REF` no longer count as different fields.
+
+  Two concatenated exports were accepted as one: the software footer is
+  located with a first-match search and the table helper stops at the
+  first closing separator, so a second complete export was invisible
+  even to the duplicate-`Total` guard that exists for this class of
+  confusion. `results.reject_trailing_export` refuses a second footer
+  in both parsers, because which export a file is evidence of must not
+  be decided by position.
 * **Non-finite values are refused at the choke points that emit and
   place geometry** (REV010-004, REV010-005, REV010-012). **Breaking**
   for code that passed NaN or an infinity into any of the three.

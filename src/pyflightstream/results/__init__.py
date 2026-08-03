@@ -33,6 +33,7 @@ from __future__ import annotations
 import math
 import re
 import warnings
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 import numpy as np
@@ -121,6 +122,83 @@ def parse_number(token: str) -> float:
             f"{token!r} is not a solver-printed number; expected forms like "
             "'.000', '4380000.', or '1.000E-05'"
         ) from error
+
+
+def reject_duplicate_columns(columns: Sequence[str], *, what: str) -> None:
+    """Refuse a table header that names the same column twice.
+
+    A duplicated name is not a cosmetic problem: the row is read into a
+    mapping, so one physical quantity silently takes another's label and
+    a column disappears. The loads parser has refused this since
+    PYFS-009; the probe parser did not, and the review's reproduction is
+    exact (a header rewritten from ``Mach, Cp_ref`` to
+    ``Cp_ref, Cp_ref`` returned the Mach value under the Cp label).
+    Both call this now, so the two cannot drift apart again
+    (REV010-003).
+
+    Parameters
+    ----------
+    columns : sequence of str
+        The header names, already stripped.
+    what : str
+        Name of the export, for the error message.
+
+    Raises
+    ------
+    ValueError
+        If any normalized name appears more than once.
+    """
+    seen: dict[str, str] = {}
+    repeated: set[str] = set()
+    for column in columns:
+        key = column.strip().casefold()
+        if key in seen:
+            repeated.add(seen[key])
+        else:
+            seen[key] = column
+    if repeated:
+        raise ValueError(
+            f"the {what} header names {', '.join(sorted(repeated))} more than once, "
+            "so a row cannot say which column a value came from: the repeated name "
+            "takes the other column's value and that other quantity disappears "
+            "entirely. Fix the export, or the field being read is not the field "
+            "being named"
+        )
+
+
+def reject_trailing_export(text: str, end: int, *, what: str) -> None:
+    """Refuse a file that holds a second complete export after the first.
+
+    The footer is located with a first-match search and the table helper
+    stops at the first closing separator, so a second normally
+    terminated export was simply invisible: the duplicate-total guard
+    never saw it and the caller received the first report with no
+    indication that another one existed (REV010-006). Appended or stale
+    solver output must not be silently ignored, because the consumer
+    cannot then know which complete export was intended.
+
+    Parameters
+    ----------
+    text : str
+        Complete file text.
+    end : int
+        Offset just past the first export's software footer.
+    what : str
+        Name of the export, for the error message.
+
+    Raises
+    ------
+    ValueError
+        If a second software footer follows the first.
+    """
+    if _SOFTWARE_LINE.search(text, end) is not None:
+        raise ValueError(
+            f"the {what} holds more than one complete export: a second software "
+            "footer follows the first. Only the first was read, so which export "
+            "this file is evidence of would have been decided by position rather "
+            "than by anything the file says. Two runs were appended, or an earlier "
+            "export was never truncated"
+        )
 
 
 def parse_count(token: str, *, label: str, minimum: int = 0) -> int:
@@ -403,20 +481,19 @@ def parse_loads(text: str, requested_version: str | FsVersion | None = None) -> 
             "the loads spreadsheet has no software footer; the file ends before the "
             "closing block, so the solver stopped before finishing this export"
         )
+    # REV010-006. The footer above is a FIRST-match search and the table
+    # helper stops at the first closing separator, so a second complete
+    # export was invisible to every guard below, including the duplicate
+    # Total refusal that exists for exactly this class of confusion.
+    reject_trailing_export(text, software.end(), what="loads spreadsheet")
     header_cells = labeled_value(text, "Surface,")
     columns = [cell.strip() for cell in header_cells.split(",") if cell.strip()]
-    # PYFS-009. A repeated column name used to build the row dict with the
-    # later value winning, so a header naming CL twice lost CDi ENTIRELY and
-    # published CDi's number under CL. Every coefficient downstream then read
-    # a plausible value from the wrong column, and nothing anywhere said so.
-    repeated = sorted({column for column in columns if columns.count(column) > 1})
-    if repeated:
-        raise ValueError(
-            f"the loads header names {', '.join(repeated)} more than once, so a row "
-            "cannot be read into one value per column: the later cell would win and "
-            "the column it displaced would vanish, leaving a report whose numbers "
-            "look ordinary and belong to different quantities"
-        )
+    # PYFS-009, now shared with the probe parser (REV010-003). A repeated
+    # column name used to build the row dict with the later value winning,
+    # so a header naming CL twice lost CDi ENTIRELY and published CDi's
+    # number under CL. Every coefficient downstream then read a plausible
+    # value from the wrong column, and nothing anywhere said so.
+    reject_duplicate_columns(columns, what="loads")
     rows = delimited_table(text, "Surface,")
     surfaces: dict[str, dict[str, float]] = {}
     total: dict[str, float] | None = None
@@ -765,6 +842,14 @@ def parse_probe_points(text: str, requested_version=None) -> ProbePointsReport:
             "EXPORT_PROBE_POINTS output or its format changed"
         )
     columns = tuple(cell.strip() for cell in header_line.split(",") if cell.strip())
+    # REV010-003. The loads parser has refused a repeated column since
+    # PYFS-009 and this one never did, although the consequence here is
+    # worse: field() returns the FIRST tuple index of a name and fields()
+    # collapses duplicates into one key, so a header rewritten to name
+    # Cp_ref twice returned the Mach value under the Cp label. A pressure
+    # coefficient reading 0.086 is not obviously wrong to anyone.
+    reject_duplicate_columns(columns, what="probe export")
+    reject_trailing_export(text, software.end(), what="probe export")
     rows = delimited_table(text, "X, Y, Z,")
     parsed_rows = []
     for row in rows:
@@ -824,6 +909,8 @@ __all__ = [
     "labeled_value",
     "parse_loads",
     "parse_count",
+    "reject_duplicate_columns",
+    "reject_trailing_export",
     "parse_number",
     "parse_probe_points",
     "parse_residual_history",

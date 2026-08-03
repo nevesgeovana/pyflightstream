@@ -23,6 +23,7 @@ from pyflightstream.results import (
     parse_number,
     parse_probe_points,
     parse_residual_history,
+    reject_duplicate_columns,
 )
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -409,3 +410,63 @@ def test_parse_count_accepts_the_valid_domain(token, minimum, expected):
 def test_parse_count_refuses_outside_the_domain(token, minimum):
     with pytest.raises(ValueError):
         parse_count(token, label="a count", minimum=minimum)
+
+
+# --- REV010-003 and REV010-006: two ambiguities the loads parser already ---
+# refused and the probe parser did not, plus one neither refused.
+
+
+def _probe() -> str:
+    return read_fixture("probe_points_26.120.txt")
+
+
+def test_a_duplicate_probe_column_is_refused():
+    """The review's reproduction: `Cp_ref` twice returned the Mach value.
+
+    Worse here than in the loads table, because ProbePointsReport.field
+    returns the FIRST tuple index of a name while fields() collapses
+    duplicates into one key, so the export looked complete and one
+    physical quantity answered to another's name.
+    """
+    text = _probe()
+    header = next(line for line in text.splitlines() if line.strip().startswith("X, Y, Z,"))
+    columns = [cell.strip() for cell in header.split(",") if cell.strip()]
+    assert len(columns) >= 5, columns
+    doubled_header = header.replace(columns[3], columns[4], 1)
+    doubled = text.replace(header, doubled_header)
+    assert doubled != text
+    with pytest.raises(ValueError, match="more than once"):
+        parse_probe_points(doubled)
+
+
+def test_a_case_folded_duplicate_is_still_a_duplicate():
+    """`Cp_ref` and `CP_REF` name the same field to any reader."""
+    with pytest.raises(ValueError, match="more than once"):
+        reject_duplicate_columns(["X", "Cp_ref", "CP_REF"], what="probe export")
+
+
+def test_distinct_columns_pass():
+    """The control for both refusals above."""
+    reject_duplicate_columns(["X", "Y", "Z", "Cp_ref"], what="probe export")
+
+
+@pytest.mark.parametrize("fixture", ["loads_steady_26.120.txt", "probe_points_26.120.txt"])
+def test_two_concatenated_exports_are_refused(fixture):
+    """parse_loads(loads_fixture + loads_fixture) used to succeed and return
+    the first report, so appended or stale output was silently ignored and
+    the consumer could not know which export was intended."""
+    text = read_fixture(fixture)
+    parser = parse_loads if "loads" in fixture else parse_probe_points
+    parser(text)  # the control: one export still parses
+    with pytest.raises(ValueError, match="more than one complete export"):
+        parser(text + text)
+
+
+def test_a_second_export_with_different_values_is_still_refused():
+    """The dangerous form: the appended export is not a copy, so choosing
+    the first by position picks a different physical answer."""
+    text = read_fixture("loads_steady_26.120.txt")
+    second = text.replace("2.000", "8.000")
+    assert second != text
+    with pytest.raises(ValueError, match="more than one complete export"):
+        parse_loads(text + second)
