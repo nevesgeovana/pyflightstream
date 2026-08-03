@@ -26,14 +26,16 @@ from math import sqrt
 
 import numpy as np
 
+from pyflightstream.extras import require_extra
 from pyflightstream.fsi.config import FsiConfig
 
 try:
     from Pynite import FEModel3D
 except ModuleNotFoundError as exc:  # pragma: no cover - exercised only without the extra
-    raise ModuleNotFoundError(
-        "pyflightstream.fsi.beam needs the PyNite structural backend, which is "
-        "not installed; install the optional extra with: pip install pyflightstream[fsi]"
+    raise require_extra(
+        "fsi",
+        package="the PyNite structural backend",
+        purpose="pyflightstream.fsi.beam",
     ) from exc
 
 logger = logging.getLogger(__name__)

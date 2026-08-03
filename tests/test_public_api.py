@@ -30,6 +30,7 @@ PUBLIC_MODULES = [
     "pyflightstream.cases.matrix",
     "pyflightstream.commands",
     "pyflightstream.exceptions",
+    "pyflightstream.extras",
     "pyflightstream.farfield",
     "pyflightstream.fsi",
     "pyflightstream.fsi.beam",

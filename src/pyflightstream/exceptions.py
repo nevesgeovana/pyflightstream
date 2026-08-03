@@ -48,6 +48,7 @@ from __future__ import annotations
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.cases.matrix import MatrixError
 from pyflightstream.commands import CommandNotInVersionError
+from pyflightstream.extras import MissingExtraError
 from pyflightstream.fsi.loads import UnitsError
 from pyflightstream.fsi.state import StaleLoadsError, TwistIterationError
 from pyflightstream.options import OptionError
@@ -94,6 +95,7 @@ __all__ = [
     "InputArtifactError",
     "LoadsNotFoundError",
     "MatrixError",
+    "MissingExtraError",
     "NamingTemplateError",
     "OpenMeshError",
     "OptionError",

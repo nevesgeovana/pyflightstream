@@ -9,6 +9,31 @@ FlightStream versions.
 
 ### API surface delta
 
+* **Every optional extra refuses the same way, and every dependency
+  has a license card** (SRS NFR-02; new public
+  `pyflightstream.extras` with `MissingExtraError`, `EXTRAS` and
+  `require_extra`). **Breaking within 0.x** for one narrow clause: the
+  `[fsi]` import gate raised a bare `ModuleNotFoundError` and now
+  raises `MissingExtraError`, which is an `ImportError` but not a
+  `ModuleNotFoundError`.
+
+  Three gated paths raised three different types with three
+  hand-written remedy strings, so handling "an extra is missing" meant
+  knowing all three, and nothing checked that the remedy printed was
+  the remedy that works. There is one type now, and its `remedy` is
+  composed from the extra's own name rather than typed, so a message
+  cannot name an extra that does not exist.
+  `GeometryEngineMissingError` becomes a SUBCLASS rather than
+  disappearing: the geometry gate is the one extra whose absence is
+  recoverable, so a caller has a reason to single it out.
+
+  The license half: `reports/RPT-016` cards the five runtime
+  dependencies and `[plot]`, which had none. The runtime set is the one
+  that reaches every user. `xarray` is Apache-2.0, the only non-BSD,
+  non-MIT term in it, and the card states why that is accepted rather
+  than leaving a reader to re-derive it. Tests now hold the coverage:
+  every extra's distributions and every runtime dependency must be
+  named in a committed report.
 * **The SRS stops being the only judge of its own shape** (SRS
   FR-43, new and deferred; a new `tests/test_srs_consistency.py`). No
   runtime change.

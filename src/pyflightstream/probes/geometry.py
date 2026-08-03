@@ -22,6 +22,7 @@ from pathlib import Path
 import numpy as np
 
 from pyflightstream._errors import PyflightstreamError
+from pyflightstream.extras import MissingExtraError
 from pyflightstream.probes.planar import (
     GeometryGateReport,
     PlanarProbeGrid,
@@ -36,12 +37,20 @@ __all__ = [
 ]
 
 
-class GeometryEngineMissingError(PyflightstreamError, ImportError):
+class GeometryEngineMissingError(MissingExtraError):
     """The optional geometry engine is not installed.
 
     Point-in-body containment and distance-to-surface queries need
     trimesh with its spatial index; the plain installation leaves the
     grids fully usable without culling.
+
+    A subclass of :class:`~pyflightstream.extras.MissingExtraError`
+    rather than a sibling of it, so ``except MissingExtraError`` now
+    catches this one while every existing ``except
+    GeometryEngineMissingError`` keeps working unchanged. It survives
+    as its own name because the geometry gate is the one extra whose
+    absence is RECOVERABLE: the grids stay usable without culling, so a
+    caller has a reason to single it out (PYFS-025).
     """
 
 
@@ -60,9 +69,12 @@ def _trimesh():
         import trimesh
     except ImportError as error:
         raise GeometryEngineMissingError(
-            "the geometry gate needs trimesh for point-in-body containment and "
-            "distance-to-surface queries; install the geom extra "
-            "(pip install pyflightstream[geom]) or run the grid without culling"
+            extra="geom",
+            package="trimesh",
+            purpose=(
+                "the geometry gate (point-in-body containment and "
+                "distance-to-surface queries; or run the grid without culling)"
+            ),
         ) from error
     return trimesh
 

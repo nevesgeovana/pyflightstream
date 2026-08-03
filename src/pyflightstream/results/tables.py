@@ -50,6 +50,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 
 from pyflightstream._errors import PyflightstreamError
+from pyflightstream.extras import require_extra
 from pyflightstream.results import (
     IncompleteOutputError,
     LoadsReport,
@@ -170,11 +171,10 @@ def to_dataframe(result: object) -> pd.DataFrame:
     if sectional_type is not None and isinstance(result, sectional_type):
         return _sectional_loads_frame(result)
     if sectional_type is None and _looks_like_sectional(result):
-        raise ImportError(
-            "this object looks like a SectionalLoadsReport but "
-            "pyflightstream.fsi.loads is not importable in this environment; the "
-            "sectional loads parser ships with the optional FSI extra, so install "
-            "it with: pip install pyflightstream[fsi]"
+        raise require_extra(
+            "fsi",
+            package="pyflightstream.fsi.loads",
+            purpose=("tabulating an object that looks like a SectionalLoadsReport"),
         )
     raise TypeError(
         f"to_dataframe cannot tabulate {type(result).__name__}; supported parsed "

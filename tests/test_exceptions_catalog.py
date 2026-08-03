@@ -123,6 +123,7 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
         "InputArtifactError": RuntimeError,
         "LoadsNotFoundError": ValueError,
         "MatrixError": ValueError,
+        "MissingExtraError": ImportError,
         "NamingTemplateError": ValueError,
         "OpenMeshError": ValueError,
         "OptionError": KeyError,
