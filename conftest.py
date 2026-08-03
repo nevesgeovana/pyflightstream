@@ -31,7 +31,7 @@ so the Tier 1 suite still runs anywhere.
 
 try:
     from sybil import Sybil
-    from sybil.parsers.markdown import PythonCodeBlockParser
+    from sybil.parsers.markdown import PythonCodeBlockParser, SkipParser
     from sybil.parsers.rest import DocTestParser
     from sybil.sybil import SybilCollection
 
@@ -56,8 +56,16 @@ if _SYBIL:
     )
 
     #: python code blocks in the docs tree (all user-facing pages).
+    #:
+    #: SkipParser is here so a page can hold an illustrative block that
+    #: needs a licensed solver or a populated workspace, marked
+    #: ``<!-- skip: next -->`` and still syntax highlighted. Without it
+    #: the only way to publish such a block was to drop its ``python``
+    #: tag, which costs the highlighting on exactly the pages a new
+    #: reader opens first. Every block NOT marked is executed, so the
+    #: default stays "checked" and skipping is the deliberate act.
     _docs_examples = Sybil(
-        parsers=[PythonCodeBlockParser()],
+        parsers=[PythonCodeBlockParser(), SkipParser()],
         path="docs",
         patterns=["*.md"],
     )

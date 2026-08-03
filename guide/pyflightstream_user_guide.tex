@@ -1133,9 +1133,9 @@ samples = parse_residual_history(log_text)
 
 \begin{frame}[fragile]{Cheat sheet: the four command-line tools}
 \begin{lstlisting}[style=txt]
-pyfs-qa probe            --version ... --fs-exe ...   # Tier 2 probes
+pyfs-qa probe            --fs-version ... --fs-exe ...   # Tier 2 probes
 pyfs-qa apply-compat     REPORT.yaml                  # promote statuses
-pyfs-qa physics          --version ... --fs-exe ...   # Tier 3 matrix
+pyfs-qa physics          --fs-version ... --fs-exe ...   # Tier 3 matrix
 pyfs-qa drift            --fs-exe 26.100=A.exe --fs-exe 26.120=B.exe
 pyfs-qa cases                                         # print Tier 3 matrix
 pyfs-qa update-reference --case ... --reason "..."    # guarded write

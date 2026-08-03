@@ -21,10 +21,10 @@ from pyflightstream.results import (
     parse_probe_points,
     parse_residual_history,
     parse_run_loads,
-    run_frame,
-    sweep_frame,
+    run_table,
+    sweep_table,
     to_csv,
-    to_dataframe,
+    to_table,
 )
 from pyflightstream.results import tables as tables_module
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
@@ -56,7 +56,7 @@ def make_record(run_id="camp/sim_9001/a+02.0", sim_id="9001", **overrides):
 
 def test_loads_to_dataframe_is_one_row_per_surface_plus_total():
     report = parse_loads(read_fixture("loads_unsteady_26.120.txt"))
-    frame = to_dataframe(report)
+    frame = to_table(report)
     assert list(frame["surface"]) == ["Blade1", "Wing", "Tail", "Total"]
     assert list(frame.columns[:4]) == ["surface", "Cx", "Cy", "Cz"]
     assert list(frame.columns[-2:]) == ["force_units", "moment_units"]
@@ -68,7 +68,7 @@ def test_loads_to_dataframe_is_one_row_per_surface_plus_total():
 
 def test_residual_history_to_dataframe_keeps_iteration_order():
     history = parse_residual_history(read_fixture("log_residuals_26.120.txt"))
-    frame = to_dataframe(history)
+    frame = to_table(history)
     assert list(frame.columns) == ["iteration", "velocity_residual", "pressure_residual"]
     assert frame["iteration"].tolist()[0] == 1
     assert frame["iteration"].tolist()[-1] == 1575
@@ -77,7 +77,7 @@ def test_residual_history_to_dataframe_keeps_iteration_order():
 
 def test_probe_points_to_dataframe_uses_the_printed_columns():
     report = parse_probe_points(read_fixture("probe_points_26.120.txt"))
-    frame = to_dataframe(report)
+    frame = to_table(report)
     assert list(frame.columns) == list(report.columns)
     assert frame.shape == (12, len(report.columns))
     assert frame["X"].iloc[0] == pytest.approx(-0.5)
@@ -86,7 +86,7 @@ def test_probe_points_to_dataframe_uses_the_printed_columns():
 
 def test_sectional_loads_to_dataframe_carries_unit_suffixed_columns():
     report = parse_sectional_loads(read_fixture("fsi/FS_SurfaceSection_Loads_call0002.txt"))
-    frame = to_dataframe(report)
+    frame = to_table(report)
     assert list(frame.columns) == [
         "offset_m",
         "chord_m",
@@ -105,7 +105,7 @@ def test_sectional_dispatch_without_the_extra_raises_didactically(monkeypatch):
     report = parse_sectional_loads(read_fixture("fsi/FS_SurfaceSection_Loads_call0002.txt"))
     monkeypatch.setattr(tables_module, "_sectional_loads_type", lambda: None)
     with pytest.raises(ImportError, match=r"pip install pyflightstream\[fsi\]"):
-        to_dataframe(report)
+        to_table(report)
 
 
 def test_to_csv_round_trips_through_pandas(tmp_path):
@@ -118,11 +118,11 @@ def test_to_csv_round_trips_through_pandas(tmp_path):
 
 def test_to_dataframe_refuses_unknown_inputs_didactically():
     with pytest.raises(TypeError, match="parse_loads"):
-        to_dataframe(object())
+        to_table(object())
     with pytest.raises(ValueError, match="empty result list"):
-        to_dataframe([])
+        to_table([])
     with pytest.raises(TypeError, match="to_csv method directly"):
-        to_dataframe(pd.DataFrame({"CL": [0.4]}))
+        to_table(pd.DataFrame({"CL": [0.4]}))
 
 
 # --- step 2: run-level merge -------------------------------------------
@@ -168,7 +168,7 @@ RUN_ROW_SCHEMA = [
 ]
 
 
-def test_run_frame_exposes_the_documented_column_schema():
+def test_run_table_exposes_the_documented_column_schema():
     """NFR-19: the run row's full column set is the public contract.
 
     `alpha` is the sweep-axis column of this fixture; a case swept on another
@@ -179,19 +179,19 @@ def test_run_frame_exposes_the_documented_column_schema():
     record = make_record(
         iterations=312, residual=3.2e-6, wall_time_s=41.5, outputs=["raw/loads.txt"]
     )
-    assert list(run_frame(record, loads).columns) == RUN_ROW_SCHEMA, (
+    assert list(run_table(record, loads=loads).columns) == RUN_ROW_SCHEMA, (
         "the run-row column schema changed. SRS NFR-19 makes these names a "
         "public contract: announce the change in the changelog's API surface "
         "delta and update this list in the same commit."
     )
 
 
-def test_run_frame_joins_identity_conditions_and_total_coefficients():
+def test_run_table_joins_identity_conditions_and_total_coefficients():
     loads = parse_loads(read_fixture("loads_steady_26.120.txt"))
     record = make_record(
         iterations=312, residual=3.2e-6, wall_time_s=41.5, outputs=["raw/loads.txt"]
     )
-    frame = run_frame(record, loads)
+    frame = run_table(record, loads=loads)
     assert frame.shape[0] == 1
     row = frame.iloc[0]
     assert list(frame.columns[:3]) == ["run_id", "sim_id", "alpha"]
@@ -207,21 +207,21 @@ def test_run_frame_joins_identity_conditions_and_total_coefficients():
     assert row["CMy"] == pytest.approx(-0.0912)
 
 
-def test_run_frame_without_loads_keeps_identity_and_nan_outcome():
+def test_run_table_without_loads_keeps_identity_and_nan_outcome():
     record = make_record(status=RunStatus.FAILED_EXECUTION, error="timed out")
-    frame = run_frame(record)
+    frame = run_table(record)
     row = frame.iloc[0]
     assert row["status"] == "FAILED_EXECUTION"
     assert math.isnan(row["iterations"])
     assert "CL" not in frame.columns
 
 
-def test_run_frame_refuses_colliding_sweep_axis_names():
+def test_run_table_refuses_colliding_sweep_axis_names():
     loads = parse_loads(read_fixture("loads_steady_26.120.txt"))
     with pytest.raises(ValueError, match="collides"):
-        run_frame(make_record(point={"status": 1.0}))
+        run_table(make_record(point={"status": 1.0}))
     with pytest.raises(ValueError, match="collides"):
-        run_frame(make_record(point={"CL": 1.0}), loads)
+        run_table(make_record(point={"CL": 1.0}), loads=loads)
 
 
 # --- step 3: sweep aggregation through the manifest --------------------
@@ -271,9 +271,9 @@ def build_sweep_workspace(tmp_path):
     return workspace
 
 
-def test_sweep_frame_builds_one_row_per_manifest_record(tmp_path):
+def test_sweep_table_builds_one_row_per_manifest_record(tmp_path):
     workspace = build_sweep_workspace(tmp_path)
-    frame = sweep_frame(workspace)
+    frame = sweep_table(workspace)
     assert frame.shape[0] == 3
     assert frame["alpha"].tolist() == [2.0, 0.0, 4.0]
     assert frame["CL"].iloc[0] == pytest.approx(0.4308)
@@ -281,7 +281,7 @@ def test_sweep_frame_builds_one_row_per_manifest_record(tmp_path):
     assert math.isnan(frame["CL"].iloc[2])
     assert frame["status"].tolist() == ["CONVERGED", "COMPLETED_MAX_ITER", "FAILED_EXECUTION"]
     # A root path works in place of the workspace object.
-    again = sweep_frame(tmp_path / "camp")
+    again = sweep_table(tmp_path / "camp")
     assert again["run_id"].tolist() == frame["run_id"].tolist()
     # The final csv is one DataFrame.to_csv away.
     frame.to_csv(tmp_path / "sweep.csv", index=False)
@@ -289,15 +289,15 @@ def test_sweep_frame_builds_one_row_per_manifest_record(tmp_path):
     assert back.shape[0] == 3
 
 
-def test_sweep_frame_refuses_an_empty_manifest(tmp_path):
+def test_sweep_table_refuses_an_empty_manifest(tmp_path):
     with pytest.raises(ValueError, match="no manifest records"):
-        sweep_frame(tmp_path)
+        sweep_table(tmp_path)
 
 
-def test_sweep_frame_flags_a_wrong_loads_file_name(tmp_path):
+def test_sweep_table_flags_a_wrong_loads_file_name(tmp_path):
     workspace = build_sweep_workspace(tmp_path)
     with pytest.raises(LoadsNotFoundError, match="no collected output is named"):
-        sweep_frame(workspace, loads_file="polar.txt")
+        sweep_table(workspace, loads_file="polar.txt")
 
 
 def test_parse_run_loads_resolves_by_run_id(tmp_path):

@@ -1190,6 +1190,7 @@ class CampaignPlan:
 def plan_campaign(
     campaign: Campaign,
     workspace: CampaignWorkspace,
+    *,
     recipes: dict[str, ScriptRecipe] | None = None,
     write_plan: bool = True,
 ) -> CampaignPlan:

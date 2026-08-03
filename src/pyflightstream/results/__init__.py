@@ -21,9 +21,9 @@ Number forms follow the solver's printing: ``.000`` (no leading
 zero), ``4380000.`` (trailing point), and ``1.000E-05`` all parse.
 
 On top of the parsers, a pandas tabular layer turns the parsed
-results into DataFrames: :func:`to_dataframe`/:func:`to_csv` for each
+results into DataFrames: :func:`to_table`/:func:`to_csv` for each
 parser, :func:`parse_run_loads` for one run's coefficients, and
-:func:`run_frame`/:func:`sweep_frame` for one run or a whole sweep
+:func:`run_table`/:func:`sweep_table` for one run or a whole sweep
 read from the manifest (the manifest, an execution-layer artifact, is
 imported lazily so the layer rule is not violated at module load).
 """
@@ -741,10 +741,10 @@ from pyflightstream.results.tables import (  # noqa: E402
     AmbiguousLoadsError,
     LoadsNotFoundError,
     parse_run_loads,
-    run_frame,
-    sweep_frame,
+    run_table,
+    sweep_table,
     to_csv,
-    to_dataframe,
+    to_table,
 )
 
 __all__ = [
@@ -763,8 +763,8 @@ __all__ = [
     "parse_probe_points",
     "parse_residual_history",
     "parse_run_loads",
-    "run_frame",
-    "sweep_frame",
+    "run_table",
+    "sweep_table",
     "to_csv",
-    "to_dataframe",
+    "to_table",
 ]

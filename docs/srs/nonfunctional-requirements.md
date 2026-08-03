@@ -469,6 +469,14 @@
     element kind this requirement names second. A declared posture is
     not the same as a warned user.
 
+    Both landed on 2026-08-03, unchanged from the announcement: the
+    three names are `to_table`, `run_table` and `sweep_table`, the
+    optional parameters of those and of `parse_run_loads` are
+    keyword-only, and `plan_campaign` joined the same window for the
+    same reason. Recorded here rather than left as intent, because a
+    consequence that stays in the future tense after it happens is the
+    drift the SRS guard exists to catch.
+
     A promise ALREADY recorded is kept regardless of version. Every live
     MODULE shim ([glossary](index.md#glossary)) is an entry in the
     deprecation ledger naming its removal version, and the Tier 1

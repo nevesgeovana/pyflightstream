@@ -163,7 +163,7 @@ except CommandNotInVersionError as error:
 #   script hash, outcome, and the collected loads spreadsheet (one
 #   uniquely named export per point, so no point overwrites another's
 #   evidence).
-# - `sweep_frame` then reads the manifest back and joins each record
+# - `sweep_table` then reads the manifest back and joins each record
 #   with its parsed coefficient table: the whole polar as one tidy
 #   DataFrame, one row per run, and the csv is one `to_csv` away.
 
@@ -175,7 +175,7 @@ else:
     import numpy as np
 
     import pyflightstream
-    from pyflightstream.results import sweep_frame
+    from pyflightstream.results import sweep_table
     from pyflightstream.versions import resolve
     from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 
@@ -213,7 +213,7 @@ else:
         )
         print(f"alpha {alpha:+5.1f} deg: recorded {report.current_iteration} iterations")
 
-    polar = sweep_frame(workspace)
+    polar = sweep_table(workspace)
     print(polar[["alpha", "CL", "CDi", "iterations", "status"]].to_string(index=False))
     polar.to_csv(workdir / "polar.csv", index=False)
     print(f"polar table written to {workdir / 'polar.csv'}")

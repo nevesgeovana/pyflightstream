@@ -49,7 +49,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help="run command-validity probes and write the compat report",
     )
     probe.add_argument(
-        "--version",
+        "--fs-version",
         required=True,
         help="target FlightStream version: canonical identifier (for example "
         "26.120); a vendor release name works only where it names exactly one "
@@ -109,7 +109,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help="run the Tier 3 physics regression matrix and write the physics report",
     )
     physics.add_argument(
-        "--version",
+        "--fs-version",
         required=True,
         help="target FlightStream version: canonical identifier (for example "
         "26.120); a vendor release name works only where it names exactly one "
@@ -156,7 +156,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help="run the case set on two versions and diff the coefficients (FR-27)",
     )
     drift.add_argument(
-        "--versions",
+        "--fs-versions",
         required=True,
         help="two comma-separated versions, baseline first (for example 26.100,26.120); "
         "the same version twice is the degenerate self-comparison",
@@ -285,7 +285,7 @@ def _resolve_or_report(version: str) -> str | None:
 
 
 def _cmd_probe(args: argparse.Namespace) -> int:
-    canonical = _resolve_or_report(args.version)
+    canonical = _resolve_or_report(args.fs_version)
     if canonical is None:
         return 2
     commands = None
@@ -318,7 +318,7 @@ def _cmd_probe(args: argparse.Namespace) -> int:
 
 
 def _cmd_physics(args: argparse.Namespace) -> int:
-    canonical = _resolve_or_report(args.version)
+    canonical = _resolve_or_report(args.fs_version)
     if canonical is None:
         return 2
     cases = None
@@ -355,11 +355,11 @@ def _cmd_physics(args: argparse.Namespace) -> int:
 
 
 def _cmd_drift(args: argparse.Namespace) -> int:
-    versions = [name.strip() for name in args.versions.split(",") if name.strip()]
+    versions = [name.strip() for name in args.fs_versions.split(",") if name.strip()]
     if len(versions) != 2:
         print(
             "drift compares exactly two versions, baseline first "
-            "(for example --versions 26.100,26.120)",
+            "(for example --fs-versions 26.100,26.120)",
             file=sys.stderr,
         )
         return 2

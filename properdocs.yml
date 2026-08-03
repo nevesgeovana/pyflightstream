@@ -43,6 +43,8 @@ extra_css:
 
 nav:
   - Home: index.md
+  - Getting started: getting-started.md
+  - Replaying a recorded run: tutorial-replay.md
   - Architecture: architecture.md
   - SRS:
       - srs/index.md

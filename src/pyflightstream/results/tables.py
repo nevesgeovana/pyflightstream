@@ -15,14 +15,14 @@ library holding the values.
 
 Three steps of one ladder:
 
-1. :func:`to_dataframe` / :func:`to_csv` tabulate any single parsed
+1. :func:`to_table` / :func:`to_csv` tabulate any single parsed
    result.
-2. :func:`run_frame` joins one manifest :class:`RunRecord` (identity,
+2. :func:`run_table` joins one manifest :class:`RunRecord` (identity,
    sweep point, versions, outcome) with the run's parsed loads into
    one wide row; :func:`parse_run_loads` resolves and parses that
    loads spreadsheet from the managed workspace through the record's
    collected outputs.
-3. :func:`sweep_frame` reads a whole campaign manifest and returns the
+3. :func:`sweep_table` reads a whole campaign manifest and returns the
    tidy sweep table, one row per run; ``DataFrame.to_csv`` then writes
    the final csv.
 
@@ -102,7 +102,7 @@ class LoadsNotFoundError(PyflightstreamError, ValueError):
 
     Expected for failed points: a run that stopped before
     EXPORT_SOLVER_ANALYSIS_SPREADSHEET leaves no coefficient table
-    behind, and :func:`sweep_frame` turns this into a row without
+    behind, and :func:`sweep_table` turns this into a row without
     coefficient columns instead of dropping the run.
     """
 
@@ -115,7 +115,7 @@ class AmbiguousLoadsError(PyflightstreamError, ValueError):
     """
 
 
-def to_dataframe(result: object) -> pd.DataFrame:
+def to_table(result: object) -> pd.DataFrame:
     """Tabulate one parsed FlightStream result as a tidy DataFrame.
 
     Dispatches on the parsed result type:
@@ -177,7 +177,7 @@ def to_dataframe(result: object) -> pd.DataFrame:
             purpose=("tabulating an object that looks like a SectionalLoadsReport"),
         )
     raise TypeError(
-        f"to_dataframe cannot tabulate {type(result).__name__}; supported parsed "
+        f"to_table cannot tabulate {type(result).__name__}; supported parsed "
         "results are LoadsReport (parse_loads), a list of ResidualSample "
         "(parse_residual_history), ProbePointsReport (parse_probe_points), and "
         "SectionalLoadsReport (pyflightstream.fsi.loads, optional [fsi] extra)"
@@ -187,14 +187,14 @@ def to_dataframe(result: object) -> pd.DataFrame:
 def to_csv(result: object, path: str | Path) -> Path:
     """Write one parsed FlightStream result as a csv file.
 
-    The tidy table of :func:`to_dataframe` is written without the
+    The tidy table of :func:`to_table` is written without the
     positional index, so the csv holds exactly the documented columns
     in their documented units.
 
     Parameters
     ----------
     result : object
-        One parsed result of the kinds :func:`to_dataframe` covers.
+        One parsed result of the kinds :func:`to_table` covers.
     path : str or Path
         Target csv file; its parent folder must exist.
 
@@ -204,11 +204,11 @@ def to_csv(result: object, path: str | Path) -> Path:
         The written file.
     """
     target = Path(path)
-    to_dataframe(result).to_csv(target, index=False)
+    to_table(result).to_csv(target, index=False)
     return target
 
 
-def run_frame(record: RunRecord, loads: LoadsReport | None = None) -> pd.DataFrame:
+def run_table(record: RunRecord, *, loads: LoadsReport | None = None) -> pd.DataFrame:
     """Join one manifest record with its parsed loads into one wide row.
 
     The row carries the run identity and conditions from the manifest
@@ -242,6 +242,7 @@ def run_frame(record: RunRecord, loads: LoadsReport | None = None) -> pd.DataFra
 def parse_run_loads(
     workspace: CampaignWorkspace | str | Path,
     record: RunRecord | str,
+    *,
     loads_file: str | None = None,
 ) -> LoadsReport:
     """Resolve and parse the loads spreadsheet of one recorded run.
@@ -337,14 +338,15 @@ def parse_run_loads(
     return report
 
 
-def sweep_frame(
+def sweep_table(
     workspace: CampaignWorkspace | str | Path,
+    *,
     loads_file: str | None = None,
 ) -> pd.DataFrame:
     """Assemble the tidy table of a whole campaign sweep.
 
     One row per manifest record, in manifest order: the run identity,
-    sweep point, versions, and outcome of :func:`run_frame`, joined
+    sweep point, versions, and outcome of :func:`run_table`, joined
     with the Total coefficients of each run's loads spreadsheet
     resolved through :func:`parse_run_loads`. Runs without a loads
     spreadsheet (failed points) keep their identity row with NaN

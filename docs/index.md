@@ -29,6 +29,12 @@ added, never dropped.
   section per subpackage, generated at every docs build from the live
   module docstrings. `pyflightstream.overview()` renders the same page
   offline.
+* [Getting started](getting-started.md): install, pick a version, build a
+  script, declare and pre-flight a campaign, read the results. Half an hour,
+  and no solver until the last step.
+* [Replaying a recorded run](tutorial-replay.md): what the manifest keeps,
+  how to rebuild the exact invocation from it, how to tell whether the
+  evidence still matches, and what a record cannot give you.
 * [Command reference](reference/index.md): generated from the database at
   every docs build, one page per manual chapter, with per-version evidence
   for every command. `pyflightstream.help()` renders the same database

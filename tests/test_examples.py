@@ -64,18 +64,24 @@ def test_the_declaration_covers_every_example():
 
 @pytest.mark.requirement("NFR-01d")
 @pytest.mark.parametrize("name", sorted(EXAMPLE_EXTRAS))
-def test_each_example_runs(name):
+def test_each_example_runs(name, tmp_path):
     """The examples execute, which nothing checked before.
 
     Run as a subprocess rather than imported, because that is how a
     reader runs them: a module-level guard that only holds under
     ``__main__`` would pass an import and fail the user.
+
+    In a temporary working directory, not the repository. Two of them
+    write a PNG beside the caller, and the first version of this test
+    ran them at the repository root, so every suite run left two
+    untracked artifacts there. A test that dirties the tree it is
+    testing is a test somebody eventually deletes.
     """
     result = subprocess.run(
         [sys.executable, str(EXAMPLES / name)],
         capture_output=True,
         text=True,
-        cwd=REPO,
+        cwd=tmp_path,
         timeout=300,
     )
     assert result.returncode == 0, (
@@ -129,4 +135,28 @@ def test_at_least_one_example_needs_no_extra():
     assert any(not extras for extras in EXAMPLE_EXTRAS.values()), (
         "no example runs on a base install; the package's first impression "
         "would require an optional dependency"
+    )
+
+
+def test_nothing_leaves_an_artifact_in_the_repository_root():
+    """The tree is as clean after the suite as before it.
+
+    Guards two fixes rather than the examples themselves. `cwd=tmp_path`
+    above is one keyword and reverting it would be invisible, while the
+    artifacts it prevents are two PNGs nobody would connect to a test.
+    And a docs page whose code block builds a workspace writes a `runs/`
+    tree at the root, which is the same class arriving from the other
+    direction: the docs examples run under Sybil, with the repository as
+    their working directory.
+    """
+    artifacts = sorted(path.name for path in REPO.glob("*.png"))
+    assert not artifacts, (
+        f"the repository root holds {artifacts}; something ran an example with "
+        "the repository as its working directory"
+    )
+    stray = [name for name in ("runs", "site_check") if (REPO / name).exists()]
+    assert not stray, (
+        f"the repository root holds {stray}; a code block built a campaign "
+        "workspace there. Mark the block `<!-- skip: next -->` if it needs a "
+        "workspace a doc build cannot populate"
     )

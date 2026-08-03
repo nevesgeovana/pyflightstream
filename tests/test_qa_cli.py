@@ -19,7 +19,7 @@ from pyflightstream.qa.cli import main
 
 
 def test_an_ambiguous_vendor_name_exits_two_and_names_both_builds(capsys):
-    exit_code = main(["probe", "--version", "26.12", "--fs-exe", "nowhere.exe"])
+    exit_code = main(["probe", "--fs-version", "26.12", "--fs-exe", "nowhere.exe"])
     assert exit_code == 2
     error = capsys.readouterr().err
     assert error.startswith("version not resolved: ")
@@ -32,7 +32,7 @@ def test_an_ambiguous_vendor_name_exits_two_and_names_both_builds(capsys):
 
 
 def test_an_unregistered_version_exits_two_and_lists_the_registered_ones(capsys):
-    exit_code = main(["probe", "--version", "25.3", "--fs-exe", "nowhere.exe"])
+    exit_code = main(["probe", "--fs-version", "25.3", "--fs-exe", "nowhere.exe"])
     assert exit_code == 2
     error = capsys.readouterr().err
     assert error.startswith("version not resolved: ")
@@ -45,7 +45,7 @@ def test_the_refusal_happens_before_the_executable_is_touched(capsys):
     # nowhere.exe does not exist. If the version were resolved first and
     # the executor built second, this would fail on the executable
     # instead, which is a worse message for a version typo.
-    exit_code = main(["probe", "--version", "26.12", "--fs-exe", "nowhere.exe"])
+    exit_code = main(["probe", "--fs-version", "26.12", "--fs-exe", "nowhere.exe"])
     assert exit_code == 2
     assert "nowhere.exe" not in capsys.readouterr().err
 
@@ -53,9 +53,9 @@ def test_the_refusal_happens_before_the_executable_is_touched(capsys):
 @pytest.mark.parametrize(
     "argv",
     [
-        ["physics", "--version", "26.12", "--fs-exe", "nowhere.exe"],
-        ["drift", "--versions", "26.12,26.120", "--fs-exe", "26.120=nowhere.exe"],
-        ["drift", "--versions", "26.100,26.120", "--fs-exe", "26.12=nowhere.exe"],
+        ["physics", "--fs-version", "26.12", "--fs-exe", "nowhere.exe"],
+        ["drift", "--fs-versions", "26.12,26.120", "--fs-exe", "26.120=nowhere.exe"],
+        ["drift", "--fs-versions", "26.100,26.120", "--fs-exe", "26.12=nowhere.exe"],
     ],
 )
 def test_every_subcommand_taking_a_version_refuses_the_same_way(argv, capsys):

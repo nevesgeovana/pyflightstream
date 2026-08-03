@@ -9,6 +9,52 @@ FlightStream versions.
 
 ### API surface delta
 
+* **Two guides join the docs**: [Getting
+  started](docs/getting-started.md), which goes from `pip install` to a
+  read result with the solver appearing only at the last step, and
+  [Replaying a recorded run](docs/tutorial-replay.md), which is what
+  the manifest keeps, how to rebuild the exact invocation from it, how
+  to tell whether the evidence still matches, and what a record cannot
+  give you.
+
+  Sybil gains its `SkipParser` on the docs tree so a page can hold an
+  illustrative block that needs a licensed solver or a populated
+  workspace, marked and still syntax highlighted. Every block NOT
+  marked is executed, so the default stays "checked".
+* **The v0.4.0 tabular renames and the keyword-only conversion have
+  landed** (PLN-067; SRS NFR-20's accepted consequences). **Breaking**,
+  directly, with no aliases and no warning release, exactly as the
+  v0.3.0 notes announced them:
+
+  ```python
+  to_table(result)                                        # was to_dataframe
+  run_table(record, *, loads=None)                        # was run_frame
+  sweep_table(workspace, *, loads_file=None)              # was sweep_frame
+  parse_run_loads(workspace, record, *, loads_file=None)  # name unchanged
+  plan_campaign(campaign, workspace, *, recipes=None, write_plan=True)
+  ```
+
+  The word "frame" carried the pandas sense on the public surface while
+  this package writes about aerodynamic reference frames in the same
+  sentence. The run row's `frame` COLUMN keeps its name, and that is the
+  point: once the functions stop using the word, the column means what
+  it says.
+
+  `plan_campaign` joins the same window. Its selectors become
+  keyword-only, matching `run_campaign` and killing the `write_plan`
+  boolean trap: `plan_campaign(campaign, workspace, None, False)` said
+  nothing about which False that was.
+
+  No deprecation cycle, per DEP-1: NFR-20's policy takes effect at 1.0,
+  so nothing before it owes a warning release.
+* **`pyfs-qa` speaks `--fs-version` like every other console command.**
+  **Breaking**: `--version` becomes `--fs-version` on `probe` and
+  `physics`, and `--versions` becomes `--fs-versions` on `drift`.
+
+  `--version` collides with the convention where it prints the tool's
+  own version, and `--versions` differed from its sibling by one letter.
+  `pyfs-matrix` already used `--fs-version`, so this is the odd one out
+  joining the rest rather than a new convention.
 * **The requirement index says how each requirement is verified, and a
   test can now declare which requirement it falsifies** (SRS NFR-13,
   partially delivered and still pending; NFR-25 moves to implemented).
