@@ -92,3 +92,23 @@ responsible for what you submit.
 MIT. Contributions must be original work or MIT-compatible. Contributions
 derived from the AGPL pyFlightscript package are rejected, including
 translations or close adaptations of its code.
+
+## Clean-room provenance (SRS FR-08)
+
+Every commit carries this trailer, as the last paragraph of its
+message:
+
+```
+Clean-room: emitter specified from the official manual and probe evidence only; no code, structure or docstrings from the AGPL predecessor
+```
+
+`tests/test_clean_room.py` asserts it on every commit since its
+baseline and fails the suite without it. Amending is banned in this
+repository, so a commit that missed the trailer is corrected by a
+follow-up commit that says so.
+
+What the trailer is, and is not. It is a DECLARATION with an auditable
+record of who made it: nothing can prove the absolute negative "the
+predecessor was never read", and a mechanism that claimed to would be
+worse than none. If you cannot make this declaration about a change, do
+not make the commit.

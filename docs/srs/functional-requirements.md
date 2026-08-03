@@ -113,19 +113,43 @@ Milestones and session records are listed in the
     unvalidated commands.
 
 !!! requirement "FR-08 Clean-room emitter <span class='srs-implemented'>implemented</span>"
-    *Origin: BRF-10. Evidence: repository invariant; contribution
+    *Origin: BRF-10. Evidence: the `Clean-room` commit trailer,
+    asserted for every commit under review by
+    `tests/test_clean_room.py`; repository invariant; contribution
     policy.*
 
     The emitter layer is specified exclusively from the official
     manual and from probe evidence, and its clean-room provenance is
-    verified by the contribution attestation recorded per change rather
-    than by a runtime test. No code, structure, or docstrings derive
-    from the AGPL ecosystem predecessor.
+    declared per change in a `Clean-room` commit trailer, which a Tier 1
+    test asserts for every commit a push makes new. No code, structure,
+    or docstrings derive from the AGPL ecosystem predecessor.
 
     Reworded 2026-07-27 to name its verification honestly. No test can
     observe how a line of code came to be written, so a requirement that
     implied one was promising evidence that does not exist; the
     attestation is the evidence that does.
+
+    THE MECHANISM NOW EXISTS, which it did not when that rewording was
+    made. Measured 2026-07-28 (review finding PYFS-021): 200 commits, 0
+    `Signed-off-by` trailers, no per-change attestation of any kind, so
+    the evidence line named an artifact that had never been in this
+    repository. The author chose on 2026-08-03 to make it exist rather
+    than to reword the requirement to promise less.
+
+    What it proves, and the limit is the point rather than a caveat.
+    Nothing can prove the absolute negative "the predecessor was never
+    read". What a process CAN preserve is a declaration and an auditable
+    record of who made it: the trailer is the declaration, the commit's
+    author and date are the record, and the test makes the declaration
+    unskippable for work under review. The repository's own push gate is
+    deliberately NOT cited here: it records that a review happened and
+    says so about itself, and it is silent on provenance, so pointing
+    this requirement at it would be a second overclaim narrower than the
+    first.
+
+    The check starts at a baseline commit and is not retroactive. The
+    200 commits before it carry no trailer, and adding one to them would
+    mean rewriting history to manufacture a declaration nobody made.
 
 !!! requirement "FR-08a Phase ordering enforced <span class='srs-implemented'>implemented</span>"
     *Origin: BRF-13. Evidence: milestone M1 (phases in the schema),

@@ -25,6 +25,12 @@ jobs:
         python-version: ["3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history: tests/test_clean_room.py walks every commit
+          # since its baseline, and a shallow clone does not contain it.
+          # The test fails rather than skips when it cannot reach the
+          # baseline, so a forgotten fetch-depth is loud (FR-08).
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
@@ -52,6 +58,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # the clean-room walk, as in the test job
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"

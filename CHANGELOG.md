@@ -9,6 +9,26 @@ FlightStream versions.
 
 ### API surface delta
 
+* **FR-08's evidence line names a mechanism that exists** (SRS FR-08,
+  reworded; new `tests/test_clean_room.py`). No runtime change.
+
+  The requirement said clean-room provenance "is verified by the
+  contribution attestation recorded per change". Measured: 200 commits,
+  0 `Signed-off-by` trailers, no per-change attestation of any kind.
+  The evidence line named an artifact that had never been in this
+  repository.
+
+  Every commit now carries a `Clean-room` trailer, and a tier-1 test
+  asserts it for every commit since a stated baseline, with the
+  declaration's text pinned so it cannot degrade to a bare "yes". The
+  push gate is deliberately NOT cited as the evidence: it records that
+  a review happened, says so about itself, and is silent on
+  provenance, so pointing FR-08 at it would be a second overclaim
+  narrower than the first.
+
+  The limit is stated in the requirement rather than left to a reader:
+  nothing can prove "the predecessor was never read". What a process
+  can preserve is a declaration and an auditable record of who made it.
 * **Two guides join the docs**: [Getting
   started](docs/getting-started.md), which goes from `pip install` to a
   read result with the solver appearing only at the last step, and
