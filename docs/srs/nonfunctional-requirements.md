@@ -142,9 +142,24 @@
     *Origin: PP-6.*
 
     A run's INPUTS and invocation are reproducible from its manifest
-    entry alone: input hashes, versions, the solver-setup snapshot, and
-    a regenerable script reconstruct the exact call. Publications cite
-    run ids.
+    entry together with the workspace artifacts the entry identifies:
+    input hashes, versions, the solver-setup snapshot, the recorded
+    argv, and the staged script reconstruct the exact call. The entry
+    alone IDENTIFIES and VERIFIES those artifacts, by hash, and states
+    when one is missing or has changed; it does not carry their
+    content. Publications cite run ids.
+
+    Narrowed 2026-08-03 (REV010-013), from "reproducible from its
+    manifest entry alone". `RunRecord` stores hashes and paths rather
+    than content, and `reconstruct()` requires the workspace and
+    refuses when the staged script is absent, which a test pins
+    deliberately. The implementation was sound under a "manifest plus
+    preserved artifacts" contract while this sentence promised a
+    self-contained evidence object, so the requirement moved to the
+    contract that is actually kept. Storing or archiving enough
+    canonical content for entry-alone reconstruction remains a
+    possible future capability; it is not what is delivered, and the
+    requirement no longer says it is.
 
     Reproducibility of the solver's numerical results is bounded by the
     FlightStream determinism boundary and is not asserted here.

@@ -9,6 +9,33 @@ FlightStream versions.
 
 ### API surface delta
 
+* **The far-field coverage metric counts what it says it counts**
+  (REV010-011). **Breaking** for readers of `masked_fraction`, whose
+  value changes when inputs are non-finite.
+
+  `irreversible_deficit` masked on `radicand < 0`, and every
+  comparison against NaN is False, so a NaN radicand was neither
+  masked nor counted while `sqrt` returned NaN anyway. For radicands
+  `[-1, NaN, 1]` two of three outputs were NaN and `masked_fraction`
+  reported 1/3, overstating how much of the field the evaluation had
+  honored, which is the one thing the metric exists to prevent.
+
+  The dataset now carries `negative_radicand_fraction` (a physical
+  statement about the solution: the local state is unreachable on an
+  isentropic rothalpy-conserving streamline) and
+  `invalid_input_fraction` (a statement about the input), with
+  `masked_fraction` their non-overlapping union.
+* **NFR-07 says what the implementation delivers** (REV010-013).
+  Requirement text only; no code change.
+
+  It promised inputs and invocation "reproducible from its manifest
+  entry alone", while `RunRecord` stores hashes and paths rather than
+  content and `reconstruct()` requires the workspace and refuses when
+  the staged script is absent. The implementation was sound under a
+  "manifest plus preserved artifacts" contract, which is what the code
+  docstrings had said all along; the requirement now says it too. The
+  entry alone identifies and verifies the artifacts by hash and states
+  when one is missing or changed.
 * **FSI state and loads are bound to the physical model they belong
   to** (REV010-008, REV010-009, REV010-010). **Breaking** for runs
   that were relying on any of the three.

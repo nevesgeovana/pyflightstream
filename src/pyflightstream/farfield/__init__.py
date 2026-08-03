@@ -649,6 +649,23 @@ def irreversible_deficit(
     is reported with the result so every run states how much of the
     field the evaluation could not honor.
 
+    That last promise was false for non-finite inputs until 2026-08-03
+    (REV010-011). The mask was ``radicand < 0``, and every comparison
+    against NaN is False, so a NaN radicand was not masked and did not
+    enter the fraction, while ``sqrt`` returned NaN anyway: for
+    radicands ``[-1, NaN, 1]`` two of three outputs were NaN and
+    ``masked_fraction`` reported 1/3. The coverage metadata overstated
+    how much of the field the evaluation had honored, which is the one
+    thing this metric exists to prevent.
+
+    The two causes are now reported separately, because they mean
+    different things and have different fixes. A negative radicand is a
+    PHYSICAL statement about the solution, that the local state is not
+    reachable on an isentropic rothalpy-conserving streamline. A
+    non-finite radicand is a statement about the INPUT, that something
+    upstream produced NaN or an infinity. ``masked_fraction`` is their
+    union and therefore means what its documentation says.
+
     Parameters
     ----------
     w_rel : xarray.DataArray
@@ -662,18 +679,28 @@ def irreversible_deficit(
     Returns
     -------
     xarray.Dataset
-        ``w_ideal`` and ``deficit`` (m/s, NaN where masked) plus the
-        scalar ``masked_fraction``.
+        ``w_ideal`` and ``deficit`` (m/s, NaN where masked) plus three
+        scalars: ``masked_fraction``, the fraction of cells the
+        evaluation could not honor for any reason;
+        ``negative_radicand_fraction``, the physically unreachable
+        subset; and ``invalid_input_fraction``, the subset whose
+        radicand was not finite. The first is the union of the other
+        two, which do not overlap.
     """
     radicand = w_rel**2 + 2.0 * (delta_rothalpy - entropy_enthalpy_rise)
-    masked = radicand < 0.0
+    # Order matters: isfinite first, because `radicand < 0` is False for
+    # NaN and would otherwise leave the invalid cells in neither bucket.
+    invalid = ~np.isfinite(radicand)
+    negative = (radicand < 0.0) & ~invalid
+    masked = negative | invalid
     w_ideal = xr.where(masked, np.nan, np.sqrt(xr.where(masked, 0.0, radicand)))
-    fraction = float(masked.mean())
     return xr.Dataset(
         {
             "w_ideal": w_ideal,
             "deficit": w_rel - w_ideal,
-            "masked_fraction": xr.DataArray(fraction),
+            "masked_fraction": xr.DataArray(float(masked.mean())),
+            "negative_radicand_fraction": xr.DataArray(float(negative.mean())),
+            "invalid_input_fraction": xr.DataArray(float(invalid.mean())),
         }
     )
 

@@ -490,3 +490,64 @@ def test_mass_closure_sees_one_dead_station_among_live_ones():
     assert np.isnan(np.asarray(closure["relative_spread"])), (
         "the closure judgment was taken over the surviving stations"
     )
+
+
+# --- REV010-011: NaN was in neither bucket ---------------------------------
+#
+# The mask was `radicand < 0`, and every comparison against NaN is False, so
+# a NaN radicand was not masked and did not enter the fraction while sqrt
+# returned NaN anyway. The coverage metadata overstated how much of the
+# field the evaluation had honored, which is the one thing it exists to
+# prevent.
+
+
+def _deficit_for(radicands):
+    """Build inputs whose radicand is exactly the given sequence.
+
+    radicand = w_rel^2 + 2 (dI - dh_s), so with w_rel = 0 and dh_s = 0 the
+    radicand is 2 dI and the test controls it directly.
+    """
+    values = np.asarray(radicands, dtype=float)
+    zeros = xr.DataArray(np.zeros_like(values), dims="cell")
+    return irreversible_deficit(zeros, xr.DataArray(values / 2.0, dims="cell"), zeros)
+
+
+def test_the_reviews_reproduction_no_longer_understates_the_mask():
+    """[-1, NaN, 1]: two of three outputs are NaN, and the metric said 1/3."""
+    result = _deficit_for([-1.0, np.nan, 1.0])
+    assert float(result["masked_fraction"]) == pytest.approx(2 / 3)
+    assert int(np.isnan(result["w_ideal"]).sum()) == 2
+    # The fraction equals the NaN count, which is the property that broke.
+    assert float(result["masked_fraction"]) == pytest.approx(
+        float(np.isnan(result["w_ideal"]).mean())
+    )
+
+
+@pytest.mark.parametrize("bad", [np.nan, np.inf, -np.inf])
+def test_every_non_finite_radicand_is_counted_as_invalid(bad):
+    result = _deficit_for([1.0, bad, 4.0])
+    assert float(result["invalid_input_fraction"]) == pytest.approx(1 / 3)
+    assert float(result["negative_radicand_fraction"]) == 0.0
+    assert float(result["masked_fraction"]) == pytest.approx(1 / 3)
+
+
+def test_the_two_causes_are_reported_separately_and_do_not_overlap():
+    """A negative radicand is a statement about the SOLUTION; a non-finite
+    one is a statement about the INPUT. Different meanings, different fixes."""
+    result = _deficit_for([-1.0, np.nan, 1.0, -4.0])
+    assert float(result["negative_radicand_fraction"]) == pytest.approx(2 / 4)
+    assert float(result["invalid_input_fraction"]) == pytest.approx(1 / 4)
+    assert float(result["masked_fraction"]) == pytest.approx(3 / 4)
+    assert float(result["masked_fraction"]) == pytest.approx(
+        float(result["negative_radicand_fraction"]) + float(result["invalid_input_fraction"])
+    )
+
+
+def test_a_clean_field_masks_nothing():
+    """The control. Without it a metric that reported 1.0 always would pass
+    every assertion above."""
+    result = _deficit_for([1.0, 4.0, 9.0])
+    assert float(result["masked_fraction"]) == 0.0
+    assert float(result["invalid_input_fraction"]) == 0.0
+    assert float(result["negative_radicand_fraction"]) == 0.0
+    assert not bool(np.isnan(result["w_ideal"]).any())

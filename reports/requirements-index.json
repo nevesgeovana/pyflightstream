@@ -609,7 +609,7 @@
   },
   {
    "id": "NFR-07",
-   "text": "A run's INPUTS and invocation are reproducible from its manifest entry alone: input hashes, versions, the solver-setup snapshot, and a regenerable script reconstruct the exact call. Publications cite run ids.",
+   "text": "A run's INPUTS and invocation are reproducible from its manifest entry together with the workspace artifacts the entry identifies: input hashes, versions, the solver-setup snapshot, the recorded argv, and the staged script reconstruct the exact call. The entry alone IDENTIFIES and VERIFIES those artifacts, by hash, and states when one is missing or has changed; it does not carry their content. Publications cite run ids.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: PP-6.*",
