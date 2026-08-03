@@ -9,6 +9,25 @@ FlightStream versions.
 
 ### API surface delta
 
+* **The package is type checked, and the worked examples run**
+  (SRS NFR-27, new; NFR-01d's evidence line corrected). No runtime
+  change; `mypy` joins `[dev]` and a `types` job joins CI.
+
+  The four `examples/*.py` were in no CI step. NFR-01d's evidence line
+  said they ran under Sybil, and Sybil runs docstring doctests and
+  markdown code blocks: the first code a new user runs was the code
+  nothing checked. A tier-1 test now runs each one and holds each to
+  the extras it declares, so an example that reaches into `[fsi]`
+  without saying so fails here rather than in a reader's base install.
+
+  The type check is a **ratchet**, and the measurement is why: the
+  first run reported 223 errors in 21 of 53 modules. Those 21 are
+  exempted by name, the other 32 are held clean, and a newly dirty
+  module fails. The exemption list is the debt, written down.
+  `py.typed` is deliberately not shipped: it would tell every
+  downstream checker to trust annotations that 223 errors say are not
+  trustworthy, and PEP 561 is promised nowhere here, so nothing is
+  broken by the absence.
 * **Every optional extra refuses the same way, and every dependency
   has a license card** (SRS NFR-02; new public
   `pyflightstream.extras` with `MissingExtraError`, `EXTRAS` and

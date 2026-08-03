@@ -52,6 +52,8 @@ dev = [
     # suite's runtime and a developer running one test file does not need
     # a whole-package number. The job passes --cov explicitly.
     "pytest-cov",
+    # The NFR-26 type-check ratchet; config in [tool.mypy] below.
+    "mypy",
     # Executable examples in CI: docstring doctests and markdown code
     # blocks (INB-006 item 1e, decision Q-007). Config in conftest.py.
     "sybil",
@@ -130,6 +132,119 @@ exclude_also = [
     "raise NotImplementedError",
     "@overload",
 ]
+
+
+# --- mypy (NFR-26 half of review finding PYFS-026) -------------------
+# The package had never been type checked. The first run reported 223 errors
+# in 21 of 53 modules, so a blanket adoption would have meant either 223
+# rushed annotations or a permanently red check, and both teach the reader to
+# ignore it. This is a RATCHET instead: mypy runs over the whole package, the
+# 21 modules that were not clean on 2026-08-03 are exempted BY NAME below, and
+# the other 32 must stay clean. A new module, or a newly dirty clean one,
+# fails the check; an exemption is removed as its module is typed, never
+# added. The list is the debt, written down.
+#
+# py.typed is deliberately NOT shipped. Shipping it tells every downstream
+# type checker to trust these annotations, and 223 errors say they are not yet
+# trustworthy. PEP 561 is promised nowhere in this repository, so nothing is
+# broken by the absence; it ships when the exemption list is empty
+# (PLN-20260803-1830).
+[tool.mypy]
+files = ["src/pyflightstream"]
+# python_version is deliberately NOT pinned: pinning it to the 3.11 floor
+# makes mypy reject numpy's own stubs, which use the 3.12 `type` statement,
+# and the error is in a dependency rather than in this package. The check
+# therefore runs under whichever interpreter invokes it, and CI runs it on
+# one leg, like the coverage floor.
+ignore_missing_imports = true
+# Off for now and each is a rung of the ratchet: turning one on is a
+# deliberate commit that fixes what it surfaces.
+disallow_untyped_defs = false
+warn_return_any = false
+
+[[tool.mypy.overrides]]
+module = "pyflightstream.cases"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "pyflightstream.cases.matrix"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "pyflightstream.commands"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "pyflightstream.farfield"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "pyflightstream.fsi.driver"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "pyflightstream.fsi.nodes"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "pyflightstream.post.writers"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "pyflightstream.probes.geometry"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "pyflightstream.probes.planar"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "pyflightstream.qa.cli"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "pyflightstream.qa.physics"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "pyflightstream.qa.probes"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "pyflightstream.qa.specs"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "pyflightstream.results.tables"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "pyflightstream.run"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "pyflightstream.script"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "pyflightstream.script.entities"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "pyflightstream.script.helpers"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "pyflightstream.script.solver_setup"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "pyflightstream.workspace.inputs"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "pyflightstream.workspace.naming"
+ignore_errors = true
 
 [tool.ruff]
 line-length = 100

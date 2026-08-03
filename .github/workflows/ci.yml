@@ -60,6 +60,22 @@ jobs:
       - name: Tier 1 with the coverage floor
         run: pytest --cov --cov-branch --cov-report=term-missing
 
+  types:
+    # One leg, like the coverage floor and for the same reason: the answer
+    # is a property of the source, not of the platform. The exemption list
+    # in [tool.mypy] is the debt this ratchet is shrinking; a new module or
+    # a newly dirty clean one fails here.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package with dev extras
+        run: pip install -e .[dev,fsi,geom]
+      - name: Type check the package
+        run: mypy
+
   docs:
     runs-on: ubuntu-latest
     steps:

@@ -10,7 +10,7 @@ requirements trace to evidence. It follows the author's SRS template
 | Field | Value |
 |---|---|
 | Document | pyflightstream Software Requirements Specification |
-| Version | 1.8.0 |
+| Version | 1.9.0 |
 | Status | Living document |
 | Author | Geovana Neves |
 | First published | 2026-07-22 |
@@ -43,7 +43,7 @@ or ambiguous.
 6. [Functional requirements](functional-requirements.md): FR-01 to
    FR-49, each with origin, status, and evidence.
 7. [Non-functional requirements](nonfunctional-requirements.md):
-   NFR-01 to NFR-26.
+   NFR-01 to NFR-27.
 8. [Standards alignment](standards.md): the external practices this
    project adopts, with references.
 9. [Roadmap](roadmap.md): delivered milestones and the open lines.
@@ -98,6 +98,7 @@ ledger and its deadline guard exist, and the policy itself starts at
 
 | Version | Date | Change |
 |---|---|---|
+| 1.9.0 | 2026-08-03 | NFR-27 is added and NFR-01d's evidence line is corrected, both from the review finding about what CI did not do. NFR-27: a static type checker runs over the package, as a RATCHET rather than a clean adoption, because the first run reported 223 errors in 21 of 53 modules and a blanket adoption means either rushed annotations or a permanently red check. The 21 are exempted by name, so the exemption list is the debt and a newly dirty module fails today. It states in its own text that py.typed is deliberately not shipped and why: shipping it tells every downstream checker to trust annotations that 223 errors say are not trustworthy, and PEP 561 is promised nowhere here, so nothing is broken by the absence. NFR-01d claimed the executable examples ran in CI under Sybil, and Sybil runs docstring doctests and markdown code blocks: the four examples/*.py were in no CI step at all, so the badge rested on a mechanism that did not cover them. A tier-1 test now runs each one and holds it to the extras it declares. The new drift guard added yesterday caught this very edit, refusing the chapter list until its announced NFR range moved with the addition |
 | 1.8.0 | 2026-08-03 | The SRS stops being the only judge of its own shape. A tier-1 module now derives the identifier set with the same parser that writes the machine-readable index, and asserts the chapter list's announced ranges, the acceptance mapping's citations, the roadmap's backlog citations, identifier uniqueness across every box kind, and that the document version matches the newest revision row. It found a seventh drift instance on its first run, beyond the six the review listed: the acceptance mapping recorded an accepted item against FR-43 and no FR-43 box had ever been written, so an acceptance existed with no requirement anywhere. FR-43 is therefore added rather than the mapping row deleted, deferred, with its acceptance band deliberately unnamed because the sister library computes the imbalance and returns no criterion, and setting the number is the numerical-analyst seat. What the module deliberately does NOT assert is the CHANGELOG's historical counts: a released section records what happened on a date, and correcting one is a factual judgement about a past acceptance rather than drift |
 | 1.7.0 | 2026-08-02 | Two non-functional requirements move, both from the same review finding about what CI does not do. NFR-05 gains the Windows leg: it has always said Windows is the primary execution target, because the solver runs there, while CI ran on Linux alone, so the platform every user is on was the one platform nothing tested and a Windows-only break could have reached a release with every check green. NFR-16 moves from pending to implemented, its floor having been pending on a first measurement that nobody had taken: the tier 1 suite covers 6774 statements with 515 missing and 2058 branches with 213 partial, a branch-mode total of 90.69 percent. The number is deliberately NOT written into the requirement. It lives in the build configuration, where the tool that enforces it reads it, so raising the floor is one edit rather than two statements drifting apart, and the requirement states only the rule and how the floor is set: below the measurement, as a ratchet against regression rather than a target, on one CI leg rather than four |
 | 1.6.0 | 2026-08-02 | FR-49 is added, from the review's finding that registering a version made every public surface call it supported. The word covered four states, and the distance between two of them was measured: 26.000 is registered, is accepted by `Script` and by a campaign, and carries evidence for zero of the database's commands, so nothing whatever can be built for it. Support is now four derived named values, ascending from `registered` through `documented` and `verified` to `operational`, none of them declared in a file. `operational` is the one whose claim is checked by performing it: a minimal workflow from geometry to a loads file is built, in a tier 1 test, for every version reported at that level, which is also what separates it from `verified`. The README's version table stops being prose and is pinned to the derived values by a test |

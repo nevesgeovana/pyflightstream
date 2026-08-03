@@ -2,8 +2,8 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 22,
-  "total": 95,
+  "cited_by_a_test": 23,
+  "total": 96,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -354,7 +354,7 @@
   },
   {
    "id": "NFR-01d",
-   "text": "The published docs include at least one worked example per public workflow.",
+   "text": "Evidence line corrected 2026-08-03 (review finding PYFS-026). It said the executable examples ran in CI under Sybil, and Sybil runs docstring doctests and markdown code blocks: the four examples/*.py were in no CI step at all, so the badge rested on a mechanism that did not cover them. They are the first code a new user runs.",
    "priority": "M"
   },
   {
@@ -480,6 +480,11 @@
   {
    "id": "NFR-26",
    "text": "The unit of work is named SIM at the case level and datapoint at the execution level throughout the SRS and the docs, and every other term for it is either replaced or given a glossary entry mapping it to one of those two.",
+   "priority": "M"
+  },
+  {
+   "id": "NFR-27",
+   "text": "A static type checker runs over the whole package in CI, and the modules it does not yet pass are exempted BY NAME rather than by a blanket setting, so the exemption list is the debt and shrinks.",
    "priority": "M"
   }
  ]

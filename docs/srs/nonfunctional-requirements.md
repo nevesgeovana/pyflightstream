@@ -46,10 +46,19 @@
 
 !!! requirement "NFR-01d Worked examples per workflow <span class='srs-implemented'>implemented</span>"
     *Origin: Phase 4 split of NFR-01, accepted 2026-07-27. Evidence:
-    the executable examples run in CI (Sybil), which prove the examples
-    that exist still work. Nothing enumerates the public workflows and
-    checks one example per workflow, so the per-workflow coverage is a
-    review check and the badge covers the examples' correctness.*
+    `tests/test_examples.py` runs each of the `examples/*.py` and holds
+    each to the extras it declares; the Sybil run covers the docstring
+    doctests and the markdown code blocks. Nothing enumerates the public
+    workflows and checks one example per workflow, so the per-workflow
+    coverage is a review check and the badge covers the examples'
+    correctness.*
+
+    Evidence line corrected 2026-08-03 (review finding PYFS-026). It
+    said the executable examples ran in CI under Sybil, and Sybil runs
+    docstring doctests and markdown code blocks: the four
+    `examples/*.py` were in no CI step at all, so the badge rested on a
+    mechanism that did not cover them. They are the first code a new
+    user runs.
 
     The published docs include at least one worked example per public
     workflow.
@@ -595,3 +604,29 @@
     to replace and which are distinct concepts to gloss is the work this
     requirement names, and it is the sibling of NFR-24 for the domain
     vocabulary rather than the software one.
+
+!!! requirement "NFR-27 Static type checking of the package <span class='srs-implemented'>implemented</span>"
+    *Origin: the independent review's finding PYFS-026, 2026-08-03.
+    Evidence: `[tool.mypy]` in `pyproject.toml`; the `types` job of
+    `.github/workflows/ci.yml`.*
+
+    A static type checker runs over the whole package in CI, and the
+    modules it does not yet pass are exempted BY NAME rather than by a
+    blanket setting, so the exemption list is the debt and shrinks.
+
+    A ratchet rather than a clean adoption, and the measurement is why:
+    the first run reported 223 errors in 21 of 53 modules. A blanket
+    adoption would have meant either 223 rushed annotations or a
+    permanently red check, and both teach a reader to ignore the check.
+    Exempting by name means a new module, or a clean one that goes
+    dirty, fails today, while the 21 are cleared on their own schedule.
+
+    `py.typed` is deliberately NOT shipped and this requirement does not
+    ask for it. Shipping it tells every downstream type checker to trust
+    these annotations, and 223 errors say they are not trustworthy yet;
+    a wrong annotation trusted by a consumer's checker is worse than no
+    annotation, because it produces a confident false positive in
+    somebody else's build. PEP 561 is promised nowhere in this
+    repository, so nothing is broken by the absence. It ships when the
+    exemption list is empty, and the promise joins this requirement
+    then rather than now.
