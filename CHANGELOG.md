@@ -9,6 +9,36 @@ FlightStream versions.
 
 ### API surface delta
 
+* **Six ways a malformed solver export produced a plausible number are
+  refused.** **Breaking within 0.x** for a file with any of them; every
+  one used to parse clean and return a number, which is why none was
+  noticed.
+
+  * A repeated column in the loads header. Measured: a header naming
+    `CL` twice built the row with `CL` winning twice, so the report lost
+    `CDi` entirely and published `CDi`'s value under `CL`.
+  * A second `Total` row, and a repeated surface name. The later row
+    replaced the earlier in silence, so which total the run produced
+    was not determined by the file.
+  * A fractional value in an iteration field. `int(parse_number(...))`
+    truncated, so a printed `312.9` became `312`, and 312 is a
+    perfectly ordinary count. The new `results.parse_count` refuses it
+    and names the field.
+  * An unrecognised token for a printed solver flag. The reading was
+    `token.upper().startswith("T")`, so `yes`, `0` and `banana` all
+    read as OFF with the same confidence as a real `F`. The tokens are
+    now enumerated. A flag read wrongly as off is worse than an
+    unreadable one, and `LoadsAssessor` now depends on this exact flag.
+  * A residual-history counter that repeats or decreases. `[1, 2, 1574,
+    2]` parsed clean, and that shape is two logs concatenated. The
+    convergence judgment reads the LAST row, so the run would be judged
+    on a residual from an earlier iteration of a different solve.
+  * An interior empty cell in an FSI row. Both readers dropped empty
+    cells BEFORE counting them, so `1,,2,3` passed the three-field
+    check as the triple `(1, 2, 3)` with every value after the hole
+    shifted one slot left. The single TRAILING separator the solver
+    writes is still accepted, because that is the file format rather
+    than a hole, and both cases are tested.
 * **A file that was already in the simulation folder is no longer
   collected as a point's evidence.** **Breaking within 0.x**: a point
   whose declared outputs already exist when it starts is refused

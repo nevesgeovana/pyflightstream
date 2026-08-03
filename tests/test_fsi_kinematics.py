@@ -261,3 +261,41 @@ def test_write_fsidisp_names_several_bad_rows_and_stops_listing(tmp_path):
     message = str(caught.value)
     assert "and 21 more" in message, message
     assert " 7," not in message and not message.split("rows ")[1].startswith("7")
+
+
+# --- PYFS-009, the FSI half: a hole in a row used to shift every value -----
+
+
+@pytest.mark.parametrize(
+    ("line", "expected"),
+    [
+        ("1,2,3\n", [[1.0, 2.0, 3.0]]),
+        ("1,2,3,\n", [[1.0, 2.0, 3.0]]),  # the solver ends a data row with the separator
+    ],
+)
+def test_read_fsidisp_accepts_the_two_shapes_the_solver_writes(tmp_path, line, expected):
+    """The control, and the reason the fix is not "refuse every blank".
+
+    The trailing separator is the file format, not corruption. A fix that
+    refused it would break every real FSIDisp the solver has ever written,
+    which is how a guard gets deleted instead of fixed.
+    """
+    path = tmp_path / "FSIDisp.txt"
+    path.write_text(line, encoding="utf-8")
+    assert nodes.read_fsidisp(path).tolist() == expected
+
+
+@pytest.mark.parametrize("line", ["1,,2,3\n", "1,,3\n", ",2,3\n"])
+def test_read_fsidisp_refuses_an_interior_hole(tmp_path, line):
+    """The finding: `1,,2,3` parsed as the triple (1, 2, 3).
+
+    Empty cells were dropped BEFORE the count, so a four-field row with a
+    hole passed the three-field check with every value after the hole
+    promoted one slot left. The node then moved along the wrong axis, by a
+    displacement that was somebody else's, and the file was valid as far as
+    anything could tell.
+    """
+    path = tmp_path / "FSIDisp.txt"
+    path.write_text(line, encoding="utf-8")
+    with pytest.raises(ValueError, match="empty field|holds 4 values"):
+        nodes.read_fsidisp(path)

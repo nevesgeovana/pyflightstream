@@ -216,3 +216,121 @@ def test_every_registered_build_comes_from_a_committed_report(recwarn):
         f"version: {unevidenced}. A build number is solver evidence; record it from a "
         "report's solver_identity, never from memory (CLAUDE.md invariant 3)."
     )
+
+
+# --- PYFS-009: six ways a malformed export produced a plausible number -----
+#
+# Every one of these parsed clean before the fix, and every one produced a
+# NUMBER rather than an error, which is why none of them was ever noticed.
+
+
+def _steady() -> str:
+    return read_fixture("loads_steady_26.120.txt")
+
+
+def test_a_repeated_header_column_is_refused():
+    """It did not just confuse a column; it deleted one.
+
+    Measured: a header naming CL twice built the row dict with CL winning
+    twice, so `total` lost CDi ENTIRELY and CL held CDi's value. A drag
+    coefficient was published as a lift coefficient, with the right
+    magnitude for a drag number and no complaint anywhere.
+    """
+    doubled = _steady().replace("Surface, Cx, Cy, Cz, CL, CDi,", "Surface, Cx, Cy, Cz, CL, CL,")
+    with pytest.raises(ValueError, match="names CL more than once"):
+        parse_loads(doubled)
+
+
+def test_a_second_total_row_is_refused():
+    """Which total the run produced stops being determined by the file."""
+    text = _steady()
+    lines = text.splitlines(keepends=True)
+    total_line = next(line for line in lines if line.strip().lower().startswith("total"))
+    doubled = text.replace(total_line, total_line + total_line.replace("+0.0089000", "+9.9999999"))
+    with pytest.raises(ValueError, match="more than one Total row"):
+        parse_loads(doubled)
+
+
+def test_a_repeated_surface_name_is_refused():
+    """Same defect, the per-surface half: the later row replaced the earlier."""
+    text = _steady()
+    lines = text.splitlines(keepends=True)
+    surface_line = next(
+        line
+        for line in lines
+        if "," in line and not line.strip().lower().startswith(("total", "surface", "-"))
+    )
+    with pytest.raises(ValueError, match="more than once"):
+        parse_loads(text.replace(surface_line, surface_line + surface_line))
+
+
+def test_a_fractional_iteration_count_is_refused_rather_than_truncated():
+    """312.9 used to become 312, and 312 is a perfectly ordinary count."""
+    with pytest.raises(ValueError, match="not a whole number"):
+        parse_loads(_steady().replace("number:            312", "number:            312.9"))
+    with pytest.raises(ValueError, match="not a whole number"):
+        parse_loads(
+            _steady().replace("iterations                 500", "iterations                 500.5")
+        )
+
+
+@pytest.mark.parametrize("token", ["yes", "0", "banana", "TRUEISH", ""])
+def test_an_unrecognised_solver_flag_token_is_refused(token):
+    """Anything not starting with T used to read as OFF, silently.
+
+    A flag read wrongly as off is worse than an unreadable one: the run then
+    carries a setting it did not have, and PYFS-008's judgment now depends on
+    this exact flag.
+    """
+    text = _steady().replace("iterations           F", f"iterations           {token}")
+    with pytest.raises(ValueError, match="not one of the tokens"):
+        parse_loads(text)
+
+
+@pytest.mark.parametrize(("token", "expected"), [("T", True), ("F", False), ("true", True)])
+def test_the_documented_flag_tokens_still_parse(token, expected):
+    """The control: the refusal above is about unknown tokens, not all of them."""
+    text = _steady().replace("iterations           F", f"iterations           {token}")
+    assert parse_loads(text).forced_iterations is expected
+
+
+def test_the_real_fixture_still_parses():
+    """The control for the whole block.
+
+    Five refusals landed in one function. Without this, a mutation that
+    refused every loads file would leave all five green.
+    """
+    report = parse_loads(_steady())
+    assert report.current_iteration == 312
+    assert report.requested_iterations == 500
+    assert report.forced_iterations is False
+    assert set(report.total) == {"Cx", "Cy", "Cz", "CL", "CDi", "CDo", "CMx", "CMy", "CMz"}
+
+
+def test_a_residual_counter_that_repeats_or_decreases_is_refused():
+    """The convergence judgment reads the LAST row.
+
+    A history of [1, 2, 1574, 2] parsed clean, which is two logs
+    concatenated or a table that wrapped. The run would then be judged on a
+    residual belonging to an earlier iteration of a different solve, and the
+    number would look entirely reasonable.
+    """
+    real = read_fixture("log_residuals_26.120.txt")
+    assert [sample.iteration for sample in parse_residual_history(real)][:2] == [1, 2]
+
+    # The counter of the real log runs 1, 2, 1574. Rewrite the middle row's
+    # counter so the sequence repeats, then the last row's so it decreases.
+    for original, replacement in (("\n2 ", "\n1 "), ("\n1574 ", "\n2 ")):
+        broken = real.replace(original, replacement, 1)
+        assert broken != real, (original, replacement)
+        with pytest.raises(ValueError, match="does not increase"):
+            parse_residual_history(broken)
+
+
+def test_a_fractional_residual_iteration_is_refused():
+    """Same count rule, in the log table."""
+    real = read_fixture("log_residuals_26.120.txt")
+    fractional = real.replace("\n1574 ", "\n1574.5 ", 1)
+    assert fractional != real
+    with pytest.raises(ValueError, match="not a whole number"):
+        parse_residual_history(fractional)

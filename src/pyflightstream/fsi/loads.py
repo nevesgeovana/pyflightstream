@@ -453,11 +453,32 @@ def parse_sectional_loads(text: str) -> SectionalLoadsReport:
     rows = delimited_table(text, _TABLE_ANCHOR)
     parsed_rows: list[list[float]] = []
     for row in rows:
-        cells = [cell for cell in row if cell]
+        # PYFS-009, the sectional-loads half of the same defect as
+        # read_fsidisp. The old reading dropped EVERY empty cell before
+        # counting, which made the count check unfalsifiable by a hole:
+        # "a,,b,c" left three cells and passed as three columns, with every
+        # value after the hole shifted one column left. Sectional loads are
+        # read per blade station, so a shift puts a force under a moment's
+        # name and the structural solve gets a plausible wrong load.
+        #
+        # Exactly ONE trailing empty cell is dropped, and that is the file
+        # format rather than a concession: the solver terminates every data
+        # row with the separator (fixture
+        # FS_SurfaceSection_Loads_call0002.txt). Interior blanks are holes and
+        # are refused.
+        cells = list(row)
+        if cells and not cells[-1].strip():
+            cells.pop()
         if len(cells) != len(columns):
             raise ValueError(
                 f"a sectional loads row holds {len(cells)} values but the header "
                 f"names {len(columns)} columns; the table layout changed"
+            )
+        if not all(cell.strip() for cell in cells):
+            raise ValueError(
+                f"a sectional loads row has an empty field ({','.join(cells)!r}), so a "
+                "column is missing rather than zero. A blank used to be dropped before "
+                "the count, which shifted every value after it one column left"
             )
         parsed_rows.append([parse_number(cell) for cell in cells])
     if len(parsed_rows) != declared:

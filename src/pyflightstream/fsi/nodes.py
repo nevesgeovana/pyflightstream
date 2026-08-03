@@ -470,11 +470,30 @@ def read_fsidisp(path: str | Path, expected_rows: int | None = None) -> np.ndarr
     for line_number, line in enumerate(Path(path).read_text(encoding="utf-8").splitlines(), 1):
         if not line.strip():
             continue
-        cells = [cell.strip() for cell in line.split(",") if cell.strip()]
+        # PYFS-009. Dropping empty cells BEFORE counting them made the count
+        # check unfalsifiable by a hole: "1,,2,3" is four fields, the filter
+        # left three, and the row passed as a valid dx,dy,dz triple with the
+        # fourth value silently promoted into the third slot. Count the fields
+        # the file actually has, then require every one of them to carry a
+        # value.
+        cells = [cell.strip() for cell in line.split(",")]
+        # One trailing separator is tolerated for the same reason the
+        # sectional-loads reader tolerates it: it is how the solver ends a
+        # data row. An interior blank is a hole and falls through to the
+        # emptiness check below.
+        if len(cells) > 1 and not cells[-1]:
+            cells.pop()
         if len(cells) != 3:
             raise ValueError(
                 f"FSIDisp line {line_number} holds {len(cells)} values, expected "
                 "the dx,dy,dz triple of one node (RPT-005 finding 5)"
+            )
+        if not all(cells):
+            raise ValueError(
+                f"FSIDisp line {line_number} has an empty field ({line.strip()!r}), so "
+                "one of dx, dy, dz is missing rather than zero. A blank used to be "
+                "dropped before the count, which let the next value slide into the "
+                "empty slot and applied a displacement to the wrong axis"
             )
         rows.append([float(cell) for cell in cells])
     if expected_rows is not None and len(rows) != expected_rows:

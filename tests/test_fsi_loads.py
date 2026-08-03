@@ -232,3 +232,32 @@ def test_cross_check_totals_integrates_not_sums():
     # passing them as totals must fail loudly (the pilot's unit finding).
     with pytest.raises(ValueError, match="RPT-006"):
         cross_check_totals(blade, float(blade.fx_n_per_m.sum()), fz, rel_tol=0.05)
+
+
+# --- PYFS-009, the sectional-loads half of the same shift ------------------
+
+
+def test_sectional_loads_refuse_an_interior_hole():
+    """A blank column shifted every force and moment one name to the left.
+
+    Sectional loads are read per blade station and fed to the structural
+    solve, so a shift puts a force under a moment's name and the beam is
+    loaded with a number that is real, wrong, and the right order of
+    magnitude.
+    """
+    holed = CALL2.replace(" 0.2899E+00, 0.2544E+00,", " 0.2899E+00,, 0.2544E+00,", 1)
+    assert holed != CALL2
+    with pytest.raises(ValueError, match="empty field|holds 8 values"):
+        parse_sectional_loads(holed)
+
+
+def test_sectional_loads_still_read_the_solver_trailing_separator():
+    """The control: every real row ends with a comma, and that is the format.
+
+    Without it, a fix that refused every blank cell would refuse every file
+    the solver has ever written.
+    """
+    assert ", 0.7696E+01," in CALL2
+    report = parse_sectional_loads(CALL2)
+    assert report.count == 100
+    assert report.offset_m[0] == pytest.approx(0.2899)

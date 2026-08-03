@@ -123,6 +123,48 @@ def parse_number(token: str) -> float:
         ) from error
 
 
+def parse_count(token: str, label: str) -> int:
+    """Parse a solver-printed COUNT, refusing anything but a whole number.
+
+    Iteration numbers and limits are counts, and every one of them used
+    to be read as ``int(parse_number(token))``, which truncates: a
+    printed ``312.9`` became 312 and a run's iteration count silently
+    lost its fractional part instead of saying that the field it came
+    from is not a count at all (PYFS-009). Truncation is the wrong
+    failure here because the consequence is a plausible number: nothing
+    downstream can tell 312 from a real 312.
+
+    Parameters
+    ----------
+    token : str
+        The printed value.
+    label : str
+        The printed label, named in the error so the reader knows which
+        field of which export is malformed.
+
+    Returns
+    -------
+    int
+        The value, exactly.
+
+    Raises
+    ------
+    ValueError
+        If the token is not a number at all, or is a number with a
+        fractional part.
+    """
+    value = parse_number(token)
+    whole = int(value)
+    if value != whole:
+        raise ValueError(
+            f"{label} printed {token!r}, which is not a whole number. This field "
+            "counts iterations, so a fractional value means the export is "
+            "malformed or the label matched the wrong line; truncating it would "
+            "hand every reader downstream a count that looks ordinary"
+        )
+    return whole
+
+
 def delimited_table(text: str, header_anchor: str, delimiter: str | None = ",") -> list[list[str]]:
     """Read a table's data rows, from its header row to its terminator.
 
@@ -250,6 +292,36 @@ class LoadsReport:
         ]
 
 
+#: The tokens the solver prints for a boolean flag in an export footer,
+#: observed on 26.120 and 26.121. Enumerated rather than sniffed: the
+#: reading used to be ``token.upper().startswith("T")``, which mapped
+#: every unrecognised token to False in silence, so a footer printing
+#: "yes" or a label that matched the wrong line reported the flag OFF
+#: with the same confidence as a real F (PYFS-009). A flag read wrongly
+#: as off is worse than an unreadable one, because a run then carries a
+#: setting it did not have.
+_TRUE_TOKENS = frozenset({"T", "TRUE"})
+_FALSE_TOKENS = frozenset({"F", "FALSE"})
+
+
+def _parse_solver_flag(token: str | None, label: str) -> bool | None:
+    """Read a printed solver flag, or None when the footer omits it."""
+    if token is None:
+        return None
+    normalized = token.strip().upper()
+    if normalized in _TRUE_TOKENS:
+        return True
+    if normalized in _FALSE_TOKENS:
+        return False
+    raise ValueError(
+        f"{label} printed {token!r}, which is not one of the tokens the solver "
+        f"uses for this flag ({', '.join(sorted(_TRUE_TOKENS | _FALSE_TOKENS))}). "
+        "An unrecognised token used to read as off, so a run carried a setting it "
+        "did not have; if this is a real solver spelling, add it here with the "
+        "export that printed it"
+    )
+
+
 def parse_loads(text: str, requested_version: str | FsVersion | None = None) -> LoadsReport:
     """Parse one aerodynamic loads spreadsheet.
 
@@ -279,6 +351,18 @@ def parse_loads(text: str, requested_version: str | FsVersion | None = None) -> 
         )
     header_cells = labeled_value(text, "Surface,")
     columns = [cell.strip() for cell in header_cells.split(",") if cell.strip()]
+    # PYFS-009. A repeated column name used to build the row dict with the
+    # later value winning, so a header naming CL twice lost CDi ENTIRELY and
+    # published CDi's number under CL. Every coefficient downstream then read
+    # a plausible value from the wrong column, and nothing anywhere said so.
+    repeated = sorted({column for column in columns if columns.count(column) > 1})
+    if repeated:
+        raise ValueError(
+            f"the loads header names {', '.join(repeated)} more than once, so a row "
+            "cannot be read into one value per column: the later cell would win and "
+            "the column it displaced would vanish, leaving a report whose numbers "
+            "look ordinary and belong to different quantities"
+        )
     rows = delimited_table(text, "Surface,")
     surfaces: dict[str, dict[str, float]] = {}
     total: dict[str, float] | None = None
@@ -293,8 +377,25 @@ def parse_loads(text: str, requested_version: str | FsVersion | None = None) -> 
             column: parse_number(value) for column, value in zip(columns, values, strict=True)
         }
         if name.lower() == "total":
+            # PYFS-009. A second Total row used to overwrite the first in
+            # silence, so a concatenated or double-exported file published
+            # whichever total came last as though it were the only one.
+            if total is not None:
+                raise ValueError(
+                    "the loads table holds more than one Total row, so which total the "
+                    "run produced is not determined by the file. Two exports were "
+                    "concatenated, or the table was written twice; the second used to "
+                    "replace the first without a word"
+                )
             total = parsed
         else:
+            if name in surfaces:
+                raise ValueError(
+                    f"the loads table names the surface {name!r} more than once, so "
+                    "its coefficients are not determined by the file: the later row "
+                    "used to replace the earlier and the report carried one surface "
+                    "where the solver reported two"
+                )
             surfaces[name] = parsed
     if total is None:
         raise IncompleteOutputError(
@@ -309,14 +410,17 @@ def parse_loads(text: str, requested_version: str | FsVersion | None = None) -> 
         angle_of_attack_deg=parse_number(labeled_value(text, "Angle of attack (Deg)")),
         sideslip_deg=parse_number(labeled_value(text, "Side-slip angle (Deg)")),
         freestream_velocity_m_s=parse_number(labeled_value(text, "Freestream velocity (m/s)")),
-        requested_iterations=int(parse_number(labeled_value(text, "Requested solver iterations"))),
+        requested_iterations=parse_count(
+            labeled_value(text, "Requested solver iterations"), "Requested solver iterations"
+        ),
         convergence_limit=parse_number(labeled_value(text, "Solver convergence limit")),
         solver_mode=labeled_value(text, "Solver mode:"),
-        current_iteration=int(
-            parse_number(labeled_value(text, "Current solver iteration number:"))
+        current_iteration=parse_count(
+            labeled_value(text, "Current solver iteration number:"),
+            "Current solver iteration number",
         ),
         solver_model=_optional_labeled_value(text, "Solver model:"),
-        forced_iterations=None if forced is None else forced.upper().startswith("T"),
+        forced_iterations=_parse_solver_flag(forced, "Force solver to run all iterations"),
         reference_velocity_m_s=_optional_number(text, "Reference velocity (m/s)"),
         reference_length=_optional_number(text, "Reference length (m)"),
         reference_area=_optional_number(text, "Reference area (m^2)"),
@@ -457,9 +561,24 @@ def parse_residual_history(text: str) -> list[ResidualSample]:
                 f"residual row {row!r} holds fewer than three columns (iteration, "
                 "velocity residual, pressure residual); the log table layout changed"
             )
+        iteration = parse_count(row[0], "the residual table's iteration counter")
+        # PYFS-009. The counter was read and never checked, so a history of
+        # [1, 2, 1574, 2] parsed clean. That shape is two runs' logs
+        # concatenated, or a table that wrapped, and the CONVERGENCE JUDGMENT
+        # READS THE LAST ROW: the run would be judged on a residual belonging
+        # to an earlier iteration of a different solve. A monotonic counter is
+        # what makes "the last row" mean "the final state".
+        if history and iteration <= history[-1].iteration:
+            raise ValueError(
+                f"the residual table's iteration counter goes from "
+                f"{history[-1].iteration} to {iteration}, so it does not increase. "
+                "The final row is the convergence evidence of the run, and it is only "
+                "the final state if the counter orders the table; a repeat or a "
+                "decrease means two logs were concatenated or the table wrapped"
+            )
         history.append(
             ResidualSample(
-                iteration=int(parse_number(row[0])),
+                iteration=iteration,
                 velocity_residual=parse_number(row[1]),
                 pressure_residual=parse_number(row[2]),
             )
