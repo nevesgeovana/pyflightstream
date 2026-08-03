@@ -9,6 +9,30 @@ FlightStream versions.
 
 ### API surface delta
 
+* **A recorded run reconstructs from the manifest alone** (new
+  `run.reconstruct()` and `run.Reconstruction`; `RunRecord` gains
+  `manifest_schema`, `fs_exe`, `fs_exe_sha256`, `argv`, `cwd`,
+  `timeout_s`, `recipe`, `recipe_sha256` and `script_path`;
+  `ExecutionResult` gains `argv`, `cwd` and `timeout_s`). Additive.
+
+  NFR-07 promised that the record plus the staged inputs reproduce the
+  run. The record held 17 fields and none of them was the command line,
+  the working directory, the effective timeout, the executable, or the
+  identity of the recipe that built the script, so "reproduce" meant
+  re-deriving all of it from executor code that may have changed since.
+
+  `reconstruct()` returns the invocation, the script text, and a
+  per-artifact verdict on whether each file still hashes to what the
+  record says, with `faithful` as the summary. It refuses a record
+  written under a manifest schema it does not know, and one whose
+  script is gone, rather than rebuilding something that is not the run.
+
+  `recipe_sha256` is the one that needed a decision: a recipe is user
+  code resolved by a dotted name and editable between two runs that
+  record the same name, so the name says which function and the hash
+  says which version of it. A callable with no retrievable source
+  records None, because hashing the repr would make two identical runs
+  look different.
 * **An unconverged twist iterate is no longer flown.** **Breaking
   within 0.x**: the FSI driver raises the new `TwistIterationError`
   where it used to write the displacements.

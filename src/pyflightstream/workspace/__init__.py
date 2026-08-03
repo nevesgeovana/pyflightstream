@@ -74,6 +74,7 @@ __all__ = [
     "INPUT_KINDS",
     "CampaignWorkspace",
     "GroupsArtifact",
+    "MANIFEST_SCHEMA",
     "InputArtifactError",
     "NamingTemplate",
     "NamingTemplateError",
@@ -85,6 +86,14 @@ __all__ = [
     "SetupArtifact",
     "WorkspaceError",
 ]
+
+#: Layout identifier of a manifest record. Bumped when a field is
+#: removed or changes meaning, never for an addition: a reader written
+#: against "1" keeps working when a field it does not know appears, and
+#: must refuse when the value is one it has never seen. Recorded on
+#: every row rather than once per file, because a manifest accumulates
+#: rows across package versions (PYFS-015).
+MANIFEST_SCHEMA = "pyfs-manifest/1"
 
 _SIM_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
 _SIM_SUBDIRS = ("inputs", "scripts", "raw", "parsed")
@@ -166,6 +175,32 @@ class RunRecord(BaseModel):
     raw_flag : bool
         True when the script used the ``raw()`` escape hatch and its
         content bypassed database validation (FR-07).
+    manifest_schema : str
+        Identifier of the record layout this row was written under.
+        A reader that does not know the value should refuse rather than
+        guess which fields exist (PYFS-015).
+    fs_exe : str, optional
+        Solver executable the run invoked, as resolved.
+    fs_exe_sha256 : str, optional
+        Hash of that executable, so a later reader can tell whether the
+        same binary is still installed. None when it could not be read.
+    argv : list of str
+        The exact command line, argument by argument. Reproducing a run
+        from the record needs the flags, not a guess at how the
+        executor builds them.
+    cwd : str, optional
+        Working directory the solver process ran in.
+    timeout_s : float, optional
+        Wall-clock limit actually applied to the process.
+    recipe : str, optional
+        Recipe identifier as the case declared it.
+    recipe_sha256 : str, optional
+        Hash of the recipe function's source at run time. A recipe is
+        user code that can be edited between runs, so the name alone
+        does not identify what built the script; None when the source
+        is not introspectable.
+    script_path : str, optional
+        Generated script, relative to the simulation folder.
     outputs_sha256 : dict of str to str
         Hash per collected output, keyed by the same relative name that
         appears in ``outputs``. Empty for a point that collected
@@ -217,6 +252,15 @@ class RunRecord(BaseModel):
     package_version: str
     package_commit: str | None = None
     package_dirty: bool | None = None
+    manifest_schema: str = MANIFEST_SCHEMA
+    fs_exe: str | None = None
+    fs_exe_sha256: str | None = None
+    argv: list[str] = Field(default_factory=list)
+    cwd: str | None = None
+    timeout_s: float | None = None
+    recipe: str | None = None
+    recipe_sha256: str | None = None
+    script_path: str | None = None
     script_sha256: str
     inputs_sha256: dict[str, str] = Field(default_factory=dict)
     raw_flag: bool

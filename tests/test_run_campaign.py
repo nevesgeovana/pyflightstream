@@ -8,6 +8,7 @@ and manifest is exercised for real.
 """
 
 import hashlib
+import inspect
 import json
 import sys
 from pathlib import Path
@@ -21,12 +22,15 @@ from pyflightstream.run import (
     LoadsAssessor,
     LocalExecutor,
     PlanStatus,
+    _recipe_digest,
     package_vcs_state,
     plan_campaign,
+    reconstruct,
     run_campaign,
 )
 from pyflightstream.script import helpers
 from pyflightstream.workspace import (
+    MANIFEST_SCHEMA,
     CampaignWorkspace,
     NamingTemplate,
     RunRecord,
@@ -1145,3 +1149,141 @@ def test_the_vcs_pair_is_none_together_and_never_guesses(tmp_path, monkeypatch):
     # The control: with git back, the pair is populated again, so the test
     # above is about the failure path and not about a permanently empty cache.
     assert package_vcs_state()[0] is not None
+
+
+# --- PYFS-015: the record plus the staged inputs must reproduce the run ----
+
+
+def test_a_recorded_run_reconstructs_from_the_manifest_alone(tmp_path):
+    """The round trip the finding asks for.
+
+    RunRecord had 17 fields and none of them was the command line, the
+    working directory, the effective timeout, the executable, the recipe's
+    identity, or the script path. NFR-07 promised the record plus the staged
+    inputs reproduce the run, and "reproduce" meant re-deriving all of that
+    from executor code that may have changed since.
+    """
+    campaign = make_campaign(tmp_path, alphas=(0.0,))
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    records = run_campaign(
+        campaign,
+        StubSolver(WRITES_LOADS),
+        workspace,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+    )
+    record = records[0]
+    assert record.manifest_schema == MANIFEST_SCHEMA
+    assert record.argv and record.argv[0] == sys.executable
+    assert record.cwd == str(workspace.sim_dir("9001"))
+    assert record.recipe == "steady"
+    assert (
+        record.recipe_sha256
+        == hashlib.sha256(inspect.getsource(steady_recipe).encode("utf-8")).hexdigest()
+    )
+    assert record.script_path == "scripts/a+00.0.txt"
+    assert record.fs_exe == sys.executable
+    assert record.fs_exe_sha256
+
+    # The round trip: read the manifest back from disk and rebuild.
+    reloaded = workspace.read_manifest()[0]
+    rebuilt = reconstruct(reloaded, workspace)
+    assert rebuilt.argv == tuple(record.argv)
+    assert rebuilt.cwd == record.cwd
+    assert rebuilt.timeout_s == record.timeout_s
+    assert "EXPORT_SOLVER_ANALYSIS_SPREADSHEET" in rebuilt.script_text
+    assert rebuilt.faithful, rebuilt.verified
+    # Everything the record hashed is checked, not just the script.
+    assert "scripts/a+00.0.txt" in rebuilt.verified
+    assert "inputs/wing.fsm" in rebuilt.verified
+    assert "raw/loads_a+00.0.txt" in rebuilt.verified
+
+
+def test_reconstruction_says_so_when_an_artifact_changed(tmp_path):
+    """`faithful` is the point: a changed file must not pass unnoticed.
+
+    Without this the helper would hand back an invocation and a script that
+    look authoritative while the evidence beside them had moved.
+    """
+    campaign = make_campaign(tmp_path, alphas=(0.0,))
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    run_campaign(
+        campaign,
+        StubSolver(WRITES_LOADS),
+        workspace,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+    )
+    record = workspace.read_manifest()[0]
+    assert reconstruct(record, workspace).faithful
+
+    edited = workspace.sim_dir("9001") / record.outputs[0]
+    edited.write_text("TAMPERED", encoding="utf-8")
+    rebuilt = reconstruct(record, workspace)
+    assert not rebuilt.faithful
+    assert rebuilt.verified[record.outputs[0]] is False
+    # Only the edited artifact is reported changed.
+    assert rebuilt.verified[record.script_path] is True
+
+    # Each artifact class is checked SEPARATELY, and this half is here
+    # because a mutation proved it was not: replacing the script's own
+    # hash check with True left every assertion above green, since they
+    # only ever tampered with an output. A per-class guard needs a
+    # per-class witness.
+    script = workspace.sim_dir("9001") / record.script_path
+    script.write_text("STOP\n", encoding="utf-8")
+    after_script = reconstruct(record, workspace)
+    assert after_script.verified[record.script_path] is False
+
+    staged = workspace.sim_dir("9001") / "inputs" / "wing.fsm"
+    staged.write_bytes(b"REPLACED")
+    after_input = reconstruct(record, workspace)
+    assert after_input.verified["inputs/wing.fsm"] is False
+
+
+def test_reconstruction_refuses_an_unknown_manifest_schema(tmp_path):
+    """Guessing which fields exist would rebuild a run that never happened."""
+    campaign = make_campaign(tmp_path, alphas=(0.0,))
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    run_campaign(
+        campaign,
+        StubSolver(WRITES_LOADS),
+        workspace,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+    )
+    record = workspace.read_manifest()[0]
+    future = record.model_copy(update={"manifest_schema": "pyfs-manifest/99"})
+    with pytest.raises(WorkspaceError, match="manifest schema"):
+        reconstruct(future, workspace)
+    # The control: the known schema still reconstructs, so the refusal is
+    # about the value and not about the check being unconditional.
+    assert reconstruct(record, workspace).faithful
+
+
+def test_reconstruction_refuses_a_record_whose_script_is_gone(tmp_path):
+    """An archived or cleaned sim cannot be reconstructed, and says so."""
+    campaign = make_campaign(tmp_path, alphas=(0.0,))
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    run_campaign(
+        campaign,
+        StubSolver(WRITES_LOADS),
+        workspace,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+    )
+    record = workspace.read_manifest()[0]
+    (workspace.sim_dir("9001") / record.script_path).unlink()
+    with pytest.raises(WorkspaceError, match="is not at"):
+        reconstruct(record, workspace)
+
+
+def test_a_recipe_without_retrievable_source_records_no_hash(tmp_path):
+    """None is honest where a lambda or a REPL function has no source.
+
+    The alternative is hashing the repr, which changes with the memory
+    address and would make two identical runs look different.
+    """
+    assert _recipe_digest(None) is None
+    assert _recipe_digest(steady_recipe) is not None
+    assert _recipe_digest(len) is None  # C-implemented, no source

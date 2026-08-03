@@ -37,6 +37,8 @@ the solver outputs, so :func:`run_campaign` takes an
 from __future__ import annotations
 
 import enum
+import hashlib
+import inspect
 import json
 import math
 import re
@@ -69,6 +71,7 @@ from pyflightstream.results import (
 from pyflightstream.script import Script
 from pyflightstream.versions import FsVersion, resolve
 from pyflightstream.workspace import (
+    MANIFEST_SCHEMA,
     CampaignWorkspace,
     NamingTemplateError,
     RunRecord,
@@ -111,6 +114,16 @@ class ExecutionResult:
         Captured standard output of the process.
     stderr : str
         Captured standard error of the process.
+    argv : tuple of str
+        The exact command line the executor ran, argument by argument.
+        Empty for an executor that does not report one; recorded so a
+        run can be reproduced without re-deriving the flags from the
+        executor's code (PYFS-015).
+    cwd : str, optional
+        Working directory the process ran in.
+    timeout_s : float, optional
+        The wall-clock limit actually applied, which is the case's
+        limit resolved rather than the default a reader would assume.
     """
 
     return_code: int | None
@@ -119,6 +132,9 @@ class ExecutionResult:
     log_text: str | None
     stdout: str
     stderr: str
+    argv: tuple[str, ...] = ()
+    cwd: str | None = None
+    timeout_s: float | None = None
 
     @property
     def failed(self) -> bool:
@@ -199,6 +215,11 @@ class LocalExecutor:
             the campaign loop decides the manifest status.
         """
         argv = self._argv(script_path)
+        invocation = {
+            "argv": tuple(argv),
+            "cwd": str(working_dir),
+            "timeout_s": timeout_s,
+        }
         start = time.perf_counter()
         timed_out = False
         return_code: int | None = None
@@ -232,6 +253,7 @@ class LocalExecutor:
             log_text=log_text,
             stdout=stdout,
             stderr=stderr,
+            **invocation,
         )
 
 
@@ -560,6 +582,149 @@ class CampaignErrors(PyflightstreamError, RuntimeError):  # noqa: N818 (the SAD 
             f"{len(failures)} campaign point(s) failed; every point is recorded in "
             f"the manifest:\n{lines}"
         )
+
+
+def _file_digest(path: str | Path) -> str | None:
+    """Hash a file, or None when it cannot be read.
+
+    None rather than a raise: a missing or unreadable solver executable
+    is the executor's problem to report, and a provenance field must
+    never be the thing that fails a run.
+    """
+    digest = hashlib.sha256()
+    try:
+        with open(path, "rb") as handle:
+            for block in iter(lambda: handle.read(65536), b""):
+                digest.update(block)
+    except OSError:
+        return None
+    return digest.hexdigest()
+
+
+def _recipe_digest(recipe: ScriptRecipe | None) -> str | None:
+    """Hash the recipe function's source, or None when not introspectable.
+
+    A recipe is USER CODE resolved by a dotted name, and it can be
+    edited between two runs that record the same name. The name says
+    which function; this says which version of it (PYFS-015). A lambda,
+    a C-implemented callable or a function defined in a REPL has no
+    retrievable source, and None there is honest.
+    """
+    if recipe is None:
+        return None
+    try:
+        source = inspect.getsource(recipe)
+    except (OSError, TypeError):
+        return None
+    return hashlib.sha256(source.encode("utf-8")).hexdigest()
+
+
+@dataclass(frozen=True)
+class Reconstruction:
+    """Everything needed to re-run one recorded point (PYFS-015, NFR-07).
+
+    Built by :func:`reconstruct` from a manifest record and the
+    workspace it names. Every field is what the run ACTUALLY used, read
+    back from the record rather than re-derived from today's code.
+
+    Attributes
+    ----------
+    argv : tuple of str
+        The command line, argument by argument.
+    cwd : str
+        Working directory the process ran in.
+    timeout_s : float or None
+        Wall-clock limit that was applied.
+    script_text : str
+        Text of the generated script, read from the workspace.
+    verified : dict of str to bool
+        One entry per artifact whose recorded hash was checked against
+        the file on disk today: the script, each staged input, each
+        collected output, and the solver executable. False means the
+        file changed since the run, which is exactly what a
+        reconstruction needs to say out loud rather than discover
+        halfway through.
+    """
+
+    argv: tuple[str, ...]
+    cwd: str
+    timeout_s: float | None
+    script_text: str
+    verified: dict[str, bool]
+
+    @property
+    def faithful(self) -> bool:
+        """Whether every checked artifact still matches its recorded hash."""
+        return all(self.verified.values())
+
+
+def reconstruct(record: RunRecord, workspace: CampaignWorkspace) -> Reconstruction:
+    """Rebuild one recorded run's invocation from the manifest.
+
+    The promise of NFR-07 is that the record plus the staged inputs
+    reproduce the run. Until PYFS-015 the record held neither the
+    command line, nor the working directory, nor the effective timeout,
+    so "reproduce" meant re-deriving all three from executor code that
+    may have changed in between. This reads them back instead.
+
+    Parameters
+    ----------
+    record : RunRecord
+        A manifest row, as :meth:`CampaignWorkspace.read_manifest`
+        returns it.
+    workspace : CampaignWorkspace
+        The workspace the record belongs to.
+
+    Returns
+    -------
+    Reconstruction
+        The invocation, the script text, and a per-artifact verdict on
+        whether the files still hash to what the record says.
+
+    Raises
+    ------
+    WorkspaceError
+        If the record was written under a manifest schema this version
+        does not know, or carries no script path, or the script is not
+        where it says. Refusing beats reconstructing something that is
+        not the run.
+    """
+    if record.manifest_schema != MANIFEST_SCHEMA:
+        raise WorkspaceError(
+            f"run {record.run_id!r} was written under manifest schema "
+            f"{record.manifest_schema!r} and this version knows "
+            f"{MANIFEST_SCHEMA!r}. Which fields exist, and what they mean, is "
+            "what the schema names; guessing would reconstruct a run that never "
+            "happened. Use the pyflightstream version that wrote the manifest."
+        )
+    sim = workspace.sim_dir(record.sim_id)
+    if not record.script_path:
+        raise WorkspaceError(
+            f"run {record.run_id!r} records no script path, so its script cannot "
+            "be found. Records written before v0.4.0 predate the field; the run "
+            "is not reconstructable from the manifest alone."
+        )
+    script = sim / record.script_path
+    if not script.is_file():
+        raise WorkspaceError(
+            f"the script of run {record.run_id!r} is not at {script}. The record "
+            "names it, so the simulation folder was archived, cleaned or edited; "
+            "restore it before reconstructing."
+        )
+    verified = {record.script_path: _file_digest(script) == record.script_sha256}
+    for name, digest in record.inputs_sha256.items():
+        verified[f"inputs/{name}"] = _file_digest(sim / "inputs" / name) == digest
+    for name, digest in record.outputs_sha256.items():
+        verified[name] = _file_digest(sim / name) == digest
+    if record.fs_exe and record.fs_exe_sha256:
+        verified[record.fs_exe] = _file_digest(record.fs_exe) == record.fs_exe_sha256
+    return Reconstruction(
+        argv=tuple(record.argv),
+        cwd=record.cwd or str(sim),
+        timeout_s=record.timeout_s,
+        script_text=script.read_text(encoding="utf-8"),
+        verified=verified,
+    )
 
 
 @lru_cache(maxsize=1)
@@ -1321,6 +1486,10 @@ def _execute_point(
         "package_version": pyflightstream.__version__,
         "package_commit": package_commit,
         "package_dirty": package_dirty,
+        "recipe": case.recipe,
+        "recipe_sha256": _recipe_digest(recipe),
+        "fs_exe": str(campaign.fs_exe),
+        "fs_exe_sha256": _file_digest(campaign.fs_exe),
         "inputs_sha256": inputs_sha256,
         "script_sha256": "",
         "raw_flag": False,
@@ -1355,6 +1524,7 @@ def _execute_point(
         base["solver_setup"] = setup.model_dump(mode="json")
     script_path, script_sha = workspace.write_script(case.sim_id, f"{stem}.txt", script.render())
     base["script_sha256"] = script_sha
+    base["script_path"] = str(Path(script_path).relative_to(sim_dir).as_posix())
     base["raw_flag"] = script.raw_flag
     # FR-48: a recipe may waive a command the database records broken.
     # The waiver is the recipe's, so the record of it belongs with the
@@ -1393,6 +1563,13 @@ def _execute_point(
         )
 
     result = executor.run_script(script_path, working_dir=sim_dir, timeout_s=case.solver.timeout_s)
+    # PYFS-015. The invocation is the half of a run that lived only in the
+    # executor's code: which flags, which directory, which effective
+    # timeout. Reproducing a run from its record used to mean re-deriving
+    # all three from a class that may have changed since.
+    base["argv"] = list(result.argv)
+    base["cwd"] = result.cwd
+    base["timeout_s"] = result.timeout_s
     if result.failed:
         if result.timed_out:
             error = f"timed out after {result.wall_time_s:.1f} s and was killed"
