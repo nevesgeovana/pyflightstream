@@ -9,6 +9,21 @@ FlightStream versions.
 
 ### API surface delta
 
+* **`RunRecord` records which commit of this package ran**
+  (`package_commit`, `package_dirty`), from the new public
+  `run.package_vcs_state()`. Additive.
+
+  `package_version` reads the installed distribution's metadata, a
+  static string, so every commit between two tags reports the earlier
+  tag: measured at 28 commits and 85 files past `v0.3.0` with every
+  identity still `0.3.0`. A campaign run from a development tree was
+  indistinguishable, in its own manifest, from one run against the
+  release. Both fields are None together for a wheel install, and None
+  means "not knowable here" rather than "clean".
+
+  The rest of that finding is a versioning-scheme change (a dev version
+  carrying the sha, and a guard refusing a final version string off a
+  tag). It is release mechanics and is registered, not taken here.
 * **Six ways a malformed solver export produced a plausible number are
   refused.** **Breaking within 0.x** for a file with any of them; every
   one used to parse clean and return a number, which is why none was

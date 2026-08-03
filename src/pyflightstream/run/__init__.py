@@ -46,6 +46,7 @@ import tempfile
 import time
 import warnings
 from dataclasses import asdict, dataclass, field
+from functools import lru_cache
 from pathlib import Path
 from typing import Protocol
 
@@ -559,6 +560,66 @@ class CampaignErrors(PyflightstreamError, RuntimeError):  # noqa: N818 (the SAD 
             f"{len(failures)} campaign point(s) failed; every point is recorded in "
             f"the manifest:\n{lines}"
         )
+
+
+@lru_cache(maxsize=1)
+def package_vcs_state() -> tuple[str | None, bool | None]:
+    """Return the commit this package's code came from, and whether it is dirty.
+
+    PYFS-017. ``package_version`` reads the installed distribution's
+    metadata, which is a static string in ``pyproject.toml``: at the
+    time the review measured it, 28 commits and 85 files past the
+    ``v0.3.0`` tag, every run still recorded ``0.3.0``. A campaign run
+    from a development tree was therefore indistinguishable, in its own
+    manifest, from one run against the release.
+
+    Two of the three clauses that finding asks for are a versioning
+    scheme change (a dev version carrying the sha, and a guard refusing
+    a final version string off a tag), which is a release-mechanics
+    decision for the author and is registered rather than taken. This
+    is the third: the manifest says which commit ran and whether the
+    tree was clean, which is the part that needs no decision because it
+    adds evidence without changing what anything claims.
+
+    Returns
+    -------
+    tuple of (str or None, bool or None)
+        Commit sha and dirty flag, or ``(None, None)`` when the package
+        did not come from a git work tree. Both are None together, and
+        None means "not knowable here" rather than "clean": a wheel
+        install has no repository to ask, and inventing an answer is
+        the failure this pair exists to prevent.
+
+    Notes
+    -----
+    The package directory must be TRACKED, not merely inside a work
+    tree. A wheel installed into a virtualenv that happens to sit
+    inside the repository is not this repository's code, and reporting
+    the repository's HEAD for it would be a confident wrong answer.
+    """
+    package_dir = Path(pyflightstream.__file__).resolve().parent
+
+    def git(*args: str) -> str | None:
+        try:
+            result = subprocess.run(
+                ["git", *args],
+                cwd=package_dir,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=15,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return None
+        return result.stdout.strip() if result.returncode == 0 else None
+
+    if git("ls-files", "--error-unmatch", "__init__.py") is None:
+        return None, None
+    commit = git("rev-parse", "HEAD")
+    if commit is None:
+        return None, None
+    status = git("status", "--porcelain")
+    return commit, None if status is None else bool(status)
 
 
 _IDENTITY_MARKER = "PYFS_PREFLIGHT"
@@ -1251,12 +1312,15 @@ def _execute_point(
     assess: OutcomeAssessor,
 ) -> RunRecord:
     """Take one point from sweep coordinates to its manifest record."""
+    package_commit, package_dirty = package_vcs_state()
     base = {
         "run_id": run_id,
         "sim_id": case.sim_id,
         "point": dict(point),
         "fs_version_requested": canonical,
         "package_version": pyflightstream.__version__,
+        "package_commit": package_commit,
+        "package_dirty": package_dirty,
         "inputs_sha256": inputs_sha256,
         "script_sha256": "",
         "raw_flag": False,

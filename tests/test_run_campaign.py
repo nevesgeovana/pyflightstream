@@ -21,6 +21,7 @@ from pyflightstream.run import (
     LoadsAssessor,
     LocalExecutor,
     PlanStatus,
+    package_vcs_state,
     plan_campaign,
     run_campaign,
 )
@@ -1086,3 +1087,61 @@ def test_the_manifest_records_a_hash_per_collected_output(tmp_path):
         hashlib.sha256(edited.read_bytes()).hexdigest()
         != workspace.read_manifest()[0].outputs_sha256[records[0].outputs[0]]
     )
+
+
+# --- PYFS-017, the manifest half: which code actually ran ------------------
+
+
+def test_the_manifest_records_the_package_commit_and_dirty_state(tmp_path):
+    """`package_version` cannot tell two commits of one tag apart.
+
+    Measured by the review at 28 commits and 85 files past `v0.3.0`, every
+    identity still reporting `0.3.0`. A campaign run from a development tree
+    was indistinguishable, in its own manifest, from one run against the
+    release.
+    """
+    campaign = make_campaign(tmp_path, alphas=(0.0,))
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    records = run_campaign(
+        campaign,
+        StubSolver(WRITES_LOADS),
+        workspace,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+    )
+    commit, dirty = package_vcs_state()
+    record = records[0]
+    assert record.package_commit == commit
+    assert record.package_dirty is dirty
+    # This suite runs from a tracked work tree, so the pair is knowable here.
+    # If that ever stops being true the assertion below says so rather than
+    # letting the test pass over two Nones and prove nothing.
+    assert commit is not None, (
+        "the test suite is not running from a tracked work tree, so this guard "
+        "cannot see whether the commit is recorded"
+    )
+    assert len(commit) == 40
+    assert isinstance(dirty, bool)
+    assert workspace.read_manifest()[0].package_commit == commit
+
+
+def test_the_vcs_pair_is_none_together_and_never_guesses(tmp_path, monkeypatch):
+    """None means "not knowable", never "clean".
+
+    A wheel install has no repository to ask. Reporting a clean tree there
+    would be a confident wrong answer, and the pair is what a later reader
+    uses to decide whether a run is reproducible at all.
+    """
+    package_vcs_state.cache_clear()
+    monkeypatch.setattr(
+        "pyflightstream.run.subprocess.run",
+        lambda *args, **kwargs: (_ for _ in ()).throw(OSError("no git here")),
+    )
+    try:
+        assert package_vcs_state() == (None, None)
+    finally:
+        monkeypatch.undo()
+        package_vcs_state.cache_clear()
+    # The control: with git back, the pair is populated again, so the test
+    # above is about the failure path and not about a permanently empty cache.
+    assert package_vcs_state()[0] is not None

@@ -147,7 +147,18 @@ class RunRecord(BaseModel):
     fs_build : str, optional
         Build string reported by the solver, when available.
     package_version : str
-        pyflightstream version that produced the run.
+        pyflightstream version that produced the run. Read from the
+        installed distribution's metadata, which is a static string, so
+        every commit between two tags reports the tag: use
+        ``package_commit`` to tell them apart.
+    package_commit : str, optional
+        Git commit the package's code came from, when it came from a
+        tracked work tree; None for a wheel install, where there is no
+        repository to ask (PYFS-017).
+    package_dirty : bool, optional
+        Whether that work tree had uncommitted changes. None travels
+        with a None ``package_commit`` and means "not knowable here",
+        never "clean".
     script_sha256 : str
         Hash of the executed script text.
     inputs_sha256 : dict of str to str
@@ -204,6 +215,8 @@ class RunRecord(BaseModel):
     fs_version_reported: str | None = None
     fs_build: str | None = None
     package_version: str
+    package_commit: str | None = None
+    package_dirty: bool | None = None
     script_sha256: str
     inputs_sha256: dict[str, str] = Field(default_factory=dict)
     raw_flag: bool
