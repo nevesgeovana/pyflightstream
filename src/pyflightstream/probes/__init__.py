@@ -93,7 +93,15 @@ class ProbeLattice(BaseModel):
         ``lateral_radius`` is None.
     """
 
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    # REV010-005. allow_inf_nan=False is not redundant with the comparisons
+    # in the validator below, it is what makes them work: every one of them
+    # is an inequality, and every inequality against NaN is False, so a NaN
+    # tip radius, station or ring edge passed each check by failing to be
+    # caught by it. The same reasoning already closed the scalar half of
+    # PYFS-012 in FsiConfig; the survey geometry was the sibling nobody
+    # re-read. Non-physical probe placement has no honest place to be
+    # attributed later: the quadrature simply returns NaN.
+    model_config = ConfigDict(extra="forbid", frozen=True, allow_inf_nan=False)
 
     tip_radius: float
     stations: tuple[float, ...]
@@ -125,6 +133,20 @@ class ProbeLattice(BaseModel):
                 "up to order 1 without aliasing, plus margin for the distortion "
                 "content downstream surfaces see"
             )
+        # REV010-005. The lateral cylinder had no domain check at all, so a
+        # negative closure radius validated: r/R < 0 is not a cylinder on
+        # the other side, it is a sign error that the quadrature integrates
+        # as though it were geometry.
+        if self.lateral_radius is not None and self.lateral_radius <= 0.0:
+            raise ValueError(
+                "lateral_radius must be positive: it is the radius r/R of the "
+                "lateral closure cylinder, and a non-positive value is a sign "
+                "error rather than a cylinder on the other side of the axis"
+            )
+        if any(
+            b <= a for a, b in zip(self.lateral_stations, self.lateral_stations[1:], strict=False)
+        ):
+            raise ValueError("lateral_stations must be strictly increasing in x/R")
         if (self.lateral_radius is None) != (len(self.lateral_stations) == 0):
             raise ValueError(
                 "lateral_radius and lateral_stations come together: the lateral "

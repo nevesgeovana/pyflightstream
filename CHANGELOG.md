@@ -9,6 +9,28 @@ FlightStream versions.
 
 ### API surface delta
 
+* **Non-finite values are refused at the choke points that emit and
+  place geometry** (REV010-004, REV010-005, REV010-012). **Breaking**
+  for code that passed NaN or an infinity into any of the three.
+
+  `Script.emit` type checked a FLOAT and NaN *is* a float, so
+  `emit("SOLVER_SET_CONVERGENCE", math.nan)` rendered
+  `SOLVER_SET_CONVERGENCE nan`. `SolverSettings` guards finiteness one
+  layer up; `emit` is a documented public interface that goes past it.
+  Scalars and every element of a FLOAT_LIST are checked now.
+
+  `ProbeLattice` gains `allow_inf_nan=False`, which is not redundant
+  with its validator but what makes it work: every check there is an
+  inequality and every inequality against NaN is False, so a NaN tip
+  radius, station or ring edge passed by not being caught. The lateral
+  closure cylinder gains the domain checks it never had, a positive
+  radius and strictly increasing stations.
+
+  `campbell_sweep` built each point with `model_copy(update=...)`,
+  which assigns without validating, so a negative or non-finite Omega
+  reached the modal solve although `FsiConfig` refuses both at
+  construction. Each sweep point is validated through that same model
+  now, before the first solve rather than after two of them.
 * **A result is now bound to the operating point it claims**
   (REV010-001; independent review REV-010 of commit `4beb710`).
   **Breaking**: a collected export whose printed conditions disagree

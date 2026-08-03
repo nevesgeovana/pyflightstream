@@ -51,6 +51,7 @@ helper layer in :mod:`pyflightstream.script.helpers` (SAD Section
 
 from __future__ import annotations
 
+import math
 import os
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Literal
@@ -335,6 +336,33 @@ def _type_error(entry: CommandEntry, spec: ArgSpec, expected: str, value: object
     )
 
 
+def _reject_non_finite(entry: CommandEntry, spec: ArgSpec, value: float) -> None:
+    """Refuse NaN and the infinities in a solver argument.
+
+    REV010-004. Type checking a FLOAT accepted ``math.nan`` because NaN
+    IS a float, and rendering is ``str(value)``, so
+    ``Script("26.121").emit("SOLVER_SET_CONVERGENCE", math.nan)``
+    produced the line ``SOLVER_SET_CONVERGENCE nan``. The higher-level
+    :class:`SolverSettings` helpers guard finiteness, but ``emit`` is a
+    documented public interface and goes straight past them, which is
+    the shape REV-010 names: a guard at one layer and the same
+    invariant false at the layer below it.
+
+    There is no honest value for the solver to make of ``nan``: it is
+    rejected late, ignored, or absorbed into solver state, and none of
+    those three is distinguishable afterwards from a run that was
+    simply configured differently.
+    """
+    if math.isnan(value) or math.isinf(value):
+        raise CommandArgumentError(
+            f"{entry.name}: argument {spec.name!r} is {value!r}, which is not a "
+            "finite number. A solver argument is a physical quantity or a "
+            "numerical control, and neither has a NaN or an infinite value; "
+            "emitting it would put the token into the script for FlightStream "
+            f"to reject late, ignore, or absorb silently ({entry.manual_ref})"
+        )
+
+
 def _match_enum(entry: CommandEntry, spec: ArgSpec, value: object) -> str:
     if isinstance(value, str):
         for member in spec.values:
@@ -352,6 +380,7 @@ def _check_scalar(entry: CommandEntry, spec: ArgSpec, value: object) -> object:
     if spec.type is ArgType.FLOAT:
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             _type_error(entry, spec, "a real number", value)
+        _reject_non_finite(entry, spec, float(value))
         return value
     if spec.type is ArgType.PATH:
         if not isinstance(value, (str, os.PathLike)):
@@ -389,6 +418,9 @@ def _check_list(entry: CommandEntry, spec: ArgSpec, value: object) -> list:
         for item in items:
             if isinstance(item, bool) or not isinstance(item, (int, float)):
                 _type_error(entry, spec, "a sequence of real numbers", value)
+            # Per element, not per sequence: one NaN among finite neighbours
+            # is the case that reads as ordinary in the emitted line.
+            _reject_non_finite(entry, spec, float(item))
         return items
     if spec.type is ArgType.STR_LIST:
         for item in items:

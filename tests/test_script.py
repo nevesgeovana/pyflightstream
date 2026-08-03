@@ -11,6 +11,7 @@ from pyflightstream.script import (
     Script,
     ScriptLineBreakError,
     ScriptOrderError,
+    _check_list,
 )
 from pyflightstream.versions import known_versions
 
@@ -707,3 +708,67 @@ def test_a_waiver_for_a_command_that_is_not_broken_here_records_nothing():
     script.emit("AIR_ALTITUDE", 5000.0, "METERS")
     assert script.render().splitlines() == ["AIR_ALTITUDE 5000.0 METERS"]
     assert script.broken_commands == ()
+
+
+# --- REV010-004: emit() type checked a FLOAT and NaN IS a float ------------
+#
+# Rendering is str(value), so the review's reproduction,
+# Script("26.121").emit("SOLVER_SET_CONVERGENCE", math.nan), produced the
+# line "SOLVER_SET_CONVERGENCE nan". SolverSettings guards finiteness at the
+# layer above; emit is a documented public interface and goes past it.
+
+_NON_FINITE = (float("nan"), float("inf"), float("-inf"))
+
+
+@pytest.mark.parametrize("bad", _NON_FINITE)
+def test_a_non_finite_float_argument_is_refused_at_emission(bad):
+    script = Script("26.121")
+    with pytest.raises(CommandArgumentError, match="not a finite number"):
+        script.emit("SOLVER_SET_CONVERGENCE", bad)
+    # And nothing reached the script: a refusal that still emitted would be
+    # worse than no refusal, because the line would carry a reason for it.
+    assert "nan" not in script.render().lower()
+    assert "inf" not in script.render().lower()
+
+
+@pytest.mark.parametrize("bad", _NON_FINITE)
+def test_one_non_finite_element_of_a_float_list_is_refused(bad):
+    """Per element: one NaN among finite neighbours is the case that reads
+    as ordinary in the emitted line.
+
+    Driven through the list validator with a REAL entry and a REAL spec
+    taken from the command database, rather than through ``emit`` on a
+    guessed argument order: the only FLOAT_LIST command in the registry
+    takes an enum first, and a test that fought that would be testing
+    argument dispatch instead of the finiteness rule.
+    """
+    entry, spec = _first_float_list_spec()
+    assert spec is not None, "the registry has no FLOAT_LIST argument to drive"
+    with pytest.raises(CommandArgumentError, match="not a finite number"):
+        _check_list(entry, spec, [1.0, bad, 2.0])
+
+
+def test_a_finite_float_list_passes_the_same_validator():
+    """The control for the parametrized refusal above."""
+    entry, spec = _first_float_list_spec()
+    assert _check_list(entry, spec, [1.0, 2.0]) == [1.0, 2.0]
+
+
+def _first_float_list_spec():
+    """Return a real (entry, spec) pair with a FLOAT_LIST argument."""
+    from pyflightstream.commands import ArgType
+
+    for _, entry in sorted(CommandRegistry.load().commands.items()):
+        for spec in entry.args:
+            if spec.type is ArgType.FLOAT_LIST:
+                return entry, spec
+    return None, None
+
+
+def test_a_finite_float_still_emits():
+    """The control. Without it the refusals above would pass on a validator
+    that rejected every float."""
+    script = Script("26.121")
+    script.emit("SOLVER_SET_CONVERGENCE", 1e-5)
+    assert "SOLVER_SET_CONVERGENCE" in script.render()
+    assert "1e-05" in script.render() or "0.00001" in script.render()

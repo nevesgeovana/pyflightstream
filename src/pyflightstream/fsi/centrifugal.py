@@ -385,7 +385,15 @@ def campbell_sweep(
     """
     results = []
     for omega in omegas_rad_per_s:
-        point = cfg.model_copy(update={"omega_rad_per_s": float(omega)})
+        # REV010-012. This was model_copy(update=...), which assigns without
+        # validating: FsiConfig refuses a negative or non-finite Omega at
+        # construction, and the sweep walked straight past that guarantee.
+        # A NaN and a -2.0 rad/s both reached the modal solve, and a negative
+        # Omega is not merely out of range but internally inconsistent, since
+        # some terms use Omega squared while other branches require Omega
+        # greater than zero. Validating each point through the model the
+        # function already accepts costs one dict round trip.
+        point = FsiConfig.model_validate({**cfg.model_dump(), "omega_rad_per_s": float(omega)})
         results.append(rotating_frequencies(point, n_modes=n_modes))
     return CampbellData(
         omegas_rad_per_s=tuple(float(w) for w in omegas_rad_per_s),

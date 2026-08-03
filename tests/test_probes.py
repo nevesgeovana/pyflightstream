@@ -122,3 +122,73 @@ def test_probe_csv_follows_the_documented_import_format(tmp_path):
     emit_probe_import(script, path, units="METER", frame=1)
     rendered = script.render()
     assert "PROBE_POINTS_IMPORT\nUNITS METER\nFRAME 1\n" in rendered
+
+
+# --- REV010-005: every domain check here is an inequality ------------------
+#
+# And every inequality against NaN is False, so a NaN tip radius, station or
+# ring edge passed each check by failing to be caught by it. The lateral
+# closure cylinder had no domain check at all. Non-physical survey geometry
+# has no honest place to be attributed later: the quadrature returns NaN and
+# nothing says where it came from.
+
+_NON_FINITE = (float("nan"), float("inf"), float("-inf"))
+
+
+@pytest.mark.parametrize("bad", _NON_FINITE)
+def test_a_non_finite_tip_radius_is_refused(bad):
+    with pytest.raises(ValidationError):
+        ProbeLattice(tip_radius=bad, stations=(0.5,), ring_edges=(0.1, 1.0), n_psi=8)
+
+
+@pytest.mark.parametrize("bad", _NON_FINITE)
+def test_a_non_finite_station_is_refused(bad):
+    with pytest.raises(ValidationError):
+        ProbeLattice(tip_radius=1.0, stations=(0.5, bad), ring_edges=(0.1, 1.0), n_psi=8)
+
+
+@pytest.mark.parametrize("bad", _NON_FINITE)
+def test_a_non_finite_ring_edge_is_refused(bad):
+    with pytest.raises(ValidationError):
+        ProbeLattice(tip_radius=1.0, stations=(0.5,), ring_edges=(0.1, bad), n_psi=8)
+
+
+@pytest.mark.parametrize("bad", [*_NON_FINITE, -1.0, 0.0])
+def test_a_non_physical_lateral_radius_is_refused(bad):
+    """A negative r/R is a sign error, not a cylinder on the other side."""
+    with pytest.raises(ValidationError):
+        ProbeLattice(
+            tip_radius=1.0,
+            stations=(0.5,),
+            ring_edges=(0.1, 1.0),
+            n_psi=8,
+            lateral_radius=bad,
+            lateral_stations=(0.2, 0.8),
+        )
+
+
+def test_unordered_lateral_stations_are_refused():
+    with pytest.raises(ValidationError, match="strictly increasing"):
+        ProbeLattice(
+            tip_radius=1.0,
+            stations=(0.5,),
+            ring_edges=(0.1, 1.0),
+            n_psi=8,
+            lateral_radius=1.2,
+            lateral_stations=(0.8, 0.2),
+        )
+
+
+def test_a_physical_lattice_with_a_lateral_cylinder_still_builds():
+    """The control. Without it every refusal above would pass on a model
+    that rejected all geometry, including the valid case."""
+    lattice = ProbeLattice(
+        tip_radius=1.0,
+        stations=(0.5, 1.5),
+        ring_edges=(0.1, 0.6, 1.0),
+        n_psi=8,
+        lateral_radius=1.2,
+        lateral_stations=(0.2, 0.8),
+    )
+    assert lattice.n_r == 2
+    assert lattice.lateral_radius == 1.2

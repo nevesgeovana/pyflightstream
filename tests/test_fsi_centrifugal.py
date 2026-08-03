@@ -106,3 +106,48 @@ def test_southwell_torsion_near_inertia_ratio(campbell):
 def test_southwell_fit_rejects_short_sweeps():
     with pytest.raises(ValueError, match="three sweep points"):
         centrifugal.southwell_fit([0.0, 10.0], [27.0, 28.0])
+
+
+# --- REV010-012: model_copy assigns, it does not validate ------------------
+#
+# FsiConfig refuses a negative or non-finite Omega at construction
+# (Field(ge=0.0) plus allow_inf_nan=False), and the sweep walked straight
+# past that guarantee by building each point with model_copy(update=...).
+# The review's stubbed modal solves received both -2.0 and NaN. A negative
+# Omega is not merely out of range: some terms use Omega squared while
+# other branches require Omega greater than zero, so the mechanics become
+# internally inconsistent rather than simply wrong.
+
+
+@pytest.mark.parametrize("bad", [-2.0, float("nan"), float("inf"), float("-inf")])
+def test_a_sweep_speed_outside_the_domain_is_refused(bad):
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        centrifugal.campbell_sweep(make_cfg(), [0.0, bad, 10.0], n_modes=2)
+
+
+def test_the_refusal_happens_before_any_solve(monkeypatch):
+    """Failing after two solves would still spend the work and, worse,
+    would leave a partial CampbellData for somebody to read."""
+    calls = []
+    original = centrifugal.rotating_frequencies
+
+    def counting(cfg, n_modes=6):
+        calls.append(cfg.omega_rad_per_s)
+        return original(cfg, n_modes=n_modes)
+
+    monkeypatch.setattr(centrifugal, "rotating_frequencies", counting)
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        centrifugal.campbell_sweep(make_cfg(), [-1.0, 10.0], n_modes=2)
+    assert calls == [], "the invalid first point must not have been solved"
+
+
+def test_a_valid_sweep_still_runs():
+    """The control: the refusals above must not be a sweep that rejects
+    every speed."""
+    data = centrifugal.campbell_sweep(make_cfg(), [0.0, 20.0], n_modes=2)
+    assert data.omegas_rad_per_s == (0.0, 20.0)
+    assert len(data.modal_results) == 2
