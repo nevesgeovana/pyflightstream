@@ -990,6 +990,46 @@ FlightStream versions.
 
 ### Added
 
+* **The user guide is refreshed for 26.121, and a guard now keeps it
+  current.** Seven claims went stale when the 26.121 onboarding landed
+  and nothing caught any of them: the guide is neither built nor
+  executed by CI, so every claim in it was true only until the next
+  licensed session moved the evidence underneath it.
+
+  Corrected: the version diagram, which drew three nodes ending at
+  26.120 beside a listing that printed four; the pinned refusal
+  transcript, which listed two recorded versions where the library
+  prints three; AIR_ALTITUDE, which the guide called broken without
+  saying on which build, when in fact the vendor hotfix fixes it and the
+  probe on 26.121 promoted it to verified; SET_MOTION_START_TIME, which
+  said "await re-probe" after the re-probe had run and found the same
+  abort; and the pitfall table, which now names the builds each finding
+  applies to and gained the SWEEPER_REF_VELOCITY_SAME row it was
+  missing.
+
+  The AIR_ALTITUDE entry is the one with user consequence, so it now
+  carries the number: on 26.120, 5000 METERS produced 1.056 kg/m^3, the
+  5000 ft standard state, where 0.736 is correct. A density 43 percent
+  high with no error, and the hotfix digit in the version identifier is
+  what lets the database say the two builds disagree.
+
+  The counts are gone rather than corrected (author's decision,
+  2026-08-03). "144 commands" was wrong by three, and the plan item
+  recording that it was wrong was itself wrong by two the day after it
+  was written. The compatibility matrix generates the current numbers on
+  every docs build, and the guide points at it.
+
+  `tests/test_guide_currency.py` is the guard, and it is a different
+  failure class from `test_guide_api_names.py`: that one checks the
+  names the guide teaches, this one the facts it states. No
+  hand-written command count, the curated-helper count equal to what the
+  module defines, every registered version mentioned, every pinned
+  transcript equal to what the library prints, every pitfall row naming
+  the builds the database calls broken, and every broken command having
+  a row at all. That last one closes the hole the others leave: a
+  missing row is invisible to a check that reads the rows present, and a
+  missing row is what happened. Six mutants, one per original stale
+  claim, all caught.
 * **A tracked file may no longer name the workspace container's
   absolute path.** CLAUDE.md has always said machine configuration is
   never a literal path in a committed file; a tier-1 guard now holds
