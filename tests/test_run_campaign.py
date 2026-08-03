@@ -7,6 +7,7 @@ whole path campaign.toml model, recipe, builder, workspace, executor,
 and manifest is exercised for real.
 """
 
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -899,3 +900,189 @@ def test_an_unwaived_broken_command_fails_the_point_before_the_solver(tmp_path):
     # each other.
     assert all(record.broken_commands == [] for record in records)
     assert len(caught.value.failures) == 2
+
+
+# --- PYFS-008: forced iterations disable the threshold the count judgment ---
+# --- infers from. The field was parsed and never read.                    ---
+
+_FORCED_OFF = "Force solver to run all iterations           F"
+_FORCED_ON = "Force solver to run all iterations           T"
+
+
+def _steady_text() -> str:
+    text = (FIXTURES / "loads_steady_26.120.txt").read_text(encoding="utf-8")
+    assert _FORCED_OFF in text, (
+        "the steady fixture no longer prints the forced-iterations line as this "
+        "guard expects, so every assertion below would be testing the wrong file"
+    )
+    return text
+
+
+def test_an_early_stop_under_forced_iterations_is_not_converged(tmp_path):
+    """The finding, as its own assertion.
+
+    312 of 500 requested, with the solver told to run all of them. The
+    threshold that an early stop is supposed to evidence was switched off, so
+    whatever ended the loop, it was not convergence. Before this, the point
+    was published CONVERGED and was byte for byte indistinguishable in the
+    manifest from a run that genuinely met the threshold at 312.
+    """
+    forced = _steady_text().replace(_FORCED_OFF, _FORCED_ON)
+    assessment = LoadsAssessor("loads.txt")(
+        None, None, make_raw(tmp_path / "forced", "", text=forced)
+    )
+    assert assessment.status is not RunStatus.CONVERGED
+    assert assessment.status is RunStatus.FAILED_INCOMPLETE_OUTPUT
+    assert assessment.iterations == 312
+    assert "312 of 500" in assessment.error
+    assert "forced iterations" in assessment.error
+
+
+def test_the_count_judgment_still_stands_when_iterations_are_not_forced(tmp_path):
+    """The control, and the reason the fix is narrow.
+
+    Same file, same counts, one character different. Without it, a mutation
+    that failed every early stop would leave the test above green while
+    every converged run in every campaign turned into a failure.
+    """
+    assessment = LoadsAssessor("loads.txt")(
+        None, None, make_raw(tmp_path / "unforced", "", text=_steady_text())
+    )
+    assert assessment.status is RunStatus.CONVERGED
+    assert assessment.iterations == 312
+
+
+def test_a_completed_forced_run_is_still_completed_max_iter(tmp_path):
+    """Forced iterations that reach the budget are not a failure.
+
+    The loop ran its prescribed course; nothing about that is wrong, and
+    nothing about it is convergence either. This is the second control: the
+    refusal is about the loop ending EARLY, not about forcing.
+    """
+    text = _steady_text().replace(_FORCED_OFF, _FORCED_ON).replace("312", "500")
+    assessment = LoadsAssessor("loads.txt")(None, None, make_raw(tmp_path / "full", "", text=text))
+    assert assessment.status is RunStatus.COMPLETED_MAX_ITER
+    assert assessment.iterations == 500
+
+
+def test_an_unprinted_forced_flag_leaves_the_count_judgment_alone(tmp_path):
+    """None is not False, and the difference decides a run.
+
+    A footer that does not print the line tells us nothing about the
+    threshold, so the count judgment stands. Reading None as "forced" would
+    fail every steady run parsed from a version whose footer omits it.
+    """
+    text = "\n".join(
+        line for line in _steady_text().splitlines() if "Force solver to run all" not in line
+    )
+    assessment = LoadsAssessor("loads.txt")(
+        None, None, make_raw(tmp_path / "silent", "", text=text + "\n")
+    )
+    assert assessment.status is RunStatus.CONVERGED
+
+
+def test_a_declared_log_decides_on_residuals_whatever_the_forced_flag_says(tmp_path):
+    """Forced iterations change what an early stop MEANS, not what a residual is.
+
+    With a log the judgment reads the residual directly, so there is no
+    inference for the forced flag to invalidate, and narrowing the fix to the
+    no-log branch is deliberate rather than an oversight.
+    """
+    unsteady = (FIXTURES / "loads_unsteady_26.120.txt").read_text(encoding="utf-8")
+    sim_dir = make_raw(tmp_path / "logged", "", text=unsteady.replace(_FORCED_OFF, _FORCED_ON))
+    make_raw(tmp_path / "logged", "log_residuals_26.120.txt", name="log.txt")
+    assessment = LoadsAssessor("loads.txt", log_file="log.txt")(None, None, sim_dir)
+    assert assessment.status is RunStatus.CONVERGED
+    assert assessment.residual == pytest.approx(9.6e-8)
+
+
+# --- PYFS-006: whose file is this, and can it be overwritten? --------------
+
+
+def test_a_file_that_was_already_there_is_not_collected_as_this_point(tmp_path):
+    """The finding, and the reason it is worse than it sounds.
+
+    The solver writes nothing at all in this test. Before the fix the point
+    was published CONVERGED, its manifest record named `raw/loads_a+00.0.txt`
+    as its evidence, and that file held whatever had been sitting in the
+    folder. Nothing distinguished the record from a real one.
+
+    Every point of a case shares one simulation folder, and collection asks
+    only whether the declared output EXISTS.
+    """
+    campaign = make_campaign(tmp_path, alphas=(0.0,))
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    sim_dir = workspace.create_sim("9001")
+    (sim_dir / "loads_a+00.0.txt").write_text("LEFT BEHIND BY SOMETHING ELSE", encoding="utf-8")
+
+    with pytest.raises(CampaignErrors):
+        run_campaign(
+            campaign,
+            StubSolver(WRITES_NOTHING),
+            workspace,
+            assess=converged,
+            recipes={"steady": steady_recipe},
+        )
+    record = workspace.read_manifest()[0]
+    assert record.status is RunStatus.FAILED_INCOMPLETE_OUTPUT
+    assert "already exist" in record.error
+    assert "loads_a+00.0.txt" in record.error
+    assert record.outputs == []
+    # The leftover is left exactly where it was: a refusal moves nothing.
+    assert (sim_dir / "loads_a+00.0.txt").read_text(encoding="utf-8") == (
+        "LEFT BEHIND BY SOMETHING ELSE"
+    )
+    # And the script is still recorded, so the refused point says what it
+    # would have run rather than nothing.
+    assert record.script_sha256
+
+
+def test_an_ordinary_point_is_unaffected_by_the_stale_output_check(tmp_path):
+    """The control: the folder is empty, so nothing is refused.
+
+    Without it, a mutation refusing every point would leave the test above
+    green while no campaign could run at all.
+    """
+    campaign = make_campaign(tmp_path)
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    records = run_campaign(
+        campaign,
+        StubSolver(WRITES_LOADS),
+        workspace,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+    )
+    assert all(record.status is RunStatus.CONVERGED for record in records)
+    assert records[0].outputs == ["raw/loads_a+00.0.txt"]
+
+
+def test_the_manifest_records_a_hash_per_collected_output(tmp_path):
+    """A record that names evidence should say which bytes it named.
+
+    Inputs have carried a hash since the first manifest; outputs carried a
+    NAME and nothing else, so a file edited, truncated or replaced after the
+    run still matched its record.
+    """
+    campaign = make_campaign(tmp_path)
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    records = run_campaign(
+        campaign,
+        StubSolver(WRITES_LOADS),
+        workspace,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+    )
+    for record in records:
+        assert sorted(record.outputs_sha256) == sorted(record.outputs)
+        for name, digest in record.outputs_sha256.items():
+            path = workspace.sim_dir(record.sim_id) / name
+            assert digest == hashlib.sha256(path.read_bytes()).hexdigest()
+    # It survives the round trip through runs.json.
+    assert workspace.read_manifest()[0].outputs_sha256 == records[0].outputs_sha256
+    # And it detects the edit it exists to detect.
+    edited = workspace.sim_dir("9001") / records[0].outputs[0]
+    edited.write_text("TAMPERED", encoding="utf-8")
+    assert (
+        hashlib.sha256(edited.read_bytes()).hexdigest()
+        != workspace.read_manifest()[0].outputs_sha256[records[0].outputs[0]]
+    )

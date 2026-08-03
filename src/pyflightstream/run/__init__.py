@@ -312,7 +312,16 @@ class LoadsAssessor:
       of one of them.
     - Without a log, steady mode: an iteration counter below the
       requested limit means the threshold stopped the solver
-      (CONVERGED); reaching the limit means COMPLETED_MAX_ITER.
+      (CONVERGED); reaching the limit means COMPLETED_MAX_ITER. Unless
+      the run forced all iterations, which disables that threshold: an
+      early stop is then FAILED_INCOMPLETE_OUTPUT, because the one
+      mechanism that could have ended the loop legitimately was off
+      (PYFS-008). The status is a constrained choice rather than the
+      right name for it: the terminal set is closed at six (FR-46) and
+      whether it opens to a seventh is the product owner's undecided
+      question (FR-37), so an unfinished solve is reported with the
+      value that says the evidence is incomplete rather than with a new
+      one.
     - Without a log, unsteady mode: the time loop always runs to its
       prescribed end, so completion is recorded as
       COMPLETED_MAX_ITER; declare the log export to get a residual
@@ -484,6 +493,36 @@ class LoadsAssessor:
             )
         if report.solver_mode.strip().lower() == "steady":
             stopped_early = report.current_iteration < report.requested_iterations
+            # PYFS-008. The iteration-count judgment below reads an early stop
+            # as "the convergence threshold stopped the solver", and that
+            # inference holds only while the threshold is what can stop it.
+            # SOLVER_SET_FORCED_ITERATIONS turns the threshold off: the solver
+            # is told to run the full budget whatever the residual does. So
+            # under forced iterations an early stop means the opposite of
+            # convergence, because the one mechanism that could legitimately
+            # end the loop early was disabled. The field was parsed
+            # (LoadsReport.forced_iterations) and never consulted, so a run
+            # that stopped at 312 of a forced 500 was published CONVERGED,
+            # indistinguishable from one that met the threshold at 312.
+            if stopped_early and report.forced_iterations:
+                return Assessment(
+                    status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
+                    iterations=report.current_iteration,
+                    error=(
+                        f"the solver stopped at iteration {report.current_iteration} of "
+                        f"{report.requested_iterations} with forced iterations enabled, "
+                        "so the convergence threshold was not what ended the loop: it "
+                        "was disabled. The loads file describes an unfinished solve. "
+                        "Export the solver log (EXPORT_LOG) and name it to LoadsAssessor "
+                        "for a residual judgment, or find why the solver stopped"
+                    ),
+                    **stamp,
+                )
+            # forced_iterations is None when the loads footer does not print
+            # the line; the count judgment then stands, because nothing says
+            # the threshold was off. Stated rather than left implicit: the
+            # falsy branch covers False and None, and they mean different
+            # things.
             return Assessment(
                 status=RunStatus.CONVERGED if stopped_early else RunStatus.COMPLETED_MAX_ITER,
                 iterations=report.current_iteration,
@@ -1260,6 +1299,35 @@ def _execute_point(
     # probe measured not to work.
     base["broken_commands"] = [use.model_dump(mode="json") for use in script.broken_commands]
 
+    # PYFS-006. Every point of a case runs in the same simulation folder,
+    # and collection asks only whether the declared output EXISTS, never
+    # whether this run produced it. A file left there by anything else, a
+    # point that failed after the solver wrote, a hand copy, an aborted
+    # sweep, was collected as this point's evidence and the point was
+    # published CONVERGED from a solver that wrote nothing at all. The
+    # measurement is in the commit message; the record was
+    # indistinguishable from a real one.
+    #
+    # Refused before the solver runs rather than reconciled afterwards. A
+    # baseline hash comparison would also work and is strictly weaker: it
+    # cannot tell a rewritten identical file from an untouched one, and it
+    # spends solver time before saying so. The script is already written,
+    # so the refused point still records the script it would have run.
+    stale = [name for name in point_case.outputs if (sim_dir / name).exists()]
+    if stale:
+        return RunRecord(
+            **base,
+            status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
+            error=(
+                f"declared output(s) {', '.join(stale)} already exist in the simulation "
+                "folder before this point ran, so collecting them would attribute "
+                "somebody else's file to this run. Every point of a case shares the "
+                "folder, and collection cannot tell a file this solver wrote from one "
+                "that was already there. Archive the simulation (pyfs-workspace "
+                "archive) or remove the leftover, then re-run."
+            ),
+        )
+
     result = executor.run_script(script_path, working_dir=sim_dir, timeout_s=case.solver.timeout_s)
     if result.failed:
         if result.timed_out:
@@ -1295,6 +1363,12 @@ def _execute_point(
         fs_build=assessment.fs_build,
         wall_time_s=result.wall_time_s,
         outputs=collected,
+        # PYFS-006, the other half of "which file is this record about".
+        # The refusal above stops a stale file becoming evidence; this
+        # states which bytes the evidence WAS, so a file edited or
+        # replaced after the run stops matching its own record. inputs
+        # have carried this since the first manifest; outputs never did.
+        outputs_sha256=workspace.output_digests(case.sim_id, collected),
         error=assessment.error,
     )
 

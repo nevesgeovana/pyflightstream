@@ -155,6 +155,14 @@ class RunRecord(BaseModel):
     raw_flag : bool
         True when the script used the ``raw()`` escape hatch and its
         content bypassed database validation (FR-07).
+    outputs_sha256 : dict of str to str
+        Hash per collected output, keyed by the same relative name that
+        appears in ``outputs``. Empty for a point that collected
+        nothing and for manifests written before v0.4.0. Inputs have
+        carried a hash since the first manifest and outputs did not, so
+        a record could name evidence that had since been edited,
+        truncated or replaced with nothing to compare against
+        (PYFS-006).
     broken_commands : list of dict
         Serialized
         :class:`~pyflightstream.script.BrokenCommandUse` entries, one
@@ -199,6 +207,7 @@ class RunRecord(BaseModel):
     script_sha256: str
     inputs_sha256: dict[str, str] = Field(default_factory=dict)
     raw_flag: bool
+    outputs_sha256: dict[str, str] = Field(default_factory=dict)
     broken_commands: list[dict] = Field(default_factory=list)
     solver_setup: dict | None = None
     status: RunStatus
@@ -518,6 +527,50 @@ class CampaignWorkspace:
             collected.append(f"raw/{origin.name}")
         return collected
 
+    def output_digests(self, sim_id: str, collected: Sequence[str]) -> dict[str, str]:
+        """Return the sha256 of each collected output, keyed by its name.
+
+        The manifest has recorded a hash per staged INPUT since the first
+        version and none per collected output, so a record could name
+        evidence that had been edited, truncated or replaced since the
+        run and nothing compared (PYFS-006). This is what
+        :attr:`RunRecord.outputs_sha256` carries.
+
+        Parameters
+        ----------
+        sim_id : str
+            Simulation the outputs were collected into.
+        collected : sequence of str
+            Names as :meth:`collect_outputs` returned them, relative to
+            the simulation folder (``"raw/<name>"``).
+
+        Returns
+        -------
+        dict of str to str
+            Hex sha256 keyed by the same relative name.
+
+        Raises
+        ------
+        WorkspaceError
+            If a named output is not there to hash. Collection has just
+            moved these files, so a miss here means something removed
+            one in between, and hashing what remains would produce a
+            record quieter than the truth.
+        """
+        sim = self.sim_dir(sim_id)
+        digests: dict[str, str] = {}
+        for name in collected:
+            path = sim / name
+            if not path.is_file():
+                raise WorkspaceError(
+                    f"collected output {name!r} of sim {sim_id!r} is not at {path}, so "
+                    "it cannot be hashed for the manifest. Collection had just moved it "
+                    "there, so something removed it in between; recording the rest "
+                    "would leave a run whose evidence list is longer than its hashes."
+                )
+            digests[name] = _sha256(path)
+        return digests
+
     def read_manifest(self) -> list[RunRecord]:
         """Read and validate every record of ``runs.json``.
 
@@ -574,14 +627,32 @@ class CampaignWorkspace:
         WorkspaceError
             If the manifest is missing, does not record ``sim_id``, or
             the simulation folder does not exist: file management
-            never destroys an unrecorded run.
+            never destroys an unrecorded run. Also when the archive
+            name is already taken, because writing it would replace one
+            archived run with another and then delete the folder the
+            first came from.
         """
         sim = self._recorded_sim(sim_id, operation="archive")
         archive_dir = self.root / "archive"
         archive_dir.mkdir(parents=True, exist_ok=True)
         stem = self.naming.render_archive(sim=sim_id, campaign=campaign)
         target = archive_dir / f"{stem}.zip"
-        with zipfile.ZipFile(target, "w", compression=zipfile.ZIP_DEFLATED) as bundle:
+        # PYFS-006. The archive name is derived from the sim id, so
+        # archiving the same sim twice renders the same name, and
+        # ZipFile(..., "w") truncates: the second archive replaced the
+        # first and the source folder was then deleted, so both copies of
+        # the earlier run were gone and nothing was raised. Archiving is
+        # the operation this class exists to make safe, and it was the one
+        # that destroyed evidence silently.
+        if target.exists():
+            raise WorkspaceError(
+                f"archive {target.name} already exists in archive/ and archiving "
+                f"sim {sim_id!r} would replace it, then delete the folder it came "
+                "from, so both copies of the earlier run would be gone. Move or "
+                "rename the existing archive, or give the workspace a naming "
+                "template whose archive name distinguishes the runs."
+            )
+        with zipfile.ZipFile(target, "x", compression=zipfile.ZIP_DEFLATED) as bundle:
             for path in sorted(sim.rglob("*")):
                 if path.is_file():
                     bundle.write(path, path.relative_to(sim))

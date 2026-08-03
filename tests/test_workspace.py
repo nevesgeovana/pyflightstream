@@ -583,3 +583,66 @@ def test_staging_distinct_names_still_records_one_hash_each(tmp_path):
     hashes = workspace.stage_inputs("1", [tmp_path / "mesh.obj", tmp_path / "wing.stl"])
     assert sorted(hashes) == ["mesh.obj", "wing.stl"]
     assert len(set(hashes.values())) == 2
+
+
+# --- PYFS-006: archiving twice used to destroy the first archive -----------
+
+
+def test_archiving_the_same_sim_twice_refuses_rather_than_replacing(tmp_path):
+    """The operation that exists to preserve a run was the one that lost it.
+
+    The archive name is derived from the sim id, so a second archive of the
+    same sim renders the same name; `ZipFile(..., "w")` truncates, and the
+    source folder is deleted afterwards. Both copies of the FIRST run were
+    gone, and nothing was raised.
+    """
+    workspace = CampaignWorkspace(tmp_path)
+    workspace.write_script("9001", "point.txt", "START_SOLVER\n")
+    workspace.append_record(make_record())
+    first = workspace.archive_sim("9001")
+    first_bytes = first.read_bytes()
+
+    workspace.write_script("9001", "second.txt", "STOP\n")
+    with pytest.raises(WorkspaceError, match="already exists"):
+        workspace.archive_sim("9001")
+    # Refused before anything was written or deleted: the earlier archive is
+    # byte for byte what it was, and the second run's folder is still there.
+    assert first.read_bytes() == first_bytes
+    assert (tmp_path / "sims" / "sim_9001" / "scripts" / "second.txt").is_file()
+
+
+def test_a_distinguishing_archive_name_still_archives_twice(tmp_path):
+    """The control, and the remedy the refusal names.
+
+    Without it, a mutation refusing every archive would leave the test above
+    green while archiving stopped working entirely.
+    """
+    workspace = CampaignWorkspace(tmp_path, naming=NamingTemplate(archive_name="{campaign}_{sim}"))
+    workspace.write_script("9001", "point.txt", "START_SOLVER\n")
+    workspace.append_record(make_record())
+    first = workspace.archive_sim("9001", campaign="run_a")
+    workspace.write_script("9001", "point.txt", "START_SOLVER\n")
+    second = workspace.archive_sim("9001", campaign="run_b")
+    assert first.name == "run_a_9001.zip"
+    assert second.name == "run_b_9001.zip"
+    assert first.is_file() and second.is_file()
+
+
+def test_output_digests_refuse_a_name_that_is_not_there(tmp_path):
+    """Hashing what remains would make the record quieter than the truth."""
+    workspace = CampaignWorkspace(tmp_path)
+    workspace.create_sim("9001")
+    with pytest.raises(WorkspaceError, match="cannot be hashed"):
+        workspace.output_digests("9001", ["raw/gone.txt"])
+
+
+def test_output_digests_hash_what_collection_produced(tmp_path):
+    """The control on the same method: a real collection hashes cleanly."""
+    workspace = CampaignWorkspace(tmp_path)
+    sim = workspace.create_sim("9001")
+    produced = sim / "loads.txt"
+    produced.write_text("LOADS", encoding="utf-8")
+    collected = workspace.collect_outputs("9001", [produced])
+    digests = workspace.output_digests("9001", collected)
+    assert sorted(digests) == collected
+    assert digests["raw/loads.txt"] == hashlib.sha256(b"LOADS").hexdigest()

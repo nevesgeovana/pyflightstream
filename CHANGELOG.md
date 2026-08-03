@@ -9,6 +9,56 @@ FlightStream versions.
 
 ### API surface delta
 
+* **A file that was already in the simulation folder is no longer
+  collected as a point's evidence.** **Breaking within 0.x**: a point
+  whose declared outputs already exist when it starts is refused
+  (`FAILED_INCOMPLETE_OUTPUT`) instead of running.
+
+  Every point of a case shares one folder and collection asked only
+  whether the declared output existed. Measured with a solver that
+  wrote nothing at all: the point was published `CONVERGED`, its record
+  named `raw/loads_a+00.0.txt` as its evidence, and that file held
+  whatever had been left in the folder. Nothing distinguished the
+  record from a real one. The remedy the refusal names is to archive
+  the simulation or remove the leftover.
+* **`RunRecord` carries a sha256 per collected output**
+  (`outputs_sha256`), keyed by the same relative name as `outputs`.
+  Additive; empty on manifests written before v0.4.0. Inputs have
+  carried a hash since the first manifest and outputs carried a name
+  and nothing else, so evidence edited, truncated or replaced after the
+  run still matched its record.
+* **Archiving a simulation twice refuses instead of replacing the first
+  archive.** The archive name derives from the sim id, so the second
+  render collides; the zip was opened truncating and the source folder
+  deleted afterwards, so both copies of the earlier run were gone and
+  nothing was raised. The operation that exists to preserve a run was
+  the one that lost it. The refusal names the remedy: move the existing
+  archive, or give the workspace an archive template that
+  distinguishes the runs.
+* **A run that forced all its iterations is no longer called CONVERGED
+  for stopping early.** **Breaking within 0.x**: with
+  `SOLVER_SET_FORCED_ITERATIONS` enabled, no declared solver log, and
+  an iteration counter below the requested budget, `LoadsAssessor` now
+  returns `FAILED_INCOMPLETE_OUTPUT` where it returned `CONVERGED`.
+
+  The no-log judgment infers convergence from an early stop, and that
+  inference holds only while the convergence threshold is what can stop
+  the solver. Forcing all iterations turns the threshold off, so an
+  early stop means the opposite. `LoadsReport.forced_iterations` was
+  parsed and never consulted, so a run that stopped at 312 of a forced
+  500 was published converged, indistinguishable in the manifest from
+  one that genuinely met the threshold at 312.
+
+  Narrow on purpose, and the three unchanged cases are tested as
+  controls: an unforced early stop is still `CONVERGED`, a forced run
+  that reaches its budget is still `COMPLETED_MAX_ITER`, and a footer
+  that does not print the line at all still gets the count judgment,
+  because not knowing is not the same as knowing it was forced.
+
+  The status is a constrained choice rather than the right name for it,
+  and the assessor's docstring says so: the terminal set is closed at
+  six (SRS FR-46) and whether it opens to a seventh is the product
+  owner's undecided question (FR-37).
 * **"Supported" was one word covering four states, and is now four
   named values** (SRS FR-49, new). New public names at the top of the
   package: `SupportLevel`, `support_table()`, `version_support()`,
