@@ -13,7 +13,11 @@ way a hand-maintained list does: the dashboard it feeds carried 32
 hand-assembled entries against a set that had grown well past that
 before this generator existed.
 
-Field names are fixed by the consumer and are deliberately minimal:
+Field names are fixed by the consumer. This list is the emitted set,
+and it is checked against the generator's output by a Tier 1 test
+rather than maintained by hand: it described three fields while six
+were being written, and a zero traceability count while eight
+requirements carried falsifying markers (REV010-017).
 
 ``id``
     The requirement identifier, for example ``FR-37`` or ``NFR-13``.
@@ -24,6 +28,20 @@ Field names are fixed by the consumer and are deliberately minimal:
     requirement is agreed and its implementation waits on something
     outside this repository, which for this project is almost always
     licensed-solver evidence.
+``status``
+    The badge the SRS page carries: ``implemented``, ``pending`` or
+    ``deferred``. What ``priority`` cannot say, because a pending
+    requirement is still mandatory.
+``verification``
+    How the requirement is to be shown satisfied.
+``evidence``
+    What currently shows it, when anything does.
+
+The top level carries ``source``, ``generated_by``, ``traceability``
+and ``requirements``. ``traceability`` counts how many requirement ids
+a test cites through the ``requirement`` marker, which is a floor that
+only rises; it is not a claim that the cited tests falsify their
+requirements.
 
 What the index does NOT carry, and why. Only ``requirement`` boxes are
 published. Architecture decisions (AD-xx) and non-requirements

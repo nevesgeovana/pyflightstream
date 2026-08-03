@@ -72,10 +72,24 @@ passes. A clean pass is recorded as clean; silence is not a record.
 ## 6. Write the push attestation (mandatory, clears the git-push gate)
 
 The `git push` gate (`.claude/hooks/role_review_gate.py`) blocks every
-push until an attestation says these agent passes actually ran for the
-exact commit being pushed. This exists because a past release ran
-paraphrased manual checks instead of the agents; the attestation is
-the mechanical proof that the real agents ran.
+push until an attestation names every commit in scope for the push.
+This exists because a past release ran paraphrased manual checks
+instead of the agents.
+
+**What the attestation is, stated exactly, because this file used to
+claim more** (REV010-018, corrected 2026-08-03). It is a record that
+the local workflow ran and which passes it says it ran. It is NOT
+proof that the reviewer agents ran: the `passes` field is recorded and
+never checked, the file is local and gitignored, any process that can
+write it clears the gate, and no release job consumes it. The hook's
+own module docstring has said this from the start; this section used
+to call the attestation mechanical evidence that the reviewer agents
+had run, which is the wider claim the hook explicitly refuses to make
+about itself. Writing the
+attestation without running the agents defeats the seat that catches
+your own blind spots, and nothing mechanical will notice; that
+residual trust sits with the operator, which is exactly why it is
+written down here rather than assumed.
 
 So, as the closing step, after every applicable pass has run and every
 finding is fixed or registered, and after the reviewed work is

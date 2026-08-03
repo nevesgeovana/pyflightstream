@@ -359,7 +359,7 @@
     numerical-equivalence assertion references it rather than an ad hoc
     literal.
 
-!!! requirement "NFR-18 Manifest schema version <span class='srs-pending'>pending</span>"
+!!! requirement "NFR-18 Manifest schema version <span class='srs-implemented'>implemented</span>"
     *Origin: Phase 4 review, accepted 2026-07-27.*
 
     The `runs.json` manifest records a manifest schema version, and
@@ -367,9 +367,22 @@
     deprecation policy of NFR-20, so a run cited in a publication stays
     readable across package versions.
 
-    Pending, and the manifest carries no version field today. Note the
-    dependency this creates on NFR-20's window: before 1.0 that policy
-    does not bind, so what protects a cited run until then is this
+    `RunRecord.manifest_schema` carries it, `workspace.MANIFEST_SCHEMA`
+    names the current value, and `reconstruct()` refuses a row written
+    under a schema this version does not know. A row that carries no
+    schema predates the field, is represented as `None` rather than
+    defaulted to the current value, and is refused rather than
+    reconstructed (REV010-014).
+
+    Status corrected 2026-08-03 (REV010-017). This said "pending, and
+    the manifest carries no version field today" while the field had
+    been live since `c7cfdad`, so the requirement understated what the
+    package delivers, in a document whose whole job is to say what it
+    delivers. The direction is unusual and worth noting: the surfaces
+    this review corrected mostly claimed MORE than the code did.
+
+    Note the dependency on NFR-20's window: before 1.0 that policy does
+    not bind, so what protects a cited run until then is this
     requirement's own promise plus the changelog, not the policy.
 
 !!! requirement "NFR-21 Support and compatibility window <span class='srs-pending'>pending</span>"
@@ -608,7 +621,7 @@
     *Origin: the C9 acceptance and the M6 mirror of the same subject,
     2026-07-27, which the author accepted as elevating AD-05 to a
     tested requirement. Evidence:
-    `pyflightstream.extras.MissingExtraError` and `require_extra`;
+    `pyflightstream.extras.MissingExtraError` and `missing_extra`;
     `tests/test_extras.py`, parametrized over every extra.*
 
     A missing optional dependency raises a typed error carrying the

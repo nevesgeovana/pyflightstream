@@ -699,9 +699,9 @@
    "id": "NFR-18",
    "text": "The runs.json manifest records a manifest schema version, and manifest keys are added, renamed, or removed only under the deprecation policy of NFR-20, so a run cited in a publication stays readable across package versions.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "*Origin: Phase 4 review, accepted 2026-07-27.*",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "NFR-19",
@@ -756,7 +756,7 @@
    "text": "A missing optional dependency raises a typed error carrying the exact pip install pyflightstream[<extra>] remedy, never a bare ImportError.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the C9 acceptance and the M6 mirror of the same subject, 2026-07-27, which the author accepted as elevating AD-05 to a tested requirement. Evidence: pyflightstream.extras.MissingExtraError and require_extra; tests/test_extras.py, parametrized over every extra.*",
+   "evidence": "*Origin: the C9 acceptance and the M6 mirror of the same subject, 2026-07-27, which the author accepted as elevating AD-05 to a tested requirement. Evidence: pyflightstream.extras.MissingExtraError and missing_extra; tests/test_extras.py, parametrized over every extra.*",
    "verification": "test"
   },
   {

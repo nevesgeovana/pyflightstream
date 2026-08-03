@@ -16,8 +16,8 @@ Pipeline layers, dependencies flowing strictly downward:
 - ``results``: anchor-based parsers for solver output files.
 - ``cases``: simulation and campaign definitions.
 - ``run`` and ``workspace``: execution, run manifest, and the managed
-  workspace (input-artifact library plus run layout); the old
-  ``files`` name survives as a deprecation shim.
+  workspace (input-artifact library plus run layout). The old
+  ``files`` name was a deprecation shim and was removed at v0.4.0.
 - ``post``: results into engineering data (sweep assembly, exports).
 - ``qa``: probe harness and physics regression tooling.
 

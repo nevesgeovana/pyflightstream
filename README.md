@@ -35,7 +35,10 @@ except CommandNotInVersionError as error:
 ```
 
 The worked examples in `examples/` take it from here to executed
-polars, campaigns, and coupled aeroelastic runs.
+polars, campaign matrices, a static wing deflection, and a Campbell
+diagram. There is deliberately no coupled aeroelastic example: see
+the capability status below for what the FSI subpackage does and does
+not claim.
 
 Optional extras: `[fsi]` (aeroelastic coupling, PyNiteFEA), `[geom]`
 (probe-survey geometry gating, trimesh/rtree/scipy), `[plot]`
@@ -94,6 +97,31 @@ honest gaps are reported as such.
   (`pyflightstream.exceptions`), test assertions with quantified
   reports (`pyflightstream.testing`), and the house conventions
   rendered by `help()`.
+
+## Capability status
+
+Not every subpackage carries the same weight of evidence, and until
+2026-08-03 nothing said so: an independent review found the feature
+list above reading as one uniform claim, with the aeroelastic
+boundary stated only inside the code. The author's decision of
+2026-08-03 is that the FSI and probe-survey paths are **experimental**
+behind an explicit boundary rather than release-supported, and this
+table is that boundary.
+
+| Capability | Status | Evidence |
+|---|---|---|
+| Command database, script builder, version refusals | supported | tier 1 over every registered version; probe reports under `reports/` |
+| Parsers, tables, run manifest, reconstruction | supported | tier 1 on committed solver fixtures |
+| Campaigns, run matrices, workspace, pre-flight | supported | tier 1 end-to-end with a stub solver |
+| Far-field ledgers and probe surveys | **experimental** | tier 1 on synthetic fields; the licensed far-field acceptance work is deferred, not done |
+| FSI structural beam and modal analysis | **experimental** | tier 1 against analytic beam solutions; `examples/wing_static_deflection.py`, `examples/fsi_campbell_diagram.py` |
+| FSI coupled driver (the four-phase loop) | **experimental** | tier 1 offline replay on archived WP1 fixtures only; never run against a live solver in CI |
+| Rotary two-way coupling | **not validated** | stated as unvalidated in the FSI design; no acceptance evidence exists |
+
+Experimental means the interface may change without the deprecation
+window of NFR-20, and that the evidence behind it is narrower than
+the supported rows: replaying archived fixtures shows the machine
+runs, not that its physics is right for a case nobody has measured.
 
 ## Command-line tools
 

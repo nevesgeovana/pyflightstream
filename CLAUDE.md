@@ -120,8 +120,8 @@ decision (ITACA DD-23), this mirrors the ITACA release workflow.
 
 src layout per the SAD. Dependencies flow downward:
 versions <- commands <- script/results <- cases <- run/workspace <- post/qa.
-Never import upward. (`workspace` is the renamed `files`; the old name
-survives only as a deprecation shim.)
+Never import upward. (`workspace` is the renamed `files`; the old name was a
+deprecation shim and was removed at v0.4.0.)
 
 ## Session protocol
 

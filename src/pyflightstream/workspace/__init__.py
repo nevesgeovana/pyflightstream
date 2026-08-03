@@ -32,9 +32,10 @@ Archiving and cleaning refuse to act when the manifest is missing or
 does not record the target simulation, so file management can never
 destroy an unrecorded run.
 
-This package was renamed from ``pyflightstream.files`` in v0.3.0; the
-old module name re-exports everything with a DeprecationWarning for
-one minor release.
+This package was renamed from ``pyflightstream.files`` in v0.3.0. The
+old module name re-exported everything with a DeprecationWarning for
+one minor release and was REMOVED at v0.4.0, on the horizon its own
+deprecation entry recorded; importing it now raises ImportError.
 """
 
 from __future__ import annotations

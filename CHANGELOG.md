@@ -9,6 +9,39 @@ FlightStream versions.
 
 ### API surface delta
 
+* **The FSI and probe paths are declared experimental, behind an
+  explicit boundary** (author's decision, 2026-08-03; REV010-017).
+  Documentation only.
+
+  The README gains a **Capability status** table saying, per
+  capability, what is supported, what is experimental, what is not
+  validated, and what evidence stands behind each. Experimental means
+  the interface may change without NFR-20's deprecation window and
+  that the evidence is narrower than the supported rows: replaying
+  archived fixtures shows the machine runs, not that its physics is
+  right for a case nobody has measured. The rotary two-way coupling
+  is listed as **not validated**, which the FSI design has always
+  said and no public page did.
+* **Six documentation claims corrected, and guarded** (REV010-017,
+  REV010-018).
+
+  `pyflightstream.files` was removed at v0.4.0 and three surfaces
+  still described it as surviving. NFR-18 said "the manifest carries
+  no version field today" while the field had been live since
+  `c7cfdad`, so it now reads **implemented**. The README said the
+  worked examples reach "coupled aeroelastic runs" and no example
+  calls the coupling driver. The index generator documented three
+  emitted fields while writing six. NFR-25's evidence line still named
+  `require_extra` after the rename to `missing_extra`. And the
+  role-review skill called the attestation "the mechanical proof that
+  the real agents ran", which the hook implementing it explicitly
+  refuses to claim about itself: the `passes` field is recorded and
+  never checked, the file is local and gitignored, and any process
+  that can write it clears the gate.
+
+  New `tests/test_claim_currency.py` compares each of these claims
+  with its subject, so the next drift fails tier 1 instead of waiting
+  for a reader.
 * **The far-field coverage metric counts what it says it counts**
   (REV010-011). **Breaking** for readers of `masked_fraction`, whose
   value changes when inputs are non-finite.
