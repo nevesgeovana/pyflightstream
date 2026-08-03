@@ -59,6 +59,7 @@ PUBLIC_MODULES = [
     "pyflightstream.qa.specs",
     "pyflightstream.reference",
     "pyflightstream.results",
+    "pyflightstream.results.conditions",
     "pyflightstream.results.tables",
     "pyflightstream.run",
     "pyflightstream.script",

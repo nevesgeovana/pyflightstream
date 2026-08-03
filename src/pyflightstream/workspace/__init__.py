@@ -179,6 +179,15 @@ class RunRecord(BaseModel):
         Identifier of the record layout this row was written under.
         A reader that does not know the value should refuse rather than
         guess which fields exist (PYFS-015).
+    conditions : list of dict, optional
+        The operating-point binding recorded by the assessor, one
+        entry per requested axis the export printed back: ``axis``,
+        ``requested``, ``reported``, ``deviation``, ``tolerance``,
+        ``unit`` and ``within`` (REV010-001). None means the run was
+        recorded by an assessor that did not perform the comparison,
+        which includes every row written before this field existed;
+        an empty list means the comparison ran and had nothing to
+        compare. The two are deliberately distinguishable.
     fs_exe : str, optional
         Solver executable the run invoked, as resolved.
     fs_exe_sha256 : str, optional
@@ -266,6 +275,7 @@ class RunRecord(BaseModel):
     raw_flag: bool
     outputs_sha256: dict[str, str] = Field(default_factory=dict)
     broken_commands: list[dict] = Field(default_factory=list)
+    conditions: list[dict] | None = None
     solver_setup: dict | None = None
     status: RunStatus
     iterations: int | None = None

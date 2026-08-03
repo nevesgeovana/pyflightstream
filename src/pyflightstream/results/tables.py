@@ -58,6 +58,7 @@ from pyflightstream.results import (
     ResidualSample,
     parse_loads,
 )
+from pyflightstream.results.conditions import bind_conditions
 
 if TYPE_CHECKING:  # typing only: no runtime import of the execution layers
     from pyflightstream.workspace import CampaignWorkspace, RunRecord
@@ -88,13 +89,6 @@ _SECTIONAL_COLUMN_UNITS = {
     "Fz": "fz_n_per_m",
     "Moment": "moment_qc_nm_per_m",
 }
-
-# Sweep axes whose values the loads spreadsheet prints back; used to
-# cross-check that a collected export is the evidence of its record.
-_POINT_PRINTBACK = (("alpha", "angle_of_attack_deg"), ("beta", "sideslip_deg"))
-# Loads spreadsheets print angles with three decimals, so a half count
-# of the last digit is the tightest honest comparison tolerance [deg].
-_POINT_TOLERANCE_DEG = 5e-4
 
 
 class LoadsNotFoundError(PyflightstreamError, ValueError):
@@ -566,16 +560,18 @@ def _check_point_printback(record: RunRecord, report: LoadsReport, name: str) ->
     not the evidence of this run; exporting one uniquely named
     spreadsheet per point avoids the overwrite.
     """
-    for axis, attribute in _POINT_PRINTBACK:
-        if axis not in record.point:
-            continue
-        printed = float(getattr(report, attribute))
-        recorded = float(record.point[axis])
-        if abs(printed - recorded) > _POINT_TOLERANCE_DEG:
-            raise ValueError(
-                f"the loads spreadsheet {name!r} of run {record.run_id!r} prints "
-                f"{axis} {printed:+.3f} deg but the manifest records the point at "
-                f"{axis} {recorded:+.3f} deg; a later point of the same simulation "
-                "overwrites a same named export, so this file is not the evidence "
-                "of this run. Export one uniquely named spreadsheet per point."
-            )
+    # REV010-001. This comparison used to live here and ONLY here, which is
+    # why a wrong-point export could be recorded CONVERGED and contradicted
+    # afterwards by a helper the manifest never consults. It is now the
+    # shared bind_conditions, called by the assessor before the status is
+    # decided and by this reader afterwards, so the two can never disagree
+    # about what counts as the same point.
+    binding = bind_conditions(record.point, report)
+    if binding.mismatches:
+        raise ValueError(
+            f"the loads spreadsheet {name!r} of run {record.run_id!r} is evidence "
+            f"of a different operating point than the manifest records: "
+            f"{binding.describe()}; a later point of the same simulation "
+            "overwrites a same named export, so this file is not the evidence "
+            "of this run. Export one uniquely named spreadsheet per point."
+        )

@@ -73,11 +73,13 @@ from pyflightstream.cases import (
 from pyflightstream.results import (
     SOLVER_MODES,
     IncompleteOutputError,
+    LoadsReport,
     VersionMismatchWarning,
     classify_solver_mode,
     parse_loads,
     parse_residual_history,
 )
+from pyflightstream.results.conditions import ConditionBinding, bind_conditions
 from pyflightstream.script import Script
 from pyflightstream.versions import FsVersion, resolve
 from pyflightstream.workspace import (
@@ -318,6 +320,16 @@ class Assessment:
         (FR-18).
     fs_build : str, optional
         Build number printed in the assessed output.
+    conditions : list of dict, optional
+        The operating-point binding, one entry per requested axis the
+        export prints back: ``axis``, ``requested``, ``reported``,
+        ``deviation``, ``tolerance``, ``unit`` and ``within``
+        (REV010-001). Empty when the assessor had no case to compare
+        against; ``None`` when the assessor does not perform the
+        comparison at all. Recorded on EVERY outcome rather than only
+        on a refusal, because "checked and agreed" and "never checked"
+        are different claims about a result and a later reader cannot
+        otherwise tell them apart.
     """
 
     status: RunStatus
@@ -326,6 +338,41 @@ class Assessment:
     error: str | None = None
     fs_version_reported: str | None = None
     fs_build: str | None = None
+    conditions: list[dict] | None = None
+
+
+def _bind_case_conditions(case: SimCase | None, report: LoadsReport) -> ConditionBinding:
+    """Compare the point a case requested against the one an export printed.
+
+    Parameters
+    ----------
+    case : SimCase or None
+        The requested point. None means there is nothing to compare
+        against, which the campaign loop never produces: it fills
+        :attr:`SimCase.point` before the assessor runs. It reaches here
+        only when :class:`LoadsAssessor` is called directly on a file,
+        and the empty binding that results is recorded as empty rather
+        than as agreement.
+    report : LoadsReport
+        The parsed export.
+
+    Returns
+    -------
+    ConditionBinding
+        Every comparable field with its deviation and decision.
+    """
+    if case is None:
+        return ConditionBinding()
+    requested: dict[str, float] = {
+        axis: value for axis, value in case.point.items() if value is not None
+    }
+    # The free-stream velocity is a case attribute rather than a sweep
+    # axis unless the campaign sweeps it, in which case `point` already
+    # carries it and must win: it is the value of THIS point, while the
+    # attribute is the case default.
+    if case.velocity is not None:
+        requested.setdefault("velocity", case.velocity)
+    return bind_conditions(requested, report)
 
 
 class OutcomeAssessor(Protocol):
@@ -458,10 +505,45 @@ class LoadsAssessor:
                     ),
                 )
             report = usable[0][1]
+        # REV010-001, the check whose absence let a converged result for one
+        # flight condition be recorded as the evidence of another. The
+        # assessor received `case` and never read it, so a valid, complete,
+        # genuinely converged export printing alpha=2 deg was accepted as
+        # CONVERGED for a point requesting alpha=0 deg. Nothing about that
+        # file is malformed, which is exactly why no parser guard could see
+        # it. The tabular layer already had the comparison and the manifest
+        # never consults it, so the status was authorized long before
+        # anything disagreed.
+        #
+        # It runs FIRST, before divergence and before the mode, because
+        # those two judge a file that is assumed to be this run's evidence.
+        # Calling a result diverged when it belongs to another point
+        # attributes a physical outcome to a case that never produced it.
+        # The binding rides in `stamp` so every outcome below carries it:
+        # what was requested, what was printed, by how much they differ, and
+        # whether that was accepted (REV010-001's closure asks for the
+        # decision to be persisted, not just acted on).
+        binding = _bind_case_conditions(case, report)
         stamp = {
             "fs_version_reported": report.fs_version_reported,
             "fs_build": report.fs_build,
+            "conditions": binding.as_records(),
         }
+        if binding.mismatches:
+            return Assessment(
+                status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
+                iterations=report.current_iteration,
+                error=(
+                    "the collected export is evidence of a different operating "
+                    f"point than this run requested: {binding.describe()}. A loads "
+                    "export prints the conditions the solver actually ran, so this "
+                    "file is a valid result of another case rather than a bad "
+                    "result of this one. Within one simulation folder a later "
+                    "sweep point overwrites a same named export, so give each "
+                    "point a uniquely named output"
+                ),
+                **stamp,
+            )
         diverged = report.diverged_columns()
         if diverged:
             return Assessment(
@@ -1736,6 +1818,12 @@ def _execute_point(
         # replaced after the run stops matching its own record. inputs
         # have carried this since the first manifest; outputs never did.
         outputs_sha256=workspace.output_digests(case.sim_id, collected),
+        # REV010-001. The decision is persisted, not just acted on: a later
+        # reader of the manifest can see which axes were compared, by how
+        # much the export deviated, and what tolerance let it through. A
+        # status alone cannot answer "was this result ever bound to the
+        # point it claims", and that question is the whole finding.
+        conditions=assessment.conditions,
         error=assessment.error,
     )
 

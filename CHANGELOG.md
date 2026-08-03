@@ -9,6 +9,36 @@ FlightStream versions.
 
 ### API surface delta
 
+* **A result is now bound to the operating point it claims**
+  (REV010-001; independent review REV-010 of commit `4beb710`).
+  **Breaking**: a collected export whose printed conditions disagree
+  with the requested point is `FAILED_INCOMPLETE_OUTPUT` instead of
+  `CONVERGED`.
+
+  `LoadsAssessor` received the `SimCase` and never read it. A valid,
+  complete, genuinely converged export printing `alpha=2 deg` was
+  accepted as the evidence of a point requesting `alpha=0 deg`, and
+  the manifest recorded `CONVERGED` for the wrong engineering case.
+  Nothing about such a file is malformed, which is why no parser guard
+  could see it. The comparison existed in the tabular layer, which the
+  manifest never consults, so the status was authorized long before
+  anything disagreed.
+
+  New `pyflightstream.results.conditions` holds the comparison once:
+  `bind_conditions`, `ConditionBinding`, `ConditionCheck` and the
+  `FIELD_BINDINGS` table (alpha and beta in deg, free-stream velocity
+  in m/s, each with a tolerance that is print resolution rather than
+  an allowance for drift). Both consumers call it: the assessor before
+  a status is decided, and `run_table`/`parse_run_loads` when reading
+  a recorded run back.
+
+  `Assessment.conditions` and `RunRecord.conditions` persist the
+  decision on **every** outcome: axis, requested, reported, deviation,
+  tolerance, unit and whether it was accepted. `None` means an
+  assessor that does not compare, including every row written before
+  the field existed; an empty list means the comparison ran with
+  nothing to compare. A reader must be able to tell "checked and
+  agreed" from "never checked".
 * **An impossible count and an unrecognized solver mode are no longer
   successful outcomes** (REV010-002, REV010-007; independent review
   REV-010 of commit `4beb710`). **Breaking** for anything that fed the

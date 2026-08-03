@@ -222,11 +222,19 @@ def test_loads_assessor_closes_the_convergence_judgment_end_to_end(tmp_path):
     # No loads file is named: the assessor reads the case's first
     # declared output as the loop rendered it for this point, which is
     # the only form that works for a sweep (the name carries the point).
-    campaign = make_campaign(tmp_path, alphas=(0.0,))
+    #
+    # The requested alpha is 2.0 because the steady fixture PRINTS 2.000,
+    # and REV010-001 is exactly the rule that those two must agree. This
+    # test requested 0.0 against that same fixture until 2026-08-03 and
+    # asserted CONVERGED, so the defect the review reproduced with a
+    # custom solver was already sitting in this repository's own
+    # end-to-end test: a converged result for one flight condition
+    # accepted as the evidence of another.
+    campaign = make_campaign(tmp_path, alphas=(2.0,))
     workspace = CampaignWorkspace(tmp_path / "camp")
     records = run_campaign(
         campaign,
-        StubSolver(copies_fixture_as("loads_steady_26.120.txt", "loads_a+00.0.txt")),
+        StubSolver(copies_fixture_as("loads_steady_26.120.txt", "loads_a+02.0.txt")),
         workspace,
         assess=LoadsAssessor(requested_version=campaign.fs_version),
         recipes={"steady": steady_recipe},
@@ -236,6 +244,13 @@ def test_loads_assessor_closes_the_convergence_judgment_end_to_end(tmp_path):
     assert record.iterations == 312
     assert record.fs_version_reported == "26.1"
     assert record.fs_build == "7012026"
+    # The binding is persisted, not just acted on: alpha and velocity were
+    # compared, both agreed, and the manifest says so.
+    bound = {entry["axis"]: entry for entry in record.conditions}
+    assert bound["alpha"]["requested"] == 2.0
+    assert bound["alpha"]["reported"] == 2.0
+    assert bound["velocity"]["reported"] == 30.0
+    assert all(entry["within"] for entry in record.conditions)
 
 
 def make_raw(tmp_path, fixture: str, name: str = "loads.txt", text: str | None = None):
@@ -1399,3 +1414,79 @@ def test_both_known_modes_are_still_judged(tmp_path):
         )
         assert assessment.status is expected, mode
         assert assessment.error is None, mode
+
+
+# --- REV010-001: a result for a different flight condition ----------------
+#
+# The review's reproduction, reproduced here without its custom solver: a
+# campaign point requests alpha=0 and the collected export prints alpha=2.
+# Before this, the assessor took `case` and never read it, so the point was
+# recorded CONVERGED and the contradiction lived only in a table helper the
+# manifest never consults.
+
+
+def test_an_export_from_another_operating_point_is_not_converged(tmp_path):
+    steady = (FIXTURES / "loads_steady_26.120.txt").read_text(encoding="utf-8")  # prints 2.000 deg
+    case = SimCase(
+        sim_id="9001",
+        aircraft="TestWing",
+        velocity=30.0,
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        recipe="steady",
+        outputs=["loads.txt"],
+    )
+    case.point = {"alpha": 0.0}
+    assessment = LoadsAssessor("loads.txt")(
+        case, None, make_raw(tmp_path / "wrong", "", text=steady)
+    )
+    assert assessment.status is RunStatus.FAILED_INCOMPLETE_OUTPUT
+    assert "different operating point" in assessment.error
+    assert "alpha requested +0.0000 deg" in assessment.error
+    # The decision is persisted with the numbers behind it.
+    alpha = next(entry for entry in assessment.conditions if entry["axis"] == "alpha")
+    assert alpha["requested"] == 0.0 and alpha["reported"] == 2.0
+    assert alpha["within"] is False
+
+
+def test_the_same_export_is_converged_for_the_point_it_belongs_to(tmp_path):
+    """The control. Without it the refusal above would pass on an assessor
+    that refused every export, which is the mutant that matters here."""
+    steady = (FIXTURES / "loads_steady_26.120.txt").read_text(encoding="utf-8")
+    case = SimCase(
+        sim_id="9001",
+        aircraft="TestWing",
+        velocity=30.0,
+        sweep=SweepAxis(type="alpha", values=[2.0]),
+        recipe="steady",
+        outputs=["loads.txt"],
+    )
+    case.point = {"alpha": 2.0}
+    assessment = LoadsAssessor("loads.txt")(
+        case, None, make_raw(tmp_path / "right", "", text=steady)
+    )
+    assert assessment.status is RunStatus.CONVERGED
+    assert assessment.error is None
+    assert all(entry["within"] for entry in assessment.conditions)
+
+
+def test_a_wrong_point_export_never_reaches_the_manifest_as_converged(tmp_path):
+    """End to end, because the finding is about what the MANIFEST records.
+
+    The stub writes the 2.000 deg fixture under the name the loop renders
+    for the 0.0 deg point, which is exactly the overwrite the error text
+    warns about.
+    """
+    campaign = make_campaign(tmp_path, alphas=(0.0,))
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    with pytest.raises(CampaignErrors, match="different operating point"):
+        run_campaign(
+            campaign,
+            StubSolver(copies_fixture_as("loads_steady_26.120.txt", "loads_a+00.0.txt")),
+            workspace,
+            assess=LoadsAssessor(requested_version=campaign.fs_version),
+            recipes={"steady": steady_recipe},
+        )
+    record = workspace.read_manifest()[0]
+    assert record.status is RunStatus.FAILED_INCOMPLETE_OUTPUT
+    alpha = next(entry for entry in record.conditions if entry["axis"] == "alpha")
+    assert alpha["requested"] == 0.0 and alpha["reported"] == 2.0
