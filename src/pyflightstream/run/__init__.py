@@ -403,8 +403,11 @@ class LoadsAssessor:
     """The standard solver-quality judgment, built on the run outputs.
 
     Reads the collected loads spreadsheet and, when available, the
-    exported solver log, and decides between CONVERGED,
-    COMPLETED_MAX_ITER, and FAILED_DIVERGED:
+    exported solver log. It produces four of the six terminal statuses:
+    CONVERGED, COMPLETED_MAX_ITER and FAILED_DIVERGED when it can judge
+    the run, and FAILED_INCOMPLETE_OUTPUT when it cannot. The Notes
+    below list every case in the last group and say why they share one
+    status.
 
     - NaN or infinite Total coefficients: FAILED_DIVERGED.
     - With a log: the final velocity and pressure residuals against
@@ -416,20 +419,12 @@ class LoadsAssessor:
       requested limit means the threshold stopped the solver
       (CONVERGED); reaching the limit means COMPLETED_MAX_ITER. Unless
       the run forced all iterations, which disables that threshold: an
-      early stop is then FAILED_INCOMPLETE_OUTPUT, because the one
-      mechanism that could have ended the loop legitimately was off
-      (PYFS-008). The status is a constrained choice rather than the
-      right name for it: the terminal set is closed at six (FR-46) and
-      whether it opens to a seventh is the product owner's undecided
-      question (FR-37), so an unfinished solve is reported with the
-      value that says the evidence is incomplete rather than with a new
-      one.
+      early stop is then a refusal, because the one mechanism that
+      could have ended the loop legitimately was off (PYFS-008).
     - Without a log, unsteady mode: the time loop always runs to its
       prescribed end, so completion is recorded as
       COMPLETED_MAX_ITER; declare the log export to get a residual
       judgment.
-
-    An unparseable or truncated loads file is FAILED_INCOMPLETE_OUTPUT.
 
     Parameters
     ----------
@@ -448,6 +443,55 @@ class LoadsAssessor:
     requested_version : str or FsVersion, optional
         Version the campaign requested; enables the FR-18 cross-check
         against the version printed in the loads footer.
+
+    Notes
+    -----
+    Every refusal carries ``FAILED_INCOMPLETE_OUTPUT``, and that is a
+    constrained choice rather than the right name for each of them. The
+    terminal set is closed at six values (FR-46), and whether it opens
+    to a seventh meaning "the solver ran and this package cannot judge
+    the result" is the product owner's undecided question (FR-37).
+    Until it is answered, a case this assessor cannot judge is reported
+    with the value that says the evidence is incomplete. The reason is
+    asymmetric rather than aesthetic: the only other statuses available
+    describe outcomes the solver reached, so any of them would make a
+    point nobody judged indistinguishable from a point that passed.
+    Over-reporting incompleteness costs a re-run; under-reporting it
+    publishes a number.
+
+    The refusals, in the order they are tested:
+
+    1. The file named by ``loads_file`` is not among the collected
+       outputs. The error lists what was collected, because the usual
+       cause is a swept case whose recipe names its outputs per point.
+    2. No ``loads_file`` was named and no single collected output reads
+       as a loads table, either because none parses or because several
+       do. Choosing one would be a guess about which point ran.
+    3. The loads spreadsheet is unparseable or truncated.
+    4. The export is evidence of a different operating point from the
+       one the case requested, beyond tolerance (REV010-001).
+    5. The loads footer prints a solver mode this package has not been
+       taught (REV010-002).
+    6. The file named by ``log_file`` is not among the collected
+       outputs.
+    7. The solver log is present but no residual history can be read
+       from it.
+    8. Steady mode with all iterations forced, and the solver stopped
+       early (PYFS-008), as described above.
+
+    Items 4 and 5 are new at v0.4.0 and both replace a path that used
+    to end in a SUCCESS, which is what makes them worth stating here
+    rather than only in the changelog. Item 4 ran as CONVERGED on a
+    valid export belonging to another case: nothing about such a file
+    is malformed, so no parser guard could ever have seen it. Item 5
+    fell through to the unsteady branch and returned
+    COMPLETED_MAX_ITER with no error, so a mode this package had never
+    seen became a successful terminal state.
+
+    Item 4 is also tested BEFORE divergence, deliberately. Divergence
+    is a physical outcome, and attributing one to a case that never
+    produced the file is a worse error than reporting that the evidence
+    could not be matched to the case.
     """
 
     def __init__(
