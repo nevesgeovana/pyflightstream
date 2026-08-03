@@ -29,6 +29,8 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
+import pytest
+
 REPO = Path(__file__).resolve().parents[1]
 
 #: The trailer key, and the declaration its value must carry. Both
@@ -65,10 +67,27 @@ def _commits_under_review() -> list[str]:
     return [line for line in result.stdout.split() if line]
 
 
-def _message(commit: str) -> str:
-    result = _git("log", "-1", "--format=%B", commit)
-    assert result.returncode == 0, f"cannot read the message of {commit}"
-    return result.stdout
+def _trailer_values(commit: str) -> list[str]:
+    """Return the Clean-room trailer values of one commit, via git.
+
+    Git's own trailer parser rather than a line scan over the message,
+    and the difference is not cosmetic: this guard failed on its own
+    first commit because that message QUOTES the trailer in its body to
+    explain it, wrapped across three lines, and a scan for the first
+    line starting with the key found the quoted fragment. Git knows a
+    trailer is a key-value line in the LAST paragraph, which is exactly
+    the distinction the scan was missing.
+    """
+    result = _git(
+        "log", "-1", f"--format=%(trailers:key={TRAILER},valueonly,separator=%x1f)", commit
+    )
+    assert result.returncode == 0, f"cannot read the trailers of {commit}"
+    return [value.strip() for value in result.stdout.strip().split("") if value.strip()]
+
+
+def _subject(commit: str) -> str:
+    result = _git("log", "-1", "--format=%s", commit)
+    return result.stdout.strip()
 
 
 def test_the_baseline_is_a_commit_in_this_history():
@@ -86,6 +105,50 @@ def test_the_baseline_is_a_commit_in_this_history():
     )
 
 
+def _classify(values: list[str]) -> str:
+    """Verdict for one commit's trailer values: ok, missing or degraded.
+
+    Factored out so both branches can be exercised directly. A mutation
+    pass showed why: disabling the presence check still turned the suite
+    red, through the value check, because a commit with no trailer also
+    has no MATCHING trailer. Two branches that a mutation cannot tell
+    apart are two branches only one of which is really tested.
+    """
+    if not values:
+        return "missing"
+    if not any(" ".join(value.split()) == DECLARATION for value in values):
+        return "degraded"
+    return "ok"
+
+
+def test_the_classification_separates_absent_from_weakened():
+    """Each verdict on its own input, which mutation could not isolate."""
+    assert _classify([]) == "missing"
+    assert _classify(["yes"]) == "degraded"
+    assert _classify(["from the manual"]) == "degraded"
+    assert _classify([DECLARATION]) == "ok"
+    # Git folds a wrapped trailer; the comparison collapses whitespace,
+    # so a message that wrapped the declaration still declares it.
+    folded = DECLARATION.replace(" ", chr(10) + "  ", 1)
+    assert _classify([folded]) == "ok"
+
+
+def test_an_unreachable_baseline_fails_rather_than_reporting_nothing(monkeypatch):
+    """The failure mode this repository keeps registering.
+
+    In CI an unreachable baseline means a shallow checkout. Returning an
+    empty range there would pass every assertion while examining no
+    commit at all, so the range command asserts on its own exit code and
+    the message names fetch-depth.
+    """
+    monkeypatch.setattr(
+        "test_clean_room._git",
+        lambda *args: subprocess.CompletedProcess(args, 128, "", "fatal: bad object"),
+    )
+    with pytest.raises(AssertionError, match="fetch-depth"):
+        _commits_under_review()
+
+
 def test_every_commit_since_the_baseline_declares_its_provenance():
     """The mechanism FR-08's evidence line names, made to exist.
 
@@ -96,13 +159,12 @@ def test_every_commit_since_the_baseline_declares_its_provenance():
     missing = []
     degraded = []
     for commit in _commits_under_review():
-        message = _message(commit)
-        lines = [line.strip() for line in message.splitlines() if line.strip()]
-        trailer = next((line for line in lines if line.startswith(f"{TRAILER}:")), None)
-        if trailer is None:
-            missing.append(f"{commit[:7]} {lines[0][:60] if lines else ''}")
-        elif trailer[len(TRAILER) + 1 :].strip() != DECLARATION:
-            degraded.append(f"{commit[:7]} {trailer[:80]}")
+        values = _trailer_values(commit)
+        verdict = _classify(values)
+        if verdict == "missing":
+            missing.append(f"{commit[:7]} {_subject(commit)[:60]}")
+        elif verdict == "degraded":
+            degraded.append(f"{commit[:7]} {values[0][:90]}")
     assert not missing, (
         f"these commits carry no {TRAILER} trailer:\n  " + "\n  ".join(missing) + "\n\n"
         f"Every commit after {BASELINE[:7]} declares its clean-room provenance "
