@@ -261,3 +261,53 @@ def test_sectional_loads_still_read_the_solver_trailing_separator():
     report = parse_sectional_loads(CALL2)
     assert report.count == 100
     assert report.offset_m[0] == pytest.approx(0.2899)
+
+
+# --- REV010-007: this file kept its own copy of a fix made next door -------
+#
+# The results parser centralized exact count parsing as parse_count; the
+# sectional parser went on using int(parse_number(...)). The review's
+# reproduction is reused verbatim: a declared 100.9 truncates to 100 and
+# then PASSES the 100-row completeness check, so malformed evidence reads
+# as complete evidence. Mutants come from the real fixture and each is
+# asserted to differ from it.
+
+
+def test_a_fractional_section_count_is_refused_rather_than_truncated():
+    """100.9 became 100, and the 100 rows below it then agreed with it."""
+    fractional = CALL2.replace("Sections:                 100", "Sections:                 100.9")
+    assert fractional != CALL2
+    with pytest.raises(ValueError, match="not a whole number"):
+        parse_sectional_loads(fractional)
+
+
+def test_a_fractional_sectional_iteration_is_refused():
+    """A fractional iteration aliases the FSI freshness anchor."""
+    fractional = CALL2.replace("number:            154", "number:            154.9")
+    assert fractional != CALL2
+    with pytest.raises(ValueError, match="not a whole number"):
+        parse_sectional_loads(fractional)
+
+
+@pytest.mark.parametrize("token", ["-1", "0"])
+def test_an_impossible_section_count_is_refused(token):
+    """Zero sections is not a sectional export, and -1 is not a count."""
+    broken = CALL2.replace("Sections:                 100", f"Sections:                 {token}")
+    assert broken != CALL2, token
+    with pytest.raises(ValueError, match="cannot be below 1"):
+        parse_sectional_loads(broken)
+
+
+def test_a_negative_sectional_iteration_is_refused():
+    negative = CALL2.replace("number:            154", "number:            -1")
+    assert negative != CALL2
+    with pytest.raises(ValueError, match="cannot be below 0"):
+        parse_sectional_loads(negative)
+
+
+def test_the_pristine_sectional_fixture_still_parses():
+    """The control: the four mutants above cannot be passing because the
+    parser refuses everything."""
+    report = parse_sectional_loads(CALL2)
+    assert report.current_iteration == 154
+    assert report.declared_section_count == 100

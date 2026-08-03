@@ -9,6 +9,33 @@ FlightStream versions.
 
 ### API surface delta
 
+* **An impossible count and an unrecognized solver mode are no longer
+  successful outcomes** (REV010-002, REV010-007; independent review
+  REV-010 of commit `4beb710`). **Breaking** for anything that fed the
+  parsers malformed exports and got a number back.
+
+  `parse_count` refused a fractional count and accepted `-1`, which is
+  a perfectly whole number and not a possible iteration. It takes a
+  `minimum` now, defaulting to 0 for iteration NUMBERS and passed as 1
+  where the field is a requested budget, because a solve of zero
+  iterations did not produce the export the number is printed in.
+
+  The loads assessor tested for `"steady"` and let every other value
+  fall through to the unsteady branch, which returns
+  `COMPLETED_MAX_ITER` with no error: a mode this package has never
+  seen became a successful terminal state. The vocabulary is now
+  explicit as `results.SOLVER_MODES`, `results.classify_solver_mode`
+  answers whether a printed mode is one of them, and an unrecognized
+  one is `FAILED_INCOMPLETE_OUTPUT` before any judgment rule is
+  chosen, including the residual path. The printed string stays on the
+  report as evidence; only the judgment changed.
+
+  `fsi/loads.py` kept its own `int(parse_number(...))` after the
+  results parser had already centralized the exact form, so a declared
+  `100.9` sections truncated to `100` and then agreed with the 100 rows
+  below it. Both sites use the shared parser now. That is the review's
+  own diagnosis of this repository's recurring shape: a guard added at
+  one layer while the same invariant stays false at another.
 * **FR-08's evidence line names a mechanism that exists** (SRS FR-08,
   reworded; new `tests/test_clean_room.py`). No runtime change.
 

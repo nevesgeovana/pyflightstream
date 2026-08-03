@@ -1348,3 +1348,54 @@ def test_an_ordinary_plan_reports_no_waiver(tmp_path):
     assert plan.points[0].broken_commands == ()
     assert "waive a command" not in plan.summary()
     assert "escape hatch" not in plan.summary()
+
+
+# --- REV010-002: an unrecognized solver mode was a SUCCESSFUL status -------
+#
+# The review's reproduction: replacing the solver mode with "Warp" produced
+# COMPLETED_MAX_ITER with no error. The classifier test in test_results.py
+# proves the vocabulary; this proves the STATUS, which is the half that
+# reached the manifest.
+
+
+def _with_solver_mode(text: str, mode: str) -> str:
+    """Rewrite the printed solver mode, keeping the file's own layout."""
+    line = next(row for row in text.splitlines() if row.strip().startswith("Solver mode:"))
+    printed = line.split()[-1]
+    rewritten = text.replace(line, line.replace(printed, mode))
+    # The rewrite must change the text exactly when the mode differs. A bare
+    # "it changed" assertion fails the control below, where the fixture
+    # already prints the mode being asked for; a missing assertion would let
+    # a mutant that silently rewrote nothing pass as a refusal.
+    assert (rewritten != text) == (printed != mode), mode
+    return rewritten
+
+
+@pytest.mark.parametrize("mode", ["Warp", "transient", "Stead"])
+def test_an_unknown_solver_mode_is_not_a_successful_terminal_state(tmp_path, mode):
+    steady = (FIXTURES / "loads_steady_26.120.txt").read_text(encoding="utf-8")
+    assessment = LoadsAssessor("loads.txt")(
+        None,
+        None,
+        make_raw(tmp_path / mode, "", text=_with_solver_mode(steady, mode)),
+    )
+    assert assessment.status is RunStatus.FAILED_INCOMPLETE_OUTPUT
+    assert mode in assessment.error
+    assert "not one this package knows" in assessment.error
+
+
+def test_both_known_modes_are_still_judged(tmp_path):
+    """The control. Without it the parametrized refusal above would pass on
+    an assessor that refuses every mode, including the two real ones."""
+    steady = (FIXTURES / "loads_steady_26.120.txt").read_text(encoding="utf-8")
+    for mode, expected in (
+        ("Steady", RunStatus.CONVERGED),
+        ("Unsteady", RunStatus.COMPLETED_MAX_ITER),
+    ):
+        assessment = LoadsAssessor("loads.txt")(
+            None,
+            None,
+            make_raw(tmp_path / f"ok_{mode}", "", text=_with_solver_mode(steady, mode)),
+        )
+        assert assessment.status is expected, mode
+        assert assessment.error is None, mode

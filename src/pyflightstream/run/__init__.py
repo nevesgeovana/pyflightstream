@@ -71,8 +71,10 @@ from pyflightstream.cases import (
     resolve_recipe,
 )
 from pyflightstream.results import (
+    SOLVER_MODES,
     IncompleteOutputError,
     VersionMismatchWarning,
+    classify_solver_mode,
     parse_loads,
     parse_residual_history,
 )
@@ -468,6 +470,29 @@ class LoadsAssessor:
                 error=f"non-finite Total coefficients: {', '.join(diverged)}",
                 **stamp,
             )
+        # REV010-002. The mode decides WHICH judgment rule applies, so an
+        # unrecognized one is checked before any rule is chosen, including
+        # the residual path below. The old code tested for "steady" and let
+        # everything else fall through to the unsteady branch, which returns
+        # COMPLETED_MAX_ITER with error=None: a solver mode this package has
+        # never seen became a successful terminal state, indistinguishable
+        # from a genuine unsteady run. Failing closed here is the difference
+        # between "we judged this" and "we did not recognize it".
+        mode = classify_solver_mode(report.solver_mode)
+        if mode is None:
+            return Assessment(
+                status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
+                iterations=report.current_iteration,
+                error=(
+                    f"the loads footer prints solver mode {report.solver_mode.strip()!r}, "
+                    f"which is not one this package knows ({', '.join(SOLVER_MODES)}). The "
+                    "mode selects the judgment rule, so an unrecognized one means the "
+                    "export cannot be assessed rather than that it completed. Either the "
+                    "solver version prints a mode this package has not been taught, or "
+                    "the footer is malformed"
+                ),
+                **stamp,
+            )
         log_path = None
         if self.log_file is not None:
             wanted_log = Path(self.log_file).name
@@ -544,7 +569,7 @@ class LoadsAssessor:
                 residual=residual,
                 **stamp,
             )
-        if report.solver_mode.strip().lower() == "steady":
+        if mode == "steady":
             stopped_early = report.current_iteration < report.requested_iterations
             # PYFS-008. The iteration-count judgment below reads an early stop
             # as "the convergence threshold stopped the solver", and that

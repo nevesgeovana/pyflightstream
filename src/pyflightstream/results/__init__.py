@@ -123,7 +123,7 @@ def parse_number(token: str) -> float:
         ) from error
 
 
-def parse_count(token: str, *, label: str) -> int:
+def parse_count(token: str, *, label: str, minimum: int = 0) -> int:
     """Parse a solver-printed COUNT, refusing anything but a whole number.
 
     Iteration numbers and limits are counts, and every one of them used
@@ -134,6 +134,13 @@ def parse_count(token: str, *, label: str) -> int:
     failure here because the consequence is a plausible number: nothing
     downstream can tell 312 from a real 312.
 
+    Integrality was the whole guard until REV010-002, which pointed out
+    that it is only half of what a count means: ``-1`` is a perfectly
+    whole number and not a possible iteration. A negative count printed
+    into a loads footer was read, believed, and carried into a
+    ``CONVERGED`` assessment. The domain floor is therefore part of the
+    parse rather than a check somebody downstream remembers to make.
+
     Parameters
     ----------
     token : str
@@ -141,6 +148,12 @@ def parse_count(token: str, *, label: str) -> int:
     label : str
         The printed label, named in the error so the reader knows which
         field of which export is malformed.
+    minimum : int
+        Smallest value this field can physically take. Iteration
+        NUMBERS count from zero, which is the default; a REQUESTED
+        iteration budget passes ``minimum=1``, because a solve of zero
+        iterations is not a solve that could have produced the export
+        the number is printed in.
 
     Returns
     -------
@@ -150,8 +163,8 @@ def parse_count(token: str, *, label: str) -> int:
     Raises
     ------
     ValueError
-        If the token is not a number at all, or is a number with a
-        fractional part.
+        If the token is not a number at all, is a number with a
+        fractional part, or is below ``minimum``.
     """
     value = parse_number(token)
     whole = int(value)
@@ -162,7 +175,48 @@ def parse_count(token: str, *, label: str) -> int:
             "malformed or the label matched the wrong line; truncating it would "
             "hand every reader downstream a count that looks ordinary"
         )
+    if whole < minimum:
+        raise ValueError(
+            f"{label} printed {token!r}, and this field cannot be below {minimum}: "
+            "it counts iterations, which do not run backwards. A value below the "
+            "floor means the export is malformed or the label matched the wrong "
+            "line, and accepting it would carry an impossible count into a "
+            "terminal run status that reads as ordinary"
+        )
     return whole
+
+
+#: The solver modes this package knows how to judge, canonically lower
+#: case. FlightStream prints ``Steady`` or ``Unsteady`` in the loads
+#: footer, and the two are judged by entirely different rules: a steady
+#: export is judged on its iteration count against the requested budget,
+#: an unsteady one is not. Anything else is a mode this package has
+#: never seen, so it cannot know which rule applies (REV010-002).
+SOLVER_MODES: tuple[str, ...] = ("steady", "unsteady")
+
+
+def classify_solver_mode(printed: str) -> str | None:
+    """Return the canonical solver mode, or None when it is unknown.
+
+    The printed string is kept on the report as evidence; this is the
+    single place that decides whether the package recognizes it.
+
+    Parameters
+    ----------
+    printed : str
+        The value printed after ``Solver mode:``, as parsed.
+
+    Returns
+    -------
+    str or None
+        One of :data:`SOLVER_MODES`, or None when the printed value is
+        not a mode this package knows. None is not an error here: the
+        caller decides what an unrecognized mode means for its own
+        judgment, and the assessor maps it to incomplete output rather
+        than guessing a rule.
+    """
+    candidate = printed.strip().lower()
+    return candidate if candidate in SOLVER_MODES else None
 
 
 def delimited_table(text: str, header_anchor: str, delimiter: str | None = ",") -> list[list[str]]:
@@ -413,6 +467,7 @@ def parse_loads(text: str, requested_version: str | FsVersion | None = None) -> 
         requested_iterations=parse_count(
             labeled_value(text, "Requested solver iterations"),
             label="Requested solver iterations",
+            minimum=1,
         ),
         convergence_limit=parse_number(labeled_value(text, "Solver convergence limit")),
         solver_mode=labeled_value(text, "Solver mode:"),
@@ -761,8 +816,10 @@ __all__ = [
     "LoadsNotFoundError",
     "LoadsReport",
     "ProbePointsReport",
+    "SOLVER_MODES",
     "ResidualSample",
     "VersionMismatchWarning",
+    "classify_solver_mode",
     "delimited_table",
     "labeled_value",
     "parse_loads",

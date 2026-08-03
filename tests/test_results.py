@@ -11,11 +11,14 @@ import numpy as np
 import pytest
 
 from pyflightstream.results import (
+    SOLVER_MODES,
     AnchorNotFoundError,
     IncompleteOutputError,
     VersionMismatchWarning,
+    classify_solver_mode,
     delimited_table,
     labeled_value,
+    parse_count,
     parse_loads,
     parse_number,
     parse_probe_points,
@@ -334,3 +337,75 @@ def test_a_fractional_residual_iteration_is_refused():
     assert fractional != real
     with pytest.raises(ValueError, match="not a whole number"):
         parse_residual_history(fractional)
+
+
+# --- REV010-002: integrality was only half of what a count means -----------
+#
+# The independent review's reproduction: replacing the current iteration
+# with -1 produced CONVERGED at iteration -1, and replacing the solver mode
+# with "Warp" produced COMPLETED_MAX_ITER, both with no error. Every mutant
+# below is taken from the real fixture and asserted to differ from it, so a
+# replacement that stops matching cannot leave the test passing on pristine
+# input.
+
+
+def test_a_negative_iteration_number_is_refused():
+    """-1 is a perfectly whole number and not a possible iteration.
+
+    Integrality passed it, so it reached the assessor and became the
+    iteration count of a CONVERGED run.
+    """
+    negative = _steady().replace("number:            312", "number:            -1")
+    assert negative != _steady()
+    with pytest.raises(ValueError, match="cannot be below 0"):
+        parse_loads(negative)
+
+
+def test_a_zero_or_negative_requested_budget_is_refused():
+    """A solve of zero iterations did not produce the export it is printed in."""
+    for token in ("0", "-500"):
+        broken = _steady().replace(
+            "iterations                 500", f"iterations                 {token}"
+        )
+        assert broken != _steady(), token
+        with pytest.raises(ValueError, match="cannot be below 1"):
+            parse_loads(broken)
+
+
+def test_the_pristine_fixture_still_parses():
+    """The control. Without it the four mutants above could pass on a parser
+    that refuses everything, which is the failure mode a mutation test is
+    supposed to be immune to."""
+    report = parse_loads(_steady())
+    assert report.current_iteration == 312
+    assert report.requested_iterations == 500
+    assert report.solver_mode.strip() == "Steady"
+
+
+@pytest.mark.parametrize("printed", ["Steady", "  steady ", "Unsteady", "UNSTEADY"])
+def test_the_known_solver_modes_classify(printed):
+    assert classify_solver_mode(printed) in SOLVER_MODES
+
+
+@pytest.mark.parametrize("printed", ["Warp", "", "Stead", "steady-state", "transient"])
+def test_an_unknown_solver_mode_classifies_as_nothing(printed):
+    """None rather than a guess. The caller decides what unknown means; what
+    it must not do is fall through to the rule for a mode it did not read."""
+    assert classify_solver_mode(printed) is None
+
+
+@pytest.mark.parametrize(
+    ("token", "minimum", "expected"),
+    [("5", 0, 5), ("0", 0, 0), ("1", 1, 1), ("5.", 0, 5), ("1.000E+01", 0, 10)],
+)
+def test_parse_count_accepts_the_valid_domain(token, minimum, expected):
+    assert parse_count(token, label="a count", minimum=minimum) == expected
+
+
+@pytest.mark.parametrize(
+    ("token", "minimum"),
+    [("-1", 0), ("0", 1), ("-0.0001", 0), ("312.9", 0), ("banana", 0)],
+)
+def test_parse_count_refuses_outside_the_domain(token, minimum):
+    with pytest.raises(ValueError):
+        parse_count(token, label="a count", minimum=minimum)

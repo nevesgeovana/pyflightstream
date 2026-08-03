@@ -65,6 +65,7 @@ from pyflightstream.results import (
     IncompleteOutputError,
     delimited_table,
     labeled_value,
+    parse_count,
     parse_number,
 )
 
@@ -449,7 +450,16 @@ def parse_sectional_loads(text: str) -> SectionalLoadsReport:
             f"{EXPECTED_COLUMNS}; the layout changed and the blade-frame "
             "mapping of the force columns must be re-verified before parsing"
         )
-    declared = int(parse_number(labeled_value(text, "Number of Surface Sections:")))
+    # REV010-007. This was int(parse_number(...)), the same truncation the
+    # results parser had already centralized into parse_count and that this
+    # file kept its own copy of: a declared 100.9 became 100 and then passed
+    # the 100-row completeness check below, so malformed evidence read as
+    # complete evidence. One exact parser, used everywhere counts are read.
+    declared = parse_count(
+        labeled_value(text, "Number of Surface Sections:"),
+        label="Number of Surface Sections",
+        minimum=1,
+    )
     rows = delimited_table(text, _TABLE_ANCHOR)
     parsed_rows: list[list[float]] = []
     for row in rows:
@@ -492,8 +502,9 @@ def parse_sectional_loads(text: str) -> SectionalLoadsReport:
         freestream_velocity_m_s=freestream,
         time_increment_s=_optional_number(text, "Time increment (sec)"),
         solver_mode=labeled_value(text, "Solver mode:"),
-        current_iteration=int(
-            parse_number(labeled_value(text, "Current solver iteration number:"))
+        current_iteration=parse_count(
+            labeled_value(text, "Current solver iteration number:"),
+            label="Current solver iteration number",
         ),
         reference_velocity_m_s=_optional_number(text, "Reference velocity (m/s)"),
         reference_length_m=_optional_number(text, "Reference length (m)"),
