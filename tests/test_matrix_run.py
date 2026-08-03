@@ -14,9 +14,12 @@ import pytest
 
 from pyflightstream.cases.matrix import (
     MatrixError,
+    convert_matrix,
     plan_matrix,
+    read_matrix,
     resolve_matrix,
     run_matrix,
+    to_campaign,
 )
 from pyflightstream.run import Assessment, LocalExecutor, PlanStatus
 from pyflightstream.script import helpers
@@ -45,10 +48,19 @@ class StubSolver(LocalExecutor):
         self.code = code
 
     def _argv(self, script_path: Path) -> list[str]:
-        return [sys.executable, "-c", self.code]
+        return [sys.executable, "-c", self.code, str(script_path)]
 
 
-WRITES_LOADS = "import pathlib; pathlib.Path('loads.txt').write_text('LOADS')"
+# Writes whatever the SCRIPT asks it to export, rather than a fixed
+# name, which is the only form that can exercise collection: a stub that
+# always writes 'loads.txt' passes whatever the case declares. The
+# sibling stub in test_run_campaign.py has always done it this way.
+WRITES_LOADS = (
+    "import pathlib, sys; "
+    "lines = pathlib.Path(sys.argv[1]).read_text().splitlines(); "
+    "[pathlib.Path(lines[i + 1]).write_text('LOADS') "
+    "for i, line in enumerate(lines) if line == 'EXPORT_SOLVER_ANALYSIS_SPREADSHEET']"
+)
 
 
 def matrix_recipe(case, script):
@@ -63,7 +75,12 @@ def matrix_recipe(case, script):
         convergence=case.solver.convergence,
     )
     helpers.start_solver(script)
-    script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", "loads.txt")
+    # The managed protocol: a recipe exports case.outputs[i], never a
+    # literal, so the loop collects exactly the files the case declared.
+    # This emitted the literal "loads.txt" until 2026-08-03, which was
+    # invisible because to_campaign never declared any outputs and the
+    # collection step therefore had nothing to look for.
+    script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", case.outputs[0])
     script.emit("CLOSE_FLIGHTSTREAM")
 
 
@@ -335,3 +352,155 @@ def test_matrix_without_active_rows_is_refused(tmp_path):
     )
     with pytest.raises(MatrixError, match="no active rows"):
         resolve_matrix(matrix, workspace, name="matrix", fs_version="26.120", recipes=RECIPES)
+
+
+# --- the matrix path never collected anything ------------------------------
+#
+# Found by running the author's own research campaign on 2026-08-03, not by
+# a review: `to_campaign` never set `outputs`, so every matrix-driven case
+# carried the empty default and the collection step had nothing to look for.
+# A thirty-minute unsteady run completed, the solver wrote all eight files
+# into the run folder, and the point was recorded FAILED_INCOMPLETE_OUTPUT
+# with "collected: nothing".
+#
+# It stayed invisible because the end-to-end test above passed a stub
+# assessor that returns CONVERGED without reading a file, the fixture recipe
+# exported a literal instead of `case.outputs[0]`, and the stub solver wrote
+# a fixed name. All three are fixed above; these pin the behaviour.
+
+
+def test_a_matrix_row_declaring_no_outputs_is_refused_before_the_solver():
+    """A refusal costs nothing; the silent empty list cost half an hour."""
+    import re
+    import tempfile
+
+    text = REGISTRY_FIXTURE.read_text(encoding="utf-8")
+    stripped = re.sub(r"\s*/\s*OUTPUTS:[^|\n]*", "", text)
+    assert stripped != text, "the fixture no longer declares OUTPUTS to strip"
+    with tempfile.TemporaryDirectory() as folder:
+        path = Path(folder) / "no_outputs.fs"
+        path.write_text(stripped, encoding="utf-8")
+        with pytest.raises(MatrixError, match="declares no outputs"):
+            to_campaign(path, name="m", fs_version="26.120", fs_exe="C:/fs.exe", recipes=RECIPES)
+
+
+def test_a_declared_row_reaches_the_case_and_survives_conversion():
+    """The control, and the FR-11 half: what the row declares must arrive
+    on the case AND survive the campaign.toml round trip."""
+    campaign = to_campaign(
+        REGISTRY_FIXTURE, name="m", fs_version="26.120", fs_exe="C:/fs.exe", recipes=RECIPES
+    )
+    assert campaign.sims[0].outputs == ["loads_{point}.txt"]
+    text = convert_matrix(
+        REGISTRY_FIXTURE, name="m", fs_version="26.120", fs_exe="C:/fs.exe", recipes=RECIPES
+    )
+    assert "outputs = " in text
+
+
+def test_the_end_to_end_run_actually_collects_the_declared_file(tmp_path):
+    """The gap that hid all of this: the run above asserted CONVERGED from a
+    stub assessor that never opened a file. This asserts the COLLECTION."""
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs26120/FlightStream.exe"))
+    records = run_matrix(
+        REGISTRY_FIXTURE,
+        workspace,
+        name="collect",
+        fs_version="26.120",
+        recipes=RECIPES,
+        assess=converged,
+        executor=StubSolver(WRITES_LOADS),
+        recipe_registry={"steady": matrix_recipe},
+    )
+    for record in records:
+        assert record.outputs, f"{record.run_id} collected nothing"
+        assert record.outputs_sha256, f"{record.run_id} recorded no output hashes"
+        collected = workspace.sim_dir(record.sim_id) / record.outputs[0]
+        assert collected.is_file(), collected
+
+
+def test_the_row_decides_the_window_when_the_caller_does_not(tmp_path):
+    """REV-of-the-research-run: the HIDDEN column existed, the row said 0
+    (show the window), and run_matrix used its own parameter, so the run
+    went headless against the matrix's explicit instruction."""
+    rows = read_matrix(REGISTRY_FIXTURE)
+    assert not all(row.hidden for row in rows), (
+        "the fixture must carry a row asking for a visible window, or this "
+        "test cannot tell the row from the default"
+    )
+
+    seen = {}
+
+    class Recording(StubSolver):
+        def __init__(self, code, hidden):
+            super().__init__(code)
+            seen["hidden"] = hidden
+
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs26120/FlightStream.exe"))
+    run_matrix(
+        REGISTRY_FIXTURE,
+        workspace,
+        name="window",
+        fs_version="26.120",
+        recipes=RECIPES,
+        assess=converged,
+        executor=StubSolver(WRITES_LOADS),
+        recipe_registry={"steady": matrix_recipe},
+    )
+    # With an explicit executor the parameter is moot; what this pins is that
+    # the default is no longer a hardcoded True at the signature.
+    import inspect
+
+    assert inspect.signature(run_matrix).parameters["hidden"].default is None, (
+        "hidden must default to None, meaning the row decides"
+    )
+
+
+def test_the_override_says_which_rows_it_overrules(tmp_path):
+    """The explicit fs_exe override is the only way to run MANUAL, so it has
+    to win. It used to win SILENTLY over a row naming a real build: measured
+    on the author's campaign, a row saying FS_BUILD 26.121 ran on the 26.120
+    executable and was recorded as having requested 26.120, with nothing
+    said. Overruling an explicit request is a decision the caller is
+    entitled to hear."""
+    text = REGISTRY_FIXTURE.read_text(encoding="utf-8")
+    rows = [line for line in text.splitlines() if line.strip() and not line.startswith("-")]
+    assert len(rows) >= 3, "the fixture needs a header and two distinct rows"
+    header, keep, second = rows[0], rows[1], rows[2]
+    manual = second.replace("| 26.120   |", "| MANUAL   |", 1)
+    assert manual != second, "the fixture's second row no longer names build 26.120"
+    mixed = tmp_path / "mixed.fs"
+    mixed.write_text("\n".join([header, keep, manual]) + "\n", encoding="utf-8")
+
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs26120/FlightStream.exe"))
+    with pytest.warns(UserWarning, match="overruling the FS_BUILD"):
+        resolve_matrix(
+            mixed,
+            workspace,
+            name="m",
+            fs_version="26.120",
+            recipes=RECIPES,
+            fs_exe="C:/elsewhere/FlightStream.exe",
+        )
+
+
+def test_no_warning_when_the_override_overrules_nothing(tmp_path):
+    """The control: with every row MANUAL the override overrules no explicit
+    request, and a warning there would train the reader to ignore it."""
+    import warnings as _warnings
+
+    text = REGISTRY_FIXTURE.read_text(encoding="utf-8")
+    all_manual = text.replace("| 26.120   |", "| MANUAL   |")
+    path = tmp_path / "all_manual.fs"
+    path.write_text(all_manual, encoding="utf-8")
+
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs26120/FlightStream.exe"))
+    with _warnings.catch_warnings():
+        _warnings.simplefilter("error", UserWarning)
+        resolve_matrix(
+            path,
+            workspace,
+            name="m",
+            fs_version="26.120",
+            recipes=RECIPES,
+            fs_exe="C:/elsewhere/FlightStream.exe",
+        )

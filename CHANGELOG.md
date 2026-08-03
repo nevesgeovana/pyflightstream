@@ -9,6 +9,84 @@ FlightStream versions.
 
 ### API surface delta
 
+* **The run matrix collects its outputs, honours its HIDDEN column, and
+  says when an override overrules a row.** **Breaking**: a matrix row
+  that declares no outputs is now refused. Found by running the
+  author's own research campaign, not by a review.
+
+  Three defects, one theme: *the matrix states a fact, a function
+  parameter states the same fact, and the parameter wins silently.*
+
+  **Outputs, the one that lost work.** `to_campaign` never set
+  `outputs`, so every matrix-driven case carried the empty default and
+  the collection step had nothing to look for. With the standard
+  `LoadsAssessor`, which the README and the guides tell you to pass, a
+  point lands `FAILED_INCOMPLETE_OUTPUT` *after* the solver has run.
+  Measured: a thirty-minute unsteady run completed, the solver wrote
+  all eight expected files into the run folder, and the point was
+  recorded as a failure with the files sitting beside it.
+
+  A row declares them in `VAR_NAMES_VALUES` as
+  `OUTPUTS: loads.txt, loads_cp.txt`, **comma**-separated, because the
+  slash already separates the `KEY:VALUE` pairs. A row that declares
+  none is refused before the solver starts, since a refusal costs
+  nothing and the silent empty list cost half an hour.
+  `convert_matrix` carries them into `campaign.toml`, so FR-11 stays
+  lossless.
+
+  **HIDDEN.** The column existed and was read into the `matrix_hidden`
+  variable and never acted on, so a row saying `0` (show the window)
+  ran headless because `run_matrix(hidden=...)` defaulted to `True`.
+  The parameter now defaults to `None`, meaning the row decides; an
+  explicit `True` or `False` still wins.
+
+  **The override.** The explicit `fs_exe` override is the only way to
+  run a `MANUAL` row, so it has to win, and it used to win silently
+  over a row naming a real build: a row saying `FS_BUILD 26.121` ran on
+  the 26.120 executable and was recorded as having requested 26.120.
+  It warns now, naming the builds it overruled.
+
+  **Why tier 1 never saw any of it.** The one end-to-end matrix test
+  passed a stub assessor that returns `CONVERGED` without reading a
+  file, the fixture recipe exported a literal instead of
+  `case.outputs[0]`, and the stub solver wrote a fixed name regardless
+  of what the script asked for. All three are corrected, and the test
+  now asserts the collected files and their hashes.
+* **Announced for v0.5.0, breaking, with no alias: the dry-run pair is
+  renamed.** No change in this release; this notice is what makes the
+  direct break available, the same way the v0.3.0 notes made this
+  release's tabular renames available.
+
+  ```python
+  dryrun_matrix(...)     # was plan_matrix
+  dryrun_campaign(...)   # was plan_campaign
+  ```
+
+  `plan_matrix` reads as "plan what is in the matrix" and the function
+  dry-runs it: it resolves, validates, builds every script and checks
+  the geometry, executing nothing. The prose has called that a
+  pre-flight all along, so the divergence was already here.
+
+  `preflight_*` was considered and rejected, because *pre-flight* is
+  already the name of a different thing: the solver-identity check
+  runs the solver once, lazily, to read which build is installed.
+  Collapsing the two under one public name would erase exactly the
+  distinction "executes or does not execute" that the rename exists
+  to carry.
+
+  `dryrun` is the verb; **`plan` stays the noun**. `CampaignPlan`,
+  `PointPlan`, `PlanStatus`, `plan.json` and `write_plan` are
+  unchanged, because what the action returns and writes *is* a plan.
+  The old names used the noun as a verb.
+
+  Both are renamed rather than only the matrix one: the matrix
+  delegates to the campaign, so renaming one would move the asymmetry
+  somewhere deeper and less visible.
+
+  **The CLI follows**: `pyfs-matrix plan` becomes
+  `pyfs-matrix dryrun`. A library function and the console subcommand
+  that fronts it carrying different verbs would put one fact in two
+  homes on the surface a user types.
 * **Every public refusal now carries the package's base exception**
   (SRS FR-39, whose first clause was false in 70 places). **Widening
   only**: every new class keeps its standard-library base, so an

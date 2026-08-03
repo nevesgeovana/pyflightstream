@@ -43,9 +43,13 @@ _HEADER = (
     "|ENTRY|FS_SCRIPT|FS_BUILD|HIDDEN|RUN|VAR_NAMES_VALUES"
 )
 _ROW_1 = (
-    "9001|TestWing|POLAR|4.38|0.1441|AL|0.0,2.0,4.0|003|003|001|003|MANUAL|0|1|FSM_FILE:wing_clean"
+    "9001|TestWing|POLAR|4.38|0.1441|AL|0.0,2.0,4.0|003|003|001|003|MANUAL|0|1"
+    "|FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt"
 )
-_ROW_2 = "9002|TestWing|PARKED|3.10|0.0890|AL|0.0|003|002|001|003|MANUAL|0|0|FSM_FILE:wing_clean"
+_ROW_2 = (
+    "9002|TestWing|PARKED|3.10|0.0890|AL|0.0|003|002|001|003|MANUAL|0|0"
+    "|FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt"
+)
 MATRIX = "\n".join([_HEADER, "-" * len(_HEADER), _ROW_1, _ROW_2]) + "\n"
 matrix_path = workdir / "campaign.fs"
 matrix_path.write_text(MATRIX, encoding="utf-8")

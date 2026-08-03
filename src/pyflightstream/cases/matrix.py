@@ -263,6 +263,71 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
     return rows
 
 
+#: Matrix variable naming the files a row's recipe exports, several
+#: separated by commas. NOT by the slash: the slash already separates
+#: the KEY:VALUE pairs of VAR_NAMES_VALUES, so a slash inside a value
+#: splits the variable itself. Comma is what SWEEP_VALUES already uses
+#: to separate values within one group.
+OUTPUTS_VARIABLE = "OUTPUTS"
+
+
+def _declared_outputs(row: MatrixRow) -> list[str]:
+    """Return the outputs a matrix row declares, refusing a row with none.
+
+    A campaign collects the outputs the case DECLARES: the recipe
+    exports ``case.outputs[i]`` and the loop copies exactly those files
+    into the run folder. `to_campaign` never set the field, so every
+    matrix-driven case carried the empty default, and therefore no
+    matrix-driven run has ever collected anything. With the standard
+    :class:`~pyflightstream.run.LoadsAssessor`, which is what the README
+    and the guides tell a user to pass, the point lands
+    ``FAILED_INCOMPLETE_OUTPUT`` with "collected: nothing" AFTER the
+    solver has run.
+
+    Measured 2026-08-03 on the author's own research campaign: a
+    thirty-minute unsteady run completed, the solver wrote all eight
+    expected files into the run folder, and the point was recorded as a
+    failure with the files sitting beside it. The physics was fine and
+    the bookkeeping threw it away.
+
+    It stayed invisible because the one end-to-end matrix test passes a
+    stub assessor that returns CONVERGED without reading a file, so
+    nothing in tier 1 ever exercised collection through this path.
+
+    Refusing a row that declares nothing is deliberate, and it is the
+    half that matters: a silent empty list spends solver time before
+    failing, while a refusal costs nothing and names the remedy.
+
+    Parameters
+    ----------
+    row : MatrixRow
+        One active row.
+
+    Returns
+    -------
+    list of str
+        The declared output file names, in the order written.
+
+    Raises
+    ------
+    MatrixError
+        If the row declares no outputs.
+    """
+    raw = row.variables.get(OUTPUTS_VARIABLE, "").strip()
+    outputs = [part.strip() for part in raw.split(",") if part.strip()]
+    if not outputs:
+        raise MatrixError(
+            f"POL {row.pol} declares no outputs, so a run of it would collect nothing "
+            "and be recorded FAILED_INCOMPLETE_OUTPUT after the solver had already "
+            f"spent its time. Add the files the recipe exports to the row's variables "
+            f"as {OUTPUTS_VARIABLE}, several separated by commas, for example "
+            f"'{OUTPUTS_VARIABLE}: loads.txt, loads_cp.txt'. The names must be the "
+            "ones the recipe passes to its EXPORT commands, which the managed "
+            "protocol reads from case.outputs."
+        )
+    return outputs
+
+
 def to_campaign(
     path: str | Path,
     *,
@@ -327,6 +392,7 @@ def to_campaign(
                 mach=row.mach,
                 sweep=row.sweep,
                 recipe=recipes[row.script_code],
+                outputs=_declared_outputs(row),
                 variables=variables,
             )
         )
@@ -387,6 +453,12 @@ def convert_matrix(
             f"values = {_toml_value(plain_values)}}}"
         )
         lines.append(f"recipe = {_toml_value(sim.recipe)}")
+        # FR-11 says the conversion is lossless, and the outputs are part
+        # of what the row declares now, so they have to survive it. Before
+        # 2026-08-03 there was nothing here to lose: every converted case
+        # carried the empty default.
+        if sim.outputs:
+            lines.append(f"outputs = {_toml_value(list(sim.outputs))}")
         if sim.variables:
             lines.append("[sim.variables]")
             for key, value in sim.variables.items():
@@ -452,6 +524,24 @@ def _resolve_build(
     from pyflightstream.workspace import InputArtifactError
 
     if override is not None:
+        # The override is the only way to run MANUAL, so it has to win.
+        # It used to win SILENTLY over a row that named a real build,
+        # which is how a row saying FS_BUILD 26.121 ran on the 26.120
+        # executable and was recorded as having requested 26.120, with
+        # nothing said (measured on the author's campaign, 2026-08-03).
+        # Overruling an explicit request is a decision the caller is
+        # entitled to hear about, whatever it then does with it.
+        overruled = sorted({row.fs_build for row in rows if row.fs_build != "MANUAL"})
+        if overruled:
+            warnings.warn(
+                f"the explicit fs_exe override runs every row on {Path(override).name}, "
+                f"overruling the FS_BUILD value(s) {', '.join(overruled)} that row(s) of "
+                f"{path} name. Those rows will be recorded against the campaign's "
+                "declared version, not the build they asked for. Run the matrix once "
+                "per build, or drop the override where no row is MANUAL.",
+                UserWarning,
+                stacklevel=3,
+            )
         return Path(override)
     builds = sorted({row.fs_build for row in rows})
     if len(builds) > 1:
@@ -678,7 +768,7 @@ def run_matrix(
     executor: Executor | None = None,
     recipe_registry: dict[str, ScriptRecipe] | None = None,
     resume: bool = False,
-    hidden: bool = True,
+    hidden: bool | None = None,
 ) -> list[RunRecord]:
     """Read a run matrix and run it: the one-call first-class entry.
 
@@ -741,6 +831,15 @@ def run_matrix(
             f"executed:\n{plan.summary()}"
         )
     if executor is None:
+        # The matrix has a HIDDEN column and it used to be read into the
+        # matrix_hidden variable and never acted on, so a row saying 0
+        # (show the window) ran headless anyway because this parameter
+        # defaults to True. The row decides when the caller did not
+        # (hidden=None); an explicit True or False still wins, because a
+        # caller who names it means it.
+        if hidden is None:
+            rows = read_matrix(path)
+            hidden = all(row.hidden for row in rows) if rows else True
         executor = LocalExecutor(resolved.fs_exe, hidden=hidden)
     return run_campaign(
         resolved.campaign,

@@ -106,6 +106,10 @@ def test_full_variables_cell_keeps_every_pair_verbatim():
         "RESTART": "DISABLE",
         "TRIM_TARGET": "CL 0.45",
         "scale_inv": "1.0",
+        # Declared since 2026-08-03: a row that names no outputs is
+        # refused, because a campaign that collects nothing spends the
+        # solver and then records the point as a failure.
+        "OUTPUTS": "loads_{point}.txt",
     }
     assert "\n" not in variables["NOTE"]
 
