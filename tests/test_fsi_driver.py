@@ -35,6 +35,9 @@ from pyflightstream.fsi.state import (
 
 FIXTURES = Path(__file__).parent / "fixtures" / "fsi"
 CALL2 = (FIXTURES / "FS_SurfaceSection_Loads_call0002.txt").read_text(encoding="utf-8")
+# A second REAL export from the same run: 665.1 N of integrated normal
+# force against call0002's 801.7 N, a 17% difference (REV010-010).
+CALL18 = (FIXTURES / "FS_SurfaceSection_Loads_call0018.txt").read_text(encoding="utf-8")
 # Two families of 50 (RPT-005 finding 6): the meshed blade, then a
 # zero-load non-blade family.
 FAMILY_MAP = SectionFamilyMap(
@@ -386,3 +389,246 @@ def test_the_convergence_log_carries_the_residual_and_its_tolerance(tmp_path):
     assert rows[0][tolerance] == ""
     for row in rows[1:]:
         assert float(row[residual]) < float(row[tolerance])
+
+
+# --- REV010-009: shape compatibility is not physical identity -------------
+#
+# check_state_matches_config compared per-blade and per-station array
+# shapes and nothing else, so a state saved at stiffness_scale_factor=1 was
+# accepted by a configuration with 999: same blade count, same station
+# count, entirely different structure. The displacements, the relaxation
+# memory and the convergence history are then consumed under a model that
+# did not produce them, and the run keeps reporting healthy numbers. The
+# driver already computed the canonical config hash, for a log row.
+
+
+def _states_for_stiffness(scale: float):
+    from conftest import make_uniform_blade_config
+
+    from pyflightstream.fsi.config import config_hash
+
+    cfg = FsiConfig.model_validate(
+        {**make_uniform_blade_config().model_dump(), "stiffness_scale_factor": scale}
+    )
+    return cfg, config_hash(cfg)
+
+
+def test_a_state_from_another_physical_configuration_is_refused():
+    """The review's reproduction: same shapes, stiffness 1 versus 999."""
+    from pyflightstream.fsi.state import FsiState, check_state_matches_config
+
+    original, original_hash = _states_for_stiffness(1.0)
+    changed, changed_hash = _states_for_stiffness(999.0)
+    assert original_hash != changed_hash, "the hashes must differ or the test proves nothing"
+
+    state = FsiState(config_hash=original_hash)
+    with pytest.raises(ValueError, match="was created under configuration"):
+        check_state_matches_config(
+            state,
+            blade_count=changed.blade_count,
+            station_count=len(changed.blade.station_radii_m),
+            config_hash=changed_hash,
+        )
+
+
+def test_the_same_configuration_still_resumes():
+    """The control. Without it the refusal above would pass on a check that
+    refused every resume, which would break the crash-recovery path."""
+    from pyflightstream.fsi.state import FsiState, check_state_matches_config
+
+    cfg, digest = _states_for_stiffness(1.0)
+    check_state_matches_config(
+        FsiState(config_hash=digest),
+        blade_count=cfg.blade_count,
+        station_count=len(cfg.blade.station_radii_m),
+        config_hash=digest,
+    )
+
+
+def test_a_config_change_can_be_carried_across_deliberately():
+    """The documented restart the finding's closure asks for: opt-in, and
+    named, rather than the silent default it used to be."""
+    from pyflightstream.fsi.state import FsiState, check_state_matches_config
+
+    _, original_hash = _states_for_stiffness(1.0)
+    changed, changed_hash = _states_for_stiffness(999.0)
+    check_state_matches_config(
+        FsiState(config_hash=original_hash),
+        blade_count=changed.blade_count,
+        station_count=len(changed.blade.station_radii_m),
+        config_hash=changed_hash,
+        allow_config_change=True,
+    )
+
+
+def test_a_state_predating_the_field_is_not_treated_as_matching():
+    """None means unknown. It must not refuse (old runs must still resume)
+    and it must not be reported as agreement."""
+    from pyflightstream.fsi.state import FsiState, check_state_matches_config
+
+    cfg, digest = _states_for_stiffness(1.0)
+    state = FsiState()
+    assert state.config_hash is None
+    check_state_matches_config(
+        state,
+        blade_count=cfg.blade_count,
+        station_count=len(cfg.blade.station_radii_m),
+        config_hash=digest,
+    )
+
+
+def test_a_shape_mismatch_still_reports_the_shape_not_the_hash():
+    """Ordering. A config that moves stations changes the hash too, so
+    checking the hash first would replace an actionable message with a
+    generic one."""
+    from pyflightstream.fsi.state import FsiState, check_state_matches_config
+
+    cfg, digest = _states_for_stiffness(1.0)
+    state = FsiState(config_hash="deadbeefdeadbeef", previous_twist_rad=[[0.0, 0.0]])
+    with pytest.raises(ValueError, match="does not describe the configured blade"):
+        check_state_matches_config(
+            state,
+            blade_count=cfg.blade_count,
+            station_count=len(cfg.blade.station_radii_m),
+            config_hash=digest,
+        )
+
+
+# --- REV010-010: phase 4 began on half of its own acceptance model --------
+
+
+def test_thrust_change_fraction_is_none_when_it_cannot_be_known():
+    """Unknown is not stable. A sample predating the field, or a zero
+    thrust, must not read as a passed criterion."""
+    from pyflightstream.fsi.state import RevolutionSample
+
+    def sample(force):
+        return RevolutionSample(
+            revolution=1, tip_twist_deg=[0.0], tip_flap_m=[0.0], total_normal_force_n=force
+        )
+
+    assert driver._thrust_change_fraction(sample(None), sample(100.0)) is None
+    assert driver._thrust_change_fraction(sample(100.0), sample(None)) is None
+    assert driver._thrust_change_fraction(sample(100.0), sample(0.0)) is None
+
+
+def test_thrust_change_fraction_is_relative():
+    from pyflightstream.fsi.state import RevolutionSample
+
+    def sample(force):
+        return RevolutionSample(
+            revolution=1, tip_twist_deg=[0.0], tip_flap_m=[0.0], total_normal_force_n=force
+        )
+
+    assert driver._thrust_change_fraction(sample(100.0), sample(102.0)) == pytest.approx(2 / 102)
+    assert driver._thrust_change_fraction(sample(102.0), sample(100.0)) == pytest.approx(0.02)
+    assert driver._thrust_change_fraction(sample(-100.0), sample(-100.0)) == pytest.approx(0.0)
+
+
+def _revolution(force, twist=0.0, n=1):
+    from pyflightstream.fsi.state import RevolutionSample
+
+    return RevolutionSample(
+        revolution=n, tip_twist_deg=[twist], tip_flap_m=[0.0], total_normal_force_n=force
+    )
+
+
+def test_the_phase3_verdict_needs_both_criteria():
+    """Driven directly, because the state that matters (twist settled,
+    thrust still moving) is exactly the one a replay of a single fixture
+    cannot produce: identical loads give a thrust change of zero."""
+    cfg = driver_config()
+    tol_twist = cfg.phases.tip_twist_tolerance_deg
+    tol_thrust = cfg.phases.thrust_tolerance_fraction
+
+    both = driver._phase3_verdict(cfg, _revolution(100.0, 0.0), _revolution(100.0, tol_twist / 2))
+    assert both.converged
+
+    # Twist settled, thrust still oscillating: the case the review named.
+    twist_only = driver._phase3_verdict(
+        cfg, _revolution(100.0, 0.0), _revolution(100.0 * (1 + 10 * tol_thrust), tol_twist / 2)
+    )
+    assert twist_only.twist_ok and not twist_only.thrust_ok
+    assert not twist_only.converged
+
+    # Thrust settled, twist still moving: the criterion that already worked.
+    thrust_only = driver._phase3_verdict(
+        cfg, _revolution(100.0, 0.0), _revolution(100.0, tol_twist * 10)
+    )
+    assert thrust_only.thrust_ok and not thrust_only.twist_ok
+    assert not thrust_only.converged
+
+    # Thrust unknown is not thrust stable.
+    unknown = driver._phase3_verdict(cfg, _revolution(None, 0.0), _revolution(100.0, tol_twist / 2))
+    assert unknown.twist_ok and not unknown.thrust_ok
+    assert not unknown.converged
+
+
+def _run_with_changing_loads(run_dir, calls, switch_at, first_iteration=100):
+    """Replay with a DIFFERENT real export from the switch call onward.
+
+    The two committed WP1 exports integrate to 801.7 N and 665.1 N of
+    normal force, a 17% difference, so switching between them at a
+    revolution boundary produces a genuinely unsettled thrust from
+    measured solver output rather than from a scaled fixture.
+    """
+    results = []
+    for i in range(calls):
+        source = CALL2 if i < switch_at else CALL18
+        patched = re.sub(
+            r"(Current solver iteration number:\s+)\d+",
+            rf"\g<1>{first_iteration + 40 * i}",
+            source,
+        )
+        (run_dir / driver.LOADS_FILE).write_text(patched, encoding="utf-8")
+        results.append(driver.coupling_step(run_dir))
+    return results
+
+
+def test_a_run_whose_thrust_has_not_settled_stays_in_phase_3(tmp_path):
+    """End to end through the real harness, because the finding is about
+    what the DRIVER promotes, not about a helper's return value."""
+    stage_run(tmp_path)
+    results = _run_with_changing_loads(tmp_path, 11, switch_at=5)
+    assert 4 not in [r.phase for r in results], (
+        "phase 4 began although the integrated thrust moved 17% between the "
+        "two revolutions the decision was made on"
+    )
+    state = load_state(tmp_path / driver.STATE_FILE)
+    assert state.phase == 3
+    assert state.recorded_twist == []
+    # The force was actually recorded per revolution, which is what made
+    # the criterion testable at all.
+    forces = [s.total_normal_force_n for s in state.revolution_history]
+    assert all(f is not None for f in forces), forces
+    assert abs(forces[-1] - forces[-2]) / abs(forces[-1]) > 0.02
+
+
+def test_the_same_run_reaches_phase_4_once_the_thrust_tolerance_admits_it(tmp_path):
+    """The control that stops the test above from passing for the wrong
+    reason. Same loads, same twist, only the thrust tolerance changes: if
+    phase 4 were blocked by something else, this would stay in phase 3."""
+    cfg = driver_config()
+    tolerant = FsiConfig.model_validate(
+        {
+            **cfg.model_dump(),
+            "phases": {**cfg.phases.model_dump(), "thrust_tolerance_fraction": 0.5},
+        }
+    )
+    stage_run(tmp_path, tolerant)
+    results = _run_with_changing_loads(tmp_path, 11, switch_at=5)
+    assert 4 in [r.phase for r in results]
+
+
+def test_the_driver_refuses_a_resume_under_a_changed_configuration(tmp_path):
+    """The wiring, not the check. check_state_matches_config can be correct
+    while the driver never passes it the hash, which is a mutation that
+    stays green against every test that calls the check directly."""
+    cfg = stage_run(tmp_path)
+    run_sequence(tmp_path, 3)
+
+    changed = FsiConfig.model_validate({**cfg.model_dump(), "stiffness_scale_factor": 999.0})
+    dump_config(changed, tmp_path / driver.CONFIG_FILE)
+    write_loads(tmp_path, 500)
+    with pytest.raises(ValueError, match="was created under configuration"):
+        driver.coupling_step(tmp_path)

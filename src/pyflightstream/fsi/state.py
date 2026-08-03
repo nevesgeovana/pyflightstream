@@ -122,6 +122,12 @@ class RevolutionSample(BaseModel):
         Tip elastic twist per blade [deg] at the completing call.
     tip_flap_m : list of float
         Tip flap deflection per blade [m] at the completing call.
+    total_normal_force_n : float or None
+        Integrated total normal force [N] at the completing call, the
+        thrust half of the phase 3 acceptance model (REV010-010). It
+        was computed and written to the convergence log without ever
+        being carried here, which is why the second criterion could
+        not be tested. None means the sample predates the field.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -129,6 +135,7 @@ class RevolutionSample(BaseModel):
     revolution: int = Field(ge=1)
     tip_twist_deg: list[float]
     tip_flap_m: list[float]
+    total_normal_force_n: float | None = None
 
 
 class RecordedTwist(BaseModel):
@@ -184,10 +191,28 @@ class FsiState(BaseModel):
         Phase 4 recording of the twist distributions.
     phase4_start_step : int or None
         Step at which phase 4 recording began.
+    config_hash : str or None
+        Canonical hash of the configuration this state was CREATED
+        under, from :func:`pyflightstream.fsi.config.config_hash`.
+
+        REV010-009. Shape compatibility is not physical identity. The
+        resume check compared per-blade and per-station array shapes
+        and nothing else, so a state saved at
+        ``stiffness_scale_factor=1`` was accepted by a configuration
+        with 999: same blade count, same station count, entirely
+        different structure. The stored displacements, the relaxation
+        memory and the convergence history are then consumed under a
+        physical model that did not produce them, and the run goes on
+        reporting healthy numbers. Stiffness, mass, rotational speed,
+        offsets and the relaxation policy can all move this way.
+
+        None means the state predates the field and its creating
+        configuration is unknown, which is different from matching.
     """
 
     model_config = ConfigDict(extra="forbid")
 
+    config_hash: str | None = None
     call_count: int = Field(default=0, ge=0)
     step_count: int = Field(default=0, ge=0)
     phase: int = Field(default=1, ge=1, le=4)
@@ -221,7 +246,14 @@ def load_state(path: str | Path) -> FsiState:
     return FsiState.model_validate_json(Path(path).read_text(encoding="utf-8"))
 
 
-def check_state_matches_config(state: FsiState, *, blade_count: int, station_count: int) -> None:
+def check_state_matches_config(
+    state: FsiState,
+    *,
+    blade_count: int,
+    station_count: int,
+    config_hash: str | None = None,
+    allow_config_change: bool = False,
+) -> None:
     """Refuse a resumed state whose shape disagrees with the configuration.
 
     PYFS-012, second half. ``state.json`` carries per-blade, per-station
@@ -261,13 +293,27 @@ def check_state_matches_config(state: FsiState, *, blade_count: int, station_cou
         ``blade_count`` of the configuration about to be used.
     station_count : int, keyword-only
         Number of radial stations of the configuration about to be used.
+    config_hash : str or None, keyword-only
+        Canonical hash of the configuration about to be used. When both
+        this and ``state.config_hash`` are present and differ, the
+        resume is refused: the shapes may agree while the physics does
+        not (REV010-009).
+    allow_config_change : bool, keyword-only
+        Resume anyway across a configuration change. This is the
+        documented restart the finding's closure asks for, and it is
+        opt-in because the memory being carried forward (relaxation
+        state, warm-start twist, convergence history) was produced by
+        the OTHER model. Shape disagreements are still refused: those
+        are not a physical decision, they are arrays that do not fit.
 
     Raises
     ------
     ValueError
-        If any persisted array disagrees with the configured shape. The
-        message names the array and both shapes, because the usual cause
-        is resuming into a run directory whose config was edited.
+        If any persisted array disagrees with the configured shape, or
+        if the state was created under a different configuration and
+        ``allow_config_change`` is not set. The message names the array
+        and both shapes, because the usual cause is resuming into a run
+        directory whose config was edited.
     """
     problems: list[str] = []
 
@@ -306,6 +352,30 @@ def check_state_matches_config(state: FsiState, *, blade_count: int, station_cou
             "configuration this state was produced under, or start a new run "
             "directory; state.json is not portable across a config change that "
             "moves stations or blades."
+        )
+
+    # REV010-009, and it runs AFTER the shape checks deliberately. A config
+    # that moves stations or blades changes the hash too, so testing the
+    # hash first would replace the specific, actionable "this array holds 3
+    # stations and the config declares 5" with a generic "the hash differs".
+    # The identity check is for what the shape check CANNOT see: same blade
+    # count, same station count, different physics.
+    if (
+        not allow_config_change
+        and config_hash is not None
+        and state.config_hash is not None
+        and state.config_hash != config_hash
+    ):
+        raise ValueError(
+            f"the persisted state was created under configuration "
+            f"{state.config_hash[:12]} and this run uses {config_hash[:12]}. The "
+            "array shapes agree, which is why this was silent: blade and station "
+            "counts survive a change of stiffness, mass, rotational speed, offsets "
+            "or relaxation policy. What does not survive is the meaning of the "
+            "displacements, the relaxation memory and the convergence history in "
+            "this file, all of which the other model produced. Start a fresh run "
+            "directory, or pass allow_config_change=True to carry that memory "
+            "across deliberately."
         )
 
 

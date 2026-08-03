@@ -9,6 +9,37 @@ FlightStream versions.
 
 ### API surface delta
 
+* **FSI state and loads are bound to the physical model they belong
+  to** (REV010-008, REV010-009, REV010-010). **Breaking** for runs
+  that were relying on any of the three.
+
+  `FsiState` gains `config_hash`, and a resume across a different
+  configuration is refused. Shape compatibility is not physical
+  identity: a state saved at `stiffness_scale_factor=1` was accepted
+  by a configuration with 999, because blade and station counts
+  survive a change of stiffness, mass, rotational speed, offsets or
+  relaxation policy. Pass `allow_config_change=True` to carry the
+  memory across deliberately. The shape check still runs first, so a
+  moved station keeps its specific message.
+
+  `to_elastic_axis` now requires the sections to **cover** the
+  configured blade, not merely to fit inside it. `numpy.interp`
+  extrapolates constantly from the endpoints, so sections covering
+  `[0.8, 1.2] m` were spread across a blade spanning `[0.25, 1.85] m`
+  and the structural model received an applied load over a domain the
+  evidence never measured, while the logged integral covered only the
+  measured interval. The allowed margin is 5% of span at each end,
+  calibrated from the committed WP1 export, whose real margins are
+  2.49% and 2.31%.
+
+  Phase 3 now requires **both** of its documented criteria before
+  phase 4 begins: tip twist settled *and* integrated normal force
+  stable between revolutions, the latter against the new
+  `PhaseSchedule.thrust_tolerance_fraction` (default 0.02).
+  `RevolutionSample.total_normal_force_n` carries the force that was
+  previously computed, written to the convergence log, and never
+  compared with anything. The configuration docstring had described
+  this two-criterion model all along.
 * **Publication is coupled to the gates, and to the exact wheel they
   tested** (REV010-016, REV010-019). Release process only; no runtime
   change.

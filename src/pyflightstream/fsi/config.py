@@ -239,9 +239,19 @@ class PhaseSchedule(BaseModel):
     averaging_window_revolutions : float
         Load-averaging window of phases 2 and 3 [revolutions].
     tip_twist_tolerance_deg : float
-        Phase 3 convergence: tip elastic twist change per revolution
-        below this value [deg] (together with the revolution-averaged
-        CT stability judged from the convergence log, FSI-R09).
+        Phase 3 convergence, first of two criteria: tip elastic twist
+        change per revolution below this value [deg] (FSI-R09).
+    thrust_tolerance_fraction : float
+        Phase 3 convergence, second criterion: relative change of the
+        integrated total normal force between consecutive revolutions,
+        below this fraction.
+
+        Until 2026-08-03 this criterion was documented here as
+        "revolution-averaged CT stability judged from the convergence
+        log" and was not judged by anything: the force was written to
+        the log and never compared, so phase 4 began on the twist
+        criterion alone and the prose above described an acceptance
+        model the driver did not implement (REV010-010).
     recording_revolutions : float
         Phase 4 length [revolutions] recording theta(r, psi) per blade.
     """
@@ -260,6 +270,16 @@ class PhaseSchedule(BaseModel):
     coupling_relaxation: float = Field(default=0.4, gt=0.0, le=1.0)
     averaging_window_revolutions: float = Field(default=1.0, gt=0.0)
     tip_twist_tolerance_deg: float = Field(default=0.05, gt=0.0)
+    # REV010-010. The normative acceptance model is TWO criteria, and the
+    # driver tested one: structural twist constant AND revolution-averaged
+    # thrust stable. The total normal force was computed and written to the
+    # convergence log and never compared with anything, so a run could
+    # promote itself to its final recording phase while the aerodynamic
+    # loading was still oscillating materially between revolutions. The
+    # fraction is relative because thrust magnitude is case dependent; the
+    # default is deliberately looser than the twist criterion, since
+    # integrated force settles later than tip deflection.
+    thrust_tolerance_fraction: float = Field(default=0.02, gt=0.0)
     recording_revolutions: float = Field(default=1.0, gt=0.0)
 
 

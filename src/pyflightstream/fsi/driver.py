@@ -20,10 +20,15 @@ and the time increment printed in the loads file itself:
 2. Averaged coupling: loads averaged over the configured window,
    relaxed updates (FSI-R07).
 3. Convergence watch: as phase 2; per completed revolution the tip
-   response enters the log, and convergence is declared when the tip
-   elastic twist change per revolution drops below the configured
-   tolerance (FSI-R09; the revolution-averaged thrust stability is
-   judged from the same log downstream).
+   response and the integrated normal force enter both the log and the
+   revolution history, and convergence is declared when BOTH criteria
+   hold across consecutive revolutions: the tip elastic twist change
+   below ``tip_twist_tolerance_deg``, and the relative change of the
+   integrated normal force below ``thrust_tolerance_fraction``
+   (FSI-R09). This docstring described the thrust half as "judged from
+   the same log downstream" until 2026-08-03, when a review measured
+   that nothing judged it anywhere and phase 4 began on twist alone
+   (REV010-010).
 4. Recording: instantaneous loads, no relaxation (lambda = 1 by
    design: relaxing here would low-pass exactly the 1P amplitude and
    phase being measured), twist distributions recorded per step.
@@ -172,12 +177,108 @@ def _blade_densities(
     The export rows already are line densities (RPT-006), so this is
     pure resampling; constant extrapolation covers the small root and
     tip margins the section distribution does not reach.
+
+    That last clause is a claim about how far ``numpy.interp``'s
+    endpoint extrapolation is allowed to reach, and until 2026-08-03
+    nothing enforced it: sections covering a fraction of the blade were
+    spread across all of it (REV010-008). The bound now lives at the
+    boundary where it can be checked against the section radii,
+    ``to_elastic_axis``, which refuses coverage worse than
+    ``_COVERAGE_MARGIN`` of span at either end.
     """
     order = np.argsort(ea_loads.radius_m)
     radii = ea_loads.radius_m[order]
     flap = np.interp(station_radii_m, radii, ea_loads.flap_load_n_per_m[order])
     torsion = np.interp(station_radii_m, radii, ea_loads.torsion_moment_nm_per_m[order])
     return flap.tolist(), torsion.tolist()
+
+
+def _thrust_change_fraction(previous: RevolutionSample, last: RevolutionSample) -> float | None:
+    """Relative change of integrated normal force between two revolutions.
+
+    REV010-010, the thrust half of the phase 3 acceptance model.
+
+    Parameters
+    ----------
+    previous, last : RevolutionSample
+        Consecutive completed revolutions.
+
+    Returns
+    -------
+    float or None
+        ``|F_last - F_previous| / |F_last|``, dimensionless. None when
+        either sample carries no force, which is the case for states
+        written before the field existed: unknown is not the same as
+        stable, and the caller must not read it as passing.
+
+        A last force of exactly zero returns None for the same reason.
+        Zero thrust is not a converged rotor, it is a run with no
+        aerodynamic loading, and dividing by it would either raise or
+        manufacture an infinity that compares false against any
+        tolerance and would therefore read as "not converged" by
+        accident rather than by decision.
+    """
+    if previous.total_normal_force_n is None or last.total_normal_force_n is None:
+        return None
+    if last.total_normal_force_n == 0.0:
+        return None
+    return abs(last.total_normal_force_n - previous.total_normal_force_n) / abs(
+        last.total_normal_force_n
+    )
+
+
+@dataclass(frozen=True)
+class _ConvergenceVerdict:
+    """Both phase 3 criteria, each with the number behind it.
+
+    Returned rather than a bare boolean so the caller can log WHICH
+    criterion held, and so the decision can be driven directly by a
+    test. The inline version of this was a compound condition inside a
+    long function, and a mutation that dropped the thrust half from it
+    was not detectable by any test that did not stage a whole run
+    (REV010-010).
+    """
+
+    twist_change_deg: float
+    thrust_change: float | None
+    twist_ok: bool
+    thrust_ok: bool
+
+    @property
+    def converged(self) -> bool:
+        """True only when BOTH criteria hold, which is the whole finding."""
+        return self.twist_ok and self.thrust_ok
+
+
+def _phase3_verdict(
+    cfg: FsiConfig, previous: RevolutionSample, last: RevolutionSample
+) -> _ConvergenceVerdict:
+    """Judge the two phase 3 acceptance criteria over two revolutions.
+
+    Parameters
+    ----------
+    cfg : FsiConfig
+        Configuration carrying both tolerances.
+    previous, last : RevolutionSample
+        Consecutive completed revolutions.
+
+    Returns
+    -------
+    _ConvergenceVerdict
+        Both criteria and the measured changes.
+    """
+    twist_change = max(
+        abs(a - b) for a, b in zip(last.tip_twist_deg, previous.tip_twist_deg, strict=True)
+    )
+    thrust_change = _thrust_change_fraction(previous, last)
+    return _ConvergenceVerdict(
+        twist_change_deg=twist_change,
+        thrust_change=thrust_change,
+        twist_ok=twist_change < cfg.phases.tip_twist_tolerance_deg,
+        # None is unknown, and unknown is not stable.
+        thrust_ok=thrust_change is not None
+        and thrust_change < cfg.phases.thrust_tolerance_fraction,
+    )
 
 
 def _schedule_phase(cfg: FsiConfig, state: FsiState, revolutions: float) -> int:
@@ -311,7 +412,17 @@ def coupling_step(run_dir: str | Path) -> StepResult:
         state,
         blade_count=cfg.blade_count,
         station_count=len(cfg.blade.station_radii_m),
+        # REV010-009. The shape check above answers "do these arrays fit";
+        # this answers "did this model produce them", and the two are not
+        # the same question. The hash was already computed here for a log
+        # row, which is what made the omission easy to miss: the value
+        # existed and simply was not consulted where it decides anything.
+        config_hash=config_hash(cfg),
     )
+    if state.config_hash is None:
+        # First contact with a state that predates the field, or one just
+        # created: stamp it so the NEXT resume has an identity to compare.
+        state.config_hash = config_hash(cfg)
 
     if (run_dir / FROZEN_FILE).is_file():
         return _frozen_step(run_dir, cfg, state)
@@ -478,24 +589,51 @@ def coupling_step(run_dir: str | Path) -> StepResult:
     if completed > state.completed_revolutions:
         state.revolution_history.append(
             RevolutionSample(
-                revolution=completed, tip_twist_deg=tip_twist_deg, tip_flap_m=tip_flap_m
+                revolution=completed,
+                tip_twist_deg=tip_twist_deg,
+                tip_flap_m=tip_flap_m,
+                # REV010-010. This value existed at this point and went only
+                # to the log; carrying it here is what makes the second
+                # acceptance criterion testable at all.
+                total_normal_force_n=total_normal_force,
             )
         )
         if phase == 3 and len(state.revolution_history) >= 2:
             last, previous_rev = state.revolution_history[-1], state.revolution_history[-2]
-            change = max(
-                abs(a - b)
-                for a, b in zip(last.tip_twist_deg, previous_rev.tip_twist_deg, strict=True)
-            )
-            if change < cfg.phases.tip_twist_tolerance_deg:
+            # REV010-010. BOTH criteria, which is what the configuration
+            # documentation and the normative FSI design have always said:
+            # structural twist constant AND revolution-averaged thrust
+            # stable. Only the first was tested, so the workflow could
+            # promote itself to its final recording phase while the
+            # aerodynamic loading was still oscillating materially, and the
+            # recording it then made would be of a state it had declared
+            # converged rather than one that was.
+            verdict = _phase3_verdict(cfg, previous_rev, last)
+            if verdict.converged:
                 state.phase = 4
                 state.phase4_start_step = state.step_count + 1
                 logger.info(
                     "convergence declared at revolution %d (tip twist change "
-                    "%.4f deg < %.4f deg); phase 4 recording starts next step",
+                    "%.4f deg < %.4f deg; thrust change %.4f < %.4f); phase 4 "
+                    "recording starts next step",
                     completed,
-                    change,
+                    verdict.twist_change_deg,
                     cfg.phases.tip_twist_tolerance_deg,
+                    verdict.thrust_change,
+                    cfg.phases.thrust_tolerance_fraction,
+                )
+            elif verdict.twist_ok:
+                logger.info(
+                    "revolution %d: tip twist has settled (%.4f deg < %.4f deg) but "
+                    "thrust has not (%s); phase 3 continues",
+                    completed,
+                    verdict.twist_change_deg,
+                    cfg.phases.tip_twist_tolerance_deg,
+                    "not recorded for both revolutions"
+                    if verdict.thrust_change is None
+                    else (
+                        f"{verdict.thrust_change:.4f} >= {cfg.phases.thrust_tolerance_fraction:.4f}"
+                    ),
                 )
     if phase != 4 and state.phase != 4:
         state.phase = phase

@@ -76,6 +76,23 @@ EXPECTED_COLUMNS = ("Offset", "Chord", "X_QC", "Z_QC", "Fx", "Fz", "Moment")
 # describing the blade the sections were cut on.
 _SPAN_TOLERANCE = 0.01
 
+# Fraction of the blade span that may be left UNCOVERED at each end
+# before the resampling would be extrapolating rather than interpolating
+# (REV010-008). The two constants bound opposite directions and are
+# deliberately different numbers.
+#
+# This one is calibrated from evidence rather than chosen: a section cut
+# puts the outermost section centroids inboard of the geometric ends, so
+# some margin is physical and expected. Measured on the committed WP1
+# export (FS_SurfaceSection_Loads_call0002.txt) against the blade it was
+# cut on, the real margins are 2.49% of span at the root and 2.31% at
+# the tip. 5% accepts that with room and still refuses the case this
+# finding was raised for, where sections covering [0.8, 1.2] m of a
+# blade spanning [0.25, 1.85] m leave 34% uncovered at the root and 41%
+# at the tip and are spread across the whole blade by constant
+# extrapolation.
+_COVERAGE_MARGIN = 0.05
+
 
 class UnitsError(PyflightstreamError, ValueError):
     """The export does not carry the asserted SI units (FSI-R03).
@@ -686,6 +703,36 @@ def to_elastic_axis(block: SectionBlock, cfg: FsiConfig) -> ElasticAxisLoads:
             f"[{radii.min():.4g}, {radii.max():.4g}] m but the configured blade "
             f"spans [{stations[0]:.4g}, {stations[-1]:.4g}] m; this configuration "
             "does not describe the blade these sections were cut on"
+        )
+    # REV010-008, the other side of the same interval. The check above
+    # refuses sections that reach BEYOND the blade and said nothing about
+    # sections that cover only part of it. Downstream, _blade_densities
+    # resamples with numpy.interp, whose default is constant endpoint
+    # extrapolation, so sections covering [0.8, 1.2] m were spread across a
+    # blade spanning [0.25, 1.85] m: loads [10, 20] became
+    # [10, 10, 16.25, 20, 20] and the structural model received an applied
+    # load over a domain the evidence never covered. The logged total,
+    # meanwhile, integrates only the covered interval, so the two describe
+    # different fields.
+    #
+    # The same named tolerance bounds both directions. Constant
+    # extrapolation is legitimate for the small root and tip margins a
+    # section cut does not reach, which is what the resampler's docstring
+    # already claimed; this is what makes the claim true.
+    margin = _COVERAGE_MARGIN * span
+    if radii.min() > stations[0] + margin or radii.max() < stations[-1] - margin:
+        covered = (radii.max() - radii.min()) / span
+        raise ValueError(
+            f"the sections of family {block.family!r} cover "
+            f"[{radii.min():.4g}, {radii.max():.4g}] m, which is {covered:.1%} of the "
+            f"configured blade span [{stations[0]:.4g}, {stations[-1]:.4g}] m. The "
+            "uncovered root or tip would be filled by constant extrapolation from "
+            "the nearest section, so the structural model would receive an applied "
+            "load over a domain these loads never measured, while the logged "
+            "integral covers only the measured interval: the two would describe "
+            "different fields. Export sections over the whole blade, or configure "
+            "the blade these sections were cut on (the margin allowed at each end "
+            f"is {_COVERAGE_MARGIN:.0%} of span)"
         )
     e_chordwise = np.interp(radii, stations, cfg.blade.elastic_axis_offset_chordwise_m)
     e_normal = np.interp(radii, stations, cfg.blade.elastic_axis_offset_normal_m)

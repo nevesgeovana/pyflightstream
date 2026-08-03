@@ -1,5 +1,6 @@
 """Tier 1: sectional loads parser and EA transfer (WP2) on the WP1 fixtures."""
 
+import dataclasses
 from pathlib import Path
 
 import numpy as np
@@ -311,3 +312,55 @@ def test_the_pristine_sectional_fixture_still_parses():
     report = parse_sectional_loads(CALL2)
     assert report.current_iteration == 154
     assert report.declared_section_count == 100
+
+
+# --- REV010-008: the resampler assumed coverage nobody enforced ------------
+#
+# to_elastic_axis refused sections reaching BEYOND the configured blade and
+# said nothing about sections covering only part of it. Downstream,
+# _blade_densities resamples with numpy.interp, whose default is constant
+# endpoint extrapolation, so the review's reproduction spread sections
+# covering [0.8, 1.2] m across a blade spanning [0.25, 1.85] m: loads
+# [10, 20] became [10, 10, 16.25, 20, 20]. The structural model then
+# received an applied load over a domain the evidence never covered, while
+# the logged integral covered only the measured interval.
+
+
+def test_sections_covering_only_mid_span_are_refused():
+    """The review's reproduction: 34% uncovered at the root, 41% at the tip."""
+    report = parse_sectional_loads(CALL2)
+    block = report.split(TWO_FAMILIES)["blade_1"]
+    cfg = fixture_covering_config()
+    # Keep the blade the sections were cut on and shrink the sections to
+    # mid-span, which is the shape the finding is about.
+    mid = dataclasses.replace(block, offset_m=np.linspace(0.8, 1.2, len(block.offset_m)))
+    with pytest.raises(ValueError, match="of the configured blade span"):
+        to_elastic_axis(mid, cfg)
+
+
+def test_the_real_export_still_covers_its_blade():
+    """The control, and the reason the margin is 5% rather than 1%.
+
+    Measured on this fixture against the blade it was cut on: the real
+    margins are 2.49% of span at the root and 2.31% at the tip, because a
+    section cut puts the outermost centroids inboard of the geometric
+    ends. A tolerance tighter than the evidence would have refused every
+    genuine export, which is how a guard gets disabled instead of fixed.
+    """
+    report = parse_sectional_loads(CALL2)
+    block = report.split(TWO_FAMILIES)["blade_1"]
+    loads = to_elastic_axis(block, fixture_covering_config())
+    assert len(loads.radius_m) == len(block.offset_m)
+
+
+@pytest.mark.parametrize("end", ["root", "tip"])
+def test_one_uncovered_end_is_enough_to_refuse(end):
+    """Either end alone, so a test passing on both-ends-missing cannot hide
+    a check that only looks at one of them."""
+    report = parse_sectional_loads(CALL2)
+    block = report.split(TWO_FAMILIES)["blade_1"]
+    cfg = fixture_covering_config()
+    offsets = np.asarray(block.offset_m, dtype=float)
+    shifted = offsets + 0.5 if end == "root" else offsets - 0.5
+    with pytest.raises(ValueError):
+        to_elastic_axis(dataclasses.replace(block, offset_m=shifted), cfg)

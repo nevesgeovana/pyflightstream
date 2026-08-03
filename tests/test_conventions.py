@@ -66,6 +66,7 @@ _DIMENSIONLESS_OR_DEBT = {
     "node_offset_chord_fraction",  # fraction of local chord
     "wake_development_revolutions",  # revolutions are counts
     "coupling_relaxation",  # relaxation factor in (0, 1]
+    "thrust_tolerance_fraction",  # relative change of integrated force, N/N
     "averaging_window_revolutions",  # revolutions are counts
     "recording_revolutions",  # revolutions are counts
     "ratio",  # geometric spacing ratio (AxisSpec)
