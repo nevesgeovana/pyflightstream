@@ -9,6 +9,29 @@ FlightStream versions.
 
 ### API surface delta
 
+* **The development tree no longer identifies as the last release**
+  (REV010-015). `pyproject.toml` and `CITATION.cff` read
+  `0.4.0.dev0`; the release commit sets `0.4.0`.
+
+  HEAD was 66 commits past `v0.3.0` and carried landed v0.4.0 breaking
+  removals while every identity still said `0.3.0`, so two
+  behaviorally incompatible artifacts answered to one number and no
+  bug report, manifest, cached environment or citation could tell them
+  apart. A wheel built from this tree now reports `0.4.0.dev0`,
+  verified on the built artifact rather than on source metadata.
+
+  New `tests/test_version_identity.py` refuses the combination that
+  causes it: a **final** version and a non-empty `Unreleased`
+  changelog section may not coexist. It is deliberately conditional.
+  The obvious form of this check, "the version must name the current
+  commit", is red on every ordinary commit because ordinary commits
+  are not tagged, and a suite that is red by construction is worse
+  than no suite (`PLN-20260803-1650` recorded that trap before the
+  guard existed).
+
+  Choosing the versioning **scheme**, a static development version as
+  now or a VCS-derived one such as `setuptools_scm`, remains the
+  author's release-time decision and is not made here.
 * **A historical manifest row is no longer rewritten as current**
   (REV010-014). **Breaking**: `RunRecord.manifest_schema` is
   `str | None` with default `None`, and `reconstruct` refuses a row
