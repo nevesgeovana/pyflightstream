@@ -1490,3 +1490,98 @@ def test_a_wrong_point_export_never_reaches_the_manifest_as_converged(tmp_path):
     assert record.status is RunStatus.FAILED_INCOMPLETE_OUTPUT
     alpha = next(entry for entry in record.conditions if entry["axis"] == "alpha")
     assert alpha["requested"] == 0.0 and alpha["reported"] == 2.0
+
+
+# --- REV010-014: appending a run rewrote the runs before it ---------------
+#
+# read_manifest validated every row through RunRecord, whose
+# manifest_schema defaulted to the CURRENT schema, and append_record
+# re-serialized that validated list back to disk. So reading a historical
+# manifest stamped it, and writing one new run PERSISTED the stamp: a row
+# that never carried the field came back asserting the current layout,
+# with more than twenty other fields defaulted into it.
+
+
+def _legacy_row() -> dict:
+    """A minimal historical row: no manifest_schema, no later fields."""
+    return {
+        "run_id": "camp/sim_0001/a+00.0",
+        "sim_id": "0001",
+        "point": {"alpha": 0.0},
+        "fs_version_requested": "26.120",
+        "package_version": "0.1.0",
+        "script_sha256": "abc",
+        "raw_flag": False,
+        "status": "CONVERGED",
+    }
+
+
+def _workspace_with_legacy_row(tmp_path):
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    workspace.root.mkdir(parents=True, exist_ok=True)
+    workspace.manifest_path.write_text(json.dumps([_legacy_row()], indent=2), encoding="utf-8")
+    return workspace
+
+
+def test_a_legacy_row_does_not_claim_the_current_schema(tmp_path):
+    workspace = _workspace_with_legacy_row(tmp_path)
+    (record,) = workspace.read_manifest()
+    assert record.manifest_schema is None, (
+        "absent must not read as the current schema: the row never said that"
+    )
+
+
+def test_reading_a_manifest_does_not_change_it(tmp_path):
+    workspace = _workspace_with_legacy_row(tmp_path)
+    before = workspace.manifest_path.read_bytes()
+    workspace.read_manifest()
+    assert workspace.manifest_path.read_bytes() == before
+
+
+def test_appending_a_run_leaves_the_older_row_exactly_as_written(tmp_path):
+    """The review's reproduction. Appending rewrote the old row with the
+    current schema and twenty-odd defaulted fields."""
+    workspace = _workspace_with_legacy_row(tmp_path)
+    new = RunRecord(
+        run_id="camp/sim_0001/a+02.0",
+        sim_id="0001",
+        point={"alpha": 2.0},
+        fs_version_requested="26.120",
+        package_version="0.4.0",
+        script_sha256="def",
+        raw_flag=False,
+        status=RunStatus.CONVERGED,
+        manifest_schema=MANIFEST_SCHEMA,
+    )
+    workspace.append_record(new)
+
+    rows = workspace.read_raw_manifest()
+    assert len(rows) == 2
+    assert rows[0] == _legacy_row(), "the historical row was edited by an append"
+    assert "manifest_schema" not in rows[0]
+    # And the new row does carry it, so this is not simply "nothing is stamped".
+    assert rows[1]["manifest_schema"] == MANIFEST_SCHEMA
+
+
+def test_a_new_run_records_its_schema(tmp_path):
+    """The control for the pair above: new rows must still be stamped, or
+    'old rows are not rewritten' would be satisfied by never writing it."""
+    campaign = make_campaign(tmp_path, alphas=(2.0,))
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    run_campaign(
+        campaign,
+        StubSolver(WRITES_LOADS),
+        workspace,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+    )
+    assert workspace.read_raw_manifest()[0]["manifest_schema"] == MANIFEST_SCHEMA
+
+
+def test_reconstruction_refuses_a_row_that_predates_the_schema_field(tmp_path):
+    """Refusing beats reconstructing fields the row does not have. This
+    branch was unreachable while the default made every legacy row claim
+    the current layout."""
+    workspace = _workspace_with_legacy_row(tmp_path)
+    with pytest.raises(WorkspaceError, match="carries no manifest schema"):
+        reconstruct("camp/sim_0001/a+00.0", workspace=workspace)

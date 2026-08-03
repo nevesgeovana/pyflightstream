@@ -9,6 +9,33 @@ FlightStream versions.
 
 ### API surface delta
 
+* **A historical manifest row is no longer rewritten as current**
+  (REV010-014). **Breaking**: `RunRecord.manifest_schema` is
+  `str | None` with default `None`, and `reconstruct` refuses a row
+  that carries no schema.
+
+  `manifest_schema` defaulted to `MANIFEST_SCHEMA`, so reading a
+  historical manifest stamped every row in it with a positive claim
+  about a layout that never described it, and `append_record`
+  re-serialized the validated models back to disk, persisting the
+  claim: appending one run rewrote each older row with more than
+  twenty defaulted fields. `None` now means "predates the field",
+  which is a different fact from "asserts the current schema".
+
+  `CampaignWorkspace.read_raw_manifest()` is new and returns the rows
+  as written, with nothing defaulted; `append_record` writes through
+  it, so existing rows are carried across byte for byte. Migrating a
+  manifest is a separate, deliberate act rather than a side effect of
+  recording the next run.
+
+  **Correction to the record.** The commit message of `4beb710`
+  (v0.4.0 development, pushed) states that this default became `None`
+  in that commit. It did not: the only change that commit made to
+  `workspace/__init__.py` was an `__all__` sort-order move, and the
+  default was still `MANIFEST_SCHEMA` until the present change. The
+  claim described work that was intended and not done. History is not
+  being rewritten, so the correction is recorded here and in the plan
+  ledger instead.
 * **An ambiguous export is refused instead of resolved by position**
   (REV010-003, REV010-006). **Breaking** for files that were being
   silently half-read.

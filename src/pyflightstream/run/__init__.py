@@ -847,6 +847,19 @@ def reconstruct(run: RunRecord | str, *, workspace: CampaignWorkspace) -> Recons
         Refusing beats reconstructing something that is not the run.
     """
     record = run if isinstance(run, RunRecord) else _record_by_id(workspace, run)
+    if record.manifest_schema is None:
+        # REV010-014. A row with no schema field predates it, and saying so
+        # is different from naming a schema it never claimed. This branch
+        # was unreachable while the field defaulted to the current value:
+        # the legacy row simply asserted the current layout and walked
+        # straight into a reconstruction of fields it does not have.
+        raise WorkspaceError(
+            f"run {record.run_id!r} carries no manifest schema, so it was written "
+            "before the field existed and nothing in the row says which layout it "
+            "follows. Reconstructing it would mean assuming the current one. Read "
+            "it with the pyflightstream version that wrote it, or migrate the "
+            "manifest deliberately."
+        )
     if record.manifest_schema != MANIFEST_SCHEMA:
         raise WorkspaceError(
             f"run {record.run_id!r} was written under manifest schema "
@@ -1702,6 +1715,10 @@ def _execute_point(
         "script_sha256": "",
         "raw_flag": False,
         "broken_commands": [],
+        # Stated, not defaulted (REV010-014). The field defaults to None so
+        # that a row which never carried it stays honest about that; a row
+        # this version writes DOES carry it, and says so here.
+        "manifest_schema": MANIFEST_SCHEMA,
     }
     if preparation_error is not None or recipe is None:
         error = preparation_error or "recipe resolution failed"

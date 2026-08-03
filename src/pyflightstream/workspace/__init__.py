@@ -175,10 +175,19 @@ class RunRecord(BaseModel):
     raw_flag : bool
         True when the script used the ``raw()`` escape hatch and its
         content bypassed database validation (FR-07).
-    manifest_schema : str
+    manifest_schema : str or None
         Identifier of the record layout this row was written under.
         A reader that does not know the value should refuse rather than
         guess which fields exist (PYFS-015).
+
+        None means the row PREDATES the field and is not a claim that
+        it was written under the current schema. It defaulted to
+        :data:`MANIFEST_SCHEMA` until 2026-08-03, so reading a
+        historical manifest stamped every row in it with a positive
+        assertion about a layout that never described it, and appending
+        a new run wrote that assertion back to disk (REV010-014). "The
+        field is absent because the row is old" and "the row asserts
+        the current schema" are different facts about the evidence.
     conditions : list of dict, optional
         The operating-point binding recorded by the assessor, one
         entry per requested axis the export printed back: ``axis``,
@@ -261,7 +270,7 @@ class RunRecord(BaseModel):
     package_version: str
     package_commit: str | None = None
     package_dirty: bool | None = None
-    manifest_schema: str = MANIFEST_SCHEMA
+    manifest_schema: str | None = None
     fs_exe: str | None = None
     fs_exe_sha256: str | None = None
     argv: list[str] = Field(default_factory=list)
@@ -638,15 +647,35 @@ class CampaignWorkspace:
             digests[name] = _sha256(path)
         return digests
 
-    def read_manifest(self) -> list[RunRecord]:
-        """Read and validate every record of ``runs.json``.
+    def read_raw_manifest(self) -> list[dict]:
+        """Read ``runs.json`` as written, without validating or defaulting.
 
-        Returns an empty list when the manifest does not exist yet.
+        This is the manifest AS EVIDENCE: the fields each row actually
+        carries, with nothing filled in. :meth:`read_manifest` is the
+        typed view built from it, and :meth:`append_record` writes
+        through this one so that reading a historical manifest cannot
+        change it (REV010-014).
+
+        Returns
+        -------
+        list of dict
+            One dict per row, in file order; empty when the manifest
+            does not exist yet.
         """
         if not self.manifest_path.is_file():
             return []
         entries = json.loads(self.manifest_path.read_text(encoding="utf-8"))
-        return [RunRecord.model_validate(entry) for entry in entries]
+        return list(entries)
+
+    def read_manifest(self) -> list[RunRecord]:
+        """Read and validate every record of ``runs.json``.
+
+        Returns an empty list when the manifest does not exist yet.
+        The typed view fills defaults for fields a row does not carry;
+        use :meth:`read_raw_manifest` when the question is what the row
+        actually asserts rather than how this version reads it.
+        """
+        return [RunRecord.model_validate(entry) for entry in self.read_raw_manifest()]
 
     def append_record(self, record: RunRecord) -> None:
         """Append one record to the manifest, atomically.
@@ -655,16 +684,23 @@ class CampaignWorkspace:
         atomic replace, so a crash never leaves it half-written; a
         duplicate ``run_id`` is rejected because the manifest is the
         run identity (PP-6).
+
+        Existing rows are carried across AS THEY WERE WRITTEN.
+        REV010-014: this used to re-serialize the validated models, so
+        appending one run rewrote every older row with more than twenty
+        defaulted fields and a manifest_schema it had never carried.
+        Historical evidence is not this method's to edit; migrating a
+        manifest is a separate, deliberate, auditable act.
         """
-        records = self.read_manifest()
-        if any(existing.run_id == record.run_id for existing in records):
+        raw = self.read_raw_manifest()
+        if any(entry.get("run_id") == record.run_id for entry in raw):
             raise WorkspaceError(
                 f"run_id {record.run_id!r} is already in the manifest; run identity "
                 "must be unique. Use a new run_id or archive the campaign first."
             )
-        records.append(record)
+        raw.append(record.model_dump(mode="json"))
         self.root.mkdir(parents=True, exist_ok=True)
-        payload = json.dumps([entry.model_dump(mode="json") for entry in records], indent=2)
+        payload = json.dumps(raw, indent=2)
         temporary = self.manifest_path.with_suffix(".json.tmp")
         temporary.write_text(payload + "\n", encoding="utf-8")
         temporary.replace(self.manifest_path)
