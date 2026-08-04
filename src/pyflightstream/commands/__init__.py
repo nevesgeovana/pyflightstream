@@ -485,12 +485,15 @@ class CommandEntry(BaseModel):
         :meth:`status_in` returns the base record with nothing saying it
         did, so a caller cannot tell a command probed on this build from
         one merely assumed to behave like its base. When 26.121 was
-        registered, 76 of 147 commands answered for it by inheritance,
-        each carrying a citation to a report run on 26.120, and the
-        published compatibility matrix showed the column as fully
-        covered. A hotfix had already been measured changing a command's
-        behaviour, so the assumption was known to be falsifiable
-        (PLN-20260802-2016).
+        registered, most of the database answered for it by inheritance,
+        each record carrying a citation to a report run on 26.120, and
+        the published compatibility matrix showed the column as fully
+        covered. The count is deliberately not written here: it moves
+        with every probe run, the matrix generates it in an ``Of which
+        inherited`` column, and ``tests/test_evidence_provenance.py``
+        measures it where a wrong number can fail. A hotfix had already
+        been measured changing a command's behaviour, so the assumption
+        was known to be falsifiable (PLN-20260802-2016).
 
         This is the accessor to prefer when the answer is shown to a
         person or written into a report. :meth:`status_in` stays for

@@ -37,9 +37,13 @@ FlightStream versions.
   ```
 
   Where the coverage is 1.0 the old number and the new number agree and
-  no action is needed. Anywhere below 1.0 the old number was reduced in
-  proportion to the missing fraction: the NaN is not a regression, it is
-  the first time the gap was visible. `sample_coverage` is new in this
+  no action is needed, and that half is exact. Anywhere below 1.0 the old
+  number was low by the AREA-WEIGHTED share of the missing samples, which
+  the coverage number bounds but does not quantify: `plane_integral`
+  weights each sample by its annulus area, so a sample missing at the tip
+  costs far more of the integral than one missing at the hub. Coverage
+  tells you WHICH planes are affected; recompute to learn by how much.
+  The NaN is not a regression, it is the first time the gap was visible. `sample_coverage` is new in this
   release for exactly this question, and it reports per plane rather
   than one number for the sweep, so one dead probe is distinguishable
   from a half-empty lattice.
@@ -59,12 +63,36 @@ FlightStream versions.
   splitting, `Script.raw()` is the sanctioned route and still sets the
   flag.
 
-  Seven refusals are new across the release: a line terminator in a text
+  Seven refusals are new in the blocker fixes below, and they are not
+  every refusal this release adds; the entries above carry more. A line
+  terminator in a text
   argument, a non-finite scalar or list value in an FSI configuration, a
   probe lattice outside its documented domain, an out-of-domain Omega in
   a Campbell sweep, a duplicate column in a parsed table, trailing
   content after an export block, and a solver mode the package has not
   been taught. Each replaces a path that previously produced a result.
+* **FR-37 closes as covered and the terminal-status set stays closed at
+  six** (SRS 1.13.0). The requirement collided with FR-46, which closes
+  the set at the six values `RunStatus` carries: FR-37 asked for a status
+  distinct from a COMPLETED one, and a run reaching its iteration cap
+  lands in `COMPLETED_MAX_ITER`. The author resolved it in FR-46's favour
+  and the requirement is RESTATED rather than merely declared satisfied:
+  it now asks for a status distinct from the CONVERGED one, which is what
+  this library guarantees. Two of the six give it, `COMPLETED_MAX_ITER`
+  for a run that reached its cap and `FAILED_INCOMPLETE_OUTPUT` for one
+  whose loop did not complete. Requirement text and docstrings only; no
+  runtime change, and no status value was added, removed or renamed.
+* **FR-37 closes as covered and the terminal-status set stays closed at
+  six** (SRS 1.13.0). The requirement collided with FR-46, which closes
+  the set at the six values `RunStatus` carries: FR-37 asked for a status
+  distinct from a COMPLETED one, and a run reaching its iteration cap
+  lands in `COMPLETED_MAX_ITER`. The author resolved it in FR-46's favour
+  and the requirement is RESTATED rather than merely declared satisfied:
+  it now asks for a status distinct from the CONVERGED one, which is what
+  this library guarantees. Two of the six give it, `COMPLETED_MAX_ITER`
+  for a run that reached its cap and `FAILED_INCOMPLETE_OUTPUT` for one
+  whose loop did not complete. Requirement text and docstrings only; no
+  runtime change, and no status value was added, removed or renamed.
 * **New public names: `commands.Evidence` and
   `CommandEntry.evidence_in`.** The compatibility matrix showed 76 of
   147 cells for 26.121 as though that build had been probed, and it had
@@ -821,7 +849,9 @@ FlightStream versions.
   The status is a constrained choice rather than the right name for it,
   and the assessor's docstring says so: the terminal set is closed at
   six (SRS FR-46) and whether it opens to a seventh is the product
-  owner's undecided question (FR-37).
+  author resolved on 2026-08-03 that it stays closed. FR-37 is restated
+  to ask for a status distinct from the CONVERGED one, which is what the
+  library guarantees, and closes as covered (SRS 1.13.0).
 * **"Supported" was one word covering four states, and is now four
   named values** (SRS FR-49, new). New public names at the top of the
   package: `SupportLevel`, `support_table()`, `version_support()`,
@@ -1116,7 +1146,7 @@ FlightStream versions.
 ### Added
 
 * **The user guide is refreshed for 26.121, and a guard now keeps it
-  current.** Seven claims went stale when the 26.121 onboarding landed
+  current.** Six claims went stale when the 26.121 onboarding landed
   and nothing caught any of them: the guide is neither built nor
   executed by CI, so every claim in it was true only until the next
   licensed session moved the evidence underneath it.
@@ -1424,7 +1454,9 @@ FlightStream versions.
     Two of her acceptances contradict each other and the SRS says so
     rather than silently picking one: FR-46 closes the terminal-status
     set at six values and FR-37 asks for a status the set does not
-    contain. Which one moves is the product owner's call.
+    contain as written. Resolved on 2026-08-03: the set stays closed at
+    six and FR-37 is restated to ask for a status distinct from CONVERGED,
+    which two of the six give.
 
     The
   user-facing consequences are in Deprecated below.
@@ -2179,7 +2211,8 @@ the repository seeding and this tag (milestones M0 through M5).
 * 26.000: registered, no recorded evidence yet (honest empty column;
   backfill planned for v0.2+).
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.4.0
 [0.3.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.3.0
 [0.2.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.2.0
 [0.1.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.1.0
