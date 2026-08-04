@@ -7,6 +7,8 @@ FlightStream versions.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-03
+
 ### API surface delta
 
 * **Incompatible change, numerical: `farfield.plane_integral` returns
