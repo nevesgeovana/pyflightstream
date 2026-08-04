@@ -732,7 +732,9 @@ the base could not offer while it bundled several.
     standard-library base it derived from before, as a second base, so
     the change is purely widening: `except ValueError` and
     `except RuntimeError` catch exactly what they used to, and
-    `except PyflightstreamError` now catches the package. THREE guards,
+    `except PyflightstreamError` now catches the catalog. The CATALOG,
+    not the package, and the difference is the residual this requirement
+    discloses in bold below. THREE guards,
     not one: membership in the catalog, descent from the base, and the
     absence of a bare standard-library `raise` inside any exported
     public name, asserted separately, because a class can join `__all__`

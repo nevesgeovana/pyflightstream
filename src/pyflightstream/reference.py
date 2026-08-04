@@ -113,10 +113,15 @@ CONVENTIONS: tuple[tuple[str, str], ...] = (
         "remedy, main refusal wordings are pinned by test, and every "
         "exception class is importable from pyflightstream.exceptions; "
         "structured refusals carry their facts as attributes. Every "
-        "exception descends from PyflightstreamError, so one except "
-        "clause catches the package, and each also keeps the "
+        "CATALOGUED exception descends from PyflightstreamError, so one "
+        "except clause catches the catalog, and each also keeps the "
         "standard-library base it would have had, so catching "
-        "ValueError or RuntimeError still works.",
+        "ValueError or RuntimeError still works. Read that word: a "
+        "residual of bare standard-library raises survives outside the "
+        "catalog, named site by site in the ratchet in "
+        "tests/test_exceptions_catalog.py, which is the single home of "
+        "that list (SRS FR-39). Until it is empty, the standard-library "
+        "bases are what covers it.",
     ),
     (
         "Options are declared knobs",

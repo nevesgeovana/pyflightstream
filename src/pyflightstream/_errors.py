@@ -23,14 +23,19 @@ class PyflightstreamError(Exception):
     """Base of every CATALOGUED exception this package defines (SRS FR-39).
 
     Catch it instead of importing the leaf types one by one, or widening
-    to ``ValueError``. Read the first word before relying on it: a
+    to ``ValueError``. Read the word CATALOGUED before relying on it: a
     residual of bare standard-library raises survives in the package,
     each one named in the ratchet in
     ``tests/test_exceptions_catalog.py``, which is the single home of
-    that list and of its count. Those escape this base. The
-    standard-library base of each catalogued class is kept as a second
-    base, so ``except ValueError`` catches what it always did, which is
-    the fallback for the residual until it is gone.
+    that list. Those escape this base.
+
+    The standard-library base of each catalogued class is kept as a
+    second base, so ``except ValueError`` catches what it always did.
+    That is the fallback for most of the residual and not for all of it:
+    the residual is mostly ``ValueError`` and also holds ``TypeError``
+    and ``RuntimeError`` sites, and the ratchet names the type per site.
+    A caller who needs to be exhaustive today catches
+    ``PyflightstreamError`` and the standard-library bases together.
 
     >>> from pyflightstream.exceptions import PyflightstreamError
     >>> from pyflightstream.versions import resolve

@@ -17,7 +17,11 @@ exactly what they used to. Catalogued is the operative word and the
 requirement says so in bold: a residual of bare standard-library raises
 survives outside this catalog, named site by site in the ratchet in
 ``tests/test_exceptions_catalog.py``, which is the single home of that
-list. Until it is empty, the standard-library bases are what covers it. The one member outside that
+list. Until it is empty, the standard-library bases are what covers it,
+and the plural matters: the residual is mostly ``ValueError`` and also
+holds ``TypeError`` and ``RuntimeError`` sites, so being exhaustive
+today means catching :class:`PyflightstreamError` and those bases
+together. The one member outside that
 hierarchy is :class:`~pyflightstream.results.VersionMismatchWarning`,
 which is a warning: it is catalogued, because the catalog covers
 exceptions and warnings alike, and it is not an ``Error``.

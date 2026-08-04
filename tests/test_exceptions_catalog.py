@@ -375,10 +375,20 @@ def _exported_bare_raises() -> list[str]:
 #: The sites FR-39 does not yet cover, named one by one with the reason
 #: and the plan row that closes them. A RATCHET, in the shape NFR-27
 #: already uses for the type checker: the list IS the debt, it is
-#: countable, and any site not on it fails today.
+#: countable, and any site THE WALK REACHES that is not on it fails
+#: today. That qualifier is load-bearing and was missing here while this
+#: file was being named, in three shipped documents, as the single home
+#: of the residual. A definition omitted from its own module's
+#: ``__all__`` is invisible to the walk: ``script.solver_setup.
+#: build_setup`` raises a bare ``RuntimeError``, is reachable through a
+#: cross-module caller, is on no list and does not fail today
+#: (PLN-20260804-1130).
 #:
-#: All three raise ``TypeError`` for an argument of a type the function
-#: does not accept. Re-basing them onto a catalogued class is not the
+#: The set holds 24 entries in two tranches. The FIRST THREE raise
+#: ``TypeError`` for an argument of a type the function does not accept;
+#: the other 21 are the reachability tranche and are almost all
+#: ``ValueError``. Re-basing the TypeError three onto a catalogued class
+#: is not the
 #: one-line change the ValueError sites were: ``except TypeError`` is
 #: how a caller distinguishes "I passed the wrong kind of thing" from "I
 #: passed a bad value", and the catalogued classes this package has are

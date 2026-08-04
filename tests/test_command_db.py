@@ -361,6 +361,29 @@ def _records_with_a_citation(registry):
     ]
 
 
+def _records_with_status(registry, status):
+    """How many records the database holds at one status."""
+    return sum(
+        1
+        for entry in registry.commands.values()
+        for record in entry.versions.values()
+        if record.status is status
+    )
+
+
+def _evidence_backed(registry):
+    """How many records hold a status the evidence rule requires a report for.
+
+    Derived from the schema rather than from the walk, so it is an
+    INDEPENDENT statement of what the citation guards must reach. The
+    model validator refuses ``verified`` and ``broken`` without a report,
+    so every one of these is a citation that has to exist.
+    """
+    return _records_with_status(registry, Status.VERIFIED) + _records_with_status(
+        registry, Status.BROKEN
+    )
+
+
 def test_every_citation_is_a_compat_report_for_its_own_build() -> None:
     """A citation must come from the sanctioned writer and name this build.
 
@@ -412,14 +435,23 @@ def test_every_citation_is_a_compat_report_for_its_own_build() -> None:
                 f"on {tag}, not on this record's build. Cite the report for "
                 f"{canonical}, or record the evidence under the build it belongs to"
             )
-    # Derived, not typed. A floor set to a constant is a floor that a
-    # shrinking walk grows into: 130 was the verified population exactly,
-    # so the whole broken population could have dropped out unseen.
-    assert checked == len(population) >= 130, (
-        f"the walk inspected {checked} of {len(population)} citing records; a walk "
-        "that stops reaching them reports a clean database it never read"
-    )
+    # Offenders first. A real evidence defect must say what it is; the
+    # reach assertions below blame the WALK, and printing that over a
+    # hand edit sends the reader to the wrong place.
     assert not offenders, "\n  " + "\n  ".join(sorted(offenders))
+    # Reach, derived from the registry rather than typed. A constant
+    # floor is one a shrinking walk grows into: it was 130, which is the
+    # verified population exactly, so the whole broken population could
+    # have dropped out unseen. The validator guarantees a verified or
+    # broken record carries a report, so that count is what the citation
+    # population must at least contain, and a narrowing of
+    # _records_with_a_citation makes the two sides disagree.
+    assert checked == len(population), f"inspected {checked} of {len(population)}"
+    assert len(population) >= _evidence_backed(registry) >= 1, (
+        f"the walk saw {len(population)} citing records while the database holds "
+        f"{_evidence_backed(registry)} records whose status requires one; the walk "
+        "is no longer reaching the records it is written for"
+    )
 
 
 def test_every_citation_records_the_status_the_record_claims() -> None:
@@ -507,15 +539,28 @@ def test_every_citation_records_the_status_the_record_claims() -> None:
                 "(CLAUDE.md invariant 3)"
             )
 
-    assert checked == len(population) >= 130, (
-        f"the walk compared {checked} of {len(population)} citing records against "
-        "their reports; a walk that stops reaching them proves nothing"
-    )
-    assert seen_broken >= 1, (
-        "no broken record was compared, so the walk covered only promotions and the "
-        "status this guard exists for was never exercised"
-    )
+    # Offenders first, and this ORDER is the point rather than a style
+    # choice. Three of the branches above append an offender and skip the
+    # increment, so a reach assertion placed first fires on every real
+    # evidence defect and prints "a walk that stops reaching them proves
+    # nothing", which blames the walk for a hand edit. Round 5 measured
+    # exactly that: the mutant this guard was written for was caught by
+    # the wrong assertion and the message credited with catching it never
+    # printed.
     assert not offenders, "\n  " + "\n  ".join(sorted(offenders))
+    assert checked == len(population), f"compared {checked} of {len(population)}"
+    assert len(population) >= _evidence_backed(registry) >= 1, (
+        f"the walk saw {len(population)} citing records while the database holds "
+        f"{_evidence_backed(registry)} records whose status requires one"
+    )
+    # Derived from the registry, not the typed >= 1 it replaces: a walk
+    # that silently stopped reaching broken records would satisfy any
+    # floor above zero, and broken is the status this guard exists for.
+    expected_broken = _records_with_status(registry, Status.BROKEN)
+    assert seen_broken == expected_broken >= 1, (
+        f"the walk compared {seen_broken} broken records and the database holds "
+        f"{expected_broken}; the status this guard exists for was not fully covered"
+    )
 
 
 def test_every_report_a_note_cites_names_the_command_it_is_attached_to() -> None:
@@ -574,7 +619,8 @@ def test_every_report_a_note_cites_names_the_command_it_is_attached_to() -> None
 
     registry = CommandRegistry.load()
     offenders = []
-    checked = 0
+    by_path_checked = 0
+    by_id_checked = 0
 
     for name, entry in registry.commands.items():
         prose = [entry.notes] + [record.note for record in entry.versions.values()]
@@ -583,7 +629,7 @@ def test_every_report_a_note_cites_names_the_command_it_is_attached_to() -> None
                 continue
             by_path = REPORT_PATH_PATTERN.findall(note)
             for cited in by_path:
-                checked += 1
+                by_path_checked += 1
                 path = REPO_ROOT / cited
                 if not path.exists():
                     offenders.append(f"{name} cites the path {cited}, which does not exist")
@@ -599,7 +645,7 @@ def test_every_report_a_note_cites_names_the_command_it_is_attached_to() -> None
                 # would only weaken that answer.
                 if any(token in cited for cited in by_path):
                     continue
-                checked += 1
+                by_id_checked += 1
                 found = reports_by_id.get(token)
                 if not found:
                     offenders.append(f"{name} cites {token}, which resolves to no report")
@@ -609,8 +655,25 @@ def test_every_report_a_note_cites_names_the_command_it_is_attached_to() -> None
                         f"which never names {name}"
                     )
 
-    assert checked >= 9, (
-        f"only {checked} cited reports were resolved and the database carries at "
-        "least 9, so the walk stopped reaching the notes it is written for"
-    )
     assert not offenders, "\n  " + "\n  ".join(sorted(offenders))
+    # Two counters, not one, and the second is the reason. A single total
+    # was measured green with REPORT_PATH_PATTERN dead: every report file
+    # name carries its own id, so the id fallback recovers the token out
+    # of the path text and the total is conserved BY CONSTRUCTION. The
+    # strong half of this guard, the path checked against that exact
+    # file, would have been silently switched off. Counting the branches
+    # separately is what makes the total mean anything.
+    assert by_path_checked >= 1, (
+        "no citation was checked as a PATH, so the branch this guard calls its "
+        "strong half is not running; a bare id resolves to every report sharing "
+        "it, which for CMP-26120 is six files naming 142 of 147 commands"
+    )
+    assert by_id_checked >= 1, (
+        "no citation was resolved by bare id, so the fallback the suffix-less "
+        "reports/RPT-005 form needs is not running"
+    )
+    assert by_path_checked + by_id_checked >= 9, (
+        f"only {by_path_checked + by_id_checked} cited reports were resolved and "
+        "the database carries at least 9, so the walk stopped reaching the notes "
+        "it is written for"
+    )

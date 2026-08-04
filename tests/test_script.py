@@ -659,13 +659,28 @@ def test_a_waiver_lets_the_command_emit_and_records_what_it_waived():
 
 
 def test_a_waiver_records_one_entry_however_often_the_command_is_emitted():
-    """Every field is a property of the command, not of the emission."""
+    """One entry per command, and ``first_line`` holds the FIRST of them.
+
+    The fields describing the breakage are properties of the command,
+    the version and the waiver, so a second emission adds no fact.
+    ``first_line`` is the exception and is why this test emits three
+    different altitudes rather than the same one: the waiver is written
+    for a particular call, a script-lifetime waiver covers every later
+    one, and a reader who has only the reason cannot tell which emission
+    it was written for. This assertion is what makes FIRST mean first;
+    the field's other test emits once, so a last-wins implementation
+    satisfies it.
+    """
     script = Script(version="26.120")
     script.allow_broken("AIR_ALTITUDE", reason="re-probing the units defect")
     for altitude in (0.0, 1000.0, 5000.0):
         script.emit("AIR_ALTITUDE", altitude, "METERS")
     assert len(script.render().splitlines()) == 3
     assert len(script.broken_commands) == 1
+    assert script.broken_commands[0].first_line == "AIR_ALTITUDE 0.0 METERS", (
+        "first_line must hold the FIRST waived emission, not the latest; got "
+        f"{script.broken_commands[0].first_line!r}"
+    )
 
 
 def test_a_waiver_needs_a_justification():
