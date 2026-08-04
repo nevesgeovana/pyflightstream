@@ -1747,10 +1747,13 @@ def update_reference(
 
     Raises
     ------
-    ValueError
+    QaEvidenceError
         When the reason is empty, the case is unknown, the report is
-        not a physics report, or the report carries no metrics for the
-        case.
+        not a physics report, the report carries no metrics for the
+        case, or a metric it carries is neither in the existing
+        reference nor declared by the case. A subclass of ``ValueError``,
+        so a caller written before the catalogue existed still catches
+        it.
     """
     if not reason or not reason.strip():
         raise QaEvidenceError(

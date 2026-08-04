@@ -777,7 +777,7 @@ the base could not offer while it bundled several.
     2026-08-04 measured exactly two such definitions holding a bare
     raise out of nine omitted across the 52 public modules.
     `qa.physics.read_physics_report` was one and is fixed here, since
-    its three sibling refusals in the same call already raise
+    the four sibling refusals in its only caller already raise
     `QaEvidenceError`. The other is `script.solver_setup.build_setup`,
     whose `RuntimeError` reports that the package's own flag table has
     fallen behind the command database; it is reachable only through a

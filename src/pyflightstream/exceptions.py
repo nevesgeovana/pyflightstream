@@ -10,10 +10,14 @@ modules an optional extra gates keep their classes in import-light
 homes.
 
 Every exception here descends from :class:`PyflightstreamError`, so one
-except clause catches everything the package raises (SRS FR-39), and
-each also keeps the standard-library base it had before that class
-existed, so ``except ValueError`` and ``except RuntimeError`` keep
-catching exactly what they used to. The one member outside that
+except clause catches every CATALOGUED exception (SRS FR-39), and each
+also keeps the standard-library base it had before that class existed,
+so ``except ValueError`` and ``except RuntimeError`` keep catching
+exactly what they used to. Catalogued is the operative word and the
+requirement says so in bold: a residual of bare standard-library raises
+survives outside this catalog, named site by site in the ratchet in
+``tests/test_exceptions_catalog.py``, which is the single home of that
+list. Until it is empty, the standard-library bases are what covers it. The one member outside that
 hierarchy is :class:`~pyflightstream.results.VersionMismatchWarning`,
 which is a warning: it is catalogued, because the catalog covers
 exceptions and warnings alike, and it is not an ``Error``.

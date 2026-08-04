@@ -979,9 +979,13 @@ FlightStream versions.
   so geometry carried in a generic container (a node list in a `.csv`)
   is outside it, and NFR-08 stays a discipline for that.
 * **`PyflightstreamError` is the package base exception, and every
-  exception the package raises now descends from it** (SRS FR-39, which
-  was pending on exactly this clause). One except clause catches the
-  package:
+  CATALOGUED exception descends from it** (SRS FR-39, which was pending
+  on exactly this clause). Read that word before relying on the
+  sentence: a residual of bare standard-library raises survives, named
+  site by site in the ratchet in `tests/test_exceptions_catalog.py`,
+  which is the single home of that list and of its count. The FR-39
+  entry earlier in this release states the position. One except clause
+  catches the catalog:
 
   ```python
   from pyflightstream.exceptions import PyflightstreamError

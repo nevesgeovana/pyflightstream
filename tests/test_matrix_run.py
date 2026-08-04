@@ -631,6 +631,39 @@ def test_an_explicit_hidden_argument_overrules_the_column(tmp_path, monkeypatch)
     )
 
 
+def test_an_explicit_hidden_false_also_overrules_the_column(tmp_path, monkeypatch):
+    """The other direction of caller-wins, on a matrix that derives True.
+
+    Its sibling above passes True over a column deriving False, so a
+    mutation hardcoding True satisfies it. The promise is symmetric and
+    so is the pinning: this passes False over a matrix whose every row
+    asks to be hidden.
+    """
+    text = REGISTRY_FIXTURE.read_text(encoding="utf-8")
+    all_hidden = text.replace("|    0   |", "|    1   |")
+    assert all_hidden != text, "the fixture no longer carries a row asking for a window"
+    matrix = tmp_path / "all_hidden_override.fs"
+    matrix.write_text(all_hidden, encoding="utf-8")
+
+    seen: dict[str, object] = {}
+    _recording_executor(monkeypatch, seen)
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs26120/FlightStream.exe"))
+    run_matrix(
+        matrix,
+        workspace,
+        name="callerwinsfalse",
+        fs_version="26.120",
+        recipes=RECIPES,
+        assess=converged,
+        recipe_registry={"steady": matrix_recipe},
+        hidden=False,
+    )
+    assert seen.get("hidden") is False, (
+        "an explicit hidden=False must beat a column that derives True; the "
+        f"executor was built with hidden={seen.get('hidden')!r}"
+    )
+
+
 def test_the_override_says_which_rows_it_overrules(tmp_path):
     """The explicit fs_exe override is the only way to run MANUAL, so it has
     to win. It used to win SILENTLY over a row naming a real build: measured

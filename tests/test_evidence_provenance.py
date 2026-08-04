@@ -243,6 +243,53 @@ def test_a_waived_broken_command_records_which_build_the_evidence_belongs_to():
         "the cited report was run"
     )
     assert use.source_version != use.version, "this fixture is the inherited case"
+    # first_line had no assertion anywhere in the suite while the release
+    # note promised it. It is the one field that is a property of the
+    # EMISSION rather than of the command, so nothing else pins it.
+    assert use.first_line == "SET_EXAMPLE_BROKEN 1.0", (
+        f"first_line must hold the rendered line of the first waived emission, got "
+        f"{use.first_line!r}"
+    )
+
+
+def test_a_direct_broken_record_reports_the_two_builds_as_equal():
+    """The agreeing half, which no assertion reached.
+
+    Its sibling above pins ``source_version`` only where it DIFFERS from
+    ``version``, so a mutant returning ``version`` for both is caught and
+    a mutant returning the record's source for both is not. This is the
+    other input. Note the build: at 26.120 the inheritance rule
+    ``canonical[:-1] + "0"`` is the identity, so a fixture there cannot
+    tell the two apart either and would prove nothing. It has to be a
+    hotfix build carrying its OWN record.
+    """
+    from pyflightstream.script import Script
+
+    entry = CommandEntry(
+        name="SET_EXAMPLE_DIRECT",
+        layout="inline",
+        phase="setup",
+        args=[{"name": "value", "type": "float", "unit": "m/s"}],
+        manual_ref="SRC-003 p.328",
+        versions={
+            "26.121": {
+                "status": "broken",
+                "report": "reports/compat/CMP-26121_2026-08-02_full.yaml",
+                "note": "the probe watched it abort on this very build",
+            }
+        },
+    )
+    registry = CommandRegistry(commands={"SET_EXAMPLE_DIRECT": entry})
+    script = Script(version="26.121", registry=registry)
+    script.allow_broken("SET_EXAMPLE_DIRECT", reason="testing the agreeing case")
+    script.emit("SET_EXAMPLE_DIRECT", 2.0)
+
+    use = script.broken_commands[0]
+    assert use.version == "26.121"
+    assert use.source_version == "26.121", (
+        "the record is this build's own, so the two keys agree; source_version is "
+        "still a positive statement of where the evidence came from, not a null"
+    )
 
 
 def test_an_unexercised_waiver_records_nothing():

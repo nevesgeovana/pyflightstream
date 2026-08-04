@@ -545,10 +545,14 @@ class Script:
     def broken_commands(self) -> tuple[BrokenCommandUse, ...]:
         """Commands emitted under a waiver, in the order first emitted.
 
-        One entry per command however many times it was emitted: every
-        field of the entry is a property of the command, the version and
-        the waiver, so repeating the emission would repeat the record
-        without adding a fact.
+        One entry per command however many times it was emitted, because
+        the fields that describe the BREAKAGE are properties of the
+        command, the version and the waiver, so repeating the emission
+        would repeat them without adding a fact. The exception is
+        ``first_line``, which is a property of one emission and keeps the
+        FIRST: a script-lifetime waiver covers every later emission, and
+        the reason was written for a particular one.
+        :class:`BrokenCommandUse` is the single home of the field list.
         """
         return tuple(self._broken_uses.values())
 
