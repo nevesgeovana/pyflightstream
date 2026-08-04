@@ -90,6 +90,7 @@ from pyflightstream.workspace import (
     RunStatus,
     WorkspaceError,
     _sha256,
+    collection_name,
 )
 
 __all__ = [
@@ -1604,13 +1605,31 @@ def _output_collision(
     """Return why this case's output names collide, or None.
 
     Every point of a case executes in the same simulation folder and its
-    declared outputs are collected into ``raw/`` under their own names,
-    so two points that render the same output name overwrite each
-    other's evidence while the manifest lists the survivor for both
-    (incident INC-20260723-2113-pyflightstream). The check renders the
-    names the way the loop will, so it judges the actual collision
-    rather than the presence of a particular placeholder: any naming
-    template that distinguishes the points passes.
+    declared outputs are collected into ``raw/`` under the name
+    :func:`pyflightstream.workspace.collection_name` gives them, so two
+    outputs that collect to one name overwrite each other's evidence
+    while the manifest lists the survivor for both (incident
+    INC-20260723-2113-pyflightstream). The check renders the names the
+    way the loop will, so it judges the actual collision rather than the
+    presence of a particular placeholder: any naming template that
+    distinguishes the points passes.
+
+    Two collisions exist and this checks both, which it did not
+    (PLN-20260802-1904). Collection refuses duplicates WITHIN one
+    point's declared set and refuses a name already sitting in ``raw/``
+    from an EARLIER point, and only the second was anticipated here.
+    Three inputs therefore planned as READY and died at collection,
+    each after the solver had run and each costing a licensed seat:
+
+    * ``["loads.txt", "loads.txt"]`` on a single point, because the
+      old check skipped a repeat carrying the same point tag as itself;
+    * ``["a/loads.txt", "b/loads.txt"]`` on one point, because it keyed
+      on the DECLARED string, where those differ, while collection keys
+      on the base name, where they do not;
+    * the same two names across two points of one case.
+
+    The keying is now the shared function, so the plan-time answer and
+    the collect-time answer cannot disagree again.
     """
     seen: dict[str, str] = {}
     for point in case.sweep.points():
@@ -1619,17 +1638,35 @@ def _output_collision(
         except NamingTemplateError:
             return None  # the rendering error is reported by the point itself
         tag = point_tag(point)
-        for name in names:
-            if name in seen and seen[name] != tag:
-                return (
-                    f"sim {case.sim_id!r} would write the output {name!r} for both point "
-                    f"{seen[name]} and point {tag}: every point of a case runs in the "
-                    "same folder and its outputs are collected under their own names, so "
-                    "the second would overwrite the first and the manifest would list "
-                    "one file for both. Name the outputs per point, for example "
-                    "'loads_{point}.txt', and export case.outputs[i] from the recipe"
+        within: dict[str, str] = {}
+        for declared in names:
+            collected = collection_name(declared)
+            if collected in within:
+                first = within[collected]
+                detail = (
+                    f"{first!r} and {declared!r}" if first != declared else f"{declared!r}, twice"
                 )
-            seen.setdefault(name, tag)
+                return (
+                    f"sim {case.sim_id!r} declares {detail} for point {tag}, and both "
+                    f"collect to raw/{collected}: collection moves each output under its "
+                    "base name, so the second would overwrite the first and the manifest "
+                    "would record one name twice while only the last content survived. "
+                    "Declare outputs whose base names differ; a directory part does not "
+                    "make them differ, because collection drops it"
+                )
+            within[collected] = declared
+        for collected, declared in within.items():
+            if collected in seen:
+                return (
+                    f"sim {case.sim_id!r} would write {declared!r} for point {tag} and "
+                    f"the same collected name raw/{collected} for point {seen[collected]}: "
+                    "every point of a case runs in the same folder and its outputs are "
+                    "collected under their base names, so the second would overwrite the "
+                    "first and the manifest would list one file for both. Name the "
+                    "outputs per point, for example 'loads_{point}.txt', and export "
+                    "case.outputs[i] from the recipe"
+                )
+            seen[collected] = tag
     return None
 
 

@@ -497,7 +497,7 @@ def test_output_names_that_two_points_would_share_block_the_case(tmp_path, outpu
     statuses = {point.status for point in plan.points}
     if blocked:
         assert statuses == {PlanStatus.BLOCKED}
-        assert "would write the output" in plan.points[0].error
+        assert "overwrite the first" in plan.points[0].error
     else:
         assert PlanStatus.BLOCKED not in statuses
 
@@ -507,6 +507,63 @@ def test_a_single_point_case_may_name_its_output_constantly(tmp_path):
     workspace = CampaignWorkspace(tmp_path / "camp")
     plan = plan_campaign(campaign, workspace, recipes={"steady": steady_recipe})
     assert [point.status for point in plan.points] == [PlanStatus.READY]
+
+
+@pytest.mark.parametrize(
+    ("alphas", "outputs", "blocked"),
+    [
+        # The three inputs PLN-20260802-1904 measured passing the plan and
+        # dying at collection. Each cost a licensed solver seat to learn a
+        # fact the library already had.
+        ((0.0,), ("loads.txt", "loads.txt"), True),
+        ((0.0,), ("a/loads.txt", "b/loads.txt"), True),
+        ((0.0, 2.0), ("a/loads.txt", "b/loads.txt"), True),
+        # Controls, so the widening is not just "refuse more". A
+        # directory part is legitimate; it simply does not make two names
+        # differ, because collection drops it.
+        ((0.0,), ("out/loads.txt", "log.txt"), False),
+        ((0.0, 2.0), ("out/loads_{point}.txt", "log_{point}.txt"), False),
+    ],
+)
+def test_a_collision_knowable_at_plan_time_is_refused_there(tmp_path, alphas, outputs, blocked):
+    """PLN-20260802-1904: the plan and the collection now key the same way.
+
+    ``collect_outputs`` refuses duplicates within one produced set AND a
+    name already in ``raw/``, both on the BASE name. The plan-time check
+    anticipated only the second, and on the DECLARED string. So a
+    collision fully knowable before anything ran was reported only after
+    the solver had run, which contradicts two published promises: the
+    case model says such a case is blocked before it runs, and the
+    changelog says every collision is refused before anything moves.
+    """
+    campaign = make_campaign(tmp_path, alphas=alphas, outputs=outputs)
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    plan = plan_campaign(campaign, workspace, recipes={"steady": steady_recipe})
+    statuses = {point.status for point in plan.points}
+    if blocked:
+        assert statuses == {PlanStatus.BLOCKED}
+        assert "overwrite the first" in plan.points[0].error
+    else:
+        assert PlanStatus.BLOCKED not in statuses
+
+
+def test_the_plan_and_the_collection_agree_on_the_collected_name():
+    """One rule, two boundaries, and the boundaries must not re-derive it.
+
+    The defect was not that either side was wrong on its own: each was
+    right about its own question. It was that they answered the same
+    question differently, so the cheap boundary passed what the
+    expensive one refused. This asserts they share the function.
+    """
+    from pyflightstream.run import collection_name as from_run
+    from pyflightstream.workspace import collection_name as from_workspace
+
+    assert from_run is from_workspace
+    assert from_workspace("loads.txt") == "loads.txt"
+    assert from_workspace("a/loads.txt") == "loads.txt"
+    assert from_workspace("a\\loads.txt") == "loads.txt"
+    assert from_workspace("a/b/loads.txt") == "loads.txt"
+    assert from_workspace(Path("a") / "loads.txt") == "loads.txt"
 
 
 def test_a_registered_callable_meets_the_same_protocol_check(tmp_path):

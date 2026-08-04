@@ -86,6 +86,7 @@ __all__ = [
     "RunStatus",
     "SetupArtifact",
     "WorkspaceError",
+    "collection_name",
 ]
 
 #: Layout identifier of a manifest record. Bumped when a field is
@@ -95,6 +96,42 @@ __all__ = [
 #: every row rather than once per file, because a manifest accumulates
 #: rows across package versions (PYFS-015).
 MANIFEST_SCHEMA = "pyfs-manifest/1"
+
+
+def collection_name(declared: str | Path) -> str:
+    r"""Return the name a declared output takes once collected.
+
+    Collection MOVES each declared output into ``raw/`` under its base
+    name, so any directory part of the declared name is dropped: both
+    ``loads.txt`` and ``out/loads.txt`` become ``raw/loads.txt``.
+
+    This is a module-level function rather than an inline expression
+    because two layers have to agree on it, and when they did not, the
+    disagreement cost a licensed solver seat. :meth:`collect_outputs`
+    keyed on the base name and the campaign's plan-time check keyed on
+    the DECLARED string, so a case declaring ``a/loads.txt`` and
+    ``b/loads.txt`` planned as READY and was refused only after the
+    solver had run (PLN-20260802-1904). Both sides now call this, so
+    neither can re-derive the rule.
+
+    Both separators are accepted regardless of platform, because the
+    declared name comes from a campaign file that may have been
+    authored anywhere, while the produced path is local. Treating
+    ``a\loads.txt`` as a directory on Windows and as a filename on
+    POSIX would make the two boundaries disagree by operating system.
+
+    Parameters
+    ----------
+    declared : str or Path
+        Declared output name, or a produced path.
+
+    Returns
+    -------
+    str
+        Base name, with any directory part removed.
+    """
+    return str(declared).replace("\\", "/").rsplit("/", 1)[-1]
+
 
 _SIM_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
 _SIM_SUBDIRS = ("inputs", "scripts", "raw", "parsed")
@@ -573,7 +610,7 @@ class CampaignWorkspace:
         # every source where it was instead of half-collecting.
         destinations: dict[str, list[str]] = {}
         for path in produced:
-            destinations.setdefault(Path(path).name, []).append(str(path))
+            destinations.setdefault(collection_name(path), []).append(str(path))
         clashing = {name: sources for name, sources in destinations.items() if len(sources) > 1}
         if clashing:
             detail = "; ".join(

@@ -9,6 +9,36 @@ FlightStream versions.
 
 ### API surface delta
 
+* **New public name: `workspace.collection_name`.** It answers one
+  question, "what name does this declared output take once collected",
+  and it exists because two layers were answering it differently.
+
+  **Behaviour change, and it moves a refusal earlier.** Three campaigns
+  used to plan as `READY` and fail at collection, which is after the
+  solver has run:
+
+  ```python
+  case.outputs = ["loads.txt", "loads.txt"]      # one point
+  case.outputs = ["a/loads.txt", "b/loads.txt"]  # one point
+  case.outputs = ["a/loads.txt", "b/loads.txt"]  # two points of one case
+  ```
+
+  Collection moves every declared output into `raw/` under its BASE
+  name, so all three collide there. The plan-time check keyed on the
+  declared string, where `a/loads.txt` and `b/loads.txt` differ, and it
+  skipped a repeated name carrying the same point tag as itself, which
+  is what let the first case through. So the cheap boundary passed what
+  the expensive one refused, and the difference was paid in licensed
+  solver time.
+
+  This contradicted two statements this project publishes: the case
+  model says a case whose points would render the same output name is
+  blocked before it runs, and the entry below says every collision is
+  refused before anything moves. Both are now true.
+
+  A declared name with a directory part is still legitimate; it simply
+  does not make two outputs differ, and the refusal says so.
+
 * **The run matrix collects its outputs, honours its HIDDEN column, and
   says when an override overrules a row.** **Breaking**: a matrix row
   that declares no outputs is now refused. Found by running the
