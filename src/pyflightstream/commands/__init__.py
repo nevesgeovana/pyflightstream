@@ -565,8 +565,15 @@ class VersionView:
                 "commands drafted from the manual with citations; see CONTRIBUTING "
                 "for how to add one."
             )
-        record = entry.status_in(self.version)
-        if record is None:
+        # evidence_in, not status_in: these refusals are read by a person
+        # and this one asserted a fact about the requested build while
+        # citing a record recorded for another. SONIC_VELOCITY is the
+        # measured case: removed on 26.100 and 26.120, no 26.121 record,
+        # so the message said "removed in FlightStream 26.121" and cited
+        # an SRC-003 page which, on the 26.121 edition, addresses a
+        # different page entirely (V&V pass, 2026-08-03).
+        evidence = entry.evidence_in(self.version)
+        if evidence is None:
             recorded = ", ".join(
                 f"{canonical} ({entry.versions[canonical].status})"
                 for canonical in sorted(entry.versions)
@@ -576,6 +583,7 @@ class VersionView:
                 f"Recorded evidence: {recorded}. Earlier versions await release-notes review "
                 "or backfill probing."
             )
+        record = evidence.record
         if record.status is Status.REMOVED:
             reason = record.note or "no longer supported"
             successor = (
@@ -585,9 +593,18 @@ class VersionView:
             )
             last = self._last_documented(entry)
             last_part = f" Last documented in {last.canonical}." if last else ""
+            inherited_note = (
+                f" That record belongs to {evidence.source}; "
+                f"{self.version.canonical} inherits it and no probe on "
+                f"{self.version.canonical} has run this command, so the citation "
+                f"addresses the {evidence.source} manual edition."
+                if evidence.inherited
+                else ""
+            )
             raise CommandNotInVersionError(
-                f"{name} is removed in FlightStream {self.version.canonical} "
-                f"({reason}, {entry.manual_ref}).{last_part} {successor}"
+                f"{name} is removed in FlightStream {evidence.source} "
+                f"({' '.join(reason.split())}, {entry.manual_ref}).{inherited_note}"
+                f"{last_part} {successor}"
             )
         if record.args is not None:
             # Per-version grammar override: the returned entry carries the

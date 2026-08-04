@@ -27,9 +27,12 @@ kind of claim that outlives the fact behind it:
     citations. No command has been measured against a running solver
     on this version.
 ``verified``
-    At least one command carries probe evidence measured on this
-    version: a committed report either confirmed it or recorded it
-    broken. Both count, because both are measurements.
+    At least one command carries probe evidence this version can reach:
+    a committed report either confirmed it or recorded it broken. Both
+    count, because both are measurements. On a hotfix build the record
+    may be the base release's, inherited: see
+    :meth:`~pyflightstream.commands.CommandEntry.evidence_in` and the
+    compatibility matrix, which marks every inherited cell.
 ``operational``
     Verified, and the minimal end-to-end workflow of
     :func:`minimal_workflow` builds for it. This is the level that
@@ -138,8 +141,16 @@ class VersionSupport(BaseModel):
         ones recorded broken, because a broken command is a measured
         command.
     commands_probed : int
-        Of those, the ones carrying probe evidence measured on this
-        version (``verified`` or ``broken``).
+        Of those, the ones carrying probe evidence (``verified`` or
+        ``broken``) that this version can reach. On a hotfix build the
+        count INCLUDES records inherited from the base release, because
+        `status_in` returns them; the wording said "measured on this
+        version", which is true of a base release and not of a hotfix.
+        Measured 2026-08-03: for 26.121 the count is 69 and 68 of those
+        were probed on that build, so the overstatement is one command
+        and the level is unaffected. Reporting the two separately is
+        registered as PLN-20260803-2210; the word is corrected here so
+        no surface claims more than it can show.
     workflow_missing : tuple of str
         Commands of :data:`MINIMAL_WORKFLOW_COMMANDS` this version
         cannot emit, in workflow order. Empty when the workflow builds.
@@ -304,14 +315,14 @@ def version_support(
     elif missing:
         level = SupportLevel.VERIFIED
         why = (
-            f"{probed} of {available} commands carry probe evidence measured on this "
+            f"{probed} of {available} commands carry probe evidence reachable for this "
             f"version, and the minimal workflow does not build: {', '.join(missing)} "
             "cannot be emitted"
         )
     else:
         level = SupportLevel.OPERATIONAL
         why = (
-            f"{probed} of {available} commands carry probe evidence measured on this "
+            f"{probed} of {available} commands carry probe evidence reachable for this "
             "version, and the minimal end-to-end workflow builds for it"
         )
     return VersionSupport(

@@ -220,9 +220,24 @@ class BrokenCommandUse(BaseModel):
     command : str
         Command name as emitted.
     version : str
-        Canonical identifier of the version whose record is broken;
-        carried because the same command is fine in another version and
-        a manifest read later has no other way to know which was meant.
+        Canonical identifier of the version whose record is broken. For
+        a hotfix build that inherits its base release's record this is
+        the BASE release, which is where the cited report was run, and
+        it used to be the requested build instead. That made a
+        permanent manifest record assert that a probe on one build was
+        the broken record of another, which is the defect this release
+        is named for, on the one surface a reader cannot regenerate
+        (architect pass, 2026-08-03). Read it with ``requested_version``
+        and ``inherited``.
+    requested_version : str
+        Canonical identifier of the build the script was written for.
+        Equal to ``version`` unless the record was inherited.
+    inherited : bool
+        Whether the broken record came from the base release rather than
+        from a probe on the requested build. True means no probe on that
+        build has ever run this command: the refusal rests on the
+        assumption that a hotfix behaves like its base, and this
+        repository has measured that assumption failing.
     report : str
         Repository-relative path of the committed probe report that
         recorded the breakage. Never optional: ``broken`` cannot exist
@@ -247,6 +262,8 @@ class BrokenCommandUse(BaseModel):
 
     command: str
     version: str
+    requested_version: str = ""
+    inherited: bool = False
     report: str
     note: str | None = None
     reason: str
@@ -799,15 +816,28 @@ class Script:
         Returns whether this emission is being waived, so the caller can
         record which line the waiver actually covered.
         """
-        record = entry.status_in(self.version)
-        if record is None or record.status is not Status.BROKEN:
+        # evidence_in, not status_in. A hotfix build inherits its base
+        # release's record, and this is one of the two places where the
+        # answer is written into a PERMANENT run record rather than a
+        # page that can be regenerated: BrokenCommandUse.version used to
+        # name the requested build while the cited report had been run
+        # on another one. The refusal message had the same defect, and
+        # it is the sentence a user reads before deciding to waive.
+        evidence = entry.evidence_in(self.version)
+        if evidence is None or evidence.record.status is not Status.BROKEN:
             return False
+        record = evidence.record
         observed = record.note or "a committed probe measured it not behaving as documented"
+        where = (
+            f"{evidence.source}, inherited by {self.version.canonical} with no probe on that build"
+            if evidence.inherited
+            else f"FlightStream {self.version.canonical}"
+        )
         reason = self._broken_waivers.get(entry.name)
         if reason is None:
             raise BrokenCommandError(
-                f"{entry.name} is recorded broken in FlightStream "
-                f"{self.version.canonical}: {observed}. The evidence is "
+                f"{entry.name} is recorded broken in "
+                f"{where}: {observed}. The evidence is "
                 f"{record.report} ({entry.manual_ref}). Emitting it would put a "
                 "command in the script that a probe measured not to work, and the "
                 "solver accepts the line, so the run would return numbers that "
@@ -825,7 +855,9 @@ class Script:
             entry.name,
             BrokenCommandUse(
                 command=entry.name,
-                version=self.version.canonical,
+                version=evidence.source,
+                requested_version=self.version.canonical,
+                inherited=evidence.inherited,
                 report=record.report,
                 note=record.note,
                 reason=reason,
