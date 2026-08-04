@@ -449,16 +449,23 @@ class LoadsAssessor:
     -----
     Every refusal carries ``FAILED_INCOMPLETE_OUTPUT``, and that is a
     constrained choice rather than the right name for each of them. The
-    terminal set is closed at six values (FR-46), and whether it opens
-    to a seventh meaning "the solver ran and this package cannot judge
-    the result" is the product owner's undecided question (FR-37).
-    Until it is answered, a case this assessor cannot judge is reported
-    with the value that says the evidence is incomplete. The reason is
-    asymmetric rather than aesthetic: the only other statuses available
-    describe outcomes the solver reached, so any of them would make a
-    point nobody judged indistinguishable from a point that passed.
-    Over-reporting incompleteness costs a re-run; under-reporting it
-    publishes a number.
+    terminal set is closed at six values, and the author resolved on
+    2026-08-03 that it stays closed: FR-46 holds and FR-37 closes as
+    covered, so there is no seventh value meaning "the solver ran and
+    this package cannot judge the result".
+
+    The reason this one is chosen is asymmetric rather than aesthetic.
+    Every other available status describes an outcome the solver
+    reached, so any of them would make a point nobody judged
+    indistinguishable from a point that passed. Over-reporting
+    incompleteness costs a re-run; under-reporting it publishes a
+    number.
+
+    Read ``COMPLETED_MAX_ITER`` with the same care. It is not a success
+    value here: it says the solver reached its iteration cap, which is
+    one of the two ways of not converging. The other, a non-finite
+    residual, is ``FAILED_DIVERGED``. ``CONVERGED`` is the only status
+    this assessor gives to a run that met its threshold.
 
     The refusals, in the order they are tested:
 

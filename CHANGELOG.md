@@ -9,6 +9,60 @@ FlightStream versions.
 
 ### API surface delta
 
+* **Incompatible change, numerical: `farfield.plane_integral` returns
+  NaN where it used to return a finite number.** This is the one entry
+  in this release that changes an EXISTING result rather than refusing a
+  new input, so it is stated here rather than only among the fixes.
+
+  It inherited xarray's `skipna=True`, so an absent sample left the sum
+  while its ring weight stayed in the geometry. Flux, force, torque and
+  energy shrank in exact proportion to how much data was missing, with
+  no warning, no flag and no non-zero status. A 0.3.0 result computed
+  over a complete lattice is unaffected; one computed over an incomplete
+  lattice was wrong and now says so.
+
+  **How to tell whether your existing evidence is affected**, because
+  "recompute everything" is not a triage:
+
+  ```python
+  from pyflightstream.farfield import sample_coverage
+
+  # Same integrand you would pass to plane_integral. Returns the finite
+  # fraction of the (r, psi) samples, per remaining dimension, so a
+  # sweep answers per plane rather than once for the whole array.
+  coverage = sample_coverage(integrand)
+  bool((coverage == 1.0).all())   # True: nothing changed for this data
+  ```
+
+  Where the coverage is 1.0 the old number and the new number agree and
+  no action is needed. Anywhere below 1.0 the old number was reduced in
+  proportion to the missing fraction: the NaN is not a regression, it is
+  the first time the gap was visible. `sample_coverage` is new in this
+  release for exactly this question, and it reports per plane rather
+  than one number for the sweep, so one dead probe is distinguishable
+  from a half-empty lattice.
+* **New public names: `script.ScriptLineBreakError`,
+  `farfield.sample_coverage` and `fsi.state.check_state_matches_config`,
+  and `Script.comment()` renders differently.** All three names and the
+  rendering change come from the blocker fixes, and they are listed here
+  because this section is where a reader scans for what the surface did.
+
+  `ScriptLineBreakError` subclasses `CommandArgumentError` and is raised
+  when a text or path argument contains a line terminator, which used to
+  become a line boundary and turn the text after it into the next
+  command with `raw_flag` still False. `Script.comment()` now prefixes
+  EVERY physical line of a multi-line comment, so a comment can no
+  longer end and a command begin inside what was written as prose. If
+  you passed multi-line text through a text argument and relied on it
+  splitting, `Script.raw()` is the sanctioned route and still sets the
+  flag.
+
+  Seven refusals are new across the release: a line terminator in a text
+  argument, a non-finite scalar or list value in an FSI configuration, a
+  probe lattice outside its documented domain, an out-of-domain Omega in
+  a Campbell sweep, a duplicate column in a parsed table, trailing
+  content after an export block, and a solver mode the package has not
+  been taught. Each replaces a path that previously produced a result.
 * **New public names: `commands.Evidence` and
   `CommandEntry.evidence_in`.** The compatibility matrix showed 76 of
   147 cells for 26.121 as though that build had been probed, and it had
@@ -1297,6 +1351,15 @@ FlightStream versions.
   master, with the interim mitigation in `CLAUDE.md`
   (`.claude/`, `CLAUDE.md`, `README.md`, `tests/`; internal tooling, not
   a package surface).
+
+  **The push-gate half of this promotion is superseded within the same
+  release.** The entry above re-vendors the gate alone to 0.2.16 to
+  close a fail-open the 0.2.4 body carried, so the gate this release
+  ships is 0.2.16 and not the 0.2.4 described here. The other three
+  artifacts of this bullet, the analyst charter, the snapshot tool and
+  the skill wording, are still at 0.2.4. Both entries stay: this one
+  records why the privacy promotion happened, the other why the gate
+  moved again, and a reader arriving at either needs the pointer.
 * The rule that machine-specific values never appear in a committed file
   stops being prose. A tier-1 guard now fails on an email address or a
   user-profile path in any TRACKED file, scanning `git ls-files` rather

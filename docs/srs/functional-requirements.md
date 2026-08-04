@@ -636,24 +636,52 @@ the base could not offer while it bundled several.
 
 ### New identifiers from the batch
 
-!!! requirement "FR-37 Convergence status <span class='srs-pending'>pending</span>"
-    *Origin: Phase 4 review, accepted 2026-07-27.*
+!!! requirement "FR-37 Convergence status <span class='srs-implemented'>implemented</span>"
+    *Origin: Phase 4 review, accepted 2026-07-27. Resolved by the author
+    2026-08-03. Evidence: `RunStatus.COMPLETED_MAX_ITER` and
+    `RunStatus.FAILED_DIVERGED` in `pyflightstream.workspace`, the
+    judgment rules of `run.LoadsAssessor`, and the status tests in
+    `tests/test_run_campaign.py`.*
 
     A datapoint whose recorded residual does not reach the configured
     convergence threshold terminates with a status distinct from a
     completed one, even when the output footer is structurally
     complete.
 
-    Stated without naming the value, and pending rather than
-    implemented, because of a collision the same batch created and this
-    consolidation is the first place to record. FR-46 closes the
-    terminal-status set at the six values `RunStatus` carries today, and
-    a run that reaches the iteration cap without converging currently
-    lands in `COMPLETED_MAX_ITER`, which is a completed status. Adding
-    the value this requirement asks for makes seven. Both are the
-    author's acceptances, so which of the two moves is her call: either
-    FR-46's set opens to seven, or `COMPLETED_MAX_ITER` is judged to
-    already satisfy this requirement and FR-37 closes as covered.
+    **Resolved by the author on 2026-08-03: the six values stand and
+    this requirement closes as covered.** It was pending because it
+    collided with FR-46, which closes the terminal-status set at the six
+    values `RunStatus` carries: a run reaching the iteration cap without
+    converging lands in `COMPLETED_MAX_ITER`, and adding the value this
+    requirement originally implied would have made seven. Of the two
+    acceptances, FR-46's set is the one that holds.
+
+    What makes that defensible rather than convenient, and it is worth
+    stating because the requirement's own wording pulls the other way.
+    `COMPLETED_MAX_ITER` is not a success value in this package: the
+    campaign loop, the manifest and the assessor all treat CONVERGED as
+    the only converged outcome, and the name says the solver reached its
+    iteration cap, which is precisely the condition the requirement is
+    about. A run whose residual is non-finite is `FAILED_DIVERGED`
+    rather than either, so the two ways of not converging are already
+    distinguished.
+
+    The residual is a naming one and is recorded rather than closed:
+    `COMPLETED_MAX_ITER` reads as a completed status to someone meeting
+    it for the first time. Renaming it is a manifest-visible break with
+    no functional gain, so it is not done. The cost is that a reader
+    must learn one name, and the assessor's docstring is where the
+    package explains it.
+
+    Two branches satisfy this requirement, not one, and saying so is
+    the correction the closing analysis owed. A run that reaches the
+    cap without converging is `COMPLETED_MAX_ITER`, as above. A run
+    whose loop did not complete at all, because it forced every
+    iteration and stopped early, is `FAILED_INCOMPLETE_OUTPUT`: the
+    reasoning about the cap does not reach that case, and it does not
+    need to, because that value is also distinct from a completed one.
+    What the requirement asks for is the distinction, and both branches
+    give it.
 
 !!! requirement "FR-38 Far-field conservation ledgers <span class='srs-deferred'>deferred</span>"
     *Origin: Phase 4 review, accepted 2026-07-27, absorbing the C11
