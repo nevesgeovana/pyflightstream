@@ -66,7 +66,12 @@ def test_every_defined_exception_is_in_the_catalog():
 
 @pytest.mark.requirement("FR-39")
 def test_every_catalogued_exception_descends_from_the_package_base():
-    """One except clause must catch everything the package raises (FR-39).
+    """One except clause must catch every CATALOGUED exception (FR-39).
+
+    What it does not catch is the residual of bare standard-library
+    raises named in the ``_RATCHET`` below, which is why the word
+    matters here as much as in the three shipped documents that point
+    at this file.
 
     The totality companion of the membership test above: that one fails
     when a class does not JOIN the catalog, this one fails when a class
@@ -219,6 +224,13 @@ def test_input_artifact_id_refusal_carries_kind_and_id(tmp_path):
 # Three was the number I reported from reading the finding; 70 is the
 # number from walking the tree, which is the difference this guard exists
 # to remove.
+#
+# WIDENED TWICE ON 2026-08-04 and 70 is no longer the population: first to
+# the modules that declare no `__all__`, which found 46 more, then to
+# REACHABILITY through a module-private helper a public definition calls,
+# which found 21 more. 137 measured, 113 fixed, 24 in the ratchet below.
+# SRS FR-39 carries the three numbers and the walk's stated reach; this
+# file carries the residual itself.
 
 _BARE = {"ValueError", "RuntimeError", "TypeError", "KeyError", "LookupError", "ImportError"}
 

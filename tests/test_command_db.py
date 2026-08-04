@@ -361,7 +361,7 @@ def _records_with_a_citation(registry):
     ]
 
 
-def _records_with_status(registry, status):
+def _record_count_at_status(registry, status):
     """How many records the database holds at one status."""
     return sum(
         1
@@ -371,7 +371,7 @@ def _records_with_status(registry, status):
     )
 
 
-def _evidence_backed(registry):
+def _evidence_backed_count(registry):
     """How many records hold a status the evidence rule requires a report for.
 
     Derived from the schema rather than from the walk, so it is an
@@ -379,7 +379,7 @@ def _evidence_backed(registry):
     model validator refuses ``verified`` and ``broken`` without a report,
     so every one of these is a citation that has to exist.
     """
-    return _records_with_status(registry, Status.VERIFIED) + _records_with_status(
+    return _record_count_at_status(registry, Status.VERIFIED) + _record_count_at_status(
         registry, Status.BROKEN
     )
 
@@ -446,11 +446,27 @@ def test_every_citation_is_a_compat_report_for_its_own_build() -> None:
     # broken record carries a report, so that count is what the citation
     # population must at least contain, and a narrowing of
     # _records_with_a_citation makes the two sides disagree.
-    assert checked == len(population), f"inspected {checked} of {len(population)}"
-    assert len(population) >= _evidence_backed(registry) >= 1, (
+    assert checked == len(population), (
+        f"the walk inspected {checked} of {len(population)} citing records; a record "
+        "skipped by the loop is a citation nobody checked, so fix the walk before "
+        "trusting this pass"
+    )
+    assert len(population) >= _evidence_backed_count(registry), (
         f"the walk saw {len(population)} citing records while the database holds "
-        f"{_evidence_backed(registry)} records whose status requires one; the walk "
-        "is no longer reaching the records it is written for"
+        f"{_evidence_backed_count(registry)} records whose status requires one; the citation "
+        "predicate has been narrowed and no longer reaches every evidence-backed record"
+    )
+    # A THIRD question, and it is not the one above. Both sides of that
+    # comparison come from one CommandRegistry.load(), which skips
+    # anything not named *.yaml without a word, so a chapter file that
+    # stops shipping shrinks both sides in lockstep and the inequality
+    # holds all the way down to one record. This constant is the only
+    # assertion in tier 1 that the database is LARGE, and it is typed on
+    # purpose: 136 citations measured 2026-08-04.
+    assert len(population) >= 130, (
+        f"the registry loaded only {len(population)} citing records; the database is "
+        "not resolving, which is a packaging or loader failure rather than an "
+        "evidence one"
     )
 
 
@@ -548,15 +564,25 @@ def test_every_citation_records_the_status_the_record_claims() -> None:
     # the wrong assertion and the message credited with catching it never
     # printed.
     assert not offenders, "\n  " + "\n  ".join(sorted(offenders))
-    assert checked == len(population), f"compared {checked} of {len(population)}"
-    assert len(population) >= _evidence_backed(registry) >= 1, (
+    assert checked == len(population), (
+        f"the walk compared {checked} of {len(population)} citing records against "
+        "their reports; a record skipped by the loop is a status nobody checked, so "
+        "fix the walk before trusting this pass"
+    )
+    assert len(population) >= _evidence_backed_count(registry), (
         f"the walk saw {len(population)} citing records while the database holds "
-        f"{_evidence_backed(registry)} records whose status requires one"
+        f"{_evidence_backed_count(registry)} records whose status requires one; the citation "
+        "predicate has been narrowed"
+    )
+    # The load, as in the sibling above and for the same reason: the two
+    # derived counts fall together when the registry does.
+    assert len(population) >= 130, (
+        f"the registry loaded only {len(population)} citing records; the database is not resolving"
     )
     # Derived from the registry, not the typed >= 1 it replaces: a walk
     # that silently stopped reaching broken records would satisfy any
     # floor above zero, and broken is the status this guard exists for.
-    expected_broken = _records_with_status(registry, Status.BROKEN)
+    expected_broken = _record_count_at_status(registry, Status.BROKEN)
     assert seen_broken == expected_broken >= 1, (
         f"the walk compared {seen_broken} broken records and the database holds "
         f"{expected_broken}; the status this guard exists for was not fully covered"

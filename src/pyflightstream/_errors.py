@@ -24,10 +24,11 @@ class PyflightstreamError(Exception):
 
     Catch it instead of importing the leaf types one by one, or widening
     to ``ValueError``. Read the word CATALOGUED before relying on it: a
-    residual of bare standard-library raises survives in the package,
-    each one named in the ratchet in
+    residual of bare standard-library raises survives in the package.
+    Every site the guard's walk REACHES is named in the ratchet in
     ``tests/test_exceptions_catalog.py``, which is the single home of
-    that list. Those escape this base.
+    that list; the walk's own reach is stated in SRS FR-39, and at least
+    one site sits outside it. Those escape this base.
 
     The standard-library base of each catalogued class is kept as a
     second base, so ``except ValueError`` catches what it always did.

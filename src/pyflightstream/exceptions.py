@@ -15,9 +15,11 @@ also keeps the standard-library base it had before that class existed,
 so ``except ValueError`` and ``except RuntimeError`` keep catching
 exactly what they used to. Catalogued is the operative word and the
 requirement says so in bold: a residual of bare standard-library raises
-survives outside this catalog, named site by site in the ratchet in
-``tests/test_exceptions_catalog.py``, which is the single home of that
-list. Until it is empty, the standard-library bases are what covers it,
+survives outside this catalog. Every site the guard's walk REACHES is
+named in the ratchet in ``tests/test_exceptions_catalog.py``, which is
+the single home of that list; the walk's own reach is stated in SRS
+FR-39, and at least one site sits outside it.
+Until the residual is empty, the standard-library bases are what covers it,
 and the plural matters: the residual is mostly ``ValueError`` and also
 holds ``TypeError`` and ``RuntimeError`` sites, so being exhaustive
 today means catching :class:`PyflightstreamError` and those bases

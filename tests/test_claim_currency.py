@@ -140,3 +140,149 @@ def test_the_index_generator_documents_the_fields_it_emits() -> None:
     )
     for key in index:
         assert f"``{key}``" in header, f"top-level key {key!r} is undocumented"
+
+
+# --- one claim, six homes -------------------------------------------------
+#
+# Measured rather than anticipated. During the v0.4.0 release the same
+# sentence about the exception hierarchy was found false and corrected FIVE
+# times, in five different homes, over three days: the SRS requirement, the
+# release note, the base exception's docstring, the catalog module's
+# docstring, the House conventions register, and finally the ratchet file
+# that the others had by then started naming as the single home of the
+# residual. Each correction was real. Each time, a home nobody had
+# enumerated kept the old wording and the next review round found it.
+#
+# The defect is not that any one was written carelessly. It is that a claim
+# living in six places is swept BY HAND, so the sweep is complete only if
+# whoever does it already knows every home. That assumption is what these
+# three guards remove.
+#
+# SCOPE, stated because a guard whose reach is assumed is the other thing
+# this release kept finding. They cannot read a sentence and decide whether
+# it is true. They assert that every home listed below carries the
+# qualifiers the claim needs and none of the forms it was found in while it
+# was false. A NEW home is invisible until it is added here. That is a real
+# limit and the reason the list is written out rather than discovered:
+# adding a public home for this claim is a deliberate act, and adding it
+# here is part of that act.
+
+
+def _claim_homes() -> dict[str, str]:
+    """Every public home that says what the package base exception catches."""
+    import pyflightstream.exceptions as exceptions_module
+    from pyflightstream.exceptions import PyflightstreamError
+    from pyflightstream.reference import CONVENTIONS
+
+    return {
+        "PyflightstreamError.__doc__": PyflightstreamError.__doc__ or "",
+        "pyflightstream.exceptions.__doc__": exceptions_module.__doc__ or "",
+        "reference.CONVENTIONS 'Refusals teach'": next(
+            (body for title, body in CONVENTIONS if title == "Refusals teach"), ""
+        ),
+    }
+
+
+#: Wordings the claim was live in while it was FALSE. Every one of these
+#: was taken out of git (``git show <sha>:<path>``) rather than typed
+#: from memory, and that is not a detail: the first version of this list
+#: WAS typed from memory, and a mutation restoring one home's real
+#: pre-fix sentence passed it, because that home said "everything the
+#: package raises" where the list guessed "everything pyflightstream
+#: raises". A denylist assembled from recollection reproduces the exact
+#: defect this file exists to stop.
+FALSE_FORMS = (
+    # src/pyflightstream/_errors.py before 08050c6
+    "base of every exception this package raises",
+    "catch everything pyflightstream raises",
+    # src/pyflightstream/exceptions.py before 08050c6
+    "catches everything the package raises",
+    # src/pyflightstream/reference.py before be70e8c
+    "clause catches the package",
+    # CHANGELOG.md before 08050c6, kept because the wording can migrate
+    # back into a docstring from a release note
+    "every exception the package raises now descends from it",
+)
+
+#: The structural half of the same rule, and the reason the list above is
+#: not the whole guard. Any home that puts "the package" where the object
+#: of the catch belongs is making the universal claim whatever words
+#: surround it, so the pairing is refused rather than each phrasing.
+FALSE_PAIRINGS = (("catch", "the package raises"), ("catches", "the package"))
+
+#: What a truthful statement has to carry. Not style: without the first a
+#: reader takes the base for universal, and without the others the
+#: residual has no address and no stated reach.
+REQUIRED_TOKENS = {
+    "the catalog qualifier": ("catalogued", "catalog"),
+    "the ratchet that holds the residual": ("ratchet",),
+    # Lower case, because every home is matched against a lowered copy.
+    "the requirement stating the walk's reach": ("fr-39",),
+}
+
+
+def test_this_guard_reads_the_homes_it_names() -> None:
+    """Non-vacuity, and not a formality here.
+
+    Two homes are read through an import and the third by looking up a
+    title in a tuple of pairs, so a renamed convention entry yields the
+    empty string and every assertion below would pass over nothing. That
+    is the exact shape of guard this release spent five rounds finding.
+    """
+    homes = _claim_homes()
+    assert len(homes) == 3, "a home was added or removed without updating this guard"
+    for home, text in homes.items():
+        assert len(text) > 200, (
+            f"{home} yielded {len(text)} characters, too short to be the passage this "
+            "guard is written for; the lookup has probably stopped resolving"
+        )
+
+
+def test_no_home_claims_the_base_catches_the_whole_package() -> None:
+    """The universal five review rounds found false, in any of its wordings."""
+    offenders = []
+    for home, text in _claim_homes().items():
+        lowered = " ".join(text.lower().split())
+        offenders += [f"{home} says {form!r}" for form in FALSE_FORMS if form in lowered]
+        for verb, object_ in FALSE_PAIRINGS:
+            # Within one sentence of each other, so an unrelated later
+            # paragraph mentioning the package cannot trip it.
+            for match in re.finditer(re.escape(verb), lowered):
+                window = lowered[match.end() : match.end() + 60]
+                if object_ in window:
+                    offenders.append(f"{home} pairs {verb!r} with {object_!r}")
+    assert not offenders, (
+        "\n  "
+        + "\n  ".join(sorted(offenders))
+        + "\n\nThe base catches the CATALOG. A residual of bare standard-library "
+        "raises survives outside it, so the unqualified form tells a reader that one "
+        "except clause suffices when it does not."
+    )
+
+
+def test_every_home_carries_the_qualifiers_and_the_same_residual_bases() -> None:
+    """A home may not state the claim without its scope, its address and its set.
+
+    The last of the three is the divergence that survived the other two:
+    the correction naming ``TypeError`` and ``RuntimeError`` reached two
+    homes and not the third, inside the very commit that corrected the
+    universal in all three.
+    """
+    offenders = []
+    for home, text in _claim_homes().items():
+        lowered = text.lower()
+        for what, tokens in REQUIRED_TOKENS.items():
+            if not any(token in lowered for token in tokens):
+                offenders.append(f"{home} does not name {what}")
+        missing = [
+            base for base in ("valueerror", "typeerror", "runtimeerror") if base not in lowered
+        ]
+        if missing:
+            offenders.append(f"{home} does not name the residual base {', '.join(missing)}")
+    assert not offenders, (
+        "\n  "
+        + "\n  ".join(sorted(offenders))
+        + "\n\nEvery home states the same scope, the same address for the residual and "
+        "the same set of bases that covers it, or they drift. They drifted five times "
+        "during the v0.4.0 release."
+    )

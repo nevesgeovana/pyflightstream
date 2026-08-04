@@ -118,10 +118,15 @@ CONVENTIONS: tuple[tuple[str, str], ...] = (
         "standard-library base it would have had, so catching "
         "ValueError or RuntimeError still works. Read that word: a "
         "residual of bare standard-library raises survives outside the "
-        "catalog, named site by site in the ratchet in "
-        "tests/test_exceptions_catalog.py, which is the single home of "
-        "that list (SRS FR-39). Until it is empty, the standard-library "
-        "bases are what covers it.",
+        "catalog. Every site the guard's walk REACHES is named in the "
+        "ratchet in tests/test_exceptions_catalog.py, which is the "
+        "single home of that list; the walk's own reach is stated in "
+        "SRS FR-39, and at least one site sits outside it. Until the "
+        "residual is empty the standard-library bases are what covers "
+        "it, and the plural matters: it is mostly ValueError and also "
+        "holds TypeError and RuntimeError sites, so being exhaustive "
+        "today means catching PyflightstreamError together with "
+        "ValueError, TypeError and RuntimeError.",
     ),
     (
         "Options are declared knobs",

@@ -981,10 +981,11 @@ FlightStream versions.
 * **`PyflightstreamError` is the package base exception, and every
   CATALOGUED exception descends from it** (SRS FR-39, which was pending
   on exactly this clause). Read that word before relying on the
-  sentence: a residual of bare standard-library raises survives, named
-  site by site in the ratchet in `tests/test_exceptions_catalog.py`,
-  which is the single home of that list and of its count. The FR-39
-  entry earlier in this release states the position. One except clause
+  sentence: a residual of bare standard-library raises survives. Every
+  site the guard's walk reaches is named in the ratchet in
+  `tests/test_exceptions_catalog.py`, which is the single home of that
+  list; SRS FR-39 states the walk's reach and the count, and at least
+  one site sits outside the walk. One except clause
   catches the catalog:
 
   ```python
