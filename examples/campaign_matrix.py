@@ -77,9 +77,10 @@ print("--- campaign.toml (first lines) ---")
 print("\n".join(campaign_toml.splitlines()[:8]))
 
 # %% [markdown]
-# Conversion carries the matrix codes, not output names: the matrix has
-# no such column, so a converted `[[sim]]` declares none. Add
-# `outputs = ["loads_{point}.txt"]` to each one before running: the loop
+# Conversion carries the output names too. A row declares them in
+# `VAR_NAMES_VALUES` as `OUTPUTS: loads_{point}.txt`, comma-separated
+# because the slash already separates the KEY:VALUE pairs, and
+# `convert_matrix` writes them into the `[[sim]]` table. The loop
 # collects only declared outputs, and every point of a case runs in the
 # same folder, so the name has to carry the point.
 

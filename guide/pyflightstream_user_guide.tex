@@ -72,8 +72,8 @@
 \title[pyflightstream User Guide]{pyflightstream User Guide}
 \subtitle{A version-aware, didactic Python driver for the FlightStream solver}
 \author[G. Neves]{Geovana Neves}
-\institute[]{pyflightstream 0.3.0, MIT licensed}
-\date{July 2026}
+\institute[]{pyflightstream 0.4.0, MIT licensed}
+\date{August 2026}
 
 \AtBeginSection[]{
   \begin{frame}{Section outline}
@@ -487,7 +487,7 @@ helpers.free_stream(script, "ROTATION",  # hover / rotor frames
                     frame=2, axis="X", rpm=2000.0)
 \end{lstlisting}
   \begin{alertblock}{Why explicit properties}
-    The altitude form (AIR\_ALTITUDE, SRC-003 p.328) was probed broken on 26.120 and applies feet regardless of the units argument: 5000 METERS produced 1.056 kg/m$^3$, the 5000 ft standard state, where 0.736 is correct. A density 43\% too high, with no error (committed compat report). The 26.121 hotfix fixes it and the probe on that build promoted it to {\color{statusblue}\textbf{verified}}. On 26.120, use FLUID\_PROPERTIES; the matrix carries the status per build, which is the point of recording the hotfix digit.
+    The altitude form (AIR\_ALTITUDE, SRC-003 p.328) was probed broken on 26.120: asked for 5000 METERS it produced 1.056 kg/m$^3$, the 5000 ft standard state, where 0.736 is correct. A density 43\% too high, with no error (committed compat report). The measurement is at ONE altitude, so what this page claims is that the METERS argument read as ignored there, and no more. The same probe passes on 26.121. Three variables separate the two runs (build, probe harness, session file), so RPT-014 declines to credit the vendor build alone and so does this page: it is the strongest candidate for a vendor fix, and it is still a candidate. On 26.120, use FLUID\_PROPERTIES.
   \end{alertblock}
 \end{frame}
 
@@ -911,7 +911,7 @@ text = convert_matrix("matrix.fs", name="wing2026",
   \begin{itemize}
     \item One-command form: the \code{pyfs-matrix convert} CLI takes the same inputs as flags and writes the file via \code{-o campaign.toml}.
     \item Convert once, review the TOML in a diff, then live natively in the campaign format.
-    \item Conversion carries the matrix codes, not output names: the matrix has no such column. Add \code{outputs = ["loads\_\{point\}.txt"]} to each converted \code{[[sim]]} before running, because the loop collects only declared outputs and a swept case needs one name per point.
+    \item Conversion carries the output names too: a row declares them in \code{VAR\_NAMES\_VALUES} as \code{OUTPUTS: loads\_\{point\}.txt}, comma-separated because the slash already separates the KEY:VALUE pairs, and \code{convert\_matrix} writes them into the converted \code{[[sim]]}. A row declaring none is refused before the solver starts.
   \end{itemize}
 \end{frame}
 
@@ -1023,10 +1023,10 @@ samples = parse_residual_history(log_text)
   \begin{itemize}
     \item A hotfix build (last canonical digit not zero) inherits the evidence record of its base release until probe evidence overrides it.
     \item \code{26.121} is no longer the hypothetical example: it started from every \code{26.120} record, and the licensed probe on that build then contradicted one of them. AIR\_ALTITUDE is {\color{statusred}broken} on 26.120 and {\color{statusblue}verified} on 26.121.
-    \item Read an inherited cell for what it is. The matrix does not yet mark which records were probed on that build and which were carried over, so a hotfix cell means "the base release's evidence, unless a probe on this build says otherwise".
+      \item Read an inherited cell for what it is. The matrix marks every one with a \texttt{base} superscript and counts them in its \emph{Of which inherited} column, so a marked cell means the base release's evidence, with no probe on this build having run that command.
   \end{itemize}
   \begin{block}{Why the identifiers carry the hotfix digit}
-    Vendor hotfix builds change solver behavior, and here the change was a silent numerical one: the same command, the same script, a density 43\% apart. Without the hotfix digit the two builds would share one record and one of the two answers would be wrong with nothing to say so.
+    Vendor hotfix builds can change solver behavior, and here the change was a silent numerical one: the same command and the same assertion, a density 43\% apart. NOT the same script, which is why this page names no cause: the probe harness moved between the two runs, so they are not a controlled comparison (RPT-014). What the hotfix digit buys is that the two builds keep separate records, so the disagreement is visible at all instead of one answer quietly standing for both.
   \end{block}
 \end{frame}
 
@@ -1049,7 +1049,7 @@ samples = parse_residual_history(log_text)
   \vspace{2mm}
   \begin{itemize}
     \item Each carries {\color{statusred}\textbf{broken}} status for the builds named, with the committed report cited; the builder still emits them (they are grammatically valid), but the matrix and the reference warn you.
-    \item Read the last row precisely: SWEEPER\_REF\_VELOCITY\_SAME is {\color{statusgreen}documented} on 26.120, which records the manual's word and no probe. It was first probed on 26.121, where it aborts. That is not evidence the hotfix broke it, and the guide does not claim so.
+      \item Read the last row precisely, because {\color{statusgreen}documented} does not mean never run. The 2026-07-21 sweep DID execute SWEEPER\_REF\_VELOCITY\_SAME on 26.120, without a script abort, and left it unpromoted because its effect is not observable with the current instruments. It aborts on 26.121. So this is an outcome change rather than a first measurement, and it is still not attributable to the build: three variables separate the runs (RPT-014 section 4.3).
     \item (NEW\_SURFACE\_SECTION\_DISTRIBUTION was in this list until the 2026-07-23 licensed re-probe promoted it to {\color{statusblue}\textbf{verified}} on the corrected phase and grammar.)
   \end{itemize}
 \end{frame}

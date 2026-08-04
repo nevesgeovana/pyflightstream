@@ -160,6 +160,44 @@ def test_the_guide_states_no_evidence_count():
     )
 
 
+#: The package version the guide's title page states, in ``\institute``.
+GUIDE_PACKAGE_VERSION = re.compile(r"\\institute\[\]\{pyflightstream ([0-9][^,}]*)")
+
+
+def test_the_guide_states_the_package_version_it_ships_with():
+    """The cover, which this guard did not look at and should have.
+
+    The release checklist requires the guide's title version to move
+    with `pyproject.toml`. It did not: the tree reached 0.4.0 with the
+    cover still reading 0.3.0, and every check in this file passed,
+    because they all guard FlightStream versions and evidence counts.
+    A guard written to stop the guide going stale watched this exact
+    staleness and said nothing.
+    """
+    import tomllib
+
+    # pyproject, not `pyflightstream.__version__`. The latter reads the
+    # INSTALLED distribution's metadata, so in a development checkout it
+    # reports whatever was last installed and would compare the guide
+    # against a stale wheel rather than against this tree
+    # (PLN-20260803-1650 records the same trap).
+    pyproject = Path(__file__).parents[1] / "pyproject.toml"
+    declared = tomllib.loads(pyproject.read_text(encoding="utf-8"))["project"]["version"]
+
+    stated = GUIDE_PACKAGE_VERSION.search(guide_text())
+    assert stated is not None, (
+        "the guide's title page no longer states a package version in "
+        r"\institute, so this guard has nothing to read. Restore it or delete "
+        "this test rather than leaving it green over an absent claim"
+    )
+    assert stated.group(1) == declared, (
+        f"the guide's cover says pyflightstream {stated.group(1)} and pyproject "
+        f"declares {declared}. The cover is the first thing a reader sees, and the "
+        "release checklist moves it in the same commit as pyproject.toml and "
+        "CITATION.cff"
+    )
+
+
 def test_the_helper_count_the_guide_states_matches_the_module():
     actual = curated_helper_count()
     stated = HELPER_COUNT.findall(guide_text())

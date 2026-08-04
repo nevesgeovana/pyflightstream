@@ -144,7 +144,7 @@ the evidence rather than declared:
 | 26.000 | 26.0 | `registered` | Ordered in the registry, no command carries evidence for it, so nothing can be built yet |
 | 26.100 | 26.1 | `documented` | Commands drafted from the manual with page citations, none measured against a running solver |
 | 26.120 | 26.12 | `operational` | Probe evidence from a licensed machine, and the minimal end-to-end workflow builds |
-| 26.121 | 26.12 | `operational` | The same, re-probed in full on hotfix build 1 |
+| 26.121 | 26.12 | `operational` | Hotfix build 1. It inherits the 26.120 records except where a probe on this build overrode them; the compatibility matrix marks every inherited cell and counts them |
 
 ```python
 import pyflightstream
