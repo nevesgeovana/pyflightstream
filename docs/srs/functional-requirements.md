@@ -639,7 +639,7 @@ the base could not offer while it bundled several.
 !!! requirement "FR-37 Convergence status <span class='srs-implemented'>implemented</span>"
     *Origin: Phase 4 review, accepted 2026-07-27. Resolved by the author
     2026-08-03. Evidence: `RunStatus.COMPLETED_MAX_ITER` and
-    `RunStatus.FAILED_DIVERGED` in `pyflightstream.workspace`, the
+    `RunStatus.FAILED_INCOMPLETE_OUTPUT` in `pyflightstream.workspace`, the
     judgment rules of `run.LoadsAssessor`, and the status tests in
     `tests/test_run_campaign.py`.*
 
@@ -874,7 +874,7 @@ The allocation is recorded in the
     silently.
 
     Read with FR-37, which the author closed as covered by this set on 2026-08-03: this set stays closed at six and FR-37 was restated to ask for a status distinct from CONVERGED, which two of these six give.
-    That collision is stated there rather than resolved here.
+
 
 !!! requirement "FR-47 Public test-support assertions <span class='srs-implemented'>implemented</span>"
     *Origin: the C8 acceptance, 2026-07-27. Evidence:

@@ -213,15 +213,20 @@ def test_a_waived_broken_command_records_which_build_the_evidence_belongs_to():
     entry = registry.commands[name]
     evidence = entry.evidence_in(next(v for v in known_versions() if v.canonical == "26.121"))
     assert evidence is not None
-    use = (
-        next(use for use in script.broken_commands if use.command == name)
-        if script.broken_commands
-        else None
+    uses = [use for use in script.broken_commands if use.command == name]
+    assert uses, (
+        f"allow_broken({name!r}) recorded no BrokenCommandUse, so every assertion "
+        "below would have been skipped. An empty broken_commands is itself the "
+        "failure this test exists for: the manifest is where the provenance has "
+        "to survive"
     )
-    if use is not None:
-        assert use.version == evidence.source
-        assert use.requested_version == "26.121"
-        assert use.inherited is True
+    use = uses[0]
+    assert use.version == "26.121", "version holds the build the script targeted"
+    assert use.source_version == evidence.source, (
+        "source_version holds the build whose record is broken, which is where "
+        "the cited report was run"
+    )
+    assert use.source_version != use.version, "this fixture is the inherited case"
 
 
 def test_the_summary_counts_the_inherited_cells_it_renders():

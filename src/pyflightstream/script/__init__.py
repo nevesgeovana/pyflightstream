@@ -220,24 +220,22 @@ class BrokenCommandUse(BaseModel):
     command : str
         Command name as emitted.
     version : str
-        Canonical identifier of the version whose record is broken. For
-        a hotfix build that inherits its base release's record this is
-        the BASE release, which is where the cited report was run, and
-        it used to be the requested build instead. That made a
-        permanent manifest record assert that a probe on one build was
-        the broken record of another, which is the defect this release
-        is named for, on the one surface a reader cannot regenerate
-        (architect pass, 2026-08-03). Read it with ``requested_version``
-        and ``inherited``.
-    requested_version : str
-        Canonical identifier of the build the script was written for.
-        Equal to ``version`` unless the record was inherited.
-    inherited : bool
-        Whether the broken record came from the base release rather than
-        from a probe on the requested build. True means no probe on that
-        build has ever run this command: the refusal rests on the
-        assumption that a hotfix behaves like its base, and this
-        repository has measured that assumption failing.
+        Canonical identifier of the build the script was written for,
+        which is what it has always held. Unchanged deliberately: it
+        travels inside ``RunRecord.broken_commands``, every row is
+        stamped ``pyfs-manifest/1``, and that identifier's own rule is
+        that it bumps when a field CHANGES MEANING. Redefining this one
+        would have made a reader of an existing manifest read two
+        meanings under one key with nothing to tell them apart, which
+        is the defect this release is named for, on the one surface
+        that cannot be regenerated.
+    source_version : str or None
+        Canonical identifier of the version whose record is broken,
+        which differs from ``version`` when a hotfix build inherits its
+        base release's record. That is the build the cited ``report``
+        was run on. **None means the row PREDATES this field** and is
+        not a claim that the two agreed; the distinction matters for
+        the same reason ``RunRecord.manifest_schema`` carries it.
     report : str
         Repository-relative path of the committed probe report that
         recorded the breakage. Never optional: ``broken`` cannot exist
@@ -262,8 +260,7 @@ class BrokenCommandUse(BaseModel):
 
     command: str
     version: str
-    requested_version: str = ""
-    inherited: bool = False
+    source_version: str | None = None
     report: str
     note: str | None = None
     reason: str
@@ -855,9 +852,8 @@ class Script:
             entry.name,
             BrokenCommandUse(
                 command=entry.name,
-                version=evidence.source,
-                requested_version=self.version.canonical,
-                inherited=evidence.inherited,
+                version=self.version.canonical,
+                source_version=evidence.source,
                 report=record.report,
                 note=record.note,
                 reason=reason,

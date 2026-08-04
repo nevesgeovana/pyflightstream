@@ -1048,7 +1048,7 @@ samples = parse_residual_history(log_text)
   \end{tabular}
   \vspace{2mm}
   \begin{itemize}
-    \item Each carries {\color{statusred}\textbf{broken}} status for the builds named, with the committed report cited; the builder still emits them (they are grammatically valid), but the matrix and the reference warn you.
+    \item Each carries {\color{statusred}\textbf{broken}} status for the builds named, with the committed report cited, and the builder REFUSES to emit them for those builds (\code{BrokenCommandError}, FR-48): a broken command is one a probe watched fail, and unlike an absent one it produces a complete run with wrong numbers in it. If a run needs one anyway, and re-probing it is the run that does, \code{script.allow\_broken(NAME, reason=...)} emits it and records the command, the version, the report and your justification in the script and in the run manifest.
       \item Read the last row precisely, because {\color{statusgreen}documented} does not mean never run. The 2026-07-21 sweep DID execute SWEEPER\_REF\_VELOCITY\_SAME on 26.120, without a script abort, and left it unpromoted because its effect is not observable with the current instruments. It aborts on 26.121. So this is an outcome change rather than a first measurement, and it is still not attributable to the build: three variables separate the runs (RPT-014 section 4.3).
     \item (NEW\_SURFACE\_SECTION\_DISTRIBUTION was in this list until the 2026-07-23 licensed re-probe promoted it to {\color{statusblue}\textbf{verified}} on the corrected phase and grammar.)
   \end{itemize}

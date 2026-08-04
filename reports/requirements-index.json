@@ -428,7 +428,7 @@
    "text": "A datapoint whose recorded residual does not reach the configured convergence threshold terminates with a status distinct from the CONVERGED status, even when the output footer is structurally complete.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: Phase 4 review, accepted 2026-07-27. Resolved by the author 2026-08-03. Evidence: RunStatus.COMPLETED_MAX_ITER and RunStatus.FAILED_DIVERGED in pyflightstream.workspace, the judgment rules of run.LoadsAssessor, and the status tests in tests/test_run_campaign.py.*",
+   "evidence": "*Origin: Phase 4 review, accepted 2026-07-27. Resolved by the author 2026-08-03. Evidence: RunStatus.COMPLETED_MAX_ITER and RunStatus.FAILED_INCOMPLETE_OUTPUT in pyflightstream.workspace, the judgment rules of run.LoadsAssessor, and the status tests in tests/test_run_campaign.py.*",
    "verification": "test"
   },
   {

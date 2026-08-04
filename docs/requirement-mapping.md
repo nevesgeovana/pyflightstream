@@ -28,7 +28,7 @@ only that they exist, since the id is its own mapping.
 |---|---|---|
 | NFR-19, NFR-20, NFR-22 | same | Written 2026-07-27 with the batch's own decisions folded in |
 | NFR-13 to NFR-18, NFR-21 | same | Written by this consolidation; the reserved-identifier convention they were held under is retired with it |
-| FR-37 to FR-42 | same | Two restated, both disclosed in their own text. FR-41: its draft placed the adapter behind an optional extra, which AD-07 removed in the same batch. FR-37: its draft named the status value NOT_CONVERGED, and the value is left unnamed here because naming it decides the FR-46 collision below, which is the product owner's call |
+| FR-37 to FR-42 | same | Two restated, both disclosed in their own text. FR-41: its draft placed the adapter behind an optional extra, which AD-07 removed in the same batch. FR-37: its draft named the status value NOT_CONVERGED, and the value is left unnamed here because naming it decides the FR-46 collision below, which the author resolved on 2026-08-03 in FR-46's favour; the disclosed restatement is recorded below |
 | FR-02b, FR-22a/b/c, FR-30a/b/c, FR-31a/b, FR-33a/b/c, NFR-01a/b/c/d | same | The SIX accepted splits, one per base. The routing brief counted five because it grouped FR-02b with the rewords; it is a split, and every base keeps its identifier and gains an umbrella role |
 | FR-06, FR-08, FR-10, FR-11, FR-20, FR-26, FR-31, NFR-07, NFR-08 | same | The NINE rewords, all performed 2026-07-27, each requirement stating what changed and why. The brief listed ten by including FR-02b, which is the split above |
 
@@ -45,7 +45,7 @@ are included so the register is complete.
 | C3 Three-part actionable errors | NFR-01c | Error content is the didactic error clause, which the NFR-01 split gave its own identifier |
 | C4 Console entry-point contract | FR-44 | New identifier; no accepted id covered the CLI surface. Written in the FULL-contract form she chose, where commands and flags change only under the deprecation policy, rather than the narrower recording-only form the review recommended and she declined |
 | C5 Strict manifest schema | FR-45 | New identifier; FR-19 governs the manifest's authority, not its field discipline |
-| C6 Closed terminal-status set | FR-46 | New identifier. Read with FR-37, which asks for a value this set does not contain |
+| C6 Closed terminal-status set | FR-46 | New identifier. Read with FR-37, restated 2026-08-03 to ask for a status distinct from CONVERGED, which two of this set give |
 | C7 Probe-data export writers | FR-21, folded | NOT given an identifier, because her recorded choice was to fold it under the post-processing line rather than make it a public functional requirement, and the worksheet offered that second option explicitly. The capability ships; FR-21 records it. A first draft of this consolidation minted FR-47 for it, which was the option she declined |
 | C8 Public test-support assertions | FR-47 | New identifier; no accepted id covered the testing surface |
 | C9 Optional-dependency error shape | NFR-25 | Her choice was to elevate AD-05 to a tested requirement, which is what NFR-25 is |

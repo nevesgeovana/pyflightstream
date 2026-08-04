@@ -82,17 +82,6 @@ FlightStream versions.
   for a run that reached its cap and `FAILED_INCOMPLETE_OUTPUT` for one
   whose loop did not complete. Requirement text and docstrings only; no
   runtime change, and no status value was added, removed or renamed.
-* **FR-37 closes as covered and the terminal-status set stays closed at
-  six** (SRS 1.13.0). The requirement collided with FR-46, which closes
-  the set at the six values `RunStatus` carries: FR-37 asked for a status
-  distinct from a COMPLETED one, and a run reaching its iteration cap
-  lands in `COMPLETED_MAX_ITER`. The author resolved it in FR-46's favour
-  and the requirement is RESTATED rather than merely declared satisfied:
-  it now asks for a status distinct from the CONVERGED one, which is what
-  this library guarantees. Two of the six give it, `COMPLETED_MAX_ITER`
-  for a run that reached its cap and `FAILED_INCOMPLETE_OUTPUT` for one
-  whose loop did not complete. Requirement text and docstrings only; no
-  runtime change, and no status value was added, removed or renamed.
 * **New public names: `commands.Evidence` and
   `CommandEntry.evidence_in`.** The compatibility matrix showed 76 of
   147 cells for 26.121 as though that build had been probed, and it had
@@ -250,7 +239,8 @@ FlightStream versions.
   FR-39 has read *implemented* since 2026-07-27 and its two guards
   inspect exception CLASSES, never a `raise` statement. An independent
   review found three public functions raising a bare `ValueError`;
-  walking the tree found **70 sites across 11 modules**. Seven
+  walking the tree found **70 sites across 11 modules**, and 46 more once the guard was widened to
+  the modules that declare no `__all__` (see the FR-39 scope entry above). Seven
   catalogued classes are added for the conditions that had no home:
 
   * `results.MalformedOutputError`, the sibling of
@@ -270,7 +260,8 @@ FlightStream versions.
   * `extras.UnknownExtraError`, for a name used as an extra that this
     package does not have.
 
-  New `pyflightstream.probes.errors` and `pyflightstream.qa.errors`
+  New `pyflightstream.probes.errors`, `pyflightstream.qa.errors` and
+  `pyflightstream.fsi.errors`
   hold the two shared classes, because the package `__init__` imports
   the submodules that raise them.
 
@@ -848,8 +839,8 @@ FlightStream versions.
 
   The status is a constrained choice rather than the right name for it,
   and the assessor's docstring says so: the terminal set is closed at
-  six (SRS FR-46) and whether it opens to a seventh is the product
-  author resolved on 2026-08-03 that it stays closed. FR-37 is restated
+  six (SRS FR-46), and the author resolved on 2026-08-03 that it stays
+  closed. FR-37 is restated
   to ask for a status distinct from the CONVERGED one, which is what the
   library guarantees, and closes as covered (SRS 1.13.0).
 * **"Supported" was one word covering four states, and is now four

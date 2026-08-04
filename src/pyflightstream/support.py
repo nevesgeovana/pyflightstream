@@ -143,14 +143,12 @@ class VersionSupport(BaseModel):
     commands_probed : int
         Of those, the ones carrying probe evidence (``verified`` or
         ``broken``) that this version can reach. On a hotfix build the
-        count INCLUDES records inherited from the base release, because
-        `status_in` returns them; the wording said "measured on this
-        version", which is true of a base release and not of a hotfix.
-        Measured 2026-08-03: for 26.121 the count is 69 and 68 of those
-        were probed on that build, so the overstatement is one command
-        and the level is unaffected. Reporting the two separately is
-        registered as PLN-20260803-2210; the word is corrected here so
-        no surface claims more than it can show.
+        count INCLUDES records inherited from the base release, so some
+        of them were probed on that other build. No number is written
+        here: it moves with every probe run, and
+        ``tests/test_evidence_provenance.py`` measures the split where a
+        wrong one can fail. Reporting the two separately is registered as
+        PLN-20260803-2210.
     workflow_missing : tuple of str
         Commands of :data:`MINIMAL_WORKFLOW_COMMANDS` this version
         cannot emit, in workflow order. Empty when the workflow builds.
