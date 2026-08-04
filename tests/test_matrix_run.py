@@ -384,6 +384,41 @@ def test_a_matrix_row_declaring_no_outputs_is_refused_before_the_solver():
             to_campaign(path, name="m", fs_version="26.120", fs_exe="C:/fs.exe", recipes=RECIPES)
 
 
+def test_a_legacy_matrix_still_converts_and_says_what_to_add():
+    """FR-10 and FR-11, which the refusal above closed for a whole day.
+
+    `_declared_outputs` raised from `to_campaign`, and `convert_matrix`
+    calls `to_campaign`, so `pyfs-matrix convert` refused every matrix
+    written before the OUTPUTS variable existed. That is every matrix
+    the author already owns, and conversion is the ONE path off the
+    legacy format: FR-10 scopes "forever" to the external format and
+    FR-11 calls conversion lossless, and neither moved.
+
+    Conversion spends no solver time, so it carries what the row
+    declares, including nothing, and warns naming the rows. The
+    refusal belongs on the paths that are about to start a solver, and
+    the test above still pins it there.
+    """
+    import re
+    import tempfile
+
+    text = REGISTRY_FIXTURE.read_text(encoding="utf-8")
+    stripped = re.sub(r"\s*/\s*OUTPUTS:[^|\n]*", "", text)
+    assert stripped != text, "the fixture no longer declares OUTPUTS to strip"
+    with tempfile.TemporaryDirectory() as folder:
+        path = Path(folder) / "legacy.fs"
+        path.write_text(stripped, encoding="utf-8")
+        with pytest.warns(UserWarning, match="declare no outputs"):
+            rendered = convert_matrix(
+                path, name="m", fs_version="26.120", fs_exe="C:/fs.exe", recipes=RECIPES
+            )
+    assert "[[sim]]" in rendered, "the legacy matrix did not convert at all"
+    assert "outputs = " not in rendered, (
+        "the conversion invented outputs the matrix never declared, which is the "
+        "opposite failure: FR-11 calls it lossless in both directions"
+    )
+
+
 def test_a_declared_row_reaches_the_case_and_survives_conversion():
     """The control, and the FR-11 half: what the row declares must arrive
     on the case AND survive the campaign.toml round trip."""

@@ -271,7 +271,7 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
 OUTPUTS_VARIABLE = "OUTPUTS"
 
 
-def _declared_outputs(row: MatrixRow) -> list[str]:
+def _declared_outputs(row: MatrixRow, *, required: bool = True) -> list[str]:
     """Return the outputs a matrix row declares, refusing a row with none.
 
     A campaign collects the outputs the case DECLARES: the recipe
@@ -311,10 +311,21 @@ def _declared_outputs(row: MatrixRow) -> list[str]:
     Raises
     ------
     MatrixError
-        If the row declares no outputs.
+        If the row declares no outputs AND ``required`` is True.
     """
     raw = row.variables.get(OUTPUTS_VARIABLE, "").strip()
     outputs = [part.strip() for part in raw.split(",") if part.strip()]
+    if not outputs and not required:
+        # Conversion is a translation and spends no solver time, so it
+        # carries whatever the row declares, including nothing. FR-10
+        # scopes "forever" to the external format, which is the promise
+        # about the author's existing files, and FR-11 calls conversion
+        # lossless; refusing here broke the one path off the legacy
+        # matrix, since every matrix written before this variable
+        # existed declares none. The refusal lives on the paths that
+        # are about to start a solver (architect and API-designer
+        # passes, 2026-08-03).
+        return []
     if not outputs:
         raise MatrixError(
             f"POL {row.pol} declares no outputs, so a run of it would collect nothing "
@@ -335,6 +346,7 @@ def to_campaign(
     fs_version: str,
     fs_exe: str,
     recipes: Mapping[str, str],
+    require_outputs: bool = True,
 ) -> Campaign:
     """Convert a run matrix into a native :class:`Campaign`.
 
@@ -392,7 +404,7 @@ def to_campaign(
                 mach=row.mach,
                 sweep=row.sweep,
                 recipe=recipes[row.script_code],
-                outputs=_declared_outputs(row),
+                outputs=_declared_outputs(row, required=require_outputs),
                 variables=variables,
             )
         )
@@ -425,7 +437,32 @@ def convert_matrix(
     migration is one call and reversible only in the sense that the
     matrix file itself stays untouched and readable forever (FR-10).
     """
-    campaign = to_campaign(path, name=name, fs_version=fs_version, fs_exe=fs_exe, recipes=recipes)
+    # require_outputs=False: this is the migration tool. A row that
+    # declares none converts to a sim that declares none, and the
+    # warning below names the rows, so the author's existing matrices
+    # keep converting (FR-10, FR-11) and learn what to add.
+    campaign = to_campaign(
+        path,
+        name=name,
+        fs_version=fs_version,
+        fs_exe=fs_exe,
+        recipes=recipes,
+        require_outputs=False,
+    )
+    undeclared = [sim.sim_id for sim in campaign.sims if not sim.outputs]
+    if undeclared:
+        warnings.warn(
+            f"{len(undeclared)} converted sim(s) declare no outputs "
+            f"({', '.join(undeclared)}). The conversion is complete and lossless: the "
+            f"matrix rows carry no {OUTPUTS_VARIABLE} variable, so the campaign carries "
+            "no outputs either. Add them before running, either in the matrix as "
+            f"'{OUTPUTS_VARIABLE}: loads_{{point}}.txt' or in the campaign file as "
+            "outputs = [...], naming the files the recipe exports. Running a case that "
+            "declares none collects nothing and records the point "
+            "FAILED_INCOMPLETE_OUTPUT after the solver has already spent its time.",
+            UserWarning,
+            stacklevel=2,
+        )
     lines = [
         "[campaign]",
         f"name = {_toml_value(campaign.name)}",

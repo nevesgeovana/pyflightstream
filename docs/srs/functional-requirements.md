@@ -644,9 +644,21 @@ the base could not offer while it bundled several.
     `tests/test_run_campaign.py`.*
 
     A datapoint whose recorded residual does not reach the configured
-    convergence threshold terminates with a status distinct from a
-    completed one, even when the output footer is structurally
+    convergence threshold terminates with a status distinct from the
+    CONVERGED status, even when the output footer is structurally
     complete.
+
+    **Restated 2026-08-03, and the restatement is the requirement.** It
+    read "distinct from a completed one" until the review pass measured
+    that the delivered value is `COMPLETED_MAX_ITER`, whose name says
+    completed, so the requirement was being closed under a reading
+    rather than as written. The author's decision was to keep the six
+    statuses; the honest consequence is that the requirement says what
+    the library guarantees, which is that a run failing its threshold
+    never wears the status that means it met it. The disclosed
+    restatement is recorded in the
+    [requirement mapping](../requirement-mapping.md), which is this
+    project's own convention for exactly this.
 
     **Resolved by the author on 2026-08-03: the six values stand and
     this requirement closes as covered.** It was pending because it
@@ -861,7 +873,7 @@ The allocation is recorded in the
     set of six status values, and a seventh cannot be introduced
     silently.
 
-    Read with FR-37, which asks for a value this set does not contain.
+    Read with FR-37, which the author closed as covered by this set on 2026-08-03: this set stays closed at six and FR-37 was restated to ask for a status distinct from CONVERGED, which two of these six give.
     That collision is stated there rather than resolved here.
 
 !!! requirement "FR-47 Public test-support assertions <span class='srs-implemented'>implemented</span>"

@@ -84,14 +84,28 @@ does not have to work out whether it was forgotten.
 | C10 | Closed as a citation | She closed it on FR-31 with no new requirement |
 | M4 (b), the PROV export | Deferred by her | Accepted the split (a) and deferred the standardized export |
 
-## One tension this mapping surfaced
+## One tension this mapping surfaced, resolved 2026-08-03
 
-FR-37 and FR-46 are both her acceptances and they disagree. FR-46 closes
-the terminal-status set at the six values the code carries; FR-37 asks
-for a status distinct from a completed one, and a run that hits the
-iteration cap without converging currently lands in a value whose name
-says completed. Satisfying FR-37 makes the set seven.
+FR-37 and FR-46 were both her acceptances and they disagreed. FR-46
+closes the terminal-status set at the six values the code carries;
+FR-37 asked for a status distinct from a COMPLETED one, and a run that
+hits the iteration cap without converging lands in `COMPLETED_MAX_ITER`,
+a value whose name says completed. Satisfying FR-37 as written would
+have made the set seven.
 
-Recorded here rather than resolved, because choosing between two
-acceptances is the product owner's call and not this consolidation's.
-Both requirements state the collision in their own text.
+**The author resolved it in FR-46's favour on 2026-08-03, and FR-37 was
+RESTATED rather than merely declared satisfied.** It now asks for a
+status distinct from the CONVERGED one, which is what the library
+actually guarantees: a run that fails its threshold never wears the
+status meaning it met it. Two of the six give that, `COMPLETED_MAX_ITER`
+for a run that reached its cap and `FAILED_INCOMPLETE_OUTPUT` for one
+whose loop did not complete at all.
+
+This is a DISCLOSED RESTATEMENT and it is recorded here because that is
+what this page is for. The first closure of FR-37 kept the original
+wording and argued that "completed" should be read as "converged",
+which is a requirement met under a reading rather than as written, and
+a review pass said so. The residual is the name: `COMPLETED_MAX_ITER`
+still reads as a success on first meeting, and renaming it is a
+manifest-visible break with no functional gain, so the package explains
+the name where a user meets it instead.
