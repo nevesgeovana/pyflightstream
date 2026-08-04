@@ -868,7 +868,10 @@ FlightStream versions.
   named values** (SRS FR-49, new). New public names at the top of the
   package: `SupportLevel`, `support_table()`, `version_support()`,
   `support_level()`, plus the `pyflightstream.support` module with
-  `minimal_workflow()`. Purely additive.
+  `minimal_workflow()`, the `VersionSupport` record those functions
+  return, and the two data members a caller reads rather than
+  reconstructs, `SUPPORT_LADDER` and `MINIMAL_WORKFLOW_COMMANDS`.
+  Purely additive.
 
   ```python
   >>> import pyflightstream
@@ -917,7 +920,9 @@ FlightStream versions.
   helpers.atmosphere(script, altitude=1000.0)
   ```
 
-  The waiver emits the command and records it: `script.broken_commands`
+  The waiver emits the command and records it through the new exported
+  type `script.BrokenCommandUse`, one instance per waived command:
+  `script.broken_commands`
   and the new `broken_commands` field of `RunRecord` carry the command,
   TWO versions, the committed report, the recorded observation, the
   justification and the script line the first waived emission rendered.

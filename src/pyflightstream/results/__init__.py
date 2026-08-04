@@ -73,6 +73,10 @@ class FieldNotInExportError(PyflightstreamError, KeyError):
     must keep working (FR-39).
     """
 
+    def __str__(self) -> str:
+        """Render the message as prose (KeyError would quote it)."""
+        return str(self.args[0]) if self.args else ""
+
 
 class AnchorNotFoundError(PyflightstreamError, ValueError):
     """A printed label or table header was not found in the output.

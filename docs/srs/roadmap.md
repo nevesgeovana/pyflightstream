@@ -20,6 +20,7 @@ private session records carry the day-to-day detail.
 | v0.2.0 | First public release: PyPI, Zenodo DOI, citation metadata | 2026-07-22 |
 | Usage-feedback line | FR-30 to FR-36: labels, provenance, tables, workspace input library, pre-flight and resume, matrix first-class, two-level help | 2026-07-22 |
 | v0.3.0 | Second public release: PyPI, Zenodo DOI, the usage-feedback line plus the options/exceptions/testing modules, the ProperDocs migration with a published docs site, role-based review, ITACA co-development (AD-07), and the licensed 26.1x evidence session | 2026-07-23 |
+| v0.4.0 | Third public release: the independent-review remediation line (FR-48 broken-command refusal, FR-49 derived support levels, FR-02c ambiguous vendor-name refusal), the FR-39 package base exception with its residual named site by site, manifest reconstruction, run-matrix output collection and HIDDEN derivation, inherited evidence marked as inherited in the compatibility matrix, the 26.121 onboarding with licensed evidence, Windows CI, and a publication path coupled to the exact wheel the gates passed | 2026-08-04 |
 
 ## Open lines
 

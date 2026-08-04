@@ -5,9 +5,13 @@ probes (:mod:`pyflightstream.qa.probes`) execute each database command in
 a minimal script on a licensed machine and classify it as verified or
 broken (a command that runs but does nothing is broken, not verified);
 :mod:`pyflightstream.qa.compat` writes the compat report under
-``reports/compat/`` and promotes database statuses from it. Tier 3 (the
-physics regression matrix, milestone M4) will land here too. The
-``pyfs-qa`` CLI (:mod:`pyflightstream.qa.cli`) drives both.
+``reports/compat/`` and promotes database statuses from it. Tier 3 is
+here as well: the physics regression matrix
+(:mod:`pyflightstream.qa.physics`) and the version-comparison drift
+suite (:mod:`pyflightstream.qa.drift`), both run on the synthetic
+geometry of :mod:`pyflightstream.qa.geometry` so no research geometry is
+needed. The ``pyfs-qa`` CLI (:mod:`pyflightstream.qa.cli`) drives all
+three.
 """
 
 from pyflightstream.qa.compat import (

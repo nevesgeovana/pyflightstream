@@ -7,7 +7,7 @@
 Version-aware, didactic Python driver for the FlightStream panel-method
 solver. Successor of the author's legacy research scripts. MIT licensed.
 
-Status: v0.3.0 is public on [PyPI](https://pypi.org/project/pyflightstream/),
+Status: v0.4.0 is public on [PyPI](https://pypi.org/project/pyflightstream/),
 archived on Zenodo (DOI recorded in CITATION.cff). CHANGELOG.md carries
 the release history.
 

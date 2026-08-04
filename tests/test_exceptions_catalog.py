@@ -435,7 +435,7 @@ _RATCHET = {
     "pyflightstream.probes.planar._unit -> ValueError (planar.py:50)",
     "pyflightstream.qa.compat._rewrite_version_line -> ValueError (compat.py:381)",
     "pyflightstream.qa.compat._rewrite_version_line -> ValueError (compat.py:399)",
-    "pyflightstream.results._parse_solver_flag -> ValueError (__init__.py:499)",
+    "pyflightstream.results._parse_solver_flag -> ValueError (__init__.py:503)",
     "pyflightstream.results.tables._as_record -> ValueError (tables.py:538)",
     "pyflightstream.results.tables._check_point_printback -> ValueError (tables.py:572)",
     "pyflightstream.results.tables._run_row -> ValueError (tables.py:486)",
@@ -537,4 +537,43 @@ def test_the_walk_reaches_the_whole_public_surface() -> None:
     assert total_raises >= 200, (
         f"the public modules hold {total_raises} raise statement(s), far fewer than "
         "this package has; the module list is probably not resolving"
+    )
+
+
+def test_no_keyerror_based_class_renders_its_message_in_quotes() -> None:
+    """A didactic message must survive ``str()`` unchanged.
+
+    ``KeyError.__str__`` is ``repr`` of its argument, so a catalogued
+    class with ``KeyError`` as its second base prints its careful
+    sentence wrapped in quotes, with any newline escaped. ``OptionError``
+    solved this with a three-line ``__str__`` and nothing generalised
+    it, so ``FieldNotInExportError`` shipped with the defect and the
+    release audit found it. The rule is mechanical: derive from
+    ``KeyError``, override ``__str__``.
+
+    Invariant 8 is what this enforces. An error message that names the
+    physical or version cause is worth nothing if the reader is shown
+    ``"...\n..."`` instead of the sentence.
+    """
+    import pyflightstream.exceptions as catalog
+
+    sentence = "the field is absent.\nDeclare it in the export first."
+    offenders = []
+    checked = 0
+    for name in catalog.__all__:
+        cls = getattr(catalog, name)
+        if not isinstance(cls, type) or not issubclass(cls, KeyError):
+            continue
+        checked += 1
+        if str(cls(sentence)) != sentence:
+            offenders.append(f"{name} renders {str(cls(sentence))!r} for a plain sentence")
+    assert checked >= 2, (
+        f"only {checked} KeyError-based classes were found in the catalog; the walk "
+        "is not reaching them"
+    )
+    assert not offenders, (
+        "\n  "
+        + "\n  ".join(sorted(offenders))
+        + "\n\nKeyError.__str__ is repr of its argument, so these print their message "
+        "in quotes with newlines escaped. Override __str__ as OptionError does."
     )

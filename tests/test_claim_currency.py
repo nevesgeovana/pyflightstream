@@ -44,6 +44,36 @@ def test_the_removed_shim_is_not_described_as_surviving() -> None:
         )
 
 
+def test_the_readme_status_line_names_the_version_being_released() -> None:
+    """The README IS the PyPI project page, so its status line ships.
+
+    Caught by the release audit at the v0.4.0 tag, by two passes
+    independently, and it had survived five review rounds because every
+    one of them read the DIFF and this line was not in it. The artifact
+    would have announced v0.3.0 as the current release from inside the
+    v0.4.0 page, while ``docs/index.md`` in the same tree said v0.4.0.
+
+    Anchored on ``pyproject.toml`` rather than on a literal, so it moves
+    itself at the next bump instead of becoming the next stale claim.
+    """
+    import tomllib
+
+    version = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))["project"][
+        "version"
+    ]
+    status = [
+        line
+        for line in README.read_text(encoding="utf-8").splitlines()
+        if line.startswith("Status:")
+    ]
+    assert len(status) == 1, f"expected one README status line, found {len(status)}"
+    assert version in status[0], (
+        f"the README status line is {status[0]!r} and pyproject declares {version}. "
+        "That line is rendered by PyPI as the project page for the version being "
+        "published, so a stale one ships as the release's own front page."
+    )
+
+
 def _readme_named_examples() -> set[str]:
     """Example file names the README points a reader at."""
     return set(re.findall(r"examples/([\w.]+\.py)", README.read_text(encoding="utf-8")))
