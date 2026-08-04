@@ -343,3 +343,40 @@ def test_hotfix_inherits_base_release_until_overridden():
     )
     base = FsVersion(canonical="26.120", alias="26.12", index=2)
     assert overridden.status_in(base) is overridden.versions["26.120"]
+
+
+def test_every_report_citation_names_its_own_version() -> None:
+    """A record may not cite a report run on a different build.
+
+    Guard for a contamination that reached a commit on 2026-08-04: a
+    concurrent reviewer's mutation of this database was live on disk
+    when an unrelated commit staged the tree, and it went in. It had
+    invented a ``26.100`` record citing a report whose name says
+    ``CMP-26121``, and flipped a ``broken`` record to ``verified``.
+    Nothing was watching, because the schema validates that a report is
+    CITED and never that the citation belongs to the record.
+
+    The check is cheap and exact: a compat report's file name carries
+    the build it was run on, so a record for version X citing a report
+    named for version Y is either a hand edit or a copy-paste, and both
+    are what invariant 3 forbids.
+    """
+    registry = CommandRegistry.load()
+    offenders = []
+    for name, entry in registry.commands.items():
+        for canonical, record in entry.versions.items():
+            report = getattr(record, "report", None)
+            if not report:
+                continue
+            stem = Path(report).name
+            if "CMP-" not in stem:
+                continue
+            tag = stem.split("CMP-", 1)[1].split("_", 1)[0]
+            if tag != canonical.replace(".", ""):
+                offenders.append(f"{name} at {canonical} cites {stem}")
+    assert not offenders, (
+        "these records cite a probe report run on a different build:\n  "
+        + "\n  ".join(sorted(offenders))
+        + "\n\nA status is evidence-backed (invariant 3), and the evidence has to "
+        "be evidence about the version it is recorded under."
+    )

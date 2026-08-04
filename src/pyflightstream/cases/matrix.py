@@ -332,7 +332,11 @@ def _declared_outputs(row: MatrixRow, *, required: bool = True) -> list[str]:
             "and be recorded FAILED_INCOMPLETE_OUTPUT after the solver had already "
             f"spent its time. Add the files the recipe exports to the row's variables "
             f"as {OUTPUTS_VARIABLE}, several separated by commas, for example "
-            f"'{OUTPUTS_VARIABLE}: loads.txt, loads_cp.txt'. The names must be the "
+            f"'{OUTPUTS_VARIABLE}: loads_{{point}}.txt, loads_cp_{{point}}.txt'. The "
+            "point placeholder is what keeps a swept row's points from "
+            "overwriting each other in the one simulation folder they share; "
+            "without it the campaign is refused again, later, for that. The "
+            "names must be the "
             "ones the recipe passes to its EXPORT commands, which the managed "
             "protocol reads from case.outputs."
         )

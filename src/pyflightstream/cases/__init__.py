@@ -42,6 +42,7 @@ from pyflightstream.script.toggles import resolve_toggle
 from pyflightstream.versions import resolve
 
 __all__ = [
+    "CampaignConfigError",
     "Campaign",
     "ReferenceData",
     "ScriptRecipe",

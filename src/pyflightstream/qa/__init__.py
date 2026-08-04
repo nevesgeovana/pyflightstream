@@ -40,6 +40,7 @@ __all__ = [
     "DEFAULT_ERROR_PATTERNS",
     "PROBE_SPECS",
     "ProbeArtifacts",
+    "QaEvidenceError",
     "ProbeEnvironmentError",
     "ProbeOutcome",
     "ProbeResult",

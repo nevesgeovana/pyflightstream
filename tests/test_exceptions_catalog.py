@@ -277,6 +277,31 @@ def _bare_raises_in(module_name: str, filename: str, source: str, exported: set[
         for keyword in call.keywords
         if keyword.arg == "validator" and isinstance(keyword.value, ast.Name)
     }
+    # Module-private helpers CALLED from a public definition. FR-39 asks
+    # for a property of what the public API raises, which is
+    # REACHABILITY; walking only where the raise is written measures
+    # lexical enclosure instead, and a bare raise inside a private helper
+    # reaches the caller exactly as before. The architect and
+    # API-designer passes measured the difference at four modules
+    # (2026-08-03). One level, which closes every site they named.
+    defined = {
+        node.name: node
+        for node in ast.iter_child_nodes(tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+    reachable: set[str] = set()
+    for node in ast.iter_child_nodes(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            continue
+        public = node.name in exported if exported else not node.name.startswith("_")
+        if not public:
+            continue
+        for call in ast.walk(node):
+            if isinstance(call, ast.Call):
+                called = getattr(call.func, "id", None)
+                if called and called.startswith("_") and called in defined:
+                    reachable.add(called)
+
     for node in ast.iter_child_nodes(tree):
         if node.__class__.__name__ in {"FunctionDef", "AsyncFunctionDef"} and (
             node.name in wrapped_validators
@@ -285,7 +310,7 @@ def _bare_raises_in(module_name: str, filename: str, source: str, exported: set[
         if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             continue
         public = node.name in exported if exported else not node.name.startswith("_")
-        if not public:
+        if not public and node.name not in reachable:
             continue
         for sub in ast.walk(node):
             if _is_validator(sub) and sub is not node:
@@ -361,9 +386,39 @@ def _exported_bare_raises() -> list[str]:
 #: about what it means. Deferred rather than rushed the night before a
 #: tag (PLN-20260803-2340).
 _RATCHET = {
+    # TypeError for an argument of an unaccepted type. The catalogue is
+    # entirely ValueError-based, so re-basing these needs a new base and
+    # a decision about what it means (PLN-20260803-2340).
     "pyflightstream.results.tables.to_table -> TypeError (tables.py:161)",
     "pyflightstream.results.tables.to_table -> TypeError (tables.py:174)",
     "pyflightstream.script.entities.EntityRegistry -> TypeError (entities.py:282)",
+    # The REACHABILITY tranche, measured 2026-08-04: a bare stdlib raise
+    # inside a module-private helper that a public definition calls
+    # reaches a caller exactly as an exported one does. The walk used to
+    # measure where a raise is WRITTEN; FR-39 asks what the public API
+    # RAISES. The author's decision: measure now, fix at v0.5, so the
+    # number is the debt and it is countable (PLN-20260804-0130).
+    "pyflightstream.cases.cli._parse_recipes -> ValueError (cli.py:33)",
+    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:251)",
+    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:253)",
+    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:255)",
+    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:264)",
+    "pyflightstream.farfield._delta_psi -> ValueError (__init__.py:152)",
+    "pyflightstream.fsi.driver._verified_layout -> ValueError (driver.py:338)",
+    "pyflightstream.fsi.loads._validate_block_boundaries -> ValueError (loads.py:397)",
+    "pyflightstream.fsi.loads._validate_block_boundaries -> ValueError (loads.py:409)",
+    "pyflightstream.overview._module_doc -> RuntimeError (overview.py:120)",
+    "pyflightstream.post.writers._checked -> ValueError (writers.py:34)",
+    "pyflightstream.post.writers._checked -> ValueError (writers.py:39)",
+    "pyflightstream.probes.planar._unit -> ValueError (planar.py:50)",
+    "pyflightstream.qa.compat._rewrite_version_line -> ValueError (compat.py:381)",
+    "pyflightstream.qa.compat._rewrite_version_line -> ValueError (compat.py:399)",
+    "pyflightstream.results._parse_solver_flag -> ValueError (__init__.py:499)",
+    "pyflightstream.results.tables._as_record -> ValueError (tables.py:538)",
+    "pyflightstream.results.tables._check_point_printback -> ValueError (tables.py:572)",
+    "pyflightstream.results.tables._run_row -> ValueError (tables.py:486)",
+    "pyflightstream.results.tables._run_row -> ValueError (tables.py:506)",
+    "pyflightstream.results.tables._sectional_loads_frame -> ValueError (tables.py:448)",
 }
 
 

@@ -27,7 +27,7 @@ from __future__ import annotations
 
 from pyflightstream._errors import PyflightstreamError
 
-__all__ = ["EXTRAS", "MissingExtraError", "missing_extra"]
+__all__ = ["EXTRAS", "MissingExtraError", "UnknownExtraError", "missing_extra"]
 
 #: The optional extras of this package, and the distributions each one
 #: installs. Kept beside the refusal that cites them, and asserted

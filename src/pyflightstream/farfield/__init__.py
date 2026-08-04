@@ -40,6 +40,7 @@ from pyflightstream._errors import PyflightstreamError
 from pyflightstream.probes import ProbeLattice
 
 __all__ = [
+    "FarfieldInputError",
     "lattice_dataset",
     "cylindrical_components",
     "ring_sample_weights",

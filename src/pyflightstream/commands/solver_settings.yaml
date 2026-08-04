@@ -37,7 +37,7 @@ SET_BOUNDARY_LAYER_TYPE:
       values: [LAMINAR, TRANSITIONAL, TURBULENT]
   manual_ref: "SRC-003 p.341"
   versions:
-    "26.120": {status: documented}
+    "26.120": {status: documented, note: "Contradicted by evidence and not yet reprobed: on build #7012026 every documented form was rejected by the solver (reports/RPT-015_bulk-separation-family-acceptance_2026-08-02.md). The status stays documented because invariant 3 promotes only through a committed probe report written by the sanctioned path, which needs a licensed session; this note is what a reader gets meanwhile."}
   default: TRANSITIONAL
   default_ref: "SRC-003 p.203"
   notes: >

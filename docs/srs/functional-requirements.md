@@ -737,19 +737,39 @@ the base could not offer while it bundled several.
     and still be invisible to a single except clause, and a function can
     raise past the catalog entirely.
 
-    The third guard was added 2026-08-03 and it is why the first clause
-    is true rather than nearly true. The two class-level guards inspect
-    CLASSES and never a `raise` statement, so 70 sites across 11 modules
-    raised a bare `ValueError`, `RuntimeError`, `TypeError` or
-    `KeyError` while this requirement read implemented. An independent
-    review found three of them; walking the tree found seventy. All 70
-    now raise a catalogued class, seven of which were added for the
-    conditions that had no home: `MalformedOutputError` and
-    `FieldNotInExportError` (results), `ProbeGeometryError` (probes),
-    `CampaignConfigError` (cases), `FarfieldInputError` (far field),
-    `QaEvidenceError` (QA evidence) and `UnknownExtraError` (extras).
-    Every one keeps its standard-library base, so no handler in the
-    wild caught less afterwards than before.
+    The third guard was added 2026-08-03 and it is what makes the first
+    clause measurable. The two class-level guards inspect CLASSES and
+    never a `raise` statement, so bare `ValueError`, `RuntimeError`,
+    `TypeError` and `KeyError` raises stood in the public surface while
+    this requirement read implemented. An independent review found three
+    of them; walking the tree found seventy; widening the walk to the
+    modules that declare no `__all__` found 46 more; widening it again
+    to REACHABILITY, since a bare raise inside a module-private helper
+    that a public function calls reaches the caller exactly as an
+    exported one does, found 21 more.
+
+    114 of those sites now raise a catalogued class, and nine classes
+    were added for conditions that had no home: `MalformedOutputError`
+    and `FieldNotInExportError` (results), `ProbeGeometryError`
+    (probes), `CampaignConfigError` (cases), `FarfieldInputError` (far
+    field), `QaEvidenceError` (QA evidence), `UnknownExtraError`
+    (extras), `CommandDatabaseError` (the command database itself) and
+    `FsiInputError` (the coupling). Every one keeps its
+    standard-library base, so no handler in the wild caught less
+    afterwards than before.
+
+    **24 sites remain and this requirement does not claim them.** They
+    are named one by one in a ratchet in
+    `tests/test_exceptions_catalog.py`, so the residual is countable and
+    any site not on that list fails today: three raise `TypeError` for
+    an argument of an unaccepted type, which needs a base class this
+    catalogue does not have (`PLN-20260803-2340`), and 21 are the
+    reachability tranche, deferred to v0.5 by the author on 2026-08-04
+    with the measurement taken first rather than the promise trimmed to
+    fit (`PLN-20260804-0130`). The status stays `implemented` because
+    the mechanism, the catalogue and the guard are delivered and the
+    remainder is enumerated; a reader who needs the exact residual reads
+    the ratchet, which is the only place it cannot go stale.
 
     The base parents the exceptions and not the one catalogued warning.
     The first clause of this requirement says exception, the third says

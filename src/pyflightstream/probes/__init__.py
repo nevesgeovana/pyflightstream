@@ -43,6 +43,7 @@ from pyflightstream.script import Script, helpers
 from pyflightstream.script.toggles import Toggle
 
 __all__ = [
+    "ProbeGeometryError",
     "ProbeLattice",
     "build_lattice",
     "emit_probe_points",
