@@ -444,7 +444,7 @@
    "text": "Every exception raised by the public API derives from a single documented base exception, each type is documented with the condition that raises it, and every exception and warning is re-exported from one catalog module, so that a class defined outside the catalog fails the suite.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: Phase 4 review, accepted 2026-07-27, absorbing the C2 catalog acceptance and the M1 typed-hierarchy mirror. Evidence: PFS-2 (2026-08-02); the 70-site sweep of 2026-08-03; src/pyflightstream/exceptions.py; tests/test_exceptions_catalog.py, whose third guard walks every exported public name for bare standard-library raises.*",
+   "evidence": "*Origin: Phase 4 review, accepted 2026-07-27, absorbing the C2 catalog acceptance and the M1 typed-hierarchy mirror. Evidence: PFS-2 (2026-08-02); the sweep of 2026-08-03 and 2026-08-04, 137 sites over three widenings of the walk; src/pyflightstream/exceptions.py; tests/test_exceptions_catalog.py, whose third guard walks every exported public name, and every module-private helper an exported one calls, for bare standard-library raises.*",
    "verification": "test"
   },
   {
@@ -513,7 +513,7 @@
   },
   {
    "id": "FR-48",
-   "text": "Emitting a command whose per-version record is broken raises at build time. The refusal has one documented way through: a waiver naming the command and the caller's justification, which lets the command emit and records the command, the version, the committed probe report and the justification in the script and in the run manifest.",
+   "text": "Emitting a command whose per-version record is broken raises at build time. The refusal has one documented way through: a waiver naming the command and the caller's justification, which lets the command emit and records the command, TWO versions, the committed probe report and the justification in the script and in the run manifest. Two, because a hotfix build inherits its base release's record: version is the build the script targeted and source_version is the build whose record is broken, which is the build the cited report was run on. A record that carried one field for both would make an inherited waiver cite a report run on a version the manifest never names.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the independent review's finding PYFS-002, reproduced 2026-07-28 and again at HEAD on 2026-08-02. Evidence: Script.allow_broken and the emission refusal in src/pyflightstream/script/__init__.py; broken_commands on RunRecord; the database-driven refusal guard and the waiver guards in tests/test_script.py, tests/test_script_helpers.py and tests/test_run_campaign.py.*",

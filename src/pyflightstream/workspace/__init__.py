@@ -268,10 +268,13 @@ class RunRecord(BaseModel):
     broken_commands : list of dict
         Serialized
         :class:`~pyflightstream.script.BrokenCommandUse` entries, one
-        per command the script emitted under an ``allow_broken`` waiver:
-        the command, the version whose record is broken, the committed
-        probe report, the recorded observation and the caller's
-        justification (FR-48). Empty for the ordinary run, which is the
+        per command the script emitted under an ``allow_broken`` waiver
+        (FR-48). That class is the single home of the field list and
+        their meanings; note only that TWO of them are versions and they
+        are not interchangeable, ``version`` being the build the script
+        targeted and ``source_version`` the build whose record is broken,
+        which is the build the cited report was run on.
+        Empty for the ordinary run, which is the
         point: a run that leaned on a command known not to work is
         distinguishable from one that did not, forever, without
         re-reading the script.

@@ -19,12 +19,21 @@ from pyflightstream.commands import (
     CommandNotInVersionError,
     CommandRegistry,
     Phase,
+    Status,
     VersionStatus,
 )
 from pyflightstream.versions import FsVersion
 
-COMMANDS_DIR = Path(__file__).resolve().parents[1] / "src" / "pyflightstream" / "commands"
+REPO_ROOT = Path(__file__).resolve().parents[1]
+REPORTS_DIR = REPO_ROOT / "reports"
+COMMANDS_DIR = REPO_ROOT / "src" / "pyflightstream" / "commands"
 CANONICAL_PATTERN = re.compile(r"^26\.\d{3}$")
+# A report is cited two ways in this database: as a repository-relative path
+# with a suffix, and as the bare id alone (motion_definitions.yaml cites
+# "reports/RPT-005", which is neither a real path nor a bare id). Resolving by
+# id covers both, so a guard written for one form is not evaded by the other.
+REPORT_ID_PATTERN = re.compile(r"(RPT-\d+|CMP-\d{5})(?!\d)")
+REPORT_PATH_PATTERN = re.compile(r"reports/[\w./-]+\.(?:md|yaml)")
 REQUIRED_ENTRY_KEYS = {"layout", "phase", "args", "manual_ref", "versions"}
 KNOWN_LAYOUTS = {"bare", "inline", "param_lines", "payload_lines", "keyword_block"}
 
@@ -115,9 +124,6 @@ def test_command_files_satisfy_schema():
             assert entry["manual_ref"], f"{yaml_file.name}:{name} needs a manual citation"
             unknown = set(entry["versions"]).difference(known_versions)
             assert not unknown, f"{yaml_file.name}:{name} references unknown versions {unknown}"
-
-
-REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def make_entry(**overrides):
@@ -360,23 +366,187 @@ def test_every_report_citation_names_its_own_version() -> None:
     the build it was run on, so a record for version X citing a report
     named for version Y is either a hand edit or a copy-paste, and both
     are what invariant 3 forbids.
+
+    Scope, stated as its own claim because the first version of this guard
+    did not have one and was read as wider than it is: it checks the report's
+    NAME against the record's build, and nothing else. It does not read the
+    report, so it cannot see a status that its evidence contradicts (the
+    sibling below does that), and it does not read prose, so it cannot see a
+    citation inside a ``note`` (the second sibling does that).
     """
     registry = CommandRegistry.load()
     offenders = []
+    checked = 0
     for name, entry in registry.commands.items():
         for canonical, record in entry.versions.items():
-            report = getattr(record, "report", None)
+            report = record.report
             if not report:
                 continue
+            checked += 1
             stem = Path(report).name
             if "CMP-" not in stem:
+                # Not a skip. A status is promoted by pyfs-qa apply-compat,
+                # which always writes a CMP name (qa/compat.py builds the stem
+                # as CMP-{version}_{date}), so a citation shaped any other way
+                # did not come from the sanctioned writer. Skipping it was a
+                # hole: reports/RPT-014_26121-... exists and carries 26121 in
+                # its own name, so it passed this guard and the existence
+                # check both.
+                offenders.append(
+                    f"{name} at {canonical} cites {stem}, which is not a compat report "
+                    "and so was not written by the sanctioned promotion path"
+                )
                 continue
             tag = stem.split("CMP-", 1)[1].split("_", 1)[0]
             if tag != canonical.replace(".", ""):
                 offenders.append(f"{name} at {canonical} cites {stem}")
+    # A floor, so a walk that stops matching is not a pass. The same reason
+    # tests/test_exceptions_catalog.py and tests/test_qa_compat.py carry one.
+    assert checked >= 130, (
+        f"only {checked} citations were inspected; the database carries at least 130, "
+        "so the walk stopped reaching the records it is written for"
+    )
     assert not offenders, (
         "these records cite a probe report run on a different build:\n  "
         + "\n  ".join(sorted(offenders))
         + "\n\nA status is evidence-backed (invariant 3), and the evidence has to "
         "be evidence about the version it is recorded under."
+    )
+
+
+def test_every_verified_or_broken_status_matches_its_report_outcome() -> None:
+    """A status must be what the report it cites actually recorded.
+
+    The sibling above checks that a citation names the record's own BUILD.
+    That is half of the contamination of 2026-08-04 and it is the less
+    likely half. The mutant also flipped ``SET_MOTION_START_TIME`` at 26.121
+    from ``broken`` to ``verified`` while leaving the correctly named
+    ``CMP-26121`` report in place, and a check on the file name passes that
+    unchanged: ``26121`` still equals ``26121``. Reverting only that half of
+    ``e48a8c8`` is the mutation this test was written against.
+
+    So this one opens the report. A compat report is machine readable and
+    records an ``outcome`` per command, which makes a status checkable
+    against its own evidence rather than against the fact that some evidence
+    was cited. That is invariant 3 as written: a status is promoted from a
+    report by ``pyfs-qa apply-compat`` and never edited by hand, and a hand
+    edit is exactly a status the report does not support, whichever
+    direction it moved.
+
+    It lands with no exemption list: every verified or broken record in the
+    database agrees with its report today.
+    """
+    registry = CommandRegistry.load()
+    cache: dict[str, dict] = {}
+    offenders = []
+    checked = 0
+
+    for name, entry in registry.commands.items():
+        for canonical, record in entry.versions.items():
+            if record.status not in (Status.VERIFIED, Status.BROKEN):
+                continue
+            report = record.report
+            # The model validator refuses these two statuses without a
+            # report, so an absent one is a loader regression rather than a
+            # case to pass over quietly.
+            assert report, f"{name} at {canonical} is {record.status} with no report"
+            if not report.endswith(".yaml"):
+                offenders.append(
+                    f"{name} at {canonical} is {record.status.value} on the strength of "
+                    f"{report}, which is not a machine readable compat report"
+                )
+                continue
+            if report not in cache:
+                path = REPO_ROOT / report
+                assert path.exists(), f"{name} at {canonical} cites missing {report}"
+                cache[report] = yaml.safe_load(path.read_text(encoding="utf-8"))
+            probed = (cache[report].get("commands") or {}).get(name)
+            if probed is None:
+                offenders.append(f"{name} at {canonical} cites {report}, which never probed it")
+                continue
+            if probed.get("outcome") != record.status.value:
+                offenders.append(
+                    f"{name} at {canonical} is recorded {record.status.value} while "
+                    f"{report} recorded {probed.get('outcome')}"
+                )
+            checked += 1
+
+    assert checked >= 130, (
+        f"only {checked} statuses were compared against their report; the database "
+        "carries at least 130 verified or broken records"
+    )
+    assert not offenders, (
+        "these statuses are not what their own evidence says:\n  "
+        + "\n  ".join(sorted(offenders))
+        + "\n\nA status is promoted from a probe report by pyfs-qa apply-compat and "
+        "never edited by hand (CLAUDE.md invariant 3). A status its report does not "
+        "record is a hand edit."
+    )
+
+
+def test_every_report_a_note_cites_names_the_command_it_is_attached_to() -> None:
+    """A note may not attribute one command's evidence to another.
+
+    Third guard of this family, and it exists because the commit that added
+    the first one introduced this defect inside its own diff. A note reading
+    "every documented form was rejected by the solver (RPT-015)" was attached
+    to ``SET_BOUNDARY_LAYER_TYPE``, four lines above the intended target;
+    RPT-015 probed the bulk-separation family and never names
+    ``SET_BOUNDARY_LAYER_TYPE`` anywhere. The status was ``documented``, so
+    the schema, which asks for a report only for verified and broken, did not
+    look, and neither sibling guard could: both read the ``report`` field and
+    this citation lived in prose. Two committed compat reports record that
+    same command running cleanly on the build the note blamed.
+
+    The rule is the weakest one that catches it and needs no judgement: a
+    report cited in a note must mention the command the note belongs to. It
+    does not check that the report says what the note claims. It checks that
+    the report is about this command at all.
+    """
+    reports_by_id: dict[str, list[Path]] = {}
+    for path in REPORTS_DIR.rglob("*"):
+        if path.is_file() and path.suffix in (".md", ".yaml"):
+            for token in REPORT_ID_PATTERN.findall(path.name):
+                reports_by_id.setdefault(token, []).append(path)
+    assert reports_by_id, "no committed report resolved by id, so the index is empty"
+
+    text: dict[Path, str] = {}
+
+    def names_the_command(path: Path, command: str) -> bool:
+        if path not in text:
+            text[path] = path.read_text(encoding="utf-8", errors="replace")
+        return command in text[path]
+
+    registry = CommandRegistry.load()
+    offenders = []
+    checked = 0
+
+    for name, entry in registry.commands.items():
+        prose = [entry.notes] + [record.note for record in entry.versions.values()]
+        for note in prose:
+            if not note:
+                continue
+            for cited in REPORT_PATH_PATTERN.findall(note):
+                if not (REPO_ROOT / cited).exists():
+                    offenders.append(f"{name} cites the path {cited}, which does not exist")
+            for token in sorted(set(REPORT_ID_PATTERN.findall(note))):
+                checked += 1
+                found = reports_by_id.get(token)
+                if not found:
+                    offenders.append(f"{name} cites {token}, which resolves to no report")
+                elif not any(names_the_command(path, name) for path in found):
+                    offenders.append(
+                        f"{name} cites {token} ({', '.join(p.name for p in found)}), "
+                        f"which never names {name}"
+                    )
+
+    assert checked >= 8, (
+        f"only {checked} cited reports were resolved; the database carries at least 8, "
+        "so the walk stopped reaching the notes it is written for"
+    )
+    assert not offenders, (
+        "these notes attribute a report to a command the report is not about:\n  "
+        + "\n  ".join(sorted(offenders))
+        + "\n\nA note is the paraphrase a reader gets instead of the report, so a "
+        "citation belonging to another command is evidence for a claim nobody made."
     )

@@ -512,6 +512,125 @@ def test_the_row_decides_the_window_when_the_caller_does_not(tmp_path, monkeypat
     )
 
 
+def _recording_executor(monkeypatch, seen):
+    """Patch the executor the matrix builds and record its hidden argument."""
+    import pyflightstream.run as run_module
+
+    class Recording(StubSolver):
+        def __init__(self, fs_exe, hidden=True, **kwargs):
+            seen["hidden"] = hidden
+            super().__init__(WRITES_LOADS)
+
+    # run.LocalExecutor, not the matrix module: matrix.py imports it
+    # inside the function, so the name it resolves at call time is the
+    # one on `run`.
+    monkeypatch.setattr(run_module, "LocalExecutor", Recording)
+
+
+def test_a_matrix_whose_rows_all_ask_for_hidden_runs_hidden(tmp_path, monkeypatch):
+    """The other direction of the derivation, which the repair left open.
+
+    Its sibling above asserts ``hidden is False`` for a matrix carrying a
+    visible row, and that assertion alone is satisfied by ``hidden =
+    False`` written unconditionally: a mutation to exactly that was
+    measured green across the whole suite. A derivation needs both of its
+    answers pinned or it is not pinned at all.
+    """
+    text = REGISTRY_FIXTURE.read_text(encoding="utf-8")
+    all_hidden = text.replace("|    0   |", "|    1   |")
+    assert all_hidden != text, "the fixture no longer carries a row asking for a window"
+    matrix = tmp_path / "all_hidden.fs"
+    matrix.write_text(all_hidden, encoding="utf-8")
+    rows = read_matrix(matrix)
+    assert all(row.hidden for row in rows), "this fixture must ask for hidden everywhere"
+
+    seen: dict[str, object] = {}
+    _recording_executor(monkeypatch, seen)
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs26120/FlightStream.exe"))
+    run_matrix(
+        matrix,
+        workspace,
+        name="allhidden",
+        fs_version="26.120",
+        recipes=RECIPES,
+        assess=converged,
+        recipe_registry={"steady": matrix_recipe},
+    )
+    assert seen.get("hidden") is True, (
+        f"every row asks for a hidden window and the executor was built with "
+        f"hidden={seen.get('hidden')!r}"
+    )
+
+
+def test_one_visible_row_makes_the_campaign_visible_wherever_it_sits(tmp_path, monkeypatch):
+    """The reduction is over every row, not over the first one.
+
+    Third case because two were not enough. The fixture's visible row is
+    its FIRST, so ``all(row.hidden for row in rows)`` and
+    ``rows[0].hidden`` give the same answer for it and the same answer
+    for the all-hidden variant: that mutant survives both of the tests
+    above. Swapping the two columns separates them, and this is the only
+    assertion that does.
+    """
+    text = REGISTRY_FIXTURE.read_text(encoding="utf-8")
+    swapped = text.replace("|    0   |", "|    @   |").replace("|    1   |", "|    0   |")
+    swapped = swapped.replace("|    @   |", "|    1   |")
+    assert swapped != text, "the fixture no longer carries one of each HIDDEN value"
+    matrix = tmp_path / "visible_second.fs"
+    matrix.write_text(swapped, encoding="utf-8")
+    rows = read_matrix(matrix)
+    assert rows[0].hidden and not all(row.hidden for row in rows), (
+        "this fixture exists to make the first row disagree with the reduction"
+    )
+
+    seen: dict[str, object] = {}
+    _recording_executor(monkeypatch, seen)
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs26120/FlightStream.exe"))
+    run_matrix(
+        matrix,
+        workspace,
+        name="visiblesecond",
+        fs_version="26.120",
+        recipes=RECIPES,
+        assess=converged,
+        recipe_registry={"steady": matrix_recipe},
+    )
+    assert seen.get("hidden") is False, (
+        "a later row asks for a visible window, so the campaign is visible; the "
+        f"executor was built with hidden={seen.get('hidden')!r}"
+    )
+
+
+def test_an_explicit_hidden_argument_overrules_the_column(tmp_path, monkeypatch):
+    """The caller-wins half, which had no test at all.
+
+    Both the changelog and the derivation's own comment promise that an
+    explicit True or False beats the column. Nothing exercised it: no
+    ``run_matrix`` call in the suite passed ``hidden=``, so mutating the
+    ``if hidden is None:`` guard to ``if True:`` left the suite green and
+    silently took the promise away.
+    """
+    seen: dict[str, object] = {}
+    _recording_executor(monkeypatch, seen)
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs26120/FlightStream.exe"))
+    # The fixture carries a row asking for a visible window, so the
+    # column would derive False. The caller says True.
+    run_matrix(
+        REGISTRY_FIXTURE,
+        workspace,
+        name="callerwins",
+        fs_version="26.120",
+        recipes=RECIPES,
+        assess=converged,
+        recipe_registry={"steady": matrix_recipe},
+        hidden=True,
+    )
+    assert seen.get("hidden") is True, (
+        "an explicit hidden=True must beat a column that derives False; the "
+        f"executor was built with hidden={seen.get('hidden')!r}"
+    )
+
+
 def test_the_override_says_which_rows_it_overrules(tmp_path):
     """The explicit fs_exe override is the only way to run MANUAL, so it has
     to win. It used to win SILENTLY over a row naming a real build: measured

@@ -843,9 +843,14 @@ def run_matrix(
         grown matrix re-runs only its new points; with False (the
         default) an already-recorded point raises before anything
         executes, as in :func:`pyflightstream.run.run_campaign`.
-    hidden : bool
-        Windowless solver runs (default True); forwarded to the
-        default executor only.
+    hidden : bool or None
+        Windowless solver runs, forwarded to the default executor only
+        and ignored when ``executor`` is given. The default is None,
+        meaning the matrix decides through its HIDDEN column: the run is
+        windowless only if EVERY active row asks for it, so one row
+        saying 0 makes the whole campaign visible. An explicit True or
+        False wins over the column, because a caller who names it means
+        it.
 
     Returns
     -------

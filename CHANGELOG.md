@@ -7,7 +7,7 @@ FlightStream versions.
 
 ## [Unreleased]
 
-## [0.4.0] - 2026-08-03
+## [0.4.0] - 2026-08-04
 
 ### API surface delta
 
@@ -229,18 +229,22 @@ FlightStream versions.
   `pyfs-matrix dryrun`. A library function and the console subcommand
   that fronts it carrying different verbs would put one fact in two
   homes on the surface a user types.
-* **Every public refusal now carries the package's base exception**
-  (SRS FR-39, whose first clause was false in 70 places). **Widening
-  only**: every new class keeps its standard-library base, so an
-  existing `except ValueError` or `except RuntimeError` catches exactly
-  what it caught before, and `except PyflightstreamError` now catches
-  these too.
+* **Every public refusal the guard reaches now carries the package's
+  base exception** (SRS FR-39, whose first clause was false in 70
+  places; 24 named sites remain, see the end of this entry).
+  **Widening only**: every new class keeps its standard-library base,
+  so an existing `except ValueError` or `except RuntimeError` catches
+  exactly what it caught before, and `except PyflightstreamError` now
+  catches these too.
 
   FR-39 has read *implemented* since 2026-07-27 and its two guards
   inspect exception CLASSES, never a `raise` statement. An independent
   review found three public functions raising a bare `ValueError`;
-  walking the tree found **70 sites across 11 modules**, and 46 more once the guard was widened to
-  the modules that declare no `__all__` (see the FR-39 scope entry above). Seven
+  walking the tree found **70 sites across 11 modules**; widening the
+  walk to the modules that declare no `__all__` found 46 more; and
+  widening it again to reachability, because a bare raise inside a
+  module-private helper that a public function calls reaches the caller
+  exactly as an exported one does, found 21 more. Nine
   catalogued classes are added for the conditions that had no home:
 
   * `results.MalformedOutputError`, the sibling of
@@ -259,15 +263,32 @@ FlightStream versions.
     read as the evidence it claims.
   * `extras.UnknownExtraError`, for a name used as an extra that this
     package does not have.
+  * `commands.CommandDatabaseError`, for a command database that cannot
+    be read as the evidence record it claims to be.
+  * `fsi.errors.FsiInputError`, for a coupling input a run cannot use.
+    Written with the submodule because that is where it is reachable:
+    the `fsi` package root re-exports no exception at all, and making
+    this one the first is a convention decision left to v0.5 rather
+    than taken here by a one-line paste. Both classes are also
+    re-exported from `pyflightstream.exceptions`, as every catalogued
+    class is.
 
   New `pyflightstream.probes.errors`, `pyflightstream.qa.errors` and
-  `pyflightstream.fsi.errors`
-  hold the two shared classes, because the package `__init__` imports
-  the submodules that raise them.
+  `pyflightstream.fsi.errors` hold one shared class each, because the
+  package `__init__` imports the submodules that raise them.
 
-  A third guard walks every exported public name for bare
-  standard-library raises, so the clause stays true. It is the one that
-  measured 70 when the review had reported three.
+  A third guard walks every exported public name, and every
+  module-private helper an exported one calls, for bare
+  standard-library raises. It is the one that measured 70 when the
+  review had reported three. **It does not make the headline
+  universally true, and this note says so rather than leaving the SRS
+  to say it alone**: 24 sites are exempt by name in a ratchet, three
+  `TypeError` raises needing a base this catalogue does not have
+  (`PLN-20260803-2340`) and the 21-site reachability tranche deferred
+  to v0.5 (`PLN-20260804-0130`). The list is the debt, it is countable,
+  and any site the walk reaches that is not on it fails today. SRS
+  FR-39 carries the residual and the two measured limits of the walk's
+  own reach.
 * **The FSI and probe paths are declared experimental, behind an
   explicit boundary** (author's decision, 2026-08-03; REV010-017).
   Documentation only.
@@ -898,8 +919,15 @@ FlightStream versions.
 
   The waiver emits the command and records it: `script.broken_commands`
   and the new `broken_commands` field of `RunRecord` carry the command,
-  the version, the committed report, the recorded observation and the
-  justification. The same promise `raw_flag` makes for unvalidated
+  TWO versions, the committed report, the recorded observation, the
+  justification and the script line the first waived emission rendered.
+  The two versions are `version`, the build the script targeted, and
+  `source_version`, the build whose record is broken and therefore the
+  build the cited report was run on; they differ exactly when a hotfix
+  inherits its base release's record, and reading either as the other is
+  the defect this release is named for.
+
+  The same promise `raw_flag` makes for unvalidated
   text, for a case that is worse, because a raw line at least looks
   unusual. `reason` is required; it is the only field nothing
   automated can supply.

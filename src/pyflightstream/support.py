@@ -145,10 +145,14 @@ class VersionSupport(BaseModel):
         ``broken``) that this version can reach. On a hotfix build the
         count INCLUDES records inherited from the base release, so some
         of them were probed on that other build. No number is written
-        here: it moves with every probe run, and
-        ``tests/test_evidence_provenance.py`` measures the split where a
-        wrong one can fail. Reporting the two separately is registered as
-        PLN-20260803-2210.
+        here: it moves with every probe run. Nor is the split asserted
+        anywhere today, which is worth saying plainly because this
+        docstring used to credit
+        ``tests/test_evidence_provenance.py`` with measuring it and that
+        file measures the neighbouring claim, the inherited cell count of
+        the rendered matrix, whose two sides both derive from this same
+        registry. Reporting the two separately, with the guard that makes
+        a wrong split fail, is registered as PLN-20260803-2210.
     workflow_missing : tuple of str
         Commands of :data:`MINIMAL_WORKFLOW_COMMANDS` this version
         cannot emit, in workflow order. Empty when the workflow builds.

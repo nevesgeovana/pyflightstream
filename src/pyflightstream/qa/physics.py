@@ -1701,7 +1701,7 @@ def read_physics_report(path: str | Path) -> dict:
     """Load and check a machine-readable physics report."""
     document = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
     if not isinstance(document, dict) or document.get("schema") != PHYSICS_SCHEMA:
-        raise ValueError(
+        raise QaEvidenceError(
             f"{path} is not a physics report (expected schema {PHYSICS_SCHEMA!r}); "
             "references are seeded only from committed physics evidence"
         )

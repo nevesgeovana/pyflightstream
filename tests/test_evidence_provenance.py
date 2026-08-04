@@ -29,9 +29,7 @@ What this guards, and the third one is the load-bearing one:
 
 from pathlib import Path
 
-import pytest
-
-from pyflightstream.commands import CommandRegistry
+from pyflightstream.commands import CommandEntry, CommandRegistry
 from pyflightstream.reference import markdown_compatibility_matrix
 from pyflightstream.versions import known_versions
 
@@ -187,46 +185,84 @@ def test_no_surface_that_reaches_a_person_asks_the_weaker_question():
     )
 
 
+def _inheriting_broken_registry():
+    """A two-key registry whose 26.121 answer is inherited and broken.
+
+    Built rather than hunted for. The previous version of this test
+    searched the live database for a command inheriting a broken record,
+    found none, and skipped, so the field this release exists to fix had
+    no executing assertion (`PLN-20260804-0400` item 5). Worse, it could
+    not have passed if the skip had lifted: it called ``allow_broken``
+    and then asserted ``broken_commands`` was non-empty, and a waiver
+    that is never exercised deliberately records nothing.
+
+    A record on 26.120 alone makes 26.121 inherit it, which is the whole
+    hotfix rule, so the inherited case exists by construction and stays
+    true whatever a probe later does to the real database.
+    """
+    entry = CommandEntry(
+        name="SET_EXAMPLE_BROKEN",
+        layout="inline",
+        phase="setup",
+        args=[{"name": "value", "type": "float", "unit": "m/s"}],
+        manual_ref="SRC-003 p.328",
+        versions={
+            "26.120": {
+                "status": "broken",
+                "report": "reports/compat/CMP-26120_2026-07-23_pln012.yaml",
+                "note": "the probe watched it abort",
+            }
+        },
+    )
+    return CommandRegistry(commands={"SET_EXAMPLE_BROKEN": entry})
+
+
 def test_a_waived_broken_command_records_which_build_the_evidence_belongs_to():
     """The manifest field the architect pass found wrong.
 
     Written once and read years later, so it is the surface where an
-    inherited record shown as a direct one does the most damage.
+    inherited record shown as a direct one does the most damage. The two
+    keys must disagree here: ``version`` is the build the script targeted
+    and ``source_version`` is the build whose record is broken, which is
+    the build the cited report was run on.
     """
     from pyflightstream.script import Script
 
-    registry = CommandRegistry.load()
-    inherited_broken = sorted(
-        name
-        for name, entry in registry.commands.items()
-        for version in known_versions()
-        if (evidence := entry.evidence_in(version)) is not None
-        and evidence.inherited
-        and evidence.record.status.value == "broken"
-    )
-    if not inherited_broken:
-        pytest.skip("no command currently inherits a broken record; nothing to assert")
-
-    name = inherited_broken[0]
-    script = Script(version="26.121")
+    registry = _inheriting_broken_registry()
+    name = "SET_EXAMPLE_BROKEN"
+    script = Script(version="26.121", registry=registry)
     script.allow_broken(name, reason="testing the provenance field")
-    entry = registry.commands[name]
-    evidence = entry.evidence_in(next(v for v in known_versions() if v.canonical == "26.121"))
-    assert evidence is not None
+    script.emit(name, 1.0)
+
     uses = [use for use in script.broken_commands if use.command == name]
-    assert uses, (
-        f"allow_broken({name!r}) recorded no BrokenCommandUse, so every assertion "
-        "below would have been skipped. An empty broken_commands is itself the "
-        "failure this test exists for: the manifest is where the provenance has "
-        "to survive"
-    )
+    assert uses, "the waived emission recorded no BrokenCommandUse"
     use = uses[0]
     assert use.version == "26.121", "version holds the build the script targeted"
-    assert use.source_version == evidence.source, (
+    assert use.source_version == "26.120", (
         "source_version holds the build whose record is broken, which is where "
         "the cited report was run"
     )
     assert use.source_version != use.version, "this fixture is the inherited case"
+
+
+def test_an_unexercised_waiver_records_nothing():
+    """Control for the test above, and the contract it must not break.
+
+    A recipe is version portable, so a waiver written for the build where
+    a command is broken travels to the build where it is not. Recording
+    it there would report a dependency the run does not have
+    (``Script.__init__`` says so at the two dicts it keeps). Without this
+    control, a mutation that recorded every waiver at registration time
+    would leave the test above green.
+    """
+    from pyflightstream.script import Script
+
+    registry = _inheriting_broken_registry()
+    script = Script(version="26.121", registry=registry)
+    script.allow_broken("SET_EXAMPLE_BROKEN", reason="registered and never used")
+    assert script.broken_commands == (), (
+        "a waiver that was never exercised must leave no trace in the manifest"
+    )
 
 
 def test_the_summary_counts_the_inherited_cells_it_renders():

@@ -13,7 +13,7 @@ license: MIT
 # that tree asserted a release date for an artifact that was never
 # released (REV010-015). This is the release commit, so both are set.
 version: 0.4.0
-date-released: 2026-08-03
+date-released: 2026-08-04
 repository-code: "https://github.com/nevesgeovana/pyflightstream"
 identifiers:
   - type: doi

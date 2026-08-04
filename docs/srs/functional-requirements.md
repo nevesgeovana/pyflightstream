@@ -715,10 +715,12 @@ the base could not offer while it bundled several.
 !!! requirement "FR-39 Public exception hierarchy <span class='srs-implemented'>implemented</span>"
     *Origin: Phase 4 review, accepted 2026-07-27, absorbing the C2
     catalog acceptance and the M1 typed-hierarchy mirror. Evidence:
-    PFS-2 (2026-08-02); the 70-site sweep of 2026-08-03;
+    PFS-2 (2026-08-02); the sweep of 2026-08-03 and 2026-08-04, 137
+    sites over three widenings of the walk;
     `src/pyflightstream/exceptions.py`;
     `tests/test_exceptions_catalog.py`, whose third guard walks every
-    exported public name for bare standard-library raises.*
+    exported public name, and every module-private helper an exported
+    one calls, for bare standard-library raises.*
 
     Every exception raised by the public API derives from a single
     documented base exception, each type is documented with the
@@ -748,7 +750,7 @@ the base could not offer while it bundled several.
     that a public function calls reaches the caller exactly as an
     exported one does, found 21 more.
 
-    114 of those sites now raise a catalogued class, and nine classes
+    113 of those sites now raise a catalogued class, and nine classes
     were added for conditions that had no home: `MalformedOutputError`
     and `FieldNotInExportError` (results), `ProbeGeometryError`
     (probes), `CampaignConfigError` (cases), `FarfieldInputError` (far
@@ -761,12 +763,31 @@ the base could not offer while it bundled several.
     **24 sites remain and this requirement does not claim them.** They
     are named one by one in a ratchet in
     `tests/test_exceptions_catalog.py`, so the residual is countable and
-    any site not on that list fails today: three raise `TypeError` for
-    an argument of an unaccepted type, which needs a base class this
-    catalogue does not have (`PLN-20260803-2340`), and 21 are the
-    reachability tranche, deferred to v0.5 by the author on 2026-08-04
-    with the measurement taken first rather than the promise trimmed to
-    fit (`PLN-20260804-0130`). The status stays `implemented` because
+    any site THE WALK REACHES that is not on that list fails today:
+    three raise `TypeError` for an argument of an unaccepted type, which
+    needs a base class this catalogue does not have
+    (`PLN-20260803-2340`), and 21 are the reachability tranche, deferred
+    to v0.5 by the author on 2026-08-04 with the measurement taken first
+    rather than the promise trimmed to fit (`PLN-20260804-0130`).
+
+    The emphasis on what the walk reaches is a correction, not a
+    flourish. This sentence read "any site not on that list fails today"
+    and that was false when written: a definition omitted from its own
+    module's `__all__` is invisible to the walk, and a review of
+    2026-08-04 measured exactly two such definitions holding a bare
+    raise out of nine omitted across the 52 public modules.
+    `qa.physics.read_physics_report` was one and is fixed here, since
+    its three sibling refusals in the same call already raise
+    `QaEvidenceError`. The other is `script.solver_setup.build_setup`,
+    whose `RuntimeError` reports that the package's own flag table has
+    fallen behind the command database; it is reachable only through a
+    cross-module caller, and pricing the fourth widening against the
+    eight escape shapes that review enumerated is v0.5 work
+    (`PLN-20260804-0130`). The residual this requirement publishes is
+    therefore the residual of a walk whose reach is stated, which is the
+    honest form of the claim and the one a reader can check.
+
+    The status stays `implemented` because
     the mechanism, the catalogue and the guard are delivered and the
     remainder is enumerated; a reader who needs the exact residual reads
     the ratchet, which is the only place it cannot go stale.
@@ -918,9 +939,14 @@ The allocation is recorded in the
     Emitting a command whose per-version record is `broken` raises at
     build time. The refusal has one documented way through: a waiver
     naming the command and the caller's justification, which lets the
-    command emit and records the command, the version, the committed
+    command emit and records the command, TWO versions, the committed
     probe report and the justification in the script and in the run
-    manifest.
+    manifest. Two, because a hotfix build inherits its base release's
+    record: `version` is the build the script targeted and
+    `source_version` is the build whose record is broken, which is the
+    build the cited report was run on. A record that carried one field
+    for both would make an inherited waiver cite a report run on a
+    version the manifest never names.
 
     Why this is not covered by FR-04, which refuses a command absent
     from the target version: an absent command produces no run at all,
