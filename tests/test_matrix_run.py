@@ -453,23 +453,42 @@ def test_the_end_to_end_run_actually_collects_the_declared_file(tmp_path):
         assert collected.is_file(), collected
 
 
-def test_the_row_decides_the_window_when_the_caller_does_not(tmp_path):
-    """REV-of-the-research-run: the HIDDEN column existed, the row said 0
-    (show the window), and run_matrix used its own parameter, so the run
-    went headless against the matrix's explicit instruction."""
+def test_the_row_decides_the_window_when_the_caller_does_not(tmp_path, monkeypatch):
+    """The HIDDEN column existed, the row said 0 (show the window), and
+    run_matrix used its own parameter, so the run went headless against
+    the matrix's explicit instruction.
+
+    This test USED to pass an explicit executor and then assert the
+    signature default, which meant the derivation it is named for never
+    executed: the QA pass measured lines 840-843 of matrix.py as
+    uncovered and showed that replacing the whole derivation with
+    `hidden = True` kept it green. The `Recording` class and the `seen`
+    dict it carried were never read, which is worse than absent, because
+    the file reads as though the run were observed.
+
+    It now leaves `executor` unset, which is the only path that reaches
+    the derivation, and records what LocalExecutor was actually
+    constructed with.
+    """
+    import pyflightstream.run as run_module
+
     rows = read_matrix(REGISTRY_FIXTURE)
     assert not all(row.hidden for row in rows), (
         "the fixture must carry a row asking for a visible window, or this "
         "test cannot tell the row from the default"
     )
 
-    seen = {}
+    seen: dict[str, object] = {}
 
     class Recording(StubSolver):
-        def __init__(self, code, hidden):
-            super().__init__(code)
+        def __init__(self, fs_exe, hidden=True, **kwargs):
             seen["hidden"] = hidden
+            super().__init__(WRITES_LOADS)
 
+    # run.LocalExecutor, not the matrix module: matrix.py imports it
+    # inside the function, so the name it resolves at call time is the
+    # one on `run`.
+    monkeypatch.setattr(run_module, "LocalExecutor", Recording)
     workspace = make_library(tmp_path, register_build=("26.120", "C:/fs26120/FlightStream.exe"))
     run_matrix(
         REGISTRY_FIXTURE,
@@ -478,11 +497,14 @@ def test_the_row_decides_the_window_when_the_caller_does_not(tmp_path):
         fs_version="26.120",
         recipes=RECIPES,
         assess=converged,
-        executor=StubSolver(WRITES_LOADS),
         recipe_registry={"steady": matrix_recipe},
     )
-    # With an explicit executor the parameter is moot; what this pins is that
-    # the default is no longer a hardcoded True at the signature.
+    assert seen.get("hidden") is False, (
+        f"the matrix has a row asking for a visible window and the executor was "
+        f"built with hidden={seen.get('hidden')!r}. The row decides when the "
+        "caller does not, which is what the HIDDEN column is for"
+    )
+
     import inspect
 
     assert inspect.signature(run_matrix).parameters["hidden"].default is None, (
