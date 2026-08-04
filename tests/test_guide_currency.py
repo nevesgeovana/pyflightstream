@@ -41,10 +41,34 @@ from pyflightstream.versions import known_versions
 
 GUIDE = Path(__file__).parents[1] / "guide" / "pyflightstream_user_guide.tex"
 
-#: A command count written as digits. The author's decision is that the
+#: An evidence count written as digits. The author's decision is that the
 #: guide states none: the compatibility matrix generates them on every
 #: docs build, and a number typed here goes stale on the next probe run.
-COMMAND_COUNT = re.compile(r"(?<![\w.])(\d+)\s+commands\b")
+#:
+#: The first version of this pattern matched ``<digits> commands`` alone,
+#: and the QA pass measured what that leaves through: re-inserting the
+#: exact sentence this session DELETED for being stale
+#: ("26.120 fully covered (65 verified, 74 documented, 3 broken, 2
+#: removed)") matched nothing at all, so two of the three sites fixed
+#: here could come back untouched. One spelling of the class was
+#: removed, not the class. The vocabulary below is the one the guide
+#: actually used, and PHRASES_THAT_WENT_STALE pins the pattern against
+#: that history rather than against itself.
+COMMAND_COUNT = re.compile(
+    r"(?<![\w.])(\d+)\s+(commands?|verified|documented|broken|removed|entries)\b"
+)
+
+#: The sentences this session removed from the guide for having gone
+#: stale, verbatim. The pattern above must match every one of them; a
+#: pattern that does not is not guarding the class that actually
+#: occurred. Kept as data rather than as prose so the claim is testable.
+PHRASES_THAT_WENT_STALE = (
+    "144 commands, one YAML file per manual chapter",
+    "65 commands verified and 3 found broken on 26.120.",
+    "Current evidence: 26.120 fully covered (65 verified, 74 documented, "
+    "3 broken, 2 removed); 26.100 partially backfilled (37 documented, "
+    "1 removed); 26.000 registered, honestly empty.",
+)
 
 #: ``N curated helpers``, in digits or as an English word. This count
 #: stays in the guide because it is a fact about the module rather than
@@ -109,10 +133,26 @@ def curated_helper_count() -> int:
     )
 
 
-def test_the_guide_states_no_command_count():
+def test_the_pattern_matches_the_sentences_that_actually_went_stale():
+    """Guard the guard, against history rather than against itself.
+
+    A pattern asserted only over the current file is satisfied by the
+    current file. These three sentences were really in the guide and
+    were really removed for drifting, so a pattern that misses any of
+    them is not guarding the class that occurred.
+    """
+    for phrase in PHRASES_THAT_WENT_STALE:
+        assert COMMAND_COUNT.search(phrase), (
+            f"the count pattern does not match {phrase!r}, a sentence this "
+            "repository deleted for going stale. It could be restored today "
+            "without turning anything red"
+        )
+
+
+def test_the_guide_states_no_evidence_count():
     found = COMMAND_COUNT.findall(guide_text())
     assert not found, (
-        f"the guide states a command count ({found}). The author's decision of "
+        f"the guide states an evidence count ({found}). The author's decision of "
         "2026-08-03 is that it states none: the number changed three times in "
         "three days, and the compatibility matrix generates the current one on "
         "every docs build. Point at the matrix instead of typing a number that "
@@ -145,6 +185,23 @@ def test_the_helper_count_the_guide_states_matches_the_module():
         )
 
 
+#: The two blocks that enumerate the registered versions, located by
+#: their own content. Searching the whole document instead was measured
+#: to be worthless for this class: the QA pass deleted the tikz node for
+#: 26.121 and the check stayed green, because the identifier still
+#: appeared in eleven other places. The staleness this guard exists for
+#: is precisely a listing and a diagram DISAGREEING, so each has to be
+#: asserted on its own.
+DIAGRAM = re.compile(
+    r"\\begin\{tikzpicture\}(?:(?!\\end\{tikzpicture\}).)*?26\.000.*?\\end\{tikzpicture\}",
+    re.DOTALL,
+)
+LISTING = re.compile(
+    r"\\begin\{lstlisting\}(?:(?!\\end\{lstlisting\}).)*?known_versions.*?\\end\{lstlisting\}",
+    re.DOTALL,
+)
+
+
 def test_every_registered_version_appears_in_the_guide():
     text = guide_text()
     missing = [str(v) for v in known_versions() if v.canonical not in text]
@@ -154,6 +211,30 @@ def test_every_registered_version_appears_in_the_guide():
         f"landed: the listing printed four versions and the diagram beside it "
         f"drew three"
     )
+
+
+def test_the_version_diagram_and_the_version_listing_each_carry_every_version():
+    """The two blocks that must agree, asserted separately.
+
+    Whole-document membership cannot see them disagree, which is the
+    only failure this class has ever had.
+    """
+    text = guide_text()
+    canonicals = [version.canonical for version in known_versions()]
+    for label, pattern in (("version diagram", DIAGRAM), ("version listing", LISTING)):
+        block = pattern.search(text)
+        assert block is not None, (
+            f"the {label} was not found in the guide, so this guard read nothing. "
+            f"If it was restructured, update the pattern; a guard that stops "
+            f"matching reports green over an unread file"
+        )
+        body = block.group(0)
+        missing = [canonical for canonical in canonicals if canonical not in body]
+        assert not missing, (
+            f"the {label} omits {missing}. The library registers "
+            f"{canonicals}, and this is exactly how the guide went stale when "
+            f"26.121 landed: the listing printed four and the diagram drew three"
+        )
 
 
 def test_every_pinned_refusal_matches_what_the_library_says():
@@ -186,9 +267,19 @@ def test_the_pitfall_table_names_the_builds_the_database_calls_broken():
         "that stops matching reports green over an unread file"
     )
     registry = CommandRegistry.load()
+    broken_count = sum(
+        1
+        for entry in registry.commands.values()
+        if any(record.status is Status.BROKEN for record in entry.versions.values())
+    )
     rows = [row for row in body.group(1).split(r"\\") if row.strip()]
-    assert len(rows) >= 3, (
-        f"the pitfall table parsed as {len(rows)} row(s), which is too few to be it"
+    # EQUAL, not a floor. `>= 3` was satisfied at exactly 3 while the row
+    # this guard was written for had been deleted, which the QA pass
+    # demonstrated. One row per broken command, no more and no fewer.
+    assert len(rows) == broken_count, (
+        f"the pitfall table has {len(rows)} row(s) and the database records "
+        f"{broken_count} command(s) broken on at least one build. The table is a "
+        f"rendering of that set, so the two counts are one claim"
     )
 
     for row in rows:
@@ -212,7 +303,27 @@ def test_the_pitfall_table_names_the_builds_the_database_calls_broken():
             if record.status is Status.BROKEN
         }
         cell = builds.strip()
-        declared = set(entry.versions) if cell == "both" else set(CANONICAL.findall(cell))
+        # "both" resolves against the versions this entry is BROKEN on,
+        # never against every version it has a record for. The latter was
+        # self-adjusting in two directions: register a third build and
+        # probe it broken, and "both" silently came to mean three while
+        # the guide still said two; give the entry a `documented` record
+        # on an older release, and the guard went red on a correct guide.
+        broken_versions = {
+            canonical
+            for canonical, record in entry.versions.items()
+            if record.status is Status.BROKEN
+        }
+        if cell == "both":
+            assert len(broken_versions) == 2, (
+                f"the pitfall table says {name} is broken on 'both', and the "
+                f"database records it broken on {sorted(broken_versions)}. The "
+                f"word names two builds; write canonical identifiers when it is "
+                f"any other number"
+            )
+            declared = broken_versions
+        else:
+            declared = set(CANONICAL.findall(cell))
         assert declared, (
             f"the pitfall table's Builds cell for {name} reads {cell!r}, which "
             f"names no version this guard can read. Write canonical "
@@ -237,7 +348,19 @@ def test_every_broken_command_has_a_pitfall_row():
     """
     body = PITFALL_TABLE.search(guide_text())
     assert body is not None, "the pitfall table's header row was not found"
-    listed = {match.replace("\\_", "_") for match in COMMAND_IN_TEX.findall(body.group(1))}
+
+    # The FINDING cell only, never the whole row. Reading all three
+    # columns was measured to be satisfied by an incidental mention: the
+    # QA pass deleted the SWEEPER_REF_VELOCITY_SAME row, named it in a
+    # neighbouring row's advice cell, and this check stayed green. The
+    # advice column names the command you should use INSTEAD, so it is
+    # the one column that must not count as coverage.
+    listed = set()
+    for row in body.group(1).split(r"\\"):
+        if not row.strip():
+            continue
+        finding = row.split("&")[0]
+        listed |= {match.replace("\\_", "_") for match in COMMAND_IN_TEX.findall(finding)}
 
     registry = CommandRegistry.load()
     broken = {
@@ -251,6 +374,12 @@ def test_every_broken_command_has_a_pitfall_row():
         f"build and the guide's pitfall table does not list them. The table is "
         f"where a reader looks before trusting a command, so a probe that "
         f"promotes something to broken is not finished until the row exists"
+    )
+    spurious = sorted(listed - broken)
+    assert not spurious, (
+        f"the pitfall table has a Finding row for {spurious}, which the database "
+        f"records broken nowhere. A row that outlived its evidence tells a reader "
+        f"to avoid a command that works"
     )
 
 

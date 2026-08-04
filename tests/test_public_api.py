@@ -38,6 +38,7 @@ PUBLIC_MODULES = [
     "pyflightstream.fsi.cli",
     "pyflightstream.fsi.config",
     "pyflightstream.fsi.driver",
+    "pyflightstream.fsi.errors",
     "pyflightstream.fsi.kinematics",
     "pyflightstream.fsi.loads",
     "pyflightstream.fsi.nodes",

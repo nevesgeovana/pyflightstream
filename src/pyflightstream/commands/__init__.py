@@ -138,6 +138,21 @@ class ListSeparator(enum.StrEnum):
     NEWLINE = "newline"
 
 
+class CommandDatabaseError(PyflightstreamError, ValueError):
+    """The command database itself cannot be loaded as written.
+
+    Raised by :meth:`CommandRegistry.load` when the chapter files
+    disagree with each other, for instance when two of them define the
+    same command name. This is a defect in the database, not in the
+    caller's script, and it is fatal: nothing downstream can be built
+    from a registry that does not know which entry a name means.
+
+    Keeps ``ValueError`` as a base, so an existing ``except ValueError``
+    around a registry load catches what it caught before; what changes
+    is that ``except PyflightstreamError`` catches it too (FR-39).
+    """
+
+
 class CommandNotInVersionError(PyflightstreamError, LookupError):
     """A command is unavailable in the requested FlightStream version.
 
@@ -640,7 +655,7 @@ class CommandRegistry:
             entries = yaml.safe_load(resource.read_text(encoding="utf-8")) or {}
             for name, body in entries.items():
                 if name in commands:
-                    raise ValueError(f"{name} is defined in more than one chapter file")
+                    raise CommandDatabaseError(f"{name} is defined in more than one chapter file")
                 chapter = resource.name.removesuffix(".yaml")
                 commands[name] = CommandEntry(name=name, chapter=chapter, **body)
         return cls(commands=commands)

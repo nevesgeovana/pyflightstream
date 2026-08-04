@@ -38,6 +38,7 @@ from pathlib import Path
 import pyflightstream
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.commands import CommandRegistry
+from pyflightstream.qa.errors import QaEvidenceError
 from pyflightstream.run import ExecutionResult, Executor, LocalExecutor
 from pyflightstream.script import Script
 from pyflightstream.script.helpers import initialize_solver
@@ -268,7 +269,7 @@ class ProbeSpec:
     def __post_init__(self) -> None:
         """Reject a probe that could not distinguish broken from verified."""
         if not self.expects_halt and self.assert_effect is None:
-            raise ValueError(
+            raise QaEvidenceError(
                 f"probe for {self.command} declares no effect assertion; a command that "
                 "runs but does nothing is broken, not verified (SAD Section 11), so "
                 "every probe must assert an observable effect"
@@ -679,7 +680,7 @@ def probe_version(
     if commands is not None:
         unknown = sorted(set(commands) - set(available))
         if unknown:
-            raise ValueError(
+            raise QaEvidenceError(
                 f"cannot probe {', '.join(unknown)}: not available in FlightStream "
                 f"{resolved.canonical}. Probes only run database commands of the "
                 "target version."

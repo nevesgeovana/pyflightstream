@@ -30,6 +30,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from pyflightstream.fsi.errors import FsiInputError
+
 #: Per-station node roles, in the encoding order used everywhere.
 NODE_ROLES = ("elastic_axis", "leading_edge", "trailing_edge")
 
@@ -141,7 +143,7 @@ def decode_station_translations(
     """
     translations = np.asarray(translations, dtype=float)
     if translations.ndim != 3 or translations.shape[1:] != (len(NODE_ROLES), 3):
-        raise ValueError(
+        raise FsiInputError(
             f"station translations must have shape (n_stations, {len(NODE_ROLES)}, 3), "
             f"got {translations.shape}; rows are stations, then the node roles "
             f"{NODE_ROLES}, then (dx, dy, dz)"

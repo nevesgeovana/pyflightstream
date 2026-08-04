@@ -119,10 +119,12 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
         "BrokenCommandError": RuntimeError,
         "CampaignErrors": RuntimeError,
         "CommandArgumentError": ValueError,
+        "CommandDatabaseError": ValueError,
         "CommandNotInVersionError": LookupError,
         "ExecutorConfigurationError": ValueError,
         "FarfieldInputError": ValueError,
         "FieldNotInExportError": KeyError,
+        "FsiInputError": ValueError,
         "GeometryEngineMissingError": ImportError,
         "IncompleteOutputError": ValueError,
         "InputArtifactError": RuntimeError,
@@ -221,15 +223,101 @@ def test_input_artifact_id_refusal_carries_kind_and_id(tmp_path):
 _BARE = {"ValueError", "RuntimeError", "TypeError", "KeyError", "LookupError", "ImportError"}
 
 
-def _exported_bare_raises() -> list[str]:
-    """Every `raise BareStdlibError(...)` inside an exported public name."""
+#: Decorators after which a bare ``ValueError`` is the documented way to
+#: signal failure: pydantic converts it into ``ValidationError`` before
+#: any caller sees it, so the raise never reaches the public surface as
+#: a bare standard-library error. Everything else is in scope.
+_WRAPPED_BY_PYDANTIC = {"field_validator", "model_validator", "validator", "root_validator"}
+
+
+def _is_validator(node) -> bool:
+    """Whether this definition's raises are converted by pydantic."""
     import ast
+
+    for decorator in getattr(node, "decorator_list", []):
+        target = decorator.func if isinstance(decorator, ast.Call) else decorator
+        name = getattr(target, "id", None) or getattr(target, "attr", "")
+        if name in _WRAPPED_BY_PYDANTIC:
+            return True
+    return False
+
+
+def _bare_raises_in(module_name: str, filename: str, source: str, exported: set[str]) -> list[str]:
+    """Every bare stdlib raise inside a public callable of one module.
+
+    Separated from the walk over modules so the guard and its mutation
+    proof run the SAME code. They did not: the proof re-implemented the
+    walk inline over a synthetic tree and never called the detector, so
+    replacing the detector with ``lambda: []`` passed every test in this
+    file. Its own docstring said that was the failure it existed to
+    prevent (QA pass, 2026-08-03).
+
+    ``exported`` is the module's ``__all__``. An EMPTY set means the
+    module declares none, and then every non-underscore top-level
+    definition is public, because that is Python's own default and what
+    ``from module import *`` and ``help()`` present. Skipping those
+    modules is how the first version of this guard measured 70 offenders
+    while 27 public modules and about 50 further sites sat outside its
+    reach, with FR-39 published as implemented over the gap.
+    """
+    import ast
+
+    offenders: list[str] = []
+    tree = ast.parse(source)
+    # Names registered as ``validator=<name>`` somewhere in this module.
+    # The registry that consumes them catches ValueError and re-raises
+    # the catalogued class (`options.py:151`), so a bare raise inside one
+    # never reaches a caller bare. Detected rather than allowlisted: an
+    # allowlist would need editing every time a validator is added, and
+    # the edit that forgets is invisible.
+    wrapped_validators = {
+        keyword.value.id
+        for call in ast.walk(tree)
+        if isinstance(call, ast.Call)
+        for keyword in call.keywords
+        if keyword.arg == "validator" and isinstance(keyword.value, ast.Name)
+    }
+    for node in ast.iter_child_nodes(tree):
+        if node.__class__.__name__ in {"FunctionDef", "AsyncFunctionDef"} and (
+            node.name in wrapped_validators
+        ):
+            continue
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            continue
+        public = node.name in exported if exported else not node.name.startswith("_")
+        if not public:
+            continue
+        for sub in ast.walk(node):
+            if _is_validator(sub) and sub is not node:
+                continue
+            if not (isinstance(sub, ast.Raise) and isinstance(sub.exc, ast.Call)):
+                continue
+            owner = sub
+            raised = getattr(sub.exc.func, "id", None) or getattr(sub.exc.func, "attr", "")
+            if raised not in _BARE:
+                continue
+            # A raise inside a validator method of a public model is
+            # pydantic's own idiom; find the nearest enclosing def.
+            enclosing = [
+                child
+                for child in ast.walk(node)
+                if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef))
+                and any(owner is inner for inner in ast.walk(child))
+            ]
+            if any(_is_validator(child) for child in enclosing):
+                continue
+            offenders.append(f"{module_name}.{node.name} -> {raised} ({filename}:{sub.lineno})")
+    return offenders
+
+
+def _public_module_sources() -> list[tuple[str, str, str, set[str]]]:
+    """Every importable public module as (name, filename, source, __all__)."""
     import importlib
     import warnings
 
     from test_public_api import PUBLIC_MODULES
 
-    offenders: list[str] = []
+    found = []
     for name in PUBLIC_MODULES:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
@@ -237,28 +325,65 @@ def _exported_bare_raises() -> list[str]:
                 module = importlib.import_module(name)
             except ImportError:
                 continue  # an extra is not installed; covered by test_extras
-        exported = set(getattr(module, "__all__", []) or [])
-        if not exported or not getattr(module, "__file__", None):
+        if not getattr(module, "__file__", None):
             continue
         source = Path(module.__file__)
-        tree = ast.parse(source.read_text(encoding="utf-8"))
-        for node in ast.walk(tree):
-            if not isinstance(node, (ast.FunctionDef, ast.ClassDef)):
-                continue
-            if node.name not in exported:
-                continue
-            for sub in ast.walk(node):
-                if isinstance(sub, ast.Raise) and isinstance(sub.exc, ast.Call):
-                    raised = getattr(sub.exc.func, "id", None) or getattr(sub.exc.func, "attr", "")
-                    if raised in _BARE:
-                        offenders.append(
-                            f"{name}.{node.name} -> {raised} ({source.name}:{sub.lineno})"
-                        )
+        found.append(
+            (
+                name,
+                source.name,
+                source.read_text(encoding="utf-8"),
+                set(getattr(module, "__all__", []) or []),
+            )
+        )
+    return found
+
+
+def _exported_bare_raises() -> list[str]:
+    """Every `raise BareStdlibError(...)` inside a public name."""
+    offenders: list[str] = []
+    for name, filename, source, exported in _public_module_sources():
+        offenders += _bare_raises_in(name, filename, source, exported)
     return offenders
 
 
+#: The sites FR-39 does not yet cover, named one by one with the reason
+#: and the plan row that closes them. A RATCHET, in the shape NFR-27
+#: already uses for the type checker: the list IS the debt, it is
+#: countable, and any site not on it fails today.
+#:
+#: All three raise ``TypeError`` for an argument of a type the function
+#: does not accept. Re-basing them onto a catalogued class is not the
+#: one-line change the ValueError sites were: ``except TypeError`` is
+#: how a caller distinguishes "I passed the wrong kind of thing" from "I
+#: passed a bad value", and the catalogued classes this package has are
+#: all ``ValueError``-based, so the fix needs a new base and a decision
+#: about what it means. Deferred rather than rushed the night before a
+#: tag (PLN-20260803-2340).
+_RATCHET = {
+    "pyflightstream.results.tables.to_table -> TypeError (tables.py:161)",
+    "pyflightstream.results.tables.to_table -> TypeError (tables.py:174)",
+    "pyflightstream.script.entities.EntityRegistry -> TypeError (entities.py:282)",
+}
+
+
+def test_the_ratchet_holds_only_sites_that_still_exist() -> None:
+    """An exemption for a site that is gone is an exemption for nothing.
+
+    A stale entry silently widens the guard: the next offender to land
+    on that line number inherits the exemption. This is what makes the
+    list a ratchet rather than a drawer.
+    """
+    stale = _RATCHET - set(_exported_bare_raises())
+    assert not stale, (
+        f"the FR-39 ratchet exempts {sorted(stale)}, which the walk no longer "
+        "reports. Delete the entry: an exemption outliving its site is how a "
+        "guard quietly stops guarding"
+    )
+
+
 def test_no_exported_public_name_raises_a_bare_stdlib_error() -> None:
-    offenders = _exported_bare_raises()
+    offenders = [entry for entry in _exported_bare_raises() if entry not in _RATCHET]
     assert not offenders, (
         f"{len(offenders)} raise site(s) inside exported public names raise a bare "
         "standard-library exception, so `except PyflightstreamError` does not catch "
@@ -272,26 +397,67 @@ def test_no_exported_public_name_raises_a_bare_stdlib_error() -> None:
 def test_the_bare_raise_detector_can_find_one() -> None:
     """Mutation proof for the walker the guard rests on.
 
-    Without it, a detector that returned an empty list would report the
-    requirement satisfied forever, which is the shape this whole sweep
-    was raised about.
+    It calls `_bare_raises_in`, the function the guard calls. The first
+    version of this test re-implemented the walk inline and never
+    touched the detector, so patching `_exported_bare_raises` to return
+    an empty list passed every test in this file while its own docstring
+    claimed that was the failure it prevented.
     """
-    import ast
-
-    tree = ast.parse(
-        "__all__ = ['f']\n"
+    source = (
         "def f():\n"
         "    raise ValueError('x')\n"
         "def _g():\n"
         "    raise ValueError('y')\n"
+        "def h():\n"
+        "    raise CampaignConfigError('z')\n"
     )
-    found = [
-        sub
-        for node in ast.walk(tree)
-        if isinstance(node, ast.FunctionDef) and node.name == "f"
-        for sub in ast.walk(node)
-        if isinstance(sub, ast.Raise)
-        and isinstance(sub.exc, ast.Call)
-        and getattr(sub.exc.func, "id", "") in _BARE
-    ]
-    assert len(found) == 1
+    # With an __all__: only the exported name is walked.
+    assert _bare_raises_in("m", "m.py", source, {"f"}) == ["m.f -> ValueError (m.py:2)"]
+    # Without one: every non-underscore definition is public, and the
+    # underscore-private one is still skipped.
+    assert _bare_raises_in("m", "m.py", source, set()) == ["m.f -> ValueError (m.py:2)"]
+    # A catalogued class is not an offender.
+    catalogued = "def h():\n    raise CampaignConfigError('z')\n"
+    assert _bare_raises_in("m", "m.py", catalogued, set()) == []
+
+
+def test_the_detector_skips_what_pydantic_converts() -> None:
+    """A validator's ValueError never reaches a caller as a bare one."""
+    source = (
+        "class M:\n"
+        "    @field_validator('x')\n"
+        "    def _check(cls, v):\n"
+        "        raise ValueError('bad')\n"
+        "    def method(self):\n"
+        "        raise ValueError('reaches the caller')\n"
+    )
+    found = _bare_raises_in("m", "m.py", source, set())
+    assert found == ["m.M -> ValueError (m.py:6)"], (
+        f"expected only the plain method to be reported, got {found}. A validator's "
+        "raise is converted into ValidationError by pydantic before any caller sees "
+        "it; a plain method's is not"
+    )
+
+
+def test_the_walk_reaches_the_whole_public_surface() -> None:
+    """Floors, so a walk that stops matching is not a pass.
+
+    The scope defect this file had was invisible precisely because the
+    guard reported zero offenders over a shrinking surface. These
+    numbers assert the surface, not the verdict.
+    """
+    sources = _public_module_sources()
+    without_all = [name for name, _f, _s, exported in sources if not exported]
+    assert len(sources) >= 40, (
+        f"only {len(sources)} public module(s) were read; the walk has lost its "
+        "subject and a clean verdict would mean nothing"
+    )
+    assert without_all, (
+        "every public module now declares __all__, so the branch that made this "
+        "guard blind to 27 of them is untested. Keep a case or drop the branch"
+    )
+    total_raises = sum(source.count("raise ") for _n, _f, source, _e in sources)
+    assert total_raises >= 200, (
+        f"the public modules hold {total_raises} raise statement(s), far fewer than "
+        "this package has; the module list is probably not resolving"
+    )

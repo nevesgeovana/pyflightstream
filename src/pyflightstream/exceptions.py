@@ -50,7 +50,7 @@ from pyflightstream.cases import (
     CampaignConfigError,
 )
 from pyflightstream.cases.matrix import MatrixError
-from pyflightstream.commands import CommandNotInVersionError
+from pyflightstream.commands import CommandDatabaseError, CommandNotInVersionError
 from pyflightstream.extras import (
     MissingExtraError,
     UnknownExtraError,
@@ -58,6 +58,7 @@ from pyflightstream.extras import (
 from pyflightstream.farfield import (
     FarfieldInputError,
 )
+from pyflightstream.fsi.errors import FsiInputError
 from pyflightstream.fsi.loads import UnitsError
 from pyflightstream.fsi.state import StaleLoadsError, TwistIterationError
 from pyflightstream.options import OptionError
@@ -106,10 +107,12 @@ __all__ = [
     "CampaignConfigError",
     "CampaignErrors",
     "CommandArgumentError",
+    "CommandDatabaseError",
     "CommandNotInVersionError",
     "ExecutorConfigurationError",
     "FarfieldInputError",
     "FieldNotInExportError",
+    "FsiInputError",
     "GeometryEngineMissingError",
     "IncompleteOutputError",
     "InputArtifactError",

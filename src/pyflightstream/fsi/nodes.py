@@ -46,6 +46,7 @@ import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from pyflightstream.fsi.config import FsiConfig, frame_embedding
+from pyflightstream.fsi.errors import FsiInputError
 from pyflightstream.fsi.kinematics import NODE_ROLES
 
 #: Recognized geometric embeddings of the section frame (module docstring).
@@ -173,9 +174,9 @@ class NodeOrderingMap(BaseModel):
             One of :data:`~pyflightstream.fsi.kinematics.NODE_ROLES`.
         """
         if not 0 <= blade < self.blade_count:
-            raise ValueError(f"blade {blade} outside 0..{self.blade_count - 1}")
+            raise FsiInputError(f"blade {blade} outside 0..{self.blade_count - 1}")
         if not 0 <= station < self.station_count:
-            raise ValueError(f"station {station} outside 0..{self.station_count - 1}")
+            raise FsiInputError(f"station {station} outside 0..{self.station_count - 1}")
         return blade * self.nodes_per_blade + station * len(self.roles) + self.roles.index(role)
 
 
@@ -344,7 +345,7 @@ def flatten_blade_translations(
         frame.
     """
     if len(per_blade_translations) != node_map.blade_count:
-        raise ValueError(
+        raise FsiInputError(
             f"got translations for {len(per_blade_translations)} blades but the "
             f"map describes {node_map.blade_count}; every blade writes its rows "
             "on every call"
@@ -355,7 +356,7 @@ def flatten_blade_translations(
     for i, translations in enumerate(per_blade_translations):
         translations = np.asarray(translations, dtype=float)
         if translations.shape != expected:
-            raise ValueError(
+            raise FsiInputError(
                 f"blade {i} translations have shape {translations.shape}, "
                 f"expected {expected} (stations, roles, components)"
             )
@@ -388,7 +389,7 @@ def unflatten_translations(node_map: NodeOrderingMap, flat: np.ndarray) -> list[
     """
     flat = np.asarray(flat, dtype=float)
     if flat.shape != (node_map.total_nodes, 3):
-        raise ValueError(
+        raise FsiInputError(
             f"FSIDisp rows have shape {flat.shape}, but the map orders "
             f"{node_map.total_nodes} nodes of 3 components; the displacement "
             "file does not belong to this node layout (FSI-R14)"
@@ -418,7 +419,7 @@ def write_fsidisp(path: str | Path, translations: np.ndarray) -> None:
     """
     translations = np.asarray(translations, dtype=float)
     if translations.ndim != 2 or translations.shape[1] != 3:
-        raise ValueError(
+        raise FsiInputError(
             f"FSIDisp rows must be (n_nodes, 3) translation vectors, got {translations.shape}"
         )
     # PYFS-013. The shape check was the only one, so a NaN or infinite
@@ -436,7 +437,7 @@ def write_fsidisp(path: str | Path, translations: np.ndarray) -> None:
         bad = sorted({int(index) for index in np.nonzero(~finite)[0]})
         shown = ", ".join(str(index) for index in bad[:8])
         more = "" if len(bad) <= 8 else f" and {len(bad) - 8} more"
-        raise ValueError(
+        raise FsiInputError(
             f"FSIDisp rows {shown}{more} hold a non-finite displacement, so the "
             "structural solve did not produce a blade shape. Writing it would hand "
             "the solver a node position that is not a position, and the coupling "
@@ -484,12 +485,12 @@ def read_fsidisp(path: str | Path, expected_rows: int | None = None) -> np.ndarr
         if len(cells) > 1 and not cells[-1]:
             cells.pop()
         if len(cells) != 3:
-            raise ValueError(
+            raise FsiInputError(
                 f"FSIDisp line {line_number} holds {len(cells)} values, expected "
                 "the dx,dy,dz triple of one node (RPT-005 finding 5)"
             )
         if not all(cells):
-            raise ValueError(
+            raise FsiInputError(
                 f"FSIDisp line {line_number} has an empty field ({line.strip()!r}), so "
                 "one of dx, dy, dz is missing rather than zero. A blank used to be "
                 "dropped before the count, which let the next value slide into the "
@@ -497,7 +498,7 @@ def read_fsidisp(path: str | Path, expected_rows: int | None = None) -> np.ndarr
             )
         rows.append([float(cell) for cell in cells])
     if expected_rows is not None and len(rows) != expected_rows:
-        raise ValueError(
+        raise FsiInputError(
             f"FSIDisp holds {len(rows)} rows but the node map orders "
             f"{expected_rows} nodes; the file does not belong to this layout "
             "(FSI-R14)"

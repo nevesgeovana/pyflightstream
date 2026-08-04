@@ -25,6 +25,7 @@ from dataclasses import dataclass
 
 from pyflightstream.fsi import beam
 from pyflightstream.fsi.config import FsiConfig
+from pyflightstream.fsi.errors import FsiInputError
 
 logger = logging.getLogger(__name__)
 
@@ -437,7 +438,7 @@ def southwell_fit(
         (omega_0 [rad/s], Southwell coefficient S, r_squared of the fit).
     """
     if len(omegas_rad_per_s) != len(frequencies_rad_per_s) or len(omegas_rad_per_s) < 3:
-        raise ValueError(
+        raise FsiInputError(
             "the Southwell fit needs at least three sweep points with one frequency per rotor speed"
         )
     x = [w**2 for w in omegas_rad_per_s]

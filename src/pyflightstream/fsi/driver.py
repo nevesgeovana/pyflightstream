@@ -54,6 +54,7 @@ import numpy as np
 
 from pyflightstream.fsi import beam, centrifugal, kinematics, nodes
 from pyflightstream.fsi.config import FsiConfig, config_hash, load_config
+from pyflightstream.fsi.errors import FsiInputError
 from pyflightstream.fsi.loads import (
     ElasticAxisLoads,
     SectionFamilyMap,
@@ -148,7 +149,7 @@ def revolutions_per_step(omega_rad_per_s: float, time_increment_s: float) -> flo
     elementary kinematics of rotation at constant angular speed.
     """
     if omega_rad_per_s <= 0.0 or time_increment_s <= 0.0:
-        raise ValueError(
+        raise FsiInputError(
             "revolutions need a spinning rotor and an advancing clock: got "
             f"Omega {omega_rad_per_s} rad/s and dt {time_increment_s} s; the "
             "coupled unsteady driver schedules its phases in revolutions "
@@ -453,7 +454,7 @@ def coupling_step(run_dir: str | Path) -> StepResult:
             "stay 1 (FSI-R12)"
         )
     if report.time_increment_s is None:
-        raise ValueError(
+        raise FsiInputError(
             "the loads export carries no time increment, so it comes from a "
             "steady solve; the coupled driver runs inside the unsteady solver "
             "(SET_AEROELASTIC_COUPLING_IN_UNSTEADY, RPT-005)"
@@ -464,7 +465,7 @@ def coupling_step(run_dir: str | Path) -> StepResult:
     time_increment_s = report.time_increment_s
     if cfg.time_increment_s is not None:
         if abs(cfg.time_increment_s - report.time_increment_s) > 5.0e-4:
-            raise ValueError(
+            raise FsiInputError(
                 f"the loads export prints a time increment of "
                 f"{report.time_increment_s} s but the configuration declares "
                 f"{cfg.time_increment_s} s; beyond the header's three-decimal "
@@ -481,7 +482,7 @@ def coupling_step(run_dir: str | Path) -> StepResult:
     )
     blade_families = [family.name for family in family_map.families if family.is_blade]
     if len(blade_families) != cfg.blade_count:
-        raise ValueError(
+        raise FsiInputError(
             f"the family map marks {len(blade_families)} blade families "
             f"({blade_families}) but the configuration expects {cfg.blade_count} "
             "blades; attribution is single-sourced in the map (RPT-005 finding 6)"

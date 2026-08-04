@@ -28,6 +28,7 @@ import numpy as np
 
 from pyflightstream.extras import missing_extra
 from pyflightstream.fsi.config import FsiConfig
+from pyflightstream.fsi.errors import FsiInputError
 
 try:
     from Pynite import FEModel3D
@@ -185,7 +186,7 @@ def apply_station_loads(
         if values is None:
             continue
         if len(values) != n:
-            raise ValueError(
+            raise FsiInputError(
                 f"{name} has {len(values)} entries for {n} stations; sectional "
                 "loads must be sampled at the configuration stations"
             )
@@ -193,7 +194,7 @@ def apply_station_loads(
             model.add_member_dist_load(f"B{i:03d}", direction, values[i], values[i + 1])
     if torsion_moment_n_m_per_m is not None:
         if len(torsion_moment_n_m_per_m) != n:
-            raise ValueError(
+            raise FsiInputError(
                 f"torsion_moment_n_m_per_m has {len(torsion_moment_n_m_per_m)} "
                 f"entries for {n} stations; sectional loads must be sampled at "
                 "the configuration stations"
@@ -292,7 +293,7 @@ def modal_frequencies(
     flap_mass, twist_inertia = lumped_station_masses(cfg)
 
     if twist_stiffness_n_m_per_rad is not None and len(twist_stiffness_n_m_per_rad) != n_stations:
-        raise ValueError(
+        raise FsiInputError(
             f"twist_stiffness_n_m_per_rad has {len(twist_stiffness_n_m_per_rad)} "
             f"entries for {n_stations} stations; the lumped torsional stiffening "
             "must be sampled at the configuration stations"
@@ -339,7 +340,7 @@ def modal_frequencies(
     for k in range(min(n_modes, len(eigenvalues))):
         lam = eigenvalues[k]
         if lam < 0.0:
-            raise ValueError(
+            raise FsiInputError(
                 "negative eigenvalue in the modal problem: the axial state is "
                 "beyond buckling of this blade, or the model is not analyzed"
             )

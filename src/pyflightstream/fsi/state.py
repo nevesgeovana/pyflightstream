@@ -27,6 +27,7 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict, Field
 
 from pyflightstream._errors import PyflightstreamError
+from pyflightstream.fsi.errors import FsiInputError
 
 logger = logging.getLogger(__name__)
 
@@ -343,7 +344,7 @@ def check_state_matches_config(
         check(f"recorded_twist step {record.step}", record.elastic_twist_rad)
 
     if problems:
-        raise ValueError(
+        raise FsiInputError(
             "the persisted state does not describe the configured blade: "
             + "; ".join(problems)
             + ". A resumed run consumes these arrays positionally, so continuing "
@@ -366,7 +367,7 @@ def check_state_matches_config(
         and state.config_hash is not None
         and state.config_hash != config_hash
     ):
-        raise ValueError(
+        raise FsiInputError(
             f"the persisted state was created under configuration "
             f"{state.config_hash[:12]} and this run uses {config_hash[:12]}. The "
             "array shapes agree, which is why this was silent: blade and station "

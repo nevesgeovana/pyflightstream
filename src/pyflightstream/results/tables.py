@@ -54,6 +54,7 @@ from pyflightstream.extras import missing_extra
 from pyflightstream.results import (
     IncompleteOutputError,
     LoadsReport,
+    MalformedOutputError,
     ProbePointsReport,
     ResidualSample,
     parse_loads,
@@ -151,7 +152,7 @@ def to_table(result: object) -> pd.DataFrame:
         if result and all(isinstance(sample, ResidualSample) for sample in result):
             return _residual_history_frame(list(result))
         if not result:
-            raise ValueError(
+            raise MalformedOutputError(
                 "an empty result list holds no rows to tabulate; the parsers never "
                 "return an empty history (they raise IncompleteOutputError instead), "
                 "so an empty list points at filtering upstream of this call"
@@ -375,7 +376,7 @@ def sweep_table(
     workspace = _as_workspace(workspace)
     records = workspace.read_manifest()
     if not records:
-        raise ValueError(
+        raise MalformedOutputError(
             f"the campaign root {workspace.root} has no manifest records; "
             "run_campaign writes one runs.json record per executed point, so "
             "aggregate after the campaign ran, and check the root path"

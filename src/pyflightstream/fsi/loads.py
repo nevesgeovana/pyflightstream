@@ -60,6 +60,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.fsi.config import FsiConfig, frame_embedding
+from pyflightstream.fsi.errors import FsiInputError
 from pyflightstream.results import (
     AnchorNotFoundError,
     IncompleteOutputError,
@@ -336,7 +337,7 @@ class SectionalLoadsReport:
         """
         if family_map.total_sections != self.count:
             counts = [family.count for family in family_map.families]
-            raise ValueError(
+            raise FsiInputError(
                 f"the family map accounts for {family_map.total_sections} sections "
                 f"({counts}) but the export holds {self.count}; the map does not "
                 "describe the distributions of this run"
@@ -480,7 +481,7 @@ def parse_sectional_loads(text: str) -> SectionalLoadsReport:
         )
     columns = tuple(cell.strip() for cell in header_line.split(",") if cell.strip())
     if columns != EXPECTED_COLUMNS:
-        raise ValueError(
+        raise FsiInputError(
             f"the sectional loads table names columns {columns}, expected "
             f"{EXPECTED_COLUMNS}; the layout changed and the blade-frame "
             "mapping of the force columns must be re-verified before parsing"
@@ -516,12 +517,12 @@ def parse_sectional_loads(text: str) -> SectionalLoadsReport:
         if cells and not cells[-1].strip():
             cells.pop()
         if len(cells) != len(columns):
-            raise ValueError(
+            raise FsiInputError(
                 f"a sectional loads row holds {len(cells)} values but the header "
                 f"names {len(columns)} columns; the table layout changed"
             )
         if not all(cell.strip() for cell in cells):
-            raise ValueError(
+            raise FsiInputError(
                 f"a sectional loads row has an empty field ({','.join(cells)!r}), so a "
                 "column is missing rather than zero. A blank used to be dropped before "
                 "the count, which shifted every value after it one column left"
@@ -717,7 +718,7 @@ def to_elastic_axis(block: SectionBlock, cfg: FsiConfig) -> ElasticAxisLoads:
     span = stations[-1] - stations[0]
     tolerance = _SPAN_TOLERANCE * span
     if radii.min() < stations[0] - tolerance or radii.max() > stations[-1] + tolerance:
-        raise ValueError(
+        raise FsiInputError(
             f"the sections of family {block.family!r} span "
             f"[{radii.min():.4g}, {radii.max():.4g}] m but the configured blade "
             f"spans [{stations[0]:.4g}, {stations[-1]:.4g}] m; this configuration "
@@ -741,7 +742,7 @@ def to_elastic_axis(block: SectionBlock, cfg: FsiConfig) -> ElasticAxisLoads:
     margin = _COVERAGE_MARGIN * span
     if radii.min() > stations[0] + margin or radii.max() < stations[-1] - margin:
         covered = (radii.max() - radii.min()) / span
-        raise ValueError(
+        raise FsiInputError(
             f"the sections of family {block.family!r} cover "
             f"[{radii.min():.4g}, {radii.max():.4g}] m, which is {covered:.1%} of the "
             f"configured blade span [{stations[0]:.4g}, {stations[-1]:.4g}] m. The "
@@ -828,7 +829,7 @@ def cross_check_totals(
         scale = max(abs(total), abs(integrated), 1e-9)
         deltas[name] = abs(total - integrated) / scale
         if deltas[name] > rel_tol:
-            raise ValueError(
+            raise FsiInputError(
                 f"the sectional {name.upper()} of family {block.family!r} "
                 f"integrates to {total:.6g} N but the integrated export reports "
                 f"{integrated:.6g} N ({deltas[name]:.2%} apart, tolerance "

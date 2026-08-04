@@ -547,6 +547,78 @@ def test_a_collision_knowable_at_plan_time_is_refused_there(tmp_path, alphas, ou
         assert PlanStatus.BLOCKED not in statuses
 
 
+@pytest.mark.parametrize(
+    ("alphas", "outputs"),
+    [
+        ((0.0,), ("loads.txt", "loads.txt")),
+        ((0.0,), ("a/loads.txt", "b/loads.txt")),
+        ((0.0, 2.0), ("loads.txt",)),
+    ],
+)
+def test_the_run_path_refuses_the_collision_without_starting_the_solver(tmp_path, alphas, outputs):
+    """The half the plan-time test cannot reach, and the half that costs money.
+
+    `_output_collision` has TWO call sites: `_plan_case_error`, which
+    `plan_campaign` reaches, and `_prepare_case`, which `run_campaign`
+    reaches. Every earlier test went through the first, so the QA pass
+    disabled the SECOND and the whole suite stayed byte-identically
+    green. A user calling `run_campaign` directly, which the README
+    teaches and `run_matrix` does, would have gone back to learning
+    about the collision at collection time, after the solver had run.
+    That is the licensed seat this fix exists to save, and nothing was
+    watching the path that spends it.
+
+    The load-bearing assertion is that no script OF THIS CAMPAIGN was
+    executed. Asserting only that the run failed would pass on a
+    campaign that ran the solver and then refused, which is the defect
+    rather than the fix.
+
+    It is scoped to the workspace rather than written as
+    ``started == []`` because the solver-identity pre-flight legitimately
+    invokes the executable once, from a temporary directory, before any
+    case is prepared. Worth recording while it is in view: that pre-flight
+    therefore runs BEFORE this refusal, so a collision knowable from the
+    campaign file alone still costs one solver start. That is the
+    pre-flight's own design and not this guard's business, but a reader
+    of this test should not conclude that nothing at all was launched.
+    """
+
+    class RecordingSolver(StubSolver):
+        def __init__(self):
+            super().__init__(WRITES_LOADS)
+            self.started: list[str] = []
+
+        def _argv(self, script_path: Path) -> list[str]:
+            self.started.append(str(script_path))
+            return super()._argv(script_path)
+
+    campaign = make_campaign(tmp_path, alphas=alphas, outputs=outputs)
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    executor = RecordingSolver()
+
+    with pytest.raises(CampaignErrors):
+        run_campaign(
+            campaign,
+            executor,
+            workspace,
+            assess=converged,
+            recipes={"steady": steady_recipe},
+        )
+
+    from_this_campaign = [path for path in executor.started if str(workspace.root) in path]
+    assert from_this_campaign == [], (
+        f"the solver was started on {from_this_campaign}, a script of a campaign whose "
+        "output names collide, so the refusal happened after the run rather than "
+        "before it. The collision is knowable from the campaign alone; spending a "
+        "licensed solver seat to discover it is the defect PLN-20260802-1904 closed"
+    )
+    records = workspace.read_manifest()
+    assert records, "the refusal recorded no point at all, so the manifest hides the failure"
+    for record in records:
+        assert record.status.startswith("FAILED")
+        assert "overwrite the first" in (record.error or "")
+
+
 def test_the_plan_and_the_collection_agree_on_the_collected_name():
     """One rule, two boundaries, and the boundaries must not re-derive it.
 

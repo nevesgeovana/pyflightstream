@@ -21,6 +21,7 @@ from pathlib import Path
 import yaml
 
 from pyflightstream.commands import CommandEntry
+from pyflightstream.qa.errors import QaEvidenceError
 from pyflightstream.qa.probes import ProbeOutcome, ProbeRun
 
 COMPAT_SCHEMA = "pyflightstream-compat-report/1"
@@ -162,7 +163,7 @@ def read_compat_report(path: str | Path) -> dict:
     """
     document = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
     if not isinstance(document, dict) or document.get("schema") != COMPAT_SCHEMA:
-        raise ValueError(
+        raise QaEvidenceError(
             f"{path} is not a compat report (expected schema {COMPAT_SCHEMA!r}); "
             "apply-compat only promotes statuses from probe evidence"
         )
@@ -220,7 +221,7 @@ def apply_compat(
     commands_dir = Path(commands_dir)
     order = _release_order(commands_dir)
     if canonical not in order:
-        raise ValueError(
+        raise QaEvidenceError(
             f"the report names FlightStream version {canonical!r}, which the version "
             f"registry beside {commands_dir} does not list. Register it in "
             "commands/_meta.yaml first (the ordered list is the only ordering "
@@ -251,7 +252,7 @@ def apply_compat(
         _validate_chapter(chapter_path, names)
         promotions.extend((name, targets[name]["outcome"], chapter_path.name) for name in names)
     if pending:
-        raise ValueError(
+        raise QaEvidenceError(
             f"report judges {', '.join(sorted(pending))} but no chapter file defines "
             "them; the report and the database have diverged"
         )

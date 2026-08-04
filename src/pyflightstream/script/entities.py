@@ -86,7 +86,9 @@ class EntityRegistry:
     @staticmethod
     def _require_kind(kind: str) -> None:
         if kind not in ENTITY_KINDS:
-            raise ValueError(f"unknown entity kind {kind!r}; kinds are {', '.join(ENTITY_KINDS)}")
+            raise ScriptReferenceError(
+                f"unknown entity kind {kind!r}; kinds are {', '.join(ENTITY_KINDS)}"
+            )
 
     def count(self, kind: str) -> int | None:
         """Return the created or declared entity count of ``kind``.
@@ -185,7 +187,7 @@ class EntityRegistry:
             If the label is invalid or already taken for this kind.
         """
         if kind not in CREATED_KINDS:
-            raise ValueError(
+            raise ScriptReferenceError(
                 f"entity kind {kind!r} is not script-created; mesh boundaries come from "
                 "the loaded geometry and are declared with declare_existing(boundaries=...)"
             )
@@ -206,7 +208,9 @@ class EntityRegistry:
         longer resolve to an existing entity.
         """
         if kind not in CREATED_KINDS:
-            raise ValueError(f"entity kind {kind!r} is not script-created, so not deletable")
+            raise ScriptReferenceError(
+                f"entity kind {kind!r} is not script-created, so not deletable"
+            )
         self._counts[kind] -= 1
         limit = self.limit(kind)
         self._labels[kind] = {
@@ -225,12 +229,12 @@ class EntityRegistry:
             must be zero or positive.
         """
         if kind not in CREATED_KINDS:
-            raise ValueError(
+            raise ScriptReferenceError(
                 f"entity kind {kind!r} is not count-declared; declare mesh boundaries "
                 "through declare_existing(boundaries=...)"
             )
         if extra < 0:
-            raise ValueError(f"declared {kind} must be zero or positive, got {extra}")
+            raise ScriptReferenceError(f"declared {kind} must be zero or positive, got {extra}")
         self._counts[kind] += extra
 
     def declare_boundaries(self, declaration: int | Mapping[str, int]) -> None:
@@ -281,7 +285,9 @@ class EntityRegistry:
                 "enables citation by label"
             )
         if declaration < 0:
-            raise ValueError(f"declared boundaries must be zero or positive, got {declaration}")
+            raise ScriptReferenceError(
+                f"declared boundaries must be zero or positive, got {declaration}"
+            )
         if declaration > 0:
             self._boundary_total = (self._boundary_total or 0) + declaration
 
