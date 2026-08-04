@@ -300,6 +300,33 @@ class VersionStatus(BaseModel):
         return self
 
 
+@dataclass(frozen=True)
+class Evidence:
+    """One command's evidence for one version, and where it came from.
+
+    Returned by :meth:`CommandEntry.evidence_in`. The point of the type
+    is ``inherited``: a hotfix build falls back to its base release's
+    record, and a caller that cannot see the fallback presents an
+    assumption as a measurement.
+
+    Attributes
+    ----------
+    record : VersionStatus
+        The evidence record itself, whichever version it belongs to.
+    source : str
+        Canonical identifier of the version whose record this is. Equal
+        to the version asked about when the record is direct.
+    inherited : bool
+        True when the record was taken from the base release rather
+        than recorded for the version asked about. Any report, matrix
+        or message that shows the status to a person shows this too.
+    """
+
+    record: VersionStatus
+    source: str
+    inherited: bool
+
+
 class CommandEntry(BaseModel):
     """One command of the FlightStream scripting interface.
 
@@ -429,12 +456,56 @@ class CommandEntry(BaseModel):
                 _check_layout_rules(label, self.layout, record.args)
         return self
 
-    def status_in(self, version: FsVersion) -> VersionStatus | None:
-        """Return the evidence record for ``version``, honoring hotfix inheritance.
+    def evidence_in(self, version: FsVersion) -> Evidence | None:
+        """Return the evidence for ``version`` together with its source.
 
         A hotfix build (last canonical digit not zero) inherits the
         record of its base release until probe evidence overrides it
-        (SAD Section 2).
+        (SAD Section 2). That default is right: a hotfix that does not
+        touch a command really does carry the base release's evidence,
+        and the alternative, every hotfix starting from nothing, is
+        worse.
+
+        What was wrong was that the inheritance was INVISIBLE.
+        :meth:`status_in` returns the base record with nothing saying it
+        did, so a caller cannot tell a command probed on this build from
+        one merely assumed to behave like its base. When 26.121 was
+        registered, 76 of 147 commands answered for it by inheritance,
+        each carrying a citation to a report run on 26.120, and the
+        published compatibility matrix showed the column as fully
+        covered. A hotfix had already been measured changing a command's
+        behaviour, so the assumption was known to be falsifiable
+        (PLN-20260802-2016).
+
+        This is the accessor to prefer when the answer is shown to a
+        person or written into a report. :meth:`status_in` stays for
+        callers that only need the record, and is implemented on top of
+        this one so the two can never disagree.
+
+        Parameters
+        ----------
+        version : FsVersion
+            Registered version to look up.
+
+        Returns
+        -------
+        Evidence or None
+            The record and where it came from, or None when the command
+            has no recorded evidence for this version, directly or by
+            inheritance.
+        """
+        record = self.versions.get(version.canonical)
+        if record is not None:
+            return Evidence(record=record, source=version.canonical, inherited=False)
+        base_canonical = version.canonical[:-1] + "0"
+        if base_canonical != version.canonical:
+            inheritable = self.versions.get(base_canonical)
+            if inheritable is not None:
+                return Evidence(record=inheritable, source=base_canonical, inherited=True)
+        return None
+
+    def status_in(self, version: FsVersion) -> VersionStatus | None:
+        """Return the evidence record for ``version``, honoring hotfix inheritance.
 
         Parameters
         ----------
@@ -446,14 +517,16 @@ class CommandEntry(BaseModel):
         VersionStatus or None
             The evidence record, or None when the command has no
             recorded evidence for this version.
+
+        See Also
+        --------
+        evidence_in : the same lookup, plus whether the record was
+            inherited from the base release. Prefer it wherever the
+            answer reaches a person or a report; this method cannot
+            tell a probed record from an assumed one.
         """
-        record = self.versions.get(version.canonical)
-        if record is not None:
-            return record
-        base_canonical = version.canonical[:-1] + "0"
-        if base_canonical != version.canonical:
-            return self.versions.get(base_canonical)
-        return None
+        evidence = self.evidence_in(version)
+        return evidence.record if evidence is not None else None
 
 
 @dataclass(frozen=True)

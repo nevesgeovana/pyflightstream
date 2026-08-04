@@ -586,6 +586,16 @@ def help(  # noqa: A001
 # ---------------------------------------------------------------------------
 
 
+#: Marks a matrix cell whose evidence was inherited from the base
+#: release rather than recorded for that build. A superscript rather
+#: than a word, so the status stays the thing the eye lands on, and
+#: with a title so hovering explains it without a legend lookup
+#: (PLN-20260802-2016).
+_INHERITED_MARK = (
+    '<sup title="inherited from the base release, not probed on this build">base</sup>'
+)
+
+
 def _md_cell(text: str) -> str:
     """Escape one markdown table cell (pipes and line breaks)."""
     return text.replace("|", "\\|").replace("\n", " ").strip()
@@ -716,14 +726,17 @@ def markdown_compatibility_matrix() -> str:
         version.canonical: dict.fromkeys(Status, 0) for version in versions
     }
     none_counts: dict[str, int] = dict.fromkeys(counts, 0)
+    inherited_counts: dict[str, int] = dict.fromkeys(counts, 0)
     for members in chapters.values():
         for entry in members:
             for version in versions:
-                record = entry.status_in(version)
-                if record is None:
+                evidence = entry.evidence_in(version)
+                if evidence is None:
                     none_counts[version.canonical] += 1
                 else:
-                    counts[version.canonical][record.status] += 1
+                    counts[version.canonical][evidence.record.status] += 1
+                    if evidence.inherited:
+                        inherited_counts[version.canonical] += 1
 
     lines = [
         "# Version compatibility matrix",
@@ -734,11 +747,20 @@ def markdown_compatibility_matrix() -> str:
         "command awaits release-notes review or backfill probing, and the "
         "script builder refuses it for that version until evidence lands.",
         "",
+        "A cell marked " + _INHERITED_MARK + " carries the base release's "
+        "evidence rather than evidence recorded for that build. A hotfix "
+        "build inherits its base release's record until a probe on the "
+        "hotfix overrides it, which is the honest default, but an "
+        "inherited cell is an assumption and a direct one is a "
+        "measurement. Read the two differently: this repository has "
+        "measured a hotfix changing a command's behaviour, so the "
+        "assumption is known to be falsifiable.",
+        "",
         "## Evidence per version",
         "",
         "| Version | Vendor name | Documented | Verified | Broken | Removed | No evidence "
-        "| Manual edition |",
-        "|---|---|---|---|---|---|---|---|",
+        "| Of which inherited | Manual edition |",
+        "|---|---|---|---|---|---|---|---|---|",
     ]
     for version in versions:
         row = counts[version.canonical]
@@ -747,6 +769,7 @@ def markdown_compatibility_matrix() -> str:
             f"| {version.canonical} | {version.alias} "
             f"| {row[Status.DOCUMENTED]} | {row[Status.VERIFIED]} | {row[Status.BROKEN]} "
             f"| {row[Status.REMOVED]} | {none_counts[version.canonical]} "
+            f"| {inherited_counts[version.canonical]} "
             f"| {_md_cell(edition)} |"
         )
     lines.append("")
@@ -761,8 +784,13 @@ def markdown_compatibility_matrix() -> str:
         for entry in members:
             cells = []
             for version in versions:
-                record = entry.status_in(version)
-                cells.append(_status_span(record.status) if record else "")
+                evidence = entry.evidence_in(version)
+                if evidence is None:
+                    cells.append("")
+                elif evidence.inherited:
+                    cells.append(_status_span(evidence.record.status) + " " + _INHERITED_MARK)
+                else:
+                    cells.append(_status_span(evidence.record.status))
             link = f"[{entry.name}](reference/{entry.chapter}.md#{entry.name.lower()})"
             lines.append(f"| {link} | " + " | ".join(cells) + " |")
         lines.append("")

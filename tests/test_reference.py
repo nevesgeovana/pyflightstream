@@ -66,8 +66,12 @@ def test_compatibility_matrix_is_honest_about_missing_evidence():
     page = markdown_compatibility_matrix()
     registry = CommandRegistry.load()
     # Every registered version is a column; 26.000 has no evidence yet,
-    # so its summary row reports the whole database as unrecorded.
-    assert f"| 26.000 | 26.0 | 0 | 0 | 0 | 0 | {len(registry.commands)} | none registered |" in page
+    # so its summary row reports the whole database as unrecorded, and
+    # none of that absence can be inherited (it is a base release, and
+    # there is nothing below it to inherit from).
+    assert (
+        f"| 26.000 | 26.0 | 0 | 0 | 0 | 0 | {len(registry.commands)} | 0 | none registered |"
+    ) in page
     assert "SRC-725" in page and "SRC-003" in page
     # Commands link back to their reference entry anchors.
     assert "[SET_SOLVER_STEADY](reference/solver_settings.md#set_solver_steady)" in page

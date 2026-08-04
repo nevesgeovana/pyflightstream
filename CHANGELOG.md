@@ -9,6 +9,45 @@ FlightStream versions.
 
 ### API surface delta
 
+* **New public names: `commands.Evidence` and
+  `CommandEntry.evidence_in`.** The compatibility matrix showed 76 of
+  147 cells for 26.121 as though that build had been probed, and it had
+  not.
+
+  A hotfix build inherits its base release's evidence until a probe on
+  the hotfix overrides it. That default is right and it is not what
+  changed. What changed is that the inheritance was INVISIBLE:
+  `status_in` returned the base record with nothing saying it had, so an
+  inherited cell and a directly probed cell were indistinguishable, and
+  each inherited cell carried a citation to a report run on the OTHER
+  build.
+
+  It mattered because a hotfix had already been measured changing a
+  command: `AIR_ALTITUDE` is broken on 26.120 and verified on 26.121. So
+  the inherited answer was known to be falsifiable at the moment it was
+  being published as fact.
+
+  ```python
+  evidence = entry.evidence_in(resolve("26.121"))
+  evidence.record      # the VersionStatus, as status_in returns
+  evidence.source      # "26.120" when it came from the base release
+  evidence.inherited   # True: an assumption, not a measurement
+  ```
+
+  `status_in` is unchanged in behaviour and is now implemented on top of
+  `evidence_in`, so the two cannot drift. Prefer `evidence_in` wherever
+  the answer reaches a person or a report.
+
+  The published matrix marks every inherited cell and its per-version
+  summary gains an **Of which inherited** column, which reads 76 for
+  26.121 and 0 everywhere else. A tier-1 guard asserts that the marked
+  set and the inherited set are the same set, in both directions:
+  showing an assumption as a measurement and showing a measurement as
+  an assumption are the same defect pointing opposite ways.
+
+  Not changed, and measured rather than assumed: `version_support`
+  counts 69 probed commands for 26.121 of which 68 were probed on that
+  build, so its overstatement is one command and its level is unaffected.
 * **New public name: `workspace.collection_name`.** It answers one
   question, "what name does this declared output take once collected",
   and it exists because two layers were answering it differently.
