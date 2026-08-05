@@ -1,5 +1,5 @@
 schema: pyflightstream-physics-report/1
-fs_version: '26.100'
+fs_version: '26.101'
 date: '2026-07-21'
 package_version: 0.0.1.dev0
 fs_exe: FlightStream.exe

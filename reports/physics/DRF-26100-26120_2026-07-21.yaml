@@ -1,10 +1,10 @@
 schema: pyflightstream-drift-report/1
-fs_version_a: '26.100'
+fs_version_a: '26.101'
 fs_version_b: '26.120'
 date: '2026-07-21'
 package_version: 0.0.1.dev0
 fs_exes:
-  '26.100': FlightStream.exe
+  '26.101': FlightStream.exe
   '26.120': Flightstream_2612.exe
 executor: LocalExecutor, -hidden --script (SRC-003 pp.279-280)
 solver_identity:

@@ -184,6 +184,15 @@ def test_the_guide_states_the_package_version_it_ships_with():
     pyproject = Path(__file__).parents[1] / "pyproject.toml"
     declared = tomllib.loads(pyproject.read_text(encoding="utf-8"))["project"]["version"]
 
+    # The BASE version, so a development window does not demand that the
+    # cover print "0.5.0.dev0". The cover names the release the guide is
+    # being written for, and pyproject names the same release with a
+    # development suffix while it is being built; comparing the base
+    # keeps them moving together without putting a dev marker on a cover.
+    from packaging.version import Version
+
+    declared = Version(declared).base_version
+
     stated = GUIDE_PACKAGE_VERSION.search(guide_text())
     assert stated is not None, (
         "the guide's title page no longer states a package version in "

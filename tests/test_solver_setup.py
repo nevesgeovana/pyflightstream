@@ -88,7 +88,7 @@ def test_provenance_markers_and_default_evidence():
 def test_defaults_of_commands_absent_from_the_version_stay_unknown():
     # 26.100 records no evidence for the advanced_settings commands, so
     # the library default is not emitted and nothing is claimed.
-    script = Script(version="26.1")
+    script = Script(version="26.101")
     setup = helpers.solver_settings(script, vorticity_drag_boundaries="all")
     assert "SOLVER_MINIMUM_CP" not in script.render()
     assert setup.flags["SOLVER_MINIMUM_CP"].provenance == "unknown"

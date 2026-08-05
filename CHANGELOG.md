@@ -7,6 +7,47 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### API surface delta
+
+* **Breaking, and it can affect a script you already wrote:
+  `resolve("26.1")` now raises `AmbiguousVersionAliasError` where it
+  returned 26.100.** Two registered builds carry that vendor name since
+  the February 2026 install was registered, exactly as 26.120 and 26.121
+  have shared "26.12" all along. The refusal names both candidates; pass
+  the canonical identifier. No deprecation cycle is possible for this:
+  the name stopped being unique because the vendor shipped another build
+  under it, not because this package renamed anything.
+
+  Read the general lesson rather than only the instance: a vendor
+  release name is unique only until the vendor reuses it, so a script
+  that passes one is correct until it silently is not. Canonical
+  identifiers are the stable input.
+* **New registered version: 26.101**, the May 2026 build (vendor build
+  5012026). Purely additive, and no version was dropped (CLAUDE.md
+  invariant 4).
+* **26.100 now names the FEBRUARY 2026 build** (vendor build 2122026,
+  read from the solver's own identity line), and carries no command
+  evidence yet. Its 38 records did not disappear: they describe the May
+  build, which was appended as 26.101, and they moved there with it.
+
+### Changed
+
+* **Every committed report of a 26.1x run had its version LABEL
+  corrected, and nothing else.** Eleven reports recorded runs of vendor
+  build 5012026 under the name 26.100, which this repository reassigned
+  on 2026-08-04 when the earlier February build took that index under
+  the append-only ordering rule. The build number, the executable name,
+  the date, the measurements and the outcomes are byte-identical; each
+  report carries a note saying so, and each keeps its original id
+  because ids are cited elsewhere. The `fs_exes` field of the drift
+  reports confirms the reattribution independently: they ran
+  `FlightStream.exe`, which is the executable of the install now named
+  26.101.
+* The `26.100` manual edition is now SRC-741 (Altair FlightStream User
+  Guide, February 2026, 396 pages). SRC-725 moves to 26.101, which is
+  the edition every existing SRC-725 citation was read from, so no page
+  citation changed meaning.
+
 ## [0.4.0] - 2026-08-04
 
 ### API surface delta

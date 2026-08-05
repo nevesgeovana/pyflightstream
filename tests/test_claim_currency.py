@@ -53,14 +53,24 @@ def test_the_readme_status_line_names_the_version_being_released() -> None:
     would have announced v0.3.0 as the current release from inside the
     v0.4.0 page, while ``docs/index.md`` in the same tree said v0.4.0.
 
-    Anchored on ``pyproject.toml`` rather than on a literal, so it moves
-    itself at the next bump instead of becoming the next stale claim.
-    """
-    import tomllib
+    Anchored on the CHANGELOG's newest RELEASED heading rather than on a
+    literal, so it moves itself at the next release instead of becoming
+    the next stale claim.
 
-    version = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))["project"][
-        "version"
-    ]
+    Not on ``pyproject.toml``, and the first version of this guard got
+    that wrong on the day it was written. During a release commit the two
+    agree, which is why the error was invisible; in a development window
+    pyproject carries ``.dev0`` of the version being BUILT while this
+    sentence is about what is PUBLIC. Anchoring there made the guard
+    demand that the README announce a release that does not exist yet.
+    The changelog's newest released heading is the single home of "what
+    is on PyPI".
+    """
+    released = re.findall(
+        r"^## \[(\d+\.\d+\.\d+)\]", (REPO / "CHANGELOG.md").read_text(encoding="utf-8"), re.M
+    )
+    assert released, "the changelog states no released version, so this guard reads nothing"
+    version = released[0]
     status = [
         line
         for line in README.read_text(encoding="utf-8").splitlines()
@@ -68,9 +78,9 @@ def test_the_readme_status_line_names_the_version_being_released() -> None:
     ]
     assert len(status) == 1, f"expected one README status line, found {len(status)}"
     assert version in status[0], (
-        f"the README status line is {status[0]!r} and pyproject declares {version}. "
-        "That line is rendered by PyPI as the project page for the version being "
-        "published, so a stale one ships as the release's own front page."
+        f"the README status line is {status[0]!r} and the newest released version in "
+        f"CHANGELOG.md is {version}. That line is rendered by PyPI as the project "
+        "page, so a stale one ships as the release's own front page."
     )
 
 

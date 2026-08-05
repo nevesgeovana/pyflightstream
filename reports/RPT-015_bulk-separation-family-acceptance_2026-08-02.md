@@ -1,5 +1,14 @@
 # RPT-015: the bulk-separation family is not a rename, and the old command is broken
 
+> **Version identifier renumbered, 2026-08-04.** This run is recorded here
+> under **26.101**. It was made and first recorded as 26.100, the name this
+> repository then gave vendor build 5012026. On 2026-08-04 the author added
+> the earlier February 2026 build, which takes the earlier index 26.100 under
+> the append-only ordering rule, so this build was appended as 26.101. The
+> build number, the executable, the date and every measurement below are
+> unchanged: only the label pointing at them moved. The report id keeps its
+> original form because it is cited elsewhere.
+
 Date: 2026-08-02. Licensed machine, FlightStream 26.120 (build #7012026) and
 26.121 (build #7262026). Synthetic geometry only: a generated NACA 0012
 half-wing from `pyflightstream.qa.geometry`. No research geometry involved.
@@ -52,7 +61,7 @@ alongside an old one vanishing, does not hold: nothing appeared.
 form was refused on the build whose own manual (SRC-003 p.342) documents it:
 the four-argument form with all boundaries, the same with an explicit count and
 index line, the three-argument 26.1 form that RPT-012 ran successfully on
-26.100, and the CYLINDRICAL separation type. The command database records it
+26.101, and the CYLINDRICAL separation type. The command database records it
 `documented` for 26.120, and that status is now contradicted by evidence.
 
 This is a manual-versus-reality discrepancy of the "documented but broken"

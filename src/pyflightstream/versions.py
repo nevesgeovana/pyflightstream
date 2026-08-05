@@ -260,8 +260,14 @@ def resolve(version: str | FsVersion) -> FsVersion:
     ----------
     version : str or FsVersion
         Canonical identifier (``"26.120"``), a display alias that names
-        exactly one registered build (``"26.1"``), or an already
-        resolved :class:`FsVersion`, returned unchanged.
+        exactly one registered build (``"26.0"``), or an already
+        resolved :class:`FsVersion`, returned unchanged. Note which
+        alias the example uses: ``"26.1"`` named one build until
+        2026-08-04 and now names two, so it raises
+        :class:`AmbiguousVersionAliasError` like ``"26.12"`` does. An
+        alias is unique only until the vendor ships the next build under
+        the same release name, which is why the canonical identifier is
+        the one to pass from a script.
 
     Returns
     -------

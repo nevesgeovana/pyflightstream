@@ -6,7 +6,7 @@ SET_SOLVER_STEADY:
   args: []
   manual_ref: "SRC-003 p.341"
   versions:
-    "26.100": {status: documented, note: "SRC-725 p.340, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.340, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-02_full.yaml"}
 
@@ -94,18 +94,20 @@ CREATE_BULK_SEPARATION:
       required: false
   manual_ref: "SRC-003 p.342"
   versions:
-    "26.100":
+    "26.101":
       status: documented
       note: >-
         SRC-725 p.341 documents a three-argument form without
         SEPARATION_TYPE. The same page's sample blocks spell the
         command CREARE_BULK_SEPARATION while the function header
-        spells CREATE_BULK_SEPARATION; a controlled 26.100 run
+        spells CREATE_BULK_SEPARATION; a controlled 26.101 run
         (build 5012026, RPT-012) resolved the spelling: the solver
         accepts CREATE_BULK_SEPARATION and rejects CREARE as an
         unrecognized command, so CREARE is a manual typo and the
-        header spelling stands. Status stays documented pending an
-        effect-asserting harness probe on 26.100
+        header spelling stands. That run was recorded as 26.100 before
+        the renumbering of 2026-08-04; the build is what identifies it.
+        Status stays documented pending an effect-asserting harness
+        probe on 26.101
       args:
         - name: name
           type: str

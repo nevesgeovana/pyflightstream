@@ -1,5 +1,14 @@
 # RPT-005: WP1 FSI dry run on FlightStream 26.120 (2026-07-21)
 
+> **Version identifier renumbered, 2026-08-04.** This run is recorded here
+> under **26.101**. It was made and first recorded as 26.100, the name this
+> repository then gave vendor build 5012026. On 2026-08-04 the author added
+> the earlier February 2026 build, which takes the earlier index 26.100 under
+> the append-only ordering rule, so this build was appended as 26.101. The
+> build number, the executable, the date and every measurement below are
+> unchanged: only the label pointing at them moved. The report id keeps its
+> original form because it is cited elsewhere.
+
 The WP1 dry run of the M6 FSI line (DLV-007 Section 7), executed on
 the licensed local machine with FlightStream 26.120 build 7012026 and
 the `pyfs-fsi` dummy executable. Vehicle: the shareable generic-blade
@@ -91,5 +100,5 @@ spaces.
 * `FSLoadDistributions.txt` (raw grid-node forces): its export
   toggle is documented only in the Toolbox GUI settings (SRC-003
   p.273); not needed for the DLV-007 contract, not pursued.
-* 26.100 support for the family is unprobed (the family is new in
+* 26.101 support for the family is unprobed (the family is new in
   26.1; both local builds print 26.1).

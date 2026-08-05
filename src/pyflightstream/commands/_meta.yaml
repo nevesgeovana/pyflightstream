@@ -11,9 +11,26 @@
 versions:
   - canonical: "26.000"
     alias: "26.0"
+  # RENUMBERED 2026-08-04, and read this before reading any 26.1x
+  # evidence dated earlier. Until that date this repository's "26.100"
+  # meant vendor build 5012026, a May 2026 install. The author then
+  # obtained the FEBRUARY 2026 build, which precedes it, and the
+  # ordering rule above (release order, append only) puts the earlier
+  # build at the earlier index. So 26.100 now names the February build
+  # and the May build was appended as 26.101. Nothing was dropped
+  # (invariant 4): the identifier was reassigned and the May build kept
+  # every record and every report it had, under its new name.
+  #
+  # 26.100 therefore carries NO build here yet. Its build is not
+  # unknown to the author, but it is unknown to this repository, and
+  # the rule above admits a build only from a committed report's
+  # solver_identity. It gains one when an identity run is committed.
   - canonical: "26.100"
     alias: "26.1"
-    # reports/physics/PHY-26100_2026-07-21_smi01-triage-rerun.yaml
+  - canonical: "26.101"
+    alias: "26.1"
+    # reports/physics/PHY-26101_2026-07-21_smi01-triage-rerun.yaml
+    # (recorded under the name 26.100 before the 2026-08-04 renumbering)
     build: "5012026"
   - canonical: "26.120"
     alias: "26.12"
@@ -30,9 +47,20 @@ versions:
 
 manual_editions:
   "26.100": >
-    SRC-725: Altair FlightStream User Manual, 26.1 edition (local,
-    _private/exe/FlightStream_26100/), scripting reference from p.278;
-    cited in version notes as "SRC-725 p.N"
+    SRC-741: Altair FlightStream User Guide, 26.1 February 2026 edition
+    (local, _private/exe/FlightStream_26100/), 396 pages, Scripting
+    chapter from p.273 and its Script Index from p.370; cited in version
+    notes as "SRC-741 p.N". NOT interchangeable with SRC-725 below: they
+    are different editions of the same vendor release name, and no page
+    citation carries between them.
+  "26.101": >
+    SRC-725: Altair FlightStream User Manual, 26.1 May 2026 edition
+    (local, _private/exe/FlightStream_26101/), 409 pages, Scripting
+    chapter from p.278 and its Script Index from p.376; cited in version
+    notes as "SRC-725 p.N". This is the edition every SRC-725 citation
+    in this database was read from; those citations were made while the
+    install was named 26.100 and are unchanged, because the document did
+    not change, only the version identifier pointing at it.
   "26.120": "SRC-003: FlightStream User Manual v2612, scripting reference pp. 286-371"
   "26.121": >
     SRC-740: Altair FlightStream User Manual, 26.12 hotfix build 1

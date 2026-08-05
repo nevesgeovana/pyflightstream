@@ -177,8 +177,8 @@ def test_smi_script_opens_and_solves_the_local_file(tmp_path):
     assert "SET_SOLVER_STEADY" in rendered
     assert "SOLVER_SET_AOA 2.0" in rendered
     assert "SOLVER_SET_REF_AREA 1.0" in rendered
-    # The SMI script must also build for 26.100 (the scoped backfill).
-    script_26100 = build_smi_script("26.100", tmp_path / "28_B.fsm", "loads.txt", "log.txt")
+    # The SMI script must also build for 26.101 (the scoped backfill).
+    script_26100 = build_smi_script("26.101", tmp_path / "28_B.fsm", "loads.txt", "log.txt")
     assert not script_26100.raw_flag
 
 
@@ -316,13 +316,13 @@ def test_unsteady_cases_are_gated_to_versions_with_evidence(tmp_path):
     )
 
     assert PHYSICS_CASES["PHY-05"].supports("26.120")
-    assert not PHYSICS_CASES["PHY-05"].supports("26.100")
-    assert not PHYSICS_CASES["PHY-06"].supports("26.100")
+    assert not PHYSICS_CASES["PHY-05"].supports("26.101")
+    assert not PHYSICS_CASES["PHY-06"].supports("26.101")
     fake_exe = tmp_path / "fs.exe"
     fake_exe.write_text("not a solver")
     with pytest.raises(PhysicsEnvironmentError, match="no command evidence"):
         run_physics(
-            "26.100",
+            "26.101",
             fs_exe=fake_exe,
             workroot=tmp_path / "runs",
             cases=["PHY-05"],

@@ -104,7 +104,7 @@ def test_emission_is_version_aware_across_the_registered_versions():
     # The probe family is stable across 26.1 and 26.12 (SRC-725
     # pp.361-362 / SRC-003 pp.362-363) and has no 26.000 evidence yet,
     # so 26.000 refuses with the didactic citation.
-    emit_probe_points(Script(version="26.1"), small_lattice())
+    emit_probe_points(Script(version="26.101"), small_lattice())
     with pytest.raises(CommandNotInVersionError, match="no recorded evidence"):
         emit_probe_points(Script(version="26.0"), small_lattice())
 

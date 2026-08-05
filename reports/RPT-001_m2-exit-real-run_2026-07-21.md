@@ -1,5 +1,14 @@
 # RPT-001: M2 exit real local run (2026-07-21)
 
+> **Version identifier renumbered, 2026-08-04.** This run is recorded here
+> under **26.101**. It was made and first recorded as 26.100, the name this
+> repository then gave vendor build 5012026. On 2026-08-04 the author added
+> the earlier February 2026 build, which takes the earlier index 26.100 under
+> the append-only ordering rule, so this build was appended as 26.101. The
+> build number, the executable, the date and every measurement below are
+> unchanged: only the label pointing at them moved. The report id keeps its
+> original form because it is cited elsewhere.
+
 Evidence for the second half of the M2 exit criterion (end-to-end dry
 run plus one real local run, Bootstrap Kit milestone map). The dry run
 is the Tier 1 suite; this report records the real run. Executables
@@ -45,7 +54,7 @@ configuration, so the values are only pipeline evidence.
 
 1. Version reporting (FR-18): both installed builds print the version
    string "26.1"; the build number is the discriminator. Observed
-   mapping: 26.100 prints build #5012026, 26.120 prints build
+   mapping: 26.101 prints build #5012026, 26.120 prints build
    #7012026 (headless smoke on both executables, PRINT plus
    EXPORT_LOG scripts, return code 0).
 2. Hidden-mode exported logs carry stray NUL bytes between lines;

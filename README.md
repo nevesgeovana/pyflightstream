@@ -142,7 +142,8 @@ the evidence rather than declared:
 | Version | Vendor name | Support level | What that means here |
 |---|---|---|---|
 | 26.000 | 26.0 | `registered` | Ordered in the registry, no command carries evidence for it, so nothing can be built yet |
-| 26.100 | 26.1 | `documented` | Commands drafted from the manual with page citations, none measured against a running solver |
+| 26.100 | 26.1 | `registered` | The February 2026 build. Ordered in the registry since 2026-08-04, no command carries evidence for it yet |
+| 26.101 | 26.1 | `documented` | The May 2026 build. 37 commands drafted from the manual with page citations, none measured against a running solver |
 | 26.120 | 26.12 | `operational` | Probe evidence from a licensed machine, and the minimal end-to-end workflow builds |
 | 26.121 | 26.12 | `operational` | Hotfix build 1. It inherits the 26.120 records except where a probe on this build overrode them; the compatibility matrix marks every inherited cell and counts them |
 
@@ -161,12 +162,17 @@ tier 1 test builds for every version reported at that level.
 Canonical identifiers use the 26.XXX scheme, the last digit indexing
 vendor hotfix builds, so 26.121 is hotfix build 1 of the 26.12 release.
 The vendor ships both 26.120 and 26.121 under the one release name
-"26.12", so that name no longer selects a build and is refused with
-both candidates named; pass the canonical identifier. The ordered list
+"26.12", and both 26.100 and 26.101 under "26.1", so neither name
+selects a build and each is refused with its candidates named; pass the
+canonical identifier. A vendor name is unique only until the vendor
+ships the next build under it, which is why a script should not rely on
+one. The ordered list
 in `src/pyflightstream/commands/_meta.yaml` is the only ordering
 authority, and it orders releases, not support: 26.100 is newer than
 26.000 and both sit below 26.120. Supported versions are only ever
-added, never dropped. The compatibility matrix in the docs is generated
+added, never dropped, which is why the February 2026 build entered as
+26.100 and the May build it displaced was appended as 26.101 rather
+than either being renamed away. The compatibility matrix in the docs is generated
 from the database at build time.
 
 ## What is each folder?

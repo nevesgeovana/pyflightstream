@@ -88,7 +88,7 @@ VOLUME_SECTION_BOUNDARY_LAYER:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-725 p.365"
   versions:
-    "26.100": {status: documented}
+    "26.101": {status: documented}
     "26.120":
       status: removed
       note: >-

@@ -224,7 +224,7 @@ def test_view_raises_for_absent_evidence_and_removed():
         registry.for_version("26.120")["SONIC_VELOCITY"]
     with pytest.raises(CommandNotInVersionError, match="Last documented in 26.100"):
         registry.for_version("26.120")["SONIC_VELOCITY"]
-    assert registry.for_version("26.1")["SONIC_VELOCITY"] is removed
+    assert registry.for_version("26.100")["SONIC_VELOCITY"] is removed
     with pytest.raises(CommandNotInVersionError, match="no recorded evidence"):
         registry.for_version("26.0")["SONIC_VELOCITY"]
     with pytest.raises(CommandNotInVersionError, match="not in the command database"):
@@ -272,7 +272,7 @@ def test_version_args_override_resolves_through_the_view():
     )
     registry = CommandRegistry(commands={"SET_EXAMPLE": entry})
     assert [spec.name for spec in registry.for_version("26.120")["SET_EXAMPLE"].args] == ["value"]
-    assert [spec.name for spec in registry.for_version("26.1")["SET_EXAMPLE"].args] == [
+    assert [spec.name for spec in registry.for_version("26.100")["SET_EXAMPLE"].args] == [
         "value",
         "extra",
     ]
@@ -300,10 +300,10 @@ def test_version_args_override_obeys_the_layout_rules():
 def test_bulk_separation_grammar_is_version_sensitive():
     registry = CommandRegistry.load()
     in_26120 = [spec.name for spec in registry.for_version("26.120")["CREATE_BULK_SEPARATION"].args]
-    in_26100 = [spec.name for spec in registry.for_version("26.1")["CREATE_BULK_SEPARATION"].args]
+    in_26101 = [spec.name for spec in registry.for_version("26.101")["CREATE_BULK_SEPARATION"].args]
     assert "separation_type" in in_26120
-    assert "separation_type" not in in_26100
-    assert in_26100 == ["name", "num_boundaries", "diameter", "boundary_indices"]
+    assert "separation_type" not in in_26101
+    assert in_26101 == ["name", "num_boundaries", "diameter", "boundary_indices"]
 
 
 def test_default_metadata_requires_its_citation():

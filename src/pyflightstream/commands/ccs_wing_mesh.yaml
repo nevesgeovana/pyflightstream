@@ -36,7 +36,7 @@ NEW_CCS_WING_CONTROL_SURFACE:
       required: false
   manual_ref: "SRC-003 p.299"
   versions:
-    "26.100":
+    "26.101":
       status: documented
       note: >-
         SRC-725 p.298: eight-argument form; the SPACE and AXIS

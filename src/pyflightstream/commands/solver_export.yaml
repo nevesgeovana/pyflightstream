@@ -9,7 +9,7 @@ EXPORT_SOLVER_ANALYSIS_SPREADSHEET:
       type: path
   manual_ref: "SRC-003 p.352"
   versions:
-    "26.100": {status: documented, note: "SRC-725 p.351, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.351, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-02_full.yaml"}
   notes: >

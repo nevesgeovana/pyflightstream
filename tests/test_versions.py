@@ -26,19 +26,27 @@ from pyflightstream.versions import (
 
 def test_known_versions_ordered_by_list_position():
     versions = known_versions()
-    assert [v.canonical for v in versions] == ["26.000", "26.100", "26.120", "26.121"]
-    assert [v.index for v in versions] == [0, 1, 2, 3]
-    assert versions[0] < versions[1] < versions[2] < versions[3]
-    assert versions[3] >= versions[2] >= versions[1] >= versions[0]
+    assert [v.canonical for v in versions] == ["26.000", "26.100", "26.101", "26.120", "26.121"]
+    assert [v.index for v in versions] == [0, 1, 2, 3, 4]
+    assert versions[0] < versions[1] < versions[2] < versions[3] < versions[4]
+    assert versions[4] >= versions[3] >= versions[2] >= versions[1] >= versions[0]
 
 
-def test_resolve_accepts_canonical_alias_and_instance():
-    by_alias = resolve("26.1")
+def test_resolve_accepts_canonical_and_instance():
+    """The alias is no longer among them, and that is the point.
+
+    Until 2026-08-04 ``resolve("26.1")`` returned 26.100, because only one
+    registered build carried that vendor name. The February 2026 build was
+    then added and the May build appended beside it, so two builds share
+    "26.1" exactly as 26.120 and 26.121 share "26.12". The alias stopped
+    selecting one and the refusal below is what a caller now gets. The
+    companion test asserts that refusal names both candidates.
+    """
     by_canonical = resolve("26.100")
-    assert by_alias == by_canonical
-    assert by_alias.canonical == "26.100"
-    assert by_alias.alias == "26.1"
-    assert resolve(by_alias) is by_alias
+    assert by_canonical.canonical == "26.100"
+    assert by_canonical.alias == "26.1"
+    assert resolve(by_canonical) is by_canonical
+    assert resolve("26.101").canonical == "26.101"
 
 
 def test_resolve_unknown_version_lists_known_ones():
@@ -46,14 +54,17 @@ def test_resolve_unknown_version_lists_known_ones():
         resolve("25.3")
     message = str(excinfo.value)
     assert "25.3" in message
-    for canonical in ("26.000", "26.100", "26.120", "26.121"):
+    for canonical in ("26.000", "26.100", "26.101", "26.120", "26.121"):
         assert canonical in message
 
 
 def test_ordering_is_not_string_or_float_ordering():
     # "26.1" < "26.12" would hold for strings and floats alike; the
     # registry must order by release position even if the scheme changed.
-    v26_100 = resolve("26.1")
+    # By canonical, not by alias: "26.1" stopped selecting one build on
+    # 2026-08-04, when the February 2026 install was registered beside
+    # the May one.
+    v26_100 = resolve("26.100")
     v26_120 = resolve("26.120")
     assert v26_100 < v26_120
     assert sorted([v26_120, v26_100]) == [v26_100, v26_120]

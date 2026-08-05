@@ -37,7 +37,7 @@ def test_an_unregistered_version_exits_two_and_lists_the_registered_ones(capsys)
     error = capsys.readouterr().err
     assert error.startswith("version not resolved: ")
     assert "25.3" in error
-    for canonical in ("26.000", "26.100", "26.120", "26.121"):
+    for canonical in ("26.000", "26.100", "26.101", "26.120", "26.121"):
         assert canonical in error
 
 
