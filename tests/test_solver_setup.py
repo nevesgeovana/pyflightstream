@@ -5,7 +5,7 @@ import warnings
 
 import pytest
 
-from pyflightstream.commands import CommandRegistry
+from pyflightstream.commands import CommandNotInVersionError, CommandRegistry
 from pyflightstream.script import (
     CommandArgumentError,
     Script,
@@ -17,8 +17,12 @@ from pyflightstream.script.solver_setup import (
     LIBRARY_MINIMUM_CP,
     SNAPSHOT_FAMILIES,
     VORTICITY_COMMAND,
+    AirfoilSeparation,
+    AxialVortexSeparation,
     BulkSeparation,
+    CylindricalBulkSeparation,
     SolverSetup,
+    StratfordBulkSeparation,
     script_from_setup,
     with_vorticity_selection,
 )
@@ -466,3 +470,209 @@ def test_old_manifest_records_without_the_field_still_load():
     del payload["solver_setup"]  # a pre-v0.3.0 manifest never wrote the field
     reloaded = RunRecord.model_validate(payload)
     assert reloaded.solver_setup is None
+
+
+# --- the flow-separation family ---------------------------------------------
+#
+# Two generations that never coexist: the per-mechanism boundary lists of
+# 26.100 and the named assignment models of 26.101 and later. RPT-018
+# measured each on the licensed builds, and these tests hold the emitter
+# to what it measured.
+
+
+def test_the_february_separation_lists_emit_their_own_grammar():
+    script = Script(version="26.100")
+    helpers.solver_settings(
+        script,
+        axial_separation_boundaries="all",
+        crossflow_separation_boundaries=[1, 2, 4],
+        crossflow_separation_diameter=3.5,
+        crossflow_separation_axisymmetric=True,
+        laminar_separation=True,
+    )
+    text = script.render()
+    # "all" is the -1 form with no index line; a listed selection is the
+    # count followed by its own line. Both are asserted, because an
+    # emitter that produced one shape for both would satisfy either alone.
+    assert "SET_AXIAL_SEPARATION_BOUNDARIES -1" in text
+    assert "SET_CROSSFLOW_SEPARATION_BOUNDARIES 3\n1,2,4" in text
+    assert "SET_CROSSFLOW_SEPARATION_DIAMETER 3.5" in text
+    assert "SET_CROSSFLOW_SEPARATION_AXISYMMETRIC ENABLE" in text
+    assert "LAMINAR_SEPARATION ENABLE" in text
+
+
+@pytest.mark.parametrize(
+    ("keyword", "set_command", "delete_command", "version"),
+    [
+        (
+            "viscous_excluded",
+            "SET_VISCOUS_EXCLUDED_BOUNDARIES",
+            "DELETE_VISCOUS_EXCLUDED_BOUNDARIES",
+            "26.120",
+        ),
+        (
+            "axial_separation_boundaries",
+            "SET_AXIAL_SEPARATION_BOUNDARIES",
+            "DELETE_AXIAL_SEPARATION_BOUNDARIES",
+            "26.100",
+        ),
+        (
+            "valarezo_separation_boundaries",
+            "SET_VALAREZO_SEPARATION_BOUNDARIES",
+            "DELETE_VALAREZO_CRITERION_BOUNDARIES",
+            "26.100",
+        ),
+        (
+            "crossflow_separation_boundaries",
+            "SET_CROSSFLOW_SEPARATION_BOUNDARIES",
+            "DELETE_CROSSFLOW_SEPARATION_BOUNDARIES",
+            "26.100",
+        ),
+    ],
+)
+def test_an_empty_selection_erases_the_list_and_a_full_one_sets_it(
+    keyword, set_command, delete_command, version
+):
+    """The empty sequence is the erase, with a control that it is not the only path."""
+    erasing = Script(version=version)
+    helpers.solver_settings(erasing, **{keyword: []})
+    erased = erasing.render()
+    assert delete_command in erased
+    assert set_command not in erased
+
+    setting = Script(version=version)
+    helpers.solver_settings(setting, **{keyword: [1, 2]})
+    was_set = setting.render()
+    assert f"{set_command} 2\n1,2" in was_set
+    assert delete_command not in was_set
+
+
+def test_an_erased_list_is_recorded_against_the_delete_command_alone():
+    script = Script(version="26.120")
+    setup = helpers.solver_settings(script, viscous_excluded=[])
+    assert setup.flags["DELETE_VISCOUS_EXCLUDED_BOUNDARIES"].provenance == "explicit"
+    assert setup.flags["DELETE_VISCOUS_EXCLUDED_BOUNDARIES"].value == []
+    # The setter half must stay silent, or the snapshot would claim the
+    # script both set and erased the same list.
+    assert setup.flags["SET_VISCOUS_EXCLUDED_BOUNDARIES"].provenance == "unknown"
+
+
+def test_the_named_separation_models_emit_in_the_recorded_order():
+    script = Script(version="26.121")
+    helpers.solver_settings(
+        script,
+        delete_separations="all",
+        airfoil_separation=[
+            AirfoilSeparation(name="WING", valarezo_criterion=True, boundaries=[1, 2, 4])
+        ],
+        axial_vortex_separation=[
+            AxialVortexSeparation(name="FUSELAGE", diameter=0.5, frame=1, body_axis="X")
+        ],
+        cylindrical_bulk_separation=[CylindricalBulkSeparation(name="GEAR", diameter=0.2)],
+        stratford_bulk_separation=[StratfordBulkSeparation(name="STRUT", boundaries=[7])],
+    )
+    text = script.render()
+    assert "DELETE_SEPARATION -1" in text
+    assert "CREATE_AIRFOIL_SEPARATION WING 3 ENABLE\n1,2,4" in text
+    assert "CREATE_AXIAL_VORTEX_SEPARATION FUSELAGE -1 1 X 0.5 DISABLE" in text
+    assert "CREATE_CYLINDRICAL_BULK_SEPARATION GEAR -1 0.2" in text
+    assert "CREATE_STRATFORD_BULK_SEPARATION STRUT 1\n7" in text
+    # The solver indexes the models in creation order and
+    # DELETE_SEPARATION addresses them by that index, so the order is a
+    # promise of FLAG_SPECS and not an accident of the call.
+    positions = [
+        text.index("DELETE_SEPARATION -1"),
+        text.index("CREATE_AIRFOIL_SEPARATION"),
+        text.index("CREATE_AXIAL_VORTEX_SEPARATION"),
+        text.index("CREATE_CYLINDRICAL_BULK_SEPARATION"),
+        text.index("CREATE_STRATFORD_BULK_SEPARATION"),
+    ]
+    assert positions == sorted(positions)
+
+
+def test_the_separation_order_is_the_flag_spec_order_not_the_call_order():
+    """Passing the keywords backwards must not reorder the emissions.
+
+    Every adjacent pair is asserted, not just the ends: a swap of two
+    middle commands leaves the first-before-last comparison true, and a
+    mutation swapping the airfoil and axial-vortex rows was caught only
+    by the sibling test until this one walked the whole sequence.
+    """
+    script = Script(version="26.121")
+    helpers.solver_settings(
+        script,
+        stratford_bulk_separation=[StratfordBulkSeparation(name="STRUT")],
+        cylindrical_bulk_separation=[CylindricalBulkSeparation(name="GEAR", diameter=0.2)],
+        axial_vortex_separation=[AxialVortexSeparation(name="FUSELAGE", diameter=0.5)],
+        airfoil_separation=[AirfoilSeparation(name="WING")],
+    )
+    text = script.render()
+    expected = [
+        "CREATE_AIRFOIL_SEPARATION",
+        "CREATE_AXIAL_VORTEX_SEPARATION",
+        "CREATE_CYLINDRICAL_BULK_SEPARATION",
+        "CREATE_STRATFORD_BULK_SEPARATION",
+    ]
+    emitted = sorted(expected, key=text.index)
+    assert emitted == expected
+
+
+def test_a_separation_snapshot_replays_to_the_same_script():
+    original = Script(version="26.121")
+    setup = helpers.solver_settings(
+        original,
+        airfoil_separation=[AirfoilSeparation(name="WING", boundaries=[1, 2])],
+        stratford_bulk_separation=[StratfordBulkSeparation(name="STRUT")],
+        delete_separations=2,
+    )
+    stored = SolverSetup.model_validate_json(setup.model_dump_json())
+    replayed = Script(version="26.121")
+    script_from_setup(replayed, stored)
+    assert replayed.render() == original.render()
+
+
+def test_an_erased_list_replays_as_the_erase():
+    original = Script(version="26.120")
+    setup = helpers.solver_settings(original, viscous_excluded=[])
+    replayed = Script(version="26.120")
+    script_from_setup(replayed, SolverSetup.model_validate_json(setup.model_dump_json()))
+    assert replayed.render() == original.render()
+    assert "DELETE_VISCOUS_EXCLUDED_BOUNDARIES" in replayed.render()
+
+
+@pytest.mark.parametrize("index", [0, -5])
+def test_delete_separations_refuses_an_index_the_solver_does_not_number(index):
+    script = Script(version="26.121")
+    with pytest.raises(CommandArgumentError, match="1-based index"):
+        helpers.solver_settings(script, delete_separations=index)
+    assert "SEPARATION" not in script.render()
+
+
+def test_a_malformed_separation_model_names_the_fields_it_wanted():
+    script = Script(version="26.121")
+    with pytest.raises(CommandArgumentError, match="AirfoilSeparation") as caught:
+        helpers.solver_settings(script, airfoil_separation=[{"nome": "WING"}])
+    assert "valarezo_criterion" in str(caught.value)
+    assert "SEPARATION" not in script.render()
+
+
+def test_a_bare_label_where_a_separation_sequence_belongs_says_so():
+    script = Script(version="26.100")
+    with pytest.raises(CommandArgumentError, match="a sequence of indices or labels"):
+        helpers.solver_settings(script, axial_separation_boundaries="WING")
+
+
+@pytest.mark.parametrize(
+    ("version", "keyword", "value"),
+    [
+        ("26.100", "airfoil_separation", [{"name": "WING"}]),
+        ("26.100", "delete_separations", "all"),
+        ("26.121", "axial_separation_boundaries", "all"),
+        ("26.121", "crossflow_separation_diameter", 3.5),
+    ],
+)
+def test_each_generation_is_refused_on_the_build_that_does_not_carry_it(version, keyword, value):
+    """RPT-018: neither generation exists on the other's build."""
+    script = Script(version=version)
+    with pytest.raises(CommandNotInVersionError):
+        helpers.solver_settings(script, **{keyword: value})

@@ -9,6 +9,53 @@ FlightStream versions.
 
 ### API surface delta
 
+* **The flow-separation family is in the database, across all four
+  registered builds, and `solver_settings()` can emit every command of
+  it.** Fifteen commands entered: the per-mechanism boundary lists of
+  26.100 (axial, Valarezo criterion, cross-flow, each a SET and a
+  DELETE, plus the cross-flow diameter and its axisymmetric toggle), the
+  named assignment models of 26.101 and later
+  (`CREATE_AIRFOIL_SEPARATION`, `CREATE_AXIAL_VORTEX_SEPARATION`,
+  `DELETE_SEPARATION`), the 26.121 split of the bulk model
+  (`CREATE_CYLINDRICAL_BULK_SEPARATION`,
+  `CREATE_STRATFORD_BULK_SEPARATION`), and the two members documented in
+  every edition and recorded in none of them,
+  `DELETE_VISCOUS_EXCLUDED_BOUNDARIES` and `LAMINAR_SEPARATION`.
+
+  Four new public models, one per assignment command:
+  `AirfoilSeparation`, `AxialVortexSeparation`,
+  `CylindricalBulkSeparation`, `StratfordBulkSeparation`, exported from
+  `pyflightstream.script.solver_setup` beside the existing
+  `BulkSeparation`. Thirteen new `solver_settings()` keywords carry
+  them and the 26.100 lists. Every one is version-gated: passing a
+  26.100 keyword to a 26.121 script refuses by name, and the reverse
+  too, because the two generations exist on no build in common.
+
+  **A probe decided the names rather than a reading, and it had to.**
+  The February manual documents the Valarezo pair under two spellings,
+  one in a function header and one in a sample, so the RPT-012 rule
+  (the header wins) had nothing to decide between. On the licensed
+  February build the solver accepts `SET_VALAREZO_SEPARATION_BOUNDARIES`
+  and does not recognise `SET_VALAREZO_CRITERION_BOUNDARIES`, and the
+  delete is the reverse of what the manual says: the documented
+  `DELETE_VALAREZO_CRITERION_BOUNDARIES` is unrecognised while an
+  undocumented `DELETE_VALAREZO_SEPARATION_BOUNDARIES` works. The
+  database records the documented name with the contradiction on it, and
+  the working name has no entry, because every entry here cites a manual
+  page and that one has none. Emit it through `Script.raw()` meanwhile.
+  Full method and results in
+  `reports/RPT-018_separation-family-across-builds_2026-08-05.md`.
+
+* **Behaviour change: `solver_settings(viscous_excluded=[])` now emits
+  `DELETE_VISCOUS_EXCLUDED_BOUNDARIES`.** It used to emit
+  `SET_VISCOUS_EXCLUDED_BOUNDARIES 0` followed by an empty index line,
+  which asks the parser to read a line carrying nothing. The empty
+  sequence is now the erase throughout the settings helper, for the
+  viscous exclusion list and for the three 26.100 separation lists;
+  omitting the keyword, or passing None, still leaves the list as the
+  script found it. A caller who wanted the old emission was writing a
+  malformed script.
+
 * **New subpackage `pyflightstream.utils`, and its first member
   `utils.manual`**: read a FlightStream manual and report what the
   command database does not record. Point it at a new build's manual and
@@ -21,8 +68,9 @@ FlightStream versions.
   ```
 
   **It proposes and does not write, and the reason is measured rather
-  than cautious.** Checked against the 147 entries this database already
-  holds, authored by hand from these same manuals, it reproduces 77
+  than cautious.** Checked against the 147 entries this database held
+  when the tool was written, authored by hand from these same manuals
+  (162 since the flow-separation family landed), it reproduces 77
   percent of their argument lists. The remaining quarter are not parser
   bugs: a variable-length list is one `int_list` argument in the database
   and N lines in the manual's sample, a keyword block has no inline
@@ -73,9 +121,12 @@ FlightStream versions.
   5012026). Purely additive, and no version was dropped (CLAUDE.md
   invariant 4).
 * **26.100 now names the FEBRUARY 2026 build** (vendor build 2122026,
-  read from the solver's own identity line), and carries no command
-  evidence yet. Its 38 records did not disappear: they describe the May
-  build, which was appended as 26.101, and they moved there with it.
+  read from the solver's own identity line). Its 38 records did not
+  disappear: they describe the May build, which was appended as 26.101,
+  and they moved there with it. It began this release with no command
+  evidence of its own and holds 11 entries since the flow-separation
+  family landed, so its derived support level is `documented` rather
+  than `registered`.
 
 ### Changed
 

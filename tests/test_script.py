@@ -464,29 +464,99 @@ def test_every_declared_count_is_a_known_count_name():
     the following command line as data. That is a silent corruption of
     the script, not a syntax error, and nothing reported it.
 
-    This walks the whole database and fails on any int scalar that
-    introduces a list argument from outside the known set, so the next
-    new spelling fails the suite instead of shipping unchecked. Two
-    commands were escaping when it was written (PFS-8, 2026-08-02):
+    This walks the whole database and fails on any list argument the
+    emitter would reach without a recognised count, so the next new
+    spelling fails the suite instead of shipping unchecked. Two commands
+    were escaping when it was written (PFS-8, 2026-08-02):
     UNSTEADY_SOLVER_NEW_FORCE_PLOT (`boundaries`) and
     ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS (`num_index`).
+
+    The walk mirrors `Script._check_counts` rather than approximating
+    it, which is the correction of 2026-08-05. The approximation asked
+    whether the LAST int before the list was a known count name, and the
+    emitter asks whether a known count name was seen at all since the
+    previous list; the two agree only while the count sits immediately
+    before its list. CREATE_AXIAL_VORTEX_SEPARATION is the first entry
+    where it does not (`num_boundaries` is the second argument and the
+    index line is the last), so the approximation reported a defect the
+    emitter does not have.
+
+    Reading the emitter honestly opens a second question the
+    approximation was accidentally answering, so it is asserted
+    separately rather than folded in: an int scalar sitting BETWEEN the
+    governing count and its list is a candidate for being the real
+    count, in which case the emitter checks the list against the wrong
+    number. Those are allowed only where the name is a recorded entity
+    reference (`_SCALAR_REFERENCE_ARGS`, the frame and actuator indices),
+    because that ledger is maintained for its own reasons and says what
+    the argument is. An unrecognised int there fails.
+
+    The walk covers the PER-VERSION argument overrides as well as the
+    entry-level grammar, which the same pass added. The emitter runs
+    against the per-version view, so an override is emitted and count
+    checked like any other grammar, while the walk read only the
+    entry-level tuple: a count spelled anew inside an override was the
+    one shape of this defect the guard could not see.
     """
     from pyflightstream.commands import ArgType, CommandRegistry
-    from pyflightstream.script import _COUNT_ARG_NAMES
+    from pyflightstream.script import _COUNT_ARG_NAMES, _SCALAR_REFERENCE_ARGS
 
-    escaping = []
+    unspelled: list[str] = []
+    interleaved: list[str] = []
+    lists_walked = 0
+    grammars_walked = 0
     for name, entry in sorted(CommandRegistry.load().commands.items()):
-        candidate = None
-        for spec in entry.args:
-            if spec.is_list:
-                if candidate is not None and candidate not in _COUNT_ARG_NAMES:
-                    escaping.append(f"{name}: {candidate!r} introduces {spec.name!r}")
-                candidate = None
-            elif spec.type is ArgType.INT:
-                candidate = spec.name
-    assert not escaping, (
-        "these int arguments introduce a list but are not in _COUNT_ARG_NAMES, so "
-        "their count is never checked against the list it declares: " + "; ".join(escaping)
+        grammars = [(name, entry.args)]
+        grammars += [
+            (f"{name} ({version} override)", record.args)
+            for version, record in sorted(entry.versions.items())
+            if record.args
+        ]
+        for label, args in grammars:
+            grammars_walked += 1
+            governing: str | None = None
+            pending: list[str] = []
+            for spec in args:
+                if spec.is_list:
+                    lists_walked += 1
+                    if governing is None:
+                        if pending:
+                            unspelled.append(f"{label}: {pending[-1]!r} introduces {spec.name!r}")
+                    else:
+                        for candidate in pending:
+                            if candidate not in _SCALAR_REFERENCE_ARGS:
+                                interleaved.append(
+                                    f"{label}: {candidate!r} sits between {governing!r} "
+                                    f"and {spec.name!r}"
+                                )
+                    governing, pending = None, []
+                elif spec.name in _COUNT_ARG_NAMES:
+                    governing, pending = spec.name, []
+                elif spec.type is ArgType.INT:
+                    pending.append(spec.name)
+    assert not unspelled, (
+        "these int arguments introduce a list with no recognised count before them, so "
+        "their count is never checked against the list it declares; add the spelling to "
+        "_COUNT_ARG_NAMES: " + "; ".join(unspelled)
+    )
+    assert not interleaved, (
+        "these int arguments sit between a count and the list it governs, so if one of "
+        "them is the real count the emitter is checking the list against the wrong "
+        "number; name it in _COUNT_ARG_NAMES, or record it in _SCALAR_REFERENCE_ARGS if "
+        "it cites an entity: " + "; ".join(interleaved)
+    )
+    # The walk is the guard, and it has two extents, so both are
+    # floored: a refactor that stopped reaching list arguments, or one
+    # that stopped reaching the per-version overrides, would satisfy
+    # both assertions above by walking nothing.
+    assert grammars_walked >= 165, (
+        f"the walk reached {grammars_walked} grammars, fewer than the 165 the database "
+        "carried when this floor was set (one per command plus one per version override); "
+        "the overrides are the half that is easy to drop silently"
+    )
+    assert lists_walked >= 28, (
+        f"the walk reached {lists_walked} list arguments, fewer than the 28 the database "
+        "carried when this floor was set; the guard is no longer covering what it claims"
     )
 
 

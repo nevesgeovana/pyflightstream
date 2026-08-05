@@ -39,11 +39,16 @@ if TYPE_CHECKING:  # typing only; the runtime import would be circular
 __all__ = [
     "FLAG_SPECS",
     "LIBRARY_MINIMUM_CP",
+    "SEPARATION_MODELS",
     "SNAPSHOT_FAMILIES",
     "VORTICITY_COMMAND",
+    "AirfoilSeparation",
+    "AxialVortexSeparation",
     "BulkSeparation",
+    "CylindricalBulkSeparation",
     "FlagRecord",
     "SolverSetup",
+    "StratfordBulkSeparation",
     "script_from_setup",
 ]
 
@@ -90,6 +95,17 @@ class FlagSpec:
         same plus the ``"all"`` form), ``mode_steady`` /
         ``mode_unsteady`` (the solver-mode pair), and
         ``bulk_separation`` (the :class:`BulkSeparation` model).
+
+        Five kinds carry a SET and its matching DELETE on one keyword,
+        the way ``mode`` carries the two solver-mode commands. The
+        setter kinds ``boundary_list`` and ``separation_boundaries``
+        record the keyword when it holds a selection; the clearing
+        kinds ``boundary_list_clear`` and ``separation_boundaries_clear``
+        record it when it holds the empty sequence, which is how a
+        caller asks for the list to be erased. ``separation_models``
+        holds a sequence of assignment models of one separation type,
+        and ``separation_delete`` the index (or ``"all"``) that
+        DELETE_SEPARATION removes.
     """
 
     param: str
@@ -116,7 +132,68 @@ FLAG_SPECS: tuple[FlagSpec, ...] = (
     FlagSpec("boundary_layer", "SET_BOUNDARY_LAYER_TYPE", "enum"),
     FlagSpec("viscous_coupling", "SET_SOLVER_VISCOUS_COUPLING", "toggle"),
     FlagSpec("viscous_excluded", "SET_VISCOUS_EXCLUDED_BOUNDARIES", "boundary_list"),
+    FlagSpec("viscous_excluded", "DELETE_VISCOUS_EXCLUDED_BOUNDARIES", "boundary_list_clear"),
     FlagSpec("bulk_separation", "CREATE_BULK_SEPARATION", "bulk_separation"),
+    # The named separation models of 26.101 and later. One keyword per
+    # command rather than one shared sequence: the solver indexes the
+    # models in creation order and DELETE_SEPARATION addresses them by
+    # that index, so the emission order has to be a stated fact rather
+    # than whatever order a mixed sequence happened to arrive in. It is
+    # the order of these five rows, the erase first so that one call can
+    # clear the models an opened simulation carried and then build its
+    # own on a known-empty list.
+    FlagSpec("delete_separations", "DELETE_SEPARATION", "separation_delete"),
+    FlagSpec("airfoil_separation", "CREATE_AIRFOIL_SEPARATION", "separation_models"),
+    FlagSpec("axial_vortex_separation", "CREATE_AXIAL_VORTEX_SEPARATION", "separation_models"),
+    FlagSpec(
+        "cylindrical_bulk_separation",
+        "CREATE_CYLINDRICAL_BULK_SEPARATION",
+        "separation_models",
+    ),
+    FlagSpec(
+        "stratford_bulk_separation",
+        "CREATE_STRATFORD_BULK_SEPARATION",
+        "separation_models",
+    ),
+    # The per-mechanism separation lists of 26.100, each a SET and its
+    # DELETE on one keyword (RPT-018).
+    FlagSpec(
+        "axial_separation_boundaries",
+        "SET_AXIAL_SEPARATION_BOUNDARIES",
+        "separation_boundaries",
+    ),
+    FlagSpec(
+        "axial_separation_boundaries",
+        "DELETE_AXIAL_SEPARATION_BOUNDARIES",
+        "separation_boundaries_clear",
+    ),
+    FlagSpec(
+        "valarezo_separation_boundaries",
+        "SET_VALAREZO_SEPARATION_BOUNDARIES",
+        "separation_boundaries",
+    ),
+    FlagSpec(
+        "valarezo_separation_boundaries",
+        "DELETE_VALAREZO_CRITERION_BOUNDARIES",
+        "separation_boundaries_clear",
+    ),
+    FlagSpec(
+        "crossflow_separation_boundaries",
+        "SET_CROSSFLOW_SEPARATION_BOUNDARIES",
+        "separation_boundaries",
+    ),
+    FlagSpec(
+        "crossflow_separation_boundaries",
+        "DELETE_CROSSFLOW_SEPARATION_BOUNDARIES",
+        "separation_boundaries_clear",
+    ),
+    FlagSpec("crossflow_separation_diameter", "SET_CROSSFLOW_SEPARATION_DIAMETER", "scalar"),
+    FlagSpec(
+        "crossflow_separation_axisymmetric",
+        "SET_CROSSFLOW_SEPARATION_AXISYMMETRIC",
+        "toggle",
+    ),
+    FlagSpec("laminar_separation", "LAMINAR_SEPARATION", "toggle"),
     FlagSpec("convergence_iterations", "SET_SOLVER_CONVERGENCE_ITERATIONS", "scalar"),
     FlagSpec("minimum_cp", "SOLVER_MINIMUM_CP", "scalar"),
     FlagSpec("reynolds_averaged_drag", "REYNOLDS_AVERAGED_DRAG_FORCES", "toggle"),
@@ -164,6 +241,122 @@ class BulkSeparation(BaseModel):
     separation_type: Literal["CYLINDRICAL", "FLAT_PLATE"]
     diameter: float
     boundaries: list[int | str] | Literal["all"] = "all"
+
+
+class AirfoilSeparation(BaseModel):
+    """One airfoil (trailing-edge) separation assignment (SRC-003 p.341).
+
+    Attributes
+    ----------
+    name : str
+        Display name of the assignment in the interface.
+    valarezo_criterion : bool
+        Apply the Valarezo maximum-lift criterion to this assignment.
+    boundaries : list of int or str, or ``"all"``
+        Mesh boundaries carrying the model, by 1-based index in
+        geometry-tree order or by declared boundary label; ``"all"``
+        selects every boundary (the -1 form of SRC-003 p.341).
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    name: str
+    valarezo_criterion: bool = False
+    boundaries: list[int | str] | Literal["all"] = "all"
+
+
+class AxialVortexSeparation(BaseModel):
+    """One axial vortex separation assignment (SRC-003 p.342).
+
+    Slender bodies at incidence shed a pair of vortices along the body
+    axis; the model assigns that behavior to the listed boundaries.
+
+    Attributes
+    ----------
+    name : str
+        Display name of the assignment in the interface.
+    diameter : float
+        Maximum body diameter, in simulation length units.
+    frame : int
+        1-based index of the coordinate system acting as the body axes;
+        1 is the reference frame (SRC-003 p.342).
+    body_axis : str
+        Body axis within that frame, ``X``, ``Y`` or ``Z``. The manual
+        also documents the numeric spellings 1, 2 and 3 on the same
+        page; the emitter uses the letters, as it does for the RBF
+        types of AEROELASTIC_RBF_TYPE.
+    sharp_nose_vortices : bool
+        Apply the sharp-nose vortex treatment to this assignment.
+    boundaries : list of int or str, or ``"all"``
+        Mesh boundaries carrying the model, as for
+        :class:`AirfoilSeparation`.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    name: str
+    diameter: float
+    frame: int = 1
+    body_axis: Literal["X", "Y", "Z"] = "X"
+    sharp_nose_vortices: bool = False
+    boundaries: list[int | str] | Literal["all"] = "all"
+
+
+class CylindricalBulkSeparation(BaseModel):
+    """One cylindrical bulk separation assignment (SRC-740 p.345).
+
+    The 26.121 split of the CYLINDRICAL value that
+    :class:`BulkSeparation` carried in its ``separation_type``
+    argument on 26.120.
+
+    Attributes
+    ----------
+    name : str
+        Display name of the assignment in the interface.
+    diameter : float
+        Characteristic body diameter, in simulation length units.
+    boundaries : list of int or str, or ``"all"``
+        Mesh boundaries carrying the model, as for
+        :class:`AirfoilSeparation`.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    name: str
+    diameter: float
+    boundaries: list[int | str] | Literal["all"] = "all"
+
+
+class StratfordBulkSeparation(BaseModel):
+    """One Stratford bulk separation assignment (SRC-740 p.345).
+
+    Takes no diameter, which is the visible difference from
+    :class:`CylindricalBulkSeparation`.
+
+    Attributes
+    ----------
+    name : str
+        Display name of the assignment in the interface.
+    boundaries : list of int or str, or ``"all"``
+        Mesh boundaries carrying the model, as for
+        :class:`AirfoilSeparation`.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    name: str
+    boundaries: list[int | str] | Literal["all"] = "all"
+
+
+#: The assignment model each ``separation_models`` flag carries, by
+#: helper keyword. Read by the snapshot replay, so a stored assignment
+#: is revalidated into its own type rather than handed back as a dict.
+SEPARATION_MODELS: dict[str, type[BaseModel]] = {
+    "airfoil_separation": AirfoilSeparation,
+    "axial_vortex_separation": AxialVortexSeparation,
+    "cylindrical_bulk_separation": CylindricalBulkSeparation,
+    "stratford_bulk_separation": StratfordBulkSeparation,
+}
 
 
 class FlagRecord(BaseModel):
@@ -276,6 +469,20 @@ class SolverSetup(BaseModel):
                 kwargs["delta_time"] = value["delta_time"]
             elif spec.kind == "bulk_separation":
                 kwargs[spec.param] = BulkSeparation.model_validate(record.value)
+            elif spec.kind == "separation_models":
+                model = SEPARATION_MODELS[spec.param]
+                kwargs[spec.param] = [
+                    model.model_validate(item)
+                    for item in record.value  # type: ignore[union-attr]
+                ]
+            elif spec.kind in ("boundary_list_clear", "separation_boundaries_clear"):
+                # The clearing half of a SET/DELETE pair. The two halves
+                # are explicit on disjoint values, so at most one of them
+                # reaches this loop for a given keyword; the empty
+                # sequence is written as a literal rather than read back
+                # from the record because it is the only value this kind
+                # is ever explicit for.
+                kwargs[spec.param] = []
             else:
                 kwargs[spec.param] = record.value
         return kwargs
@@ -331,6 +538,26 @@ def _family_record(
             assert isinstance(bulk, BulkSeparation)
             value = bulk.model_dump(mode="json")
             return FlagRecord(**base, provenance=_EXPLICIT, value=value, emitted=True)
+    elif spec.kind == "separation_models":
+        models = passed.get(spec.param)
+        if models:
+            value = [model.model_dump(mode="json") for model in models]  # type: ignore[union-attr]
+            return FlagRecord(**base, provenance=_EXPLICIT, value=value, emitted=True)
+    elif spec.kind == "separation_delete":
+        index = passed.get(spec.param)
+        if index is not None:
+            return FlagRecord(**base, provenance=_EXPLICIT, value=index, emitted=True)
+    elif spec.kind in ("boundary_list", "separation_boundaries"):
+        # The setting half of a SET/DELETE pair: explicit for a
+        # selection, silent for the empty sequence, which is the
+        # clearing half's value rather than a selection of nothing.
+        selection = passed.get(spec.param)
+        if selection is not None and selection != []:
+            value = _normalize(selection)
+            return FlagRecord(**base, provenance=_EXPLICIT, value=value, emitted=True)
+    elif spec.kind in ("boundary_list_clear", "separation_boundaries_clear"):
+        if passed.get(spec.param) == []:
+            return FlagRecord(**base, provenance=_EXPLICIT, value=[], emitted=True)
     else:
         value = passed.get(spec.param)
         if value is not None:

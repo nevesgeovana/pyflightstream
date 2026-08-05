@@ -145,8 +145,8 @@ the evidence rather than declared:
 | Version | Vendor name | Support level | What that means here |
 |---|---|---|---|
 | 26.000 | 26.0 | `registered` | Ordered in the registry, no command carries evidence for it, so nothing can be built yet |
-| 26.100 | 26.1 | `registered` | The February 2026 build. Ordered in the registry since 2026-08-04, no command carries evidence for it yet |
-| 26.101 | 26.1 | `documented` | The May 2026 build. 37 commands drafted from the manual with page citations, none measured against a running solver |
+| 26.100 | 26.1 | `documented` | The February 2026 build. 11 commands drafted from its own manual edition with page citations, none measured against a running solver |
+| 26.101 | 26.1 | `documented` | The May 2026 build. 44 commands drafted from the manual with page citations, none measured against a running solver |
 | 26.120 | 26.12 | `operational` | Probe evidence from a licensed machine, and the minimal end-to-end workflow builds |
 | 26.121 | 26.12 | `operational` | Hotfix build 1. It inherits the 26.120 records except where a probe on this build overrode them; the compatibility matrix marks every inherited cell and counts them |
 

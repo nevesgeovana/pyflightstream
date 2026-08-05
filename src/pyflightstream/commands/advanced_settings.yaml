@@ -138,3 +138,22 @@ AEROELASTIC_RBF_TYPE:
     RBF mesh morphing algorithm of the aeroelastic coupling; the
     solver also accepts the numeric labels 1 to 5 documented on the
     same page, the emitter uses the names.
+
+LAMINAR_SEPARATION:
+  layout: inline
+  phase: init
+  args:
+    - name: mode
+      type: enum
+      values: [ENABLE, DISABLE]
+  manual_ref: "SRC-003 p.345"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.342, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.344, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.348, same grammar as 26.120"}
+  notes: >
+    Laminar boundary layer separation. This is the one member of the
+    flow-separation family that survived the 26.101 redesign unchanged
+    and is documented in all four editions; RPT-018 accepted it on
+    26.100, 26.101 and 26.121.

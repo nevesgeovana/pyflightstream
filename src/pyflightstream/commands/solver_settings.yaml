@@ -70,10 +70,32 @@ SET_VISCOUS_EXCLUDED_BOUNDARIES:
       type: int_list
   manual_ref: "SRC-003 p.341"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.338, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.340, same grammar as 26.120"}
     "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.344, same grammar as 26.120"}
   notes: >
     Excludes the listed boundaries from viscous coupling; the indices
-    follow on the next line as comma-separated values.
+    follow on the next line as comma-separated values. Documented
+    unchanged in all four editions; the three added on 2026-08-05 were
+    read from their own pages, not inherited.
+
+DELETE_VISCOUS_EXCLUDED_BOUNDARIES:
+  layout: bare
+  phase: init
+  args: []
+  manual_ref: "SRC-003 p.341"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.338"}
+    "26.101": {status: documented, note: "SRC-725 p.340"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.344"}
+  notes: >
+    Clears the viscous-exclusion list, restoring viscous coupling on
+    every boundary. The helper spells the clear as an empty
+    viscous_excluded selection rather than as its own keyword, so the
+    snapshot records one list per flag instead of a list and a
+    separate erase.
 
 CREATE_BULK_SEPARATION:
   layout: payload_lines
@@ -128,3 +150,267 @@ CREATE_BULK_SEPARATION:
     SEPARATION_TYPE (CYLINDRICAL or FLAT_PLATE, matching the bulk
     model sub-typing documented at SRC-003 p.207) as the second
     argument, which the 26.1 grammar does not have (SRC-725 p.341).
+
+# --- the named separation models of 26.101 and later -----------------------
+#
+# 26.101 replaced the per-mechanism boundary lists of 26.100 (further
+# below) with named separation models created one command at a time.
+# The two generations do not overlap on any build: RPT-018 measured the
+# 26.100 family deprecated and refused on 26.101 and 26.121, and this
+# family unrecognized on 26.100.
+
+CREATE_AIRFOIL_SEPARATION:
+  layout: payload_lines
+  phase: init
+  args:
+    - name: name
+      type: str
+    - name: num_boundaries
+      type: int
+    - name: valarezo_criterion
+      type: enum
+      values: [ENABLE, DISABLE]
+    - name: boundary_indices
+      type: int_list
+      required: false
+  manual_ref: "SRC-003 p.341"
+  versions:
+    "26.101": {status: documented, note: "SRC-725 p.340, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.344, same grammar as 26.120"}
+  notes: >
+    Assigns the airfoil (trailing-edge) separation model to the listed
+    boundaries, with the Valarezo maximum-lift criterion enabled or
+    disabled per assignment. NUM_BOUNDARIES takes -1 for all mesh
+    boundaries, in which case no index line follows; otherwise the
+    comma-separated indices are the next line (SRC-003 pp.341-342).
+
+CREATE_AXIAL_VORTEX_SEPARATION:
+  layout: payload_lines
+  phase: init
+  args:
+    - name: name
+      type: str
+    - name: num_boundaries
+      type: int
+    - name: frame
+      type: int
+    - name: body_axis
+      type: enum
+      values: [X, Y, Z, "1", "2", "3"]
+    - name: diameter
+      type: float
+      unit: "simulation length units"
+    - name: sharp_nose_vortices
+      type: enum
+      values: [ENABLE, DISABLE]
+    - name: boundary_indices
+      type: int_list
+      required: false
+  manual_ref: "SRC-003 p.342"
+  versions:
+    "26.101": {status: documented, note: "SRC-725 p.341, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.345, same grammar as 26.120"}
+  notes: >
+    Assigns the axial vortex separation model to a slender body. FRAME
+    is the 1-based index of the coordinate system acting as the body
+    axes, 1 being the reference frame, and BODY_AXIS names the body
+    axis within it either as a letter or as its 1-based index
+    (SRC-003 p.342). Read the manual's second sample with care: it puts
+    -1 in the FRAME position rather than in NUM_BOUNDARIES, which
+    contradicts the parameter table on the same page and is not a form
+    this database records.
+
+CREATE_CYLINDRICAL_BULK_SEPARATION:
+  layout: payload_lines
+  phase: init
+  args:
+    - name: name
+      type: str
+    - name: num_boundaries
+      type: int
+    - name: diameter
+      type: float
+      unit: "simulation length units"
+    - name: boundary_indices
+      type: int_list
+      required: false
+  manual_ref: "SRC-740 p.345"
+  versions:
+    "26.121": {status: documented}
+  notes: >
+    The cylindrical bulk separation model, split out of the
+    SEPARATION_TYPE argument that CREATE_BULK_SEPARATION carried on
+    26.120. RPT-015 accepted this command on 26.120 as well, where no
+    manual documents it; that is a probe result and not a citation, so
+    only the documented version is recorded here.
+
+CREATE_STRATFORD_BULK_SEPARATION:
+  layout: payload_lines
+  phase: init
+  args:
+    - name: name
+      type: str
+    - name: num_boundaries
+      type: int
+    - name: boundary_indices
+      type: int_list
+      required: false
+  manual_ref: "SRC-740 p.345"
+  versions:
+    "26.121": {status: documented}
+  notes: >
+    The Stratford bulk separation model, which takes no diameter. As
+    with the cylindrical command above, RPT-015 accepted it on 26.120
+    where no manual documents it, in both the -1 and the index-line
+    forms.
+
+DELETE_SEPARATION:
+  layout: inline
+  phase: init
+  args:
+    - name: index
+      type: int
+  manual_ref: "SRC-003 p.342"
+  versions:
+    "26.101": {status: documented, note: "SRC-725 p.341, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.346, same grammar as 26.120"}
+  notes: >
+    Deletes one separation model by its 1-based index in the order the
+    models were created; -1 deletes every one of them (SRC-003 p.342).
+    One command covers all separation types, which is the reason the
+    26.100 generation needed a DELETE per mechanism and this one does
+    not.
+
+# --- the per-mechanism separation lists of 26.100 --------------------------
+#
+# This generation exists on the February 2026 build alone. Later builds
+# recognize each command, warn that it is deprecated, and then fail the
+# script (RPT-018), so a caller on 26.101 or later wants the named
+# models above. No version record is written for those builds: the
+# solver's own deprecation notice is not a manual statement, and the
+# removed status is promoted from a harness probe rather than from an
+# ad-hoc one (PLN-20260805-1530).
+
+SET_AXIAL_SEPARATION_BOUNDARIES:
+  layout: payload_lines
+  phase: init
+  args:
+    - name: num_boundaries
+      type: int
+    - name: boundary_indices
+      type: int_list
+      required: false
+  manual_ref: "SRC-741 p.339"
+  versions:
+    "26.100": {status: documented}
+  notes: >
+    Adds boundaries to the axial flow separation list. NUM_BOUNDARIES
+    takes -1 for all mesh boundaries, in which case the following line
+    is ignored; otherwise the comma-separated indices are the next line
+    (SRC-741 p.339).
+
+DELETE_AXIAL_SEPARATION_BOUNDARIES:
+  layout: bare
+  phase: init
+  args: []
+  manual_ref: "SRC-741 p.339"
+  versions:
+    "26.100": {status: documented}
+  notes: >
+    Clears the axial flow separation list. Spelled as an empty
+    axial_separation_boundaries selection by the curated helper.
+
+SET_VALAREZO_SEPARATION_BOUNDARIES:
+  layout: payload_lines
+  phase: init
+  args:
+    - name: num_boundaries
+      type: int
+    - name: boundary_indices
+      type: int_list
+      required: false
+  manual_ref: "SRC-741 p.339"
+  versions:
+    "26.100": {status: documented}
+  notes: >
+    Adds boundaries to the Valarezo maximum-lift criterion list, with
+    the -1 form of the axial command above. The manual writes this name
+    in the function header and a different one, VALAREZO_CRITERION, in
+    the sample directly beneath it; RPT-018 probed both and the solver
+    accepts this spelling and does not recognize the other.
+
+DELETE_VALAREZO_CRITERION_BOUNDARIES:
+  layout: bare
+  phase: init
+  args: []
+  manual_ref: "SRC-741 p.339"
+  versions:
+    "26.100": {status: documented, note: "Contradicted by evidence and not yet reprobed: RPT-018 found this name unrecognized on 26.100 (build #2122026), the build whose own manual documents it in a function header, while the undocumented DELETE_VALAREZO_SEPARATION_BOUNDARIES was accepted. The status stays documented because a promotion to broken needs a probe report written by pyfs-qa (CLAUDE.md invariant 3) and RPT-018 is an ad-hoc probe that promotes nothing; the harness re-probe is PLN-20260805-1520."}
+  notes: >
+    The manual's own name for clearing the Valarezo list, which the
+    solver does not answer to. The name it answers to,
+    DELETE_VALAREZO_SEPARATION_BOUNDARIES, appears in no manual edition
+    and therefore has no entry of its own: this database requires a
+    manual page per entry, so a command with only probe evidence is a
+    policy question for the author rather than a row to add
+    (PLN-20260805-1540). Until it is answered, emit that spelling
+    through Script.raw().
+
+SET_CROSSFLOW_SEPARATION_BOUNDARIES:
+  layout: payload_lines
+  phase: init
+  args:
+    - name: num_boundaries
+      type: int
+    - name: boundary_indices
+      type: int_list
+      required: false
+  manual_ref: "SRC-741 p.339"
+  versions:
+    "26.100": {status: documented}
+  notes: >
+    Adds boundaries to the cross-flow separation list, with the -1 form
+    of the axial command above (SRC-741 pp.339-340).
+
+DELETE_CROSSFLOW_SEPARATION_BOUNDARIES:
+  layout: bare
+  phase: init
+  args: []
+  manual_ref: "SRC-741 p.340"
+  versions:
+    "26.100": {status: documented}
+  notes: >
+    Clears the cross-flow separation list. Spelled as an empty
+    crossflow_separation_boundaries selection by the curated helper.
+
+SET_CROSSFLOW_SEPARATION_DIAMETER:
+  layout: inline
+  phase: init
+  args:
+    - name: diameter
+      type: float
+      unit: "simulation length units"
+  manual_ref: "SRC-741 p.339"
+  versions:
+    "26.100": {status: documented}
+  notes: >
+    Maximum diameter of the body carrying the cross-flow separation
+    model. One diameter applies to the whole list, which is the
+    difference from the later named models, where the diameter belongs
+    to each assignment.
+
+SET_CROSSFLOW_SEPARATION_AXISYMMETRIC:
+  layout: inline
+  phase: init
+  args:
+    - name: mode
+      type: enum
+      values: [ENABLE, DISABLE]
+  manual_ref: "SRC-741 p.340"
+  versions:
+    "26.100": {status: documented}
+  notes: >
+    Axisymmetric vortex shedding for the cross-flow separation model.

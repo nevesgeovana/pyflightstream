@@ -57,8 +57,13 @@ from pyflightstream.commands import CommandRegistry
 from pyflightstream.script import CommandArgumentError, Script
 from pyflightstream.script.solver_setup import (
     LIBRARY_MINIMUM_CP,
+    SEPARATION_MODELS,
+    AirfoilSeparation,
+    AxialVortexSeparation,
     BulkSeparation,
+    CylindricalBulkSeparation,
     SolverSetup,
+    StratfordBulkSeparation,
     build_setup,
     with_vorticity_selection,
 )
@@ -130,6 +135,43 @@ def _reject_bare_label(helper: str, argument: str, value: object, *, allows_all:
         f"{helper}: {argument} takes {accepted}; a single entity label goes in a "
         f"list, for example [{value!r}]"
     )
+
+
+def _separation_arguments(model: object) -> dict[str, object]:
+    """Return one separation assignment as emitter keyword arguments.
+
+    The four assignment models share a shape the database records the
+    same way for each command: the fields of the model in declaration
+    order, with ``boundaries`` expanded into the count-plus-index-line
+    grammar. ``"all"`` becomes the count -1 and no index line, which is
+    the documented way of naming every mesh boundary (SRC-003 p.341).
+
+    Parameters
+    ----------
+    model : BaseModel
+        One validated assignment: an
+        :class:`~pyflightstream.script.solver_setup.AirfoilSeparation`,
+        :class:`~pyflightstream.script.solver_setup.AxialVortexSeparation`,
+        :class:`~pyflightstream.script.solver_setup.CylindricalBulkSeparation`
+        or
+        :class:`~pyflightstream.script.solver_setup.StratfordBulkSeparation`.
+
+    Returns
+    -------
+    dict of str to object
+        Keyword arguments for :meth:`~pyflightstream.script.Script.emit`.
+    """
+    fields = model.model_dump()  # type: ignore[attr-defined]
+    boundaries = fields.pop("boundaries")
+    arguments: dict[str, object] = {}
+    for name, value in fields.items():
+        arguments[name] = _toggle(value) if isinstance(value, bool) else value
+    if boundaries == "all":
+        arguments["num_boundaries"] = -1
+    else:
+        arguments["num_boundaries"] = len(boundaries)
+        arguments["boundary_indices"] = list(boundaries)
+    return arguments
 
 
 def _reject_empty_selection(helper: str, argument: str, value: list[object]) -> None:
@@ -507,6 +549,17 @@ def solver_settings(
     viscous_coupling: Toggle | None = None,
     viscous_excluded: Sequence[int | str] | None = None,
     bulk_separation: BulkSeparation | Mapping | None = None,
+    airfoil_separation: Sequence[AirfoilSeparation | Mapping] | None = None,
+    axial_vortex_separation: Sequence[AxialVortexSeparation | Mapping] | None = None,
+    cylindrical_bulk_separation: Sequence[CylindricalBulkSeparation | Mapping] | None = None,
+    stratford_bulk_separation: Sequence[StratfordBulkSeparation | Mapping] | None = None,
+    delete_separations: int | Literal["all"] | None = None,
+    axial_separation_boundaries: Sequence[int | str] | Literal["all"] | None = None,
+    valarezo_separation_boundaries: Sequence[int | str] | Literal["all"] | None = None,
+    crossflow_separation_boundaries: Sequence[int | str] | Literal["all"] | None = None,
+    crossflow_separation_diameter: float | None = None,
+    crossflow_separation_axisymmetric: Toggle | None = None,
+    laminar_separation: Toggle | None = None,
     convergence_iterations: int | None = None,
     minimum_cp: float | None = None,
     reynolds_averaged_drag: Toggle | None = None,
@@ -629,11 +682,65 @@ def solver_settings(
         Boundaries excluded from viscous coupling, by 1-based index
         or declared boundary label; verified against the inventory
         declared with declare_existing(boundaries=...) when one
-        exists.
+        exists. The empty sequence emits
+        DELETE_VISCOUS_EXCLUDED_BOUNDARIES, which is the solver's own
+        way of erasing the list (SRC-003 p.341); pass None, or omit the
+        flag, to leave the list as the script found it.
     bulk_separation : BulkSeparation or mapping, optional
         Bulk (bluff-body) flow-separation assignment
         (CREATE_BULK_SEPARATION, SRC-003 p.342); see
         :class:`~pyflightstream.script.solver_setup.BulkSeparation`.
+        Documented on 26.101 and 26.120 only: 26.121 splits it into
+        ``cylindrical_bulk_separation`` and
+        ``stratford_bulk_separation``, and 26.100 has no named
+        separation models at all.
+    airfoil_separation : sequence of AirfoilSeparation or mapping, optional
+        Airfoil (trailing-edge) separation assignments, one per
+        CREATE_AIRFOIL_SEPARATION emission (SRC-003 p.341).
+    axial_vortex_separation : sequence of AxialVortexSeparation or mapping, optional
+        Axial vortex separation assignments for slender bodies
+        (CREATE_AXIAL_VORTEX_SEPARATION, SRC-003 p.342).
+    cylindrical_bulk_separation : sequence of CylindricalBulkSeparation or mapping, optional
+        Cylindrical bulk separation assignments (SRC-740 p.345);
+        documented on 26.121.
+    stratford_bulk_separation : sequence of StratfordBulkSeparation or mapping, optional
+        Stratford bulk separation assignments (SRC-740 p.345);
+        documented on 26.121.
+    delete_separations : int or 'all', optional
+        Delete one separation model by its 1-based creation index, or
+        every one of them with ``"all"`` (DELETE_SEPARATION,
+        SRC-003 p.342). Emitted before the four assignment flags above,
+        so one call can clear what an opened simulation carried and then
+        build its own models on a known-empty list.
+    axial_separation_boundaries : sequence of int or str, or 'all', optional
+        Boundaries on the axial flow separation list of 26.100
+        (SET_AXIAL_SEPARATION_BOUNDARIES, SRC-741 p.339). The empty
+        sequence emits the matching DELETE. Deprecated and refused by
+        26.101 and later, which want ``axial_vortex_separation``
+        instead (RPT-018).
+    valarezo_separation_boundaries : sequence of int or str, or 'all', optional
+        Boundaries on the Valarezo maximum-lift criterion list of
+        26.100 (SRC-741 p.339). The empty sequence emits the command
+        the manual documents for the erase, which RPT-018 measured
+        unrecognized by the solver; see that report before relying on
+        it. Superseded by the ``valarezo_criterion`` field of
+        :class:`~pyflightstream.script.solver_setup.AirfoilSeparation`.
+    crossflow_separation_boundaries : sequence of int or str, or 'all', optional
+        Boundaries on the cross-flow separation list of 26.100
+        (SRC-741 pp.339-340). The empty sequence emits the matching
+        DELETE.
+    crossflow_separation_diameter : float, optional
+        Maximum diameter of the body carrying the 26.100 cross-flow
+        separation model, in simulation length units (SRC-741 p.339).
+        One diameter applies to the whole list, unlike the later named
+        models, which carry a diameter per assignment.
+    crossflow_separation_axisymmetric : bool or 'ENABLE' or 'DISABLE', optional
+        Axisymmetric vortex shedding for the 26.100 cross-flow
+        separation model (SRC-741 p.340).
+    laminar_separation : bool or 'ENABLE' or 'DISABLE', optional
+        Laminar boundary layer separation (SRC-003 p.345); the one
+        member of the separation family documented unchanged in all
+        four editions.
     convergence_iterations : int, optional
         Iterations the solver must stay below the convergence
         threshold before convergence is declared (SRC-003 p.344).
@@ -677,6 +784,40 @@ def solver_settings(
         "solver_settings", "vorticity_drag_boundaries", vorticity_drag_boundaries, allows_all=True
     )
     _reject_bare_label("solver_settings", "viscous_excluded", viscous_excluded, allows_all=False)
+    separation_selections = {
+        "axial_separation_boundaries": axial_separation_boundaries,
+        "valarezo_separation_boundaries": valarezo_separation_boundaries,
+        "crossflow_separation_boundaries": crossflow_separation_boundaries,
+    }
+    for argument, value in separation_selections.items():
+        _reject_bare_label("solver_settings", argument, value, allows_all=True)
+    if delete_separations is not None and delete_separations != "all" and delete_separations < 1:
+        raise CommandArgumentError(
+            "solver_settings: delete_separations takes the 1-based index of one "
+            f"separation model or the string 'all', got {delete_separations!r}; the "
+            "solver numbers the models in creation order (SRC-003 p.342)"
+        )
+    given_models = {
+        "airfoil_separation": airfoil_separation,
+        "axial_vortex_separation": axial_vortex_separation,
+        "cylindrical_bulk_separation": cylindrical_bulk_separation,
+        "stratford_bulk_separation": stratford_bulk_separation,
+    }
+    separation_models: dict[str, list[object]] = {}
+    for argument, model_type in SEPARATION_MODELS.items():
+        given = given_models[argument]
+        if given is None:
+            separation_models[argument] = []
+            continue
+        _reject_bare_label("solver_settings", argument, given, allows_all=False)
+        try:
+            separation_models[argument] = [model_type.model_validate(item) for item in given]
+        except ValidationError as error:
+            fields = ", ".join(model_type.model_fields)
+            raise CommandArgumentError(
+                f"solver_settings: {argument} takes a sequence of "
+                f"{model_type.__name__} ({fields}): {error}"
+            ) from error
     # Read every toggle before the first emission, so a value in neither
     # vocabulary refuses on an untouched script, and so the snapshot
     # records booleans whichever vocabulary the caller wrote.
@@ -688,6 +829,8 @@ def solver_settings(
         "unsteady_pressure_and_kutta": unsteady_pressure_and_kutta,
         "wake_on_wake_induction": wake_on_wake_induction,
         "additional_wake_relaxation": additional_wake_relaxation,
+        "crossflow_separation_axisymmetric": crossflow_separation_axisymmetric,
+        "laminar_separation": laminar_separation,
     }
     read = {
         name: _optional_toggle("solver_settings", name, value) for name, value in toggles.items()
@@ -699,6 +842,8 @@ def solver_settings(
     unsteady_pressure_and_kutta = read["unsteady_pressure_and_kutta"]
     wake_on_wake_induction = read["wake_on_wake_induction"]
     additional_wake_relaxation = read["additional_wake_relaxation"]
+    crossflow_separation_axisymmetric = read["crossflow_separation_axisymmetric"]
+    laminar_separation = read["laminar_separation"]
     upper_mode = mode.upper() if mode is not None else None
     if upper_mode is not None and upper_mode not in ("STEADY", "UNSTEADY"):
         raise CommandArgumentError(
@@ -777,8 +922,47 @@ def solver_settings(
     if viscous_coupling is not None:
         script.emit("SET_SOLVER_VISCOUS_COUPLING", _toggle(viscous_coupling))
     if viscous_excluded is not None:
+        if len(viscous_excluded) == 0:
+            # An empty exclusion list is the erase, not a SET naming no
+            # boundary: the solver has a command for it (SRC-003 p.341),
+            # and emitting the count 0 with an empty index line asked the
+            # parser to read a line that carries nothing.
+            script.emit("DELETE_VISCOUS_EXCLUDED_BOUNDARIES")
+        else:
+            script.emit(
+                "SET_VISCOUS_EXCLUDED_BOUNDARIES", len(viscous_excluded), list(viscous_excluded)
+            )
+    for selection_argument, set_command, delete_command in (
+        (
+            "axial_separation_boundaries",
+            "SET_AXIAL_SEPARATION_BOUNDARIES",
+            "DELETE_AXIAL_SEPARATION_BOUNDARIES",
+        ),
+        (
+            "valarezo_separation_boundaries",
+            "SET_VALAREZO_SEPARATION_BOUNDARIES",
+            "DELETE_VALAREZO_CRITERION_BOUNDARIES",
+        ),
+        (
+            "crossflow_separation_boundaries",
+            "SET_CROSSFLOW_SEPARATION_BOUNDARIES",
+            "DELETE_CROSSFLOW_SEPARATION_BOUNDARIES",
+        ),
+    ):
+        chosen = separation_selections[selection_argument]
+        if chosen is None:
+            continue
+        if chosen == "all":
+            script.emit(set_command, -1)
+        elif len(chosen) == 0:
+            script.emit(delete_command)
+        else:
+            script.emit(set_command, len(chosen), list(chosen))
+    if crossflow_separation_diameter is not None:
+        script.emit("SET_CROSSFLOW_SEPARATION_DIAMETER", crossflow_separation_diameter)
+    if crossflow_separation_axisymmetric is not None:
         script.emit(
-            "SET_VISCOUS_EXCLUDED_BOUNDARIES", len(viscous_excluded), list(viscous_excluded)
+            "SET_CROSSFLOW_SEPARATION_AXISYMMETRIC", _toggle(crossflow_separation_axisymmetric)
         )
     if bulk is not None:
         if bulk.boundaries == "all":
@@ -798,6 +982,16 @@ def solver_settings(
                 diameter=bulk.diameter,
                 boundary_indices=list(bulk.boundaries),
             )
+    if delete_separations is not None:
+        script.emit("DELETE_SEPARATION", -1 if delete_separations == "all" else delete_separations)
+    for argument, command in (
+        ("airfoil_separation", "CREATE_AIRFOIL_SEPARATION"),
+        ("axial_vortex_separation", "CREATE_AXIAL_VORTEX_SEPARATION"),
+        ("cylindrical_bulk_separation", "CREATE_CYLINDRICAL_BULK_SEPARATION"),
+        ("stratford_bulk_separation", "CREATE_STRATFORD_BULK_SEPARATION"),
+    ):
+        for model in separation_models[argument]:
+            script.emit(command, **_separation_arguments(model))
     if convergence_iterations is not None:
         script.emit("SET_SOLVER_CONVERGENCE_ITERATIONS", convergence_iterations)
     minimum_cp_default_emitted = False
@@ -820,6 +1014,8 @@ def solver_settings(
         script.emit("SET_WAKE_ON_WAKE_INDUCTION", _toggle(wake_on_wake_induction))
     if additional_wake_relaxation is not None:
         script.emit("ADDITIONAL_WAKE_RELAXATION_ITERATION", _toggle(additional_wake_relaxation))
+    if laminar_separation is not None:
+        script.emit("LAMINAR_SEPARATION", _toggle(laminar_separation))
     if aeroelastic_rbf_type is not None:
         script.emit("AEROELASTIC_RBF_TYPE", aeroelastic_rbf_type)
 
@@ -847,6 +1043,17 @@ def solver_settings(
         "viscous_coupling": viscous_coupling,
         "viscous_excluded": viscous_excluded,
         "bulk_separation": bulk,
+        "airfoil_separation": separation_models["airfoil_separation"],
+        "axial_vortex_separation": separation_models["axial_vortex_separation"],
+        "cylindrical_bulk_separation": separation_models["cylindrical_bulk_separation"],
+        "stratford_bulk_separation": separation_models["stratford_bulk_separation"],
+        "delete_separations": delete_separations,
+        "axial_separation_boundaries": axial_separation_boundaries,
+        "valarezo_separation_boundaries": valarezo_separation_boundaries,
+        "crossflow_separation_boundaries": crossflow_separation_boundaries,
+        "crossflow_separation_diameter": crossflow_separation_diameter,
+        "crossflow_separation_axisymmetric": crossflow_separation_axisymmetric,
+        "laminar_separation": laminar_separation,
         "convergence_iterations": convergence_iterations,
         "minimum_cp": minimum_cp,
         "reynolds_averaged_drag": reynolds_averaged_drag,
