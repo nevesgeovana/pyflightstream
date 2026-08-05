@@ -36,6 +36,26 @@ FlightStream versions.
   parsing half needs nothing, because it takes text. Only the pdf reader
   needs the extra.
 
+  **New console script `pyfs-manual`**, the fifth, with two subcommands.
+  `coverage` reports what a build's manual documents and the database
+  does not. `draft` renders entries for those commands, and **writes
+  nothing unless `--write` is passed with `--out`**; without a
+  destination it refuses rather than guessing where to put a draft.
+
+  A drafted entry writes `???` wherever the manual does not answer, which
+  is every argument TYPE and every phase whose section is unmapped. That
+  is deliberate and it is the safety property: the database schema
+  refuses `???`, so an unreviewed draft turns the suite red instead of
+  quietly becoming grammar the emitter validates other people's scripts
+  against. Each also carries a `drafted:` line naming the tool, the
+  manual and the page, so one grep finds every machine-drafted entry.
+
+  New public exception `utils.ManualDraftError`, in the catalog and
+  keeping `ValueError` as its second base. It refuses a request to draft
+  a `verified` or `broken` status: those are promoted from a committed
+  probe report by `pyfs-qa apply-compat`, never from a page citation
+  (invariant 3).
+
 * **Breaking, and it can affect a script you already wrote:
   `resolve("26.1")` now raises `AmbiguousVersionAliasError` where it
   returned 26.100.** Two registered builds carry that vendor name since

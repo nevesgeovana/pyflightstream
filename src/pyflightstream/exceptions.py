@@ -102,6 +102,7 @@ from pyflightstream.script import (
     ScriptOrderError,
     ScriptReferenceError,
 )
+from pyflightstream.utils.errors import ManualDraftError
 from pyflightstream.versions import AmbiguousVersionAliasError, UnknownVersionError
 from pyflightstream.workspace import (
     InputArtifactError,
@@ -128,6 +129,7 @@ __all__ = [
     "InputArtifactError",
     "LoadsNotFoundError",
     "MalformedOutputError",
+    "ManualDraftError",
     "MatrixError",
     "MissingExtraError",
     "NamingTemplateError",

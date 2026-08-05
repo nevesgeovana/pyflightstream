@@ -51,6 +51,8 @@ import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 
+from pyflightstream.utils.errors import ManualDraftError
+
 __all__ = [
     "ManualCommand",
     "coverage_against",
@@ -58,6 +60,9 @@ __all__ = [
     "parse_signatures",
     "propose_layout",
     "read_pdf_pages",
+    "render_chapter",
+    "render_entry",
+    "write_chapter",
 ]
 
 #: A Script Index line pairs a command with the section that documents
@@ -348,3 +353,200 @@ def read_pdf_pages(path, first: int, last: int) -> dict[int, str]:
     reader = pypdf.PdfReader(path)
     upper = min(last, len(reader.pages))
     return {i + 1: (reader.pages[i].extract_text() or "") for i in range(first - 1, upper)}
+
+
+# --- drafting -------------------------------------------------------------
+#
+# Turning a parsed command into a database entry is where judgement enters,
+# so everything below is explicit about which parts are read and which are
+# guessed. Two rules hold the shape:
+#
+#   * the default never writes. `render_chapter` returns text and touches
+#     nothing; `write_chapter` writes only when told to, and says what it
+#     did either way.
+#   * every drafted entry carries a `drafted:` provenance line naming the
+#     tool, the manual and the page. A machine-drafted entry is therefore
+#     findable with one grep, which is what makes reviewing a tranche
+#     possible at all, and what stops a draft from quietly becoming
+#     evidence.
+
+#: Argument names the manual writes generically. The database prefers a
+#: name that says what the value MEANS, and mapping the common ones saves
+#: a reviewer the most repetitive part of the work. Everything not here is
+#: passed through lowercased, and a reviewer renames it.
+_GENERIC_NAMES = {
+    "value": "value",
+    "enable / disable": "mode",
+    "enable/disable": "mode",
+    "index": "index",
+    "name": "name",
+}
+
+#: Section of the Script Index to the database's phase vocabulary. A
+#: section this does not name yields None, and the draft says `phase: ???`
+#: rather than guessing, because emitting a wrong phase would make the
+#: ordering checks refuse a correct script.
+_PHASE_BY_SECTION = {
+    "Script Controls": "control",
+    "Opening  Closing    Saving": "init",
+    "Mesh Import   Export": "init",
+    "Coordinate Systems": "setup",
+    "Actuators": "setup",
+    "Motion Definitions": "setup",
+    "Base Regions": "setup",
+    "Trailing Edges": "setup",
+    "Wake Termination Nodes": "setup",
+    "Boundary Layer Transition Trips": "setup",
+    "Inlets and Outlets": "setup",
+    "Solver Settings": "init",
+    "Advanced Settings": "init",
+    "Runtime Settings": "init",
+    "Fluid Properties": "init",
+    "Free Stream Velocity": "init",
+    "Solver Initialization   Execution": "solve",
+    "Unsteady Solver": "solve",
+    "Sweeper Toolbox": "solve",
+    "Solver Analysis": "post",
+    "Solver Data Export": "post",
+    "Output Status": "post",
+}
+
+
+def _argument_name(raw: str) -> str:
+    """Return the database-style name for a manual placeholder."""
+    cleaned = raw.strip().lower()
+    return _GENERIC_NAMES.get(cleaned, cleaned.replace(" ", "_").replace("-", "_"))
+
+
+def render_entry(
+    command: ManualCommand,
+    *,
+    source: str,
+    versions: Mapping[str, str],
+    phase: str | None = None,
+) -> str:
+    """Render one command as a database entry, for a person to review.
+
+    Parameters
+    ----------
+    command : ManualCommand
+        Parsed entry, from :func:`parse_signatures`.
+    source : str
+        Manual source id for the citation, for example ``"SRC-741"``.
+    versions : mapping of str to str
+        Canonical version to status. Only ``documented`` is meaningful
+        from a manual: ``verified`` and ``broken`` need a committed probe
+        report and this function will not write them (invariant 3).
+    phase : str, optional
+        Overrides the phase proposed from the section.
+
+    Returns
+    -------
+    str
+        YAML for one entry, with ``???`` wherever the manual does not
+        answer, so an unreviewed draft cannot load: the database schema
+        refuses those values and the suite goes red rather than green
+        over a guess.
+
+    Raises
+    ------
+    ManualDraftError
+        If a status other than ``documented`` is requested, since a
+        manual is not probe evidence. A ``ValueError`` as well, so a
+        caller written before the catalogue still catches it.
+    """
+    bad = sorted({s for s in versions.values() if s != "documented"})
+    if bad:
+        raise ManualDraftError(
+            f"{command.name}: a manual supports the status 'documented' only, and "
+            f"{bad} were requested. verified and broken are promoted from a committed "
+            "probe report by pyfs-qa apply-compat (CLAUDE.md invariant 3)."
+        )
+
+    layout, why = propose_layout(command)
+    resolved = phase or _PHASE_BY_SECTION.get(command.section or "", "???")
+    lines = [
+        f"{command.name}:",
+        f"  layout: {layout}",
+        f"  phase: {resolved}",
+    ]
+    if command.inline_args:
+        lines.append("  args:")
+        for raw in command.inline_args:
+            lines.append(f"    - name: {_argument_name(raw)}")
+            lines.append("      type: ???")
+    else:
+        lines.append("  args: []")
+    lines.append(f'  manual_ref: "{source} p.{command.page}"')
+    lines.append("  versions:")
+    for canonical, status in versions.items():
+        lines.append(f'    "{canonical}": {{status: {status}}}')
+    lines.append(
+        f"  drafted: >-\n"
+        f"    Drafted by pyflightstream.utils.manual from {source} p.{command.page}"
+        f"{f' ({command.section})' if command.section else ''}. Layout proposed because "
+        f"{why}. Argument TYPES and any argument written on a continuation line are "
+        f"not readable from the signature and are left unanswered on purpose. Review "
+        f"against the manual page, then delete this line."
+    )
+    return "\n".join(lines) + "\n"
+
+
+def render_chapter(
+    commands: Iterable[ManualCommand],
+    *,
+    source: str,
+    versions: Mapping[str, str],
+) -> str:
+    """Render several entries as one chapter file body, sorted by name."""
+    ordered = sorted(commands, key=lambda c: c.name)
+    header = (
+        f"# Drafted from {source} by pyflightstream.utils.manual.\n"
+        f"# {len(ordered)} entries, none reviewed. Every '???' is a question the\n"
+        f"# manual does not answer; the schema refuses them, so this file cannot\n"
+        f"# load until a person has been through it.\n\n"
+    )
+    return header + "\n".join(render_entry(c, source=source, versions=versions) for c in ordered)
+
+
+def write_chapter(path, body: str, *, write: bool = False) -> str:
+    """Write a drafted chapter, but only when asked.
+
+    The default is a dry run, and the reason is the measurement in this
+    module's own docstring: the drafts reproduce 77 percent of
+    hand-authored argument lists, so writing them unreviewed into the
+    database the emitter validates against would put invented grammar in
+    front of other people's scripts.
+
+    Parameters
+    ----------
+    path : str or Path
+        Destination. Point it at a scratch file to review before moving
+        anything into ``src/pyflightstream/commands/``.
+    body : str
+        Output of :func:`render_chapter`.
+    write : bool, keyword-only
+        False, the default, writes nothing. True writes ``body`` to
+        ``path``, replacing it.
+
+    Returns
+    -------
+    str
+        A sentence saying what happened, for a caller to print.
+    """
+    from pathlib import Path as _Path
+
+    target = _Path(path)
+    entries = body.count("\n  layout: ")
+    unanswered = body.count("???")
+    if not write:
+        return (
+            f"dry run: {entries} entr(ies) drafted, {unanswered} unanswered field(s), "
+            f"nothing written. Pass write=True to write {target}."
+        )
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(body, encoding="utf-8")
+    return (
+        f"wrote {entries} drafted entr(ies) to {target}, with {unanswered} unanswered "
+        "field(s) still to review. They are drafts: the '???' values do not load."
+    )

@@ -43,7 +43,9 @@ claim.
 
 Optional extras: `[fsi]` (aeroelastic coupling, PyNiteFEA), `[geom]`
 (probe-survey geometry gating, trimesh/rtree/scipy), `[plot]`
-(matplotlib for the plotting examples).
+(matplotlib for the plotting examples), and `[manual]` (pypdf), which
+is maintainer tooling rather than a user feature: it backs `pyfs-manual`
+and nothing in a run imports it.
 
 ## Why this package
 
@@ -131,6 +133,7 @@ runs, not that its physics is right for a case nobody has measured.
 | `pyfs-qa` | Tier 2 command-validity probes, Tier 3 physics regression and cross-version drift, status promotion from committed reports |
 | `pyfs-workspace` | Initialize the managed campaign workspace tree |
 | `pyfs-matrix` | Convert and pre-flight run matrices |
+| `pyfs-manual` | Compare a FlightStream manual against the command database (maintainer tool, needs the `[manual]` extra; writes only with `--write`) |
 | `pyfs-fsi` | The structural executable of the aeroelastic coupling loop |
 
 ## Supported FlightStream versions

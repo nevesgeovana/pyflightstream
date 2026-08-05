@@ -207,4 +207,104 @@ def test_the_module_imports_nothing_from_the_package():
         for line in source.splitlines()
         if "import pyflightstream" in line or "from pyflightstream" in line
     ]
-    assert reaching == ["from pyflightstream.extras import missing_extra"], reaching
+    assert reaching == [
+        "from pyflightstream.utils.errors import ManualDraftError",
+        "from pyflightstream.extras import missing_extra",
+    ], reaching
+
+
+# --- drafting, and its refusals -------------------------------------------
+
+
+def test_a_drafted_entry_leaves_the_unanswerable_unanswered():
+    """A draft must not load, and that is the safety property.
+
+    Argument TYPES are not in the signature line, so the draft writes
+    ``???``. The database schema refuses that value, so an unreviewed
+    draft turns the suite red instead of quietly becoming grammar the
+    emitter validates other people's scripts against.
+    """
+    from pyflightstream.utils import render_entry
+
+    command = parse_signatures({316: INLINE_PAGE}, sections={"SET_BASE_REGION_CP": "Base Regions"})[
+        "SET_BASE_REGION_CP"
+    ]
+    entry = render_entry(command, source="SRC-741", versions={"26.100": "documented"})
+    assert "type: ???" in entry
+    assert entry.count("type: ???") == 3, "one per inline argument"
+    assert 'manual_ref: "SRC-741 p.316"' in entry
+    assert '"26.100": {status: documented}' in entry
+
+
+def test_a_drafted_entry_says_it_was_drafted_and_by_what():
+    """One grep finds every machine-drafted entry, which is what makes a
+    tranche reviewable and what stops a draft becoming evidence."""
+    from pyflightstream.utils import render_entry
+
+    command = parse_signatures({316: INLINE_PAGE})["SET_BASE_REGION_CP"]
+    entry = render_entry(command, source="SRC-741", versions={"26.100": "documented"})
+    assert "drafted:" in entry
+    assert "pyflightstream.utils.manual" in entry
+    assert "SRC-741 p.316" in entry
+
+
+def test_the_phase_is_left_unanswered_when_the_section_does_not_decide_it():
+    """Guessing a phase would make the ordering checks refuse a correct
+    script, which is worse than refusing to answer."""
+    from pyflightstream.utils import render_entry
+
+    command = ManualCommand(name="X_COMMAND", page=1, section="Some Section Nobody Mapped")
+    assert "phase: ???" in render_entry(
+        command, source="SRC-741", versions={"26.100": "documented"}
+    )
+
+
+def test_a_manual_cannot_draft_a_probed_status():
+    """verified and broken are promoted from a committed probe report by
+    the sanctioned path; a manual is not evidence of solver behaviour."""
+    from pyflightstream.utils import render_entry
+
+    command = parse_signatures({316: INLINE_PAGE})["SET_BASE_REGION_CP"]
+    with pytest.raises(ValueError, match="invariant 3"):
+        render_entry(command, source="SRC-741", versions={"26.100": "verified"})
+
+
+def test_the_default_writes_nothing(tmp_path):
+    from pyflightstream.utils import render_chapter, write_chapter
+
+    target = tmp_path / "drafts.yaml"
+    body = render_chapter(
+        parse_signatures({316: INLINE_PAGE}).values(),
+        source="SRC-741",
+        versions={"26.100": "documented"},
+    )
+    message = write_chapter(target, body)
+    assert not target.exists(), "the default must not touch the filesystem"
+    assert "dry run" in message and "nothing written" in message
+
+
+def test_writing_is_possible_and_says_what_it_left_unanswered(tmp_path):
+    from pyflightstream.utils import render_chapter, write_chapter
+
+    target = tmp_path / "nested" / "drafts.yaml"
+    body = render_chapter(
+        parse_signatures({316: INLINE_PAGE}).values(),
+        source="SRC-741",
+        versions={"26.100": "documented"},
+    )
+    message = write_chapter(target, body, write=True)
+    assert target.read_text(encoding="utf-8") == body
+    assert "wrote" in message and "review" in message
+
+
+def test_the_chapter_header_says_nothing_was_reviewed():
+    from pyflightstream.utils import render_chapter
+
+    body = render_chapter(
+        parse_signatures({316: INLINE_PAGE, 330: CONTINUATION_PAGE}).values(),
+        source="SRC-741",
+        versions={"26.100": "documented"},
+    )
+    assert "none reviewed" in body
+    # Sorted, so two runs over the same manual produce the same file.
+    assert body.index("SET_BASE_REGION_CP:") < body.index("SET_PROP_ACTUATOR_PROFILE:")

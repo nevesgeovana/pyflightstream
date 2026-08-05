@@ -26,6 +26,9 @@ from pyflightstream.utils.manual import (
     parse_signatures,
     propose_layout,
     read_pdf_pages,
+    render_chapter,
+    render_entry,
+    write_chapter,
 )
 
 __all__ = [
@@ -35,4 +38,7 @@ __all__ = [
     "parse_signatures",
     "propose_layout",
     "read_pdf_pages",
+    "render_chapter",
+    "render_entry",
+    "write_chapter",
 ]
