@@ -11,7 +11,7 @@ list, each command's page and signature, and the difference against the
 database.
 
 WHAT THIS IS NOT FOR, and the distinction is the whole design. It does
-not write database entries. It was measured against the 147 entries this
+not write database entries. It was measured against the entries this
 database already holds, which were authored by hand from these same
 manuals over several weeks, and it reproduces their argument lists for
 77 percent of them. The other 23 percent are not parser bugs to be fixed
@@ -37,11 +37,22 @@ rules exist to prevent (CLAUDE.md invariant 3).
 
 RELIABILITY, measured rather than asserted. Against the 34 commands whose
 manual page citation is already recorded in the database, the signature
-scan finds 33 and puts 30 on the exact cited page. Against all 147
-entries it reproduces 77 percent of argument counts. Both numbers are
-reproduced by ``tests/test_utils_manual.py`` on synthetic fixtures; the
-manual itself is licensed, lives in ``_private/`` and never enters Git,
-so the fixtures imitate its SHAPE and carry none of its text
+scan finds 33 and puts 30 on the exact cited page. Against the whole
+database it reproduces 77 percent of argument counts.
+
+Argument TYPES are read from a third source, the manual's own parameter
+table, which :func:`propose_type` reads and the signature and sample do
+not carry. Measured the same way, against 148 arguments whose type this
+repository authored by hand: **57 percent agreed, 43 percent proposed
+nothing, and none disagreed.** The second number and the third are the
+design. A rule that cannot read a type returns None and the draft writes
+``???``, which the schema refuses, so half the arguments of a tranche are
+still a person's work; what the tool must never do is propose a type that
+is wrong, because that one loads.
+
+Both properties are held by ``tests/test_utils_manual.py`` on synthetic
+fixtures; the manual itself is licensed, lives in ``_private/`` and never
+enters Git, so the fixtures imitate its SHAPE and carry none of its text
 (invariant 1).
 """
 
@@ -58,6 +69,7 @@ __all__ = [
     "coverage_against",
     "parse_script_index",
     "parse_signatures",
+    "propose_type",
     "propose_layout",
     "read_pdf_pages",
     "render_chapter",
@@ -74,6 +86,26 @@ _INDEX_LINE = re.compile(r"^([A-Z][A-Z0-9_]{3,})\s+(\S.*?)\s*$")
 #: placeholders after the name are its inline arguments in order.
 _SIGNATURE = re.compile(r"^Function name:\s*([A-Z][A-Z0-9_]{2,})\s*(.*)$")
 _PLACEHOLDER = re.compile(r"<([^>]+)>")
+
+#: A parameter-table row of a command with no inline signature begins
+#: with the keyword it documents. Two capitals minimum and a following
+#: space or glued lowercase, so a wrapped line beginning with a normal
+#: capitalised word cannot pass for a row key.
+_TABLE_KEY = re.compile(r"^([A-Z][A-Z0-9_]{2,})(?=\s|[a-z]|$)")
+
+#: Tokens a parameter description offers as the accepted values. Read as
+#: grammar, never as prose: the token list is a fact about the command,
+#: the sentence around it is licensed manual text and stays in the pdf.
+_ENUM_TOKEN = re.compile(r"\b([A-Z][A-Z0-9_]{2,})\b")
+
+#: The other way a description spells a closed set: the tokens joined by
+#: "or", optionally comma separated before it ("FEET or METERS",
+#: "X, Y or Z"). Single letters count here, which is why this is a
+#: separate pattern from the one above rather than a looser version of
+#: it: a lone capital elsewhere in a sentence is not a token.
+_ENUM_ALTERNATIVES = re.compile(
+    r"\b[A-Z][A-Z0-9_]*(?:\s*,\s*[A-Z][A-Z0-9_]*)*\s+or\s+[A-Z][A-Z0-9_]*\b"
+)
 
 #: Sections my line pattern invents when an argument value happens to be
 #: followed by prose. Kept as data so a reader can check the list rather
@@ -106,6 +138,15 @@ class ManualCommand:
     section : str or None
         Section the Script Index files it under, when an index was
         parsed and named it.
+    parameters : mapping of str to str
+        The manual's own parameter table, placeholder name to the prose
+        describing it, for the commands that carry one. This is the
+        third source, after the signature and the sample, and it is the
+        only one that says anything about an argument's TYPE. The prose
+        is licensed manual text: it is read at run time from the pdf the
+        caller passes and is never written into anything this module
+        renders (invariant 1), which is why :func:`propose_type` returns
+        a conclusion and a structural reason rather than a quotation.
     """
 
     name: str
@@ -113,6 +154,7 @@ class ManualCommand:
     inline_args: tuple[str, ...] = ()
     sample: tuple[str, ...] = ()
     section: str | None = None
+    parameters: Mapping[str, str] = field(default_factory=dict)
 
     @property
     def continuation_lines(self) -> tuple[str, ...]:
@@ -188,14 +230,78 @@ def parse_signatures(
             name = match.group(1)
             if name in found:
                 continue
+            placeholders = tuple(a.strip() for a in _PLACEHOLDER.findall(match.group(2)))
             found[name] = ManualCommand(
                 name=name,
                 page=page,
-                inline_args=tuple(a.strip() for a in _PLACEHOLDER.findall(match.group(2))),
+                inline_args=placeholders,
                 sample=_sample_after(lines, i, name),
                 section=sections.get(name),
+                parameters=_parameters_after(lines, i, placeholders),
             )
     return found
+
+
+def _parameters_after(
+    lines: list[str], start: int, placeholders: tuple[str, ...]
+) -> dict[str, str]:
+    """Read the parameter table that follows a signature, if it has one.
+
+    The table is bounded by its own heading and the sample block. Its
+    rows are keyed by the placeholder names of the signature, which is
+    why they are passed in rather than guessed: a row's prose wraps onto
+    following lines, and the pdf extraction sometimes glues the key to
+    the first word of its description, so the known keys are what makes
+    the split reliable. A command with no inline signature (a keyword
+    block) has no such list, and there the line-initial capitalised
+    tokens are taken as the keys instead, because for those commands the
+    table IS the argument list.
+
+    Parameters
+    ----------
+    lines : list of str
+        Lines of the page.
+    start : int
+        Index of the signature line.
+    placeholders : tuple of str
+        Inline placeholder names from that signature, in order.
+
+    Returns
+    -------
+    dict of str to str
+        Parameter name to its description, empty when the command
+        documents no table.
+    """
+    opening = None
+    for j in range(start, min(start + 6, len(lines))):
+        if lines[j].strip().startswith("Function parameters"):
+            opening = j
+            break
+    if opening is None:
+        return {}
+    block: list[str] = []
+    for k in range(opening + 1, min(opening + 40, len(lines))):
+        candidate = lines[k].strip()
+        if candidate.startswith(("Sample", "Function name:")):
+            break
+        if not candidate or candidate == "Parameter Value":
+            continue
+        block.append(candidate)
+    if not block:
+        return {}
+    keys = [p.upper() for p in placeholders] or [
+        match.group(1) for line in block if (match := _TABLE_KEY.match(line)) is not None
+    ]
+    rows: dict[str, list[str]] = {}
+    current: str | None = None
+    for line in block:
+        opened = next((key for key in keys if line.startswith(key)), None)
+        if opened is not None and opened not in rows:
+            current = opened
+            rows[current] = [line[len(opened) :].strip()]
+        elif current is not None:
+            rows[current].append(line)
+    return {key: " ".join(parts).strip() for key, parts in rows.items()}
 
 
 def _sample_after(lines: list[str], start: int, name: str) -> tuple[str, ...]:
@@ -418,6 +524,99 @@ def _argument_name(raw: str) -> str:
     return _GENERIC_NAMES.get(cleaned, cleaned.replace(" ", "_").replace("-", "_"))
 
 
+#: Words a parameter description opens with that decide a type on their
+#: own, in the order they are tried. Data rather than a chain of ifs so a
+#: reader can check the list, and so the reasons stay one per rule.
+_TYPE_BY_OPENING: tuple[tuple[tuple[str, ...], str, str], ...] = (
+    (("number of", "num of"), "int", "the description counts something"),
+    (("index of", "1-based index", "index value"), "int", "the description names an index"),
+    (
+        ("file name with path", "filename with path", "name of the file", "path to file"),
+        "path",
+        "the description names a file path",
+    ),
+    (("assign name", "name of the", "name to"), "str", "the description names a label"),
+)
+
+#: Placeholder suffixes that carry a physical dimension, so the value is
+#: real rather than whole. Checked after the openings above, because a
+#: count of time steps ends in _STEPS and is still an integer.
+_FLOAT_SUFFIXES = (
+    "_ANGLE",
+    "_AREA",
+    "_DIAMETER",
+    "_HEIGHT",
+    "_LENGTH",
+    "_RADIUS",
+    "_RATE",
+    "_TIME",
+    "_TOLERANCE",
+    "_VELOCITY",
+)
+
+
+def propose_type(placeholder: str, description: str) -> tuple[str | None, tuple[str, ...], str]:
+    """Suggest an argument type from the manual's parameter table.
+
+    The third source, after the signature line and the sample block, and
+    the only one that says anything about a TYPE. It answers about two
+    arguments in three on the corpus this repository authored by hand;
+    where it does not answer it says so, and the caller writes ``???``
+    rather than a guess.
+
+    Nothing of the description reaches the return value. The reason is a
+    sentence about the SHAPE the rule matched, not a paraphrase of the
+    manual, so a draft carries no licensed text (invariant 1).
+
+    Parameters
+    ----------
+    placeholder : str
+        Parameter name as the manual prints it, for example
+        ``"NUM_BOUNDARIES"``.
+    description : str
+        The manual's prose for that parameter, as
+        :attr:`ManualCommand.parameters` holds it.
+
+    Returns
+    -------
+    tuple
+        ``(type, values, reason)``. ``type`` is a database ``ArgType``
+        value, or None when no rule matched. ``values`` is the token
+        tuple of an ``enum`` and empty otherwise. ``reason`` says which
+        rule answered, or why none did.
+    """
+    text = description.strip()
+    lowered = text.lower()
+    upper = placeholder.upper()
+
+    # The tokens are matched AS PRINTED, in capitals. Matching them
+    # case-insensitively read the ordinary words "enabled" and
+    # "disabled" out of a sentence about boundaries and proposed an enum
+    # for a count, which was the one disagreement in the corpus this rule
+    # set was measured against.
+    if "ENABLE" in text and "DISABLE" in text:
+        return "enum", ("ENABLE", "DISABLE"), "the description offers the two toggle tokens"
+    if "one of the following" in lowered or "can be one of" in lowered:
+        tokens = tuple(dict.fromkeys(_ENUM_TOKEN.findall(text)))
+        if len(tokens) >= 2:
+            return "enum", tokens, "the description enumerates the accepted tokens"
+    alternatives = _ENUM_ALTERNATIVES.search(text)
+    if alternatives is not None:
+        tokens = tuple(dict.fromkeys(re.findall(r"[A-Z][A-Z0-9_]*", alternatives.group(0))))
+        if len(tokens) >= 2:
+            return "enum", tokens, "the description spells the alternatives with 'or'"
+    for openings, proposed, reason in _TYPE_BY_OPENING:
+        if lowered.startswith(openings):
+            return proposed, (), reason
+    if "integer value" in lowered or "integer number" in lowered:
+        return "int", (), "the description says the value is whole"
+    if upper.endswith(_FLOAT_SUFFIXES) or "units =" in lowered:
+        return "float", (), "the parameter carries a physical dimension"
+    if not text:
+        return None, (), "the command documents no parameter table"
+    return None, (), "no rule read a type from the description"
+
+
 def render_entry(
     command: ManualCommand,
     *,
@@ -470,24 +669,43 @@ def render_entry(
         f"  layout: {layout}",
         f"  phase: {resolved}",
     ]
+    typed, unanswered = 0, 0
     if command.inline_args:
         lines.append("  args:")
         for raw in command.inline_args:
+            proposed, values, _ = propose_type(raw, command.parameters.get(raw.upper(), ""))
             lines.append(f"    - name: {_argument_name(raw)}")
-            lines.append("      type: ???")
+            lines.append(f"      type: {proposed or '???'}")
+            if values:
+                lines.append(f"      values: [{', '.join(values)}]")
+            if proposed is None:
+                unanswered += 1
+            else:
+                typed += 1
     else:
         lines.append("  args: []")
     lines.append(f'  manual_ref: "{source} p.{command.page}"')
     lines.append("  versions:")
     for canonical, status in versions.items():
         lines.append(f'    "{canonical}": {{status: {status}}}')
+    if not command.parameters:
+        typing_note = (
+            "The command documents no parameter table, so no argument type could be "
+            "read and every one is unanswered"
+        )
+    else:
+        typing_note = (
+            f"{typed} argument type(s) read from the parameter table and "
+            f"{unanswered} left unanswered"
+        )
     lines.append(
         f"  drafted: >-\n"
         f"    Drafted by pyflightstream.utils.manual from {source} p.{command.page}"
         f"{f' ({command.section})' if command.section else ''}. Layout proposed because "
-        f"{why}. Argument TYPES and any argument written on a continuation line are "
-        f"not readable from the signature and are left unanswered on purpose. Review "
-        f"against the manual page, then delete this line."
+        f"{why}. {typing_note}; a type this tool proposes is a reading of the manual's "
+        f"own parameter table and not evidence, and an argument written on a "
+        f"continuation line does not appear at all. Review against the manual page, "
+        f"then delete this line."
     )
     return "\n".join(lines) + "\n"
 

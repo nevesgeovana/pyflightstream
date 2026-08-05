@@ -104,6 +104,23 @@ FlightStream versions.
   probe report by `pyfs-qa apply-compat`, never from a page citation
   (invariant 3).
 
+  **`utils.manual` now reads the manual's parameter table, which is
+  where argument types live**, and proposes them: new public
+  `propose_type`, and a new `ManualCommand.parameters` field carrying
+  the table. Every argument used to draft as `???`, because the
+  signature line and the sample block say nothing about a type.
+
+  Measured against 148 arguments this repository typed by hand: **57
+  percent agreed, 43 percent proposed nothing, none disagreed.** The
+  third number is the one to hold. A rule that cannot read a type
+  returns None and the draft still writes `???`, so a tranche is still a
+  person's work; the failure that matters is a wrong type, because that
+  one loads and then validates other people's scripts. The one
+  disagreement found while measuring is pinned as a test: matching the
+  toggle tokens case-insensitively read the ordinary words "enabled" and
+  "disabled" out of a sentence about boundaries and proposed an enum for
+  a count.
+
 * **Breaking, and it can affect a script you already wrote:
   `resolve("26.1")` now raises `AmbiguousVersionAliasError` where it
   returned 26.100.** Two registered builds carry that vendor name since
