@@ -39,6 +39,7 @@ __all__ = ["EXTRAS", "MissingExtraError", "UnknownExtraError", "missing_extra"]
 #: there is nothing for a user to reach without it.
 EXTRAS: dict[str, tuple[str, ...]] = {
     "fsi": ("PyNiteFEA",),
+    "manual": ("pypdf",),
     "geom": ("trimesh", "rtree", "scipy"),
     "plot": ("matplotlib",),
 }

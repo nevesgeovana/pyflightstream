@@ -9,6 +9,33 @@ FlightStream versions.
 
 ### API surface delta
 
+* **New subpackage `pyflightstream.utils`, and its first member
+  `utils.manual`**: read a FlightStream manual and report what the
+  command database does not record. Point it at a new build's manual and
+  it returns the vendor's own Script Index, each command's page,
+  signature and sample, and the three-way difference against the
+  database (absent, recorded, recorded-but-undocumented).
+
+  ```python
+  from pyflightstream.utils import read_pdf_pages, parse_signatures, coverage_against
+  ```
+
+  **It proposes and does not write, and the reason is measured rather
+  than cautious.** Checked against the 147 entries this database already
+  holds, authored by hand from these same manuals, it reproduces 77
+  percent of their argument lists. The remaining quarter are not parser
+  bugs: a variable-length list is one `int_list` argument in the database
+  and N lines in the manual's sample, a keyword block has no inline
+  signature at all, some commands document alternative forms in one
+  sample, and the manual names arguments `value` where the database names
+  them `layers`. Every layout proposal carries the sentence saying what
+  it was read from, so a reviewer can disagree cheaply.
+
+  New optional extra `[manual]` (pypdf, BSD-3-Clause, license card in
+  `reports/RPT-017`). Maintainer tooling: no run path imports it, and the
+  parsing half needs nothing, because it takes text. Only the pdf reader
+  needs the extra.
+
 * **Breaking, and it can affect a script you already wrote:
   `resolve("26.1")` now raises `AmbiguousVersionAliasError` where it
   returned 26.100.** Two registered builds carry that vendor name since

@@ -97,6 +97,7 @@ def test_overview_sections_match_the_deliverable_list():
         "extras",
         "testing",
         "support",
+        "utils",
     )
     # The literal tuple above enforces "somebody edited this list", not
     # "the list covers the public surface": `extras` landed as a public

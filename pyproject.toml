@@ -45,6 +45,11 @@ geom = ["trimesh", "rtree", "scipy"]
 # FSI structural coupling (M6, DLV-007). PyNiteFEA is MIT; license
 # evidence: reports/RPT-002_pynitefea-license_2026-07-21.md (NFR-02).
 fsi = ["PyNiteFEA>=3.0"]
+# Reading a vendor manual pdf, for pyflightstream.utils.manual. A
+# MAINTAINER extra: no run path imports it, and the manual it reads is
+# licensed material that never enters Git. pypdf is BSD-3-Clause,
+# MIT-compatible (NFR-02).
+manual = ["pypdf"]
 dev = [
     "pytest",
     # PEP 440 version parsing for tests/test_version_identity.py

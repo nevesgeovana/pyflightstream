@@ -87,6 +87,10 @@ _SECTIONS: tuple[str, ...] = (
     "extras",
     "testing",
     "support",
+    # Last, and outside the pipeline order above on purpose: nothing in a
+    # run imports it, so it has no place in the flow the earlier entries
+    # describe.
+    "utils",
 )
 
 _ROLE_PATTERN = re.compile(r":(?:mod|class|func|meth|attr|data|obj|exc):`~?([^`]+)`")
