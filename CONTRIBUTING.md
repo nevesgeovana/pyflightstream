@@ -30,6 +30,17 @@ it manually: draft the YAML entry with layout, phase, typed args, manual_ref
 tests; open a pending-probe issue if no licensed machine is available. A
 command becomes `verified` only through a committed Tier 2 probe report.
 
+`pyfs-manual` does the reading half of that first step, given a manual pdf
+and its page ranges: `coverage` lists what an edition documents and the
+database does not, and `draft` renders entries for those commands. It writes
+only with `--write --out`. Read what it produces as a starting point and not
+as evidence. It leaves `???` wherever no rule could read a value, which the
+schema refuses on purpose, so an unreviewed draft turns the suite red rather
+than becoming grammar the emitter validates other people's scripts against.
+Each drafted entry also carries a `drafted:` line naming the tool and the
+page; resolve the `???` values against the manual and delete that line in
+the same edit.
+
 ## How to report a version break
 
 Open an issue with: the FlightStream version (26.XXX), the script excerpt

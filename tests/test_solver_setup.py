@@ -140,8 +140,11 @@ def test_provenance_markers_and_default_evidence():
 
 
 def test_defaults_of_commands_absent_from_the_version_stay_unknown():
-    # 26.100 records no evidence for the advanced_settings commands, so
-    # the library default is not emitted and nothing is claimed.
+    # 26.101 records no evidence for SOLVER_MINIMUM_CP or
+    # SET_BOUNDARY_LAYER_TYPE, so the library default is not emitted and
+    # nothing is claimed. Naming the two commands rather than the
+    # advanced_settings family, which is no longer empty on that build:
+    # LAMINAR_SEPARATION is recorded there.
     script = Script(version="26.101")
     setup = helpers.solver_settings(script, vorticity_drag_boundaries="all")
     assert "SOLVER_MINIMUM_CP" not in script.render()
@@ -773,6 +776,11 @@ def test_a_separation_snapshot_replays_to_the_same_script():
         stratford_bulk_separation=[StratfordBulkSeparation(name="STRUT")],
         delete_separations=2,
     )
+    # The INDEX form asserted against rendered text, not only through the
+    # replay: both sides of a round trip run the same emitter, so a
+    # mutation replacing the index with -1 is symmetric and invisible
+    # there. -1 deletes every model where 2 deletes the second.
+    assert "DELETE_SEPARATION 2\n" in original.render()
     stored = SolverSetup.model_validate_json(setup.model_dump_json())
     replayed = Script(version="26.121")
     script_from_setup(replayed, stored)

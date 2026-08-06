@@ -3,7 +3,7 @@
 REV-002 finding PYFS-019. Every registered version was called supported
 by every public surface, and the four states hiding under that word are
 far apart: 26.000 constructs a `Script`, is accepted by a campaign, and
-carries evidence for zero of the 145 commands. The README said so in a
+carried evidence for zero of the 145 commands the database then held. The README said so in a
 sentence. Nothing said it in a value.
 """
 

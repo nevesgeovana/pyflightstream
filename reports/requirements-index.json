@@ -481,7 +481,7 @@
   },
   {
    "id": "FR-44",
-   "text": "The package provides four documented console entry points, one per operational concern, and their commands and flags change only under the deprecation policy of NFR-20.",
+   "text": "The package provides one documented console entry point per operational concern, and their commands and flags change only under the deprecation policy of NFR-20.",
    "priority": "M",
    "status": "pending",
    "evidence": "*Origin: the C4 acceptance, 2026-07-27, in the FULL-contract form she chose against the review's own recommendation of a narrower one.*",

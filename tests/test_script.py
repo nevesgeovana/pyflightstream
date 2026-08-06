@@ -497,6 +497,15 @@ def test_every_declared_count_is_a_known_count_name():
     checked like any other grammar, while the walk read only the
     entry-level tuple: a count spelled anew inside an override was the
     one shape of this defect the guard could not see.
+
+    One divergence from the emitter is left standing and is asserted
+    dormant rather than described. `_check_counts` never resets its
+    governing count after consuming a list, and this walk does, so on a
+    grammar with TWO list arguments the emitter would check the second
+    list against the first list's count while the walk reports nothing.
+    No such grammar exists today, and the floor below fails the moment
+    one is written, which is the point at which the two behaviours have
+    to be reconciled deliberately.
     """
     from pyflightstream.commands import ArgType, CommandRegistry
     from pyflightstream.script import _COUNT_ARG_NAMES, _SCALAR_REFERENCE_ARGS
@@ -545,18 +554,45 @@ def test_every_declared_count_is_a_known_count_name():
         "number; name it in _COUNT_ARG_NAMES, or record it in _SCALAR_REFERENCE_ARGS if "
         "it cites an entity: " + "; ".join(interleaved)
     )
-    # The walk is the guard, and it has two extents, so both are
-    # floored: a refactor that stopped reaching list arguments, or one
-    # that stopped reaching the per-version overrides, would satisfy
-    # both assertions above by walking nothing.
-    assert grammars_walked >= 165, (
-        f"the walk reached {grammars_walked} grammars, fewer than the 165 the database "
-        "carried when this floor was set (one per command plus one per version override); "
-        "the overrides are the half that is easy to drop silently"
+    # The walk is the guard, so its extent is asserted against a number
+    # DERIVED FROM THE DATABASE rather than against a frozen literal.
+    # The frozen form was measured to be worthless: `grammars_walked`
+    # counts 162 commands plus 3 overrides, so the whole margin above a
+    # literal floor of 165 is the override population, and three new
+    # commands satisfy the floor with the override walk deleted. A
+    # repository whose roadmap is 386 commands erases a frozen floor by
+    # working.
+    registry = CommandRegistry.load()
+    expected_overrides = sum(
+        1
+        for entry in registry.commands.values()
+        for record in entry.versions.values()
+        if record.args
     )
-    assert lists_walked >= 28, (
-        f"the walk reached {lists_walked} list arguments, fewer than the 28 the database "
-        "carried when this floor was set; the guard is no longer covering what it claims"
+    assert grammars_walked == len(registry.commands) + expected_overrides, (
+        f"the walk reached {grammars_walked} grammars where the database holds "
+        f"{len(registry.commands)} commands and {expected_overrides} per-version argument "
+        "overrides; the overrides are the half that is easy to drop silently, and the "
+        "emitter runs against them"
+    )
+    assert lists_walked == sum(
+        1
+        for entry in registry.commands.values()
+        for args in [entry.args, *(r.args for r in entry.versions.values() if r.args)]
+        for spec in args
+        if spec.is_list
+    ), "the walk did not reach every list argument the database declares"
+    multi_list = sorted(
+        name
+        for name, entry in registry.commands.items()
+        for args in [entry.args, *(r.args for r in entry.versions.values() if r.args)]
+        if sum(1 for spec in args if spec.is_list) > 1
+    )
+    assert not multi_list, (
+        f"grammars {multi_list} declare more than one list argument, where this walk and "
+        "Script._check_counts diverge: the emitter keeps the governing count across a "
+        "list and this walk resets it. Reconcile the two before the first such command "
+        "ships, or the emitter checks the second list against the first list's count"
     )
 
 

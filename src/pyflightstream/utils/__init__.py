@@ -1,10 +1,17 @@
 """Maintainer utilities that are not part of a run.
 
 Pipeline role: none. Nothing in the run pipeline imports this
-subpackage, and this subpackage imports nothing from it. It sits at the
-bottom of the layer rule beside :mod:`pyflightstream._errors`, so a
-utility can be used from any layer without inverting the dependency
-direction (CLAUDE.md Layout, AD-01).
+subpackage, which is what keeps it outside the layer rule rather than
+at a position within it (CLAUDE.md Layout, AD-01).
+
+The two positions are stated separately, because one declaration for
+the subpackage was wrong for half of it. :mod:`~pyflightstream.utils.manual`
+and :mod:`~pyflightstream.utils.errors` import nothing from this package
+and sit at the bottom beside :mod:`pyflightstream._errors`, so they can
+be used from any layer. :mod:`~pyflightstream.utils.cli` is an ENTRY
+POINT above :mod:`pyflightstream.commands`, which it reads to answer
+what the database already records, the same shape as
+:mod:`pyflightstream.reference`.
 
 What belongs here is the work of KEEPING the package current rather than
 of using it: reading a new vendor manual, comparing it against the

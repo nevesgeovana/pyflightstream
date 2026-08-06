@@ -1,13 +1,13 @@
 # RPT-015: the bulk-separation family is not a rename, and the old command is broken
 
-> **Version identifier renumbered, 2026-08-04.** This run is recorded here
-> under **26.101**. It was made and first recorded as 26.100, the name this
-> repository then gave vendor build 5012026. On 2026-08-04 the author added
-> the earlier February 2026 build, which takes the earlier index 26.100 under
-> the append-only ordering rule, so this build was appended as 26.101. The
-> build number, the executable, the date and every measurement below are
-> unchanged: only the label pointing at them moved. The report id keeps its
-> original form because it is cited elsewhere.
+> **Version identifier renumbered, 2026-08-04, and this report is a CITING
+> report rather than a relabelled one.** Its own run is on 26.120 and 26.121, vendor builds 7012026 and 7262026, which the
+> renumbering did not touch. What moved is a build it MENTIONS: vendor build
+> 5012026 was called 26.100 when this was written and is called 26.101 since
+> the author added the earlier February 2026 build, which takes the earlier
+> index under the append-only ordering rule. Read any bare "26.100" below as
+> 26.101 where it names build 5012026. Nothing measured here changed, and the
+> report id keeps its original form because it is cited elsewhere.
 
 Date: 2026-08-02. Licensed machine, FlightStream 26.120 (build #7012026) and
 26.121 (build #7262026). Synthetic geometry only: a generated NACA 0012

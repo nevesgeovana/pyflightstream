@@ -1087,7 +1087,7 @@ samples = parse_residual_history(log_text)
   \begin{columns}[T]
     \column{0.55\textwidth}
     \begin{itemize}
-      \item The cross-version drift suite ran identical inputs on build 5012026 (26.100) and build 7012026 (26.120).
+      \item The cross-version drift suite ran identical inputs on build 5012026 (26.101) and build 7012026 (26.120).
       \item Every synthetic metric: zero delta. One local body case: pitching moment moved 0.8 percent.
       \item Triage: reruns bit identical on both builds (not noise), identical input file hash (not setup), single boundary (localized). Verdict: a deterministic solver-side change between builds.
     \end{itemize}
@@ -1140,17 +1140,18 @@ samples = parse_residual_history(log_text)
   \end{columns}
 \end{frame}
 
-\begin{frame}[fragile]{Cheat sheet: the four command-line tools}
+\begin{frame}[fragile]{Cheat sheet: the five command-line tools}
 \begin{lstlisting}[style=txt]
 pyfs-qa probe            --fs-version ... --fs-exe ...   # Tier 2 probes
 pyfs-qa apply-compat     REPORT.yaml                  # promote statuses
 pyfs-qa physics          --fs-version ... --fs-exe ...   # Tier 3 matrix
-pyfs-qa drift            --fs-versions 26.100,26.120 --fs-exe 26.100=A.exe --fs-exe 26.120=B.exe
+pyfs-qa drift            --fs-versions 26.101,26.120 --fs-exe 26.101=A.exe --fs-exe 26.120=B.exe
 pyfs-qa cases                                         # print Tier 3 matrix
 pyfs-qa update-reference --case ... --reason "..."    # guarded write
 pyfs-workspace init      DIR                          # scaffold a workspace
 pyfs-matrix convert      matrix.fs -o campaign.toml   # run matrix to campaign
 pyfs-fsi                 (aeroelastic coupling executable)
+pyfs-manual coverage     --manual ... --source SRC-741 --chapter-pages 273-370 --index-pages 370-396
 \end{lstlisting}
   \begin{itemize}
     \item The \code{pyfs-qa} tools (and \code{pyfs-fsi}) require a licensed machine and write dated report pairs (markdown plus YAML) under \code{reports/}; \code{pyfs-qa cases} runs nothing.

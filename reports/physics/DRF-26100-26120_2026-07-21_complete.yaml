@@ -1,3 +1,12 @@
+# RELABELLED 2026-08-04. The version identifier in this file was
+# rewritten and nothing else was: every build number, date, executable
+# name and measurement is what the run produced. Vendor build 5012026
+# was called 26.100 when this report was written and is called 26.101
+# since the February 2026 build took the earlier index under the
+# append-only ordering rule. The FILE NAME keeps its original id,
+# because ids are cited elsewhere, so the stem and the fs_version below
+# deliberately disagree. A machine reading this file gets the edited
+# value; this comment is what says the value was edited.
 schema: pyflightstream-drift-report/1
 fs_version_a: '26.101'
 fs_version_b: '26.120'

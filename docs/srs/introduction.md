@@ -115,7 +115,11 @@ tree (2026-07-21). The requirements exist to eliminate them.
 - SRC-003: Altair FlightStream User Manual, v26.12 (licensed; cited by
   page number throughout the command database; the manual itself never
   enters the repository).
-- SRC-725: the 26.1 manual edition, the second citation source of the
+- SRC-741: the 26.1 FEBRUARY 2026 manual edition, shipped with the
+  26.100 install, 396 pages. A separate source rather than a
+  re-issue of SRC-725 below: the vendor shipped two editions under
+  the one release name and no page citation carries between them.
+- SRC-725: the 26.1 MAY 2026 manual edition, the second citation source of the
   database.
 - SRC-740: the 26.12 hotfix-1 manual edition, shipped with the 26.121
   build (licensed; local, never in the repository). A separate source

@@ -21,10 +21,16 @@ versions:
   # (invariant 4): the identifier was reassigned and the May build kept
   # every record and every report it had, under its new name.
   #
-  # 26.100 therefore carries NO build here yet. Its build is not
-  # unknown to the author, but it is unknown to this repository, and
-  # the rule above admits a build only from a committed report's
-  # solver_identity. It gains one when an identity run is committed.
+  # 26.100 therefore carries NO build here yet, and the reason is
+  # narrower than "unknown". Its build is 2122026, read from the
+  # solver's own banner and written down in RPT-018, which is committed.
+  # What is missing is the machine-readable half: the rule above admits
+  # a build from a report's solver_identity field, which the Tier 2
+  # harness writes and an ad-hoc probe report does not have, and
+  # tests/test_results.py checks every registered build against one. So
+  # the number is known and cited, and the registry stays silent until a
+  # harness run records it in the field the guard reads
+  # (PLN-20260805-1520).
   - canonical: "26.100"
     alias: "26.1"
   - canonical: "26.101"
@@ -67,15 +73,15 @@ versions:
 manual_editions:
   "26.100": >
     SRC-741: Altair FlightStream User Guide, 26.1 February 2026 edition
-    (local, _private/exe/FlightStream_26100/), 396 pages, Scripting
-    chapter from p.273 and its Script Index from p.370; cited in version
+    (local, _private/exe/FlightStream_26100/), 396 pages, scripting
+    reference pp.275-369 with its Script Index at pp.370-379; cited in version
     notes as "SRC-741 p.N". NOT interchangeable with SRC-725 below: they
     are different editions of the same vendor release name, and no page
     citation carries between them.
   "26.101": >
     SRC-725: Altair FlightStream User Manual, 26.1 May 2026 edition
-    (local, _private/exe/FlightStream_26101/), 409 pages, Scripting
-    chapter from p.278 and its Script Index from p.376; cited in version
+    (local, _private/exe/FlightStream_26101/), 409 pages, scripting
+    reference pp.280-375 with its Script Index at pp.376-385; cited in version
     notes as "SRC-725 p.N". This is the edition every SRC-725 citation
     in this database was read from; those citations were made while the
     install was named 26.100 and are unchanged, because the document did

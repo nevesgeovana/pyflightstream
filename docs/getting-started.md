@@ -16,6 +16,7 @@ Optional extras, each gating one subsystem:
 | Extra | What it adds |
 |---|---|
 | `[fsi]` | The aeroelastic coupling loop (PyNiteFEA) |
+| `[manual]` | Reading a vendor manual pdf for `pyfs-manual` (pypdf); maintainer tooling, no run path imports it |
 | `[geom]` | Containment culling for probe lattices (trimesh, rtree, scipy) |
 | `[plot]` | matplotlib, for the plotting examples only |
 

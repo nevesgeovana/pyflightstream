@@ -27,6 +27,9 @@ Side packages follow the same downward-only rule:
 - ``probes`` and ``farfield``: probe lattices for far-field surveys and
   the conservation ledgers computed on them.
 - ``reference``: the command reference renderer behind ``help()``.
+- ``utils``: maintainer tooling outside the run pipeline entirely,
+  imported by nothing a campaign executes (reading a vendor manual
+  against the command database).
 
 Cross-cutting support modules, importable from any layer:
 

@@ -1,4 +1,4 @@
-# RPT-018: the flow-separation family across four builds, and a delete command the manual names wrong
+# RPT-018: the flow-separation family across four builds, and a delete command the February edition documents under a name the solver does not answer to
 
 Date: 2026-08-05. Licensed machine, FlightStream 26.100 (build #2122026),
 26.101 (build #5012026) and 26.121 (build #7262026). Synthetic geometry only:
@@ -57,10 +57,12 @@ does not resolve it.
 | `DELETE_VALAREZO_CRITERION_BOUNDARIES` | function header | rejected, unrecognized |
 | `DELETE_VALAREZO_SEPARATION_BOUNDARIES` | nowhere | **accepted** |
 
-So the family is spelled `SEPARATION` throughout, and the manual is wrong
-twice: once in a sample, which is the RPT-012 pattern, and once in a function
-header, which is not. **The delete command the manual documents does not
-exist, and the delete command that exists is documented nowhere.**
+So the family is spelled `SEPARATION` throughout, and this edition names the
+wrong string twice: once in a sample, which is the RPT-012 pattern, and once
+in a function header, which is not. **The delete command SRC-741 documents is
+not recognized by the build that edition ships with, and the delete command
+that is recognized appears in none of the four registered editions**, all of
+which were searched for both spellings.
 
 ### 3.2 The rest of the February family, on 26.100
 
@@ -109,13 +111,16 @@ was in the database.
 **The database can now record the February family under names the solver
 answers to**, which is what the run was for.
 
-**The three verdicts are the solver's own, not this repository's reading.**
-Unrecognized, deprecated-and-refused, and accepted are distinguished by the
-solver's message category, so "the command is gone" and "the command was never
-there" are different findings here rather than the same silence. The
-distinction matters for the database: a command the solver still knows and
-refuses is a removal the vendor made deliberately, while an unrecognized name
-in a manual is a documentation defect.
+**The solver's own output separates three outcomes where this repository had
+two words.** Unrecognized, deprecated-and-refused, and accepted are told apart
+by the message the solver writes, so "the command is gone" and "the command
+was never there" need not read as the same silence. Section 5 records what
+that signal is and is not: RPT-015 found a NEIGHBOURING message unreliable for
+a different question, and nothing here shows this one to be better, only that
+it is a different line. The distinction is worth having because a command the
+solver still names and refuses is plausibly a removal the vendor made, while
+an unrecognized name in a manual is plausibly a documentation defect. Neither
+reading sets a database status.
 
 **The February family did not survive undocumented.** This is the opposite of
 what RPT-015 found for `CREATE_STRATFORD_BULK_SEPARATION`, which the 26.120
@@ -137,9 +142,26 @@ probed.
   Tier 2 harness, so under CLAUDE.md invariant 3 it cites no database status
   and every entry it supports stays `documented`. The same rule applied to
   RPT-015.
-* **The deprecation verdict was measured on two builds, not four.** 26.120 was
-  not in this batch; its behavior is inferred from 26.101 and 26.121 bracketing
-  it, which is an inference and is not recorded as evidence anywhere.
+* **The deprecation verdict was measured on two builds, not four, and on a
+  SUBSET of the family on each.** 26.120 was not in this batch; its behavior is
+  inferred from 26.101 and 26.121 bracketing it, which is an inference and is
+  not recorded as evidence anywhere. Within the two builds that were probed,
+  the per-build case lists are the table below rather than the family: five of
+  the eight February commands ran on 26.101 and three on 26.121, and the three
+  DELETE commands ran on NEITHER later build. Read section 3.3 as a statement
+  about the commands it names.
+* **The three-verdict taxonomy rests on the solver's message category, and a
+  sibling report found that instrument unreliable for a different question.**
+  RPT-015 section 4 records that the same refusal text came back for a
+  deliberately lower-cased token, so the message could not there separate an
+  unknown command from a known one with bad arguments, and that report says
+  "rejected" throughout. This run distinguishes a different pair: the
+  `Deprecation` warning line, which names the command and precedes the
+  refusal, against the `Syntax` category of an unrecognized name. That is a
+  separate signal from the one RPT-015 tested and it is not shown here to be
+  more reliable, only to be different. The database records nothing on the
+  strength of it: the deprecation finding sets no status and is registered as
+  PLN-20260805-1530.
 * **The count-plus-index-line form was probed for the axial and cross-flow
   setters only.** The Valarezo setter was probed in the `-1` form alone.
 * **`SET_VISCOUS_EXCLUDED_BOUNDARIES` served as a control, not as a subject.**
@@ -151,11 +173,13 @@ probed.
 The run scripts are generated, not committed: one directory per case under a
 scratch root, each holding `case.txt`, the solver stdout, and
 `FlightStreamLog.txt` where one was written. The three executables are the
-licensed installs under `_private/exe/`, which never enter Git. Regenerating
+licensed installs under `_private/exe/`, which never enter Git. Per build:
+19 cases on 26.100, 14 on 26.101 and 12 on 26.121, controls included.
+Regenerating
 the batch needs the licensed machine; the method is fully described in
 section 1 and is three lines of setup plus the line under test.
 
-Both installs used here check out an EDU feature set rather than full Altair
-units, which is stated because a licence tier can in principle change what a
+All three installs used here check out an EDU feature set rather than full
+Altair units, which is stated because a licence tier can in principle change what a
 command is permitted to do. It does not change what the parser recognizes,
 which is all this report measures.

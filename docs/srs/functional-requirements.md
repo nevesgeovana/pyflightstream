@@ -886,11 +886,11 @@ The allocation is recorded in the
     she chose against the review's own recommendation of a narrower
     one.*
 
-    The package provides four documented console entry points, one per
+    The package provides one documented console entry point per
     operational concern, and their commands and flags change only
     under the deprecation policy of NFR-20.
 
-    Pending, and precisely: the four entry points exist and are
+    Pending, and precisely: every entry point exists and is
     exercised, so the first half ships. The second half is the one she
     strengthened, and nothing enforces it. NFR-20 is itself pending and
     does not bind before 1.0, so today a CLI flag can change with only

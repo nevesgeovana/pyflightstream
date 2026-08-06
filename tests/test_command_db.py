@@ -703,3 +703,51 @@ def test_every_report_a_note_cites_names_the_command_it_is_attached_to() -> None
         "the database carries at least 9, so the walk stopped reaching the notes "
         "it is written for"
     )
+
+
+def test_a_report_stem_and_the_version_it_records_agree_or_say_why():
+    """A file name that names the wrong build certifies the wrong run.
+
+    `test_every_citation_is_a_compat_report_for_its_own_build` states the
+    reason for compat reports: "a copied and renamed report would
+    otherwise certify a whole build's worth of commands on another
+    build's run, with every guard green." Its scope is
+    ``reports/compat/CMP-*`` cited by a status, and the physics and drift
+    reports under ``reports/physics/`` sat outside it.
+
+    The collision stopped being theoretical on 2026-08-04. The
+    renumbering rewrote `fs_version` inside three of those files and left
+    their stems, because ids are cited elsewhere, so `PHY-26100_...yaml`
+    now records `26.101` and `26100` is a REAL registered build that
+    never produced those numbers. That is a defensible state and an
+    undocumented one is not, so a disagreeing pair must carry a dated
+    note inside the file saying the value was edited.
+    """
+    physics = REPORTS_DIR / "physics"
+    offenders = []
+    checked = 0
+    for path in sorted(physics.glob("*.yaml")):
+        digits = re.match(r"(?:PHY|DRF|TRI)-(\d{5})", path.name)
+        if digits is None:
+            continue
+        text = path.read_text(encoding="utf-8")
+        recorded = re.search(r"^fs_version(?:_a)?: '([\d.]+)'", text, re.MULTILINE)
+        if recorded is None:
+            continue
+        checked += 1
+        stem_version = f"{digits.group(1)[:2]}.{digits.group(1)[2:]}"
+        if stem_version == recorded.group(1):
+            continue
+        if "RELABELLED" not in text:
+            offenders.append(
+                f"{path.name}: stem names {stem_version}, fs_version records "
+                f"{recorded.group(1)}, and the file says nothing about it"
+            )
+    assert not offenders, (
+        "these reports name one build in their file name and record another, with no "
+        "note inside saying the value was edited: " + "; ".join(offenders)
+    )
+    assert checked >= 6, (
+        f"the walk read {checked} physics reports, fewer than the six that carried a "
+        "version when this floor was set; a glob that stops matching guards nothing"
+    )

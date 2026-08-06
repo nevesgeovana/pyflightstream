@@ -430,7 +430,14 @@ _RATCHET = {
     "pyflightstream.fsi.driver._verified_layout -> ValueError (driver.py:338)",
     "pyflightstream.fsi.loads._validate_block_boundaries -> ValueError (loads.py:397)",
     "pyflightstream.fsi.loads._validate_block_boundaries -> ValueError (loads.py:409)",
-    "pyflightstream.overview._module_doc -> RuntimeError (overview.py:124)",
+    # The line moved from 124 to 125 when a row was added to
+    # _SIDE_BRANCHES above it. The ratchet keys on the line number, so an
+    # edit anywhere above a debt site rewrites the entry; that is
+    # deliberate friction rather than a defect (a moved raise should be
+    # re-read) and it is why both directions of the ratchet are asserted:
+    # this edit failed the stale-exemption test and the uncovered-site
+    # test at once, which is how it announced itself.
+    "pyflightstream.overview._module_doc -> RuntimeError (overview.py:125)",
     "pyflightstream.post.writers._checked -> ValueError (writers.py:34)",
     "pyflightstream.post.writers._checked -> ValueError (writers.py:39)",
     "pyflightstream.probes.planar._unit -> ValueError (planar.py:50)",

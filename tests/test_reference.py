@@ -96,9 +96,19 @@ def test_markdown_index_carries_the_manual_coverage_section():
     assert "SRC-003 pp.341-343" in index
     assert "## Manual coverage" in index
     assert "not yet cited" in index
-    # The 26.100 edition registers no closed page range; the report says
-    # so explicitly instead of computing a bogus gap list.
-    assert "no gap listing can be computed" in index
+    # Every registered edition answers. Two of the four stopped answering
+    # when the February and May editions were registered with prose that
+    # named their chapter start and no closed range, and the section
+    # printed "no gap listing can be computed for it" for both: the
+    # published page went quiet on half the manuals in the same change
+    # that added the tool for reading them. The assertion is on the four
+    # source ids rather than on the absence of that sentence, because
+    # absence is what it was asserting before, from the other side.
+    for source in ("SRC-741", "SRC-725", "SRC-003", "SRC-740"):
+        assert f"{source} scripting reference pages not yet cited" in index, (
+            f"the manual-coverage section computes no gap listing for {source}; "
+            "an edition registered without a closed page range goes silent here"
+        )
 
 
 def test_coverage_gap_analysis_is_derived_not_guessed():

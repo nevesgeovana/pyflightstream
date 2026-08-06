@@ -62,7 +62,9 @@ structural side of the aeroelastic loop), `probes` and `farfield`
 !!! decision "AD-05 Optional heavy dependencies behind extras"
     The core runtime set stays minimal; [NFR-06](nonfunctional-requirements.md)
     is its single home and this decision does not restate it.
-    Structural analysis (`[fsi]`), geometry gating (`[geom]`), and
+    Structural analysis (`[fsi]`), geometry gating (`[geom]`), manual
+    reading for the maintainer tool (`[manual]`, licence card
+    `reports/RPT-017_manual-extra-license_2026-08-04.md`), and
     plotting (`[plot]`) are optional extras with license evidence
     recorded before adoption; a missing extra fails with the didactic
     install hint, never an ImportError traceback.
@@ -129,9 +131,11 @@ structural side of the aeroelastic loop), `probes` and `farfield`
 
 ## Command-line surface
 
-Four console entry points, one per operational concern: `pyfs-qa`
+Five console entry points, one per operational concern: `pyfs-qa`
 (evidence tiers 2 and 3), `pyfs-workspace` (workspace initialization),
-`pyfs-matrix` (run-matrix conversion and pre-flight), and
-`pyfs-fsi` (the coupling-loop executable). CLIs are thin argument
+`pyfs-matrix` (run-matrix conversion and pre-flight),
+`pyfs-fsi` (the coupling-loop executable), and `pyfs-manual`
+(reading a vendor manual against the command database, maintainer
+tooling outside the run pipeline). CLIs are thin argument
 layers over the public Python API; execution paths always require the
 explicit executable.

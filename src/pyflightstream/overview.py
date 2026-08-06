@@ -58,6 +58,7 @@ _SIDE_BRANCHES: tuple[tuple[str, str], ...] = (
     ("fsi", "structural executable of the aeroelastic coupling loop"),
     ("probes, farfield", "probe lattices and far-field conservation ledgers"),
     ("reference, overview", "presentation: command reference and this page"),
+    ("utils", "maintainer tooling outside the pipeline: reading a vendor manual"),
     (
         "options, exceptions, extras, testing",
         "cross-cutting support: declared knobs | exception catalog | "
