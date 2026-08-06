@@ -176,8 +176,19 @@ FLAG_SPECS: tuple[FlagSpec, ...] = (
     ),
     FlagSpec(
         "valarezo_separation_boundaries",
-        "DELETE_VALAREZO_CRITERION_BOUNDARIES",
+        "DELETE_VALAREZO_SEPARATION_BOUNDARIES",
         "separation_boundaries_clear",
+    ),
+    # The name SRC-741 p.339 prints and the solver does not answer to. It
+    # is in the database because the page documents it and a reader of
+    # that page has to be able to find out here that it fails, and it
+    # carries a flag because every command of a settings family does. The
+    # helper never emits it, so the snapshot records it unknown always,
+    # which is the truth about every script this library builds.
+    FlagSpec(
+        "valarezo_separation_boundaries",
+        "DELETE_VALAREZO_CRITERION_BOUNDARIES",
+        "never_emitted",
     ),
     FlagSpec(
         "crossflow_separation_boundaries",
@@ -568,6 +579,14 @@ def _family_record(
     elif spec.kind in ("boundary_list_clear", "separation_boundaries_clear"):
         if passed.get(spec.param) == []:
             return FlagRecord(**base, provenance=_EXPLICIT, value=[], emitted=True)
+    elif spec.kind == "never_emitted":
+        # The command is in a settings family, so it needs a flag, and no
+        # helper path emits it: DELETE_VALAREZO_CRITERION_BOUNDARIES is
+        # the name SRC-741 documents and the solver does not answer to.
+        # Falling to unknown is the honest record, and saying so here
+        # rather than letting it reach the generic branch is what keeps
+        # a reader from thinking the keyword was simply not passed.
+        return FlagRecord(**base, provenance=_UNKNOWN, value=None, emitted=False)
     else:
         value = passed.get(spec.param)
         if value is not None:

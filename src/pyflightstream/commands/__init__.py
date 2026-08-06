@@ -42,6 +42,7 @@ from pyflightstream._errors import PyflightstreamError
 from pyflightstream.versions import FsVersion, known_versions, resolve
 
 _MANUAL_REF_PATTERN = re.compile(r"^SRC-\d{3} pp?\.\d+")
+_PROBE_REF_PATTERN = re.compile(r"^reports/[\w./-]+\.md$")
 
 
 class Layout(enum.StrEnum):
@@ -400,9 +401,33 @@ class CommandEntry(BaseModel):
         Emission phase used by the script builder's ordering check.
     args : tuple of ArgSpec
         Typed argument specifications, in emission order.
-    manual_ref : str
+    manual_ref : str, optional
         Manual citation, for example ``"SRC-003 p.352"``. Paraphrase
-        evidence only; manual text is never reproduced.
+        evidence only; manual text is never reproduced. Required unless
+        ``probe_ref`` is given, and the two are mutually exclusive.
+    probe_ref : str, optional
+        Repository-relative path of a committed probe report, for the
+        command that the SOLVER accepts and no manual edition documents.
+        It stands where ``manual_ref`` would, and it exists because that
+        command is real: RPT-018 measured
+        ``DELETE_VALAREZO_SEPARATION_BOUNDARIES`` accepted on 26.100
+        while the name SRC-741 documents for the same erase is
+        unrecognised, and RPT-015 measured
+        ``CREATE_STRATFORD_BULK_SEPARATION`` accepted on 26.120, a build
+        whose manual does not mention it.
+
+        Until 2026-08-06 such a command could not be recorded at all,
+        because every entry needed a page. That refused a fact the
+        repository holds evidence for, and pushed the user to
+        ``Script.raw()``, which is the one path with no validation. The
+        author's decision of 2026-08-06: a committed report may stand in
+        for the page, and the entry says which report.
+
+        It does NOT relax the status rules. ``verified`` and ``broken``
+        still come only from a compat report applied by
+        ``pyfs-qa apply-compat`` (CLAUDE.md invariant 3); what
+        ``probe_ref`` records is that the command EXISTS, which is a
+        different claim from how it behaves.
     versions : mapping of str to VersionStatus
         Evidence per canonical version identifier (quoted ``"26.XXX"``
         keys). Versions without an entry have no recorded evidence.
@@ -428,7 +453,8 @@ class CommandEntry(BaseModel):
     layout: Layout
     phase: Phase
     args: tuple[ArgSpec, ...] = ()
-    manual_ref: str
+    manual_ref: str = ""
+    probe_ref: str = ""
     versions: dict[str, VersionStatus]
     notes: str | None = None
     default: int | float | str | None = None
@@ -450,9 +476,54 @@ class CommandEntry(BaseModel):
     @field_validator("manual_ref")
     @classmethod
     def _manual_ref_cites_a_page(cls, value: str) -> str:
-        if not _MANUAL_REF_PATTERN.match(value):
+        if value and not _MANUAL_REF_PATTERN.match(value):
             raise ValueError(
                 f"manual_ref {value!r} must cite a source and page, for example 'SRC-003 p.352'"
+            )
+        return value
+
+    @model_validator(mode="after")
+    def _every_entry_cites_exactly_one_kind_of_evidence(self) -> CommandEntry:
+        """Refuse an entry with no citation, or with two of them.
+
+        The citation is what makes an entry a record rather than an
+        assertion, so the requirement did not weaken when ``probe_ref``
+        was added: it widened by exactly one admissible KIND. Carrying
+        both would leave a reader unable to say which one the entry
+        rests on, and carrying neither is what the original required
+        field prevented.
+        """
+        if self.manual_ref and self.probe_ref:
+            raise CommandDatabaseError(
+                f"{self.name} cites both a manual page and a probe report. An entry rests "
+                "on one or the other: the page where the vendor documents the command, or "
+                "the report measuring that the solver accepts a command no edition "
+                "documents. Citing both leaves a reader unable to say which."
+            )
+        if not self.manual_ref and not self.probe_ref:
+            raise CommandDatabaseError(
+                f"{self.name} cites no evidence. Every entry carries a manual_ref (the "
+                "page that documents it) or a probe_ref (a committed report measuring "
+                "that the solver accepts it where no edition documents it). A command "
+                "recorded on neither is an assertion, and this database records evidence."
+            )
+        return self
+
+    @field_validator("probe_ref")
+    @classmethod
+    def _probe_ref_names_a_committed_report(cls, value: str) -> str:
+        """Refuse a probe citation that is not a repository path to a report.
+
+        The shape only; that the file EXISTS and names this command is a
+        tier-1 walk (``tests/test_command_db.py``), because a validator
+        that touched the filesystem would make loading the database
+        depend on the working directory.
+        """
+        if value and not _PROBE_REF_PATTERN.match(value):
+            raise CommandDatabaseError(
+                f"probe_ref {value!r} must be a repository-relative path to a committed "
+                "report under reports/, for example "
+                "'reports/RPT-018_separation-family-across-builds_2026-08-05.md'"
             )
         return value
 

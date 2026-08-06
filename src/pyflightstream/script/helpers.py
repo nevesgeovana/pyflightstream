@@ -852,18 +852,6 @@ def solver_settings(
     }
     for argument, value in separation_selections.items():
         _reject_bare_label("solver_settings", argument, value, allows_all=True)
-    if valarezo_separation_boundaries == []:
-        raise CommandArgumentError(
-            "solver_settings: valarezo_separation_boundaries=[] would emit "
-            "DELETE_VALAREZO_CRITERION_BOUNDARIES, the name SRC-741 p.339 documents for "
-            "the erase and the only name in this family the solver does not recognize "
-            "(reports/RPT-018_separation-family-across-builds_2026-08-05.md). The "
-            "spelling it accepts, DELETE_VALAREZO_SEPARATION_BOUNDARIES, appears in no "
-            "manual edition, so this database has no entry for it and the emitter "
-            "cannot validate it: emit it with Script.raw() until "
-            "PLN-20260805-1540 decides whether a command with only probe evidence may "
-            "have an entry. Passing a selection still works; only the erase is refused."
-        )
     # Materialize every boundary selection to a list ONCE, before either
     # the emission or the snapshot reads it. The emitter decided
     # emptiness by length and the snapshot by equality with a list
@@ -1117,7 +1105,7 @@ def solver_settings(
         (
             "valarezo_separation_boundaries",
             "SET_VALAREZO_SEPARATION_BOUNDARIES",
-            "DELETE_VALAREZO_CRITERION_BOUNDARIES",
+            "DELETE_VALAREZO_SEPARATION_BOUNDARIES",
         ),
         (
             "crossflow_separation_boundaries",

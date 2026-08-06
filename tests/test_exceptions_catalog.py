@@ -422,10 +422,10 @@ _RATCHET = {
     # RAISES. The author's decision: measure now, fix at v0.5, so the
     # number is the debt and it is countable (PLN-20260804-0130).
     "pyflightstream.cases.cli._parse_recipes -> ValueError (cli.py:33)",
-    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:251)",
-    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:253)",
-    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:255)",
-    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:264)",
+    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:252)",
+    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:254)",
+    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:256)",
+    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:265)",
     "pyflightstream.farfield._delta_psi -> ValueError (__init__.py:152)",
     "pyflightstream.fsi.driver._verified_layout -> ValueError (driver.py:338)",
     "pyflightstream.fsi.loads._validate_block_boundaries -> ValueError (loads.py:397)",

@@ -9,6 +9,36 @@ FlightStream versions.
 
 ### API surface delta
 
+* **New database field `probe_ref`, and the first command recorded on
+  one.** Until now every entry needed a manual page, which refused a fact
+  this repository holds evidence for: RPT-018 measured
+  `DELETE_VALAREZO_SEPARATION_BOUNDARIES` accepted on 26.100 while the
+  name SRC-741 p.339 prints for the same erase is unrecognised, and
+  RPT-015 measured `CREATE_STRATFORD_BULK_SEPARATION` accepted on a build
+  whose manual does not mention it. Such a command could not be recorded,
+  so the user was pushed to `Script.raw()`, the one emission path with no
+  validation at all.
+
+  A committed probe report may now stand where the page would, and the
+  entry says which report. Exactly one citation per entry, enforced by
+  the model and by a walk over the files: neither is an assertion, both
+  leaves a reader unable to say which the entry rests on. A tier-1 guard
+  checks that a cited report exists AND names the command, the same rule
+  the status citations carry, because a citation pasted from a sibling is
+  the defect this database has already produced once.
+
+  It does not relax the status rules. `verified` and `broken` still come
+  only from a compat report applied by `pyfs-qa apply-compat` (invariant
+  3); `probe_ref` records that a command EXISTS, which is a different
+  claim from how it behaves.
+
+  Consequence for the caller:
+  `solver_settings(valarezo_separation_boundaries=[])` emits the erase
+  again. It was REFUSED between 2026-08-05 and 2026-08-06, which was the
+  right answer to a database that could not hold the working name and the
+  wrong one once it could.
+
+
 * **The flow-separation family is in the database, across all four
   registered builds, and `solver_settings()` emits every command of it
   but one.** The exception is the erase SRC-741 documents for the

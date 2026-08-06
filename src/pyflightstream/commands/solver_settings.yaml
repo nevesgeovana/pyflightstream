@@ -359,13 +359,34 @@ DELETE_VALAREZO_CRITERION_BOUNDARIES:
     "26.100": {status: documented, note: "Contradicted by evidence and not yet reprobed: RPT-018 found this name unrecognized on 26.100 (build #2122026), the build whose own manual documents it in a function header, while the undocumented DELETE_VALAREZO_SEPARATION_BOUNDARIES was accepted. The status stays documented because a promotion to broken needs a probe report written by pyfs-qa (CLAUDE.md invariant 3) and RPT-018 is an ad-hoc probe that promotes nothing; the harness re-probe is PLN-20260805-1520."}
   notes: >
     The manual's own name for clearing the Valarezo list, which the
-    solver does not answer to. The name it answers to,
-    DELETE_VALAREZO_SEPARATION_BOUNDARIES, appears in no manual edition
-    and therefore has no entry of its own: this database requires a
-    manual page per entry, so a command with only probe evidence is a
-    policy question for the author rather than a row to add
-    (PLN-20260805-1540). Until it is answered, emit that spelling
-    through Script.raw().
+    solver does not answer to. The name it answers to is the entry
+    directly below, recorded on a probe citation since the author's
+    decision of 2026-08-06 (PLN-20260805-1540). Both are kept: this one
+    because SRC-741 p.339 documents it and a reader of that page needs
+    to find out here that it does not work, and the other because it is
+    the one that runs.
+
+DELETE_VALAREZO_SEPARATION_BOUNDARIES:
+  layout: bare
+  phase: init
+  args: []
+  # No manual edition documents this name. All four were searched for
+  # both spellings (RPT-018 section 3.1), and the report is the evidence
+  # that the command exists, which is what probe_ref records. It says
+  # nothing about how the command behaves: acceptance is not effect, and
+  # the status below stays documented until a harness probe runs
+  # (PLN-20260805-1520).
+  probe_ref: "reports/RPT-018_separation-family-across-builds_2026-08-05.md"
+  versions:
+    "26.100": {status: documented}
+  notes: >
+    The erase of the Valarezo maximum-lift criterion list that the
+    February build accepts. Its documented sibling above,
+    DELETE_VALAREZO_CRITERION_BOUNDARIES, is the name SRC-741 p.339
+    prints in a function header and the solver refuses as unrecognized,
+    so the manual names one command and the solver answers to another.
+    Recorded here rather than left to Script.raw(), which is the one
+    emission path with no validation at all.
 
 SET_CROSSFLOW_SEPARATION_BOUNDARIES:
   layout: payload_lines

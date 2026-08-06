@@ -34,7 +34,13 @@ CANONICAL_PATTERN = re.compile(r"^26\.\d{3}$")
 # id covers both, so a guard written for one form is not evaded by the other.
 REPORT_ID_PATTERN = re.compile(r"((?:RPT|CMP|PHY|DRF)-[\d-]{3,})(?![\d-])")
 REPORT_PATH_PATTERN = re.compile(r"reports/[\w./-]+\.(?:md|yaml)")
-REQUIRED_ENTRY_KEYS = {"layout", "phase", "args", "manual_ref", "versions"}
+# Every entry carries a citation, and since 2026-08-06 it may be
+# either kind: the manual page that documents the command, or a
+# committed report measuring that the solver accepts one no edition
+# documents. Exactly one, which the model enforces and
+# test_every_entry_cites_one_kind_of_evidence asserts over the files.
+REQUIRED_ENTRY_KEYS = {"layout", "phase", "args", "versions"}
+CITATION_KEYS = {"manual_ref", "probe_ref"}
 KNOWN_LAYOUTS = {"bare", "inline", "param_lines", "payload_lines", "keyword_block"}
 
 
@@ -121,9 +127,44 @@ def test_command_files_satisfy_schema():
             missing = REQUIRED_ENTRY_KEYS.difference(entry)
             assert not missing, f"{yaml_file.name}:{name} missing keys {sorted(missing)}"
             assert entry["layout"] in KNOWN_LAYOUTS, f"{yaml_file.name}:{name}"
-            assert entry["manual_ref"], f"{yaml_file.name}:{name} needs a manual citation"
+            cited = {key for key in CITATION_KEYS if entry.get(key)}
+            assert len(cited) == 1, (
+                f"{yaml_file.name}:{name} carries {sorted(cited) or 'no'} citation. Every "
+                "entry rests on exactly one: manual_ref for a command an edition "
+                "documents, probe_ref for one a committed report measured the solver "
+                "accepting where no edition documents it. Neither is an assertion; both "
+                "leaves a reader unable to say which the entry rests on."
+            )
             unknown = set(entry["versions"]).difference(known_versions)
             assert not unknown, f"{yaml_file.name}:{name} references unknown versions {unknown}"
+
+
+def test_every_probe_citation_names_a_report_that_exists_and_names_the_command():
+    """A probe citation is only worth its file.
+
+    ``probe_ref`` was added on 2026-08-06 so a command the solver accepts
+    and no manual edition documents could be recorded at all, instead of
+    being pushed to ``Script.raw()``, which is the one emission path with
+    no validation. The citation is the whole evidence for such an entry,
+    so it is checked the way a status report citation is: the file must
+    exist and must NAME the command, which is what stops a citation being
+    pasted from a sibling.
+
+    The floor is deliberate. Today one entry uses this field, and a walk
+    that silently reached zero would pass while guarding nothing.
+    """
+    registry = CommandRegistry.load()
+    cited = [
+        (name, entry.probe_ref) for name, entry in registry.commands.items() if entry.probe_ref
+    ]
+    assert cited, "no entry carries a probe_ref; this guard is walking nothing"
+    for name, ref in cited:
+        path = REPO_ROOT / ref
+        assert path.is_file(), f"{name} cites missing report {ref}"
+        assert name in path.read_text(encoding="utf-8"), (
+            f"{name} cites {ref}, which never names it. A report that does not mention "
+            "the command is not evidence that the command exists."
+        )
 
 
 def make_entry(**overrides):

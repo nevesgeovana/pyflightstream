@@ -662,30 +662,47 @@ def test_an_empty_selection_of_any_sequence_type_reaches_the_same_verdict(empty)
     assert setup.flags["SET_VISCOUS_EXCLUDED_BOUNDARIES"].provenance == "unknown"
 
 
-def test_the_valarezo_erase_is_refused_because_its_command_does_not_exist():
-    """The one erase of this family that the solver does not answer to.
+def test_the_valarezo_erase_emits_the_name_the_solver_answers_to():
+    """The one erase of this family whose two names disagree.
 
-    RPT-018 probed both spellings on the February build: the manual's
-    own DELETE_VALAREZO_CRITERION_BOUNDARIES is unrecognized and the
-    undocumented DELETE_VALAREZO_SEPARATION_BOUNDARIES is accepted. The
-    database records the documented name with the contradiction on it,
-    and the working name has no entry because every entry here cites a
-    manual page. So the helper refuses rather than writing a line the
-    solver rejects, and names the escape.
+    RPT-018 probed both spellings on the February build: the manual's own
+    DELETE_VALAREZO_CRITERION_BOUNDARIES is unrecognized and the
+    undocumented DELETE_VALAREZO_SEPARATION_BOUNDARIES is accepted.
 
-    The control matters as much as the refusal: passing a selection must
-    still work, or the fix would be "refuse this keyword".
+    The helper REFUSED the empty sequence between 2026-08-05 and
+    2026-08-06, because the working name could not be recorded: every
+    entry needed a manual page and no edition prints that one. The
+    author's decision of 2026-08-06 admits a committed probe report in
+    the page's place, so the command has an entry, the erase emits it,
+    and the emitter validates it like any other. The refusal was the
+    right answer to a database that could not hold the fact, and the
+    wrong answer once it could.
     """
     script = Script(version="26.100")
-    with pytest.raises(CommandArgumentError, match="RPT-018") as caught:
-        helpers.solver_settings(script, valarezo_separation_boundaries=[])
-    assert "Script.raw()" in str(caught.value)
-    assert "DELETE_VALAREZO_SEPARATION_BOUNDARIES" in str(caught.value)
-    assert "VALAREZO" not in script.render()
+    helpers.solver_settings(script, valarezo_separation_boundaries=[])
+    assert "DELETE_VALAREZO_SEPARATION_BOUNDARIES" in script.render()
+    # The documented name stays in the database, because a reader of
+    # SRC-741 p.339 has to be able to find out here that it fails, and it
+    # is never emitted.
+    assert "CRITERION" not in script.render()
 
-    working = Script(version="26.100")
-    helpers.solver_settings(working, valarezo_separation_boundaries=[1, 2])
-    assert "SET_VALAREZO_SEPARATION_BOUNDARIES 2\n1,2" in working.render()
+    setting = Script(version="26.100")
+    helpers.solver_settings(setting, valarezo_separation_boundaries=[1, 2])
+    assert "SET_VALAREZO_SEPARATION_BOUNDARIES 2\n1,2" in setting.render()
+
+
+def test_the_documented_valarezo_erase_is_recorded_and_never_emitted():
+    """A command in a settings family needs a flag; this one can never be set.
+
+    Its snapshot record is `unknown` in every script, which is the truth:
+    the helper has no path that emits it. Recording it as anything else
+    would put a command in the manifest that the script does not carry.
+    """
+    script = Script(version="26.100")
+    setup = helpers.solver_settings(script, valarezo_separation_boundaries=[])
+    assert setup.flags["DELETE_VALAREZO_CRITERION_BOUNDARIES"].provenance == "unknown"
+    assert not setup.flags["DELETE_VALAREZO_CRITERION_BOUNDARIES"].emitted
+    assert setup.flags["DELETE_VALAREZO_SEPARATION_BOUNDARIES"].provenance == "explicit"
 
 
 @pytest.mark.parametrize(
