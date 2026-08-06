@@ -1,0 +1,163 @@
+# Chapter: Scripting reference, CAD (SRC-003 pp.287-288).
+#
+# Operations on an imported CAD body, before it becomes a mesh. The whole
+# family is documented unchanged in all four registered editions, and
+# every entry below carries its own page per edition rather than
+# inheriting one, because no page citation carries between editions.
+#
+# Phase is geometry: a CAD body exists before the mesh does, and the
+# ordering check refuses these after INITIALIZE_SOLVER.
+
+CAD_BODY_DELETE:
+  layout: inline
+  phase: geometry
+  args:
+    - name: body_index
+      type: int
+  manual_ref: "SRC-003 p.287"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.281, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.286, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.290, same grammar as 26.120"}
+  notes: >
+    Deletes one CAD body by its 1-based index; -1 deletes every one of
+    them (SRC-003 p.287). The manual's parameter table describes the
+    index as "the CAD body being scaled" on this command as well as on
+    CAD_BODY_SCALE, which is a description carried across rather than a
+    grammar difference.
+
+CAD_BODY_MIRROR:
+  layout: inline
+  phase: geometry
+  args:
+    - name: body_index
+      type: int
+    - name: plane
+      type: enum
+      values: [XY, XZ, YZ]
+  manual_ref: "SRC-003 p.287"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.281, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.286, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.290, same grammar as 26.120"}
+  notes: >
+    Mirrors one CAD body across a plane OF THE REFERENCE COORDINATE
+    SYSTEM, not of a frame the caller chooses: this command takes no
+    frame argument, unlike CAD_BODY_SELECT_BY_THRESHOLD below
+    (SRC-003 p.287).
+
+CAD_BODY_ROTATE:
+  layout: inline
+  phase: geometry
+  args:
+    - name: body_index
+      type: int
+    - name: axis
+      type: enum
+      values: [X, Y, Z]
+    - name: angle
+      type: float
+      unit: "deg"
+  manual_ref: "SRC-003 p.287"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.281, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.286, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.290, same grammar as 26.120"}
+  notes: >
+    Rotates one CAD body about an axis of the reference coordinate
+    system. The angle is in DEGREES, which the manual states and which
+    is worth carrying because the solver's own motion definitions take
+    degrees too while the far-field and probe layers of this package
+    work in radians.
+
+CAD_BODY_SCALE:
+  layout: inline
+  phase: geometry
+  args:
+    - name: body_index
+      type: int
+    - name: scale
+      type: float
+  manual_ref: "SRC-003 p.287"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.281, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.286, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.290, same grammar as 26.120"}
+  notes: >
+    Uniform scale factor, dimensionless and greater than zero
+    (SRC-003 p.287). It scales the BODY, so a body scaled after its
+    cross-sections were read carries no relation to them.
+
+CAD_BODY_TRANSLATE:
+  layout: inline
+  phase: geometry
+  args:
+    - name: body_index
+      type: int
+    - name: x
+      type: float
+    - name: y
+      type: float
+    - name: z
+      type: float
+    - name: units
+      type: enum
+      values: [INCH, MILLIMETER, OTHER, FEET, MILE, METER, KILOMETER, MILS, MICRON, CENTIMETER, MICROINCH]
+  manual_ref: "SRC-003 p.287"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.281, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.286, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.290, same grammar as 26.120"}
+  notes: >
+    Translation vector in the reference coordinate system, with its own
+    UNITS argument rather than the simulation length units: this command
+    states the units of its three components and does not inherit them
+    (SRC-003 p.287). The three components carry no unit field here
+    because the unit is the fifth argument rather than a fact about the
+    command.
+
+CAD_BODY_SELECT_BY_THRESHOLD:
+  layout: inline
+  phase: geometry
+  args:
+    - name: frame
+      type: int
+    - name: parameter
+      type: enum
+      values: [X, Y, Z]
+    - name: value
+      type: float
+    - name: logic
+      type: enum
+      values: [ABOVE, BELOW]
+    - name: action
+      type: enum
+      values: [SELECT, DELETE]
+  manual_ref: "SRC-003 p.288"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.282, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.287, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.291, same grammar as 26.120"}
+  notes: >
+    Selects or deletes the CAD faces on one side of a coordinate
+    threshold. FRAME is the 1-based index of the coordinate system the
+    threshold is measured in, 1 being the reference frame. The
+    threshold value is in that frame's own length units, which the
+    command does not state and this database therefore does not either
+    (SRC-003 p.288).
+
+    A LIMIT of this package rather than of the solver, found while
+    writing the entry: FRAME can only be the reference frame here. This
+    command is phase geometry and CREATE_NEW_COORDINATE_SYSTEM is phase
+    setup, so the ordering check refuses a local frame created before
+    it, and a frame created after cannot be cited by a line already
+    emitted. Whether the SOLVER accepts a coordinate system defined
+    before a CAD operation is unmeasured, so the phase is left where the
+    rest of the CAD family sits rather than moved on a guess
+    (PLN-20260806-0900).

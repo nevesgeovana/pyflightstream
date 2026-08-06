@@ -893,3 +893,92 @@ def test_a_finite_float_still_emits():
     script.emit("SOLVER_SET_CONVERGENCE", 1e-5)
     assert "SOLVER_SET_CONVERGENCE" in script.render()
     assert "1e-05" in script.render() or "0.00001" in script.render()
+
+
+# --- the CAD body family ----------------------------------------------------
+#
+# The first chapter entered from a manual reading rather than from a case
+# that needed it, so the tests are shaped by what could go wrong in that
+# route: a per-edition citation carried across editions, an enum token
+# read out of prose, and a phase that lets a geometry command follow the
+# solver.
+
+
+@pytest.mark.parametrize("version", ["26.100", "26.101", "26.120", "26.121"])
+def test_the_cad_body_family_emits_on_every_registered_build(version):
+    """Documented unchanged in all four editions, so all four must emit.
+
+    A family recorded from one edition and cited from another is the
+    defect the per-edition notes exist to prevent, and the cheapest way
+    to notice it is to build the same script on every build.
+    """
+    script = Script(version=version)
+    script.emit("CAD_BODY_DELETE", -1)
+    script.emit("CAD_BODY_MIRROR", 1, "XZ")
+    script.emit("CAD_BODY_ROTATE", 1, "Z", 15.0)
+    script.emit("CAD_BODY_SCALE", 1, 0.001)
+    script.emit("CAD_BODY_TRANSLATE", 1, 0.0, 0.5, 0.0, "METER")
+    script.emit("CAD_BODY_SELECT_BY_THRESHOLD", 1, "Z", 0.0, "BELOW", "DELETE")
+    text = script.render()
+    assert "CAD_BODY_ROTATE 1 Z 15.0" in text
+    assert "CAD_BODY_TRANSLATE 1 0.0 0.5 0.0 METER" in text
+    assert "CAD_BODY_SELECT_BY_THRESHOLD 1 Z 0.0 BELOW DELETE" in text
+
+
+@pytest.mark.parametrize(
+    ("command", "args", "expected"),
+    [
+        ("CAD_BODY_MIRROR", (1, "XY_PLANE"), "XY, XZ, YZ"),
+        ("CAD_BODY_ROTATE", (1, "W", 15.0), "X, Y, Z"),
+        ("CAD_BODY_SELECT_BY_THRESHOLD", (1, "Z", 0.0, "OVER", "DELETE"), "ABOVE, BELOW"),
+        ("CAD_BODY_SELECT_BY_THRESHOLD", (1, "Z", 0.0, "ABOVE", "KEEP"), "SELECT, DELETE"),
+    ],
+)
+def test_a_cad_token_outside_the_documented_set_is_refused(command, args, expected):
+    """The token lists were read from the manual's parameter table.
+
+    Two of them (LOGIC and ACTION) were drafted with an extra token by
+    the reading tool, which took CAD out of the sentence after the one
+    that lists them, so these rows are the shape that defect would take
+    if it reached a committed entry.
+    """
+    script = Script(version="26.120")
+    with pytest.raises(CommandArgumentError, match=expected):
+        script.emit(command, *args)
+
+
+def test_a_cad_body_command_is_refused_after_the_solver_is_initialized():
+    """Phase geometry: a CAD body exists before the mesh does."""
+    script = Script(version="26.120")
+    script.emit(
+        "INITIALIZE_SOLVER",
+        solver_model="INCOMPRESSIBLE",
+        surfaces=-1,
+        wake_termination_x="DEFAULT",
+        symmetry="NONE",
+    )
+    with pytest.raises(ScriptOrderError, match="geometry"):
+        script.emit("CAD_BODY_ROTATE", 1, "Z", 15.0)
+
+
+def test_the_threshold_command_can_only_cite_the_reference_frame():
+    """A narrowing this package chose, pinned so it is not a surprise.
+
+    The command's FRAME argument is a coordinate system, and under the
+    phase ordering it can only ever be the reference one: the CAD family
+    is phase geometry, CREATE_NEW_COORDINATE_SYSTEM is phase setup, so a
+    local frame created before the threshold command is refused and one
+    created after cannot be cited by a line already emitted.
+
+    Whether the SOLVER allows the other order is unmeasured
+    (PLN-20260806-0900). Until it is, this is what the library does, and
+    a test says so rather than a comment.
+    """
+    script = Script(version="26.120")
+    script.emit("CAD_BODY_SELECT_BY_THRESHOLD", 1, "Z", 0.0, "BELOW", "DELETE")
+    assert "CAD_BODY_SELECT_BY_THRESHOLD 1 Z 0.0 BELOW DELETE" in script.render()
+
+    ordered = Script(version="26.120")
+    ordered.emit("CREATE_NEW_COORDINATE_SYSTEM", label="body_axes")
+    with pytest.raises(ScriptOrderError, match="geometry"):
+        ordered.emit("CAD_BODY_SELECT_BY_THRESHOLD", "body_axes", "Z", 0.0, "BELOW", "DELETE")

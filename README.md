@@ -145,8 +145,8 @@ the evidence rather than declared:
 | Version | Vendor name | Support level | What that means here |
 |---|---|---|---|
 | 26.000 | 26.0 | `registered` | Ordered in the registry, no command carries evidence for it, so nothing can be built yet |
-| 26.100 | 26.1 | `documented` | The February 2026 build. 11 commands drafted from its own manual edition with page citations; an ad-hoc probe ran all eleven (RPT-018), and no status moves without a harness report: the Tier 2 probe harness reaches only commands carrying a probe spec, and these carry none yet |
-| 26.101 | 26.1 | `documented` | The May 2026 build. 44 commands drafted from the manual with page citations, none promoted by a harness probe. It sits at a hotfix index and does NOT inherit from 26.100: the two are separate vendor releases under one name |
+| 26.100 | 26.1 | `documented` | The February 2026 build. Commands drafted from its own manual edition with page citations; an ad-hoc probe ran some of them (RPT-018) and no status moves without a harness report, since the Tier 2 harness reaches only commands carrying a probe spec. The compatibility matrix carries the live counts |
+| 26.101 | 26.1 | `documented` | The May 2026 build. Commands drafted from the manual with page citations, none promoted by a harness probe. It sits at a hotfix index and does NOT inherit from 26.100: the two are separate vendor releases under one name |
 | 26.120 | 26.12 | `operational` | Probe evidence from a licensed machine, and the minimal end-to-end workflow builds |
 | 26.121 | 26.12 | `operational` | Hotfix build 1. It inherits the 26.120 records except where a probe on this build overrode them; the compatibility matrix marks every inherited cell and counts them |
 
