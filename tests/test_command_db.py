@@ -345,8 +345,20 @@ def test_hotfix_inherits_base_release_until_overridden():
     # default made 26.101 inherit the February commands.
     hotfix = FsVersion(canonical="26.121", alias="26.12 hotfix 1", index=3, inherits_base=True)
     assert entry.status_in(hotfix) is entry.versions["26.120"]
-    detached = FsVersion(canonical="26.121", alias="26.12 hotfix 1", index=3, inherits_base=False)
-    assert entry.status_in(detached) is None, "a build that states no descent inherits nothing"
+    # THE REGISTRY ANSWERS, not the object handed in. A caller that
+    # states the opposite of the registry is ignored in both directions,
+    # which is the 2026-08-06 correction: reading the field off the
+    # argument let a freely-constructible value object decide a fact the
+    # ordering authority owns.
+    lying = FsVersion(canonical="26.121", alias="26.12 hotfix 1", index=3, inherits_base=False)
+    assert entry.status_in(lying) is entry.versions["26.120"]
+    # And a canonical the registry has never heard of inherits NOTHING,
+    # however it is built. An unregistered 26.122 used to receive the
+    # whole 26.120 command set while the string "26.122" raised for not
+    # being registered, so the two input types of one parameter
+    # disagreed about whether a build exists.
+    unregistered = FsVersion(canonical="26.122", alias="26.12", index=99, inherits_base=True)
+    assert entry.status_in(unregistered) is None
     overridden = make_entry(
         versions={
             "26.120": {"status": "documented"},

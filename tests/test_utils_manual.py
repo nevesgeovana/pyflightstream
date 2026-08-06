@@ -641,44 +641,69 @@ def test_the_rule_order_is_pinned_and_every_rule_is_named():
     assert all(rule.reason for rule in TYPE_RULES)
 
 
-@pytest.mark.parametrize(
-    ("earlier", "later", "placeholder", "description", "expected"),
-    [
-        # One worked case per adjacent pair whose order was wrong once.
-        ("opening", "toggle", "NUM_BOUNDARIES", "Number of boundaries. ENABLE or DISABLE", "int"),
-        (
-            "opening",
-            "dimension",
-            "SWEEP_TIME",
-            "Number of time slices to sweep",
-            "int",
-        ),
-        (
-            "dimension",
-            "alternatives",
-            "SECTION_LENGTH",
-            "Length of the section, measured along X or Y",
-            "float",
-        ),
-        (
-            "enumeration",
-            "toggle",
-            "MODE",
-            "One of the following: ENABLE, DISABLE, AUTO",
-            "enum",
-        ),
-    ],
+#: One description per ADJACENT pair of TYPE_RULES, readable by both
+#: rules of the pair, with the answer the earlier one gives. Adjacent is
+#: the whole point: a QA pass applied all five adjacent transpositions
+#: and the previous parametrisation stayed green for every one, because
+#: not one of its four rows named a pair that is actually adjacent. A
+#: table that cannot see a neighbour swap does not pin an order.
+ADJACENT_ORDER_CASES = (
+    ("opening", "integer-word", "NUM_STEPS", "Number of steps. Integer value above zero", "int"),
+    ("integer-word", "dimension", "SPAN_LENGTH", "Integer value counting the span", "int"),
+    (
+        "dimension",
+        "enumeration",
+        "SPAN_LENGTH",
+        "Span. One of the following: SHORT or LONG",
+        "float",
+    ),
+    (
+        "enumeration",
+        "alternatives",
+        "MODE",
+        "One of the following: ALPHA or BETA. Choose GAMMA or DELTA elsewhere.",
+        "enum",
+    ),
+    ("alternatives", "toggle", "MODE", "Set it to ENABLE or DISABLE as needed", "enum"),
 )
-def test_the_earlier_rule_answers_where_two_rules_both_could(
+
+
+def test_every_adjacent_pair_of_rules_carries_a_case_that_pins_it():
+    """The table must cover each neighbour, or a swap of two goes unseen.
+
+    Five rules in sequence make five adjacent pairs, and the guard is
+    only as strong as the pairs it names. The previous version of this
+    test named four pairs and none of them adjacent, so all five
+    transpositions passed.
+    """
+    names = [rule.name for rule in TYPE_RULES]
+    adjacent = {(names[i], names[i + 1]) for i in range(len(names) - 1)}
+    covered = {(row[0], row[1]) for row in ADJACENT_ORDER_CASES}
+    assert covered == adjacent, (
+        f"the order cases cover {sorted(covered)} and the rule table has adjacent pairs "
+        f"{sorted(adjacent)}; a pair with no case is a transposition nothing catches"
+    )
+
+
+@pytest.mark.parametrize(
+    ("earlier", "later", "placeholder", "description", "expected"), ADJACENT_ORDER_CASES
+)
+def test_the_earlier_rule_answers_where_two_adjacent_rules_both_could(
     earlier, later, placeholder, description, expected
 ):
     """Each row is a description BOTH named rules can read.
 
     Without the pairing the order is untested: a rule that never
     competes with another cannot show that it sits in the right place.
+    The row asserts that both rules answer it before asserting which
+    one wins, so a fixture that stops reaching the later rule fails
+    here instead of passing for the wrong reason, which is how the
+    round-1 toggle fixture was silently disarmed.
     """
     names = [rule.name for rule in TYPE_RULES]
-    assert names.index(earlier) < names.index(later)
+    assert names.index(earlier) + 1 == names.index(later), (
+        f"{earlier} and {later} are no longer adjacent in TYPE_RULES"
+    )
     by_name = {rule.name: rule for rule in TYPE_RULES}
     upper = placeholder.upper()
     assert by_name[earlier].read(upper, description) is not None, "the earlier rule must answer"

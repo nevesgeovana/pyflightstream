@@ -301,3 +301,44 @@ def test_the_emitter_cannot_be_told_a_registered_build_inherits_when_it_does_not
     script = Script(version=lying)
     with pytest.raises(CommandNotInVersionError, match="SET_AXIAL_SEPARATION_BOUNDARIES"):
         helpers.solver_settings(script, axial_separation_boundaries=[1])
+
+
+def test_a_version_the_registry_does_not_know_inherits_nothing():
+    """One index over from where round three closed it.
+
+    `resolve` reconciles a REGISTERED canonical against the registry and
+    passes an unregistered one through, which is what fixture registries
+    need. An unregistered hotfix index then inherited its base release's
+    whole record set: 26.122 received 148 commands from 26.120, and
+    26.102 emitted the February-only separation family, while the string
+    forms of both raised for not being registered. The two documented
+    input types of one parameter disagreed about whether a build exists.
+
+    The registry answers now, in the layer that consumes the fact, so a
+    build it has never heard of has no recorded descent.
+    """
+    from pyflightstream.commands import CommandRegistry
+    from pyflightstream.script import Script
+
+    registry = CommandRegistry.load()
+    for canonical in ("26.122", "26.102"):
+        unregistered = FsVersion(canonical=canonical, alias="26.1", index=99, inherits_base=True)
+        view = registry.for_version(unregistered)
+        assert sum(1 for _ in view) == 0, f"{canonical} sees commands it has no evidence for"
+        with pytest.raises(CommandNotInVersionError):
+            Script(version=unregistered).emit("SET_BOUNDARY_LAYER_TYPE", "TURBULENT")
+
+    # The control: a REGISTERED hotfix still inherits, or the fix would
+    # have emptied the 26.121 column of the compatibility matrix.
+    registered = resolve("26.121")
+    assert sum(1 for _ in registry.for_version(registered)) > 100
+
+
+def test_the_registry_overrides_what_a_hand_built_version_claims_either_way():
+    """Reading the flag off the argument let the caller decide a registry fact."""
+    from pyflightstream.commands import CommandRegistry
+
+    entry = CommandRegistry.load().commands["SET_BOUNDARY_LAYER_TYPE"]
+    denying = FsVersion(canonical="26.121", alias="26.12", index=4, inherits_base=False)
+    evidence = entry.evidence_in(denying)
+    assert evidence is not None and evidence.inherited and evidence.source == "26.120"

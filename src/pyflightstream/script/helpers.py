@@ -53,7 +53,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ValidationError
 
-from pyflightstream.commands import CommandRegistry
+from pyflightstream.commands import CommandNotInVersionError, CommandRegistry
 from pyflightstream.script import CommandArgumentError, Script
 from pyflightstream.script.solver_setup import (
     LIBRARY_MINIMUM_CP,
@@ -1004,6 +1004,42 @@ def solver_settings(
                 "solver_settings: bulk_separation takes a BulkSeparation (name, "
                 f"separation_type, diameter, boundaries; SRC-003 p.342): {error}"
             ) from error
+    # Rendering every assignment HERE, before the first emission, rather
+    # than inside the emission loop. The no-boundary refusal is raised by
+    # the renderer, and raising it mid-emission left the caller's script
+    # holding the mode line, the scalars, the toggles and DELETE_SEPARATION
+    # while the call failed: every other refusal in this helper fires on
+    # an untouched script, which is the property the module states about
+    # its toggle reading and did not keep here.
+    rendered_models: dict[str, list[dict[str, object]]] = {
+        argument: [_separation_arguments(model) for model in models]
+        for argument, models in separation_models.items()
+    }
+    rendered_bulk = _separation_arguments(bulk) if bulk is not None else None
+    if rendered_bulk is not None and "separation_type" in rendered_bulk:
+        # The 26.101 grammar drops SEPARATION_TYPE (SRC-725 p.341) and
+        # BulkSeparation requires it, so the model cannot express that
+        # form. Refuse HERE, naming the version and its own manual page:
+        # the binder's generic message says "CREATE_BULK_SEPARATION has
+        # no argument 'separation_type'", which names an argument the
+        # caller never typed and cites the 26.120 page to somebody whose
+        # grammar is documented elsewhere.
+        try:
+            entry = script._view["CREATE_BULK_SEPARATION"]
+        except CommandNotInVersionError:
+            entry = None
+        if entry is not None and not any(arg.name == "separation_type" for arg in entry.args):
+            raise CommandArgumentError(
+                "solver_settings: bulk_separation carries separation_type, which "
+                f"FlightStream {script.version.canonical} does not take: that edition "
+                "documents the three-argument form, name, count and diameter "
+                "(SRC-725 p.341), and the four-argument form with CYLINDRICAL or "
+                "FLAT_PLATE arrived in 26.12 (SRC-003 p.342). BulkSeparation models "
+                "the four-argument form, so emit the three-argument one with "
+                "Script.emit('CREATE_BULK_SEPARATION', name=..., num_boundaries=..., "
+                "diameter=...). Read RPT-015 first: every documented form of this "
+                "command was refused on 26.120 and 26.121."
+            )
     # Resolve the induced-drag selection before any emission, so a bad
     # label or index leaves the script untouched; the emission itself is
     # deferred to the analysis phase (see the docstring). Unset on the
@@ -1113,15 +1149,15 @@ def solver_settings(
         # emitted the count 0 and a blank index line, which is the exact
         # malformed shape that refusal was added for, one round later
         # and one keyword over.
-        script.emit("CREATE_BULK_SEPARATION", **_separation_arguments(bulk))
+        script.emit("CREATE_BULK_SEPARATION", **rendered_bulk)
     for argument, command in (
         ("airfoil_separation", "CREATE_AIRFOIL_SEPARATION"),
         ("axial_vortex_separation", "CREATE_AXIAL_VORTEX_SEPARATION"),
         ("cylindrical_bulk_separation", "CREATE_CYLINDRICAL_BULK_SEPARATION"),
         ("stratford_bulk_separation", "CREATE_STRATFORD_BULK_SEPARATION"),
     ):
-        for model in separation_models[argument]:
-            script.emit(command, **_separation_arguments(model))
+        for arguments in rendered_models[argument]:
+            script.emit(command, **arguments)
     if convergence_iterations is not None:
         script.emit("SET_SOLVER_CONVERGENCE_ITERATIONS", convergence_iterations)
     minimum_cp_default_emitted = False

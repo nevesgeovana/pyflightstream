@@ -67,7 +67,10 @@ FlightStream versions.
   which is how the solver erases. And an assignment model whose own
   `boundaries` is empty would emit the count 0 followed by an empty
   index line, the malformed shape the viscous-exclusion refusal was
-  written for, reached through a different keyword.
+  written for, reached through a different keyword. That refusal covers
+  `bulk_separation` too, which routed onto the shared renderer in this
+  release: it had its own emission block predating the renderer and was
+  the one assignment keyword the refusal did not reach.
 
   A single assignment model may be passed where a sequence is expected,
   since `bulk_separation` takes one and the habit crosses over; it used
@@ -160,6 +163,14 @@ FlightStream versions.
   `propose_type`, and a new `ManualCommand.parameters` field carrying
   the table. Every argument used to draft as `???`, because the
   signature line and the sample block say nothing about a type.
+
+  The rules are public DATA rather than control flow: `TYPE_RULES`,
+  exported from `pyflightstream.utils`, with its element type
+  `TypeRule`. The ORDER of that table is the specification, each row
+  saying in its own docstring why it sits where it does, and the tests
+  pin every adjacent pair. Three review rounds each found one rule in
+  the wrong place while the order lived in a chain of ifs, and each fix
+  was invisible on a revert.
 
   `Coverage` and `ManualDraftError` are exported from
   `pyflightstream.utils`, which the entry above announced and the

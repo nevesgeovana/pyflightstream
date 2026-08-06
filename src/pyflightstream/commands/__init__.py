@@ -315,6 +315,47 @@ class VersionStatus(BaseModel):
         return self
 
 
+def _registry_says_it_inherits(version: FsVersion) -> bool:
+    """Whether the REGISTRY says this build carries its base release's evidence.
+
+    The registry answers, not the object handed in, and a version the
+    registry does not know inherits nothing. Both halves were reached by
+    review rather than by design.
+
+    ``FsVersion`` is freely constructible and carries ``inherits_base``,
+    so reading the field off the argument let a caller assert a descent
+    the registry denies. ``resolve`` reconciles a REGISTERED canonical
+    against the registry, which closed that for registered builds and
+    left it open one index over: an unregistered ``26.122`` passed
+    through untouched and inherited the whole 26.120 command set, while
+    the string ``"26.122"`` raised for not being registered. The two
+    documented input types of one parameter disagreed about whether a
+    build exists.
+
+    Answering here, in the layer that consumes the fact, closes both:
+    inheritance is a statement the ordering authority makes about two of
+    its own builds, and it can make none about a build it has never
+    heard of. A synthetic version still resolves and still sees its own
+    direct records, which is what the fixture registries of this
+    package's own suites need.
+
+    Parameters
+    ----------
+    version : FsVersion
+        The version being looked up.
+
+    Returns
+    -------
+    bool
+        The registered build's own flag, or False when the canonical is
+        not registered.
+    """
+    for entry in known_versions():
+        if entry.canonical == version.canonical:
+            return bool(entry.inherits_base)
+    return False
+
+
 @dataclass(frozen=True)
 class Evidence:
     """One command's evidence for one version, and where it came from.
@@ -524,7 +565,7 @@ class CommandEntry(BaseModel):
         record = self.versions.get(version.canonical)
         if record is not None:
             return Evidence(record=record, source=version.canonical, inherited=False)
-        if not version.inherits_base:
+        if not _registry_says_it_inherits(version):
             return None
         base_canonical = version.canonical[:-1] + "0"
         if base_canonical != version.canonical:
