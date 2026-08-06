@@ -1049,3 +1049,71 @@ def test_a_basic_shape_is_refused_after_the_solver_is_initialized():
     )
     with pytest.raises(ScriptOrderError, match="geometry"):
         script.emit("CAD_CREATE_SPHERE", 1, 0.0, 0.0, 0.0, 1.0)
+
+
+# --- CAD Create: virtual curves ---------------------------------------------
+
+
+@pytest.mark.parametrize("version", ["26.100", "26.101", "26.120", "26.121"])
+def test_the_virtual_curve_family_emits_on_every_registered_build(version):
+    script = Script(version=version)
+    script.emit("CAD_CREATE_CURVE_POINT", 0.0, 1.0, 0.0)
+    script.emit("CAD_CREATE_CURVE_LINE", 0.0, 1.0, 0.0, 0.0, 2.0, 1.0)
+    script.emit("CAD_CREATE_CURVE_ARC", 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 1.0, 0.0)
+    script.emit("CAD_CREATE_CURVE_SELECT", 2)
+    script.emit("CAD_CREATE_CURVE_UNSELECT", -1)
+    script.emit("CAD_CREATE_CURVE_REVERSE", 1)
+    script.emit("CAD_CREATE_CURVE_DELETE_UNSELECTED")
+    text = script.render()
+    # The arc's nine coordinates in the manual's own sample order, whose
+    # first triple is the ORIGIN and not a vertex.
+    assert "CAD_CREATE_CURVE_ARC 0.0 0.0 0.0 -1.0 0.0 0.0 0.0 1.0 0.0" in text
+    assert "CAD_CREATE_CURVE_SELECT 2" in text
+
+
+@pytest.mark.parametrize(
+    "command",
+    ["CAD_CREATE_CURVE_SELECT", "CAD_CREATE_CURVE_UNSELECT", "CAD_CREATE_CURVE_REVERSE"],
+)
+def test_the_curve_index_commands_take_minus_one_for_every_curve(command):
+    """-1 is the documented all-form and must not be refused as an index.
+
+    Nothing in the emitter treats a curve index as an entity citation,
+    deliberately: a virtual curve is not a mesh boundary and no
+    inventory tracks it, so the value passes as an integer and the
+    solver owns the range.
+    """
+    script = Script(version="26.120")
+    script.emit(command, -1)
+    assert f"{command} -1" in script.render()
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "CAD_CREATE_CURVE_DELETE_ALL",
+        "CAD_CREATE_CURVE_DELETE_SELECTED",
+        "CAD_CREATE_CURVE_DELETE_UNSELECTED",
+    ],
+)
+def test_the_three_curve_deletes_take_no_argument(command):
+    """They differ only in the set they act on, which is why none has one."""
+    script = Script(version="26.120")
+    script.emit(command)
+    assert script.render().strip() == command
+    with pytest.raises(CommandArgumentError, match="at most 0 arguments"):
+        Script(version="26.120").emit(command, 1)
+
+
+def test_the_curve_constructors_take_no_frame():
+    """Unlike the basic shapes, which all take one.
+
+    Pinned because the difference is invisible in the argument names and
+    a reader coming from CAD_CREATE_BOX would reasonably pass a frame
+    first, which would then be read as the X coordinate.
+    """
+    entries = CommandRegistry.load().commands
+    for name in ("CAD_CREATE_CURVE_POINT", "CAD_CREATE_CURVE_LINE", "CAD_CREATE_CURVE_ARC"):
+        assert not any(arg.name == "frame" for arg in entries[name].args), name
+    for name in ("CAD_CREATE_BOX", "CAD_CREATE_SPHERE", "CAD_CREATE_CYLINDER"):
+        assert entries[name].args[0].name == "frame", name

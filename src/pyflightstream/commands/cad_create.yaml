@@ -238,3 +238,198 @@ CAD_CREATE_SHEET:
     explicitly; zero puts the sheet exactly in the plane. LEN1 and LEN2
     run along the plane's two directions in the order the plane name
     gives them (SRC-003 p.290).
+
+# --- virtual curves: constructing them -------------------------------------
+#
+# A "virtual curve" is CAD Create's own object, indexed from 1 in
+# creation order, and it is not a mesh boundary: nothing in the
+# cross-reference ledger tracks it, so an index here is validated as an
+# integer and not against an inventory.
+#
+# None of the three constructors takes a FRAME, unlike the basic shapes
+# above. The manual does not say which coordinate system their vertices
+# are in, so this database does not say either.
+
+CAD_CREATE_CURVE_POINT:
+  layout: inline
+  phase: geometry
+  args:
+    - name: x
+      type: float
+    - name: y
+      type: float
+    - name: z
+      type: float
+  manual_ref: "SRC-003 p.293"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.287, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.292, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.296, same grammar as 26.120"}
+  notes: >
+    A curve of one vertex. It is a curve rather than a point in the
+    interface's own vocabulary, which is why it is selected, reordered
+    and lofted with the others.
+
+CAD_CREATE_CURVE_LINE:
+  layout: inline
+  phase: geometry
+  args:
+    - name: x1
+      type: float
+    - name: y1
+      type: float
+    - name: z1
+      type: float
+    - name: x2
+      type: float
+    - name: y2
+      type: float
+    - name: z2
+      type: float
+  manual_ref: "SRC-003 p.293"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.287, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.292, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.296, same grammar as 26.120"}
+  notes: >
+    A straight curve between two vertices, given in order: the direction
+    from the first to the second is the curve's own, which
+    CAD_CREATE_CURVE_REVERSE flips and which the loft commands read.
+
+CAD_CREATE_CURVE_ARC:
+  layout: inline
+  phase: geometry
+  args:
+    - name: x0
+      type: float
+    - name: y0
+      type: float
+    - name: z0
+      type: float
+    - name: x1
+      type: float
+    - name: y1
+      type: float
+    - name: z1
+      type: float
+    - name: x2
+      type: float
+    - name: y2
+      type: float
+    - name: z2
+      type: float
+  manual_ref: "SRC-003 p.293"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.287, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.292, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.296, same grammar as 26.120"}
+  notes: >
+    NINE coordinates in three triples, and the FIRST is the arc's
+    ORIGIN rather than a vertex on it: origin, then the two vertices the
+    arc runs between (SRC-003 p.293). The manual's own sample is a
+    quarter circle of radius one about the coordinate origin, from
+    (-1, 0, 0) to (0, 1, 0). Reading the first triple as a vertex draws
+    a different arc that the solver accepts, so the order is worth
+    checking against that sample rather than against the argument
+    names, which do not distinguish them.
+
+# --- virtual curves: selecting and deleting them ---------------------------
+#
+# The three index commands share one convention the argument name does
+# not carry: -1 means EVERY existing curve, in creation order. The three
+# deletes take no argument and differ only in which set they act on.
+
+CAD_CREATE_CURVE_SELECT:
+  layout: inline
+  phase: geometry
+  args:
+    - name: curve_index
+      type: int
+  manual_ref: "SRC-003 p.294"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.288, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.293, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.297, same grammar as 26.120"}
+  notes: >
+    Adds one virtual curve to the selection by its 1-based creation
+    index; -1 selects every existing curve (SRC-003 p.294). Selection is
+    what CAD_CREATE_CURVE_DELETE_SELECTED and the loft commands read, so
+    it is state carried between lines rather than an argument.
+
+CAD_CREATE_CURVE_UNSELECT:
+  layout: inline
+  phase: geometry
+  args:
+    - name: curve_index
+      type: int
+  manual_ref: "SRC-003 p.294"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.288, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.293, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.297, same grammar as 26.120"}
+  notes: >
+    Removes one curve from the selection; -1 removes every one
+    (SRC-003 p.294).
+
+CAD_CREATE_CURVE_REVERSE:
+  layout: inline
+  phase: geometry
+  args:
+    - name: curve_index
+      type: int
+  manual_ref: "SRC-003 p.294"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.288, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.293, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.297, same grammar as 26.120"}
+  notes: >
+    Flips a curve's direction; -1 flips every one (SRC-003 p.294). It
+    acts on the curve rather than on the selection, so it takes an index
+    where the delete commands below take none.
+
+CAD_CREATE_CURVE_DELETE_ALL:
+  layout: bare
+  phase: geometry
+  args: []
+  manual_ref: "SRC-003 p.296"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.290, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.295, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.299, same grammar as 26.120"}
+  notes: >
+    Deletes every virtual curve, selected or not.
+
+CAD_CREATE_CURVE_DELETE_SELECTED:
+  layout: bare
+  phase: geometry
+  args: []
+  manual_ref: "SRC-003 p.296"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.291, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.295, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.299, same grammar as 26.120"}
+  notes: >
+    Deletes the curves currently selected, which is the state
+    CAD_CREATE_CURVE_SELECT builds.
+
+CAD_CREATE_CURVE_DELETE_UNSELECTED:
+  layout: bare
+  phase: geometry
+  args: []
+  manual_ref: "SRC-003 p.296"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.291, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.295, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.299, same grammar as 26.120"}
+  notes: >
+    Deletes everything NOT selected, which is how a script keeps a
+    subset: select what it wants, then delete the rest.
