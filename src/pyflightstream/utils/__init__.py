@@ -40,6 +40,7 @@ from pyflightstream.utils.manual import (
     read_pdf_pages,
     render_chapter,
     render_entry,
+    sample_contradiction,
     write_chapter,
 )
 
@@ -57,5 +58,6 @@ __all__ = [
     "read_pdf_pages",
     "render_chapter",
     "render_entry",
+    "sample_contradiction",
     "write_chapter",
 ]

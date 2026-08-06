@@ -26,6 +26,7 @@ from pyflightstream.utils import (
     propose_type,
     read_pdf_pages,
     render_entry,
+    sample_contradiction,
 )
 from pyflightstream.utils.cli import main as cli_main
 from pyflightstream.utils.errors import ManualDraftError
@@ -733,3 +734,151 @@ def test_an_enumeration_that_contains_the_toggle_tokens_is_not_truncated():
     )
     assert proposed == "enum"
     assert set(tokens) >= {"ENABLE", "DISABLE", "AUTO"}
+
+
+# --- the parameter table against the printed sample -------------------------
+#
+# The defect these hold: propose_type read the parameter table and
+# nothing else, so a table that contradicts the sample printed beneath it
+# produced a confident wrong type. Measured on 2026-08-06, 19 enumeration
+# positions across seven commands of this database declared a value set
+# that refuses the token their own manual sample passes.
+
+
+def _rotate_shaped_command():
+    """A command whose table names three letters and whose sample passes an index.
+
+    The shape of CAD_BODY_ROTATE, carrying none of the manual's text: the
+    parameter prose here is written for this test.
+    """
+    return ManualCommand(
+        name="X_ROTATE",
+        page=1,
+        inline_args=("INDEX", "AXIS", "ANGLE"),
+        sample=("X_ROTATE 1 2 20.0",),
+        parameters={
+            "INDEX": "Index of the item to rotate.",
+            "AXIS": "Axis of rotation. One of the following: X, Y or Z.",
+            "ANGLE": "Rotation angle in degrees.",
+        },
+    )
+
+
+def test_a_table_that_contradicts_the_sample_is_reported():
+    command = _rotate_shaped_command()
+    proposed, values, _reason = propose_type("AXIS", command.parameters["AXIS"])
+    assert proposed == "enum" and set(values) == {"X", "Y", "Z"}, (
+        "this fixture only means something while the table rule still answers"
+    )
+    assert sample_contradiction(command, 1, proposed, values) == "2"
+
+
+def test_a_table_the_sample_confirms_is_not_reported():
+    command = _rotate_shaped_command()
+    assert sample_contradiction(command, 0, "int", ()) is None
+
+
+def test_an_enumeration_matches_its_sample_token_case_insensitively():
+    command = ManualCommand(
+        name="X_SET_MODE",
+        page=1,
+        inline_args=("MODE",),
+        sample=("X_SET_MODE enable",),
+    )
+    assert sample_contradiction(command, 0, "enum", ("ENABLE", "DISABLE")) is None
+
+
+@pytest.mark.parametrize(
+    ("proposed", "token", "reported"),
+    [
+        ("int", "2.5", "2.5"),
+        ("int", "-1", None),
+        ("int", "TRUE", "TRUE"),
+        ("float", "2.5", None),
+        ("float", "2", None),
+        ("float", "RETAIN", "RETAIN"),
+        ("path", "anything at all", None),
+        ("str", "anything at all", None),
+        ("int_list", "1,2,3", None),
+    ],
+)
+def test_a_numeric_proposal_is_checked_against_the_sample_token(proposed, token, reported):
+    """A float where an int was proposed is the shape of a MISALIGNED list.
+
+    CREATE_NEW_CIRCLE_VOLUME_SECTION declares an enumeration in a
+    position whose sample passes 2.5, which is neither of its tokens and
+    not an index either: the argument list itself is out of step with the
+    signature, and the only way the tool can say so is by checking.
+    """
+    command = ManualCommand(name="X_CMD", page=1, inline_args=("A",), sample=(f"X_CMD {token}",))
+    assert sample_contradiction(command, 0, proposed, ()) == reported
+
+
+@pytest.mark.parametrize(
+    ("command", "why"),
+    [
+        (
+            ManualCommand(name="X_CMD", page=1, inline_args=("A",)),
+            "a command with no sample block",
+        ),
+        (
+            ManualCommand(name="X_CMD", page=1, inline_args=("A",), sample=("SOMETHING ELSE 1",)),
+            "a sample whose first line is not the call",
+        ),
+        (
+            ManualCommand(name="X_CMD", page=1, inline_args=("A", "B"), sample=("X_CMD 1",)),
+            "a sample with fewer tokens than the signature has placeholders",
+        ),
+    ],
+)
+def test_a_sample_that_cannot_answer_is_silent_rather_than_confirming(command, why):
+    """Silence is not agreement, and the three silent cases are stated.
+
+    A caller that read None as "the sample confirms it" would be wrong
+    for exactly these three, which is why the docstring names them and
+    why this test exists next to the one that reports a real
+    contradiction.
+    """
+    assert sample_contradiction(command, len(command.inline_args) - 1, "enum", ("X",)) is None, why
+
+
+def test_an_unanswered_type_is_never_contradicted():
+    """None refuses nothing, so it cannot disagree with a sample."""
+    command = _rotate_shaped_command()
+    assert sample_contradiction(command, 1, None, ()) is None
+
+
+def test_a_contradicted_type_is_drafted_unanswered_rather_than_written():
+    """The behaviour, not just the report: `???` is what the schema refuses.
+
+    A draft that wrote `enum` with the table's tokens would LOAD, and
+    would then validate other people's scripts against a value set the
+    manual's own sample violates. Writing `???` instead makes the
+    disagreement stop the file rather than ship in it.
+    """
+    entry = render_entry(
+        _rotate_shaped_command(), source="SRC-000", versions={"26.120": "documented"}
+    )
+    axis = entry.split("- name: axis")[1].split("- name:")[0]
+    assert "type: ???" in axis
+    assert "values:" not in axis, "the table's tokens must not be written beside the ???"
+    assert "would REFUSE the token the sample passes, for AXIS (the sample passes 2)" in entry
+
+
+def test_an_uncontradicted_type_is_still_drafted_normally():
+    """The guard must not turn every enumeration into a question.
+
+    Without this the previous test passes just as well under a
+    render_entry that wrote `???` for everything.
+    """
+    command = ManualCommand(
+        name="X_SET_MODE",
+        page=1,
+        inline_args=("MODE",),
+        sample=("X_SET_MODE DISABLE",),
+        parameters={"MODE": "Mode to use. One of the following: ENABLE or DISABLE."},
+    )
+    entry = render_entry(command, source="SRC-000", versions={"26.120": "documented"})
+    assert "type: enum" in entry
+    assert "values: [ENABLE, DISABLE]" in entry
+    assert "would REFUSE" not in entry

@@ -51,14 +51,29 @@ design. A rule that cannot read a type returns None and the draft writes
 are still a person's work; what the tool must never do is propose a type
 that is wrong, because that one loads.
 
-That last property is the one to distrust, because the corpus it is
-measured against is not a sample of the manual: it is the commands
-somebody chose to write first. Reading the drafts of the CAD chapter,
-which nobody has written, found the rule that reads a token LIST taking
-words out of the sentences after the one that lists them, so a threshold
-with two values drafted three. It reads one sentence now. The counting
-openings run before both enum rules, because "Number of boundaries in
-the CFD or FEM mesh" is a count and not a choice.
+**That last measurement was not independent, and on 2026-08-06 the
+property it certified turned out to be false.** Read what it compared:
+proposals against types a person had authored FROM THE SAME PARAMETER
+TABLE. Where the table is wrong, the tool and the author read one source
+and agree with each other about it, and the agreement measures their
+common source rather than either of them. Checking the proposals against
+the manual's own printed SAMPLE instead found 19 positions across seven
+commands, in this database and in the tool's output alike, where the
+declared token set refuses the token the sample passes.
+:func:`sample_contradiction` is that second reading, and
+:func:`render_entry` now discards a type the sample contradicts rather
+than writing it, which turns a proposal that would have loaded into a
+``???`` that cannot. The lesson generalises past this module: a
+validation set drawn from the thing being validated measures nothing.
+
+The corpus is the other reason to distrust these numbers, since it is
+not a sample of the manual: it is the commands somebody chose to write
+first. Reading the drafts of the CAD chapter, which nobody has written,
+found the rule that reads a token LIST taking words out of the sentences
+after the one that lists them, so a threshold with two values drafted
+three. It reads one sentence now. The counting openings run before both
+enum rules, because "Number of boundaries in the CFD or FEM mesh" is a
+count and not a choice.
 
 The rules and the ordering are held by ``tests/test_utils_manual.py`` on
 synthetic fixtures; the percentages are not, and cannot be, since a
@@ -89,6 +104,7 @@ __all__ = [
     "read_pdf_pages",
     "render_chapter",
     "render_entry",
+    "sample_contradiction",
     "write_chapter",
 ]
 
@@ -819,6 +835,95 @@ def propose_type(placeholder: str, description: str) -> tuple[str | None, tuple[
     return None, (), "no rule read a type from the description"
 
 
+def sample_contradiction(
+    command: ManualCommand,
+    index: int,
+    proposed: str | None,
+    values: tuple[str, ...] = (),
+) -> str | None:
+    """Report the sample token a proposed type would refuse.
+
+    The parameter table is not the only thing the manual says about an
+    argument: the page also PRINTS a call. A proposal read from the table
+    alone is therefore a reading of one source that another source on the
+    same page can already falsify, and this is that second reading.
+
+    What it does NOT claim is that the manual contradicts itself. Four
+    causes produce the same signal and only a person can tell them apart:
+    the table offered "label or number" and only the labels were read;
+    the table is genuinely incomplete; the sample is a typo; or the
+    argument list is out of step with the signature so the compared token
+    belongs to a different argument. All four mean the proposal must not
+    be written, which is the only decision this function makes.
+
+    Measured on 2026-08-06 across the four registered editions, 195
+    enumeration positions in this database had a printed sample to check
+    against and 19 of them, spanning seven commands, declared a value set
+    that refuses the token the sample passes. ``CAD_BODY_ROTATE``
+    documents its ``AXIS`` as "one of the following: X, Y or Z" and calls
+    it with ``2`` on the same page, in every edition; three
+    ``SWEEPER_SET_*_SWEEP`` commands omit a mode their own samples use.
+
+    Why this belongs here rather than in a review checklist: both facts
+    are already in :class:`ManualCommand`, so the tool had everything it
+    needed and compared nothing. The earlier measurement that certified
+    :func:`propose_type` as never disagreeing with a hand-authored type
+    could not have caught this, because those entries were authored from
+    the same parameter table; the tool and the reviewer read one source
+    and agreed with each other about it.
+
+    Parameters
+    ----------
+    command : ManualCommand
+        Parsed entry. Its sample supplies the evidence and its
+        ``inline_args`` the positions.
+    index : int
+        Zero-based position in ``command.inline_args``.
+    proposed : str or None
+        Type :func:`propose_type` returned, or None when no rule
+        answered. None is never contradicted: an unanswered argument
+        refuses nothing.
+    values : tuple of str, optional
+        Token set of an enumeration proposal.
+
+    Returns
+    -------
+    str or None
+        The token the sample passes at that position, when the proposed
+        type would refuse it. None when the proposal accepts the token,
+        and also when the sample cannot answer: a command with no sample,
+        a sample whose first line is not the call, or a call with fewer
+        tokens than the signature has placeholders. Those three are
+        silent rather than reported because the absence of a sample is
+        not evidence of agreement, and a caller that treated None as
+        confirmation would be reading it as one.
+    """
+    if proposed is None or not command.sample:
+        return None
+    head = command.sample[0]
+    if not head.startswith(command.name):
+        return None
+    tokens = head.split()[len(command.name.split()) :]
+    if index >= len(tokens):
+        return None
+    token = tokens[index]
+    if proposed in ("enum", "enum_list"):
+        return None if token.upper() in {v.upper() for v in values} else token
+    if proposed == "int":
+        try:
+            int(token)
+        except ValueError:
+            return token
+        return None
+    if proposed == "float":
+        try:
+            float(token)
+        except ValueError:
+            return token
+        return None
+    return None
+
+
 def render_entry(
     command: ManualCommand,
     *,
@@ -872,10 +977,15 @@ def render_entry(
         f"  phase: {resolved}",
     ]
     typed, unanswered = 0, 0
+    contradicted: list[str] = []
     if command.inline_args:
         lines.append("  args:")
-        for raw in command.inline_args:
+        for index, raw in enumerate(command.inline_args):
             proposed, values, _ = propose_type(raw, command.parameters.get(raw.upper(), ""))
+            refused = sample_contradiction(command, index, proposed, values)
+            if refused is not None:
+                contradicted.append(f"{raw} (the sample passes {refused})")
+                proposed, values = None, ()
             lines.append(f"    - name: {_argument_name(raw)}")
             lines.append(f"      type: {proposed or '???'}")
             if values:
@@ -899,6 +1009,16 @@ def render_entry(
         typing_note = (
             f"{typed} argument type(s) read from the parameter table and "
             f"{unanswered} left unanswered"
+        )
+    if contradicted:
+        typing_note += (
+            f". The type read from the table would REFUSE the token the sample "
+            f"passes, for {', '.join(contradicted)}, so it was discarded and left "
+            f"unanswered rather than written. Which of the two is wrong is the "
+            f"reviewer's question and not this tool's: a table that enumerates "
+            f"labels beside a sample passing an index is usually an incomplete "
+            f"reading of a table that offered both, while a token in neither form "
+            f"is usually an argument list out of step with the signature"
         )
     lines.append(
         f"  drafted: >-\n"
