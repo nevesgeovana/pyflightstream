@@ -19,7 +19,9 @@ reaches into, which is the shape this subpackage is most at risk of
 becoming.
 """
 
+from pyflightstream.utils.errors import ManualDraftError
 from pyflightstream.utils.manual import (
+    Coverage,
     ManualCommand,
     coverage_against,
     parse_script_index,
@@ -33,6 +35,8 @@ from pyflightstream.utils.manual import (
 )
 
 __all__ = [
+    "Coverage",
+    "ManualDraftError",
     "ManualCommand",
     "coverage_against",
     "parse_script_index",

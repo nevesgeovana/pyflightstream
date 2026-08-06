@@ -11,12 +11,11 @@ list, each command's page and signature, and the difference against the
 database.
 
 WHAT THIS IS NOT FOR, and the distinction is the whole design. It does
-not write database entries. It was measured against the entries this
-database already holds, which were authored by hand from these same
-manuals over several weeks, and it reproduces their argument lists for
-77 percent of them. The other 23 percent are not parser bugs to be fixed
-later; they are places where the entry encodes a JUDGEMENT the manual
-does not state:
+not write database entries. Measured on 2026-08-04 against the 147
+entries the database then held, authored by hand from these same manuals
+over several weeks, it reproduced 77 percent of their argument lists.
+The other 23 percent are not parser bugs to be fixed later; they are
+places where the entry encodes a JUDGEMENT the manual does not state:
 
 * a variable-length list is one ``int_list`` argument in the database and
   N separate lines in the manual's sample;
@@ -35,25 +34,37 @@ entries directly would be inventing grammar the emitter then uses to
 validate other people's scripts, which is the one thing the evidence
 rules exist to prevent (CLAUDE.md invariant 3).
 
-RELIABILITY, measured rather than asserted. Against the 34 commands whose
-manual page citation is already recorded in the database, the signature
-scan finds 33 and puts 30 on the exact cited page. Against the whole
-database it reproduces 77 percent of argument counts.
+RELIABILITY, measured rather than asserted, and every number below is a
+measurement of one day against one corpus rather than a standing
+property. On 2026-08-04, against the 34 entries then citing a page of
+the edition being scanned, the signature scan found 33 and put 30 on the
+exact cited page; against the 147 entries then recorded it reproduced 77
+percent of argument counts.
 
 Argument TYPES are read from a third source, the manual's own parameter
 table, which :func:`propose_type` reads and the signature and sample do
-not carry. Measured the same way, against 148 arguments whose type this
+not carry. Measured on 2026-08-05 against 148 arguments whose type this
 repository authored by hand: **57 percent agreed, 43 percent proposed
 nothing, and none disagreed.** The second number and the third are the
 design. A rule that cannot read a type returns None and the draft writes
-``???``, which the schema refuses, so half the arguments of a tranche are
-still a person's work; what the tool must never do is propose a type that
-is wrong, because that one loads.
+``???``, which the schema refuses, so more than two fifths of a tranche
+are still a person's work; what the tool must never do is propose a type
+that is wrong, because that one loads.
 
-Both properties are held by ``tests/test_utils_manual.py`` on synthetic
-fixtures; the manual itself is licensed, lives in ``_private/`` and never
-enters Git, so the fixtures imitate its SHAPE and carry none of its text
-(invariant 1).
+That last property is the one to distrust, because the corpus it is
+measured against is not a sample of the manual: it is the commands
+somebody chose to write first. Reading the drafts of the CAD chapter,
+which nobody has written, found the rule that reads a token LIST taking
+words out of the sentences after the one that lists them, so a threshold
+with two values drafted three. It reads one sentence now. The counting
+openings run before both enum rules, because "Number of boundaries in
+the CFD or FEM mesh" is a count and not a choice.
+
+The rules and the ordering are held by ``tests/test_utils_manual.py`` on
+synthetic fixtures; the percentages are not, and cannot be, since a
+fixture set is not a corpus. The manual itself is licensed, lives in
+``_private/`` and never enters Git, so the fixtures imitate its SHAPE and
+carry none of its text (invariant 1).
 """
 
 from __future__ import annotations
@@ -61,16 +72,18 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from pyflightstream.utils.errors import ManualDraftError
 
 __all__ = [
+    "Coverage",
     "ManualCommand",
     "coverage_against",
     "parse_script_index",
     "parse_signatures",
-    "propose_type",
     "propose_layout",
+    "propose_type",
     "read_pdf_pages",
     "render_chapter",
     "render_entry",
@@ -106,6 +119,16 @@ _ENUM_TOKEN = re.compile(r"\b([A-Z][A-Z0-9_]{2,})\b")
 _ENUM_ALTERNATIVES = re.compile(
     r"\b[A-Z][A-Z0-9_]*(?:\s*,\s*[A-Z][A-Z0-9_]*)*\s+or\s+[A-Z][A-Z0-9_]*\b"
 )
+
+#: The phrase a description uses to introduce a closed set. Only the
+#: sentence carrying it is read for tokens, so a following sentence
+#: about something else cannot contribute one.
+_ENUM_PHRASE = re.compile(r"one of the following|can be one of", re.IGNORECASE)
+
+#: A sentence ends at a period followed by a space and a capital, or at
+#: the end of the text. A bare period is not enough: the manual writes
+#: decimals and abbreviations, and cutting at those loses real tokens.
+_SENTENCE_END = re.compile(r"\.\s+(?=[A-Z])")
 
 #: Sections my line pattern invents when an argument value happens to be
 #: followed by prose. Kept as data so a reader can check the list rather
@@ -170,8 +193,8 @@ def parse_script_index(pages: Mapping[int, str]) -> dict[str, str]:
 
     The index is the authoritative command list: it is the vendor's
     enumeration rather than a heuristic over headings, which is why it
-    is preferred over scanning the chapter. Measured against this
-    repository's database, 142 of 147 recorded commands appear in one.
+    is preferred over scanning the chapter. Measured on 2026-08-04, 142
+    of the 147 commands this database then recorded appeared in one.
 
     Parameters
     ----------
@@ -421,12 +444,21 @@ def coverage_against(manual: Mapping[str, ManualCommand], recorded: Iterable[str
     )
 
 
-def read_pdf_pages(path, first: int, last: int) -> dict[int, str]:
+def read_pdf_pages(path: str | Path, *, first: int, last: int) -> dict[int, str]:
     """Extract the text of a page range from a manual pdf.
 
     Separated from every function above so the parsing is testable
     without a pdf and without the optional dependency: everything else in
     this module takes text.
+
+    The range is keyword-only and validated, both for the same reason. A
+    swapped pair of one-based page numbers used to return an empty
+    mapping, and ``coverage_against`` reads an empty mapping as a manual
+    that documents nothing: every database command lands under
+    "recorded here but not in this manual" and none under "absent",
+    which is a confident, clean-looking answer produced by a typo. A
+    ``first`` of zero indexed the pdf at -1 and keyed the manual's LAST
+    page as page 0, so a drafted entry cited ``p.0``.
 
     Parameters
     ----------
@@ -435,18 +467,28 @@ def read_pdf_pages(path, first: int, last: int) -> dict[int, str]:
         ``_private/`` and never enters Git (CLAUDE.md invariant 1); only
         paraphrases and page citations derived from it are committed.
     first, last : int
-        One-based, inclusive page range.
+        One-based, inclusive page range. Keyword-only.
 
     Returns
     -------
     dict of int to str
-        Extracted text keyed by one-based page number.
+        Extracted text keyed by one-based page number, one entry per
+        page of the requested range.
 
     Raises
     ------
+    ManualDraftError
+        If the range is not one-based and ascending, or if it reaches
+        past the end of the document. A short read is never returned.
     MissingExtraError
         When the ``manual`` extra is not installed.
     """
+    if first < 1 or last < first:
+        raise ManualDraftError(
+            f"page range {first}-{last} is not a one-based ascending range. The manual's "
+            "own page numbers are one-based, and a reversed pair reads no pages at all, "
+            "which every caller here would report as a manual documenting nothing."
+        )
     try:
         import pypdf
     except ImportError as error:  # pragma: no cover - exercised by the extras test
@@ -457,8 +499,14 @@ def read_pdf_pages(path, first: int, last: int) -> dict[int, str]:
         ) from error
 
     reader = pypdf.PdfReader(path)
-    upper = min(last, len(reader.pages))
-    return {i + 1: (reader.pages[i].extract_text() or "") for i in range(first - 1, upper)}
+    if last > len(reader.pages):
+        raise ManualDraftError(
+            f"page range {first}-{last} reaches past the end of {path}, which has "
+            f"{len(reader.pages)} pages. Truncating would answer from a short read, and "
+            "the page count is also the cheapest sign that this is the wrong edition: "
+            "the four registered manuals run 396, 409, 410 and 413 pages."
+        )
+    return {i + 1: (reader.pages[i].extract_text() or "") for i in range(first - 1, last)}
 
 
 # --- drafting -------------------------------------------------------------
@@ -555,14 +603,48 @@ _FLOAT_SUFFIXES = (
 )
 
 
+def _first_sentence(text: str) -> str:
+    """Return ``text`` up to its first sentence break, or all of it."""
+    return _SENTENCE_END.split(text, maxsplit=1)[0]
+
+
+def _alternatives_in(span: str) -> tuple[str, ...]:
+    """Return the tokens of an ``X, Y or Z`` list, empty when there is none."""
+    match = _ENUM_ALTERNATIVES.search(span)
+    if match is None:
+        return ()
+    return tuple(dict.fromkeys(re.findall(r"[A-Z][A-Z0-9_]*", match.group(0))))
+
+
+def _tokens_in(span: str) -> tuple[str, ...]:
+    """Return the accepted tokens a span lists, by whichever shape it uses.
+
+    The ``or`` form is tried first because it admits SHORT tokens: the
+    coordinate planes are spelled ``XY , XZ or YZ`` and the loft types
+    ``C2 or C0``, and the general token pattern needs three characters,
+    deliberately, so that a capitalised ordinary word cannot pass for a
+    token outside an explicit alternatives list.
+    """
+    alternatives = _alternatives_in(span)
+    if len(alternatives) >= 2:
+        return alternatives
+    return tuple(dict.fromkeys(_ENUM_TOKEN.findall(span)))
+
+
 def propose_type(placeholder: str, description: str) -> tuple[str | None, tuple[str, ...], str]:
     """Suggest an argument type from the manual's parameter table.
 
     The third source, after the signature line and the sample block, and
-    the only one that says anything about a TYPE. It answers about two
-    arguments in three on the corpus this repository authored by hand;
-    where it does not answer it says so, and the caller writes ``???``
-    rather than a guess.
+    the only one that says anything about a TYPE. It answered 57 percent
+    of the 148 arguments measured on 2026-08-05 and proposed nothing for
+    the rest, where the caller writes ``???`` rather than a guess.
+
+    The rules are tried in a stated order and the order is load-bearing.
+    A counting or indexing opening decides before either enum rule,
+    because both enum rules read tokens out of a sentence and a count
+    whose description mentions two alternatives is still a count. Both
+    enum rules then read only the sentence carrying the phrase that
+    introduces the set.
 
     Nothing of the description reaches the return value. The reason is a
     sentence about the SHAPE the rule matched, not a paraphrase of the
@@ -596,20 +678,36 @@ def propose_type(placeholder: str, description: str) -> tuple[str | None, tuple[
     # set was measured against.
     if "ENABLE" in text and "DISABLE" in text:
         return "enum", ("ENABLE", "DISABLE"), "the description offers the two toggle tokens"
-    if "one of the following" in lowered or "can be one of" in lowered:
-        tokens = tuple(dict.fromkeys(_ENUM_TOKEN.findall(text)))
-        if len(tokens) >= 2:
-            return "enum", tokens, "the description enumerates the accepted tokens"
-    alternatives = _ENUM_ALTERNATIVES.search(text)
-    if alternatives is not None:
-        tokens = tuple(dict.fromkeys(re.findall(r"[A-Z][A-Z0-9_]*", alternatives.group(0))))
-        if len(tokens) >= 2:
-            return "enum", tokens, "the description spells the alternatives with 'or'"
+    # The openings run BEFORE the two enum shapes below, and the order is
+    # the fix rather than a preference. Both enum rules read tokens out
+    # of a sentence, so a count whose description happens to spell an
+    # alternative ("Number of boundaries in the CFD or FEM mesh") was
+    # read as a closed set and drafted `values: [CFD, FEM]`. A wrong
+    # `???` costs a person a minute; an invented token list loads, and
+    # then validates other people's scripts.
     for openings, proposed, reason in _TYPE_BY_OPENING:
         if lowered.startswith(openings):
             return proposed, (), reason
     if "integer value" in lowered or "integer number" in lowered:
         return "int", (), "the description says the value is whole"
+    # Both enum rules read only the SENTENCE that carries the phrase.
+    # Reading the whole description took tokens from the sentences after
+    # it: 'The threshold logic. One of the following: ABOVE or BELOW. The
+    # CAD faces that meet this criterion...' proposed ABOVE, BELOW and
+    # CAD.
+    phrase = _ENUM_PHRASE.search(text)
+    if phrase is not None:
+        tokens = _tokens_in(_first_sentence(text[phrase.end() :]))
+        if len(tokens) >= 2:
+            return "enum", tokens, "the description enumerates the accepted tokens"
+    # The alternatives rule reads the whole description, unlike the
+    # phrase rule above. Its pattern requires capitalised tokens joined
+    # by "or", which prose does not produce: the leak that motivated the
+    # sentence boundary came from the general token pattern picking words
+    # out of a following sentence, not from this one.
+    tokens = _alternatives_in(text)
+    if len(tokens) >= 2:
+        return "enum", tokens, "the description spells the alternatives with 'or'"
     if upper.endswith(_FLOAT_SUFFIXES) or "units =" in lowered:
         return "float", (), "the parameter carries a physical dimension"
     if not text:

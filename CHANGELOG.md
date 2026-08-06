@@ -135,6 +135,28 @@ FlightStream versions.
   the table. Every argument used to draft as `???`, because the
   signature line and the sample block say nothing about a type.
 
+  `Coverage` and `ManualDraftError` are exported from
+  `pyflightstream.utils`, which the entry above announced and the
+  subpackage did not do: `Coverage` is the return type of a public
+  function and could not be named to annotate a variable, and
+  `ManualDraftError` was importable only from its own module.
+
+  `read_pdf_pages` takes its page range keyword-only and refuses a range
+  it cannot honour. A reversed pair read no pages and `coverage_against`
+  reports an empty manual as one that documents nothing, which is a
+  confident answer produced by a typo; a first page of zero indexed the
+  pdf at -1 and keyed the manual's LAST page as page 0, so a drafted
+  entry cited `p.0`. Reaching past the end now refuses too, naming the
+  page count, which is also the cheapest sign of the wrong edition.
+
+  `pyfs-manual draft` spells the version flag `--fs-version`, as every
+  other CLI of this package does; `--version` is what a reader expects
+  to print the package's own version. Every argument is checked before
+  the manual is opened, so `--write` without `--out` refuses in a second
+  rather than after two full pdf reads on a 400-page document, and a
+  malformed page range exits 2 with the flag named instead of raising a
+  raw `ValueError`.
+
   Measured against 148 arguments this repository typed by hand: **57
   percent agreed, 43 percent proposed nothing, none disagreed.** The
   third number is the one to hold. A rule that cannot read a type

@@ -23,8 +23,11 @@ from pyflightstream.utils import (
     parse_signatures,
     propose_layout,
     propose_type,
+    read_pdf_pages,
     render_entry,
 )
+from pyflightstream.utils.cli import main as cli_main
+from pyflightstream.utils.errors import ManualDraftError
 
 INDEX_PAGE = """376
 Script Index
@@ -430,3 +433,151 @@ def test_a_drafted_entry_carries_the_types_it_read_and_marks_the_rest():
     # safety property the whole module is built around.
     assert "    - name: mystery\n      type: ???" in rendered
     assert "8 argument type(s) read from the parameter table and 1 left unanswered" in rendered
+
+
+# --- the rule ORDER, and the sentence boundary ------------------------------
+#
+# Both were found by reading drafts of a chapter nobody has written, not
+# by the measurement: the corpus the percentages come from is the set of
+# commands somebody chose to author first, so it under-represents exactly
+# the shapes that were wrong.
+
+
+@pytest.mark.parametrize(
+    ("placeholder", "description"),
+    [
+        ("NUM_BOUNDARIES", "Number of boundaries in the CFD or FEM mesh"),
+        ("NUM_STEPS", "Number of steps. Set to A or B"),
+        ("BODY_INDEX", "Index of the body. Value > 0 for a solid or a sheet"),
+    ],
+)
+def test_a_count_whose_description_mentions_alternatives_is_still_a_count(placeholder, description):
+    """The enum rules read tokens out of a sentence, so they run last.
+
+    With the alternatives rule ahead of the counting openings, a
+    description that happens to spell "X or Y" made a count draft as
+    `values: [CFD, FEM]`. A wrong `???` costs a reviewer a minute; an
+    invented token list loads into the schema and then validates other
+    people's scripts.
+    """
+    proposed, values, _reason = propose_type(placeholder, description)
+    assert proposed == "int"
+    assert values == ()
+
+
+def test_the_float_suffix_rule_runs_after_the_openings():
+    """A count of time steps ends in a float suffix and is whole.
+
+    The ordering is stated in the module and was unguarded: moving the
+    suffix check above the openings passed the whole file.
+    """
+    proposed, _values, _reason = propose_type("SWEEP_TIME", "Number of time slices to sweep")
+    assert proposed == "int"
+    # The control, so a rule that answered int for everything would fail:
+    # the same suffix with no opening is a real dimension.
+    proposed, _values, _reason = propose_type("SPAN_LENGTH", "the span of the section")
+    assert proposed == "float"
+
+
+@pytest.mark.parametrize(
+    ("placeholder", "description", "expected"),
+    [
+        (
+            "LOGIC",
+            "The threshold logic to be used. One of the following: ABOVE or BELOW. "
+            "The CAD faces that meet this criterion are subject to the action below.",
+            ("ABOVE", "BELOW"),
+        ),
+        (
+            "PLANE",
+            "Plane of the reference coordinate system to be used for the mirror "
+            "operation. One of the following: XY , XZ or YZ",
+            ("XY", "XZ", "YZ"),
+        ),
+    ],
+)
+def test_an_enum_reads_one_sentence_and_the_short_tokens_in_it(placeholder, description, expected):
+    """Two shapes in one claim, because the fix had to serve both.
+
+    Reading the whole description took CAD out of the sentence after the
+    list. Restricting to one sentence then lost the coordinate planes,
+    whose tokens are two characters, so the alternatives pattern is tried
+    inside that sentence before the general one.
+    """
+    proposed, values, _reason = propose_type(placeholder, description)
+    assert proposed == "enum"
+    assert values == expected
+
+
+# --- the pdf reader refuses a range it cannot honour ------------------------
+
+
+@pytest.mark.parametrize(("first", "last"), [(370, 273), (0, 5), (-1, 5), (5, 4)])
+def test_a_page_range_that_is_not_one_based_and_ascending_is_refused(first, last):
+    """A swapped or zero-based range used to answer confidently from nothing.
+
+    A reversed pair read no pages, and `coverage_against` reads an empty
+    manual as one documenting nothing: every database command lands under
+    "recorded here but not in this manual" and none under "absent". A
+    `first` of zero indexed the pdf at -1, keying the manual's LAST page
+    as page 0, so a drafted entry cited `p.0`.
+
+    The refusal is raised before pypdf is touched, which is what lets
+    this test run without the extra and without a pdf.
+    """
+    with pytest.raises(ManualDraftError, match="one-based ascending"):
+        read_pdf_pages("nonexistent.pdf", first=first, last=last)
+
+
+# --- the command line -------------------------------------------------------
+
+
+def test_the_page_range_flag_refuses_a_non_numeric_page_through_the_parser():
+    """A typo used to surface as a raw ValueError traceback.
+
+    Exit code 2 is the usage code the rest of this package's CLIs
+    return, and the message names the flag the user typed.
+    """
+    with pytest.raises(SystemExit) as caught:
+        cli_main(
+            [
+                "coverage",
+                "--manual",
+                "x.pdf",
+                "--source",
+                "SRC-000",
+                "--chapter-pages",
+                "abc-370",
+                "--index-pages",
+                "1-2",
+            ]
+        )
+    assert caught.value.code == 2
+
+
+def test_write_without_a_destination_is_refused_before_the_manual_is_opened():
+    """The refusal the commit that added --write is named after.
+
+    It used to fire after two full pdf reads and a render, so a mistyped
+    invocation cost the whole run on a 400-page document. The manual path
+    here does not exist, so reaching pypdf at all would raise something
+    else.
+    """
+    with pytest.raises(SystemExit) as caught:
+        cli_main(
+            [
+                "draft",
+                "--manual",
+                "nonexistent.pdf",
+                "--source",
+                "SRC-000",
+                "--chapter-pages",
+                "1-2",
+                "--index-pages",
+                "3-4",
+                "--fs-version",
+                "26.120",
+                "--write",
+            ]
+        )
+    assert caught.value.code == 2

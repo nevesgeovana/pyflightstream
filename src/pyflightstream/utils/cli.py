@@ -70,7 +70,11 @@ def _parser() -> argparse.ArgumentParser:
 
     draft = sub.choices["draft"]
     draft.add_argument(
-        "--version",
+        # --fs-version, not --version: every other tool of this package
+        # spells the FlightStream version that way (pyfs-qa, pyfs-cases),
+        # and --version is what a reader expects to print the package's
+        # own version.
+        "--fs-version",
         required=True,
         dest="versions",
         action="append",
@@ -85,7 +89,7 @@ def _parser() -> argparse.ArgumentParser:
     draft.add_argument(
         "--out",
         default=None,
-        help="destination file; required with --write, ignored without it",
+        help="destination file; required with --write, and named in the dry-run line without it",
     )
     draft.add_argument(
         "--write",
@@ -100,20 +104,43 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _pages(spec: str) -> tuple[int, int]:
+def _pages(parser: argparse.ArgumentParser, flag: str, spec: str) -> tuple[int, int]:
+    """Read a FIRST-LAST page range, refusing anything else through the parser.
+
+    Refusing through ``parser.error`` rather than raising keeps the exit
+    code at 2, the usage code the rest of this package's CLIs return, and
+    prints the flag the user typed. A non-numeric page reached ``int()``
+    and surfaced as a raw traceback before.
+    """
     first, _, last = spec.partition("-")
-    if not last:
-        raise SystemExit(f"page range {spec!r} must read FIRST-LAST, for example 273-370")
+    if not last or not first.isdigit() or not last.isdigit():
+        parser.error(f"{flag} takes FIRST-LAST in one-based page numbers, for example 273-370")
     return int(first), int(last)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Entry point. Returns a process exit code."""
-    args = _parser().parse_args(argv)
+    """Run the command line and return a process exit code.
 
-    index = parse_script_index(read_pdf_pages(args.manual, *_pages(args.index_pages)))
+    Returns
+    -------
+    int
+        0 on success. A usage error exits 2 through ``argparse``, and a
+        refusal from the library raises.
+    """
+    parser = _parser()
+    args = parser.parse_args(argv)
+
+    # Every argument check happens before the manual is opened. The
+    # --write refusal used to fire after two full pdf reads and a render,
+    # so a mistyped invocation cost the whole run on a 400-page document.
+    chapter_first, chapter_last = _pages(parser, "--chapter-pages", args.chapter_pages)
+    index_first, index_last = _pages(parser, "--index-pages", args.index_pages)
+    if args.command == "draft" and args.write and not args.out:
+        parser.error("--write needs --out; refusing to guess where to put a draft")
+
+    index = parse_script_index(read_pdf_pages(args.manual, first=index_first, last=index_last))
     manual = parse_signatures(
-        read_pdf_pages(args.manual, *_pages(args.chapter_pages)), sections=index
+        read_pdf_pages(args.manual, first=chapter_first, last=chapter_last), sections=index
     )
     report = coverage_against(manual, CommandRegistry.load().commands)
 
@@ -141,10 +168,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     if not args.write:
         print(body)
-        print(write_chapter(args.out or "(no destination given)", body, write=False))
+        # The CLI words its own closing line: write_chapter's dry-run
+        # sentence names the Python keyword `write=True`, which a
+        # command-line user cannot type, and printed the placeholder path
+        # as though it were a destination.
+        entries = body.count("\n  layout: ")
+        unanswered = body.count("???")
+        destination = f" --out {args.out}" if args.out else " --out PATH"
+        print(
+            f"dry run: {entries} entr(ies) drafted, {unanswered} unanswered field(s), "
+            f"nothing written. Re-run with --write{destination} to write them."
+        )
         return 0
-    if not args.out:
-        raise SystemExit("--write needs --out; refusing to guess where to put a draft")
     print(write_chapter(args.out, body, write=True))
     return 0
 
