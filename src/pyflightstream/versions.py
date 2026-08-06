@@ -13,6 +13,7 @@ names correctly ("26.1" versus "26.12"), so the ordered list in
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from functools import lru_cache
 from importlib import resources
@@ -144,12 +145,27 @@ class FsVersion:
         of one minor release apart at run time, because they print the
         same version string: 26.120 and 26.121 both print "26.1".
         Registered from committed evidence, never guessed.
+    inherits_base : bool
+        Whether this build's command evidence falls back to the record
+        of the base release when it has none of its own. True for a
+        genuine hotfix, which is what the last canonical digit was
+        introduced to index. It is NOT a property of the identifier: on
+        2026-08-04 the February 2026 build took index 26.100 and the May
+        build was appended as 26.101, which puts two independent vendor
+        releases in a base-and-hotfix position they do not stand in.
+        Their manuals are different documents (396 pages against 409)
+        describing different command sets, so inheriting one from the
+        other made the emitter write commands the later solver refuses.
+        The registry states this per build rather than deriving it, and
+        a hotfix index that does not state it is refused, because the
+        silent default is what was wrong.
     """
 
     canonical: str
     alias: str
     index: int
     build: str | None = None
+    inherits_base: bool = True
 
     def __post_init__(self) -> None:
         """Reject identifiers that do not follow the canonical scheme."""
@@ -223,9 +239,51 @@ def known_versions() -> tuple[FsVersion, ...]:
             alias=str(entry["alias"]),
             index=position,
             build=None if entry.get("build") is None else str(entry["build"]),
+            inherits_base=_inherits_base(entry),
         )
         for position, entry in enumerate(meta["versions"])
     )
+
+
+def _inherits_base(entry: Mapping[str, object]) -> bool:
+    """Read a build's inheritance flag, refusing a hotfix index that omits it.
+
+    A base release (last canonical digit zero) has nothing to inherit
+    from and needs no flag. A hotfix index must state one: whether a
+    build carries its base release's command evidence is a fact about
+    the two vendor builds, and the 2026-08-04 renumbering proved it is
+    not derivable from the identifier.
+
+    Parameters
+    ----------
+    entry : mapping
+        One row of the ``versions`` list of ``commands/_meta.yaml``.
+
+    Returns
+    -------
+    bool
+        The stated flag, or True for a base release, where it is inert.
+
+    Raises
+    ------
+    UnknownVersionError
+        If a hotfix index states no flag.
+    """
+    canonical = str(entry["canonical"])
+    if canonical.endswith("0"):
+        return True
+    stated = entry.get("inherits_base")
+    if not isinstance(stated, bool):
+        raise UnknownVersionError(
+            f"version {canonical} is a hotfix index (its last digit is not zero) and "
+            "states no inherits_base flag in commands/_meta.yaml. Whether a build "
+            "carries its base release's command evidence is a fact about the two "
+            "vendor builds, not about the identifier: 26.121 is a hotfix of 26.120 "
+            "and inherits, while 26.101 is an independent May 2026 release that took "
+            "the index after 26.100 and does not. Write inherits_base: true or false "
+            "with the reason beside it."
+        )
+    return stated
 
 
 @lru_cache(maxsize=1)

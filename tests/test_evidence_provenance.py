@@ -29,9 +29,11 @@ What this guards, and the third one is the load-bearing one:
 
 from pathlib import Path
 
+import pytest
+
 from pyflightstream.commands import CommandEntry, CommandRegistry
 from pyflightstream.reference import markdown_compatibility_matrix
-from pyflightstream.versions import known_versions
+from pyflightstream.versions import UnknownVersionError, known_versions
 
 MARK = "base</sup>"
 
@@ -330,3 +332,70 @@ def test_the_summary_counts_the_inherited_cells_it_renders():
         f"holds {expected}. The summary is the first thing a reader sees, so it "
         "cannot disagree with the cells under it."
     )
+
+
+# --- inheritance is a fact about the two builds, not about the index --------
+
+
+def test_a_hotfix_index_that_does_not_state_its_inheritance_is_refused():
+    """The silent default is what was wrong, so silence is now an error.
+
+    Until 2026-08-05 the last canonical digit decided inheritance on its
+    own: nonzero meant hotfix, and a hotfix inherited. That held while
+    the only hotfix was 26.121. The renumbering of 2026-08-04 put the
+    February 2026 build at 26.100 and appended the May build as 26.101,
+    and the rule then said the May release was a hotfix of the February
+    one and carried its evidence. It is not, and it does not.
+
+    A default cannot be right for both cases, so no default is offered:
+    a hotfix index states the flag or the registry refuses to load.
+    """
+    from pyflightstream.versions import _inherits_base
+
+    with pytest.raises(UnknownVersionError, match="states no inherits_base flag"):
+        _inherits_base({"canonical": "26.121", "alias": "26.12"})
+    # A base release has nothing to inherit from, so the flag is inert
+    # there and its absence is not an error.
+    assert _inherits_base({"canonical": "26.120", "alias": "26.12"}) is True
+    assert _inherits_base({"canonical": "26.121", "inherits_base": False}) is False
+
+
+def test_the_two_hotfix_indices_answer_differently_and_the_registry_says_why():
+    """26.121 descends from 26.120; 26.101 only sits after 26.100."""
+    by_canonical = {version.canonical: version for version in known_versions()}
+    assert by_canonical["26.121"].inherits_base is True
+    assert by_canonical["26.101"].inherits_base is False
+
+
+def test_a_command_recorded_only_for_the_february_build_answers_for_no_other():
+    """The emitter wrote these on a May script until 2026-08-05.
+
+    RPT-018 measured the February flow-separation family recognised,
+    reported deprecated and then refused by the 26.101 and 26.121
+    solvers. The database records it for 26.100 alone; before the
+    inheritance flag, 26.101 answered `documented` by falling back to
+    26.100 and `Script(version="26.101")` emitted the line.
+    """
+    registry = CommandRegistry.load()
+    entry = registry.commands["SET_AXIAL_SEPARATION_BOUNDARIES"]
+    by_canonical = {version.canonical: version for version in known_versions()}
+    assert entry.evidence_in(by_canonical["26.100"]).source == "26.100"
+    assert entry.evidence_in(by_canonical["26.101"]) is None
+    assert entry.evidence_in(by_canonical["26.120"]) is None
+    assert entry.evidence_in(by_canonical["26.121"]) is None
+
+
+def test_the_hotfix_that_does_inherit_still_does():
+    """The control: closing one fallback must not close the other.
+
+    A guard that refused every inheritance would satisfy the assertions
+    above and silently drop the 26.121 column of the compatibility
+    matrix to almost nothing.
+    """
+    registry = CommandRegistry.load()
+    by_canonical = {version.canonical: version for version in known_versions()}
+    entry = registry.commands["SET_BOUNDARY_LAYER_TYPE"]
+    assert "26.121" not in entry.versions
+    evidence = entry.evidence_in(by_canonical["26.121"])
+    assert evidence is not None
+    assert evidence.source == "26.120" and evidence.inherited

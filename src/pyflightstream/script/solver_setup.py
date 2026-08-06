@@ -141,7 +141,9 @@ FLAG_SPECS: tuple[FlagSpec, ...] = (
     # than whatever order a mixed sequence happened to arrive in. It is
     # the order of these five rows, the erase first so that one call can
     # clear the models an opened simulation carried and then build its
-    # own on a known-empty list.
+    # own on a known-empty list. CREATE_BULK_SEPARATION above is part of
+    # that sequence and is emitted after the erase, although its row
+    # sits earlier here for historical reasons.
     FlagSpec("delete_separations", "DELETE_SEPARATION", "separation_delete"),
     FlagSpec("airfoil_separation", "CREATE_AIRFOIL_SEPARATION", "separation_models"),
     FlagSpec("axial_vortex_separation", "CREATE_AXIAL_VORTEX_SEPARATION", "separation_models"),

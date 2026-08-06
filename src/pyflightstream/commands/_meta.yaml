@@ -29,9 +29,21 @@ versions:
     alias: "26.1"
   - canonical: "26.101"
     alias: "26.1"
-    # reports/physics/PHY-26101_2026-07-21_smi01-triage-rerun.yaml
-    # (recorded under the name 26.100 before the 2026-08-04 renumbering)
+    # reports/physics/PHY-26100_2026-07-21_smi01-triage-rerun.yaml, whose
+    # fs_version reads 26.101 since the renumbering. The file name keeps
+    # its original id because ids are cited elsewhere, so the stem and
+    # the version it records deliberately disagree here; the report's own
+    # dated banner says so.
     build: "5012026"
+    # NOT a hotfix of 26.100, although it sits at a hotfix index. 26.100
+    # is the February 2026 build and this is the May one: two releases
+    # the vendor shipped under the one name "26.1", with different
+    # manuals (396 pages against 409) describing different command sets.
+    # Inheriting 26.100's records made the emitter write the February
+    # flow-separation family on a May script, which that solver reports
+    # as deprecated and then refuses (RPT-018). The index is an ordering
+    # position, not a claim of descent.
+    inherits_base: false
   - canonical: "26.120"
     alias: "26.12"
     # reports/compat/CMP-26120_2026-07-21_full.yaml
@@ -44,6 +56,13 @@ versions:
     alias: "26.12"
     # reports/compat/CMP-26121_2026-08-02_full.yaml
     build: "7262026"
+    # A real hotfix of 26.120: same release, one manual re-issue apart
+    # (413 pages against 410, every SRC-003 page shifted by +3), so a
+    # command 26.120 records and this build does not re-probe is
+    # genuinely the same command. The compatibility matrix marks every
+    # inherited cell and counts them, so the assumption is visible
+    # wherever it is used.
+    inherits_base: true
 
 manual_editions:
   "26.100": >

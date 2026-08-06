@@ -137,6 +137,32 @@ def _reject_bare_label(helper: str, argument: str, value: object, *, allows_all:
     )
 
 
+def _as_selection(value: object) -> object:
+    """Return a boundary selection as a list, leaving None and ``"all"`` alone.
+
+    One materialisation, read by both the emission and the snapshot.
+    They used to decide emptiness by two different tests over the same
+    value, length on one side and equality with ``[]`` on the other, so
+    an empty tuple emitted the erase and recorded the setter. A caller
+    may also hand in any iterable, and an emptiness check must not
+    consume it.
+
+    Parameters
+    ----------
+    value : object
+        A sequence of boundary indices or labels, the string ``"all"``,
+        or None for a flag that was not passed.
+
+    Returns
+    -------
+    object
+        The same value, with a non-string sequence turned into a list.
+    """
+    if value is None or isinstance(value, str):
+        return value
+    return list(value)  # type: ignore[call-overload]
+
+
 def _separation_arguments(model: object) -> dict[str, object]:
     """Return one separation assignment as emitter keyword arguments.
 
@@ -690,10 +716,13 @@ def solver_settings(
         Bulk (bluff-body) flow-separation assignment
         (CREATE_BULK_SEPARATION, SRC-003 p.342); see
         :class:`~pyflightstream.script.solver_setup.BulkSeparation`.
-        Documented on 26.101 and 26.120 only: 26.121 splits it into
-        ``cylindrical_bulk_separation`` and
-        ``stratford_bulk_separation``, and 26.100 has no named
-        separation models at all.
+        Documented on 26.101 and 26.120. 26.121 is a hotfix of 26.120
+        and inherits the record, so the emitter accepts it there too,
+        although that edition documents the split commands
+        ``cylindrical_bulk_separation`` and ``stratford_bulk_separation``
+        instead. Read RPT-015 before relying on any of the three: it
+        found every documented form of this command refused on both
+        26.120 and 26.121. 26.100 has no named separation models at all.
     airfoil_separation : sequence of AirfoilSeparation or mapping, optional
         Airfoil (trailing-edge) separation assignments, one per
         CREATE_AIRFOIL_SEPARATION emission (SRC-003 p.341).
@@ -715,9 +744,14 @@ def solver_settings(
     axial_separation_boundaries : sequence of int or str, or 'all', optional
         Boundaries on the axial flow separation list of 26.100
         (SET_AXIAL_SEPARATION_BOUNDARIES, SRC-741 p.339). The empty
-        sequence emits the matching DELETE. Deprecated and refused by
-        26.101 and later, which want ``axial_vortex_separation``
-        instead (RPT-018).
+        sequence emits the matching DELETE. Documented for 26.100 alone
+        and refused elsewhere; RPT-018 measured this command reported
+        deprecated and then refused by the 26.101 and 26.121 solvers,
+        and did not run it on 26.120. What the later builds want in its
+        place is a judgement rather than a measurement: the solver's
+        deprecation notice leaves its replacement field empty, and
+        ``axial_vortex_separation`` is the assignment model closest to
+        this mechanism.
     valarezo_separation_boundaries : sequence of int or str, or 'all', optional
         Boundaries on the Valarezo maximum-lift criterion list of
         26.100 (SRC-741 p.339). The empty sequence emits the command
@@ -791,11 +825,38 @@ def solver_settings(
     }
     for argument, value in separation_selections.items():
         _reject_bare_label("solver_settings", argument, value, allows_all=True)
+    if valarezo_separation_boundaries is not None and len(valarezo_separation_boundaries) == 0:
+        raise CommandArgumentError(
+            "solver_settings: valarezo_separation_boundaries=[] would emit "
+            "DELETE_VALAREZO_CRITERION_BOUNDARIES, the name SRC-741 p.339 documents for "
+            "the erase and the only name in this family the solver does not recognize "
+            "(reports/RPT-018_separation-family-across-builds_2026-08-05.md). The "
+            "spelling it accepts, DELETE_VALAREZO_SEPARATION_BOUNDARIES, appears in no "
+            "manual edition, so this database has no entry for it and the emitter "
+            "cannot validate it: emit it with Script.raw() until "
+            "PLN-20260805-1540 decides whether a command with only probe evidence may "
+            "have an entry. Passing a selection still works; only the erase is refused."
+        )
+    # Materialize every boundary selection to a list ONCE, before either
+    # the emission or the snapshot reads it. The emitter decided
+    # emptiness by length and the snapshot by equality with a list
+    # literal, and the annotation is Sequence, so an empty TUPLE emitted
+    # the erase and recorded the setter: the manifest then named a
+    # command the script does not contain, which is the one thing the
+    # snapshot exists to prevent.
+    viscous_excluded = _as_selection(viscous_excluded)
+    separation_selections = {
+        argument: _as_selection(value) for argument, value in separation_selections.items()
+    }
+    axial_separation_boundaries = separation_selections["axial_separation_boundaries"]
+    valarezo_separation_boundaries = separation_selections["valarezo_separation_boundaries"]
+    crossflow_separation_boundaries = separation_selections["crossflow_separation_boundaries"]
     if delete_separations is not None and delete_separations != "all" and delete_separations < 1:
         raise CommandArgumentError(
             "solver_settings: delete_separations takes the 1-based index of one "
             f"separation model or the string 'all', got {delete_separations!r}; the "
-            "solver numbers the models in creation order (SRC-003 p.342)"
+            "solver numbers the models in creation order, and the manual's -1 form for "
+            "every model is spelled 'all' here (SRC-003 p.342)"
         )
     given_models = {
         "airfoil_separation": airfoil_separation,
@@ -810,6 +871,21 @@ def solver_settings(
             separation_models[argument] = []
             continue
         _reject_bare_label("solver_settings", argument, given, allows_all=False)
+        if len(given) == 0:
+            # The empty sequence is the erase for the boundary-list
+            # keywords of this same call, so accepting it here as a
+            # silent no-op invites a caller to write it meaning the
+            # opposite. The solver has no per-type erase: DELETE_SEPARATION
+            # removes by index or removes everything.
+            raise CommandArgumentError(
+                f"solver_settings: {argument}=[] is an empty sequence of assignment "
+                "models, which emits nothing. It is not the erase, unlike the empty "
+                "sequence of a boundary-list keyword in this same call: the solver "
+                "deletes separation models by index or all at once "
+                "(DELETE_SEPARATION, SRC-003 p.342), so pass delete_separations='all' "
+                f"or an index. Omit {argument} to leave the models as the script found "
+                "them."
+            )
         try:
             separation_models[argument] = [model_type.model_validate(item) for item in given]
         except ValidationError as error:
@@ -964,6 +1040,14 @@ def solver_settings(
         script.emit(
             "SET_CROSSFLOW_SEPARATION_AXISYMMETRIC", _toggle(crossflow_separation_axisymmetric)
         )
+    # The erase precedes every create, which is what FLAG_SPECS says the
+    # order is for: one call can clear the models an opened simulation
+    # carried and then build its own on a known-empty list. It used to
+    # sit after CREATE_BULK_SEPARATION, so passing both keywords created
+    # the bulk model and deleted it, while the snapshot recorded it as
+    # emitted.
+    if delete_separations is not None:
+        script.emit("DELETE_SEPARATION", -1 if delete_separations == "all" else delete_separations)
     if bulk is not None:
         if bulk.boundaries == "all":
             script.emit(
@@ -982,8 +1066,6 @@ def solver_settings(
                 diameter=bulk.diameter,
                 boundary_indices=list(bulk.boundaries),
             )
-    if delete_separations is not None:
-        script.emit("DELETE_SEPARATION", -1 if delete_separations == "all" else delete_separations)
     for argument, command in (
         ("airfoil_separation", "CREATE_AIRFOIL_SEPARATION"),
         ("axial_vortex_separation", "CREATE_AXIAL_VORTEX_SEPARATION"),

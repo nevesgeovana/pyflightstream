@@ -26,10 +26,12 @@ FlightStream versions.
   `AirfoilSeparation`, `AxialVortexSeparation`,
   `CylindricalBulkSeparation`, `StratfordBulkSeparation`, exported from
   `pyflightstream.script.solver_setup` beside the existing
-  `BulkSeparation`. Thirteen new `solver_settings()` keywords carry
-  them and the 26.100 lists. Every one is version-gated: passing a
-  26.100 keyword to a 26.121 script refuses by name, and the reverse
-  too, because the two generations exist on no build in common.
+  `BulkSeparation`. Eleven new `solver_settings()` keywords carry them
+  and the 26.100 lists. Every one is version-gated: a 26.100 keyword on
+  a 26.101, 26.120 or 26.121 script refuses naming the command, and the
+  reverse too. The database records the two generations on disjoint
+  builds; RPT-018 measured that disjointness on 26.100, 26.101 and
+  26.121, and 26.120 sits between two measured builds by inference.
 
   **A probe decided the names rather than a reading, and it had to.**
   The February manual documents the Valarezo pair under two spellings,
@@ -50,11 +52,34 @@ FlightStream versions.
   `DELETE_VISCOUS_EXCLUDED_BOUNDARIES`.** It used to emit
   `SET_VISCOUS_EXCLUDED_BOUNDARIES 0` followed by an empty index line,
   which asks the parser to read a line carrying nothing. The empty
-  sequence is now the erase throughout the settings helper, for the
-  viscous exclusion list and for the three 26.100 separation lists;
-  omitting the keyword, or passing None, still leaves the list as the
-  script found it. A caller who wanted the old emission was writing a
-  malformed script.
+  sequence is the erase for the viscous exclusion list and for two of
+  the three 26.100 separation lists; omitting the keyword, or passing
+  None, still leaves the list as the script found it. A caller who
+  wanted the old emission was writing a malformed script.
+
+  Two empty sequences are REFUSED rather than acted on, and the message
+  says why in each case. `valarezo_separation_boundaries=[]` would emit
+  the one name in this family the solver does not recognise, so it
+  names `Script.raw()` and the spelling that works. An empty sequence of
+  assignment models (`airfoil_separation=[]` and its three siblings)
+  emits nothing, which would be a third meaning for `[]` in one
+  signature and the only silent one; it names `delete_separations`,
+  which is how the solver erases.
+
+* **New registry field `inherits_base`, and a build that stopped
+  inheriting.** A hotfix build falls back to its base release's command
+  evidence, which is right for a real hotfix and was applied on the
+  strength of the identifier alone: last digit not zero meant hotfix.
+  The 2026-08-04 renumbering put the February 2026 build at 26.100 and
+  appended the May build as 26.101, so that rule made the May release a
+  hotfix of the February one. It inherited eight February-only commands,
+  and `Script(version="26.101")` emitted lines that solver reports as
+  deprecated and refuses.
+
+  Inheritance is now stated per build in `commands/_meta.yaml` with the
+  reason beside it, and a hotfix index that states nothing is refused at
+  load: the silent default is what was wrong. 26.121 still inherits from
+  26.120, which is a genuine hotfix pair.
 
 * **New subpackage `pyflightstream.utils`, and its first member
   `utils.manual`**: read a FlightStream manual and report what the

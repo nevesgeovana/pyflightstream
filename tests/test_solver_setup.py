@@ -53,6 +53,56 @@ def test_the_snapshot_itself_covers_every_family_command():
     assert setup.fs_version == "26.120"
 
 
+# --- the two joins the snapshot rests on, neither guarded before -------------
+
+
+def test_no_command_carries_two_snapshot_flags():
+    """`_SPEC_BY_COMMAND` is a dict comprehension: a duplicate wins silently.
+
+    Adding a second row for a command that already has one passes every
+    completeness test in this file, because both compare SETS and a
+    duplicate changes no set. The later row then replaces the earlier in
+    the lookup, so `explicit_kwargs` replays that flag into the wrong
+    helper keyword. This became reachable when five parameters started
+    carrying two rows each, since one-row-per-command stopped being a
+    shape a reader can see at a glance.
+    """
+    commands = [spec.command for spec in FLAG_SPECS]
+    duplicates = sorted({name for name in commands if commands.count(name) > 1})
+    assert not duplicates, (
+        f"commands {duplicates} carry more than one FlagSpec; _SPEC_BY_COMMAND keeps "
+        "the last and the earlier row silently stops existing"
+    )
+
+
+def test_every_snapshot_flag_names_a_real_solver_settings_keyword():
+    """The replay path splats `spec.param` into the helper.
+
+    `build_setup` guards the other direction (every family command has a
+    spec) and nothing guarded this one. A misspelled `param` surfaces as
+    a TypeError at manifest-replay time, on whichever flag happened to
+    be explicit, which is the worst moment to learn it. Thirteen
+    keywords and eleven rows crossed this join in one change.
+    """
+    import inspect
+
+    keywords = set(inspect.signature(helpers.solver_settings).parameters) - {"script"}
+    params = {spec.param for spec in FLAG_SPECS}
+    unknown = sorted(params - keywords)
+    assert not unknown, (
+        f"FLAG_SPECS names parameters {unknown} that solver_settings does not accept; "
+        "SolverSetup.explicit_kwargs would raise TypeError on replay"
+    )
+    # The reverse, with the two deliberate exceptions named rather than
+    # subtracted silently: the unsteady pair rides on the `mode` flag,
+    # which records them inside its own value.
+    uncovered = sorted(keywords - params - {"time_iterations", "delta_time"})
+    assert not uncovered, (
+        f"solver_settings accepts {uncovered} with no FlagSpec, so the snapshot cannot "
+        "record them; add a row or name the exception here"
+    )
+
+
 # --- provenance markers and evidence ----------------------------------------
 
 
@@ -516,12 +566,11 @@ def test_the_february_separation_lists_emit_their_own_grammar():
             "DELETE_AXIAL_SEPARATION_BOUNDARIES",
             "26.100",
         ),
-        (
-            "valarezo_separation_boundaries",
-            "SET_VALAREZO_SEPARATION_BOUNDARIES",
-            "DELETE_VALAREZO_CRITERION_BOUNDARIES",
-            "26.100",
-        ),
+        # The Valarezo pair is deliberately NOT here. Its erase emits a
+        # name RPT-018 measured as unrecognized, so the helper refuses
+        # it; the row lived in this list once, which made tier 1 assert
+        # a known-broken emission in the same shape as the three that
+        # work. It has its own test below, carrying its own history.
         (
             "crossflow_separation_boundaries",
             "SET_CROSSFLOW_SEPARATION_BOUNDARIES",
@@ -547,14 +596,113 @@ def test_an_empty_selection_erases_the_list_and_a_full_one_sets_it(
     assert delete_command not in was_set
 
 
-def test_an_erased_list_is_recorded_against_the_delete_command_alone():
+@pytest.mark.parametrize(
+    ("keyword", "set_command", "delete_command", "version"),
+    [
+        (
+            "viscous_excluded",
+            "SET_VISCOUS_EXCLUDED_BOUNDARIES",
+            "DELETE_VISCOUS_EXCLUDED_BOUNDARIES",
+            "26.120",
+        ),
+        (
+            "axial_separation_boundaries",
+            "SET_AXIAL_SEPARATION_BOUNDARIES",
+            "DELETE_AXIAL_SEPARATION_BOUNDARIES",
+            "26.100",
+        ),
+        (
+            "crossflow_separation_boundaries",
+            "SET_CROSSFLOW_SEPARATION_BOUNDARIES",
+            "DELETE_CROSSFLOW_SEPARATION_BOUNDARIES",
+            "26.100",
+        ),
+    ],
+)
+def test_an_erased_list_is_recorded_against_the_delete_command_alone(
+    keyword, set_command, delete_command, version
+):
+    """The setter half must stay silent, or the snapshot claims both.
+
+    Parametrised over every SET/DELETE pair rather than over
+    ``viscous_excluded`` alone, which is how it was written. The three
+    separation keywords share one dispatch branch with it, and a
+    mutation deleting their kind from that branch left the whole suite
+    green: the snapshot then recorded the setter as explicit and emitted
+    for a command the script does not contain, and the replay still
+    round-tripped because both sides read the same wrong record.
+    """
+    script = Script(version=version)
+    setup = helpers.solver_settings(script, **{keyword: []})
+    assert setup.flags[delete_command].provenance == "explicit"
+    assert setup.flags[delete_command].value == []
+    assert setup.flags[delete_command].emitted
+    assert setup.flags[set_command].provenance == "unknown"
+    assert not setup.flags[set_command].emitted
+
+
+@pytest.mark.parametrize("empty", [[], ()])
+def test_an_empty_selection_of_any_sequence_type_reaches_the_same_verdict(empty):
+    """A tuple is a Sequence, and the two halves used to disagree on it.
+
+    The emitter decided emptiness by length and the snapshot by equality
+    with a list literal, so an empty tuple emitted the erase and recorded
+    the setter as explicitly emitted. The manifest then named a command
+    the script does not contain.
+    """
     script = Script(version="26.120")
-    setup = helpers.solver_settings(script, viscous_excluded=[])
+    setup = helpers.solver_settings(script, viscous_excluded=empty)
+    assert "DELETE_VISCOUS_EXCLUDED_BOUNDARIES" in script.render()
     assert setup.flags["DELETE_VISCOUS_EXCLUDED_BOUNDARIES"].provenance == "explicit"
-    assert setup.flags["DELETE_VISCOUS_EXCLUDED_BOUNDARIES"].value == []
-    # The setter half must stay silent, or the snapshot would claim the
-    # script both set and erased the same list.
     assert setup.flags["SET_VISCOUS_EXCLUDED_BOUNDARIES"].provenance == "unknown"
+
+
+def test_the_valarezo_erase_is_refused_because_its_command_does_not_exist():
+    """The one erase of this family that the solver does not answer to.
+
+    RPT-018 probed both spellings on the February build: the manual's
+    own DELETE_VALAREZO_CRITERION_BOUNDARIES is unrecognized and the
+    undocumented DELETE_VALAREZO_SEPARATION_BOUNDARIES is accepted. The
+    database records the documented name with the contradiction on it,
+    and the working name has no entry because every entry here cites a
+    manual page. So the helper refuses rather than writing a line the
+    solver rejects, and names the escape.
+
+    The control matters as much as the refusal: passing a selection must
+    still work, or the fix would be "refuse this keyword".
+    """
+    script = Script(version="26.100")
+    with pytest.raises(CommandArgumentError, match="RPT-018") as caught:
+        helpers.solver_settings(script, valarezo_separation_boundaries=[])
+    assert "Script.raw()" in str(caught.value)
+    assert "DELETE_VALAREZO_SEPARATION_BOUNDARIES" in str(caught.value)
+    assert "VALAREZO" not in script.render()
+
+    working = Script(version="26.100")
+    helpers.solver_settings(working, valarezo_separation_boundaries=[1, 2])
+    assert "SET_VALAREZO_SEPARATION_BOUNDARIES 2\n1,2" in working.render()
+
+
+@pytest.mark.parametrize(
+    "keyword",
+    [
+        "airfoil_separation",
+        "axial_vortex_separation",
+        "cylindrical_bulk_separation",
+        "stratford_bulk_separation",
+    ],
+)
+def test_an_empty_sequence_of_assignment_models_is_refused_not_ignored(keyword):
+    """The empty sequence means the erase three keywords earlier in the same call.
+
+    Accepting it here as a silent no-op is the third meaning of ``[]``
+    in one signature, and the only undocumented one. The solver has no
+    per-type erase, so the message names what does.
+    """
+    script = Script(version="26.121")
+    with pytest.raises(CommandArgumentError, match="delete_separations"):
+        helpers.solver_settings(script, **{keyword: []})
+    assert "SEPARATION" not in script.render()
 
 
 def test_the_named_separation_models_emit_in_the_recorded_order():
@@ -663,16 +811,40 @@ def test_a_bare_label_where_a_separation_sequence_belongs_says_so():
 
 
 @pytest.mark.parametrize(
-    ("version", "keyword", "value"),
+    ("version", "keyword", "value", "command"),
     [
-        ("26.100", "airfoil_separation", [{"name": "WING"}]),
-        ("26.100", "delete_separations", "all"),
-        ("26.121", "axial_separation_boundaries", "all"),
-        ("26.121", "crossflow_separation_diameter", 3.5),
+        ("26.100", "airfoil_separation", [{"name": "WING"}], "CREATE_AIRFOIL_SEPARATION"),
+        ("26.100", "delete_separations", "all", "DELETE_SEPARATION"),
+        # 26.101 is the row the first version of this test omitted, and
+        # it is the only one that was failing: the May build sits at a
+        # hotfix index behind the February one, so it inherited the
+        # February family and the emitter wrote it. Every later build is
+        # listed now, because "the build that does not carry it" is a
+        # claim about all of them and was tested on one.
+        ("26.101", "axial_separation_boundaries", "all", "SET_AXIAL_SEPARATION_BOUNDARIES"),
+        ("26.101", "valarezo_separation_boundaries", "all", "SET_VALAREZO_SEPARATION_BOUNDARIES"),
+        (
+            "26.101",
+            "crossflow_separation_axisymmetric",
+            True,
+            "SET_CROSSFLOW_SEPARATION_AXISYMMETRIC",
+        ),
+        ("26.120", "axial_separation_boundaries", "all", "SET_AXIAL_SEPARATION_BOUNDARIES"),
+        ("26.121", "axial_separation_boundaries", "all", "SET_AXIAL_SEPARATION_BOUNDARIES"),
+        ("26.121", "crossflow_separation_diameter", 3.5, "SET_CROSSFLOW_SEPARATION_DIAMETER"),
     ],
 )
-def test_each_generation_is_refused_on_the_build_that_does_not_carry_it(version, keyword, value):
-    """RPT-018: neither generation exists on the other's build."""
+def test_each_generation_is_refused_on_the_build_that_does_not_carry_it(
+    version, keyword, value, command
+):
+    """RPT-018: neither generation exists on the other's build.
+
+    The refusal is matched on the COMMAND it names, not only on the
+    exception type. Any mis-wiring that reached a different absent
+    command on the wrong build raises the same type, and a bare
+    ``pytest.raises`` reads that as proof of the gating it does not
+    have.
+    """
     script = Script(version=version)
-    with pytest.raises(CommandNotInVersionError):
+    with pytest.raises(CommandNotInVersionError, match=command):
         helpers.solver_settings(script, **{keyword: value})

@@ -474,12 +474,21 @@ class CommandEntry(BaseModel):
     def evidence_in(self, version: FsVersion) -> Evidence | None:
         """Return the evidence for ``version`` together with its source.
 
-        A hotfix build (last canonical digit not zero) inherits the
-        record of its base release until probe evidence overrides it
-        (SAD Section 2). That default is right: a hotfix that does not
+        A hotfix build inherits the record of its base release until
+        probe evidence overrides it (SAD Section 2), when
+        :attr:`~pyflightstream.versions.FsVersion.inherits_base` says it
+        does. That default is right for a real hotfix: one that does not
         touch a command really does carry the base release's evidence,
         and the alternative, every hotfix starting from nothing, is
         worse.
+
+        The flag exists because the last canonical digit does not decide
+        it. On 2026-08-04 the February 2026 build took index 26.100 and
+        the May build was appended as 26.101, putting two independent
+        vendor releases in a base-and-hotfix position; 26.101 inherited
+        eight February-only commands the May solver refuses, and the
+        emitter wrote them. The registry now states inheritance per
+        build and refuses a hotfix index that leaves it unstated.
 
         What was wrong was that the inheritance was INVISIBLE.
         :meth:`status_in` returns the base record with nothing saying it
@@ -515,6 +524,8 @@ class CommandEntry(BaseModel):
         record = self.versions.get(version.canonical)
         if record is not None:
             return Evidence(record=record, source=version.canonical, inherited=False)
+        if not version.inherits_base:
+            return None
         base_canonical = version.canonical[:-1] + "0"
         if base_canonical != version.canonical:
             inheritable = self.versions.get(base_canonical)
