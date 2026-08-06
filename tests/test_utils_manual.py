@@ -17,6 +17,7 @@ from __future__ import annotations
 import pytest
 
 from pyflightstream.utils import (
+    TYPE_RULES,
     ManualCommand,
     coverage_against,
     parse_script_index,
@@ -614,3 +615,96 @@ def test_write_without_a_destination_is_refused_before_the_manual_is_opened():
             ]
         )
     assert caught.value.code == 2
+
+
+# --- the rule ORDER, now data rather than control flow ----------------------
+
+
+def test_the_rule_order_is_pinned_and_every_rule_is_named():
+    """Three rounds each found one rule in the wrong place.
+
+    The openings below the enum rules, then the toggle pair above the
+    openings, then the dimension suffix below them. Each time the fix
+    was invisible on a revert, because the order lived in the shape of a
+    chain of ifs and nothing could read it. It is a list now, and this
+    is the list.
+    """
+    assert [rule.name for rule in TYPE_RULES] == [
+        "opening",
+        "integer-word",
+        "dimension",
+        "enumeration",
+        "alternatives",
+        "toggle",
+    ]
+    assert len({rule.name for rule in TYPE_RULES}) == len(TYPE_RULES)
+    assert all(rule.reason for rule in TYPE_RULES)
+
+
+@pytest.mark.parametrize(
+    ("earlier", "later", "placeholder", "description", "expected"),
+    [
+        # One worked case per adjacent pair whose order was wrong once.
+        ("opening", "toggle", "NUM_BOUNDARIES", "Number of boundaries. ENABLE or DISABLE", "int"),
+        (
+            "opening",
+            "dimension",
+            "SWEEP_TIME",
+            "Number of time slices to sweep",
+            "int",
+        ),
+        (
+            "dimension",
+            "alternatives",
+            "SECTION_LENGTH",
+            "Length of the section, measured along X or Y",
+            "float",
+        ),
+        (
+            "enumeration",
+            "toggle",
+            "MODE",
+            "One of the following: ENABLE, DISABLE, AUTO",
+            "enum",
+        ),
+    ],
+)
+def test_the_earlier_rule_answers_where_two_rules_both_could(
+    earlier, later, placeholder, description, expected
+):
+    """Each row is a description BOTH named rules can read.
+
+    Without the pairing the order is untested: a rule that never
+    competes with another cannot show that it sits in the right place.
+    """
+    names = [rule.name for rule in TYPE_RULES]
+    assert names.index(earlier) < names.index(later)
+    by_name = {rule.name: rule for rule in TYPE_RULES}
+    upper = placeholder.upper()
+    assert by_name[earlier].read(upper, description) is not None, "the earlier rule must answer"
+    assert by_name[later].read(upper, description) is not None, (
+        "the later rule must also answer, or this row does not test the order"
+    )
+    proposed, _values, reason = propose_type(placeholder, description)
+    assert proposed == expected
+    assert reason == by_name[earlier].reason
+
+
+def test_a_leading_article_does_not_hide_an_opening():
+    """ "The number of boundaries" and "Number of boundaries" are one statement.
+
+    Only the second was read, because the opening rules match with
+    startswith. The manual writes both.
+    """
+    for description in ("Number of boundaries in the list", "The number of boundaries in the list"):
+        proposed, _values, _reason = propose_type("NUM_BOUNDARIES", description)
+        assert proposed == "int", description
+
+
+def test_an_enumeration_that_contains_the_toggle_tokens_is_not_truncated():
+    """The toggle rule sits below the explicit enumeration for this case."""
+    proposed, tokens, _reason = propose_type(
+        "MODE", "Can be one of ENABLE, DISABLE or AUTO for the automatic setting."
+    )
+    assert proposed == "enum"
+    assert set(tokens) >= {"ENABLE", "DISABLE", "AUTO"}

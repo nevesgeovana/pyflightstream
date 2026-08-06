@@ -761,11 +761,14 @@ def markdown_compatibility_matrix() -> str:
         "script builder refuses it for that version until evidence lands.",
         "",
         "A cell marked " + _INHERITED_MARK + " carries the base release's "
-        "evidence rather than evidence recorded for that build. A hotfix "
-        "build inherits its base release's record until a probe on the "
-        "hotfix overrides it, which is the honest default, but an "
-        "inherited cell is an assumption and a direct one is a "
-        "measurement. Read the two differently: this repository has "
+        "evidence rather than evidence recorded for that build. A build "
+        "inherits its base release's record until a probe overrides it, "
+        "WHERE the registry says it does: inheritance is stated per build "
+        "rather than read off the identifier, because 26.101 sits at a "
+        "hotfix index behind 26.100 and is an independent release. Where "
+        "it applies it is the honest default, but an inherited cell is an "
+        "assumption and a direct one is a measurement. Read the two "
+        "differently: this repository has "
         "measured a hotfix changing a command's behaviour, so the "
         "assumption is known to be falsifiable.",
         "",

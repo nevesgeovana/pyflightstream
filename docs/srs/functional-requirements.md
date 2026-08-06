@@ -30,8 +30,11 @@ Milestones and session records are listed in the
 
     The canonical version identifier is `26.XXX` with exactly three
     fractional digits: the first two carry the official minor release,
-    the last indexes intermediate hotfix builds (0 = the official
-    release). Launch set: 26.000, 26.100, 26.120. The registry stores
+    the last indexes builds within it (0 = the release the vendor
+    named). The last digit is an ORDERING position and not a claim of
+    descent, which is why whether a build carries its base release's
+    command evidence is stated per build rather than derived from it.
+    Launch set: 26.000, 26.100, 26.120. The registry stores
     the vendor release name of each build as a display alias, and a
     user may write that name wherever it names exactly one build.
 

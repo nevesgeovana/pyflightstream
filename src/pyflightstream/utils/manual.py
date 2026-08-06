@@ -70,15 +70,17 @@ carry none of its text (invariant 1).
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from pyflightstream.utils.errors import ManualDraftError
 
 __all__ = [
+    "TYPE_RULES",
     "Coverage",
     "ManualCommand",
+    "TypeRule",
     "coverage_against",
     "parse_script_index",
     "parse_signatures",
@@ -129,6 +131,11 @@ _ENUM_PHRASE = re.compile(r"one of the following|can be one of", re.IGNORECASE)
 #: the end of the text. A bare period is not enough: the manual writes
 #: decimals and abbreviations, and cutting at those loses real tokens.
 _SENTENCE_END = re.compile(r"\.\s+(?=[A-Z])")
+
+#: A leading article, stripped before the opening rules read the
+#: description: "The number of boundaries" and "Number of boundaries"
+#: are the same statement, and only the second was being read.
+_ARTICLE = re.compile(r"^(?:the|a|an)\s+", re.IGNORECASE)
 
 #: Sections my line pattern invents when an argument value happens to be
 #: followed by prose. Kept as data so a reader can check the list rather
@@ -603,6 +610,138 @@ _FLOAT_SUFFIXES = (
 )
 
 
+@dataclass(frozen=True)
+class TypeRule:
+    """One rule of :func:`propose_type`, and its position in the order.
+
+    The rules were a chain of ``if`` statements until 2026-08-06, and
+    three consecutive review rounds each found one of them in the wrong
+    place: the openings below the enum rules, then the toggle pair above
+    the openings, then the dimension suffix below the enum rules. The
+    order is not incidental to what the function means, so it is a LIST
+    a reader sees at a glance and a test can walk, rather than a shape
+    recovered by reading control flow.
+
+    Attributes
+    ----------
+    name : str
+        Short identifier, used by the tests that pin the order.
+    reason : str
+        What :func:`propose_type` reports when this rule answers.
+    read : callable
+        Takes the upper-cased placeholder and the description, and
+        returns ``(type, values)`` or None for "this rule has nothing
+        to say".
+    """
+
+    name: str
+    reason: str
+    read: Callable[[str, str], tuple[str, tuple[str, ...]] | None]
+
+
+def _read_opening(_placeholder: str, text: str) -> tuple[str, tuple[str, ...]] | None:
+    """Answer from the phrase a description OPENS with.
+
+    First of all the rules, and the position is the fix rather than a
+    preference: every rule below reads tokens out of a sentence, so a
+    count whose description happens to spell an alternative ("Number of
+    boundaries in the CFD or FEM mesh") was read as a closed set and
+    drafted ``values: [CFD, FEM]``. A wrong ``???`` costs a reviewer a
+    minute; an invented token list loads, and then validates other
+    people's scripts.
+
+    A leading article is stripped, because "The number of boundaries"
+    and "Number of boundaries" are the same statement and only the
+    second one used to be read.
+    """
+    lowered = _ARTICLE.sub("", text.lower(), count=1)
+    for openings, proposed, _reason in _TYPE_BY_OPENING:
+        if lowered.startswith(openings):
+            return proposed, ()
+    return None
+
+
+def _read_integer_word(_placeholder: str, text: str) -> tuple[str, tuple[str, ...]] | None:
+    """Answer where the description says the value is whole."""
+    lowered = text.lower()
+    if "integer value" in lowered or "integer number" in lowered:
+        return "int", ()
+    return None
+
+
+def _read_dimension(placeholder: str, text: str) -> tuple[str, tuple[str, ...]] | None:
+    """Answer from a placeholder that names a physical quantity.
+
+    Above the enum rules and below the openings. It sat at the very
+    bottom, so a dimensioned placeholder whose prose happened to contain
+    an "X or Y" pair was read as a closed set; and it must stay below the
+    openings, because a count of time steps ends in ``_STEPS`` and is
+    still an integer.
+    """
+    if placeholder.endswith(_FLOAT_SUFFIXES) or "units =" in text.lower():
+        return "float", ()
+    return None
+
+
+def _read_toggle(_placeholder: str, text: str) -> tuple[str, tuple[str, ...]] | None:
+    """Answer the ENABLE/DISABLE pair, matched AS PRINTED.
+
+    Case-insensitively it read the ordinary words "enabled" and
+    "disabled" out of a sentence about boundaries and proposed an enum
+    for a count, which was the one disagreement against the corpus this
+    rule set was measured on.
+
+    Below the explicit enumeration, because a closed set that happens to
+    contain both toggle tokens among others would otherwise be truncated
+    to the two.
+    """
+    if "ENABLE" in text and "DISABLE" in text:
+        return "enum", ("ENABLE", "DISABLE")
+    return None
+
+
+def _read_enumeration(_placeholder: str, text: str) -> tuple[str, tuple[str, ...]] | None:
+    """Answer from the phrase that introduces a closed set.
+
+    Reads only the SENTENCE carrying the phrase. Reading the whole
+    description took tokens from the sentences after it: "The threshold
+    logic. One of the following: ABOVE or BELOW. The CAD faces that meet
+    this criterion..." proposed ABOVE, BELOW and CAD.
+    """
+    phrase = _ENUM_PHRASE.search(text)
+    if phrase is None:
+        return None
+    tokens = _tokens_in(_first_sentence(text[phrase.end() :]))
+    return ("enum", tokens) if len(tokens) >= 2 else None
+
+
+def _read_alternatives(_placeholder: str, text: str) -> tuple[str, tuple[str, ...]] | None:
+    """Answer an ``X, Y or Z`` list, read from the whole description.
+
+    Unlike the enumeration rule above, which is sentence-bounded. This
+    pattern requires capitalised tokens joined by "or", which prose does
+    not produce, and bounding it lost the coordinate planes.
+    """
+    tokens = _alternatives_in(text)
+    return ("enum", tokens) if len(tokens) >= 2 else None
+
+
+#: The rules in the order they are tried. THE ORDER IS THE SPECIFICATION:
+#: read it top to bottom and each rule's docstring says why it sits where
+#: it does. ``tests/test_utils_manual.py`` pins both the sequence and one
+#: worked case per adjacent pair.
+TYPE_RULES: tuple[TypeRule, ...] = (
+    TypeRule("opening", "the description opens with what the value is", _read_opening),
+    TypeRule("integer-word", "the description says the value is whole", _read_integer_word),
+    TypeRule("dimension", "the parameter carries a physical dimension", _read_dimension),
+    TypeRule("enumeration", "the description enumerates the accepted tokens", _read_enumeration),
+    TypeRule(
+        "alternatives", "the description spells the alternatives with 'or'", _read_alternatives
+    ),
+    TypeRule("toggle", "the description offers the two toggle tokens", _read_toggle),
+)
+
+
 def _first_sentence(text: str) -> str:
     """Return ``text`` up to its first sentence break, or all of it."""
     return _SENTENCE_END.split(text, maxsplit=1)[0]
@@ -668,52 +807,13 @@ def propose_type(placeholder: str, description: str) -> tuple[str | None, tuple[
         rule answered, or why none did.
     """
     text = description.strip()
-    lowered = text.lower()
     upper = placeholder.upper()
 
-    # The openings run BEFORE EVERY enum shape, the toggle pair included,
-    # and the order is the fix rather than a preference. Every enum rule
-    # reads tokens out of a sentence, so a count whose description
-    # happens to spell an alternative ("Number of boundaries in the CFD
-    # or FEM mesh") was read as a closed set and drafted
-    # `values: [CFD, FEM]`. A wrong `???` costs a person a minute; an
-    # invented token list loads, and then validates other people's
-    # scripts.
-    #
-    # The toggle rule sat ABOVE this loop for a day, which is the same
-    # defect surviving in the one rule the fix did not move: "Number of
-    # boundaries. ENABLE or DISABLE the list" still drafted as an enum.
-    for openings, proposed, reason in _TYPE_BY_OPENING:
-        if lowered.startswith(openings):
-            return proposed, (), reason
-    if "integer value" in lowered or "integer number" in lowered:
-        return "int", (), "the description says the value is whole"
-    # Matched AS PRINTED, in capitals: case-insensitively it read the
-    # ordinary words "enabled" and "disabled" out of a sentence about
-    # boundaries and proposed an enum for a count, which was the one
-    # disagreement against the corpus this rule set was measured on.
-    if "ENABLE" in text and "DISABLE" in text:
-        return "enum", ("ENABLE", "DISABLE"), "the description offers the two toggle tokens"
-    # Both enum rules read only the SENTENCE that carries the phrase.
-    # Reading the whole description took tokens from the sentences after
-    # it: 'The threshold logic. One of the following: ABOVE or BELOW. The
-    # CAD faces that meet this criterion...' proposed ABOVE, BELOW and
-    # CAD.
-    phrase = _ENUM_PHRASE.search(text)
-    if phrase is not None:
-        tokens = _tokens_in(_first_sentence(text[phrase.end() :]))
-        if len(tokens) >= 2:
-            return "enum", tokens, "the description enumerates the accepted tokens"
-    # The alternatives rule reads the whole description, unlike the
-    # phrase rule above. Its pattern requires capitalised tokens joined
-    # by "or", which prose does not produce: the leak that motivated the
-    # sentence boundary came from the general token pattern picking words
-    # out of a following sentence, not from this one.
-    tokens = _alternatives_in(text)
-    if len(tokens) >= 2:
-        return "enum", tokens, "the description spells the alternatives with 'or'"
-    if upper.endswith(_FLOAT_SUFFIXES) or "units =" in lowered:
-        return "float", (), "the parameter carries a physical dimension"
+    for rule in TYPE_RULES:
+        answer = rule.read(upper, text)
+        if answer is not None:
+            proposed, values = answer
+            return proposed, values, rule.reason
     if not text:
         return None, (), "the command documents no parameter table"
     return None, (), "no rule read a type from the description"

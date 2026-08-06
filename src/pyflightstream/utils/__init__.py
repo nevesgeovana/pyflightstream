@@ -28,6 +28,7 @@ becoming.
 
 from pyflightstream.utils.errors import ManualDraftError
 from pyflightstream.utils.manual import (
+    TYPE_RULES,
     Coverage,
     ManualCommand,
     coverage_against,
@@ -42,6 +43,7 @@ from pyflightstream.utils.manual import (
 )
 
 __all__ = [
+    "TYPE_RULES",
     "Coverage",
     "ManualDraftError",
     "ManualCommand",

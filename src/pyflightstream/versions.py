@@ -5,7 +5,11 @@ FlightStream versions exist and how they are ordered.
 
 Canonical identifiers use the 26.XXX three-digit scheme (for example
 ``26.120`` for the vendor release named 26.12); the last digit indexes
-vendor hotfix builds. Neither string nor float comparison orders vendor
+vendor builds within one minor release. It is an ORDERING position and
+not a claim of descent: 26.101 sits behind 26.100 and is an independent
+release, so whether a build inherits its base release's command
+evidence is stated per build (``FsVersion.inherits_base``) rather than
+read off the digit. Neither string nor float comparison orders vendor
 names correctly ("26.1" versus "26.12"), so the ordered list in
 ``commands/_meta.yaml`` is the only ordering authority.
 """
@@ -61,10 +65,15 @@ class UnknownVersionError(PyflightstreamError, ValueError):
 class AmbiguousVersionAliasError(PyflightstreamError, ValueError):
     """A vendor release name identifies more than one registered build.
 
-    The vendor reuses a single release name across the hotfix builds of
-    one minor release: 26.120 and 26.121 are both shipped as "26.12".
-    A display alias therefore cannot select a build, and returning
-    either one would hand the caller a silently wrong solver. The
+    The vendor reuses a release name across builds, and not only across
+    the hotfixes of one release: 26.120 and 26.121 are both shipped as
+    "26.12", and 26.100 and 26.101 are both shipped as "26.1" although
+    they are the February and May 2026 releases rather than a release
+    and its hotfix. A display alias therefore cannot select a build, and
+    returning either one would hand the caller a silently wrong solver.
+    The refusal names each candidate by its vendor BUILD NUMBER, which
+    is what the solver prints and the only thing a reader holding two
+    installs can match. The
     registry records the vendor's own name (that name is a fact about
     the world) and refuses it at resolution time, so the caller sees
     the choice instead of inheriting it.
