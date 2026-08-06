@@ -260,3 +260,44 @@ def test_the_emitter_refuses_a_february_command_on_a_hand_built_may_version():
     script = Script(version=stated)
     with pytest.raises(CommandNotInVersionError, match="SET_AXIAL_SEPARATION_BOUNDARIES"):
         helpers.solver_settings(script, axial_separation_boundaries=[1])
+
+
+def test_resolve_replaces_a_hand_built_version_that_names_a_registered_build():
+    """The constructor refusal rejects SILENCE; this rejects a wrong statement.
+
+    Round two put the refusal in `FsVersion.__post_init__`, so a hotfix
+    index had to state `inherits_base`. It could state it wrongly:
+    `FsVersion(canonical="26.101", ..., inherits_base=True)` passed the
+    constructor, `resolve` handed it straight back, and the emitter wrote
+    the February commands onto a May build again, one keyword away from
+    the guard. The registry is the authority for every field that
+    describes a BUILD rather than an identifier, so resolve returns the
+    registry's own object for a registered canonical.
+    """
+    lying = FsVersion(canonical="26.101", alias="26.1", index=99, inherits_base=True)
+    resolved = resolve(lying)
+    assert resolved.inherits_base is False
+    assert resolved.index == resolve("26.101").index
+    assert resolved.build == "5012026"
+    assert resolved is resolve("26.101")
+
+
+def test_an_unregistered_version_object_passes_through_unchanged():
+    """The control, and the reason reconciliation is not a refusal.
+
+    Synthetic versions are built deliberately by the test suites of this
+    package, and refusing them would make a fixture registry impossible.
+    Only a REGISTERED canonical is replaced.
+    """
+    synthetic = FsVersion(canonical="26.900", alias="26.9", index=42)
+    assert resolve(synthetic) is synthetic
+
+
+def test_the_emitter_cannot_be_told_a_registered_build_inherits_when_it_does_not():
+    """End to end, through the documented `Script(version=...)` input."""
+    from pyflightstream.script import Script, helpers
+
+    lying = FsVersion(canonical="26.101", alias="26.1", index=2, inherits_base=True)
+    script = Script(version=lying)
+    with pytest.raises(CommandNotInVersionError, match="SET_AXIAL_SEPARATION_BOUNDARIES"):
+        helpers.solver_settings(script, axial_separation_boundaries=[1])

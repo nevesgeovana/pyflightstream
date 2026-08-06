@@ -995,3 +995,82 @@ def test_every_separation_model_appears_in_all_four_parallel_lists():
                 f"{keyword} is a separation model keyword with no row in the emission "
                 "tuple of solver_settings, so it would validate and emit nothing"
             )
+
+
+@pytest.mark.parametrize(
+    ("keyword", "model", "version"),
+    [
+        (
+            "bulk_separation",
+            {"name": "GEAR", "separation_type": "CYLINDRICAL", "diameter": 0.2, "boundaries": []},
+            "26.120",
+        ),
+        ("airfoil_separation", {"name": "WING", "boundaries": []}, "26.121"),
+        (
+            "cylindrical_bulk_separation",
+            {"name": "GEAR", "diameter": 0.2, "boundaries": []},
+            "26.121",
+        ),
+        ("stratford_bulk_separation", {"name": "STRUT", "boundaries": []}, "26.121"),
+        (
+            "axial_vortex_separation",
+            {"name": "FUSELAGE", "diameter": 0.5, "boundaries": []},
+            "26.121",
+        ),
+    ],
+)
+def test_no_assignment_keyword_can_emit_a_selection_of_nothing(keyword, model, version):
+    """Parametrised over ALL FIVE models, which is the point of the row count.
+
+    The refusal was written into `_separation_arguments`, and
+    `bulk_separation` had its own emission block predating that function,
+    so it was the one assignment keyword the refusal never reached: it
+    kept emitting the count 0 and a blank index line, the malformed shape
+    the refusal exists for, one round after the refusal shipped. The bulk
+    path routes through the same renderer now, and this covers the five
+    keywords rather than the four that happened to share a code path.
+    """
+    script = Script(version=version)
+    with pytest.raises(CommandArgumentError, match="selects no boundary"):
+        helpers.solver_settings(script, **{keyword: model})
+    assert "SEPARATION" not in script.render()
+
+
+def test_the_bulk_model_still_emits_its_own_grammar_through_the_shared_renderer():
+    """The control for the routing change: same lines as before.
+
+    Moving `bulk_separation` onto `_separation_arguments` had to keep
+    SEPARATION_TYPE in its documented position, which the generic
+    renderer produces from the model's field order.
+    """
+    script = Script(version="26.120")
+    helpers.solver_settings(
+        script,
+        bulk_separation=BulkSeparation(
+            name="GEAR", separation_type="FLAT_PLATE", diameter=0.2, boundaries=[1, 3]
+        ),
+    )
+    assert "CREATE_BULK_SEPARATION GEAR FLAT_PLATE 2 0.2\n1,3" in script.render()
+
+    every = Script(version="26.120")
+    helpers.solver_settings(
+        every,
+        bulk_separation=BulkSeparation(name="GEAR", separation_type="CYLINDRICAL", diameter=0.2),
+    )
+    assert "CREATE_BULK_SEPARATION GEAR CYLINDRICAL -1 0.2" in every.render()
+
+
+@pytest.mark.parametrize("value", [[1, 2], 0.5, True, {"index": 1}])
+def test_delete_separations_refuses_every_type_that_is_not_an_index(value):
+    """The first type check split str from EVERYTHING ELSE.
+
+    Anything not a string fell into `< 1`, so a list raised
+    "'<' not supported between instances of 'list' and 'int'" out of a
+    helper whose every other refusal names its cause. bool is an int in
+    Python and is not an index, so it is refused by name rather than
+    quietly read as 1.
+    """
+    script = Script(version="26.121")
+    with pytest.raises(CommandArgumentError, match="1-based index"):
+        helpers.solver_settings(script, delete_separations=value)
+    assert "SEPARATION" not in script.render()

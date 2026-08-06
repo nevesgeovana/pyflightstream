@@ -89,9 +89,21 @@ FlightStream versions.
   deprecated and refuses.
 
   Inheritance is now stated per build in `commands/_meta.yaml` with the
-  reason beside it, and a hotfix index that states nothing is refused at
-  load: the silent default is what was wrong. 26.121 still inherits from
-  26.120, which is a genuine hotfix pair.
+  reason beside it, and the silent default is gone from three places
+  rather than one, each closed after the previous close was measured
+  incomplete. The registry refuses to load a hotfix index that states
+  nothing. **`FsVersion` refuses to be BUILT as one**, which is a
+  breaking change to a public constructor: `FsVersion(canonical="26.121",
+  alias="26.12", index=4)` raised nothing before and raises
+  `UnknownVersionError` now, because `Script` accepts an `FsVersion` and
+  the field default made the original defect reachable through the
+  documented public surface. And **`resolve()` reconciles an `FsVersion`
+  argument against the registry** instead of handing it back, so a
+  hand-built object cannot state a wrong descent for a REGISTERED build
+  either; an unregistered canonical still passes through, because the
+  test suites of this package build synthetic versions deliberately.
+
+  26.121 still inherits from 26.120, which is a genuine hotfix pair.
 
 * **New subpackage `pyflightstream.utils`, and its first member
   `utils.manual`**: read a FlightStream manual and report what the

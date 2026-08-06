@@ -416,12 +416,45 @@ def test_the_toggle_rule_matches_the_tokens_as_printed():
     boundaries are 'enabled' and others 'disabled' proposed an enum for
     a count. It was the only disagreement against the hand-authored
     corpus, and this is the fixture it was fixed against.
+
+    The fixture was REBUILT on 2026-08-06, because a later fix disarmed
+    it. Its description opened "Number of boundaries being enabled...",
+    so once the counting openings moved above the toggle rule the
+    counting rule answered first and the toggle rule was never reached:
+    the assertion still passed, for a reason that had nothing to do with
+    what it guards. A fixture whose subject rule cannot run is a
+    green test measuring another rule. This one carries no counting
+    opening, so the toggle rule is the only rule that can answer it.
     """
     proposed, _tokens, _reason = propose_type(
-        "NUM_BOUNDARIES",
-        "Number of boundaries being enabled in the tab. Boundaries not listed are disabled.",
+        "VISCOUS_LIST",
+        "The boundaries being enabled for viscous coupling; the rest are disabled.",
     )
-    assert proposed == "int"
+    assert proposed is None, (
+        "lowercase 'enabled' and 'disabled' are ordinary words here, and the toggle "
+        "rule is the only rule that can read this description"
+    )
+    # The control, on the same rule: the tokens AS PRINTED are read.
+    proposed, tokens, _reason = propose_type(
+        "VISCOUS_LIST", "Switch viscous coupling on the list. ENABLE/DISABLE"
+    )
+    assert proposed == "enum" and tokens == ("ENABLE", "DISABLE")
+
+
+def test_a_counting_opening_wins_over_the_toggle_rule():
+    """The rule ORDER, which shipped twice with nothing failing on a revert.
+
+    The counting openings were moved above the enum rules and the toggle
+    rule stayed above them, so "Number of boundaries. ENABLE or DISABLE
+    the list" still drafted as an enum. Moving it down fixed that and
+    carried no test: reverting the move left the whole tier 1 suite
+    green, because the one fixture that could have caught it opened with
+    a counting phrase and so answered before the toggle rule either way.
+    """
+    proposed, tokens, _reason = propose_type(
+        "NUM_BOUNDARIES", "Number of boundaries. ENABLE or DISABLE the list"
+    )
+    assert proposed == "int" and tokens == ()
 
 
 def test_a_drafted_entry_carries_the_types_it_read_and_marks_the_rest():

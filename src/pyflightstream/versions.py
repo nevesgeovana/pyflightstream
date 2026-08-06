@@ -109,6 +109,34 @@ def _build_note(canonical: str) -> str:
     return "the official release" if hotfix == 0 else f"hotfix build {hotfix}"
 
 
+def _reconciled(version: FsVersion) -> FsVersion:
+    """Return the REGISTERED version an ``FsVersion`` argument names.
+
+    An unregistered canonical passes through unchanged: the test suites
+    of this package build synthetic versions deliberately, and refusing
+    them would make a fixture registry impossible. A REGISTERED one is
+    replaced by the registry's own instance, so no caller-supplied
+    object can disagree with the ordering authority about a build's
+    index, its vendor build number, or whether it inherits its base
+    release's command evidence.
+
+    Parameters
+    ----------
+    version : FsVersion
+        A version object handed to :func:`resolve`.
+
+    Returns
+    -------
+    FsVersion
+        The registered instance carrying that canonical identifier, or
+        the argument itself when the identifier is not registered.
+    """
+    for entry in known_versions():
+        if entry.canonical == version.canonical:
+            return entry
+    return version
+
+
 def _candidate_note(entry: FsVersion) -> str:
     """Describe one candidate of an ambiguous alias, by what tells them apart.
 
@@ -223,8 +251,11 @@ class FsVersion:
                 "command evidence is a fact about the two vendor builds, not about the "
                 "identifier: 26.121 is a hotfix of 26.120 and inherits, while 26.101 is "
                 "an independent May 2026 release that took the index after 26.100 and "
-                "does not. Pass inherits_base=True or False, or obtain the version "
-                "through resolve() so the registry answers.",
+                "does not. Pass inherits_base=True or False. For a REGISTERED build "
+                "you need not decide at all: resolve('26.101') returns the registry's "
+                "own object, and resolve() replaces a hand-built one whose canonical "
+                "is registered, so the ordering authority answers rather than the "
+                "caller.",
                 version=self.canonical,
             )
         if self.inherits_base is None:
@@ -408,7 +439,16 @@ def resolve(version: str | FsVersion) -> FsVersion:
     ordered list happens to reach first.
     """
     if isinstance(version, FsVersion):
-        return version
+        # Reconcile against the registry rather than hand the caller's
+        # object back. The registry is the authority for `index`, `build`
+        # and `inherits_base`, all of which are facts about a vendor
+        # build rather than about the identifier, and an FsVersion is
+        # freely constructible. Returning it unreconciled let a
+        # hand-built 26.101 declare inherits_base=True and inherit the
+        # February commands, which is the defect two rounds of fixes were
+        # about; the constructor refusal added in the second round
+        # rejects SILENCE, and this rejects a wrong statement.
+        return _reconciled(version)
     registered = known_versions()
     for entry in registered:
         if version == entry.canonical:

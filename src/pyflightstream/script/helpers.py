@@ -889,6 +889,18 @@ def solver_settings(
                     "(SRC-003 p.342)"
                 )
             delete_separations = "all"
+        elif not isinstance(delete_separations, int) or isinstance(delete_separations, bool):
+            # The first repair split str from EVERYTHING ELSE and let the
+            # rest fall into a `< 1` comparison, so a list raised
+            # "'<' not supported between instances of 'list' and 'int'".
+            # bool is an int in Python and is not an index, so it is
+            # named here rather than accepted as 1 or refused as 0.
+            raise CommandArgumentError(
+                "solver_settings: delete_separations takes the 1-based index of one "
+                f"separation model or the string 'all', got {type(delete_separations).__name__} "
+                f"{delete_separations!r}. The solver deletes one model by index or every "
+                "model at once; there is no multi-index form (SRC-003 p.342)"
+            )
         elif delete_separations < 1:
             raise CommandArgumentError(
                 "solver_settings: delete_separations takes the 1-based index of one "
@@ -1094,23 +1106,14 @@ def solver_settings(
     if delete_separations is not None:
         script.emit("DELETE_SEPARATION", -1 if delete_separations == "all" else delete_separations)
     if bulk is not None:
-        if bulk.boundaries == "all":
-            script.emit(
-                "CREATE_BULK_SEPARATION",
-                name=bulk.name,
-                separation_type=bulk.separation_type,
-                num_boundaries=-1,
-                diameter=bulk.diameter,
-            )
-        else:
-            script.emit(
-                "CREATE_BULK_SEPARATION",
-                name=bulk.name,
-                separation_type=bulk.separation_type,
-                num_boundaries=len(bulk.boundaries),
-                diameter=bulk.diameter,
-                boundary_indices=list(bulk.boundaries),
-            )
+        # Through the same renderer as the other four assignment models,
+        # since 2026-08-06. It had its own block, written before the
+        # renderer existed, and so it was the one assignment keyword the
+        # no-boundary refusal did not reach: an empty `boundaries` still
+        # emitted the count 0 and a blank index line, which is the exact
+        # malformed shape that refusal was added for, one round later
+        # and one keyword over.
+        script.emit("CREATE_BULK_SEPARATION", **_separation_arguments(bulk))
     for argument, command in (
         ("airfoil_separation", "CREATE_AIRFOIL_SEPARATION"),
         ("axial_vortex_separation", "CREATE_AXIAL_VORTEX_SEPARATION"),
