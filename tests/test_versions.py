@@ -15,6 +15,7 @@ allowed to contain one.
 import pytest
 
 from pyflightstream import versions
+from pyflightstream.commands import CommandNotInVersionError
 from pyflightstream.versions import (
     AmbiguousVersionAliasError,
     FsVersion,
@@ -141,17 +142,35 @@ def test_the_refusal_says_which_candidate_is_which_build():
 
     The parenthetical after each identifier is the only thing in the
     message that distinguishes the builds, so it is the operative
-    content. A QA pass measured it unasserted: making _build_note return
-    "the official release" unconditionally left the whole suite green
-    while the refusal read "26.120 (the official release) and 26.121
-    (the official release)", which names two candidates and helps with
-    neither.
+    content. A QA pass measured it unasserted: making the note return
+    one constant left the whole suite green while the refusal named two
+    candidates and helped with neither.
+
+    What the parenthetical CARRIES changed on 2026-08-05. It used to
+    read "the official release" and "hotfix build N", which is a
+    statement about the identifier, and for the 26.1 pair that statement
+    is false: 26.100 and 26.101 are the February and May 2026 releases,
+    not a release and its hotfix, which is the whole reason
+    `FsVersion.inherits_base` exists. The refusal was teaching the
+    descent claim the registry had just been changed to deny. It carries
+    the vendor build number now, which is what the two solvers print and
+    the only thing a user holding two installs can match.
     """
     with pytest.raises(AmbiguousVersionAliasError) as excinfo:
         resolve("26.12")
     message = str(excinfo.value)
-    assert "26.120 (the official release)" in message, message
-    assert "26.121 (hotfix build 1)" in message, message
+    assert "26.120 (vendor build 7012026)" in message, message
+    assert "26.121 (vendor build 7262026)" in message, message
+    assert "hotfix build" not in message, message
+
+    # The 26.1 pair is the case the wording was corrected for, and one of
+    # its builds has no recorded number, so the message says that rather
+    # than leaving the parenthetical empty.
+    with pytest.raises(AmbiguousVersionAliasError) as excinfo:
+        resolve("26.1")
+    message = str(excinfo.value)
+    assert "26.100 (no vendor build recorded here yet)" in message, message
+    assert "26.101 (vendor build 5012026)" in message, message
 
 
 @pytest.mark.parametrize(
@@ -195,3 +214,49 @@ def test_a_canonical_is_not_shadowed_by_an_earlier_entrys_alias(monkeypatch):
     assert resolve("26.910").canonical == "26.910"
     assert resolve("26.91").canonical == "26.910"
     assert resolve("26.900").canonical == "26.900"
+
+
+def test_a_hand_built_hotfix_version_must_state_its_descent():
+    """The refusal has to live on the VALUE OBJECT, not only in the loader.
+
+    Round 1 of this review put it in the YAML reader alone. `FsVersion`
+    kept `inherits_base = True` as its default, `Script` accepts an
+    `FsVersion` in its documented signature, and `resolve` returns a
+    hand-built one unchanged, so the original defect stayed reachable
+    through the public surface:
+    `Script(FsVersion(canonical="26.101", ...))` emitted
+    SET_AXIAL_SEPARATION_BOUNDARIES, a February-only command, onto a May
+    build. The attribute docstring said the silent default had been
+    removed while line 168 offered it.
+    """
+    with pytest.raises(UnknownVersionError, match="states no inherits_base"):
+        FsVersion(canonical="26.101", alias="26.1", index=2)
+    # Stating it either way is accepted: the refusal is against silence,
+    # not against inheriting.
+    assert FsVersion(canonical="26.101", alias="26.1", index=2, inherits_base=True).inherits_base
+    assert not FsVersion(
+        canonical="26.101", alias="26.1", index=2, inherits_base=False
+    ).inherits_base
+    # A base release has nothing to inherit from, so it needs no flag and
+    # settles to True inert. Without this control the fix could have been
+    # "refuse every version that omits the flag", which would refuse the
+    # three quarters of the registry that cannot use it.
+    assert FsVersion(canonical="26.120", alias="26.12", index=3).inherits_base
+
+
+def test_the_emitter_refuses_a_february_command_on_a_hand_built_may_version():
+    """The defect end to end, through the public constructor.
+
+    `Script` documents `str | FsVersion`, so this is the supported input
+    type rather than a back door, and it is how the round-1 fix was
+    measured incomplete.
+    """
+    from pyflightstream.script import Script, helpers
+
+    with pytest.raises(UnknownVersionError, match="states no inherits_base"):
+        Script(version=FsVersion(canonical="26.101", alias="26.1", index=2))
+
+    stated = FsVersion(canonical="26.101", alias="26.1", index=2, inherits_base=False)
+    script = Script(version=stated)
+    with pytest.raises(CommandNotInVersionError, match="SET_AXIAL_SEPARATION_BOUNDARIES"):
+        helpers.solver_settings(script, axial_separation_boundaries=[1])

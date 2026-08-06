@@ -47,9 +47,13 @@ the commands come from the manual and no solver has been asked,
 `verified` means a probe measured some of them on a real installation,
 and `operational` means the minimal end-to-end workflow builds.
 
-The vendor ships every hotfix of a minor release under one name, so
-`"26.12"` names two builds and is refused with both named. Pass the
-canonical identifier.
+The vendor reuses a release name across builds, so `"26.12"` names two
+and `"26.1"` names two more; both are refused with every candidate and
+its vendor build number named. Pass the canonical identifier. The two
+cases are not the same relationship: 26.120 and 26.121 are a release
+and its hotfix, while 26.100 and 26.101 are the February and May 2026
+releases, which is why the registry states descent per build instead
+of reading it off the last digit.
 
 ## Build a script
 

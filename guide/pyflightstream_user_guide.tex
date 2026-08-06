@@ -1024,7 +1024,7 @@ samples = parse_residual_history(log_text)
 
 \begin{frame}{Hotfix inheritance}
   \begin{itemize}
-    \item A hotfix build (last canonical digit not zero) inherits the evidence record of its base release until probe evidence overrides it.
+    \item A hotfix build inherits the evidence record of its base release until probe evidence overrides it, WHEN the registry says it does. The last canonical digit does not decide that: \code{26.101} sits at a hotfix index behind \code{26.100} and is an independent vendor release, so it inherits nothing. Each build states \code{inherits\_base} in the registry and one that states nothing is refused.
     \item \code{26.121} is no longer the hypothetical example: it started from every \code{26.120} record, and the licensed probe on that build then contradicted one of them. AIR\_ALTITUDE is {\color{statusred}broken} on 26.120 and {\color{statusblue}verified} on 26.121.
       \item Read an inherited cell for what it is. The matrix marks every one with a \texttt{base} superscript and counts them in its \emph{Of which inherited} column, so a marked cell means the base release's evidence, with no probe on this build having run that command.
   \end{itemize}
@@ -1151,7 +1151,7 @@ pyfs-qa update-reference --case ... --reason "..."    # guarded write
 pyfs-workspace init      DIR                          # scaffold a workspace
 pyfs-matrix convert      matrix.fs -o campaign.toml   # run matrix to campaign
 pyfs-fsi                 (aeroelastic coupling executable)
-pyfs-manual coverage     --manual ... --source SRC-741 --chapter-pages 273-370 --index-pages 370-396
+pyfs-manual coverage     --manual ... --source SRC-741 --chapter-pages 275-369 --index-pages 370-379
 \end{lstlisting}
   \begin{itemize}
     \item The \code{pyfs-qa} tools (and \code{pyfs-fsi}) require a licensed machine and write dated report pairs (markdown plus YAML) under \code{reports/}; \code{pyfs-qa cases} runs nothing.

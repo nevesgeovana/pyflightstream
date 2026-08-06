@@ -340,8 +340,13 @@ def test_seeded_defaults_carry_their_recorded_evidence():
 
 def test_hotfix_inherits_base_release_until_overridden():
     entry = make_entry()
-    hotfix = FsVersion(canonical="26.121", alias="26.12 hotfix 1", index=3)
+    # inherits_base is stated rather than defaulted since 2026-08-05:
+    # building a hotfix index without it is refused, because the silent
+    # default made 26.101 inherit the February commands.
+    hotfix = FsVersion(canonical="26.121", alias="26.12 hotfix 1", index=3, inherits_base=True)
     assert entry.status_in(hotfix) is entry.versions["26.120"]
+    detached = FsVersion(canonical="26.121", alias="26.12 hotfix 1", index=3, inherits_base=False)
+    assert entry.status_in(detached) is None, "a build that states no descent inherits nothing"
     overridden = make_entry(
         versions={
             "26.120": {"status": "documented"},

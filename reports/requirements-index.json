@@ -41,7 +41,7 @@
   },
   {
    "id": "FR-02c",
-   "text": "The vendor ships every hotfix build of a minor release under the one release name, so a display alias can name more than one registered build: 26.120 and 26.121 are both shipped as \"26.12\". Resolution refuses such a name rather than returning any of the builds carrying it, and the refusal names every candidate so the caller can choose. A canonical identifier is matched across the whole registry before any alias is considered, so a build is never shadowed by an earlier entry whose alias equals its canonical.",
+   "text": "The vendor reuses a release name across builds, so a display alias can name more than one registered build: 26.120 and 26.121 are both shipped as \"26.12\", and 26.100 and 26.101 are both shipped as \"26.1\" although they are separate releases rather than a release and its hotfix. Resolution refuses such a name rather than returning any of the builds carrying it, and the refusal names every candidate so the caller can choose. A canonical identifier is matched across the whole registry before any alias is considered, so a build is never shadowed by an earlier entry whose alias equals its canonical.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: BRF-03, BRF-19. Evidence: PFS-8 (2026-08-02); the ambiguous-alias tests in tests/test_versions.py.*",

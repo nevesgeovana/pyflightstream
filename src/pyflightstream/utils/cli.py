@@ -25,6 +25,7 @@ import sys
 from collections.abc import Sequence
 
 from pyflightstream.commands import CommandRegistry
+from pyflightstream.utils.errors import ManualDraftError
 from pyflightstream.utils.manual import (
     coverage_against,
     parse_script_index,
@@ -138,10 +139,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "draft" and args.write and not args.out:
         parser.error("--write needs --out; refusing to guess where to put a draft")
 
-    index = parse_script_index(read_pdf_pages(args.manual, first=index_first, last=index_last))
-    manual = parse_signatures(
-        read_pdf_pages(args.manual, first=chapter_first, last=chapter_last), sections=index
-    )
+    # A library refusal is a usage error when it arrives here: the caller
+    # typed a page range or a manual path. Letting it escape delivered
+    # the two failure modes of one flag two different ways, a parser
+    # error for a malformed range and a traceback for an out-of-range
+    # one.
+    try:
+        index = parse_script_index(read_pdf_pages(args.manual, first=index_first, last=index_last))
+        manual = parse_signatures(
+            read_pdf_pages(args.manual, first=chapter_first, last=chapter_last), sections=index
+        )
+    except ManualDraftError as error:
+        parser.error(str(error))
     report = coverage_against(manual, CommandRegistry.load().commands)
 
     if args.command == "coverage":

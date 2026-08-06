@@ -279,9 +279,11 @@ class AxialVortexSeparation(BaseModel):
         Display name of the assignment in the interface.
     diameter : float
         Maximum body diameter, in simulation length units.
-    frame : int
-        1-based index of the coordinate system acting as the body axes;
-        1 is the reference frame (SRC-003 p.342).
+    frame : int or str
+        Coordinate system acting as the body axes, by 1-based index (1
+        is the reference frame, SRC-003 p.342) or by the label a recipe
+        declared for it, which the emitter resolves like every other
+        frame citation in the library.
     body_axis : str
         Body axis within that frame, ``X``, ``Y`` or ``Z``. The manual
         also documents the numeric spellings 1, 2 and 3 on the same
@@ -298,7 +300,13 @@ class AxialVortexSeparation(BaseModel):
 
     name: str
     diameter: float
-    frame: int = 1
+    # int OR str: `frame` is a recorded entity reference
+    # (script._SCALAR_REFERENCE_ARGS), so the emitter resolves a declared
+    # coordinate-system LABEL here exactly as it does everywhere else the
+    # library cites a frame. Typing it int alone made this the one frame
+    # citation in the package that refused the label vocabulary the
+    # helpers module docstring promises.
+    frame: int | str = 1
     body_axis: Literal["X", "Y", "Z"] = "X"
     sharp_nose_vortices: bool = False
     boundaries: list[int | str] | Literal["all"] = "all"

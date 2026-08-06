@@ -88,9 +88,12 @@ CONVENTIONS: tuple[tuple[str, str], ...] = (
         "name is recorded as an alias (26.12), and ordering comes only "
         "from the registered list position, never from parsing the "
         "identifier. An alias resolves only where it names exactly one "
-        "build: the vendor ships every hotfix of a minor release under "
-        "one name, so 26.12 names both 26.120 and 26.121 and is refused "
-        "with both named rather than resolving to either.",
+        "build: the vendor reuses a release name across builds, so 26.12 "
+        "names both 26.120 and 26.121 and 26.1 names both 26.100 and "
+        "26.101, each refused with every candidate and its vendor build "
+        "number named rather than resolving to one. Reuse is not descent: "
+        "the first pair is a release and its hotfix and the second is two "
+        "separate releases, which the registry states per build.",
     ),
     (
         "Indices state their base",

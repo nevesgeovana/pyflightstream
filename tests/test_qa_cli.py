@@ -28,7 +28,9 @@ def test_an_ambiguous_vendor_name_exits_two_and_names_both_builds(capsys):
     # to learn which identifier to type instead.
     assert "26.120" in error
     assert "26.121" in error
-    assert "hotfix build 1" in error
+    # The vendor build number, which the two solvers print, and not the
+    # hotfix digit: see test_versions.py for why that wording moved.
+    assert "vendor build 7262026" in error
 
 
 def test_an_unregistered_version_exits_two_and_lists_the_registered_ones(capsys):

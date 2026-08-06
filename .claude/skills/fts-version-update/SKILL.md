@@ -20,6 +20,14 @@ Onboard a new FlightStream version end to end.
 
 1. Register the version in `src/pyflightstream/commands/_meta.yaml`:
    append to the ordered list (release order, append only) with its alias.
+   A canonical identifier whose last digit is not zero must also state
+   `inherits_base`, with the reason beside it: whether the build carries
+   its base release's command evidence is a fact about the two vendor
+   builds and not about the index. The registry refuses to load a hotfix
+   index that leaves it unstated, and `FsVersion` refuses to be built one.
+   26.121 inherits from 26.120 (a real hotfix, one manual re-issue apart);
+   26.101 does not inherit from 26.100 (two vendor releases under one
+   name, different manuals, different command sets).
 2. Read the new manual's scripting reference and script index chapters.
    Extract the command surface as paraphrased facts only: names, argument
    counts and types, layouts, page numbers. Never copy manual text.

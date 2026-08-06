@@ -141,7 +141,7 @@ CREATE_BULK_SEPARATION:
         - name: boundary_indices
           type: int_list
           required: false
-    "26.120": {status: documented, note: "Contradicted by evidence and not yet reprobed: on 26.120 (build #7012026) the solver refused all four documented forms, including the three-argument 26.1 form that ran on 26.100 (reports/RPT-015_bulk-separation-family-acceptance_2026-08-02.md). The status stays documented because a promotion needs a probe report written by pyfs-qa (CLAUDE.md invariant 3) and RPT-015 is an ad-hoc probe that promotes nothing; the harness re-probe is PLN-20260802-2240."}
+    "26.120": {status: documented, note: "Contradicted by evidence and not yet reprobed: on 26.120 (build #7012026) the solver refused all four documented forms, including the three-argument 26.1 form that ran on the May build, then called 26.100 and now 26.101 (reports/RPT-015_bulk-separation-family-acceptance_2026-08-02.md). The status stays documented because a promotion needs a probe report written by pyfs-qa (CLAUDE.md invariant 3) and RPT-015 is an ad-hoc probe that promotes nothing; the harness re-probe is PLN-20260802-2240."}
   notes: >
     Assigns the bulk (bluff-body) flow-separation model to the listed
     boundaries. NUM_BOUNDARIES takes -1 for all mesh boundaries;
@@ -155,9 +155,11 @@ CREATE_BULK_SEPARATION:
 #
 # 26.101 replaced the per-mechanism boundary lists of 26.100 (further
 # below) with named separation models created one command at a time.
-# The two generations do not overlap on any build: RPT-018 measured the
-# 26.100 family deprecated and refused on 26.101 and 26.121, and this
-# family unrecognized on 26.100.
+# The two generations are documented on disjoint builds. RPT-018
+# measured part of that: the February commands it ran on 26.101 and
+# 26.121 were reported deprecated and refused, and the three commands
+# it ran on 26.100 from this family were unrecognized. It did not run
+# the two bulk-split commands below on the February build.
 
 CREATE_AIRFOIL_SEPARATION:
   layout: payload_lines
@@ -286,13 +288,19 @@ DELETE_SEPARATION:
 
 # --- the per-mechanism separation lists of 26.100 --------------------------
 #
-# This generation exists on the February 2026 build alone. Later builds
-# recognize each command, warn that it is deprecated, and then fail the
-# script (RPT-018), so a caller on 26.101 or later wants the named
-# models above. No version record is written for those builds: the
-# solver's own deprecation notice is not a manual statement, and the
-# removed status is promoted from a harness probe rather than from an
-# ad-hoc one (PLN-20260805-1530).
+# This generation is documented for the February 2026 build alone.
+# RPT-018 probed five of these commands on 26.101 and three on 26.121,
+# and the solver recognized each one it was given, reported it
+# deprecated and then failed the script; it probed none of them on
+# 26.120, and it probed none of the three DELETE commands on any later
+# build. Read that as the measurement it is rather than as a statement
+# about the family. A caller on 26.101 or later wants the named models
+# above.
+#
+# No version record is written for the later builds: the solver's own
+# deprecation notice is not a manual statement, and the removed status
+# is promoted from a harness probe rather than from an ad-hoc one
+# (PLN-20260805-1530).
 
 SET_AXIAL_SEPARATION_BOUNDARIES:
   layout: payload_lines

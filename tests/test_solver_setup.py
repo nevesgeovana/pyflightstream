@@ -1,7 +1,9 @@
 """Tier 1: solver-setup snapshot, provenance, deferral, and regeneration."""
 
+import inspect
 import json
 import warnings
+from pathlib import Path
 
 import pytest
 
@@ -856,3 +858,140 @@ def test_each_generation_is_refused_on_the_build_that_does_not_carry_it(
     script = Script(version=version)
     with pytest.raises(CommandNotInVersionError, match=command):
         helpers.solver_settings(script, **{keyword: value})
+
+
+# --- round 2: the round-1 fixes, each with the guard it shipped without ------
+
+
+def test_the_erase_precedes_the_bulk_create_so_one_call_can_rebuild():
+    """Round 1 moved DELETE_SEPARATION ahead of CREATE_BULK_SEPARATION and
+    left no test: no case in the suite passed both keywords, so reverting
+    the move was invisible. Passing both used to create the bulk model
+    and delete it, while the snapshot recorded it as emitted.
+    """
+    script = Script(version="26.120")
+    setup = helpers.solver_settings(
+        script,
+        bulk_separation={"name": "GEAR", "separation_type": "FLAT_PLATE", "diameter": 0.2},
+        delete_separations="all",
+    )
+    text = script.render()
+    assert text.index("DELETE_SEPARATION -1") < text.index("CREATE_BULK_SEPARATION")
+    # The snapshot describes a script whose bulk model survives.
+    assert setup.flags["CREATE_BULK_SEPARATION"].provenance == "explicit"
+    assert setup.flags["DELETE_SEPARATION"].provenance == "explicit"
+
+
+@pytest.mark.parametrize(
+    ("keyword", "delete_command", "version"),
+    [
+        ("viscous_excluded", "DELETE_VISCOUS_EXCLUDED_BOUNDARIES", "26.120"),
+        ("axial_separation_boundaries", "DELETE_AXIAL_SEPARATION_BOUNDARIES", "26.100"),
+        ("crossflow_separation_boundaries", "DELETE_CROSSFLOW_SEPARATION_BOUNDARIES", "26.100"),
+    ],
+)
+def test_an_empty_tuple_reaches_the_same_verdict_on_every_pair(keyword, delete_command, version):
+    """The materialisation fix was guarded for one keyword of three.
+
+    `_as_selection` runs over all four selections, and the test that
+    proved it covered `viscous_excluded` alone, so dropping the
+    materialisation for the three separation pairs left the suite green
+    and reproduced the emitter-versus-snapshot split there.
+    """
+    script = Script(version=version)
+    setup = helpers.solver_settings(script, **{keyword: ()})
+    assert delete_command in script.render()
+    assert setup.flags[delete_command].provenance == "explicit"
+
+
+@pytest.mark.parametrize("spelling", ["ALL", "All", "aLL"])
+def test_the_delete_sentinel_is_read_case_insensitively(spelling):
+    """ "ALL" reached a `< 1` comparison and raised a bare TypeError.
+
+    Every other refusal in this helper is didactic; this one escaped as
+    a stdlib error out of a type the signature accepts.
+    """
+    script = Script(version="26.121")
+    helpers.solver_settings(script, delete_separations=spelling)
+    assert "DELETE_SEPARATION -1" in script.render()
+
+
+def test_a_string_that_is_not_the_sentinel_is_refused_didactically():
+    script = Script(version="26.121")
+    with pytest.raises(CommandArgumentError, match="the string 'all'"):
+        helpers.solver_settings(script, delete_separations="every")
+    assert "SEPARATION" not in script.render()
+
+
+def test_one_assignment_model_may_be_passed_without_a_sequence():
+    """`bulk_separation` takes a single model, so the habit crosses over.
+
+    It used to die on `object of type CylindricalBulkSeparation has no
+    len()`, from the emptiness check added in round 1.
+    """
+    script = Script(version="26.121")
+    helpers.solver_settings(
+        script,
+        cylindrical_bulk_separation=CylindricalBulkSeparation(name="GEAR", diameter=0.2),
+    )
+    assert "CREATE_CYLINDRICAL_BULK_SEPARATION GEAR -1 0.2" in script.render()
+
+
+def test_an_assignment_on_no_boundary_is_refused_rather_than_emitted():
+    """The count-0-plus-blank-line emission, on the surface round 1 missed.
+
+    Round 1 refused exactly this for `viscous_excluded` and left it
+    reachable through a model's own `boundaries=[]`, which renders
+    `CREATE_CYLINDRICAL_BULK_SEPARATION GEAR 0 0.2` and then a line
+    carrying nothing.
+    """
+    script = Script(version="26.121")
+    with pytest.raises(CommandArgumentError, match="selects no boundary"):
+        helpers.solver_settings(
+            script,
+            cylindrical_bulk_separation=[
+                CylindricalBulkSeparation(name="GEAR", diameter=0.2, boundaries=[])
+            ],
+        )
+    assert "SEPARATION" not in script.render()
+    # The control: a real selection and the "all" default both still emit.
+    working = Script(version="26.121")
+    helpers.solver_settings(
+        working,
+        cylindrical_bulk_separation=[
+            CylindricalBulkSeparation(name="GEAR", diameter=0.2, boundaries=[3]),
+            CylindricalBulkSeparation(name="STRUT", diameter=0.1),
+        ],
+    )
+    assert "CREATE_CYLINDRICAL_BULK_SEPARATION GEAR 1 0.2\n3" in working.render()
+    assert "CREATE_CYLINDRICAL_BULK_SEPARATION STRUT -1 0.1" in working.render()
+
+
+def test_every_separation_model_appears_in_all_four_parallel_lists():
+    """A model has to be added in four places and nothing joined them.
+
+    `SEPARATION_MODELS` maps keyword to class, the helper builds a
+    `given_models` dict, the emission loop carries a keyword-to-command
+    tuple, and `FLAG_SPECS` carries the rows. Three of the four are
+    written out by hand in one function, so a fifth model added to two of
+    them would emit nothing and record nothing, silently.
+    """
+    from pyflightstream.script.solver_setup import SEPARATION_MODELS
+
+    spec_params = {spec.param for spec in FLAG_SPECS if spec.kind == "separation_models"}
+    assert spec_params == set(SEPARATION_MODELS), (
+        "FLAG_SPECS and SEPARATION_MODELS disagree on which keywords carry assignment "
+        f"models: {spec_params ^ set(SEPARATION_MODELS)}"
+    )
+    keywords = set(inspect.signature(helpers.solver_settings).parameters)
+    assert set(SEPARATION_MODELS) <= keywords
+    # The emission loop is source, not data, so it is read as source.
+    source = Path(helpers.__file__).read_text(encoding="utf-8")
+    emission = source.split('("airfoil_separation", "CREATE_AIRFOIL_SEPARATION")', 1)[1][:400]
+    for keyword in SEPARATION_MODELS:
+        assert keyword in source, keyword
+        if keyword != "airfoil_separation":
+            assert f'("{keyword}", "CREATE' in emission, (
+                f"{keyword} is a separation model keyword with no row in the emission "
+                "tuple of solver_settings, so it would validate and emit nothing"
+            )

@@ -671,25 +671,29 @@ def propose_type(placeholder: str, description: str) -> tuple[str | None, tuple[
     lowered = text.lower()
     upper = placeholder.upper()
 
-    # The tokens are matched AS PRINTED, in capitals. Matching them
-    # case-insensitively read the ordinary words "enabled" and
-    # "disabled" out of a sentence about boundaries and proposed an enum
-    # for a count, which was the one disagreement in the corpus this rule
-    # set was measured against.
-    if "ENABLE" in text and "DISABLE" in text:
-        return "enum", ("ENABLE", "DISABLE"), "the description offers the two toggle tokens"
-    # The openings run BEFORE the two enum shapes below, and the order is
-    # the fix rather than a preference. Both enum rules read tokens out
-    # of a sentence, so a count whose description happens to spell an
-    # alternative ("Number of boundaries in the CFD or FEM mesh") was
-    # read as a closed set and drafted `values: [CFD, FEM]`. A wrong
-    # `???` costs a person a minute; an invented token list loads, and
-    # then validates other people's scripts.
+    # The openings run BEFORE EVERY enum shape, the toggle pair included,
+    # and the order is the fix rather than a preference. Every enum rule
+    # reads tokens out of a sentence, so a count whose description
+    # happens to spell an alternative ("Number of boundaries in the CFD
+    # or FEM mesh") was read as a closed set and drafted
+    # `values: [CFD, FEM]`. A wrong `???` costs a person a minute; an
+    # invented token list loads, and then validates other people's
+    # scripts.
+    #
+    # The toggle rule sat ABOVE this loop for a day, which is the same
+    # defect surviving in the one rule the fix did not move: "Number of
+    # boundaries. ENABLE or DISABLE the list" still drafted as an enum.
     for openings, proposed, reason in _TYPE_BY_OPENING:
         if lowered.startswith(openings):
             return proposed, (), reason
     if "integer value" in lowered or "integer number" in lowered:
         return "int", (), "the description says the value is whole"
+    # Matched AS PRINTED, in capitals: case-insensitively it read the
+    # ordinary words "enabled" and "disabled" out of a sentence about
+    # boundaries and proposed an enum for a count, which was the one
+    # disagreement against the corpus this rule set was measured on.
+    if "ENABLE" in text and "DISABLE" in text:
+        return "enum", ("ENABLE", "DISABLE"), "the description offers the two toggle tokens"
     # Both enum rules read only the SENTENCE that carries the phrase.
     # Reading the whole description took tokens from the sentences after
     # it: 'The threshold logic. One of the following: ABOVE or BELOW. The

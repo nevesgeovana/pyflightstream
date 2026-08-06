@@ -109,6 +109,32 @@ def _build_note(canonical: str) -> str:
     return "the official release" if hotfix == 0 else f"hotfix build {hotfix}"
 
 
+def _candidate_note(entry: FsVersion) -> str:
+    """Describe one candidate of an ambiguous alias, by what tells them apart.
+
+    The vendor build number, not the hotfix digit. Calling 26.101
+    "hotfix build 1" in this message taught the reader the descent claim
+    that :attr:`FsVersion.inherits_base` exists to deny: 26.100 and
+    26.101 are the February and May 2026 releases, and a reader holding
+    two installs cannot map either onto "official release" and "hotfix
+    build 1". The build number is what their solvers print.
+
+    Parameters
+    ----------
+    entry : FsVersion
+        One registered candidate.
+
+    Returns
+    -------
+    str
+        The canonical identifier with its recorded vendor build, or a
+        statement that no build is recorded for it yet.
+    """
+    if entry.build is None:
+        return f"{entry.canonical} (no vendor build recorded here yet)"
+    return f"{entry.canonical} (vendor build {entry.build})"
+
+
 def _and_join(parts: list[str]) -> str:
     """Join phrases as prose so a two-build refusal reads as a sentence."""
     if len(parts) <= 1:
@@ -157,24 +183,52 @@ class FsVersion:
         describing different command sets, so inheriting one from the
         other made the emitter write commands the later solver refuses.
         The registry states this per build rather than deriving it, and
-        a hotfix index that does not state it is refused, because the
-        silent default is what was wrong.
+        a hotfix index that does not state it is refused BY THIS CLASS,
+        not only by the registry loader, because the silent default is
+        what was wrong and a loader-only refusal leaves it on every
+        object a caller builds. A base release needs no flag: it has
+        nothing to inherit from, so the field settles to True and is
+        inert there.
     """
 
     canonical: str
     alias: str
     index: int
     build: str | None = None
-    inherits_base: bool = True
+    inherits_base: bool | None = None
 
     def __post_init__(self) -> None:
-        """Reject identifiers that do not follow the canonical scheme."""
+        """Reject an identifier off the scheme, or a hotfix that states no descent.
+
+        The second check is here and not only in the registry loader,
+        which is where it was first written. A loader-only refusal left
+        the VALUE OBJECT carrying ``inherits_base = True`` by default,
+        so a hand-built ``FsVersion(canonical="26.101", ...)`` inherited
+        the February commands and ``Script`` accepts an ``FsVersion`` in
+        its documented signature: the original defect was reachable
+        through the public surface while the attribute docstring said the
+        silent default had been removed. A class that documents a refusal
+        it does not perform is the shape this repository keeps finding.
+        """
         if not _CANONICAL_PATTERN.match(self.canonical):
             raise UnknownVersionError(
                 f"{self.canonical!r} does not follow the canonical MAJOR.XXX "
                 "scheme with exactly three fractional digits (example: 26.120).",
                 version=self.canonical,
             )
+        if self.inherits_base is None and not self.canonical.endswith("0"):
+            raise UnknownVersionError(
+                f"{self.canonical} is a hotfix index (its last digit is not zero) and "
+                "states no inherits_base. Whether a build carries its base release's "
+                "command evidence is a fact about the two vendor builds, not about the "
+                "identifier: 26.121 is a hotfix of 26.120 and inherits, while 26.101 is "
+                "an independent May 2026 release that took the index after 26.100 and "
+                "does not. Pass inherits_base=True or False, or obtain the version "
+                "through resolve() so the registry answers.",
+                version=self.canonical,
+            )
+        if self.inherits_base is None:
+            object.__setattr__(self, "inherits_base", True)
 
     def __str__(self) -> str:
         """Return the canonical identifier."""
@@ -363,13 +417,14 @@ def resolve(version: str | FsVersion) -> FsVersion:
     if len(matching) == 1:
         return matching[0]
     if matching:
-        builds = _and_join([f"{e.canonical} ({_build_note(e.canonical)})" for e in matching])
+        builds = _and_join([_candidate_note(e) for e in matching])
         raise AmbiguousVersionAliasError(
             f"FlightStream vendor name {version!r} identifies more than one registered "
-            f"build: {builds}. The vendor ships every hotfix of a minor release under "
-            "the same name, so this name cannot select one and returning either would "
-            "silently pick a solver you did not choose. Pass the canonical 26.XXX "
-            "identifier of the build you mean.",
+            f"build: {builds}. The vendor reuses a release name across builds, so this "
+            "name cannot select one and returning either would silently pick a solver "
+            "you did not choose. Your install prints its build number in the footer of "
+            "its own output. Pass the canonical 26.XXX identifier of the build you "
+            "mean.",
             alias=version,
             candidates=tuple(e.canonical for e in matching),
         )

@@ -5,9 +5,11 @@
 > renumbering did not touch. What moved is a build it MENTIONS: vendor build
 > 5012026 was called 26.100 when this was written and is called 26.101 since
 > the author added the earlier February 2026 build, which takes the earlier
-> index under the append-only ordering rule. Read any bare "26.100" below as
-> 26.101 where it names build 5012026. Nothing measured here changed, and the
-> report id keeps its original form because it is cited elsewhere.
+> index under the append-only ordering rule. That mention WAS relabelled in
+> the body below, so section 3 now reads 26.101 where it was written 26.100;
+> no bare 26.100 survives here. Nothing measured on this report's own builds
+> changed, and the report id keeps its original form because it is cited
+> elsewhere.
 
 Date: 2026-08-02. Licensed machine, FlightStream 26.120 (build #7012026) and
 26.121 (build #7262026). Synthetic geometry only: a generated NACA 0012

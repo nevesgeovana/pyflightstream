@@ -57,14 +57,26 @@ FlightStream versions.
   None, still leaves the list as the script found it. A caller who
   wanted the old emission was writing a malformed script.
 
-  Two empty sequences are REFUSED rather than acted on, and the message
-  says why in each case. `valarezo_separation_boundaries=[]` would emit
+  Three empty sequences are REFUSED rather than acted on, and the
+  message says why in each case. `valarezo_separation_boundaries=[]` would emit
   the one name in this family the solver does not recognise, so it
   names `Script.raw()` and the spelling that works. An empty sequence of
   assignment models (`airfoil_separation=[]` and its three siblings)
   emits nothing, which would be a third meaning for `[]` in one
   signature and the only silent one; it names `delete_separations`,
-  which is how the solver erases.
+  which is how the solver erases. And an assignment model whose own
+  `boundaries` is empty would emit the count 0 followed by an empty
+  index line, the malformed shape the viscous-exclusion refusal was
+  written for, reached through a different keyword.
+
+  A single assignment model may be passed where a sequence is expected,
+  since `bulk_separation` takes one and the habit crosses over; it used
+  to die on `object of type CylindricalBulkSeparation has no len()`.
+  `delete_separations` reads its `"all"` sentinel case-insensitively and
+  refuses any other string didactically, where `"ALL"` reached a `<`
+  comparison and raised a bare `TypeError`. `AxialVortexSeparation.frame`
+  accepts a declared coordinate-system LABEL as well as an index, like
+  every other frame citation in the library.
 
 * **New registry field `inherits_base`, and a build that stopped
   inheriting.** A hotfix build falls back to its base release's command
@@ -115,8 +127,10 @@ FlightStream versions.
   nothing unless `--write` is passed with `--out`**; without a
   destination it refuses rather than guessing where to put a draft.
 
-  A drafted entry writes `???` wherever the manual does not answer, which
-  is every argument TYPE and every phase whose section is unmapped. That
+  A drafted entry writes `???` wherever no rule reads a value: every
+  phase whose section is unmapped, and every argument type the parameter
+  table does not decide (see the entry below, which added that reading;
+  before it, every type was unanswered). That
   is deliberate and it is the safety property: the database schema
   refuses `???`, so an unreviewed draft turns the suite red instead of
   quietly becoming grammar the emitter validates other people's scripts

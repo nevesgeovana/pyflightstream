@@ -51,7 +51,7 @@ import warnings
 from collections.abc import Mapping, Sequence
 from typing import Literal
 
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from pyflightstream.commands import CommandRegistry
 from pyflightstream.script import CommandArgumentError, Script
@@ -186,15 +186,34 @@ def _separation_arguments(model: object) -> dict[str, object]:
     -------
     dict of str to object
         Keyword arguments for :meth:`~pyflightstream.script.Script.emit`.
+
+    Raises
+    ------
+    CommandArgumentError
+        If the assignment selects no boundary. The count-plus-index-line
+        grammar would then emit the count 0 and an empty index line,
+        asking the parser to read a line carrying nothing, which is the
+        malformed emission the empty ``viscous_excluded`` was refused
+        for. A separation model on no boundary is also not a thing the
+        solver can be asked for: the model IS the assignment.
     """
     fields = model.model_dump()  # type: ignore[attr-defined]
     boundaries = fields.pop("boundaries")
+    name = fields.get("name", "?")
     arguments: dict[str, object] = {}
-    for name, value in fields.items():
-        arguments[name] = _toggle(value) if isinstance(value, bool) else value
+    for field_name, value in fields.items():
+        arguments[field_name] = _toggle(value) if isinstance(value, bool) else value
     if boundaries == "all":
         arguments["num_boundaries"] = -1
     else:
+        if len(boundaries) == 0:
+            raise CommandArgumentError(
+                f"solver_settings: the separation assignment {name!r} selects no "
+                "boundary, which would emit the count 0 followed by an empty index "
+                "line. Give it the boundaries it applies to, or 'all' for every mesh "
+                "boundary (the -1 form of SRC-003 p.341); to create no assignment at "
+                "all, leave it out of the sequence."
+            )
         arguments["num_boundaries"] = len(boundaries)
         arguments["boundary_indices"] = list(boundaries)
     return arguments
@@ -754,10 +773,14 @@ def solver_settings(
         this mechanism.
     valarezo_separation_boundaries : sequence of int or str, or 'all', optional
         Boundaries on the Valarezo maximum-lift criterion list of
-        26.100 (SRC-741 p.339). The empty sequence emits the command
-        the manual documents for the erase, which RPT-018 measured
-        unrecognized by the solver; see that report before relying on
-        it. Superseded by the ``valarezo_criterion`` field of
+        26.100 (SRC-741 p.339). The empty sequence is REFUSED here,
+        alone among the boundary-list keywords: it would emit the erase
+        command SRC-741 documents, which RPT-018 measured as the one
+        name in this family the solver does not recognise. The refusal
+        names the spelling that works and the ``Script.raw()`` escape,
+        because that spelling appears in no manual edition and so has no
+        database entry to validate. Superseded from 26.101 by the
+        ``valarezo_criterion`` field of
         :class:`~pyflightstream.script.solver_setup.AirfoilSeparation`.
     crossflow_separation_boundaries : sequence of int or str, or 'all', optional
         Boundaries on the cross-flow separation list of 26.100
@@ -851,13 +874,28 @@ def solver_settings(
     axial_separation_boundaries = separation_selections["axial_separation_boundaries"]
     valarezo_separation_boundaries = separation_selections["valarezo_separation_boundaries"]
     crossflow_separation_boundaries = separation_selections["crossflow_separation_boundaries"]
-    if delete_separations is not None and delete_separations != "all" and delete_separations < 1:
-        raise CommandArgumentError(
-            "solver_settings: delete_separations takes the 1-based index of one "
-            f"separation model or the string 'all', got {delete_separations!r}; the "
-            "solver numbers the models in creation order, and the manual's -1 form for "
-            "every model is spelled 'all' here (SRC-003 p.342)"
-        )
+    if delete_separations is not None:
+        # Read the sentinel case-insensitively and check the TYPE before
+        # comparing. The first form tested `!= "all"` and then `< 1`, so
+        # "ALL" reached the comparison and raised a bare TypeError from
+        # a helper whose every other refusal is didactic; the same
+        # happened for any other string.
+        if isinstance(delete_separations, str):
+            if delete_separations.lower() != "all":
+                raise CommandArgumentError(
+                    "solver_settings: delete_separations takes the 1-based index of one "
+                    f"separation model or the string 'all', got {delete_separations!r}; "
+                    "the manual's -1 form for every model is spelled 'all' here "
+                    "(SRC-003 p.342)"
+                )
+            delete_separations = "all"
+        elif delete_separations < 1:
+            raise CommandArgumentError(
+                "solver_settings: delete_separations takes the 1-based index of one "
+                f"separation model or the string 'all', got {delete_separations!r}; the "
+                "solver numbers the models in creation order, and the manual's -1 form "
+                "for every model is spelled 'all' here (SRC-003 p.342)"
+            )
     given_models = {
         "airfoil_separation": airfoil_separation,
         "axial_vortex_separation": axial_vortex_separation,
@@ -871,6 +909,13 @@ def solver_settings(
             separation_models[argument] = []
             continue
         _reject_bare_label("solver_settings", argument, given, allows_all=False)
+        if isinstance(given, BaseModel | Mapping):
+            # One assignment, not a sequence of them. `bulk_separation`
+            # takes a single model, so a caller carrying that habit
+            # across wrote it here and met `object of type
+            # CylindricalBulkSeparation has no len()`, a raw TypeError
+            # out of the emptiness check below.
+            given = [given]
         if len(given) == 0:
             # The empty sequence is the erase for the boundary-list
             # keywords of this same call, so accepting it here as a
