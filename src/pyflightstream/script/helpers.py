@@ -852,7 +852,7 @@ def solver_settings(
     }
     for argument, value in separation_selections.items():
         _reject_bare_label("solver_settings", argument, value, allows_all=True)
-    if valarezo_separation_boundaries is not None and len(valarezo_separation_boundaries) == 0:
+    if valarezo_separation_boundaries == []:
         raise CommandArgumentError(
             "solver_settings: valarezo_separation_boundaries=[] would emit "
             "DELETE_VALAREZO_CRITERION_BOUNDARIES, the name SRC-741 p.339 documents for "
@@ -1012,9 +1012,12 @@ def solver_settings(
     # than inside the emission loop. The no-boundary refusal is raised by
     # the renderer, and raising it mid-emission left the caller's script
     # holding the mode line, the scalars, the toggles and DELETE_SEPARATION
-    # while the call failed: every other refusal in this helper fires on
-    # an untouched script, which is the property the module states about
-    # its toggle reading and did not keep here.
+    # while the call failed. Every ARGUMENT refusal in this helper fires
+    # on an untouched script, which is the property the module states
+    # about its toggle reading and did not keep here. The VERSION
+    # refusals still fire mid-emission, raised by `script.emit` when it
+    # reaches a command the build does not carry; moving those is a
+    # separate change, registered rather than claimed.
     rendered_models: dict[str, list[dict[str, object]]] = {
         argument: [_separation_arguments(model) for model in models]
         for argument, models in separation_models.items()

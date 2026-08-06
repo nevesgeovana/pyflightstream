@@ -30,11 +30,15 @@ FlightStream versions.
   `CylindricalBulkSeparation`, `StratfordBulkSeparation`, exported from
   `pyflightstream.script.solver_setup` beside the existing
   `BulkSeparation`. Eleven new `solver_settings()` keywords carry them
-  and the 26.100 lists. Every one is version-gated: a 26.100 keyword on
-  a 26.101, 26.120 or 26.121 script refuses naming the command, and the
-  reverse too. The database records the two generations on disjoint
-  builds; RPT-018 measured that disjointness on 26.100, 26.101 and
-  26.121, and 26.120 sits between two measured builds by inference.
+  and the 26.100 lists. Every keyword whose command belongs to ONE
+  generation is version-gated: a 26.100 keyword on a 26.101, 26.120 or
+  26.121 script refuses naming the command, and the reverse too.
+  `laminar_separation` is the exception and is not a gap, its command
+  being documented in all four editions. The database records the two
+  generations on disjoint builds; RPT-018 measured part of that
+  disjointness, five of the eight February commands on 26.101 and three
+  on 26.121, and none of them on 26.120, which sits between two measured
+  builds by inference.
 
   **A probe decided the names rather than a reading, and it had to.**
   The February manual documents the Valarezo pair under two spellings,
@@ -181,11 +185,12 @@ FlightStream versions.
   the table. Every argument used to draft as `???`, because the
   signature line and the sample block say nothing about a type.
 
-  The rules are public DATA rather than control flow: `TYPE_RULES`,
-  exported from `pyflightstream.utils`, with its element type
-  `TypeRule`. The ORDER of that table is the specification, each row
-  saying in its own docstring why it sits where it does, and the tests
-  pin every adjacent pair. Three review rounds each found one rule in
+  The rules are public DATA rather than control flow: `TYPE_RULES` and
+  its element type `TypeRule`, both exported from
+  `pyflightstream.utils`. The ORDER of that table is the specification,
+  each row carrying a docstring and the four whose position has been
+  wrong once saying why they sit where they do, and the tests pin every
+  adjacent pair. Three review rounds each found one rule in
   the wrong place while the order lived in a chain of ifs, and each fix
   was invisible on a revert.
 
