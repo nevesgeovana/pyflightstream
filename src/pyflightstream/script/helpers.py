@@ -1358,7 +1358,22 @@ def sweep(
     start: Toggle = True,
     export_spreadsheet: str | None = None,
 ) -> None:
-    """Configure and run a Sweeper Toolbox sweep (SRC-003 p.406).
+    """Configure and run a Sweeper Toolbox sweep (SRC-003 pp.358-360).
+
+    Covers the CUSTOM mode only, which is a SUBSET of what the four
+    sweep commands document, and the shape of the subset is an accident
+    of how this chapter was first read rather than a design: the
+    database and this helper were both written from the worked example
+    at SRC-003 p.406, which sweeps three axes in one mode. The
+    reference pages give every axis the same grammar, so what is
+    missing here is the UNIFORM mode on all axes, the file form on the
+    two angle axes, the inline list form on velocity, and the Mach axis
+    entirely (PLN-20260806-1100).
+
+    The database no longer has that gap, so the low-level path already
+    reaches the whole grammar today::
+
+        script.emit("SWEEPER_SET_AOA_SWEEP", "UNIFORM", [-10.0, 20.0, 1.0])
 
     Parameters
     ----------
@@ -1390,7 +1405,7 @@ def sweep(
     if aoa is None and beta is None and velocity_file is None:
         raise CommandArgumentError(
             "sweep needs at least one axis (aoa, beta, or velocity_file); a sweep "
-            "without values has nothing to run (SRC-003 p.406)"
+            "without values has nothing to run (SRC-003 pp.358-359)"
         )
     clear_solution = _optional_toggle("sweep", "clear_solution", clear_solution)
     ref_velocity_same = _optional_toggle("sweep", "ref_velocity_same", ref_velocity_same)

@@ -12,10 +12,37 @@ CREATE_NEW_MOTION:
       values: [ROTARY, 6DOF, CUSTOM]
   manual_ref: "SRC-003 p.332"
   versions:
+    "26.100":
+      status: documented
+      note: >-
+        SRC-741 p.328 documents the same one-argument signature with a
+        different first token: the February 2026 edition calls that
+        motion type EUCLIDEAN, and its parameter table and its sample
+        agree with each other on it.
+      args:
+        - name: type
+          type: enum
+          values: [EUCLIDEAN, 6DOF, CUSTOM]
+    "26.101": {status: documented, note: "SRC-725 p.331, the first edition naming the type ROTARY"}
     "26.120": {status: documented}
   notes: >
     Rotary motion is the blade-resolved alternative to the actuator
     disc surrogate (SRC-003 p.234); it requires the unsteady solver.
+
+    The February 2026 build calls this motion type EUCLIDEAN and every
+    later edition calls it ROTARY, which is why 26.100 overrides the
+    grammar above rather than sharing it. The rename is not a relabel of
+    one capability: 26.100's Euclidean motion is a general rigid-body
+    kinematic motion set by velocity, angular velocity and their
+    accelerations (SRC-741 pp.228, 329), and the later Rotary motion is
+    rotation alone, set by axis and RPM (SRC-725 p.234). Four commands
+    that configure the February form
+    (SET_MOTION_VELOCITY, SET_MOTION_ACCELERATION,
+    SET_MOTION_ANGULAR_VELOCITY, SET_MOTION_ANGULAR_ACCELERATION) exist
+    in no later edition, and SET_MOTION_ROTOR_AXIS and
+    SET_MOTION_ROTOR_RPM exist in no earlier one. Emitting the later
+    vocabulary onto a February script would name a type that build has
+    never heard of.
 
 SET_MOTION_BOUNDARIES:
   layout: payload_lines

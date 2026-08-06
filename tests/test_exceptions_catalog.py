@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import importlib
 import inspect
+import re
 import warnings
 from pathlib import Path
 
@@ -397,9 +398,9 @@ def _exported_bare_raises() -> list[str]:
 #: cross-module caller, is on no list and does not fail today
 #: (PLN-20260804-1130).
 #:
-#: The set holds 24 entries in two tranches. The FIRST THREE raise
+#: The set holds 25 entries in two tranches. The FIRST THREE raise
 #: ``TypeError`` for an argument of a type the function does not accept;
-#: the other 21 are the reachability tranche and are almost all
+#: the other 22 are the reachability tranche and are almost all
 #: ``ValueError``. Re-basing the TypeError three onto a catalogued class
 #: is not the
 #: one-line change the ValueError sites were: ``except TypeError`` is
@@ -422,10 +423,17 @@ _RATCHET = {
     # RAISES. The author's decision: measure now, fix at v0.5, so the
     # number is the debt and it is countable (PLN-20260804-0130).
     "pyflightstream.cases.cli._parse_recipes -> ValueError (cli.py:33)",
-    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:252)",
-    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:254)",
-    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:256)",
-    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:265)",
+    # Five sites, four of them the original tranche moved down by the
+    # citation helper and the property inserted above them on 2026-08-06,
+    # and one new: the inline-separator refusal at 297. The new one is
+    # the same shape as its four neighbours, a ValueError raised on the
+    # pydantic validation path where ValueError IS the protocol, so it
+    # joins the same tranche rather than opening a second argument.
+    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:285)",
+    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:287)",
+    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:289)",
+    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:297)",
+    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:311)",
     "pyflightstream.farfield._delta_psi -> ValueError (__init__.py:152)",
     "pyflightstream.fsi.driver._verified_layout -> ValueError (driver.py:338)",
     "pyflightstream.fsi.loads._validate_block_boundaries -> ValueError (loads.py:397)",
@@ -584,4 +592,34 @@ def test_no_keyerror_based_class_renders_its_message_in_quotes() -> None:
         + "\n  ".join(sorted(offenders))
         + "\n\nKeyError.__str__ is repr of its argument, so these print their message "
         "in quotes with newlines escaped. Override __str__ as OptionError does."
+    )
+
+
+def test_the_ratchet_comment_counts_the_ratchet():
+    """The debt count is stated in prose above a set that can change.
+
+    Both numbers in that comment were hand-written and nothing read
+    them, so adding the inline-separator refusal on 2026-08-06 left
+    "24 entries" sitting above 25. The count is the one thing a reader
+    checks the comment for, since the whole point of the ratchet is that
+    the number goes down; a stale one reads as progress.
+
+    The set is the single home and the comment is checked against it,
+    rather than the two being maintained side by side.
+    """
+    source = Path(__file__).read_text(encoding="utf-8")
+    header = source.split("_RATCHET = {")[0]
+    total = re.search(r"The set holds (\d+) entries", header)
+    reachability = re.search(r"the other (\d+) are the reachability tranche", header)
+    assert total and reachability, (
+        "the ratchet comment no longer states its counts in the shape this test "
+        "reads; state them or delete this guard, but do not leave it matching nothing"
+    )
+    type_errors = sum(1 for entry in _RATCHET if "-> TypeError" in entry)
+    assert int(total.group(1)) == len(_RATCHET), (
+        f"the comment says {total.group(1)} entries and the set holds {len(_RATCHET)}"
+    )
+    assert int(reachability.group(1)) == len(_RATCHET) - type_errors, (
+        f"the comment says {reachability.group(1)} in the reachability tranche and the "
+        f"set holds {len(_RATCHET) - type_errors} entries that are not TypeError"
     )

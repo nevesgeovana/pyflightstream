@@ -241,6 +241,39 @@ class ArgSpec(BaseModel):
         return self
 
 
+#: A source-and-page citation as this database writes one, for pulling
+#: the edition's own page out of a per-version note.
+_NOTE_CITATION = re.compile(r"SRC-\d{3}\s+pp?\.\s*\d+(?:\s*-\s*\d+)?")
+
+
+def _override_citation(entry: CommandEntry, source: str, note: str | None) -> str:
+    """Citation for a version whose grammar overrides the entry's.
+
+    Prefers the page the version's own note cites, since that is the
+    edition documenting the overridden signature. Falls back to the
+    entry citation, still marked with the version, because naming the
+    build is useful even when the note gave no page.
+
+    Parameters
+    ----------
+    entry : CommandEntry
+        Entry carrying the default grammar.
+    source : str
+        Canonical identifier of the version whose record supplies the
+        override, for example ``"26.100"``.
+    note : str or None
+        That record's note, which usually opens with its own citation.
+
+    Returns
+    -------
+    str
+        Citation text for a refusal message.
+    """
+    found = _NOTE_CITATION.search(note or "")
+    cited = found.group(0) if found else entry.citation
+    return f"{cited}, the {source} grammar"
+
+
 def _check_layout_rules(name: str, layout: Layout, args: tuple[ArgSpec, ...]) -> None:
     """Reject an argument tuple that contradicts its command's layout.
 
@@ -258,6 +291,19 @@ def _check_layout_rules(name: str, layout: Layout, args: tuple[ArgSpec, ...]) ->
             "keyword_block (SRC-003 p.307); other layouts spell their toggles "
             "as ENABLE/DISABLE enums"
         )
+    if layout is Layout.INLINE:
+        for arg in args:
+            if arg.is_list and arg.separator is not ListSeparator.SPACE:
+                raise ValueError(
+                    f"{name}: the inline list {arg.name!r} declares separator "
+                    f"{arg.separator.value!r}, and the inline renderer joins a list "
+                    "with a space and cannot do otherwise. Declare 'space', which is "
+                    "the grammar every inline list sample in the manual shows. The "
+                    "declaration is refused rather than ignored because the two "
+                    "SWEEPER sweep commands sat for a release declaring 'comma' and "
+                    "rendering spaces, which was right by accident and unreadable as "
+                    "a statement of the grammar"
+                )
     for position, arg in enumerate(args):
         if not arg.joins_previous:
             continue
@@ -527,6 +573,17 @@ class CommandEntry(BaseModel):
             )
         return value
 
+    @property
+    def citation(self) -> str:
+        """The entry's evidence citation, whichever kind it carries.
+
+        Exactly one of ``manual_ref`` and ``probe_ref`` is set, and a
+        message that reaches for the wrong one prints an empty pair of
+        brackets. Callers writing a refusal a person reads want this
+        rather than either field.
+        """
+        return self.manual_ref or self.probe_ref
+
     @model_validator(mode="after")
     def _versions_are_registered_and_present(self) -> CommandEntry:
         if not self.versions:
@@ -738,8 +795,20 @@ class VersionView:
             )
         if record.args is not None:
             # Per-version grammar override: the returned entry carries the
-            # argument signature this version's manual documents.
-            return entry.model_copy(update={"args": record.args})
+            # argument signature this version's manual documents, AND the
+            # citation of the edition that documents it. Without the second
+            # half every refusal about the overridden grammar cited the
+            # entry-level page, so emitting CREATE_NEW_MOTION ROTARY on
+            # 26.100 was refused with a list of tokens taken from the
+            # February manual beside a page number from the current one.
+            # An error message that names the wrong page is worse than one
+            # that names none: the reader goes and reads it.
+            return entry.model_copy(
+                update={
+                    "args": record.args,
+                    "manual_ref": _override_citation(entry, evidence.source, record.note),
+                }
+            )
         return entry
 
     def __contains__(self, name: str) -> bool:

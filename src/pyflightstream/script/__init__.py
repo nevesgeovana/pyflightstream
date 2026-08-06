@@ -345,8 +345,7 @@ def _reject_line_break(entry: CommandEntry, spec: ArgSpec, value: str) -> None:
 
 def _type_error(entry: CommandEntry, spec: ArgSpec, expected: str, value: object) -> None:
     raise CommandArgumentError(
-        f"{entry.name}: argument {spec.name!r} expects {expected}, got {value!r} "
-        f"({entry.manual_ref})"
+        f"{entry.name}: argument {spec.name!r} expects {expected}, got {value!r} ({entry.citation})"
     )
 
 

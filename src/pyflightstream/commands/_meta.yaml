@@ -70,27 +70,41 @@ versions:
     # wherever it is used.
     inherits_base: true
 
+# Every range below was MEASURED on 2026-08-06 rather than transcribed:
+# the first and last page carrying a "Function name:" heading, and the
+# contiguous run of pages the Script Index parser reads command lines
+# from. Two of the four were wrong before that, both by exactly five
+# pages at each end, and the database had been disagreeing with them in
+# writing the whole time: 22 of its own SRC-003 citations fell outside
+# the range this file declared for SRC-003. tests/test_command_db.py now
+# fails on that, so the next drift is caught without reading a pdf.
 manual_editions:
   "26.100": >
     SRC-741: Altair FlightStream User Guide, 26.1 February 2026 edition
     (local, _private/exe/FlightStream_26100/), 396 pages, scripting
-    reference pp.275-369 with its Script Index at pp.370-379; cited in version
+    reference pp.275-369 with its Script Index at pp.370-376; cited in version
     notes as "SRC-741 p.N". NOT interchangeable with SRC-725 below: they
     are different editions of the same vendor release name, and no page
     citation carries between them.
   "26.101": >
     SRC-725: Altair FlightStream User Manual, 26.1 May 2026 edition
     (local, _private/exe/FlightStream_26101/), 409 pages, scripting
-    reference pp.280-375 with its Script Index at pp.376-385; cited in version
+    reference pp.280-375 with its Script Index at pp.376-382; cited in version
     notes as "SRC-725 p.N". This is the edition every SRC-725 citation
     in this database was read from; those citations were made while the
     install was named 26.100 and are unchanged, because the document did
     not change, only the version identifier pointing at it.
-  "26.120": "SRC-003: FlightStream User Manual v2612, scripting reference pp. 286-371"
+  "26.120": >
+    SRC-003: Altair FlightStream User Manual v2612 (local,
+    _private/manual/), 410 pages, scripting reference pp.281-376 with its
+    Script Index at pp.377-383; cited in version notes as "SRC-003 p.N".
+    This is the flagship edition and the one an unqualified page citation
+    in this database means.
   "26.121": >
     SRC-740: Altair FlightStream User Manual, 26.12 hotfix build 1
     edition (local, _private/exe/FlightStream_26121/), 413 pages against
-    410 for SRC-003, scripting reference pp. 289-374. Every page
+    410 for SRC-003, scripting reference pp.284-379 with its Script Index
+    at pp.380-386. Every page
     citation of SRC-003 shifts by +3 in this edition, so an SRC-003
     page number does NOT address the same page here; that is why the
     two are separate sources rather than one re-issue. The vendor

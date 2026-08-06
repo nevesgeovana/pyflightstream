@@ -809,3 +809,183 @@ def test_a_report_stem_and_the_version_it_records_agree_or_say_why():
         f"the walk read {checked} physics reports, fewer than the six that carried a "
         "version when this floor was set; a glob that stops matching guards nothing"
     )
+
+
+# --- citations against the registered page range ----------------------------
+
+
+def _registered_edition_ranges() -> dict[str, tuple[int, int, str]]:
+    """Scripting-reference page range per manual source, from _meta.yaml."""
+    from pyflightstream.versions import manual_editions
+
+    source_pattern = re.compile(r"SRC-\d{3}")
+    range_pattern = re.compile(r"pp\.?\s*(\d+)\s*-\s*(\d+)")
+    ranges: dict[str, tuple[int, int, str]] = {}
+    for canonical, edition in manual_editions().items():
+        source = source_pattern.search(edition)
+        span = range_pattern.search(edition)
+        if source and span:
+            ranges[source.group(0)] = (int(span.group(1)), int(span.group(2)), canonical)
+    return ranges
+
+
+def test_every_evidence_citation_falls_inside_its_edition_page_range():
+    """Two committed facts that must agree, checkable without the manual.
+
+    The page range lives in ``commands/_meta.yaml`` and the citations
+    live in the entries, so a wrong range shows up here as a citation
+    outside it and no pdf is needed to see it. That is the whole reason
+    this guard is possible: the manual is licensed and absent from CI,
+    but the database's disagreement with its own metadata is not.
+
+    It was wrong. On 2026-08-06 the registered SRC-003 range was
+    pp.286-371 against a measured pp.281-376, and SRC-740 was short by
+    the same five pages at each end. Twenty-two SRC-003 citations sat
+    outside it, and the published manual-coverage page reported them as
+    material beyond the reference chapter while listing ten real
+    reference pages as uncited.
+
+    Scope is deliberate. ``manual_ref`` and the per-version ``note`` are
+    EVIDENCE citations and must point into the scripting reference. The
+    free-text ``notes`` are excluded, because a note legitimately cites
+    a toolbox narrative, a GUI chapter or a worked example to explain
+    what the reference page leaves unsaid, and the coverage page already
+    reports those separately.
+    """
+    registry = CommandRegistry.load()
+    ranges = _registered_edition_ranges()
+    assert sorted(ranges) == ["SRC-003", "SRC-725", "SRC-740", "SRC-741"], (
+        f"the guard read ranges for {sorted(ranges)}; an edition whose range it "
+        "cannot parse is an edition it silently stops checking"
+    )
+    citation = re.compile(r"(SRC-\d{3})\s+pp?\.\s*(\d+)(?:\s*-\s*(\d+))?")
+    offenders = []
+    checked = 0
+    for name, entry in sorted(registry.commands.items()):
+        evidence = [("manual_ref", entry.manual_ref or "")]
+        evidence += [
+            (f"{canonical} note", record.note or "") for canonical, record in entry.versions.items()
+        ]
+        for field, text in evidence:
+            for source, first, last in citation.findall(text):
+                if source not in ranges:
+                    continue
+                low, high, canonical = ranges[source]
+                for page in {int(first), int(last or first)}:
+                    checked += 1
+                    if not low <= page <= high:
+                        offenders.append(
+                            f"{name} ({field}) cites {source} p.{page}, outside the "
+                            f"pp.{low}-{high} registered for {canonical}"
+                        )
+    assert not offenders, (
+        "these evidence citations fall outside the scripting-reference range their "
+        "edition registers in commands/_meta.yaml. Either the citation is wrong or "
+        "the range is: " + "; ".join(offenders)
+    )
+    expected = sum(1 for entry in registry.commands.values() if entry.manual_ref)
+    assert checked >= expected, (
+        f"the walk checked {checked} citations against {expected} entries carrying a "
+        "manual_ref, so at least one manual_ref went unparsed. The floor is computed "
+        "from the registry rather than frozen on purpose: a number written down here "
+        "would be met by a growing database while the walk quietly stopped matching"
+    )
+
+
+def test_an_inline_list_may_not_declare_a_separator_the_renderer_ignores():
+    """The declaration must be honoured or refused, never quietly dropped.
+
+    ``_render_command`` joins an inline list with a space and never
+    consults ``spec.separator``; ``_list_lines``, which does consult it,
+    serves the other layouts. So an inline list declaring ``comma``
+    rendered spaces and said nothing, which is how both SWEEPER sweep
+    commands shipped a grammar statement that was right only by
+    accident.
+    """
+    with pytest.raises(ValidationError, match="cannot do otherwise"):
+        CommandEntry(
+            name="X_CMD",
+            layout="inline",
+            phase="geometry",
+            args=[ArgSpec(name="values", type="float_list", separator="comma")],
+            manual_ref="SRC-003 p.300",
+            versions={"26.120": {"status": "documented"}},
+        )
+    accepted = CommandEntry(
+        name="X_CMD",
+        layout="inline",
+        phase="geometry",
+        args=[ArgSpec(name="values", type="float_list", separator="space")],
+        manual_ref="SRC-003 p.300",
+        versions={"26.120": {"status": "documented"}},
+    )
+    assert accepted.args[0].separator == "space"
+
+
+def test_a_non_inline_list_still_takes_the_separator_it_declares():
+    """The refusal is about the inline renderer, not about commas.
+
+    Without this the test above passes just as well under a rule that
+    banned every comma-separated list, which would be wrong: the
+    manual's own boundary selections are comma separated on their own
+    data line, and that layout honours the declaration.
+    """
+    entry = CommandEntry(
+        name="X_CMD",
+        layout="param_lines",
+        phase="geometry",
+        args=[ArgSpec(name="indices", type="int_list", separator="comma")],
+        manual_ref="SRC-003 p.300",
+        versions={"26.120": {"status": "documented"}},
+    )
+    assert entry.args[0].separator == "comma"
+
+
+def test_a_version_grammar_override_carries_that_version_citation():
+    """An overridden grammar must not be refused against another edition's page.
+
+    CREATE_NEW_MOTION is the case: 26.100 names the first motion type
+    EUCLIDEAN and every later edition names it ROTARY, so emitting
+    ROTARY on 26.100 is refused with the February token list. The
+    citation used to come from the entry, which points at the CURRENT
+    manual, so the message listed February's tokens beside a page that
+    prints May's. A reader who follows a wrong page number is worse off
+    than one given none.
+    """
+    registry = CommandRegistry.load()
+    february = registry.for_version("26.100")["CREATE_NEW_MOTION"]
+    current = registry.for_version("26.120")["CREATE_NEW_MOTION"]
+
+    assert february.args[0].values == ("EUCLIDEAN", "6DOF", "CUSTOM")
+    assert current.args[0].values == ("ROTARY", "6DOF", "CUSTOM")
+    assert february.citation == "SRC-741 p.328, the 26.100 grammar"
+    assert current.citation == "SRC-003 p.332", (
+        "a version with no override must keep the entry citation untouched"
+    )
+
+
+def test_the_entry_citation_reaches_for_whichever_kind_the_entry_carries():
+    """manual_ref or probe_ref, never an empty pair of brackets.
+
+    Refusal messages interpolate the citation, and an entry resting on a
+    probe report has no manual_ref at all, so a message built from that
+    field alone printed "()".
+    """
+    documented = CommandEntry(
+        name="X_CMD",
+        layout="bare",
+        phase="geometry",
+        args=[],
+        manual_ref="SRC-003 p.300",
+        versions={"26.120": {"status": "documented"}},
+    )
+    assert documented.citation == "SRC-003 p.300"
+    probed = CommandEntry(
+        name="X_CMD",
+        layout="bare",
+        phase="geometry",
+        args=[],
+        probe_ref="reports/RPT-018_separation-family-across-builds_2026-08-05.md",
+        versions={"26.120": {"status": "documented"}},
+    )
+    assert probed.citation.startswith("reports/RPT-018")

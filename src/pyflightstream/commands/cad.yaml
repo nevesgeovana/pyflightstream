@@ -56,7 +56,7 @@ CAD_BODY_ROTATE:
       type: int
     - name: axis
       type: enum
-      values: [X, Y, Z]
+      values: [X, Y, Z, "1", "2", "3"]
     - name: angle
       type: float
       unit: "deg"
@@ -72,6 +72,21 @@ CAD_BODY_ROTATE:
     is worth carrying because the solver's own motion definitions take
     degrees too while the far-field and probe layers of this package
     work in radians.
+
+    AXIS takes the axis INDEX as well as the letter, and this entry
+    carried the letters alone until 2026-08-06. The parameter table
+    names only X, Y or Z, in every edition, and the sample printed
+    beneath that same table passes 2, also in every edition, so the
+    stated value set refused the manual's own call. Two tables in this
+    chapter state the dual form outright (SET_MOTION_ROTOR_AXIS at
+    SRC-003 p.333, ROTATE_COORDINATE_SYSTEM at p.330), which makes the
+    index the product's convention and this table incomplete rather
+    than the sample a typo. Which letter each index denotes is written
+    nowhere: 1, 2, 3 in frame order is the only sensible reading and it
+    is unverified, so a script that means the Y axis is clearer written
+    Y. The index must be passed as the string "2"; the emitter matches
+    enum values as text and a bare integer raises
+    (PLN-20260806-1130).
 
 CAD_BODY_SCALE:
   layout: inline

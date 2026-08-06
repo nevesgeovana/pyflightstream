@@ -67,8 +67,27 @@ NEW_CCS_WING_CONTROL_SURFACE:
     V1 are the spanwise limits, U0 and U1 the chordwise depths from
     the trailing edge, all parametric in 0 to 1; HINGE_HEIGHT is the
     parametric hinge location through the airfoil thickness, ANGLE the
-    deflection, and SLOT_GAP a percentage of span. The optional SPACE
-    and AXIS pair exists only from 26.12: SPACE selects REAL or
-    PARAMETRIC interpretation of the spanwise coordinates, and AXIS
-    names the Reference-frame axis used when SPACE is REAL (SRC-003
-    p.299). The 26.1 grammar has neither parameter (SRC-725 p.298).
+    deflection, and SLOT_GAP a percentage of span. The SPACE and AXIS
+    pair exists only from 26.12: SPACE selects REAL or PARAMETRIC
+    interpretation of the spanwise coordinates, and AXIS names the
+    Reference-frame axis used when SPACE is REAL (SRC-003 p.299). The
+    26.1 grammar has neither parameter (SRC-725 p.298).
+
+    Calling that pair OPTIONAL is this repository's READING and not the
+    manual's statement, and the word was corrected on 2026-08-06 from
+    one that implied otherwise. SRC-003 p.299 and SRC-740 p.302 both
+    declare ten placeholders and ten parameter rows, and both still
+    print an EIGHT token sample, so either the pair is omissible or the
+    sample was left unrevised when the pair was added. The permissive
+    reading is taken because it accepts both printed forms, where
+    treating them as mandatory would make the emitter refuse the
+    manual's own example. If a probe shows the eight-token form
+    refused, both become required for the 26.12 grammar
+    (PLN-20260806-1140).
+
+    A second thing the manual states and nothing enforces: AXIS applies
+    only when SPACE is REAL. The database accepts PARAMETRIC with an
+    axis, which is meaningless, and a bare REAL, which is
+    underspecified. That rule belongs in a curated helper, as the
+    free_stream helper carries the equivalent rule for SET_FREESTREAM,
+    and this command has no helper at all (PLN-20260806-1150).

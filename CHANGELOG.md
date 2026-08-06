@@ -9,6 +9,84 @@ FlightStream versions.
 
 ### API surface delta
 
+* **The Sweeper Toolbox chapter was drafted from a worked example and
+  has been redrafted from the reference pages, which changes what the
+  emitter accepts.** The example at SRC-003 p.406 exercises two of the
+  three sweep modes and three of the four sweep axes, so every gap
+  followed from it: `UNIFORM` was missing from all three enumerations,
+  `SWEEPER_SET_MACH_SWEEP` was missing entirely, and the velocity axis
+  could take a file where the angle axes could take a list, an asymmetry
+  the manual does not have. The reference pages give all four axes one
+  parameter table, word for word.
+
+  New command: `SWEEPER_SET_MACH_SWEEP`. New accepted mode on all four:
+  `UNIFORM`, which takes start, stop and INCREMENT (the parameter table
+  labels the triple STEPS, and the Mach sample passes 0.05 there, which
+  no count can be). Every axis now takes the value list inline or a file
+  path, whichever the caller has.
+
+  Consequence for the caller: `script.emit("SWEEPER_SET_AOA_SWEEP",
+  "UNIFORM", [-10.0, 20.0, 1.0])` used to be refused as an unknown mode
+  and now emits. Nothing that emitted before emits differently. The
+  curated `sweep()` helper still covers the CUSTOM subset and says so
+  in its docstring, with the extension registered.
+
+* **Eight commands became available on 26.101, and two on 26.121, that
+  the database was silent about.** The whole Sweeper family gains a
+  26.101 row, `AEROELASTIC_RBF_TYPE` gains 26.101 and 26.121, and
+  `CREATE_NEW_MOTION` gains 26.100 and 26.101. Emitting any of them for
+  those builds raised `CommandNotInVersionError` before; the manual
+  documents them and now the database does.
+
+* **`CREATE_NEW_MOTION` carries a per-version vocabulary.** The February
+  2026 build names the first motion type `EUCLIDEAN` and every later
+  edition names it `ROTARY`, and the two are not one capability
+  relabelled: four commands that configure the February form exist in no
+  later edition and two that configure the later one exist in no earlier
+  edition. Emitting `ROTARY` on 26.100 is now refused with the February
+  token list.
+
+* **A refusal about a per-version grammar cites that version's page.**
+  It used to cite the entry-level one, so the refusal above would have
+  listed February's tokens beside a page number from the current manual.
+  An error message naming the wrong page is worse than one naming none,
+  because the reader goes and reads it.
+
+* **`CAD_BODY_ROTATE` accepts the axis index as well as the letter.**
+  Its parameter table names only X, Y or Z, in every edition, and the
+  sample printed beneath that same table passes `2`, also in every
+  edition, so the declared set refused the manual's own call. Pass the
+  index as the string `"2"`.
+
+* **New public function `pyflightstream.utils.sample_contradiction`**,
+  and `render_entry` now writes `???` for a type the manual's own sample
+  refuses instead of writing the type. Drafts of commands whose
+  parameter table and sample disagree no longer load.
+
+* **New public property `CommandEntry.citation`**, the entry's evidence
+  citation whichever kind it carries. A message built from `manual_ref`
+  alone printed an empty pair of brackets for an entry resting on a
+  probe report.
+
+* **An inline list argument may no longer declare a separator other than
+  `space`.** The inline renderer joins with a space and never consulted
+  the field, so the two SWEEPER sweep commands spent a release declaring
+  `comma` and rendering spaces: right by accident, and unreadable as a
+  statement of the grammar. The database now refuses the declaration at
+  load time rather than ignoring it. Other layouts honour the field and
+  are unchanged.
+
+* **Corrected: the registered scripting-reference page range of two
+  manual editions.** SRC-003 was recorded as pp.286-371 against a
+  measured pp.281-376, and SRC-740 was short by the same five pages at
+  each end. The published manual-coverage page listed ten real reference
+  pages as uncited and described 22 in-chapter citations as material
+  beyond the reference chapter. A tier-1 guard now fails when an
+  evidence citation falls outside its edition's registered range, which
+  needs no pdf: both facts are committed.
+
+* Deprecations: none.
+
 * **New database field `probe_ref`, and the first command recorded on
   one.** Until now every entry needed a manual page, which refused a fact
   this repository holds evidence for: RPT-018 measured

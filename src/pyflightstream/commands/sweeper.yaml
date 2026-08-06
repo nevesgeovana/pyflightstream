@@ -1,8 +1,22 @@
-# Chapter: Sweeper Toolbox script commands, drafted from the worked
-# scripting example (SRC-003 p.406) and the Script Index (p.383). The
-# Sweeper chapter narrative (pp.264-279) is not deep-reviewed yet;
-# these entries record the forms shown in the example, and the
-# follow-up manual pass may widen the argument grammars.
+# Chapter: Sweeper Toolbox script commands (SRC-003 pp.358-360).
+#
+# REDRAFTED on 2026-08-06 from the reference pages. The chapter was
+# first written from the worked scripting example at SRC-003 p.406,
+# which exercises two of the three sweep modes and four of the five
+# sweep axes, and every gap below followed from that: UNIFORM was
+# missing from all three enumerations, SWEEPER_SET_MACH_SWEEP was
+# missing entirely, and the velocity command could take a file where
+# the angle commands could take a list, an asymmetry the manual does
+# not have. The file's own header predicted the widening; the citation
+# range guard in tests/test_command_db.py is what will now say so
+# before a reader has to.
+#
+# The four sweep commands share one parameter table, word for word, in
+# every edition that has them. NONE of them exists in 26.100, whose
+# Sweeper Toolbox is a single keyword-block EXECUTE_SOLVER_SWEEPER with
+# per-axis ENABLE/DISABLE toggles and START/STOP/DELTA triples
+# (SRC-741 p.354): a different API rather than a different signature,
+# sharing no command name, which is why no 26.100 row appears here.
 
 SWEEPER_SET_AOA_SWEEP:
   layout: inline
@@ -10,17 +24,33 @@ SWEEPER_SET_AOA_SWEEP:
   args:
     - name: mode
       type: enum
-      values: [CUSTOM, DISABLE]
+      values: [UNIFORM, CUSTOM, DISABLE]
     - name: values
       type: float_list
       unit: "deg"
       required: false
-  manual_ref: "SRC-003 p.406"
+      separator: space
+    - name: filename
+      type: path
+      required: false
+  manual_ref: "SRC-003 p.358"
   versions:
+    "26.101": {status: documented, note: "SRC-725 p.357, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-02_full.yaml"}
   notes: >
-    CUSTOM takes the angle of attack list inline, space separated.
+    Angle of attack axis of the sweeper. Three modes with three
+    different tails: UNIFORM takes exactly three numbers, CUSTOM takes
+    either the value list inline or the path of a file holding it, and
+    DISABLE takes nothing. Both tails are declared optional because the
+    schema has no way to say which one a mode requires; that rule lives
+    in the sweep helper. THE THIRD UNIFORM NUMBER IS AN INCREMENT, not
+    a count of points, although the parameter table labels the triple
+    START/STOP/STEPS: the sibling Mach command's own sample passes 0.05
+    there (SRC-003 p.359), which no count can be, the toolbox narrative
+    calls it the increment (SRC-003 p.266), and the 26.100 predecessor
+    API named the same field DELTA (SRC-741 p.354). Whether the stop
+    value is inclusive is not stated anywhere and is not assumed here.
 
 SWEEPER_SET_BETA_SWEEP:
   layout: inline
@@ -28,15 +58,24 @@ SWEEPER_SET_BETA_SWEEP:
   args:
     - name: mode
       type: enum
-      values: [CUSTOM, DISABLE]
+      values: [UNIFORM, CUSTOM, DISABLE]
     - name: values
       type: float_list
       unit: "deg"
       required: false
-  manual_ref: "SRC-003 p.406"
+      separator: space
+    - name: filename
+      type: path
+      required: false
+  manual_ref: "SRC-003 p.358"
   versions:
+    "26.101": {status: documented, note: "SRC-725 p.357, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-02_full.yaml"}
+  notes: >
+    Side-slip axis of the sweeper, with the grammar of
+    SWEEPER_SET_AOA_SWEEP above and the same reading of its third
+    UNIFORM number.
 
 SWEEPER_SET_VELOCITY_SWEEP:
   layout: inline
@@ -44,15 +83,57 @@ SWEEPER_SET_VELOCITY_SWEEP:
   args:
     - name: mode
       type: enum
-      values: [CUSTOM, DISABLE]
+      values: [UNIFORM, CUSTOM, DISABLE]
+    - name: values
+      type: float_list
+      unit: "m/s"
+      required: false
+      separator: space
     - name: filename
       type: path
       required: false
-  manual_ref: "SRC-003 p.406"
+  manual_ref: "SRC-003 p.358"
   versions:
+    "26.101": {status: documented, note: "SRC-725 p.357, same grammar as 26.120"}
     "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.361, same grammar as 26.120"}
   notes: >
-    CUSTOM imports the velocity list from a text file given inline.
+    Free-stream velocity axis of the sweeper. It used to declare the
+    file path alone, which made it the one axis that could not take an
+    inline list; the manual gives all four axes the same table and the
+    same three samples, so the asymmetry came from the worked example
+    this chapter was first read from and not from the grammar. The
+    unit is this repository's convention rather than a manual
+    statement: SRC-003 p.358 names none, and whether the axis follows
+    the solver's configured velocity unit is a probe question.
+
+SWEEPER_SET_MACH_SWEEP:
+  layout: inline
+  phase: init
+  args:
+    - name: mode
+      type: enum
+      values: [UNIFORM, CUSTOM, DISABLE]
+    - name: values
+      type: float_list
+      required: false
+      separator: space
+    - name: filename
+      type: path
+      required: false
+  manual_ref: "SRC-003 p.359"
+  versions:
+    "26.101": {status: documented, note: "SRC-725 p.358, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.362, same grammar as 26.120"}
+  notes: >
+    Mach number axis of the sweeper, dimensionless. Absent from this
+    database until 2026-08-06 for the same reason the UNIFORM mode was:
+    the worked example the chapter was drafted from sweeps angle of
+    attack, side-slip and velocity, and never Mach. Its sample is the
+    one that settles what the third UNIFORM number means, since 0.05
+    cannot be a number of steps. Whether a velocity sweep and a Mach
+    sweep can be enabled together, and which wins, is not documented.
 
 SWEEPER_POST_RUN_SCRIPT:
   layout: inline
@@ -64,13 +145,15 @@ SWEEPER_POST_RUN_SCRIPT:
     - name: script_path
       type: path
       required: false
-  manual_ref: "SRC-003 p.406"
+  manual_ref: "SRC-003 p.359"
   versions:
+    "26.101": {status: documented, note: "SRC-725 p.358, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-02_full.yaml"}
   notes: >
     Per-run post-processing script executed after each sweep point,
-    for example a surface section extraction script.
+    for example a surface section extraction script. The path is
+    omissible under DISABLE, which the parameter table states.
 
 SWEEPER_CLEAR_SOLUTION:
   layout: inline
@@ -79,11 +162,15 @@ SWEEPER_CLEAR_SOLUTION:
     - name: mode
       type: enum
       values: [ENABLE, DISABLE]
-  manual_ref: "SRC-003 p.406"
+  manual_ref: "SRC-003 p.359"
   versions:
+    "26.101": {status: documented, note: "SRC-725 p.358, same grammar as 26.120"}
     "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.362, same grammar as 26.120"}
   notes: >
-    Controls solution reuse between sweep runs.
+    Controls solution reuse between sweep runs. The manual gives it a
+    sample and no parameter table, so the two tokens are read from the
+    signature placeholder and the sample rather than from prose.
 
 SWEEPER_REF_VELOCITY_SAME:
   layout: inline
@@ -92,20 +179,27 @@ SWEEPER_REF_VELOCITY_SAME:
     - name: mode
       type: enum
       values: [ENABLE, DISABLE]
-  manual_ref: "SRC-003 p.406"
+  manual_ref: "SRC-003 p.360"
   versions:
+    "26.101": {status: documented, note: "SRC-725 p.359, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: broken, report: "reports/compat/CMP-26121_2026-08-02_full.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing)"}
   notes: >
     Keeps the reference velocity equal to the free-stream velocity at
-    every sweep point.
+    every sweep point. The 26.121 abort recorded above now has a
+    documentary counterpart: SRC-740 documents no such command at all,
+    while SRC-725 p.359 and SRC-003 p.360 both do. The probe measured
+    the behaviour and the manual explains it, which is a stronger
+    record than either alone; the status stays broken because that is
+    what was measured, and only a probe promotes it.
 
 SWEEPER_START:
   layout: bare
   phase: exec
   args: []
-  manual_ref: "SRC-003 p.406"
+  manual_ref: "SRC-003 p.360"
   versions:
+    "26.101": {status: documented, note: "SRC-725 p.359, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-02_full.yaml"}
 
@@ -115,7 +209,8 @@ SWEEPER_EXPORT_SPREADSHEET:
   args:
     - name: filename
       type: path
-  manual_ref: "SRC-003 p.406"
+  manual_ref: "SRC-003 p.359"
   versions:
+    "26.101": {status: documented, note: "SRC-725 p.358, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-02_full.yaml"}
