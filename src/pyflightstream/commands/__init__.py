@@ -516,12 +516,16 @@ class CommandEntry(BaseModel):
         """Return the evidence for ``version`` together with its source.
 
         A hotfix build inherits the record of its base release until
-        probe evidence overrides it (SAD Section 2), when
-        :attr:`~pyflightstream.versions.FsVersion.inherits_base` says it
-        does. That default is right for a real hotfix: one that does not
-        touch a command really does carry the base release's evidence,
-        and the alternative, every hotfix starting from nothing, is
-        worse.
+        probe evidence overrides it (SAD Section 2), when THE REGISTRY
+        says it does. The lookup is by canonical identifier against
+        ``commands/_meta.yaml``, not a read of
+        :attr:`~pyflightstream.versions.FsVersion.inherits_base` on the
+        object handed in, so a caller cannot assert a descent in either
+        direction and a canonical the registry has never heard of
+        inherits nothing. Inheriting is the right default for a real
+        hotfix: one that does not touch a command really does carry the
+        base release's evidence, and the alternative, every hotfix
+        starting from nothing, is worse.
 
         The flag exists because the last canonical digit does not decide
         it. On 2026-08-04 the February 2026 build took index 26.100 and

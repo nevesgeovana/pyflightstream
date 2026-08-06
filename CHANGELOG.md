@@ -10,8 +10,11 @@ FlightStream versions.
 ### API surface delta
 
 * **The flow-separation family is in the database, across all four
-  registered builds, and `solver_settings()` can emit every command of
-  it.** Fifteen commands entered: the per-mechanism boundary lists of
+  registered builds, and `solver_settings()` emits every command of it
+  but one.** The exception is the erase SRC-741 documents for the
+  Valarezo list: RPT-018 measured that name unrecognised by the solver,
+  so the helper refuses the keyword that reaches it and names
+  `Script.raw()` with the spelling that works. Fifteen commands entered: the per-mechanism boundary lists of
   26.100 (axial, Valarezo criterion, cross-flow, each a SET and a
   DELETE, plus the cross-flow diameter and its axisymmetric toggle), the
   named assignment models of 26.101 and later
@@ -92,9 +95,9 @@ FlightStream versions.
   deprecated and refuses.
 
   Inheritance is now stated per build in `commands/_meta.yaml` with the
-  reason beside it, and the silent default is gone from three places
+  reason beside it, and the silent default is gone from four places
   rather than one, each closed after the previous close was measured
-  incomplete. The registry refuses to load a hotfix index that states
+  incomplete by the next review round. The registry refuses to load a hotfix index that states
   nothing. **`FsVersion` refuses to be BUILT as one**, which is a
   breaking change to a public constructor: `FsVersion(canonical="26.121",
   alias="26.12", index=4)` raised nothing before and raises
@@ -103,8 +106,22 @@ FlightStream versions.
   documented public surface. And **`resolve()` reconciles an `FsVersion`
   argument against the registry** instead of handing it back, so a
   hand-built object cannot state a wrong descent for a REGISTERED build
-  either; an unregistered canonical still passes through, because the
-  test suites of this package build synthetic versions deliberately.
+  either. And **the REGISTRY answers, in the layer that reads the
+  fact**: `CommandEntry.evidence_in` asks the ordering authority rather
+  than the object it is handed, so a caller cannot assert a descent in
+  either direction, and a canonical the registry has never heard of
+  inherits nothing. An unregistered `26.122` used to receive the whole
+  26.120 command view while the string `"26.122"` raised for not being
+  registered, so the two documented input types of one parameter
+  disagreed about whether a build exists. A synthetic version still
+  resolves and still sees its own direct records, which is what this
+  package's own fixture registries need.
+
+  `bulk_separation` refuses on a build whose grammar drops
+  SEPARATION_TYPE, naming that build, both manual editions and the
+  `Script.emit` escape. The binder's generic message named an argument
+  the caller never typed and cited the 26.120 page to somebody whose
+  grammar is documented at SRC-725 p.341.
 
   26.121 still inherits from 26.120, which is a genuine hotfix pair.
 

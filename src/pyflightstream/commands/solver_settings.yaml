@@ -265,8 +265,8 @@ CREATE_STRATFORD_BULK_SEPARATION:
   notes: >
     The Stratford bulk separation model, which takes no diameter. As
     with the cylindrical command above, RPT-015 accepted it on 26.120
-    where no manual documents it, in both the -1 and the index-line
-    forms.
+    where no manual documents it. The index-line form was run on 26.121
+    only; 26.120 saw the -1 form alone.
 
 DELETE_SEPARATION:
   layout: inline

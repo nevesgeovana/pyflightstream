@@ -735,11 +735,15 @@ def solver_settings(
         Bulk (bluff-body) flow-separation assignment
         (CREATE_BULK_SEPARATION, SRC-003 p.342); see
         :class:`~pyflightstream.script.solver_setup.BulkSeparation`.
-        Documented on 26.101 and 26.120. 26.121 is a hotfix of 26.120
-        and inherits the record, so the emitter accepts it there too,
-        although that edition documents the split commands
-        ``cylindrical_bulk_separation`` and ``stratford_bulk_separation``
-        instead. Read RPT-015 before relying on any of the three: it
+        Documented on 26.101 and 26.120, and usable on 26.120 and
+        26.121 only. The 26.101 grammar is three arguments
+        (SRC-725 p.341) and :class:`BulkSeparation` models the
+        four-argument form, so this keyword is REFUSED on that build
+        with the three-argument emission named as the way through.
+        26.121 is a hotfix of 26.120 and inherits the record, so the
+        emitter accepts it there, although that edition documents the
+        split commands ``cylindrical_bulk_separation`` and
+        ``stratford_bulk_separation`` instead. Read RPT-015 before relying on any of the three: it
         found every documented form of this command refused on both
         26.120 and 26.121. 26.100 has no named separation models at all.
     airfoil_separation : sequence of AirfoilSeparation or mapping, optional

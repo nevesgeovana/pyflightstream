@@ -706,8 +706,8 @@ def test_an_empty_sequence_of_assignment_models_is_refused_not_ignored(keyword):
     """
     script = Script(version="26.121")
     with pytest.raises(CommandArgumentError, match="delete_separations"):
-        helpers.solver_settings(script, **{keyword: []})
-    assert "SEPARATION" not in script.render()
+        helpers.solver_settings(script, aoa=3.0, **{keyword: []})
+    assert script.render() == "\n", "a refusal must leave the caller's script untouched"
 
 
 def test_the_named_separation_models_emit_in_the_recorded_order():
@@ -1031,9 +1031,16 @@ def test_no_assignment_keyword_can_emit_a_selection_of_nothing(keyword, model, v
     keywords rather than the four that happened to share a code path.
     """
     script = Script(version=version)
+    # A SECOND, emitting flag is passed on purpose. Every refusal test in
+    # this file used to pass the offending keyword alone, so
+    # `"SEPARATION" not in render()` held whether the assignments were
+    # rendered before the first emission or inside the emission loop:
+    # the guard for that repair could not fail on a revert. With `aoa`
+    # here, a refusal raised mid-emission leaves SOLVER_SET_AOA behind
+    # and the empty-script assertion catches it.
     with pytest.raises(CommandArgumentError, match="selects no boundary"):
-        helpers.solver_settings(script, **{keyword: model})
-    assert "SEPARATION" not in script.render()
+        helpers.solver_settings(script, aoa=3.0, delete_separations="all", **{keyword: model})
+    assert script.render() == "\n", "a refusal must leave the caller's script untouched"
 
 
 def test_the_bulk_model_still_emits_its_own_grammar_through_the_shared_renderer():
@@ -1074,3 +1081,34 @@ def test_delete_separations_refuses_every_type_that_is_not_an_index(value):
     with pytest.raises(CommandArgumentError, match="1-based index"):
         helpers.solver_settings(script, delete_separations=value)
     assert "SEPARATION" not in script.render()
+
+
+def test_bulk_separation_is_refused_on_a_build_whose_grammar_drops_the_type():
+    """The 26.101 form is three arguments and BulkSeparation models four.
+
+    Added in round four with no test, which is why round five found it:
+    the message it exists to replace is the binder's generic one, which
+    names an argument the caller never typed and cites the 26.120 manual
+    page to somebody whose grammar is documented at SRC-725 p.341.
+    """
+    script = Script(version="26.101")
+    with pytest.raises(CommandArgumentError, match="does not take") as caught:
+        helpers.solver_settings(
+            script,
+            aoa=3.0,
+            bulk_separation=BulkSeparation(name="GEAR", separation_type="FLAT_PLATE", diameter=0.2),
+        )
+    message = str(caught.value)
+    assert "26.101" in message, "the refusal must name the build the caller is on"
+    assert "SRC-725 p.341" in message, "and the page where their own grammar lives"
+    assert "Script.emit" in message, "and the way through"
+    assert script.render() == "\n", "a refusal must leave the caller's script untouched"
+
+    # The control: the four-argument form is exactly right on 26.120, so
+    # the refusal is about the version and not about the model.
+    working = Script(version="26.120")
+    helpers.solver_settings(
+        working,
+        bulk_separation=BulkSeparation(name="GEAR", separation_type="FLAT_PLATE", diameter=0.2),
+    )
+    assert "CREATE_BULK_SEPARATION GEAR FLAT_PLATE -1 0.2" in working.render()
