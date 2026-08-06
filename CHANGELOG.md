@@ -9,6 +9,41 @@ FlightStream versions.
 
 ### API surface delta
 
+* **The CAD chapters entered the database: 33 commands across all four
+  registered builds.** Six CAD body commands in `cad.yaml`, and 27 in
+  `cad_create.yaml` over three passes: `CAD_CREATE_INITIALIZE` with the
+  four pane settings and the four basic shapes, then the virtual curve
+  constructors, index commands and deletes, then the curve transforms
+  and `CAD_CREATE_CURVE_EXPORT_CCS`. With `SWEEPER_SET_MACH_SWEEP` and
+  the flow-separation family, the database went from 162 entries at
+  v0.4.0 to 197. Every entry carries its own page per edition rather
+  than one citation reused, and every command emits on all four builds.
+
+  Facts the argument names do not carry, which is why these were read
+  one at a time rather than pattern-matched:
+  `CAD_CREATE_CURVE_ARC` takes NINE coordinates whose FIRST triple is
+  the arc's ORIGIN and not a vertex on it; the three curve index
+  commands take -1 for every curve; `CAD_CREATE_PROJECT_CURVE` reads its
+  PLANE in the frame it names and its projection VECTOR in the global
+  reference frame, so a script using a local frame projects along the
+  wrong direction with nothing to object;
+  `CAD_CREATE_PROJECT_MULTI_CURVE`'s two indices are not
+  interchangeable, the first being projected and the second a guide; and
+  `CAD_CREATE_REORDER_CURVES` takes a SIGNED axis, six tokens rather
+  than three, where every other axis argument in the family takes a bare
+  letter.
+
+  `CAD_CREATE_CURVE_EXPORT_CCS` carries phase `geometry` despite its
+  name, following `EXPORT_SURFACE_MESH`: a phase is the position the
+  ordering rule assigns, and filing a curve export under `export` would
+  let a script emit it once and then refuse every remaining CAD Create
+  command.
+
+  Not entered: the CAD Create mirror, whose name the manual spells two
+  ways with the heading against both the sample and the Script Index.
+  The emitter's failure mode for a wrong name is a silent no-op, so it
+  waits for a probe rather than shipping a guess.
+
 * **The Sweeper Toolbox chapter was drafted from a worked example and
   has been redrafted from the reference pages, which changes what the
   emitter accepts.** The example at SRC-003 p.406 exercises two of the

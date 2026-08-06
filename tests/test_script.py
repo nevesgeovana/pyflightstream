@@ -1117,3 +1117,114 @@ def test_the_curve_constructors_take_no_frame():
         assert not any(arg.name == "frame" for arg in entries[name].args), name
     for name in ("CAD_CREATE_BOX", "CAD_CREATE_SPHERE", "CAD_CREATE_CYLINDER"):
         assert entries[name].args[0].name == "frame", name
+
+
+# --- CAD Create: transforming virtual curves ---------------------------------
+
+
+@pytest.mark.parametrize("version", ["26.100", "26.101", "26.120", "26.121"])
+def test_the_curve_transform_family_emits_on_every_registered_build(version):
+    """Nine commands, one grammar, four editions.
+
+    Each line here is the manual's own sample for that command, so the
+    test doubles as the record that the emitter reproduces them.
+    """
+    script = Script(version=version)
+    script.emit("CAD_CREATE_ROTATE_CURVES", 1, "2", 20.0, "DELETE")
+    script.emit("CAD_CREATE_TRANSLATE_CURVES", 0.5, 0.5, -2.0, "DELETE")
+    script.emit("CAD_CREATE_SCALE_CURVES", 2.5, "DELETE")
+    script.emit("CAD_CREATE_PROJECT_CURVE", 6, 1, "XZ", 0.0, -1.0, 0.0, "RETAIN")
+    script.emit("CAD_CREATE_PROJECT_MULTI_CURVE", 2, 3, 1, "XZ", "RETAIN")
+    script.emit("CAD_CREATE_REORDER_CURVES", 1, "+Y")
+    script.emit("CAD_CREATE_SELF_MEDIAN_FROM_CURVES")
+    script.emit("CAD_CREATE_CONNECT_CURVES")
+    text = script.render()
+    assert "CAD_CREATE_PROJECT_MULTI_CURVE 2 3 1 XZ RETAIN" in text
+    assert "CAD_CREATE_REORDER_CURVES 1 +Y" in text
+
+
+def test_the_reorder_direction_is_signed_and_a_bare_axis_is_refused():
+    """Six tokens, not three: the sign is half the instruction.
+
+    Every other axis argument in this family takes a bare letter, so a
+    caller reaching for consistency writes Y and means +Y. The manual
+    lists only the signed forms, and a sort direction with no direction
+    is not a thing the command can do.
+    """
+    script = Script(version="26.120")
+    script.emit("CAD_CREATE_REORDER_CURVES", 1, "-Z")
+    assert "CAD_CREATE_REORDER_CURVES 1 -Z" in script.render()
+    with pytest.raises(CommandArgumentError, match="expects one of"):
+        Script(version="26.120").emit("CAD_CREATE_REORDER_CURVES", 1, "Y")
+
+
+def test_the_curve_rotation_takes_the_axis_index_as_well_as_the_letter():
+    """The manual's own sample passes the index; the table names letters.
+
+    Same reading as CAD_BODY_ROTATE, and pinned separately because the
+    two entries are in different files and a later narrowing of one
+    would not touch the other.
+    """
+    for axis in ("Y", "2"):
+        script = Script(version="26.120")
+        script.emit("CAD_CREATE_ROTATE_CURVES", 1, axis, 20.0, "RETAIN")
+        assert f"CAD_CREATE_ROTATE_CURVES 1 {axis} 20.0 RETAIN" in script.render()
+
+
+def test_the_projection_direction_is_not_optional():
+    """Seven arguments, and the three in the middle are the vector.
+
+    A caller who reads PROJECT_MULTI_CURVE first, which takes no vector
+    because its guide curve supplies one, would reasonably try the same
+    five-argument shape here and get a projection onto the plane along
+    an unstated direction.
+    """
+    with pytest.raises(CommandArgumentError):
+        Script(version="26.120").emit("CAD_CREATE_PROJECT_CURVE", 6, 1, "XZ", "RETAIN")
+
+
+def test_exporting_curves_does_not_close_the_geometry_phase():
+    """The judgement behind CAD_CREATE_CURVE_EXPORT_CCS carrying phase geometry.
+
+    A phase is the position the ordering rule assigns a command, not a
+    description of what it does. Filing a curve export under `export`
+    because its name says EXPORT would let a script emit it once and
+    then refuse every remaining CAD Create command, which is backwards
+    for curves: export a set, build more, export another. The precedent
+    is EXPORT_SURFACE_MESH, which writes a file at geometry time and is
+    filed the same way.
+    """
+    script = Script(version="26.120")
+    script.emit("CAD_CREATE_CURVE_SELECT", -1)
+    script.emit("CAD_CREATE_CURVE_EXPORT_CCS", "first.csv")
+    script.emit("CAD_CREATE_CURVE_LINE", 0.0, 0.0, 0.0, 1.0, 0.0, 0.0)
+    script.emit("CAD_CREATE_CURVE_EXPORT_CCS", "second.csv")
+    text = script.render()
+    assert text.index("first.csv") < text.index("CAD_CREATE_CURVE_LINE") < text.index("second.csv")
+    entries = CommandRegistry.load().commands
+    assert entries["CAD_CREATE_CURVE_EXPORT_CCS"].phase == entries["EXPORT_SURFACE_MESH"].phase
+
+
+def test_the_two_projections_disagree_about_where_their_curves_come_from():
+    """Everything else in the family acts on the selection; these take indices.
+
+    Pinned as a pair because the difference is the reason both exist,
+    and because a reader who has just written CAD_CREATE_CURVE_SELECT
+    would expect the projection to honour it.
+    """
+    entries = CommandRegistry.load().commands
+    by_selection = (
+        "CAD_CREATE_ROTATE_CURVES",
+        "CAD_CREATE_TRANSLATE_CURVES",
+        "CAD_CREATE_SCALE_CURVES",
+        "CAD_CREATE_REORDER_CURVES",
+        "CAD_CREATE_CONNECT_CURVES",
+        "CAD_CREATE_SELF_MEDIAN_FROM_CURVES",
+    )
+    for name in by_selection:
+        assert not any("curve_index" in arg.name for arg in entries[name].args), name
+    assert [arg.name for arg in entries["CAD_CREATE_PROJECT_CURVE"].args][0] == "curve_index"
+    assert [arg.name for arg in entries["CAD_CREATE_PROJECT_MULTI_CURVE"].args][:2] == [
+        "curve_index_1",
+        "curve_index_2",
+    ]

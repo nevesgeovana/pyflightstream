@@ -433,3 +433,257 @@ CAD_CREATE_CURVE_DELETE_UNSELECTED:
   notes: >
     Deletes everything NOT selected, which is how a script keeps a
     subset: select what it wants, then delete the rest.
+
+# --- virtual curves: transforming them -------------------------------------
+#
+# Five of the seven transforms end in RETAIN_CURVE, which chooses
+# whether the ORIGINAL curves survive the operation. The name reads
+# like a boolean and is an enumeration of two words, RETAIN or DELETE,
+# and the manual's own samples use DELETE more often than not: a
+# transform is usually a replacement rather than a copy.
+#
+# All seven act on the SELECTION rather than on an index, with the two
+# projections as the exception: those name their curves directly and
+# ignore what is selected.
+
+CAD_CREATE_ROTATE_CURVES:
+  layout: inline
+  phase: geometry
+  args:
+    - name: frame
+      type: int
+    - name: axis
+      type: enum
+      values: [X, Y, Z, "1", "2", "3"]
+    - name: angle
+      type: float
+      unit: "deg"
+    - name: retain_curve
+      type: enum
+      values: [RETAIN, DELETE]
+  manual_ref: "SRC-003 p.295"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.289, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.294, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.298, same grammar as 26.120"}
+  notes: >
+    Rotates the selected virtual curves about one axis of the given
+    coordinate system. Frame 1 is the reference system, which the
+    parameter table states.
+
+    AXIS takes the index as well as the letter, for the reason recorded
+    at CAD_BODY_ROTATE: the table names X, Y or Z and the sample beneath
+    it passes 2, in all four editions, and two other tables in this
+    chapter state the dual form outright. Pass the index as the string
+    "2" (PLN-20260806-1130).
+
+CAD_CREATE_TRANSLATE_CURVES:
+  layout: inline
+  phase: geometry
+  args:
+    - name: x
+      type: float
+    - name: y
+      type: float
+    - name: z
+      type: float
+    - name: retain_curve
+      type: enum
+      values: [RETAIN, DELETE]
+  manual_ref: "SRC-003 p.295"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.289, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.294, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.298, same grammar as 26.120"}
+  notes: >
+    Translation vector for the selected virtual curves. It takes NO
+    frame argument, unlike the rotation and the mirror, and the manual
+    states why in the parameter row rather than in the signature: the
+    vector is read in the REFERENCE coordinate system. A script that
+    built its curves against a local frame has to convert.
+
+CAD_CREATE_SCALE_CURVES:
+  layout: inline
+  phase: geometry
+  args:
+    - name: scale
+      type: float
+    - name: retain_curve
+      type: enum
+      values: [RETAIN, DELETE]
+  manual_ref: "SRC-003 p.295"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.289, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.294, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.298, same grammar as 26.120"}
+  notes: >
+    ONE scale value for all three axes: the command has no per-axis
+    form, so a non-uniform scaling is not available here. What the
+    scaling is about, the origin or the curve's own centroid, is not
+    stated in any edition.
+
+CAD_CREATE_PROJECT_CURVE:
+  layout: inline
+  phase: geometry
+  args:
+    - name: curve_index
+      type: int
+    - name: frame
+      type: int
+    - name: plane
+      type: enum
+      values: [XY, XZ, YZ]
+    - name: nx
+      type: float
+    - name: ny
+      type: float
+    - name: nz
+      type: float
+    - name: retain_curve
+      type: enum
+      values: [RETAIN, DELETE]
+  manual_ref: "SRC-003 pp.295-296"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.290, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.294, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.298, same grammar as 26.120"}
+  notes: >
+    Projects ONE virtual curve, named by index rather than taken from
+    the selection, onto a plane of the given coordinate system, along a
+    direction the caller supplies.
+
+    TWO FRAMES ARE IN PLAY AND THEY ARE NOT THE SAME ONE. The parameter
+    table puts PLANE in the coordinate system FRAME names and NX, NY, NZ
+    in the GLOBAL reference system (SRC-003 p.296). Reading the
+    direction as being in FRAME projects along the wrong vector whenever
+    FRAME is not the reference system, and the solver has no way to
+    object: the result is a curve in the right plane and the wrong
+    place.
+
+    The -1 convention applies here too, and the manual's own row for it
+    says "reverse all existing virtual curves", which is the wording of
+    CAD_CREATE_CURVE_REVERSE left behind by an edit. Read as project.
+
+CAD_CREATE_PROJECT_MULTI_CURVE:
+  layout: inline
+  phase: geometry
+  args:
+    - name: curve_index_1
+      type: int
+    - name: curve_index_2
+      type: int
+    - name: frame
+      type: int
+    - name: plane
+      type: enum
+      values: [XY, XZ, YZ]
+    - name: retain_curve
+      type: enum
+      values: [RETAIN, DELETE]
+  manual_ref: "SRC-003 p.296"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.290, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.295, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.299, same grammar as 26.120"}
+  notes: >
+    THE TWO INDICES ARE NOT INTERCHANGEABLE. The FIRST curve is the one
+    projected; the SECOND is a guide, used to hold the sweep angle along
+    both curves, and it is not itself projected (SRC-003 p.296).
+    Swapping them projects the wrong curve, which is why the argument
+    names carry the order.
+
+    It takes no projection vector, where CAD_CREATE_PROJECT_CURVE above
+    does: the guide curve supplies the direction. RETAIN_CURVE governs
+    the original, and the manual does not say whether that means the
+    first curve or both.
+
+CAD_CREATE_REORDER_CURVES:
+  layout: inline
+  phase: geometry
+  args:
+    - name: frame
+      type: int
+    - name: sorting_direction
+      type: enum
+      values: ["+X", "+Y", "+Z", "-X", "-Y", "-Z"]
+  manual_ref: "SRC-003 p.296"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.290, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.295, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.299, same grammar as 26.120"}
+  notes: >
+    Sorts the selected curves along an axis, and the token is SIGNED:
+    the six values are the three axes each way round, so "-Y" is a
+    valid direction and not a negation of anything. This is the one
+    axis argument in the family that does NOT accept a bare letter,
+    since the sign carries the ordering.
+
+    Order matters downstream rather than here: the loft commands
+    consume the curves in sequence, so a loft across curves built in
+    the wrong order is what this fixes.
+
+CAD_CREATE_CONNECT_CURVES:
+  layout: bare
+  phase: geometry
+  args: []
+  manual_ref: "SRC-003 p.294"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.288, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.293, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.297, same grammar as 26.120"}
+  notes: >
+    Joins the selected virtual curves into ONE curve. The manual gives
+    it a sample and no parameter table, so what it does with curves that
+    do not meet, and which end joins which, is not documented.
+
+CAD_CREATE_SELF_MEDIAN_FROM_CURVES:
+  layout: bare
+  phase: geometry
+  args: []
+  manual_ref: "SRC-003 p.294"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.288, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.293, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.297, same grammar as 26.120"}
+  notes: >
+    Builds the median curve of each selected virtual curve, which is
+    the camber line of a closed airfoil-like curve: the manual's own
+    comment calls the result thin. It is the curve-level counterpart of
+    collapsing a closed section to a single surface, and the family
+    that lofts a mesh from curves is what consumes it.
+
+CAD_CREATE_CURVE_EXPORT_CCS:
+  layout: param_lines
+  phase: geometry
+  args:
+    - name: filename
+      type: path
+  manual_ref: "SRC-003 pp.294-295"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.289, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.293, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.297, same grammar as 26.120"}
+  notes: >
+    Writes the SELECTED virtual curves to a file, the command name on
+    one line and the path on the next. CCS is the vendor's
+    cross-sectional geometry format and the manual's own example names
+    a .csv, so the extension does not identify the content.
+
+    Its phase is GEOMETRY and not export, although it writes a file,
+    which follows EXPORT_SURFACE_MESH rather than the export commands
+    it is named like. The phase is not a statement about what a command
+    does; it is the position the ordering rule assigns it, and the
+    builder refuses anything whose phase precedes the highest reached.
+    Filing a curve export under export would let it be emitted once and
+    then refuse every remaining CAD Create command, which is the
+    opposite of how curves are built: export a set, keep going, export
+    another.
