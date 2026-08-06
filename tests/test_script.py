@@ -982,3 +982,70 @@ def test_the_threshold_command_can_only_cite_the_reference_frame():
     ordered.emit("CREATE_NEW_COORDINATE_SYSTEM", label="body_axes")
     with pytest.raises(ScriptOrderError, match="geometry"):
         ordered.emit("CAD_BODY_SELECT_BY_THRESHOLD", "body_axes", "Z", 0.0, "BELOW", "DELETE")
+
+
+# --- CAD Create: the pane settings and the basic shapes ---------------------
+
+
+@pytest.mark.parametrize("version", ["26.100", "26.101", "26.120", "26.121"])
+def test_the_cad_create_basics_emit_on_every_registered_build(version):
+    """Documented unchanged in all four editions, so all four must emit."""
+    script = Script(version=version)
+    script.emit("CAD_CREATE_INITIALIZE")
+    script.emit("SET_CAD_CREATE_MERGE_TOLERANCE", 10.0)
+    script.emit("SET_CAD_CREATE_SPLINE_SEGMENTS", 250)
+    script.emit("SET_CAD_CREATE_SPLINE_LOFT", "C0")
+    script.emit("SET_CAD_CURVATURE_REFINEMENT", 120)
+    script.emit("CAD_CREATE_BOX", 1, 0.5, 0.5, 0.5, 2.0, 2.0, 1.0)
+    script.emit("CAD_CREATE_SPHERE", 1, 0.0, 0.0, 0.0, 2.0)
+    script.emit("CAD_CREATE_CYLINDER", 1, 0.0, 0.0, 0.0, 0.1, 1.0, 3.0)
+    script.emit("CAD_CREATE_SHEET", 1, "XZ", -0.5, 2.0, 3.0)
+    text = script.render()
+    assert "CAD_CREATE_BOX 1 0.5 0.5 0.5 2.0 2.0 1.0" in text
+    assert "CAD_CREATE_CYLINDER 1 0.0 0.0 0.0 0.1 1.0 3.0" in text
+    # A negative offset is documented and must survive rendering: the
+    # sheet sits on either side of its plane.
+    assert "CAD_CREATE_SHEET 1 XZ -0.5 2.0 3.0" in text
+
+
+@pytest.mark.parametrize(
+    ("command", "expected_default"),
+    [
+        ("SET_CAD_CREATE_MERGE_TOLERANCE", 1.0),
+        ("SET_CAD_CREATE_SPLINE_SEGMENTS", 200),
+        ("SET_CAD_CREATE_SPLINE_LOFT", "C2"),
+        ("SET_CAD_CURVATURE_REFINEMENT", 80),
+    ],
+)
+def test_the_cad_create_settings_record_the_default_the_manual_states(command, expected_default):
+    """A documented default is evidence and is recorded with its citation.
+
+    The four pane settings are the first CAD entries to carry `default`,
+    and the field is only ever written where the manual states the value
+    (invariant 3), which is why the citation travels with it.
+    """
+    entry = CommandRegistry.load().commands[command]
+    assert entry.default == expected_default
+    assert entry.default_ref, f"{command} records a default with no citation"
+    assert entry.default_ref.startswith("SRC-")
+
+
+def test_the_loft_type_takes_the_two_documented_tokens_and_no_other():
+    script = Script(version="26.120")
+    script.emit("SET_CAD_CREATE_SPLINE_LOFT", "C2")
+    with pytest.raises(CommandArgumentError, match="C2, C0"):
+        script.emit("SET_CAD_CREATE_SPLINE_LOFT", "C1")
+
+
+def test_a_basic_shape_is_refused_after_the_solver_is_initialized():
+    """Phase geometry: a CAD primitive is built before the mesh exists."""
+    script = Script(version="26.120")
+    script.emit(
+        "INITIALIZE_SOLVER",
+        solver_model="INCOMPRESSIBLE",
+        surfaces=-1,
+        wake_termination_x="DEFAULT",
+        symmetry="NONE",
+    )
+    with pytest.raises(ScriptOrderError, match="geometry"):
+        script.emit("CAD_CREATE_SPHERE", 1, 0.0, 0.0, 0.0, 1.0)

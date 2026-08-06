@@ -1,0 +1,240 @@
+# Chapter: Scripting reference, CAD Create (SRC-003 pp.289-306).
+#
+# The pane that builds geometry inside FlightStream: curve construction,
+# cross-sections, and the lofted meshes made from them. This file is
+# entered family by family; what is here is the initialization, the four
+# pane settings, and the basic shapes.
+#
+# Every command below is documented unchanged in all four registered
+# editions, and every entry carries its own page per edition, because no
+# page citation carries between them.
+#
+# Phase is geometry throughout. Note what that costs and why it is
+# accepted: FRAME arguments here can only be the reference frame, since
+# CREATE_NEW_COORDINATE_SYSTEM is phase setup and cannot precede a
+# geometry command. That is this package's ordering rather than a
+# measured solver rule, registered as PLN-20260806-0900 with the probe
+# that answers it.
+
+CAD_CREATE_INITIALIZE:
+  layout: bare
+  phase: geometry
+  args: []
+  manual_ref: "SRC-003 p.289"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.283, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.288, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.292, same grammar as 26.120"}
+  notes: >
+    Opens the CAD Create pane. Whether the commands below REQUIRE it
+    first is not stated by the manual and is not asserted here; the
+    samples show it opening the pane and nothing says the others fail
+    without it.
+
+# --- pane settings, all four with a documented default ---------------------
+
+SET_CAD_CREATE_MERGE_TOLERANCE:
+  layout: inline
+  phase: geometry
+  args:
+    - name: tolerance
+      type: float
+      unit: "percent of curve length"
+  manual_ref: "SRC-003 p.289"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.283, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.288, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.292, same grammar as 26.120"}
+  default: 1.0
+  default_ref: "SRC-003 p.289"
+  notes: >
+    How close two curve ends must be to merge, as a PERCENTAGE of the
+    curve length rather than an absolute distance, so the same value
+    behaves differently on a long curve and a short one. Greater than
+    zero (SRC-003 p.289).
+
+SET_CAD_CREATE_SPLINE_SEGMENTS:
+  layout: inline
+  phase: geometry
+  args:
+    - name: num_pts
+      type: int
+  manual_ref: "SRC-003 p.289"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.283, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.288, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.292, same grammar as 26.120"}
+  default: 200
+  default_ref: "SRC-003 p.289"
+  notes: >
+    Spline nodes used to discretize a curve. Integer greater than 10
+    (SRC-003 p.289); the lower bound is the manual's own and is not
+    enforced here, because the database records grammar and the solver
+    owns the range.
+
+SET_CAD_CREATE_SPLINE_LOFT:
+  layout: inline
+  phase: geometry
+  args:
+    - name: loft_type
+      type: enum
+      values: [C2, C0]
+  manual_ref: "SRC-003 p.289"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.283, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.288, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.292, same grammar as 26.120"}
+  default: C2
+  default_ref: "SRC-003 p.289"
+  notes: >
+    Continuity of the loft through a curve: C2 is curvature continuous
+    and C0 is position continuous, so C0 admits a crease where C2
+    smooths it. The same two tokens appear per direction on the mesh
+    commands built from cross-sections.
+
+SET_CAD_CURVATURE_REFINEMENT:
+  layout: inline
+  phase: geometry
+  args:
+    - name: num_pts_per_circle
+      type: int
+  manual_ref: "SRC-003 p.289"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.283, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.288, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.292, same grammar as 26.120"}
+  default: 80
+  default_ref: "SRC-003 p.289"
+  notes: >
+    Subdivisions around a full circle, used as the reference for how
+    finely a curved region is refined. It is the same quantity the
+    NUM_CURVATURE argument of IMPORT_CAD carries, and the two share the
+    documented default of 80.
+
+# --- basic shapes ----------------------------------------------------------
+#
+# The four take a FRAME and place a primitive in it. None states the
+# units of its lengths: they are the units of the coordinate system,
+# which the manual leaves to the reader, so no unit field is recorded
+# rather than one being invented.
+
+CAD_CREATE_BOX:
+  layout: inline
+  phase: geometry
+  args:
+    - name: frame
+      type: int
+    - name: x
+      type: float
+    - name: y
+      type: float
+    - name: z
+      type: float
+    - name: len_x
+      type: float
+    - name: len_y
+      type: float
+    - name: len_z
+      type: float
+  manual_ref: "SRC-003 p.290"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.284, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.289, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.293, same grammar as 26.120"}
+  notes: >
+    X, Y and Z are the FIRST CORNER VERTEX rather than the centre, and
+    the three lengths run from that corner along the frame's axes
+    (SRC-003 p.290). A box centred on a point is that point minus half
+    each length.
+
+CAD_CREATE_SPHERE:
+  layout: inline
+  phase: geometry
+  args:
+    - name: frame
+      type: int
+    - name: x
+      type: float
+    - name: y
+      type: float
+    - name: z
+      type: float
+    - name: radius
+      type: float
+  manual_ref: "SRC-003 p.290"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.284, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.289, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.293, same grammar as 26.120"}
+  notes: >
+    X, Y and Z are the CENTRE here, unlike the box above, which takes a
+    corner. The two commands sit on one manual page and differ on this
+    point, which is worth carrying because the argument names do not
+    say so.
+
+CAD_CREATE_CYLINDER:
+  layout: inline
+  phase: geometry
+  args:
+    - name: frame
+      type: int
+    - name: x
+      type: float
+    - name: y
+      type: float
+    - name: z
+      type: float
+    - name: r1
+      type: float
+    - name: r2
+      type: float
+    - name: len
+      type: float
+  manual_ref: "SRC-003 p.290"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.284, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.289, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.293, same grammar as 26.120"}
+  notes: >
+    R1 and R2 are the radii at the two ends, so a cone is a cylinder
+    with unequal radii and there is no separate cone command. The axis
+    is not a choice: LEN runs along the X AXIS of the frame
+    (SRC-003 p.290), so a cylinder along another direction needs a
+    coordinate system oriented for it, which the phase note at the top
+    of this file says cannot currently be created before it.
+
+CAD_CREATE_SHEET:
+  layout: inline
+  phase: geometry
+  args:
+    - name: frame
+      type: int
+    - name: plane
+      type: enum
+      values: [XY, XZ, YZ]
+    - name: offset
+      type: float
+    - name: len1
+      type: float
+    - name: len2
+      type: float
+  manual_ref: "SRC-003 p.290"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.284, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.289, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.293, same grammar as 26.120"}
+  notes: >
+    A flat rectangle in one plane of the frame. OFFSET moves it along
+    that plane's normal and MAY BE NEGATIVE, which the manual states
+    explicitly; zero puts the sheet exactly in the plane. LEN1 and LEN2
+    run along the plane's two directions in the order the plane name
+    gives them (SRC-003 p.290).
