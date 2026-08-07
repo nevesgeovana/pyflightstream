@@ -790,7 +790,7 @@ class VersionView:
             )
             raise CommandNotInVersionError(
                 f"{name} is removed in FlightStream {evidence.source} "
-                f"({' '.join(reason.split())}, {entry.manual_ref}).{inherited_note}"
+                f"({' '.join(reason.split())}, {entry.citation}).{inherited_note}"
                 f"{last_part} {successor}"
             )
         if record.args is not None:
@@ -803,12 +803,18 @@ class VersionView:
             # February manual beside a page number from the current one.
             # An error message that names the wrong page is worse than one
             # that names none: the reader goes and reads it.
-            return entry.model_copy(
-                update={
-                    "args": record.args,
-                    "manual_ref": _override_citation(entry, evidence.source, record.note),
-                }
-            )
+            # The citation goes into whichever field the entry already
+            # uses, never into both. model_copy runs no validator, so
+            # writing the override citation unconditionally into
+            # manual_ref would give a probe-cited entry both fields set,
+            # which is the state _every_entry_cites_exactly_one_kind_of
+            # _evidence exists to refuse, plus a manual_ref that fails
+            # its own pattern. No entry combines a probe_ref with a
+            # per-version args override today; this is one YAML row away
+            # from being reachable.
+            cited = _override_citation(entry, evidence.source, record.note)
+            field = "probe_ref" if entry.probe_ref and not entry.manual_ref else "manual_ref"
+            return entry.model_copy(update={"args": record.args, field: cited})
         return entry
 
     def __contains__(self, name: str) -> bool:

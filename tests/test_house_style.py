@@ -33,7 +33,13 @@ FORBIDDEN_WORDS = ("Embr" + "aer", "fts_" + "horse")
 
 
 def iter_style_checked_files():
-    for pattern in ("*.md", "*.py"):
+    # YAML joined the list on 2026-08-06. The command database is the
+    # largest English prose surface in this repository, roughly 900 lines
+    # of notes across the chapter files, and invariants 5 and 6 did not
+    # reach a line of it: the walk read *.md and *.py only. Nothing was
+    # in violation when it was widened, which is the cheap moment to do
+    # it rather than the moment it would have caught something.
+    for pattern in ("*.md", "*.py", "*.yaml"):
         for path in REPO_ROOT.rglob(pattern):
             if not SKIP_DIRS.intersection(part for part in path.parts):
                 yield path

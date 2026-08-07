@@ -2,7 +2,7 @@
 #
 # REDRAFTED on 2026-08-06 from the reference pages. The chapter was
 # first written from the worked scripting example at SRC-003 p.406,
-# which exercises two of the three sweep modes and four of the five
+# which exercises two of the three sweep modes and three of the four
 # sweep axes, and every gap below followed from that: UNIFORM was
 # missing from all three enumerations, SWEEPER_SET_MACH_SWEEP was
 # missing entirely, and the velocity command could take a file where
@@ -42,9 +42,20 @@ SWEEPER_SET_AOA_SWEEP:
     Angle of attack axis of the sweeper. Three modes with three
     different tails: UNIFORM takes exactly three numbers, CUSTOM takes
     either the value list inline or the path of a file holding it, and
-    DISABLE takes nothing. Both tails are declared optional because the
-    schema has no way to say which one a mode requires; that rule lives
-    in the sweep helper. THE THIRD UNIFORM NUMBER IS AN INCREMENT, not
+    DISABLE takes nothing.
+
+    NOTHING ENFORCES THAT PAIRING, and this note said the sweep helper
+    did until 2026-08-06, which was false in a place a reader consults.
+    Both tails are declared optional because ArgSpec has `required` and
+    no conditional, so the emitter accepts UNIFORM with no tail, UNIFORM
+    with two numbers of three, DISABLE with a tail, and CUSTOM with both
+    tails at once. Every one of those is decidable from the bound mode
+    and none of them is decided; they reach the solver
+    (PLN-20260806-1100). Stated rather than implied, because the
+    equivalent gap on NEW_CCS_WING_CONTROL_SURFACE is written down the
+    same way and a claim of enforcement is worse than an admitted gap.
+
+    THE THIRD UNIFORM NUMBER IS AN INCREMENT, not
     a count of points, although the parameter table labels the triple
     START/STOP/STEPS: the sibling Mach command's own sample passes 0.05
     there (SRC-003 p.359), which no count can be, the toolbox narrative

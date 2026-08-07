@@ -62,7 +62,12 @@ FlightStream versions.
 
   Consequence for the caller: `script.emit("SWEEPER_SET_AOA_SWEEP",
   "UNIFORM", [-10.0, 20.0, 1.0])` used to be refused as an unknown mode
-  and now emits. Nothing that emitted before emits differently. The
+  and now emits. No script the emitter accepted before renders
+  differently, but the velocity axis gained the inline value list its
+  three siblings already had, so its `filename` moved from the second
+  positional to the third: a positional `emit("SWEEPER_SET_VELOCITY_SWEEP",
+  "CUSTOM", path)` now binds the path to `values` and is refused. Pass
+  it as `filename=`. The
   curated `sweep()` helper still covers the CUSTOM subset and says so
   in its docstring, with the extension registered.
 
@@ -153,11 +158,13 @@ FlightStream versions.
 
 
 * **The flow-separation family is in the database, across all four
-  registered builds, and `solver_settings()` emits every command of it
-  but one.** The exception is the erase SRC-741 documents for the
-  Valarezo list: RPT-018 measured that name unrecognised by the solver,
-  so the helper refuses the keyword that reaches it and names
-  `Script.raw()` with the spelling that works. Fifteen commands entered: the per-mechanism boundary lists of
+  registered builds, and `solver_settings()` emits every command of
+  it.** That includes the Valarezo erase, whose working spelling is the
+  one RPT-018 measured rather than the one SRC-741 prints; the helper
+  refused that keyword for one day, between the probe and the
+  `probe_ref` field that let the working name be recorded at all, and
+  the entry above is the same change seen from the database side.
+  Fifteen commands entered: the per-mechanism boundary lists of
   26.100 (axial, Valarezo criterion, cross-flow, each a SET and a
   DELETE, plus the cross-flow diameter and its axisymmetric toggle), the
   named assignment models of 26.101 and later

@@ -15,7 +15,9 @@ Milestones and session records are listed in the
     The package ships a machine-readable database of FlightStream
     script commands. Each entry records name, layout grammar, typed
     arguments, the version span in which it exists, per-version
-    argument differences, and a manual page citation.
+    argument differences, and exactly one evidence citation: a manual
+    page, or a committed probe report for a command the solver accepts
+    and no manual edition documents.
 
 !!! requirement "FR-02 Launch version set and ordering <span class='srs-implemented'>implemented</span>"
     *Origin: BRF-07, BRF-19. Evidence: milestone M1; `versions` tests.*

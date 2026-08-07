@@ -232,6 +232,17 @@ def _version_records(entry: CommandEntry) -> list[tuple[str, VersionStatus]]:
     ]
 
 
+def _citation_label(entry: CommandEntry) -> str:
+    """Name the KIND of evidence an entry rests on, for a rendered page.
+
+    An entry cites a manual page or a committed probe report, never both,
+    and the page used to label every citation "Manual" and then print an
+    empty string for the one entry resting on a report. Naming the kind
+    is what makes the two distinguishable to a reader.
+    """
+    return "Manual" if entry.manual_ref else "Probe report"
+
+
 def _evidence_text(record: VersionStatus) -> str:
     """Return the evidence citation of one per-version record."""
     parts = []
@@ -347,7 +358,7 @@ def _database_cited_pages() -> dict[str, set[int]]:
     for header in _chapter_headers().values():
         absorb(header)
     for entry in CommandRegistry.load().commands.values():
-        absorb(entry.manual_ref)
+        absorb(entry.citation)
         absorb(entry.notes)
         for record in entry.versions.values():
             absorb(record.note)
@@ -463,9 +474,11 @@ def _database_meta_sentence(entry_count: int, scope: str) -> str:
         f"Generated from the command database of pyflightstream "
         f"{_package_version()}. Scope: {scope}. "
         f"Registered versions, release order: {registered}. "
-        f"{entry_count} commands. Every entry paraphrases the FlightStream manual "
-        "and cites its page (manual_ref); statuses follow the evidence rules of "
-        "CLAUDE.md invariant 3."
+        f"{entry_count} commands. Every entry cites exactly one piece of evidence: "
+        "the FlightStream manual page that documents it (manual_ref), paraphrased "
+        "and never quoted, or a committed probe report measuring that the solver "
+        "accepts a command no edition documents (probe_ref). Statuses follow the "
+        "evidence rules of CLAUDE.md invariant 3."
     )
 
 
@@ -489,7 +502,7 @@ def _entry_row_html(entry: CommandEntry) -> str:
         f"<tr><td><code>{html.escape(entry.name)}</code>{notes}</td>"
         f"<td>{entry.phase}</td><td>{entry.layout}</td><td>{args}</td>"
         f"<td>{_format_versions_html(entry)}</td>"
-        f"<td>{html.escape(entry.manual_ref)}</td></tr>"
+        f"<td>{html.escape(entry.citation)}</td></tr>"
     )
 
 
@@ -622,7 +635,10 @@ def _status_span(status: Status) -> str:
 def _entry_markdown(entry: CommandEntry) -> str:
     """Render one command as a markdown section with anchor heading."""
     lines = [f"## {entry.name}", ""]
-    lines.append(f"Phase `{entry.phase}`, layout `{entry.layout}`. Manual: {entry.manual_ref}.")
+    lines.append(
+        f"Phase `{entry.phase}`, layout `{entry.layout}`. "
+        f"{_citation_label(entry)}: {entry.citation}."
+    )
     lines.append("")
     if entry.notes:
         lines.append(f"> {_md_cell(entry.notes)}")
@@ -637,7 +653,7 @@ def _entry_markdown(entry: CommandEntry) -> str:
     lines.append("| Version | Status | Evidence |")
     lines.append("|---|---|---|")
     for canonical, record in _version_records(entry):
-        evidence = _evidence_text(record) or entry.manual_ref
+        evidence = _evidence_text(record) or entry.citation
         lines.append(f"| {canonical} | {_status_span(record.status)} | {_md_cell(evidence)} |")
     lines.append("")
     return "\n".join(lines)

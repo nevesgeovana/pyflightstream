@@ -481,7 +481,7 @@ def test_a_drafted_entry_carries_the_types_it_read_and_marks_the_rest():
 @pytest.mark.parametrize(
     ("placeholder", "description"),
     [
-        ("NUM_BOUNDARIES", "Number of boundaries in the CFD or FEM mesh"),
+        ("NUM_BOUNDARIES", "Number of boundaries in the STL or OBJ import"),
         ("NUM_STEPS", "Number of steps. Set to A or B"),
         ("BODY_INDEX", "Index of the body. Value > 0 for a solid or a sheet"),
     ],
@@ -519,14 +519,13 @@ def test_the_float_suffix_rule_runs_after_the_openings():
     [
         (
             "LOGIC",
-            "The threshold logic to be used. One of the following: ABOVE or BELOW. "
-            "The CAD faces that meet this criterion are subject to the action below.",
+            "Comparison direction for the cutoff. One of the following: ABOVE or BELOW. "
+            "Faces on the matching side are handed to the ACTION argument named next.",
             ("ABOVE", "BELOW"),
         ),
         (
             "PLANE",
-            "Plane of the reference coordinate system to be used for the mirror "
-            "operation. One of the following: XY , XZ or YZ",
+            "Symmetry plane the copy is reflected in. One of the following: XY , XZ or YZ",
             ("XY", "XZ", "YZ"),
         ),
     ],
@@ -770,12 +769,12 @@ def test_a_table_that_contradicts_the_sample_is_reported():
     assert proposed == "enum" and set(values) == {"X", "Y", "Z"}, (
         "this fixture only means something while the table rule still answers"
     )
-    assert sample_contradiction(command, 1, proposed, values) == "2"
+    assert sample_contradiction(command, index=1, proposed=proposed, values=values) == "2"
 
 
 def test_a_table_the_sample_confirms_is_not_reported():
     command = _rotate_shaped_command()
-    assert sample_contradiction(command, 0, "int", ()) is None
+    assert sample_contradiction(command, index=0, proposed="int", values=()) is None
 
 
 def test_an_enumeration_matches_its_sample_token_case_insensitively():
@@ -785,7 +784,10 @@ def test_an_enumeration_matches_its_sample_token_case_insensitively():
         inline_args=("MODE",),
         sample=("X_SET_MODE enable",),
     )
-    assert sample_contradiction(command, 0, "enum", ("ENABLE", "DISABLE")) is None
+    assert (
+        sample_contradiction(command, index=0, proposed="enum", values=("ENABLE", "DISABLE"))
+        is None
+    )
 
 
 @pytest.mark.parametrize(
@@ -811,7 +813,7 @@ def test_a_numeric_proposal_is_checked_against_the_sample_token(proposed, token,
     signature, and the only way the tool can say so is by checking.
     """
     command = ManualCommand(name="X_CMD", page=1, inline_args=("A",), sample=(f"X_CMD {token}",))
-    assert sample_contradiction(command, 0, proposed, ()) == reported
+    assert sample_contradiction(command, index=0, proposed=proposed, values=()) == reported
 
 
 @pytest.mark.parametrize(
@@ -839,13 +841,18 @@ def test_a_sample_that_cannot_answer_is_silent_rather_than_confirming(command, w
     why this test exists next to the one that reports a real
     contradiction.
     """
-    assert sample_contradiction(command, len(command.inline_args) - 1, "enum", ("X",)) is None, why
+    assert (
+        sample_contradiction(
+            command, index=len(command.inline_args) - 1, proposed="enum", values=("X",)
+        )
+        is None
+    ), why
 
 
 def test_an_unanswered_type_is_never_contradicted():
     """None refuses nothing, so it cannot disagree with a sample."""
     command = _rotate_shaped_command()
-    assert sample_contradiction(command, 1, None, ()) is None
+    assert sample_contradiction(command, index=1, proposed=None, values=()) is None
 
 
 def test_a_contradicted_type_is_drafted_unanswered_rather_than_written():
@@ -882,3 +889,52 @@ def test_an_uncontradicted_type_is_still_drafted_normally():
     assert "type: enum" in entry
     assert "values: [ENABLE, DISABLE]" in entry
     assert "would REFUSE" not in entry
+
+
+def test_the_enumeration_rule_reads_one_sentence_and_this_fixture_proves_it():
+    """A LIVE trap for the one-sentence rule, which had none.
+
+    The rule exists because reading a whole description took tokens out
+    of the sentences after the one that lists them. The fixtures written
+    for it spell their tokens with "or", so `_alternatives_in` matches
+    them wherever the span ends and the extra token in the next sentence
+    never had a chance to be picked up: widening the span back to the
+    whole description leaves the suite green.
+
+    This description spells its tokens as a COMMA LIST with no "or", so
+    the alternatives shape does not match and `_tokens_in` falls through
+    to the bare token scan, which is the path the sentence limit
+    protects. The following sentence carries one more uppercase token,
+    so the two spans give different answers and the mutation is caught.
+    """
+    description = (
+        "Mode this operation runs in. One of the following: ENABLE, DISABLE, AUTO. "
+        "The chosen mode is recorded in the SNAPSHOT written afterwards."
+    )
+    proposed, tokens, _reason = propose_type("MODE", description)
+    assert proposed == "enum"
+    assert set(tokens) == {"ENABLE", "DISABLE", "AUTO"}, (
+        "SNAPSHOT belongs to the sentence after the list and must not be a value"
+    )
+
+
+@pytest.mark.parametrize("index", [-1, 3, 99])
+def test_an_index_outside_the_signature_is_refused_rather_than_answered(index):
+    """A caller bug must not come back as a plausible finding.
+
+    The index used to address the sample tokens directly, so passing the
+    1-based position a person reads off the manual page returned the
+    NEXT argument's token and the draft then wrote a confident sentence
+    about it. A report that looks exactly like a real one is worse than
+    a crash.
+    """
+    command = _rotate_shaped_command()
+    with pytest.raises(ManualDraftError, match="outside them"):
+        sample_contradiction(command, index=index, proposed="enum", values=("X",))
+
+
+def test_the_index_is_zero_based_against_the_signature():
+    """The control for the refusal above: index 1 is the SECOND argument."""
+    command = _rotate_shaped_command()
+    assert sample_contradiction(command, index=1, proposed="enum", values=("X",)) == "2"
+    assert sample_contradiction(command, index=2, proposed="float", values=()) is None

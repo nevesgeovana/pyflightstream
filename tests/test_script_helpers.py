@@ -525,3 +525,65 @@ def test_rotary_motion_without_a_start_time_needs_no_waiver():
     rendered = script.render()
     assert "SET_MOTION_ROTOR_RPM 1 1200.0" in rendered
     assert "SET_MOTION_START_TIME" not in rendered
+
+
+def test_sweep_emits_every_keyword_it_documents():
+    """Coverage floor for the helper's own signature, not a golden.
+
+    `velocity_file` had no test at all, so when the sweeper chapter was
+    redrafted on 2026-08-06 and the velocity command gained the inline
+    value list its three siblings already had, the path stopped being
+    the second positional and started binding to `values`. The helper
+    raised for every caller using that keyword and 1425 tests stayed
+    green.
+
+    The golden script exercises three of the eight keywords, which is
+    what a golden is for. This walks the signature instead, so a
+    keyword added without a test fails here rather than in a user's
+    script.
+    """
+    import inspect
+
+    script = Script(version="26.120")
+    helpers.sweep(
+        script,
+        aoa=[-5.0, 0.0, 5.0],
+        beta=[0.0, 2.0],
+        velocity_file="C:/cases/vel.txt",
+        clear_solution=True,
+        ref_velocity_same=False,
+        post_run_script="C:/cases/post.txt",
+        start=True,
+        export_spreadsheet="C:/cases/out.txt",
+    )
+    text = script.render()
+    assert "SWEEPER_SET_AOA_SWEEP CUSTOM -5.0 0.0 5.0" in text
+    assert "SWEEPER_SET_BETA_SWEEP CUSTOM 0.0 2.0" in text
+    assert "SWEEPER_SET_VELOCITY_SWEEP CUSTOM C:/cases/vel.txt" in text
+    assert "SWEEPER_CLEAR_SOLUTION ENABLE" in text
+    assert "SWEEPER_REF_VELOCITY_SAME DISABLE" in text
+    assert "SWEEPER_POST_RUN_SCRIPT ENABLE C:/cases/post.txt" in text
+    assert "SWEEPER_START" in text
+    assert "SWEEPER_EXPORT_SPREADSHEET C:/cases/out.txt" in text
+
+    exercised = {
+        "aoa",
+        "beta",
+        "velocity_file",
+        "clear_solution",
+        "ref_velocity_same",
+        "post_run_script",
+        "start",
+        "export_spreadsheet",
+    }
+    declared = {
+        name
+        for name, parameter in inspect.signature(helpers.sweep).parameters.items()
+        if parameter.kind is inspect.Parameter.KEYWORD_ONLY
+    }
+    assert declared == exercised, (
+        "sweep's keyword-only parameters and the set this test emits have diverged: "
+        f"untested {sorted(declared - exercised)}, gone {sorted(exercised - declared)}. "
+        "Every keyword the helper offers must appear in a rendered line here, because "
+        "the one that did not is the one that broke."
+    )

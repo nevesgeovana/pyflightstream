@@ -60,15 +60,18 @@ validated against a per-version command database, and old versions are
 only ever added, never dropped, so campaigns stay reproducible across
 that evolution.
 
-Every database entry carries a manual page citation, and its status per
-version (documented, verified, broken) can only be promoted by citing a
-committed probe report from a licensed machine. Nothing is guessed; the
-honest gaps are reported as such.
+Every database entry carries exactly one piece of evidence: the manual
+page that documents the command, or, for the few the solver accepts and
+no manual edition describes, a committed probe report measuring that it
+does. Its status per version (documented, verified, broken) can only be
+promoted by citing a committed probe report from a licensed machine.
+Nothing is guessed; the honest gaps are reported as such.
 
 ## What ships
 
-- Command database with per-version evidence and a manual citation on
-  every entry, browsable offline via `pyflightstream.help()` (including
+- Command database with per-version evidence and a manual or probe-report
+  citation on every entry, browsable offline via `pyflightstream.help()`
+  (including
   a manual-coverage section) and as a generated docs site; the
   compatibility matrix carries the live counts.
 - Validating script builder with curated helpers: phase ordering,

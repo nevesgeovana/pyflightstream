@@ -72,7 +72,8 @@ first. Reading the drafts of the CAD chapter, which nobody has written,
 found the rule that reads a token LIST taking words out of the sentences
 after the one that lists them, so a threshold with two values drafted
 three. It reads one sentence now. The counting openings run before both
-enum rules, because "Number of boundaries in the CFD or FEM mesh" is a
+enum rules, because a count whose sentence happens to spell two file
+formats ("Number of boundaries in the STL or OBJ import") is a
 count and not a choice.
 
 The rules and the ordering are held by ``tests/test_utils_manual.py`` on
@@ -661,8 +662,8 @@ def _read_opening(_placeholder: str, text: str) -> tuple[str, tuple[str, ...]] |
     First of all the rules, and the position is the fix rather than a
     preference: every rule below reads tokens out of a sentence, so a
     count whose description happens to spell an alternative ("Number of
-    boundaries in the CFD or FEM mesh") was read as a closed set and
-    drafted ``values: [CFD, FEM]``. A wrong ``???`` costs a reviewer a
+    boundaries in the STL or OBJ import") was read as a closed set and
+    drafted ``values: [STL, OBJ]``. A wrong ``???`` costs a reviewer a
     minute; an invented token list loads, and then validates other
     people's scripts.
 
@@ -720,9 +721,9 @@ def _read_enumeration(_placeholder: str, text: str) -> tuple[str, tuple[str, ...
     """Answer from the phrase that introduces a closed set.
 
     Reads only the SENTENCE carrying the phrase. Reading the whole
-    description took tokens from the sentences after it: "The threshold
-    logic. One of the following: ABOVE or BELOW. The CAD faces that meet
-    this criterion..." proposed ABOVE, BELOW and CAD.
+    description took tokens from the sentences after it, so a two-value
+    threshold whose next sentence named the argument it feeds proposed
+    three values instead of two.
     """
     phrase = _ENUM_PHRASE.search(text)
     if phrase is None:
@@ -837,6 +838,7 @@ def propose_type(placeholder: str, description: str) -> tuple[str | None, tuple[
 
 def sample_contradiction(
     command: ManualCommand,
+    *,
     index: int,
     proposed: str | None,
     values: tuple[str, ...] = (),
@@ -878,7 +880,10 @@ def sample_contradiction(
         Parsed entry. Its sample supplies the evidence and its
         ``inline_args`` the positions.
     index : int
-        Zero-based position in ``command.inline_args``.
+        ZERO-based position in ``command.inline_args``. Keyword-only,
+        along with everything after it, because a call reading
+        ``sample_contradiction(cmd, 1, "enum", ("X", "Y"))`` says nothing
+        about which of those is which.
     proposed : str or None
         Type :func:`propose_type` returned, or None when no rule
         answered. None is never contradicted: an unanswered argument
@@ -897,7 +902,24 @@ def sample_contradiction(
         silent rather than reported because the absence of a sample is
         not evidence of agreement, and a caller that treated None as
         confirmation would be reading it as one.
+
+    Raises
+    ------
+    ManualDraftError
+        If ``index`` is outside the command's own argument list. It used
+        to index the sample tokens directly, so a caller passing the
+        1-based position a person reads off the manual page got a
+        confident report about the NEXT argument's token, phrased
+        exactly like a real finding. A caller bug must not be able to
+        produce a plausible sentence.
     """
+    if not 0 <= index < len(command.inline_args):
+        raise ManualDraftError(
+            f"{command.name} declares {len(command.inline_args)} inline argument(s) and "
+            f"index {index} is outside them. The index is ZERO-based and addresses "
+            "the signature, not the sample: indexing the sample directly turns an "
+            "off-by-one into a confident report about a different argument."
+        )
     if proposed is None or not command.sample:
         return None
     head = command.sample[0]
@@ -982,7 +1004,7 @@ def render_entry(
         lines.append("  args:")
         for index, raw in enumerate(command.inline_args):
             proposed, values, _ = propose_type(raw, command.parameters.get(raw.upper(), ""))
-            refused = sample_contradiction(command, index, proposed, values)
+            refused = sample_contradiction(command, index=index, proposed=proposed, values=values)
             if refused is not None:
                 contradicted.append(f"{raw} (the sample passes {refused})")
                 proposed, values = None, ()

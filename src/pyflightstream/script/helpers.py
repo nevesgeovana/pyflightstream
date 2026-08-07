@@ -777,13 +777,13 @@ def solver_settings(
         this mechanism.
     valarezo_separation_boundaries : sequence of int or str, or 'all', optional
         Boundaries on the Valarezo maximum-lift criterion list of
-        26.100 (SRC-741 p.339). The empty sequence is REFUSED here,
-        alone among the boundary-list keywords: it would emit the erase
-        command SRC-741 documents, which RPT-018 measured as the one
-        name in this family the solver does not recognise. The refusal
-        names the spelling that works and the ``Script.raw()`` escape,
-        because that spelling appears in no manual edition and so has no
-        database entry to validate. Superseded from 26.101 by the
+        26.100 (SRC-741 p.339). The empty sequence emits the erase,
+        like every other boundary-list keyword. It was REFUSED for one
+        day: RPT-018 measured the name SRC-741 prints for that erase as
+        unrecognised by the solver, and the working spelling could not
+        be recorded until an entry was allowed to rest on a probe report
+        instead of a manual page. It is recorded now, so the erase is
+        emitted under the name that works. Superseded from 26.101 by the
         ``valarezo_criterion`` field of
         :class:`~pyflightstream.script.solver_setup.AirfoilSeparation`.
     crossflow_separation_boundaries : sequence of int or str, or 'all', optional
@@ -1415,7 +1415,13 @@ def sweep(
     if beta is not None:
         script.emit("SWEEPER_SET_BETA_SWEEP", "CUSTOM", list(beta))
     if velocity_file is not None:
-        script.emit("SWEEPER_SET_VELOCITY_SWEEP", "CUSTOM", velocity_file)
+        # BY NAME, not positionally. The velocity command used to declare
+        # `filename` as its only tail, so a path was the second positional;
+        # the 2026-08-06 redraft gave all four sweep axes the manual's real
+        # grammar, where the inline value list comes first and the path
+        # second. A positional path bound to `values` and raised, and no
+        # test covered this keyword, so the whole suite stayed green.
+        script.emit("SWEEPER_SET_VELOCITY_SWEEP", "CUSTOM", filename=velocity_file)
     if clear_solution is not None:
         script.emit("SWEEPER_CLEAR_SOLUTION", _toggle(clear_solution))
     if ref_velocity_same is not None:

@@ -18,7 +18,8 @@ Each command entry records:
 | layout | The emission grammar (inline, keyword block, parameter lines, ...) |
 | phase | The pipeline phase (geometry, setup, init, exec, analysis, export, control) enforced at build time |
 | args | Typed argument specifications, with enums and optional flags |
-| manual_ref | The page citation backing the entry |
+| manual_ref | The manual page citation backing the entry; exclusive with `probe_ref` |
+| probe_ref | A committed probe report backing an entry no manual edition documents; exclusive with `manual_ref` |
 | versions | Per-version presence, status, and (where they differ) per-version argument grammars |
 | default / default_ref | Optional evidence-cited default value of a settings flag |
 
@@ -26,7 +27,7 @@ Per-version statuses and their evidence rules:
 
 | Status | Claim | Evidence required |
 |---|---|---|
-| documented | The manual says so | `manual_ref` page citation |
+| documented | The manual says so, or a probe measured the solver accepting a command no edition documents | `manual_ref` page citation, or `probe_ref` naming a committed report |
 | verified | A probe proved it works | Committed compat report |
 | broken | A probe proved it fails | Committed compat report |
 | removed | The manual says it is gone | `manual_ref` page citation |

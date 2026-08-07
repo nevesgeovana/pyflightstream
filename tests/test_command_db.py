@@ -860,19 +860,29 @@ def test_every_evidence_citation_falls_inside_its_edition_page_range():
     )
     citation = re.compile(r"(SRC-\d{3})\s+pp?\.\s*(\d+)(?:\s*-\s*(\d+))?")
     offenders = []
-    checked = 0
+    # Counted SEPARATELY, and the reason is that counting them together
+    # gave the floor about 163 counts of slack: the note citations alone
+    # cleared a floor derived from the manual_ref population, so dropping
+    # manual_ref from the walk entirely left the assertion true and its
+    # message ("at least one manual_ref went unparsed") false.
+    manual_refs_read = 0
+    notes_read = 0
     for name, entry in sorted(registry.commands.items()):
         evidence = [("manual_ref", entry.manual_ref or "")]
         evidence += [
             (f"{canonical} note", record.note or "") for canonical, record in entry.versions.items()
         ]
         for field, text in evidence:
-            for source, first, last in citation.findall(text):
+            found = citation.findall(text)
+            if field == "manual_ref" and found:
+                manual_refs_read += 1
+            elif found:
+                notes_read += 1
+            for source, first, last in found:
                 if source not in ranges:
                     continue
                 low, high, canonical = ranges[source]
                 for page in {int(first), int(last or first)}:
-                    checked += 1
                     if not low <= page <= high:
                         offenders.append(
                             f"{name} ({field}) cites {source} p.{page}, outside the "
@@ -884,11 +894,14 @@ def test_every_evidence_citation_falls_inside_its_edition_page_range():
         "the range is: " + "; ".join(offenders)
     )
     expected = sum(1 for entry in registry.commands.values() if entry.manual_ref)
-    assert checked >= expected, (
-        f"the walk checked {checked} citations against {expected} entries carrying a "
-        "manual_ref, so at least one manual_ref went unparsed. The floor is computed "
-        "from the registry rather than frozen on purpose: a number written down here "
-        "would be met by a growing database while the walk quietly stopped matching"
+    assert manual_refs_read == expected, (
+        f"the walk read a citation out of {manual_refs_read} manual_ref fields against "
+        f"{expected} entries carrying one, so {expected - manual_refs_read} went "
+        "unparsed and unchecked. Equality, not a floor: a floor is met by any other "
+        "population the walk happens to count"
+    )
+    assert notes_read > 0, (
+        "no per-version note yielded a citation; the note half of the walk is dead"
     )
 
 
@@ -989,3 +1002,107 @@ def test_the_entry_citation_reaches_for_whichever_kind_the_entry_carries():
         versions={"26.120": {"status": "documented"}},
     )
     assert probed.citation.startswith("reports/RPT-018")
+
+
+def test_no_consumer_of_a_citation_prints_an_empty_one():
+    """The CONSUMERS, not the property, which is what the defect was.
+
+    Adding `citation` and converting one call site left the empty
+    brackets in every other refusal and an empty cell on a published
+    page, while the test named for the defect asserted only that the
+    property returned the right string. It would have stayed green with
+    every consumer still reading `manual_ref`. This walks the two
+    surfaces a person actually sees.
+    """
+    from pyflightstream.reference import markdown_reference_pages
+    from pyflightstream.script import CommandArgumentError, Script
+
+    registry = CommandRegistry.load()
+    probe_only = sorted(name for name, entry in registry.commands.items() if entry.probe_ref)
+    assert probe_only, "no entry rests on a probe report; this guard walks nothing"
+
+    for name in probe_only:
+        entry = registry.commands[name]
+        version = sorted(entry.versions)[0]
+        with pytest.raises(CommandArgumentError) as caught:
+            Script(version=version).emit(name, "an argument it does not take")
+        assert entry.probe_ref in str(caught.value), (
+            f"the refusal for {name} cites nothing: {caught.value}"
+        )
+
+    rendered = "\n".join(markdown_reference_pages().values())
+    assert "Manual: ." not in rendered
+    assert "Manual: \n" not in rendered
+
+
+def test_an_entry_must_cite_exactly_one_kind_of_evidence():
+    """The three load-time refusals of the probe_ref field, none of which had a test.
+
+    The walk over the YAML files asserted the property over the files
+    that exist, so it passed on whatever the model already accepted;
+    nothing constructed the three refused shapes. Deleting all three
+    validators left the suite green while the CHANGELOG said "enforced
+    by the model and by a walk over the files".
+
+    Asserted as ``ValidationError`` because that is what a caller
+    catches: ``CommandDatabaseError`` is raised inside the validator and
+    pydantic wraps it, which is the same reason every other validator
+    refusal in this file is asserted this way.
+    """
+    common = {
+        "name": "X_CMD",
+        "layout": "bare",
+        "phase": "geometry",
+        "args": [],
+        "versions": {"26.120": {"status": "documented"}},
+    }
+    report = "reports/RPT-018_separation-family-across-builds_2026-08-05.md"
+
+    with pytest.raises(ValidationError, match="cites both"):
+        CommandEntry(**common, manual_ref="SRC-003 p.300", probe_ref=report)
+    with pytest.raises(ValidationError, match="cites no evidence"):
+        CommandEntry(**common)
+    with pytest.raises(ValidationError, match="repository-relative path"):
+        CommandEntry(**common, probe_ref="RPT-018")
+    with pytest.raises(ValidationError, match="must cite a source and page"):
+        CommandEntry(**common, manual_ref="the manual, somewhere")
+
+    assert CommandEntry(**common, probe_ref=report).probe_ref == report
+
+
+def test_a_probe_cited_entry_with_a_version_override_keeps_one_citation():
+    """The override citation goes into the field the entry already uses.
+
+    ``model_copy`` runs no validator, so writing the per-version
+    citation into ``manual_ref`` unconditionally would hand a
+    probe-cited entry both fields at once, which is exactly the state
+    the validator above refuses, and a ``manual_ref`` that fails its own
+    pattern. Nothing in the database combines the two today, which is
+    why this is constructed rather than loaded.
+    """
+    report = "reports/RPT-018_separation-family-across-builds_2026-08-05.md"
+    entry = CommandEntry(
+        name="X_CMD",
+        layout="inline",
+        phase="geometry",
+        args=[ArgSpec(name="mode", type="enum", values=("A", "B"))],
+        probe_ref=report,
+        versions={
+            "26.100": VersionStatus(
+                status=Status.DOCUMENTED,
+                note="measured on the February build",
+                args=(ArgSpec(name="mode", type="enum", values=("A",)),),
+            ),
+            "26.120": VersionStatus(status=Status.DOCUMENTED),
+        },
+    )
+    overridden = entry.model_copy(update={"args": entry.versions["26.100"].args})
+    assert overridden.probe_ref == report
+
+    from pyflightstream.commands import _override_citation
+
+    cited = _override_citation(entry, "26.100", entry.versions["26.100"].note)
+    assert cited.endswith("the 26.100 grammar")
+    assert cited.startswith(report), (
+        "an entry resting on a report must not be handed a manual_ref-shaped citation"
+    )

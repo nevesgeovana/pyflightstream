@@ -1124,7 +1124,7 @@ def test_the_curve_constructors_take_no_frame():
 
 @pytest.mark.parametrize("version", ["26.100", "26.101", "26.120", "26.121"])
 def test_the_curve_transform_family_emits_on_every_registered_build(version):
-    """Nine commands, one grammar, four editions.
+    """Eight commands, one grammar, four editions.
 
     Each line here is the manual's own sample for that command, so the
     test doubles as the record that the emitter reproduces them.
@@ -1178,9 +1178,21 @@ def test_the_projection_direction_is_not_optional():
     because its guide curve supplies one, would reasonably try the same
     five-argument shape here and get a projection onto the plane along
     an unstated direction.
+
+    Bound BY KEYWORD deliberately. Written positionally, the fourth
+    value lands on `nx` and what fires is the float type check on the
+    string, not the required-ness check this test is named for: marking
+    nx, ny and nz optional would leave it green. The keyword form has no
+    other argument to land on, and the match pins which refusal ran.
     """
-    with pytest.raises(CommandArgumentError):
-        Script(version="26.120").emit("CAD_CREATE_PROJECT_CURVE", 6, 1, "XZ", "RETAIN")
+    with pytest.raises(CommandArgumentError, match="requires argument 'nx'"):
+        Script(version="26.120").emit(
+            "CAD_CREATE_PROJECT_CURVE",
+            curve_index=6,
+            frame=1,
+            plane="XZ",
+            retain_curve="RETAIN",
+        )
 
 
 def test_exporting_curves_does_not_close_the_geometry_phase():
@@ -1211,20 +1223,68 @@ def test_the_two_projections_disagree_about_where_their_curves_come_from():
     Pinned as a pair because the difference is the reason both exist,
     and because a reader who has just written CAD_CREATE_CURVE_SELECT
     would expect the projection to honour it.
+
+    The selection-driven set is DERIVED rather than listed. Written as a
+    six-name tuple it excluded whatever was added next, and the mirror
+    command is already known to be coming: a transform landing outside
+    the tuple would be silently unchecked by a test whose name claims to
+    cover the family.
     """
     entries = CommandRegistry.load().commands
-    by_selection = (
-        "CAD_CREATE_ROTATE_CURVES",
-        "CAD_CREATE_TRANSLATE_CURVES",
-        "CAD_CREATE_SCALE_CURVES",
-        "CAD_CREATE_REORDER_CURVES",
-        "CAD_CREATE_CONNECT_CURVES",
-        "CAD_CREATE_SELF_MEDIAN_FROM_CURVES",
-    )
-    for name in by_selection:
-        assert not any("curve_index" in arg.name for arg in entries[name].args), name
+    transforms = {
+        name
+        for name in entries
+        if name.startswith("CAD_CREATE_")
+        and any(
+            token in name
+            for token in ("ROTATE", "TRANSLATE", "SCALE", "MIRROR", "PROJECT", "REORDER")
+        )
+    }
+    projections = {"CAD_CREATE_PROJECT_CURVE", "CAD_CREATE_PROJECT_MULTI_CURVE"}
+    assert projections <= transforms, "the derivation stopped finding the projections"
+    for name in sorted(transforms - projections):
+        assert not any("curve_index" in arg.name for arg in entries[name].args), (
+            f"{name} names a curve by index; every transform but the two projections "
+            "acts on the selection, and this one is outside that rule"
+        )
     assert [arg.name for arg in entries["CAD_CREATE_PROJECT_CURVE"].args][0] == "curve_index"
     assert [arg.name for arg in entries["CAD_CREATE_PROJECT_MULTI_CURVE"].args][:2] == [
         "curve_index_1",
         "curve_index_2",
     ]
+
+
+def test_every_cad_command_is_available_on_every_registered_build():
+    """The four-build claim, walked from the chapter rather than listed.
+
+    Three chapter tests above name their commands by hand, which is what
+    a readable emission test should do. What they cannot do is carry the
+    claim the chapter headers and the CHANGELOG make about the WHOLE
+    chapter, and three of the entries entered with them
+    (CAD_CREATE_CURVE_DELETE_ALL, CAD_CREATE_CURVE_DELETE_SELECTED,
+    CAD_CREATE_CURVE_EXPORT_CCS) are exercised on 26.120 alone. An entry
+    added tomorrow joins no hand-written list at all.
+
+    So this derives the set from the chapter field and asserts the claim
+    directly. It is not a duplicate of the emission tests: those check
+    what a command renders, this checks that the chapter says what it
+    says about every member of itself.
+    """
+    registry = CommandRegistry.load()
+    members = sorted(
+        name for name, entry in registry.commands.items() if entry.chapter in {"cad", "cad_create"}
+    )
+    assert len(members) >= 33, (
+        f"the CAD chapters hold {len(members)} entries; the walk found fewer than the "
+        "33 entered by 2026-08-06, so the chapter filter has stopped matching"
+    )
+    missing = []
+    for version in known_versions():
+        if version.canonical == "26.000":
+            continue
+        view = registry.for_version(version.canonical)
+        missing += [f"{name} on {version.canonical}" for name in members if name not in view]
+    assert not missing, (
+        "these CAD commands are unavailable on a registered build, while both chapter "
+        "headers and the CHANGELOG say every one of them emits on all four: " + "; ".join(missing)
+    )

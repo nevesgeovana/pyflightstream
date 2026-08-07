@@ -9,9 +9,11 @@ built.
 Nothing about the solver is asserted without a citation or a
 measurement.
 
-- Every command database entry carries a manual page citation
-  (`manual_ref`). Manual facts appear only as paraphrases with the
-  page number; manual text is never reproduced.
+- Every command database entry carries exactly one citation: the manual
+  page that documents it (`manual_ref`), or a committed probe report
+  measuring that the solver accepts a command no edition documents
+  (`probe_ref`). Manual facts appear only as paraphrases with the page
+  number; manual text is never reproduced.
 - A command's per-version status is promoted to `verified` or `broken`
   only by a committed probe report from a licensed machine. No status
   is ever hand-edited.

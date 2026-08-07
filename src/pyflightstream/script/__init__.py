@@ -339,7 +339,7 @@ def _reject_line_break(entry: CommandEntry, spec: ArgSpec, value: str) -> None:
         f"validated. Remove the break (the value up to it is {first!r}), or, if "
         f"unvalidated script text is genuinely wanted, append it with "
         f"Script.raw(), which sets raw_flag so the script records that it was "
-        f"not checked ({entry.manual_ref})"
+        f"not checked ({entry.citation})"
     )
 
 
@@ -372,7 +372,7 @@ def _reject_non_finite(entry: CommandEntry, spec: ArgSpec, value: float) -> None
             "finite number. A solver argument is a physical quantity or a "
             "numerical control, and neither has a NaN or an infinite value; "
             "emitting it would put the token into the script for FlightStream "
-            f"to reject late, ignore, or absorb silently ({entry.manual_ref})"
+            f"to reject late, ignore, or absorb silently ({entry.citation})"
         )
 
 
@@ -682,7 +682,7 @@ class Script:
                 raise CommandArgumentError(
                     f"{entry.name} does not create a frame, actuator, or motion, so "
                     "label= does not apply; labels name script-created entities at "
-                    f"their creation command ({entry.manual_ref})"
+                    f"their creation command ({entry.citation})"
                 )
             self.entities.assert_label_free(_CREATION_COMMANDS[entry.name], label)
         bound = self._bind(entry, args, kwargs)
@@ -705,7 +705,7 @@ class Script:
                     "argument check saw. Every value reaching a script line is "
                     "validated one line at a time; if this command has an "
                     "argument type that is not line-checked, that check is the "
-                    f"fix, not this message ({entry.manual_ref})"
+                    f"fix, not this message ({entry.citation})"
                 )
         if waived and not self._broken_uses[entry.name].first_line:
             # The reason was written for ONE call and the waiver covers
@@ -838,7 +838,7 @@ class Script:
             raise BrokenCommandError(
                 f"{entry.name} is recorded broken in "
                 f"{where}: {observed}. The evidence is "
-                f"{record.report} ({entry.manual_ref}). Emitting it would put a "
+                f"{record.report} ({entry.citation}). Emitting it would put a "
                 "command in the script that a probe measured not to work, and the "
                 "solver accepts the line, so the run would return numbers that "
                 "nothing marks as wrong. If this run needs the command anyway, and "
@@ -869,7 +869,7 @@ class Script:
         if len(args) > len(specs):
             raise CommandArgumentError(
                 f"{entry.name} takes at most {len(specs)} arguments, got {len(args)} "
-                f"({entry.manual_ref})"
+                f"({entry.citation})"
             )
         bound: dict[str, object] = {}
         for spec, value in zip(specs, args, strict=False):
@@ -879,11 +879,11 @@ class Script:
             if key not in known:
                 raise CommandArgumentError(
                     f"{entry.name} has no argument {key!r}; arguments are "
-                    f"{', '.join(sorted(known)) or 'none'} ({entry.manual_ref})"
+                    f"{', '.join(sorted(known)) or 'none'} ({entry.citation})"
                 )
             if key in bound:
                 raise CommandArgumentError(
-                    f"{entry.name}: argument {key!r} given twice ({entry.manual_ref})"
+                    f"{entry.name}: argument {key!r} given twice ({entry.citation})"
                 )
             bound[key] = value
         checked: dict[str, object] = {}
@@ -891,7 +891,7 @@ class Script:
             if spec.name not in bound:
                 if spec.required:
                     raise CommandArgumentError(
-                        f"{entry.name} requires argument {spec.name!r} ({entry.manual_ref})"
+                        f"{entry.name} requires argument {spec.name!r} ({entry.citation})"
                     )
                 continue
             value = self._resolve_labels(entry, spec, bound[spec.name])
@@ -906,11 +906,11 @@ class Script:
         context = f"{entry.name}: argument {spec.name!r}"
         kind = _SCALAR_REFERENCE_ARGS.get(spec.name)
         if kind is not None and isinstance(value, str):
-            return self.entities.resolve(kind, value, context=context, citation=entry.manual_ref)
+            return self.entities.resolve(kind, value, context=context, citation=entry.citation)
         kind = _LIST_REFERENCE_ARGS.get(spec.name)
         if kind is not None and isinstance(value, Sequence) and not isinstance(value, str):
             return [
-                self.entities.resolve(kind, item, context=context, citation=entry.manual_ref)
+                self.entities.resolve(kind, item, context=context, citation=entry.citation)
                 for item in value
             ]
         return value
@@ -925,7 +925,7 @@ class Script:
                     raise CommandArgumentError(
                         f"{entry.name}: the declared count is {count_value} but "
                         f"{spec.name!r} holds {len(bound[spec.name])} values "
-                        f"({entry.manual_ref})"
+                        f"({entry.citation})"
                     )
 
     def _check_phase(self, entry: CommandEntry) -> None:
@@ -954,19 +954,17 @@ class Script:
             value = bound[spec.name]
             kind = _SCALAR_REFERENCE_ARGS.get(spec.name)
             if kind is not None:
-                self.entities.check_index(kind, value, context=context, citation=entry.manual_ref)
+                self.entities.check_index(kind, value, context=context, citation=entry.citation)
             kind = _LIST_REFERENCE_ARGS.get(spec.name)
             if kind is not None and isinstance(value, Sequence) and not isinstance(value, str):
                 for item in value:
                     if item != -1:
                         self.entities.check_index(
-                            kind, item, context=context, citation=entry.manual_ref
+                            kind, item, context=context, citation=entry.citation
                         )
             kind = _COUNT_REFERENCE_ARGS.get(spec.name)
             if kind is not None:
-                self.entities.check_boundary_count(
-                    value, context=context, citation=entry.manual_ref
-                )
+                self.entities.check_boundary_count(value, context=context, citation=entry.citation)
 
     def _format_scalar(self, value: object) -> str:
         return str(value)

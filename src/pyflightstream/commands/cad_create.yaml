@@ -122,6 +122,15 @@ SET_CAD_CURVATURE_REFINEMENT:
 # units of its lengths: they are the units of the coordinate system,
 # which the manual leaves to the reader, so no unit field is recorded
 # rather than one being invented.
+#
+# THREE SPELLINGS OF LENGTH across four commands, and they are the
+# vendor's: the placeholders are LEN_X on the box, LEN on the cylinder,
+# LEN1 and LEN2 on the sheet. A caller writing keyword arguments has to
+# look up which one a given command uses, which is a real cost, and the
+# alternative cost is worse: renaming them would make the database
+# argument list stop matching the manual page a reader has open beside
+# it, which is the one thing these names are for. They are mirrored,
+# and this comment is the warning.
 
 CAD_CREATE_BOX:
   layout: inline
@@ -436,13 +445,14 @@ CAD_CREATE_CURVE_DELETE_UNSELECTED:
 
 # --- virtual curves: transforming them -------------------------------------
 #
-# Five of the seven transforms end in RETAIN_CURVE, which chooses
-# whether the ORIGINAL curves survive the operation. The name reads
-# like a boolean and is an enumeration of two words, RETAIN or DELETE,
-# and the manual's own samples use DELETE more often than not: a
-# transform is usually a replacement rather than a copy.
+# The transforms ending in RETAIN_CURVE (rotate, scale, translate and
+# the two projections) choose whether the ORIGINAL curves survive the
+# operation. The name reads like a boolean and is an enumeration of two
+# words, RETAIN or DELETE, and the manual's own samples use DELETE more
+# often than not: a transform is usually a replacement rather than a
+# copy.
 #
-# All seven act on the SELECTION rather than on an index, with the two
+# They act on the SELECTION rather than on an index, with the two
 # projections as the exception: those name their curves directly and
 # ignore what is selected.
 
