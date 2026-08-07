@@ -1,7 +1,17 @@
-# Chapter: Scripting reference, Motion Definitions (SRC-003
-# pp.332-336). M1 drafts the rotary motion path and the FSI seam
-# commands (FR-23); the 6DOF family and custom motion tables await the
-# cases that exercise them.
+# Chapter: Scripting reference, Motion Definitions (SRC-003 pp.332-336).
+#
+# COMPLETE as of 2026-08-07. M1 drafted the rotary motion path and the
+# FSI seam commands (FR-23) and left the 6DOF family and the custom
+# motion tables for the cases that would exercise them; the 2026-08-07
+# sweep entered them from the manual instead, together with the five
+# February-only kinematic commands.
+#
+# THREE COORDINATE SYSTEMS APPEAR IN THIS CHAPTER AND NOTHING IN AN
+# ARGUMENT NAME SAYS WHICH. SET_MOTION_GRAVITY reads the REFERENCE
+# system; the 6DOF initial conditions and the external and spring
+# forces read the BODY frame; and the February kinematic family reads
+# the MOTION DEFINITION system. A script that sets gravity and an
+# initial velocity is writing two vectors into two different frames.
 
 CREATE_NEW_MOTION:
   layout: inline
@@ -149,7 +159,30 @@ SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION:
       type: int
   manual_ref: "SRC-003 p.333"
   versions:
+    "26.100":
+      status: documented
+      note: >-
+        SRC-741 pp.329-330 documents a TWO-argument form: the February
+        2026 edition has no NUM_BLADES, and the blade count arrives with
+        the rotary motion in the May edition.
+      args:
+        - name: motion_id
+          type: int
+        - name: wake_stabilization
+          type: enum
+          values: [ENABLE, DISABLE]
+    "26.101": {status: documented, note: "SRC-725 p.332, the first edition with NUM_BLADES"}
     "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.336, same grammar as 26.120"}
+  notes: >
+    Stabilizes the slipstream wake of a rotor motion. NUM_BLADES is per
+    PROPELLER rather than a total across the motion, which the manual
+    states.
+
+    The February 2026 edition takes two arguments and not three, so
+    26.100 overrides the grammar rather than sharing it. Emitting the
+    blade count onto a February script would pass an argument that build
+    does not read.
 
 SET_MOTION_FSI_EXECUTABLE:
   layout: inline
@@ -211,3 +244,493 @@ DELETE_MOTION:
   manual_ref: "SRC-003 p.336"
   versions:
     "26.120": {status: documented}
+
+# --- the February 2026 kinematic family -------------------------------------
+#
+# SRC-741 documents a motion whose velocity, acceleration and their
+# angular counterparts are SET DIRECTLY, and no later edition carries
+# any of the five commands below. That is the same rename recorded on
+# CREATE_NEW_MOTION: February's EUCLIDEAN motion is a general rigid-body
+# kinematic motion and May's ROTARY is rotation alone, set by axis and
+# RPM, so these five have no successor rather than a renamed one.
+#
+# Their placeholders carry a TYPE as well as a name in that edition,
+# written as <FLOAT vx> and <INTEGER motion_ID>. The type is the
+# manual's own annotation and not part of the token, so the argument
+# names here are the names alone.
+
+SET_MOTION_VELOCITY:
+  layout: inline
+  phase: setup
+  args:
+    - name: motion_id
+      type: int
+    - name: vx
+      type: float
+    - name: vy
+      type: float
+    - name: vz
+      type: float
+  manual_ref: "SRC-741 p.329"
+  versions:
+    "26.100": {status: documented}
+  notes: >
+    Velocity vector of a February 2026 Euclidean motion, in the MOTION
+    DEFINITION coordinate system. That is a third frame in this chapter:
+    SET_MOTION_GRAVITY reads the reference system and the 6DOF initial
+    conditions read the body frame, so three neighbouring commands take
+    a vector in three different places and none of the argument names
+    says which.
+
+SET_MOTION_ACCELERATION:
+  layout: inline
+  phase: setup
+  args:
+    - name: motion_id
+      type: int
+    - name: ax
+      type: float
+    - name: ay
+      type: float
+    - name: az
+      type: float
+  manual_ref: "SRC-741 p.329"
+  versions:
+    "26.100": {status: documented}
+  notes: >
+    Acceleration vector of a February 2026 Euclidean motion, in the
+    motion definition coordinate system. Its parameter row describes the
+    three components as a VELOCITY vector, which is the row written for
+    SET_MOTION_VELOCITY above carried across; the command name and the
+    sample both say acceleration.
+
+SET_MOTION_ANGULAR_VELOCITY:
+  layout: inline
+  phase: setup
+  args:
+    - name: motion_id
+      type: int
+    - name: wx
+      type: float
+    - name: wy
+      type: float
+    - name: wz
+      type: float
+  manual_ref: "SRC-741 p.329"
+  versions:
+    "26.100": {status: documented}
+  notes: >
+    Angular velocity vector of a February 2026 Euclidean motion, in the
+    motion definition coordinate system. The manual states no unit and
+    this entry records none; the sample's -450.5 is consistent with
+    degrees per second and with revolutions per minute alike, so it
+    settles nothing.
+
+SET_MOTION_ANGULAR_ACCELERATION:
+  layout: inline
+  phase: setup
+  args:
+    - name: motion_id
+      type: int
+    - name: wax
+      type: float
+    - name: way
+      type: float
+    - name: waz
+      type: float
+  manual_ref: "SRC-741 p.329"
+  versions:
+    "26.100": {status: documented}
+  notes: >
+    Angular acceleration vector of a February 2026 Euclidean motion, in
+    the motion definition coordinate system.
+
+SET_MOTION_IS_ROTOR:
+  layout: inline
+  phase: setup
+  args:
+    - name: motion_id
+      type: int
+    - name: flag
+      type: enum
+      values: [ENABLE, DISABLE]
+    - name: axis
+      type: enum
+      values: [X, Y, Z]
+  manual_ref: "SRC-741 p.329"
+  versions:
+    "26.100": {status: documented}
+  notes: >
+    Marks a February 2026 motion as a rotor or propeller. AXIS is the
+    SLIPSTREAM CONVECTION DIRECTION rather than an axis of rotation,
+    which the parameter row states and the argument name does not; the
+    rotation axis of a later ROTARY motion is a different command,
+    SET_MOTION_ROTOR_AXIS, and takes the dual letter-or-index form this
+    one does not.
+
+# --- mass, gravity and the custom table --------------------------------------
+
+SET_MOTION_MASS_PROPERTIES:
+  layout: inline
+  phase: setup
+  args:
+    - name: motion_id
+      type: int
+    - name: mass
+      type: float
+      unit: "kg"
+    - name: ixx
+      type: float
+    - name: iyy
+      type: float
+    - name: izz
+      type: float
+    - name: ixy
+      type: float
+    - name: iyz
+      type: float
+    - name: izx
+      type: float
+  manual_ref: "SRC-003 p.333"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.330, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.332, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.336, same grammar as 26.120"}
+  notes: >
+    Mass and inertia tensor of a 6DOF body. MASS is in KILOGRAMS, which
+    the manual states; the six inertia components are named as moments
+    and products of inertia with NO unit given, so none is recorded
+    here even though kg m2 is the only reading consistent with the mass.
+
+    The order is the three moments and then the three products, and the
+    products are IXY, IYZ, IZX rather than the IXY, IXZ, IYZ a reader
+    may expect: the third pairs Z with X and not X with Z.
+
+SET_MOTION_GRAVITY:
+  layout: inline
+  phase: setup
+  args:
+    - name: motion_id
+      type: int
+    - name: gx
+      type: float
+    - name: gy
+      type: float
+    - name: gz
+      type: float
+  manual_ref: "SRC-003 p.333"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.330, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.332, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.336, same grammar as 26.120"}
+  notes: >
+    Gravity vector for a 6DOF motion, in the REFERENCE coordinate
+    system. Its neighbours SET_MOTION_6DOF_INITIAL_VELOCITY and
+    CREATE_NEW_6DOF_EXTERNAL_FORCE take their vectors in the BODY frame,
+    so a script that sets all three reads three vectors in two different
+    systems and the manual marks the difference only in the parameter
+    rows.
+
+    It is a vector rather than a magnitude, so the direction is the
+    caller's: the sample points it along negative Z.
+
+SET_MOTION_CUSTOM_TABLE:
+  layout: inline
+  phase: setup
+  args:
+    - name: type
+      type: enum
+      values: [VELOCITY-TIME, POSITION-TIME]
+    - name: motion_id
+      type: int
+    - name: filename
+      type: path
+      own_line: true
+  manual_ref: "SRC-003 p.333"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.330, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.332, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.336, same grammar as 26.120"}
+  notes: >
+    Reads a motion from a table in a text file, the path on the line
+    after the command.
+
+    THE MOTION ID IS SECOND HERE AND FIRST EVERYWHERE ELSE IN THIS
+    CHAPTER. Every other motion command opens with MOTION_ID; this one
+    opens with TYPE. A caller who writes the id first passes it where
+    the type belongs and the token is refused, which is the good
+    outcome, but the reason is worth having written down.
+
+    The two type tokens carry a HYPHEN, not an underscore, which is
+    unusual in this vocabulary and is the manual's own spelling.
+
+# --- 6DOF: initial conditions and active variables ---------------------------
+
+SET_MOTION_6DOF_INITIAL_VELOCITY:
+  layout: inline
+  phase: setup
+  args:
+    - name: motion_id
+      type: int
+    - name: vx
+      type: float
+    - name: vy
+      type: float
+    - name: vz
+      type: float
+  manual_ref: "SRC-003 p.334"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.330, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.333, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.337, same grammar as 26.120"}
+  notes: >
+    Initial velocity of a 6DOF body, in the BODY coordinate system, not
+    the reference one its gravity vector uses. No unit is stated.
+
+SET_MOTION_6DOF_INITIAL_ANGULAR_VELOCITY:
+  layout: inline
+  phase: setup
+  args:
+    - name: motion_id
+      type: int
+    - name: wx
+      type: float
+    - name: wy
+      type: float
+    - name: wz
+      type: float
+  manual_ref: "SRC-003 p.334"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.330, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.333, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.337, same grammar as 26.120"}
+  notes: >
+    Initial angular velocity of a 6DOF body, in the body coordinate
+    system. No unit is stated, and unlike SET_MOTION_ROTOR_RPM, which
+    names revolutions per minute, this one leaves it open.
+
+SET_MOTION_6DOF_ACTIVE_VARIABLES:
+  layout: payload_lines
+  phase: setup
+  args:
+    - name: motion_id
+      type: int
+    - name: variables
+      type: str_list
+      separator: newline
+  manual_ref: "SRC-003 p.334"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.331, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.333, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.337, same grammar as 26.120"}
+  notes: >
+    Frees or locks each degree of freedom, one per line after the
+    command: U, V and W are the velocity components and P, Q and R the
+    angular ones, each followed by ENABLE or DISABLE.
+
+    The six lines are recorded as preformatted tokens rather than as six
+    enum arguments, the same convention as the per-surface lines of
+    INITIALIZE_SOLVER, so the pairing of a name with a toggle is the
+    caller's to get right and this database records the shape. What that
+    costs is real: nothing here refuses a seventh line, a repeated
+    variable or a misspelled one.
+
+    Locking a subset is how a 6DOF motion becomes a constrained one; the
+    manual's own sample leaves Q and R free and is described on the
+    neighbouring page as a longitudinal 3DOF.
+
+# --- 6DOF: forces --------------------------------------------------------------
+
+CREATE_NEW_6DOF_EXTERNAL_FORCE:
+  layout: inline
+  phase: setup
+  args:
+    - name: motion_id
+      type: int
+    - name: x
+      type: float
+    - name: y
+      type: float
+    - name: z
+      type: float
+    - name: t_start
+      type: float
+      unit: "s"
+    - name: delta_t
+      type: float
+      unit: "s"
+    - name: fx
+      type: float
+    - name: fy
+      type: float
+    - name: fz
+      type: float
+  manual_ref: "SRC-003 p.334"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.331, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.333, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.337, same grammar as 26.120"}
+  notes: >
+    A force applied at a point of the body for a window of time. Both
+    the application point and the force vector are in the BODY frame.
+
+    T_START and DELTA_T are SECONDS, and the second is a DURATION rather
+    than an end time: the force runs from T_START for DELTA_T. Reading
+    it as an end time would apply the force for the wrong interval and
+    nothing would say so.
+
+CREATE_NEW_6DOF_CUSTOM_FORCE:
+  layout: inline
+  phase: setup
+  args:
+    - name: motion_id
+      type: int
+    - name: type
+      type: enum
+      values: [FORCE_VS_TIME, FORCE_VS_DISTANCE]
+    - name: filename
+      type: path
+      own_line: true
+  manual_ref: "SRC-003 p.335"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.331, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.334, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.338, same grammar as 26.120"}
+  notes: >
+    A force profile read from a text file, the path on the following
+    line. The two tokens use UNDERSCORES where the motion table's
+    VELOCITY-TIME and POSITION-TIME use hyphens, which is the manual's
+    inconsistency and is mirrored rather than harmonised.
+
+CREATE_NEW_6DOF_SPRING_FORCE:
+  layout: inline
+  phase: setup
+  args:
+    - name: motion_id
+      type: int
+    - name: x
+      type: float
+    - name: y
+      type: float
+    - name: z
+      type: float
+    - name: nx
+      type: float
+    - name: ny
+      type: float
+    - name: nz
+      type: float
+    - name: free_length
+      type: float
+    - name: solid_length
+      type: float
+    - name: initial_length
+      type: float
+    - name: spring_rate
+      type: float
+      unit: "N/m"
+  manual_ref: "SRC-003 p.335"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.332, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.334, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.338, same grammar as 26.120"}
+  notes: >
+    A spring attached to the body. ELEVEN arguments, and the manual's
+    heading WRAPS with SPRING_RATE alone on the second line, which is
+    one of the five wrapped signatures in the scripting reference.
+
+    Three lengths and none of them interchangeable. FREE_LENGTH is where
+    the spring stops pushing, beyond which it applies no force at all;
+    SOLID_LENGTH is the fully compressed length it cannot pass; and
+    INITIAL_LENGTH is where it starts. All three must be greater than
+    zero, which the manual states and this database does not enforce.
+
+    SPRING_RATE is in NEWTONS PER METRE, which the manual states, and it
+    is the only unit given on this command: the point and the axis
+    carry none, and the axis is a direction from the spring's base
+    outwards rather than a position.
+
+DELETE_6DOF_EXTERNAL_FORCE:
+  layout: inline
+  phase: setup
+  args:
+    - name: motion_id
+      type: int
+    - name: force_id
+      type: int
+  manual_ref: "SRC-003 p.335"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.332, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.334, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.338, same grammar as 26.120"}
+  notes: >
+    Deletes one external force from a motion by index. The manual names
+    no delete for the spring or the custom force, and this entry does
+    not assume the FORCE_ID space covers them.
+
+SET_6DOF_MOTION_SYMMETRY_LOADS:
+  layout: inline
+  phase: setup
+  args:
+    - name: motion_id
+      type: int
+    - name: symmetry_loads
+      type: enum
+      values: [ENABLE, DISABLE]
+  manual_ref: "SRC-003 p.334"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.331, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.333, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.337, same grammar as 26.120"}
+  notes: >
+    Includes the loads on the symmetry boundary in a 6DOF motion, which
+    the page's own sample comment describes as converting the motion
+    into a longitudinal 3DOF.
+
+    THE SAMPLE CALLS A SHORTER NAME THAN THE HEADING. Every edition
+    prints the heading SET_6DOF_MOTION_SYMMETRY_LOADS and a sample line
+    reading SET_6DOF_MOTION, and the February edition's sample writes
+    SET_3DOF_MOTION instead. The heading is recorded, because the Script
+    Index agrees with it and because the measured record of this
+    repository is that a heading has won every case a solver has
+    settled against a sample; the mirror curve, where the index sides
+    with the sample, is the one held for a probe instead
+    (PLN-20260806-1200).
+
+EXPORT_6DOF_TRAJECTORY:
+  layout: inline
+  phase: setup
+  args:
+    - name: motion_id
+      type: int
+    - name: filename
+      type: path
+      own_line: true
+  manual_ref: "SRC-003 p.335"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.332, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.334, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.338, same grammar as 26.120"}
+  notes: >
+    Writes a motion's trajectory tables to a file, the path on the
+    following line.
+
+    Its phase is SETUP rather than export, and the reason is the
+    opposite of the one that put CAD_CREATE_CURVE_EXPORT_CCS in
+    geometry: the phase is where the command may legally sit, and this
+    one belongs with the motion definition it names. There is no
+    evidence about when the trajectory becomes available to write, so
+    the entry does not imply that a script may call it before the solver
+    has produced one.

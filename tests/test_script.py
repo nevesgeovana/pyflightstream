@@ -18,6 +18,54 @@ from pyflightstream.versions import known_versions
 GOLDENS = Path(__file__).parent / "goldens"
 
 
+def classify_count_spellings(label, args):
+    """Report count-versus-list defects in one argument grammar.
+
+    Extracted from the walk below so a FIXTURE can reach it. The walk
+    itself cannot prove the rule: every count in the live database is
+    correctly spelled, so the `unspelled` branch has no positive case
+    and blinding it left the whole suite green. A guard whose only
+    witness is data that happens not to exercise it is not a guard.
+
+    Returns the unspelled findings, the interleaved findings, and how
+    many list arguments were seen.
+    """
+    from pyflightstream.commands import ArgType
+    from pyflightstream.script import _COUNT_ARG_NAMES, _SCALAR_REFERENCE_ARGS
+
+    unspelled: list[str] = []
+    interleaved: list[str] = []
+    lists = 0
+    governing: str | None = None
+    pending: list[str] = []
+    for spec in args:
+        if spec.is_list:
+            lists += 1
+            if governing is None:
+                # An ENTITY id before a list is not a count that went
+                # unspelled, and naming it in _COUNT_ARG_NAMES would make the
+                # emitter compare a motion index against the payload length.
+                # The interleaved branch already excluded these and this one
+                # did not, so SET_MOTION_6DOF_ACTIVE_VARIABLES, whose
+                # motion_id is followed by six preformatted toggle lines that
+                # nothing counts, was reported as a missing count spelling.
+                genuine = [name for name in pending if name not in _SCALAR_REFERENCE_ARGS]
+                if genuine:
+                    unspelled.append(f"{label}: {genuine[-1]!r} introduces {spec.name!r}")
+            else:
+                for candidate in pending:
+                    if candidate not in _SCALAR_REFERENCE_ARGS:
+                        interleaved.append(
+                            f"{label}: {candidate!r} sits between {governing!r} and {spec.name!r}"
+                        )
+            governing, pending = None, []
+        elif spec.name in _COUNT_ARG_NAMES:
+            governing, pending = spec.name, []
+        elif spec.type is ArgType.INT:
+            pending.append(spec.name)
+    return unspelled, interleaved, lists
+
+
 def build_steady_polar(script: Script) -> None:
     script.comment("Golden: minimal steady polar point for FlightStream 26.120")
     script.emit("OPEN", "C:/cases/wing.fsm")
@@ -507,9 +555,6 @@ def test_every_declared_count_is_a_known_count_name():
     one is written, which is the point at which the two behaviours have
     to be reconciled deliberately.
     """
-    from pyflightstream.commands import ArgType, CommandRegistry
-    from pyflightstream.script import _COUNT_ARG_NAMES, _SCALAR_REFERENCE_ARGS
-
     unspelled: list[str] = []
     interleaved: list[str] = []
     lists_walked = 0
@@ -523,26 +568,10 @@ def test_every_declared_count_is_a_known_count_name():
         ]
         for label, args in grammars:
             grammars_walked += 1
-            governing: str | None = None
-            pending: list[str] = []
-            for spec in args:
-                if spec.is_list:
-                    lists_walked += 1
-                    if governing is None:
-                        if pending:
-                            unspelled.append(f"{label}: {pending[-1]!r} introduces {spec.name!r}")
-                    else:
-                        for candidate in pending:
-                            if candidate not in _SCALAR_REFERENCE_ARGS:
-                                interleaved.append(
-                                    f"{label}: {candidate!r} sits between {governing!r} "
-                                    f"and {spec.name!r}"
-                                )
-                    governing, pending = None, []
-                elif spec.name in _COUNT_ARG_NAMES:
-                    governing, pending = spec.name, []
-                elif spec.type is ArgType.INT:
-                    pending.append(spec.name)
+            found_unspelled, found_interleaved, lists = classify_count_spellings(label, args)
+            unspelled += found_unspelled
+            interleaved += found_interleaved
+            lists_walked += lists
     assert not unspelled, (
         "these int arguments introduce a list with no recognised count before them, so "
         "their count is never checked against the list it declares; add the spelling to "
@@ -1564,3 +1593,191 @@ def test_the_untyped_axis_of_the_circular_pattern_has_no_invented_value_set():
     assert set(rotate_axis.values or ()) == {"X", "Y", "Z", "1", "2", "3"}, (
         "the control: the sibling whose table DOES enumerate must carry the set"
     )
+
+
+# --- Motion Definitions -----------------------------------------------------
+
+
+def test_the_6dof_family_emits_the_manual_samples():
+    """Every line here is the manual's own printed call."""
+    script = Script(version="26.120")
+    script.declare_existing(motions=1)
+    script.emit("SET_MOTION_MASS_PROPERTIES", 1, 1200.5, 12.5, 45.3, 0.3, 0.0, 12.4, 13.5)
+    script.emit("SET_MOTION_GRAVITY", 1, 0.0, 0.0, -9.81)
+    script.emit("SET_MOTION_CUSTOM_TABLE", "VELOCITY-TIME", 1, "motion.txt")
+    script.emit("SET_MOTION_6DOF_INITIAL_VELOCITY", 1, 10.0, 0.0, -25.0)
+    script.emit("SET_MOTION_6DOF_INITIAL_ANGULAR_VELOCITY", 1, 0.0, 0.0, -0.25)
+    script.emit(
+        "SET_MOTION_6DOF_ACTIVE_VARIABLES",
+        1,
+        ["U DISABLE", "V DISABLE", "W DISABLE", "P DISABLE", "Q ENABLE", "R ENABLE"],
+    )
+    script.emit("SET_6DOF_MOTION_SYMMETRY_LOADS", 1, "ENABLE")
+    script.emit("CREATE_NEW_6DOF_EXTERNAL_FORCE", 1, 0.0, -0.2, 1.2, 0.0, 0.25, -3000.0, 0.0, 0.0)
+    script.emit("CREATE_NEW_6DOF_CUSTOM_FORCE", 1, "FORCE_VS_TIME", "profile.txt")
+    script.emit(
+        "CREATE_NEW_6DOF_SPRING_FORCE", 1, 0.0, -0.2, 1.2, 0.0, 0.0, -1.0, 0.1, 0.05, 0.06, 1e5
+    )
+    script.emit("DELETE_6DOF_EXTERNAL_FORCE", 1, 1)
+    script.emit("EXPORT_6DOF_TRAJECTORY", 1, "traj.txt")
+    text = script.render()
+    assert "SET_MOTION_6DOF_ACTIVE_VARIABLES 1\nU DISABLE\n" in text
+    assert "SET_MOTION_CUSTOM_TABLE VELOCITY-TIME 1\nmotion.txt" in text
+
+
+def test_the_spring_force_carries_all_eleven_arguments():
+    """Its heading wraps with SPRING_RATE alone on the second line.
+
+    The third of the five wrapped signatures in the scripting reference
+    and the largest shortfall of them after the rectangle volume
+    section. A ten-argument entry would load and the emitter would
+    accept a ten-token call.
+    """
+    entry = CommandRegistry.load().commands["CREATE_NEW_6DOF_SPRING_FORCE"]
+    assert len(entry.args) == 11, [arg.name for arg in entry.args]
+    rate = entry.args[-1]
+    assert rate.name == "spring_rate" and rate.unit == "N/m"
+
+
+def test_the_custom_table_takes_its_type_before_the_motion_id():
+    """The only command in the chapter that does not open with MOTION_ID.
+
+    Every sibling opens with the motion index, so writing it first here
+    is the natural mistake. It is refused rather than misread, because
+    an integer is not one of the two type tokens, and this pins that the
+    order is the manual's and not a transcription slip.
+    """
+    entry = CommandRegistry.load().commands["SET_MOTION_CUSTOM_TABLE"]
+    assert [arg.name for arg in entry.args][:2] == ["type", "motion_id"]
+    script = Script(version="26.120")
+    script.declare_existing(motions=1)
+    with pytest.raises(CommandArgumentError, match="expects one of"):
+        script.emit("SET_MOTION_CUSTOM_TABLE", 1, "VELOCITY-TIME", "motion.txt")
+
+
+def test_the_three_motion_frames_are_each_recorded_where_they_apply():
+    """Gravity is in the reference frame, the 6DOF state in the body frame.
+
+    Three coordinate systems appear in this chapter and no argument name
+    distinguishes them, so the notes are the only carrier. A script that
+    sets gravity and an initial velocity writes two vectors into two
+    different systems.
+    """
+    entries = CommandRegistry.load().commands
+    assert "REFERENCE" in entries["SET_MOTION_GRAVITY"].notes.upper()
+    for name in (
+        "SET_MOTION_6DOF_INITIAL_VELOCITY",
+        "SET_MOTION_6DOF_INITIAL_ANGULAR_VELOCITY",
+        "CREATE_NEW_6DOF_EXTERNAL_FORCE",
+    ):
+        assert "BODY" in entries[name].notes.upper(), name
+    assert "MOTION DEFINITION" in entries["SET_MOTION_VELOCITY"].notes.upper()
+
+
+def test_the_february_kinematic_family_exists_on_that_build_alone():
+    """Five commands with no successor, because the capability changed.
+
+    February's EUCLIDEAN motion is set by velocity and acceleration
+    directly; May's ROTARY motion is set by axis and RPM. So these are
+    not renamed, they are gone, and the two rotor commands that replace
+    the capability exist in no earlier edition.
+    """
+    registry = CommandRegistry.load()
+    february_only = (
+        "SET_MOTION_VELOCITY",
+        "SET_MOTION_ACCELERATION",
+        "SET_MOTION_ANGULAR_VELOCITY",
+        "SET_MOTION_ANGULAR_ACCELERATION",
+        "SET_MOTION_IS_ROTOR",
+    )
+    for name in february_only:
+        assert sorted(registry.commands[name].versions) == ["26.100"], name
+        Script(version="26.100").declare_existing(motions=1)
+        with pytest.raises(CommandNotInVersionError):
+            Script(version="26.120").emit(name, 1)
+    for name in ("SET_MOTION_ROTOR_AXIS", "SET_MOTION_ROTOR_RPM"):
+        assert "26.100" not in registry.commands[name].versions, name
+
+
+def test_the_slipstream_stabilization_takes_two_arguments_in_february():
+    """NUM_BLADES arrives with the rotary motion in the May edition.
+
+    The entry carried the three-argument form and a 26.120 row alone, so
+    the February grammar was neither recorded nor reachable. Emitting
+    the blade count onto a February script passes an argument that build
+    does not read.
+    """
+    february = Script(version="26.100")
+    february.declare_existing(motions=1)
+    february.emit("SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION", 1, "ENABLE")
+    assert february.render().strip() == "SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION 1 ENABLE"
+    with pytest.raises(CommandArgumentError, match="at most 2"):
+        second = Script(version="26.100")
+        second.declare_existing(motions=1)
+        second.emit("SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION", 1, "ENABLE", 4)
+
+    current = Script(version="26.120")
+    current.declare_existing(motions=1)
+    current.emit("SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION", 1, "ENABLE", 4)
+    assert current.render().strip().endswith("ENABLE 4")
+
+
+def test_the_count_spelling_rule_catches_a_real_unspelled_count():
+    """The fixture the live walk cannot supply.
+
+    Every count in the database is correctly spelled, so the walk's
+    `unspelled` branch has no positive case and blinding it left the
+    whole suite green. These two grammars are the two sides of the rule.
+    """
+    from pyflightstream.commands import ArgSpec
+
+    unspelled, _, lists = classify_count_spellings(
+        "X_CMD",
+        [
+            ArgSpec(name="how_many", type="int"),
+            ArgSpec(name="values", type="int_list"),
+        ],
+    )
+    assert lists == 1
+    assert unspelled == ["X_CMD: 'how_many' introduces 'values'"], (
+        "an int with an unrecognised name introducing a list is the defect this "
+        "rule exists for, and it must be reported"
+    )
+
+
+def test_an_entity_id_before_a_list_is_not_an_unspelled_count():
+    """The control, and the reason the rule was widened on 2026-08-07.
+
+    SET_MOTION_6DOF_ACTIVE_VARIABLES puts a motion id before six
+    preformatted toggle lines that nothing counts. Naming motion_id in
+    _COUNT_ARG_NAMES to quiet the guard would have made the emitter
+    compare a motion index against the payload length.
+    """
+    from pyflightstream.commands import ArgSpec
+
+    unspelled, interleaved, _ = classify_count_spellings(
+        "X_CMD",
+        [
+            ArgSpec(name="motion_id", type="int"),
+            ArgSpec(name="variables", type="str_list", separator="newline"),
+        ],
+    )
+    assert unspelled == [] and interleaved == []
+
+
+def test_a_recognised_count_still_governs_its_list():
+    """The other control: a correct grammar must report nothing.
+
+    Without this the two tests above pass under a rule that reported
+    every list, or none.
+    """
+    from pyflightstream.commands import ArgSpec
+
+    unspelled, interleaved, _ = classify_count_spellings(
+        "X_CMD",
+        [
+            ArgSpec(name="num_boundaries", type="int"),
+            ArgSpec(name="boundary_indices", type="int_list"),
+        ],
+    )
+    assert unspelled == [] and interleaved == []

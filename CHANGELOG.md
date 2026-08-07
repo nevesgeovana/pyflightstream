@@ -9,6 +9,36 @@ FlightStream versions.
 
 ### API surface delta
 
+* **Motion Definitions is complete: 17 commands entered.** The 6DOF
+  family (mass and inertia, gravity, initial conditions, active
+  variables, the external, custom and spring forces, the trajectory
+  export), the custom motion table, and the five kinematic commands
+  that exist in the February 2026 build alone. Database 228 to 245.
+
+  THREE COORDINATE SYSTEMS APPEAR IN THAT CHAPTER and no argument name
+  distinguishes them: `SET_MOTION_GRAVITY` reads the REFERENCE system,
+  the 6DOF initial conditions and forces read the BODY frame, and the
+  February kinematic family reads the MOTION DEFINITION system. A
+  script setting gravity and an initial velocity writes two vectors
+  into two different frames, and the notes are the only place that is
+  said.
+
+  `SET_MOTION_CUSTOM_TABLE` takes its TYPE before the motion id, the
+  only command in the chapter that does not open with the id.
+  `CREATE_NEW_6DOF_SPRING_FORCE` is the third of the five wrapped
+  signatures and declares eleven arguments, three of them lengths that
+  are not interchangeable. `SET_6DOF_MOTION_SYMMETRY_LOADS` prints a
+  shorter name in its sample than in its heading; the heading is
+  recorded, on the measured record that a heading has won every case a
+  solver has settled.
+
+* **Corrected: `SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION` had one
+  grammar and the manual has two.** The February 2026 edition takes two
+  arguments and later editions three, the blade count arriving with the
+  rotary motion, and the entry carried the three-argument form with a
+  26.120 row alone. The February grammar was neither recorded nor
+  reachable.
+
 * **The Mesh Operations chapter entered: 22 commands, the whole chapter
   bar one already present.** Everything that moves, copies, cuts,
   selects or deletes a mesh surface between import and solver
