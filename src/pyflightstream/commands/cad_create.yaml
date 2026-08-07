@@ -1,4 +1,6 @@
-# Chapter: Scripting reference, CAD Create (SRC-003 pp.289-306).
+# Chapter: Scripting reference, CAD Create (SRC-003 pp.289-305, the
+# pages this file's own entries cite; the CCS component chapters that
+# sit between them are separate files).
 #
 # The pane that builds geometry inside FlightStream: curve construction,
 # cross-sections, and the lofted meshes made from them. The chapter is
@@ -866,7 +868,7 @@ CAD_CREATE_CROSS_SECTION:
     negative Z; on XZ the positive and negative X then the positive and
     negative Z; on XY the positive and negative X then the positive and
     negative Y. So the same integer selects a different half depending
-    on an argument two positions earlier, which is why it is recorded
+    on the PLANE argument three positions earlier, which is why it is recorded
     here rather than left to the page.
 
     It is typed as an integer and not an enumeration of five: the manual
@@ -958,14 +960,28 @@ CAD_CREATE_AUTO_ANNULAR_CROSS_SECTIONS:
 # All three take LOFT_TYPE_U and LOFT_TYPE_V, the same C2 and C0 pair
 # SET_CAD_CREATE_SPLINE_LOFT sets as the pane default, per direction.
 #
-# ALL THREE DOCUMENT CLOSE_ENDS WITH THE OPEN AND CLOSED PAIR, AND ALL FOUR OF
-# THEIR SAMPLES PASS TRUE. Four printed calls against three parameter
-# tables, in every edition, so this is the widest instance in the
-# chapter of the table-versus-sample disagreement that
-# utils.manual.sample_contradiction exists to catch. Both spellings are
-# accepted here, because refusing either would refuse something the
-# manual states; only TRUE is evidenced by a printed call, and which
-# the solver takes is a probe question.
+# ALL THREE DOCUMENT CLOSE_ENDS WITH THE OPEN AND CLOSED PAIR AND ALL
+# THREE OF THEIR SAMPLES PASS TRUE. Three printed calls against three
+# parameter tables, in every edition, which makes this the widest
+# instance in the chapter of the table-versus-sample disagreement that
+# utils.manual.sample_contradiction exists to catch. Three of the three
+# spellings are accepted here (TRUE from the calls, OPEN and CLOSED from
+# the tables), because refusing either side would refuse something the
+# manual states; only TRUE is evidenced by a printed call, and which the
+# solver takes is a probe question.
+#
+# FALSE IS NOT AMONG THEM, and it was until the review of 2026-08-07.
+# No table and no sample carries it for CLOSE_ENDS in any edition: it is
+# the value set of MARK_TRAILING_EDGES, the argument two rows above on
+# the wing command, pasted across. That is the invented-token mistake
+# the CAD_MESH argument in this same file refuses by name, made in the
+# same commit that refused it.
+#
+# The three EXPORT_*_CCS_FILE siblings print a fourth, fifth and sixth
+# call passing TRUE against their own OPEN or CLOSED tables. They are
+# not in this database, so they are not counted above; they are named
+# because they raise the count of the disagreement rather than the count
+# of the evidence for these three entries.
 
 CAD_CREATE_WING_MESH_FROM_CCS:
   layout: inline
@@ -981,7 +997,7 @@ CAD_CREATE_WING_MESH_FROM_CCS:
       values: [SHARP, BLUNT, BLEND, OPEN]
     - name: close_ends
       type: enum
-      values: ["TRUE", "FALSE", OPEN, CLOSED]
+      values: ["TRUE", OPEN, CLOSED]
     - name: loft_type_u
       type: enum
       values: [C2, C0]
@@ -1003,10 +1019,10 @@ CAD_CREATE_WING_MESH_FROM_CCS:
     would leave a caller guessing, and the two carry different documented
     defaults in the interface, C2 chordwise and C0 spanwise.
 
-    TE_GEOMETRY has four values where the trailing-edge type elsewhere
-    in this database has three; OPEN here means the trailing edge is
-    left unclosed, which is a different question from CLOSE_ENDS, the
-    argument that closes the wing's TIPS.
+    TE_GEOMETRY's OPEN means the trailing edge itself is left unclosed,
+    which is a different question from CLOSE_ENDS, the argument two
+    positions later that closes the wing's TIPS. The two are easy to
+    read as one setting because both spell a token about closing.
 
 CAD_CREATE_FUSELAGE_MESH_FROM_CCS:
   layout: inline
@@ -1016,7 +1032,7 @@ CAD_CREATE_FUSELAGE_MESH_FROM_CCS:
       type: str
     - name: close_ends
       type: enum
-      values: ["TRUE", "FALSE", OPEN, CLOSED]
+      values: ["TRUE", OPEN, CLOSED]
     - name: loft_type_u
       type: enum
       values: [C2, C0]
@@ -1057,7 +1073,7 @@ CAD_CREATE_REVOLVE_MESH_FROM_CCS:
       unit: "deg"
     - name: close_ends
       type: enum
-      values: ["TRUE", "FALSE", OPEN, CLOSED]
+      values: ["TRUE", OPEN, CLOSED]
     - name: loft_type_u
       type: enum
       values: [C2, C0]

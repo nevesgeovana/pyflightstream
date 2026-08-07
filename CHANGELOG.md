@@ -47,9 +47,11 @@ FlightStream versions.
   `LOFT_TYPE_V` mean chordwise and spanwise on the wing loft and radial
   and axial on the other two, so a value carried across means something
   else. And `CLOSE_ENDS` is documented as OPEN or CLOSED on all three
-  lofts while all four of their printed samples pass `TRUE`: both
-  spellings are accepted, because refusing either would refuse something
-  the manual states.
+  lofts while all three of their printed samples pass `TRUE`: the table's
+  pair and the printed token are all accepted, because refusing either
+  side would refuse something the manual states. `FALSE` is NOT among
+  them, and was until the review caught it: it is the value set of the
+  neighbouring `MARK_TRAILING_EDGES` argument, pasted across.
 
   `CAD_CREATE_CURVE_EXPORT_CCS` carries phase `geometry` despite its
   name, following `EXPORT_SURFACE_MESH`: a phase is the position the

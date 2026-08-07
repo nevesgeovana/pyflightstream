@@ -1361,18 +1361,47 @@ def test_the_loft_direction_names_mean_different_things_per_command():
     assert "RADIAL" in entries["CAD_CREATE_REVOLVE_MESH_FROM_CCS"].notes.upper()
 
 
-def test_close_ends_accepts_both_the_documented_and_the_printed_spelling():
-    """The table says OPEN or CLOSED and all four samples pass TRUE.
+def test_close_ends_accepts_the_documented_pair_and_the_printed_token():
+    """The tables say OPEN or CLOSED and all three samples pass TRUE.
 
-    Refusing either would refuse something the manual states, so both
-    are accepted and the note records that only TRUE is evidenced by a
-    printed call. Pinned because a later narrowing to the table's pair
-    would silently reject every sample in the chapter.
+    Refusing either side would refuse something the manual states, so
+    all three are accepted and the note records that only TRUE is
+    evidenced by a printed call. Pinned because a later narrowing to the
+    table's pair alone would silently reject every sample in the
+    chapter.
     """
-    for value in ("TRUE", "FALSE", "OPEN", "CLOSED"):
+    for value in ("TRUE", "OPEN", "CLOSED"):
         script = Script(version="26.120")
         script.emit("CAD_CREATE_FUSELAGE_MESH_FROM_CCS", "Fuselage", value, "C2", "C0")
         assert f"CAD_CREATE_FUSELAGE_MESH_FROM_CCS Fuselage {value} C2 C0" in script.render()
+
+
+def test_close_ends_does_not_accept_the_neighbouring_arguments_token():
+    """FALSE belongs to MARK_TRAILING_EDGES and was pasted into CLOSE_ENDS.
+
+    It shipped in the commit that entered these three commands, in the
+    same file whose CAD_MESH argument refuses an invented token by name.
+    No CLOSE_ENDS table and no CLOSE_ENDS sample carries FALSE in any of
+    the four editions; MARK_TRAILING_EDGES, two rows above on the wing
+    command, is where it comes from and legitimately keeps it.
+    """
+    entries = CommandRegistry.load().commands
+    for name in (
+        "CAD_CREATE_WING_MESH_FROM_CCS",
+        "CAD_CREATE_FUSELAGE_MESH_FROM_CCS",
+        "CAD_CREATE_REVOLVE_MESH_FROM_CCS",
+    ):
+        close_ends = next(a for a in entries[name].args if a.name == "close_ends")
+        assert "FALSE" not in (close_ends.values or ()), name
+    wing = entries["CAD_CREATE_WING_MESH_FROM_CCS"]
+    marks = next(a for a in wing.args if a.name == "mark_trailing_edges")
+    assert set(marks.values or ()) == {"TRUE", "FALSE"}, (
+        "the control: the argument the token really belongs to must keep it"
+    )
+    with pytest.raises(CommandArgumentError, match="expects one of"):
+        Script(version="26.120").emit(
+            "CAD_CREATE_FUSELAGE_MESH_FROM_CCS", "Fuselage", "FALSE", "C2", "C0"
+        )
 
 
 def test_the_cad_mesh_selector_is_not_given_an_invented_token_set():

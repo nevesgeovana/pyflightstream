@@ -76,6 +76,18 @@ enum rules, because a count whose sentence happens to spell two file
 formats ("Number of boundaries in the STL or OBJ import") is a
 count and not a choice.
 
+A SAMPLE THAT CROSSES A PAGE BREAK IS INVISIBLE, and the consequence is
+worth stating because it is silent. Pages are parsed one at a time, so
+a command whose ``Sample:`` banner ends a page and whose printed call
+begins the next one comes back with an empty sample.
+:func:`sample_contradiction` then answers None for it, which is one of
+its three documented silent cases and reads exactly like agreement.
+Measured on 2026-08-07: ``CAD_CREATE_REVOLVE_MESH_FROM_CCS`` in the
+February 2026 edition is such a command, and it is one of the two whose
+argument count the printed sample is what settles. Closing this means
+parsing with overlapping page windows
+(PLN-20260807-0900).
+
 The rules and the ordering are held by ``tests/test_utils_manual.py`` on
 synthetic fixtures; the percentages are not, and cannot be, since a
 fixture set is not a corpus. The manual itself is licensed, lives in
