@@ -1,9 +1,17 @@
 # Chapter: Scripting reference, CAD Create (SRC-003 pp.289-306).
 #
 # The pane that builds geometry inside FlightStream: curve construction,
-# cross-sections, and the lofted meshes made from them. This file is
-# entered family by family; what is here is the initialization, the four
-# pane settings, and the basic shapes.
+# cross-sections, and the lofted meshes made from them. The chapter is
+# COMPLETE as of 2026-08-07, 36 entries, with one exception recorded
+# rather than omitted: the mirror command, whose name the manual spells
+# two ways and which waits for a probe (PLN-20260806-1200).
+#
+# It reads in one direction. The pane settings fix how curves are
+# discretized; the basic shapes and the curve constructors draw them;
+# the importers read them from a file; the cross-section commands cut
+# them out of a mesh body that already exists; the transforms move and
+# combine them; and the three loft commands turn them into a mesh
+# boundary the rest of a script can name.
 #
 # Every command below is documented unchanged in all four registered
 # editions, and every entry carries its own page per edition, because no
@@ -703,3 +711,374 @@ CAD_CREATE_CURVE_EXPORT_CCS:
     then refuse every remaining CAD Create command, which is the
     opposite of how curves are built: export a set, keep going, export
     another.
+
+# --- virtual curves: importing them ----------------------------------------
+#
+# Three importers, one per file format, each taking the command's
+# arguments inline and the path on the following line. All three carry
+# the eleven-token UNITS vocabulary the rest of this database uses, in
+# the manual's own order.
+
+CAD_CREATE_IMPORT_CURVE_TXT:
+  layout: inline
+  phase: geometry
+  args:
+    - name: units
+      type: enum
+      values: [INCH, MILLIMETER, OTHER, FEET, MILE, METER, KILOMETER, MILS, MICRON, CENTIMETER, MICROINCH]
+    - name: dimensions
+      type: enum
+      values: [2D, 3D]
+    - name: frame
+      type: int
+    - name: plane
+      type: enum
+      values: [XY, XZ, YZ]
+    - name: file
+      type: path
+      own_line: true
+  manual_ref: "SRC-003 p.291"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.285, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.290, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.294, same grammar as 26.120"}
+  notes: >
+    Reads curve points from a text file. DIMENSIONS decides what the two
+    arguments after it mean: under 2D the points are two-dimensional and
+    are placed on PLANE of the coordinate system FRAME names, and under
+    3D they carry their own three coordinates in FRAME and the manual
+    says PLANE is IGNORED (SRC-003 p.291).
+
+    Nothing enforces that. PLANE is required here because the schema has
+    no conditional, so a 3D import must still pass one and the value is
+    discarded by the solver rather than by this package
+    (PLN-20260806-1150 covers the family of documented conditionals this
+    database cannot express).
+
+    The manual's own sample for this command cites frame 2, and this
+    package refuses it unless the script declares that the opened
+    project already carries the frame, because
+    CREATE_NEW_COORDINATE_SYSTEM is a setup command and cannot precede a
+    geometry one. `declare_existing(frames=2)` is the way through, and
+    the underlying phase question is PLN-20260806-0900. This is the
+    third CAD family to meet it, so it is recorded here rather than only
+    in the chapter header.
+
+CAD_CREATE_IMPORT_CURVE_CCS:
+  layout: inline
+  phase: geometry
+  args:
+    - name: units
+      type: enum
+      values: [INCH, MILLIMETER, OTHER, FEET, MILE, METER, KILOMETER, MILS, MICRON, CENTIMETER, MICROINCH]
+    - name: frame
+      type: int
+    - name: component_index
+      type: int
+    - name: file
+      type: path
+      own_line: true
+  manual_ref: "SRC-003 p.291"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.285, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.290, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.294, same grammar as 26.120"}
+  notes: >
+    Reads cross-sections from a CCS file, which the manual says may
+    carry either the .CCS or the .CSV extension, so the extension does
+    not identify the format. COMPONENT_INDEX loads one component by its
+    index, and -1 loads every component at once (SRC-003 p.291); this is
+    the same -1 convention the curve index commands use, on a different
+    kind of index.
+
+CAD_CREATE_IMPORT_CURVE_P3D:
+  layout: inline
+  phase: geometry
+  args:
+    - name: units
+      type: enum
+      values: [INCH, MILLIMETER, OTHER, FEET, MILE, METER, KILOMETER, MILS, MICRON, CENTIMETER, MICROINCH]
+    - name: swap_direction
+      type: enum
+      values: ["TRUE", "FALSE"]
+    - name: frame
+      type: int
+    - name: component_index
+      type: int
+    - name: file
+      type: path
+      own_line: true
+  manual_ref: "SRC-003 pp.291-292"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.285, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.290, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.294, same grammar as 26.120"}
+  notes: >
+    Reads curves from a Plot3D structured grid. SWAP_DIRECTION chooses
+    which way the walk over the grid's node data proceeds when building
+    curves from it, so it changes the ORDER the curves come out in and
+    therefore what a later loft joins to what.
+
+    It is an enumeration of TRUE and FALSE rather than a bool, because a
+    bool in this database is the presence keyword of a keyword_block and
+    this is an inline token the solver reads as a word.
+
+# --- cross-sections from an existing body ----------------------------------
+#
+# These three read a MESH BODY and write virtual curves, which is the
+# opposite direction from everything above: the curves come out of
+# geometry that already exists rather than being drawn.
+
+CAD_CREATE_CROSS_SECTION:
+  layout: inline
+  phase: geometry
+  args:
+    - name: frame
+      type: int
+    - name: plane
+      type: enum
+      values: [XY, XZ, YZ]
+    - name: offset
+      type: float
+    - name: body_index
+      type: int
+    - name: quadrant
+      type: int
+  manual_ref: "SRC-003 pp.292-293"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.286, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.291, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.295, same grammar as 26.120"}
+  notes: >
+    Slices one mesh body with a plane and writes the intersection as a
+    virtual curve. OFFSET moves the plane along its own normal, in the
+    length units of FRAME, which the command does not state and this
+    entry therefore does not either.
+
+    QUADRANT IS 0 OR 1 TO 4, AND 1 TO 4 MEAN DIFFERENT AXES PER PLANE.
+    Zero asks for no preferred quadrant. The other four are read from a
+    table the manual prints against the chosen PLANE (SRC-003 p.293): on
+    YZ they are the positive and negative Y then the positive and
+    negative Z; on XZ the positive and negative X then the positive and
+    negative Z; on XY the positive and negative X then the positive and
+    negative Y. So the same integer selects a different half depending
+    on an argument two positions earlier, which is why it is recorded
+    here rather than left to the page.
+
+    It is typed as an integer and not an enumeration of five: the manual
+    presents 0 as a distinct instruction rather than as a fifth
+    quadrant, and the solver owns the range.
+
+CAD_CREATE_AUTO_CROSS_SECTIONS:
+  layout: inline
+  phase: geometry
+  args:
+    - name: frame
+      type: int
+    - name: axis
+      type: enum
+      values: [X, Y, Z]
+    - name: sections
+      type: int
+    - name: body_index
+      type: int
+    - name: growth_scheme
+      type: enum
+      values: ["1", "2", "3", "4"]
+    - name: growth_rate
+      type: float
+    - name: symmetry
+      type: enum
+      values: [XY, XZ, YZ, NONE]
+    - name: cad_mesh
+      type: str
+  manual_ref: "SRC-003 p.292"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.286, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.291, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.295, same grammar as 26.120"}
+  notes: >
+    Sweeps a body along an axis and writes a series of cross-section
+    curves. EIGHT arguments, and the signature parser reports seven: the
+    heading WRAPS in every edition and CAD_MESH sits alone on the second
+    line. The sample passes eight tokens, which is what settles it.
+
+    GROWTH_SCHEME is a numbered choice of four and the numbers are the
+    tokens: 1 uniform, 2 successive, 3 dual-successive, 4
+    reverse-successive (SRC-003 p.292). It is spelled as a closed set
+    rather than as an integer because an out-of-range scheme would
+    silently change the mesh, and it must be passed as a string
+    (PLN-20260806-1130). GROWTH_RATE is the rate that scheme uses, and
+    1.0 is the uniform spacing the manual names.
+
+    SYMMETRY takes a plane to produce HALF sections, or NONE for full
+    ones, so it is not the same vocabulary as the PLANE argument
+    elsewhere in this chapter even though three of its four tokens
+    match.
+
+    CAD_MESH is typed as free text, deliberately. The manual describes
+    it in prose as saying whether BODY_INDEX names a CAD component or a
+    mesh boundary, and enumerates nothing; the only spelling any edition
+    prints is MESH, in the sample. Writing an enumeration here would
+    mean inventing the other token, which is the mistake this chapter
+    has already made twice, so the value set is a probe question rather
+    than a citation.
+
+CAD_CREATE_AUTO_ANNULAR_CROSS_SECTIONS:
+  layout: inline
+  phase: geometry
+  args:
+    - name: frame
+      type: int
+    - name: sections
+      type: int
+    - name: body_index
+      type: int
+  manual_ref: "SRC-003 p.292"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.286, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.291, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.295, same grammar as 26.120"}
+  notes: >
+    The annular counterpart of CAD_CREATE_AUTO_CROSS_SECTIONS, cutting
+    around a body rather than along an axis, which is why it takes
+    neither an axis nor a growth scheme. What the ring is centred on is
+    not stated: the command takes a FRAME and a body and nothing that
+    names an axis of revolution.
+
+# --- lofted meshes from cross-sections -------------------------------------
+#
+# The end of the CAD Create pipeline: curves become a mesh boundary.
+# All three take LOFT_TYPE_U and LOFT_TYPE_V, the same C2 and C0 pair
+# SET_CAD_CREATE_SPLINE_LOFT sets as the pane default, per direction.
+#
+# ALL THREE DOCUMENT CLOSE_ENDS WITH THE OPEN AND CLOSED PAIR, AND ALL FOUR OF
+# THEIR SAMPLES PASS TRUE. Four printed calls against three parameter
+# tables, in every edition, so this is the widest instance in the
+# chapter of the table-versus-sample disagreement that
+# utils.manual.sample_contradiction exists to catch. Both spellings are
+# accepted here, because refusing either would refuse something the
+# manual states; only TRUE is evidenced by a printed call, and which
+# the solver takes is a probe question.
+
+CAD_CREATE_WING_MESH_FROM_CCS:
+  layout: inline
+  phase: geometry
+  args:
+    - name: name
+      type: str
+    - name: mark_trailing_edges
+      type: enum
+      values: ["TRUE", "FALSE"]
+    - name: te_geometry
+      type: enum
+      values: [SHARP, BLUNT, BLEND, OPEN]
+    - name: close_ends
+      type: enum
+      values: ["TRUE", "FALSE", OPEN, CLOSED]
+    - name: loft_type_u
+      type: enum
+      values: [C2, C0]
+    - name: loft_type_v
+      type: enum
+      values: [C2, C0]
+  manual_ref: "SRC-003 p.300"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.294, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.299, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.303, same grammar as 26.120"}
+  notes: >
+    Lofts a wing mesh boundary from the CCS wing component, and NAME is
+    the boundary name the rest of a script cites it by.
+
+    LOFT_TYPE_U is CHORDWISE and LOFT_TYPE_V is SPANWISE, which the
+    manual states and which the argument names do not: U and V alone
+    would leave a caller guessing, and the two carry different documented
+    defaults in the interface, C2 chordwise and C0 spanwise.
+
+    TE_GEOMETRY has four values where the trailing-edge type elsewhere
+    in this database has three; OPEN here means the trailing edge is
+    left unclosed, which is a different question from CLOSE_ENDS, the
+    argument that closes the wing's TIPS.
+
+CAD_CREATE_FUSELAGE_MESH_FROM_CCS:
+  layout: inline
+  phase: geometry
+  args:
+    - name: name
+      type: str
+    - name: close_ends
+      type: enum
+      values: ["TRUE", "FALSE", OPEN, CLOSED]
+    - name: loft_type_u
+      type: enum
+      values: [C2, C0]
+    - name: loft_type_v
+      type: enum
+      values: [C2, C0]
+  manual_ref: "SRC-003 p.302"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.297, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.301, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.305, same grammar as 26.120"}
+  notes: >
+    Lofts a fuselage mesh boundary from the CCS fuselage component. Here
+    LOFT_TYPE_U is RADIAL and LOFT_TYPE_V is AXIAL, which is NOT what
+    the same two argument names mean on the wing command above, where
+    they are chordwise and spanwise. The letters index the parametric
+    directions of the component, and the component decides what those
+    are, so a value carried across from one command to the other means
+    something else.
+
+CAD_CREATE_REVOLVE_MESH_FROM_CCS:
+  layout: inline
+  phase: geometry
+  args:
+    - name: name
+      type: str
+    - name: frame
+      type: int
+    - name: axis
+      type: enum
+      values: [X, Y, Z]
+    - name: start_angle
+      type: float
+      unit: "deg"
+    - name: end_angle
+      type: float
+      unit: "deg"
+    - name: close_ends
+      type: enum
+      values: ["TRUE", "FALSE", OPEN, CLOSED]
+    - name: loft_type_u
+      type: enum
+      values: [C2, C0]
+    - name: loft_type_v
+      type: enum
+      values: [C2, C0]
+  manual_ref: "SRC-003 p.305"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.300, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.304, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.308, same grammar as 26.120"}
+  notes: >
+    Lofts a body of revolution from the CCS revolve component. EIGHT
+    arguments, and the signature parser reports seven for the same
+    reason as CAD_CREATE_AUTO_CROSS_SECTIONS: the heading wraps and
+    LOFT_TYPE_V sits alone on the second line. The sample passes eight.
+
+    FRAME supplies the ORIGIN of the rotation axis and AXIS the
+    direction, so the two together are the axis and neither is it alone.
+    The angles are in degrees and run in the rotational direction, so a
+    full body is 0 to 360; what a negative or a reversed pair does is
+    not stated. LOFT_TYPE_U is RADIAL and LOFT_TYPE_V is AXIAL, as on
+    the fuselage command and unlike the wing one.

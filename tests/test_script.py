@@ -1288,3 +1288,107 @@ def test_every_cad_command_is_available_on_every_registered_build():
         "these CAD commands are unavailable on a registered build, while both chapter "
         "headers and the CHANGELOG say every one of them emits on all four: " + "; ".join(missing)
     )
+
+
+# --- CAD Create: imports, cross-sections and the lofted meshes --------------
+
+
+@pytest.mark.parametrize("version", ["26.100", "26.101", "26.120", "26.121"])
+def test_the_remaining_cad_create_families_emit_on_every_registered_build(version):
+    """Every line below is the manual's own sample for that command.
+
+    The frame is declared rather than created: the samples cite frame 2
+    and CREATE_NEW_COORDINATE_SYSTEM is a setup command, so a geometry
+    command cannot follow one (PLN-20260806-0900).
+    """
+    script = Script(version=version)
+    script.declare_existing(frames=2)
+    script.emit("CAD_CREATE_IMPORT_CURVE_TXT", "METER", "2D", 2, "XZ", "curve.txt")
+    script.emit("CAD_CREATE_IMPORT_CURVE_CCS", "FEET", 1, -1, "model.csv")
+    script.emit("CAD_CREATE_IMPORT_CURVE_P3D", "METER", "FALSE", 2, -1, "grid.p3d")
+    script.emit("CAD_CREATE_CROSS_SECTION", 1, "XZ", 0.0, 1, 3)
+    script.emit("CAD_CREATE_AUTO_CROSS_SECTIONS", 1, "Y", 20, 1, "3", 1.2, "NONE", "MESH")
+    script.emit("CAD_CREATE_AUTO_ANNULAR_CROSS_SECTIONS", 1, 20, 2)
+    script.emit("CAD_CREATE_WING_MESH_FROM_CCS", "Wing", "TRUE", "BLUNT", "TRUE", "C2", "C0")
+    script.emit("CAD_CREATE_FUSELAGE_MESH_FROM_CCS", "Fuselage", "TRUE", "C2", "C0")
+    script.emit("CAD_CREATE_REVOLVE_MESH_FROM_CCS", "Pod", 1, "X", 0.0, 360.0, "TRUE", "C2", "C0")
+    text = script.render()
+    assert "CAD_CREATE_AUTO_CROSS_SECTIONS 1 Y 20 1 3 1.2 NONE MESH" in text
+    assert "CAD_CREATE_IMPORT_CURVE_TXT METER 2D 2 XZ\ncurve.txt" in text
+
+
+@pytest.mark.parametrize(
+    ("command", "expected"),
+    [
+        ("CAD_CREATE_AUTO_CROSS_SECTIONS", 8),
+        ("CAD_CREATE_REVOLVE_MESH_FROM_CCS", 8),
+    ],
+)
+def test_the_two_wrapped_signatures_carry_all_eight_arguments(command, expected):
+    """Their manual headings WRAP, and the signature parser reports seven.
+
+    `CAD_CREATE_AUTO_CROSS_SECTIONS` puts CAD_MESH alone on the second
+    line and `CAD_CREATE_REVOLVE_MESH_FROM_CCS` puts LOFT_TYPE_V there,
+    so a database drafted from the parsed signature would be one
+    argument short on both and the shortfall would be silent: the
+    emitter would accept a seven-token call and the solver would read
+    the line differently. Both samples pass eight tokens, which is what
+    settles it, and this pins the count against a future redraft.
+    """
+    entry = CommandRegistry.load().commands[command]
+    assert len(entry.args) == expected, [arg.name for arg in entry.args]
+
+
+def test_the_loft_direction_names_mean_different_things_per_command():
+    """U and V index the component's parametric directions, not the model's.
+
+    On the wing they are chordwise and spanwise; on the fuselage and the
+    body of revolution they are radial and axial. The argument names are
+    identical across the three, so a value carried across from one to
+    another means something else, which is the reason this is a test and
+    not only a note.
+    """
+    entries = CommandRegistry.load().commands
+    for name in (
+        "CAD_CREATE_WING_MESH_FROM_CCS",
+        "CAD_CREATE_FUSELAGE_MESH_FROM_CCS",
+        "CAD_CREATE_REVOLVE_MESH_FROM_CCS",
+    ):
+        names = [arg.name for arg in entries[name].args]
+        assert names[-2:] == ["loft_type_u", "loft_type_v"], name
+    assert "CHORDWISE" in entries["CAD_CREATE_WING_MESH_FROM_CCS"].notes.upper()
+    assert "RADIAL" in entries["CAD_CREATE_FUSELAGE_MESH_FROM_CCS"].notes.upper()
+    assert "RADIAL" in entries["CAD_CREATE_REVOLVE_MESH_FROM_CCS"].notes.upper()
+
+
+def test_close_ends_accepts_both_the_documented_and_the_printed_spelling():
+    """The table says OPEN or CLOSED and all four samples pass TRUE.
+
+    Refusing either would refuse something the manual states, so both
+    are accepted and the note records that only TRUE is evidenced by a
+    printed call. Pinned because a later narrowing to the table's pair
+    would silently reject every sample in the chapter.
+    """
+    for value in ("TRUE", "FALSE", "OPEN", "CLOSED"):
+        script = Script(version="26.120")
+        script.emit("CAD_CREATE_FUSELAGE_MESH_FROM_CCS", "Fuselage", value, "C2", "C0")
+        assert f"CAD_CREATE_FUSELAGE_MESH_FROM_CCS Fuselage {value} C2 C0" in script.render()
+
+
+def test_the_cad_mesh_selector_is_not_given_an_invented_token_set():
+    """Only MESH is ever printed; the other spelling is a probe question.
+
+    The manual describes the argument in prose and enumerates nothing,
+    so an enum here would mean inventing the CAD token. This chapter
+    made that mistake twice before the entries were reviewed, which is
+    why the absence is pinned rather than left to a reader's judgement.
+    """
+    entry = CommandRegistry.load().commands["CAD_CREATE_AUTO_CROSS_SECTIONS"]
+    cad_mesh = next(arg for arg in entry.args if arg.name == "cad_mesh")
+    assert cad_mesh.values is None, (
+        "cad_mesh was given a value set; the manual enumerates none and only MESH "
+        "is printed, so any set here is invented rather than cited"
+    )
+    script = Script(version="26.120")
+    script.emit("CAD_CREATE_AUTO_CROSS_SECTIONS", 1, "Y", 20, 1, "3", 1.2, "NONE", "CAD")
+    assert "NONE CAD" in script.render()

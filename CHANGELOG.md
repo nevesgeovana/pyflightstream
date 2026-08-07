@@ -9,15 +9,23 @@ FlightStream versions.
 
 ### API surface delta
 
-* **The CAD chapters entered the database: 33 commands across all four
-  registered builds.** Six CAD body commands in `cad.yaml`, and 27 in
-  `cad_create.yaml` over three passes: `CAD_CREATE_INITIALIZE` with the
-  four pane settings and the four basic shapes, then the virtual curve
-  constructors, index commands and deletes, then the curve transforms
-  and `CAD_CREATE_CURVE_EXPORT_CCS`. With `SWEEPER_SET_MACH_SWEEP` and
-  the flow-separation family, the database went from 147 entries at
-  v0.4.0 to 197. Every entry carries its own page per edition rather
-  than one citation reused, and every command emits on all four builds.
+* **The CAD chapters entered the database: 42 commands across all four
+  registered builds, and CAD Create is COMPLETE.** Six CAD body commands
+  in `cad.yaml`, and 36 in `cad_create.yaml`: the pane settings and the
+  basic shapes, the virtual curve constructors with their index and
+  delete commands, the three file importers, the three cross-section
+  commands that cut curves out of an existing mesh body, the curve
+  transforms, and the three loft commands that turn curves into a mesh
+  boundary. With `SWEEPER_SET_MACH_SWEEP` and the flow-separation
+  family, the database went from 147 entries at v0.4.0 to 206. Every
+  entry carries its own page per edition rather than one citation
+  reused, and every command emits on all four builds.
+
+  One command is deliberately absent rather than omitted: the CAD Create
+  mirror, whose name the manual spells one way in its heading and
+  another in both its sample and its Script Index. A wrong command name
+  is a silent no-op in the solver, so it waits for a probe
+  (PLN-20260806-1200).
 
   Facts the argument names do not carry, which is why these were read
   one at a time rather than pattern-matched:
@@ -31,7 +39,17 @@ FlightStream versions.
   interchangeable, the first being projected and the second a guide; and
   `CAD_CREATE_REORDER_CURVES` takes a SIGNED axis, six tokens rather
   than three, where every other axis argument in the family takes a bare
-  letter.
+  letter. `CAD_CREATE_AUTO_CROSS_SECTIONS` and
+  `CAD_CREATE_REVOLVE_MESH_FROM_CCS` each declare EIGHT arguments and a
+  signature parser reports seven, because their manual headings wrap and
+  the eighth placeholder sits alone on the second line; both samples pass
+  eight tokens, which is what settles it. `LOFT_TYPE_U` and
+  `LOFT_TYPE_V` mean chordwise and spanwise on the wing loft and radial
+  and axial on the other two, so a value carried across means something
+  else. And `CLOSE_ENDS` is documented as OPEN or CLOSED on all three
+  lofts while all four of their printed samples pass `TRUE`: both
+  spellings are accepted, because refusing either would refuse something
+  the manual states.
 
   `CAD_CREATE_CURVE_EXPORT_CCS` carries phase `geometry` despite its
   name, following `EXPORT_SURFACE_MESH`: a phase is the position the
