@@ -50,6 +50,30 @@ passing the git range, the file list, and the intent sentence. Do
 not summarize the diff for them beyond that; their charters tell
 them what to read. Wait for all passes before acting on any finding.
 
+**A pass that MUTATES tracked files runs isolated**, with
+`isolation: "worktree"`, and in practice that is the QA pass, because
+proving a guard by mutation means editing the file the guard protects.
+Four reviewers are read-only by charter and do not need it.
+
+Two reasons, and the second is the one that is not obvious. Four
+read-only agents and one mutating agent on the same tree means the
+readers see the file mid-mutation: on 2026-08-06 an architect reported
+a missing dispatch branch that existed, having read the file while the
+QA pass had it edited, and the finding was refuted as wrong when it was
+merely mistimed. And a write-then-restore harness cannot survive its own
+process being killed. Later the same day a review run died with its host
+process and left two mutations in the working tree, each reverting a fix
+the session had just made; a blanket `git add -A` would have committed
+both under a message claiming the opposite
+(PLN-20260806-1400).
+
+**Commit the reviewed work BEFORE the review runs.** That is what made
+the incident above recoverable rather than a loss, and it is a
+sequencing convention rather than a mechanism: nothing enforces it.
+Under this repository's own rule documentation is not a guard, so treat
+this paragraph as the reason to check `git status` after a review, not
+as protection.
+
 ## 4. Update or fix, never leave for later
 
 For each finding, in severity order: fix it in-session, or register
