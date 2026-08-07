@@ -133,6 +133,9 @@ FLAG_SPECS: tuple[FlagSpec, ...] = (
     FlagSpec("viscous_coupling", "SET_SOLVER_VISCOUS_COUPLING", "toggle"),
     FlagSpec("viscous_excluded", "SET_VISCOUS_EXCLUDED_BOUNDARIES", "boundary_list"),
     FlagSpec("viscous_excluded", "DELETE_VISCOUS_EXCLUDED_BOUNDARIES", "boundary_list_clear"),
+    FlagSpec("surface_roughness", "SET_SURFACE_ROUGHNESS", "scalar"),
+    FlagSpec("thin_boundaries", "SET_THIN_BOUNDARIES", "boundary_list"),
+    FlagSpec("thin_boundaries", "DELETE_THIN_BOUNDARIES", "boundary_list_clear"),
     FlagSpec("bulk_separation", "CREATE_BULK_SEPARATION", "bulk_separation"),
     # The named separation models of 26.101 and later. One keyword per
     # command rather than one shared sequence: the solver indexes the

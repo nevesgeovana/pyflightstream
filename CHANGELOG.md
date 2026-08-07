@@ -9,6 +9,22 @@ FlightStream versions.
 
 ### API surface delta
 
+* **Solver Settings is complete.** Three commands remained:
+  `SET_SURFACE_ROUGHNESS`, whose height is in NANOMETRES and not the
+  metres every other length in this helper takes, and the
+  `SET_THIN_BOUNDARIES` and `DELETE_THIN_BOUNDARIES` pair, absent from
+  the February 2026 build. Both reach `solver_settings()` as new
+  keywords, which the snapshot guard required rather than suggested:
+  every command of the settings families must carry a FlagSpec or the
+  provenance record silently lags the database.
+
+  A fourth name looks absent and is not. Every edition's Script Index
+  spells `CREATE_STRATFORD_BULK_SEPARATION` as
+  `CREATE_STARTFORD_BULK_SEPARATION`, and the command is recorded under
+  the spelling its chapter body and sample use, which RPT-015 measured
+  the solver accepting. A coverage sweep driven from the index will keep
+  reporting the misspelling as a gap, and a test now says so.
+
 * **Motion Definitions is complete: 17 commands entered.** The 6DOF
   family (mass and inertia, gravity, initial conditions, active
   variables, the external, custom and spring forces, the trajectory

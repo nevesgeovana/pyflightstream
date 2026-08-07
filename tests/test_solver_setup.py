@@ -1129,3 +1129,38 @@ def test_bulk_separation_is_refused_on_a_build_whose_grammar_drops_the_type():
         bulk_separation=BulkSeparation(name="GEAR", separation_type="FLAT_PLATE", diameter=0.2),
     )
     assert "CREATE_BULK_SEPARATION GEAR FLAT_PLATE -1 0.2" in working.render()
+
+
+def test_the_two_new_settings_keywords_emit_and_record_their_provenance():
+    """Surface roughness and thin boundaries, added with the chapter.
+
+    The snapshot guard is what required them: every command of the
+    settings families must carry a FlagSpec, or the provenance record
+    silently lags the database. That guard is why this pair has a
+    keyword at all, and this asserts both halves, the emission and the
+    snapshot entry.
+    """
+    script = Script(version="26.120")
+    script.declare_existing(boundaries=6)
+    setup = helpers.solver_settings(script, surface_roughness=23.5, thin_boundaries=[1, 2, 4])
+    text = script.render()
+    assert "SET_SURFACE_ROUGHNESS 23.5" in text
+    assert "SET_THIN_BOUNDARIES 3\n1,2,4\n" in text
+
+    roughness = setup.flags["SET_SURFACE_ROUGHNESS"]
+    assert roughness.provenance == "explicit" and roughness.value == 23.5 and roughness.emitted
+    thin = setup.flags["SET_THIN_BOUNDARIES"]
+    assert thin.provenance == "explicit" and thin.emitted
+
+
+def test_an_empty_thin_boundary_list_erases_rather_than_setting_none():
+    """The same rule as viscous_excluded, and for the same reason.
+
+    A count of zero with an empty index line asks the parser to read a
+    line that carries nothing; the solver has a command for the erase.
+    """
+    script = Script(version="26.120")
+    helpers.solver_settings(script, thin_boundaries=[])
+    text = script.render()
+    assert "DELETE_THIN_BOUNDARIES" in text
+    assert "SET_THIN_BOUNDARIES" not in text

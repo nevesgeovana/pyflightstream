@@ -443,3 +443,76 @@ SET_CROSSFLOW_SEPARATION_AXISYMMETRIC:
     "26.100": {status: documented}
   notes: >
     Axisymmetric vortex shedding for the cross-flow separation model.
+
+# --- thin boundaries and surface roughness ----------------------------------
+#
+# The last three of the Solver Settings chapter, entered 2026-08-07. A
+# fourth name appears absent and is not: the Script Index of every
+# edition spells CREATE_STRATFORD_BULK_SEPARATION as
+# CREATE_STARTFORD_BULK_SEPARATION, and the command is recorded above
+# under the spelling its chapter body and its sample both use, which
+# RPT-015 measured the solver accepting. A coverage sweep driven from
+# the index alone will keep reporting that misspelling as a gap.
+
+SET_SURFACE_ROUGHNESS:
+  layout: inline
+  phase: init
+  args:
+    - name: roughness_height
+      type: float
+      unit: "nm"
+  manual_ref: "SRC-003 p.341"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.338, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.340, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.344, same grammar as 26.120"}
+  notes: >
+    Surface roughness height for the boundary layer model, in
+    NANOMETRES, which the manual states and which is worth carrying
+    because every other length in this database is a metre, a
+    coordinate-system unit or an explicit UNITS argument. The sample's
+    23.5 is nanometres; the same number read as millimetres would be a
+    roughness of forty million times the height.
+
+    Zero means a smooth surface, which the manual states, so the
+    argument has no separate toggle and the value carries the choice.
+
+SET_THIN_BOUNDARIES:
+  layout: payload_lines
+  phase: init
+  args:
+    - name: num_boundaries
+      type: int
+    - name: boundary_indices
+      type: int_list
+      required: false
+  manual_ref: "SRC-003 p.343"
+  versions:
+    "26.101": {status: documented, note: "SRC-725 p.341, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.346, same grammar as 26.120"}
+  notes: >
+    Marks boundaries as thin, so the solver treats both faces of a
+    surface rather than one. The indices follow on the next line,
+    comma separated, and -1 marks every mesh boundary and the index line
+    is IGNORED rather than absent, which the manual says in those terms;
+    the index list is therefore optional here as on its siblings.
+
+    Absent from the February 2026 edition, whose separation family is
+    the per-mechanism one recorded above; thin boundaries arrive with
+    the redesign in May.
+
+DELETE_THIN_BOUNDARIES:
+  layout: bare
+  phase: init
+  args: []
+  manual_ref: "SRC-003 p.343"
+  versions:
+    "26.101": {status: documented, note: "SRC-725 p.342, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.346, same grammar as 26.120"}
+  notes: >
+    Clears the thin boundary list entirely. It takes no argument, so
+    there is no way to remove one boundary from the list: a script that
+    wants a subset clears and re-sets.

@@ -593,6 +593,8 @@ def solver_settings(
     boundary_layer: str | None = None,
     viscous_coupling: Toggle | None = None,
     viscous_excluded: Sequence[int | str] | None = None,
+    surface_roughness: float | None = None,
+    thin_boundaries: Sequence[int | str] | None = None,
     bulk_separation: BulkSeparation | Mapping | None = None,
     airfoil_separation: Sequence[AirfoilSeparation | Mapping] | None = None,
     axial_vortex_separation: Sequence[AxialVortexSeparation | Mapping] | None = None,
@@ -723,6 +725,18 @@ def solver_settings(
         Couple the semi-empirical boundary layer model to the
         potential flow solution (attached-flow viscosity only,
         SRC-003 pp.207-208).
+    surface_roughness : float, optional
+        Surface roughness height in NANOMETRES, which is the manual's
+        own unit and unlike every other length this helper takes
+        (SRC-003 p.341). Zero states a smooth surface, so there is no
+        separate toggle and the value carries the choice.
+    thin_boundaries : sequence of int or str, optional
+        Boundaries the solver treats as thin, so both faces of a surface
+        are resolved, by 1-based index or declared label
+        (SRC-003 p.343). The empty sequence emits DELETE_THIN_BOUNDARIES
+        and erases the list, as on ``viscous_excluded`` below. Absent
+        from the February 2026 build, whose separation family is the
+        per-mechanism one.
     viscous_excluded : sequence of int or str, optional
         Boundaries excluded from viscous coupling, by 1-based index
         or declared boundary label; verified against the inventory
@@ -845,6 +859,7 @@ def solver_settings(
         "solver_settings", "vorticity_drag_boundaries", vorticity_drag_boundaries, allows_all=True
     )
     _reject_bare_label("solver_settings", "viscous_excluded", viscous_excluded, allows_all=False)
+    _reject_bare_label("solver_settings", "thin_boundaries", thin_boundaries, allows_all=False)
     separation_selections = {
         "axial_separation_boundaries": axial_separation_boundaries,
         "valarezo_separation_boundaries": valarezo_separation_boundaries,
@@ -860,6 +875,7 @@ def solver_settings(
     # command the script does not contain, which is the one thing the
     # snapshot exists to prevent.
     viscous_excluded = _as_selection(viscous_excluded)
+    thin_boundaries = _as_selection(thin_boundaries)
     separation_selections = {
         argument: _as_selection(value) for argument, value in separation_selections.items()
     }
@@ -1096,6 +1112,14 @@ def solver_settings(
             script.emit(
                 "SET_VISCOUS_EXCLUDED_BOUNDARIES", len(viscous_excluded), list(viscous_excluded)
             )
+    if surface_roughness is not None:
+        script.emit("SET_SURFACE_ROUGHNESS", surface_roughness)
+    if thin_boundaries is not None:
+        if len(thin_boundaries) == 0:
+            # The empty list is the erase, as on viscous_excluded above.
+            script.emit("DELETE_THIN_BOUNDARIES")
+        else:
+            script.emit("SET_THIN_BOUNDARIES", len(thin_boundaries), list(thin_boundaries))
     for selection_argument, set_command, delete_command in (
         (
             "axial_separation_boundaries",
@@ -1203,6 +1227,8 @@ def solver_settings(
         "boundary_layer": boundary_layer.upper() if boundary_layer is not None else None,
         "viscous_coupling": viscous_coupling,
         "viscous_excluded": viscous_excluded,
+        "surface_roughness": surface_roughness,
+        "thin_boundaries": thin_boundaries,
         "bulk_separation": bulk,
         "airfoil_separation": separation_models["airfoil_separation"],
         "axial_vortex_separation": separation_models["axial_vortex_separation"],

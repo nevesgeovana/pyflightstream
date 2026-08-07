@@ -1781,3 +1781,57 @@ def test_a_recognised_count_still_governs_its_list():
         ],
     )
     assert unspelled == [] and interleaved == []
+
+
+# --- Solver Settings: the last three ----------------------------------------
+
+
+@pytest.mark.parametrize("version", ["26.101", "26.120", "26.121"])
+def test_the_thin_boundary_commands_emit_both_documented_forms(version):
+    """The counted list and the -1 form, which takes no index line."""
+    script = Script(version=version)
+    script.declare_existing(boundaries=6)
+    script.emit("SET_THIN_BOUNDARIES", 3, [1, 2, 4])
+    script.emit("SET_THIN_BOUNDARIES", -1)
+    script.emit("DELETE_THIN_BOUNDARIES")
+    text = script.render()
+    assert "SET_THIN_BOUNDARIES 3\n1,2,4\n" in text
+    assert "SET_THIN_BOUNDARIES -1\n\n" in text
+
+
+def test_thin_boundaries_are_absent_from_the_february_build():
+    """They arrive with the May separation redesign, like the rest of it."""
+    registry = CommandRegistry.load()
+    for name in ("SET_THIN_BOUNDARIES", "DELETE_THIN_BOUNDARIES"):
+        assert "26.100" not in registry.commands[name].versions, name
+        with pytest.raises(CommandNotInVersionError):
+            Script(version="26.100").emit(name)
+
+
+def test_the_surface_roughness_height_is_recorded_in_nanometres():
+    """Every other length in this database is metres or a frame's own unit.
+
+    The manual states nanometres and the sample passes 23.5. Read as
+    millimetres that is a roughness forty million times too large, and
+    nothing downstream would object, so the unit is the fact worth
+    pinning rather than the range.
+    """
+    entry = CommandRegistry.load().commands["SET_SURFACE_ROUGHNESS"]
+    assert entry.args[0].unit == "nm"
+    script = Script(version="26.120")
+    script.emit("SET_SURFACE_ROUGHNESS", 23.5)
+    assert script.render().strip() == "SET_SURFACE_ROUGHNESS 23.5"
+
+
+def test_the_index_misspelling_is_not_mistaken_for_a_missing_command():
+    """The Script Index spells the Stratford separation STARTFORD.
+
+    A coverage sweep driven from the index reports that name as absent
+    in every edition. The command is present under the spelling its
+    chapter body and its sample use, which RPT-015 measured the solver
+    accepting, so the gap is the index's and entering the misspelling
+    would put a command that does not exist into the public surface.
+    """
+    registry = CommandRegistry.load()
+    assert "CREATE_STRATFORD_BULK_SEPARATION" in registry.commands
+    assert "CREATE_STARTFORD_BULK_SEPARATION" not in registry.commands
