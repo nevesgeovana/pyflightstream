@@ -1,5 +1,6 @@
 """Tier 1: script builder validation, phase ordering, and goldens."""
 
+import re
 from pathlib import Path
 
 import pytest
@@ -1921,3 +1922,272 @@ def test_the_index_misspelling_is_not_mistaken_for_a_missing_command():
     registry = CommandRegistry.load()
     assert "CREATE_STRATFORD_BULK_SEPARATION" in registry.commands
     assert "CREATE_STARTFORD_BULK_SEPARATION" not in registry.commands
+
+
+def test_the_entity_kinds_the_database_declares_are_the_ones_the_tracker_tracks():
+    """Two enumerations of one set, across a layer boundary that cannot import.
+
+    ``ArgSpec.cites`` names an entity kind, and the emitter looks that
+    name up in the tracker. The dependency runs script -> commands and
+    never the other way (CLAUDE.md layout rule), so ``EntityKind``
+    restates the tracker's own tuple rather than importing it, and two
+    restatements of one set drift.
+
+    This is the assertion ``EntityKind``'s docstring promises. It did
+    not exist when that docstring was written, which is the defect
+    class this repository keeps finding and is why it is written down
+    here rather than trusted: a kind added to the tracker and not to the
+    enum is unusable from the database, and a kind added to the enum and
+    not to the tracker is a validated ``cites`` that raises
+    ScriptReferenceError at emission time instead of at load time.
+    """
+    from pyflightstream.commands import EntityKind
+    from pyflightstream.script.entities import ENTITY_KINDS
+
+    assert {kind.value for kind in EntityKind} == set(ENTITY_KINDS), (
+        "commands.EntityKind and script.entities.ENTITY_KINDS name different sets; "
+        "they are one set written twice because the layering forbids the import, "
+        "so a kind added to either must be added to both in the same change"
+    )
+
+
+def test_every_declared_citation_reaches_a_kind_the_tracker_accepts():
+    """The database half of the same agreement, on live entries.
+
+    The test above compares two literals. This one walks what the
+    database actually declares, so a `cites` value that validates
+    against the enum and still fails at emission is caught at rest.
+    """
+    from pyflightstream.script.entities import EntityRegistry
+
+    tracker = EntityRegistry()
+    for entry in CommandRegistry.load().commands.values():
+        grammars = [entry.args]
+        grammars += [record.args for record in entry.versions.values() if record.args]
+        for args in grammars:
+            for spec in args:
+                if spec.cites is None:
+                    continue
+                # Raises ScriptReferenceError for an unknown kind, which
+                # is the failure this asserts cannot happen at emission.
+                tracker.count(str(spec.cites))
+
+
+# --- what the 2026-08-07 QA pass proved untested -----------------------------
+
+
+def test_a_declared_citation_resolves_labels_and_checks_ranges():
+    """The four `cites` declarations, asserted as behaviour.
+
+    Deleting all four from the yaml left the whole suite green when the
+    QA pass measured it, which is the commit's own headline defect
+    reinstated silently: SURFACE_INVERT refusing a declared label while
+    SURFACE_DELETE accepted one, and SURFACE_COMBINE's index list range
+    checked against nothing.
+
+    Both halves are asserted per command, because a declaration that
+    resolves labels but skips the range check, or the reverse, is half a
+    fix.
+    """
+    labelled = {"wing": 1, "tail": 2, "fin": 3}
+
+    # Scalar surface citations under three different spellings.
+    for name, args, expected in (
+        ("SURFACE_INVERT", ("tail",), "SURFACE_INVERT 2"),
+        ("SURFACE_RENAME", ("tail", "Fuselage"), "SURFACE_RENAME 2 Fuselage"),
+        ("SURFACE_AUTO_HOLE_FILL", ("fin",), "SURFACE_AUTO_HOLE_FILL 3"),
+    ):
+        script = Script(version="26.120")
+        script.declare_existing(boundaries=labelled)
+        script.emit(name, *args)
+        assert expected in script.render(), f"{name} must resolve a declared label"
+
+        script = Script(version="26.120")
+        script.declare_existing(boundaries=labelled)
+        with pytest.raises(ScriptReferenceError, match="mesh boundary"):
+            script.emit(name, *(99, *args[1:]))
+
+    # The list spelling, which reached neither map before.
+    script = Script(version="26.120")
+    script.declare_existing(boundaries=labelled)
+    script.emit("SURFACE_COMBINE", 2, ["wing", "fin"])
+    assert "SURFACE_COMBINE 2\n1,3\n" in script.render()
+
+    script = Script(version="26.120")
+    script.declare_existing(boundaries=labelled)
+    with pytest.raises(ScriptReferenceError, match="mesh boundary"):
+        script.emit("SURFACE_COMBINE", 2, [1, 99])
+
+    # And a frame citation, so the fix is not surface-only.
+    script = Script(version="26.120")
+    script.declare_existing(boundaries=labelled, frames=2)
+    with pytest.raises(ScriptReferenceError, match="local coordinate system"):
+        script.emit("TRANSLATE_SURFACE_BY_FRAME", 1, 99, 1)
+
+
+def test_a_payload_of_the_wrong_length_is_refused_naming_the_corruption():
+    """The six toggle lines, asserted as behaviour.
+
+    Deleting the whole `fixed_length` branch left the suite green when
+    the QA pass measured it. The defect it lets through is not an arity
+    complaint: nothing counts these lines, so a short payload makes the
+    solver read the NEXT COMMAND as data, and the message has to say so
+    rather than report a number.
+    """
+    six = ["U DISABLE", "V DISABLE", "W DISABLE", "P DISABLE", "Q ENABLE", "R ENABLE"]
+
+    for payload in (six[:5], [*six, "S ENABLE"]):
+        script = Script(version="26.120")
+        script.declare_existing(motions=1)
+        with pytest.raises(CommandArgumentError, match="read the NEXT COMMAND as data"):
+            script.emit("SET_MOTION_6DOF_ACTIVE_VARIABLES", 1, payload)
+
+    control = Script(version="26.120")
+    control.declare_existing(motions=1)
+    control.emit("SET_MOTION_6DOF_ACTIVE_VARIABLES", 1, six)
+    assert "U DISABLE\nV DISABLE\nW DISABLE\nP DISABLE\nQ ENABLE\nR ENABLE\n" in control.render()
+
+    # The residue, asserted as residue rather than left to be assumed:
+    # str_list validates the SHAPE and not the content, so six lines
+    # naming the wrong variables still emit. The entry notes say so and
+    # this pins which half of that sentence is true.
+    loose = Script(version="26.120")
+    loose.declare_existing(motions=1)
+    loose.emit("SET_MOTION_6DOF_ACTIVE_VARIABLES", 1, ["U ENABLE"] * 6)
+    assert "U ENABLE\nU ENABLE\n" in loose.render()
+
+
+@pytest.mark.parametrize(
+    ("command", "version", "args"),
+    [
+        ("SET_MOTION_BOUNDARIES", "26.100", (1, 4, [1, 2, 3, 5])),
+        ("SET_MOTION_MOVING_FRAMES", "26.100", (1, -1)),
+        ("SET_MOTION_COORDINATE_SYSTEM", "26.100", (1, 1)),
+        ("SET_MOTION_START_TIME", "26.100", (1, 0.5)),
+        ("SET_MOTION_FSI_EXECUTABLE", "26.100", (1, "DISABLE", "ENABLE", "beam.exe")),
+        ("SET_MOTION_FSI_STRUCTURAL_NODES", "26.100", (1, "nodes.txt")),
+        ("DELETE_MOTION", "26.100", (1,)),
+        ("SET_MOTION_ROTOR_AXIS", "26.101", (1, "X")),
+        ("SET_MOTION_ROTOR_RPM", "26.101", (1, -1000.0)),
+        ("SET_SOLVER_STEADY", "26.100", ()),
+        ("SET_SOLVER_UNSTEADY", "26.100", (200, 0.001)),
+        ("SET_BOUNDARY_LAYER_TYPE", "26.100", ("TRANSITIONAL",)),
+        ("SET_SOLVER_VISCOUS_COUPLING", "26.100", ("ENABLE",)),
+    ],
+)
+def test_the_backfilled_early_build_rows_are_emittable(command, version, args):
+    """Thirteen rows added on 2026-08-07, asserted one by one.
+
+    Each is a command the February or May 2026 manual documents whose
+    entry carried no row for that build, so the emitter refused it
+    there. Deleting the rows again left the suite green when the QA pass
+    measured it, which made the repair as invisible as the defect had
+    been.
+
+    The version named is the EARLIEST the command is documented in, so
+    the assertion is that the earliest documented build emits, not
+    merely that some build does.
+    """
+    script = Script(version=version)
+    script.declare_existing(boundaries=6, frames=3, motions=1)
+    script.emit(command, *args)
+    assert command in script.render()
+
+
+#: Index arguments that name an object the entity tracker does NOT model.
+#: Each is a real 1-based index the solver keeps, but of a kind the
+#: script builder has no inventory for, so there is nothing to resolve a
+#: label against or bound the value by. Listing them is the point: the
+#: guard below reports every entity-looking index argument that neither
+#: declares `cites` nor appears here, so a new one is a decision rather
+#: than an omission. Extending the tracker to a new kind is what removes
+#: a row from this list.
+_INDEXES_OF_UNTRACKED_OBJECTS = {
+    ("CAD_BODY_DELETE", "body_index"),
+    ("CAD_BODY_MIRROR", "body_index"),
+    ("CAD_BODY_ROTATE", "body_index"),
+    ("CAD_BODY_SCALE", "body_index"),
+    ("CAD_BODY_TRANSLATE", "body_index"),
+    ("CAD_CREATE_AUTO_ANNULAR_CROSS_SECTIONS", "body_index"),
+    ("CAD_CREATE_AUTO_CROSS_SECTIONS", "body_index"),
+    ("CAD_CREATE_CROSS_SECTION", "body_index"),
+    ("CAD_CREATE_CURVE_REVERSE", "curve_index"),
+    ("CAD_CREATE_CURVE_SELECT", "curve_index"),
+    ("CAD_CREATE_CURVE_UNSELECT", "curve_index"),
+    ("CAD_CREATE_IMPORT_CURVE_CCS", "component_index"),
+    ("CAD_CREATE_IMPORT_CURVE_P3D", "component_index"),
+    ("CAD_CREATE_PROJECT_CURVE", "curve_index"),
+    ("CAD_CREATE_PROJECT_MULTI_CURVE", "curve_index_1"),
+    ("CAD_CREATE_PROJECT_MULTI_CURVE", "curve_index_2"),
+    ("DELETE_SEPARATION", "index"),
+    ("DELETE_SURFACE_SECTION", "index"),
+    ("DELETE_VOLUME_SECTION", "index"),
+    ("DISABLE_WAKE_NODES_ON_TRAILING_EDGE", "te_index"),
+    ("EXPORT_SURFACE_SECTIONS", "index"),
+    ("EXPORT_VOLUME_SECTION_TECPLOT", "index"),
+    ("EXPORT_VOLUME_SECTION_VTK", "index"),
+    ("SET_TRAILING_EDGE_TYPE", "te_index"),
+    ("VOLUME_SECTION_BOUNDARY_LAYER", "index"),
+}
+
+#: What an argument name looks like when it cites something by index.
+_LOOKS_LIKE_A_CITATION = re.compile(
+    r"index|indices|frame|surface|coordinate_system|motion|actuator|boundar"
+)
+
+
+def test_every_index_argument_either_resolves_or_is_a_declared_exception():
+    """An unresolved index argument is silence, not a refusal.
+
+    Omitting `cites` on a new ambiguous index produces no error: the
+    entity check is simply skipped, so a declared label is not resolved
+    and an out-of-range index is not caught. The 2026-08-07 review found
+    five such arguments shipped in one chapter, which is what made the
+    field necessary; nothing then stopped the sixth.
+
+    So the vocabulary is closed from this end. Every int or int_list
+    argument whose NAME says it cites something must either declare what
+    it cites, be a spelling the emitter's own maps already resolve, be a
+    count, or be named above as an index of an object the tracker does
+    not model.
+
+    Running it found four the review did not: DELETE_SURFACES and the
+    two surface-section distributions cite mesh boundaries, and
+    ROTATE_COORDINATE_SYSTEM's second frame and the aeroelastic
+    structural frame cite local coordinate systems. All four were
+    confirmed against the manual and now declare it.
+    """
+    from pyflightstream.commands import ArgType
+    from pyflightstream.script import (
+        _COUNT_ARG_NAMES,
+        _COUNT_REFERENCE_ARGS,
+        _LIST_REFERENCE_ARGS,
+        _SCALAR_REFERENCE_ARGS,
+    )
+
+    unresolved = set()
+    for name, entry in CommandRegistry.load().commands.items():
+        grammars = [entry.args]
+        grammars += [record.args for record in entry.versions.values() if record.args]
+        for args in grammars:
+            for spec in args:
+                if spec.type not in (ArgType.INT, ArgType.INT_LIST) or spec.cites is not None:
+                    continue
+                if spec.name in _SCALAR_REFERENCE_ARGS or spec.name in _LIST_REFERENCE_ARGS:
+                    continue
+                if spec.name in _COUNT_ARG_NAMES or spec.name in _COUNT_REFERENCE_ARGS:
+                    continue
+                if _LOOKS_LIKE_A_CITATION.search(spec.name):
+                    unresolved.add((name, spec.name))
+
+    assert unresolved <= _INDEXES_OF_UNTRACKED_OBJECTS, (
+        "these index arguments look like entity citations and resolve to nothing, so a "
+        "declared label is not resolved there and an out-of-range index is not caught: "
+        f"{sorted(unresolved - _INDEXES_OF_UNTRACKED_OBJECTS)}. Add `cites:` with the "
+        "entity kind, or list the pair in _INDEXES_OF_UNTRACKED_OBJECTS with the reason"
+    )
+    stale = _INDEXES_OF_UNTRACKED_OBJECTS - unresolved
+    assert not stale, (
+        f"these exceptions no longer describe anything in the database: {sorted(stale)}. "
+        "An exemption outliving its site is how a guard quietly stops guarding"
+    )

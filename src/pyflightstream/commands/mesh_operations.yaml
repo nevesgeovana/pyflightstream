@@ -19,6 +19,27 @@
 # than harmonised, for the reason recorded in the CAD Create header: an
 # argument list that stops matching the page beside it loses the one
 # thing it is for.
+#
+# MIRRORING THE PAGE IS FREE ONLY BECAUSE `cites:` PAYS FOR IT. The
+# emitter resolves a declared label and bounds an index by ARGUMENT
+# NAME, and a chapter that mirrors four spellings of one thing defeats
+# that: for one day in August 2026 SURFACE_DELETE accepted a declared
+# label and SURFACE_INVERT did not, by no rule a caller could see.
+#
+# THE RULE, so the next chapter does not rediscover it. Declare `cites:`
+# on an index argument unless its spelling is one the emitter already
+# resolves database-wide (`surface`, `frame`, `motion_id`,
+# `coordinate_system_id`, `actuator_index`, `boundary_indices`,
+# `frame_indices`). That is why `frame` here declares nothing and
+# `frame1`, `frame2`, `coordinate_system`, `index` and
+# `surface_indices` all do. Where the two disagree the declaration
+# wins. A spelling that means different things in different chapters,
+# as `index` does, can ONLY be declared: adding it to the emitter's map
+# would refuse valid section indices elsewhere.
+#
+# Forgetting is not silent: tests/test_script.py fails on any index
+# argument whose name says it cites something and that resolves to
+# nothing.
 
 # --- moving a surface -------------------------------------------------------
 
@@ -92,6 +113,7 @@ TRANSLATE_SURFACE_IN_FRAME:
       values: [INCH, MILLIMETER, OTHER, FEET, MILE, METER, KILOMETER, MILS, MICRON, CENTIMETER, MICROINCH]
     - name: surface
       type: int
+      cites: boundaries
       all_sentinel: 0
     - name: split_vertices
       type: enum
@@ -124,6 +146,7 @@ TRANSLATE_SURFACE_BY_FRAME:
       cites: frames
     - name: surface
       type: int
+      cites: boundaries
       all_sentinel: 0
   manual_ref: "SRC-003 p.309"
   versions:

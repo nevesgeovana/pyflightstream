@@ -9,3 +9,14 @@
 .claude/hooks/write_attestation.py text eol=lf
 .claude/agents/incident-analyst.md text eol=lf
 .claude/tools/** text eol=lf
+
+# The goldens are byte-exact fixtures: their bytes ARE the assertion.
+# They are read with read_text, whose universal-newline translation
+# hides a line-ending rewrite from the comparison, so a CRLF checkout
+# passes for a reason unrelated to the emitter being right. Pinning
+# them to LF makes the file on disk the same on every machine, which
+# is what "byte-exact" has to mean before the phrase is worth writing.
+# The whitespace pre-commit hooks are excluded from this directory for
+# the same reason (.pre-commit-config.yaml), after one of them rewrote
+# a golden's last byte on 2026-08-07.
+tests/goldens/** text eol=lf

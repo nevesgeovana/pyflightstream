@@ -174,6 +174,36 @@ _LIST_REFERENCE_ARGS = {
     "frame_indices": "frames",
     "boundary_indices": "boundaries",
 }
+
+
+def _reference_kind(spec: ArgSpec) -> str | None:
+    """Return the entity kind an argument cites, or None if it cites none.
+
+    The single home of the precedence rule: an argument's own
+    ``cites`` declaration wins, and the name maps are the fallback for
+    the spellings that mean one thing database-wide. The rule was
+    written out separately in the label-resolution and index-checking
+    paths, once per scalar-or-list branch, so it lived in four places
+    that had to stay in step (2026-08-07 architecture pass).
+
+    Parameters
+    ----------
+    spec : ArgSpec
+        The argument specification, from the per-version view.
+
+    Returns
+    -------
+    str or None
+        Entity kind name as :mod:`pyflightstream.script.entities`
+        spells it, or None when the argument cites no entity.
+    """
+    if spec.cites is not None:
+        return str(spec.cites)
+    if spec.is_list:
+        return _LIST_REFERENCE_ARGS.get(spec.name)
+    return _SCALAR_REFERENCE_ARGS.get(spec.name)
+
+
 # Count arguments that state how many mesh boundaries the command
 # selects; checked against the declared inventory, -1 meaning all.
 _COUNT_REFERENCE_ARGS = {
@@ -934,20 +964,18 @@ class Script:
 
     def _resolve_labels(self, entry: CommandEntry, spec: ArgSpec, value: object) -> object:
         context = f"{entry.name}: argument {spec.name!r}"
-        declared = str(spec.cites) if spec.cites is not None else None
-        kind = declared if not spec.is_list else None
-        if kind is None and not spec.is_list:
-            kind = _SCALAR_REFERENCE_ARGS.get(spec.name)
-        if kind is not None and isinstance(value, str):
-            return self.entities.resolve(kind, value, context=context, citation=entry.citation)
-        kind = declared if spec.is_list else None
+        kind = _reference_kind(spec)
         if kind is None:
-            kind = _LIST_REFERENCE_ARGS.get(spec.name)
-        if kind is not None and isinstance(value, Sequence) and not isinstance(value, str):
-            return [
-                self.entities.resolve(kind, item, context=context, citation=entry.citation)
-                for item in value
-            ]
+            return value
+        if spec.is_list:
+            if isinstance(value, Sequence) and not isinstance(value, str):
+                return [
+                    self.entities.resolve(kind, item, context=context, citation=entry.citation)
+                    for item in value
+                ]
+            return value
+        if isinstance(value, str):
+            return self.entities.resolve(kind, value, context=context, citation=entry.citation)
         return value
 
     def _check_counts(self, entry: CommandEntry, bound: dict[str, object]) -> None:
@@ -987,11 +1015,8 @@ class Script:
                 continue
             context = f"{entry.name}: argument {spec.name!r}"
             value = bound[spec.name]
-            declared = str(spec.cites) if spec.cites is not None else None
-            kind = declared if not spec.is_list else None
-            if kind is None and not spec.is_list:
-                kind = _SCALAR_REFERENCE_ARGS.get(spec.name)
-            if kind is not None:
+            kind = _reference_kind(spec)
+            if kind is not None and not spec.is_list:
                 self.entities.check_index(
                     kind,
                     value,
@@ -999,15 +1024,22 @@ class Script:
                     citation=entry.citation,
                     all_sentinel=spec.all_sentinel,
                 )
-            kind = declared if spec.is_list else None
-            if kind is None:
-                kind = _LIST_REFERENCE_ARGS.get(spec.name)
-            if kind is not None and isinstance(value, Sequence) and not isinstance(value, str):
+            elif kind is not None and isinstance(value, Sequence) and not isinstance(value, str):
+                # Each item carries the SAME sentinel as the scalar form
+                # would. This branch used to hardcode `item != -1`, which
+                # was the per-kind rule the 2026-08-07 review removed
+                # from the scalar path and left standing here: a list of
+                # frames or motions has no documented -1 form at all, and
+                # a list-valued surface selection stating zero could not
+                # be expressed.
                 for item in value:
-                    if item != -1:
-                        self.entities.check_index(
-                            kind, item, context=context, citation=entry.citation
-                        )
+                    self.entities.check_index(
+                        kind,
+                        item,
+                        context=context,
+                        citation=entry.citation,
+                        all_sentinel=spec.all_sentinel,
+                    )
             kind = _COUNT_REFERENCE_ARGS.get(spec.name)
             if kind is not None:
                 self.entities.check_boundary_count(value, context=context, citation=entry.citation)

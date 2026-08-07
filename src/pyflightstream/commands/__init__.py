@@ -321,12 +321,26 @@ class ArgSpec(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def _all_sentinel_only_for_integer_scalars(self) -> ArgSpec:
-        if self.all_sentinel is not None and self.type is not ArgType.INT:
+    def _all_sentinel_needs_a_declared_citation(self) -> ArgSpec:
+        if self.all_sentinel is None:
+            return self
+        # No type check here: a sentinel requires `cites`, and
+        # `_cites_only_for_index_types` above already refuses a citation
+        # on anything but int and int_list. Repeating it would be a
+        # branch no input can reach, which is worse than absent because
+        # a test would appear to cover it.
+        if self.cites is None:
+            # The sentinel is only ever consulted where a kind resolves,
+            # so one declared on an argument that cites nothing is inert
+            # and silently so. That is the exact class of defect the
+            # field was added to end, which is why this refuses at load
+            # rather than leaving a dead declaration in the database
+            # (2026-08-07 architecture and API passes, both independently).
             raise ValueError(
-                f"argument {self.name!r} is {self.type} and cannot declare an "
-                "all-entities sentinel; the sentinel is an integer index value, so "
-                "only an int argument that cites an entity can carry one"
+                f"argument {self.name!r} declares the all-entities sentinel "
+                f"{self.all_sentinel} but cites no entity, so nothing would ever "
+                "consult it: the sentinel is read only where the emitter knows which "
+                "inventory the index belongs to. Add cites: with the entity kind"
             )
         return self
 

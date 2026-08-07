@@ -77,6 +77,7 @@ DELETE_SURFACES:
   args:
     - name: index
       type: int
+      cites: boundaries
   manual_ref: "SRC-740 p.315"
   versions:
     "26.121": {status: documented}

@@ -1273,3 +1273,89 @@ def test_the_quotation_guard_leaves_a_single_word_alone():
     token vocabulary unwritable in a note.
     """
     assert not QUOTED_PHRASE.search('the "RETAIN" token')
+
+
+# --- the three ArgSpec declarations added on 2026-08-07 ----------------------
+
+
+def test_a_sentinel_without_a_citation_is_refused_at_load():
+    """An inert declaration is the defect the field was added to end.
+
+    The sentinel is consulted only where the emitter knows which
+    inventory the index belongs to, so one declared on an argument that
+    cites nothing would be silently ignored. The validator's message
+    used to state this rule without enforcing it, which the 2026-08-07
+    architecture and API passes both found independently.
+    """
+    with pytest.raises(ValueError, match="cites no entity"):
+        ArgSpec(name="surface", type="int", all_sentinel=0)
+
+    # The control: the same declaration with a citation is accepted, so
+    # the refusal is about the missing citation and not about the field.
+    accepted = ArgSpec(name="surface", type="int", cites="boundaries", all_sentinel=0)
+    assert accepted.all_sentinel == 0
+
+
+def test_a_sentinel_on_a_non_index_type_is_refused_by_the_citation_rule():
+    """The sentinel needs no type check of its own, and has none.
+
+    A sentinel requires a citation and a citation requires an index
+    type, so a sentinel on a str argument is refused one rule earlier.
+    The sentinel validator carried a duplicate type branch until
+    2026-08-07; no input could reach it, and writing this test is what
+    showed that, so the branch was deleted rather than covered.
+    """
+    with pytest.raises(ValueError, match="cannot cite an entity"):
+        ArgSpec(name="units", type="str", cites="boundaries", all_sentinel=0)
+
+
+def test_a_citation_on_a_non_index_type_is_refused_at_load():
+    """An entity is cited by a 1-based integer, never by a name or path."""
+    with pytest.raises(ValueError, match="cannot cite an entity"):
+        ArgSpec(name="name", type="str", cites="boundaries")
+
+    for good in ("int", "int_list"):
+        assert ArgSpec(name="surface", type=good, cites="boundaries").cites == "boundaries"
+
+
+def test_a_fixed_length_is_refused_on_a_scalar_and_below_one():
+    """The length states how many payload lines the solver reads."""
+    with pytest.raises(ValueError, match="cannot fix a list length"):
+        ArgSpec(name="motion_id", type="int", fixed_length=6)
+    with pytest.raises(ValueError, match="must be at least 1"):
+        ArgSpec(name="variables", type="str_list", separator="newline", fixed_length=0)
+
+    accepted = ArgSpec(name="variables", type="str_list", separator="newline", fixed_length=6)
+    assert accepted.fixed_length == 6
+
+
+def test_every_declared_sentinel_and_length_is_reachable_from_the_database():
+    """The declarations exist on the entries that need them, still.
+
+    Deleting a declaration from the yaml is the mutation that must not
+    pass unnoticed; the behavioural guards live in tests/test_script.py
+    and this is the inventory beside them, so a silent removal shows up
+    as a count as well as a behaviour.
+    """
+    registry = CommandRegistry.load()
+    sentinels = {
+        (name, spec.name)
+        for name, entry in registry.commands.items()
+        for spec in entry.args
+        if spec.all_sentinel is not None
+    }
+    assert sentinels == {
+        ("TRANSLATE_SURFACE_IN_FRAME", "surface"),
+        ("TRANSLATE_SURFACE_BY_FRAME", "surface"),
+    }, (
+        "the two commands stating a zero all-surfaces sentinel (SRC-003 p.309) are the "
+        "only ones that declare one; a change here is a manual claim and needs its page"
+    )
+
+    lengths = {
+        (name, spec.name, spec.fixed_length)
+        for name, entry in registry.commands.items()
+        for spec in entry.args
+        if spec.fixed_length is not None
+    }
+    assert lengths == {("SET_MOTION_6DOF_ACTIVE_VARIABLES", "variables", 6)}

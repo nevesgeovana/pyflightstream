@@ -385,27 +385,66 @@ class EntityRegistry:
         self._require_kind(kind)
         if isinstance(value, bool) or not isinstance(value, int):
             return
-        limit = self.limit(kind)
-        if limit is None:
-            return
         sentinel = all_sentinel
         if sentinel is None and kind == "boundaries":
             sentinel = -1
         if sentinel is not None and value == sentinel:
             return
+        limit = self.limit(kind)
+        if limit is None:
+            # The INVENTORY is unknowable statically, so an index above
+            # it cannot be judged. Its sign can: indices are 1-based, so
+            # a value at or below zero that is not this argument's own
+            # sentinel is invalid whatever the inventory turns out to be.
+            # Returning here unconditionally used to swallow the
+            # sentinel check entirely, and -1 on a zero-sentinel command
+            # emitted silently on any script that had not called
+            # declare_existing (2026-08-07 API pass).
+            if value <= 0:
+                self._reject_index(kind, value, None, context, citation, sentinel)
+            return
         if 1 <= value <= limit:
             return
+        self._reject_index(kind, value, limit, context, citation, sentinel)
+
+    def _reject_index(
+        self,
+        kind: str,
+        value: int,
+        limit: int | None,
+        context: str,
+        citation: str | None,
+        sentinel: int | None,
+    ) -> None:
+        """Refuse a cited index, naming what the script actually holds.
+
+        ``limit`` is None when the inventory is unknowable statically,
+        which happens for mesh boundaries on a script that never called
+        :meth:`declare_existing`. The refusal then rests on the index
+        being 1-based rather than on any count.
+        """
         noun = _NOUNS[kind]
-        if kind == "frames":
+        create_guidance = (
+            "FlightStream expects auxiliary definitions before they are referenced; "
+            "create the object earlier in the script, or declare objects carried by "
+            "the opened project with declare_existing()."
+        )
+        if limit is None:
+            available = (
+                f"{noun} indices are 1-based and no inventory has been declared, so the "
+                f"only value below 1 this command accepts is {sentinel}, which selects "
+                f"all of them"
+            )
+            guidance = (
+                f"Pass a 1-based index, or {sentinel} to select all. Declaring the "
+                "inventory with declare_existing() additionally checks the upper bound."
+            )
+        elif kind == "frames":
             available = (
                 f"the reference frame is index 1 and the script has created or declared "
                 f"{self._counts[kind]} local frame(s), so valid indices run 1 to {limit}"
             )
-            guidance = (
-                "FlightStream expects auxiliary definitions before they are referenced; "
-                "create the object earlier in the script, or declare objects carried by "
-                "the opened project with declare_existing()."
-            )
+            guidance = create_guidance
         elif kind == "boundaries":
             available = (
                 f"the declared mesh boundary inventory holds {limit} boundary(ies), so "
@@ -422,11 +461,7 @@ class EntityRegistry:
                 f"the script has created or declared {self._counts[kind]} {noun}(s), "
                 f"so valid indices run 1 to {limit}"
             )
-            guidance = (
-                "FlightStream expects auxiliary definitions before they are referenced; "
-                "create the object earlier in the script, or declare objects carried by "
-                "the opened project with declare_existing()."
-            )
+            guidance = create_guidance
         raise ScriptReferenceError(
             f"{context} cites {noun} {value!r}, but {available}. {guidance}"
             + (f" ({citation})" if citation else "")

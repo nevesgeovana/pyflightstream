@@ -111,6 +111,7 @@ ROTATE_COORDINATE_SYSTEM:
       type: int
     - name: rotation_frame
       type: int
+      cites: frames
     - name: rotation_axis
       type: enum
       values: [X, Y, Z, "1", "2", "3"]

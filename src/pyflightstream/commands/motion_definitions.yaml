@@ -555,9 +555,11 @@ SET_MOTION_6DOF_ACTIVE_VARIABLES:
     The six lines are recorded as preformatted tokens rather than as six
     enum arguments, the same convention as the per-surface lines of
     INITIALIZE_SOLVER, so the pairing of a name with a toggle is the
-    caller's to get right and this database records the shape. What that
-    costs is real: nothing here refuses a seventh line, a repeated
-    variable or a misspelled one.
+    caller's to get right and this database records the shape. The
+    LENGTH is refused, because the manual fixes it at six and nothing
+    counts the lines, so a short payload would make the solver read the
+    next command as data. The CONTENT is not: six lines naming the same
+    variable twice, or misspelling one, still emit.
 
     Locking a subset is how a 6DOF motion becomes a constrained one, and
     the manual's own sample leaves Q and R free. The page describes that

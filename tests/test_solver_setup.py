@@ -1170,9 +1170,14 @@ def test_the_all_boundaries_thin_form_is_reachable_and_the_three_states_differ()
     """
     everything = Script(version="26.120")
     everything.declare_existing(boundaries=6)
-    helpers.solver_settings(everything, thin_boundaries="all")
+    setup = helpers.solver_settings(everything, thin_boundaries="all")
     assert "SET_THIN_BOUNDARIES -1" in everything.render()
     assert "DELETE_THIN_BOUNDARIES" not in everything.render()
+    # The snapshot too, not the emission alone: the state whose emission
+    # was the defect is the one the provenance record had no guard for.
+    marked = setup.flags["SET_THIN_BOUNDARIES"]
+    assert marked.provenance == "explicit" and marked.value == "all" and marked.emitted
+    assert setup.flags["DELETE_THIN_BOUNDARIES"].provenance != "explicit"
 
     erased = Script(version="26.120")
     erased.declare_existing(boundaries=6)

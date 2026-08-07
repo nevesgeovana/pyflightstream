@@ -91,8 +91,10 @@ class FlagSpec:
     kind : str
         Value shape: ``scalar`` (number), ``toggle`` (bool rendered
         ENABLE/DISABLE), ``enum`` (token), ``boundary_list`` (sequence
-        of boundary indices or labels), ``boundary_selection`` (the
-        same plus the ``"all"`` form), ``mode_steady`` /
+        of boundary indices or labels, and, where the command documents
+        one, the ``"all"`` form), ``boundary_selection`` (the same
+        shapes, on the deferred vorticity path that rewrites its own
+        emitted line), ``mode_steady`` /
         ``mode_unsteady`` (the solver-mode pair), and
         ``bulk_separation`` (the :class:`BulkSeparation` model).
 

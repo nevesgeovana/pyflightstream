@@ -426,14 +426,15 @@ _RATCHET = {
     # Five sites on the pydantic validation path, where ValueError IS the
     # protocol. They move down the file whenever anything is inserted
     # above them, and did again on 2026-08-07 when the all-entities
-    # sentinel joined ArgSpec; the ratchet keys on the line number, so
-    # re-anchoring is deliberate friction rather than a defect. A moved
-    # raise should be re-read.
-    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:380)",
-    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:382)",
-    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:384)",
-    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:392)",
+    # sentinel, the entity citation and the fixed payload length joined
+    # ArgSpec. The ratchet keys on the line number, so re-anchoring is
+    # deliberate friction rather than a defect: a moved raise should be
+    # re-read.
+    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:394)",
+    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:396)",
+    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:398)",
     "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:406)",
+    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:420)",
     "pyflightstream.farfield._delta_psi -> ValueError (__init__.py:152)",
     "pyflightstream.fsi.driver._verified_layout -> ValueError (driver.py:338)",
     "pyflightstream.fsi.loads._validate_block_boundaries -> ValueError (loads.py:397)",

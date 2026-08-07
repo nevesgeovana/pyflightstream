@@ -73,6 +73,7 @@ IMPORT_AEROELASTIC_STRUCTURAL_NODES:
   args:
     - name: structural_coordinate_system
       type: int
+      cites: frames
     - name: delete_existing
       type: enum
       values: [ENABLE, DISABLE]

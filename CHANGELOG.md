@@ -9,6 +9,46 @@ FlightStream versions.
 
 ### API surface delta
 
+* **The three declarations below, reviewed in turn, and the round found
+  the repair less finished than it looked.** Three of its four new
+  guards were untested, and the QA pass measured all three mutations
+  surviving a green suite: deleting every `cites:` declaration, deleting
+  the whole `fixed_length` refusal, and deleting the backfilled version
+  rows. Each is now asserted as behaviour and each mutation is caught.
+
+  `all_sentinel` was not self-sufficient. It reached the emitter only
+  because a name map happened to resolve the spelling beside it, so
+  renaming that map row would have made the sentinel inert and silent,
+  which is the class of defect the field was added to end. It now
+  requires `cites:`, and the database is refused at load without it.
+
+  The list path still hardcoded `-1` for every entity kind, which is the
+  per-family rule the change below removed from the scalar path and left
+  standing next to it. A list of frames or motions has no documented
+  all-form at all. Both paths now read the argument.
+
+  The sentinel was also swallowed whenever no boundary inventory had
+  been declared. An inventory bounds an index from above; being 1-based
+  bounds it from below, and that half needs no inventory, so `-1` on a
+  zero-sentinel command emitted silently on any script that had not
+  called `declare_existing`.
+
+  The precedence rule was written out four times, once per
+  scalar-or-list branch in each of two paths; it is now
+  `_reference_kind`, consulted by both.
+
+* **A guard now closes the argument vocabulary, and it found five gaps
+  the review did not.** An index argument whose name says it cites
+  something must declare what it cites, be a spelling the emitter
+  already resolves, be a count, or be listed as an index of an object
+  the entity tracker does not model (CAD bodies, curves, sections,
+  trailing edges). Running it first reported `DELETE_SURFACES`, both
+  surface-section distributions, `ROTATE_COORDINATE_SYSTEM`'s second
+  frame and the aeroelastic structural frame: all confirmed against the
+  manual and now declared. The Mesh Operations chapter header states the
+  rule, since mirroring the manual's own argument spellings is what
+  makes the declaration necessary.
+
 * **Three facts an argument used to only describe, it now declares, after
   the review of the four chapters above found each one wrong in the
   emitter.** `ArgSpec` gained `all_sentinel`, `cites` and `fixed_length`.
