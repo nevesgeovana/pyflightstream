@@ -12,8 +12,15 @@ documents, or that a committed probe report measured the solver accepting
 (each entry carries one citation or the other), so a workflow step
 with no script command cannot be emitted by the script builder, and
 no amount of library code changes that. Geometry preparation and
-meshing are the common case: the CAD and mesh-wrapper chapters are
-currently outside the database scope (SRS non-requirement NREQ-05).
+meshing are the common case, and the picture there changed on
+2026-08-06: the CAD and CAD Create chapters entered the database in
+full, so those commands are emittable now, while the mesh-wrapper
+chapter remains outside it (SRS non-requirement NREQ-05, which was
+narrowed to say so). What has NOT changed is the reason this page
+exists. A command being in the database means the script builder will
+emit and validate it; it does not mean the GUI-driven parts of geometry
+preparation have a scripted equivalent, and the pattern below is still
+the supported one.
 
 ## The supported pattern: GUI once, script everything after
 

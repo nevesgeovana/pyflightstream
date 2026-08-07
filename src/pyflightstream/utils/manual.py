@@ -920,6 +920,15 @@ def sample_contradiction(
             "the signature, not the sample: indexing the sample directly turns an "
             "off-by-one into a confident report about a different argument."
         )
+    if proposed in ("enum", "enum_list") and not values:
+        raise ManualDraftError(
+            f"{command.name}: an {proposed} proposal was passed with no token set, so "
+            "every sample token would be reported as refused and the draft would carry "
+            "a page of confident findings. This is the caller-bug shape the index "
+            "refusal above exists for, on the parameter beside it: pass the tokens "
+            "propose_type returned alongside the type. An enumeration accepting "
+            "nothing is not a state this database admits either (ArgSpec refuses it)."
+        )
     if proposed is None or not command.sample:
         return None
     head = command.sample[0]

@@ -502,7 +502,8 @@ def _entry_row_html(entry: CommandEntry) -> str:
         f"<tr><td><code>{html.escape(entry.name)}</code>{notes}</td>"
         f"<td>{entry.phase}</td><td>{entry.layout}</td><td>{args}</td>"
         f"<td>{_format_versions_html(entry)}</td>"
-        f"<td>{html.escape(entry.citation)}</td></tr>"
+        f"<td>{html.escape(_citation_label(entry))}: "
+        f"{html.escape(entry.citation)}</td></tr>"
     )
 
 
@@ -551,7 +552,7 @@ def render_html(version: str | FsVersion | None = None) -> str:
         sections.append(
             f"<h2>{title}</h2>\n<table>\n"
             "<tr><th>Command</th><th>Phase</th><th>Layout</th>"
-            "<th>Arguments</th><th>Versions</th><th>Manual ref</th></tr>\n"
+            "<th>Arguments</th><th>Versions</th><th>Evidence</th></tr>\n"
             f"{rows}\n</table>"
         )
 
@@ -705,8 +706,10 @@ def markdown_reference_pages() -> dict[str, str]:
             "",
             f"Commands of the `{chapter}` chapter of the database, "
             f"{len(members)} entries. Statuses follow the evidence rules of "
-            "CLAUDE.md invariant 3: `documented` cites the manual, `verified` "
-            "and `broken` cite a committed probe report, `removed` records "
+            "CLAUDE.md invariant 3: `documented` cites the manual page that "
+            "documents the command, or a committed probe report where no "
+            "edition documents it; `verified` and `broken` cite a committed "
+            "probe report; `removed` records "
             "the manual page stating the removal. A `broken` status is also "
             "a refusal: the script builder will not emit that command for "
             "that version without an explicit recorded waiver (FR-48).",

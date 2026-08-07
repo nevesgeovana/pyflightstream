@@ -938,3 +938,31 @@ def test_the_index_is_zero_based_against_the_signature():
     command = _rotate_shaped_command()
     assert sample_contradiction(command, index=1, proposed="enum", values=("X",)) == "2"
     assert sample_contradiction(command, index=2, proposed="float", values=()) is None
+
+
+def test_an_enum_proposal_without_its_tokens_is_refused():
+    """Otherwise every sample token comes back as a contradiction.
+
+    With the documented default of no token set, the membership test
+    runs against an empty set and reports the sample token for EVERY
+    enumeration position, which render_entry then writes out as a page
+    of confident findings. That is the caller-bug shape the index
+    refusal was added for, sitting on the parameter beside it: a caller
+    who takes propose_type's type and forgets its tokens gets plausible
+    sentences instead of a refusal.
+    """
+    command = _rotate_shaped_command()
+    for kind in ("enum", "enum_list"):
+        with pytest.raises(ManualDraftError, match="no token set"):
+            sample_contradiction(command, index=1, proposed=kind)
+
+
+def test_a_non_enum_proposal_still_takes_no_tokens():
+    """The control: the refusal is about enumerations, not about the default.
+
+    Without this the test above passes under a rule that demanded a
+    token set from every caller, which would be wrong for the numeric
+    and path types that have none.
+    """
+    command = _rotate_shaped_command()
+    assert sample_contradiction(command, index=0, proposed="int") is None

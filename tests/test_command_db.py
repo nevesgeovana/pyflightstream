@@ -1030,9 +1030,30 @@ def test_no_consumer_of_a_citation_prints_an_empty_one():
             f"the refusal for {name} cites nothing: {caught.value}"
         )
 
+    # BOTH rendering layers, because there are two and the first repair
+    # converted one. render_html is the offline fallback help() opens in
+    # a browser, and it printed a probe report under a column headed
+    # "Manual ref" while the markdown layer had already been fixed.
+    from pyflightstream.reference import render_html
+
     rendered = "\n".join(markdown_reference_pages().values())
     assert "Manual: ." not in rendered
     assert "Manual: \n" not in rendered
+    for name in probe_only:
+        entry = registry.commands[name]
+        assert f"Probe report: {entry.probe_ref}" in rendered, (
+            f"the markdown reference does not name {name}'s evidence as a probe report"
+        )
+
+    page = render_html()
+    assert "<th>Manual ref</th>" not in page, (
+        "the HTML column asserts every citation is a manual page, and one is not"
+    )
+    for name in probe_only:
+        entry = registry.commands[name]
+        assert f"Probe report: {entry.probe_ref}" in page, (
+            f"the HTML reference prints {name}'s report without saying it is one"
+        )
 
 
 def test_an_entry_must_cite_exactly_one_kind_of_evidence():
@@ -1079,6 +1100,14 @@ def test_a_probe_cited_entry_with_a_version_override_keeps_one_citation():
     the validator above refuses, and a ``manual_ref`` that fails its own
     pattern. Nothing in the database combines the two today, which is
     why this is constructed rather than loaded.
+
+    It goes through ``VersionView`` rather than calling ``model_copy``
+    and ``_override_citation`` by hand, and the difference is the whole
+    test. Written the direct way it never reached the line that chooses
+    the field, so reverting that line to write ``manual_ref``
+    unconditionally left it green: the ``model_copy`` assertion cannot
+    fail, because that copy never touches a citation field, and the
+    helper is a different function from the branch that calls it.
     """
     report = "reports/RPT-018_separation-family-across-builds_2026-08-05.md"
     entry = CommandEntry(
@@ -1096,16 +1125,17 @@ def test_a_probe_cited_entry_with_a_version_override_keeps_one_citation():
             "26.120": VersionStatus(status=Status.DOCUMENTED),
         },
     )
-    overridden = entry.model_copy(update={"args": entry.versions["26.100"].args})
-    assert overridden.probe_ref == report
+    view = CommandRegistry(commands={"X_CMD": entry}).for_version("26.100")
+    resolved = view["X_CMD"]
 
-    from pyflightstream.commands import _override_citation
-
-    cited = _override_citation(entry, "26.100", entry.versions["26.100"].note)
-    assert cited.endswith("the 26.100 grammar")
-    assert cited.startswith(report), (
-        "an entry resting on a report must not be handed a manual_ref-shaped citation"
+    assert resolved.args[0].values == ("A",), "the override grammar did not resolve"
+    assert resolved.manual_ref == "", (
+        "a probe-cited entry was handed a manual_ref by the override, which is the "
+        "both-citations state the model refuses and which model_copy cannot catch"
     )
+    assert resolved.probe_ref.startswith(report)
+    assert resolved.probe_ref.endswith("the 26.100 grammar")
+    assert resolved.citation == resolved.probe_ref
 
 
 def test_no_database_note_quotes_the_manual():
