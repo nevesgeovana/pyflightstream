@@ -17,8 +17,9 @@ FlightStream is scripted through ASCII command files, and the solver is
 under active development, with intermediate hotfix builds consolidating
 user requests into stable releases; the command set evolves with it. This
 package makes the FlightStream version an explicit input. A per-version command
-database, with a manual page citation for every entry and empirical probe
-evidence for every verified status, backs a script builder that refuses to
+database, with a manual page or probe-report citation on every entry and
+empirical probe evidence for every verified status, backs a script builder
+that refuses to
 emit anything invalid for the requested version. Old versions are only ever
 added, never dropped.
 

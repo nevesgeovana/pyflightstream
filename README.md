@@ -186,7 +186,7 @@ from the database at build time.
 | Folder | Purpose in plain language |
 |---|---|
 | `src/pyflightstream/` | The package, one subpackage per pipeline stage (versions, commands, script, results, cases, run, workspace, post, qa, plus fsi, probes, farfield) |
-| `src/pyflightstream/commands/` | The command database: what exists in which FlightStream version, with manual page citations |
+| `src/pyflightstream/commands/` | The command database: what exists in which FlightStream version, with a manual page or probe-report citation per entry |
 | `tests/` | Tier 1 tests, runnable anywhere, no FlightStream needed |
 | `reports/` | Committed evidence from licensed machines: command validity (compat), physics regression, drift, and research cards |
 | `docs/` | Documentation source (ProperDocs); reference pages are generated from the database, never committed |

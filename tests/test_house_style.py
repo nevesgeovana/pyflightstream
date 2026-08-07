@@ -23,6 +23,11 @@ SKIP_DIRS = {
     ".ruff_cache",
     "build",
     "dist",
+    # A review's isolated worktree is a full second copy of the tree,
+    # under .claude/worktrees/. Walking it doubles every check, and an
+    # abandoned one (the removal fails on Windows while a handle is
+    # open) would report offenders against a path nobody edits.
+    "worktrees",
 }
 # Built from codepoints so this file itself stays free of the characters.
 FORBIDDEN = {chr(0x2013): "en dash", chr(0x2014): "em dash"}

@@ -2,8 +2,10 @@
 
 Pipeline role: single source of truth for which ASCII commands exist in
 which FlightStream version, with typed arguments, script layout, emission
-phase, and a manual page citation (``manual_ref``) per entry. The script
-builder validates every emission against this database.
+phase, and one evidence citation per entry: the manual page documenting it
+(``manual_ref``), or a committed probe report measuring that the solver
+accepts a command no edition documents (``probe_ref``). The script builder
+validates every emission against this database.
 
 Data lives in the YAML files next to this module, one file per manual
 chapter; ``_meta.yaml`` holds the ordered version list, which is the only
@@ -12,10 +14,11 @@ files are quoted strings ("26.120"); an unquoted key would be parsed as
 a float and rejected by the loader.
 
 Statuses follow the evidence rules of CLAUDE.md invariant 3:
-``documented`` cites the manual through ``manual_ref``; ``verified`` and
-``broken`` additionally cite a committed probe report; ``removed``
-records the manual page stating the removal and, when known, a
-successor command.
+``documented`` cites the manual through ``manual_ref``, or a committed
+report through ``probe_ref`` where no edition documents the command;
+``verified`` and ``broken`` additionally cite a committed probe report;
+``removed`` records the manual page stating the removal and, when known,
+a successor command.
 
 A command whose argument grammar differs between versions declares the
 grammar of the latest documented version in ``args`` and overrides it
@@ -85,7 +88,9 @@ class Phase(enum.StrEnum):
 class Status(enum.StrEnum):
     """Evidence status of a command in one FlightStream version.
 
-    ``documented``: the manual says so (manual_ref is the evidence).
+    ``documented``: the manual says so (``manual_ref``), or a committed
+    report measured the solver accepting a command no edition
+    documents (``probe_ref``).
     ``verified``: a Tier 2 probe passed on a licensed machine.
     ``broken``: a probe recorded a manual-versus-reality discrepancy.
     ``removed``: the manual states the command is no longer supported.
@@ -448,9 +453,10 @@ class CommandEntry(BaseModel):
     args : tuple of ArgSpec
         Typed argument specifications, in emission order.
     manual_ref : str, optional
-        Manual citation, for example ``"SRC-003 p.352"``. Paraphrase
-        evidence only; manual text is never reproduced. Required unless
-        ``probe_ref`` is given, and the two are mutually exclusive.
+        Manual page citation of an entry an edition documents, exclusive
+        with ``probe_ref`` and required unless that is given; for
+        example ``"SRC-003 p.352"``. Paraphrase evidence only; manual
+        text is never reproduced.
     probe_ref : str, optional
         Repository-relative path of a committed probe report, for the
         command that the SOLVER accepts and no manual edition documents.

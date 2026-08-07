@@ -574,9 +574,10 @@ CAD_CREATE_PROJECT_CURVE:
     object: the result is a curve in the right plane and the wrong
     place.
 
-    The -1 convention applies here too, and the manual's own row for it
-    says "reverse all existing virtual curves", which is the wording of
-    CAD_CREATE_CURVE_REVERSE left behind by an edit. Read as project.
+    The -1 convention applies here too, and the row describing it talks
+    about reversing every virtual curve rather than projecting one: the
+    CAD_CREATE_CURVE_REVERSE row left behind by an edit. Read as
+    project.
 
 CAD_CREATE_PROJECT_MULTI_CURVE:
   layout: inline

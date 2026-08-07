@@ -861,9 +861,9 @@ def sample_contradiction(
     Measured on 2026-08-06 across the four registered editions, 195
     enumeration positions in this database had a printed sample to check
     against and 19 of them, spanning seven commands, declared a value set
-    that refuses the token the sample passes. ``CAD_BODY_ROTATE``
-    documents its ``AXIS`` as "one of the following: X, Y or Z" and calls
-    it with ``2`` on the same page, in every edition; three
+    that refuses the token the sample passes. ``CAD_BODY_ROTATE`` has a
+    parameter table naming the three axis letters and a sample calling it
+    with the index ``2``, on the same page, in every edition; three
     ``SWEEPER_SET_*_SWEEP`` commands omit a mode their own samples use.
 
     Why this belongs here rather than in a review checklist: both facts

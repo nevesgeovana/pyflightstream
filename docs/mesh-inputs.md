@@ -8,7 +8,8 @@ inputs are canonical. Adopted 2026-07-23 (PLN-028).
 
 The FlightStream scripting interface covers a subset of what the GUI
 can do. The command database only ever contains commands the manual
-documents (each entry carries its page citation), so a workflow step
+documents, or that a committed probe report measured the solver accepting
+(each entry carries one citation or the other), so a workflow step
 with no script command cannot be emitted by the script builder, and
 no amount of library code changes that. Geometry preparation and
 meshing are the common case: the CAD and mesh-wrapper chapters are

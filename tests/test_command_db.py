@@ -1106,3 +1106,61 @@ def test_a_probe_cited_entry_with_a_version_override_keeps_one_citation():
     assert cited.startswith(report), (
         "an entry resting on a report must not be handed a manual_ref-shaped citation"
     )
+
+
+def test_no_database_note_quotes_the_manual():
+    """Invariant 1, on the surface this repository writes prose into.
+
+    Manual facts appear only as paraphrase with a page citation. The
+    failure mode is not subtle and it recurred three times in two days:
+    a note presents a fragment of the vendor's parameter table in
+    quotation marks and attributes it, which is reproducing manual text
+    however short the fragment is.
+
+    Round one rewrote six such sites by hand and added no guard, so
+    three more existed by round two, one of them introduced BY the
+    rewrite. That is the argument for a guard rather than another sweep.
+
+    SCOPE, stated because it is narrower than the invariant. This walks
+    the parsed ``notes`` and per-version ``note`` prose of the command
+    database and nothing else. A text scan over source code cannot do
+    this job: flattening a file to find a quoted span joins the closing
+    quote of one string literal to the opening quote of the next, and
+    two candidate rules drowned in that before this one. Docstrings and
+    markdown are NOT covered, and the residual is real, so the rule for
+    a person stays what it always was.
+
+    A quoted span of two or more words is the signal. Single-word quotes
+    are left alone deliberately: a command's tokens are its grammar, are
+    already public in ``values``, and are legitimately quoted in prose.
+    """
+    quoted = re.compile(r"[\"“]([^\"”]*?\s+[^\"”]*?)[\"”]")
+    offenders = []
+    walked = 0
+    for path in sorted(COMMANDS_DIR.glob("*.yaml")):
+        if path.name == "_meta.yaml":
+            continue
+        entries = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        for name, entry in entries.items():
+            prose = [("notes", entry.get("notes") or "")]
+            prose += [
+                (f"{canonical} note", (record or {}).get("note") or "")
+                for canonical, record in (entry.get("versions") or {}).items()
+                if isinstance(record, dict)
+            ]
+            for field, text in prose:
+                if not text:
+                    continue
+                walked += 1
+                for match in quoted.finditer(" ".join(str(text).split())):
+                    offenders.append(f"{path.name}:{name} ({field}) quotes {match.group(0)}")
+    assert not offenders, (
+        "these command-database notes carry a quoted phrase. Manual facts are "
+        "paraphrased with a page citation and never reproduced (CLAUDE.md "
+        "invariant 1); if the phrase is this repository's own wording, say it "
+        "without the quotes so the two cannot be confused: " + "; ".join(offenders)
+    )
+    assert walked >= 200, (
+        f"the walk read {walked} prose fields, fewer than the 200 the database carried "
+        "when this floor was set; a walk that stops finding notes guards nothing"
+    )

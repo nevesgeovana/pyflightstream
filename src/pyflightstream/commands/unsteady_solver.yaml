@@ -68,7 +68,7 @@ UNSTEADY_SOLVER_NEW_FLUID_PLOT:
   notes: >
     Samples one fluid property per solver time step at a fixed vertex.
     VERTEX takes the three coordinates preformatted on one line
-    ("X Y Z", reference units of FRAME); the typed triple validation
+    (X, then Y, then Z, in the reference units of FRAME); the typed triple validation
     lives in the caller, the same preformatted-token convention as the
     per-surface lines of INITIALIZE_SOLVER.
 

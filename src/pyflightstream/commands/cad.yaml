@@ -22,10 +22,10 @@ CAD_BODY_DELETE:
     "26.121": {status: documented, note: "SRC-740 p.290, same grammar as 26.120"}
   notes: >
     Deletes one CAD body by its 1-based index; -1 deletes every one of
-    them (SRC-003 p.287). The manual's parameter table describes the
-    index as "the CAD body being scaled" on this command as well as on
-    CAD_BODY_SCALE, which is a description carried across rather than a
-    grammar difference.
+    them (SRC-003 p.287). The parameter table row for this index is the
+    one written for CAD_BODY_SCALE, describing the body being scaled
+    rather than the body being deleted: a description carried across
+    between neighbouring commands, not a grammar difference.
 
 CAD_BODY_MIRROR:
   layout: inline
