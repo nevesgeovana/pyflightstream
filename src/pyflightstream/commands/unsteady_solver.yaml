@@ -68,7 +68,11 @@ UNSTEADY_SOLVER_NEW_FLUID_PLOT:
   notes: >
     Samples one fluid property per solver time step at a fixed vertex.
     VERTEX takes the three coordinates preformatted on one line
-    (X, then Y, then Z, in the reference units of FRAME); the typed triple validation
+    (X, then Y, then Z). The manual documents FRAME as the system the
+    plot's VALUES are computed in and says nothing about which frame
+    the vertex is read in (SRC-003 p.347), so this entry does not say
+    either; the 26.121 surface probe states it and this command does
+    not. The typed triple validation
     lives in the caller, the same preformatted-token convention as the
     per-surface lines of INITIALIZE_SOLVER.
 

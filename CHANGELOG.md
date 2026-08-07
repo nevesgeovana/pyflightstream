@@ -15,7 +15,7 @@ FlightStream versions.
   four pane settings and the four basic shapes, then the virtual curve
   constructors, index commands and deletes, then the curve transforms
   and `CAD_CREATE_CURVE_EXPORT_CCS`. With `SWEEPER_SET_MACH_SWEEP` and
-  the flow-separation family, the database went from 162 entries at
+  the flow-separation family, the database went from 147 entries at
   v0.4.0 to 197. Every entry carries its own page per edition rather
   than one citation reused, and every command emits on all four builds.
 
@@ -164,7 +164,8 @@ FlightStream versions.
   refused that keyword for one day, between the probe and the
   `probe_ref` field that let the working name be recorded at all, and
   the entry above is the same change seen from the database side.
-  Fifteen commands entered: the per-mechanism boundary lists of
+  Sixteen commands entered, the sixteenth being the probe-backed erase
+  named below: the per-mechanism boundary lists of
   26.100 (axial, Valarezo criterion, cross-flow, each a SET and a
   DELETE, plus the cross-flow diameter and its axisymmetric toggle), the
   named assignment models of 26.101 and later
@@ -200,8 +201,9 @@ FlightStream versions.
   `DELETE_VALAREZO_CRITERION_BOUNDARIES` is unrecognised while an
   undocumented `DELETE_VALAREZO_SEPARATION_BOUNDARIES` works. The
   database records the documented name with the contradiction on it, and
-  the working name has no entry, because every entry here cites a manual
-  page and that one has none. Emit it through `Script.raw()` meanwhile.
+  the working name has an entry of its own, resting on that report
+  through `probe_ref`: it was unrecordable for one day, which is the
+  entry above.
   Full method and results in
   `reports/RPT-018_separation-family-across-builds_2026-08-05.md`.
 

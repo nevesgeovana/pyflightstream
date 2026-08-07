@@ -39,6 +39,27 @@ REPORT_PATH_PATTERN = re.compile(r"reports/[\w./-]+\.(?:md|yaml)")
 # committed report measuring that the solver accepts one no edition
 # documents. Exactly one, which the model enforces and
 # test_every_entry_cites_one_kind_of_evidence asserts over the files.
+#: A quoted phrase of two or more words. Double quotes were the whole
+#: class until round three re-quoted a removed phrase with a SINGLE
+#: quote and watched 57 tests stay green.
+#:
+#: The single-quote half needs word boundaries and the double-quote half
+#: does not, which is the whole difficulty: adding a bare ``'`` to one
+#: character class made every English apostrophe an opening delimiter,
+#: so "the manual's own row" and everything after it up to the next
+#: apostrophe became a quoted phrase, and the guard reported sixteen
+#: offenders in accurate prose. An opening single quote is preceded by a
+#: non-word character and a closing one is followed by a non-word
+#: character; an apostrophe is neither.
+#: The 100-character bound is the splice guard, not a judgement about
+#: length. Within one comment block a non-greedy span still runs from
+#: the CLOSING quote of one short quotation to the OPENING quote of the
+#: next, and reported the 300 characters of accurate prose between them.
+#: A quotation of vendor wording short enough to matter here is short.
+QUOTED_PHRASE = re.compile(
+    r"[\"“]([^\"”\n]{0,100}?\s+[^\"”\n]{0,100}?)[\"”]"
+    r"|(?<!\w)['‘]([^'’\n]{0,100}?\s+[^'’\n]{0,100}?)['’](?!\w)"
+)
 REQUIRED_ENTRY_KEYS = {"layout", "phase", "args", "versions"}
 CITATION_KEYS = {"manual_ref", "probe_ref"}
 KNOWN_LAYOUTS = {"bare", "inline", "param_lines", "payload_lines", "keyword_block"}
@@ -1091,7 +1112,14 @@ def test_an_entry_must_cite_exactly_one_kind_of_evidence():
     assert CommandEntry(**common, probe_ref=report).probe_ref == report
 
 
-def test_a_probe_cited_entry_with_a_version_override_keeps_one_citation():
+@pytest.mark.parametrize(
+    "note",
+    [
+        "measured on the February build",
+        "SRC-741 p.320: the February build takes one token",
+    ],
+)
+def test_a_probe_cited_entry_with_a_version_override_keeps_one_citation(note):
     """The override citation goes into the field the entry already uses.
 
     ``model_copy`` runs no validator, so writing the per-version
@@ -1119,7 +1147,7 @@ def test_a_probe_cited_entry_with_a_version_override_keeps_one_citation():
         versions={
             "26.100": VersionStatus(
                 status=Status.DOCUMENTED,
-                note="measured on the February build",
+                note=note,
                 args=(ArgSpec(name="mode", type="enum", values=("A",)),),
             ),
             "26.120": VersionStatus(status=Status.DOCUMENTED),
@@ -1133,7 +1161,12 @@ def test_a_probe_cited_entry_with_a_version_override_keeps_one_citation():
         "a probe-cited entry was handed a manual_ref by the override, which is the "
         "both-citations state the model refuses and which model_copy cannot catch"
     )
-    assert resolved.probe_ref.startswith(report)
+    assert resolved.probe_ref.startswith(report), (
+        "the note's own manual page was taken as this entry's citation, so probe_ref "
+        "now holds a page reference that fails its repository-relative-path rule. "
+        "The second parameter of this test is that case: a note may mention a manual "
+        "page even when the entry rests on a report"
+    )
     assert resolved.probe_ref.endswith("the 26.100 grammar")
     assert resolved.citation == resolved.probe_ref
 
@@ -1152,40 +1185,63 @@ def test_no_database_note_quotes_the_manual():
     rewrite. That is the argument for a guard rather than another sweep.
 
     SCOPE, stated because it is narrower than the invariant. This walks
-    the parsed ``notes`` and per-version ``note`` prose of the command
-    database and nothing else. A text scan over source code cannot do
-    this job: flattening a file to find a quoted span joins the closing
-    quote of one string literal to the opening quote of the next, and
-    two candidate rules drowned in that before this one. Docstrings and
-    markdown are NOT covered, and the residual is real, so the rule for
-    a person stays what it always was.
+    the prose of the command database: the parsed ``notes``, the
+    per-version ``note``, and the files' own COMMENT lines. A text scan
+    over source code cannot do this job, and two candidate rules drowned
+    trying: flattening a file to find a quoted span joins the closing
+    quote of one string literal to the opening quote of the next.
+    Docstrings and markdown are NOT covered and the residual is real.
+
+    The comment lines were added after round three, which defeated the
+    first version twice: moving a quoted phrase from a note UP into the
+    comment above the entry left the guard green with the text still
+    shipping as package data, and re-quoting it with a single quote left
+    it green too. Both are covered now and both are pinned below.
 
     A quoted span of two or more words is the signal. Single-word quotes
     are left alone deliberately: a command's tokens are its grammar, are
     already public in ``values``, and are legitimately quoted in prose.
     """
-    quoted = re.compile(r"[\"“]([^\"”]*?\s+[^\"”]*?)[\"”]")
     offenders = []
     walked = 0
     for path in sorted(COMMANDS_DIR.glob("*.yaml")):
-        if path.name == "_meta.yaml":
-            continue
-        entries = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        entries = (
+            {}
+            if path.name == "_meta.yaml"
+            else yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        )
+        prose = []
         for name, entry in entries.items():
-            prose = [("notes", entry.get("notes") or "")]
+            if not isinstance(entry, dict):
+                continue
+            prose.append((f"{name} notes", entry.get("notes") or ""))
             prose += [
-                (f"{canonical} note", (record or {}).get("note") or "")
+                (f"{name} {canonical} note", (record or {}).get("note") or "")
                 for canonical, record in (entry.get("versions") or {}).items()
                 if isinstance(record, dict)
             ]
-            for field, text in prose:
-                if not text:
-                    continue
-                walked += 1
-                for match in quoted.finditer(" ".join(str(text).split())):
-                    offenders.append(f"{path.name}:{name} ({field}) quotes {match.group(0)}")
+        # Comment BLOCKS, joined only within a run of consecutive comment
+        # lines: joining across a gap would splice the closing quote of
+        # one block to the opening quote of the next, which is the defect
+        # that killed the two source-scanning candidates.
+        block: list[str] = []
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if line.lstrip().startswith("#"):
+                block.append(line.lstrip().lstrip("#").strip())
+            elif block:
+                prose.append(("comment block", " ".join(block)))
+                block = []
+        if block:
+            prose.append(("comment block", " ".join(block)))
+
+        for field, text in prose:
+            if not str(text).strip():
+                continue
+            walked += 1
+            for match in QUOTED_PHRASE.finditer(" ".join(str(text).split())):
+                offenders.append(f"{path.name}:{field} quotes {match.group(0)}")
     assert not offenders, (
-        "these command-database notes carry a quoted phrase. Manual facts are "
+        "these command-database prose fields carry a quoted phrase. Manual facts are "
         "paraphrased with a page citation and never reproduced (CLAUDE.md "
         "invariant 1); if the phrase is this repository's own wording, say it "
         "without the quotes so the two cannot be confused: " + "; ".join(offenders)
@@ -1194,3 +1250,26 @@ def test_no_database_note_quotes_the_manual():
         f"the walk read {walked} prose fields, fewer than the 200 the database carried "
         "when this floor was set; a walk that stops finding notes guards nothing"
     )
+
+
+@pytest.mark.parametrize(
+    "quoting",
+    ['"the CAD body being scaled"', "'the CAD body being scaled'", "‘the CAD body being scaled’"],
+)
+def test_the_quotation_guard_reads_every_quote_style(quoting):
+    """Changing the quote character defeated the first version.
+
+    The phrase below is the one removed from CAD_BODY_DELETE's note; a
+    QA pass put it back in single quotes and 57 tests stayed green.
+    """
+    assert QUOTED_PHRASE.search(quoting), f"{quoting} is not read as a quoted phrase"
+
+
+def test_the_quotation_guard_leaves_a_single_word_alone():
+    """The control: a token in quotes is grammar, not prose.
+
+    Without this the parametrised test above passes under a rule that
+    flagged every quotation mark in the database, which would make the
+    token vocabulary unwritable in a note.
+    """
+    assert not QUOTED_PHRASE.search('the "RETAIN" token')

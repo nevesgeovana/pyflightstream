@@ -44,8 +44,9 @@ added, never dropped.
   offline.
 * [Compatibility matrix](compatibility.md): every command against every
   registered FlightStream version, generated from the same database. Cells
-  are filled only by evidence: a manual citation for `documented`, a
-  committed probe report for `verified` and `broken`. Empty cells are
+  are filled only by evidence: for `documented`, the manual page or a
+  committed probe report where no edition documents the command; for
+  `verified` and `broken`, a committed probe report. Empty cells are
   honest gaps awaiting backfill.
 * [House conventions](conventions.md): the naming and nomenclature rules
   the library holds itself to, generated from `reference.CONVENTIONS`,

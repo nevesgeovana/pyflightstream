@@ -124,7 +124,7 @@
 
 \begin{frame}{The idea in one paragraph}
   \begin{block}{pyflightstream}
-    The FlightStream version becomes an explicit input. A per-version command database, with a manual page citation for every entry and empirical probe evidence for every verified status, backs a script builder that refuses to emit anything invalid for the requested version. Old versions are only ever added, never dropped.
+    The FlightStream version becomes an explicit input. A per-version command database, in which every entry cites either the manual page that documents its command or a committed probe report measuring that the solver accepts one no edition documents, with empirical probe evidence for every verified status, backs a script builder that refuses to emit anything invalid for the requested version. Old versions are only ever added, never dropped.
   \end{block}
   \begin{itemize}
     \item Errors move from solver runtime (silent, cryptic) to Python build time (loud, cited).
@@ -161,7 +161,7 @@ pyflightstream.help("26.120")   # scoped to one FlightStream version
 \end{lstlisting}
   \begin{itemize}
     \item The same renderer feeds the published documentation site, so the offline page and the site can never disagree.
-    \item Each entry shows: phase, layout, typed arguments, per-version evidence status, and the manual citation.
+    \item Each entry shows: phase, layout, typed arguments, per-version evidence status, and its evidence citation: the manual page, or a committed probe report where no edition documents the command.
   \end{itemize}
 \end{frame}
 
@@ -212,7 +212,7 @@ resolve("26.12")           # AmbiguousVersionAliasError: 26.120 or 26.121?
     \column{0.52\textwidth}
     \begin{itemize}
       \item One YAML file per manual chapter, loaded and validated at import. This guide states no command counts: the compatibility matrix is generated from the database on every docs build and publishes the current ones.
-      \item Every entry carries: layout grammar, emission phase, typed arguments, a manual page citation, and per-version evidence.
+      \item Every entry carries: layout grammar, emission phase, typed arguments, one evidence citation (a manual page, or a committed probe report where no edition documents the command), and per-version evidence.
       \item Statuses are never hand edited: promotions happen only through committed probe reports.
     \end{itemize}
     \column{0.46\textwidth}
@@ -281,7 +281,7 @@ resolve("26.12")           # AmbiguousVersionAliasError: 26.120 or 26.121?
   \begin{block}{What to retain from this section}
     \begin{itemize}
       \item The FlightStream version is an input, canonical form \code{26.XXX}, ordered by an explicit list, never by number comparison.
-      \item Every command the builder accepts is backed by evidence: a manual citation at minimum, a committed probe report at best.
+      \item Every command the builder accepts is backed by evidence: at minimum a citation, which is the manual page or a committed probe report where no edition documents the command; at best a probe report measuring the command on a build.
       \item When the builder refuses, that refusal is the feature: it happens at build time, with the reason and the citation, instead of silently inside the solver.
     \end{itemize}
   \end{block}
@@ -1104,7 +1104,7 @@ samples = parse_residual_history(log_text)
 
 \begin{frame}{Extending the library}
   \begin{itemize}
-    \item \textbf{Add a command:} draft the YAML entry with the manual citation, typed arguments, layout, and phase; Tier 1 validates the schema; a probe spec promotes it later. The repository ships a guided workflow for this.
+    \item \textbf{Add a command:} draft the YAML entry with its evidence citation (the manual page, or a committed probe report), typed arguments, layout, and phase; Tier 1 validates the schema; a probe spec promotes it later. The repository ships a guided workflow for this.
     \item \textbf{Onboard a new FlightStream version:} register it in the ordered list, backfill documented statuses from its manual with citations, then probe on a licensed machine.
     \item \textbf{Contribute a recipe:} recipes are plain functions; ship them with your project or propose the pattern for the docs.
   \end{itemize}

@@ -429,11 +429,11 @@ _RATCHET = {
     # the same shape as its four neighbours, a ValueError raised on the
     # pydantic validation path where ValueError IS the protocol, so it
     # joins the same tranche rather than opening a second argument.
-    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:290)",
-    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:292)",
-    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:294)",
-    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:302)",
-    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:316)",
+    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:295)",
+    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:297)",
+    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:299)",
+    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:307)",
+    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:321)",
     "pyflightstream.farfield._delta_psi -> ValueError (__init__.py:152)",
     "pyflightstream.fsi.driver._verified_layout -> ValueError (driver.py:338)",
     "pyflightstream.fsi.loads._validate_block_boundaries -> ValueError (loads.py:397)",

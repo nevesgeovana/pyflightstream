@@ -113,8 +113,10 @@ SET_CAD_CURVATURE_REFINEMENT:
   notes: >
     Subdivisions around a full circle, used as the reference for how
     finely a curved region is refined. It is the same quantity the
-    NUM_CURVATURE argument of IMPORT_CAD carries, and the two share the
-    documented default of 80.
+    NUM_CURVATURE argument of the CAD import carries (SRC-003 p.286),
+    and the two share the documented default of 80. That command is not
+    in this database yet, so the comparison is to the manual page rather
+    than to an entry.
 
 # --- basic shapes ----------------------------------------------------------
 #
@@ -245,12 +247,13 @@ CAD_CREATE_SHEET:
     A flat rectangle in one plane of the frame. OFFSET moves it along
     that plane's normal and MAY BE NEGATIVE, which the manual states
     explicitly; zero puts the sheet exactly in the plane. LEN1 and LEN2
-    run along the plane's two directions in the order the plane name
-    gives them (SRC-003 p.290).
+    run along the plane's two directions (SRC-003 p.290). WHICH length
+    goes with which direction is not stated on that page, so the order
+    implied by the plane name is a reading and not a citation.
 
 # --- virtual curves: constructing them -------------------------------------
 #
-# A "virtual curve" is CAD Create's own object, indexed from 1 in
+# A virtual curve is CAD Create's own object, indexed from 1 in
 # creation order, and it is not a mesh boundary: nothing in the
 # cross-reference ledger tracks it, so an index here is validated as an
 # integer and not against an inventory.
@@ -630,10 +633,12 @@ CAD_CREATE_REORDER_CURVES:
     "26.121": {status: documented, note: "SRC-740 p.299, same grammar as 26.120"}
   notes: >
     Sorts the selected curves along an axis, and the token is SIGNED:
-    the six values are the three axes each way round, so "-Y" is a
-    valid direction and not a negation of anything. This is the one
-    axis argument in the family that does NOT accept a bare letter,
-    since the sign carries the ordering.
+    the six values are the three axes each way round, so a leading minus
+    is part of the token and not a negation of anything. The parameter
+    table lists the six signed forms and no bare letter; whether the
+    solver would also take one is unprobed, and the table's value list
+    has already been measured non-exhaustive elsewhere in this chapter,
+    so the absence is not a refusal.
 
     Order matters downstream rather than here: the loft commands
     consume the curves in sequence, so a loft across curves built in

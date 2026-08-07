@@ -38,10 +38,17 @@ CLAUDE_MD = REPO / "CLAUDE.md"
 # call that clean. The vendored kit bodies under .claude/tools/ are excluded
 # because they are hash-pinned by tests/test_kit_drift.py and cannot be
 # corrected here.
+# `worktrees` is excluded for a different reason from `tools`: a review's
+# isolated pass gets a full second copy of the repository under
+# `.claude/worktrees/`, and `git worktree remove` fails on Windows while a
+# handle is open, so an abandoned copy outlives the review. Every rglob in
+# this suite then reads the whole tree twice and reports offenders against
+# paths nobody edits. Measured on 2026-08-07, when three checks here failed
+# on a copy of CLAUDE.md inside one.
 SKILLS = sorted(
     path
     for path in (REPO / ".claude").rglob("*.md")
-    if "tools" not in path.relative_to(REPO / ".claude").parts
+    if not {"tools", "worktrees"}.intersection(path.relative_to(REPO / ".claude").parts)
 )
 HOOKS = sorted((REPO / ".claude" / "hooks").glob("*.py"))
 # The vendored shell tools, added 2026-07-28 with the kit 0.2.4 re-vendor.

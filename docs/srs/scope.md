@@ -44,7 +44,7 @@ and are never silently dropped.
     The registry starts at 26.000. Supported versions are only ever
     added going forward, never dropped (NFR-04).
 
-!!! nonrequirement "NREQ-05 No mesh-wrapper command family by default <span class='srs-implemented'>narrowed 2026-08-06</span>"
+!!! nonrequirement "NREQ-05 No mesh-wrapper command family by default (narrowed 2026-08-06)"
     The mesh-wrapper chapter may be added later under the same database
     rules; it is not part of the core scope.
 

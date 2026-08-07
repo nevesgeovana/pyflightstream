@@ -71,7 +71,7 @@ versions:
     inherits_base: true
 
 # Every range below was MEASURED on 2026-08-06 rather than transcribed:
-# the first and last page carrying a "Function name:" heading, and the
+# the first and last page carrying a signature heading, and the
 # contiguous run of pages the Script Index parser reads command lines
 # from. Two of the four were wrong before that, both by exactly five
 # pages at each end, and the database had been disagreeing with them in

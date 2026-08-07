@@ -25,8 +25,10 @@ added, English names everywhere, no notebooks in Git.
 ## How to add a command
 
 Use the `add-command` skill (`.claude/skills/add-command/SKILL.md`) or follow
-it manually: draft the YAML entry with layout, phase, typed args, manual_ref
-(page citation), and status `documented`; add emit-validation and golden
+it manually: draft the YAML entry with layout, phase, typed args, one
+evidence citation (manual_ref for the page that documents the command, or
+probe_ref naming a committed report where no edition documents it), and
+status `documented`; add emit-validation and golden
 tests; open a pending-probe issue if no licensed machine is available. A
 command becomes `verified` only through a committed Tier 2 probe report.
 

@@ -274,7 +274,12 @@ def _override_citation(entry: CommandEntry, source: str, note: str | None) -> st
     str
         Citation text for a refusal message.
     """
-    found = _NOTE_CITATION.search(note or "")
+    # A note's page is used only for an entry that rests on a manual
+    # page. For a probe-cited entry the note may still mention a manual
+    # page, and taking it would put a page citation into ``probe_ref``,
+    # which fails that field's own repository-relative-path rule; the
+    # copy runs no validator, so nothing downstream would say so.
+    found = _NOTE_CITATION.search(note or "") if entry.manual_ref else None
     cited = found.group(0) if found else entry.citation
     return f"{cited}, the {source} grammar"
 

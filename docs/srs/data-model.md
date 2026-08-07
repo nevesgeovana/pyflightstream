@@ -85,6 +85,6 @@ research workflow into validated form.
 
 A published result traces back as: coefficient table row -> run id ->
 manifest record (hashes, versions, solver-setup snapshot) -> script
-(regenerable from the snapshot) -> command database entries (manual
-citations and probe reports). Every link is a committed artifact or a
+(regenerable from the snapshot) -> command database entries (each citing a
+manual page or a committed probe report). Every link is a committed artifact or a
 recorded hash; publications cite run ids.

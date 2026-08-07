@@ -4,8 +4,10 @@ The package automates the FlightStream panel-method solver through its
 ASCII scripting interface. The FlightStream version is an explicit
 input: every command emitted is validated against the per-version
 command database in ``pyflightstream.commands``, where each entry
-carries a manual page citation and, when probed on a licensed machine,
-empirical evidence of its status. The script builder refuses at build
+cites either the manual page documenting its command or a committed
+probe report measuring that the solver accepts one no edition
+documents, and carries empirical evidence of its status once probed on
+a licensed machine. The script builder refuses at build
 time what the solver would reject (or silently ignore) at run time.
 
 Pipeline layers, dependencies flowing strictly downward:
