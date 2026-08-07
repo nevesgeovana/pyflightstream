@@ -1345,11 +1345,22 @@ def test_every_declared_sentinel_and_length_is_reachable_from_the_database():
         if spec.all_sentinel is not None
     }
     assert sentinels == {
+        # Zero, stated on these two alone (SRC-003 p.309).
         ("TRANSLATE_SURFACE_IN_FRAME", "surface"),
         ("TRANSLATE_SURFACE_BY_FRAME", "surface"),
+        # Minus one, each stated on its own page: SRC-003 pp.307 and
+        # 310-311, SRC-741 p.305, SRC-740 p.315 (by sample).
+        ("SURFACE_SCALE", "surface"),
+        ("SURFACE_INVERT", "index"),
+        ("SURFACE_CUT_BY_PLANE", "surface"),
+        ("SURFACE_SELECT_BY_ID", "surface"),
+        ("SELECT_GEOMETRY_BY_ID", "surface"),
+        ("DELETE_SURFACES", "index"),
+        ("EXPORT_SURFACE_MESH", "surface"),
     }, (
-        "the two commands stating a zero all-surfaces sentinel (SRC-003 p.309) are the "
-        "only ones that declare one; a change here is a manual claim and needs its page"
+        "every boundary index that states an all-form declares it, and no other does: "
+        "absent means the page states none, so SURFACE_RENAME and SURFACE_MIRROR refuse "
+        "-1. A change here is a manual claim and needs its page"
     )
 
     lengths = {

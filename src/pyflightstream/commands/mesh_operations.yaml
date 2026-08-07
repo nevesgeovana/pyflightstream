@@ -26,16 +26,11 @@
 # that: for one day in August 2026 SURFACE_DELETE accepted a declared
 # label and SURFACE_INVERT did not, by no rule a caller could see.
 #
-# THE RULE, so the next chapter does not rediscover it. Declare `cites:`
-# on an index argument unless its spelling is one the emitter already
-# resolves database-wide (`surface`, `frame`, `motion_id`,
-# `coordinate_system_id`, `actuator_index`, `boundary_indices`,
-# `frame_indices`). That is why `frame` here declares nothing and
-# `frame1`, `frame2`, `coordinate_system`, `index` and
-# `surface_indices` all do. Where the two disagree the declaration
-# wins. A spelling that means different things in different chapters,
-# as `index` does, can ONLY be declared: adding it to the emitter's map
-# would refuse valid section indices elsewhere.
+# THE RULE LIVES IN docs/srs/data-model.md, in the section on what an
+# argument declares and when it must. Read it before adding a chapter;
+# it covers cites, all_sentinel and fixed_length together. In this
+# chapter it is why `frame` declares nothing while `frame1`, `frame2`,
+# `coordinate_system`, `index` and `surface_indices` all do.
 #
 # Forgetting is not silent: tests/test_script.py fails on any index
 # argument whose name says it cites something and that resolves to
@@ -173,6 +168,8 @@ SURFACE_SCALE:
       type: float
     - name: surface
       type: int
+      cites: boundaries
+      all_sentinel: -1
   manual_ref: "SRC-003 p.310"
   versions:
     "26.100": {status: documented, note: "SRC-741 p.305, same grammar as 26.120"}
@@ -295,6 +292,8 @@ SURFACE_SELECT_BY_ID:
   args:
     - name: surface
       type: int
+      cites: boundaries
+      all_sentinel: -1
   manual_ref: "SRC-003 p.310"
   versions:
     "26.101": {status: documented, note: "SRC-725 p.309, the first edition to carry this name"}
@@ -315,6 +314,8 @@ SELECT_GEOMETRY_BY_ID:
   args:
     - name: surface
       type: int
+      cites: boundaries
+      all_sentinel: -1
   manual_ref: "SRC-741 p.305"
   versions:
     "26.100": {status: documented}
@@ -400,6 +401,8 @@ SURFACE_CUT_BY_PLANE:
       type: float
     - name: surface
       type: int
+      cites: boundaries
+      all_sentinel: -1
   manual_ref: "SRC-003 p.311"
   versions:
     "26.100": {status: documented, note: "SRC-741 p.306, same grammar as 26.120"}
@@ -463,6 +466,7 @@ SURFACE_INVERT:
     - name: index
       type: int
       cites: boundaries
+      all_sentinel: -1
   manual_ref: "SRC-003 p.310"
   versions:
     "26.100": {status: documented, note: "SRC-741 p.305, same grammar as 26.120"}

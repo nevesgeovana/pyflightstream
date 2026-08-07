@@ -59,6 +59,8 @@ EXPORT_SURFACE_MESH:
       values: [STL, TRI, OBJ]
     - name: surface
       type: int
+      cites: boundaries
+      all_sentinel: -1
     - name: file
       type: path
       own_line: true
@@ -78,6 +80,7 @@ DELETE_SURFACES:
     - name: index
       type: int
       cites: boundaries
+      all_sentinel: -1
   manual_ref: "SRC-740 p.315"
   versions:
     "26.121": {status: documented}

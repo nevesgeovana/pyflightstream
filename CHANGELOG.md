@@ -9,6 +9,26 @@ FlightStream versions.
 
 ### API surface delta
 
+* **The same inversion, found a THIRD time, and now fixed at its root.**
+  `-1` was still the all-boundaries default for every entity of that
+  kind, so the six surface commands whose page states no all-form
+  accepted it anyway: `SURFACE_RENAME` renamed all surfaces to one name,
+  `SURFACE_MIRROR` mirrored them, and the refusal text OFFERED `-1` on
+  pages that never mention it. The two earlier rounds each moved this
+  rule somewhere better without asking whether the default itself was a
+  claim, and it is one.
+
+  There is no per-kind default now. Absent means the page states no
+  all-form and every non-positive index is refused. SRC-003 pp.307 and
+  309-313, SRC-741 p.305 and SRC-740 p.315 were read command by command:
+  nine boundary indices state one and declare it, six state none and
+  declare nothing. Both halves are asserted, so a rule that simply says
+  yes or simply says no fails.
+
+  The refusal wording moved with it. A command with no all-form says so
+  rather than naming a value the solver was never told to accept, which
+  is where the original defect did its damage.
+
 * **The three declarations below, reviewed in turn, and the round found
   the repair less finished than it looked.** Three of its four new
   guards were untested, and the QA pass measured all three mutations

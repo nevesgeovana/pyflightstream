@@ -2151,11 +2151,14 @@ def test_every_index_argument_either_resolves_or_is_a_declared_exception():
     count, or be named above as an index of an object the tracker does
     not model.
 
-    Running it found four the review did not: DELETE_SURFACES and the
-    two surface-section distributions cite mesh boundaries, and
-    ROTATE_COORDINATE_SYSTEM's second frame and the aeroelastic
-    structural frame cite local coordinate systems. All four were
-    confirmed against the manual and now declare it.
+    Running it found five the review did not, each then read on its own
+    page before being declared: DELETE_SURFACES (SRC-740 p.315) and the
+    two surface-section commands (SRC-003 p.364, where SURFACES is a
+    count of geometry surfaces followed by their indices) cite mesh
+    boundaries; ROTATE_COORDINATE_SYSTEM's ROTATION_FRAME (SRC-003
+    p.330) and IMPORT_AEROELASTIC_STRUCTURAL_NODES's
+    STRUCTURAL_COORDINATE_SYSTEM (SRC-003 p.375) cite local coordinate
+    systems, both stating 1 as the reference system.
     """
     from pyflightstream.commands import ArgType
     from pyflightstream.script import (
@@ -2190,4 +2193,123 @@ def test_every_index_argument_either_resolves_or_is_a_declared_exception():
     assert not stale, (
         f"these exceptions no longer describe anything in the database: {sorted(stale)}. "
         "An exemption outliving its site is how a guard quietly stops guarding"
+    )
+
+
+def test_the_sentinel_holds_before_any_inventory_is_declared():
+    """An inventory bounds an index from above, 1-based bounds it below.
+
+    `check_index` used to return the moment the boundary inventory was
+    unknown, which is right for the upper bound and threw away the lower
+    one with it. So -1 on a zero-sentinel command emitted silently on any
+    script that had not called declare_existing, which is most scripts
+    at the point these geometry commands run (2026-08-07 API pass).
+
+    Both directions, because a check that refuses everything below 1
+    would pass the first half of this and break every documented
+    all-form.
+    """
+    for name, args, tail in (
+        ("TRANSLATE_SURFACE_IN_FRAME", (1, 0.0, 1.0, 1.4, "INCH"), ("ENABLE",)),
+        ("TRANSLATE_SURFACE_BY_FRAME", (1, 2), ()),
+    ):
+        accepted = Script(version="26.120")
+        accepted.declare_existing(frames=2)
+        accepted.emit(name, *args, 0, *tail)
+        assert name in accepted.render(), "the documented 0 must still emit"
+        refused = Script(version="26.120")
+        refused.declare_existing(frames=2)
+        with pytest.raises(ScriptReferenceError, match="1-based"):
+            refused.emit(name, *args, -1, *tail)
+
+    accepted = Script(version="26.120")
+    accepted.emit("SURFACE_SCALE", 1, 2.0, 2.0, 2.0, -1)
+    assert "SURFACE_SCALE" in accepted.render(), "the documented -1 must still emit"
+    with pytest.raises(ScriptReferenceError, match="1-based"):
+        Script(version="26.120").emit("SURFACE_SCALE", 1, 2.0, 2.0, 2.0, 0)
+
+
+def test_only_the_boundary_inventory_can_be_unknown():
+    """What lets the undeclared-inventory refusal name its sentinel.
+
+    That message interpolates the sentinel, which is None for a kind
+    with no documented all-form. It is unreachable for those kinds
+    because their limit is an int from the start, and this pins the
+    reason rather than leaving the message one entity kind away from
+    printing the word None at a user.
+    """
+    from pyflightstream.script.entities import ENTITY_KINDS, EntityRegistry
+
+    registry = EntityRegistry()
+    unknown = [kind for kind in ENTITY_KINDS if registry.limit(kind) is None]
+    assert unknown == ["boundaries"], (
+        "a second entity kind can now have an unknown limit; the undeclared-inventory "
+        "refusal in _reject_index names a sentinel that is None for any kind without a "
+        "documented all-form, so give that kind one or branch the message"
+    )
+
+
+def test_a_command_with_no_documented_all_form_refuses_minus_one():
+    """Absent means the page states no all-form, not "the default".
+
+    The emitter treated -1 as the all-surfaces value for every boundary
+    index, so SURFACE_RENAME renamed "all surfaces" to one name,
+    SURFACE_MIRROR mirrored them, and the refusal text OFFERED -1 on
+    pages that never mention it. That is the same inversion the sentinel
+    was introduced to fix, and the 2026-08-07 API pass found it a third
+    time, in the commit whose changelog entry claimed it closed.
+
+    SRC-003 pp.309-313 were read command by command. Six boundary
+    indices in this chapter state no all-form and each is asserted here;
+    the ones that do state one are asserted in the sentinel test above,
+    so neither half can be satisfied by a rule that simply says yes or
+    simply says no.
+    """
+    for name, args in (
+        ("SURFACE_RENAME", (-1, "Wing")),
+        ("SURFACE_MIRROR", (-1, 2, 2, "TRUE", "FALSE")),
+        ("SURFACE_AUTO_HOLE_FILL", (-1,)),
+        ("SURFACE_LINEAR_COPY_PASTE", (-1, 4, 2, "METER", 0.5, -2.0, 0.0)),
+        ("SURFACE_CIRCULAR_COPY_PASTE", (-1, 2, "1", 10, 90.0)),
+        ("SURFACE_DELETE", (-1,)),
+    ):
+        script = Script(version="26.120")
+        script.declare_existing(boundaries=6, frames=3)
+        with pytest.raises(ScriptReferenceError, match="mesh boundary -1"):
+            script.emit(name, *args)
+
+        # The control, so this is not passing because the command is
+        # broken in some unrelated way: a real index emits.
+        working = Script(version="26.120")
+        working.declare_existing(boundaries=6, frames=3)
+        working.emit(name, *(2, *args[1:]))
+        assert name in working.render()
+
+
+def test_the_refusal_never_offers_an_all_form_the_page_does_not_state():
+    """The message is where the previous inversion did its damage.
+
+    A caller who passes 0 to SURFACE_RENAME was told to try -1, which
+    the emitter then accepted. So the wording is asserted, not only the
+    accept-or-refuse decision.
+    """
+    quiet = Script(version="26.120")
+    quiet.declare_existing(boundaries=6)
+    with pytest.raises(ScriptReferenceError) as caught:
+        quiet.emit("SURFACE_RENAME", 0, "Wing")
+    message = str(caught.value)
+    assert "-1 selecting" not in message and "0 selecting" not in message, (
+        "SURFACE_RENAME states no all-form, so its refusal must not offer a VALUE for "
+        f"one; the caller would pass it and the emitter would accept it. Got: {message}"
+    )
+    assert "no value selecting all of them" in message, (
+        "and it must say so positively, rather than leaving the caller to infer it"
+    )
+
+    loud = Script(version="26.120")
+    loud.declare_existing(boundaries=6)
+    with pytest.raises(ScriptReferenceError) as caught:
+        loud.emit("SURFACE_INVERT", 0)
+    assert "-1 selecting all boundaries" in str(caught.value), (
+        "SURFACE_INVERT does state one (SRC-003 p.310), so its refusal must name it"
     )

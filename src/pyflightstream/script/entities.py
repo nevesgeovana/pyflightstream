@@ -351,10 +351,16 @@ class EntityRegistry:
     ) -> None:
         """Reject an index outside the created or declared range.
 
-        The check is skipped for non-integer values (type errors are
-        reported elsewhere), for an undeclared boundary inventory
-        (the total is unknowable statically, so the build stays
-        permissive), and for the argument's all-entities sentinel.
+        The two bounds are checked independently, which matters when
+        the boundary inventory was never declared. The UPPER bound
+        needs it and is skipped without it, since the total is
+        unknowable statically. The LOWER bound does not: indices are
+        1-based, so a value at or below zero is refused whether or not
+        an inventory exists, unless it is the argument's own
+        all-entities sentinel.
+
+        The check is skipped entirely for non-integer values, whose
+        type errors are reported elsewhere.
 
         Parameters
         ----------
@@ -385,9 +391,16 @@ class EntityRegistry:
         self._require_kind(kind)
         if isinstance(value, bool) or not isinstance(value, int):
             return
+        # NO PER-KIND DEFAULT. An all-form is a per-command fact the page
+        # either states or does not, and treating -1 as the boundary
+        # default made every surface command accept it: SURFACE_RENAME
+        # renamed "all surfaces", SURFACE_MIRROR mirrored them, and the
+        # refusal text offered -1 on commands whose page never mentions
+        # it. That is the same inversion this argument was added to fix,
+        # found a third time by the 2026-08-07 API pass. Absent now means
+        # the command has no all-form (SRC-003 pp.309-313 read command by
+        # command; nine of the boundary indices state one and six do not).
         sentinel = all_sentinel
-        if sentinel is None and kind == "boundaries":
-            sentinel = -1
         if sentinel is not None and value == sentinel:
             return
         limit = self.limit(kind)
@@ -430,15 +443,33 @@ class EntityRegistry:
             "the opened project with declare_existing()."
         )
         if limit is None:
-            available = (
-                f"{noun} indices are 1-based and no inventory has been declared, so the "
-                f"only value below 1 this command accepts is {sentinel}, which selects "
-                f"all of them"
-            )
-            guidance = (
-                f"Pass a 1-based index, or {sentinel} to select all. Declaring the "
-                "inventory with declare_existing() additionally checks the upper bound."
-            )
+            # Boundaries are the only kind whose limit can be unknown:
+            # frames, actuators and motions are counted as the script
+            # creates them, so their limit is an int from the start.
+            # `sentinel` can still be None here, for a command whose
+            # page states no all-form at all, and the message must not
+            # print the word None at a caller or offer a value the
+            # solver was never told to accept.
+            if sentinel is None:
+                available = (
+                    f"{noun} indices are 1-based and this command states no value "
+                    "selecting all of them"
+                )
+                guidance = (
+                    "Pass a 1-based index. Declaring the inventory with "
+                    "declare_existing() additionally checks the upper bound."
+                )
+            else:
+                available = (
+                    f"{noun} indices are 1-based and no inventory has been declared, so "
+                    f"the only value below 1 this command accepts is {sentinel}, which "
+                    "selects all of them"
+                )
+                guidance = (
+                    f"Pass a 1-based index, or {sentinel} to select all. Declaring the "
+                    "inventory with declare_existing() additionally checks the upper "
+                    "bound."
+                )
         elif kind == "frames":
             available = (
                 f"the reference frame is index 1 and the script has created or declared "
@@ -446,10 +477,14 @@ class EntityRegistry:
             )
             guidance = create_guidance
         elif kind == "boundaries":
+            all_form = (
+                f", with {sentinel} selecting all boundaries on this command"
+                if sentinel is not None
+                else " and this command states no value selecting all of them"
+            )
             available = (
                 f"the declared mesh boundary inventory holds {limit} boundary(ies), so "
-                f"valid indices run 1 to {limit}, with {sentinel} selecting all "
-                "boundaries on this command"
+                f"valid indices run 1 to {limit}{all_form}"
             )
             guidance = (
                 "Mesh boundaries come from the loaded geometry; check the inventory "

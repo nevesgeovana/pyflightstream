@@ -23,6 +23,32 @@ Each command entry records:
 | versions | Per-version presence, status, and (where they differ) per-version argument grammars |
 | default / default_ref | Optional evidence-cited default value of a settings flag |
 
+### What an argument declares, and when it must
+
+An argument specification carries its type, its unit and its allowed
+tokens. Three further fields exist because the emitter would otherwise
+decide a PER-COMMAND fact by a per-family rule or by guessing from the
+argument's name. Each was added after that guess was measured wrong.
+
+| Field | Declare it when |
+|---|---|
+| `cites` | The argument is a 1-based index into one of the entity kinds the script builder tracks (local coordinate systems, actuators, motions, mesh boundaries) AND its name is not one the emitter already resolves database-wide. Declaring it is what makes a declared label resolve and an out-of-range index refuse. |
+| `all_sentinel` | The command's page states a value that selects EVERY entity of that kind. Absent means the page states none, and the emitter then refuses every non-positive index. It requires `cites`, since a sentinel is only ever read where the entity kind is known. |
+| `fixed_length` | The manual fixes how many values a list takes and no count argument precedes it. A short payload otherwise makes the solver read the next command as data. |
+
+The chapter files mirror each manual page's own argument names rather
+than harmonising them, so that an argument list still matches the page
+beside it. `cites` is what makes that affordable: the emitter resolves
+by declaration first and by name only as a fallback, so a chapter may
+spell one thing four ways without the checking becoming four different
+behaviours. A name that means DIFFERENT things in different chapters,
+as `index` does, can only ever be declared.
+
+Forgetting is not silent. A tier 1 guard fails on any index argument
+whose name says it cites something and that resolves to nothing;
+indices of objects the builder does not track (CAD bodies and curves,
+sections, separations, trailing edges) are listed there by name.
+
 Per-version statuses and their evidence rules:
 
 | Status | Claim | Evidence required |
