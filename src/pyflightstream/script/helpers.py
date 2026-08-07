@@ -514,7 +514,13 @@ def rotary_motion(
         Motion start within the solver physical time, in s; a positive
         value converges a steady base flow before the motion begins.
     wake_stabilization_blades : int, optional
-        Enables slipstream wake stabilization with this blade count.
+        Enables slipstream wake stabilization with this blade count,
+        which is PER PROPELLER and not a total across the motion
+        (SRC-003 p.333). The February 2026 build's grammar for that
+        command has two arguments and no blade count at all, so this
+        argument is not emittable there. Reaching it on 26.100 does not
+        arise: that build has no rotary motion to stabilize, and this
+        helper is refused earlier, at the motion type it cannot name.
     label : str, optional
         Label registered for the created motion in the script's
         entity registry, so later commands can cite it by name
@@ -594,7 +600,7 @@ def solver_settings(
     viscous_coupling: Toggle | None = None,
     viscous_excluded: Sequence[int | str] | None = None,
     surface_roughness: float | None = None,
-    thin_boundaries: Sequence[int | str] | None = None,
+    thin_boundaries: Sequence[int | str] | Literal["all"] | None = None,
     bulk_separation: BulkSeparation | Mapping | None = None,
     airfoil_separation: Sequence[AirfoilSeparation | Mapping] | None = None,
     axial_vortex_separation: Sequence[AxialVortexSeparation | Mapping] | None = None,
@@ -730,13 +736,15 @@ def solver_settings(
         own unit and unlike every other length this helper takes
         (SRC-003 p.341). Zero states a smooth surface, so there is no
         separate toggle and the value carries the choice.
-    thin_boundaries : sequence of int or str, optional
+    thin_boundaries : sequence of int or str, ``"all"``, or None
         Boundaries the solver treats as thin, so both faces of a surface
         are resolved, by 1-based index or declared label
-        (SRC-003 p.343). The empty sequence emits DELETE_THIN_BOUNDARIES
-        and erases the list, as on ``viscous_excluded`` below. Absent
-        from the February 2026 build, whose separation family is the
-        per-mechanism one.
+        (SRC-003 p.343). Three states, and they are all distinct: None
+        leaves the solver's own list untouched, ``"all"`` emits
+        SET_THIN_BOUNDARIES -1 and marks every mesh boundary thin, and
+        the empty sequence emits DELETE_THIN_BOUNDARIES and erases the
+        list, as on ``viscous_excluded`` below. Absent from the February
+        2026 build, whose separation family is the per-mechanism one.
     viscous_excluded : sequence of int or str, optional
         Boundaries excluded from viscous coupling, by 1-based index
         or declared boundary label; verified against the inventory
@@ -859,7 +867,7 @@ def solver_settings(
         "solver_settings", "vorticity_drag_boundaries", vorticity_drag_boundaries, allows_all=True
     )
     _reject_bare_label("solver_settings", "viscous_excluded", viscous_excluded, allows_all=False)
-    _reject_bare_label("solver_settings", "thin_boundaries", thin_boundaries, allows_all=False)
+    _reject_bare_label("solver_settings", "thin_boundaries", thin_boundaries, allows_all=True)
     separation_selections = {
         "axial_separation_boundaries": axial_separation_boundaries,
         "valarezo_separation_boundaries": valarezo_separation_boundaries,
@@ -875,7 +883,8 @@ def solver_settings(
     # command the script does not contain, which is the one thing the
     # snapshot exists to prevent.
     viscous_excluded = _as_selection(viscous_excluded)
-    thin_boundaries = _as_selection(thin_boundaries)
+    if thin_boundaries != "all":
+        thin_boundaries = _as_selection(thin_boundaries)
     separation_selections = {
         argument: _as_selection(value) for argument, value in separation_selections.items()
     }
@@ -1115,7 +1124,13 @@ def solver_settings(
     if surface_roughness is not None:
         script.emit("SET_SURFACE_ROUGHNESS", surface_roughness)
     if thin_boundaries is not None:
-        if len(thin_boundaries) == 0:
+        if thin_boundaries == "all":
+            # -1 marks every mesh boundary thin and takes no index line
+            # (SRC-003 p.343). The helper refused this form until
+            # 2026-08-07, and the refusal recommended ['all'], which then
+            # failed again as an unknown label.
+            script.emit("SET_THIN_BOUNDARIES", -1)
+        elif len(thin_boundaries) == 0:
             # The empty list is the erase, as on viscous_excluded above.
             script.emit("DELETE_THIN_BOUNDARIES")
         else:

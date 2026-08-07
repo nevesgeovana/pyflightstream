@@ -143,15 +143,22 @@ def test_provenance_markers_and_default_evidence():
 
 def test_defaults_of_commands_absent_from_the_version_stay_unknown():
     # 26.101 records no evidence for SOLVER_MINIMUM_CP or
-    # SET_BOUNDARY_LAYER_TYPE, so the library default is not emitted and
-    # nothing is claimed. Naming the two commands rather than the
+    # SOLVER_SET_FARFIELD_LAYERS, so the library default is not emitted
+    # and nothing is claimed. Naming the two commands rather than the
     # advanced_settings family, which is no longer empty on that build:
     # LAMINAR_SEPARATION is recorded there.
+    #
+    # This test named SET_BOUNDARY_LAYER_TYPE until 2026-08-07, when the
+    # review found the May edition documents that command (SRC-725 p.340)
+    # and the entry had no row for it. The command became emittable on
+    # 26.101 and the assertion turned green in the wrong direction: a
+    # default WAS now claimed there, correctly. The two named above are
+    # the ones the May manual genuinely does not carry.
     script = Script(version="26.101")
     setup = helpers.solver_settings(script, vorticity_drag_boundaries="all")
     assert "SOLVER_MINIMUM_CP" not in script.render()
     assert setup.flags["SOLVER_MINIMUM_CP"].provenance == "unknown"
-    assert setup.flags["SET_BOUNDARY_LAYER_TYPE"].provenance == "unknown"
+    assert setup.flags["SOLVER_SET_FARFIELD_LAYERS"].provenance == "unknown"
 
 
 # --- the optional vorticity selection ---------------------------------------
@@ -1151,6 +1158,55 @@ def test_the_two_new_settings_keywords_emit_and_record_their_provenance():
     assert roughness.provenance == "explicit" and roughness.value == 23.5 and roughness.emitted
     thin = setup.flags["SET_THIN_BOUNDARIES"]
     assert thin.provenance == "explicit" and thin.emitted
+
+
+def test_the_all_boundaries_thin_form_is_reachable_and_the_three_states_differ():
+    """None, "all" and the empty sequence are three different things.
+
+    Until 2026-08-07 the helper refused ``"all"`` and its refusal
+    recommended ``["all"]``, which then failed again as an unknown
+    boundary label. The command's own -1 form marks every mesh boundary
+    thin and takes no index line (SRC-003 p.343).
+    """
+    everything = Script(version="26.120")
+    everything.declare_existing(boundaries=6)
+    helpers.solver_settings(everything, thin_boundaries="all")
+    assert "SET_THIN_BOUNDARIES -1" in everything.render()
+    assert "DELETE_THIN_BOUNDARIES" not in everything.render()
+
+    erased = Script(version="26.120")
+    erased.declare_existing(boundaries=6)
+    helpers.solver_settings(erased, thin_boundaries=[])
+    assert "DELETE_THIN_BOUNDARIES" in erased.render()
+    assert "SET_THIN_BOUNDARIES" not in erased.render()
+
+    untouched = Script(version="26.120")
+    untouched.declare_existing(boundaries=6)
+    helpers.solver_settings(untouched)
+    assert "THIN_BOUNDARIES" not in untouched.render()
+
+
+def test_the_thin_boundary_keyword_names_the_build_that_lacks_the_command():
+    """The pair is absent from the February 2026 build.
+
+    The helper emits unconditionally, so the refusal surfaces from the
+    emitter. That is fine, and it is exactly what must not be swallowed
+    or downgraded by a later helper change: the message has to name the
+    build and what evidence does exist. Surface roughness is the
+    control, because that command IS in February (SRC-741 p.338) and
+    must go on emitting there.
+    """
+    february = Script(version="26.100")
+    with pytest.raises(CommandNotInVersionError) as caught:
+        helpers.solver_settings(february, thin_boundaries=[1])
+    message = str(caught.value)
+    assert "SET_THIN_BOUNDARIES" in message
+    assert "26.100" in message, "the refusal must name the build the caller is on"
+    assert "26.101" in message, "and the earliest build that does carry it"
+
+    control = Script(version="26.100")
+    helpers.solver_settings(control, surface_roughness=23.5)
+    assert "SET_SURFACE_ROUGHNESS 23.5" in control.render()
 
 
 def test_an_empty_thin_boundary_list_erases_rather_than_setting_none():

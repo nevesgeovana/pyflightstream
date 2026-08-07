@@ -38,6 +38,7 @@ SURFACE_ROTATE:
       type: int
     - name: surface_indices
       type: int_list
+      cites: boundaries
       separator: comma
     - name: split_vertices
       type: enum
@@ -91,6 +92,7 @@ TRANSLATE_SURFACE_IN_FRAME:
       values: [INCH, MILLIMETER, OTHER, FEET, MILE, METER, KILOMETER, MILS, MICRON, CENTIMETER, MICROINCH]
     - name: surface
       type: int
+      all_sentinel: 0
     - name: split_vertices
       type: enum
       values: [ENABLE, DISABLE]
@@ -116,10 +118,13 @@ TRANSLATE_SURFACE_BY_FRAME:
   args:
     - name: frame1
       type: int
+      cites: frames
     - name: frame2
       type: int
+      cites: frames
     - name: surface
       type: int
+      all_sentinel: 0
   manual_ref: "SRC-003 p.309"
   versions:
     "26.100": {status: documented, note: "SRC-741 p.304, same grammar as 26.120"}
@@ -165,6 +170,7 @@ SURFACE_MIRROR:
       type: int
     - name: coordinate_system
       type: int
+      cites: frames
     - name: mirror_plane
       type: int
     - name: combine_flag
@@ -230,6 +236,7 @@ SURFACE_CIRCULAR_COPY_PASTE:
       type: int
     - name: coordinate_system
       type: int
+      cites: frames
     - name: axis
       type: str
     - name: num_copies
@@ -396,6 +403,7 @@ SURFACE_COMBINE:
       type: int
     - name: surface_indices
       type: int_list
+      cites: boundaries
       separator: comma
   manual_ref: "SRC-003 p.312"
   versions:
@@ -431,6 +439,7 @@ SURFACE_INVERT:
   args:
     - name: index
       type: int
+      cites: boundaries
   manual_ref: "SRC-003 p.310"
   versions:
     "26.100": {status: documented, note: "SRC-741 p.305, same grammar as 26.120"}
@@ -448,6 +457,7 @@ SURFACE_RENAME:
   args:
     - name: index
       type: int
+      cites: boundaries
     - name: name
       type: str
   manual_ref: "SRC-003 p.310"
@@ -574,6 +584,7 @@ TRANSFORM_SELECTED_NODES:
   args:
     - name: coordinate_system
       type: int
+      cites: frames
     - name: translation_type
       type: enum
       values: [ABSOLUTE, TRANSLATION]

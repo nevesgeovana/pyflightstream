@@ -6,6 +6,7 @@ SET_SOLVER_STEADY:
   args: []
   manual_ref: "SRC-003 p.341"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.338, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.340, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-02_full.yaml"}
@@ -21,6 +22,8 @@ SET_SOLVER_UNSTEADY:
       unit: "s"
   manual_ref: "SRC-003 p.341"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.338, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.340, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-02_full.yaml"}
   notes: >
@@ -37,6 +40,8 @@ SET_BOUNDARY_LAYER_TYPE:
       values: [LAMINAR, TRANSITIONAL, TURBULENT]
   manual_ref: "SRC-003 p.341"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.338, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.340, same grammar as 26.120"}
     "26.120": {status: documented}
   default: TRANSITIONAL
   default_ref: "SRC-003 p.203"
@@ -54,6 +59,8 @@ SET_SOLVER_VISCOUS_COUPLING:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 p.341"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.338, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.340, same grammar as 26.120"}
     "26.120": {status: documented}
   notes: >
     Couples the semi-empirical boundary layer model to the potential
@@ -197,6 +204,7 @@ CREATE_AXIAL_VORTEX_SEPARATION:
       type: int
     - name: frame
       type: int
+      cites: frames
     - name: body_axis
       type: enum
       values: [X, Y, Z, "1", "2", "3"]
@@ -471,9 +479,9 @@ SET_SURFACE_ROUGHNESS:
     Surface roughness height for the boundary layer model, in
     NANOMETRES, which the manual states and which is worth carrying
     because every other length in this database is a metre, a
-    coordinate-system unit or an explicit UNITS argument. The sample's
-    23.5 is nanometres; the same number read as millimetres would be a
-    roughness of forty million times the height.
+    coordinate-system unit or an explicit UNITS argument. A height read
+    as millimetres instead of nanometres is a roughness a million times
+    the one intended.
 
     Zero means a smooth surface, which the manual states, so the
     argument has no separate toggle and the value carries the choice.

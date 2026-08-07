@@ -341,14 +341,20 @@ class EntityRegistry:
         )
 
     def check_index(
-        self, kind: str, value: object, *, context: str, citation: str | None = None
+        self,
+        kind: str,
+        value: object,
+        *,
+        context: str,
+        citation: str | None = None,
+        all_sentinel: int | None = None,
     ) -> None:
         """Reject an index outside the created or declared range.
 
         The check is skipped for non-integer values (type errors are
         reported elsewhere), for an undeclared boundary inventory
         (the total is unknowable statically, so the build stays
-        permissive), and for the -1 all-boundaries form.
+        permissive), and for the argument's all-entities sentinel.
 
         Parameters
         ----------
@@ -360,11 +366,21 @@ class EntityRegistry:
             Prefix naming the citing location in the error message.
         citation : str, optional
             Manual citation appended to the error message.
+        all_sentinel : int, optional
+            The value this particular argument uses to select every
+            entity, when its command states one other than the family
+            default of -1 for a mesh boundary. Supplied from the
+            argument's own database entry, because the two
+            TRANSLATE_SURFACE commands state zero and every other
+            surface argument states -1 (SRC-003 p.309); a sentinel
+            fixed per entity kind would refuse the documented form on
+            one of the two groups whichever value it chose.
 
         Raises
         ------
         ScriptReferenceError
-            If the index falls outside the valid range 1..limit.
+            If the index falls outside the valid range 1..limit and is
+            not this argument's all-entities sentinel.
         """
         self._require_kind(kind)
         if isinstance(value, bool) or not isinstance(value, int):
@@ -372,7 +388,10 @@ class EntityRegistry:
         limit = self.limit(kind)
         if limit is None:
             return
-        if kind == "boundaries" and value == -1:
+        sentinel = all_sentinel
+        if sentinel is None and kind == "boundaries":
+            sentinel = -1
+        if sentinel is not None and value == sentinel:
             return
         if 1 <= value <= limit:
             return
@@ -390,7 +409,8 @@ class EntityRegistry:
         elif kind == "boundaries":
             available = (
                 f"the declared mesh boundary inventory holds {limit} boundary(ies), so "
-                f"valid indices run 1 to {limit}, with -1 selecting all boundaries"
+                f"valid indices run 1 to {limit}, with {sentinel} selecting all "
+                "boundaries on this command"
             )
             guidance = (
                 "Mesh boundaries come from the loaded geometry; check the inventory "

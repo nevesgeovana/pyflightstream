@@ -52,9 +52,10 @@ and are never silently dropped.
     identifiers here are never reused. As written until 2026-08-06 this
     also excluded the CAD and CCS families and said individual commands
     would enter only when a workflow needed one. The CAD and CAD Create
-    chapters then entered WHOLESALE, 33 commands read chapter by chapter
-    from all four registered manual editions rather than pulled in one
-    at a time, so the sentence had become false in both halves: the
+    chapters then entered WHOLESALE, read chapter by chapter from all
+    four registered manual editions rather than pulled in one at a time
+    (the count is the database's own fact and its home is the CHANGELOG
+    entry, not this sentence), so the sentence had become false in both halves: the
     families are in, and they did not arrive the way this said they
     would.
 

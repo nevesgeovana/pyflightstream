@@ -13,8 +13,19 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
     hooks:
+      # The goldens are byte-exact fixtures: their bytes ARE the
+      # assertion, including a trailing blank line where a block layout
+      # emits one. A whitespace hook editing them does not tidy a file,
+      # it rewrites the expected value to match whatever the code now
+      # produces, which is the one thing a golden exists to prevent.
+      # Measured on 2026-08-07: end-of-file-fixer stripped the blank
+      # line ending motion_6dof_family_26.120.txt and turned a passing
+      # comparison red, and had the emitter been the thing that changed
+      # it would have turned a failing one green.
       - id: trailing-whitespace
+        exclude: '^tests/goldens/'
       - id: end-of-file-fixer
+        exclude: '^tests/goldens/'
       - id: check-yaml
       - id: check-added-large-files
 

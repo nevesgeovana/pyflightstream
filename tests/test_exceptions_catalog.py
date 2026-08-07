@@ -423,28 +423,25 @@ _RATCHET = {
     # RAISES. The author's decision: measure now, fix at v0.5, so the
     # number is the debt and it is countable (PLN-20260804-0130).
     "pyflightstream.cases.cli._parse_recipes -> ValueError (cli.py:33)",
-    # Five sites, four of them the original tranche moved down by the
-    # citation helper and the property inserted above them on 2026-08-06,
-    # and one new: the inline-separator refusal at 297. The new one is
-    # the same shape as its four neighbours, a ValueError raised on the
-    # pydantic validation path where ValueError IS the protocol, so it
-    # joins the same tranche rather than opening a second argument.
-    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:295)",
-    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:297)",
-    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:299)",
-    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:307)",
-    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:321)",
+    # Five sites on the pydantic validation path, where ValueError IS the
+    # protocol. They move down the file whenever anything is inserted
+    # above them, and did again on 2026-08-07 when the all-entities
+    # sentinel joined ArgSpec; the ratchet keys on the line number, so
+    # re-anchoring is deliberate friction rather than a defect. A moved
+    # raise should be re-read.
+    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:380)",
+    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:382)",
+    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:384)",
+    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:392)",
+    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:406)",
     "pyflightstream.farfield._delta_psi -> ValueError (__init__.py:152)",
     "pyflightstream.fsi.driver._verified_layout -> ValueError (driver.py:338)",
     "pyflightstream.fsi.loads._validate_block_boundaries -> ValueError (loads.py:397)",
     "pyflightstream.fsi.loads._validate_block_boundaries -> ValueError (loads.py:409)",
-    # The line moved from 124 to 125 when a row was added to
-    # _SIDE_BRANCHES above it. The ratchet keys on the line number, so an
-    # edit anywhere above a debt site rewrites the entry; that is
-    # deliberate friction rather than a defect (a moved raise should be
-    # re-read) and it is why both directions of the ratchet are asserted:
-    # this edit failed the stale-exemption test and the uncovered-site
-    # test at once, which is how it announced itself.
+    # This one moved from 124 to 125 when a row was added to
+    # _SIDE_BRANCHES above it, and the edit failed the stale-exemption
+    # test and the uncovered-site test at once. That is how a moved debt
+    # site announces itself, and why both directions are asserted.
     "pyflightstream.overview._module_doc -> RuntimeError (overview.py:125)",
     "pyflightstream.post.writers._checked -> ValueError (writers.py:34)",
     "pyflightstream.post.writers._checked -> ValueError (writers.py:39)",

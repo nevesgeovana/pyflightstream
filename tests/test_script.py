@@ -4,13 +4,14 @@ from pathlib import Path
 
 import pytest
 
-from pyflightstream.commands import CommandNotInVersionError, CommandRegistry, Status
+from pyflightstream.commands import ArgSpec, CommandNotInVersionError, CommandRegistry, Status
 from pyflightstream.script import (
     BrokenCommandError,
     CommandArgumentError,
     Script,
     ScriptLineBreakError,
     ScriptOrderError,
+    ScriptReferenceError,
     _check_list,
 )
 from pyflightstream.versions import known_versions
@@ -31,38 +32,44 @@ def classify_count_spellings(label, args):
     many list arguments were seen.
     """
     from pyflightstream.commands import ArgType
-    from pyflightstream.script import _COUNT_ARG_NAMES, _SCALAR_REFERENCE_ARGS
+    from pyflightstream.script import _COUNT_ARG_NAMES
 
     unspelled: list[str] = []
     interleaved: list[str] = []
     lists = 0
     governing: str | None = None
-    pending: list[str] = []
+    pending: list[ArgSpec] = []
     for spec in args:
         if spec.is_list:
             lists += 1
+            # An ENTITY id before a list is not a count that went
+            # unspelled, and naming it in _COUNT_ARG_NAMES would make the
+            # emitter compare a motion index against the payload length.
+            # SET_MOTION_6DOF_ACTIVE_VARIABLES is the case: six
+            # preformatted toggle lines that nothing counts.
+            #
+            # The exemption reads the argument's OWN declaration and not
+            # its name. It used to test membership of
+            # _SCALAR_REFERENCE_ARGS, and the 2026-08-07 QA pass proved
+            # that blind: renaming a real count to 'surface' left the
+            # whole suite green while the emitter stopped checking it,
+            # because 'surface' is a reference spelling somewhere else.
+            # A name is a guess about an argument; `cites` is the
+            # argument saying so.
+            genuine = [held for held in pending if held.cites is None]
             if governing is None:
-                # An ENTITY id before a list is not a count that went
-                # unspelled, and naming it in _COUNT_ARG_NAMES would make the
-                # emitter compare a motion index against the payload length.
-                # The interleaved branch already excluded these and this one
-                # did not, so SET_MOTION_6DOF_ACTIVE_VARIABLES, whose
-                # motion_id is followed by six preformatted toggle lines that
-                # nothing counts, was reported as a missing count spelling.
-                genuine = [name for name in pending if name not in _SCALAR_REFERENCE_ARGS]
                 if genuine:
-                    unspelled.append(f"{label}: {genuine[-1]!r} introduces {spec.name!r}")
+                    unspelled.append(f"{label}: {genuine[-1].name!r} introduces {spec.name!r}")
             else:
-                for candidate in pending:
-                    if candidate not in _SCALAR_REFERENCE_ARGS:
-                        interleaved.append(
-                            f"{label}: {candidate!r} sits between {governing!r} and {spec.name!r}"
-                        )
+                for candidate in genuine:
+                    interleaved.append(
+                        f"{label}: {candidate.name!r} sits between {governing!r} and {spec.name!r}"
+                    )
             governing, pending = None, []
         elif spec.name in _COUNT_ARG_NAMES:
             governing, pending = spec.name, []
         elif spec.type is ArgType.INT:
-            pending.append(spec.name)
+            pending.append(spec)
     return unspelled, interleaved, lists
 
 
@@ -1488,25 +1495,69 @@ def test_the_mesh_operations_chapter_emits_on_every_registered_build(version):
     script.emit("SURFACE_RENAME", 2, "Fuselage")
     script.emit("SELECT_MESH_NODE", 3)
     script.emit("TRANSFORM_SELECTED_NODES", 1, "TRANSLATION", -1.0, 0.0, 0.0)
-    text = script.render()
-    assert "SURFACES 1\n2\n" in text, "the rotate block's count and index line"
-    assert "SURFACE_COMBINE 2\n1,3\n" in text, "the combine count and its comma list"
-    assert "SURFACE_MIRROR 1 2 2 TRUE FALSE" in text
+    # Byte-exact, not spot checks. Three substrings out of thirteen
+    # emitted commands left ten of the manual's own sample lines
+    # asserted only for "does not raise", and the 2026-08-07 QA pass
+    # measured what that costs: flipping SURFACE_SCALE to keyword_block
+    # rendered a six-line block where the manual prints one inline line,
+    # and the whole suite stayed green. These are deterministic ASCII.
+    #
+    # One golden for all four builds is the stronger claim: the four
+    # editions document this chapter with the same grammar throughout,
+    # so a per-version difference appearing here is itself the finding.
+    golden = (GOLDENS / "mesh_operations_chapter.txt").read_text(encoding="utf-8")
+    assert script.render() == golden
 
 
 def test_the_all_surfaces_sentinel_is_zero_on_the_two_translations():
     """Minus one everywhere else, zero on these two, per the manual.
 
     The chapter never contrasts them, so a script reaching for -1 out of
-    habit translates surface -1 rather than every surface. Nothing can
-    refuse that, since both are valid integers; what the database can do
-    is carry the fact, and this pins the note that carries it.
+    habit translates surface -1 rather than every surface.
+
+    This test asserted only that the notes SAID so, on the reasoning
+    that "nothing can refuse it, since both are valid integers". That
+    reasoning was wrong and the 2026-08-07 review measured how wrong:
+    the emitter refused the documented 0 and accepted the meaningless
+    -1, exactly inverted, and the refusal message steered the caller to
+    -1. The sentinel is a per-command fact, so it now lives on the
+    argument (ArgSpec.all_sentinel) instead of being fixed per entity
+    kind in the emitter, and this asserts the behaviour rather than the
+    prose.
     """
     entries = CommandRegistry.load().commands
-    for name in ("TRANSLATE_SURFACE_IN_FRAME", "TRANSLATE_SURFACE_BY_FRAME"):
-        assert "ZERO" in entries[name].notes.upper(), name
-    for name in ("SURFACE_SCALE", "SURFACE_INVERT", "SURFACE_CUT_BY_PLANE"):
-        assert "-1" in entries[name].notes, name
+
+    for name, args in (
+        ("TRANSLATE_SURFACE_IN_FRAME", (1, 0.0, 1.0, 1.4, "INCH")),
+        ("TRANSLATE_SURFACE_BY_FRAME", (1, 2)),
+    ):
+        assert entries[name].args[-1 if name.endswith("BY_FRAME") else -2].all_sentinel == 0
+        tail = ("ENABLE",) if name.endswith("IN_FRAME") else ()
+        script = Script(version="26.120")
+        script.declare_existing(boundaries=6, frames=2)
+        script.emit(name, *args, 0, *tail)
+        assert f"{name} " in script.render(), f"{name} must accept its documented 0"
+
+        script = Script(version="26.120")
+        script.declare_existing(boundaries=6, frames=2)
+        with pytest.raises(ScriptReferenceError, match="0 selecting all boundaries"):
+            script.emit(name, *args, -1, *tail)
+
+    # The converse, so the two are not both simply permissive: every
+    # other surface argument in the chapter keeps -1 and refuses 0.
+    for name, args, rendered in (
+        ("SURFACE_SCALE", (1, 2.0, 2.0, 2.0), "SURFACE_SCALE 1 2.0 2.0 2.0 -1"),
+        ("SURFACE_CUT_BY_PLANE", (1, "XZ", 0.5), "SURFACE -1"),
+    ):
+        script = Script(version="26.120")
+        script.declare_existing(boundaries=6, frames=2)
+        script.emit(name, *args, -1)
+        assert rendered in script.render(), f"{name} must accept -1"
+
+        script = Script(version="26.120")
+        script.declare_existing(boundaries=6, frames=2)
+        with pytest.raises(ScriptReferenceError, match="-1 selecting all boundaries"):
+            script.emit(name, *args, 0)
 
 
 def test_the_mirror_plane_is_an_index_and_refuses_a_plane_name():
@@ -1518,6 +1569,7 @@ def test_the_mirror_plane_is_an_index_and_refuses_a_plane_name():
     else.
     """
     script = Script(version="26.120")
+    script.declare_existing(boundaries=6, frames=2)
     script.emit("SURFACE_MIRROR", 1, 2, 2, "TRUE", "FALSE")
     assert "SURFACE_MIRROR 1 2 2 TRUE FALSE" in script.render()
     with pytest.raises(CommandArgumentError, match="expects an integer"):
@@ -1620,9 +1672,11 @@ def test_the_6dof_family_emits_the_manual_samples():
     )
     script.emit("DELETE_6DOF_EXTERNAL_FORCE", 1, 1)
     script.emit("EXPORT_6DOF_TRAJECTORY", 1, "traj.txt")
-    text = script.render()
-    assert "SET_MOTION_6DOF_ACTIVE_VARIABLES 1\nU DISABLE\n" in text
-    assert "SET_MOTION_CUSTOM_TABLE VELOCITY-TIME 1\nmotion.txt" in text
+    # Byte-exact for the same reason as the Mesh Operations chapter
+    # above: two substrings out of twelve commands checked two lines and
+    # left ten asserted only for "does not raise".
+    golden = (GOLDENS / "motion_6dof_family_26.120.txt").read_text(encoding="utf-8")
+    assert script.render() == golden
 
 
 def test_the_spring_force_carries_all_eleven_arguments():
@@ -1752,17 +1806,49 @@ def test_an_entity_id_before_a_list_is_not_an_unspelled_count():
     preformatted toggle lines that nothing counts. Naming motion_id in
     _COUNT_ARG_NAMES to quiet the guard would have made the emitter
     compare a motion index against the payload length.
+
+    The exemption is earned by the DECLARATION, not by the name: the
+    same argument without ``cites`` is reported, which is the assertion
+    below it.
     """
     from pyflightstream.commands import ArgSpec
 
     unspelled, interleaved, _ = classify_count_spellings(
         "X_CMD",
         [
-            ArgSpec(name="motion_id", type="int"),
+            ArgSpec(name="motion_id", type="int", cites="motions"),
             ArgSpec(name="variables", type="str_list", separator="newline"),
         ],
     )
     assert unspelled == [] and interleaved == []
+
+
+def test_an_undeclared_int_before_a_list_is_reported_whatever_it_is_called():
+    """The hole the 2026-08-07 QA pass proved, now closed.
+
+    The exemption used to test the argument's NAME against
+    _SCALAR_REFERENCE_ARGS, so renaming a genuine count to a spelling
+    that cites an entity somewhere else in the database silenced the
+    guard while the emitter stopped comparing the count to its list. The
+    mutation left the whole suite green.
+
+    Both spellings below are entity-reference names. Neither declares
+    ``cites``, so neither is exempt.
+    """
+    from pyflightstream.commands import ArgSpec
+
+    for spelling in ("surface", "motion_id"):
+        unspelled, _, _ = classify_count_spellings(
+            "X_CMD",
+            [
+                ArgSpec(name=spelling, type="int"),
+                ArgSpec(name="boundary_indices", type="int_list"),
+            ],
+        )
+        assert unspelled, (
+            f"an int named {spelling!r} introducing a list is exempt only when the "
+            "argument declares the entity it cites; a name is a guess"
+        )
 
 
 def test_a_recognised_count_still_governs_its_list():

@@ -9,6 +9,63 @@ FlightStream versions.
 
 ### API surface delta
 
+* **Three facts an argument used to only describe, it now declares, after
+  the review of the four chapters above found each one wrong in the
+  emitter.** `ArgSpec` gained `all_sentinel`, `cites` and `fixed_length`.
+
+  The all-surfaces sentinel was fixed per ENTITY KIND at `-1`, and the
+  two `TRANSLATE_SURFACE` commands document zero. So the emitter refused
+  the documented `0` and accepted the meaningless `-1`, exactly
+  inverted, and its refusal message steered the caller to `-1`. The
+  notes said so in prose, and the test asserted the prose on the
+  reasoning that "nothing can refuse it, since both are valid
+  integers". That reasoning was the defect: the sentinel is a
+  per-command fact, so the argument carries it.
+
+  Which entity an index cites was inferred from the ARGUMENT NAME, and
+  the Mesh Operations chapter mirrors each manual page's own spellings.
+  Five of them reached neither map, so `SURFACE_DELETE` accepted a
+  declared label and `SURFACE_INVERT` did not, and `SURFACE_COMBINE`'s
+  index list and `TRANSLATE_SURFACE_BY_FRAME`'s two frames were range
+  checked against nothing. The name map stays for a spelling that means
+  one thing database-wide; it cannot be extended to `index`, which is a
+  surface here and a section or separation index in three other
+  chapters. An argument that needs it now says what it cites.
+
+  `SET_MOTION_6DOF_ACTIVE_VARIABLES` writes six toggle lines with no
+  count before them, and a short payload made the solver read the next
+  command as data. The length is declared and a short or long one is
+  refused, naming the corruption rather than the arity.
+
+  The count-spelling guard was blind in the same way and the QA pass
+  proved it: renaming a real count to `surface` left the whole suite
+  green while the emitter stopped comparing the count to its list. The
+  exemption now reads the argument's declaration, not its name.
+
+* **Corrected: `solver_settings(thin_boundaries="all")` was refused, and
+  the refusal recommended a call that failed again.** `SET_THIN_BOUNDARIES
+  -1` marks every mesh boundary thin and takes no index line; the helper
+  rejected the bare label and suggested `["all"]`, which then failed as
+  an unknown boundary label. The keyword now has three distinct states,
+  documented together: absent leaves the solver's list alone, `"all"`
+  emits the `-1` form, and the empty sequence erases.
+
+* **Corrected: nine commands the manual documents in the February and
+  May 2026 builds carried no row for them,** so the emitter refused them
+  on builds whose manual describes them. Six in Motion Definitions
+  (boundaries, moving frames, coordinate system, start time and the two
+  rotor commands), the two FSI seam commands, and four in Solver
+  Settings. This was a pre-existing gap rather than one the sweep
+  introduced, and it is not the whole of it: **117 entries are still
+  documented in an edition they carry no row for**, all of them 26.100
+  and 26.101. Registered as `PLN-20260807-1400`; whether early-build
+  parity is a v0.5.0 goal is the author's call.
+
+  Database 248 entries, unchanged by this pass; per version 26.100 106,
+  26.101 145, 26.120 227, 26.121 231. The figures previously recorded
+  here for 26.120 and 26.121 were wrong before the gap was closed, not
+  because of it.
+
 * **Solver Settings is complete.** Three commands remained:
   `SET_SURFACE_ROUGHNESS`, whose height is in NANOMETRES and not the
   metres every other length in this helper takes, and the
@@ -46,7 +103,10 @@ FlightStream versions.
   are not interchangeable. `SET_6DOF_MOTION_SYMMETRY_LOADS` prints a
   shorter name in its sample than in its heading; the heading is
   recorded, on the measured record that a heading has won every case a
-  solver has settled.
+  solver has settled. The chapter header, which said the 6DOF family was
+  pending, now records the chapter complete and carries the
+  three-coordinate-system warning; chapter headers render live in the
+  overview, so the stale text was public.
 
 * **Corrected: `SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION` had one
   grammar and the manual has two.** The February 2026 edition takes two
@@ -58,7 +118,7 @@ FlightStream versions.
 * **The Mesh Operations chapter entered: 22 commands, the whole chapter
   bar one already present.** Everything that moves, copies, cuts,
   selects or deletes a mesh surface between import and solver
-  initialization. Database 206 to 228; per version 76, 118, 214, 218.
+  initialization. Database 206 to 228.
 
   Two things in that chapter are not uniform and both are recorded
   because nothing else would carry them. The all-surfaces sentinel is
@@ -84,8 +144,10 @@ FlightStream versions.
 
   `SURFACE_ROTATE`'s surface keyword is spelled `SURFACE` in its table
   and `SURFACES` in its sample. A keyword is emitted rather than
-  matched, so unlike a value set this cannot accept both; the printed
-  spelling is used and PLN-20260807-1000 carries the probe.
+  matched, so unlike a value set this cannot accept both. Both spellings
+  are printed, the table's and the sample's; the SAMPLE's is used,
+  because the sample is the only runnable line on the page, and
+  PLN-20260807-1000 carries the probe.
 
 * **The CAD chapters entered the database: 42 commands across all four
   registered builds, and CAD Create is COMPLETE.** Six CAD body commands

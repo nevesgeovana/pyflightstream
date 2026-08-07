@@ -131,6 +131,27 @@ class ArgType(enum.StrEnum):
     ENUM_LIST = "enum_list"
 
 
+class EntityKind(enum.StrEnum):
+    """An auxiliary object a command argument can cite by index.
+
+    These are the objects a script creates or declares and then refers
+    to by a 1-based index: local coordinate systems, propeller
+    actuators, motion definitions, and the mesh boundaries the opened
+    geometry carries. The emitter tracks the inventory of each and
+    refuses an index outside it (SAD Section 4.2).
+
+    The members must stay in step with the kinds
+    :class:`pyflightstream.script.entities.EntityTracker` tracks; the
+    dependency runs script -> commands and never the other way, so the
+    agreement is asserted in tier 1 rather than imported.
+    """
+
+    FRAMES = "frames"
+    ACTUATORS = "actuators"
+    MOTIONS = "motions"
+    BOUNDARIES = "boundaries"
+
+
 class ListSeparator(enum.StrEnum):
     """How a list-typed argument joins its values in the script.
 
@@ -201,6 +222,33 @@ class ArgSpec(BaseModel):
         argument instead of taking its own KEY VALUE line; the copy
         count that PERIODIC symmetry appends to the SYMMETRY line of
         INITIALIZE_SOLVER (SRC-003 p.337) is the documented case.
+    fixed_length : int, optional
+        The exact number of values a list argument takes, when the
+        manual fixes it and no count argument precedes it. Absent means
+        the length is free or a count governs it.
+        SET_MOTION_6DOF_ACTIVE_VARIABLES is the documented case: six
+        toggle lines, one per degree of freedom, with nothing counting
+        them (SRC-003 p.334). A short payload makes the solver read the
+        next command as data.
+    cites : EntityKind, optional
+        The auxiliary entity this argument's index refers to, declared
+        when the argument's name does not say so database-wide. The
+        emitter resolves declared labels and checks index ranges from
+        it. Absent means the emitter falls back to its own name map,
+        which is right for a spelling that means one thing everywhere
+        (``motion_id``) and wrong for one that does not: the Mesh
+        Operations chapter spells a surface reference ``index``, and
+        three other chapters spell a section or separation index the
+        same way (SRC-003 pp.309-313).
+    all_sentinel : int, optional
+        The value this argument uses to select every entity of its
+        kind, when the command's manual page states one other than the
+        family default. Absent means the family default applies, which
+        for a mesh boundary reference is -1. TRANSLATE_SURFACE_IN_FRAME
+        and TRANSLATE_SURFACE_BY_FRAME state zero instead (SRC-003
+        p.309), so they declare it and -1 is then an ordinary index
+        there. Declaring the sentinel here rather than in the emitter
+        is what keeps a per-command rule out of a per-kind check.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -213,6 +261,9 @@ class ArgSpec(BaseModel):
     separator: ListSeparator = ListSeparator.COMMA
     own_line: bool = False
     joins_previous: bool = False
+    fixed_length: int | None = None
+    cites: EntityKind | None = None
+    all_sentinel: int | None = None
 
     @model_validator(mode="after")
     def _enum_types_carry_values(self) -> ArgSpec:
@@ -243,6 +294,40 @@ class ArgSpec(BaseModel):
     def _joins_previous_only_for_scalars(self) -> ArgSpec:
         if self.joins_previous and self.is_list:
             raise ValueError(f"argument {self.name!r} is a list and cannot join the previous line")
+        return self
+
+    @model_validator(mode="after")
+    def _fixed_length_only_for_lists(self) -> ArgSpec:
+        if self.fixed_length is None:
+            return self
+        if not self.is_list:
+            raise ValueError(f"argument {self.name!r} is scalar and cannot fix a list length")
+        if self.fixed_length < 1:
+            raise ValueError(
+                f"argument {self.name!r} fixes its length at {self.fixed_length}; a "
+                "fixed length states how many payload lines the solver reads and must "
+                "be at least 1"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _cites_only_for_index_types(self) -> ArgSpec:
+        if self.cites is not None and self.type not in (ArgType.INT, ArgType.INT_LIST):
+            raise ValueError(
+                f"argument {self.name!r} is {self.type} and cannot cite an entity; "
+                "an entity is cited by a 1-based integer index, so only int and "
+                "int_list arguments carry one"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _all_sentinel_only_for_integer_scalars(self) -> ArgSpec:
+        if self.all_sentinel is not None and self.type is not ArgType.INT:
+            raise ValueError(
+                f"argument {self.name!r} is {self.type} and cannot declare an "
+                "all-entities sentinel; the sentinel is an integer index value, so "
+                "only an int argument that cites an entity can carry one"
+            )
         return self
 
 

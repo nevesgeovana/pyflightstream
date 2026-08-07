@@ -67,6 +67,8 @@ SET_MOTION_BOUNDARIES:
       required: false
   manual_ref: "SRC-003 p.332"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.328, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.331, same grammar as 26.120"}
     "26.120": {status: documented}
   notes: >
     Assigns geometry boundaries to the motion; the comma-separated
@@ -86,6 +88,8 @@ SET_MOTION_MOVING_FRAMES:
       required: false
   manual_ref: "SRC-003 p.332"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.328, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.331, same grammar as 26.120"}
     "26.120": {status: documented}
   notes: >
     Attaches user-defined local frames to the motion; -1 selects all
@@ -101,6 +105,8 @@ SET_MOTION_COORDINATE_SYSTEM:
       type: int
   manual_ref: "SRC-003 p.332"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.328, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.331, same grammar as 26.120"}
     "26.120": {status: documented}
 
 SET_MOTION_START_TIME:
@@ -114,6 +120,8 @@ SET_MOTION_START_TIME:
       unit: "s"
   manual_ref: "SRC-003 p.332"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.328, same grammar as 26.120; never probed on this build, so the abort measured on 26.120 and 26.121 is not claimed here"}
+    "26.101": {status: documented, note: "SRC-725 p.331, same grammar as 26.120; never probed on this build, so the abort measured on 26.120 and 26.121 is not claimed here"}
     "26.120": {status: broken, report: "reports/compat/CMP-26120_2026-07-23_pln012.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing)"}
     "26.121": {status: broken, report: "reports/compat/CMP-26121_2026-08-02_full.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing)"}
   notes: >
@@ -131,6 +139,7 @@ SET_MOTION_ROTOR_AXIS:
       values: [X, Y, Z, "1", "2", "3"]
   manual_ref: "SRC-003 p.333"
   versions:
+    "26.101": {status: documented, note: "SRC-725 p.332, same grammar as 26.120"}
     "26.120": {status: documented}
 
 SET_MOTION_ROTOR_RPM:
@@ -144,6 +153,7 @@ SET_MOTION_ROTOR_RPM:
       unit: "rev/min"
   manual_ref: "SRC-003 p.333"
   versions:
+    "26.101": {status: documented, note: "SRC-725 p.332, same grammar as 26.120"}
     "26.120": {status: documented}
 
 SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION:
@@ -201,6 +211,8 @@ SET_MOTION_FSI_EXECUTABLE:
       own_line: true
   manual_ref: "SRC-003 pp.335-336"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.332, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 pp.334-335, same grammar as 26.120"}
     "26.120": {status: documented}
   notes: >
     FSI seam (FR-23): FlightStream calls the external structural
@@ -225,6 +237,8 @@ SET_MOTION_FSI_STRUCTURAL_NODES:
       own_line: true
   manual_ref: "SRC-003 p.336"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.332, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.335, same grammar as 26.120"}
     "26.120": {status: documented}
   notes: >
     Imports the structural displacement node set; the file path
@@ -243,6 +257,8 @@ DELETE_MOTION:
       type: int
   manual_ref: "SRC-003 p.336"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.333, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.335, same grammar as 26.120"}
     "26.120": {status: documented}
 
 # --- the February 2026 kinematic family -------------------------------------
@@ -520,9 +536,11 @@ SET_MOTION_6DOF_ACTIVE_VARIABLES:
   args:
     - name: motion_id
       type: int
+      cites: motions
     - name: variables
       type: str_list
       separator: newline
+      fixed_length: 6
   manual_ref: "SRC-003 p.334"
   versions:
     "26.100": {status: documented, note: "SRC-741 p.331, same grammar as 26.120"}
@@ -541,9 +559,11 @@ SET_MOTION_6DOF_ACTIVE_VARIABLES:
     costs is real: nothing here refuses a seventh line, a repeated
     variable or a misspelled one.
 
-    Locking a subset is how a 6DOF motion becomes a constrained one; the
-    manual's own sample leaves Q and R free and is described on the
-    neighbouring page as a longitudinal 3DOF.
+    Locking a subset is how a 6DOF motion becomes a constrained one, and
+    the manual's own sample leaves Q and R free. The page describes that
+    reduction as a longitudinal 3DOF, but on the sample of the NEXT
+    command rather than this one, so the phrase is not this entry's to
+    borrow.
 
 # --- 6DOF: forces --------------------------------------------------------------
 

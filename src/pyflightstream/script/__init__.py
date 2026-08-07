@@ -146,6 +146,22 @@ _DELETION_COMMANDS = {
     "DELETE_ACTUATOR": "actuators",
     "DELETE_MOTION": "motions",
 }
+# One entity, several spellings. The database mirrors each manual page's
+# own argument names rather than harmonising them, which is deliberate
+# (see the CAD Create and Mesh Operations chapter headers: an argument
+# list that stops matching the page beside it loses the one thing it is
+# for). These two maps are the ORIGINAL mechanism and remain the default
+# for a name that means the same thing database-wide.
+#
+# They cannot carry a name that means different things on different
+# pages, and the 2026-08-07 review found the case: the Mesh Operations
+# chapter spells a surface reference "index", which elsewhere in the
+# database is a separation index, a surface-section index and a
+# volume-section index. Mapping it here would refuse valid section
+# indices, and leaving it out let SURFACE_DELETE accept a declared label
+# while SURFACE_INVERT did not, by no rule a caller could see. So an
+# argument may instead declare its entity kind itself, as ArgSpec.cites,
+# and a declaration wins over these maps.
 _SCALAR_REFERENCE_ARGS = {
     "frame": "frames",
     "load_frame": "frames",
@@ -427,6 +443,15 @@ def _check_list(entry: CommandEntry, spec: ArgSpec, value: object) -> list:
     if isinstance(value, str) or not isinstance(value, Sequence):
         _type_error(entry, spec, "a sequence of values", value)
     items = list(value)
+    if spec.fixed_length is not None and len(items) != spec.fixed_length:
+        raise CommandArgumentError(
+            f"{entry.name}: argument {spec.name!r} takes exactly "
+            f"{spec.fixed_length} value(s) and {len(items)} were given. The command "
+            "writes them as consecutive payload lines with no count before them, so "
+            "the solver reads a fixed number and then resumes reading commands; a "
+            "short payload makes it read the NEXT COMMAND as data, and a long one "
+            f"leaves a stray line the solver rejects. ({entry.citation})"
+        )
     if spec.type is ArgType.INT_LIST:
         for item in items:
             if isinstance(item, bool) or not isinstance(item, int):
@@ -909,10 +934,15 @@ class Script:
 
     def _resolve_labels(self, entry: CommandEntry, spec: ArgSpec, value: object) -> object:
         context = f"{entry.name}: argument {spec.name!r}"
-        kind = _SCALAR_REFERENCE_ARGS.get(spec.name)
+        declared = str(spec.cites) if spec.cites is not None else None
+        kind = declared if not spec.is_list else None
+        if kind is None and not spec.is_list:
+            kind = _SCALAR_REFERENCE_ARGS.get(spec.name)
         if kind is not None and isinstance(value, str):
             return self.entities.resolve(kind, value, context=context, citation=entry.citation)
-        kind = _LIST_REFERENCE_ARGS.get(spec.name)
+        kind = declared if spec.is_list else None
+        if kind is None:
+            kind = _LIST_REFERENCE_ARGS.get(spec.name)
         if kind is not None and isinstance(value, Sequence) and not isinstance(value, str):
             return [
                 self.entities.resolve(kind, item, context=context, citation=entry.citation)
@@ -957,10 +987,21 @@ class Script:
                 continue
             context = f"{entry.name}: argument {spec.name!r}"
             value = bound[spec.name]
-            kind = _SCALAR_REFERENCE_ARGS.get(spec.name)
+            declared = str(spec.cites) if spec.cites is not None else None
+            kind = declared if not spec.is_list else None
+            if kind is None and not spec.is_list:
+                kind = _SCALAR_REFERENCE_ARGS.get(spec.name)
             if kind is not None:
-                self.entities.check_index(kind, value, context=context, citation=entry.citation)
-            kind = _LIST_REFERENCE_ARGS.get(spec.name)
+                self.entities.check_index(
+                    kind,
+                    value,
+                    context=context,
+                    citation=entry.citation,
+                    all_sentinel=spec.all_sentinel,
+                )
+            kind = declared if spec.is_list else None
+            if kind is None:
+                kind = _LIST_REFERENCE_ARGS.get(spec.name)
             if kind is not None and isinstance(value, Sequence) and not isinstance(value, str):
                 for item in value:
                     if item != -1:

@@ -116,6 +116,11 @@ def steady(case: SimCase, script) -> None:
         # this list reports zero induced drag (SRC-003 p.202), and
         # omitting the argument keeps the solver's pressure integration.
         vorticity_drag_boundaries="all",
+        # NANOMETRES, unlike every other length this helper takes.
+        # A polished metal skin is a few hundred nm; passing 0.5
+        # thinking millimetres would be a half-nanometre surface, and
+        # zero states a smooth wall outright (SRC-003 p.341).
+        surface_roughness=800.0,
         aoa=case.point["alpha"],
         velocity=case.velocity,
     )
