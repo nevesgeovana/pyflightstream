@@ -84,8 +84,11 @@ DELETE_SURFACES:
     Deletes a mesh surface by 1-based index; the page's samples also
     show -1 for every surface. New in the 26.121 manual edition, where
     it replaces the SURFACE_DELETE keyword block and SURFACE_CLEARALL
-    of SRC-003 pp.312-313; neither of those was ever registered here,
-    so there is no removal to record against them.
+    of SRC-003 pp.312-313. Both of those are registered here since
+    2026-08-07, in mesh_operations.yaml, each carrying version rows for
+    the three editions that document it and none after; no removal is
+    recorded against either, because a removal in this database is a
+    manual STATING one and no edition states it.
     ARITY NOT DETERMINABLE FROM THE PAGE, and deliberately registered
     narrow: the parameter table declares one INDEX, while one sample
     passes three bare integers under a multiple-surface heading. Those

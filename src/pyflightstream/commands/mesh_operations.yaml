@@ -1,0 +1,601 @@
+# Chapter: Scripting reference, Mesh Operations (SRC-003 pp.309-313).
+#
+# Everything that moves, copies, cuts, selects or deletes a mesh surface
+# after it is imported and before the solver initializes. Phase is
+# geometry throughout, for the same reason the CAD chapters are: these
+# act on geometry, and the ordering check refuses them after
+# INITIALIZE_SOLVER.
+#
+# TWO THINGS IN THIS CHAPTER ARE NOT UNIFORM AND BOTH BITE.
+#
+# The all-surfaces sentinel is -1 on most commands and ZERO on the two
+# translations, which the manual states per command and never contrasts.
+# A script that reaches for -1 out of habit translates surface -1 rather
+# than all of them.
+#
+# And the surface index appears under four different argument names
+# across the chapter: SURFACE, Index, SURFACE_COUNT and NODE_ID for the
+# node commands. The names are the manual's own and are mirrored rather
+# than harmonised, for the reason recorded in the CAD Create header: an
+# argument list that stops matching the page beside it loses the one
+# thing it is for.
+
+# --- moving a surface -------------------------------------------------------
+
+SURFACE_ROTATE:
+  layout: keyword_block
+  phase: geometry
+  args:
+    - name: frame
+      type: int
+    - name: axis
+      type: enum
+      values: [X, Y, Z, "1", "2", "3"]
+    - name: angle
+      type: float
+      unit: "deg"
+    - name: surfaces
+      type: int
+    - name: surface_indices
+      type: int_list
+      separator: comma
+    - name: split_vertices
+      type: enum
+      values: [ENABLE, DISABLE]
+    - name: adaptive_mesh
+      type: enum
+      values: [ENABLE, DISABLE]
+    - name: detach_normal_to_axis
+      type: enum
+      values: [ENABLE, DISABLE]
+  manual_ref: "SRC-003 p.309"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.304, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.308, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.312, same grammar as 26.120"}
+  notes: >
+    Rotates surfaces about an axis of a coordinate system. AXIS carries
+    the dual form, letters or indices, and here the manual states it
+    outright rather than leaving it to a sample as CAD_BODY_ROTATE does.
+
+    THE KEYWORD IS SPELLED TWO WAYS ON ONE PAGE. The parameter table
+    names the row SURFACE and the sample writes SURFACES. A keyword is
+    emitted literally, so unlike an enumeration this cannot accept both:
+    one of them is what the solver reads. The plural is used here
+    because the sample is the only form the vendor has actually written
+    as a runnable line, while the table row is a label; that is a
+    judgement and not a measurement, and PLN-20260807-1000 carries the
+    probe.
+
+    The count keyword is followed by the indices on the next line. The
+    separator is read from SURFACE_COMBINE, the one command in this
+    chapter that states it (comma separated, SRC-003 p.312), because
+    this page shows a single index and a one-element list looks the same
+    under either rule.
+
+TRANSLATE_SURFACE_IN_FRAME:
+  layout: inline
+  phase: geometry
+  args:
+    - name: frame
+      type: int
+    - name: x
+      type: float
+    - name: y
+      type: float
+    - name: z
+      type: float
+    - name: units
+      type: enum
+      values: [INCH, MILLIMETER, OTHER, FEET, MILE, METER, KILOMETER, MILS, MICRON, CENTIMETER, MICROINCH]
+    - name: surface
+      type: int
+    - name: split_vertices
+      type: enum
+      values: [ENABLE, DISABLE]
+  manual_ref: "SRC-003 p.309"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.304, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.308, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.312, same grammar as 26.120"}
+  notes: >
+    Translates one surface by a vector in the named frame, with the
+    vector's own UNITS argument rather than the simulation length units.
+
+    ZERO SELECTS ALL SURFACES HERE, not -1. This command and
+    TRANSLATE_SURFACE_BY_FRAME below are the two in the chapter that use
+    zero; every other surface argument uses -1, and the manual states
+    each per command without ever contrasting them. Passing -1 here
+    names surface -1 rather than all of them.
+
+TRANSLATE_SURFACE_BY_FRAME:
+  layout: inline
+  phase: geometry
+  args:
+    - name: frame1
+      type: int
+    - name: frame2
+      type: int
+    - name: surface
+      type: int
+  manual_ref: "SRC-003 p.309"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.304, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.308, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.312, same grammar as 26.120"}
+  notes: >
+    Moves a surface by the transform that carries FRAME1 onto FRAME2, so
+    the two frames are the instruction and there is no vector. ZERO
+    selects all surfaces, as on TRANSLATE_SURFACE_IN_FRAME above.
+
+SURFACE_SCALE:
+  layout: inline
+  phase: geometry
+  args:
+    - name: frame
+      type: int
+    - name: scale_x
+      type: float
+    - name: scale_y
+      type: float
+    - name: scale_z
+      type: float
+    - name: surface
+      type: int
+  manual_ref: "SRC-003 p.310"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.305, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.309, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.313, same grammar as 26.120"}
+  notes: >
+    PER-AXIS scaling, unlike CAD_CREATE_SCALE_CURVES which takes one
+    factor for all three. Each must be greater than zero, which the
+    manual states and the database does not enforce, and -1 on SURFACE
+    scales every surface.
+
+SURFACE_MIRROR:
+  layout: inline
+  phase: geometry
+  args:
+    - name: surface
+      type: int
+    - name: coordinate_system
+      type: int
+    - name: mirror_plane
+      type: int
+    - name: combine_flag
+      type: enum
+      values: ["TRUE", "FALSE"]
+    - name: delete_source_flag
+      type: enum
+      values: ["TRUE", "FALSE"]
+  manual_ref: "SRC-003 p.311"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.306, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.310, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.314, same grammar as 26.120"}
+  notes: >
+    MIRROR_PLANE IS AN INDEX AND NOT A PLANE NAME. The manual gives 1
+    for YZ, 2 for XZ and 3 for XY (SRC-003 p.311), so this is the one
+    plane argument in the database that does not take the two-letter
+    token, and passing XZ here is refused while passing 2 means it.
+    Recorded because every neighbouring command spells a plane with
+    letters.
+
+    COMBINE_FLAG decides whether the mirrored geometry joins the source
+    and DELETE_SOURCE_FLAG whether the source survives, so the two
+    together choose between four outcomes and neither implies the other.
+
+SURFACE_LINEAR_COPY_PASTE:
+  layout: inline
+  phase: geometry
+  args:
+    - name: surface
+      type: int
+    - name: num_copies
+      type: int
+    - name: frame
+      type: int
+    - name: units
+      type: enum
+      values: [INCH, MILLIMETER, OTHER, FEET, MILE, METER, KILOMETER, MILS, MICRON, CENTIMETER, MICROINCH]
+    - name: x
+      type: float
+    - name: y
+      type: float
+    - name: z
+      type: float
+  manual_ref: "SRC-003 pp.311-312"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.306, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.310, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.314, same grammar as 26.120"}
+  notes: >
+    Copies a surface along a vector, NUM_COPIES times. The translation
+    vector follows UNITS here and precedes it on
+    TRANSLATE_SURFACE_IN_FRAME, so the two commands take the same five
+    values in a different order.
+
+SURFACE_CIRCULAR_COPY_PASTE:
+  layout: inline
+  phase: geometry
+  args:
+    - name: surface
+      type: int
+    - name: coordinate_system
+      type: int
+    - name: axis
+      type: str
+    - name: num_copies
+      type: int
+    - name: angle
+      type: float
+      unit: "deg"
+  manual_ref: "SRC-003 p.312"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.307, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.311, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.315, same grammar as 26.120"}
+  notes: >
+    Copies a surface around an axis, and NUM_COPIES INCLUDES THE
+    ORIGINAL: the manual's own worked case is a two-blade propeller from
+    one blade at a value of 2, so asking for 2 copies gives two blades
+    and not three.
+
+    AXIS IS UNTYPED HERE ON PURPOSE. Its parameter table enumerates
+    nothing at all, and the only value any edition prints is the index
+    1. SURFACE_ROTATE, four entries above in this same chapter,
+    documents the dual letter-or-index form outright, so the likely set
+    is not a mystery; it is simply not cited for THIS command, and
+    writing an enumeration would mean inventing a value set, which this
+    database has now done once by accident and refuses to do on purpose.
+
+# --- selecting, cutting and combining ---------------------------------------
+
+SURFACE_SELECT_BY_ID:
+  layout: inline
+  phase: geometry
+  args:
+    - name: surface
+      type: int
+  manual_ref: "SRC-003 p.310"
+  versions:
+    "26.101": {status: documented, note: "SRC-725 p.309, the first edition to carry this name"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.313, same grammar as 26.120"}
+  notes: >
+    Selects one surface by its 1-based index, or every surface at -1.
+    The February 2026 edition calls the same command
+    SELECT_GEOMETRY_BY_ID, with the same single argument, the same
+    description and the same sample; the two are recorded separately
+    with their own version rows, because the manual RENAMES it without
+    ever stating a removal and this database records what each edition
+    documents.
+
+SELECT_GEOMETRY_BY_ID:
+  layout: inline
+  phase: geometry
+  args:
+    - name: surface
+      type: int
+  manual_ref: "SRC-741 p.305"
+  versions:
+    "26.100": {status: documented}
+  notes: >
+    The February 2026 spelling of SURFACE_SELECT_BY_ID above, documented
+    in that edition alone and in none after it. Recorded rather than
+    dropped because 26.100 is a registered build and a script written
+    for it needs the name that edition documents.
+
+    Its status is documented and not removed, deliberately: this
+    database promotes a command to removed when a manual STATES the
+    removal, and no edition states one here. What happened is that the
+    name stopped appearing, which is a weaker fact and is recorded as
+    the absence of later version rows.
+
+SURFACE_SELECT_BY_THRESHOLD:
+  layout: keyword_block
+  phase: geometry
+  args:
+    - name: frame
+      type: int
+    - name: threshold
+      type: enum
+      values: [AREA, QUALITY, X, Y, Z, VELOCITY, VX, VY, VZ, CP, MACH, SOLVER_QUALITY]
+    - name: min_value
+      type: float
+    - name: max_value
+      type: float
+    - name: range
+      type: enum
+      values: [ABOVE_MIN, BELOW_MAX, ABOVE_MIN_BELOW_MAX]
+    - name: subset
+      type: enum
+      values: [ALL_FACES, VISIBLE_FACES, SELECTED_FACES]
+  manual_ref: "SRC-003 p.310"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.305, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.309, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.313, same grammar as 26.120"}
+  notes: >
+    Selects mesh FACES, not surfaces, by a scalar threshold. RANGE
+    decides which of MIN_VALUE and MAX_VALUE are read, so a range of
+    ABOVE_MIN leaves MAX_VALUE unused; both are required here because
+    the schema has no conditional, and the unused one is discarded by
+    the solver rather than by this package.
+
+    THRESHOLD mixes geometric and SOLVED quantities in one vocabulary:
+    AREA and QUALITY are properties of the mesh, and VELOCITY, CP and
+    MACH exist only after a solution. Selecting on those before the
+    solver has run is not refused here and the manual does not say what
+    it does.
+
+    SUBSET narrows what the threshold is applied to, so a selection can
+    be refined by running the command twice with SELECTED_FACES.
+
+CREATE_NEW_SURFACE_FROM_SELECTION:
+  layout: bare
+  phase: geometry
+  args: []
+  manual_ref: "SRC-003 p.311"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.306, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.310, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.314, same grammar as 26.120"}
+  notes: >
+    Promotes the currently selected faces into a surface of their own,
+    which is what makes SURFACE_SELECT_BY_THRESHOLD useful as more than
+    a highlight. It takes no argument because the selection is the
+    state it reads.
+
+SURFACE_CUT_BY_PLANE:
+  layout: keyword_block
+  phase: geometry
+  args:
+    - name: frame
+      type: int
+    - name: plane
+      type: enum
+      values: [XY, XZ, YZ]
+    - name: offset
+      type: float
+    - name: surface
+      type: int
+  manual_ref: "SRC-003 p.311"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.306, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.310, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.314, same grammar as 26.120"}
+  notes: >
+    Cuts surfaces with a plane of the named frame, offset along the
+    plane normal. A value of -1 on SURFACE cuts every surface, which the
+    manual's own sample does.
+
+    The parameter table spells the second plane ZX where every other
+    plane argument in the manual and in this database spells it XZ, and
+    the sample on the same page passes XZ. The XZ spelling is recorded;
+    the table's is read as a transposition rather than a third plane,
+    since ZX and XZ name the same plane and no command anywhere accepts
+    both.
+
+SURFACE_COMBINE:
+  layout: payload_lines
+  phase: geometry
+  args:
+    - name: surface_count
+      type: int
+    - name: surface_indices
+      type: int_list
+      separator: comma
+  manual_ref: "SRC-003 p.312"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.307, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.311, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.315, same grammar as 26.120"}
+  notes: >
+    Merges several surfaces into one. The count sits on the command line
+    and the indices follow on the next, comma separated, which this page
+    states explicitly and which is why it is the reference for the same
+    shape inside SURFACE_ROTATE's keyword block.
+
+SURFACE_AUTO_HOLE_FILL:
+  layout: inline
+  phase: geometry
+  args:
+    - name: surface
+      type: int
+  manual_ref: "SRC-003 p.312"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.307, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.311, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.315, same grammar as 26.120"}
+  notes: >
+    Fills the holes in one surface. The manual states no -1 form here,
+    unlike its neighbours, so this entry does not claim one either.
+
+SURFACE_INVERT:
+  layout: inline
+  phase: geometry
+  args:
+    - name: index
+      type: int
+  manual_ref: "SRC-003 p.310"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.305, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.309, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.313, same grammar as 26.120"}
+  notes: >
+    Flips the surface normals of one surface, or of every surface at -1.
+    Its argument is named Index rather than SURFACE, which is the
+    manual's own inconsistency and is mirrored here.
+
+SURFACE_RENAME:
+  layout: inline
+  phase: geometry
+  args:
+    - name: index
+      type: int
+    - name: name
+      type: str
+  manual_ref: "SRC-003 p.310"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.305, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.309, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.313, same grammar as 26.120"}
+  notes: >
+    Renames a surface, which is worth doing early: the name is what a
+    reader of the emitted script sees, and this package's own entity
+    labels are a separate mechanism that never reaches the solver.
+
+    The parameter table's description of the index is the one written
+    for SURFACE_INVERT and talks about inverting rather than renaming, a
+    row carried across between neighbouring commands, as happens on
+    CAD_BODY_DELETE. It states no -1 form, and renaming every surface to
+    one name would be a strange thing to offer, so none is recorded.
+
+# --- deleting -----------------------------------------------------------------
+
+DELETE_SELECTED_FACES:
+  layout: bare
+  phase: geometry
+  args: []
+  manual_ref: "SRC-003 p.312"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.308, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.311, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.315, same grammar as 26.120"}
+  notes: >
+    Deletes the faces currently selected, the destructive counterpart of
+    CREATE_NEW_SURFACE_FROM_SELECTION and the other reason the threshold
+    selection exists.
+
+DELETE_DEGENERATE_FACES:
+  layout: bare
+  phase: geometry
+  args: []
+  manual_ref: "SRC-003 p.313"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.308, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.312, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.316, same grammar as 26.120"}
+  notes: >
+    Deletes every degenerate face in the simulation. What counts as
+    degenerate is not defined on the page, and this entry does not
+    guess; it acts on the whole model rather than on a selection.
+
+SURFACE_DELETE:
+  layout: keyword_block
+  phase: geometry
+  args:
+    - name: surface
+      type: int
+  manual_ref: "SRC-003 p.312"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.308, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.311, same grammar as 26.120"}
+    "26.120": {status: documented}
+  notes: >
+    Deletes one surface by index, as a keyword block with a single
+    keyword line rather than as an inline argument, which is the manual's
+    shape and not a choice made here.
+
+    Documented in three editions and in none after. SRC-740 carries the
+    inline DELETE_SURFACES instead, and states no replacement and no
+    removal: it simply stops printing this command, which is absence
+    rather than a statement, so the status stays documented and no
+    26.121 row is written.
+
+    READ WHAT THAT DOES NOT ACHIEVE. 26.121 is a real hotfix of 26.120
+    and inherits its records, so the emitter ACCEPTS this command for
+    26.121 even with no row of its own. Inheritance is per version and
+    cannot be denied per command, so a database that knows the 26.121
+    manual dropped this one has no way to say so
+    (PLN-20260807-1010). Whether the solver still answers to it on that
+    build is a probe question, and until it is asked the emitter is
+    permissive here rather than wrong.
+
+SURFACE_CLEARALL:
+  layout: bare
+  phase: geometry
+  args: []
+  manual_ref: "SRC-003 p.313"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.308, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.312, same grammar as 26.120"}
+    "26.120": {status: documented}
+  notes: >
+    Deletes every surface in the simulation. Documented in three
+    editions and in none after, with DELETE_SURFACES carrying the
+    every-surface form in SRC-740. The same two things hold as for
+    SURFACE_DELETE above: no edition states a removal, and 26.121
+    inherits the 26.120 record, so the emitter accepts this command for
+    a build whose manual does not document it
+    (PLN-20260807-1010).
+
+# --- mesh nodes ---------------------------------------------------------------
+
+SELECT_MESH_NODE:
+  layout: inline
+  phase: geometry
+  args:
+    - name: node_id
+      type: int
+  manual_ref: "SRC-003 p.313"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.308, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.312, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.316, same grammar as 26.120"}
+  notes: >
+    Selects one mesh vertex by its node id, which is a different index
+    space from the surface indices the rest of this chapter uses: the
+    manual says node ID and nothing about its base, so this entry says
+    nothing either.
+
+TRANSFORM_SELECTED_NODES:
+  layout: inline
+  phase: geometry
+  args:
+    - name: coordinate_system
+      type: int
+    - name: translation_type
+      type: enum
+      values: [ABSOLUTE, TRANSLATION]
+    - name: x
+      type: float
+    - name: y
+      type: float
+    - name: z
+      type: float
+  manual_ref: "SRC-003 p.313"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.308, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.312, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.316, same grammar as 26.120"}
+  notes: >
+    Moves the selected nodes. TRANSLATION_TYPE decides what X, Y and Z
+    MEAN: under ABSOLUTE they are the node's new coordinates and under
+    TRANSLATION they are increments added to the current ones. The same
+    three numbers therefore place a node somewhere different depending
+    on a token two arguments earlier, and the argument names cannot say
+    so.
+
+    It carries no unit argument, unlike the surface translations, so the
+    values are read in the named coordinate system's own units.

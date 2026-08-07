@@ -1421,3 +1421,146 @@ def test_the_cad_mesh_selector_is_not_given_an_invented_token_set():
     script = Script(version="26.120")
     script.emit("CAD_CREATE_AUTO_CROSS_SECTIONS", 1, "Y", 20, 1, "3", 1.2, "NONE", "CAD")
     assert "NONE CAD" in script.render()
+
+
+# --- Mesh Operations --------------------------------------------------------
+
+
+@pytest.mark.parametrize("version", ["26.100", "26.101", "26.120", "26.121"])
+def test_the_mesh_operations_chapter_emits_on_every_registered_build(version):
+    """Each line is the manual's own sample, including the two blocks.
+
+    The frame is declared because the samples cite frame 3 and a
+    coordinate system is created in the setup phase, which cannot
+    precede a geometry command (PLN-20260806-0900).
+    """
+    script = Script(version=version)
+    script.declare_existing(frames=3)
+    script.emit(
+        "SURFACE_ROTATE",
+        frame=3,
+        axis="X",
+        angle=-20.0,
+        surfaces=1,
+        surface_indices=[2],
+        split_vertices="DISABLE",
+        adaptive_mesh="DISABLE",
+        detach_normal_to_axis="ENABLE",
+    )
+    script.emit("TRANSLATE_SURFACE_IN_FRAME", 1, 0.0, 1.0, 1.4, "INCH", 3, "ENABLE")
+    script.emit("TRANSLATE_SURFACE_BY_FRAME", 1, 3, 2)
+    script.emit("SURFACE_SCALE", 1, 1.0, 0.5, 0.5, 2)
+    script.emit("SURFACE_MIRROR", 1, 2, 2, "TRUE", "FALSE")
+    script.emit("SURFACE_LINEAR_COPY_PASTE", 1, 4, 2, "METER", 0.5, -2.0, 0.0)
+    script.emit("SURFACE_CIRCULAR_COPY_PASTE", 1, 2, "1", 10, 90.0)
+    script.emit("SURFACE_COMBINE", 2, [1, 3])
+    script.emit("SURFACE_AUTO_HOLE_FILL", 2)
+    script.emit("SURFACE_INVERT", 2)
+    script.emit("SURFACE_RENAME", 2, "Fuselage")
+    script.emit("SELECT_MESH_NODE", 3)
+    script.emit("TRANSFORM_SELECTED_NODES", 1, "TRANSLATION", -1.0, 0.0, 0.0)
+    text = script.render()
+    assert "SURFACES 1\n2\n" in text, "the rotate block's count and index line"
+    assert "SURFACE_COMBINE 2\n1,3\n" in text, "the combine count and its comma list"
+    assert "SURFACE_MIRROR 1 2 2 TRUE FALSE" in text
+
+
+def test_the_all_surfaces_sentinel_is_zero_on_the_two_translations():
+    """Minus one everywhere else, zero on these two, per the manual.
+
+    The chapter never contrasts them, so a script reaching for -1 out of
+    habit translates surface -1 rather than every surface. Nothing can
+    refuse that, since both are valid integers; what the database can do
+    is carry the fact, and this pins the note that carries it.
+    """
+    entries = CommandRegistry.load().commands
+    for name in ("TRANSLATE_SURFACE_IN_FRAME", "TRANSLATE_SURFACE_BY_FRAME"):
+        assert "ZERO" in entries[name].notes.upper(), name
+    for name in ("SURFACE_SCALE", "SURFACE_INVERT", "SURFACE_CUT_BY_PLANE"):
+        assert "-1" in entries[name].notes, name
+
+
+def test_the_mirror_plane_is_an_index_and_refuses_a_plane_name():
+    """The one plane argument in the database that is not a letter pair.
+
+    SRC-003 p.311 gives 1 for YZ, 2 for XZ and 3 for XY. Every
+    neighbouring command spells a plane with letters, so passing XZ here
+    is the natural mistake and it must not silently become something
+    else.
+    """
+    script = Script(version="26.120")
+    script.emit("SURFACE_MIRROR", 1, 2, 2, "TRUE", "FALSE")
+    assert "SURFACE_MIRROR 1 2 2 TRUE FALSE" in script.render()
+    with pytest.raises(CommandArgumentError, match="expects an integer"):
+        Script(version="26.120").emit("SURFACE_MIRROR", 1, 2, "XZ", "TRUE", "FALSE")
+
+
+def test_the_renamed_selection_command_is_recorded_once_per_edition():
+    """A rename the manual performs without ever stating a removal.
+
+    SELECT_GEOMETRY_BY_ID is documented in the February edition alone
+    and SURFACE_SELECT_BY_ID in every edition after it, with the same
+    argument and the same sample. Each carries only the versions that
+    document it, so emitting the wrong one for a build is refused rather
+    than silently accepted.
+    """
+    registry = CommandRegistry.load()
+    assert sorted(registry.commands["SELECT_GEOMETRY_BY_ID"].versions) == ["26.100"]
+    assert sorted(registry.commands["SURFACE_SELECT_BY_ID"].versions) == [
+        "26.101",
+        "26.120",
+        "26.121",
+    ]
+    Script(version="26.100").emit("SELECT_GEOMETRY_BY_ID", 2)
+    Script(version="26.120").emit("SURFACE_SELECT_BY_ID", 2)
+    with pytest.raises(CommandNotInVersionError):
+        Script(version="26.120").emit("SELECT_GEOMETRY_BY_ID", 2)
+    with pytest.raises(CommandNotInVersionError):
+        Script(version="26.100").emit("SURFACE_SELECT_BY_ID", 2)
+
+
+def test_the_two_surface_deletes_stop_at_the_edition_that_replaced_them():
+    """SURFACE_DELETE and SURFACE_CLEARALL give way to DELETE_SURFACES.
+
+    Three editions document the pair and the fourth documents the
+    replacement instead. Neither is `removed`: this database promotes to
+    that status only when a manual STATES a removal, and SRC-740 states
+    nothing, it simply stops printing them.
+
+    AND THE EMITTER STILL ACCEPTS THEM ON 26.121, which is asserted here
+    rather than wished away. 26.121 is a real hotfix of 26.120 and
+    inherits its records; inheritance is per version and cannot be
+    denied per command, so a database that knows the 26.121 manual
+    dropped these two has no way to say so (PLN-20260807-1010). Pinning
+    the permissive behaviour is what makes the plan row's fix visible
+    when it lands: this test will have to change.
+    """
+    registry = CommandRegistry.load()
+    for name in ("SURFACE_DELETE", "SURFACE_CLEARALL"):
+        entry = registry.commands[name]
+        assert sorted(entry.versions) == ["26.100", "26.101", "26.120"], name
+        assert all(r.status is Status.DOCUMENTED for r in entry.versions.values()), name
+        evidence = entry.evidence_in(next(v for v in known_versions() if v.canonical == "26.121"))
+        assert evidence is not None and evidence.inherited, (
+            f"{name} reaches 26.121 by inheritance; if that stops being true the "
+            "plan row has landed and this test states the old behaviour"
+        )
+    assert sorted(registry.commands["DELETE_SURFACES"].versions) == ["26.121"]
+
+
+def test_the_untyped_axis_of_the_circular_pattern_has_no_invented_value_set():
+    """Its parameter table enumerates nothing and only the index 1 is printed.
+
+    SURFACE_ROTATE four entries above documents the dual letter-or-index
+    form outright, so the likely set is not a mystery; it is uncited for
+    THIS command, and this database has already shipped one invented
+    token set by accident.
+    """
+    entry = CommandRegistry.load().commands["SURFACE_CIRCULAR_COPY_PASTE"]
+    axis = next(arg for arg in entry.args if arg.name == "axis")
+    assert axis.values is None
+    rotate = CommandRegistry.load().commands["SURFACE_ROTATE"]
+    rotate_axis = next(arg for arg in rotate.args if arg.name == "axis")
+    assert set(rotate_axis.values or ()) == {"X", "Y", "Z", "1", "2", "3"}, (
+        "the control: the sibling whose table DOES enumerate must carry the set"
+    )

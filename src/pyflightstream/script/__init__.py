@@ -123,6 +123,11 @@ _COUNT_ARG_NAMES = {
     "num_sections",
     "num_variables",
     "numpts",
+    # SURFACE_COMBINE's count of the surfaces it merges (SRC-003 p.312).
+    # Added 2026-08-07 with the Mesh Operations chapter; the tier-1 guard
+    # over this set is what reported the omission, before the entry could
+    # ship a count nothing compares against its own list.
+    "surface_count",
     "surfaces",
 }
 

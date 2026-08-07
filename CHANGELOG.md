@@ -9,6 +9,38 @@ FlightStream versions.
 
 ### API surface delta
 
+* **The Mesh Operations chapter entered: 22 commands, the whole chapter
+  bar one already present.** Everything that moves, copies, cuts,
+  selects or deletes a mesh surface between import and solver
+  initialization. Database 206 to 228; per version 76, 118, 214, 218.
+
+  Two things in that chapter are not uniform and both are recorded
+  because nothing else would carry them. The all-surfaces sentinel is
+  `-1` on most commands and **zero** on `TRANSLATE_SURFACE_IN_FRAME` and
+  `TRANSLATE_SURFACE_BY_FRAME`, which the manual states per command and
+  never contrasts, so a script reaching for `-1` out of habit translates
+  surface `-1` rather than every surface. And `SURFACE_MIRROR`'s
+  `MIRROR_PLANE` is an INDEX, 1 for YZ, 2 for XZ and 3 for XY, the only
+  plane argument in the database that refuses the two-letter token every
+  neighbouring command takes.
+
+  Two version stories the manual tells by omission rather than
+  statement. `SELECT_GEOMETRY_BY_ID` is the February spelling of
+  `SURFACE_SELECT_BY_ID`, and each carries only the editions that
+  document it, so emitting the wrong one for a build is refused.
+  `SURFACE_DELETE` and `SURFACE_CLEARALL` are documented in three
+  editions and replaced by `DELETE_SURFACES` in the fourth; neither is
+  `removed`, because a removal here means a manual stating one. The
+  emitter still accepts both for 26.121 through hotfix inheritance,
+  which is per version and cannot be denied per command
+  (PLN-20260807-1010), and a test pins that permissive behaviour so the
+  fix cannot land quietly.
+
+  `SURFACE_ROTATE`'s surface keyword is spelled `SURFACE` in its table
+  and `SURFACES` in its sample. A keyword is emitted rather than
+  matched, so unlike a value set this cannot accept both; the printed
+  spelling is used and PLN-20260807-1000 carries the probe.
+
 * **The CAD chapters entered the database: 42 commands across all four
   registered builds, and CAD Create is COMPLETE.** Six CAD body commands
   in `cad.yaml`, and 36 in `cad_create.yaml`: the pane settings and the
