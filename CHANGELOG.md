@@ -116,6 +116,23 @@ FlightStream versions.
   edition, so the declared set refused the manual's own call. Pass the
   index as the string `"2"`.
 
+* **`parse_signatures` reads a signature heading that WRAPS.** Five
+  commands continue their placeholders onto a second line, identically
+  in all four registered editions, and the parser reported every one of
+  them short: `CREATE_NEW_RECTANGLE_VOLUME_SECTION` by three arguments,
+  the other four by one. A short signature is the worst output this
+  module has, because the draft it feeds LOADS: the schema accepts an
+  entry with fewer arguments, the emitter then accepts a call with fewer
+  tokens, and the solver reads the line differently with nothing between
+  them to object. The rule is strict about what continues a heading, a
+  line of placeholders and nothing else, so a following heading cannot
+  donate its arguments to the command above it.
+
+  No committed entry was wrong: the two affected commands already in the
+  database were hand-authored from the page rather than from the parser,
+  which is the argument for reading the page that this session has now
+  made twice.
+
 * **New public function `pyflightstream.utils.sample_contradiction`**,
   and `render_entry` now writes `???` for a type the manual's own sample
   refuses instead of writing the type. Drafts of commands whose

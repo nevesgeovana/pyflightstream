@@ -119,6 +119,25 @@ _INDEX_LINE = re.compile(r"^([A-Z][A-Z0-9_]{3,})\s+(\S.*?)\s*$")
 _SIGNATURE = re.compile(r"^Function name:\s*([A-Z][A-Z0-9_]{2,})\s*(.*)$")
 _PLACEHOLDER = re.compile(r"<([^>]+)>")
 
+#: A signature heading that WRAPS: the line after it is placeholders and
+#: nothing else, so those placeholders belong to the signature above.
+#:
+#: Five commands do this, identically in all four registered editions,
+#: and the parser reported every one of them short until 2026-08-07:
+#: CAD_CREATE_AUTO_CROSS_SECTIONS and CREATE_NEW_CIRCLE_VOLUME_SECTION
+#: by one, CREATE_NEW_6DOF_SPRING_FORCE and
+#: CAD_CREATE_REVOLVE_MESH_FROM_CCS by one, and
+#: CREATE_NEW_RECTANGLE_VOLUME_SECTION by THREE. A short signature is
+#: the worst shape this module can produce, because the draft it feeds
+#: LOADS: the schema accepts an entry with fewer arguments, the emitter
+#: then accepts a call with fewer tokens, and the solver reads the line
+#: differently with nothing between the two to object.
+#:
+#: The rule is deliberately strict. A continuation line holds ONLY
+#: placeholders, so a following sentence, a parameter-table heading or a
+#: sample line cannot be absorbed into a signature.
+_WRAPPED_SIGNATURE = re.compile(r"^\s*(?:<[^>]+>\s*)+$")
+
 #: A parameter-table row of a command with no inline signature begins
 #: with the keyword it documents. Two capitals minimum and a following
 #: space or glued lowercase, so a wrapped line beginning with a normal
@@ -277,7 +296,10 @@ def parse_signatures(
             name = match.group(1)
             if name in found:
                 continue
-            placeholders = tuple(a.strip() for a in _PLACEHOLDER.findall(match.group(2)))
+            signature = match.group(2)
+            if i + 1 < len(lines) and _WRAPPED_SIGNATURE.match(lines[i + 1]):
+                signature += " " + lines[i + 1].strip()
+            placeholders = tuple(a.strip() for a in _PLACEHOLDER.findall(signature))
             found[name] = ManualCommand(
                 name=name,
                 page=page,

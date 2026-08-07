@@ -966,3 +966,69 @@ def test_a_non_enum_proposal_still_takes_no_tokens():
     """
     command = _rotate_shaped_command()
     assert sample_contradiction(command, index=0, proposed="int") is None
+
+
+def test_a_signature_heading_that_wraps_is_read_whole():
+    """A short signature is the worst thing this module can produce.
+
+    Five commands wrap their heading, identically in all four registered
+    editions, and the parser reported every one short until 2026-08-07,
+    CREATE_NEW_RECTANGLE_VOLUME_SECTION by three arguments. The
+    shortfall is silent all the way down: a short entry LOADS, the
+    emitter then accepts a short call, and the solver reads the line
+    differently with nothing in between to object.
+    """
+    page = (
+        "Function name: X_MAKE_SECTION <FRAME> <PLANE> <OFFSET> <IPTS> <JPTS> <PRISMS>\n"
+        "<THICKNESS> <LAYERS> <GROWTH_RATE>\n"
+        "Function parameters:\n"
+        "Parameter Value\n"
+        "FRAME Index of the coordinate system.\n"
+        "Sample:\n"
+        "X_MAKE_SECTION 1 XZ 0.1 20 40 PRISMS 0.3 20 1.2\n"
+    )
+    command = parse_signatures({366: page})["X_MAKE_SECTION"]
+    assert command.inline_args == (
+        "FRAME",
+        "PLANE",
+        "OFFSET",
+        "IPTS",
+        "JPTS",
+        "PRISMS",
+        "THICKNESS",
+        "LAYERS",
+        "GROWTH_RATE",
+    )
+    assert len(command.inline_args) == len(command.sample[0].split()) - 1, (
+        "the whole point of reading the wrap is that the signature and the sample "
+        "then agree on how many arguments the command takes"
+    )
+
+
+@pytest.mark.parametrize(
+    "following",
+    [
+        "Function parameters:",
+        "Sample:",
+        "The value is one of the following: X, Y or Z.",
+        "X_MAKE_SECTION 1 XZ 0.1",
+        # The case that actually bites, and the only one of the five that
+        # does: a heading whose neighbour is another heading. The manual
+        # prints these back to back for bare commands, and a rule that
+        # appended any following line would give the FIRST command the
+        # SECOND one's arguments. The other four rows carry no
+        # placeholders at all, so they pass under a broken rule too and
+        # are kept only as the readable half of the statement.
+        "Function name: X_OTHER_COMMAND <ALPHA> <BETA>",
+    ],
+)
+def test_only_a_line_of_pure_placeholders_continues_a_signature(following):
+    """The control: the rule must not swallow the line after every heading.
+
+    Without this the test above passes under a rule that appended
+    whatever came next, which would read a following signature's
+    arguments into this command.
+    """
+    page = f"Function name: X_MAKE_SECTION <FRAME> <PLANE>\n{following}\n"
+    command = parse_signatures({1: page})["X_MAKE_SECTION"]
+    assert command.inline_args == ("FRAME", "PLANE"), following
