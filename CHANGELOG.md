@@ -9,6 +9,33 @@ FlightStream versions.
 
 ### API surface delta
 
+* **The author's decisions of 2026-08-08 on what this sweep owes the
+  older builds, and what it does not.** A chapter now enters for every
+  registered version in one pass, which is written into the
+  chapter-entry guidance in `docs/srs/data-model.md`. The 117 entries
+  still documented in an edition they carry no row for drain as the
+  sweep reaches their chapters, rather than as a task of their own, so
+  the number falls without a separate push. Stated here rather than left
+  to be discovered, because until it reaches zero a caller on 26.100 or
+  26.101 still meets a refusal for a command their manual describes.
+
+  Not changed, each deliberately: argument names go on mirroring each
+  manual page rather than being harmonised; the count spelled
+  `surfaces` stays, being the house spelling on eight commands and not a
+  slip in one; the positivity bounds the manual states on the spring
+  force stay unenforced; and the emitter's two argument-name maps stay
+  beside the `cites` declaration rather than being replaced by it.
+
+  One decision could not be carried out as taken.
+  `ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS` was to have its lower bound
+  enforced, and reading the page to do it showed the manual does not say
+  WHICH value of 1 it forbids: the sentence sits on the count row and
+  its gloss describes the reference index, the sample satisfies both
+  readings, and all four editions carry the identical wording. Enforcing
+  the wrong one would refuse a valid script, so nothing is enforced and
+  `PLN-20260808-1100` carries the probe. The entry's note, which had
+  stated one reading as fact, now states the ambiguity.
+
 * **Fourth round, and the sweep itself verified clean.** An independent
   seat read all four editions page by page and confirmed the fifteen
   boundary indices: nine state an all-form, six state none, no edition

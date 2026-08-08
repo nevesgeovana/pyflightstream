@@ -49,6 +49,26 @@ whose name says it cites something and that resolves to nothing;
 indices of objects the builder does not track (CAD bodies and curves,
 sections, separations, trailing edges) are listed there by name.
 
+### A chapter enters for every registered version at once
+
+Read the chapter in all four editions in the same pass and give each
+entry a row per edition that documents it, with that edition's own page.
+This is cheaper than it sounds, because the pages are open anyway, and
+it is the only way the per-version grammar differences get found: the
+February 2026 build is the one that renames things (EUCLIDEAN rather
+than ROTARY, two arguments rather than three), so a chapter entered
+from the newest manual alone records a grammar the older builds do not
+accept and refuses commands their manuals document.
+
+The rule was adopted on 2026-08-08 after the reverse was measured. The
+database was built forward from 26.120, the only registered version for
+most of its life, and the two earlier builds were registered later
+without a backward sweep; 117 entries are still documented in an edition
+they carry no row for. That residual drains as the sweep reaches each
+chapter rather than being attacked on its own, so the number falls
+without a separate task, and it is only correct to leave it falling for
+as long as new chapters keep arriving this way.
+
 Per-version statuses and their evidence rules:
 
 | Status | Claim | Evidence required |

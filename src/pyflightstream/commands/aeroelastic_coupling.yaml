@@ -64,8 +64,22 @@ ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS:
     "26.120": {status: documented}
   notes: >
     Links user-defined coordinate systems for the aeroelastic
-    interpolation, one index per line after the count; index 1 (the
-    reference frame) is rejected by the solver per the manual.
+    interpolation, one index per line after the count.
+
+    THE PAGE FORBIDS A VALUE OF 1 AND DOES NOT SAY WHICH VALUE. The
+    parameter table has a single row, NUM_INDEX, which is the count; the
+    index lines have no row of their own. On that row the manual says
+    setting the value to 1, glossed as the reference, throws an error.
+    So the sentence sits on the COUNT and its gloss describes an INDEX,
+    and the two readings differ: a count of exactly one coordinate
+    system refused, or the reference frame refused among the indices.
+    The sample settles nothing, passing a count of 3 and the indices 2,
+    3 and 4, which satisfies both. All four editions carry the identical
+    wording (SRC-725 p.374, SRC-003 p.375, SRC-740 p.378).
+
+    Nothing is enforced here for that reason. This entry previously
+    asserted the index reading as fact, which was an interpretation
+    presented as a citation; PLN-20260808-1100 carries the probe.
 
 IMPORT_AEROELASTIC_STRUCTURAL_NODES:
   layout: inline
