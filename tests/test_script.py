@@ -3545,3 +3545,34 @@ def test_the_two_new_count_spellings_are_checked_against_their_own_lists():
     good = Script(version="26.120")
     good.emit("BOOLEAN_UNITE_MESH", num_bodies=3, body_indices=[1, 2, 3])
     assert good.render().splitlines()[:2] == ["BOOLEAN_UNITE_MESH 3", "1 2 3"]
+
+
+def test_a_keyword_block_is_closed_by_a_blank_line():
+    """The terminator, measured by breaking it (RPT-019, 2026-08-08).
+
+    A keyword block ends at a blank line. Without one the solver reads
+    the FOLLOWING command as another keyword line and desynchronises,
+    and the error it logs names that following command rather than the
+    block, so the diagnosis points at the wrong line.
+
+    The emitter has always written the separator, which is why no script
+    this library builds has hit it, and why nothing asserted it either.
+    Two hand-written probe scripts hit it in the same hour.
+    """
+    script = Script(version="26.120")
+    script.emit(
+        "FLUID_PROPERTIES",
+        density=1.179,
+        pressure=98765.4,
+        temperature=291.55,
+        viscosity=1.85e-05,
+        specific_heat_ratio=1.31,
+    )
+    script.emit("SOLVER_SET_AOA", 3.0)
+    lines = script.render().splitlines()
+    assert lines[-3] == "SPECIFIC_HEAT_RATIO 1.31"
+    assert lines[-2] == "", (
+        "a keyword block must be followed by a blank line; without it the solver "
+        "reads the next command as a keyword line (RPT-019)"
+    )
+    assert lines[-1] == "SOLVER_SET_AOA 3.0"

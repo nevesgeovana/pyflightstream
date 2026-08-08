@@ -105,14 +105,17 @@ STABILITY_TOOLBOX_NEW_COEFFICIENT:
     variable, scaled by a constant, computed on a named set of
     boundaries in a named frame.
 
-    THE KEYWORD ORDER HERE IS THE SAMPLES' AND NOT THE TABLE'S. The
-    parameter table lists NAME, NUMERATOR, FRAME, UNITS, DENOMINATOR,
-    CONSTANT, BOUNDARIES; both printed samples write DENOMINATOR before
-    FRAME and UNITS. The samples are used because they are the only
-    runnable lines the vendor has written and because there are TWO of
-    them agreeing, which makes the order a statement rather than a
-    typesetting accident. Whether the solver cares about keyword order
-    at all is untested; PLN-20260808-2200 carries the probe.
+    THE KEYWORD ORDER HERE IS THE SAMPLES' AND NOT THE TABLE'S, AND IT
+    DOES NOT MATTER. The parameter table lists NAME, NUMERATOR, FRAME,
+    UNITS, DENOMINATOR, CONSTANT, BOUNDARIES; both printed samples write
+    DENOMINATOR before FRAME and UNITS. The samples are followed here
+    because two agreeing runnable lines beat a table's layout.
+
+    That choice was made while it was unknown whether the solver reads
+    keyword order at all, and RPT-019 then measured it: a keyword block
+    is matched by KEYWORD, and a fully reversed block leaves the same
+    state. So the disagreement on this page has no consequence, and no
+    future chapter needs to weigh a table's order against a sample's.
 
     BOUNDARIES CARRIES THE COUNT AND -1 MEANS ALL, in which case no
     index line follows. Both forms are printed as samples, which is why

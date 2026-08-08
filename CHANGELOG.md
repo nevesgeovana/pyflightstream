@@ -9,6 +9,27 @@ FlightStream versions.
 
 ### API surface delta
 
+* **MEASURED: a keyword block is read by NAME, not by position**
+  (`RPT-019`, closing `PLN-20260808-2200`). Every `keyword_block` entry
+  in the database fixes an order and nothing had ever asked whether the
+  solver reads it. On the 26.121 build, the same five `FLUID_PROPERTIES`
+  keyword lines in documented, transposed and fully REVERSED order leave
+  the identical solver state, which a positional reader could not do.
+
+  So the order an entry fixes is cosmetic, the
+  `STABILITY_TOOLBOX_NEW_COEFFICIENT` table-versus-sample disagreement
+  has no consequence, and the database-wide audit that a positional
+  answer would have forced is not owed. The residual is in the report:
+  one command, one build, and a parser being uniform over its own
+  grammar is an inference.
+
+  A GRAMMAR FACT FELL OUT OF BREAKING IT. A keyword block is terminated
+  by a BLANK LINE; without one the solver reads the next command as a
+  keyword line, and the error names that following command rather than
+  the block. The emitter has always written the separator, which is why
+  no script this library builds had ever hit it and why nothing asserted
+  it. A tier-1 guard does now, proven by removing the separator.
+
 * **The emitter has ONE way to know what an index cites, where it had
   two** (`PLN-20260807-1410`, the author's decision of 2026-08-08). An
   argument declares `cites` on its own entry, and the two global maps
