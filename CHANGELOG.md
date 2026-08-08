@@ -9,6 +9,38 @@ FlightStream versions.
 
 ### API surface delta
 
+* **The CCS Wing Mesh chapter entered: 11 commands, the chapter
+  complete.** The parametric wing definition that a mesh is lofted from,
+  so everything here configures a definition rather than acting on an
+  existing mesh: the per-direction grid (subdivisions, growth scheme and
+  rate, periodicity, and the reset), the spanwise refinement zones, the
+  morphing control surface and the flap cove, and the export that writes
+  a lofted wing to a file instead of into the simulation. Entered from
+  all four editions in one pass under the rule below. Database 248 to
+  259; per version 118, 166, 238, 242.
+
+  `NEW_CCS_WING_FLAP_COVE` REACHED THE DATABASE ONLY BECAUSE A PAGE WAS
+  READ. It carries a signature heading in every edition and no Script
+  Index row at all, and the coverage sweep was index-driven, so it
+  reported the command as covered and would have gone on doing so
+  indefinitely. A false absent is visible the moment someone looks for
+  the command; a false covered is invisible by construction. The sweep
+  now walks chapter bodies (`PLN-20260808-1200`), and the two
+  measurements agreeing on a total of 140 turned out to be a
+  coincidence, the index-driven set carrying one false positive and
+  missing one command.
+
+  `COVE_TYPE` is an index and not a word, 1 for a blended Bezier cove
+  and 2 for a rectangular one, among a family whose every other shape
+  argument is a token. `U00` and `U01` are upper- and lower-surface slot
+  locations, which is a different pairing from the `U0` and `U1` of the
+  two control-surface commands on the same page. And the -1 that deletes
+  every refinement zone or control surface is recorded in the notes
+  rather than declared as `all_sentinel`: those objects belong to the
+  parametric definition and not to the loaded geometry, so the builder
+  tracks neither and there is no inventory for a sentinel to be read
+  against.
+
 * **The author's decisions of 2026-08-08 on what this sweep owes the
   older builds, and what it does not.** A chapter now enters for every
   registered version in one pass, which is written into the

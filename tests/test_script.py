@@ -2158,6 +2158,14 @@ _INDEXES_OF_UNTRACKED_OBJECTS = {
     ("SELECT_MESH_NODE", "node_id"),
     ("SURFACE_MIRROR", "mirror_plane"),
     ("DELETE_6DOF_EXTERNAL_FORCE", "force_id"),
+    # The CCS wing definition's own objects, added 2026-08-08 with that
+    # chapter: a spanwise refinement zone and a control surface belong to
+    # a parametric wing definition, not to the loaded geometry, so the
+    # builder has no inventory of either. Both document -1 to delete all,
+    # which is recorded in their notes rather than declared as a sentinel,
+    # for the same reason: with no kind to resolve, nothing reads it.
+    ("DELETE_CCS_WING_REFINEMENT_ZONES", "zone_index"),
+    ("DELETE_CCS_WING_CONTROL_SURFACE", "control_index"),
 }
 
 #: Name stems that suggest an argument cites something by index. This
@@ -2459,3 +2467,124 @@ def test_the_rotate_all_form_takes_no_index_line():
             adaptive_mesh="DISABLE",
             detach_normal_to_axis="ENABLE",
         )
+
+
+# --- CCS Wing Mesh ------------------------------------------------------------
+
+
+@pytest.mark.parametrize("version", ["26.100", "26.101", "26.120", "26.121"])
+def test_the_ccs_wing_chapter_emits_on_every_registered_build(version):
+    """Each line is the manual's own printed sample.
+
+    The gapped control surface is left out of this walk because its
+    grammar differs by build (eight arguments before 26.120, ten from
+    it), and it has its own test below.
+    """
+    script = Script(version=version)
+    script.emit("DEFAULT_CCS_WING_MESH_SETTINGS", "SPAN")
+    script.emit("CCS_WING_MESH_SUBDIVISIONS", "CHORD", 120)
+    script.emit("CCS_WING_MESH_GROWTH_SCHEME", "CHORD", "DUAL-SIDED")
+    script.emit("CCS_WING_MESH_GROWTH_RATE", "CHORD", 1.2)
+    script.emit("CCS_WING_MESH_PERIODICITY", "SPAN", 2)
+    script.emit("NEW_CCS_WING_REFINEMENT_ZONE", 0.2, 0.4, 20)
+    script.emit("DELETE_CCS_WING_REFINEMENT_ZONES", -1)
+    script.emit("NEW_CCS_WING_MORPHING_SURFACE", "Aileron", 0.5, 0.7, 0.15, 0.15, 0.5, 20.0)
+    script.emit("NEW_CCS_WING_FLAP_COVE", "Cove", 0.1, 0.3, 0.15, 0.15, "1")
+    script.emit("DELETE_CCS_WING_CONTROL_SURFACE", -1)
+    script.emit("EXPORT_WING_CCS_FILE", "Wing", "TRUE", "BLUNT", "TRUE", "C2", "C0", "wing_ccs.csv")
+    golden = (GOLDENS / "ccs_wing_chapter.txt").read_text(encoding="utf-8")
+    assert script.render() == golden
+
+
+def test_the_gapped_control_surface_has_two_arities_and_the_earlier_one_refuses_the_axis():
+    """SPACE and AXIS arrive at 26.120 (SRC-003 p.299).
+
+    Before that the spanwise limits are parametric only, so the two
+    trailing arguments name a capability the older builds do not have,
+    and passing them would send tokens the solver never reads.
+    """
+    for early in ("26.100", "26.101"):
+        script = Script(version=early)
+        script.emit(
+            "NEW_CCS_WING_CONTROL_SURFACE", "Aileron", 0.5, 0.7, 0.15, 0.15, 0.5, 20.0, 0.001
+        )
+        assert "NEW_CCS_WING_CONTROL_SURFACE Aileron 0.5 0.7 0.15 0.15 0.5 20.0 0.001" in (
+            script.render()
+        )
+        with pytest.raises(CommandArgumentError):
+            Script(version=early).emit(
+                "NEW_CCS_WING_CONTROL_SURFACE",
+                "Aileron",
+                0.5,
+                0.7,
+                0.15,
+                0.15,
+                0.5,
+                20.0,
+                0.001,
+                "REAL",
+                "Y",
+            )
+
+    late = Script(version="26.120")
+    late.emit(
+        "NEW_CCS_WING_CONTROL_SURFACE",
+        "Aileron",
+        0.5,
+        0.7,
+        0.15,
+        0.15,
+        0.5,
+        20.0,
+        0.001,
+        "REAL",
+        "Y",
+    )
+    assert "0.001 REAL Y" in late.render()
+
+    # The two are optional even where they exist, which the manual's own
+    # sample relies on: it prints eight arguments on the ten-argument
+    # page. That is the sample-versus-heading class, and here the table
+    # settles it by making both conditional on SPACE being REAL.
+    parametric = Script(version="26.120")
+    parametric.emit(
+        "NEW_CCS_WING_CONTROL_SURFACE", "Aileron", 0.5, 0.7, 0.15, 0.15, 0.5, 20.0, 0.001
+    )
+    assert parametric.render().rstrip().endswith("0.001")
+
+
+def test_the_flap_cove_type_is_an_index_and_refuses_a_word():
+    """One numbered shape argument among a family of tokens.
+
+    SRC-003 p.300 gives 1 for a blended Bezier cove and 2 for a
+    rectangular one, while every neighbouring shape argument in the
+    family is spelled as a word, so BEZIER is the natural mistake.
+    """
+    script = Script(version="26.120")
+    with pytest.raises(CommandArgumentError, match="expects one of"):
+        script.emit("NEW_CCS_WING_FLAP_COVE", "Cove", 0.1, 0.3, 0.15, 0.15, "BEZIER")
+
+
+def test_the_ccs_wing_delete_commands_take_their_documented_minus_one():
+    """The -1 is in the notes rather than declared, so this pins it.
+
+    A refinement zone and a control surface belong to the parametric
+    definition and not to the loaded geometry, so the builder tracks
+    neither and nothing range checks these indices. That makes the
+    manual's own all-form untested unless a test says so.
+    """
+    registry = CommandRegistry.load()
+    for name, argument in (
+        ("DELETE_CCS_WING_REFINEMENT_ZONES", "zone_index"),
+        ("DELETE_CCS_WING_CONTROL_SURFACE", "control_index"),
+    ):
+        entry = registry.commands[name]
+        assert [spec.name for spec in entry.args] == [argument]
+        assert entry.args[0].all_sentinel is None, (
+            f"{name} cites no tracked entity, so a declared sentinel would be inert; "
+            "the -1 belongs in the notes until the object becomes tracked"
+        )
+        assert "-1" in entry.notes
+        script = Script(version="26.120")
+        script.emit(name, -1)
+        assert f"{name} -1" in script.render()

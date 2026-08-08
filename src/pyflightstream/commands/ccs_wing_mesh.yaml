@@ -1,8 +1,28 @@
-# Chapter: Scripting reference, CCS Wing Mesh (SRC-003 pp.297-299).
-# Only the gapped control-surface command is drafted so far: it is the
-# family member whose grammar is version-sensitive (the SPACE and AXIS
-# parameters added at 26.12); the remaining family entries await a
-# dedicated chapter pass.
+# Chapter: Scripting reference, CCS Wing Mesh (SRC-003 pp.298-300).
+#
+# COMPLETE as of 2026-08-08, entered from all four registered editions in
+# one pass. The page range used to read pp.297-299 and was wrong by one at
+# each end; p.297 carries no signature heading at all.
+#
+# CCS is the vendor's parametric wing definition: a wing is described by
+# curves and a mesh is lofted from them, so everything here configures a
+# DEFINITION rather than acting on an existing mesh. Phase is geometry
+# throughout for that reason.
+#
+# TWO THINGS THIS FAMILY DOES NOT SHARE WITH THE MESH CHAPTERS.
+#
+# The -1 that deletes every refinement zone or control surface is NOT an
+# all_sentinel declaration. That field is read only where the emitter
+# knows which inventory an index belongs to, and a refinement zone is not
+# an entity the script builder tracks: nothing checks the index, so there
+# is nothing to exempt. The -1 lives in the notes, and the day zones
+# become tracked is the day it moves.
+#
+# And NEW_CCS_WING_FLAP_COVE reached the database only because a page was
+# read rather than the index. It carries a Function name heading in every
+# edition and NO Script Index row, so the index-driven coverage sweep
+# reported it as covered forever. The sweep now walks chapter bodies
+# (PLN-20260808-1200).
 
 NEW_CCS_WING_CONTROL_SURFACE:
   layout: inline
@@ -36,6 +56,30 @@ NEW_CCS_WING_CONTROL_SURFACE:
       required: false
   manual_ref: "SRC-003 p.299"
   versions:
+    "26.100":
+      status: documented
+      note: >-
+        SRC-741 p.293: eight-argument form, as 26.101 below; the SPACE
+        and AXIS parameters arrive with 26.120
+      args:
+        - name: name
+          type: str
+        - name: v0
+          type: float
+        - name: v1
+          type: float
+        - name: u0
+          type: float
+        - name: u1
+          type: float
+        - name: hinge_height
+          type: float
+        - name: angle
+          type: float
+          unit: "deg"
+        - name: slot_gap
+          type: float
+          unit: "percent of span"
     "26.101":
       status: documented
       note: >-
@@ -62,6 +106,7 @@ NEW_CCS_WING_CONTROL_SURFACE:
           type: float
           unit: "percent of span"
     "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.302, same grammar as 26.120"}
   notes: >
     Creates a gapped control surface on a CCS wing component. V0 and
     V1 are the spanwise limits, U0 and U1 the chordwise depths from
@@ -91,3 +136,306 @@ NEW_CCS_WING_CONTROL_SURFACE:
     underspecified. That rule belongs in a curated helper, as the
     free_stream helper carries the equivalent rule for SET_FREESTREAM,
     and this command has no helper at all (PLN-20260806-1150).
+
+# --- the mesh grid, per direction ---------------------------------------------
+#
+# Every command below takes CHORD or SPAN first, so one wing carries two
+# independent grid settings and a script that sets only one leaves the
+# other at whatever the definition already held.
+
+DEFAULT_CCS_WING_MESH_SETTINGS:
+  layout: inline
+  phase: geometry
+  args:
+    - name: direction
+      type: enum
+      values: [CHORD, SPAN]
+  manual_ref: "SRC-003 p.298"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.292, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.297, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.301, same grammar as 26.120"}
+  notes: >
+    Resets every mesh setting of one direction to the vendor default. The
+    reset is per DIRECTION and not per component, so resetting the
+    spanwise grid leaves the chordwise subdivisions, growth and
+    periodicity as the script left them.
+
+CCS_WING_MESH_SUBDIVISIONS:
+  layout: inline
+  phase: geometry
+  args:
+    - name: direction
+      type: enum
+      values: [CHORD, SPAN]
+    - name: num_pts
+      type: int
+  manual_ref: "SRC-003 p.298"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.292, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.297, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.301, same grammar as 26.120"}
+  notes: >
+    Number of grid subdivisions along the named direction. This is the
+    node count of the lofted mesh in that direction rather than a
+    refinement factor, so it replaces rather than multiplies.
+
+CCS_WING_MESH_GROWTH_SCHEME:
+  layout: inline
+  phase: geometry
+  args:
+    - name: direction
+      type: enum
+      values: [CHORD, SPAN]
+    - name: scheme
+      type: enum
+      values: [NONE, DUAL-SIDED, SUCCESSIVE, REVERSE]
+  manual_ref: "SRC-003 p.298"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.292, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.297, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.301, same grammar as 26.120"}
+  notes: >
+    How grid nodes cluster along the direction. DUAL-SIDED clusters
+    toward both ends, SUCCESSIVE and REVERSE toward one, NONE spaces
+    them evenly. The rate that goes with a scheme is a separate command,
+    so a scheme set without a rate uses whatever rate the definition
+    already carried.
+
+CCS_WING_MESH_GROWTH_RATE:
+  layout: inline
+  phase: geometry
+  args:
+    - name: direction
+      type: enum
+      values: [CHORD, SPAN]
+    - name: rate
+      type: float
+  manual_ref: "SRC-003 p.298"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.292, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.297, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.301, same grammar as 26.120"}
+  notes: >
+    Clustering rate for the scheme chosen on the same direction. The
+    manual states it must be greater than zero and this database does not
+    enforce that; the positivity question is registered as
+    PLN-20260807-1410.
+
+CCS_WING_MESH_PERIODICITY:
+  layout: inline
+  phase: geometry
+  args:
+    - name: direction
+      type: enum
+      values: [CHORD, SPAN]
+    - name: periodicity
+      type: int
+  manual_ref: "SRC-003 p.298"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.292, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.297, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.301, same grammar as 26.120"}
+  notes: >
+    Number of self-repeating periods of the clustering pattern along the
+    direction. The manual states it must be greater than zero and that a
+    solid wing defaults to 2. That default is the SOLVER's and not this
+    library's, so none is recorded: this database records a default only
+    where it emits one.
+
+# --- refinement zones ---------------------------------------------------------
+
+NEW_CCS_WING_REFINEMENT_ZONE:
+  layout: inline
+  phase: geometry
+  args:
+    - name: v0
+      type: float
+    - name: v1
+      type: float
+    - name: num_pts
+      type: int
+  manual_ref: "SRC-003 pp.298-299"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.292, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.297, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.301, same grammar as 26.120"}
+  notes: >
+    Inserts extra spanwise nodes between two parametric limits. V0 and V1
+    are spanwise parametric values between 0 and 1 with V1 greater than
+    V0, which the manual states and nothing here enforces. The zone is
+    spanwise only; this family has no chordwise counterpart.
+
+DELETE_CCS_WING_REFINEMENT_ZONES:
+  layout: inline
+  phase: geometry
+  args:
+    - name: zone_index
+      type: int
+  manual_ref: "SRC-003 p.299"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.293, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.298, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.302, same grammar as 26.120"}
+  notes: >
+    Deletes one spanwise refinement zone by index, or every one at -1,
+    which the manual states and the sample passes.
+
+    THE -1 IS NOT DECLARED AS AN all_sentinel. That field is read only
+    where the emitter knows which inventory an index belongs to, and a
+    refinement zone is not an entity the script builder tracks, so
+    nothing checks this index and there is nothing to exempt. The fact
+    lives here until zones become tracked.
+
+# --- control surfaces ---------------------------------------------------------
+
+NEW_CCS_WING_MORPHING_SURFACE:
+  layout: inline
+  phase: geometry
+  args:
+    - name: name
+      type: str
+    - name: v0
+      type: float
+    - name: v1
+      type: float
+    - name: u0
+      type: float
+    - name: u1
+      type: float
+    - name: hinge_height
+      type: float
+    - name: angle
+      type: float
+      unit: "deg"
+  manual_ref: "SRC-003 p.299"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.293, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.298, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.302, same grammar as 26.120"}
+  notes: >
+    A morphing control surface, the GAPLESS alternative to
+    NEW_CCS_WING_CONTROL_SURFACE above: the same seven leading arguments
+    and no SLOT_GAP, because this surface deflects by deforming rather
+    than by opening a slot. It also gained no SPACE or AXIS at 26.120, so
+    its spanwise limits are parametric in every edition while its gapped
+    sibling's are not.
+
+    U0 and U1 are chordwise depths from the TRAILING EDGE, bounded above
+    0 and below 0.5. HINGE_HEIGHT is parametric from the upper surface
+    downward, so 0.5 is mid-thickness and 0 puts the hinge on the upper
+    surface.
+
+NEW_CCS_WING_FLAP_COVE:
+  layout: inline
+  phase: geometry
+  args:
+    - name: name
+      type: str
+    - name: v0
+      type: float
+    - name: v1
+      type: float
+    - name: u00
+      type: float
+    - name: u01
+      type: float
+    - name: cove_type
+      type: enum
+      values: ["1", "2"]
+  manual_ref: "SRC-003 pp.299-300"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.293, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.298, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.302, same grammar as 26.120"}
+  notes: >
+    The cove is the recessed surface behind a flap. COVE_TYPE is an INDEX
+    and not a word: 1 is a smoothly blended Bezier cove and 2 is
+    rectangular. Every neighbouring shape argument in this family is a
+    token, so passing BEZIER here is the natural mistake.
+
+    U00 and U01 are the upper- and lower-surface slot locations, a
+    different pairing from the U0 and U1 of the two control-surface
+    commands above, which are inner and outer chordwise depths. Four
+    arguments spelled almost alike mean two different things on one page.
+
+    ENTERED ON 2026-08-08 AND NOT BY THE COVERAGE SWEEP. This command has
+    a signature heading in all four editions and no Script Index row, so
+    the index-driven sweep reported it as covered indefinitely; it was
+    found by reading the page (PLN-20260808-1200).
+
+DELETE_CCS_WING_CONTROL_SURFACE:
+  layout: inline
+  phase: geometry
+  args:
+    - name: control_index
+      type: int
+  manual_ref: "SRC-003 p.300"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.294, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.299, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.303, same grammar as 26.120"}
+  notes: >
+    Deletes one control surface by index, or every one at -1. As on
+    DELETE_CCS_WING_REFINEMENT_ZONES above, the -1 is recorded rather
+    than declared, because a control surface is not an entity the builder
+    tracks. Whether the index counts the gapped and morphing surfaces
+    together is not stated on the page; the shared command name implies
+    it and no sample shows two.
+
+# --- lofting the mesh out -----------------------------------------------------
+
+EXPORT_WING_CCS_FILE:
+  layout: inline
+  phase: geometry
+  args:
+    - name: name
+      type: str
+    - name: mark_trailing_edges
+      type: enum
+      values: ["TRUE", "FALSE"]
+    - name: te_geometry
+      type: enum
+      values: [SHARP, BLUNT, BLEND, OPEN]
+    - name: close_ends
+      type: enum
+      values: ["TRUE", OPEN, CLOSED]
+    - name: loft_type_u
+      type: enum
+      values: [C2, C0]
+    - name: loft_type_v
+      type: enum
+      values: [C2, C0]
+    - name: file
+      type: path
+      own_line: true
+  manual_ref: "SRC-003 p.300"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.294, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.299, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.303, same grammar as 26.120"}
+  notes: >
+    The same six arguments as CAD_CREATE_WING_MESH_FROM_CCS plus a
+    destination path on the following line: this writes the lofted wing
+    to a file instead of into the simulation.
+
+    CLOSE_ENDS CARRIES THE SAME CONTRADICTION AS ITS SIBLING. The
+    parameter table states OPEN or CLOSED and the sample passes TRUE, so
+    all three tokens are accepted, for the reason recorded on
+    CAD_CREATE_WING_MESH_FROM_CCS: refusing the sample's own value would
+    refuse the only form the vendor has written as a runnable line.
+
+    The manual states C2 is the chordwise default and C0 the spanwise
+    one. Neither is recorded as a default, because both are the solver's
+    and this command has no form that omits them.
