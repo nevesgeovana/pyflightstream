@@ -9,6 +9,26 @@ FlightStream versions.
 
 ### API surface delta
 
+* **The emitter has ONE way to know what an index cites, where it had
+  two** (`PLN-20260807-1410`, the author's decision of 2026-08-08). An
+  argument declares `cites` on its own entry, and the two global maps
+  from argument NAME to entity kind are gone.
+
+  They were already the fallback rather than the rule, and a fallback
+  quietly covering 101 arguments is not a fallback. A name is a guess
+  about an argument; a declaration is the argument saying so, which is
+  why the maps could not carry `index`, a spelling that means a surface
+  in one chapter and a section in three others. All 101 now declare it,
+  including three that declare it on a per-version grammar rather than
+  the default one.
+
+  The visible gain is in the database rather than in the code: reading
+  an entry now tells you whether its index is resolved and range
+  checked, where before you had to know the map. The tier-1 closure
+  guard lost one of its three ways to be satisfied, found the three
+  per-version sites the bulk pass had missed, and was re-proven by
+  mutation.
+
 * **What the five reviewer passes changed, because two of it is
   user-visible.** `read_editions` is renamed `read_edition_manifest`
   before anyone depends on it, `Edition` is keyword-only (its two page

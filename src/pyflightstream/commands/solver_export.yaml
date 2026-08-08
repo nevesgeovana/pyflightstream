@@ -42,6 +42,7 @@ EXPORT_SOLVER_ANALYSIS_VTK:
       type: int
     - name: boundary_indices
       type: int_list
+      cites: boundaries
       separator: newline
       required: false
   manual_ref: "SRC-003 p.352"
@@ -95,10 +96,12 @@ EXPORT_SOLVER_ANALYSIS_CSV:
       values: [PASCALS, MEGAPASCALS, BAR, ATMOSPHERES, PSI]
     - name: frame
       type: int
+      cites: frames
     - name: surfaces
       type: int
     - name: boundary_indices
       type: int_list
+      cites: boundaries
       separator: newline
       required: false
   manual_ref: "SRC-003 p.353"
@@ -121,6 +124,7 @@ EXPORT_SOLVER_ANALYSIS_PLOAD_BDF:
       type: int
     - name: boundary_indices
       type: int_list
+      cites: boundaries
       separator: newline
       required: false
   manual_ref: "SRC-003 p.353"
@@ -140,6 +144,7 @@ EXPORT_SOLVER_ANALYSIS_FORCE_DISTRIBUTIONS:
       type: int
     - name: boundary_indices
       type: int_list
+      cites: boundaries
       separator: newline
       required: false
   manual_ref: "SRC-003 pp.353-354"

@@ -2246,9 +2246,12 @@ def test_an_index_argument_whose_name_suggests_a_citation_resolves_to_one():
     field necessary; nothing then stopped the sixth.
 
     So every int or int_list argument whose NAME suggests a citation
-    must either declare what it cites, be a spelling the emitter's own
-    maps already resolve, be a count, or be named above as an index of
-    an object the tracker does not model.
+    must either declare what it cites, be a count, or be named above as
+    an index of an object the tracker does not model. The middle option
+    used to include "be a spelling the emitter's own maps resolve"; the
+    maps went on 2026-08-08 (PLN-20260807-1410) and the 101 arguments
+    they covered declare it themselves now, so the guard has one fewer
+    way to be satisfied and the database says what the emitter does.
 
     STATED HONESTLY, because the first version of this docstring said
     the vocabulary was closed and it is not: the rule is a heuristic
@@ -2268,12 +2271,7 @@ def test_an_index_argument_whose_name_suggests_a_citation_resolves_to_one():
     systems, both stating 1 as the reference system.
     """
     from pyflightstream.commands import ArgType
-    from pyflightstream.script import (
-        _COUNT_ARG_NAMES,
-        _COUNT_REFERENCE_ARGS,
-        _LIST_REFERENCE_ARGS,
-        _SCALAR_REFERENCE_ARGS,
-    )
+    from pyflightstream.script import _COUNT_ARG_NAMES, _COUNT_REFERENCE_ARGS
 
     unresolved = set()
     for name, entry in CommandRegistry.load().commands.items():
@@ -2282,8 +2280,6 @@ def test_an_index_argument_whose_name_suggests_a_citation_resolves_to_one():
         for args in grammars:
             for spec in args:
                 if spec.type not in (ArgType.INT, ArgType.INT_LIST) or spec.cites is not None:
-                    continue
-                if spec.name in _SCALAR_REFERENCE_ARGS or spec.name in _LIST_REFERENCE_ARGS:
                     continue
                 if spec.name in _COUNT_ARG_NAMES or spec.name in _COUNT_REFERENCE_ARGS:
                     continue

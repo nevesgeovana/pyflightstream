@@ -142,6 +142,7 @@ CAD_BODY_SELECT_BY_THRESHOLD:
   args:
     - name: frame
       type: int
+      cites: frames
     - name: parameter
       type: enum
       values: [X, Y, Z]

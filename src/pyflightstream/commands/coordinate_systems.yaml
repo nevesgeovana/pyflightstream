@@ -23,6 +23,7 @@ EDIT_COORDINATE_SYSTEM:
   args:
     - name: frame
       type: int
+      cites: frames
     - name: name
       type: str
     - name: origin_x
@@ -65,6 +66,7 @@ SET_COORDINATE_SYSTEM_ORIGIN:
   args:
     - name: frame
       type: int
+      cites: frames
     - name: x
       type: float
     - name: y
@@ -90,6 +92,7 @@ SET_COORDINATE_SYSTEM_AXIS:
   args:
     - name: frame
       type: int
+      cites: frames
     - name: axis
       type: enum
       values: [X, Y, Z]
@@ -119,6 +122,7 @@ ROTATE_COORDINATE_SYSTEM:
   args:
     - name: frame
       type: int
+      cites: frames
     - name: rotation_frame
       type: int
       cites: frames

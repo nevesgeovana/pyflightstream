@@ -41,6 +41,7 @@ ASSIGN_AEROELASTIC_SURFACES:
       type: int
     - name: boundary_indices
       type: int_list
+      cites: boundaries
       separator: newline
       required: false
   manual_ref: "SRC-003 p.375"
@@ -61,6 +62,7 @@ ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS:
       type: int
     - name: frame_indices
       type: int_list
+      cites: frames
       separator: newline
       required: false
   manual_ref: "SRC-003 p.375"

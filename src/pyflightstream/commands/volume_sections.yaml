@@ -8,6 +8,7 @@ CREATE_NEW_RECTANGLE_VOLUME_SECTION:
   args:
     - name: frame
       type: int
+      cites: frames
     - name: plane
       type: enum
       values: [XY, XZ, YZ]
@@ -46,6 +47,7 @@ CREATE_NEW_CIRCLE_VOLUME_SECTION:
   args:
     - name: frame
       type: int
+      cites: frames
     - name: plane
       type: enum
       values: [XY, XZ, YZ]

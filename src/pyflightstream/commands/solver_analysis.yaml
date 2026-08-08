@@ -8,6 +8,7 @@ SET_VORTICITY_DRAG_BOUNDARIES:
       type: int
     - name: boundary_indices
       type: int_list
+      cites: boundaries
       required: false
   manual_ref: "SRC-003 p.350"
   versions:
@@ -42,6 +43,7 @@ SET_SOLVER_ANALYSIS_LOADS_FRAME:
   args:
     - name: load_frame
       type: int
+      cites: frames
   manual_ref: "SRC-003 p.350"
   versions:
     "26.100": {status: documented, note: "SRC-741 p.346, same grammar as 26.120"}
@@ -113,6 +115,7 @@ SET_SOLVER_ANALYSIS_BOUNDARIES:
       type: int
     - name: boundary_indices
       type: int_list
+      cites: boundaries
   manual_ref: "SRC-003 p.351"
   versions:
     "26.100": {status: documented, note: "SRC-741 p.347, same grammar as 26.120"}

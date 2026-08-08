@@ -75,6 +75,7 @@ PROBE_POINTS_IMPORT:
                MILS, MICRON, CENTIMETER, MICROINCH]
     - name: frame
       type: int
+      cites: frames
     - name: filename
       type: path
   manual_ref: "SRC-003 pp.362-363"

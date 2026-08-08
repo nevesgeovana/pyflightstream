@@ -68,6 +68,7 @@ SET_FREESTREAM:
       required: false
     - name: frame
       type: int
+      cites: frames
       required: false
     - name: axis
       type: enum

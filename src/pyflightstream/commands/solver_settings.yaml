@@ -75,6 +75,7 @@ SET_VISCOUS_EXCLUDED_BOUNDARIES:
       type: int
     - name: boundary_indices
       type: int_list
+      cites: boundaries
   manual_ref: "SRC-003 p.341"
   versions:
     "26.100": {status: documented, note: "SRC-741 p.338, same grammar as 26.120"}
@@ -120,6 +121,7 @@ CREATE_BULK_SEPARATION:
       unit: "simulation length units"
     - name: boundary_indices
       type: int_list
+      cites: boundaries
       required: false
   manual_ref: "SRC-003 p.342"
   versions:
@@ -147,6 +149,7 @@ CREATE_BULK_SEPARATION:
           unit: "simulation length units"
         - name: boundary_indices
           type: int_list
+          cites: boundaries
           required: false
     "26.120": {status: documented, note: "Contradicted by evidence and not yet reprobed: on 26.120 (build #7012026) the solver refused all four documented forms, including the three-argument 26.1 form that ran on the May build, then called 26.100 and now 26.101 (reports/RPT-015_bulk-separation-family-acceptance_2026-08-02.md). The status stays documented because a promotion needs a probe report written by pyfs-qa (CLAUDE.md invariant 3) and RPT-015 is an ad-hoc probe that promotes nothing; the harness re-probe is PLN-20260802-2240."}
   notes: >
@@ -181,6 +184,7 @@ CREATE_AIRFOIL_SEPARATION:
       values: [ENABLE, DISABLE]
     - name: boundary_indices
       type: int_list
+      cites: boundaries
       required: false
   manual_ref: "SRC-003 p.341"
   versions:
@@ -216,6 +220,7 @@ CREATE_AXIAL_VORTEX_SEPARATION:
       values: [ENABLE, DISABLE]
     - name: boundary_indices
       type: int_list
+      cites: boundaries
       required: false
   manual_ref: "SRC-003 p.342"
   versions:
@@ -245,6 +250,7 @@ CREATE_CYLINDRICAL_BULK_SEPARATION:
       unit: "simulation length units"
     - name: boundary_indices
       type: int_list
+      cites: boundaries
       required: false
   manual_ref: "SRC-740 p.345"
   versions:
@@ -266,6 +272,7 @@ CREATE_STRATFORD_BULK_SEPARATION:
       type: int
     - name: boundary_indices
       type: int_list
+      cites: boundaries
       required: false
   manual_ref: "SRC-740 p.345"
   versions:
@@ -318,6 +325,7 @@ SET_AXIAL_SEPARATION_BOUNDARIES:
       type: int
     - name: boundary_indices
       type: int_list
+      cites: boundaries
       required: false
   manual_ref: "SRC-741 p.339"
   versions:
@@ -347,6 +355,7 @@ SET_VALAREZO_SEPARATION_BOUNDARIES:
       type: int
     - name: boundary_indices
       type: int_list
+      cites: boundaries
       required: false
   manual_ref: "SRC-741 p.339"
   versions:
@@ -404,6 +413,7 @@ SET_CROSSFLOW_SEPARATION_BOUNDARIES:
       type: int
     - name: boundary_indices
       type: int_list
+      cites: boundaries
       required: false
   manual_ref: "SRC-741 p.339"
   versions:
@@ -494,6 +504,7 @@ SET_THIN_BOUNDARIES:
       type: int
     - name: boundary_indices
       type: int_list
+      cites: boundaries
       required: false
   manual_ref: "SRC-003 p.343"
   versions:

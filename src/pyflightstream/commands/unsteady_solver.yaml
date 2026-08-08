@@ -8,6 +8,7 @@ UNSTEADY_SOLVER_NEW_FORCE_PLOT:
   args:
     - name: frame
       type: int
+      cites: frames
     - name: units
       type: enum
       values: [COEFFICIENTS, NEWTONS, KILO-NEWTONS, POUND-FORCE, KILOGRAM-FORCE]
@@ -20,6 +21,7 @@ UNSTEADY_SOLVER_NEW_FORCE_PLOT:
       type: int
     - name: boundary_indices
       type: int_list
+      cites: boundaries
       required: false
   manual_ref: "SRC-003 p.347"
   versions:
@@ -37,6 +39,7 @@ UNSTEADY_SOLVER_NEW_FLUID_PLOT:
   args:
     - name: frame
       type: int
+      cites: frames
     - name: parameter
       type: enum
       values: [CP_FREE, CP_REF, MACH, VELOCITY, VX, VY, VZ, STATIC_PRESSURE_RATIO]
@@ -56,6 +59,7 @@ UNSTEADY_SOLVER_NEW_FLUID_PLOT:
       args:
         - name: frame
           type: int
+          cites: frames
         - name: parameter
           type: enum
           values: [CP_FREE, CP_REF, MACH, VELOCITY, VX, VY, VZ, STATIC_PRESSURE_RATIO,

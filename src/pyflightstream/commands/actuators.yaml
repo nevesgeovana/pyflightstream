@@ -32,6 +32,7 @@ SET_ACTUATOR_NAME:
   args:
     - name: actuator_index
       type: int
+      cites: actuators
     - name: name
       type: str
   manual_ref: "SRC-003 p.323"
@@ -45,8 +46,10 @@ SET_ACTUATOR_AXIS:
   args:
     - name: actuator_index
       type: int
+      cites: actuators
     - name: frame
       type: int
+      cites: frames
     - name: axis
       type: enum
       values: [X, Y, Z]
@@ -70,6 +73,7 @@ SET_ACTUATOR_RADIUS:
   args:
     - name: actuator_index
       type: int
+      cites: actuators
     - name: r_tip
       type: float
       unit: "simulation length units"
@@ -88,6 +92,7 @@ SET_PROP_ACTUATOR_RPM:
   args:
     - name: actuator_index
       type: int
+      cites: actuators
     - name: rpm
       type: float
       unit: "rev/min"
@@ -105,6 +110,7 @@ SET_PROP_ACTUATOR_PROFILE:
   args:
     - name: actuator_index
       type: int
+      cites: actuators
     - name: units_type
       type: enum
       values: [NEWTONS, KILO-NEWTONS, POUND-FORCE, KILOGRAM-FORCE]
@@ -129,6 +135,7 @@ SET_PROP_ACTUATOR_THRUST:
   args:
     - name: actuator_index
       type: int
+      cites: actuators
     - name: ct
       type: float
     - name: thrust_type
@@ -150,6 +157,7 @@ SET_PROP_ACTUATOR_SWIRL:
   args:
     - name: actuator_index
       type: int
+      cites: actuators
     - name: swirl_factor
       type: float
   manual_ref: "SRC-003 p.324"
@@ -168,6 +176,7 @@ ENABLE_ACTUATOR:
   args:
     - name: actuator_index
       type: int
+      cites: actuators
   manual_ref: "SRC-003 p.324"
   versions:
     "26.100":
@@ -209,6 +218,7 @@ DELETE_ACTUATOR:
   args:
     - name: actuator_index
       type: int
+      cites: actuators
   manual_ref: "SRC-003 p.324"
   versions:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
@@ -220,6 +230,7 @@ DISABLE_ACTUATOR:
   args:
     - name: actuator_index
       type: int
+      cites: actuators
   manual_ref: "SRC-741 p.319"
   versions:
     "26.100": {status: documented}

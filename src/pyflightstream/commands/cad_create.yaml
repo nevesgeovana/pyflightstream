@@ -150,6 +150,7 @@ CAD_CREATE_BOX:
   args:
     - name: frame
       type: int
+      cites: frames
     - name: x
       type: float
     - name: y
@@ -180,6 +181,7 @@ CAD_CREATE_SPHERE:
   args:
     - name: frame
       type: int
+      cites: frames
     - name: x
       type: float
     - name: y
@@ -206,6 +208,7 @@ CAD_CREATE_CYLINDER:
   args:
     - name: frame
       type: int
+      cites: frames
     - name: x
       type: float
     - name: y
@@ -238,6 +241,7 @@ CAD_CREATE_SHEET:
   args:
     - name: frame
       type: int
+      cites: frames
     - name: plane
       type: enum
       values: [XY, XZ, YZ]
@@ -475,6 +479,7 @@ CAD_CREATE_ROTATE_CURVES:
   args:
     - name: frame
       type: int
+      cites: frames
     - name: axis
       type: enum
       values: [X, Y, Z, "1", "2", "3"]
@@ -556,6 +561,7 @@ CAD_CREATE_PROJECT_CURVE:
       type: int
     - name: frame
       type: int
+      cites: frames
     - name: plane
       type: enum
       values: [XY, XZ, YZ]
@@ -602,6 +608,7 @@ CAD_CREATE_PROJECT_MULTI_CURVE:
       type: int
     - name: frame
       type: int
+      cites: frames
     - name: plane
       type: enum
       values: [XY, XZ, YZ]
@@ -632,6 +639,7 @@ CAD_CREATE_REORDER_CURVES:
   args:
     - name: frame
       type: int
+      cites: frames
     - name: sorting_direction
       type: enum
       values: ["+X", "+Y", "+Z", "-X", "-Y", "-Z"]
@@ -733,6 +741,7 @@ CAD_CREATE_IMPORT_CURVE_TXT:
       values: [2D, 3D]
     - name: frame
       type: int
+      cites: frames
     - name: plane
       type: enum
       values: [XY, XZ, YZ]
@@ -776,6 +785,7 @@ CAD_CREATE_IMPORT_CURVE_CCS:
       values: [INCH, MILLIMETER, OTHER, FEET, MILE, METER, KILOMETER, MILS, MICRON, CENTIMETER, MICROINCH]
     - name: frame
       type: int
+      cites: frames
     - name: component_index
       type: int
     - name: file
@@ -807,6 +817,7 @@ CAD_CREATE_IMPORT_CURVE_P3D:
       values: ["TRUE", "FALSE"]
     - name: frame
       type: int
+      cites: frames
     - name: component_index
       type: int
     - name: file
@@ -840,6 +851,7 @@ CAD_CREATE_CROSS_SECTION:
   args:
     - name: frame
       type: int
+      cites: frames
     - name: plane
       type: enum
       values: [XY, XZ, YZ]
@@ -881,6 +893,7 @@ CAD_CREATE_AUTO_CROSS_SECTIONS:
   args:
     - name: frame
       type: int
+      cites: frames
     - name: axis
       type: enum
       values: [X, Y, Z]
@@ -937,6 +950,7 @@ CAD_CREATE_AUTO_ANNULAR_CROSS_SECTIONS:
   args:
     - name: frame
       type: int
+      cites: frames
     - name: sections
       type: int
     - name: body_index
@@ -1062,6 +1076,7 @@ CAD_CREATE_REVOLVE_MESH_FROM_CCS:
       type: str
     - name: frame
       type: int
+      cites: frames
     - name: axis
       type: enum
       values: [X, Y, Z]

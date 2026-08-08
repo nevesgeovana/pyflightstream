@@ -161,45 +161,32 @@ _DELETION_COMMANDS = {
     "DELETE_ACTUATOR": "actuators",
     "DELETE_MOTION": "motions",
 }
-# One entity, several spellings. The database mirrors each manual page's
-# own argument names rather than harmonising them, which is deliberate
-# (see the CAD Create and Mesh Operations chapter headers: an argument
-# list that stops matching the page beside it loses the one thing it is
-# for). These two maps are the ORIGINAL mechanism and remain the default
-# for a name that means the same thing database-wide.
-#
-# They cannot carry a name that means different things on different
-# pages, and the 2026-08-07 review found the case: the Mesh Operations
-# chapter spells a surface reference "index", which elsewhere in the
-# database is a separation index, a surface-section index and a
-# volume-section index. Mapping it here would refuse valid section
-# indices, and leaving it out let SURFACE_DELETE accept a declared label
-# while SURFACE_INVERT did not, by no rule a caller could see. So an
-# argument may instead declare its entity kind itself, as ArgSpec.cites,
-# and a declaration wins over these maps.
-_SCALAR_REFERENCE_ARGS = {
-    "frame": "frames",
-    "load_frame": "frames",
-    "coordinate_system_id": "frames",
-    "actuator_index": "actuators",
-    "motion_id": "motions",
-    "surface": "boundaries",
-}
-_LIST_REFERENCE_ARGS = {
-    "frame_indices": "frames",
-    "boundary_indices": "boundaries",
-}
 
 
 def _reference_kind(spec: ArgSpec) -> str | None:
     """Return the entity kind an argument cites, or None if it cites none.
 
-    The single home of the precedence rule: an argument's own
-    ``cites`` declaration wins, and the name maps are the fallback for
-    the spellings that mean one thing database-wide. The rule was
-    written out separately in the label-resolution and index-checking
-    paths, once per scalar-or-list branch, so it lived in four places
-    that had to stay in step (2026-08-07 architecture pass).
+    ONE MECHANISM SINCE 2026-08-08: the argument's own declaration, and
+    nothing else. There were two until then, this one and a pair of
+    global maps from argument NAME to entity kind, and the maps were the
+    original.
+
+    They went because a name is a guess about an argument and a
+    declaration is the argument saying so. The maps could not carry a
+    spelling that means different things on different pages, which the
+    2026-08-07 review found: the Mesh Operations chapter spells a
+    surface reference ``index``, which elsewhere is a separation index,
+    a surface-section index and a volume-section index. Mapping it would
+    have refused valid section indices; leaving it out let
+    ``SURFACE_DELETE`` accept a declared label while ``SURFACE_INVERT``
+    did not, by no rule a caller could see.
+
+    So the maps were already the fallback rather than the rule, and a
+    fallback that silently covers 101 arguments is not a fallback. Those
+    101 now declare ``cites`` on their own entries
+    (PLN-20260807-1410), which also makes the database say what the
+    emitter does: reading an entry now tells you whether its index is
+    checked, where before you had to know the map.
 
     Parameters
     ----------
@@ -212,11 +199,7 @@ def _reference_kind(spec: ArgSpec) -> str | None:
         Entity kind name as :mod:`pyflightstream.script.entities`
         spells it, or None when the argument cites no entity.
     """
-    if spec.cites is not None:
-        return str(spec.cites)
-    if spec.is_list:
-        return _LIST_REFERENCE_ARGS.get(spec.name)
-    return _SCALAR_REFERENCE_ARGS.get(spec.name)
+    return str(spec.cites) if spec.cites is not None else None
 
 
 # Count arguments that state how many mesh boundaries the command
