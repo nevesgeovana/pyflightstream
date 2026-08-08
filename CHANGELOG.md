@@ -12,12 +12,21 @@ FlightStream versions.
 * **The author's decisions of 2026-08-08 on what this sweep owes the
   older builds, and what it does not.** A chapter now enters for every
   registered version in one pass, which is written into the
-  chapter-entry guidance in `docs/srs/data-model.md`. The 117 entries
-  still documented in an edition they carry no row for drain as the
-  sweep reaches their chapters, rather than as a task of their own, so
-  the number falls without a separate push. Stated here rather than left
-  to be discovered, because until it reaches zero a caller on 26.100 or
-  26.101 still meets a refusal for a command their manual describes.
+  chapter-entry guidance in `docs/srs/data-model.md`. The entries still
+  documented in an edition they carry no row for, counted in the
+  2026-08-07 stanza below, drain as the sweep reaches their chapters
+  rather than as a task of their own, so the number falls without a
+  separate push. Named rather than left to be discovered, because until
+  it reaches zero a caller on 26.100 or 26.101 still meets a refusal for
+  a command their own manual describes.
+
+  Applying that rule to this commit closed ten of them at once. The
+  whole Aeroelastic Coupling Toolbox carried a 26.120 row alone while
+  its 26.101 and 26.121 pages had just been read here, so the rule was
+  broken by the commit that introduced it; the rows are written with
+  their own pages (SRC-725 pp.374-375, SRC-740 pp.378-379), the
+  grammars being identical across the three editions that carry the
+  chapter. 26.101 goes 145 to 155.
 
   Not changed, each deliberately: argument names go on mirroring each
   manual page rather than being harmonised; the count spelled
@@ -31,7 +40,8 @@ FlightStream versions.
   enforced, and reading the page to do it showed the manual does not say
   WHICH value of 1 it forbids: the sentence sits on the count row and
   its gloss describes the reference index, the sample satisfies both
-  readings, and all four editions carry the identical wording. Enforcing
+  readings, and the three editions that carry the chapter word it
+  identically. Enforcing
   the wrong one would refuse a valid script, so nothing is enforced and
   `PLN-20260808-1100` carries the probe. The entry's note, which had
   stated one reading as fact, now states the ambiguity.

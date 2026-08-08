@@ -51,8 +51,13 @@ sections, separations, trailing edges) are listed there by name.
 
 ### A chapter enters for every registered version at once
 
-Read the chapter in all four editions in the same pass and give each
-entry a row per edition that documents it, with that edition's own page.
+Read the chapter in every registered edition that carries it, in the
+same pass, and give each entry a row per edition that documents it, with
+that edition's own page. Record which editions do not carry the chapter
+at all, because some do not: the February 2026 edition has no
+Aeroelastic Coupling Toolbox, so for that chapter three editions are the
+whole of it.
+
 This is cheaper than it sounds, because the pages are open anyway, and
 it is the only way the per-version grammar differences get found: the
 February 2026 build is the one that renames things (EUCLIDEAN rather
@@ -63,11 +68,16 @@ accept and refuses commands their manuals document.
 The rule was adopted on 2026-08-08 after the reverse was measured. The
 database was built forward from 26.120, the only registered version for
 most of its life, and the two earlier builds were registered later
-without a backward sweep; 117 entries are still documented in an edition
-they carry no row for. That residual drains as the sweep reaches each
-chapter rather than being attacked on its own, so the number falls
-without a separate task, and it is only correct to leave it falling for
-as long as new chapters keep arriving this way.
+without a backward sweep, leaving a residual of entries that are
+documented in an edition they carry no row for. That residual drains as
+the sweep reaches each chapter rather than being attacked on its own, so
+it falls without a separate task, and leaving it to fall is only correct
+for as long as new chapters keep arriving this way.
+
+The count is the database's own fact and its home is the CHANGELOG
+entry, not this page, for the same reason the count of entered commands
+is: a number designed to reach zero is the worst candidate for
+restating.
 
 Per-version statuses and their evidence rules:
 
