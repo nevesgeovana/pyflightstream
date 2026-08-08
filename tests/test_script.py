@@ -2710,3 +2710,85 @@ def test_the_ccs_export_close_ends_accepts_the_word_its_own_sample_passes():
         script = Script(version="26.120")
         script.emit("EXPORT_FUSELAGE_CCS_FILE", "Body", "TRUE", "BLUNT", token, "C2", "C0", "b.csv")
         assert f"BLUNT {token} C2 C0" in script.render()
+
+
+# --- Scenes and Scene Settings ------------------------------------------------
+
+
+@pytest.mark.parametrize("version", ["26.100", "26.101", "26.120", "26.121"])
+def test_the_scenes_chapter_emits_on_every_registered_build(version):
+    """Twelve display actions, eleven of which take nothing at all."""
+    script = Script(version=version)
+    script.emit("VIEW_RESIZE")
+    for scene in ("CAD", "GEOMETRY", "SOLVER", "PLOTS"):
+        script.emit(f"CHANGE_SCENE_TO_{scene}")
+    script.emit("SET_SCENE_DEFAULTVIEW")
+    for plane in ("XY", "XZ", "YZ"):
+        script.emit(f"SET_SCENE_{plane}_POSITIVE")
+        script.emit(f"SET_SCENE_{plane}_NEGATIVE")
+    script.emit("SAVE_SCENE_AS_IMAGE", "Test.bmp")
+    golden = (GOLDENS / "scenes_chapter.txt").read_text(encoding="utf-8")
+    assert script.render() == golden
+
+
+@pytest.mark.parametrize("version", ["26.100", "26.101", "26.120", "26.121"])
+def test_the_scene_settings_chapter_emits_on_every_registered_build(version):
+    """Six keyword blocks, each selecting its scale with the same first keyword."""
+    script = Script(version=version)
+    script.emit("SET_SCENE_COLORMAP_TYPE", colormap="PRIMARY", type="BLACKBODY_STANDARD")
+    script.emit("SET_SCENE_COLORMAP_SIZE", colormap="PRIMARY", thickness=300, height=15)
+    script.emit("SET_SCENE_COLORMAP_POSITION", colormap="PRIMARY", x=450, y=75)
+    script.emit(
+        "SET_SCENE_COLORMAP_SHADING", colormap="PRIMARY", reverse="DISABLE", smooth="ENABLE"
+    )
+    script.emit("SET_SCENE_COLORMAP_CUSTOM_MODE", colormap="PRIMARY", custom_range="ENABLE")
+    script.emit(
+        "SET_SCENE_COLORMAP_CUSTOM_RANGE",
+        colormap="PRIMARY",
+        cut_off_mode="ABOVE_MAX",
+        maximum=1.0,
+        minimum=-1.5,
+    )
+    golden = (GOLDENS / "scene_settings_chapter.txt").read_text(encoding="utf-8")
+    assert script.render() == golden
+
+
+def test_the_colormap_cut_off_mode_keeps_its_off_as_a_word():
+    """YAML 1.1 reads a bare OFF as the boolean false.
+
+    The schema refuses a non-string enum value, so the mistake is loud
+    rather than silent, but a later edit that unquotes it would take the
+    token out of the closed set. This is what would catch that.
+    """
+    entry = CommandRegistry.load().commands["SET_SCENE_COLORMAP_CUSTOM_RANGE"]
+    (mode,) = [spec for spec in entry.args if spec.name == "cut_off_mode"]
+    assert "OFF" in mode.values
+    script = Script(version="26.120")
+    script.emit(
+        "SET_SCENE_COLORMAP_CUSTOM_RANGE",
+        colormap="PRIMARY",
+        cut_off_mode="OFF",
+        maximum=1.0,
+        minimum=0.0,
+    )
+    assert "CUT_OFF_MODE OFF" in script.render()
+
+
+def test_the_bare_scene_commands_refuse_an_argument():
+    """The manual prints these as a heading and nothing else.
+
+    A bare command that quietly accepted an argument would let a caller
+    write a line the solver reads as something other than what they
+    meant, and twelve of the chapter's thirteen commands share the
+    shape, so one test covers the class rather than each member.
+    """
+    registry = CommandRegistry.load()
+    bare = [
+        name
+        for name, entry in registry.commands.items()
+        if entry.chapter == "scenes" and not entry.args
+    ]
+    assert len(bare) == 12, bare
+    for name in bare:
+        with pytest.raises(CommandArgumentError):
+            Script(version="26.120").emit(name, "PRIMARY")

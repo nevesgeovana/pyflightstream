@@ -1,0 +1,187 @@
+# Chapter: Scripting reference, Scene Settings (SRC-003 pp.356-357).
+#
+# COMPLETE as of 2026-08-08, entered from all four registered editions in
+# one pass. Every keyword name and every closed set is identical across
+# the four.
+#
+# THE WHOLE CHAPTER IS ONE LAYOUT AND ONE SUBJECT: keyword blocks
+# configuring the colour scale drawn beside a solver scene. The command
+# name stands alone on its line and each argument follows as an
+# uppercased keyword and a value, which is why these entries declare no
+# inline arguments and their order in the block is the order below.
+#
+# EVERY COMMAND SELECTS ITS TARGET WITH THE SAME FIRST KEYWORD, COLORMAP,
+# PRIMARY or SECONDARY. It names which of the two colour scales the rest
+# of the block applies to, and it is not an entity index: the two scales
+# are fixtures of the scene rather than objects a script creates, so
+# there is no inventory to cite and nothing for the builder to track.
+#
+# Phase is control throughout, as in the Scenes chapter: these change
+# what is displayed, not what is computed.
+
+SET_SCENE_COLORMAP_TYPE:
+  layout: keyword_block
+  phase: control
+  args:
+    - name: colormap
+      type: enum
+      values: [PRIMARY, SECONDARY]
+    - name: type
+      type: enum
+      values:
+        - RAINBOW_STANDARD
+        - GRAYSCALE
+        - BENT_HOTCOOL
+        - BLACKBODY_STANDARD
+        - BLACKBODY_EXTENDED
+        - KINDLMANN
+        - RAINBOW_LONG
+        - BROWNBLUE
+        - HOTCOOL
+        - TURBO
+        - BLACK_BLUE_WHITE
+  manual_ref: "SRC-003 p.356"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.352, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.355, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.359, same grammar as 26.120"}
+  notes: >
+    Selects the colour ramp. The eleven names are the manual's own, in
+    the order it prints them, and all four editions list the same
+    eleven. They are perceptual choices rather than numerical ones and
+    none of them changes a computed value.
+
+SET_SCENE_COLORMAP_SIZE:
+  layout: keyword_block
+  phase: control
+  args:
+    - name: colormap
+      type: enum
+      values: [PRIMARY, SECONDARY]
+    - name: thickness
+      type: int
+      unit: "pixels"
+    - name: height
+      type: int
+      unit: "pixels"
+  manual_ref: "SRC-003 p.356"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.352, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.355, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.359, same grammar as 26.120"}
+  notes: >
+    Size of the colour bar in screen pixels. THICKNESS IS THE LONG
+    DIMENSION HERE, not the short one the word suggests: the manual's
+    own sample passes 300 for THICKNESS and 15 for HEIGHT.
+
+SET_SCENE_COLORMAP_POSITION:
+  layout: keyword_block
+  phase: control
+  args:
+    - name: colormap
+      type: enum
+      values: [PRIMARY, SECONDARY]
+    - name: x
+      type: int
+      unit: "pixels"
+    - name: y
+      type: int
+      unit: "pixels"
+  manual_ref: "SRC-003 p.356"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.352, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.355, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.359, same grammar as 26.120"}
+  notes: >
+    Position of the colour bar in screen pixels. These are window
+    coordinates and not a location in the model's reference frame; no
+    edition states the origin corner or the sign convention.
+
+SET_SCENE_COLORMAP_SHADING:
+  layout: keyword_block
+  phase: control
+  args:
+    - name: colormap
+      type: enum
+      values: [PRIMARY, SECONDARY]
+    - name: reverse
+      type: enum
+      values: [ENABLE, DISABLE]
+    - name: smooth
+      type: enum
+      values: [ENABLE, DISABLE]
+  manual_ref: "SRC-003 pp.356-357"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 pp.352-353, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 pp.355-356, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 pp.359-360, same grammar as 26.120"}
+  notes: >
+    REVERSE flips the ramp end for end; SMOOTH draws it as a continuous
+    gradient rather than as discrete bands. Both are display choices and
+    neither changes the range being coloured, which is
+    SET_SCENE_COLORMAP_CUSTOM_RANGE's subject.
+
+SET_SCENE_COLORMAP_CUSTOM_MODE:
+  layout: keyword_block
+  phase: control
+  args:
+    - name: colormap
+      type: enum
+      values: [PRIMARY, SECONDARY]
+    - name: custom_range
+      type: enum
+      values: [ENABLE, DISABLE]
+  manual_ref: "SRC-003 p.357"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.353, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.356, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.360, same grammar as 26.120"}
+  notes: >
+    Switches the colour scale between automatic limits and the custom
+    ones. It is the gate for SET_SCENE_COLORMAP_CUSTOM_RANGE below: the
+    two are separate commands, so the limits can be set while the mode
+    is disabled and take effect only when it is enabled.
+
+SET_SCENE_COLORMAP_CUSTOM_RANGE:
+  layout: keyword_block
+  phase: control
+  args:
+    - name: colormap
+      type: enum
+      values: [PRIMARY, SECONDARY]
+    - name: cut_off_mode
+      type: enum
+      # "OFF" is quoted because YAML 1.1 reads the bare word as the
+      # boolean false, and the schema then refuses a non-string enum
+      # value. The refusal is loud, which is the only reason this is a
+      # comment rather than an incident.
+      values: ["OFF", ABOVE_AND_BELOW, ABOVE_MAX, BELOW_MIN]
+    - name: maximum
+      type: float
+    - name: minimum
+      type: float
+  manual_ref: "SRC-003 p.357"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.353, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.356, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.360, same grammar as 26.120"}
+  notes: >
+    Limits of the custom colour range and what is done with values
+    outside them. CUT_OFF_MODE selects which tail is clipped: OFF clips
+    neither, ABOVE_MAX and BELOW_MIN one each, ABOVE_AND_BELOW both.
+
+    THIS COMMAND HAS NO SAMPLE OF ITS OWN IN ANY EDITION. All four print
+    a sample under this heading whose first line names the NEIGHBOURING
+    SET_SCENE_COLORMAP_CUSTOM_MODE while the keyword lines beneath it are
+    this command's, CUT_OFF_MODE, MAXIMUM and MINIMUM, none of which
+    appears in that neighbour's parameter table. So the sample is not a
+    runnable call of either command, and it is the heading and the table
+    that are recorded here. The same copy shape appears on the two CCS
+    export commands (PLN-20260808-1730), where the consequence is an
+    argument count rather than a command name.

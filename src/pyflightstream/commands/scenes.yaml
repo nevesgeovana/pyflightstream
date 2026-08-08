@@ -1,6 +1,80 @@
-# Scenes chapter (SRC-003 p.355): scripted view and scene switching.
-# Only the commands with observed scripted use are drafted; the
-# remaining scene and colormap commands await a need.
+# Chapter: Scripting reference, Scenes (SRC-003 p.355).
+#
+# COMPLETE as of 2026-08-08, entered from all four registered editions in
+# one pass. The chapter previously held one command, CHANGE_SCENE_TO_PLOTS,
+# drafted when only commands with observed scripted use were entered; that
+# selection rule is gone and its own three older rows are backfilled here.
+#
+# TWELVE OF THE THIRTEEN TAKE NO ARGUMENTS, and the chapter is worth
+# reading for what that means rather than for its grammar. These are
+# display actions: they change what the application shows, not what the
+# solver computes. Phase is control throughout, so they may appear
+# anywhere in a script, and none of them is a step in the pipeline.
+#
+# The vendor's own pages print eleven of the twelve as a signature heading and
+# nothing else: no parameter table, no sample, no prose. That is the
+# manual stating the command takes nothing, and it is the same shape the
+# February edition prints for DISABLE_ACTUATOR, where it is a defect
+# because the neighbouring sample passes an index. Here there is no
+# contradicting sample anywhere in any edition, so a bare command is
+# recorded as bare.
+
+VIEW_RESIZE:
+  layout: bare
+  phase: control
+  args: []
+  manual_ref: "SRC-003 p.355"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.351, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.354, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.358, same grammar as 26.120"}
+  notes: >
+    Refits the view to the contents of the scene. The one command in the
+    chapter whose page states outright that it has no parameters, rather
+    than leaving the heading to stand alone.
+
+CHANGE_SCENE_TO_CAD:
+  layout: bare
+  phase: control
+  args: []
+  manual_ref: "SRC-003 p.355"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.351, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.354, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.358, same grammar as 26.120"}
+  notes: >
+    Switches the active scene to the CAD view. Scene switching is a
+    display action and may appear anywhere in a script; it does not
+    change which phase the simulation is in.
+
+CHANGE_SCENE_TO_GEOMETRY:
+  layout: bare
+  phase: control
+  args: []
+  manual_ref: "SRC-003 p.355"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.351, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.354, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.358, same grammar as 26.120"}
+  notes: >
+    Switches the active scene to the geometry view.
+
+CHANGE_SCENE_TO_SOLVER:
+  layout: bare
+  phase: control
+  args: []
+  manual_ref: "SRC-003 p.355"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.351, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.354, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.358, same grammar as 26.120"}
+  notes: >
+    Switches the active scene to the solver view, which is where the
+    surface contours of a converged solution are displayed.
 
 CHANGE_SCENE_TO_PLOTS:
   layout: bare
@@ -8,7 +82,131 @@ CHANGE_SCENE_TO_PLOTS:
   args: []
   manual_ref: "SRC-003 p.355"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.351, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.354, same grammar as 26.120"}
     "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.358, same grammar as 26.120"}
   notes: >
-    Switches the active scene to the plots view; scene switching is a
-    display action and may appear anywhere in a script.
+    Switches the active scene to the plots view. This entry predates the
+    rest of the chapter and carried a 26.120 row alone until 2026-08-08;
+    the other three editions document it on their own pages and now say
+    so.
+
+SAVE_SCENE_AS_IMAGE:
+  layout: inline
+  phase: control
+  args:
+    - name: file
+      type: path
+      own_line: true
+  manual_ref: "SRC-003 p.355"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.351, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.354, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.358, same grammar as 26.120"}
+  notes: >
+    Writes the current scene to an image file, the destination on the
+    line after the command and nothing on the command's own line. The
+    only command in the chapter that takes anything.
+
+    The page states the parameter as prose rather than as a table row,
+    naming a filename with path and pointing at its sample; the sample
+    prints a .bmp destination. No edition states which image formats the
+    extension may select, so nothing is constrained here beyond the
+    argument being a path.
+
+SET_SCENE_DEFAULTVIEW:
+  layout: bare
+  phase: control
+  args: []
+  manual_ref: "SRC-003 p.355"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.351, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.354, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.358, same grammar as 26.120"}
+  notes: >
+    Restores the default isometric viewpoint.
+
+SET_SCENE_XY_POSITIVE:
+  layout: bare
+  phase: control
+  args: []
+  manual_ref: "SRC-003 p.355"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.351, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.354, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.358, same grammar as 26.120"}
+  notes: >
+    Views the XY plane from the positive side of the remaining axis.
+    The six plane views are named for the plane in view and the sign of
+    the direction the camera looks from, so the POSITIVE and NEGATIVE
+    pair of one plane are opposite viewpoints of the same plane rather
+    than two different planes.
+
+SET_SCENE_XY_NEGATIVE:
+  layout: bare
+  phase: control
+  args: []
+  manual_ref: "SRC-003 p.355"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.351, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.354, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.358, same grammar as 26.120"}
+  notes: >
+    Views the XY plane from the negative side of the remaining axis.
+
+SET_SCENE_XZ_POSITIVE:
+  layout: bare
+  phase: control
+  args: []
+  manual_ref: "SRC-003 p.355"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.351, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.354, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.358, same grammar as 26.120"}
+  notes: >
+    Views the XZ plane from the positive side of the remaining axis.
+
+SET_SCENE_XZ_NEGATIVE:
+  layout: bare
+  phase: control
+  args: []
+  manual_ref: "SRC-003 p.355"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.351, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.354, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.358, same grammar as 26.120"}
+  notes: >
+    Views the XZ plane from the negative side of the remaining axis.
+
+SET_SCENE_YZ_POSITIVE:
+  layout: bare
+  phase: control
+  args: []
+  manual_ref: "SRC-003 p.355"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.351, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.354, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.358, same grammar as 26.120"}
+  notes: >
+    Views the YZ plane from the positive side of the remaining axis.
+
+SET_SCENE_YZ_NEGATIVE:
+  layout: bare
+  phase: control
+  args: []
+  manual_ref: "SRC-003 p.355"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.351, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.354, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.358, same grammar as 26.120"}
+  notes: >
+    Views the YZ plane from the negative side of the remaining axis.

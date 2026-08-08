@@ -9,6 +9,33 @@ FlightStream versions.
 
 ### API surface delta
 
+* **The Scenes and Scene Settings chapters entered: 18 commands, both
+  complete.** Scenes had held ONE command, `CHANGE_SCENE_TO_PLOTS`,
+  drafted under a rule that only entered commands with observed
+  scripted use; that rule is gone with this sweep and the entry's three
+  missing edition rows are backfilled in the same pass. Database 279 to
+  297; emittable per version 214, 237, 278, 282, the 26.100 and 26.101
+  figures gaining nineteen rather than eighteen because the backfill
+  closes one older entry as well.
+
+  Twelve of the thirteen Scenes commands take nothing at all, eleven of
+  them printed as a signature heading with no table, no sample and no
+  prose. That is the manual stating the command takes nothing, and it is
+  read as such here because no edition contradicts it anywhere, which is
+  precisely what distinguishes it from the February edition's
+  `DISABLE_ACTUATOR`, where the same empty shape sits beside a sample
+  passing an index.
+
+  Scene Settings is six keyword blocks over the colour scale, every one
+  selecting its target with the same first keyword. `CUT_OFF_MODE`'s
+  `OFF` is quoted in the database because YAML 1.1 reads the bare word
+  as the boolean false; the schema refuses a non-string enum value, so
+  the mistake is loud, and a test now pins the token.
+  `SET_SCENE_COLORMAP_CUSTOM_RANGE` HAS NO SAMPLE OF ITS OWN IN ANY
+  EDITION: all four print one whose first line names the neighbouring
+  command while its keyword lines are this one's, so the sample is not a
+  runnable call of either.
+
 * **The CCS Fuselage Mesh and CCS Body of Revolution Mesh chapters
   entered: 20 commands, both chapters complete.** The two remaining
   parametric component definitions beside the wing, each with its own
