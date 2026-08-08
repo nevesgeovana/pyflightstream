@@ -2166,6 +2166,14 @@ _INDEXES_OF_UNTRACKED_OBJECTS = {
     # for the same reason: with no kind to resolve, nothing reads it.
     ("DELETE_CCS_WING_REFINEMENT_ZONES", "zone_index"),
     ("DELETE_CCS_WING_CONTROL_SURFACE", "control_index"),
+    # The same objects of the other two CCS components, added later the
+    # same day with their chapters. The guard found all four the moment
+    # the chapters landed, which is the point of it: an untracked index
+    # is a deliberate exemption in every case and never a default.
+    ("DELETE_CCS_FUSELAGE_REFINEMENT_ZONES", "zone_index"),
+    ("DELETE_CCS_FUSELAGE_RELAXED_TE", "index"),
+    ("DELETE_CCS_REVOLVE_REFINEMENT_ZONES", "zone_index"),
+    ("DELETE_CCS_REVOLVE_RELAXED_TE", "index"),
 }
 
 #: Name stems that suggest an argument cites something by index. This
@@ -2588,3 +2596,117 @@ def test_the_ccs_wing_delete_commands_take_their_documented_minus_one():
         script = Script(version="26.120")
         script.emit(name, -1)
         assert f"{name} -1" in script.render()
+
+
+# --- CCS Fuselage Mesh and CCS Body of Revolution Mesh ------------------------
+
+
+@pytest.mark.parametrize("version", ["26.100", "26.101", "26.120", "26.121"])
+def test_the_ccs_fuselage_chapter_emits_on_every_registered_build(version):
+    """Each line is the manual's own printed sample, where it prints one.
+
+    The two exports are not here: their samples are the neighbouring
+    create command's, which is the finding the chapter records, so they
+    have their own test below.
+    """
+    script = Script(version=version)
+    script.emit("DEFAULT_CCS_FUSELAGE_MESH_SETTINGS", "AXIAL")
+    script.emit("CCS_FUSELAGE_MESH_SUBDIVISIONS", "RADIAL", 80)
+    script.emit("CCS_FUSELAGE_MESH_GROWTH_SCHEME", "AXIAL", "DUAL-SIDED")
+    script.emit("CCS_FUSELAGE_MESH_GROWTH_RATE", "AXIAL", 1.2)
+    script.emit("CCS_FUSELAGE_MESH_PERIODICITY", "RADIAL", 2)
+    script.emit("NEW_CCS_FUSELAGE_REFINEMENT_ZONE", 0.2, 0.4, 20)
+    script.emit("DELETE_CCS_FUSELAGE_REFINEMENT_ZONES", -1)
+    script.emit("NEW_CCS_FUSELAGE_RELAXED_TE", 0.2, 0.4, 0.5)
+    script.emit("DELETE_CCS_FUSELAGE_RELAXED_TE", -1)
+    golden = (GOLDENS / "ccs_fuselage_chapter.txt").read_text(encoding="utf-8")
+    assert script.render() == golden
+
+
+@pytest.mark.parametrize("version", ["26.100", "26.101", "26.120", "26.121"])
+def test_the_ccs_revolve_chapter_emits_on_every_registered_build(version):
+    """The parallel walk, and the parallel is the point.
+
+    The two chapters are line for line the same commands over a
+    different second direction, so the same walk with AZIMUTH for
+    RADIAL is what proves the enums were not shared by accident.
+    """
+    script = Script(version=version)
+    script.emit("DEFAULT_CCS_REVOLVE_MESH_SETTINGS", "AXIAL")
+    script.emit("CCS_REVOLVE_MESH_SUBDIVISIONS", "AZIMUTH", 80)
+    script.emit("CCS_REVOLVE_MESH_GROWTH_SCHEME", "AXIAL", "DUAL-SIDED")
+    script.emit("CCS_REVOLVE_MESH_GROWTH_RATE", "AXIAL", 1.2)
+    script.emit("CCS_REVOLVE_MESH_PERIODICITY", "AZIMUTH", 2)
+    script.emit("NEW_CCS_REVOLVE_REFINEMENT_ZONE", 0.2, 0.4, 20)
+    script.emit("DELETE_CCS_REVOLVE_REFINEMENT_ZONES", -1)
+    script.emit("NEW_CCS_REVOLVE_RELAXED_TE", 0.2, 0.4, 0.5)
+    script.emit("DELETE_CCS_REVOLVE_RELAXED_TE", -1)
+    golden = (GOLDENS / "ccs_revolve_chapter.txt").read_text(encoding="utf-8")
+    assert script.render() == golden
+
+
+@pytest.mark.parametrize(
+    ("command", "wrong", "right"),
+    [
+        ("CCS_FUSELAGE_MESH_SUBDIVISIONS", "AZIMUTH", "RADIAL"),
+        ("CCS_REVOLVE_MESH_SUBDIVISIONS", "RADIAL", "AZIMUTH"),
+    ],
+)
+def test_the_two_ccs_components_do_not_share_a_second_direction(command, wrong, right):
+    """AXIAL is common to both; the other direction is not.
+
+    The two chapters are otherwise identical, which makes a value
+    carried across from one to the other the easy mistake and an
+    invisible one: RADIAL and AZIMUTH are both plausible words for a
+    body of revolution, and only one is accepted.
+    """
+    script = Script(version="26.120")
+    with pytest.raises(CommandArgumentError, match="expects one of"):
+        script.emit(command, wrong, 80)
+    script.emit(command, right, 80)
+    assert f"{command} {right} 80" in script.render()
+
+
+def test_the_ccs_exports_take_the_six_of_their_heading_not_the_four_of_their_table():
+    """The three-way disagreement, pinned so a later reader cannot undo it quietly.
+
+    On both pages the signature heading prints six placeholders, the
+    parameter table documents four, and the sample is the neighbouring
+    create command's with the name swapped. The heading is recorded, so
+    the six-argument call must build and the four-argument one must
+    refuse; without this test the entry could be trimmed to the table
+    and every test would still pass.
+    """
+    registry = CommandRegistry.load()
+    for name in ("EXPORT_FUSELAGE_CCS_FILE", "EXPORT_REVOLVE_CCS_FILE"):
+        entry = registry.commands[name]
+        assert [spec.name for spec in entry.args] == [
+            "name",
+            "mark_trailing_edges",
+            "te_geometry",
+            "close_ends",
+            "loft_type_u",
+            "loft_type_v",
+            "file",
+        ]
+        script = Script(version="26.120")
+        script.emit(name, "Body", "TRUE", "BLUNT", "TRUE", "C2", "C0", "body_ccs.csv")
+        rendered = script.render()
+        assert f"{name} Body TRUE BLUNT TRUE C2 C0" in rendered
+        assert "body_ccs.csv" in rendered, "the destination is written on its own line"
+        with pytest.raises(CommandArgumentError):
+            Script(version="26.120").emit(name, "Body", "TRUE", "C2", "C0")
+
+
+def test_the_ccs_export_close_ends_accepts_the_word_its_own_sample_passes():
+    """TRUE as well as OPEN and CLOSED, the contradiction the family carries.
+
+    The table states two words and every sample in the family passes a
+    third. Both readings are recorded because refusing the sample's own
+    value would refuse the only form the vendor has written as a
+    runnable line.
+    """
+    for token in ("TRUE", "OPEN", "CLOSED"):
+        script = Script(version="26.120")
+        script.emit("EXPORT_FUSELAGE_CCS_FILE", "Body", "TRUE", "BLUNT", token, "C2", "C0", "b.csv")
+        assert f"BLUNT {token} C2 C0" in script.render()

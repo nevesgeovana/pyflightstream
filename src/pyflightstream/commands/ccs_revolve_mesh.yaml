@@ -1,0 +1,256 @@
+# Chapter: Scripting reference, CCS Body of Revolution Mesh
+# (SRC-003 pp.304-305).
+#
+# COMPLETE as of 2026-08-08, entered from all four registered editions in
+# one pass. Every signature is identical across the four, so the older
+# rows cite their own pages and state no grammar difference.
+#
+# The third CCS chapter, after the wing and the fuselage, and the same
+# reading applies: a body of revolution is a parametric DEFINITION and a
+# mesh is lofted from it, so the phase is geometry throughout.
+#
+# ITS SECOND DIRECTION IS AZIMUTH, not the fuselage's RADIAL. The two
+# chapters are otherwise line-for-line parallel, which is exactly why the
+# enum is restated here rather than shared: a value carried across from
+# the fuselage commands is not a value this component accepts.
+#
+# CAD_CREATE_REVOLVE_MESH_FROM_CCS is NOT here. It is the loft that
+# consumes this definition and has lived in cad_create.yaml since before
+# this chapter was read.
+
+DEFAULT_CCS_REVOLVE_MESH_SETTINGS:
+  layout: inline
+  phase: geometry
+  args:
+    - name: direction
+      type: enum
+      values: [AXIAL, AZIMUTH]
+  manual_ref: "SRC-003 p.304"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.299, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.303, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.307, same grammar as 26.120"}
+  notes: >
+    Resets every mesh setting of the CCS body of revolution in one
+    parametric direction. One direction per call.
+
+CCS_REVOLVE_MESH_SUBDIVISIONS:
+  layout: inline
+  phase: geometry
+  args:
+    - name: direction
+      type: enum
+      values: [AXIAL, AZIMUTH]
+    - name: num_pts
+      type: int
+  manual_ref: "SRC-003 p.304"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.299, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.303, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.307, same grammar as 26.120"}
+  notes: >
+    Grid node count along the named direction. In the AZIMUTH direction
+    this is the node count around the revolution, so it sets how well
+    the loft resolves a circular section.
+
+CCS_REVOLVE_MESH_GROWTH_SCHEME:
+  layout: inline
+  phase: geometry
+  args:
+    - name: direction
+      type: enum
+      values: [AXIAL, AZIMUTH]
+    - name: scheme
+      type: enum
+      values: [NONE, DUAL-SIDED, SUCCESSIVE, REVERSE]
+  manual_ref: "SRC-003 p.304"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.299, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.303, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.307, same grammar as 26.120"}
+  notes: >
+    How grid nodes cluster along the direction, with the same four
+    schemes as the wing and fuselage chapters. The rate is set
+    separately and means nothing under NONE.
+
+CCS_REVOLVE_MESH_GROWTH_RATE:
+  layout: inline
+  phase: geometry
+  args:
+    - name: direction
+      type: enum
+      values: [AXIAL, AZIMUTH]
+    - name: rate
+      type: float
+  manual_ref: "SRC-003 p.304"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.299, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.303, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.307, same grammar as 26.120"}
+  notes: >
+    Ratio between the sizes of consecutive cells under the clustering
+    scheme of the same direction. The manual states the value must be
+    greater than zero and the bound is not enforced here.
+
+CCS_REVOLVE_MESH_PERIODICITY:
+  layout: inline
+  phase: geometry
+  args:
+    - name: direction
+      type: enum
+      values: [AXIAL, AZIMUTH]
+    - name: periodicity
+      type: int
+  manual_ref: "SRC-003 p.304"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.299, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.303, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.307, same grammar as 26.120"}
+  notes: >
+    Number of times the clustering pattern repeats along the direction.
+    The manual's row here is the fuselage's, naming solid fuselage
+    shapes and their default of 1 in both directions, identically in all
+    four editions.
+
+NEW_CCS_REVOLVE_REFINEMENT_ZONE:
+  layout: inline
+  phase: geometry
+  args:
+    - name: u0
+      type: float
+    - name: u1
+      type: float
+    - name: num_pts
+      type: int
+  manual_ref: "SRC-003 p.304"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.299, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.303, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.307, same grammar as 26.120"}
+  notes: >
+    Inserts extra grid nodes over an axial parametric interval, U0 and
+    U1 between 0 and 1 with U1 greater than U0. NUM_PTS is the count
+    added inside the interval. Neither bound is enforced here.
+
+DELETE_CCS_REVOLVE_REFINEMENT_ZONES:
+  layout: inline
+  phase: geometry
+  args:
+    - name: zone_index
+      type: int
+  manual_ref: "SRC-003 p.305"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.300, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.304, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.308, same grammar as 26.120"}
+  notes: >
+    Deletes one axial refinement zone by its 1-based index, or every one
+    of them when passed -1. Not declared as all_sentinel: refinement
+    zones are not an inventory the script builder tracks, so no index
+    check exists for it to be exempt from.
+
+NEW_CCS_REVOLVE_RELAXED_TE:
+  layout: inline
+  phase: geometry
+  args:
+    - name: u
+      type: float
+    - name: v0
+      type: float
+    - name: v1
+      type: float
+  manual_ref: "SRC-003 p.305"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.300, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.304, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.308, same grammar as 26.120"}
+  notes: >
+    Marks a strip of the body of revolution as a relaxed trailing edge.
+    U is the radial parametric location and V0 and V1 the axial
+    parametric limits, all between 0 and 1 with V1 greater than V0.
+
+    ALL FOUR EDITIONS PRINT A SAMPLE THAT VIOLATES THEIR OWN BOUND,
+    passing 20 for V1 where the table two lines above states values
+    between 0 and 1. The fuselage sibling had the same error in the
+    February edition and had it corrected to 0.5 in the three later
+    ones; here it survives into all four. Recorded rather than acted
+    on: the argument is a float under either reading, and the bounds
+    this chapter states are not enforced anywhere in it.
+
+DELETE_CCS_REVOLVE_RELAXED_TE:
+  layout: inline
+  phase: geometry
+  args:
+    - name: index
+      type: int
+  manual_ref: "SRC-003 p.305"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.300, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.304, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.308, same grammar as 26.120"}
+  notes: >
+    Deletes one relaxed trailing-edge boundary by its 1-based index, or
+    every one of them when passed -1. Not declared as all_sentinel, for
+    the reason given on DELETE_CCS_REVOLVE_REFINEMENT_ZONES.
+
+EXPORT_REVOLVE_CCS_FILE:
+  layout: inline
+  phase: geometry
+  args:
+    - name: name
+      type: str
+    - name: mark_trailing_edges
+      type: enum
+      values: ["TRUE", "FALSE"]
+    - name: te_geometry
+      type: enum
+      values: [SHARP, BLUNT, BLEND, OPEN]
+    - name: close_ends
+      type: enum
+      values: ["TRUE", OPEN, CLOSED]
+    - name: loft_type_u
+      type: enum
+      values: [C2, C0]
+    - name: loft_type_v
+      type: enum
+      values: [C2, C0]
+    - name: file
+      type: path
+      own_line: true
+  manual_ref: "SRC-003 p.305"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.301, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.304, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.308, same grammar as 26.120"}
+  notes: >
+    Writes the lofted body of revolution to a file instead of into the
+    simulation.
+
+    THIS PAGE IS WHERE THE EXPORT SAMPLES ARE PROVED TO BE COPIES. The
+    signature heading prints six placeholders, the parameter table
+    documents four of them, and the sample passes EIGHT arguments,
+    among them a frame index, an axis and two angles that appear
+    nowhere in this command's heading and are exactly the extra
+    arguments of the neighbouring CAD_CREATE_REVOLVE_MESH_FROM_CCS. A
+    sample that carries arguments its own signature does not name is
+    the create command's sample with the name swapped, so it is not
+    evidence about this command at all.
+
+    The six of the heading are recorded, as on the fuselage sibling,
+    and the probe is registered as PLN-20260808-1730. The parameter
+    table is missing the MARK_TRAILING_EDGES and TE_GEOMETRY rows that
+    the wing sibling's table prints in full for the same six
+    placeholders.
+
+    CLOSE_ENDS accepts TRUE as well as OPEN and CLOSED, the
+    contradiction the whole CCS family carries.

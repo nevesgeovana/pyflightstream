@@ -1,0 +1,280 @@
+# Chapter: Scripting reference, CCS Fuselage Mesh (SRC-003 pp.301-302).
+#
+# COMPLETE as of 2026-08-08, entered from all four registered editions in
+# one pass. Every signature in the chapter is identical across the four,
+# so the older rows cite their own pages and state no grammar difference.
+#
+# The sibling of the CCS Wing Mesh chapter, and the same reading applies:
+# CCS is the vendor's parametric definition, a mesh is lofted from it, so
+# everything here configures a DEFINITION rather than acting on an
+# existing mesh, and the phase is geometry throughout.
+#
+# THE DIRECTIONS ARE NOT THE WING'S. A fuselage is parameterised AXIAL
+# and RADIAL, where the wing is chordwise and spanwise and the body of
+# revolution is AXIAL and AZIMUTH. The three chapters print the same
+# argument name DIRECTION over three different closed sets, which is why
+# each chapter states its own rather than sharing one enum.
+#
+# CAD_CREATE_FUSELAGE_MESH_FROM_CCS is NOT here. It is the loft that
+# consumes this definition and has lived in cad_create.yaml since before
+# this chapter was read; moving it now would break a citation for no
+# gain. EXPORT_FUSELAGE_CCS_FILE is here because it entered with this
+# chapter.
+#
+# The -1 that deletes every refinement zone or relaxed trailing edge is
+# NOT an all_sentinel declaration, for the reason the wing chapter
+# states: those objects belong to the parametric definition and the
+# script builder tracks no inventory of them, so there is no index check
+# for a sentinel to be exempt from. It lives in the notes until the day
+# they become tracked.
+
+DEFAULT_CCS_FUSELAGE_MESH_SETTINGS:
+  layout: inline
+  phase: geometry
+  args:
+    - name: direction
+      type: enum
+      values: [AXIAL, RADIAL]
+  manual_ref: "SRC-003 p.301"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.296, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.300, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.304, same grammar as 26.120"}
+  notes: >
+    Resets every mesh setting of the CCS fuselage in one parametric
+    direction: subdivisions, growth scheme, growth rate and periodicity.
+    One direction per call, so restoring both takes two.
+
+CCS_FUSELAGE_MESH_SUBDIVISIONS:
+  layout: inline
+  phase: geometry
+  args:
+    - name: direction
+      type: enum
+      values: [AXIAL, RADIAL]
+    - name: num_pts
+      type: int
+  manual_ref: "SRC-003 p.301"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.296, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.300, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.304, same grammar as 26.120"}
+  notes: >
+    Grid node count along the named direction of the lofted fuselage.
+
+CCS_FUSELAGE_MESH_GROWTH_SCHEME:
+  layout: inline
+  phase: geometry
+  args:
+    - name: direction
+      type: enum
+      values: [AXIAL, RADIAL]
+    - name: scheme
+      type: enum
+      values: [NONE, DUAL-SIDED, SUCCESSIVE, REVERSE]
+  manual_ref: "SRC-003 p.301"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.296, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.300, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.304, same grammar as 26.120"}
+  notes: >
+    How grid nodes cluster along the direction. NONE spaces them evenly;
+    SUCCESSIVE and REVERSE cluster toward one end and the other;
+    DUAL-SIDED clusters toward both. The rate is set separately by
+    CCS_FUSELAGE_MESH_GROWTH_RATE and means nothing under NONE.
+
+CCS_FUSELAGE_MESH_GROWTH_RATE:
+  layout: inline
+  phase: geometry
+  args:
+    - name: direction
+      type: enum
+      values: [AXIAL, RADIAL]
+    - name: rate
+      type: float
+  manual_ref: "SRC-003 p.301"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.296, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.300, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.304, same grammar as 26.120"}
+  notes: >
+    Ratio between the sizes of consecutive cells under the clustering
+    scheme of the same direction. The manual states the value must be
+    greater than zero and that bound is NOT enforced here, which is the
+    standing treatment of the manual's stated positivity bounds
+    (author's decision of 2026-08-08).
+
+CCS_FUSELAGE_MESH_PERIODICITY:
+  layout: inline
+  phase: geometry
+  args:
+    - name: direction
+      type: enum
+      values: [AXIAL, RADIAL]
+    - name: periodicity
+      type: int
+  manual_ref: "SRC-003 p.301"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.296, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.300, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.304, same grammar as 26.120"}
+  notes: >
+    Number of times the clustering pattern repeats along the direction,
+    so a value of 2 clusters the nodes twice over the same span. The
+    manual states that solid fuselage shapes default to 1 in both
+    directions and that the value must be greater than zero; the bound
+    is not enforced here.
+
+NEW_CCS_FUSELAGE_REFINEMENT_ZONE:
+  layout: inline
+  phase: geometry
+  args:
+    - name: u0
+      type: float
+    - name: u1
+      type: float
+    - name: num_pts
+      type: int
+  manual_ref: "SRC-003 p.301"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.296, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.300, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.304, same grammar as 26.120"}
+  notes: >
+    Inserts extra grid nodes over an axial parametric interval. U0 and
+    U1 are parametric positions between 0 and 1 with U1 greater than U0,
+    and NUM_PTS is the count of nodes added inside that interval rather
+    than the total across it. Neither the range nor the ordering is
+    enforced here.
+
+DELETE_CCS_FUSELAGE_REFINEMENT_ZONES:
+  layout: inline
+  phase: geometry
+  args:
+    - name: zone_index
+      type: int
+  manual_ref: "SRC-003 p.302"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.297, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.301, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.305, same grammar as 26.120"}
+  notes: >
+    Deletes one axial refinement zone by its 1-based index, or every one
+    of them when passed -1. The -1 is recorded here and not declared as
+    all_sentinel because refinement zones are not an inventory the
+    script builder tracks, so no index check exists for it to be exempt
+    from. The plural name is the vendor's and applies to both forms.
+
+NEW_CCS_FUSELAGE_RELAXED_TE:
+  layout: inline
+  phase: geometry
+  args:
+    - name: u
+      type: float
+    - name: v0
+      type: float
+    - name: v1
+      type: float
+  manual_ref: "SRC-003 p.302"
+  versions:
+    "26.100":
+      status: documented
+      note: >-
+        SRC-741 p.297, same grammar as 26.120. Its sample prints a third
+        value of 20 for a parameter the same page bounds between 0 and 1;
+        the three later editions print 0.5 there. A sample error rather
+        than a grammar difference, and the argument is a float either
+        way.
+    "26.101": {status: documented, note: "SRC-725 p.301, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.305, same grammar as 26.120"}
+  notes: >
+    Marks a strip of the fuselage as a relaxed trailing edge, where the
+    solver applies the Kutta condition with a relaxed formulation. U is
+    the radial parametric location of the boundary and V0 and V1 its
+    axial parametric limits, all between 0 and 1 with V1 greater than
+    V0. The bounds are not enforced here.
+
+DELETE_CCS_FUSELAGE_RELAXED_TE:
+  layout: inline
+  phase: geometry
+  args:
+    - name: index
+      type: int
+  manual_ref: "SRC-003 p.302"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.297, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.301, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.305, same grammar as 26.120"}
+  notes: >
+    Deletes one relaxed trailing-edge boundary by its 1-based index, or
+    every one of them when passed -1. Not declared as all_sentinel, for
+    the reason given on DELETE_CCS_FUSELAGE_REFINEMENT_ZONES.
+
+EXPORT_FUSELAGE_CCS_FILE:
+  layout: inline
+  phase: geometry
+  args:
+    - name: name
+      type: str
+    - name: mark_trailing_edges
+      type: enum
+      values: ["TRUE", "FALSE"]
+    - name: te_geometry
+      type: enum
+      values: [SHARP, BLUNT, BLEND, OPEN]
+    - name: close_ends
+      type: enum
+      values: ["TRUE", OPEN, CLOSED]
+    - name: loft_type_u
+      type: enum
+      values: [C2, C0]
+    - name: loft_type_v
+      type: enum
+      values: [C2, C0]
+    - name: file
+      type: path
+      own_line: true
+  manual_ref: "SRC-003 p.302"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.297, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.301, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.305, same grammar as 26.120"}
+  notes: >
+    Writes the lofted fuselage to a file instead of into the simulation.
+    LOFT_TYPE_U is RADIAL here and LOFT_TYPE_V is AXIAL, which is not
+    what the same two names mean on the wing commands, where they are
+    chordwise and spanwise.
+
+    THREE SOURCES ON THIS PAGE DISAGREE ABOUT THE ARGUMENT LIST, and the
+    six recorded here are the signature heading's. Identically in all
+    four editions, the heading prints six placeholders, the parameter
+    table documents only four of them (MARK_TRAILING_EDGES and
+    TE_GEOMETRY have no row), and the sample passes the four of the
+    NEIGHBOURING command CAD_CREATE_FUSELAGE_MESH_FROM_CCS.
+
+    The heading wins for two reasons that are about this page rather
+    than about a general preference. The wing sibling
+    EXPORT_WING_CCS_FILE prints the SAME six placeholders and documents
+    all six in its table, so the six are the family's export signature
+    and this table is missing rows rather than describing a shorter
+    command. And the sample cannot be this command's own: it is the
+    create command's sample with the name swapped, which is visible
+    directly on the revolve sibling, where the copied sample passes
+    arguments (a frame, an axis and two angles) that appear nowhere in
+    the export heading. Registered for a probe as
+    PLN-20260808-1730.
+
+    CLOSE_ENDS accepts TRUE as well as OPEN and CLOSED, the contradiction
+    the whole CCS family carries: the table states the two words and
+    every sample passes TRUE, so refusing the sample's own value would
+    refuse the only form the vendor has written as a runnable line.

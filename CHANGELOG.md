@@ -9,6 +9,34 @@ FlightStream versions.
 
 ### API surface delta
 
+* **The CCS Fuselage Mesh and CCS Body of Revolution Mesh chapters
+  entered: 20 commands, both chapters complete.** The two remaining
+  parametric component definitions beside the wing, each with its own
+  grid controls (subdivisions, growth scheme and rate, periodicity, and
+  the per-direction reset), axial refinement zones, relaxed
+  trailing-edge boundaries, and the export that writes the lofted
+  component to a file. Entered from all four editions in one pass, every
+  signature identical across them. Database 259 to 279; emittable per
+  version 195, 218, 260, 264.
+
+  THE TWO COMPONENTS DO NOT SHARE A SECOND DIRECTION. A fuselage is
+  AXIAL and RADIAL, a body of revolution AXIAL and AZIMUTH, and the two
+  chapters are otherwise line for line the same commands. That makes a
+  value carried across from one to the other the easy mistake and an
+  invisible one, since both words are plausible for a body of
+  revolution, so the enums are stated per chapter and a test emits each
+  one against the other's token.
+
+  `EXPORT_FUSELAGE_CCS_FILE` and `EXPORT_REVOLVE_CCS_FILE` ARE RECORDED
+  FROM THEIR HEADING AGAINST TWO SOURCES THAT SAY OTHERWISE. The heading
+  prints six placeholders, the parameter table documents four, and the
+  sample is the neighbouring create command's with the name swapped.
+  The revolve page proves the copy: its sample passes a frame index, an
+  axis and two angles that appear nowhere in the export's own signature.
+  The wing sibling prints the same six and documents all six, so these
+  tables are missing rows rather than describing a shorter command. The
+  solver has not been asked, and `PLN-20260808-1730` carries the probe.
+
 * **`pyfs-manual sweep`, and the four-edition worklist becomes a
   committed tool rather than a session's scratch script.** New public
   names in `pyflightstream.utils`: `Edition`, `SweptCommand`,
