@@ -398,9 +398,9 @@ def _exported_bare_raises() -> list[str]:
 #: cross-module caller, is on no list and does not fail today
 #: (PLN-20260804-1130).
 #:
-#: The set holds 25 entries in two tranches. The FIRST THREE raise
+#: The set holds 27 entries in two tranches. The FIRST THREE raise
 #: ``TypeError`` for an argument of a type the function does not accept;
-#: the other 22 are the reachability tranche and are almost all
+#: the other 24 are the reachability tranche and are almost all
 #: ``ValueError``. Re-basing the TypeError three onto a catalogued class
 #: is not the
 #: one-line change the ValueError sites were: ``except TypeError`` is
@@ -423,18 +423,28 @@ _RATCHET = {
     # RAISES. The author's decision: measure now, fix at v0.5, so the
     # number is the debt and it is countable (PLN-20260804-0130).
     "pyflightstream.cases.cli._parse_recipes -> ValueError (cli.py:33)",
-    # Five sites on the pydantic validation path, where ValueError IS the
+    # SEVEN sites on the pydantic validation path, where ValueError IS the
     # protocol. They move down the file whenever anything is inserted
-    # above them, and did again on 2026-08-07 when the all-entities
+    # above them, and did so twice: on 2026-08-07 when the all-entities
     # sentinel, the entity citation and the fixed payload length joined
-    # ArgSpec. The ratchet keys on the line number, so re-anchoring is
-    # deliberate friction rather than a defect: a moved raise should be
-    # re-read.
-    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:399)",
-    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:401)",
-    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:403)",
-    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:411)",
-    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:425)",
+    # ArgSpec, and again on 2026-08-08 when the Mesh Wrapper chapter
+    # needed `on_command_line` and brought two new layout rules with it.
+    # The ratchet keys on the line number, so re-anchoring is deliberate
+    # friction rather than a defect: a moved raise should be re-read.
+    #
+    # The count went 5 to 7 in that second move, which is new debt and
+    # not only a re-anchor. It is taken deliberately: these two refusals
+    # sit beside five that already raise the same way on the same path,
+    # and giving two of a family a catalogued base while five keep the
+    # bare one would make the family harder to read, not easier. They go
+    # with the rest under PLN-20260804-0130.
+    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:429)",
+    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:431)",
+    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:433)",
+    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:441)",
+    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:455)",
+    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:461)",
+    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:471)",
     "pyflightstream.farfield._delta_psi -> ValueError (__init__.py:152)",
     "pyflightstream.fsi.driver._verified_layout -> ValueError (driver.py:338)",
     "pyflightstream.fsi.loads._validate_block_boundaries -> ValueError (loads.py:397)",

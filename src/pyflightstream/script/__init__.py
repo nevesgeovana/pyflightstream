@@ -129,6 +129,16 @@ _COUNT_ARG_NAMES = {
     # ship a count nothing compares against its own list.
     "surface_count",
     "surfaces",
+    # WRAPPER_SET_INPUT's count of the surfaces the wrap is built over
+    # (SRC-003 p.314). Added 2026-08-08 with the Mesh Wrapper chapter,
+    # reported by the same guard the same way. This is the FOURTH
+    # spelling for a count of surfaces in the database, after
+    # 'surface_count', 'surfaces' and 'boundaries', and all four are the
+    # manual's own on their own pages; the entries mirror them rather
+    # than harmonising, which is the author's decision of 2026-08-08.
+    # The cost of that decision is exactly this set, which is why the
+    # set is guarded rather than trusted.
+    "num_surfaces",
 }
 
 # Cross-reference ledger (SAD Section 4.2): commands that create an
@@ -1103,7 +1113,13 @@ class Script:
             return lines, True
         lines = [entry.name]
         for spec, value in provided:
-            if spec.is_list:
+            if spec.on_command_line:
+                # The leading arguments of a keyword block that sit on the
+                # command's own line (WRAPPER_EDIT_LOCAL_CONTROL, SRC-003
+                # p.314). The schema holds them to the leading positions,
+                # so lines[0] is still the command name here.
+                lines[0] += f" {self._format_scalar(value)}"
+            elif spec.is_list:
                 lines.extend(self._list_lines(spec, value))
             elif spec.type is ArgType.BOOL:
                 # Presence keyword (SRC-003 p.307): True is the bare keyword

@@ -44,11 +44,38 @@ and are never silently dropped.
     The registry starts at 26.000. Supported versions are only ever
     added going forward, never dropped (NFR-04).
 
-!!! nonrequirement "NREQ-05 No mesh-wrapper command family by default (narrowed 2026-08-06)"
-    The mesh-wrapper chapter may be added later under the same database
-    rules; it is not part of the core scope.
+!!! nonrequirement "NREQ-05 No command family is excluded from the database (narrowed to nothing 2026-08-08)"
+    Every command any registered manual edition documents enters the
+    database, chapter by chapter. This non-requirement now excludes
+    NOTHING, and it is kept rather than deleted because identifiers here
+    are never reused and because the two narrowings are the record of a
+    scope decision reversing itself.
 
-    NARROWED, and the identifier is kept rather than deleted because
+    NARROWED TO NOTHING on 2026-08-08, the author's decision, when the
+    mesh-wrapper chapter entered: eleven commands read from all four
+    registered editions in one pass. That was the last family the
+    exclusion still named, so what remains here is a heading over an
+    empty set.
+
+    Read the reversal as a whole rather than as two edits. The original
+    exclusion was a reasonable bet that a family nobody had asked for
+    was not worth the reading, and the bet was wrong in a way that is
+    invisible from outside the package: a caller meets a refusal for a
+    command their own manual documents, and nothing tells them the
+    command was excluded rather than missing. Entering the families
+    whole is also what surfaced two defect classes, the
+    parameter-table-versus-sample disagreement and the copied sample,
+    neither of which reading one command at a time would have shown.
+
+    The wrapper chapter also cost the emitter one new capability, which
+    is the kind of thing an excluded family hides: a keyword block whose
+    leading argument sits on the command's own line. That is
+    `on_command_line`, added with the chapter, and
+    `WRAPPER_EDIT_LOCAL_CONTROL` is still the only command in the
+    database that needs it.
+
+    The 2026-08-06 narrowing, kept for the record: the identifier is
+    kept rather than deleted because
     identifiers here are never reused. As written until 2026-08-06 this
     also excluded the CAD and CCS families and said individual commands
     would enter only when a workflow needed one. The CAD and CAD Create

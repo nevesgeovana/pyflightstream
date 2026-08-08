@@ -222,6 +222,19 @@ class ArgSpec(BaseModel):
         argument instead of taking its own KEY VALUE line; the copy
         count that PERIODIC symmetry appends to the SYMMETRY line of
         INITIALIZE_SOLVER (SRC-003 p.337) is the documented case.
+    on_command_line : bool
+        For a keyword_block command whose LEADING arguments sit on the
+        command's own line rather than taking a KEY VALUE line of their
+        own. WRAPPER_EDIT_LOCAL_CONTROL is the documented case: the
+        control's id follows the command name and the surfaces and
+        target size are keyword lines beneath it (SRC-003 p.314).
+
+        Distinct from ``joins_previous``, which appends to the line the
+        PRECEDING ARGUMENT wrote and therefore cannot apply to the first
+        argument; this one appends to the command name. Modelling the
+        wrapper command with ``joins_previous`` was refused by that
+        rule, and rightly: the two say different things, and only one of
+        them is true of an argument in first position.
     fixed_length : int, optional
         The exact number of values a list argument takes, when the
         manual fixes it and no count argument precedes it. Absent means
@@ -266,6 +279,7 @@ class ArgSpec(BaseModel):
     separator: ListSeparator = ListSeparator.COMMA
     own_line: bool = False
     joins_previous: bool = False
+    on_command_line: bool = False
     fixed_length: int | None = None
     cites: EntityKind | None = None
     all_sentinel: int | None = None
@@ -299,6 +313,22 @@ class ArgSpec(BaseModel):
     def _joins_previous_only_for_scalars(self) -> ArgSpec:
         if self.joins_previous and self.is_list:
             raise ValueError(f"argument {self.name!r} is a list and cannot join the previous line")
+        return self
+
+    @model_validator(mode="after")
+    def _on_command_line_only_for_scalars(self) -> ArgSpec:
+        if self.on_command_line and self.is_list:
+            raise ValueError(
+                f"argument {self.name!r} is a list and cannot sit on the command line: "
+                "a list in a keyword block is written as its own payload line and has "
+                "no keyword, so putting it on the command line would lose the boundary "
+                "between it and the arguments after it"
+            )
+        if self.on_command_line and self.joins_previous:
+            raise ValueError(
+                f"argument {self.name!r} declares both on_command_line and "
+                "joins_previous, which name two different lines to write on"
+            )
         return self
 
     @model_validator(mode="after")
@@ -418,6 +448,22 @@ def _check_layout_rules(name: str, layout: Layout, args: tuple[ArgSpec, ...]) ->
                     "rendering spaces, which was right by accident and unreadable as "
                     "a statement of the grammar"
                 )
+    for position, arg in enumerate(args):
+        if not arg.on_command_line:
+            continue
+        if layout is not Layout.KEYWORD_BLOCK:
+            raise ValueError(
+                f"{name}: {arg.name!r} declares on_command_line, which only a "
+                "keyword_block needs. Every other layout already writes its "
+                "arguments on the command line or on a payload line of its own"
+            )
+        if any(not earlier.on_command_line for earlier in args[:position]):
+            raise ValueError(
+                f"{name}: {arg.name!r} declares on_command_line but a keyword line "
+                "precedes it. The command line is written first and cannot be "
+                "appended to once a keyword line has been emitted, so the "
+                "on_command_line arguments must be the leading ones"
+            )
     for position, arg in enumerate(args):
         if not arg.joins_previous:
             continue

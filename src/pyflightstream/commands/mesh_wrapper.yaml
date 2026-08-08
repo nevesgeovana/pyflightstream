@@ -1,0 +1,297 @@
+# Chapter: Scripting reference, Mesh Wrapper (SRC-003 pp.314-315).
+#
+# COMPLETE as of 2026-08-08, entered from all four registered editions in
+# one pass. Every signature and every sample is identical across the
+# four, apart from one edition printing a sample where the others print
+# none, which changes nothing about the grammar.
+#
+# THIS CHAPTER WAS OUT OF SCOPE UNTIL TODAY. NREQ-05 excluded the
+# mesh-wrapper family, and the author's decision of 2026-08-08 brings it
+# in and narrows the non-requirement again. It is the last family the
+# scope excluded, so with this chapter the exclusion has no members left.
+#
+# WHAT THE WRAPPER IS, because the phase assignment follows from it. It
+# builds a single clean watertight surface mesh over a set of input
+# surfaces, which is what a dirty or intersecting import needs before a
+# panel method can run on it. So it is a geometry-phase operation, and
+# WRAPPER_EXECUTE is the step that performs it: everything else in the
+# chapter configures the wrap and only that command does it.
+#
+# The controls are stateful and the state is IMPLICIT. There is no
+# handle: WRAPPER_CREATE_LOCAL_CONTROL takes nothing and returns
+# nothing, and WRAPPER_EDIT_LOCAL_CONTROL addresses one by a 1-based id
+# the caller has to have counted. The same is true of the volume
+# controls, which are created already configured and can then only be
+# deleted, all of them at once. Neither kind is an inventory the script
+# builder tracks, so neither id is declared as a citation.
+
+WRAPPER_SET_INPUT:
+  layout: payload_lines
+  phase: geometry
+  args:
+    - name: num_surfaces
+      type: int
+    - name: surface_indices
+      type: int_list
+      cites: boundaries
+      separator: comma
+  manual_ref: "SRC-003 p.314"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.309, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.313, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.317, same grammar as 26.120"}
+  notes: >
+    Chooses which surfaces the wrap is built over: the count on the
+    command line and the indices comma separated on the next, the same
+    shape as SURFACE_COMBINE. The manual gives the second row no
+    parameter name at all, printing N/A in that column and describing
+    it in prose, so the name here is this database's.
+
+WRAPPER_SET_GLOBAL_SIZE:
+  layout: inline
+  phase: geometry
+  args:
+    - name: target_size
+      type: float
+      unit: "simulation length units"
+  manual_ref: "SRC-003 p.314"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.309, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.313, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.317, same grammar as 26.120"}
+  notes: >
+    Target triangle edge length of the wrapped mesh, everywhere no local
+    or volume control overrides it. The manual states the value must be
+    greater than zero and the bound is not enforced here.
+
+WRAPPER_SET_VERTEX_PROJECTION:
+  layout: inline
+  phase: geometry
+  args:
+    - name: mode
+      type: enum
+      values: [ENABLE, DISABLE]
+  manual_ref: "SRC-003 p.314"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.309, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.313, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.317, same grammar as 26.120"}
+  notes: >
+    Whether the wrapped mesh's vertices are projected back onto the
+    input surfaces, which keeps sharp features the wrap would otherwise
+    round off.
+
+    The manual has no name for this argument: the signature placeholder
+    IS the pair of values, and the parameter table repeats the pair in
+    its name column. The database spells such an argument `mode`, which
+    is its house name for a two-valued switch, so this is one of the
+    places the entry is the better document.
+
+WRAPPER_SET_ANISOTROPY:
+  layout: inline
+  phase: geometry
+  args:
+    - name: x
+      type: float
+    - name: y
+      type: float
+    - name: z
+      type: float
+  manual_ref: "SRC-003 p.314"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.309, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.313, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.317, same grammar as 26.120"}
+  notes: >
+    Stretches the target cell size per axis, so 2 1 1 asks for cells
+    twice as long in X as in the other two directions. The three are
+    ratios rather than lengths, the length being
+    WRAPPER_SET_GLOBAL_SIZE's subject.
+
+    The manual states no reference frame for these axes and no edition
+    names one, so which frame they are read in is unrecorded rather
+    than assumed to be the global one.
+
+WRAPPER_CREATE_LOCAL_CONTROL:
+  layout: bare
+  phase: geometry
+  args: []
+  manual_ref: "SRC-003 p.314"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.309, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.313, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.317, same grammar as 26.120"}
+  notes: >
+    Appends an empty local control, which is then configured by
+    WRAPPER_EDIT_LOCAL_CONTROL. It takes nothing and reports nothing, so
+    the id to edit is the number of controls created so far and the
+    caller has to keep that count itself.
+
+WRAPPER_EDIT_LOCAL_CONTROL:
+  layout: keyword_block
+  phase: geometry
+  args:
+    # CONTROL_ID sits on the command's own line and the rest are keyword
+    # lines beneath it. The emitter had no way to say that, and the
+    # attempt to spell it with `joins_previous` was refused by the schema
+    # for the right reason: there is no preceding argument line in first
+    # position. `on_command_line` was added with this chapter for the
+    # shape, and this is the one command in the database that has it.
+    - name: control_id
+      type: int
+      on_command_line: true
+    - name: surfaces
+      type: int
+    - name: surface_indices
+      type: int_list
+      cites: boundaries
+      separator: comma
+    - name: target_size
+      type: float
+      unit: "simulation length units"
+  manual_ref: "SRC-003 p.314"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.309, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.313, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.317, same grammar as 26.120"}
+  notes: >
+    Gives one local control the surfaces it applies to and the cell size
+    it asks for there, overriding the global size on those surfaces.
+
+    The surface list repeats the count-then-indices shape of
+    WRAPPER_SET_INPUT, but inside the keyword block: SURFACES carries
+    the count and the indices follow on the next line, comma separated,
+    exactly as in SURFACE_ROTATE.
+
+    CONTROL_ID is 1-based and is not declared as a citation, because a
+    local control is not an entity the script builder tracks: nothing
+    creates one with a name, so there is no inventory to resolve against
+    and nothing to range check.
+
+WRAPPER_DELETE_ALL_LOCAL_CONTROLS:
+  layout: bare
+  phase: geometry
+  args: []
+  manual_ref: "SRC-003 pp.314-315"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.310, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.313, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.317, same grammar as 26.120"}
+  notes: >
+    Deletes every local control. There is no command deleting one, so
+    correcting a single control means deleting all of them and building
+    the set again.
+
+WRAPPER_NEW_VOLUME_CONTROL:
+  layout: keyword_block
+  phase: geometry
+  args:
+    - name: frame
+      type: int
+      cites: frames
+    # VERTEX_1 and VERTEX_2 are each three numbers on ONE keyword line.
+    # The emitter has no vector-valued keyword, so each is spelled as the
+    # keyword-bearing first component plus two that join the line it
+    # wrote. Reading the second and third argument names as separate
+    # keywords would be wrong: nothing emits them (PLN-20260808-1830).
+    - name: vertex_1
+      type: float
+    - name: vertex_1_y
+      type: float
+      joins_previous: true
+    - name: vertex_1_z
+      type: float
+      joins_previous: true
+    - name: vertex_2
+      type: float
+    - name: vertex_2_y
+      type: float
+      joins_previous: true
+    - name: vertex_2_z
+      type: float
+      joins_previous: true
+    - name: target_size
+      type: float
+      unit: "simulation length units"
+    - name: name
+      type: str
+  manual_ref: "SRC-003 p.315"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.310, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.314, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.318, same grammar as 26.120"}
+  notes: >
+    Creates a box in which the wrap uses a different cell size, given by
+    two opposite corners in a coordinate system. Unlike a local control,
+    which is created empty and then edited, a volume control is created
+    already configured and can afterwards only be deleted.
+
+    FRAME is a coordinate system index and the manual states that the
+    reference frame is 1, which is the same convention as the rest of
+    the database, so it is declared as citing a frame.
+
+    The two corners are named VERTEX_1 and VERTEX_2 and the manual gives
+    no ordering rule between them, so which corner is which is the
+    caller's choice as far as any edition states.
+
+WRAPPER_DELETE_ALL_VOLUME_CONTROLS:
+  layout: bare
+  phase: geometry
+  args: []
+  manual_ref: "SRC-003 p.315"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.310, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.314, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.318, same grammar as 26.120"}
+  notes: >
+    Deletes every volume control, and as with the local controls there
+    is no command deleting one.
+
+WRAPPER_EXECUTE:
+  layout: bare
+  phase: geometry
+  args: []
+  manual_ref: "SRC-003 p.315"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.310, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.314, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.318, same grammar as 26.120"}
+  notes: >
+    Performs the wrap with everything configured above. The one command
+    in the chapter that does work rather than describing it, and the
+    only one whose cost is more than negligible.
+
+WRAPPER_TRANSFER:
+  layout: inline
+  phase: geometry
+  args:
+    - name: source_treatment
+      type: enum
+      values: [REPLACE, RETAIN]
+  manual_ref: "SRC-003 p.315"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.310, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.314, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.318, same grammar as 26.120"}
+  notes: >
+    Moves the wrapped result into the simulation as geometry, and
+    decides what becomes of the surfaces it was built from: REPLACE
+    deletes them, RETAIN keeps them alongside the wrap.
+
+    REPLACE IS DESTRUCTIVE AND CHANGES EVERY SURFACE INDEX AFTER IT. The
+    input surfaces cease to exist and the wrap takes their place, so an
+    index recorded before this call means something else afterwards.
+    Nothing here can enforce that, the builder having no view of the
+    solver's boundary list, so it is stated where a reader meets the
+    command.

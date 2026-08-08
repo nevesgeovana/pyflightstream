@@ -4,8 +4,15 @@ import re
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
-from pyflightstream.commands import ArgSpec, CommandNotInVersionError, CommandRegistry, Status
+from pyflightstream.commands import (
+    ArgSpec,
+    CommandEntry,
+    CommandNotInVersionError,
+    CommandRegistry,
+    Status,
+)
 from pyflightstream.script import (
     BrokenCommandError,
     CommandArgumentError,
@@ -2174,6 +2181,11 @@ _INDEXES_OF_UNTRACKED_OBJECTS = {
     ("DELETE_CCS_FUSELAGE_RELAXED_TE", "index"),
     ("DELETE_CCS_REVOLVE_REFINEMENT_ZONES", "zone_index"),
     ("DELETE_CCS_REVOLVE_RELAXED_TE", "index"),
+    # A mesh-wrapper local control, added 2026-08-08 with that chapter.
+    # Nothing creates one with a name and nothing reports how many exist,
+    # so the id is a number the caller counted and there is no inventory
+    # to resolve it against.
+    ("WRAPPER_EDIT_LOCAL_CONTROL", "control_id"),
 }
 
 #: Name stems that suggest an argument cites something by index. This
@@ -2792,3 +2804,115 @@ def test_the_bare_scene_commands_refuse_an_argument():
     for name in bare:
         with pytest.raises(CommandArgumentError):
             Script(version="26.120").emit(name, "PRIMARY")
+
+
+# --- Mesh Wrapper -------------------------------------------------------------
+
+
+@pytest.mark.parametrize("version", ["26.100", "26.101", "26.120", "26.121"])
+def test_the_mesh_wrapper_chapter_emits_on_every_registered_build(version):
+    """The whole chapter, every line the manual's own printed sample."""
+    script = Script(version=version)
+    script.emit("WRAPPER_SET_INPUT", 5, [1, 2, 3, 5, 6])
+    script.emit("WRAPPER_SET_GLOBAL_SIZE", 0.15)
+    script.emit("WRAPPER_SET_VERTEX_PROJECTION", "ENABLE")
+    script.emit("WRAPPER_SET_ANISOTROPY", 2.0, 1.0, 1.0)
+    script.emit("WRAPPER_CREATE_LOCAL_CONTROL")
+    script.emit(
+        "WRAPPER_EDIT_LOCAL_CONTROL",
+        control_id=2,
+        surfaces=3,
+        surface_indices=[1, 2, 6],
+        target_size=0.25,
+    )
+    script.emit("WRAPPER_DELETE_ALL_LOCAL_CONTROLS")
+    script.emit(
+        "WRAPPER_NEW_VOLUME_CONTROL",
+        frame=1,
+        vertex_1=0.5,
+        vertex_1_y=0.3,
+        vertex_1_z=1.0,
+        vertex_2=1.5,
+        vertex_2_y=0.6,
+        vertex_2_z=2.3,
+        target_size=0.25,
+        name="Airplane_nose",
+    )
+    script.emit("WRAPPER_DELETE_ALL_VOLUME_CONTROLS")
+    script.emit("WRAPPER_EXECUTE")
+    script.emit("WRAPPER_TRANSFER", "REPLACE")
+    golden = (GOLDENS / "mesh_wrapper_chapter.txt").read_text(encoding="utf-8")
+    assert script.render() == golden
+
+
+def test_a_keyword_block_argument_can_sit_on_the_command_line():
+    """`on_command_line` exists because one command needs it and nothing else could say it.
+
+    WRAPPER_EDIT_LOCAL_CONTROL takes its control id on the command's own
+    line and everything else as keyword lines. Spelling that with
+    `joins_previous` is refused by the schema, correctly: in first
+    position there is no preceding argument line to append to. The two
+    flags name two different lines and only one of them is true here.
+    """
+    script = Script(version="26.120")
+    script.emit(
+        "WRAPPER_EDIT_LOCAL_CONTROL",
+        control_id=2,
+        surfaces=1,
+        surface_indices=[4],
+        target_size=0.25,
+    )
+    lines = script.render().splitlines()
+    assert lines[0] == "WRAPPER_EDIT_LOCAL_CONTROL 2", (
+        "the id belongs on the command line; a CONTROL_ID keyword line would be a "
+        "line the solver never reads"
+    )
+    assert lines[1] == "SURFACES 1"
+
+
+@pytest.mark.parametrize(
+    ("spec", "message"),
+    [
+        ({"name": "a", "type": "int_list", "on_command_line": True}, "is a list"),
+        (
+            {"name": "a", "type": "int", "on_command_line": True, "joins_previous": True},
+            "two different lines",
+        ),
+    ],
+)
+def test_on_command_line_refuses_the_shapes_it_cannot_render(spec, message):
+    """The argument-level half of the rule."""
+    with pytest.raises(ValidationError, match=message):
+        ArgSpec(**spec)
+
+
+def test_on_command_line_must_lead_and_needs_a_keyword_block():
+    """The entry-level half: the command line is written first and once.
+
+    An `on_command_line` argument after a keyword line would have to
+    append to a line already emitted, so the schema holds them to the
+    leading positions rather than letting the renderer produce a script
+    whose arguments are in an order nobody wrote.
+    """
+    leading = {"name": "id", "type": "int", "on_command_line": True}
+    keyword = {"name": "size", "type": "float"}
+    with pytest.raises(ValidationError, match="a keyword line precedes it"):
+        CommandEntry(
+            name="X_CMD",
+            chapter="test",
+            layout="keyword_block",
+            phase="geometry",
+            args=[keyword, leading],
+            manual_ref="SRC-003 p.1",
+            versions={"26.120": {"status": "documented"}},
+        )
+    with pytest.raises(ValidationError, match="only a keyword_block needs"):
+        CommandEntry(
+            name="X_CMD",
+            chapter="test",
+            layout="inline",
+            phase="geometry",
+            args=[leading],
+            manual_ref="SRC-003 p.1",
+            versions={"26.120": {"status": "documented"}},
+        )

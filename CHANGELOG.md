@@ -9,6 +9,35 @@ FlightStream versions.
 
 ### API surface delta
 
+* **The Mesh Wrapper chapter entered: 11 commands, and NREQ-05 now
+  excludes nothing.** The author's decision of 2026-08-08. This was the
+  last family the scope excluded, so the non-requirement is narrowed to
+  an empty set rather than retired, the two narrowings together being
+  the record of a scope decision reversing itself. Database 297 to 308;
+  emittable per version 225, 248, 289, 293.
+
+  The wrapper builds one clean watertight surface over a set of input
+  surfaces, which is what a dirty import needs before a panel method can
+  run on it; `WRAPPER_EXECUTE` performs it and everything else
+  configures it.
+
+  **New public field: `ArgSpec.on_command_line`.** A keyword_block whose
+  LEADING arguments sit on the command's own line, which the emitter
+  could not express and which `WRAPPER_EDIT_LOCAL_CONTROL` needs. The
+  attempt to spell it with `joins_previous` was refused by the schema,
+  correctly: that flag appends to the line the PRECEDING ARGUMENT wrote,
+  and in first position there is none. Two new refusals hold the shape,
+  a list cannot take it and it must lead. An excluded family hiding a
+  missing emitter capability is itself an argument against excluding
+  families.
+
+  `num_surfaces` is the FOURTH spelling in the database for a count of
+  surfaces, after `surface_count`, `surfaces` and `boundaries`. All four
+  are the manual's own on their own pages and the entries go on
+  mirroring them; the tier-1 guard over the count-name set is what
+  reported this one, before the entry could ship a count nothing
+  compares against its list.
+
 * **The Scenes and Scene Settings chapters entered: 18 commands, both
   complete.** Scenes had held ONE command, `CHANGE_SCENE_TO_PLOTS`,
   drafted under a rule that only entered commands with observed
