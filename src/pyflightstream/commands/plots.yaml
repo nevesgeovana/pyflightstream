@@ -1,0 +1,82 @@
+# Chapter: Scripting reference, Plots (SRC-003 p.361).
+#
+# COMPLETE as of 2026-08-08, entered from all four registered editions in
+# one pass. Both signatures identical across the four.
+#
+# The application's plot pane shows one plot at a time. SET_PLOT_TYPE
+# chooses which, and SAVE_PLOT_TO_FILE writes whichever is showing, so
+# the two are ordered in use even though nothing enforces it: saving
+# without selecting writes whatever was last displayed.
+
+SET_PLOT_TYPE:
+  layout: inline
+  phase: analysis
+  args:
+    - name: plot_type
+      type: enum
+      values:
+        - CL_AXIS_X
+        - CL_AXIS_Y
+        - CL_AXIS_Z
+        - CDI_AXIS_X
+        - CDI_AXIS_Y
+        - CDI_AXIS_Z
+        - CY_AXIS_X
+        - CY_AXIS_Y
+        - CY_AXIS_Z
+        - FORCE_X_AXIS_X
+        - FORCE_X_AXIS_Y
+        - FORCE_X_AXIS_Z
+        - FORCE_Y_AXIS_X
+        - FORCE_Y_AXIS_Y
+        - FORCE_Y_AXIS_Z
+        - FORCE_Z_AXIS_X
+        - FORCE_Z_AXIS_Y
+        - FORCE_Z_AXIS_Z
+        - RESIDUALS
+        - LOADS
+        - SECTIONS_CP
+        - SECTIONS_MACH
+        - UNSTEADY
+  manual_ref: "SRC-003 p.361"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.355, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.360, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.364, same grammar as 26.120"}
+  notes: >
+    Selects which plot the pane shows.
+
+    THE MANUAL PRINTS THE VALUES AS PARAMETER ROWS RATHER THAN AS A
+    CLOSED SET, one row per token with N/A in the value column, so this
+    reads at a glance as a command with 23 parameters. It has one
+    argument taking one of 23 tokens, which is what the sample passing a
+    single token shows.
+
+    Twenty-three, not twenty-four: RESIDUALS is printed TWICE in the
+    list, in all four editions. A duplicate in a closed set is dropped
+    rather than recorded, there being nothing a second identical token
+    could mean.
+
+    The nine AXIS tokens pair a coefficient with an axis of the plot,
+    which is why CL_AXIS_X and CL_AXIS_Y are two plots of one
+    coefficient rather than two coefficients.
+
+SAVE_PLOT_TO_FILE:
+  layout: inline
+  phase: analysis
+  args:
+    - name: file
+      type: path
+      own_line: true
+  manual_ref: "SRC-003 p.361"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.355, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.360, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.364, same grammar as 26.120"}
+  notes: >
+    Writes the plot currently shown to a text file, the path on the next
+    line. It takes no plot type, so which plot is written depends on the
+    last SET_PLOT_TYPE, or on whatever the application was showing if
+    the script never set one.

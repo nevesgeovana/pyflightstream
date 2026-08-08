@@ -139,6 +139,11 @@ _COUNT_ARG_NAMES = {
     # The cost of that decision is exactly this set, which is why the
     # set is guarded rather than trusted.
     "num_surfaces",
+    # BOOLEAN_UNITE_MESH's count of the mesh BODIES it unites (SRC-003
+    # p.316), added 2026-08-08 with the Mesh Unite chapter. Fifth
+    # spelling of a count in this set and the first counting something
+    # other than surfaces, bodies being a different inventory again.
+    "num_bodies",
 }
 
 # Cross-reference ledger (SAD Section 4.2): commands that create an

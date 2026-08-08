@@ -29,3 +29,73 @@ SET_SIGNIFICANT_DIGITS:
   notes: >
     Output precision, integer between 1 and 8; applies to the values
     the solver writes into its exports.
+
+SET_TRAILING_EDGE_SWEEP_ANGLE:
+  layout: inline
+  phase: setup
+  args:
+    - name: angle
+      type: float
+      unit: "deg"
+  manual_ref: "SRC-003 p.284"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.278, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.283, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.287, same grammar as 26.120"}
+  notes: >
+    Threshold used by trailing-edge detection: how far an edge may sweep
+    away from the reference direction and still be detected. The manual
+    bounds it between 0 and 90 degrees; the bound is not enforced, which
+    is this database's standing treatment of the manual's stated bounds.
+
+    It configures AUTO_DETECT_TRAILING_EDGES and
+    DETECT_TRAILING_EDGES_BY_SURFACE, so it has no effect unless one of
+    them runs afterwards.
+
+SET_TRAILING_EDGE_BLUNTNESS_ANGLE:
+  layout: inline
+  phase: setup
+  args:
+    - name: angle
+      type: float
+      unit: "deg"
+  manual_ref: "SRC-003 p.284"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.278, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.283, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.287, same grammar as 26.120"}
+  notes: >
+    The other trailing-edge detection threshold: how blunt an edge may
+    be and still count as a trailing edge.
+
+    ITS RANGE DOES NOT START AT ZERO. The manual bounds it between 45
+    and 179 degrees, where the sweep angle above starts at 0, so the two
+    thresholds on the same page are not interchangeable and a value
+    valid for one may be outside the other's range. Neither bound is
+    enforced.
+
+SET_VERTEX_MERGE_TOLERANCE:
+  layout: inline
+  phase: setup
+  args:
+    - name: tolerance
+      type: float
+      unit: "simulation length units"
+  manual_ref: "SRC-003 p.284"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.278, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.283, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.287, same grammar as 26.120"}
+  notes: >
+    Distance below which two mesh vertices are treated as one, which is
+    what closes the gaps of an imported surface. The manual states only
+    that the value is not negative.
+
+    IT IS A LENGTH AND THE SIMULATION LENGTH UNIT DECIDES WHAT IT MEANS.
+    The manual's sample passes 1E-5, which is a reasonable tolerance in
+    metres and a very large one in microns, so the same number does
+    different things under SET_SIMULATION_LENGTH_UNITS. No edition
+    mentions the interaction.

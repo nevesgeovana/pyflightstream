@@ -1098,3 +1098,38 @@ CAD_CREATE_REVOLVE_MESH_FROM_CCS:
     full body is 0 to 360; what a negative or a reversed pair does is
     not stated. LOFT_TYPE_U is RADIAL and LOFT_TYPE_V is AXIAL, as on
     the fuselage command and unlike the wing one.
+
+CAD_CREATE_MIRROR_CURVES:
+  layout: inline
+  phase: geometry
+  args:
+    - name: frame
+      type: int
+      cites: frames
+    - name: plane
+      type: enum
+      values: [XY, XZ, YZ]
+    - name: retain_curve
+      type: enum
+      values: [RETAIN, DELETE]
+  manual_ref: "SRC-003 p.295"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.289, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.294, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.298, same grammar as 26.120"}
+  notes: >
+    Mirrors the SELECTED virtual curves across a plane. It takes no
+    curve index: which curves are mirrored comes from the selection made
+    by CAD_CREATE_CURVE_SELECT, so a script that mirrors without
+    selecting acts on whatever was selected before.
+
+    THE SAMPLE CALLS THE COMMAND BY A DIFFERENT NAME. Every edition
+    prints the heading as CAD_CREATE_MIRROR_CURVES and the sample line
+    beneath it as CAD_CREATE_MIRROR_CURVE, without the S. The heading is
+    recorded, because the Script Index agrees with it and because a
+    command name is the one thing a sample cannot be right about on its
+    own; PLN-20260808-2300 carries the probe.
+
+    RETAIN_CURVE decides whether the originals survive, so DELETE makes
+    this a move rather than a copy.

@@ -225,3 +225,101 @@ SWEEPER_EXPORT_SPREADSHEET:
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
+
+EXECUTE_SOLVER_SWEEPER:
+  layout: param_lines
+  phase: exec
+  args:
+    - name: angle_of_attack
+      type: enum
+      values: [ENABLE, DISABLE]
+    - name: side_slip_angle
+      type: enum
+      values: [ENABLE, DISABLE]
+    - name: velocity
+      type: enum
+      values: [ENABLE, DISABLE]
+    - name: angle_of_attack_start
+      type: float
+      unit: "deg"
+    - name: angle_of_attack_stop
+      type: float
+      unit: "deg"
+    - name: angle_of_attack_delta
+      type: float
+      unit: "deg"
+    - name: side_slip_angle_start
+      type: float
+      unit: "deg"
+    - name: side_slip_angle_stop
+      type: float
+      unit: "deg"
+    - name: side_slip_angle_delta
+      type: float
+      unit: "deg"
+    - name: velocity_start
+      type: float
+      unit: "simulation velocity units"
+      required: false
+    - name: velocity_stop
+      type: float
+      unit: "simulation velocity units"
+      required: false
+    - name: velocity_delta
+      type: float
+      unit: "simulation velocity units"
+      required: false
+    - name: mach_start
+      type: float
+      required: false
+    - name: mach_stop
+      type: float
+      required: false
+    - name: mach_delta
+      type: float
+      required: false
+    - name: export_surface_data_per_step
+      type: enum
+      values: [DISABLE, TXT, CSV, DAT, VTK]
+    - name: export_folder
+      type: path
+      required: false
+    - name: clear_solution_after_each_run
+      type: enum
+      values: [ENABLE, DISABLE]
+    - name: reference_velocity_equals_freestream
+      type: enum
+      values: [ENABLE, DISABLE]
+    - name: append_to_existing_sweep
+      type: enum
+      values: [ENABLE, DISABLE]
+    - name: file
+      type: path
+  manual_ref: "SRC-741 p.354"
+  versions:
+    "26.100": {status: documented}
+  notes: >
+    Configures and runs a whole parameter sweep in ONE command, where
+    the SWEEPER_ family of later editions splits the same job across ten.
+
+    DOCUMENTED BY THE FEBRUARY 2026 EDITION ALONE, so one version row
+    and a citation of SRC-741. It is the largest such command in the
+    database, twenty-one parameters, and it is the clearest evidence
+    that the sweeper was redesigned between February and May rather than
+    extended: nothing in the SWEEPER_ family has this shape.
+
+    THE VELOCITY SWEEP HAS TWO SPELLINGS AND THE MANUAL PRINTS BOTH
+    SAMPLES. The parameter rows read VELOCITY_START / MACH_START and so
+    on, one pair of keywords per limit, and the two samples use one set
+    each. Both are optional here and nothing refuses passing both: the
+    page states the alternation without saying what the solver does when
+    given both, and a refusal would be this database inventing the rule.
+    The VELOCITY toggle above governs whichever is used, so it does not
+    resolve the choice either.
+
+    TWO PATHS ARE WRITTEN AS BARE LINES, in different places. The first
+    follows EXPORT_SURFACE_DATA_PER_STEP and is a FOLDER for the
+    per-step boundary data, omitted when that parameter is DISABLE,
+    which the manual states in its row. The second is the last line of
+    the block and is the sweep results FILE. A reader seeing two
+    unlabelled paths cannot tell them apart by shape, only by position.

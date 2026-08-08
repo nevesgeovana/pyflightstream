@@ -631,6 +631,8 @@ def solver_settings(
     wake_numerical_relaxation: float | None = None,
     jet_wake_decay_normalized_length: float | None = None,
     wake_decay_constant: float | None = None,
+    solver_stabilization: float | None = None,
+    disable_ref_velocity: bool = False,
 ) -> SolverSetup:
     """Set the solver flags, record their provenance, and return the snapshot.
 
@@ -897,6 +899,19 @@ def solver_settings(
         strength, in MULTIPLES OF THE JET WAKE DIAMETER rather than in
         length units. Solver default 100.0, minimum 1.0. Not available
         on 26.100 (SRC-003 p.346).
+    solver_stabilization : float, optional
+        Maximum level of stabilization applied to the main convergence,
+        dimensionless, from 0 to 1. The manual states that 0 is the same
+        as disabling it, so this is a strength and not a switch, and it
+        takes intermediate values. Not available on 26.100
+        (SRC-003 p.346).
+    disable_ref_velocity : bool, default False
+        Make the solver reference velocity track the free-stream
+        velocity instead of holding what `ref_velocity` last set. The
+        command takes no argument, so False is the ABSENCE of the
+        request rather than a way of asking for the opposite: the solver
+        has no way to be told not to do this. Documented by the 26.121
+        edition alone (SRC-740 p.342).
     wake_decay_constant : float, optional
         Rate at which wake vorticity decays with distance, in units of
         1/m. The manual gives it as 19.1 divided by a characteristic
@@ -1296,6 +1311,10 @@ def solver_settings(
         )
     if wake_decay_constant is not None:
         script.emit("SET_WAKE_DECAY_CONSTANT", wake_decay_constant)
+    if solver_stabilization is not None:
+        script.emit("SOLVER_STABILIZATION", solver_stabilization)
+    if disable_ref_velocity:
+        script.emit("DISABLE_SOLVER_REF_VELOCITY")
 
     if vorticity_drag_boundaries is not None:
         script._vorticity_selection = selection
@@ -1344,6 +1363,8 @@ def solver_settings(
         "wake_numerical_relaxation": wake_numerical_relaxation,
         "jet_wake_decay_normalized_length": jet_wake_decay_normalized_length,
         "wake_decay_constant": wake_decay_constant,
+        "solver_stabilization": solver_stabilization,
+        "disable_ref_velocity": disable_ref_velocity,
         "reynolds_averaged_drag": reynolds_averaged_drag,
         "mesh_induced_wake_velocity": mesh_induced_wake_velocity,
         "farfield_layers": farfield_layers,

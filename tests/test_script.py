@@ -2207,6 +2207,18 @@ _INDEXES_OF_UNTRACKED_OBJECTS = {
     # marked as inlets, which nothing reports back. Its DELETE siblings
     # are not here because their argument names carry no citation stem.
     ("SET_INLET_CUSTOM_PROFILE", "inlet_id"),
+    # The tail chapters of 2026-08-08. A CAD BODY is not a mesh boundary
+    # and the builder tracks only boundaries, so the unite list and the
+    # CAD transfer index resolve to nothing; both document -1 for all,
+    # kept in their notes. A volume section and a transition trip are
+    # likewise untracked, and the trip is the sharper case: no edition
+    # documents a command that CREATES one, so its index has no scripted
+    # source at all.
+    ("BOOLEAN_UNITE_MESH", "body_indices"),
+    ("CONVERT_CAD_TO_MESH", "body_index"),
+    ("DELETE_TRANSITION_TRIP", "transition_trip_index"),
+    ("EXPORT_VOLUME_SECTION_2D_VTK", "index"),
+    ("VOLUME_SECTION_WIREFRAME", "index"),
 }
 
 #: Name stems that suggest an argument cites something by index. This

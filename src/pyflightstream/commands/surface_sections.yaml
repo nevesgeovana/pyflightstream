@@ -153,3 +153,22 @@ DELETE_SURFACE_SECTION:
   manual_ref: "SRC-003 p.365"
   versions:
     "26.120": {status: documented}
+
+DELETE_ALL_SURFACE_SECTIONS:
+  layout: bare
+  phase: analysis
+  args: []
+  manual_ref: "SRC-003 p.365"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.359, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.364, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.368, same grammar as 26.120"}
+  notes: >
+    Deletes every surface section.
+
+    ITS PAGE GIVES IT NOTHING AT ALL: a signature heading with no
+    parameter table, no sample and no prose, in all four editions. Read
+    as a bare command under the rule the Scenes chapter rests on,
+    nothing in any edition contradicting it, and its own name saying
+    what it acts on.

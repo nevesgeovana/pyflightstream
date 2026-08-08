@@ -137,3 +137,55 @@ NEW_UNSTEADY_SOLVER_SURFACE_PROBE:
     friction and the transition marker. CSYS is 1-based, index 1 being
     the reference frame; the coordinates are inline here, unlike the
     fluid plot's preformatted VERTEX line.
+
+UNSTEADY_SOLVER_ANIMATION:
+  layout: keyword_block
+  phase: init
+  args:
+    - name: mode
+      type: enum
+      values: [ENABLE, DISABLE]
+      on_command_line: true
+    - name: folder
+      type: path
+      required: false
+    - name: filetype
+      type: enum
+      values: [SOLVER_BITMAP, PLOTS_BITMAP, TECPLOT_DATA, PARAVIEW_VTK]
+      required: false
+    - name: frequency
+      type: int
+      required: false
+    - name: volume_sections
+      type: enum
+      values: [ENABLE, DISABLE]
+      required: false
+    - name: volume_sections_format
+      type: enum
+      values: [VTK, DAT, VTK2D]
+      required: false
+      joins_previous: true
+  manual_ref: "SRC-003 pp.347-348"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 pp.343-344, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 pp.346-347, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 pp.351-352, same grammar as 26.120"}
+  notes: >
+    Writes an output file every so many time steps of an unsteady run,
+    which is how an animation is produced.
+
+    THE MODE SITS ON THE COMMAND LINE AND EVERYTHING ELSE IS A KEYWORD
+    LINE, the second command in the database to need `on_command_line`
+    after WRAPPER_EDIT_LOCAL_CONTROL. Every keyword is optional because
+    the manual prints TWO samples: the enabling one carries four keyword
+    lines and the disabling one is a single line with none.
+
+    VOLUME_SECTIONS TAKES TWO VALUES ON ONE LINE, a toggle and a format,
+    which is why the format joins the previous line rather than taking
+    its own keyword. The manual states the pair in one parameter row.
+
+    FREQUENCY IS IN SOLVER TIME STEPS AND NOT IN SECONDS: 1 writes every
+    step, 2 every second step. Combined with PARAVIEW_VTK on a long run
+    this is the fastest way in the package to fill a disk, and no
+    edition says so.

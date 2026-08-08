@@ -1,0 +1,42 @@
+# Chapter: Scripting reference, Boundary Layer Transition Trips
+# (SRC-003 p.327).
+#
+# COMPLETE as of 2026-08-08, entered from all four registered editions in
+# one pass, and complete is a strange word for it: the chapter is ONE
+# COMMAND AND IT IS A DELETE.
+#
+# A transition trip forces the boundary layer from laminar to turbulent
+# at a chosen line, which is how a wind-tunnel trip strip or a
+# manufacturing step is represented. No edition of the scripting
+# reference documents a command that CREATES one. So a script can remove
+# the trips an opened simulation carries and cannot add any, which means
+# the feature is reachable from a script only in one direction.
+#
+# Stated as a chapter fact rather than left to be discovered, because the
+# natural reading of a delete command is that a create command is
+# somewhere nearby, and the sweep of 2026-08-08 read all four editions
+# and found none.
+
+DELETE_TRANSITION_TRIP:
+  layout: inline
+  phase: setup
+  args:
+    - name: transition_trip_index
+      type: int
+  manual_ref: "SRC-003 p.327"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.323, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.326, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.330, same grammar as 26.120"}
+  notes: >
+    Deletes one set of boundary-layer transition trip edges by its
+    1-based index. The manual requires an index greater than zero and
+    states no all-form, so -1 is not accepted here.
+
+    THE INDEX HAS NO SCRIPTED SOURCE. Nothing in any edition creates a
+    transition trip or reports how many exist, so the number can only
+    come from the application's own tree, from a simulation file the
+    script opened, or from counting by hand. That is why it is not
+    declared as an entity citation: there is no inventory for the script
+    builder to resolve it against and nothing it could range check.

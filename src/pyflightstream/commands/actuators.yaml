@@ -213,3 +213,30 @@ DELETE_ACTUATOR:
   versions:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
+
+DISABLE_ACTUATOR:
+  layout: inline
+  phase: setup
+  args:
+    - name: actuator_index
+      type: int
+  manual_ref: "SRC-741 p.319"
+  versions:
+    "26.100": {status: documented}
+  notes: >
+    Disables an actuator disc without deleting it, the counterpart of
+    ENABLE_ACTUATOR.
+
+    DOCUMENTED BY THE FEBRUARY 2026 EDITION ALONE. No later edition
+    prints it anywhere, which is why the entry carries one version row
+    and cites SRC-741 rather than the flagship. It is the mirror image
+    of SET_WAKE_DECAY_CONSTANT, which exists in the newest edition only.
+
+    Its page prints the heading with NO placeholder and a parameter
+    table reading N/A, while the sample two lines below passes an
+    actuator index. That is the same contradiction the neighbouring
+    ENABLE_ACTUATOR carries on the same page, and it is read the same
+    way: the one-argument form is recorded, because recording zero would
+    refuse the only runnable line the edition prints. Unlike
+    ENABLE_ACTUATOR this one has NOT been measured against the solver,
+    so the reading rests on the page and on its neighbour's probe.

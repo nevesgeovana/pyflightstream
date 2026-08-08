@@ -157,3 +157,89 @@ SONIC_VELOCITY:
         No longer supported; the solver throws a deprecation warning
         and ignores the value. Sonic velocity now follows from
         temperature and specific heat ratio (SRC-003 p.328).
+
+DETECT_TRAILING_EDGES_BY_SURFACE:
+  layout: keyword_block
+  phase: setup
+  args:
+    - name: surfaces
+      type: int
+    - name: surface_indices
+      type: int_list
+      cites: boundaries
+      separator: comma
+  manual_ref: "SRC-003 p.319"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.314, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.318, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.322, same grammar as 26.120"}
+  notes: >
+    Runs trailing-edge detection on a named set of boundaries rather
+    than the whole geometry, using the sweep and bluntness thresholds.
+    The count sits on the SURFACES keyword line and the indices follow
+    comma separated, the same shape as SURFACE_ROTATE.
+
+    The manual gives the payload row no parameter name, describing it in
+    prose as the line following SURFACES; the name here is this
+    database's.
+
+TRAILING_EDGES_IMPORT:
+  layout: inline
+  phase: setup
+  args:
+    - name: file
+      type: path
+      own_line: true
+  manual_ref: "SRC-003 p.319"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.314, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.318, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.322, same grammar as 26.120"}
+  notes: >
+    Marks trailing edges at vertices listed in a CSV file, the path on
+    the next line. This is the exact route rather than the detection
+    thresholds: the file names the vertices.
+
+    The manual describes the file format, a vertex count, a unit token
+    and then one line per vertex with an id and three coordinates. That
+    is the content of a file this package does not write, so it is
+    paraphrased here and nothing validates it. The unit line matters:
+    the coordinates are read in the unit the file declares, not in the
+    simulation's.
+
+DETECT_WAKE_TERMINATION_NODES_BY_SURFACE:
+  layout: inline
+  phase: setup
+  args:
+    - name: surface_id
+      type: int
+      cites: boundaries
+  manual_ref: "SRC-003 p.321"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.316, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.320, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.324, same grammar as 26.120"}
+  notes: >
+    Detects wake termination nodes on one boundary, where
+    AUTO_DETECT_WAKE_TERMINATION_NODES does the whole geometry. One
+    boundary per call and no all-form is stated.
+
+MARK_WAKE_TERMINATION_NODES:
+  layout: bare
+  phase: setup
+  args: []
+  manual_ref: "SRC-003 p.321"
+  versions:
+    "26.101": {status: documented, note: "SRC-725 p.320, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.324, same grammar as 26.120"}
+  notes: >
+    Marks the currently SELECTED mesh nodes as wake termination nodes,
+    which is the manual route where the two detection commands are the
+    automatic ones. It takes nothing, so which nodes are marked comes
+    entirely from the selection state left by SELECT_MESH_NODE.
+
+    Absent from the February 2026 edition, so no 26.100 row.

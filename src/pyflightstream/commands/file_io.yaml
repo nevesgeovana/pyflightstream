@@ -92,3 +92,48 @@ OUTPUT_SETTINGS_AND_STATUS:
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
   notes: >
     Writes the fluid properties and solver status to a file.
+
+CLEAR_LOG:
+  layout: bare
+  phase: control
+  args: []
+  manual_ref: "SRC-003 p.283"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.277, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.282, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.286, same grammar as 26.120"}
+  notes: >
+    Empties the log window. Phase control, as EXPORT_LOG is: it acts on
+    the application's output rather than on the simulation.
+
+    A SCRIPT THAT CLEARS THE LOG DISCARDS ITS OWN EVIDENCE. This package
+    reads the log to identify the solver build, to detect refusals and
+    to find the probe sentinels, so a clear in the middle of a managed
+    run removes what the run record is built from. Nothing here refuses
+    it; the warning is stated where a reader meets the command.
+
+OUTPUT_SURFACE_INDICES:
+  layout: inline
+  phase: control
+  args:
+    - name: file
+      type: path
+      own_line: true
+      required: false
+  manual_ref: "SRC-003 p.283"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.277, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.282, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.286, same grammar as 26.120"}
+  notes: >
+    Writes the name and index of every mesh boundary, to a file if a
+    path follows and to the log window if none does. The manual states
+    the path is OPTIONAL in as many words, which is why it is the rare
+    own_line argument that is not required.
+
+    IT IS THE ANSWER TO A QUESTION THIS DATABASE RAISES CONSTANTLY.
+    Dozens of commands take a boundary index and nothing in a script
+    says what those indices are; this is the command that reports them.
+    A caller writing indices by hand should run it first.

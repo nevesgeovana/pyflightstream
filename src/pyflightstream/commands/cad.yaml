@@ -176,3 +176,60 @@ CAD_BODY_SELECT_BY_THRESHOLD:
     before a CAD operation is unmeasured, so the phase is left where the
     rest of the CAD family sits rather than moved on a guess
     (PLN-20260806-0900).
+
+IMPORT_CAD:
+  layout: inline
+  phase: geometry
+  args:
+    - name: tessellation_density
+      type: enum
+      values: [LOW, MEDIUM, HIGH]
+    - name: unreferenced_patches
+      type: enum
+      values: ["TRUE", "FALSE"]
+    - name: num_curvature
+      type: int
+    - name: file
+      type: path
+      own_line: true
+  manual_ref: "SRC-003 p.286"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.280, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.285, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.289, same grammar as 26.120"}
+  notes: >
+    Imports a CAD file, the path on the line after the inline arguments.
+    The result is a CAD body, not a mesh: CONVERT_CAD_TO_MESH is what
+    puts it where the solver can see it.
+
+    NUM_CURVATURE IS A COUNT AROUND A CIRCLE AND NOT A LENGTH. The
+    manual defines it as the number of tessellation subdivisions around
+    a full circle, default 80, so it refines curved faces and does
+    nothing to flat ones. It is the argument that decides whether an
+    imported fillet is a polygon.
+
+    The manual gives all three defaults, MEDIUM, TRUE and 80, and all
+    three are required here: no edition prints a call omitting any of
+    them, so a shorter form would be inferred rather than read.
+
+CONVERT_CAD_TO_MESH:
+  layout: inline
+  phase: geometry
+  args:
+    - name: body_index
+      type: int
+  manual_ref: "SRC-003 p.286"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.280, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.285, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.289, same grammar as 26.120"}
+  notes: >
+    Transfers a CAD body into the simulation's mesh, which is the step
+    that makes an imported CAD file something the solver acts on, and
+    the point at which mesh boundary indices come into existence.
+
+    -1 transfers every body, which the sample passes. It is a CAD body
+    index, an object the script builder does not track, so the -1 is in
+    this note rather than declared as a sentinel.

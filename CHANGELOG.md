@@ -9,6 +9,41 @@ FlightStream versions.
 
 ### API surface delta
 
+* **The tail entered: 28 commands across 21 sections, and THE SWEEP
+  REACHES ZERO.** Every command that any of the four registered manual
+  editions documents is now in the database: 388 entries against 386
+  distinct commands the manuals describe, the difference being two
+  recorded from probe evidence alone. `pyfs-manual sweep` reports 0
+  absent. Emittable per version 305, 332, 365, 371.
+
+  **Two more keyword parameters on `helpers.solver_settings`:**
+  `solver_stabilization` and `disable_ref_velocity`, the latter on a new
+  `bare_request` flag kind for a command that takes no argument at all,
+  where False is the ABSENCE of the request rather than a way to ask for
+  the opposite.
+
+  Three commands exist in one edition only, which is the clearest
+  evidence this sweep produced that the scripting surface is moving in
+  both directions: `DISABLE_ACTUATOR` and `EXECUTE_SOLVER_SWEEPER` in
+  the February edition alone, `DISABLE_SOLVER_REF_VELOCITY` in the
+  26.121 hotfix alone. `EXECUTE_SOLVER_SWEEPER` does in one 21-parameter
+  command what the later `SWEEPER_` family splits across ten, so that
+  family was redesigned rather than extended.
+
+  `CAD_CREATE_MIRROR_CURVES` HAS TWO SPELLINGS: the heading and the
+  Script Index say CURVES and the sample beneath the heading says
+  CURVE, in all four editions. The heading is recorded, and the
+  reasoning is the reverse of this database's usual preference for
+  samples: a sample is the stronger source for an ARGUMENT because the
+  vendor ran the line, but a sample with the wrong NAME is a sample of
+  nothing. `PLN-20260808-2300` carries the probe.
+
+  Two chapters are worth naming for what they lack. Boundary Layer
+  Transition Trips is ONE COMMAND AND IT IS A DELETE: no edition
+  documents creating a trip, so a script can remove them and never add
+  one. And `SET_PLOT_TYPE` prints `RESIDUALS` twice in its value list in
+  every edition, so it takes 23 tokens rather than the 24 rows printed.
+
 * **Coordinate Systems, both streamline families and the Stability and
   Control Toolbox entered: 19 commands, all four chapters complete.**
   Database 341 to 360; emittable per version 280, 307, 340, 345. Nine

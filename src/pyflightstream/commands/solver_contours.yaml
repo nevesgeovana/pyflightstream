@@ -1,0 +1,75 @@
+# Chapter: Scripting reference, Solver Contours (SRC-003 pp.349-350).
+#
+# COMPLETE as of 2026-08-08, entered from all four registered editions in
+# one pass. The one command of the chapter, with the same 33 values in
+# all four.
+
+SET_SCENE_CONTOUR:
+  layout: inline
+  phase: analysis
+  args:
+    - name: variable
+      type: enum
+      values:
+        - none
+        - x
+        - y
+        - z
+        - face_area
+        - face_quality
+        - pressure_coefficient_freestream
+        - pressure_coefficient_reference
+        - static_pressure_ratio
+        - mach_number
+        - velocity_x
+        - velocity_y
+        - velocity_z
+        - velocity_magnitude
+        - onset_velocity_x
+        - onset_velocity_y
+        - onset_velocity_z
+        - onset_velocity_magnitude
+        - solver_partition
+        - skin_friction_coefficient
+        - attachment_lines
+        - displacement_thickness
+        - momentum_thickness
+        - shape_factor
+        - streamline_length
+        - transition
+        - transpiration_velocity
+        - separation
+        - doublet_strength
+        - source_strength
+        - stabilization
+        - proximity
+  manual_ref: "SRC-003 pp.349-350"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 pp.345-346, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 pp.348-349, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 pp.352-353, same grammar as 26.120"}
+  notes: >
+    Selects the scalar field drawn on the surfaces of the solver scene.
+
+    THE VALUES ARE LOWERCASE AND THAT IS NOT A TRANSCRIPTION CHOICE.
+    Every other closed set in this database is uppercase, because that
+    is how the manual prints them; this page prints these 33 in lower
+    case, and a token is emitted literally, so they are recorded as
+    printed. Whether the solver actually cares is untested, and passing
+    the uppercase form is refused here rather than silently accepted:
+    accepting both would be a guess about case folding that no page
+    supports.
+
+    THE PAGE HAS NO RUNNABLE SAMPLE. Its sample line prints the
+    placeholder rather than a value, so unlike most of this manual there
+    is no example call to compare the table against. The 33 tokens are
+    the table's alone.
+
+    `none` is one of them, and it is the way to clear the contour rather
+    than a way of saying nothing: there is no separate clear command.
+
+    Several tokens name boundary-layer fields, which exist only once a
+    viscous solution has been computed. Nothing here can check that, so
+    selecting one before the run is a scene showing an empty field
+    rather than an error.

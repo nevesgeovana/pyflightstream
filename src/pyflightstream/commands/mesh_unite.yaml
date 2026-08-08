@@ -1,0 +1,72 @@
+# Chapter: Scripting reference, Mesh Unite (SRC-003 p.316).
+#
+# COMPLETE as of 2026-08-08, entered from all four registered editions in
+# one pass. Both signatures identical across the four.
+#
+# THE ONLY PLACE IN THIS DATABASE WHERE A COMMAND CALLS OUT TO ANOTHER
+# VENDOR'S EXECUTABLE. The boolean unite is performed by OpenVSP's
+# CompGeom rather than by FlightStream, which is why the chapter needs a
+# path command at all, and why its two commands are ORDERED: the path
+# must be set before the unite runs. The manual states that ordering in
+# the path command's own parameter row.
+#
+# That also means this chapter can fail for reasons no other chapter can:
+# OpenVSP absent, at a different path, or a version whose CompGeom
+# behaves differently. Nothing here can check any of that.
+
+BOOLEAN_UNITE_PATH:
+  layout: keyword_block
+  phase: geometry
+  args:
+    - name: openvsp_path
+      type: path
+  manual_ref: "SRC-003 p.316"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.311, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.315, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.319, same grammar as 26.120"}
+  notes: >
+    Location of the OpenVSP executable used for the unite. The manual
+    states it must be called BEFORE BOOLEAN_UNITE_MESH, which is the one
+    ordering rule the chapter has and which nothing here enforces: the
+    phase system orders commands by phase, and both of these are
+    geometry.
+
+    The sample writes a directory rather than an executable, and the
+    parameter row calls it a path to the executable. Which of the two
+    the solver wants is not settled by the page, so nothing here
+    constrains the value beyond it being a path.
+
+BOOLEAN_UNITE_MESH:
+  layout: payload_lines
+  phase: geometry
+  args:
+    - name: num_bodies
+      type: int
+    - name: body_indices
+      type: int_list
+      separator: space
+      required: false
+  manual_ref: "SRC-003 p.316"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.311, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.315, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.319, same grammar as 26.120"}
+  notes: >
+    Intersects and unites several mesh bodies into one. The count sits
+    on the command line and the indices follow on the next.
+
+    THE INDICES ARE SPACE SEPARATED HERE AND COMMA SEPARATED IN THE MESH
+    OPERATIONS CHAPTER. Both samples on this page print spaces, where
+    SURFACE_COMBINE and WRAPPER_SET_INPUT print commas for the same kind
+    of payload. The separator is emitted literally, so the difference is
+    recorded per command rather than harmonised.
+
+    -1 UNITES EVERY BODY and takes no index line, which is why the list
+    is optional. The manual states this as a note under the count.
+
+    These are MESH BODY indices, not the mesh boundary indices the rest
+    of the database cites, so nothing resolves or range checks them: the
+    script builder tracks boundaries and has no inventory of bodies.

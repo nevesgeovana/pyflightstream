@@ -524,3 +524,40 @@ DELETE_THIN_BOUNDARIES:
     Clears the thin boundary list entirely. It takes no argument, so
     there is no way to remove one boundary from the list: a script that
     wants a subset clears and re-sets.
+
+SOLVER_STABILIZATION:
+  layout: inline
+  phase: init
+  args:
+    - name: value
+      type: float
+  manual_ref: "SRC-003 p.346"
+  versions:
+    "26.101": {status: documented, note: "SRC-725 p.345, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.348, same grammar as 26.120"}
+  notes: >
+    Maximum level of stabilization applied to the main convergence,
+    dimensionless, from 0 to 1. The manual states that 0 is the same as
+    disabling it, so this is a strength rather than a switch, and it
+    takes intermediate values.
+
+    Absent from the February 2026 edition, so no 26.100 row.
+
+DISABLE_SOLVER_REF_VELOCITY:
+  layout: bare
+  phase: init
+  args: []
+  manual_ref: "SRC-740 p.342"
+  versions:
+    "26.121": {status: documented}
+  notes: >
+    Makes the solver reference velocity track the free-stream velocity
+    instead of holding whatever SOLVER_SET_REF_VELOCITY last set.
+
+    DOCUMENTED BY THE 26.12 HOTFIX EDITION ALONE, so one version row and
+    a citation of SRC-740. It is worth knowing about even on the builds
+    that do not document it: the reference velocity is what
+    pressure_coefficient_reference is normalised by, so a reference
+    velocity left over from an earlier state silently rescales a
+    reported coefficient rather than failing.

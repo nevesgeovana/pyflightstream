@@ -151,3 +151,68 @@ DELETE_VOLUME_SECTION:
   versions:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
+
+DELETE_ALL_VOLUME_SECTIONS:
+  layout: bare
+  phase: analysis
+  args: []
+  manual_ref: "SRC-003 p.367"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.361, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.366, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.370, same grammar as 26.120"}
+  notes: >
+    Deletes every volume section, where DELETE_VOLUME_SECTION takes one
+    index. A separate command rather than a sentinel of that one.
+
+VOLUME_SECTION_WIREFRAME:
+  layout: inline
+  phase: analysis
+  args:
+    - name: index
+      type: int
+    - name: mode
+      type: enum
+      values: [ENABLE, DISABLE]
+  manual_ref: "SRC-003 p.366"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.360, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.365, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.369, same grammar as 26.120"}
+  notes: >
+    Draws one volume section as a wireframe rather than as a filled
+    contour. A display setting, but phase analysis rather than control:
+    it names a volume section, which exists only once one has been
+    created.
+
+    The parameter table documents the INDEX row alone and says nothing
+    about the second placeholder, which the heading prints and the
+    sample passes as ENABLE. Recorded from the heading and the sample,
+    which agree with each other.
+
+EXPORT_VOLUME_SECTION_2D_VTK:
+  layout: inline
+  phase: analysis
+  args:
+    - name: index
+      type: int
+    - name: file
+      type: path
+      own_line: true
+  manual_ref: "SRC-003 p.367"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.361, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.366, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.370, same grammar as 26.120"}
+  notes: >
+    Exports one volume section as a 2D ParaView file, the path on the
+    next line.
+
+    THE 2D AND 3D VTK EXPORTS ARE DIFFERENT COMMANDS WRITING THE SAME
+    EXTENSION. EXPORT_VOLUME_SECTION_VTK, already in this chapter,
+    writes the section as a slice through a 3D field; this one writes it
+    as a planar dataset. A file name cannot distinguish them, so a
+    reader of an output folder cannot tell which command wrote what.

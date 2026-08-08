@@ -95,7 +95,9 @@ class FlagSpec:
         one, the ``"all"`` form), ``boundary_selection`` (the same
         shapes, on the deferred vorticity path that rewrites its own
         emitted line), ``mode_steady`` /
-        ``mode_unsteady`` (the solver-mode pair), and
+        ``mode_unsteady`` (the solver-mode pair), ``bare_request`` (a
+        command taking no argument at all, emitted when the caller asks
+        for it and absent otherwise), and
         ``bulk_separation`` (the :class:`BulkSeparation` model).
 
         Five kinds carry a SET and its matching DELETE on one keyword,
@@ -164,6 +166,10 @@ FLAG_SPECS: tuple[FlagSpec, ...] = (
     FlagSpec("thin_boundaries", "DELETE_THIN_BOUNDARIES", "boundary_list_clear"),
     FlagSpec("bulk_separation", "CREATE_BULK_SEPARATION", "bulk_separation"),
     *_ADVANCED_2026_08_08,
+    # The last two settings-family commands of the v0.5.0 sweep, entered
+    # 2026-08-08 with the tail chapters.
+    FlagSpec("solver_stabilization", "SOLVER_STABILIZATION", "scalar"),
+    FlagSpec("disable_ref_velocity", "DISABLE_SOLVER_REF_VELOCITY", "bare_request"),
     # The named separation models of 26.101 and later. One keyword per
     # command rather than one shared sequence: the solver indexes the
     # models in creation order and DELETE_SEPARATION addresses them by
@@ -511,7 +517,12 @@ class SolverSetup(BaseModel):
                     "snapshot model and the helper must cover the same flag set "
                     "(see FLAG_SPECS in pyflightstream.script.solver_setup)"
                 )
-            if spec.kind == "mode_steady":
+            if spec.kind == "bare_request":
+                # The command carries no value, so the record's own
+                # existence as explicit IS the value; reconstructing it
+                # means asking for it again.
+                kwargs[spec.param] = True
+            elif spec.kind == "mode_steady":
                 kwargs["mode"] = "STEADY"
             elif spec.kind == "mode_unsteady":
                 value = dict(record.value)  # type: ignore[arg-type]
@@ -573,7 +584,14 @@ def _family_record(
 ) -> FlagRecord:
     """Build the snapshot record of one settings-family command."""
     base = {"command": entry.name, "family": entry.chapter}
-    if spec.kind == "mode_steady":
+    if spec.kind == "bare_request":
+        # A command with no argument: there is nothing to record but
+        # whether it was asked for. False is NOT explicit-and-not-emitted,
+        # it is the absence of a request, because the solver has no way
+        # to be told not to do this.
+        if passed.get(spec.param):
+            return FlagRecord(**base, provenance=_EXPLICIT, value=True, emitted=True)
+    elif spec.kind == "mode_steady":
         if passed.get("mode") == "STEADY":
             return FlagRecord(**base, provenance=_EXPLICIT, value=True, emitted=True)
     elif spec.kind == "mode_unsteady":

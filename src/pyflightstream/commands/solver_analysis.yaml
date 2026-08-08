@@ -136,3 +136,32 @@ SET_INVISCID_LOADS:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
   notes: >
     Restricts the analysis to inviscid loads and moments only.
+
+SET_VORTICITY_LIFT_MODEL:
+  layout: inline
+  phase: init
+  args:
+    - name: mode
+      type: enum
+      values: [ENABLE, DISABLE]
+  manual_ref: "SRC-003 p.350"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.346, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.349, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.353, same grammar as 26.120"}
+  notes: >
+    Computes lift from the vorticity field rather than by integrating
+    surface pressure.
+
+    IT IS THE LIFT COUNTERPART OF A DECISION THIS PACKAGE ALREADY
+    MODELS FOR DRAG. SET_VORTICITY_DRAG_BOUNDARIES selects the
+    boundaries whose induced drag is computed from vorticity, and
+    solver_settings records that choice in its snapshot. This is the
+    same physical choice applied to lift, and it is NOT in the snapshot:
+    it lives in the solver_analysis chapter, which is not a settings
+    family, so no flag covers it. Recorded here so the asymmetry is
+    visible rather than discovered.
+
+    Compare KUTTA_JOUKOWSKI_LIFT_FORCES, which is a third route to the
+    same quantity. No edition says what happens if both are enabled.
