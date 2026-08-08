@@ -9,6 +9,44 @@ FlightStream versions.
 
 ### API surface delta
 
+* **The Advanced Settings and Inlets and Outlets chapters entered: 15
+  commands, both complete.** Database 326 to 341; emittable per version
+  253, 280, 321, 326.
+
+  **Eight new keyword parameters on `helpers.solver_settings`:**
+  `kutta_joukowski_lift`, `print_rotor_induced_velocities`,
+  `adaptive_field_grid_refinement`, `jet_wake_filaments_grid_induction`,
+  `rotor_induced_velocity_blending`, `wake_numerical_relaxation`,
+  `jet_wake_decay_normalized_length` and `wake_decay_constant`, each with
+  a snapshot flag. Not optional extra work: every command of a settings
+  family is a snapshot flag, and the tier-1 guard refused the chapter
+  until the model matched, so these arrived with the commands instead of
+  a release later.
+
+  ADVANCED SETTINGS IS THE CHAPTER WHERE THE EDITIONS DISAGREE ABOUT
+  WHAT EXISTS, so its version rows differ per command. Four commands are
+  absent from the February edition. `SET_WAKE_DECAY_CONSTANT` exists in
+  the 26.121 hotfix alone, so it cites SRC-740 rather than the flagship,
+  and its unit of 1/m is DERIVED from the manual's formula and printed
+  nowhere: the constant is 19.1 over a characteristic length in metres,
+  and a value computed with that length in other units gives a wake
+  decaying orders of magnitude too fast or not at all, with nothing in
+  the number to reveal which.
+
+  `SET_JET_WAKE_FILAMENTS_GRID_INDUCTION` is documented by 26.101 and
+  26.120 and dropped by the hotfix that follows, the only such command
+  in the sweep. It gets no 26.121 row and is NOT marked removed, that
+  status meaning the manual says unsupported where here a document
+  merely goes quiet. It therefore still emits on 26.121 by inheritance
+  from its base release, which is the honest default and is marked as
+  inherited in the matrix. `PLN-20260808-2000` carries the probe.
+
+  Inlets and Outlets is asymmetric and the asymmetry is the manual's: an
+  inlet takes a custom velocity profile from a file and an outlet cannot,
+  in any edition, so a case needing a non-uniform exhaust has no scripted
+  way to ask for one. A test asserts the absence, the natural reading of
+  a symmetric chapter being that the missing command was overlooked.
+
 * **The Acoustics Toolbox and Base Regions chapters entered: 18
   commands, both complete.** Database 308 to 326; emittable per version
   243, 266, 307, 311.

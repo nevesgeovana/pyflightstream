@@ -2201,6 +2201,12 @@ _INDEXES_OF_UNTRACKED_OBJECTS = {
     ("SET_BASE_REGION_TRAILING_EDGES", "base_region_boundary"),
     ("SELECT_BASE_REGION_FACES", "base_index"),
     ("SET_BASE_REGION_CP", "base_index"),
+    # An inlet, added 2026-08-08 with the Inlets and Outlets chapter. The
+    # two CREATE commands there take a BOUNDARY index and declare it;
+    # this is the separate 1-based sequence over the boundaries already
+    # marked as inlets, which nothing reports back. Its DELETE siblings
+    # are not here because their argument names carry no citation stem.
+    ("SET_INLET_CUSTOM_PROFILE", "inlet_id"),
 }
 
 #: Name stems that suggest an argument cites something by index. This
@@ -3055,3 +3061,112 @@ def test_the_base_region_remesh_growth_scheme_is_a_number_and_refuses_the_word()
             growth_scheme="DUAL-SIDED",
             growth_rate=1.2,
         )
+
+
+# --- Advanced Settings and Inlets and Outlets ---------------------------------
+
+
+def test_the_advanced_settings_toggles_emit_on_the_editions_that_document_them():
+    """The one chapter of the sweep whose version rows differ per command."""
+    for version in ("26.100", "26.101", "26.120", "26.121"):
+        script = Script(version=version)
+        script.emit("KUTTA_JOUKOWSKI_LIFT_FORCES", "ENABLE")
+        script.emit("PRINT_ROTOR_INDUCED_VELOCITIES", "ENABLE")
+        script.emit("SET_ADAPTIVE_FIELD_GRID_REFINEMENT", "DISABLE")
+        assert "KUTTA_JOUKOWSKI_LIFT_FORCES ENABLE" in script.render()
+
+    # The four the February edition does not document.
+    for name, value in (
+        ("ROTOR_INDUCED_VELOCITY_BLENDING", 0.5),
+        ("SET_WAKE_NUMERICAL_RELAXATION", 0.5),
+        ("SET_JET_WAKE_DECAY_NORMALIZED_LENGTH", 25.5),
+    ):
+        with pytest.raises(CommandNotInVersionError):
+            Script(version="26.100").emit(name, value)
+        later = Script(version="26.101")
+        later.emit(name, value)
+        assert name in later.render()
+
+
+def test_the_wake_decay_constant_exists_in_the_hotfix_alone():
+    """New in 26.121, documented in no other edition, so one version row."""
+    entry = CommandRegistry.load().commands["SET_WAKE_DECAY_CONSTANT"]
+    assert set(entry.versions) == {"26.121"}
+    assert entry.manual_ref.startswith("SRC-740"), (
+        "a command the flagship edition does not document cites the edition that does"
+    )
+    assert entry.args[0].unit == "1/m", (
+        "the unit is derived from the manual's formula and printed nowhere; a decay "
+        "constant computed with the length scale in the wrong units is not detectable "
+        "from the number"
+    )
+    for earlier in ("26.100", "26.101", "26.120"):
+        with pytest.raises(CommandNotInVersionError):
+            Script(version=earlier).emit("SET_WAKE_DECAY_CONSTANT", 120.125)
+
+
+def test_a_command_the_hotfix_manual_dropped_still_emits_by_inheritance():
+    """An absent version row is not a refusal on an inheriting build.
+
+    SET_JET_WAKE_FILAMENTS_GRID_INDUCTION is documented by 26.101 and
+    26.120 and by neither neighbour. It has no 26.121 row and is not
+    `removed`, because no edition says it is unsupported; one simply
+    stops printing it. 26.121 inherits its base release's evidence, so
+    the command emits there as an assumption rather than a measurement.
+
+    This is pinned because the entry's own note first claimed the
+    opposite, that a caller on 26.121 would meet a refusal, and only
+    running it showed otherwise. PLN-20260808-2000 carries the probe.
+    """
+    entry = CommandRegistry.load().commands["SET_JET_WAKE_FILAMENTS_GRID_INDUCTION"]
+    assert set(entry.versions) == {"26.101", "26.120"}
+    assert all(row.status is not Status.REMOVED for row in entry.versions.values())
+
+    inherited = Script(version="26.121")
+    inherited.emit("SET_JET_WAKE_FILAMENTS_GRID_INDUCTION", "ENABLE")
+    assert "SET_JET_WAKE_FILAMENTS_GRID_INDUCTION ENABLE" in inherited.render()
+
+    with pytest.raises(CommandNotInVersionError):
+        Script(version="26.100").emit("SET_JET_WAKE_FILAMENTS_GRID_INDUCTION", "ENABLE")
+
+
+@pytest.mark.parametrize("version", ["26.100", "26.101", "26.120", "26.121"])
+def test_the_inlets_and_outlets_chapter_emits_on_every_registered_build(version):
+    """Both halves, the remesh blocks first, being the geometry-phase pair."""
+    script = Script(version=version)
+    script.emit(
+        "REMESH_INLET",
+        inlet=1,
+        inner_radius=0.1,
+        elements=10,
+        growth_scheme="2",
+        growth_rate=1.2,
+    )
+    script.emit(
+        "REMESH_OUTLET",
+        outlet=1,
+        inner_radius=0.1,
+        elements=10,
+        growth_scheme="2",
+        growth_rate=1.2,
+    )
+    script.emit("CREATE_NEW_INLET", 3, 101.0)
+    script.emit("SET_INLET_CUSTOM_PROFILE", 1, "custom_inlet_profile.txt")
+    script.emit("DELETE_INLET", 1)
+    script.emit("CREATE_NEW_OUTLET", 3, 101.0)
+    script.emit("DELETE_OUTLET", 1)
+    golden = (GOLDENS / "inlets_outlets_chapter.txt").read_text(encoding="utf-8")
+    assert script.render() == golden
+
+
+def test_an_outlet_has_no_custom_profile_command_in_any_edition():
+    """The asymmetry is the manual's, and it bounds what a case can ask for.
+
+    An inlet takes a profile from a file and an outlet is always
+    uniform. Asserted rather than left implicit, because the natural
+    reading of a symmetric chapter is that the symmetric command exists
+    and was missed by the sweep.
+    """
+    commands = CommandRegistry.load().commands
+    assert "SET_INLET_CUSTOM_PROFILE" in commands
+    assert "SET_OUTLET_CUSTOM_PROFILE" not in commands

@@ -1,7 +1,23 @@
-# Chapter: Scripting reference, Advanced Settings (SRC-003
-# pp.344-346). Only the entries needed by the core steady path are
-# drafted at M1; the remaining toggles of the chapter await the cases
-# that exercise them.
+# Chapter: Scripting reference, Advanced Settings (SRC-003 pp.344-346).
+#
+# COMPLETE as of 2026-08-08. The chapter was drafted at M1 to the entries
+# the core steady path needed, and the rest awaited the cases that would
+# exercise them; that rule is gone with the v0.5.0 sweep and the eight it
+# left behind are entered here.
+#
+# THIS IS THE CHAPTER WHERE THE EDITIONS DISAGREE ABOUT WHAT EXISTS, so
+# unlike every other chapter of the sweep its version rows differ per
+# command and none of them is boilerplate. Four commands are absent from
+# the February edition, one is absent from the hotfix that FOLLOWS the
+# edition documenting it, and one exists in that hotfix alone. Each is
+# recorded from the editions that print it and from no others: silence is
+# not a statement that a command was removed, so an edition that stops
+# printing one gets NO row rather than a removed one, which the schema
+# reserves for a manual saying so.
+#
+# It is also the chapter of solver knobs, so almost everything here is
+# phase init: these are read when the solver is initialized, and setting
+# one afterwards is a script that runs and changes nothing.
 
 SET_SOLVER_CONVERGENCE_ITERATIONS:
   layout: inline
@@ -189,3 +205,191 @@ LAMINAR_SEPARATION:
     flow-separation family that survived the 26.101 redesign unchanged
     and is documented in all four editions; RPT-018 accepted it on
     26.100, 26.101 and 26.121.
+
+KUTTA_JOUKOWSKI_LIFT_FORCES:
+  layout: inline
+  phase: init
+  args:
+    - name: mode
+      type: enum
+      values: [ENABLE, DISABLE]
+  manual_ref: "SRC-003 p.344"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.341, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.343, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.347, same grammar as 26.120"}
+  notes: >
+    Computes the inviscid lift by the Kutta-Joukowski theorem, from the
+    bound circulation, instead of by integrating the surface pressure.
+    The two give different answers on the same solution, so this changes
+    a reported coefficient rather than the flow field it came from.
+
+    No edition gives this command a parameter table. The signature
+    heading carries the pair of values and the sample passes one of
+    them, which is the shape most of this chapter's toggles have.
+
+PRINT_ROTOR_INDUCED_VELOCITIES:
+  layout: inline
+  phase: init
+  args:
+    - name: mode
+      type: enum
+      values: [ENABLE, DISABLE]
+  manual_ref: "SRC-003 p.345"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.342, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.344, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.348, same grammar as 26.120"}
+  notes: >
+    Prints the rotor-induced velocities to the log at every time step of
+    an unsteady run. A diagnostic, and an expensive one on a long run:
+    it is per time step and nothing here bounds the volume of output.
+
+SET_ADAPTIVE_FIELD_GRID_REFINEMENT:
+  layout: inline
+  phase: init
+  args:
+    - name: mode
+      type: enum
+      values: [ENABLE, DISABLE]
+  manual_ref: "SRC-003 p.345"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.342, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.344, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.348, same grammar as 26.120"}
+  notes: >
+    Refines the field-source grid where the solution needs it. The
+    manual's sample comment marks this as transonic only, so on a
+    subsonic case it is a setting with nothing to act on.
+
+ROTOR_INDUCED_VELOCITY_BLENDING:
+  layout: inline
+  phase: init
+  args:
+    - name: value
+      type: float
+  manual_ref: "SRC-003 p.345"
+  versions:
+    "26.101": {status: documented, note: "SRC-725 p.344, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.348, same grammar as 26.120"}
+  notes: >
+    Blending factor for wake stabilization, between 0 and 1, default
+    0.25 as the manual states. The bound is not enforced.
+
+    ABSENT FROM THE FEBRUARY 2026 EDITION, which is why there is no
+    26.100 row: the command is not documented for that build, so the
+    emitter refuses it there rather than assuming the older solver
+    carries it.
+
+SET_WAKE_NUMERICAL_RELAXATION:
+  layout: inline
+  phase: init
+  args:
+    - name: value
+      type: float
+  manual_ref: "SRC-003 p.346"
+  versions:
+    "26.101": {status: documented, note: "SRC-725 p.345, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.349, same grammar as 26.120"}
+  notes: >
+    Relaxation factor applied to the wake between iterations, between 0
+    and 1, default 0.15. Lowering it steadies a wake that will not
+    settle, at the cost of iterations. Absent from the February edition.
+
+SET_JET_WAKE_DECAY_NORMALIZED_LENGTH:
+  layout: inline
+  phase: init
+  args:
+    - name: value
+      type: float
+      unit: "jet wake diameters"
+  manual_ref: "SRC-003 p.346"
+  versions:
+    "26.101": {status: documented, note: "SRC-725 p.345, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.349, same grammar as 26.120"}
+  notes: >
+    Distance at which a jet wake decays to a tenth of its initial
+    strength, measured in multiples of the jet wake diameter rather
+    than in length units. Default 100.0 and minimum 1.0 per the manual;
+    neither is enforced. Absent from the February edition.
+
+SET_JET_WAKE_FILAMENTS_GRID_INDUCTION:
+  layout: inline
+  phase: init
+  args:
+    - name: mode
+      type: enum
+      values: [ENABLE, DISABLE]
+  manual_ref: "SRC-003 p.346"
+  versions:
+    "26.101": {status: documented, note: "SRC-725 p.345, same grammar as 26.120"}
+    "26.120": {status: documented}
+  notes: >
+    Whether the jet wake filaments induce velocity on the mesh.
+
+    THE ONLY COMMAND IN THIS SWEEP DOCUMENTED BY AN EDITION AND NOT BY
+    THE HOTFIX THAT FOLLOWS IT. SRC-725 and SRC-003 both print it;
+    SRC-740, which is otherwise SRC-003 plus three pages, does not, and
+    it is not renamed into anything else on those pages either. The
+    February edition does not have it, so its whole documented life is
+    two editions.
+
+    THERE IS NO 26.121 ROW AND THE STATUS IS NOT REMOVED. That status
+    means the manual states the command is no longer supported, and no
+    edition states anything here: one simply stops printing it. The
+    difference matters because removed is a claim about the solver and
+    silence is a fact about a document.
+
+    SO THIS COMMAND STILL EMITS ON 26.121, by inheritance from its base
+    release, and that is worth stating because the absent row looks like
+    a refusal and is not one. The registry has 26.121 inherit 26.120's
+    evidence where no row overrides it, which is the honest default when
+    nothing is known about the hotfix; an edition dropping a page is not
+    a measurement of the solver, so it does not override. Recording
+    removed instead would refuse a command that may work perfectly, on
+    the strength of a document's silence.
+
+    PLN-20260808-2000 carries the probe that would settle it. Until then
+    the position is: documented for two editions, emitted on the third
+    as an inherited assumption, and that assumption is visible in the
+    compatibility matrix, which marks an inherited cell as such.
+
+SET_WAKE_DECAY_CONSTANT:
+  layout: inline
+  phase: init
+  args:
+    - name: value
+      type: float
+      unit: "1/m"
+  manual_ref: "SRC-740 p.346"
+  versions:
+    "26.121": {status: documented}
+  notes: >
+    Rate at which wake vorticity decays with distance.
+
+    NEW IN THE 26.12 HOTFIX AND DOCUMENTED NOWHERE ELSE, so it carries
+    one version row and its manual_ref cites SRC-740 rather than the
+    flagship edition, which is the citation form for a command the
+    flagship does not document.
+
+    THE UNIT IS DERIVED AND NOT PRINTED. The manual gives the constant
+    as 19.1 divided by a characteristic length L and states that L is
+    in metres, so the constant is per metre; no edition writes that
+    unit down. It is recorded because a decay constant computed with
+    the length scale in the wrong units gives a wake that decays orders
+    of magnitude too fast or not at all, and nothing in the number
+    itself would reveal which.
+
+    The manual defines L per case type: the semi-span of a wing or the
+    largest fin for steady state, the blade radius for a rotor or
+    propeller, and the larger of the two where both are present.
+
+    It sits in the Solver Settings chapter of that edition while the
+    Script Index files it under Advanced Settings, and it is kept here
+    with the rest of the wake knobs.

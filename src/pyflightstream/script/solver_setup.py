@@ -116,6 +116,30 @@ class FlagSpec:
 
 
 #: Every snapshot flag, in the emission order of the curated helper.
+# The eight Advanced Settings commands the v0.5.0 sweep entered on
+# 2026-08-08. Every command of a settings family is a snapshot flag, so
+# entering the chapter and leaving the model alone is not an option the
+# tier-1 guard allows; that is the guard working, and it is why these
+# arrived with the chapter rather than a release later.
+_ADVANCED_2026_08_08: tuple[FlagSpec, ...] = (
+    FlagSpec("kutta_joukowski_lift", "KUTTA_JOUKOWSKI_LIFT_FORCES", "toggle"),
+    FlagSpec("print_rotor_induced_velocities", "PRINT_ROTOR_INDUCED_VELOCITIES", "toggle"),
+    FlagSpec("adaptive_field_grid_refinement", "SET_ADAPTIVE_FIELD_GRID_REFINEMENT", "toggle"),
+    FlagSpec(
+        "jet_wake_filaments_grid_induction",
+        "SET_JET_WAKE_FILAMENTS_GRID_INDUCTION",
+        "toggle",
+    ),
+    FlagSpec("rotor_induced_velocity_blending", "ROTOR_INDUCED_VELOCITY_BLENDING", "scalar"),
+    FlagSpec("wake_numerical_relaxation", "SET_WAKE_NUMERICAL_RELAXATION", "scalar"),
+    FlagSpec(
+        "jet_wake_decay_normalized_length",
+        "SET_JET_WAKE_DECAY_NORMALIZED_LENGTH",
+        "scalar",
+    ),
+    FlagSpec("wake_decay_constant", "SET_WAKE_DECAY_CONSTANT", "scalar"),
+)
+
 FLAG_SPECS: tuple[FlagSpec, ...] = (
     FlagSpec("mode", "SET_SOLVER_STEADY", "mode_steady"),
     FlagSpec("mode", "SET_SOLVER_UNSTEADY", "mode_unsteady"),
@@ -139,6 +163,7 @@ FLAG_SPECS: tuple[FlagSpec, ...] = (
     FlagSpec("thin_boundaries", "SET_THIN_BOUNDARIES", "boundary_list"),
     FlagSpec("thin_boundaries", "DELETE_THIN_BOUNDARIES", "boundary_list_clear"),
     FlagSpec("bulk_separation", "CREATE_BULK_SEPARATION", "bulk_separation"),
+    *_ADVANCED_2026_08_08,
     # The named separation models of 26.101 and later. One keyword per
     # command rather than one shared sequence: the solver indexes the
     # models in creation order and DELETE_SEPARATION addresses them by

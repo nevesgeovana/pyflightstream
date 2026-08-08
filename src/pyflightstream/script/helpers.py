@@ -623,6 +623,14 @@ def solver_settings(
     wake_on_wake_induction: Toggle | None = None,
     additional_wake_relaxation: Toggle | None = None,
     aeroelastic_rbf_type: str | None = None,
+    kutta_joukowski_lift: Toggle | None = None,
+    print_rotor_induced_velocities: Toggle | None = None,
+    adaptive_field_grid_refinement: Toggle | None = None,
+    jet_wake_filaments_grid_induction: Toggle | None = None,
+    rotor_induced_velocity_blending: float | None = None,
+    wake_numerical_relaxation: float | None = None,
+    jet_wake_decay_normalized_length: float | None = None,
+    wake_decay_constant: float | None = None,
 ) -> SolverSetup:
     """Set the solver flags, record their provenance, and return the snapshot.
 
@@ -856,6 +864,50 @@ def solver_settings(
         ``WENDLAND_C2``, ``GAUSSIAN``, ``THIN_PLATE_SPLINE``,
         ``MULTI_QUADRATIC``, or ``INV_MULTI_QUADRATIC``
         (SRC-003 p.345).
+    kutta_joukowski_lift : bool or 'ENABLE' or 'DISABLE', optional
+        Compute the inviscid lift from the bound circulation by the
+        Kutta-Joukowski theorem instead of by integrating the surface
+        pressure. Changes a reported coefficient, not the flow field
+        (SRC-003 p.344).
+    print_rotor_induced_velocities : bool or 'ENABLE' or 'DISABLE', optional
+        Write the rotor-induced velocities to the log at every time step
+        of an unsteady run. A diagnostic whose output volume is
+        unbounded on a long run (SRC-003 p.345).
+    adaptive_field_grid_refinement : bool or 'ENABLE' or 'DISABLE', optional
+        Refine the field-source grid where the solution needs it. The
+        manual marks this transonic only, so on a subsonic case it has
+        nothing to act on (SRC-003 p.345).
+    jet_wake_filaments_grid_induction : bool or 'ENABLE' or 'DISABLE', optional
+        Let the jet wake filaments induce velocity on the mesh
+        (SRC-003 p.346). Documented by the 26.101 and 26.120 editions
+        only; on 26.121 it is emitted on inherited evidence, the hotfix
+        manual having stopped printing it without saying it was removed
+        (PLN-20260808-2000).
+    rotor_induced_velocity_blending : float, optional
+        Blending factor for wake stabilization, dimensionless, between 0
+        and 1, solver default 0.25. Not available on 26.100
+        (SRC-003 p.345).
+    wake_numerical_relaxation : float, optional
+        Relaxation factor applied to the wake between iterations,
+        dimensionless, between 0 and 1, solver default 0.15. Lowering it
+        steadies a wake that will not settle, at the cost of iterations.
+        Not available on 26.100 (SRC-003 p.346).
+    jet_wake_decay_normalized_length : float, optional
+        Distance at which a jet wake decays to a tenth of its initial
+        strength, in MULTIPLES OF THE JET WAKE DIAMETER rather than in
+        length units. Solver default 100.0, minimum 1.0. Not available
+        on 26.100 (SRC-003 p.346).
+    wake_decay_constant : float, optional
+        Rate at which wake vorticity decays with distance, in units of
+        1/m. The manual gives it as 19.1 divided by a characteristic
+        length in METRES, so the unit is derived and is printed nowhere;
+        a value computed with the length scale in other units gives a
+        wake that decays orders of magnitude too fast or not at all, and
+        the number itself does not reveal which. The characteristic
+        length is the wing semi-span or largest fin for steady state,
+        the blade radius for a rotor or propeller, and the larger of the
+        two where both are present. Documented by the 26.121 edition
+        alone (SRC-740 p.346).
 
     Returns
     -------
@@ -981,6 +1033,10 @@ def solver_settings(
         "additional_wake_relaxation": additional_wake_relaxation,
         "crossflow_separation_axisymmetric": crossflow_separation_axisymmetric,
         "laminar_separation": laminar_separation,
+        "kutta_joukowski_lift": kutta_joukowski_lift,
+        "print_rotor_induced_velocities": print_rotor_induced_velocities,
+        "adaptive_field_grid_refinement": adaptive_field_grid_refinement,
+        "jet_wake_filaments_grid_induction": jet_wake_filaments_grid_induction,
     }
     read = {
         name: _optional_toggle("solver_settings", name, value) for name, value in toggles.items()
@@ -993,6 +1049,10 @@ def solver_settings(
     wake_on_wake_induction = read["wake_on_wake_induction"]
     additional_wake_relaxation = read["additional_wake_relaxation"]
     crossflow_separation_axisymmetric = read["crossflow_separation_axisymmetric"]
+    kutta_joukowski_lift = read["kutta_joukowski_lift"]
+    print_rotor_induced_velocities = read["print_rotor_induced_velocities"]
+    adaptive_field_grid_refinement = read["adaptive_field_grid_refinement"]
+    jet_wake_filaments_grid_induction = read["jet_wake_filaments_grid_induction"]
     laminar_separation = read["laminar_separation"]
     upper_mode = mode.upper() if mode is not None else None
     if upper_mode is not None and upper_mode not in ("STEADY", "UNSTEADY"):
@@ -1218,6 +1278,24 @@ def solver_settings(
         script.emit("LAMINAR_SEPARATION", _toggle(laminar_separation))
     if aeroelastic_rbf_type is not None:
         script.emit("AEROELASTIC_RBF_TYPE", aeroelastic_rbf_type)
+    if kutta_joukowski_lift is not None:
+        script.emit("KUTTA_JOUKOWSKI_LIFT_FORCES", _toggle(kutta_joukowski_lift))
+    if print_rotor_induced_velocities is not None:
+        script.emit("PRINT_ROTOR_INDUCED_VELOCITIES", _toggle(print_rotor_induced_velocities))
+    if adaptive_field_grid_refinement is not None:
+        script.emit("SET_ADAPTIVE_FIELD_GRID_REFINEMENT", _toggle(adaptive_field_grid_refinement))
+    if rotor_induced_velocity_blending is not None:
+        script.emit("ROTOR_INDUCED_VELOCITY_BLENDING", rotor_induced_velocity_blending)
+    if wake_numerical_relaxation is not None:
+        script.emit("SET_WAKE_NUMERICAL_RELAXATION", wake_numerical_relaxation)
+    if jet_wake_decay_normalized_length is not None:
+        script.emit("SET_JET_WAKE_DECAY_NORMALIZED_LENGTH", jet_wake_decay_normalized_length)
+    if jet_wake_filaments_grid_induction is not None:
+        script.emit(
+            "SET_JET_WAKE_FILAMENTS_GRID_INDUCTION", _toggle(jet_wake_filaments_grid_induction)
+        )
+    if wake_decay_constant is not None:
+        script.emit("SET_WAKE_DECAY_CONSTANT", wake_decay_constant)
 
     if vorticity_drag_boundaries is not None:
         script._vorticity_selection = selection
@@ -1258,6 +1336,14 @@ def solver_settings(
         "laminar_separation": laminar_separation,
         "convergence_iterations": convergence_iterations,
         "minimum_cp": minimum_cp,
+        "kutta_joukowski_lift": kutta_joukowski_lift,
+        "print_rotor_induced_velocities": print_rotor_induced_velocities,
+        "adaptive_field_grid_refinement": adaptive_field_grid_refinement,
+        "jet_wake_filaments_grid_induction": jet_wake_filaments_grid_induction,
+        "rotor_induced_velocity_blending": rotor_induced_velocity_blending,
+        "wake_numerical_relaxation": wake_numerical_relaxation,
+        "jet_wake_decay_normalized_length": jet_wake_decay_normalized_length,
+        "wake_decay_constant": wake_decay_constant,
         "reynolds_averaged_drag": reynolds_averaged_drag,
         "mesh_induced_wake_velocity": mesh_induced_wake_velocity,
         "farfield_layers": farfield_layers,

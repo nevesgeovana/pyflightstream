@@ -1,0 +1,197 @@
+# Chapter: Scripting reference, Inlets and Outlets (SRC-003 pp.325-326).
+#
+# COMPLETE as of 2026-08-08, entered from all four registered editions in
+# one pass. Every signature is identical across the four.
+#
+# An inlet or an outlet is a mesh boundary through which flow enters or
+# leaves at a prescribed normal velocity, which is how a duct, a nacelle
+# or an exhaust is represented without meshing what is behind it.
+#
+# THE TWO HALVES ARE NOT SYMMETRIC AND THE ASYMMETRY IS THE MANUAL'S. An
+# inlet can take a custom velocity profile from a file; an outlet cannot,
+# there being no SET_OUTLET_CUSTOM_PROFILE in any edition. So an outlet
+# is always uniform, and a case needing a non-uniform exhaust has no
+# scripted way to ask for one.
+#
+# Two index vocabularies meet here and they are different sequences. The
+# CREATE commands take a BOUNDARY index, which is an entity the script
+# builder tracks and which they therefore declare. Everything afterwards
+# takes an INLET or OUTLET index, a separate 1-based sequence over the
+# boundaries already marked, which nothing reports back and which is
+# therefore exempted rather than declared.
+
+CREATE_NEW_INLET:
+  layout: inline
+  phase: setup
+  args:
+    - name: surface_id
+      type: int
+      cites: boundaries
+    - name: velocity
+      type: float
+      unit: "simulation velocity units"
+  manual_ref: "SRC-003 p.325"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.321, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.324, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.328, same grammar as 26.120"}
+  notes: >
+    Marks one mesh boundary as an inlet with a uniform velocity along
+    the surface normal of its faces. The manual states the index must be
+    greater than zero and no all-form, so -1 is not accepted.
+
+    THE SIGN CONVENTION IS THE FACE NORMAL AND NOT THE FLOW DIRECTION.
+    The manual says the velocity is applied along the surface normal
+    vector, so whether a positive value draws flow in or blows it out
+    depends on which way the boundary's normals point, which is a
+    property of the imported mesh. No edition states which sign means
+    ingestion, and nothing here can check it.
+
+SET_INLET_CUSTOM_PROFILE:
+  layout: inline
+  phase: setup
+  args:
+    - name: inlet_id
+      type: int
+    - name: file
+      type: path
+      own_line: true
+  manual_ref: "SRC-003 p.325"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.321, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.324, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.328, same grammar as 26.120"}
+  notes: >
+    Replaces an inlet's uniform velocity with a profile read from a text
+    file, whose path follows on the next line. Has no outlet
+    counterpart in any edition.
+
+    The parameter table calls the file's content motion data, which is
+    the description of a different command's file; what this one reads
+    is a velocity profile, as the command name and the sample comment
+    both say. Noted rather than acted on, since nothing here validates
+    the file.
+
+REMESH_INLET:
+  layout: keyword_block
+  phase: geometry
+  args:
+    - name: inlet
+      type: int
+    - name: inner_radius
+      type: float
+      unit: "simulation length units"
+    - name: elements
+      type: int
+    - name: growth_scheme
+      type: enum
+      values: ["1", "2"]
+    - name: growth_rate
+      type: float
+  manual_ref: "SRC-003 p.325"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.321, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.324, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.328, same grammar as 26.120"}
+  notes: >
+    Rebuilds an inlet's faces as a radial distribution, which matters
+    because the velocity is applied per face: an inlet inheriting an
+    unstructured import resolves a profile badly. Phase is geometry,
+    this being a mesh operation rather than a labelling one.
+
+    Line for line the same block as REMESH_BASE_REGION and
+    REMESH_OUTLET, including the numeric GROWTH_SCHEME, 1 for successive
+    and 2 for dual-sided, where the CCS chapters spell the same two
+    schemes as words.
+
+    INNER_RADIUS takes 0.0 for no inner radius, which the manual glosses
+    as a disk inlet rather than an annular one.
+
+DELETE_INLET:
+  layout: inline
+  phase: setup
+  args:
+    - name: inlet
+      type: int
+  manual_ref: "SRC-003 p.325"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.321, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.324, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.328, same grammar as 26.120"}
+  notes: >
+    Unmarks one inlet. No all-form is stated and there is no
+    delete-all command, so removing several takes one call each.
+
+    The signature heading spells the placeholder INDEX and the table row
+    spells it INLET; the table's is used, being the one that says what
+    the index is of.
+
+CREATE_NEW_OUTLET:
+  layout: inline
+  phase: setup
+  args:
+    - name: surface_id
+      type: int
+      cites: boundaries
+    - name: velocity
+      type: float
+      unit: "simulation velocity units"
+  manual_ref: "SRC-003 pp.325-326"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 pp.321-322, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 pp.324-325, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 pp.328-329, same grammar as 26.120"}
+  notes: >
+    Marks one mesh boundary as an outlet with a uniform normal velocity.
+    Always uniform: there is no outlet profile command.
+
+    The table's description of VELOCITY is copied from the inlet and
+    names the inlet faces, in all four editions. Cosmetic.
+
+REMESH_OUTLET:
+  layout: keyword_block
+  phase: geometry
+  args:
+    - name: outlet
+      type: int
+    - name: inner_radius
+      type: float
+      unit: "simulation length units"
+    - name: elements
+      type: int
+    - name: growth_scheme
+      type: enum
+      values: ["1", "2"]
+    - name: growth_rate
+      type: float
+  manual_ref: "SRC-003 p.326"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.322, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.325, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.329, same grammar as 26.120"}
+  notes: >
+    The outlet counterpart of REMESH_INLET, differing only in the name
+    of its first keyword.
+
+DELETE_OUTLET:
+  layout: inline
+  phase: setup
+  args:
+    - name: outlet
+      type: int
+  manual_ref: "SRC-003 p.326"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.322, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.325, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.329, same grammar as 26.120"}
+  notes: >
+    Unmarks one outlet. Its table row is labelled INLET in all four
+    editions, which is the copy that runs through this chapter; the
+    argument is named for what the command deletes.
