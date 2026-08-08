@@ -1,0 +1,173 @@
+# Chapter: Scripting reference, Stability and Control Toolbox
+# (SRC-003 pp.371-372).
+#
+# COMPLETE as of 2026-08-08, entered from all four registered editions in
+# one pass. Every signature is identical across the four.
+#
+# WHAT THE TOOLBOX COMPUTES. A stability derivative is the rate of change
+# of a force or moment coefficient with respect to an angle or an angular
+# rate, so obtaining one takes more than one solver run: the toolbox
+# perturbs the state, re-solves, and differences the results. That is why
+# the settings command has a per-run clearing switch and an angular rate
+# increment, and why the whole family is phase analysis.
+#
+# THE COEFFICIENTS ARE USER-DEFINED, which is unusual in this database.
+# Nothing here has a fixed list of derivatives; the caller composes each
+# one from a numerator variable, a denominator variable, a frame and a
+# constant, and names it. So a name like CLq is the caller's label and
+# carries no meaning to the solver.
+
+STABILITY_TOOLBOX_SETTINGS:
+  layout: inline
+  phase: analysis
+  args:
+    - name: rotation_frame
+      type: int
+      cites: frames
+    - name: units
+      type: enum
+      values: [PER_RADIAN, PER_DEGREE]
+    - name: clear_solver_per_run
+      type: enum
+      values: [ENABLE, DISABLE]
+    - name: angular_rate_increment
+      type: float
+      unit: "rad/s"
+  manual_ref: "SRC-003 p.371"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.366, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.370, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.374, same grammar as 26.120"}
+  notes: >
+    Settings shared by every coefficient the toolbox computes.
+
+    TWO UNIT DECISIONS SIT IN ONE COMMAND AND THEY ARE NOT THE SAME
+    DECISION. UNITS states whether the derivatives are reported per
+    radian or per degree, and it is a property of the OUTPUT.
+    ANGULAR_RATE_INCREMENT is an INPUT and the manual gives it in
+    radians per second regardless, so setting PER_DEGREE does not change
+    the unit this argument is read in. A reader who assumes it does is
+    off by a factor of about 57 in the perturbation that every dynamic
+    derivative is differenced from.
+
+    CLEAR_SOLVER_PER_RUN decides whether each perturbed run starts from
+    a cleared solution or from the previous one. It is a numerical
+    choice rather than a convenience: restarting from the previous
+    solution is faster and makes the result depend on the run order.
+
+STABILITY_TOOLBOX_NEW_COEFFICIENT:
+  layout: keyword_block
+  phase: analysis
+  args:
+    - name: name
+      type: str
+    - name: numerator
+      type: enum
+      values:
+        - CL
+        - CDI
+        - CDO
+        - CD
+        - FORCE_X
+        - FORCE_Y
+        - FORCE_Z
+        - MOMENT_X
+        - MOMENT_Y
+        - MOMENT_Z
+    - name: denominator
+      type: enum
+      values: [AOA, BETA, ROTX, ROTY, ROTZ]
+    - name: frame
+      type: int
+      cites: frames
+    - name: units
+      type: enum
+      values: [COEFFICIENTS, NEWTONS, KILO-NEWTONS, POUND-FORCE, KILOGRAM-FORCE]
+    - name: constant
+      type: float
+    - name: boundaries
+      type: int
+    - name: boundary_indices
+      type: int_list
+      cites: boundaries
+      separator: comma
+      required: false
+  manual_ref: "SRC-003 p.371"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.366, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.370, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.374, same grammar as 26.120"}
+  notes: >
+    Defines one derivative: a numerator variable over a denominator
+    variable, scaled by a constant, computed on a named set of
+    boundaries in a named frame.
+
+    THE KEYWORD ORDER HERE IS THE SAMPLES' AND NOT THE TABLE'S. The
+    parameter table lists NAME, NUMERATOR, FRAME, UNITS, DENOMINATOR,
+    CONSTANT, BOUNDARIES; both printed samples write DENOMINATOR before
+    FRAME and UNITS. The samples are used because they are the only
+    runnable lines the vendor has written and because there are TWO of
+    them agreeing, which makes the order a statement rather than a
+    typesetting accident. Whether the solver cares about keyword order
+    at all is untested; PLN-20260808-2200 carries the probe.
+
+    BOUNDARIES CARRIES THE COUNT AND -1 MEANS ALL, in which case no
+    index line follows. Both forms are printed as samples, which is why
+    the index list is optional here: the second sample passes 3 and then
+    a line of three indices, the first passes -1 and nothing.
+
+    CONSTANT is the caller's own scale factor, typically carrying the
+    reference length and velocity that non-dimensionalise a rate
+    derivative. No edition states what it should be for a given
+    derivative, so nothing here can check it, and a wrong constant
+    produces a plausible number rather than an error.
+
+STABILITY_TOOLBOX_DELETE_ALL:
+  layout: bare
+  phase: analysis
+  args: []
+  manual_ref: "SRC-003 p.371"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.366, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.370, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.374, same grammar as 26.120"}
+  notes: >
+    Deletes every user-defined coefficient. There is no command deleting
+    one, so correcting a single definition means rebuilding the set.
+
+COMPUTE_STABILITY_COEFFICIENTS:
+  layout: bare
+  phase: analysis
+  args: []
+  manual_ref: "SRC-003 pp.371-372"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 pp.366-367, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 pp.370-371, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 pp.374-375, same grammar as 26.120"}
+  notes: >
+    Runs the whole set. THIS IS THE EXPENSIVE COMMAND OF THE CHAPTER and
+    the page does not say so: each defined coefficient needs the solver
+    re-run at a perturbed state, so the cost is roughly the number of
+    distinct denominators times a full solve, and more if the solution
+    is cleared between runs.
+
+STABILITY_TOOLBOX_EXPORT:
+  layout: inline
+  phase: analysis
+  args:
+    - name: file
+      type: path
+      own_line: true
+  manual_ref: "SRC-003 p.372"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.367, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.371, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.375, same grammar as 26.120"}
+  notes: >
+    Writes the computed coefficients to a file, the path on the next
+    line. The only way to get them out: nothing prints them to the log.

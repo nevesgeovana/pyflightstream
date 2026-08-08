@@ -3170,3 +3170,134 @@ def test_an_outlet_has_no_custom_profile_command_in_any_edition():
     commands = CommandRegistry.load().commands
     assert "SET_INLET_CUSTOM_PROFILE" in commands
     assert "SET_OUTLET_CUSTOM_PROFILE" not in commands
+
+
+# --- Coordinate Systems, streamlines, Stability and Control -------------------
+
+
+@pytest.mark.parametrize("version", ["26.100", "26.101", "26.120", "26.121"])
+def test_the_coordinate_system_chapter_emits_on_every_registered_build(version):
+    """The six that entered on 2026-08-08, on a script that made its frame."""
+    script = Script(version=version)
+    script.emit("CREATE_NEW_COORDINATE_SYSTEM")
+    script.emit("SET_COORDINATE_SYSTEM_NAME", 2, "Propeller_Axis")
+    script.emit("NORMALIZE_COORDINATE_SYSTEM", 2)
+    script.emit("TRANSLATE_COORDINATE_SYSTEM", 2, 1.0, 0.0, 0.0, "METER")
+    script.emit("DUPLICATE_COORDINATE_SYSTEM", 2)
+    script.emit("MIRROR_COORDINATE_SYSTEM", 2, "XZ")
+    script.emit("DELETE_COORDINATE_SYSTEM", 2)
+    golden = (GOLDENS / "coordinate_systems_chapter.txt").read_text(encoding="utf-8")
+    assert script.render() == golden
+
+
+def test_normalize_coordinate_system_takes_the_index_its_sample_passes():
+    """Heading with no placeholder, table reading N/A, sample passing 2.
+
+    The same shape as ENABLE_ACTUATOR on the February edition, and read
+    the same way: recording zero arguments would refuse the only
+    runnable line the vendor prints for the command.
+    """
+    entry = CommandRegistry.load().commands["NORMALIZE_COORDINATE_SYSTEM"]
+    assert [spec.name for spec in entry.args] == ["frame"]
+    script = Script(version="26.120")
+    script.emit("CREATE_NEW_COORDINATE_SYSTEM")
+    script.emit("NORMALIZE_COORDINATE_SYSTEM", 2)
+    assert "NORMALIZE_COORDINATE_SYSTEM 2" in script.render()
+
+
+@pytest.mark.parametrize("version", ["26.100", "26.101", "26.120", "26.121"])
+def test_the_streamline_chapter_emits_on_every_registered_build(version):
+    """Both families: off-body seeds and on-body friction lines."""
+    script = Script(version=version)
+    script.emit("CREATE_NEW_COORDINATE_SYSTEM")
+    script.emit("NEW_OFF_BODY_STREAMTUBE", 2, "X", 0.0, 0.0, 0.0, 0.5, 5, 8)
+    script.emit("SET_OFF_BODY_STREAMLINE_LENGTH", set_length=5.0)
+    script.emit("SET_ALL_OFF_BODY_STREAMLINES_UPSTREAM")
+    script.emit("SET_ALL_OFF_BODY_STREAMLINES_DOWNSTREAM")
+    script.emit("DELETE_ALL_OFF_BODY_STREAMLINES")
+    script.emit("GENERATE_ALL_SURFACE_STREAMLINES")
+    script.emit("EXPORT_ALL_SURFACE_STREAMLINES", "Test_streamlines.txt")
+    script.emit("DELETE_ALL_SURFACE_STREAMLINES")
+    golden = (GOLDENS / "streamline_families.txt").read_text(encoding="utf-8")
+    assert script.render() == golden
+
+
+def test_the_off_body_streamline_length_writes_one_alternative_or_the_other():
+    """Two keywords the manual states as alternatives, so both are optional.
+
+    SET_UNRESTRICTED_LENGTH is a bare presence keyword taking no value,
+    which is what the bool type renders. Nothing refuses both at once:
+    the manual states the alternation and not what the solver does when
+    given both, so a refusal would be this database inventing a rule.
+    """
+    bounded = Script(version="26.120")
+    bounded.emit("SET_OFF_BODY_STREAMLINE_LENGTH", set_length=5.0)
+    assert bounded.render().splitlines()[1] == "SET_LENGTH 5.0"
+
+    unbounded = Script(version="26.120")
+    unbounded.emit("SET_OFF_BODY_STREAMLINE_LENGTH", set_unrestricted_length=True)
+    assert unbounded.render().splitlines()[1] == "SET_UNRESTRICTED_LENGTH"
+
+    off = Script(version="26.120")
+    off.emit("SET_OFF_BODY_STREAMLINE_LENGTH", set_unrestricted_length=False)
+    assert off.render().strip() == "SET_OFF_BODY_STREAMLINE_LENGTH", (
+        "a false presence keyword writes nothing, rather than writing the keyword "
+        "with a value the solver would read as a length"
+    )
+
+
+@pytest.mark.parametrize("version", ["26.100", "26.101", "26.120", "26.121"])
+def test_the_stability_toolbox_emits_both_of_its_boundary_forms(version):
+    """The two printed samples, which differ in how they name boundaries."""
+    script = Script(version=version)
+    script.emit("CREATE_NEW_COORDINATE_SYSTEM")
+    script.emit("CREATE_NEW_COORDINATE_SYSTEM")
+    script.emit("STABILITY_TOOLBOX_SETTINGS", 3, "PER_RADIAN", "DISABLE", 0.2)
+    script.emit(
+        "STABILITY_TOOLBOX_NEW_COEFFICIENT",
+        name="CLq",
+        numerator="CL",
+        denominator="ROTY",
+        frame=2,
+        units="COEFFICIENTS",
+        constant=208.7682672,
+        boundaries=-1,
+    )
+    script.emit(
+        "STABILITY_TOOLBOX_NEW_COEFFICIENT",
+        name="CZq",
+        numerator="FORCE_Z",
+        denominator="ROTY",
+        frame=2,
+        units="COEFFICIENTS",
+        constant=208.7682672,
+        boundaries=3,
+        boundary_indices=[1, 3, 4],
+    )
+    script.emit("COMPUTE_STABILITY_COEFFICIENTS")
+    script.emit("STABILITY_TOOLBOX_EXPORT", "test_stability.txt")
+    script.emit("STABILITY_TOOLBOX_DELETE_ALL")
+    golden = (GOLDENS / "stability_toolbox_chapter.txt").read_text(encoding="utf-8")
+    assert script.render() == golden
+
+
+def test_the_stability_coefficient_keywords_follow_the_samples_not_the_table():
+    """Two printed samples agree on an order the parameter table does not use.
+
+    The table lists FRAME and UNITS before DENOMINATOR; both samples
+    write DENOMINATOR first. Two agreeing runnable lines beat a table's
+    layout, and the order is pinned here because it is a judgement:
+    whether the solver reads keyword order at all is untested
+    (PLN-20260808-2200).
+    """
+    entry = CommandRegistry.load().commands["STABILITY_TOOLBOX_NEW_COEFFICIENT"]
+    assert [spec.name for spec in entry.args] == [
+        "name",
+        "numerator",
+        "denominator",
+        "frame",
+        "units",
+        "constant",
+        "boundaries",
+        "boundary_indices",
+    ]

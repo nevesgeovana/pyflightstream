@@ -1,6 +1,18 @@
 # Chapter: Scripting reference, Post Processing, Off-body Streamlines
-# (SRC-003 pp.368-369). The on-body family (p.370) is deferred to the
-# cases that exercise it.
+# (SRC-003 pp.368-369) and On-body Streamlines (p.370).
+#
+# COMPLETE as of 2026-08-08. The on-body family was deferred to the cases
+# that would exercise it; that rule is gone with the v0.5.0 sweep, and
+# the four entries that predate it get their two missing edition rows in
+# the same pass.
+#
+# THE TWO FAMILIES ARE NOT PARALLEL AND THE DIFFERENCE IS PHYSICAL. An
+# off-body streamline is seeded where the caller puts it, so the chapter
+# has commands for placing seeds, sizing them and choosing which way they
+# propagate. An on-body streamline is a surface friction line, whose
+# seeding the solver decides from the geometry, so its whole family is
+# three commands with no arguments between them: generate, delete,
+# export.
 
 NEW_OFF_BODY_STREAMLINE:
   layout: keyword_block
@@ -17,6 +29,8 @@ NEW_OFF_BODY_STREAMLINE:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 p.368"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.363, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.367, same grammar as 26.120"}
     "26.120": {status: broken, report: "reports/compat/CMP-26120_2026-08-08_full.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing)"}
     "26.121": {status: broken, report: "reports/compat/CMP-26121_2026-08-08_full.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing)"}
 
@@ -40,6 +54,8 @@ NEW_STREAMLINE_DISTRIBUTION:
       type: int
   manual_ref: "SRC-003 p.368"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.363, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.367, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
   notes: >
@@ -52,6 +68,8 @@ GENERATE_ALL_OFF_BODY_STREAMLINES:
   args: []
   manual_ref: "SRC-003 p.368"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.363, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.367, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
 
@@ -63,5 +81,182 @@ EXPORT_ALL_OFF_BODY_STREAMLINES:
       type: path
   manual_ref: "SRC-003 p.369"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.364, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.368, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
+
+NEW_OFF_BODY_STREAMTUBE:
+  layout: inline
+  phase: analysis
+  args:
+    - name: frame_index
+      type: int
+      cites: frames
+    - name: axis
+      type: enum
+      values: [X, Y, Z]
+    - name: x
+      type: float
+      unit: "simulation length units"
+    - name: y
+      type: float
+      unit: "simulation length units"
+    - name: z
+      type: float
+      unit: "simulation length units"
+    - name: radius
+      type: float
+      unit: "simulation length units"
+    - name: radial_streamlines
+      type: int
+    - name: circular_streamlines
+      type: int
+  manual_ref: "SRC-003 p.368"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.363, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.367, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.371, same grammar as 26.120"}
+  notes: >
+    Seeds a cylindrical bundle of off-body streamlines in one call,
+    which is how a propeller or rotor slipstream is visualised without
+    placing seeds individually. The two counts multiply: the number of
+    streamlines created is RADIAL_STREAMLINES times
+    CIRCULAR_STREAMLINES, and no edition says so.
+
+    The manual describes the origin as being relative to the specified
+    AXIS, which is not a frame; read with the FRAME_INDEX argument
+    beside it, the position is in that coordinate system and the axis
+    says which way the tube points. Recorded as the reading the two
+    arguments together support, since neither alone would place a tube.
+
+SET_OFF_BODY_STREAMLINE_LENGTH:
+  layout: keyword_block
+  phase: analysis
+  args:
+    - name: set_length
+      type: float
+      unit: "simulation length units"
+      required: false
+    - name: set_unrestricted_length
+      type: bool
+      required: false
+  manual_ref: "SRC-003 p.368"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.363, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.367, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.371, same grammar as 26.120"}
+  notes: >
+    How far a newly created off-body streamline is propagated: to a
+    stated length, or until it leaves the domain.
+
+    THE TWO KEYWORDS ARE ALTERNATIVES AND THE MANUAL SAYS SO IN ITS
+    HEADING, which is why both are optional here rather than one being
+    required. SET_UNRESTRICTED_LENGTH is a bare presence keyword taking
+    no value, so it is typed bool: passing True writes the keyword line
+    and False writes nothing.
+
+    Nothing refuses both at once. The manual states the alternation and
+    does not say what the solver does when given both, so a refusal here
+    would be this database inventing a rule; the caller passes one.
+
+    THE PAGE'S ONLY SAMPLE LINE IS COMMENTED OUT, printing the keyword
+    behind a hash so that the sample as written sets nothing. Recorded
+    as the alternation the table states, not as the sample runs.
+
+SET_ALL_OFF_BODY_STREAMLINES_UPSTREAM:
+  layout: bare
+  phase: analysis
+  args: []
+  manual_ref: "SRC-003 p.368"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.363, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.367, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.371, same grammar as 26.120"}
+  notes: >
+    Propagates every off-body streamline against the flow, back toward
+    where its fluid came from. Applies to all of them at once; there is
+    no per-streamline direction command.
+
+SET_ALL_OFF_BODY_STREAMLINES_DOWNSTREAM:
+  layout: bare
+  phase: analysis
+  args: []
+  manual_ref: "SRC-003 p.368"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.363, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.367, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.371, same grammar as 26.120"}
+  notes: >
+    Propagates every off-body streamline with the flow. The pair with
+    the command above, and neither states which is the default.
+
+DELETE_ALL_OFF_BODY_STREAMLINES:
+  layout: bare
+  phase: analysis
+  args: []
+  manual_ref: "SRC-003 p.369"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.364, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.368, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.372, same grammar as 26.120"}
+  notes: >
+    Deletes every off-body streamline and streamtube. There is no
+    command deleting one, so a seed placed wrongly costs the whole set.
+
+GENERATE_ALL_SURFACE_STREAMLINES:
+  layout: bare
+  phase: analysis
+  args: []
+  manual_ref: "SRC-003 p.370"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.365, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.369, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.373, same grammar as 26.120"}
+  notes: >
+    Generates the on-body streamlines, which are surface friction lines
+    rather than paths through the fluid: they follow the direction of
+    the wall shear stress and are what a reader looks at to find
+    separation lines and attachment lines.
+
+    IT TAKES NOTHING, and that is the whole difference from the off-body
+    family. The solver decides the seeding from the geometry, so there
+    is nothing to place, size or aim.
+
+DELETE_ALL_SURFACE_STREAMLINES:
+  layout: bare
+  phase: analysis
+  args: []
+  manual_ref: "SRC-003 p.370"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.365, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.369, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.373, same grammar as 26.120"}
+  notes: >
+    Deletes every on-body streamline.
+
+EXPORT_ALL_SURFACE_STREAMLINES:
+  layout: inline
+  phase: analysis
+  args:
+    - name: file
+      type: path
+      own_line: true
+  manual_ref: "SRC-003 p.370"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.365, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.369, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.373, same grammar as 26.120"}
+  notes: >
+    Writes every on-body streamline to one file, the path on the next
+    line. The off-body counterpart is EXPORT_ALL_OFF_BODY_STREAMLINES,
+    and the two write different things: friction lines here, fluid paths
+    there.

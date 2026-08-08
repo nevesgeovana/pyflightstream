@@ -9,6 +9,41 @@ FlightStream versions.
 
 ### API surface delta
 
+* **Coordinate Systems, both streamline families and the Stability and
+  Control Toolbox entered: 19 commands, all four chapters complete.**
+  Database 341 to 360; emittable per version 280, 307, 340, 345. Nine
+  older entries across the frames and streamlines chapters get their
+  missing edition rows in the same pass, the streamlines header having
+  deferred the whole on-body family to the cases that would exercise it.
+
+  `NORMALIZE_COORDINATE_SYSTEM` takes the index its sample passes,
+  against a heading with no placeholder and a table reading N/A: the
+  same shape as the February edition's `ENABLE_ACTUATOR` and read the
+  same way. It is also the one command in its chapter that accepts frame
+  1, every other requiring an index above the reference frame.
+
+  `MIRROR_COORDINATE_SYSTEM` DUPLICATES AND THEN MIRRORS, which the
+  manual states in a parameter row rather than in the command's
+  description. Reading the name alone suggests the frame is mirrored in
+  place, which is a different result for everything already pointing at
+  it.
+
+  `STABILITY_TOOLBOX_NEW_COEFFICIENT`'s keyword order follows its two
+  printed samples, which agree with each other and not with the
+  parameter table above them. That raised a question no chapter had
+  asked: every keyword_block in the database fixes an order and nothing
+  has tested whether the solver reads order at all
+  (`PLN-20260808-2200`). `STABILITY_TOOLBOX_SETTINGS` carries a unit
+  trap worth naming: its `UNITS` argument selects per-radian or
+  per-degree OUTPUT, while `ANGULAR_RATE_INCREMENT` is an input the
+  manual gives in rad/s regardless, so reading one as governing the
+  other is a factor of about 57 in every dynamic derivative.
+
+  Two further probes registered: what a deleted coordinate system does
+  to the indices above it, which matters here because the builder TRACKS
+  frames and would be wrong if the solver renumbers
+  (`PLN-20260808-2100`).
+
 * **The Advanced Settings and Inlets and Outlets chapters entered: 15
   commands, both complete.** Database 326 to 341; emittable per version
   253, 280, 321, 326.

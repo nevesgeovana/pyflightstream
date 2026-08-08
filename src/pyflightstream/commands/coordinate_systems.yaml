@@ -51,6 +51,8 @@ EDIT_COORDINATE_SYSTEM:
       type: float
   manual_ref: "SRC-003 p.329"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.325, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.328, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
   notes: >
@@ -75,7 +77,10 @@ SET_COORDINATE_SYSTEM_ORIGIN:
                MILS, MICRON, CENTIMETER, MICROINCH]
   manual_ref: "SRC-003 pp.329-330"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.325, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.328, same grammar as 26.120"}
     "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.332, same grammar as 26.120"}
   notes: >
     Origin position relative to the reference coordinate system.
 
@@ -99,7 +104,10 @@ SET_COORDINATE_SYSTEM_AXIS:
       values: ["TRUE", "FALSE"]
   manual_ref: "SRC-003 p.330"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.326, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.329, same grammar as 26.120"}
     "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.333, same grammar as 26.120"}
   notes: >
     Sets one axis direction vector of a local frame; the vector is
     normalized automatically, and NORMALIZE_FRAME TRUE renormalizes
@@ -122,7 +130,168 @@ ROTATE_COORDINATE_SYSTEM:
       unit: "deg"
   manual_ref: "SRC-003 p.330"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.326, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.329, same grammar as 26.120"}
     "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.333, same grammar as 26.120"}
   notes: >
     Rotates the local coordinate system FRAME about ROTATION_AXIS of
     ROTATION_FRAME by ANGLE degrees.
+
+SET_COORDINATE_SYSTEM_NAME:
+  layout: inline
+  phase: setup
+  args:
+    - name: frame
+      type: int
+      cites: frames
+    - name: name
+      type: str
+  manual_ref: "SRC-003 p.329"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.325, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.328, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.332, same grammar as 26.120"}
+  notes: >
+    Renames a local coordinate system. The manual requires the index to
+    be greater than 1, the reference frame having a fixed name.
+
+NORMALIZE_COORDINATE_SYSTEM:
+  layout: inline
+  phase: setup
+  args:
+    - name: frame
+      type: int
+      cites: frames
+  manual_ref: "SRC-003 p.330"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.326, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.329, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.333, same grammar as 26.120"}
+  notes: >
+    Rescales the axes of a coordinate system to unit length, which
+    matters because SET_COORDINATE_SYSTEM_AXIS takes a direction vector
+    of any magnitude and the frame keeps whatever length was given.
+
+    ITS HEADING TAKES NO ARGUMENT AND ITS SAMPLE PASSES ONE, in all four
+    editions. The parameter table prints N/A in the name column and then
+    describes an index in the value column, and the sample passes 2.
+    The one-argument form is recorded, which is the same reading as
+    ENABLE_ACTUATOR on the February edition: a heading with no
+    placeholder beside a sample that passes a value is a heading that
+    omitted it, since the alternative refuses the only runnable line the
+    vendor has written.
+
+    UNLIKE THE REST OF THE CHAPTER IT ACCEPTS FRAME 1. Every other
+    command here requires an index greater than 1; this table says to
+    use 1 for the reference system. Nothing enforces the difference,
+    frames being cited rather than range checked per command, so it is
+    recorded here.
+
+TRANSLATE_COORDINATE_SYSTEM:
+  layout: inline
+  phase: setup
+  args:
+    - name: frame
+      type: int
+      cites: frames
+    - name: x
+      type: float
+    - name: y
+      type: float
+    - name: z
+      type: float
+    - name: units
+      type: enum
+      values: [INCH, MILLIMETER, OTHER, FEET, MILE, METER, KILOMETER,
+               MILS, MICRON, CENTIMETER, MICROINCH]
+  manual_ref: "SRC-003 pp.330-331"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.327, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.329, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.333, same grammar as 26.120"}
+  notes: >
+    Moves a local coordinate system by a vector, where
+    SET_COORDINATE_SYSTEM_ORIGIN sets its position absolutely. The two
+    take the same five arguments and the same unit vocabulary, so the
+    difference between them is not visible in a script line: one is
+    relative and the other is not.
+
+    THE TRANSLATION IS READ IN THE FRAME BEING MOVED, which the manual
+    states, so a translation is not in general along the reference axes.
+    The table row also describes the frame as the one to be ROTATED,
+    copied from the rotate command above it, in all four editions.
+
+DUPLICATE_COORDINATE_SYSTEM:
+  layout: inline
+  phase: setup
+  args:
+    - name: frame
+      type: int
+      cites: frames
+  manual_ref: "SRC-003 p.331"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.327, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.330, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.334, same grammar as 26.120"}
+  notes: >
+    Appends a copy of a local coordinate system. The copy takes the next
+    free index and nothing reports it, so a script that duplicates has
+    to know how many frames existed beforehand to address the result.
+
+MIRROR_COORDINATE_SYSTEM:
+  layout: inline
+  phase: setup
+  args:
+    - name: frame
+      type: int
+      cites: frames
+    - name: plane
+      type: enum
+      values: [YZ, XZ, XY]
+  manual_ref: "SRC-003 p.331"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.327, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.330, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.334, same grammar as 26.120"}
+  notes: >
+    DUPLICATES AND THEN MIRRORS, which the manual states in the FRAME
+    row rather than in the command's own description: the original frame
+    survives and a mirrored copy is appended. Reading the name alone
+    would suggest the frame is mirrored in place, which is a different
+    result for every actuator or motion already pointing at it.
+
+    THE MIRROR PLANE IS ALWAYS THE REFERENCE FRAME'S, not the mirrored
+    frame's own, so the result depends on where the local frame sits
+    relative to the global axes.
+
+DELETE_COORDINATE_SYSTEM:
+  layout: inline
+  phase: setup
+  args:
+    - name: frame
+      type: int
+      cites: frames
+  manual_ref: "SRC-003 p.331"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.327, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.330, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.334, same grammar as 26.120"}
+  notes: >
+    Deletes a local coordinate system; the reference frame cannot be
+    deleted and the manual requires an index greater than 1.
+
+    NO EDITION SAYS WHAT HAPPENS TO THE INDICES ABOVE IT, or to an
+    actuator or motion citing the deleted frame. If the remaining frames
+    are renumbered, then every index a script recorded earlier means
+    something else afterwards, exactly as WRAPPER_TRANSFER does to
+    surface indices. The script builder tracks frames, so it would be
+    the layer that has to model this; PLN-20260808-2100 carries the
+    probe, and until it runs the safe pattern is to delete nothing a
+    later command cites.
