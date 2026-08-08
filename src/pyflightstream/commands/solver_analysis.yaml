@@ -12,6 +12,7 @@ SET_VORTICITY_DRAG_BOUNDARIES:
       required: false
   manual_ref: "SRC-003 p.350"
   versions:
+    "26.121": {status: documented, note: "SRC-740 p.353, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.346, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.349, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -35,6 +36,9 @@ DELETE_VORTICITY_DRAG_BOUNDARIES:
   args: []
   manual_ref: "SRC-003 p.350"
   versions:
+    "26.121": {status: documented, note: "SRC-740 p.353, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.349, same grammar as 26.120"}
+    "26.100": {status: documented, note: "SRC-741 p.346, same grammar as 26.120"}
     "26.120": {status: documented}
 
 SET_SOLVER_ANALYSIS_LOADS_FRAME:
@@ -63,6 +67,7 @@ SET_ANALYSIS_MOMENTS_MODEL:
       values: [PRESSURE, VORTICITY]
   manual_ref: "SRC-003 p.350"
   versions:
+    "26.121": {status: documented, note: "SRC-740 p.348, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.342, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.344, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -78,6 +83,7 @@ SET_ANALYSIS_SYMMETRY_LOADS:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 p.350"
   versions:
+    "26.121": {status: documented, note: "SRC-740 p.353, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.346, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.349, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -118,6 +124,7 @@ SET_SOLVER_ANALYSIS_BOUNDARIES:
       cites: boundaries
   manual_ref: "SRC-003 p.351"
   versions:
+    "26.121": {status: documented, note: "SRC-740 p.354, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.347, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.350, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -134,6 +141,7 @@ SET_INVISCID_LOADS:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 p.351"
   versions:
+    "26.121": {status: documented, note: "SRC-740 p.347, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.341, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.343, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}

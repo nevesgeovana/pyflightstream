@@ -52,6 +52,8 @@ _LOG_AFTER = "log_after.txt"
 _LOG_FINAL = "log_final.txt"
 _DUMP_BEFORE = "dump_before.txt"
 _DUMP_AFTER = "dump_after.txt"
+_SAVE_BEFORE = "state_before.fsm"
+_SAVE_AFTER = "state_after.fsm"
 _SCRIPT_NAME = "probe_script.txt"
 _BASELINE_DIR = "_baseline"
 
@@ -151,6 +153,14 @@ class ProbeArtifacts:
         """Return the settings dump taken after the target, if any."""
         return _read_log(self.workdir / _DUMP_AFTER)
 
+    def saved_before(self) -> str | None:
+        """Return the simulation file saved before the target, if any."""
+        return _read_log(self.workdir / _SAVE_BEFORE)
+
+    def saved_after(self) -> str | None:
+        """Return the simulation file saved after the target, if any."""
+        return _read_log(self.workdir / _SAVE_AFTER)
+
     def target_region(self) -> str:
         """Return the log lines belonging to the target command alone.
 
@@ -242,6 +252,13 @@ class ProbeSpec:
         the END sentinel (for example an export whose file the effect
         assertion reads); its log lines land outside the target
         region, so instrument errors are not blamed on the target.
+    save_state : bool
+        Bracket the target with SAVEAS, writing the simulation file
+        before and after it (``state_before.fsm`` and
+        ``state_after.fsm``) for :func:`fsm_gained` assertions. This is
+        the instrument for the settings the solver keeps only in the
+        simulation, which the settings dump does not print: actuator
+        fields, frame origins and axes, motion rotor bindings.
     dump_state : bool
         Bracket the target with OUTPUT_SETTINGS_AND_STATUS dumps
         (``dump_before.txt`` and ``dump_after.txt``) for
@@ -262,6 +279,7 @@ class ProbeSpec:
     early_prelude: Callable[[Script, Path], None] | None = None
     prelude: Callable[[Script, Path], None] | None = None
     epilogue: Callable[[Script, Path], None] | None = None
+    save_state: bool = False
     dump_state: bool = False
     effect_note: str = ""
     timeout_s: float | None = None
@@ -368,6 +386,85 @@ def file_effect(name: str) -> Callable[[ProbeArtifacts], bool]:
         return path.is_file() and path.stat().st_size > 0
 
     return check
+
+
+def fsm_gained(*tokens: str, strict: bool = True) -> Callable[[ProbeArtifacts], bool | None]:
+    """Make an effect assertion: a distinctive value entered the SAVED SIMULATION.
+
+    The instrument for everything the compat reports called stored in
+    binary form. The saved .fsm is sectioned text, so a value the
+    command wrote is findable in it; what it is NOT is labelled, every
+    field being positional within its section, which is why this reads
+    the value rather than parsing a field.
+
+    IT COMPARES CHANGED LINES AND NOT THE WHOLE TEXT, and the first
+    version did the latter and was wrong. Searching the after-state for
+    the token and the before-state for the same token marks a working
+    command BROKEN whenever the token also occurs somewhere innocent:
+    ``SET_SOLVER_CONVERGENCE_ITERATIONS 37`` genuinely wrote 37 into the
+    file, the run recorded it broken, and the diff of the two saved
+    states was a single line going from 15 to 37. A short token matches
+    a mesh index, a date or a count somewhere in any simulation.
+
+    So the question asked here is the one the diff answers: is there a
+    line the target ADDED or CHANGED that carries this value. That is
+    also the honest strength of the instrument. It cannot say WHICH
+    field received the value, since the format names none; a probe that
+    needed that would have to learn a per-build line map, and a wrong
+    map reports a pass for a value written somewhere else.
+
+    Values are matched in the file's own Fortran rendering as well as
+    the plain one, because it stores ``0.98765`` as
+    ``9.87650000000000028E-01``.
+
+    Parameters
+    ----------
+    *tokens : str
+        Distinctive values the target is expected to write. Every one
+        of them must appear on a changed line. Pass values no default
+        produces: a probe asserting ``1.0`` or ``0`` would pass on a
+        command that did nothing.
+    strict : bool
+        Whether a missing state file breaks (the default) or records
+        unprobed.
+    """
+
+    def check(artifacts: ProbeArtifacts) -> bool | None:
+        after = artifacts.saved_after()
+        if after is None:
+            return False if strict else None
+        before = artifacts.saved_before() or ""
+        gained = set(after.splitlines()) - set(before.splitlines())
+        if not gained:
+            # Nothing in the saved state moved, so the command was a
+            # no-op whatever it printed to the log.
+            return False
+        changed = "\n".join(gained)
+        return all(any(form in changed for form in _fsm_renderings(token)) for token in tokens)
+
+    return check
+
+
+def _fsm_renderings(token: str) -> tuple[str, ...]:
+    """Return the spellings a value can take in a saved simulation.
+
+    The file writes doubles in Fortran exponential form to seventeen
+    significant digits, so ``0.98765`` is stored as
+    ``9.87650000000000028E-01`` and searching for the literal text finds
+    nothing. Integers are written plainly. Both are tried, plus the
+    leading digits of the rendered form, since the last places carry the
+    binary representation of the value rather than the value.
+    """
+    forms = [token]
+    try:
+        value = float(token)
+    except ValueError:
+        return tuple(forms)
+    rendered = f"{value:.17E}"
+    forms.append(rendered)
+    mantissa, _, _exponent = rendered.partition("E")
+    forms.append(mantissa[:12])
+    return tuple(forms)
 
 
 def dump_gained(token: str, strict: bool = False) -> Callable[[ProbeArtifacts], bool | None]:
@@ -573,9 +670,13 @@ def generate_probe_script(
     script.emit("EXPORT_LOG", workdir / _LOG_BEFORE)
     if spec.dump_state:
         script.emit("OUTPUT_SETTINGS_AND_STATUS", workdir / _DUMP_BEFORE)
+    if spec.save_state:
+        script.emit("SAVEAS", workdir / _SAVE_BEFORE)
     spec.build_target(script, workdir)
     if spec.dump_state:
         script.emit("OUTPUT_SETTINGS_AND_STATUS", workdir / _DUMP_AFTER)
+    if spec.save_state:
+        script.emit("SAVEAS", workdir / _SAVE_AFTER)
     script.emit("PRINT", f"{_END}_{spec.command}")
     script.emit("EXPORT_LOG", workdir / _LOG_AFTER)
     if spec.epilogue is not None:

@@ -40,6 +40,7 @@ SET_BOUNDARY_LAYER_TYPE:
       values: [LAMINAR, TRANSITIONAL, TURBULENT]
   manual_ref: "SRC-003 p.341"
   versions:
+    "26.121": {status: documented, note: "SRC-740 p.344, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.338, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.340, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -59,6 +60,7 @@ SET_SOLVER_VISCOUS_COUPLING:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 p.341"
   versions:
+    "26.121": {status: documented, note: "SRC-740 p.344, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.338, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.340, same grammar as 26.120"}
     "26.120": {status: documented}

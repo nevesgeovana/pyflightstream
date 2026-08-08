@@ -70,6 +70,8 @@ EXPORT_SURFACE_MESH:
       own_line: true
   manual_ref: "SRC-003 pp.307-308"
   versions:
+    "26.121": {status: documented, note: "SRC-740 p.310, same grammar as 26.120"}
+    "26.100": {status: documented, note: "SRC-741 p.302, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 pp.306-307, same grammar as 26.120"}
     "26.120": {status: documented}
   notes: >

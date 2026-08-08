@@ -9,6 +9,51 @@ FlightStream versions.
 
 ### API surface delta
 
+* **26.100 IS OPERATIONAL, and it was the DATABASE holding it back, not
+  the solver.** A per-edition sweep found 122 pairs of (command, manual
+  edition) that an edition documents and this database had no version
+  row for, so the emitter refused a command the caller's own manual
+  prints and nothing distinguished that from the command not existing.
+  Forty of them were on the February build, which is why its minimal
+  end-to-end workflow could not be built. All four registered builds now
+  derive `operational`. Emittable per version 345, 364, 365, 371, from
+  305, 332, 365, 371.
+
+  EVERY PAIR WAS READ ON ITS PAGE, and four of the 122 turned out to
+  differ, each now carrying its own per-version grammar rather than a
+  copied row:
+
+  - `NEW_SURFACE_SECTION_DISTRIBUTION` on 26.100 and 26.101 takes six
+    keywords, not seven. The optional `INCLUDE_SYMMETRY` reached this
+    database from a PROBE of a working 26.120 script and is first
+    documented in 26.121, so a copied row would have offered older
+    builds a keyword no evidence places in them.
+  - `SET_TRAILING_EDGE_TYPE` on 26.100 closes its type set at three
+    tokens; `VORTEX_SHEDDING` first appears in the May edition.
+  - `SOLVER_PROXIMAL_BOUNDARIES` on 26.121 documents a second call form
+    the older editions do not print, a count of -1 selecting every
+    boundary and taking no index lines, so that row declares the
+    sentinel and makes the list optional.
+
+* **The saved simulation is an instrument, and forty commands stop being
+  unobservable** (`RPT-020`). The compat reports called their effects
+  "stored in binary form"; the .fsm is sectioned TEXT and carries them.
+  `ProbeSpec.save_state` brackets the target with SAVEAS and the new
+  `qa.fsm_gained` asserts a distinctive value appears on a line the
+  target added or changed. Eight commands verified on 26.121 with it,
+  among them the actuator axis, radius, rpm and swirl, and the frame
+  origin and axes.
+
+  It reads the DIFF rather than the whole file, because the first
+  version did the latter and marked a working command BROKEN: the token
+  it searched for also occurred somewhere innocent in the before-state.
+
+  THE SOLVER NORMALISES A COORDINATE-SYSTEM AXIS WHATEVER THE FLAG SAYS.
+  Found because the instrument reported `SET_COORDINATE_SYSTEM_AXIS`
+  broken and the diff disagreed: a direction passed with the normalise
+  flag FALSE is stored divided by its magnitude, to all seventeen
+  digits. A direction cannot carry a scale.
+
 * **MEASURED: a keyword block is read by NAME, not by position**
   (`RPT-019`, closing `PLN-20260808-2200`). Every `keyword_block` entry
   in the database fixes an order and nothing had ever asked whether the

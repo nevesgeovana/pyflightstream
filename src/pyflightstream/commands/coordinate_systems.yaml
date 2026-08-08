@@ -82,7 +82,7 @@ SET_COORDINATE_SYSTEM_ORIGIN:
     "26.100": {status: documented, note: "SRC-741 p.325, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.328, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.332, same grammar as 26.120"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate.yaml"}
   notes: >
     Origin position relative to the reference coordinate system.
 
@@ -110,7 +110,7 @@ SET_COORDINATE_SYSTEM_AXIS:
     "26.100": {status: documented, note: "SRC-741 p.326, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.329, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.333, same grammar as 26.120"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate.yaml"}
   notes: >
     Sets one axis direction vector of a local frame; the vector is
     normalized automatically, and NORMALIZE_FRAME TRUE renormalizes

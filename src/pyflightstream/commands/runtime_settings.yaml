@@ -27,6 +27,8 @@ SOLVER_SET_SIDESLIP:
       unit: "deg"
   manual_ref: "SRC-003 p.339"
   versions:
+    "26.101": {status: documented, note: "SRC-725 p.338, same grammar as 26.120"}
+    "26.100": {status: documented, note: "SRC-741 p.336, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
   notes: >
@@ -56,6 +58,8 @@ SOLVER_SET_MACH_NUMBER:
       type: float
   manual_ref: "SRC-003 p.339"
   versions:
+    "26.101": {status: documented, note: "SRC-725 p.338, same grammar as 26.120"}
+    "26.100": {status: documented, note: "SRC-741 p.336, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
 
@@ -80,6 +84,7 @@ SOLVER_SET_CONVERGENCE:
       type: float
   manual_ref: "SRC-003 p.339"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.336, same grammar as 26.120"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
@@ -131,6 +136,8 @@ SOLVER_SET_REF_MACH_NUMBER:
       type: float
   manual_ref: "SRC-003 p.339"
   versions:
+    "26.101": {status: documented, note: "SRC-725 p.338, same grammar as 26.120"}
+    "26.100": {status: documented, note: "SRC-741 p.336, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
 
@@ -176,4 +183,7 @@ SET_MAX_PARALLEL_THREADS:
       type: int
   manual_ref: "SRC-003 p.340"
   versions:
+    "26.121": {status: documented, note: "SRC-740 p.343, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.339, same grammar as 26.120"}
+    "26.100": {status: documented, note: "SRC-741 p.337, same grammar as 26.120"}
     "26.120": {status: documented}

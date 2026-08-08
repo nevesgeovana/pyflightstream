@@ -22,6 +22,7 @@ CREATE_NEW_MOTION:
       values: [ROTARY, 6DOF, CUSTOM]
   manual_ref: "SRC-003 p.332"
   versions:
+    "26.121": {status: documented, note: "SRC-740 p.335, same grammar as 26.120"}
     "26.100":
       status: documented
       note: >-
@@ -69,6 +70,7 @@ SET_MOTION_BOUNDARIES:
       required: false
   manual_ref: "SRC-003 p.332"
   versions:
+    "26.121": {status: documented, note: "SRC-740 p.335, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.328, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.331, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -92,6 +94,7 @@ SET_MOTION_MOVING_FRAMES:
       required: false
   manual_ref: "SRC-003 p.332"
   versions:
+    "26.121": {status: documented, note: "SRC-740 p.335, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.328, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.331, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -111,6 +114,7 @@ SET_MOTION_COORDINATE_SYSTEM:
       cites: frames
   manual_ref: "SRC-003 p.332"
   versions:
+    "26.121": {status: documented, note: "SRC-740 p.335, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.328, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.331, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -147,6 +151,7 @@ SET_MOTION_ROTOR_AXIS:
       values: [X, Y, Z, "1", "2", "3"]
   manual_ref: "SRC-003 p.333"
   versions:
+    "26.121": {status: documented, note: "SRC-740 p.336, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.332, same grammar as 26.120"}
     "26.120": {status: documented}
 
@@ -162,6 +167,7 @@ SET_MOTION_ROTOR_RPM:
       unit: "rev/min"
   manual_ref: "SRC-003 p.333"
   versions:
+    "26.121": {status: documented, note: "SRC-740 p.336, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.332, same grammar as 26.120"}
     "26.120": {status: documented}
 
@@ -223,6 +229,7 @@ SET_MOTION_FSI_EXECUTABLE:
       own_line: true
   manual_ref: "SRC-003 pp.335-336"
   versions:
+    "26.121": {status: documented, note: "SRC-740 p.338, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.332, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 pp.334-335, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -250,6 +257,7 @@ SET_MOTION_FSI_STRUCTURAL_NODES:
       own_line: true
   manual_ref: "SRC-003 p.336"
   versions:
+    "26.121": {status: documented, note: "SRC-740 p.339, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.332, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.335, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -271,6 +279,7 @@ DELETE_MOTION:
       cites: motions
   manual_ref: "SRC-003 p.336"
   versions:
+    "26.121": {status: documented, note: "SRC-740 p.339, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.333, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.335, same grammar as 26.120"}
     "26.120": {status: documented}

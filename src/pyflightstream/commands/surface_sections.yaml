@@ -28,6 +28,8 @@ CREATE_NEW_SURFACE_SECTION:
       required: false
   manual_ref: "SRC-003 p.364"
   versions:
+    "26.101": {status: documented, note: "SRC-725 p.363, same grammar as 26.120"}
+    "26.100": {status: documented, note: "SRC-741 p.358, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
   notes: >
@@ -62,11 +64,46 @@ NEW_SURFACE_SECTION_DISTRIBUTION:
       required: false
   manual_ref: "SRC-003 p.364"
   versions:
+    "26.100":
+      status: documented
+      note: >-
+        SRC-741 p.358. SIX keywords, not seven: this edition's parameter
+        table and sample both pass straight from PLOT_DIRECTION to
+        SURFACES, with no INCLUDE_SYMMETRY anywhere in the entry.
+      args:
+        - {name: frame, type: int, cites: frames}
+        - {name: plane, type: enum, values: [XY, XZ, YZ]}
+        - {name: num_sections, type: int}
+        - {name: plot_direction, type: enum, values: ["1", "2"]}
+        - {name: surfaces, type: int}
+        - {name: surface_indices, type: int_list, cites: boundaries,
+           separator: space, required: false}
+    "26.101":
+      status: documented
+      note: >-
+        SRC-725 p.363, the same six keywords as 26.100 and no
+        INCLUDE_SYMMETRY.
+      args:
+        - {name: frame, type: int, cites: frames}
+        - {name: plane, type: enum, values: [XY, XZ, YZ]}
+        - {name: num_sections, type: int}
+        - {name: plot_direction, type: enum, values: ["1", "2"]}
+        - {name: surfaces, type: int}
+        - {name: surface_indices, type: int_list, cites: boundaries,
+           separator: space, required: false}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
   notes: >
     Creates NUM_SECTIONS sections at once; the surface indices follow
-    the SURFACES line. The manual grammar (SRC-003 p.364) aborted the
+    the SURFACES line.
+
+    THE TWO OLDER EDITIONS TAKE SIX KEYWORDS AND THIS ENTRY'S DEFAULT
+    GRAMMAR HAS SEVEN. INCLUDE_SYMMETRY reached this database from a
+    working 26.120 SCRIPT rather than from any manual, and the first
+    edition to document it is 26.121. So the February and May rows
+    declare their own six-keyword grammar; copying the default one would
+    have told a caller on those builds that a keyword no evidence places
+    there is available (read on the pages, 2026-08-08). The manual grammar (SRC-003 p.364) aborted the
     original Tier 2 probe on 26.120, while a working 26.120 script
     additionally carries an INCLUDE_SYMMETRY keyword the manual does
     not list. The 2026-07-23 licensed re-probe
@@ -90,6 +127,8 @@ COMPUTE_SURFACE_SECTIONAL_LOADS:
                KILOGRAM-FORCE]
   manual_ref: "SRC-003 p.364"
   versions:
+    "26.101": {status: documented, note: "SRC-725 p.363, same grammar as 26.120"}
+    "26.100": {status: documented, note: "SRC-741 p.358, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
   notes: >
@@ -105,6 +144,8 @@ EXPORT_SURFACE_SECTIONAL_LOADS:
       type: path
   manual_ref: "SRC-003 pp.364-365"
   versions:
+    "26.101": {status: documented, note: "SRC-725 p.363, same grammar as 26.120"}
+    "26.100": {status: documented, note: "SRC-741 p.359, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
   notes: >
@@ -117,6 +158,9 @@ UPDATE_ALL_SURFACE_SECTIONS:
   args: []
   manual_ref: "SRC-003 p.365"
   versions:
+    "26.121": {status: documented, note: "SRC-740 p.368, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.364, same grammar as 26.120"}
+    "26.100": {status: documented, note: "SRC-741 p.359, same grammar as 26.120"}
     "26.120": {status: documented}
 
 EXPORT_ALL_SURFACE_SECTIONS:
@@ -127,6 +171,8 @@ EXPORT_ALL_SURFACE_SECTIONS:
       type: path
   manual_ref: "SRC-003 p.365"
   versions:
+    "26.101": {status: documented, note: "SRC-725 p.364, same grammar as 26.120"}
+    "26.100": {status: documented, note: "SRC-741 p.359, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
 
@@ -138,6 +184,7 @@ EXPORT_SURFACE_SECTIONS:
       type: int
   manual_ref: "SRC-003 p.365"
   versions:
+    "26.121": {status: documented, note: "SRC-740 p.368, same grammar as 26.120"}
     "26.120": {status: documented}
   notes: >
     Exports one surface section by index (index greater than 0), with
@@ -154,6 +201,9 @@ DELETE_SURFACE_SECTION:
       type: int
   manual_ref: "SRC-003 p.365"
   versions:
+    "26.121": {status: documented, note: "SRC-740 p.368, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.364, same grammar as 26.120"}
+    "26.100": {status: documented, note: "SRC-741 p.359, same grammar as 26.120"}
     "26.120": {status: documented}
 
 DELETE_ALL_SURFACE_SECTIONS:

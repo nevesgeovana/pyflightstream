@@ -9,6 +9,7 @@ AUTO_DETECT_TRAILING_EDGES:
   args: []
   manual_ref: "SRC-003 p.319"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.314, same grammar as 26.120"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
@@ -28,6 +29,20 @@ SET_TRAILING_EDGE_TYPE:
       values: [STANDARD, RELAXED, JET_OUTFLOW, VORTEX_SHEDDING]
   manual_ref: "SRC-003 pp.319-320"
   versions:
+    "26.100":
+      status: documented
+      note: >-
+        SRC-741 p.314. THREE types, not four: this edition closes the
+        value set at JET_OUTFLOW and does not carry VORTEX_SHEDDING,
+        which first appears as a type in the May edition. Checked
+        against the wrapped-line failure mode that would fake it, with a
+        positive control on 26.101 and a sweep of every page of this
+        edition finding the token nowhere.
+      args:
+        - {name: te_index, type: int}
+        - {name: type, type: enum, values: [STANDARD, RELAXED, JET_OUTFLOW]}
+    "26.121": {status: documented, note: "SRC-740 p.322, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.318, same grammar as 26.120"}
     "26.120": {status: documented}
   notes: >
     STANDARD sheds the full net circulation (Kutta factor 1.0);
@@ -42,6 +57,9 @@ DISABLE_WAKE_NODES_ON_TRAILING_EDGE:
       type: int
   manual_ref: "SRC-003 p.320"
   versions:
+    "26.121": {status: documented, note: "SRC-740 p.323, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.319, same grammar as 26.120"}
+    "26.100": {status: documented, note: "SRC-741 p.315, same grammar as 26.120"}
     "26.120": {status: documented}
 
 AUTO_DETECT_WAKE_TERMINATION_NODES:
@@ -50,6 +68,8 @@ AUTO_DETECT_WAKE_TERMINATION_NODES:
   args: []
   manual_ref: "SRC-003 p.321"
   versions:
+    "26.121": {status: documented, note: "SRC-740 p.324, same grammar as 26.120"}
+    "26.100": {status: documented, note: "SRC-741 p.316, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.320, same grammar as 26.120"}
     "26.120": {status: documented}
   notes: >
@@ -84,6 +104,7 @@ SET_FREESTREAM:
       own_line: true
   manual_ref: "SRC-003 p.322"
   versions:
+    "26.121": {status: documented, note: "SRC-740 p.325, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.317, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.321, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -115,6 +136,7 @@ FLUID_PROPERTIES:
       type: float
   manual_ref: "SRC-003 p.328"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.324, same grammar as 26.120"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}

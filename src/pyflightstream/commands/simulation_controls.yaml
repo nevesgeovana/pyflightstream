@@ -10,6 +10,7 @@ SET_SIMULATION_LENGTH_UNITS:
                MILS, MICRON, CENTIMETER, MICROINCH]
   manual_ref: "SRC-003 p.284"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.278, same grammar as 26.120"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
@@ -25,6 +26,9 @@ SET_SIGNIFICANT_DIGITS:
       type: int
   manual_ref: "SRC-003 p.284"
   versions:
+    "26.121": {status: documented, note: "SRC-740 p.287, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.283, same grammar as 26.120"}
+    "26.100": {status: documented, note: "SRC-741 p.278, same grammar as 26.120"}
     "26.120": {status: documented}
   notes: >
     Output precision, integer between 1 and 8; applies to the values

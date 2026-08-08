@@ -33,6 +33,7 @@ from pyflightstream.qa.probes import (
     dump_gained,
     emit_solver_setup,
     file_effect,
+    fsm_gained,
     printed_line,
     region_printed,
 )
@@ -370,15 +371,24 @@ _spec(
     command="SET_COORDINATE_SYSTEM_ORIGIN",
     build_target=_emit("SET_COORDINATE_SYSTEM_ORIGIN", 2, 0.5511, 0.1, 0.2, "METER"),
     prelude=_CREATE_FRAME_PRELUDE,
-    assert_effect=_unobservable,
-    effect_note="frame origins are stored in binary form; no instrument observes them yet",
+    save_state=True,
+    assert_effect=fsm_gained("0.5511", "0.1", "0.2"),
+    effect_note=("the saved simulation carries the distinctive frame origin"),
 )
 _spec(
     command="SET_COORDINATE_SYSTEM_AXIS",
-    build_target=_emit("SET_COORDINATE_SYSTEM_AXIS", 2, "X", 1.0, 0.0, 0.0, "TRUE"),
+    build_target=_emit("SET_COORDINATE_SYSTEM_AXIS", 2, "X", 0.28, 0.96, 0.0, "FALSE"),
     prelude=_CREATE_FRAME_PRELUDE,
-    assert_effect=_unobservable,
-    effect_note="frame axes are stored in binary form; no instrument observes them yet",
+    save_state=True,
+    assert_effect=fsm_gained("0.28", "0.96"),
+    effect_note=(
+        "the saved simulation carries the axis direction 0.28, 0.96, which is stored "
+        "unchanged because it is already a unit vector. THE SOLVER NORMALISES THE "
+        "DIRECTION WHATEVER THE NORMALIZE FLAG SAYS: this probe first passed "
+        "0.61234, 0.79012 with the flag FALSE and the file stored that vector divided "
+        "by its magnitude, to all seventeen digits (RPT-020). A unit vector is used "
+        "so the value asserted is the value passed"
+    ),
 )
 
 
@@ -557,17 +567,23 @@ _spec(
 
 _spec(
     command="SET_SOLVER_CONVERGENCE_ITERATIONS",
-    build_target=_emit("SET_SOLVER_CONVERGENCE_ITERATIONS", 7),
+    build_target=_emit("SET_SOLVER_CONVERGENCE_ITERATIONS", 37),
     requires=Requires.SIM,
-    assert_effect=_unobservable,
-    effect_note="the convergence-iterations window is not exposed by any instrument yet",
+    save_state=True,
+    assert_effect=fsm_gained("37"),
+    effect_note=(
+        "the saved simulation carries the distinctive convergence window 37. The value "
+        "is 37 rather than the 7 this probe used before instruments reached it: a "
+        "single digit matches somewhere in any simulation file"
+    ),
 )
 _spec(
     command="SOLVER_MINIMUM_CP",
     build_target=_emit("SOLVER_MINIMUM_CP", -4.5),
     requires=Requires.SIM,
-    assert_effect=_unobservable,
-    effect_note="the minimum-Cp floor is not exposed by any instrument yet",
+    save_state=True,
+    assert_effect=fsm_gained("-4.5"),
+    effect_note=("the saved simulation carries the distinctive minimum-Cp floor"),
 )
 
 
@@ -1160,24 +1176,27 @@ _spec(
     build_target=_emit("SET_ACTUATOR_AXIS", 1, 2, "X", 0.6622),
     requires=Requires.SIM,
     prelude=_ACTUATOR_PRELUDE,
-    assert_effect=_unobservable,
-    effect_note="actuator axis fields are stored in binary form; no instrument yet",
+    save_state=True,
+    assert_effect=fsm_gained("0.6622"),
+    effect_note=("the saved simulation carries the distinctive axis offset 0.6622"),
 )
 _spec(
     command="SET_ACTUATOR_RADIUS",
     build_target=_emit("SET_ACTUATOR_RADIUS", 1, 1.234, 0.321),
     requires=Requires.SIM,
     prelude=_ACTUATOR_PRELUDE,
-    assert_effect=_unobservable,
-    effect_note="actuator radii are stored in binary form; no instrument yet",
+    save_state=True,
+    assert_effect=fsm_gained("1.234", "0.321"),
+    effect_note=("the saved simulation carries both distinctive radii, 1.234 tip and 0.321 hub"),
 )
 _spec(
     command="SET_PROP_ACTUATOR_RPM",
     build_target=_emit("SET_PROP_ACTUATOR_RPM", 1, 3456.7),
     requires=Requires.SIM,
     prelude=_ACTUATOR_PRELUDE,
-    assert_effect=_unobservable,
-    effect_note="the actuator rpm is stored in binary form; no instrument yet",
+    save_state=True,
+    assert_effect=fsm_gained("3456.7"),
+    effect_note=("the saved simulation carries the distinctive rpm 3456.7"),
 )
 _spec(
     command="SET_PROP_ACTUATOR_THRUST",
@@ -1192,8 +1211,9 @@ _spec(
     build_target=_emit("SET_PROP_ACTUATOR_SWIRL", 1, 0.777),
     requires=Requires.SIM,
     prelude=_ACTUATOR_PRELUDE,
-    assert_effect=_unobservable,
-    effect_note="the swirl fraction is stored in binary form; no instrument yet",
+    save_state=True,
+    assert_effect=fsm_gained("0.777"),
+    effect_note=("the saved simulation carries the distinctive swirl fraction 0.777"),
 )
 _spec(
     command="ENABLE_ACTUATOR",

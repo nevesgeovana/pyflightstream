@@ -394,8 +394,25 @@ def test_the_hotfix_that_does_inherit_still_does():
     """
     registry = CommandRegistry.load()
     by_canonical = {version.canonical: version for version in known_versions()}
-    entry = registry.commands["SET_BOUNDARY_LAYER_TYPE"]
-    assert "26.121" not in entry.versions
-    evidence = entry.evidence_in(by_canonical["26.121"])
-    assert evidence is not None
-    assert evidence.source == "26.120" and evidence.inherited
+
+    # The witness is FOUND rather than named. This test used to name
+    # SET_BOUNDARY_LAYER_TYPE, and the 2026-08-08 backfill gave that
+    # command its own 26.121 row, at which point the test failed while
+    # inheritance itself was working perfectly. A guard whose subject
+    # can be taken away by unrelated correct work is a guard that will
+    # be edited under time pressure.
+    inheriting = sorted(
+        name
+        for name, entry in registry.commands.items()
+        if "26.121" not in entry.versions and "26.120" in entry.versions
+    )
+    assert inheriting, (
+        "no command inherits 26.120 evidence on 26.121 any more, so this control "
+        "asserts nothing. Either every command now carries its own row, in which "
+        "case delete this test and say so, or inheritance broke"
+    )
+    for name in inheriting:
+        entry = registry.commands[name]
+        evidence = entry.evidence_in(by_canonical["26.121"])
+        assert evidence is not None, name
+        assert evidence.source == "26.120" and evidence.inherited, name

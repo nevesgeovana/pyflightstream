@@ -338,7 +338,17 @@ def test_the_registry_overrides_what_a_hand_built_version_claims_either_way():
     """Reading the flag off the argument let the caller decide a registry fact."""
     from pyflightstream.commands import CommandRegistry
 
-    entry = CommandRegistry.load().commands["SET_BOUNDARY_LAYER_TYPE"]
+    registry = CommandRegistry.load()
+    # A witness is found rather than named: this test named
+    # SET_BOUNDARY_LAYER_TYPE until the 2026-08-08 backfill gave that
+    # command its own 26.121 row, and the test then failed over correct
+    # work rather than over the rule it guards.
+    name = next(
+        name
+        for name, entry in sorted(registry.commands.items())
+        if "26.121" not in entry.versions and "26.120" in entry.versions
+    )
+    entry = registry.commands[name]
     denying = FsVersion(canonical="26.121", alias="26.12", index=4, inherits_base=False)
     evidence = entry.evidence_in(denying)
-    assert evidence is not None and evidence.inherited and evidence.source == "26.120"
+    assert evidence is not None and evidence.inherited and evidence.source == "26.120", name

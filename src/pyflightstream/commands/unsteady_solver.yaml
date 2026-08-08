@@ -25,6 +25,9 @@ UNSTEADY_SOLVER_NEW_FORCE_PLOT:
       required: false
   manual_ref: "SRC-003 p.347"
   versions:
+    "26.121": {status: documented, note: "SRC-740 p.350, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.346, same grammar as 26.120"}
+    "26.100": {status: documented, note: "SRC-741 p.343, same grammar as 26.120"}
     "26.120": {status: documented}
   notes: >
     Samples one force or moment parameter per solver time step, in
@@ -49,6 +52,8 @@ UNSTEADY_SOLVER_NEW_FLUID_PLOT:
       type: str
   manual_ref: "SRC-003 p.347"
   versions:
+    "26.101": {status: documented, note: "SRC-725 p.346, same grammar as 26.120"}
+    "26.100": {status: documented, note: "SRC-741 p.343, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121":
       status: documented
@@ -86,6 +91,9 @@ UNSTEADY_SOLVER_DELETE_ALL_PLOTS:
   args: []
   manual_ref: "SRC-003 p.347"
   versions:
+    "26.121": {status: documented, note: "SRC-740 p.351, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.346, same grammar as 26.120"}
+    "26.100": {status: documented, note: "SRC-741 p.343, same grammar as 26.120"}
     "26.120": {status: documented}
   notes: >
     Removes every unsteady solver plot, force and fluid alike, in one
@@ -102,6 +110,9 @@ UNSTEADY_SOLVER_EXPORT_PLOTS:
       type: path
   manual_ref: "SRC-003 p.347"
   versions:
+    "26.121": {status: documented, note: "SRC-740 p.350, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.346, same grammar as 26.120"}
+    "26.100": {status: documented, note: "SRC-741 p.343, same grammar as 26.120"}
     "26.120": {status: documented}
   notes: >
     Exports every unsteady solver plot (force and fluid) with one

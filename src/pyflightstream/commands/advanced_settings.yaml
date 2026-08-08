@@ -34,6 +34,7 @@ SET_SOLVER_CONVERGENCE_ITERATIONS:
     "26.100": {status: documented, note: "SRC-741 p.341, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.343, same grammar as 26.120"}
     "26.120": {status: documented}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate.yaml"}
   notes: >
     Number of iterations the solver must remain below the convergence
     threshold before convergence is declared.
@@ -49,6 +50,7 @@ SOLVER_MINIMUM_CP:
     "26.100": {status: documented, note: "SRC-741 p.342, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.344, same grammar as 26.120"}
     "26.120": {status: documented}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate.yaml"}
   default: -20
   default_ref: "SRC-003 p.221"
   notes: >
@@ -64,6 +66,7 @@ REYNOLDS_AVERAGED_DRAG_FORCES:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 p.344"
   versions:
+    "26.121": {status: documented, note: "SRC-740 p.347, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.341, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.343, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -80,6 +83,7 @@ SOLVER_SET_MESH_INDUCED_WAKE_VELOCITY:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 p.344"
   versions:
+    "26.121": {status: documented, note: "SRC-740 p.347, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.341, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.343, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -92,6 +96,7 @@ SOLVER_SET_FARFIELD_LAYERS:
       type: int
   manual_ref: "SRC-003 p.344"
   versions:
+    "26.121": {status: documented, note: "SRC-740 p.347, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.341, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.343, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -110,6 +115,7 @@ SOLVER_UNSTEADY_PRESSURE_AND_KUTTA:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 p.344"
   versions:
+    "26.121": {status: documented, note: "SRC-740 p.347, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.341, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.343, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -125,6 +131,7 @@ SET_WAKE_TERMINATION_TIME_STEPS:
       type: int
   manual_ref: "SRC-003 p.344"
   versions:
+    "26.121": {status: documented, note: "SRC-740 p.347, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.341, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.343, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -141,6 +148,7 @@ SET_WAKE_ON_WAKE_INDUCTION:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 pp.344-345"
   versions:
+    "26.121": {status: documented, note: "SRC-740 p.347, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.342, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.343, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -156,6 +164,7 @@ ADDITIONAL_WAKE_RELAXATION_ITERATION:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 p.345"
   versions:
+    "26.121": {status: documented, note: "SRC-740 p.348, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.342, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.344, same grammar as 26.120"}
     "26.120": {status: documented}

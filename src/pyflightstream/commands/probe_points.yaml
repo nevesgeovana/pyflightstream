@@ -58,6 +58,7 @@ UPDATE_PROBE_POINTS:
   args: []
   manual_ref: "SRC-003 p.362"
   versions:
+    "26.121": {status: documented, note: "SRC-740 p.365, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.356, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.361, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -122,6 +123,7 @@ DELETE_PROBE_POINTS:
   args: []
   manual_ref: "SRC-003 p.363"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.357, same grammar as 26.120"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}

@@ -73,6 +73,7 @@ SET_VTK_EXPORT_VARIABLES:
                SHAPEFACTOR, TRANS, SEP, BLLENGTH, AREA, VORTICITY]
   manual_ref: "SRC-003 p.352"
   versions:
+    "26.121": {status: documented, note: "SRC-740 p.355, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.348, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.351, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -106,6 +107,8 @@ EXPORT_SOLVER_ANALYSIS_CSV:
       required: false
   manual_ref: "SRC-003 p.353"
   versions:
+    "26.101": {status: documented, note: "SRC-725 p.352, same grammar as 26.120"}
+    "26.100": {status: documented, note: "SRC-741 p.349, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
   notes: >
@@ -129,6 +132,8 @@ EXPORT_SOLVER_ANALYSIS_PLOAD_BDF:
       required: false
   manual_ref: "SRC-003 p.353"
   versions:
+    "26.101": {status: documented, note: "SRC-725 p.352, same grammar as 26.120"}
+    "26.100": {status: documented, note: "SRC-741 p.349, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
   notes: >
