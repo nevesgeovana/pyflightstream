@@ -242,13 +242,18 @@ class ArgSpec(BaseModel):
         same way (SRC-003 pp.309-313).
     all_sentinel : int, optional
         The value this argument uses to select every entity of its
-        kind, when the command's manual page states one other than the
-        family default. Absent means the family default applies, which
-        for a mesh boundary reference is -1. TRANSLATE_SURFACE_IN_FRAME
-        and TRANSLATE_SURFACE_BY_FRAME state zero instead (SRC-003
-        p.309), so they declare it and -1 is then an ordinary index
-        there. Declaring the sentinel here rather than in the emitter
-        is what keeps a per-command rule out of a per-kind check.
+        kind, when the command's manual page states one. ABSENT MEANS
+        THE PAGE STATES NONE, not that some default applies: the
+        emitter has no per-kind default, so an argument without this
+        refuses every index at or below zero.
+
+        The pages disagree three ways, which is why the fact lives on
+        the argument. TRANSLATE_SURFACE_IN_FRAME and
+        TRANSLATE_SURFACE_BY_FRAME state zero (SRC-003 p.309); seven
+        boundary indices state -1 (pp.307, 310-312); six state nothing,
+        and SURFACE_RENAME renaming every surface to one name is what
+        accepting -1 there meant. Requires ``cites``, since a sentinel
+        is read only where the entity kind is known.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)

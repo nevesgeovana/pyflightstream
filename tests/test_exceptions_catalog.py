@@ -430,11 +430,11 @@ _RATCHET = {
     # ArgSpec. The ratchet keys on the line number, so re-anchoring is
     # deliberate friction rather than a defect: a moved raise should be
     # re-read.
-    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:394)",
-    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:396)",
-    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:398)",
-    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:406)",
-    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:420)",
+    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:399)",
+    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:401)",
+    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:403)",
+    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:411)",
+    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:425)",
     "pyflightstream.farfield._delta_psi -> ValueError (__init__.py:152)",
     "pyflightstream.fsi.driver._verified_layout -> ValueError (driver.py:338)",
     "pyflightstream.fsi.loads._validate_block_boundaries -> ValueError (loads.py:397)",

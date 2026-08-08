@@ -8,10 +8,18 @@
 #
 # TWO THINGS IN THIS CHAPTER ARE NOT UNIFORM AND BOTH BITE.
 #
-# The all-surfaces sentinel is -1 on most commands and ZERO on the two
-# translations, which the manual states per command and never contrasts.
-# A script that reaches for -1 out of habit translates surface -1 rather
-# than all of them.
+# The all-surfaces sentinel has THREE cases, not two, and the manual
+# states each per command while never contrasting them. Measured across
+# the four editions: -1 on seven surface indices, ZERO on the two
+# translations, and NOTHING AT ALL on six (SURFACE_RENAME,
+# SURFACE_MIRROR, SURFACE_DELETE, SURFACE_AUTO_HOLE_FILL and the two
+# COPY_PASTE commands), whose pages state only that the first surface is
+# index 1. A script reaching for -1 out of habit translates surface -1
+# rather than all of them, or asks to rename every surface to one name.
+# The third case is the one this header omitted until 2026-08-07, and
+# the omission was in the emitter too: absent read as -1 everywhere.
+# It is now declared per argument, as all_sentinel, and absent means the
+# page states none. See docs/srs/data-model.md.
 #
 # And the surface index appears under four different argument names
 # across the chapter: SURFACE, Index, SURFACE_COUNT and NODE_ID for the
@@ -56,6 +64,7 @@ SURFACE_ROTATE:
       type: int_list
       cites: boundaries
       separator: comma
+      required: false
     - name: split_vertices
       type: enum
       values: [ENABLE, DISABLE]
@@ -85,7 +94,10 @@ SURFACE_ROTATE:
     judgement and not a measurement, and PLN-20260807-1000 carries the
     probe.
 
-    The count keyword is followed by the indices on the next line. The
+    The count keyword is followed by the indices on the next line,
+    EXCEPT at -1, which the page states selects every surface for
+    rotation and which takes no index line; the list is optional for
+    that reason. The
     separator is read from SURFACE_COMBINE, the one command in this
     chapter that states it (comma separated, SRC-003 p.312), because
     this page shows a single index and a one-element list looks the same
@@ -125,9 +137,10 @@ TRANSLATE_SURFACE_IN_FRAME:
 
     ZERO SELECTS ALL SURFACES HERE, not -1. This command and
     TRANSLATE_SURFACE_BY_FRAME below are the two in the chapter that use
-    zero; every other surface argument uses -1, and the manual states
-    each per command without ever contrasting them. Passing -1 here
-    names surface -1 rather than all of them.
+    zero. Seven other surface indices use -1 and six state no all-form
+    at all, and the manual states each per command without ever
+    contrasting them. Passing -1 here names surface -1 rather than all
+    of them, and the emitter refuses it for that reason.
 
 TRANSLATE_SURFACE_BY_FRAME:
   layout: inline
@@ -152,7 +165,8 @@ TRANSLATE_SURFACE_BY_FRAME:
   notes: >
     Moves a surface by the transform that carries FRAME1 onto FRAME2, so
     the two frames are the instruction and there is no vector. ZERO
-    selects all surfaces, as on TRANSLATE_SURFACE_IN_FRAME above.
+    selects all surfaces, as on TRANSLATE_SURFACE_IN_FRAME above, and -1
+    is an ordinary out-of-range index here rather than an all-form.
 
 SURFACE_SCALE:
   layout: inline

@@ -9,6 +9,40 @@ FlightStream versions.
 
 ### API surface delta
 
+* **Fourth round, and the sweep itself verified clean.** An independent
+  seat read all four editions page by page and confirmed the fifteen
+  boundary indices: nine state an all-form, six state none, no edition
+  disagrees with another. What the round found was around it.
+
+  `Script.resolve_boundary(-1)` had started raising. It is a public
+  method resolving a citation with no command attached, so the generic
+  all-boundaries form is right there; it was passing through the
+  per-kind default that the round before had deleted. The call site now
+  states -1 explicitly, and the docstring says why that differs from
+  `emit`, where six commands refuse it.
+
+  `SURFACE_ROTATE`'s own all-form was unreachable. Its page states -1 in
+  the COUNT row and the index line then has nothing to list, but the
+  list was required, so the documented call was refused outright and an
+  empty list emitted a stray blank line into the keyword block.
+
+  Three of the nine declared sentinels were pinned only by a literal in
+  the test inventory, which is not a guard: editing the declaration and
+  the literal together left the suite green with the documented all-form
+  refused. All nine are asserted behaviourally now. The
+  undeclared-inventory branch was untested the same way, and every
+  negative count, not only -1, was bypassing the count-versus-list
+  check.
+
+  Two claims corrected: the `all_sentinel` docstrings still taught the
+  per-kind default in both homes, and the closure guard's docstring
+  called the vocabulary closed when it is a heuristic over name stems,
+  which a QA pass demonstrated by getting seventeen invented spellings
+  past it. The stems were widened with all seventeen and the claim now
+  matches what it measures. The goldens are compared for carriage
+  returns directly, since `read_text` had been hiding exactly what the
+  LF pin was added to prevent.
+
 * **The same inversion, found a THIRD time, and now fixed at its root.**
   `-1` was still the all-boundaries default for every entity of that
   kind, so the six surface commands whose page states no all-form

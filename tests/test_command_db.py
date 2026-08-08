@@ -1349,7 +1349,8 @@ def test_every_declared_sentinel_and_length_is_reachable_from_the_database():
         ("TRANSLATE_SURFACE_IN_FRAME", "surface"),
         ("TRANSLATE_SURFACE_BY_FRAME", "surface"),
         # Minus one, each stated on its own page: SRC-003 pp.307 and
-        # 310-311, SRC-741 p.305, SRC-740 p.315 (by sample).
+        # 310-311, SRC-741 p.305, and SRC-740 p.316 for DELETE_SURFACES,
+        # whose table on p.315 states none and whose sample states it.
         ("SURFACE_SCALE", "surface"),
         ("SURFACE_INVERT", "index"),
         ("SURFACE_CUT_BY_PLANE", "surface"),

@@ -660,10 +660,19 @@ class Script:
         """Resolve a mesh boundary citation to its 1-based index.
 
         A label declared through :meth:`declare_existing` resolves to
-        its index; an integer passes through after the range check,
-        which only runs once the boundary inventory was declared
-        (before that the total is unknowable statically, so the build
-        stays permissive). The -1 all-boundaries form always passes.
+        its index; an integer passes through after the range check.
+        The two bounds are independent: the upper one needs a declared
+        inventory and is skipped without it, the lower one does not,
+        since indices are 1-based.
+
+        This method resolves a citation with no command attached, so it
+        applies the generic all-boundaries form, -1, rather than any
+        command's own. That is stated here and passed explicitly,
+        because the emitter has no per-kind default: a command's
+        all-form comes from its own argument, and six surface commands
+        state none at all (SRC-003 pp.309-313). Passing -1 to
+        :meth:`emit` for one of those is still refused, and correctly;
+        it is this generic entry point that accepts it.
 
         Parameters
         ----------
@@ -685,7 +694,7 @@ class Script:
             labels) or the index falls outside the declared inventory.
         """
         index = self.entities.resolve("boundaries", value, context=context)
-        self.entities.check_index("boundaries", index, context=context)
+        self.entities.check_index("boundaries", index, context=context, all_sentinel=-1)
         return index
 
     def emit(self, name: str, /, *args: object, label: str | None = None, **kwargs: object) -> None:
@@ -984,7 +993,11 @@ class Script:
             if spec.name in _COUNT_ARG_NAMES and spec.name in bound:
                 count_value = bound[spec.name]
             elif spec.is_list and spec.name in bound and isinstance(count_value, int):
-                if count_value >= 0 and count_value != len(bound[spec.name]):
+                # Only -1 is exempt, being the documented all-entities
+                # count. `>= 0` let EVERY negative through, so a count
+                # of -2 silently disabled the comparison and the list
+                # went unchecked (2026-08-07 QA pass).
+                if count_value != -1 and count_value != len(bound[spec.name]):
                     raise CommandArgumentError(
                         f"{entry.name}: the declared count is {count_value} but "
                         f"{spec.name!r} holds {len(bound[spec.name])} values "

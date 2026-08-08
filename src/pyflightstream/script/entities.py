@@ -373,14 +373,16 @@ class EntityRegistry:
         citation : str, optional
             Manual citation appended to the error message.
         all_sentinel : int, optional
-            The value this particular argument uses to select every
-            entity, when its command states one other than the family
-            default of -1 for a mesh boundary. Supplied from the
-            argument's own database entry, because the two
-            TRANSLATE_SURFACE commands state zero and every other
-            surface argument states -1 (SRC-003 p.309); a sentinel
-            fixed per entity kind would refuse the documented form on
-            one of the two groups whichever value it chose.
+            The value this argument uses to select every entity, when
+            its command's page states one. THERE IS NO DEFAULT: None
+            means the command states no all-form and every index at or
+            below zero is refused. Supplied from the argument's own
+            database entry, because this is a per-command fact and the
+            pages disagree three ways: the two TRANSLATE_SURFACE
+            commands state zero (SRC-003 p.309), seven more state -1
+            (pp.307, 310-312), and six state none at all. Any per-kind
+            default refuses a documented form somewhere, whichever
+            value it picks.
 
         Raises
         ------

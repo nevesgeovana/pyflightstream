@@ -1546,19 +1546,39 @@ def test_the_all_surfaces_sentinel_is_zero_on_the_two_translations():
 
     # The converse, so the two are not both simply permissive: every
     # other surface argument in the chapter keeps -1 and refuses 0.
-    for name, args, rendered in (
-        ("SURFACE_SCALE", (1, 2.0, 2.0, 2.0), "SURFACE_SCALE 1 2.0 2.0 2.0 -1"),
-        ("SURFACE_CUT_BY_PLANE", (1, "XZ", 0.5), "SURFACE -1"),
+    # Every command whose page states the -1 form, so none of the nine
+    # declarations rests on the inventory literal in test_command_db
+    # alone. The 2026-08-07 QA pass showed that literal is not a guard:
+    # editing a declaration and its row together left the suite green
+    # while the documented all-form became refused.
+    for version, name, args, rendered in (
+        ("26.120", "SURFACE_SCALE", (1, 2.0, 2.0, 2.0), "SURFACE_SCALE 1 2.0 2.0 2.0 -1"),
+        ("26.120", "SURFACE_CUT_BY_PLANE", (1, "XZ", 0.5), "SURFACE -1"),
+        ("26.120", "SURFACE_SELECT_BY_ID", (), "SURFACE_SELECT_BY_ID -1"),
+        ("26.120", "SURFACE_INVERT", (), "SURFACE_INVERT -1"),
+        ("26.100", "SELECT_GEOMETRY_BY_ID", (), "SELECT_GEOMETRY_BY_ID -1"),
+        ("26.121", "DELETE_SURFACES", (), "DELETE_SURFACES -1"),
     ):
-        script = Script(version="26.120")
+        script = Script(version=version)
         script.declare_existing(boundaries=6, frames=2)
         script.emit(name, *args, -1)
-        assert rendered in script.render(), f"{name} must accept -1"
+        assert rendered in script.render(), f"{name} must accept its documented -1"
 
-        script = Script(version="26.120")
+        script = Script(version=version)
         script.declare_existing(boundaries=6, frames=2)
         with pytest.raises(ScriptReferenceError, match="-1 selecting all boundaries"):
             script.emit(name, *args, 0)
+
+    # EXPORT_SURFACE_MESH separately: its path argument follows the
+    # index, so it does not fit the trailing-index shape above.
+    exporting = Script(version="26.120")
+    exporting.declare_existing(boundaries=6)
+    exporting.emit("EXPORT_SURFACE_MESH", "STL", -1, "all_surfaces.stl")
+    assert "EXPORT_SURFACE_MESH STL -1" in exporting.render()
+    refusing = Script(version="26.120")
+    refusing.declare_existing(boundaries=6)
+    with pytest.raises(ScriptReferenceError, match="-1 selecting all boundaries"):
+        refusing.emit("EXPORT_SURFACE_MESH", "STL", 0, "x.stl")
 
 
 def test_the_mirror_plane_is_an_index_and_refuses_a_plane_name():
@@ -2128,15 +2148,34 @@ _INDEXES_OF_UNTRACKED_OBJECTS = {
     ("EXPORT_VOLUME_SECTION_VTK", "index"),
     ("SET_TRAILING_EDGE_TYPE", "te_index"),
     ("VOLUME_SECTION_BOUNDARY_LAYER", "index"),
+    # Caught by the widened stems on 2026-08-07, each read and kept:
+    # a count of sections to create rather than a citation of one,
+    # a mesh VERTEX (the tracker counts boundaries, not nodes),
+    # a plane selector whose 1, 2, 3 name YZ, XZ, XY rather than an
+    # object (SRC-003 p.311), and a force index within a motion.
+    ("CAD_CREATE_AUTO_CROSS_SECTIONS", "sections"),
+    ("CAD_CREATE_AUTO_ANNULAR_CROSS_SECTIONS", "sections"),
+    ("SELECT_MESH_NODE", "node_id"),
+    ("SURFACE_MIRROR", "mirror_plane"),
+    ("DELETE_6DOF_EXTERNAL_FORCE", "force_id"),
 }
 
-#: What an argument name looks like when it cites something by index.
+#: Name stems that suggest an argument cites something by index. This
+#: is a HEURISTIC over names, not a closure over arguments: 53 of the
+#: database's 206 integer arguments are neither a citation nor a count,
+#: and classifying all of them is the only thing that would close the
+#: set (registered as part of PLN-20260807-1410). The 2026-08-07 QA
+#: pass got 17 invented spellings past the first version of this list,
+#: so the stems below are broad, and the test name and docstring say
+#: heuristic rather than closed.
 _LOOKS_LIKE_A_CITATION = re.compile(
-    r"index|indices|frame|surface|coordinate_system|motion|actuator|boundar"
+    r"index|indices|id|_id|frame|surface|surf|coordinate_system|cs|motion"
+    r"|actuator|boundar|body|component|part|section|curve|node|vertex|group|owner"
+    r"|target|wake|probe|plane|system"
 )
 
 
-def test_every_index_argument_either_resolves_or_is_a_declared_exception():
+def test_an_index_argument_whose_name_suggests_a_citation_resolves_to_one():
     """An unresolved index argument is silence, not a refusal.
 
     Omitting `cites` on a new ambiguous index produces no error: the
@@ -2145,11 +2184,18 @@ def test_every_index_argument_either_resolves_or_is_a_declared_exception():
     five such arguments shipped in one chapter, which is what made the
     field necessary; nothing then stopped the sixth.
 
-    So the vocabulary is closed from this end. Every int or int_list
-    argument whose NAME says it cites something must either declare what
-    it cites, be a spelling the emitter's own maps already resolve, be a
-    count, or be named above as an index of an object the tracker does
-    not model.
+    So every int or int_list argument whose NAME suggests a citation
+    must either declare what it cites, be a spelling the emitter's own
+    maps already resolve, be a count, or be named above as an index of
+    an object the tracker does not model.
+
+    STATED HONESTLY, because the first version of this docstring said
+    the vocabulary was closed and it is not: the rule is a heuristic
+    over name stems, and the 2026-08-07 QA pass got 17 invented
+    spellings past it. The stems were widened with all 17. Real closure
+    means classifying every integer argument, 53 of which are today
+    neither a citation nor a count, and that is registered rather than
+    claimed here.
 
     Running it found five the review did not, each then read on its own
     page before being declared: DELETE_SURFACES (SRC-740 p.315) and the
@@ -2278,6 +2324,21 @@ def test_a_command_with_no_documented_all_form_refuses_minus_one():
         with pytest.raises(ScriptReferenceError, match="mesh boundary -1"):
             script.emit(name, *args)
 
+        # And with NO inventory declared, which is the state most
+        # scripts are in when these geometry commands run. The 2026-08-07
+        # QA pass proved this branch untested: every case above declared
+        # an inventory first, so restoring the early return left the
+        # whole suite green while -1 emitted silently again.
+        undeclared = Script(version="26.120")
+        undeclared.declare_existing(frames=3)
+        with pytest.raises(ScriptReferenceError) as caught:
+            undeclared.emit(name, *args)
+        message = str(caught.value)
+        assert "None" not in message, f"{name}: the refusal must not print None"
+        assert "-1 selecting" not in message and "0 selecting" not in message, (
+            f"{name}: the refusal must not offer an all-form this page does not state"
+        )
+
         # The control, so this is not passing because the command is
         # broken in some unrelated way: a real index emits.
         working = Script(version="26.120")
@@ -2313,3 +2374,88 @@ def test_the_refusal_never_offers_an_all_form_the_page_does_not_state():
     assert "-1 selecting all boundaries" in str(caught.value), (
         "SURFACE_INVERT does state one (SRC-003 p.310), so its refusal must name it"
     )
+
+
+def test_no_golden_carries_a_carriage_return():
+    """ "Byte-exact" is a claim, and read_text was quietly not honouring it.
+
+    Every golden comparison in this suite reads with read_text, whose
+    universal-newline translation turns CRLF into LF before the string
+    is compared. So a checkout that rewrote the line endings passed for
+    a reason unrelated to the emitter being right, and the phrase
+    byte-exact was not true of any of them. `.gitattributes` pins the
+    directory to LF, but a git setting is a checkout property rather
+    than a guard, and the 2026-08-07 QA pass found three goldens sitting
+    CRLF on disk in a worktree checked out before the pin.
+
+    This asserts the property directly, so the pin is checked rather
+    than trusted.
+    """
+    offenders = [path.name for path in sorted(GOLDENS.iterdir()) if b"\r" in path.read_bytes()]
+    assert not offenders, (
+        f"these goldens carry a carriage return: {offenders}. Their bytes are the "
+        "assertion, and read_text hides the difference, so a line-ending rewrite would "
+        "pass while changing the file. Re-save as LF; .gitattributes pins the directory"
+    )
+
+
+def test_the_rotate_all_form_takes_no_index_line():
+    """The one all-form in the chapter carried on a COUNT, not an index.
+
+    SRC-003 p.309 states -1 in SURFACE_ROTATE's count row selects every
+    surface for rotation, and the index line then has nothing to list.
+    The list argument was required, so the documented call was refused
+    outright; supplying an empty list instead emitted a stray blank line
+    into the middle of the keyword block, which is a malformed script
+    rather than a refusal (2026-08-07 V&V pass).
+    """
+    script = Script(version="26.120")
+    script.declare_existing(frames=3)
+    script.emit(
+        "SURFACE_ROTATE",
+        frame=3,
+        axis="X",
+        angle=-20.0,
+        surfaces=-1,
+        split_vertices="DISABLE",
+        adaptive_mesh="DISABLE",
+        detach_normal_to_axis="ENABLE",
+    )
+    assert "SURFACES -1\nSPLIT_VERTICES DISABLE" in script.render(), (
+        "the all-form must be followed by the next keyword, with no index line "
+        "and no blank line between them"
+    )
+
+    # The counted form still carries its list, so making the argument
+    # optional did not make the count meaningless.
+    counted = Script(version="26.120")
+    counted.declare_existing(frames=3)
+    counted.emit(
+        "SURFACE_ROTATE",
+        frame=3,
+        axis="X",
+        angle=-20.0,
+        surfaces=2,
+        surface_indices=[1, 3],
+        split_vertices="DISABLE",
+        adaptive_mesh="DISABLE",
+        detach_normal_to_axis="ENABLE",
+    )
+    assert "SURFACES 2\n1,3\n" in counted.render()
+
+    # And a count that disagrees with its list is still refused, which
+    # the same pass found `>= 0` had disabled for every negative.
+    with pytest.raises(CommandArgumentError, match="declared count"):
+        wrong = Script(version="26.120")
+        wrong.declare_existing(frames=3)
+        wrong.emit(
+            "SURFACE_ROTATE",
+            frame=3,
+            axis="X",
+            angle=-20.0,
+            surfaces=-2,
+            surface_indices=[1, 3],
+            split_vertices="DISABLE",
+            adaptive_mesh="DISABLE",
+            detach_normal_to_axis="ENABLE",
+        )
