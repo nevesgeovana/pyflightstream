@@ -1,0 +1,244 @@
+# Chapter: Scripting reference, Acoustics Toolbox (SRC-003 pp.373-374).
+#
+# COMPLETE as of 2026-08-08, entered from all four registered editions in
+# one pass. Every signature is identical across the four.
+#
+# WHAT THIS TOOLBOX IS, because the phase assignments are not obvious
+# from the names. It computes the acoustic signal an unsteady solution
+# radiates to observer points. That splits the chapter in three, and the
+# ordering constraint between the parts is the manual's own:
+#
+#   ACOUSTIC_SOURCES must be enabled BEFORE solver initialization, which
+#   the page states outright, so it is a setup command and not a
+#   post-processing one despite belonging to a post-processing toolbox.
+#   Enabling it after initialization is a script that runs and produces
+#   no sources.
+#
+#   The observers are geometry-free points and can be defined at any
+#   time, so they are setup as well.
+#
+#   COMPUTE_ACOUSTIC_SIGNALS and the two exports read a solution, so
+#   they are analysis: the phase vocabulary has no post-processing
+#   value, analysis being what a command that consumes a solution
+#   declares.
+#
+# The observers are NOT an inventory the script builder tracks: they are
+# created by name but nothing reports their indices, and the manual says
+# an observer index is its position in the application's own tree. So
+# the indices are exempted rather than declared as citations.
+
+ACOUSTIC_SOURCES:
+  layout: inline
+  phase: setup
+  args:
+    - name: mode
+      type: enum
+      values: [ENABLE, DISABLE]
+  manual_ref: "SRC-003 p.373"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.368, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.372, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.376, same grammar as 26.120"}
+  notes: >
+    Turns on the computation of acoustic sources during unsteady solver
+    runs.
+
+    IT MUST PRECEDE SOLVER INITIALIZATION, which the manual states and
+    which is why this is a setup command in a post-processing chapter.
+    Nothing here can enforce the ordering against a script the caller
+    assembles by hand, so it is stated where a reader meets the command:
+    enabling it afterwards costs a whole unsteady run and produces no
+    sources to show for it.
+
+    The manual gives the argument no name, the signature placeholder
+    being the pair of values; `mode` is the database's house spelling
+    for a two-valued switch.
+
+CREATE_NEW_ACOUSTIC_OBSERVER:
+  layout: inline
+  phase: setup
+  args:
+    - name: name
+      type: str
+    - name: x
+      type: float
+      unit: "simulation length units"
+    - name: y
+      type: float
+      unit: "simulation length units"
+    - name: z
+      type: float
+      unit: "simulation length units"
+  manual_ref: "SRC-003 p.373"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.368, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.372, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.376, same grammar as 26.120"}
+  notes: >
+    Appends one observer point at which the signal will be computed.
+    THE COORDINATES ARE IN THE REFERENCE COORDINATE SYSTEM and the
+    manual says so explicitly, which is worth recording because most of
+    this database's position arguments take a frame index and this one
+    does not: there is no way to give an observer a local frame.
+
+ACOUSTIC_OBSERVERS_IMPORT:
+  layout: inline
+  phase: setup
+  args:
+    - name: file
+      type: path
+      own_line: true
+  manual_ref: "SRC-003 p.373"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.368, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.372, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.376, same grammar as 26.120"}
+  notes: >
+    Reads observer locations from a CSV text file whose path follows on
+    the next line. The manual describes the file's own format, a count
+    line followed by that many comma-separated coordinate triples; that
+    is the content of a file this package does not write, so it is
+    paraphrased here and nothing validates it.
+
+    Imported observers have no names, unlike those made by
+    CREATE_NEW_ACOUSTIC_OBSERVER.
+
+DELETE_ACOUSTIC_OBSERVER:
+  layout: inline
+  phase: setup
+  args:
+    - name: observer_index
+      type: int
+  manual_ref: "SRC-003 p.373"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.368, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.372, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.376, same grammar as 26.120"}
+  notes: >
+    Deletes one observer by index. The manual defines the index as the
+    observer's position in the application's own tree, which is a
+    statement about the user interface rather than about anything a
+    script can read back, so the index is not declared as a citation and
+    nothing checks it. No all-form is stated: DELETE_ALL_ACOUSTIC_OBSERVERS
+    is the separate command for that, so a -1 here is not documented
+    anywhere and is not offered.
+
+DELETE_ALL_ACOUSTIC_OBSERVERS:
+  layout: bare
+  phase: setup
+  args: []
+  manual_ref: "SRC-003 p.373"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.368, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.372, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.376, same grammar as 26.120"}
+  notes: >
+    Deletes every observer. A separate command rather than a sentinel
+    value of the one above, which is why that one offers no all-form.
+
+SET_ACOUSTIC_OBSERVER_TIME:
+  layout: inline
+  phase: setup
+  args:
+    - name: initial_time
+      type: float
+      unit: "s"
+    - name: final_time
+      type: float
+      unit: "s"
+    - name: time_steps
+      type: int
+  manual_ref: "SRC-003 pp.373-374"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 pp.368-369, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 pp.372-373, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 pp.376-377, same grammar as 26.120"}
+  notes: >
+    Time window of the observer signal and how many steps it is sampled
+    at. This is the OBSERVER's time axis and not the solver's: an
+    acoustic signal arrives after a propagation delay, so the window a
+    reader wants is not in general the unsteady run's own. The manual
+    states no relation between the two and none is assumed here.
+
+COMPUTE_ACOUSTIC_SIGNALS:
+  layout: bare
+  phase: analysis
+  args: []
+  manual_ref: "SRC-003 p.374"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.369, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.373, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.377, same grammar as 26.120"}
+  notes: >
+    Computes the signal at every observer, from the acoustic sources
+    recorded during the unsteady run. The one command in the chapter
+    that does the work.
+
+EXPORT_ACOUSTIC_SIGNALS:
+  layout: inline
+  phase: analysis
+  args:
+    - name: file
+      type: path
+      own_line: true
+  manual_ref: "SRC-003 p.374"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.369, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.373, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.377, same grammar as 26.120"}
+  notes: >
+    Writes the computed signals at every observer to one file, the path
+    on the next line. There is no per-observer export.
+
+CREATE_ACOUSTIC_SECTION:
+  layout: keyword_block
+  phase: analysis
+  args:
+    - name: frame
+      type: int
+      cites: frames
+    - name: plane
+      type: enum
+      values: [XY, XZ, YZ]
+    - name: offset
+      type: float
+      unit: "simulation length units"
+    - name: radial_observers
+      type: int
+    - name: azimuth_observers
+      type: int
+    - name: inner_radius
+      type: float
+      unit: "simulation length units"
+    - name: outer_radius
+      type: float
+      unit: "simulation length units"
+    - name: storage_path
+      type: path
+  manual_ref: "SRC-003 p.374"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.369, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.373, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.377, same grammar as 26.120"}
+  notes: >
+    Builds an annular grid of observers in a plane and exports the
+    signal at each of them, which is how a directivity pattern is
+    produced rather than a signal at one point.
+
+    IT CREATES AND EXPORTS IN ONE CALL, which is why STORAGE_PATH names
+    a FOLDER rather than a file: one VTK file is written per observer
+    per time step. That is potentially a very large number of files, the
+    product of the two observer counts and the time steps set by
+    SET_ACOUSTIC_OBSERVER_TIME, and no edition warns about it.
+
+    The observers it creates are not the ones the rest of the chapter
+    manages: nothing here deletes a section or lists what it made.

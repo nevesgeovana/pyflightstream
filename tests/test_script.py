@@ -2186,6 +2186,21 @@ _INDEXES_OF_UNTRACKED_OBJECTS = {
     # so the id is a number the caller counted and there is no inventory
     # to resolve it against.
     ("WRAPPER_EDIT_LOCAL_CONTROL", "control_id"),
+    # An acoustic observer, added 2026-08-08 with that chapter. The
+    # manual defines the index as the observer's position in the
+    # application's own tree, which is a statement about the user
+    # interface rather than about anything a script can read back.
+    ("DELETE_ACOUSTIC_OBSERVER", "observer_index"),
+    # A base region, added 2026-08-08 with that chapter. Boundaries ARE
+    # tracked, and the two commands here that take a boundary index
+    # declare it; these four take a base-region index instead, which is
+    # a separate 1-based sequence over the boundaries already marked and
+    # which nothing reports back. Two of them document -1 for all, kept
+    # in their notes for the usual reason.
+    ("DELETE_BASE_REGION", "base_region_boundary"),
+    ("SET_BASE_REGION_TRAILING_EDGES", "base_region_boundary"),
+    ("SELECT_BASE_REGION_FACES", "base_index"),
+    ("SET_BASE_REGION_CP", "base_index"),
 }
 
 #: Name stems that suggest an argument cites something by index. This
@@ -2915,4 +2930,128 @@ def test_on_command_line_must_lead_and_needs_a_keyword_block():
             args=[leading],
             manual_ref="SRC-003 p.1",
             versions={"26.120": {"status": "documented"}},
+        )
+
+
+# --- Acoustics Toolbox and Base Regions ---------------------------------------
+
+
+@pytest.mark.parametrize("version", ["26.100", "26.101", "26.120", "26.121"])
+def test_the_acoustics_chapter_emits_on_every_registered_build(version):
+    """Each line the manual's own sample, in the phase order the emitter holds."""
+    script = Script(version=version)
+    script.emit("ACOUSTIC_SOURCES", "ENABLE")
+    script.emit("CREATE_NEW_ACOUSTIC_OBSERVER", "Observer-1", 0.0, -0.5, 2.0)
+    script.emit("ACOUSTIC_OBSERVERS_IMPORT", "Observers.txt")
+    script.emit("DELETE_ACOUSTIC_OBSERVER", 2)
+    script.emit("DELETE_ALL_ACOUSTIC_OBSERVERS")
+    script.emit("SET_ACOUSTIC_OBSERVER_TIME", 0.0, 0.2, 300)
+    script.emit("COMPUTE_ACOUSTIC_SIGNALS")
+    script.emit("EXPORT_ACOUSTIC_SIGNALS", "Acoustic_signals.txt")
+    script.emit(
+        "CREATE_ACOUSTIC_SECTION",
+        frame=1,
+        plane="XZ",
+        offset=-2.0,
+        radial_observers=20,
+        azimuth_observers=40,
+        inner_radius=0.0,
+        outer_radius=3.0,
+        storage_path="Acoustic_Output/",
+    )
+    golden = (GOLDENS / "acoustics_chapter.txt").read_text(encoding="utf-8")
+    assert script.render() == golden
+
+
+@pytest.mark.parametrize("version", ["26.100", "26.101", "26.120", "26.121"])
+def test_the_base_regions_chapter_emits_on_every_registered_build(version):
+    """The remesh leads, being the one geometry command in a setup chapter."""
+    script = Script(version=version)
+    script.emit(
+        "REMESH_BASE_REGION",
+        base_region=1,
+        inner_radius=0.1,
+        elements=10,
+        growth_scheme="2",
+        growth_rate=1.2,
+    )
+    script.emit("SET_BASE_REGION_BENDING_ANGLE", 25.0)
+    script.emit("AUTO_DETECT_BASE_REGIONS")
+    script.emit("DETECT_BASE_REGIONS_BY_SURFACE", 2)
+    script.emit("CREATE_NEW_BASE_REGION", 3, "USER", -0.2)
+    script.emit("SET_BASE_REGION_CP", 1, "CUSTOM", -0.2)
+    script.emit("SET_BASE_REGION_TRAILING_EDGES", -1)
+    script.emit("SELECT_BASE_REGION_FACES", -1)
+    script.emit("DELETE_BASE_REGION", 2)
+    golden = (GOLDENS / "base_regions_chapter.txt").read_text(encoding="utf-8")
+    assert script.render() == golden
+
+
+def test_the_base_region_cp_is_optional_only_where_a_sample_proves_it():
+    """Two commands, one manual page, and only one prints the short form.
+
+    Both say CP is ignored under the empirical model. Only
+    SET_BASE_REGION_CP prints a sample passing two arguments, so only it
+    records the argument as optional. CREATE_NEW_BASE_REGION's own
+    sample passes three and no edition prints a shorter one, so dropping
+    it there would be an inference rather than a reading.
+    """
+    short = Script(version="26.120")
+    short.emit("SET_BASE_REGION_CP", 1, "EMPIRICAL")
+    assert short.render().strip() == "SET_BASE_REGION_CP 1 EMPIRICAL"
+
+    with pytest.raises(CommandArgumentError):
+        Script(version="26.120").emit("CREATE_NEW_BASE_REGION", 3, "EMPIRICAL")
+
+
+def test_the_two_base_region_commands_do_not_share_a_user_model_token():
+    """CUSTOM here, USER there, two commands apart on one page.
+
+    A keyword is emitted literally, so accepting both on both would be
+    inventing grammar: if they name the same model then one of the two
+    pages is wrong, and nothing printed says which. Each entry records
+    its own page and refuses the other's.
+    """
+    Script(version="26.120").emit("CREATE_NEW_BASE_REGION", 3, "USER", -0.2)
+    Script(version="26.120").emit("SET_BASE_REGION_CP", 1, "CUSTOM", -0.2)
+    with pytest.raises(CommandArgumentError, match="expects one of"):
+        Script(version="26.120").emit("CREATE_NEW_BASE_REGION", 3, "CUSTOM", -0.2)
+    with pytest.raises(CommandArgumentError, match="expects one of"):
+        Script(version="26.120").emit("SET_BASE_REGION_CP", 1, "USER", -0.2)
+
+
+def test_the_bending_angle_is_read_from_the_page_that_documents_it():
+    """One command, two pages, and the empty heading is not the evidence.
+
+    The Base Regions chapter prints a signature heading with nothing
+    beneath it, and p.284 gives the command a table, a range and a
+    sample passing a value. An empty heading means a bare command only
+    where nothing in the manual argues with it, and here the same manual
+    does.
+    """
+    entry = CommandRegistry.load().commands["SET_BASE_REGION_BENDING_ANGLE"]
+    assert [spec.name for spec in entry.args] == ["angle"]
+    assert entry.manual_ref == "SRC-003 p.284"
+    script = Script(version="26.120")
+    script.emit("SET_BASE_REGION_BENDING_ANGLE", 25.0)
+    assert "SET_BASE_REGION_BENDING_ANGLE 25.0" in script.render()
+    with pytest.raises(CommandArgumentError):
+        Script(version="26.120").emit("SET_BASE_REGION_BENDING_ANGLE")
+
+
+def test_the_base_region_remesh_growth_scheme_is_a_number_and_refuses_the_word():
+    """The one place this database spells a growth scheme numerically.
+
+    The three CCS chapters spell the same two schemes SUCCESSIVE and
+    DUAL-SIDED, so the word is the natural mistake and it would be
+    written into a script the solver does not read.
+    """
+    with pytest.raises(CommandArgumentError, match="expects one of"):
+        Script(version="26.120").emit(
+            "REMESH_BASE_REGION",
+            base_region=1,
+            inner_radius=0.1,
+            elements=10,
+            growth_scheme="DUAL-SIDED",
+            growth_rate=1.2,
         )

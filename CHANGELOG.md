@@ -9,6 +9,42 @@ FlightStream versions.
 
 ### API surface delta
 
+* **The Acoustics Toolbox and Base Regions chapters entered: 18
+  commands, both complete.** Database 308 to 326; emittable per version
+  243, 266, 307, 311.
+
+  `ACOUSTIC_SOURCES` is a SETUP command in a post-processing toolbox,
+  because the manual states it must be enabled before solver
+  initialization; enabling it afterwards costs a whole unsteady run and
+  produces no sources. `CREATE_ACOUSTIC_SECTION` creates and exports in
+  one call, which is why its path names a folder: one VTK file per
+  observer per time step, a count no edition warns about.
+
+  `SET_BASE_REGION_BENDING_ANGLE` IS DOCUMENTED ON TWO PAGES AND ONLY
+  ONE SAYS ANYTHING. The Base Regions chapter prints its heading with
+  nothing beneath it; p.284 gives it a table, a range and a sample
+  passing a value. Recorded from p.284. An empty heading is read as a
+  bare command only where nothing in the manual argues with it, which is
+  the rule the Scenes chapter rests on, and here the same manual argues
+  with it 33 pages earlier.
+
+  THE USER-SPECIFIED PRESSURE MODEL IS SPELLED TWO WAYS TWO COMMANDS
+  APART: `USER` on `CREATE_NEW_BASE_REGION` and `CUSTOM` on
+  `SET_BASE_REGION_CP`, in all four editions, both described as the
+  model under which the caller's CP applies. Each entry records its own
+  page and refuses the other's, because a keyword is emitted literally
+  and accepting both would rest on a guess that one of the two pages is
+  wrong. `PLN-20260808-1900` carries the probe.
+
+  `SET_BASE_REGION_CP`'s CP is optional and its own page PROVES it, by
+  printing a second sample that passes only the model. Its sibling makes
+  the same claim about the empirical model in prose and prints no short
+  sample, so there the argument stays required: a sample settling an
+  arity question rather than contradicting one is rare enough in this
+  manual to act on. And `REMESH_BASE_REGION` spells its growth scheme
+  numerically, 1 and 2, where the three CCS chapters spell the same two
+  schemes as words.
+
 * **The Mesh Wrapper chapter entered: 11 commands, and NREQ-05 now
   excludes nothing.** The author's decision of 2026-08-08. This was the
   last family the scope excluded, so the non-requirement is narrowed to

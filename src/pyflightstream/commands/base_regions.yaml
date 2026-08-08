@@ -1,0 +1,265 @@
+# Chapter: Scripting reference, Base Regions (SRC-003 pp.317-318, plus
+# p.284 for the bending angle).
+#
+# COMPLETE as of 2026-08-08, entered from all four registered editions in
+# one pass. Every signature is identical across the four.
+#
+# A base region is a blunt aft-facing surface where the flow separates
+# and a panel method has no pressure to compute, so one is imposed. The
+# chapter therefore does two different things: it MARKS boundaries as
+# base regions, and it says what pressure model applies to them.
+#
+# TWO PAGES DOCUMENT THE SAME COMMAND AND ONLY ONE OF THEM SAYS
+# ANYTHING. SET_BASE_REGION_BENDING_ANGLE has a signature heading in this
+# chapter with no parameter table, no sample and no prose beneath it, and
+# a full entry on p.284 in another chapter with a table, a bound and a
+# sample passing a value. Recorded from p.284. An empty heading is read
+# as a bare command only where nothing in the manual argues with it, and
+# here the same manual argues with it 33 pages earlier.
+#
+# A BASE REGION IS NOT AN ENTITY THE SCRIPT BUILDER TRACKS. Boundaries
+# are, and the commands that take a boundary index say so; but the base
+# region indices are a separate 1-based sequence over the boundaries that
+# have been marked, which nothing reports back, so those are exempted and
+# their -1 all-forms live in the notes.
+
+CREATE_NEW_BASE_REGION:
+  layout: inline
+  phase: setup
+  args:
+    - name: surface_index
+      type: int
+      cites: boundaries
+    - name: base_model
+      type: enum
+      values: [EMPIRICAL, AXISYMMETRIC, USER]
+    - name: cp
+      type: float
+  manual_ref: "SRC-003 p.317"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.312, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.316, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.320, same grammar as 26.120"}
+  notes: >
+    Marks one mesh boundary as a base region and gives it a pressure
+    model. No all-form is stated, so -1 is not accepted here;
+    AUTO_DETECT_BASE_REGIONS is the command that marks several at once.
+
+    THE HEADING AND THE TABLE NAME THE SECOND ARGUMENT DIFFERENTLY,
+    BASE_TYPE against BASE_MODEL, in all four editions. The table's
+    spelling is used because it is the one that carries the values, and
+    because the sibling SET_BASE_REGION_CP's table spells it BASE_MODEL
+    too, so the two commands agree under that reading and disagree under
+    the other.
+
+    The manual states that CP is ignored under the EMPIRICAL model. It
+    is still required here, because this command's own sample passes
+    three arguments and no edition prints a two-argument form of it;
+    contrast SET_BASE_REGION_CP below, where a two-argument sample IS
+    printed and the argument is optional in consequence.
+
+SET_BASE_REGION_CP:
+  layout: inline
+  phase: setup
+  args:
+    - name: base_index
+      type: int
+    - name: base_model
+      type: enum
+      values: [AXISYMMETRIC, CUSTOM, EMPIRICAL]
+    - name: cp
+      type: float
+      required: false
+  manual_ref: "SRC-003 pp.317-318"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 pp.312-313, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 pp.316-317, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 pp.320-321, same grammar as 26.120"}
+  notes: >
+    Changes the pressure model of a base region that already exists.
+
+    THE USER-SPECIFIED MODEL IS SPELLED CUSTOM HERE AND USER ON
+    CREATE_NEW_BASE_REGION, two commands apart on the same page, in all
+    four editions. Each entry records its own page's token and neither
+    accepts the other's, because a keyword is emitted literally and
+    guessing that they are the same value would be inventing grammar: if
+    they are the same thing, one of the two pages is wrong, and nothing
+    printed says which. PLN-20260808-1900 carries the probe.
+
+    CP IS OPTIONAL, and unusually the manual proves it rather than
+    stating it: the page prints TWO samples for this command, one
+    passing a value under CUSTOM and one passing only the model under
+    EMPIRICAL. That is a sample settling an arity question instead of
+    contradicting it, which is rare enough in this manual to record.
+
+    The table's description of BASE INDEX is copied from
+    DELETE_BASE_REGION and describes the index as the one to be deleted;
+    the same copy appears on SELECT_BASE_REGION_FACES. Cosmetic, and
+    noted only so a reader comparing the pages does not take it for a
+    statement about what the command does.
+
+SET_BASE_REGION_BENDING_ANGLE:
+  layout: inline
+  phase: setup
+  args:
+    - name: angle
+      type: float
+      unit: "deg"
+  manual_ref: "SRC-003 p.284"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.278, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.283, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.287, same grammar as 26.120"}
+  notes: >
+    Threshold on how far a surface may bend away from the aft-facing
+    direction and still be detected as part of a base region, which is
+    what AUTO_DETECT_BASE_REGIONS and DETECT_BASE_REGIONS_BY_SURFACE
+    read.
+
+    DOCUMENTED ON TWO PAGES, AND ONLY ONE OF THEM SAYS ANYTHING. This
+    chapter prints the signature heading and nothing beneath it, while
+    p.284 gives the command a parameter table, a stated range and a
+    sample passing a value. The p.284 entry is what is recorded. The
+    empty heading is not read as a bare command, because the rule for
+    that shape is that nothing in the manual contradicts it, and here
+    the same manual does.
+
+    The manual bounds the angle between 0 and 90 degrees. The bound is
+    NOT enforced, which is the standing treatment of the manual's stated
+    bounds in this database (author's decision of 2026-08-08); the
+    argument's own page is where a reader finds it, and this note is
+    where a reader of the database does.
+
+AUTO_DETECT_BASE_REGIONS:
+  layout: bare
+  phase: setup
+  args: []
+  manual_ref: "SRC-003 p.317"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.312, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.316, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.320, same grammar as 26.120"}
+  notes: >
+    Marks every base region the detector finds over the whole geometry,
+    using the bending angle above. Takes nothing, so which boundaries it
+    marks is not something the script chooses.
+
+DETECT_BASE_REGIONS_BY_SURFACE:
+  layout: inline
+  phase: setup
+  args:
+    - name: boundary_index
+      type: int
+      cites: boundaries
+  manual_ref: "SRC-003 p.317"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.312, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.316, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.320, same grammar as 26.120"}
+  notes: >
+    The same detection restricted to one mesh boundary, for a geometry
+    where the whole-model form marks more than intended. The manual
+    states the index must be greater than zero and no all-form, so -1 is
+    not accepted.
+
+SET_BASE_REGION_TRAILING_EDGES:
+  layout: inline
+  phase: setup
+  args:
+    - name: base_region_boundary
+      type: int
+  manual_ref: "SRC-003 p.317"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.312, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.316, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.320, same grammar as 26.120"}
+  notes: >
+    Marks the rim of a base region as a trailing edge, which is what
+    lets the wake leave the body there. The manual documents -1 for
+    every base region, and the sample passes it.
+
+    The -1 is in this note rather than declared as an all_sentinel
+    because base regions are not an inventory the script builder tracks:
+    with no kind to resolve, nothing would read the declaration.
+
+DELETE_BASE_REGION:
+  layout: inline
+  phase: setup
+  args:
+    - name: base_region_boundary
+      type: int
+  manual_ref: "SRC-003 p.317"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.312, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.316, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.320, same grammar as 26.120"}
+  notes: >
+    Unmarks one base region. NO ALL-FORM IS STATED HERE, unlike the two
+    neighbouring commands that take the same kind of index and document
+    -1. Recorded as stated: the two neighbours prove the manual says so
+    when it means it, which makes the silence here evidence rather than
+    an omission to be filled in by analogy.
+
+SELECT_BASE_REGION_FACES:
+  layout: inline
+  phase: setup
+  args:
+    - name: base_index
+      type: int
+  manual_ref: "SRC-003 p.318"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.313, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.317, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.321, same grammar as 26.120"}
+  notes: >
+    Selects the mesh faces of a base region, or of all of them with -1,
+    which the sample passes. Selection is application state rather than
+    a solver input; what reads it is the commands that act on a
+    selection.
+
+REMESH_BASE_REGION:
+  layout: keyword_block
+  phase: geometry
+  args:
+    - name: base_region
+      type: int
+    - name: inner_radius
+      type: float
+      unit: "simulation length units"
+    - name: elements
+      type: int
+    - name: growth_scheme
+      type: enum
+      values: ["1", "2"]
+    - name: growth_rate
+      type: float
+  manual_ref: "SRC-003 p.318"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.313, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.317, same grammar as 26.120"}
+    "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.321, same grammar as 26.120"}
+  notes: >
+    Rebuilds a base region's faces as a radial distribution, which a
+    detected base region does not have: it inherits whatever the import
+    gave it. Phase is geometry, this being the one command in the
+    chapter that changes the mesh rather than labelling it.
+
+    GROWTH_SCHEME IS SPELLED AS A NUMBER HERE AND AS A WORD EVERYWHERE
+    ELSE. 1 is successive and 2 is dual-sided, while the three CCS
+    chapters spell the same two schemes SUCCESSIVE and DUAL-SIDED. The
+    numbers are recorded because they are what this page prints, and
+    the closed set is stated so passing the word is refused rather than
+    written into a script the solver will not read.
+
+    INNER_RADIUS takes 0.0 for no inner radius, which the manual states
+    and which is worth reading as a documented value rather than as an
+    edge case.
