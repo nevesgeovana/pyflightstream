@@ -762,7 +762,7 @@ def test_the_broken_refusal_names_its_evidence_and_the_way_through():
         script.emit("AIR_ALTITUDE", 5000.0, "METERS")
     message = str(caught.value)
     assert "26.120" in message, message
-    assert "reports/compat/CMP-26120_2026-07-23_pln012.yaml" in message, message
+    assert "reports/compat/CMP-26120_2026-08-08_full.yaml" in message, message
     assert "SRC-003 p.328" in message, message
     assert "allow_broken" in message, message
 
@@ -796,7 +796,7 @@ def test_a_waiver_lets_the_command_emit_and_records_what_it_waived():
     (use,) = script.broken_commands
     assert use.command == "AIR_ALTITUDE"
     assert use.version == "26.120"
-    assert use.report == "reports/compat/CMP-26120_2026-07-23_pln012.yaml"
+    assert use.report == "reports/compat/CMP-26120_2026-08-08_full.yaml"
     assert use.reason == "re-probing the units defect"
     assert use.note and "effect was not observed" in use.note
 

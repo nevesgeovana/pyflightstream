@@ -1003,7 +1003,7 @@ def test_a_waived_broken_command_rides_into_the_manifest(tmp_path):
         (use,) = record.broken_commands
         assert use["command"] == "AIR_ALTITUDE"
         assert use["version"] == "26.120"
-        assert use["report"] == "reports/compat/CMP-26120_2026-07-23_pln012.yaml"
+        assert use["report"] == "reports/compat/CMP-26120_2026-08-08_full.yaml"
         assert use["reason"].startswith("reproducing a run")
     # It survives the round trip through runs.json, which is the point.
     assert workspace.read_manifest()[0].broken_commands == records[0].broken_commands

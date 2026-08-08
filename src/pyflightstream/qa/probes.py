@@ -37,10 +37,10 @@ from pathlib import Path
 
 import pyflightstream
 from pyflightstream._errors import PyflightstreamError
-from pyflightstream.commands import CommandRegistry
+from pyflightstream.commands import CommandNotInVersionError, CommandRegistry
 from pyflightstream.qa.errors import QaEvidenceError
 from pyflightstream.run import ExecutionResult, Executor, LocalExecutor
-from pyflightstream.script import Script
+from pyflightstream.script import CommandArgumentError, Script
 from pyflightstream.script.helpers import initialize_solver
 from pyflightstream.versions import FsVersion, resolve
 
@@ -772,7 +772,23 @@ def _validate_tiers(
         workdir = _fresh_dir(workroot / f"_tier_{tier.value}")
         script = Script(version, registry=registry)
         script.comment(f"prelude tier baseline: {tier.value}")
-        emit_tier_prelude(script, tier, fsm)
+        try:
+            emit_tier_prelude(script, tier, fsm)
+        except CommandNotInVersionError as absent:
+            # The prelude is a FIXED sequence and the older editions do
+            # not document all of it, so on those builds it cannot be
+            # emitted at all. That is a tier failure like any other and
+            # downgrades this tier's probes to unprobed with the reason
+            # named; before 2026-08-08 it escaped as an exception and
+            # ended the whole run, so a single missing row made every
+            # command of that build unmeasurable and the operator had to
+            # discover the list one crash at a time.
+            failures[tier] = (
+                f"the prelude cannot be emitted on this build: {absent}. The tier is "
+                "a fixed sequence, so a command it needs that this edition does not "
+                "record stops the whole tier rather than one probe"
+            )
+            continue
         marker = f"{_BASELINE_MARKER}_{tier.value.upper()}"
         script.emit("PRINT", marker)
         script.emit("EXPORT_LOG", workdir / _LOG_AFTER)
@@ -872,7 +888,31 @@ def _run_probe(
 ) -> ProbeResult:
     """Run one probe end to end and judge its three signals."""
     workdir = _fresh_dir(workroot / spec.command)
-    script = generate_probe_script(spec, version, workdir, registry=registry, fsm=fsm)
+    try:
+        script = generate_probe_script(spec, version, workdir, registry=registry, fsm=fsm)
+    except (CommandNotInVersionError, CommandArgumentError) as unbuildable:
+        # Two ways a probe script fails to BUILD on an older edition,
+        # both of which say nothing about the target command.
+        #
+        # A support command (early_prelude, prelude, epilogue or an
+        # instrument) may not be recorded for this edition, even where
+        # the target is. Or a spec may pass a value this edition's
+        # grammar refuses: the specs are written against the flagship,
+        # and the February 2026 build renames things, so a spec creating
+        # a ROTARY motion cannot run where that type is called EUCLIDEAN.
+        #
+        # Either way the target is UNJUDGED rather than broken, and the
+        # cause is named so it can be closed instead of rediscovered.
+        # Before 2026-08-08 both escaped and ended the run, so one such
+        # command made an entire build unmeasurable and the list had to
+        # be found one crash at a time.
+        return ProbeResult(
+            spec.command,
+            ProbeOutcome.UNPROBED,
+            f"the probe script could not be built on this build: {unbuildable}. The "
+            "target was not judged, because what does not fit is the script around it "
+            "rather than the command itself",
+        )
     text = script.render()
     script_path = workdir / _SCRIPT_NAME
     script_path.write_text(text, encoding="utf-8")

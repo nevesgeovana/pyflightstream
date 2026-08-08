@@ -413,9 +413,9 @@ script.emit("SET_SIMULATION_LENGTH_UNITS", "PARSEC")
 \begin{lstlisting}[style=txt]
 >>> Script(version="26.0").emit("NEW_SIMULATION")
 CommandNotInVersionError: NEW_SIMULATION has no recorded evidence
-for FlightStream 26.000. Recorded evidence: 26.101 (documented),
-26.120 (verified), 26.121 (verified). Earlier versions await
-release-notes review or backfill probing.
+for FlightStream 26.000. Recorded evidence: 26.100 (verified),
+26.101 (verified), 26.120 (verified), 26.121 (verified). Earlier
+versions await release-notes review or backfill probing.
 \end{lstlisting}
   \begin{itemize}
     \item The refusal lists exactly what is known, per version, so you can decide: switch versions, or contribute the missing evidence.
@@ -490,7 +490,7 @@ helpers.free_stream(script, "ROTATION",  # hover / rotor frames
                     frame=2, axis="X", rpm=2000.0)
 \end{lstlisting}
   \begin{alertblock}{Why explicit properties}
-    The altitude form (AIR\_ALTITUDE, SRC-003 p.328) was probed broken on 26.120: asked for 5000 METERS it produced 1.056 kg/m$^3$, the 5000 ft standard state, where 0.736 is correct. A density 43\% too high, with no error (committed compat report). The measurement is at ONE altitude, so what this page claims is that the METERS argument read as ignored there, and no more. The same probe passes on 26.121. Three variables separate the two runs (build, probe harness, session file), so RPT-014 declines to credit the vendor build alone and so does this page: it is the strongest candidate for a vendor fix, and it is still a candidate. On 26.120, use FLUID\_PROPERTIES.
+    The altitude form (AIR\_ALTITUDE, SRC-003 p.328) was probed broken on 26.100, 26.101 and 26.120: asked for 5000 METERS it produced 1.056 kg/m$^3$, the 5000 ft standard state, where 0.736 is correct. A density 43\% too high, with no error (committed compat report). The measurement is at ONE altitude, so what this page claims is that the METERS argument read as ignored there, and no more. The same probe passes on 26.121, and the 2026-08-08 run extended the finding backwards: the two earlier builds carry it too, so 26.121 is the only registered build where the altitude form is measured to work. Three variables separate the two runs (build, probe harness, session file), so RPT-014 declines to credit the vendor build alone and so does this page: it is the strongest candidate for a vendor fix, and it is still a candidate. On 26.120, use FLUID\_PROPERTIES.
   \end{alertblock}
 \end{frame}
 
@@ -1025,7 +1025,7 @@ samples = parse_residual_history(log_text)
 \begin{frame}{Hotfix inheritance}
   \begin{itemize}
     \item A hotfix build inherits the evidence record of its base release until probe evidence overrides it, WHEN the registry says it does. The last canonical digit does not decide that: \code{26.101} sits at a hotfix index behind \code{26.100} and is an independent vendor release, so it inherits nothing. Each build states \code{inherits\_base} in the registry and one that states nothing is refused.
-    \item \code{26.121} is no longer the hypothetical example: it started from every \code{26.120} record, and the licensed probe on that build then contradicted one of them. AIR\_ALTITUDE is {\color{statusred}broken} on 26.120 and {\color{statusblue}verified} on 26.121.
+    \item \code{26.121} is no longer the hypothetical example: it started from every \code{26.120} record, and the licensed probe on that build then contradicted one of them. AIR\_ALTITUDE is {\color{statusred}broken} on 26.120 and {\color{statusblue}verified} on 26.121. The 2026-08-08 run then probed the two earlier builds for the first time and found the defect there as well, so the hotfix is the only build the altitude form is measured to work on.
       \item Read an inherited cell for what it is. The matrix marks every one with a \texttt{base} superscript and counts them in its \emph{Of which inherited} column, so a marked cell means the base release's evidence, with no probe on this build having run that command.
   \end{itemize}
   \begin{block}{Why the identifiers carry the hotfix digit}
@@ -1043,8 +1043,8 @@ samples = parse_residual_history(log_text)
     \toprule
     Finding & Builds & Practical rule \\
     \midrule
-    AIR\_ALTITUDE ignores its units argument and applies feet & 26.120 & set the fluid state through FLUID\_PROPERTIES, or move to 26.121, where the same probe passes \\
-    SET\_MOTION\_START\_TIME aborts the script & both & converge the base flow another way; the 26.121 re-probe found the same abort \\
+    AIR\_ALTITUDE ignores its units argument and applies feet & 26.100, 26.101, 26.120 & set the fluid state through FLUID\_PROPERTIES, or move to 26.121, the one registered build where the same probe passes \\
+    SET\_MOTION\_START\_TIME aborts the script & 26.101, 26.120, 26.121 & converge the base flow another way; every build probed since has found the same abort, the May one for the first time on 2026-08-08 \\
     NEW\_OFF\_BODY\_STREAMLINE aborts the script & both & use probe lattices for off-body data \\
     SWEEPER\_REF\_VELOCITY\_SAME aborts the script & 26.121 & prefer one script per sweep point \\
     \bottomrule

@@ -35,9 +35,9 @@ SWEEPER_SET_AOA_SWEEP:
       required: false
   manual_ref: "SRC-003 p.358"
   versions:
-    "26.101": {status: documented, note: "SRC-725 p.357, same grammar as 26.120"}
-    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
-    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-02_full.yaml"}
+    "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
   notes: >
     Angle of attack axis of the sweeper. Three modes with three
     different tails: UNIFORM takes exactly three numbers, CUSTOM takes
@@ -80,9 +80,9 @@ SWEEPER_SET_BETA_SWEEP:
       required: false
   manual_ref: "SRC-003 p.358"
   versions:
-    "26.101": {status: documented, note: "SRC-725 p.357, same grammar as 26.120"}
-    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
-    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-02_full.yaml"}
+    "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
   notes: >
     Side-slip axis of the sweeper, with the grammar of
     SWEEPER_SET_AOA_SWEEP above and the same reading of its third
@@ -158,9 +158,9 @@ SWEEPER_POST_RUN_SCRIPT:
       required: false
   manual_ref: "SRC-003 p.359"
   versions:
-    "26.101": {status: documented, note: "SRC-725 p.358, same grammar as 26.120"}
-    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
-    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-02_full.yaml"}
+    "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
   notes: >
     Per-run post-processing script executed after each sweep point,
     for example a surface section extraction script. The path is
@@ -194,7 +194,7 @@ SWEEPER_REF_VELOCITY_SAME:
   versions:
     "26.101": {status: documented, note: "SRC-725 p.359, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: broken, report: "reports/compat/CMP-26121_2026-08-02_full.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing)"}
+    "26.121": {status: broken, report: "reports/compat/CMP-26121_2026-08-08_full.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing)"}
   notes: >
     Keeps the reference velocity equal to the free-stream velocity at
     every sweep point. The 26.121 abort recorded above now has a
@@ -210,9 +210,9 @@ SWEEPER_START:
   args: []
   manual_ref: "SRC-003 p.360"
   versions:
-    "26.101": {status: documented, note: "SRC-725 p.359, same grammar as 26.120"}
-    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
-    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-02_full.yaml"}
+    "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
 
 SWEEPER_EXPORT_SPREADSHEET:
   layout: inline
@@ -222,6 +222,6 @@ SWEEPER_EXPORT_SPREADSHEET:
       type: path
   manual_ref: "SRC-003 p.359"
   versions:
-    "26.101": {status: documented, note: "SRC-725 p.358, same grammar as 26.120"}
-    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
-    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-02_full.yaml"}
+    "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}

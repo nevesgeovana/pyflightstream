@@ -19,9 +19,9 @@ NEW_PROBE_POINT:
       type: float
   manual_ref: "SRC-003 p.362"
   versions:
-    "26.101": {status: documented, note: "SRC-725 p.361, same grammar as 26.120"}
-    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
-    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-02_full.yaml"}
+    "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
 
 NEW_PROBE_LINE:
   layout: inline
@@ -43,9 +43,9 @@ NEW_PROBE_LINE:
       type: float
   manual_ref: "SRC-003 p.362"
   versions:
-    "26.101": {status: documented, note: "SRC-725 p.361, same grammar as 26.120"}
-    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
-    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-02_full.yaml"}
+    "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
   notes: >
     Survey line with NUMPTS probe vertices between the start and end
     coordinates.
@@ -76,9 +76,9 @@ PROBE_POINTS_IMPORT:
       type: path
   manual_ref: "SRC-003 pp.362-363"
   versions:
-    "26.101": {status: documented, note: "SRC-725 pp.361-362, same grammar as 26.120"}
-    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
-    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-02_full.yaml"}
+    "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
   notes: >
     Imports a probe lattice from a CSV file whose rows are
     X,Y,Z,TYPE with TYPE 0 for surface and 1 for volume probes; the
@@ -96,9 +96,10 @@ EXPORT_PROBE_POINTS:
       type: path
   manual_ref: "SRC-003 p.363"
   versions:
-    "26.101": {status: documented, note: "SRC-725 p.362, same grammar as 26.120"}
-    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
-    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-02_full.yaml"}
+    "26.100": {status: documented, note: "SRC-741 p.357, same grammar as 26.120"}
+    "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
   notes: >
     Rows follow the probe creation order, preserved from an imported
     lattice (26.120 build 7012026 round trip,
@@ -116,6 +117,6 @@ DELETE_PROBE_POINTS:
   args: []
   manual_ref: "SRC-003 p.363"
   versions:
-    "26.101": {status: documented, note: "SRC-725 p.362, same grammar as 26.120"}
-    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
-    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-02_full.yaml"}
+    "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}

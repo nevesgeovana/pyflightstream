@@ -17,8 +17,10 @@ IMPORT:
       required: false
   manual_ref: "SRC-003 p.307"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.302, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.306, same grammar as 26.120"}
     "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.310, same grammar as 26.120"}
   notes: >
     Imports a surface mesh into the simulation as a KEY VALUE block:
     length units of the mesh file, one of eleven mesh formats, and the
@@ -42,8 +44,10 @@ CCS_IMPORT:
       type: path
   manual_ref: "SRC-003 p.307"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.302, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.306, same grammar as 26.120"}
     "26.120": {status: documented}
+    "26.121": {status: documented, note: "SRC-740 p.310, same grammar as 26.120"}
   notes: >
     Imports a Component Cross-Section (CCS) geometry file. The toggles
     control hole-filling at component ends, whether the simulation

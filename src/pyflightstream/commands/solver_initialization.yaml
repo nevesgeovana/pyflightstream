@@ -30,9 +30,10 @@ INITIALIZE_SOLVER:
       required: false
   manual_ref: "SRC-003 p.337"
   versions:
-    "26.101": {status: documented, note: "SRC-725 p.336, same grammar as 26.120"}
-    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
-    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-02_full.yaml"}
+    "26.100": {status: documented, note: "SRC-741 p.334, same grammar as 26.120"}
+    "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
   notes: >
     SURFACES takes -1 for all boundaries or a count followed by one
     line per surface with the surface index and the quad mesher toggle
@@ -70,8 +71,10 @@ REMOVE_INITIALIZATION:
   args: []
   manual_ref: "SRC-003 p.338"
   versions:
-    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
-    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-02_full.yaml"}
+    "26.100": {status: documented, note: "SRC-741 p.335, same grammar as 26.120"}
+    "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
 
 START_SOLVER:
   layout: bare
@@ -79,9 +82,10 @@ START_SOLVER:
   args: []
   manual_ref: "SRC-003 p.338"
   versions:
-    "26.101": {status: documented, note: "SRC-725 p.337, same grammar as 26.120"}
-    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
-    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-02_full.yaml"}
+    "26.100": {status: documented, note: "SRC-741 p.335, same grammar as 26.120"}
+    "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
   notes: >
     Runs the solver with the current runtime settings; convergence is
     declared against the SOLVER_SET_CONVERGENCE threshold.
@@ -92,8 +96,8 @@ CLEAR_SOLUTION:
   args: []
   manual_ref: "SRC-003 p.338"
   versions:
-    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
-    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-02_full.yaml"}
+    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
   notes: >
     Clears the existing solution while keeping the initialization;
     used between sweep points when solution reuse is not wanted.
