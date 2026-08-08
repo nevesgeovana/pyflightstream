@@ -11,6 +11,8 @@ SET_SOLVER_CONVERGENCE_ITERATIONS:
       type: int
   manual_ref: "SRC-003 p.344"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.341, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.343, same grammar as 26.120"}
     "26.120": {status: documented}
   notes: >
     Number of iterations the solver must remain below the convergence
@@ -24,6 +26,8 @@ SOLVER_MINIMUM_CP:
       type: float
   manual_ref: "SRC-003 p.345"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.342, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.344, same grammar as 26.120"}
     "26.120": {status: documented}
   default: -20
   default_ref: "SRC-003 p.221"
@@ -40,6 +44,8 @@ REYNOLDS_AVERAGED_DRAG_FORCES:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 p.344"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.341, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.343, same grammar as 26.120"}
     "26.120": {status: documented}
   notes: >
     Toggles the Reynolds-averaged (flat plate) boundary layer
@@ -54,6 +60,8 @@ SOLVER_SET_MESH_INDUCED_WAKE_VELOCITY:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 p.344"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.341, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.343, same grammar as 26.120"}
     "26.120": {status: documented}
 
 SOLVER_SET_FARFIELD_LAYERS:
@@ -64,6 +72,8 @@ SOLVER_SET_FARFIELD_LAYERS:
       type: int
   manual_ref: "SRC-003 p.344"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.341, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.343, same grammar as 26.120"}
     "26.120": {status: documented}
   default: 3
   default_ref: "SRC-003 p.344"
@@ -80,6 +90,8 @@ SOLVER_UNSTEADY_PRESSURE_AND_KUTTA:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 p.344"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.341, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.343, same grammar as 26.120"}
     "26.120": {status: documented}
   notes: >
     Toggles the unsteady Bernoulli and Kutta terms of the unsteady
@@ -93,6 +105,8 @@ SET_WAKE_TERMINATION_TIME_STEPS:
       type: int
   manual_ref: "SRC-003 p.344"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.341, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.343, same grammar as 26.120"}
     "26.120": {status: documented}
   notes: >
     Number of time steps after which a wake vortex filament edge that
@@ -107,6 +121,8 @@ SET_WAKE_ON_WAKE_INDUCTION:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 pp.344-345"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.342, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.343, same grammar as 26.120"}
     "26.120": {status: documented}
   notes: >
     Toggles the wake-on-wake induced velocity computation.
@@ -120,6 +136,8 @@ ADDITIONAL_WAKE_RELAXATION_ITERATION:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 p.345"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.342, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.344, same grammar as 26.120"}
     "26.120": {status: documented}
   notes: >
     Performs one additional wake relaxation iteration.

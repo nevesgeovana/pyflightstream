@@ -9,6 +9,7 @@ EXPORT_SOLVER_ANALYSIS_SPREADSHEET:
       type: path
   manual_ref: "SRC-003 p.352"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.348, same grammar as 26.120"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
@@ -24,6 +25,8 @@ EXPORT_SOLVER_ANALYSIS_TECPLOT:
       type: path
   manual_ref: "SRC-003 p.352"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.348, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.351, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
   notes: >
@@ -43,6 +46,8 @@ EXPORT_SOLVER_ANALYSIS_VTK:
       required: false
   manual_ref: "SRC-003 p.352"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.348, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.351, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
   notes: >
@@ -67,6 +72,8 @@ SET_VTK_EXPORT_VARIABLES:
                SHAPEFACTOR, TRANS, SEP, BLLENGTH, AREA, VORTICITY]
   manual_ref: "SRC-003 p.352"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.348, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.351, same grammar as 26.120"}
     "26.120": {status: documented}
   notes: >
     NUM_VARIABLES takes -1 for all variables; otherwise one variable
@@ -137,6 +144,8 @@ EXPORT_SOLVER_ANALYSIS_FORCE_DISTRIBUTIONS:
       required: false
   manual_ref: "SRC-003 pp.353-354"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.349, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.352, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
   notes: >

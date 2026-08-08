@@ -11,6 +11,7 @@ SET_VORTICITY_DRAG_BOUNDARIES:
       required: false
   manual_ref: "SRC-003 p.350"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.346, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.349, same grammar as 26.120"}
     "26.120": {status: documented}
   notes: >
@@ -43,6 +44,8 @@ SET_SOLVER_ANALYSIS_LOADS_FRAME:
       type: int
   manual_ref: "SRC-003 p.350"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.346, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.349, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
   notes: >
@@ -58,6 +61,8 @@ SET_ANALYSIS_MOMENTS_MODEL:
       values: [PRESSURE, VORTICITY]
   manual_ref: "SRC-003 p.350"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.342, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.344, same grammar as 26.120"}
     "26.120": {status: documented}
   notes: >
     PRESSURE is the solver default.
@@ -71,6 +76,7 @@ SET_ANALYSIS_SYMMETRY_LOADS:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 p.350"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.346, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.349, same grammar as 26.120"}
     "26.120": {status: documented}
   notes: >
@@ -94,6 +100,7 @@ SET_LOADS_AND_MOMENTS_UNITS:
                KILOGRAM-FORCE]
   manual_ref: "SRC-003 pp.350-351"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.346, same grammar as 26.120"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
@@ -108,6 +115,8 @@ SET_SOLVER_ANALYSIS_BOUNDARIES:
       type: int_list
   manual_ref: "SRC-003 p.351"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.347, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.350, same grammar as 26.120"}
     "26.120": {status: documented}
   notes: >
     Enables the listed boundaries in the analysis tab; boundaries not
@@ -122,6 +131,8 @@ SET_INVISCID_LOADS:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 p.351"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.341, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.343, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
   notes: >
     Restricts the analysis to inviscid loads and moments only.

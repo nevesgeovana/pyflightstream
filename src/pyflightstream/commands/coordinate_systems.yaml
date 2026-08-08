@@ -9,6 +9,8 @@ CREATE_NEW_COORDINATE_SYSTEM:
   args: []
   manual_ref: "SRC-003 p.329"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.325, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.328, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
   notes: >

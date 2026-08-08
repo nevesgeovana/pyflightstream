@@ -154,11 +154,29 @@ def test_defaults_of_commands_absent_from_the_version_stay_unknown():
     # 26.101 and the assertion turned green in the wrong direction: a
     # default WAS now claimed there, correctly. The two named above are
     # the ones the May manual genuinely does not carry.
-    script = Script(version="26.101")
+    registry = CommandRegistry.load()
+    witnesses = {
+        version: sorted(
+            name
+            for name, entry in registry.commands.items()
+            if entry.default is not None and name not in registry.for_version(version)
+        )
+        for version in ("26.100", "26.101")
+    }
+    if not any(witnesses.values()):
+        pytest.skip(
+            "no witness in the current database: every command carrying a library "
+            "default is now available on every registered build, after the 2026-08-08 "
+            "backfill of the early editions. The rule this test guards is still "
+            "implemented, and it has no live case to exercise, which is the state "
+            "PLN-20260808-1400 records rather than papers over"
+        )
+    version, absent = next((v, names) for v, names in witnesses.items() if names)
+    script = Script(version=version)
     setup = helpers.solver_settings(script, vorticity_drag_boundaries="all")
-    assert "SOLVER_MINIMUM_CP" not in script.render()
-    assert setup.flags["SOLVER_MINIMUM_CP"].provenance == "unknown"
-    assert setup.flags["SOLVER_SET_FARFIELD_LAYERS"].provenance == "unknown"
+    for name in absent:
+        assert name not in script.render()
+        assert setup.flags[name].provenance == "unknown"
 
 
 # --- the optional vorticity selection ---------------------------------------

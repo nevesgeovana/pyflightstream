@@ -17,6 +17,8 @@ CREATE_NEW_ACTUATOR:
       type: str
   manual_ref: "SRC-003 p.323"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.318, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.322, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
   notes: >
@@ -53,6 +55,8 @@ SET_ACTUATOR_AXIS:
       unit: "simulation length units"
   manual_ref: "SRC-003 p.323"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.318, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.322, same grammar as 26.120"}
     "26.120": {status: documented}
   notes: >
     Places the actuator disc on an axis of a local coordinate system
@@ -74,6 +78,8 @@ SET_ACTUATOR_RADIUS:
       unit: "simulation length units"
   manual_ref: "SRC-003 p.323"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.318, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.322, same grammar as 26.120"}
     "26.120": {status: documented}
 
 SET_PROP_ACTUATOR_RPM:
@@ -87,6 +93,8 @@ SET_PROP_ACTUATOR_RPM:
       unit: "rev/min"
   manual_ref: "SRC-003 p.323"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.318, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.322, same grammar as 26.120"}
     "26.120": {status: documented}
   notes: >
     Sign selects the rotation direction about the actuator axis.
@@ -107,6 +115,8 @@ SET_PROP_ACTUATOR_PROFILE:
       own_line: true
   manual_ref: "SRC-003 pp.323-324"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.319, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.322, same grammar as 26.120"}
     "26.120": {status: documented}
   notes: >
     Imports a custom radial thrust profile; the TXT file path follows
@@ -126,6 +136,8 @@ SET_PROP_ACTUATOR_THRUST:
       values: [COEFFICIENT, NEWTONS, POUNDS]
   manual_ref: "SRC-003 p.324"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.319, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.323, same grammar as 26.120"}
     "26.120": {status: documented}
   notes: >
     Net thrust of the disc. The manual warns to verify that the
@@ -142,6 +154,8 @@ SET_PROP_ACTUATOR_SWIRL:
       type: float
   manual_ref: "SRC-003 p.324"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.319, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.323, same grammar as 26.120"}
     "26.120": {status: documented}
   notes: >
     Fraction between 0 and 1 of the swirl velocity kept downstream;
@@ -156,7 +170,38 @@ ENABLE_ACTUATOR:
       type: int
   manual_ref: "SRC-003 p.324"
   versions:
+    "26.100":
+      status: documented
+      note: >-
+        SRC-741 p.319 prints the heading with NO placeholder and a
+        parameter table reading N/A, while its own sample passes an
+        index. The one-argument form is recorded and was MEASURED on
+        this build: reports/compat/CMP-26100_2026-08-08_enableactuator
+        records the solver accepting it without abort or logged error.
+    "26.101": {status: documented, note: "SRC-725 p.323, same grammar as 26.120"}
     "26.120": {status: documented}
+  notes: >
+    FEBRUARY 2026 IS THE ONE EDITION WHOSE HEADING AND SAMPLE DISAGREE
+    ABOUT WHETHER THIS COMMAND TAKES AN ARGUMENT. SRC-741 p.319 prints
+    the bare name and a parameter table of N/A, and the sample beneath
+    it passes an actuator index. Every later edition documents
+    ACTUATOR_INDEX in the heading and the table.
+
+    The one-argument form is recorded for that build too, and this is
+    not a reading of the page: a probe on 2026-08-08 emitted it against
+    the February solver and the script ran past it with no abort and no
+    logged error. The status stays documented rather than verified
+    because the enable flag is stored in binary form and no instrument
+    observes it, so what is measured is that the ARGUMENT is accepted,
+    not that the actuator was enabled.
+
+    Recording zero arguments would have refused the only runnable line
+    the edition prints, which is the defect class this database keeps
+    finding, and would have made a call that works on three builds
+    refused on the fourth on the strength of a table reading N/A. The
+    neighbouring DISABLE_ACTUATOR carries the same N/A on the same
+    page, so it is the page's habit rather than a statement about this
+    command.
 
 DELETE_ACTUATOR:
   layout: inline

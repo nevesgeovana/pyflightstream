@@ -67,6 +67,7 @@ SOLVER_SET_ITERATIONS:
       type: int
   manual_ref: "SRC-003 p.339"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.336, same grammar as 26.120"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
@@ -95,6 +96,8 @@ SOLVER_SET_FORCED_ITERATIONS:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 p.339"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.336, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.338, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
   notes: >
@@ -110,6 +113,7 @@ SOLVER_SET_REF_VELOCITY:
       unit: "m/s"
   manual_ref: "SRC-003 p.339"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.336, same grammar as 26.120"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
@@ -139,6 +143,7 @@ SOLVER_SET_REF_AREA:
       unit: "simulation length units squared"
   manual_ref: "SRC-003 pp.339-340"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.337, same grammar as 26.120"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
@@ -155,6 +160,7 @@ SOLVER_SET_REF_LENGTH:
       unit: "simulation length units"
   manual_ref: "SRC-003 p.340"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.337, same grammar as 26.120"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
