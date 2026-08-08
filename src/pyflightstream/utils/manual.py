@@ -107,17 +107,21 @@ from pyflightstream.utils.errors import ManualDraftError
 __all__ = [
     "TYPE_RULES",
     "Coverage",
+    "Edition",
     "ManualCommand",
+    "SweptCommand",
     "TypeRule",
     "coverage_against",
     "parse_script_index",
     "parse_signatures",
     "propose_layout",
     "propose_type",
+    "read_editions",
     "read_pdf_pages",
     "render_chapter",
     "render_entry",
     "sample_contradiction",
+    "sweep_editions",
     "write_chapter",
 ]
 
@@ -500,6 +504,230 @@ def coverage_against(manual: Mapping[str, ManualCommand], recorded: Iterable[str
         undocumented=tuple(sorted(known - documented)),
         details={name: manual[name] for name in absent},
     )
+
+
+@dataclass(frozen=True)
+class Edition:
+    """One manual to read, and where its two chapters sit in it.
+
+    A registered FlightStream build and the pdf that documents it. The
+    page ranges are per edition because they MOVE: the scripting
+    reference of the four editions registered on 2026-08-08 starts on
+    four different pages, so a single range shared by all of them reads
+    the wrong pages of three.
+
+    Attributes
+    ----------
+    label : str
+        Canonical version identifier, for example ``"26.121"``. Used
+        only to name the edition in the report; nothing resolves it
+        against the version registry, so an unregistered build can be
+        swept before it is added.
+    manual : Path
+        Path of the manual pdf. Licensed vendor material, given
+        explicitly and never guessed, and never committed.
+    chapter : tuple of int
+        First and last page of the scripting reference, one-based
+        inclusive.
+    index : tuple of int or None
+        First and last page of the Script Index, if the edition has
+        one. It supplies the section label only, so an edition without
+        one is swept with its commands unlabelled rather than skipped.
+    source : str or None
+        Citation id of this edition, for example ``"SRC-741"``, as a
+        ``manual_ref`` would spell it.
+    """
+
+    label: str
+    manual: Path
+    chapter: tuple[int, int]
+    index: tuple[int, int] | None = None
+    source: str | None = None
+
+
+@dataclass(frozen=True)
+class SweptCommand:
+    """One command as the whole set of editions describes it.
+
+    Attributes
+    ----------
+    name : str
+        Command name as printed.
+    editions : tuple of str
+        Labels of the editions whose chapter body documents it, in the
+        order the editions were given. A command absent from this tuple
+        for a given edition is one that edition does not document, which
+        is the fact a version row must reflect.
+    pages : dict of str to int
+        Page carrying the signature, per edition label. The pages
+        differ per edition and each version row cites its own.
+    section : str or None
+        Section that documents it, from the first edition whose index
+        names it.
+    detail : ManualCommand
+        What the newest edition given states about it, for drafting.
+    """
+
+    name: str
+    editions: tuple[str, ...]
+    pages: dict[str, int]
+    section: str | None
+    detail: ManualCommand
+
+
+def sweep_editions(
+    editions: Iterable[Edition], recorded: Iterable[str]
+) -> tuple[SweptCommand, ...]:
+    """Read every edition and report what none of them has an entry for.
+
+    The multi-edition form of :func:`coverage_against`, and it exists
+    because the single-edition one answers a question no sweep asks. A
+    command absent from one edition may be recorded from another, and a
+    command the database lacks must be entered for EVERY edition that
+    documents it at once (the chapter rule in ``docs/srs/data-model.md``).
+    Both need the union, so reading the editions one at a time and
+    comparing four reports by eye is the step this removes.
+
+    Reading is body-driven: the signature headings of the chapter are
+    the command set, and the Script Index is consulted only for section
+    labels. That is not interchangeable with reading the index, which
+    is incomplete: ``NEW_CCS_WING_FLAP_COVE`` has a heading on p.299 of
+    one edition and no index row, so an index-driven sweep reports it
+    covered forever.
+
+    Parameters
+    ----------
+    editions : iterable of Edition
+        The manuals to read, oldest first by convention so that
+        :attr:`SweptCommand.detail` carries the newest statement.
+    recorded : iterable of str
+        Command names the database holds, typically
+        ``CommandRegistry.load().commands``.
+
+    Returns
+    -------
+    tuple of SweptCommand
+        Every command documented by at least one edition and recorded by
+        none, sorted by name.
+
+    Raises
+    ------
+    ManualDraftError
+        If no edition is given. An empty sweep would report every
+        command absent, which reads as a catastrophic regression rather
+        than as the configuration error it is.
+    """
+    editions = tuple(editions)
+    if not editions:
+        raise ManualDraftError(
+            "a sweep needs at least one edition; with none, every command in the "
+            "database would be reported as documented by no manual"
+        )
+    known = set(recorded)
+    seen: dict[str, list[str]] = {}
+    pages: dict[str, dict[str, int]] = {}
+    sections: dict[str, str] = {}
+    detail: dict[str, ManualCommand] = {}
+    for edition in editions:
+        labels = (
+            parse_script_index(
+                read_pdf_pages(edition.manual, first=edition.index[0], last=edition.index[1])
+            )
+            if edition.index is not None
+            else {}
+        )
+        parsed = parse_signatures(
+            read_pdf_pages(edition.manual, first=edition.chapter[0], last=edition.chapter[1]),
+            sections=labels,
+        )
+        for name, command in parsed.items():
+            if name in known:
+                continue
+            seen.setdefault(name, []).append(edition.label)
+            pages.setdefault(name, {})[edition.label] = command.page
+            if command.section and name not in sections:
+                sections[name] = command.section
+            detail[name] = command
+    return tuple(
+        SweptCommand(
+            name=name,
+            editions=tuple(labels),
+            pages=pages[name],
+            section=sections.get(name),
+            detail=detail[name],
+        )
+        for name, labels in sorted(seen.items())
+    )
+
+
+def read_editions(path: str | Path) -> tuple[Edition, ...]:
+    """Read an edition manifest, the file that makes a sweep repeatable.
+
+    The manifest is a list of mappings with the keys of :class:`Edition`,
+    ``chapter`` and ``index`` written as ``FIRST-LAST``. It is a file
+    rather than repeated command-line flags because it is the thing a
+    new build EDITS: registering one is adding a row, and the row is
+    then under the maintainer's own version control rather than retyped
+    from a session note.
+
+    It is never committed here. It names paths of licensed manuals, and
+    those live in ``_private/`` (CLAUDE.md invariant 1).
+
+    Parameters
+    ----------
+    path : str or Path
+        Manifest file, YAML.
+
+    Returns
+    -------
+    tuple of Edition
+        In the order written.
+
+    Raises
+    ------
+    ManualDraftError
+        If the file is not a list of mappings, if a row lacks ``label``,
+        ``manual`` or ``chapter``, or if a page range is not
+        ``FIRST-LAST`` with FIRST no greater than LAST. Every check
+        names the offending row, because a manifest is edited rarely and
+        by hand.
+    """
+    import yaml
+
+    text = Path(path).read_text(encoding="utf-8")
+    rows = yaml.safe_load(text)
+    if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
+        raise ManualDraftError(
+            f"{path} must hold a list of edition mappings, not {type(rows).__name__}"
+        )
+
+    def _range(row: dict, key: str, where: str) -> tuple[int, int]:
+        spec = str(row[key])
+        first, _, last = spec.partition("-")
+        if not last or not first.isdigit() or not last.isdigit():
+            raise ManualDraftError(
+                f"{where}: {key} must read FIRST-LAST in page numbers, got {spec!r}"
+            )
+        if int(first) > int(last):
+            raise ManualDraftError(f"{where}: {key} ends before it starts, {spec!r}")
+        return int(first), int(last)
+
+    editions = []
+    for position, row in enumerate(rows, start=1):
+        where = f"{path} entry {position}"
+        for key in ("label", "manual", "chapter"):
+            if key not in row:
+                raise ManualDraftError(f"{where}: missing {key}")
+        editions.append(
+            Edition(
+                label=str(row["label"]),
+                manual=Path(str(row["manual"])),
+                chapter=_range(row, "chapter", where),
+                index=_range(row, "index", where) if "index" in row else None,
+                source=str(row["source"]) if "source" in row else None,
+            )
+        )
+    return tuple(editions)
 
 
 def read_pdf_pages(path: str | Path, *, first: int, last: int) -> dict[int, str]:

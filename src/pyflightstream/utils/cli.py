@@ -27,12 +27,15 @@ from collections.abc import Sequence
 from pyflightstream.commands import CommandRegistry
 from pyflightstream.utils.errors import ManualDraftError
 from pyflightstream.utils.manual import (
+    SweptCommand,
     coverage_against,
     parse_script_index,
     parse_signatures,
     propose_layout,
+    read_editions,
     read_pdf_pages,
     render_chapter,
+    sweep_editions,
     write_chapter,
 )
 
@@ -68,6 +71,29 @@ def _parser() -> argparse.ArgumentParser:
             metavar="FIRST-LAST",
             help="page range of the Script Index, one-based inclusive",
         )
+
+    # sweep takes a manifest instead of the four single-manual flags: it
+    # reads every registered edition at once, and the page ranges differ
+    # per edition, so there is nothing for those flags to mean here.
+    swp = sub.add_parser(
+        "sweep",
+        help="report what NO registered edition's entry exists for, across all of them",
+    )
+    swp.add_argument(
+        "--editions",
+        required=True,
+        metavar="MANIFEST",
+        help=(
+            "YAML manifest of the editions to read: label, manual path, "
+            "chapter pages, optionally index pages and source id. Never "
+            "committed; it names licensed manual paths"
+        ),
+    )
+    swp.add_argument(
+        "--by-section",
+        action="store_true",
+        help="group the absent commands by the section that documents them",
+    )
 
     draft = sub.choices["draft"]
     draft.add_argument(
@@ -119,6 +145,47 @@ def _pages(parser: argparse.ArgumentParser, flag: str, spec: str) -> tuple[int, 
     return int(first), int(last)
 
 
+def _sweep(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
+    """Run the multi-edition sweep and print it, grouped or flat.
+
+    Returns
+    -------
+    int
+        0 whether or not anything is absent. An empty sweep is the good
+        answer, not a failure, and a maintainer runs this in a loop.
+    """
+    try:
+        editions = read_editions(args.editions)
+        absent = sweep_editions(editions, CommandRegistry.load().commands)
+    except FileNotFoundError as missing:
+        parser.error(f"cannot read the manifest or a manual it names: {missing}")
+    except ManualDraftError as error:
+        parser.error(str(error))
+
+    labels = " ".join(edition.label for edition in editions)
+    print(f"{len(editions)} edition(s) read ({labels}): {len(absent)} command(s) absent")
+    if not args.by_section:
+        for command in absent:
+            pages = " ".join(f"{label}:p.{page}" for label, page in command.pages.items())
+            print(f"  {command.name:<48} {command.section or '?':<28} {pages}")
+        return 0
+
+    # Grouped, because the database is written one chapter at a time and
+    # the section is what a chapter file corresponds to. Largest first:
+    # it is the order the remaining work is actually done in.
+    groups: dict[str, list[SweptCommand]] = {}
+    for command in absent:
+        groups.setdefault(command.section or "(no section, the index does not name it)", []).append(
+            command
+        )
+    for section, members in sorted(groups.items(), key=lambda kv: (-len(kv[1]), kv[0])):
+        print(f"\n{section}  [{len(members)}]")
+        for command in members:
+            editions_of = " ".join(command.editions)
+            print(f"  {command.name:<48} {editions_of}")
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the command line and return a process exit code.
 
@@ -130,6 +197,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     """
     parser = _parser()
     args = parser.parse_args(argv)
+
+    if args.command == "sweep":
+        return _sweep(parser, args)
 
     # Every argument check happens before the manual is opened. The
     # --write refusal used to fire after two full pdf reads and a render,

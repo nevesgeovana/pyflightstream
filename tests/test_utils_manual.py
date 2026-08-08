@@ -18,15 +18,18 @@ import pytest
 
 from pyflightstream.utils import (
     TYPE_RULES,
+    Edition,
     ManualCommand,
     coverage_against,
     parse_script_index,
     parse_signatures,
     propose_layout,
     propose_type,
+    read_editions,
     read_pdf_pages,
     render_entry,
     sample_contradiction,
+    sweep_editions,
 )
 from pyflightstream.utils.cli import main as cli_main
 from pyflightstream.utils.errors import ManualDraftError
@@ -1032,3 +1035,122 @@ def test_only_a_line_of_pure_placeholders_continues_a_signature(following):
     page = f"Function name: X_MAKE_SECTION <FRAME> <PLANE>\n{following}\n"
     command = parse_signatures({1: page})["X_MAKE_SECTION"]
     assert command.inline_args == ("FRAME", "PLANE"), following
+
+
+# ---------------------------------------------------------------------
+# The multi-edition sweep: what NO edition has an entry for.
+#
+# The pdf reads are monkeypatched away rather than fixtured, because a
+# fixture would have to be a pdf and the only pdfs this repository can
+# reach are the licensed manuals (invariant 1). What is under test here
+# is the UNION rule and the manifest, not the extraction, which the
+# tests above already cover.
+# ---------------------------------------------------------------------
+
+
+def _edition(tmp_path, label, chapter):
+    return Edition(label=label, manual=tmp_path / f"{label}.pdf", chapter=chapter)
+
+
+def test_a_command_one_edition_documents_is_swept_with_that_edition_named(monkeypatch, tmp_path):
+    """The union, and the per-edition membership that a version row needs.
+
+    A command dropped by the newest build still has to be entered, and
+    entered for the editions that carry it and no others. Recording the
+    membership is therefore the sweep's output, not a convenience.
+    """
+    pages = {
+        "old": {1: "Function name: X_GONE <A>\nFunction name: X_BOTH <A>\n"},
+        "new": {1: "Function name: X_BOTH <A>\nFunction name: X_NEW <A>\n"},
+    }
+    monkeypatch.setattr(
+        "pyflightstream.utils.manual.read_pdf_pages",
+        lambda path, *, first, last: pages[path.stem],
+    )
+    swept = sweep_editions(
+        [_edition(tmp_path, "old", (1, 1)), _edition(tmp_path, "new", (1, 1))], recorded=[]
+    )
+    assert [command.name for command in swept] == ["X_BOTH", "X_GONE", "X_NEW"]
+    assert {command.name: command.editions for command in swept} == {
+        "X_BOTH": ("old", "new"),
+        "X_GONE": ("old",),
+        "X_NEW": ("new",),
+    }
+
+
+def test_a_command_recorded_in_the_database_is_not_swept(monkeypatch, tmp_path):
+    """The control for the test above: absence is measured against the database."""
+    monkeypatch.setattr(
+        "pyflightstream.utils.manual.read_pdf_pages",
+        lambda path, *, first, last: {1: "Function name: X_BOTH <A>\nFunction name: X_NEW <A>\n"},
+    )
+    swept = sweep_editions([_edition(tmp_path, "new", (1, 1))], recorded=["X_BOTH"])
+    assert [command.name for command in swept] == ["X_NEW"]
+
+
+def test_a_sweep_of_no_editions_refuses_rather_than_reporting_everything_absent():
+    """An empty manifest must not read as a total regression.
+
+    With no edition, the union is empty and every recorded command falls
+    out as documented by nothing. That is a configuration error wearing
+    the costume of a catastrophic finding, so it raises.
+    """
+    with pytest.raises(ManualDraftError, match="at least one edition"):
+        sweep_editions([], recorded=["X_BOTH"])
+
+
+def test_the_manifest_round_trips_a_full_edition_row(tmp_path):
+    """Every field a row can carry, read back as the sweep will use it."""
+    manifest = tmp_path / "editions.yaml"
+    manifest.write_text(
+        '- label: "26.121"\n'
+        "  source: SRC-740\n"
+        "  manual: _private/manual/whatever.pdf\n"
+        "  chapter: 284-379\n"
+        "  index: 380-386\n",
+        encoding="utf-8",
+    )
+    (edition,) = read_editions(manifest)
+    assert edition.label == "26.121"
+    assert edition.source == "SRC-740"
+    assert edition.chapter == (284, 379)
+    assert edition.index == (380, 386)
+
+
+def test_an_edition_without_an_index_is_swept_unlabelled_rather_than_skipped(tmp_path):
+    """The index supplies section labels only, so it is optional.
+
+    Skipping an edition for want of one would silently drop a whole
+    build from the union, which is the failure this sweep exists to
+    prevent.
+    """
+    manifest = tmp_path / "editions.yaml"
+    manifest.write_text('- label: "26.121"\n  manual: x.pdf\n  chapter: 1-2\n', encoding="utf-8")
+    (edition,) = read_editions(manifest)
+    assert edition.index is None
+
+
+@pytest.mark.parametrize(
+    ("row", "message"),
+    [
+        ('- label: "a"\n  manual: x.pdf\n', "missing chapter"),
+        ("- manual: x.pdf\n  chapter: 1-2\n", "missing label"),
+        ('- label: "a"\n  manual: x.pdf\n  chapter: 12\n', "FIRST-LAST"),
+        ('- label: "a"\n  manual: x.pdf\n  chapter: 20-2\n', "ends before it starts"),
+        ('- label: "a"\n  manual: x.pdf\n  chapter: one-two\n', "FIRST-LAST"),
+    ],
+)
+def test_a_malformed_manifest_row_is_refused_by_position(tmp_path, row, message):
+    """A manifest is hand-edited and rarely, so every refusal names the row."""
+    manifest = tmp_path / "editions.yaml"
+    manifest.write_text(row, encoding="utf-8")
+    with pytest.raises(ManualDraftError, match=message):
+        read_editions(manifest)
+
+
+def test_a_manifest_that_is_not_a_list_of_rows_is_refused(tmp_path):
+    """The shape check, so a mapping does not iterate as its keys."""
+    manifest = tmp_path / "editions.yaml"
+    manifest.write_text('label: "26.121"\n', encoding="utf-8")
+    with pytest.raises(ManualDraftError, match="list of edition mappings"):
+        read_editions(manifest)

@@ -9,6 +9,28 @@ FlightStream versions.
 
 ### API surface delta
 
+* **`pyfs-manual sweep`, and the four-edition worklist becomes a
+  committed tool rather than a session's scratch script.** New public
+  names in `pyflightstream.utils`: `Edition`, `SweptCommand`,
+  `sweep_editions` and `read_editions`. `coverage` answers what ONE
+  manual documents and the database does not; no sweep asks that
+  question. A command absent from one edition may be recorded from
+  another, and a command the database lacks must be entered for every
+  edition documenting it at once, so both halves need the union of the
+  registered builds and neither is obtainable by reading four
+  single-edition reports side by side.
+
+  The editions come from a YAML manifest, `--editions`, which is not
+  committed and cannot be: it names the paths of licensed manuals
+  (invariant 1). Registering a new build is adding a row to it. `index`
+  is optional, because it supplies the section label only and skipping
+  an edition for want of one would silently drop a whole build from the
+  union; a sweep of NO editions raises instead of reporting the entire
+  database absent, which is a configuration error wearing the costume of
+  a catastrophic finding. `--by-section` groups by the chapter that
+  documents each command, largest first, which is the order the
+  remaining work is done in.
+
 * **The CCS Wing Mesh chapter entered: 11 commands, the chapter
   complete.** The parametric wing definition that a mesh is lofted from,
   so everything here configures a definition rather than acting on an
