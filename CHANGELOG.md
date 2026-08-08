@@ -9,12 +9,58 @@ FlightStream versions.
 
 ### API surface delta
 
+* **What the five reviewer passes changed, because two of it is
+  user-visible.** `read_editions` is renamed `read_edition_manifest`
+  before anyone depends on it, `Edition` is keyword-only (its two page
+  ranges are the same type, so positionally they are interchangeable and
+  a swap reads the Script Index as the scripting reference with nothing
+  able to detect it), `sweep_editions` takes `recorded` by keyword and a
+  `reader` for its one pdf dependency, and the manifest refuses an
+  unknown key, a missing manual and a bad row before any manual is
+  opened.
+
+  THE SNAPSHOT NOW REPORTS THREE MORE SOLVER DEFAULTS.
+  `rotor_induced_velocity_blending`, `wake_numerical_relaxation` and
+  `jet_wake_decay_normalized_length` had their manual defaults written in
+  prose; they are `default` and `default_ref` fields now, so a caller who
+  leaves them unset gets the documented value and its page in
+  `SolverSetup` rather than an `unknown`. A default the database records
+  is a default the snapshot reports.
+
+  `ArgSpec.on_command_line` gained a third refusal: an OPTIONAL argument
+  cannot sit on the command line, where arguments are positional and
+  unnamed, because omitting it would shift the ones after it into its
+  place and the solver would read the line without complaint. Both
+  current users are required, so the gap was latent, and it is the same
+  failure class the field was added to prevent.
+
+**The public surface added in this window, in one place.**
+`helpers.solver_settings` gains TEN keyword parameters
+(`kutta_joukowski_lift`, `print_rotor_induced_velocities`,
+`adaptive_field_grid_refinement`, `jet_wake_filaments_grid_induction`,
+`rotor_induced_velocity_blending`, `wake_numerical_relaxation`,
+`jet_wake_decay_normalized_length`, `wake_decay_constant`,
+`solver_stabilization`, `disable_ref_velocity`). `ArgSpec` gains the
+field `on_command_line`. `pyflightstream.utils` gains `Edition`,
+`SweptCommand`, `sweep_editions` and `read_edition_manifest`, and
+`pyfs-manual` gains the `sweep` subcommand. No incompatible change and
+no deprecation. The stanzas below give the reasoning per chapter.
+
 * **The tail entered: 28 commands across 21 sections, and THE SWEEP
   REACHES ZERO.** Every command that any of the four registered manual
-  editions documents is now in the database: 388 entries against 386
-  distinct commands the manuals describe, the difference being two
-  recorded from probe evidence alone. `pyfs-manual sweep` reports 0
-  absent. Emittable per version 305, 332, 365, 371.
+  editions documents is now in the database: 388 entries, of which 387
+  cite a manual page and one rests on a committed probe report
+  (`DELETE_VALAREZO_SEPARATION_BOUNDARIES`, which the solver accepts and
+  no edition names). Emittable per version 305, 332, 365, 371.
+
+  MEASURED ON 2026-08-08 against the four editions of the maintainer's
+  own manifest: `pyfs-manual sweep` reports 0 absent. State it as a
+  measurement of that date rather than as a property CI holds, because
+  the manifest names licensed manual paths and cannot be committed, so
+  no test in this repository can re-run it. What CI does hold is that
+  every entry carries exactly one evidence citation. The sweep also now
+  takes `--fail-if-absent` for a maintainer who wants the check to fail
+  rather than to report.
 
   **Two more keyword parameters on `helpers.solver_settings`:**
   `solver_stabilization` and `disable_ref_velocity`, the latter on a new

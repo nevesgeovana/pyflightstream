@@ -25,7 +25,7 @@ from pyflightstream.utils import (
     parse_signatures,
     propose_layout,
     propose_type,
-    read_editions,
+    read_edition_manifest,
     read_pdf_pages,
     render_entry,
     sample_contradiction,
@@ -1048,11 +1048,32 @@ def test_only_a_line_of_pure_placeholders_continues_a_signature(following):
 # ---------------------------------------------------------------------
 
 
-def _edition(tmp_path, label, chapter):
-    return Edition(label=label, manual=tmp_path / f"{label}.pdf", chapter=chapter)
+def _edition(tmp_path, label, chapter, index=None):
+    manual = tmp_path / f"{label}.pdf"
+    manual.write_bytes(b"not a pdf; the reader is injected")
+    return Edition(label=label, manual=manual, chapter=chapter, index=index)
 
 
-def test_a_command_one_edition_documents_is_swept_with_that_edition_named(monkeypatch, tmp_path):
+def _recording_reader(pages):
+    """A reader that records the ranges it was asked for.
+
+    The ranges are the point. `sweep_editions` makes TWO reads per
+    edition, the chapter one feeding the signature parse and the index
+    one feeding the section labels, and a reader that ignores `first`
+    and `last` cannot tell them apart. Swapping the two ranges is
+    exactly the mistake `Edition` is keyword-only to prevent, so a test
+    that cannot see the mistake is not testing the plumbing.
+    """
+    calls: list[tuple[str, int, int]] = []
+
+    def read(manual, *, first, last):
+        calls.append((manual.stem, first, last))
+        return pages[manual.stem][first]
+
+    return read, calls
+
+
+def test_a_command_one_edition_documents_is_swept_with_that_edition_named(tmp_path):
     """The union, and the per-edition membership that a version row needs.
 
     A command dropped by the newest build still has to be entered, and
@@ -1060,15 +1081,14 @@ def test_a_command_one_edition_documents_is_swept_with_that_edition_named(monkey
     membership is therefore the sweep's output, not a convenience.
     """
     pages = {
-        "old": {1: "Function name: X_GONE <A>\nFunction name: X_BOTH <A>\n"},
-        "new": {1: "Function name: X_BOTH <A>\nFunction name: X_NEW <A>\n"},
+        "old": {1: {1: "Function name: X_GONE <A>\nFunction name: X_BOTH <A>\n"}},
+        "new": {1: {1: "Function name: X_BOTH <A>\nFunction name: X_NEW <A>\n"}},
     }
-    monkeypatch.setattr(
-        "pyflightstream.utils.manual.read_pdf_pages",
-        lambda path, *, first, last: pages[path.stem],
-    )
+    read, _calls = _recording_reader(pages)
     swept = sweep_editions(
-        [_edition(tmp_path, "old", (1, 1)), _edition(tmp_path, "new", (1, 1))], recorded=[]
+        [_edition(tmp_path, "old", (1, 1)), _edition(tmp_path, "new", (1, 1))],
+        recorded=[],
+        reader=read,
     )
     assert [command.name for command in swept] == ["X_BOTH", "X_GONE", "X_NEW"]
     assert {command.name: command.editions for command in swept} == {
@@ -1078,74 +1098,172 @@ def test_a_command_one_edition_documents_is_swept_with_that_edition_named(monkey
     }
 
 
-def test_a_command_recorded_in_the_database_is_not_swept(monkeypatch, tmp_path):
-    """The control for the test above: absence is measured against the database."""
-    monkeypatch.setattr(
-        "pyflightstream.utils.manual.read_pdf_pages",
-        lambda path, *, first, last: {1: "Function name: X_BOTH <A>\nFunction name: X_NEW <A>\n"},
+def test_the_sweep_records_the_page_each_edition_prints_a_command_on(tmp_path):
+    """A version row cites its own edition's page, so the sweep carries all of them.
+
+    One page number would be useless: the four registered editions print
+    the same command on four different pages, which is the whole reason
+    the ranges are per edition.
+    """
+    pages = {
+        "old": {7: {7: "Function name: X_BOTH <A>\n"}},
+        "new": {9: {9: "Function name: X_BOTH <A>\n"}},
+    }
+    read, _calls = _recording_reader(pages)
+    (command,) = sweep_editions(
+        [_edition(tmp_path, "old", (7, 7)), _edition(tmp_path, "new", (9, 9))],
+        recorded=[],
+        reader=read,
     )
-    swept = sweep_editions([_edition(tmp_path, "new", (1, 1))], recorded=["X_BOTH"])
+    assert command.pages == {"old": 7, "new": 9}
+    assert command.detail.page == 9, "the detail is the newest edition's statement"
+
+
+def test_the_chapter_range_is_read_for_signatures_and_the_index_range_for_labels(tmp_path):
+    """The two reads per edition go to the two ranges, and not the other way.
+
+    Swapping them constructs cleanly and reads the Script Index as the
+    scripting reference, so nothing downstream can detect it; this is
+    the only place that can.
+    """
+    pages = {
+        "ed": {
+            10: {10: "Function name: X_BOTH <A>\n"},
+            50: {50: "X_BOTH Some Section\n"},
+        }
+    }
+    read, calls = _recording_reader(pages)
+    (command,) = sweep_editions(
+        [_edition(tmp_path, "ed", (10, 10), index=(50, 50))], recorded=[], reader=read
+    )
+    assert calls == [("ed", 50, 50), ("ed", 10, 10)]
+    assert command.section == "Some Section", (
+        "the index range supplies the section label, which is the only thing it is for"
+    )
+
+
+def test_an_edition_with_no_index_range_is_read_once_and_left_unlabelled(tmp_path):
+    """The control for the test above, and the reason the index is optional."""
+    pages = {"ed": {10: {10: "Function name: X_BOTH <A>\n"}}}
+    read, calls = _recording_reader(pages)
+    (command,) = sweep_editions([_edition(tmp_path, "ed", (10, 10))], recorded=[], reader=read)
+    assert calls == [("ed", 10, 10)]
+    assert command.section is None
+
+
+def test_a_command_recorded_in_the_database_is_not_swept(tmp_path):
+    """The control: absence is measured against the database."""
+    pages = {"new": {1: {1: "Function name: X_BOTH <A>\nFunction name: X_NEW <A>\n"}}}
+    read, _calls = _recording_reader(pages)
+    swept = sweep_editions([_edition(tmp_path, "new", (1, 1))], recorded=["X_BOTH"], reader=read)
     assert [command.name for command in swept] == ["X_NEW"]
 
 
-def test_a_sweep_of_no_editions_refuses_rather_than_reporting_everything_absent():
-    """An empty manifest must not read as a total regression.
+def test_a_sweep_of_no_editions_refuses_rather_than_reporting_nothing_absent():
+    """An empty manifest must not read as the good answer.
 
-    With no edition, the union is empty and every recorded command falls
-    out as documented by nothing. That is a configuration error wearing
-    the costume of a catastrophic finding, so it raises.
+    With no manual read, nothing is documented and the sweep returns
+    zero absent, which is indistinguishable from the complete database
+    it is run to confirm. A configuration error that looks like success
+    is the one shape worth refusing outright.
     """
-    with pytest.raises(ManualDraftError, match="at least one edition"):
+    with pytest.raises(ManualDraftError, match="indistinguishable from a complete database"):
         sweep_editions([], recorded=["X_BOTH"])
 
 
-def test_the_manifest_round_trips_a_full_edition_row(tmp_path):
-    """Every field a row can carry, read back as the sweep will use it."""
+def _manifest(tmp_path, body, *, manuals=("x.pdf",)):
+    for name in manuals:
+        (tmp_path / name).write_bytes(b"not a pdf")
     manifest = tmp_path / "editions.yaml"
-    manifest.write_text(
+    manifest.write_text(body, encoding="utf-8")
+    return manifest
+
+
+def test_the_manifest_round_trips_a_full_edition_row(tmp_path, monkeypatch):
+    """Every field a row can carry, read back as the sweep will use it."""
+    monkeypatch.chdir(tmp_path)
+    manifest = _manifest(
+        tmp_path,
         '- label: "26.121"\n'
         "  source: SRC-740\n"
-        "  manual: _private/manual/whatever.pdf\n"
+        "  manual: x.pdf\n"
         "  chapter: 284-379\n"
         "  index: 380-386\n",
-        encoding="utf-8",
     )
-    (edition,) = read_editions(manifest)
+    (edition,) = read_edition_manifest(manifest)
     assert edition.label == "26.121"
     assert edition.source == "SRC-740"
     assert edition.chapter == (284, 379)
     assert edition.index == (380, 386)
 
 
-def test_an_edition_without_an_index_is_swept_unlabelled_rather_than_skipped(tmp_path):
+def test_an_edition_without_an_index_is_read_unlabelled_rather_than_skipped(tmp_path, monkeypatch):
     """The index supplies section labels only, so it is optional.
 
     Skipping an edition for want of one would silently drop a whole
     build from the union, which is the failure this sweep exists to
     prevent.
     """
-    manifest = tmp_path / "editions.yaml"
-    manifest.write_text('- label: "26.121"\n  manual: x.pdf\n  chapter: 1-2\n', encoding="utf-8")
-    (edition,) = read_editions(manifest)
+    monkeypatch.chdir(tmp_path)
+    manifest = _manifest(tmp_path, '- label: "26.121"\n  manual: x.pdf\n  chapter: 1-2\n')
+    (edition,) = read_edition_manifest(manifest)
     assert edition.index is None
 
 
 @pytest.mark.parametrize(
     ("row", "message"),
     [
-        ('- label: "a"\n  manual: x.pdf\n', "missing chapter"),
-        ("- manual: x.pdf\n  chapter: 1-2\n", "missing label"),
+        ('- label: "a"\n  manual: x.pdf\n', "missing 'chapter'"),
+        ("- manual: x.pdf\n  chapter: 1-2\n", "missing 'label'"),
         ('- label: "a"\n  manual: x.pdf\n  chapter: 12\n', "FIRST-LAST"),
         ('- label: "a"\n  manual: x.pdf\n  chapter: 20-2\n', "ends before it starts"),
         ('- label: "a"\n  manual: x.pdf\n  chapter: one-two\n', "FIRST-LAST"),
+        ('- label: "a"\n  manual: x.pdf\n  chapter: 1-2\n  indexpages: 3-4\n', "unknown key"),
     ],
 )
-def test_a_malformed_manifest_row_is_refused_by_position(tmp_path, row, message):
-    """A manifest is hand-edited and rarely, so every refusal names the row."""
-    manifest = tmp_path / "editions.yaml"
-    manifest.write_text(row, encoding="utf-8")
+def test_a_malformed_manifest_row_is_refused(tmp_path, monkeypatch, row, message):
+    """A manifest is hand-edited and rarely, so every refusal says what is wrong."""
+    monkeypatch.chdir(tmp_path)
+    manifest = _manifest(tmp_path, row)
     with pytest.raises(ManualDraftError, match=message):
-        read_editions(manifest)
+        read_edition_manifest(manifest)
+
+
+def test_a_refusal_names_the_row_it_is_about(tmp_path, monkeypatch):
+    """The position, which a single-row manifest cannot show.
+
+    A real manifest has one row per registered build, so "which row" is
+    the first thing a maintainer needs and the last thing a one-row
+    fixture can prove.
+    """
+    monkeypatch.chdir(tmp_path)
+    manifest = _manifest(
+        tmp_path,
+        '- label: "good"\n  manual: x.pdf\n  chapter: 1-2\n'
+        '- label: "bad"\n  manual: x.pdf\n  chapter: 9-3\n',
+    )
+    with pytest.raises(ManualDraftError, match=r"entry 2"):
+        read_edition_manifest(manifest)
+
+
+def test_a_row_naming_a_manual_that_does_not_exist_is_refused_before_any_pdf_opens(
+    tmp_path, monkeypatch
+):
+    """Every row is checked before the first manual is read.
+
+    Without this, a typo in the fourth row surfaces only after three
+    manuals have each had two page ranges extracted, which on a
+    400-page pdf is minutes of work thrown away for information that
+    was available at manifest-read time.
+    """
+    monkeypatch.chdir(tmp_path)
+    manifest = _manifest(
+        tmp_path,
+        '- label: "good"\n  manual: x.pdf\n  chapter: 1-2\n'
+        '- label: "typo"\n  manual: nope.pdf\n  chapter: 1-2\n',
+    )
+    with pytest.raises(ManualDraftError, match="is not a readable file"):
+        read_edition_manifest(manifest)
 
 
 def test_a_manifest_that_is_not_a_list_of_rows_is_refused(tmp_path):
@@ -1153,4 +1271,67 @@ def test_a_manifest_that_is_not_a_list_of_rows_is_refused(tmp_path):
     manifest = tmp_path / "editions.yaml"
     manifest.write_text('label: "26.121"\n', encoding="utf-8")
     with pytest.raises(ManualDraftError, match="list of edition mappings"):
-        read_editions(manifest)
+        read_edition_manifest(manifest)
+
+
+def test_the_sweep_cli_prints_the_absent_commands_flat_and_grouped(tmp_path, monkeypatch, capsys):
+    """The subcommand itself, which nothing exercised.
+
+    `--by-section` is built entirely on the section label, and the flat
+    form prints the per-edition pages; both are the maintainer's actual
+    interface to this tool.
+    """
+    monkeypatch.chdir(tmp_path)
+    manifest = _manifest(
+        tmp_path, '- label: "26.121"\n  manual: x.pdf\n  chapter: 10-10\n  index: 50-50\n'
+    )
+    pages = {
+        10: {10: "Function name: X_NOT_IN_THE_DATABASE <A>\n"},
+        50: {50: "X_NOT_IN_THE_DATABASE Some Section\n"},
+    }
+    monkeypatch.setattr(
+        "pyflightstream.utils.manual.read_pdf_pages",
+        lambda manual, *, first, last: pages[first],
+    )
+
+    assert cli_main(["sweep", "--editions", str(manifest)]) == 0
+    flat = capsys.readouterr().out
+    assert "1 edition(s) read (26.121): 1 command(s) absent" in flat
+    assert "X_NOT_IN_THE_DATABASE" in flat
+    assert "26.121:p.10" in flat
+
+    assert cli_main(["sweep", "--editions", str(manifest), "--by-section"]) == 0
+    grouped = capsys.readouterr().out
+    assert "Some Section  [1]" in grouped
+
+
+def test_the_sweep_cli_fails_only_when_asked_to(tmp_path, monkeypatch, capsys):
+    """Reporting is the ordinary use, so a non-empty sweep is not a failure.
+
+    The flag exists for the other use, asserting completeness, which is
+    the claim this milestone rests on and which stdout parsing is a poor
+    way to check.
+    """
+    monkeypatch.chdir(tmp_path)
+    manifest = _manifest(tmp_path, '- label: "26.121"\n  manual: x.pdf\n  chapter: 10-10\n')
+    monkeypatch.setattr(
+        "pyflightstream.utils.manual.read_pdf_pages",
+        lambda manual, *, first, last: {10: "Function name: X_NOT_IN_THE_DATABASE <A>\n"},
+    )
+    assert cli_main(["sweep", "--editions", str(manifest)]) == 0
+    capsys.readouterr()
+    assert cli_main(["sweep", "--editions", str(manifest), "--fail-if-absent"]) == 1
+
+
+def test_the_sweep_cli_exits_zero_with_the_flag_when_nothing_is_absent(
+    tmp_path, monkeypatch, capsys
+):
+    """The control: --fail-if-absent passes on a complete database."""
+    monkeypatch.chdir(tmp_path)
+    manifest = _manifest(tmp_path, '- label: "26.121"\n  manual: x.pdf\n  chapter: 10-10\n')
+    monkeypatch.setattr(
+        "pyflightstream.utils.manual.read_pdf_pages",
+        lambda manual, *, first, last: {10: "Function name: SET_SOLVER_STEADY\n"},
+    )
+    assert cli_main(["sweep", "--editions", str(manifest), "--fail-if-absent"]) == 0
+    assert "0 command(s) absent" in capsys.readouterr().out

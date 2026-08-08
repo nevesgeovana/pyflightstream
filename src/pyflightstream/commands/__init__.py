@@ -464,6 +464,21 @@ def _check_layout_rules(name: str, layout: Layout, args: tuple[ArgSpec, ...]) ->
                 "appended to once a keyword line has been emitted, so the "
                 "on_command_line arguments must be the leading ones"
             )
+        if not arg.required:
+            # The command line is POSITIONAL: these are appended in
+            # order with no keyword naming them, so an omitted one moves
+            # every argument after it one place left and the solver
+            # reads a well-formed line meaning something else. That is
+            # the failure this whole field was added to prevent, on the
+            # axis the ordering rule above does not cover, so it is
+            # closed while both users of the field are required.
+            raise ValueError(
+                f"{name}: {arg.name!r} is optional and sits on the command line, "
+                "where arguments are positional and unnamed. Omitting it would "
+                "shift the arguments after it into its place and the solver would "
+                "read the line without complaint. Make it required, or move it "
+                "into the keyword block where its name travels with its value"
+            )
     for position, arg in enumerate(args):
         if not arg.joins_previous:
             continue

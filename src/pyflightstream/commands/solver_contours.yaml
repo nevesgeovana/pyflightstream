@@ -55,11 +55,14 @@ SET_SCENE_CONTOUR:
     THE VALUES ARE LOWERCASE AND THAT IS NOT A TRANSCRIPTION CHOICE.
     Every other closed set in this database is uppercase, because that
     is how the manual prints them; this page prints these 33 in lower
-    case, and a token is emitted literally, so they are recorded as
-    printed. Whether the solver actually cares is untested, and passing
-    the uppercase form is refused here rather than silently accepted:
-    accepting both would be a guess about case folding that no page
-    supports.
+    case, and they are recorded as printed.
+
+    What a caller writes does not matter and what the SCRIPT carries
+    does: enum matching is case-insensitive across this whole database
+    and normalises to the declared member, so MACH_NUMBER and
+    mach_number both emit mach_number. Whether the solver itself cares
+    about the case is untested; recording the page's own spelling is
+    what makes the question moot for anyone using this emitter.
 
     THE PAGE HAS NO RUNNABLE SAMPLE. Its sample line prints the
     placeholder rather than a value, so unlike most of this manual there

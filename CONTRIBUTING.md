@@ -32,9 +32,22 @@ status `documented`; add emit-validation and golden
 tests; open a pending-probe issue if no licensed machine is available. A
 command becomes `verified` only through a committed Tier 2 probe report.
 
-`pyfs-manual` does the reading half of that first step, given a manual pdf
-and its page ranges: `coverage` lists what an edition documents and the
-database does not, and `draft` renders entries for those commands. It writes
+`pyfs-manual` does the reading half of that first step.
+
+`sweep` is the form that matches the chapter rule in
+`docs/srs/data-model.md`, which is that a chapter enters for every
+registered edition at once. Given a `--editions` YAML manifest naming the
+registered builds and their page ranges, it reports the commands no edition
+has an entry for, with the page and the editions each one needs, and
+`--by-section` groups them by chapter. Use it for a coverage push:
+`coverage`, below, answers the same question of ONE manual, and a command
+absent from one edition may be recorded from another. The manifest names
+paths of licensed manuals and is never committed (invariant 1);
+`pyfs-manual sweep --help` prints an example row.
+
+Then, given a manual pdf and its page ranges: `coverage` lists what that one
+edition documents and the database does not, and `draft` renders entries for
+those commands. It writes
 only with `--write --out`. Read what it produces as a starting point and not
 as evidence. It leaves `???` wherever no rule could read a value, which the
 schema refuses on purpose, so an unreviewed draft turns the suite red rather

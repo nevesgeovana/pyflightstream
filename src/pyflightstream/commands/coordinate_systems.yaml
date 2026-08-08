@@ -239,9 +239,13 @@ DUPLICATE_COORDINATE_SYSTEM:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.334, same grammar as 26.120"}
   notes: >
-    Appends a copy of a local coordinate system. The copy takes the next
-    free index and nothing reports it, so a script that duplicates has
-    to know how many frames existed beforehand to address the result.
+    Appends a copy of a local coordinate system. Nothing reports the
+    index the copy takes, and no edition states how one is allocated, so
+    a script that duplicates has to work the result out from how many
+    frames it believes exist. The builder ASSUMES the next free index,
+    which is the same assumption it makes for every creation command and
+    is unmeasured here; PLN-20260808-2100 carries the probe that settles
+    allocation and renumbering together.
 
 MIRROR_COORDINATE_SYSTEM:
   layout: inline
@@ -266,9 +270,12 @@ MIRROR_COORDINATE_SYSTEM:
     would suggest the frame is mirrored in place, which is a different
     result for every actuator or motion already pointing at it.
 
-    THE MIRROR PLANE IS ALWAYS THE REFERENCE FRAME'S, not the mirrored
-    frame's own, so the result depends on where the local frame sits
-    relative to the global axes.
+    THE MIRROR PLANE IS THE REFERENCE FRAME'S, which the manual states
+    in the PLANE row rather than leaving to be inferred: the plane
+    belongs to the reference coordinate system and not to the frame
+    being mirrored. So the result depends on where that local frame sits
+    relative to the global axes, which follows from the page rather than
+    from any measurement.
 
 DELETE_COORDINATE_SYSTEM:
   layout: inline

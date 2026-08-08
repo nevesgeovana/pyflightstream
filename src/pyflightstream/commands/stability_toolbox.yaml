@@ -52,9 +52,10 @@ STABILITY_TOOLBOX_SETTINGS:
     derivative is differenced from.
 
     CLEAR_SOLVER_PER_RUN decides whether each perturbed run starts from
-    a cleared solution or from the previous one. It is a numerical
-    choice rather than a convenience: restarting from the previous
-    solution is faster and makes the result depend on the run order.
+    a cleared solution or from the previous one, which is what the
+    parameter row states. The page says nothing about what the choice
+    costs or changes; treating it as a numerical decision rather than a
+    convenience is this database's advice and not a measurement.
 
 STABILITY_TOOLBOX_NEW_COEFFICIENT:
   layout: keyword_block
@@ -149,11 +150,15 @@ COMPUTE_STABILITY_COEFFICIENTS:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 pp.374-375, same grammar as 26.120"}
   notes: >
-    Runs the whole set. THIS IS THE EXPENSIVE COMMAND OF THE CHAPTER and
-    the page does not say so: each defined coefficient needs the solver
-    re-run at a perturbed state, so the cost is roughly the number of
-    distinct denominators times a full solve, and more if the solution
-    is cleared between runs.
+    Runs the whole set.
+
+    EXPECT IT TO BE THE EXPENSIVE COMMAND OF THE CHAPTER, and read that
+    as an expectation rather than as a page fact, because no edition
+    states the cost. A derivative is a difference between states, and
+    the settings command above exposes a per-run clearing switch and a
+    rate increment, which together say the toolbox re-solves; how many
+    times it does so for a given set of coefficients is not documented
+    and has not been measured here.
 
 STABILITY_TOOLBOX_EXPORT:
   layout: inline
@@ -170,4 +175,7 @@ STABILITY_TOOLBOX_EXPORT:
     "26.121": {status: documented, note: "SRC-740 p.375, same grammar as 26.120"}
   notes: >
     Writes the computed coefficients to a file, the path on the next
-    line. The only way to get them out: nothing prints them to the log.
+    line. It is the only command in the chapter that produces an
+    artifact a script can read back; whether the solver also prints the
+    coefficients to its log is not documented and has not been observed
+    here.

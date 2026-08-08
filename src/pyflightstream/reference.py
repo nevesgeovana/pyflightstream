@@ -450,9 +450,12 @@ def _coverage_notes() -> list[str]:
                 "their gaps."
             )
     notes.append(
-        "Several chapter headers state they draft only the subset needed so "
-        "far; a chapter appearing in this table is not a claim of completeness "
-        "for its page range. Manual areas outside the scripting chapters (GUI "
+        "Each chapter header states whether the chapter is complete for its "
+        "page range, and as of 2026-08-08 every one of them declares itself "
+        "complete against the four registered editions. Read a cited page as "
+        "cited rather than as exhausted: the claim is that the commands the "
+        "editions document are recorded, not that nothing else could be on "
+        "the page. Manual areas outside the scripting chapters (GUI "
         "reference, theory) are out of scope of the command database and are "
         "not tracked here."
     )

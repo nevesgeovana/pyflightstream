@@ -39,7 +39,8 @@ CREATE_NEW_INLET:
   notes: >
     Marks one mesh boundary as an inlet with a uniform velocity along
     the surface normal of its faces. The manual states the index must be
-    greater than zero and no all-form, so -1 is not accepted.
+    greater than zero and states no all-form, so -1 is not accepted
+    here.
 
     THE SIGN CONVENTION IS THE FACE NORMAL AND NOT THE FLOW DIRECTION.
     The manual says the velocity is applied along the surface normal
@@ -97,10 +98,12 @@ REMESH_INLET:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.328, same grammar as 26.120"}
   notes: >
-    Rebuilds an inlet's faces as a radial distribution, which matters
-    because the velocity is applied per face: an inlet inheriting an
-    unstructured import resolves a profile badly. Phase is geometry,
-    this being a mesh operation rather than a labelling one.
+    Rebuilds an inlet's faces as a radial distribution. The manual gives
+    no reason for wanting one and none is asserted here; what the page
+    does state is that the inlet velocity is applied along the surface
+    normal of its FACES, so the face layout is what a prescribed profile
+    is resolved on. Phase is geometry, this being a mesh operation
+    rather than a labelling one.
 
     Line for line the same block as REMESH_BASE_REGION and
     REMESH_OUTLET, including the numeric GROWTH_SCHEME, 1 for successive

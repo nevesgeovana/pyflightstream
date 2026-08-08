@@ -141,7 +141,10 @@ WRAPPER_EDIT_LOCAL_CONTROL:
     # attempt to spell it with `joins_previous` was refused by the schema
     # for the right reason: there is no preceding argument line in first
     # position. `on_command_line` was added with this chapter for the
-    # shape, and this is the one command in the database that has it.
+    # shape; the field's own docstring in commands/__init__.py is the
+    # single home of which commands use it, a count in a data file being
+    # stale the first time a second one appears, which happened the same
+    # day.
     - name: control_id
       type: int
       on_command_line: true

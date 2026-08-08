@@ -13,13 +13,14 @@ documents, or that a committed probe report measured the solver accepting
 with no script command cannot be emitted by the script builder, and
 no amount of library code changes that. Geometry preparation and
 meshing are the common case, and the picture there changed on
-2026-08-06 and 2026-08-07: the CAD, CAD Create and Mesh Operations
-chapters entered the database in full, so those commands are emittable
-now, and the last of those is this page's own subject, everything that
+2026-08-06 through 2026-08-08, when the sweep finished: EVERY command
+any registered manual edition documents is now in the database, so the
+CAD, CAD Create and Mesh Operations chapters are emittable in full, and
+the last of those is this page's own subject, everything that
 translates, rotates, scales, mirrors, copies, cuts, selects or deletes
 a surface between import and solver initialization. The mesh-wrapper
-chapter remains outside it (SRS non-requirement NREQ-05, which was
-narrowed to say so). What has NOT changed is the reason this page
+chapter is in too, as of 2026-08-08, and SRS non-requirement NREQ-05
+now excludes nothing. What has NOT changed is the reason this page
 exists. A command being in the database means the script builder will
 emit and validate it; it does not mean the GUI-driven parts of geometry
 preparation have a scripted equivalent, and the pattern below is still

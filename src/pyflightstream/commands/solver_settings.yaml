@@ -540,9 +540,21 @@ SOLVER_STABILIZATION:
     Maximum level of stabilization applied to the main convergence,
     dimensionless, from 0 to 1. The manual states that 0 is the same as
     disabling it, so this is a strength rather than a switch, and it
-    takes intermediate values.
+    takes intermediate values. No edition states a default.
 
     Absent from the February 2026 edition, so no 26.100 row.
+
+    ITS SRC-740 PAGE BREAKS THE +3 RULE AND THE NOTE IS RIGHT ANYWAY.
+    Every SRC-003 page maps to SRC-740 plus three, which commands/_meta
+    states and about forty-five notes obey, so p.346 here should read
+    p.349. It reads p.348 because it was MEASURED: the three commands
+    sharing SRC-003 p.346 split across two pages in the hotfix edition,
+    this one landing on 348 and the other two on 349. A page shift is a
+    rule about a document's average and not about a page boundary, so
+    the reading wins over the arithmetic. A 2026-08-08 review pass
+    reported this as a paste error from the arithmetic alone; it is not
+    one, and this paragraph exists so the next reader measures before
+    correcting it.
 
 DISABLE_SOLVER_REF_VELOCITY:
   layout: bare
@@ -552,12 +564,19 @@ DISABLE_SOLVER_REF_VELOCITY:
   versions:
     "26.121": {status: documented}
   notes: >
-    Makes the solver reference velocity track the free-stream velocity
-    instead of holding whatever SOLVER_SET_REF_VELOCITY last set.
+    Makes the solver reference velocity equal the free-stream velocity,
+    which is what the manual's sample comment states, rather than
+    holding whatever SOLVER_SET_REF_VELOCITY last set.
 
-    DOCUMENTED BY THE 26.12 HOTFIX EDITION ALONE, so one version row and
-    a citation of SRC-740. It is worth knowing about even on the builds
-    that do not document it: the reference velocity is what
-    pressure_coefficient_reference is normalised by, so a reference
-    velocity left over from an earlier state silently rescales a
-    reported coefficient rather than failing.
+    DOCUMENTED BY THE 26.12 HOTFIX EDITION ALONE, so one version row, a
+    citation of SRC-740, and no probe. Both of those are worth weighing
+    before relying on it, since it reaches a public keyword of
+    solver_settings.
+
+    Why it exists at all is legible from the contour vocabulary rather
+    than from this page: SET_SCENE_CONTOUR offers
+    pressure_coefficient_reference beside
+    pressure_coefficient_freestream, so the two velocities normalise
+    different reported quantities and a stale reference velocity would
+    change one of them. That is a reading of two pages together and not
+    a measurement of what the solver does.

@@ -4,11 +4,19 @@ Pipeline role: maintainer entry point, outside the run pipeline. It reads
 licensed vendor documentation from a path the caller gives and writes
 nothing unless told to.
 
-Two subcommands, and the split is the point. ``coverage`` answers "what
-does this build document that we do not have", which is the question a
-new release raises and which is safe to run at any time. ``draft`` turns
-that answer into entries to review, and only writes when ``--write`` is
-passed with a destination.
+Three subcommands, and the split between them is the point.
+
+``sweep`` answers "what do the registered builds document that we do not
+have", reading every edition named in a manifest and reporting the
+union. That is the question a coverage push asks, and it is not the same
+question as the one below: a command absent from one edition may be
+recorded from another.
+
+``coverage`` answers the same question of ONE manual, which is what a
+single new release raises before it has a manifest row.
+
+``draft`` turns either answer into entries to review, and only writes
+when ``--write`` is passed with a destination.
 
 The default of ``draft`` is a dry run for a measured reason, stated in
 :mod:`pyflightstream.utils.manual`: the drafts reproduce 77 percent of
@@ -32,12 +40,28 @@ from pyflightstream.utils.manual import (
     parse_script_index,
     parse_signatures,
     propose_layout,
-    read_editions,
+    read_edition_manifest,
     read_pdf_pages,
     render_chapter,
     sweep_editions,
     write_chapter,
 )
+
+#: Shown as the epilog of ``sweep --help``. A maintainer writing their
+#: first manifest should not have to read the library to learn its shape,
+#: and the shape cannot be shown by a committed sample file: a real one
+#: names licensed manual paths (invariant 1).
+_MANIFEST_EXAMPLE = """The --editions manifest is a YAML list, one row per registered build:
+
+  - label: "26.121"
+    source: SRC-740
+    manual: _private/manual/user-manual-26121.pdf
+    chapter: 284-379
+    index: 380-386
+
+label, manual and chapter are required; index and source are not. Page
+ranges are one-based and inclusive. Registering a new build is adding a
+row."""
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -66,10 +90,20 @@ def _parser() -> argparse.ArgumentParser:
             help="page range of the scripting reference, one-based inclusive",
         )
         p.add_argument(
+            # Optional, because the library treats the Script Index as
+            # optional: it supplies the section label only, and
+            # sweep_editions documents that an edition without one is
+            # read unlabelled rather than skipped. Requiring it here
+            # would leave the same maintainer unable to run `coverage`
+            # against an edition that `sweep` handles.
             "--index-pages",
-            required=True,
+            default=None,
             metavar="FIRST-LAST",
-            help="page range of the Script Index, one-based inclusive",
+            help=(
+                "page range of the Script Index, one-based inclusive. Optional: "
+                "without it the report carries no section labels, which is what "
+                "an edition with no index gets"
+            ),
         )
 
     # sweep takes a manifest instead of the four single-manual flags: it
@@ -77,15 +111,20 @@ def _parser() -> argparse.ArgumentParser:
     # per edition, so there is nothing for those flags to mean here.
     swp = sub.add_parser(
         "sweep",
-        help="report what NO registered edition's entry exists for, across all of them",
+        help=(
+            "report the commands at least one registered edition documents "
+            "and the database does not"
+        ),
+        epilog=_MANIFEST_EXAMPLE,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     swp.add_argument(
         "--editions",
         required=True,
         metavar="MANIFEST",
         help=(
-            "YAML manifest of the editions to read: label, manual path, "
-            "chapter pages, optionally index pages and source id. Never "
+            "YAML manifest of the editions to read, one row per build, with "
+            "page ranges written FIRST-LAST (see the example below). Never "
             "committed; it names licensed manual paths"
         ),
     )
@@ -93,6 +132,15 @@ def _parser() -> argparse.ArgumentParser:
         "--by-section",
         action="store_true",
         help="group the absent commands by the section that documents them",
+    )
+    swp.add_argument(
+        "--fail-if-absent",
+        action="store_true",
+        help=(
+            "exit 1 when anything is absent, for a check that asserts the "
+            "database is complete. Without it the sweep always exits 0, "
+            "because a maintainer reading the report is the ordinary use"
+        ),
     )
 
     draft = sub.choices["draft"]
@@ -151,12 +199,15 @@ def _sweep(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
     Returns
     -------
     int
-        0 whether or not anything is absent. An empty sweep is the good
-        answer, not a failure, and a maintainer runs this in a loop.
+        0, unless ``--fail-if-absent`` was passed and something is
+        absent. Reporting is the ordinary use and a maintainer runs it in
+        a loop, so a non-empty sweep is an answer rather than a failure;
+        the flag is for the other use, asserting that the database is
+        complete.
     """
     try:
-        editions = read_editions(args.editions)
-        absent = sweep_editions(editions, CommandRegistry.load().commands)
+        editions = read_edition_manifest(args.editions)
+        absent = sweep_editions(editions, recorded=CommandRegistry.load().commands)
     except FileNotFoundError as missing:
         parser.error(f"cannot read the manifest or a manual it names: {missing}")
     except ManualDraftError as error:
@@ -164,11 +215,12 @@ def _sweep(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
 
     labels = " ".join(edition.label for edition in editions)
     print(f"{len(editions)} edition(s) read ({labels}): {len(absent)} command(s) absent")
+    exit_code = 1 if (absent and args.fail_if_absent) else 0
     if not args.by_section:
         for command in absent:
             pages = " ".join(f"{label}:p.{page}" for label, page in command.pages.items())
             print(f"  {command.name:<48} {command.section or '?':<28} {pages}")
-        return 0
+        return exit_code
 
     # Grouped, because the database is written one chapter at a time and
     # the section is what a chapter file corresponds to. Largest first:
@@ -183,7 +235,7 @@ def _sweep(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
         for command in members:
             editions_of = " ".join(command.editions)
             print(f"  {command.name:<48} {editions_of}")
-    return 0
+    return exit_code
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -205,7 +257,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     # --write refusal used to fire after two full pdf reads and a render,
     # so a mistyped invocation cost the whole run on a 400-page document.
     chapter_first, chapter_last = _pages(parser, "--chapter-pages", args.chapter_pages)
-    index_first, index_last = _pages(parser, "--index-pages", args.index_pages)
+    index_range = _pages(parser, "--index-pages", args.index_pages) if args.index_pages else None
     if args.command == "draft" and args.write and not args.out:
         parser.error("--write needs --out; refusing to guess where to put a draft")
 
@@ -215,7 +267,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     # error for a malformed range and a traceback for an out-of-range
     # one.
     try:
-        index = parse_script_index(read_pdf_pages(args.manual, first=index_first, last=index_last))
+        index = (
+            parse_script_index(
+                read_pdf_pages(args.manual, first=index_range[0], last=index_range[1])
+            )
+            if index_range is not None
+            else {}
+        )
         manual = parse_signatures(
             read_pdf_pages(args.manual, first=chapter_first, last=chapter_last), sections=index
         )

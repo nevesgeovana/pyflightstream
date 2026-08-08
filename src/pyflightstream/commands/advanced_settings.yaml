@@ -16,8 +16,12 @@
 # reserves for a manual saying so.
 #
 # It is also the chapter of solver knobs, so almost everything here is
-# phase init: these are read when the solver is initialized, and setting
-# one afterwards is a script that runs and changes nothing.
+# phase init. Read that as this database's PLACEMENT of the chapter and
+# not as a measurement of the solver: the manual documents these as
+# solver settings and states nowhere what happens to one issued after
+# initialization. The phase makes the emitter order them before it,
+# which is the conservative choice and costs a caller nothing; whether a
+# late call is honoured is untested (PLN-20260808-2400).
 
 SET_SOLVER_CONVERGENCE_ITERATIONS:
   layout: inline
@@ -221,9 +225,11 @@ KUTTA_JOUKOWSKI_LIFT_FORCES:
     "26.121": {status: documented, note: "SRC-740 p.347, same grammar as 26.120"}
   notes: >
     Computes the inviscid lift by the Kutta-Joukowski theorem, from the
-    bound circulation, instead of by integrating the surface pressure.
-    The two give different answers on the same solution, so this changes
-    a reported coefficient rather than the flow field it came from.
+    bound circulation, instead of by integrating the surface pressure,
+    which is what the command name and the manual's sample comment
+    state. That the two routes differ on one solution is aerodynamic
+    theory rather than anything this page says, and no edition states
+    which quantities the choice reaches.
 
     No edition gives this command a parameter table. The signature
     heading carries the pair of values and the sample passes one of
@@ -244,8 +250,9 @@ PRINT_ROTOR_INDUCED_VELOCITIES:
     "26.121": {status: documented, note: "SRC-740 p.348, same grammar as 26.120"}
   notes: >
     Prints the rotor-induced velocities to the log at every time step of
-    an unsteady run. A diagnostic, and an expensive one on a long run:
-    it is per time step and nothing here bounds the volume of output.
+    an unsteady run, which is what the manual's sample comment states.
+    Per time step and per rotor, so the log grows with the run; no
+    edition bounds it and nothing here can.
 
 SET_ADAPTIVE_FIELD_GRID_REFINEMENT:
   layout: inline
@@ -262,8 +269,9 @@ SET_ADAPTIVE_FIELD_GRID_REFINEMENT:
     "26.121": {status: documented, note: "SRC-740 p.348, same grammar as 26.120"}
   notes: >
     Refines the field-source grid where the solution needs it. The
-    manual's sample comment marks this as transonic only, so on a
-    subsonic case it is a setting with nothing to act on.
+    manual's sample comment marks this transonic only; what it does on a
+    subsonic case is not stated anywhere, so expect nothing from it
+    there rather than reading the comment as a guarantee of no effect.
 
 ROTOR_INDUCED_VELOCITY_BLENDING:
   layout: inline
@@ -276,9 +284,13 @@ ROTOR_INDUCED_VELOCITY_BLENDING:
     "26.101": {status: documented, note: "SRC-725 p.344, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.348, same grammar as 26.120"}
+  default: 0.25
+  default_ref: "SRC-003 p.345"
   notes: >
-    Blending factor for wake stabilization, between 0 and 1, default
-    0.25 as the manual states. The bound is not enforced.
+    Blending factor for wake stabilization, dimensionless, between 0 and
+    1. The bound is not enforced. The solver default is recorded in the
+    structured field above rather than in this prose, so a guard and
+    pyfs-manual can both read it.
 
     ABSENT FROM THE FEBRUARY 2026 EDITION, which is why there is no
     26.100 row: the command is not documented for that build, so the
@@ -296,10 +308,14 @@ SET_WAKE_NUMERICAL_RELAXATION:
     "26.101": {status: documented, note: "SRC-725 p.345, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.349, same grammar as 26.120"}
+  default: 0.15
+  default_ref: "SRC-003 p.346"
   notes: >
-    Relaxation factor applied to the wake between iterations, between 0
-    and 1, default 0.15. Lowering it steadies a wake that will not
-    settle, at the cost of iterations. Absent from the February edition.
+    Relaxation factor applied to the wake between iterations,
+    dimensionless, between 0 and 1. What a lower value buys is
+    not stated on the page; under-relaxation generally trades iterations
+    for stability, and that is theory rather than a claim about this
+    solver. Absent from the February edition.
 
 SET_JET_WAKE_DECAY_NORMALIZED_LENGTH:
   layout: inline
@@ -313,11 +329,14 @@ SET_JET_WAKE_DECAY_NORMALIZED_LENGTH:
     "26.101": {status: documented, note: "SRC-725 p.345, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.349, same grammar as 26.120"}
+  default: 100.0
+  default_ref: "SRC-003 p.346"
   notes: >
     Distance at which a jet wake decays to a tenth of its initial
     strength, measured in multiples of the jet wake diameter rather
-    than in length units. Default 100.0 and minimum 1.0 per the manual;
-    neither is enforced. Absent from the February edition.
+    than in length units. The manual also states a minimum of 1.0;
+    neither that nor the default is enforced. Absent from the February
+    edition.
 
 SET_JET_WAKE_FILAMENTS_GRID_INDUCTION:
   layout: inline

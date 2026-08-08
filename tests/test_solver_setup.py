@@ -137,7 +137,15 @@ def test_provenance_markers_and_default_evidence():
     assert vorticity.provenance == "explicit" and vorticity.value == "all" and vorticity.emitted
     counts = setup.provenance_counts()
     assert counts["explicit"] == 2  # aoa and the vorticity selection
-    assert counts["default"] == 3  # minimum_cp, boundary_layer, farfield_layers
+    # Six since 2026-08-08, when the three wake and rotor knobs of the
+    # Advanced Settings chapter moved their manual defaults out of prose
+    # and into the structured `default` field. A default the database
+    # records is a default the snapshot reports, which is the point of
+    # the field.
+    assert counts["default"] == 6, (
+        "minimum_cp, boundary_layer, farfield_layers, and the three wake and rotor "
+        "defaults added with the Advanced Settings chapter"
+    )
     assert counts["explicit"] + counts["default"] + counts["unknown"] == len(flags)
 
 
@@ -200,7 +208,13 @@ def test_an_unset_selection_emits_nothing_and_leaves_the_solver_default():
     # The snapshot stays total, with the flag counted as a default.
     counts = setup.provenance_counts()
     assert counts["explicit"] == 2  # aoa and velocity
-    assert counts["default"] == 4  # minimum_cp, boundary_layer, farfield, vorticity
+    # Seven since 2026-08-08: the four below plus the three wake and
+    # rotor defaults the Advanced Settings chapter brought in as
+    # structured `default` fields.
+    assert counts["default"] == 7, (
+        "minimum_cp, boundary_layer, farfield, vorticity, and the three wake and "
+        "rotor defaults added with the Advanced Settings chapter"
+    )
     assert counts["explicit"] + counts["default"] + counts["unknown"] == len(setup.flags)
 
 
@@ -1243,3 +1257,60 @@ def test_an_empty_thin_boundary_list_erases_rather_than_setting_none():
     text = script.render()
     assert "DELETE_THIN_BOUNDARIES" in text
     assert "SET_THIN_BOUNDARIES" not in text
+
+
+# --- the two settings flags of the tail, and the kind one of them needed -----
+
+
+def test_the_bare_request_flag_emits_a_command_with_no_argument():
+    """DISABLE_SOLVER_REF_VELOCITY takes nothing, so True IS its whole value.
+
+    The kind exists because every other flag records a value the command
+    carries and this one carries none. Untested until the 2026-08-08 QA
+    pass, which is how a snapshot could have silently dropped or
+    duplicated a command that changes what a reported Cp is normalised
+    by.
+    """
+    script = Script(version="26.121")
+    setup = helpers.solver_settings(script, disable_ref_velocity=True)
+    assert script.render().count("DISABLE_SOLVER_REF_VELOCITY") == 1
+    record = setup.flags["DISABLE_SOLVER_REF_VELOCITY"]
+    assert (record.provenance, record.value, record.emitted) == ("explicit", True, True)
+
+
+def test_a_bare_request_not_made_is_unknown_rather_than_an_explicit_false():
+    """False is the ABSENCE of the request, not the opposite request.
+
+    The solver has no way to be told NOT to do this, so recording an
+    explicit False would claim the script settled a question it never
+    asked. That distinction is the whole reason the kind is not a
+    toggle.
+    """
+    script = Script(version="26.121")
+    setup = helpers.solver_settings(script, disable_ref_velocity=False)
+    assert "DISABLE_SOLVER_REF_VELOCITY" not in script.render()
+    record = setup.flags["DISABLE_SOLVER_REF_VELOCITY"]
+    assert (record.provenance, record.emitted) == ("unknown", False)
+
+
+def test_a_bare_request_round_trips_through_the_snapshot():
+    """The snapshot has to rebuild a command whose value is its presence."""
+    first = Script(version="26.121")
+    setup = helpers.solver_settings(first, disable_ref_velocity=True, solver_stabilization=0.5)
+    second = Script(version="26.121")
+    helpers.solver_settings(second, **setup.explicit_kwargs())
+    assert second.render() == first.render()
+
+
+def test_the_stabilization_strength_keeps_its_documented_zero():
+    """Zero is a documented value here and not an unset flag.
+
+    The manual states that 0 is the same as disabling the stabilization,
+    so it is a strength that happens to reach zero. A falsy-value
+    regression in the helper would drop the line and leave the solver on
+    whatever the previous state was.
+    """
+    script = Script(version="26.121")
+    setup = helpers.solver_settings(script, solver_stabilization=0.0)
+    assert "SOLVER_STABILIZATION 0.0" in script.render()
+    assert setup.flags["SOLVER_STABILIZATION"].provenance == "explicit"

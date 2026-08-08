@@ -1,7 +1,9 @@
 """Read a FlightStream manual and report what the command database is missing.
 
 Pipeline role: maintainer utility, outside the run pipeline. Imports
-nothing from this package, so it can be used from any layer.
+nothing ABOVE the bottom layer (its own errors module, and
+``pyflightstream.extras`` lazily for the optional pdf dependency), so it
+can be used from any layer.
 
 WHAT THIS IS FOR. When the vendor ships a build, its manual documents
 some commands the database does not have and, less obviously, sometimes
@@ -102,6 +104,8 @@ from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import yaml
+
 from pyflightstream.utils.errors import ManualDraftError
 
 __all__ = [
@@ -116,7 +120,7 @@ __all__ = [
     "parse_signatures",
     "propose_layout",
     "propose_type",
-    "read_editions",
+    "read_edition_manifest",
     "read_pdf_pages",
     "render_chapter",
     "render_entry",
@@ -506,7 +510,7 @@ def coverage_against(manual: Mapping[str, ManualCommand], recorded: Iterable[str
     )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Edition:
     """One manual to read, and where its two chapters sit in it.
 
@@ -515,6 +519,14 @@ class Edition:
     reference of the four editions registered on 2026-08-08 starts on
     four different pages, so a single range shared by all of them reads
     the wrong pages of three.
+
+    KEYWORD-ONLY, and that is about ``chapter`` and ``index``
+    specifically. They are two page ranges of the same type, so
+    positionally they are interchangeable and swapping them constructs
+    cleanly: the sweep then reads the Script Index as the scripting
+    reference, reports hundreds of false absences, and nothing anywhere
+    can detect it. Named arguments are the only thing that separates
+    them.
 
     Attributes
     ----------
@@ -576,7 +588,10 @@ class SweptCommand:
 
 
 def sweep_editions(
-    editions: Iterable[Edition], recorded: Iterable[str]
+    editions: Iterable[Edition],
+    *,
+    recorded: Iterable[str],
+    reader: Callable[..., Mapping[int, str]] | None = None,
 ) -> tuple[SweptCommand, ...]:
     """Read every edition and report what none of them has an entry for.
 
@@ -602,7 +617,17 @@ def sweep_editions(
         :attr:`SweptCommand.detail` carries the newest statement.
     recorded : iterable of str
         Command names the database holds, typically
-        ``CommandRegistry.load().commands``.
+        ``CommandRegistry.load().commands``. Keyword-only, so a call
+        cannot pass the two collections the wrong way round.
+    reader : callable, optional
+        What turns a manual and a page range into text, defaulting to
+        :func:`read_pdf_pages`. It is a parameter because this module
+        keeps its parsing testable without a pdf and without the
+        ``[manual]`` extra, which is the seam :func:`read_pdf_pages`
+        documents about itself; this is the first function above that
+        line to need a manual, so it takes the reader rather than
+        reaching for it and leaving the seam to be maintained by
+        monkeypatching.
 
     Returns
     -------
@@ -613,15 +638,22 @@ def sweep_editions(
     Raises
     ------
     ManualDraftError
-        If no edition is given. An empty sweep would report every
-        command absent, which reads as a catastrophic regression rather
-        than as the configuration error it is.
+        If no edition is given. With no manual read, nothing can be
+        documented and the answer is zero absent, which is
+        indistinguishable from the complete database this is run to
+        confirm. A configuration error that reads as the good outcome is
+        the one shape worth refusing outright.
     """
+    # Defaulted here rather than in the signature: read_pdf_pages is
+    # defined below this function, the module being ordered parse-first
+    # with the pdf reader at the bottom behind its optional dependency.
+    read = reader if reader is not None else read_pdf_pages
     editions = tuple(editions)
     if not editions:
         raise ManualDraftError(
-            "a sweep needs at least one edition; with none, every command in the "
-            "database would be reported as documented by no manual"
+            "a sweep needs at least one edition; with none it reports zero commands "
+            "absent, which is indistinguishable from a complete database. Add a row "
+            "to the manifest with label, manual and chapter"
         )
     known = set(recorded)
     seen: dict[str, list[str]] = {}
@@ -630,14 +662,12 @@ def sweep_editions(
     detail: dict[str, ManualCommand] = {}
     for edition in editions:
         labels = (
-            parse_script_index(
-                read_pdf_pages(edition.manual, first=edition.index[0], last=edition.index[1])
-            )
+            parse_script_index(read(edition.manual, first=edition.index[0], last=edition.index[1]))
             if edition.index is not None
             else {}
         )
         parsed = parse_signatures(
-            read_pdf_pages(edition.manual, first=edition.chapter[0], last=edition.chapter[1]),
+            read(edition.manual, first=edition.chapter[0], last=edition.chapter[1]),
             sections=labels,
         )
         for name, command in parsed.items():
@@ -660,7 +690,19 @@ def sweep_editions(
     )
 
 
-def read_editions(path: str | Path) -> tuple[Edition, ...]:
+#: What an edition row may hold, and what each key is for. Kept as data
+#: so the refusals can print it rather than restate it in prose.
+_MANIFEST_KEYS = {
+    "label": "canonical version identifier, for example 26.121",
+    "manual": "path of the manual pdf",
+    "chapter": "FIRST-LAST pages of the scripting reference",
+    "index": "FIRST-LAST pages of the Script Index, optional",
+    "source": "citation id, for example SRC-740, optional",
+}
+_MANIFEST_REQUIRED = ("label", "manual", "chapter")
+
+
+def read_edition_manifest(path: str | Path) -> tuple[Edition, ...]:
     """Read an edition manifest, the file that makes a sweep repeatable.
 
     The manifest is a list of mappings with the keys of :class:`Edition`,
@@ -672,6 +714,10 @@ def read_editions(path: str | Path) -> tuple[Edition, ...]:
 
     It is never committed here. It names paths of licensed manuals, and
     those live in ``_private/`` (CLAUDE.md invariant 1).
+
+    Named for the manifest and not for the editions, unlike the
+    neighbouring :func:`read_pdf_pages`: this opens a small text file and
+    returns descriptors, and opens no manual at all.
 
     Parameters
     ----------
@@ -687,13 +733,24 @@ def read_editions(path: str | Path) -> tuple[Edition, ...]:
     ------
     ManualDraftError
         If the file is not a list of mappings, if a row lacks ``label``,
-        ``manual`` or ``chapter``, or if a page range is not
-        ``FIRST-LAST`` with FIRST no greater than LAST. Every check
-        names the offending row, because a manifest is edited rarely and
-        by hand.
-    """
-    import yaml
+        ``manual`` or ``chapter``, carries a key outside the five, names
+        a manual that does not exist, or writes a page range that is not
+        ``FIRST-LAST`` with FIRST no greater than LAST. Every check names
+        the offending row, because a manifest is edited rarely and by
+        hand, and EVERY row is checked before any manual is opened: a
+        typo in the fourth row used to surface after three manuals had
+        been parsed.
 
+    Examples
+    --------
+    A manifest with one edition, as it would be written by hand::
+
+        - label: "26.121"
+          source: SRC-740
+          manual: _private/manual/user-manual-26121.pdf
+          chapter: 284-379
+          index: 380-386
+    """
     text = Path(path).read_text(encoding="utf-8")
     rows = yaml.safe_load(text)
     if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
@@ -712,18 +769,41 @@ def read_editions(path: str | Path) -> tuple[Edition, ...]:
             raise ManualDraftError(f"{where}: {key} ends before it starts, {spec!r}")
         return int(first), int(last)
 
+    known = ", ".join(f"{key} ({why})" for key, why in _MANIFEST_KEYS.items())
     editions = []
     for position, row in enumerate(rows, start=1):
         where = f"{path} entry {position}"
-        for key in ("label", "manual", "chapter"):
+        for key in _MANIFEST_REQUIRED:
             if key not in row:
-                raise ManualDraftError(f"{where}: missing {key}")
+                raise ManualDraftError(f"{where}: missing {key!r}. An edition row holds {known}")
+        unknown = sorted(set(row) - set(_MANIFEST_KEYS))
+        if unknown:
+            # Refused rather than ignored, because the shape of the
+            # degradation is misleading: a misspelled 'index' key leaves
+            # every command unlabelled, and the report then says the
+            # index does not name them, which is a statement about the
+            # manual rather than about the typo that caused it.
+            raise ManualDraftError(
+                f"{where}: unknown key(s) {unknown}. An edition row holds {known}"
+            )
+        # Ranges before existence: both are checked before any manual is
+        # opened, which is the point, and within a row a malformed page
+        # range is the more specific complaint of the two.
+        chapter = _range(row, "chapter", where)
+        index = _range(row, "index", where) if "index" in row else None
+        manual = Path(str(row["manual"]))
+        if not manual.is_file():
+            raise ManualDraftError(
+                f"{where}: manual {str(manual)!r} is not a readable file. Manual paths are "
+                "relative to the working directory and name licensed material this "
+                "repository never carries, so a fresh clone has to point them at its own copy"
+            )
         editions.append(
             Edition(
                 label=str(row["label"]),
-                manual=Path(str(row["manual"])),
-                chapter=_range(row, "chapter", where),
-                index=_range(row, "index", where) if "index" in row else None,
+                manual=manual,
+                chapter=chapter,
+                index=index,
                 source=str(row["source"]) if "source" in row else None,
             )
         )

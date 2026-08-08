@@ -58,9 +58,9 @@ SET_PLOT_TYPE:
     rather than recorded, there being nothing a second identical token
     could mean.
 
-    The nine AXIS tokens pair a coefficient with an axis of the plot,
-    which is why CL_AXIS_X and CL_AXIS_Y are two plots of one
-    coefficient rather than two coefficients.
+    The eighteen AXIS tokens pair one of six coefficients with one of
+    three axes, which is why CL_AXIS_X and CL_AXIS_Y are two plots of
+    one coefficient rather than two coefficients.
 
 SAVE_PLOT_TO_FILE:
   layout: inline

@@ -2736,9 +2736,13 @@ def test_the_ccs_exports_take_the_six_of_their_heading_not_the_four_of_their_tab
         ]
         script = Script(version="26.120")
         script.emit(name, "Body", "TRUE", "BLUNT", "TRUE", "C2", "C0", "body_ccs.csv")
-        rendered = script.render()
-        assert f"{name} Body TRUE BLUNT TRUE C2 C0" in rendered
-        assert "body_ccs.csv" in rendered, "the destination is written on its own line"
+        # Line-exact, not a substring: both substrings hold with or
+        # without `own_line`, so the weaker form passed on an entry that
+        # wrote the destination onto the command line.
+        assert script.render().splitlines()[:2] == [
+            f"{name} Body TRUE BLUNT TRUE C2 C0",
+            "body_ccs.csv",
+        ]
         with pytest.raises(CommandArgumentError):
             Script(version="26.120").emit(name, "Body", "TRUE", "C2", "C0")
 
@@ -3085,13 +3089,20 @@ def test_the_advanced_settings_toggles_emit_on_the_editions_that_document_them()
         script.emit("KUTTA_JOUKOWSKI_LIFT_FORCES", "ENABLE")
         script.emit("PRINT_ROTOR_INDUCED_VELOCITIES", "ENABLE")
         script.emit("SET_ADAPTIVE_FIELD_GRID_REFINEMENT", "DISABLE")
-        assert "KUTTA_JOUKOWSKI_LIFT_FORCES ENABLE" in script.render()
+        assert script.render().splitlines() == [
+            "KUTTA_JOUKOWSKI_LIFT_FORCES ENABLE",
+            "PRINT_ROTOR_INDUCED_VELOCITIES ENABLE",
+            "SET_ADAPTIVE_FIELD_GRID_REFINEMENT DISABLE",
+        ]
 
-    # The four the February edition does not document.
+    # The four the February edition does not document. The count and the
+    # tuple disagreed until the 2026-08-08 QA pass: SOLVER_STABILIZATION
+    # is the fourth and was missing, so it shipped with no test at all.
     for name, value in (
         ("ROTOR_INDUCED_VELOCITY_BLENDING", 0.5),
         ("SET_WAKE_NUMERICAL_RELAXATION", 0.5),
         ("SET_JET_WAKE_DECAY_NORMALIZED_LENGTH", 25.5),
+        ("SOLVER_STABILIZATION", 0.5),
     ):
         with pytest.raises(CommandNotInVersionError):
             Script(version="26.100").emit(name, value)
@@ -3313,3 +3324,228 @@ def test_the_stability_coefficient_keywords_follow_the_samples_not_the_table():
         "boundaries",
         "boundary_indices",
     ]
+
+
+# --- The tail chapters of 2026-08-08 ------------------------------------------
+#
+# One walk per chapter file, as every other chapter of the sweep has. The
+# tail landed as 28 commands across 21 sections with no emission test at
+# all, which the QA pass caught: the schema walk sees an entry, and only
+# a render sees the argument ORDER, the own_line placement and the
+# count-and-list pairing.
+
+
+@pytest.mark.parametrize("version", ["26.100", "26.101", "26.120", "26.121"])
+def test_the_mesh_unite_chapter_emits_on_every_registered_build(version):
+    """The path command first, which the manual says must precede the unite."""
+    script = Script(version=version)
+    script.emit("BOOLEAN_UNITE_PATH", openvsp_path="VSP/")
+    script.emit("BOOLEAN_UNITE_MESH", 5, [1, 2, 3, 4, 5])
+    script.emit("BOOLEAN_UNITE_MESH", -1)
+    golden = (GOLDENS / "mesh_unite_chapter.txt").read_text(encoding="utf-8")
+    assert script.render() == golden
+
+
+def test_the_unite_list_is_space_separated_where_its_neighbours_use_commas():
+    """The separator is emitted literally, so the difference is per command.
+
+    Both samples on the Mesh Unite page print spaces, where SURFACE_COMBINE
+    and WRAPPER_SET_INPUT print commas for the same count-then-payload
+    shape. Harmonising them would send the solver a line it does not read.
+    """
+    unite = Script(version="26.120")
+    unite.emit("BOOLEAN_UNITE_MESH", 3, [1, 3, 4])
+    assert unite.render().splitlines()[1] == "1 3 4"
+
+    combine = Script(version="26.120")
+    combine.emit("SURFACE_COMBINE", 3, [1, 3, 4])
+    assert combine.render().splitlines()[1] == "1,3,4"
+
+
+@pytest.mark.parametrize("version", ["26.100", "26.101", "26.120", "26.121"])
+def test_the_tail_of_the_cad_and_control_chapters_emits(version):
+    """IMPORT_CAD through the log and index commands, in phase order."""
+    script = Script(version=version)
+    script.emit("IMPORT_CAD", "MEDIUM", "TRUE", 80, "sample.igs")
+    script.emit("CONVERT_CAD_TO_MESH", -1)
+    script.emit("CAD_CREATE_MIRROR_CURVES", 1, "XZ", "DELETE")
+    script.emit("SET_TRAILING_EDGE_SWEEP_ANGLE", 45.0)
+    script.emit("SET_TRAILING_EDGE_BLUNTNESS_ANGLE", 85.0)
+    script.emit("SET_VERTEX_MERGE_TOLERANCE", 1e-5)
+    script.emit("DELETE_TRANSITION_TRIP", 2)
+    script.emit("CLEAR_LOG")
+    script.emit("OUTPUT_SURFACE_INDICES", "indices.csv")
+    golden = (GOLDENS / "tail_cad_and_controls.txt").read_text(encoding="utf-8")
+    assert script.render() == golden
+
+
+def test_the_surface_index_report_writes_to_the_log_when_given_no_path():
+    """The rare own_line argument that is not required.
+
+    The manual states the path is optional in as many words, and the two
+    forms do different things: with a path the report is a file, without
+    one it is log output. A required argument would make the second
+    unreachable.
+    """
+    with_file = Script(version="26.120")
+    with_file.emit("OUTPUT_SURFACE_INDICES", "indices.csv")
+    assert with_file.render().splitlines()[:2] == ["OUTPUT_SURFACE_INDICES", "indices.csv"]
+
+    to_log = Script(version="26.120")
+    to_log.emit("OUTPUT_SURFACE_INDICES")
+    assert to_log.render().strip() == "OUTPUT_SURFACE_INDICES"
+
+
+@pytest.mark.parametrize("version", ["26.100", "26.101", "26.120", "26.121"])
+def test_the_tail_of_the_edge_and_section_chapters_emits(version):
+    """Trailing edges, wake nodes, and the section deletes and exports."""
+    script = Script(version=version)
+    script.emit("DETECT_TRAILING_EDGES_BY_SURFACE", surfaces=2, surface_indices=[2, 4])
+    script.emit("TRAILING_EDGES_IMPORT", "trailing_edges.csv")
+    script.emit("DETECT_WAKE_TERMINATION_NODES_BY_SURFACE", 2)
+    script.emit("SET_VORTICITY_LIFT_MODEL", "ENABLE")
+    script.emit("SET_SCENE_CONTOUR", "mach_number")
+    script.emit("SET_PLOT_TYPE", "FORCE_Z_AXIS_Y")
+    script.emit("SAVE_PLOT_TO_FILE", "Test_Plot.txt")
+    script.emit("VOLUME_SECTION_WIREFRAME", 2, "ENABLE")
+    script.emit("EXPORT_VOLUME_SECTION_2D_VTK", 2, "section_2d.vtk")
+    script.emit("DELETE_ALL_SURFACE_SECTIONS")
+    script.emit("DELETE_ALL_VOLUME_SECTIONS")
+    golden = (GOLDENS / "tail_edges_and_sections.txt").read_text(encoding="utf-8")
+    assert script.render() == golden
+
+
+def test_the_scene_contour_emits_the_lower_case_spelling_its_page_prints():
+    """The one lowercase closed set in the database, and it is the page's own.
+
+    Every other closed set here is uppercase because that is how the
+    manual prints it; this page prints these 33 in lower case. What
+    reaches the script is the DECLARED spelling either way: enum
+    matching is case-insensitive and normalises to the member, so a
+    caller writing MACH_NUMBER still emits mach_number.
+
+    Pinned because harmonising the values to uppercase is the natural
+    tidying edit, and it would silently change what every one of these
+    33 tokens puts in a script.
+    """
+    for written in ("mach_number", "MACH_NUMBER", "Mach_Number"):
+        script = Script(version="26.120")
+        script.emit("SET_SCENE_CONTOUR", written)
+        assert script.render().strip() == "SET_SCENE_CONTOUR mach_number", written
+
+    with pytest.raises(CommandArgumentError, match="expects one of"):
+        Script(version="26.120").emit("SET_SCENE_CONTOUR", "not_a_contour")
+
+
+def test_the_plot_type_list_holds_the_duplicate_only_once():
+    """The page prints RESIDUALS twice, in every edition.
+
+    A duplicate in a closed set is dropped rather than recorded, there
+    being nothing a second identical token could mean, so the command
+    takes 23 tokens and not the 24 rows printed.
+    """
+    entry = CommandRegistry.load().commands["SET_PLOT_TYPE"]
+    (plot_type,) = entry.args
+    assert len(plot_type.values) == len(set(plot_type.values)) == 23
+
+
+@pytest.mark.parametrize("version", ["26.100", "26.101", "26.120", "26.121"])
+def test_the_unsteady_animation_writes_both_of_its_printed_forms(version):
+    """Two samples: four keyword lines when enabling, one bare line when not.
+
+    Every keyword is optional because of that second sample, and the
+    mode sits on the command line, which is the second use of
+    `on_command_line` in the database.
+    """
+    enabling = Script(version=version)
+    enabling.emit(
+        "UNSTEADY_SOLVER_ANIMATION",
+        mode="ENABLE",
+        folder="animation_files",
+        filetype="PARAVIEW_VTK",
+        frequency=1,
+        volume_sections="ENABLE",
+        volume_sections_format="VTK2D",
+    )
+    assert enabling.render().rstrip().splitlines() == [
+        "UNSTEADY_SOLVER_ANIMATION ENABLE",
+        "FOLDER animation_files",
+        "FILETYPE PARAVIEW_VTK",
+        "FREQUENCY 1",
+        "VOLUME_SECTIONS ENABLE VTK2D",
+    ]
+
+    disabling = Script(version=version)
+    disabling.emit("UNSTEADY_SOLVER_ANIMATION", mode="DISABLE")
+    assert disabling.render().strip() == "UNSTEADY_SOLVER_ANIMATION DISABLE"
+
+
+def test_the_february_only_commands_refuse_on_every_later_build():
+    """Two commands the February edition documents and no later one does."""
+    for name, args in (("DISABLE_ACTUATOR", (2,)), ("EXECUTE_SOLVER_SWEEPER", ())):
+        entry = CommandRegistry.load().commands[name]
+        assert set(entry.versions) == {"26.100"}, name
+        for later in ("26.101", "26.120", "26.121"):
+            with pytest.raises(CommandNotInVersionError):
+                Script(version=later).emit(name, *args)
+
+    early = Script(version="26.100")
+    early.emit("CREATE_NEW_ACTUATOR", "PROPELLER", "ELLIPTICAL", "Prop-1")
+    early.emit("CREATE_NEW_ACTUATOR", "PROPELLER", "ELLIPTICAL", "Prop-2")
+    early.emit("DISABLE_ACTUATOR", 2)
+    assert "DISABLE_ACTUATOR 2" in early.render(), (
+        "its heading prints no placeholder and its own sample passes an index; "
+        "recording zero arguments would refuse the only runnable line the edition has"
+    )
+
+
+def test_the_solver_sweeper_writes_its_two_paths_as_bare_lines():
+    """The 21-parameter command, and the shape a reader cannot tell apart.
+
+    Two paths are written unlabelled: a FOLDER after the per-step export
+    format, and the results FILE last. Only their position distinguishes
+    them, so the order is pinned.
+    """
+    script = Script(version="26.100")
+    script.emit(
+        "EXECUTE_SOLVER_SWEEPER",
+        angle_of_attack="ENABLE",
+        side_slip_angle="DISABLE",
+        velocity="DISABLE",
+        angle_of_attack_start=0.0,
+        angle_of_attack_stop=10.0,
+        angle_of_attack_delta=1.0,
+        side_slip_angle_start=0.0,
+        side_slip_angle_stop=0.0,
+        side_slip_angle_delta=1.0,
+        export_surface_data_per_step="VTK",
+        export_folder="sweep_results/",
+        clear_solution_after_each_run="ENABLE",
+        reference_velocity_equals_freestream="ENABLE",
+        append_to_existing_sweep="DISABLE",
+        file="sweep_results/test_sweep.txt",
+    )
+    lines = script.render().rstrip().splitlines()
+    assert lines[0] == "EXECUTE_SOLVER_SWEEPER"
+    assert lines[lines.index("EXPORT_SURFACE_DATA_PER_STEP VTK") + 1] == "sweep_results/"
+    assert lines[-1] == "sweep_results/test_sweep.txt"
+
+
+def test_the_two_new_count_spellings_are_checked_against_their_own_lists():
+    """The structural guard says the spelling is known; this says it is USED.
+
+    A count disagreeing with its list makes the solver read the next
+    command line as data, silently. `test_every_declared_count_is_a_known
+    _count_name` would stay green if `_check_counts` regressed, which is
+    why the behavioural half exists per spelling.
+    """
+    for name, kwargs in (
+        ("WRAPPER_SET_INPUT", {"num_surfaces": 2, "surface_indices": [1, 2, 3]}),
+        ("BOOLEAN_UNITE_MESH", {"num_bodies": 2, "body_indices": [1, 2, 3]}),
+    ):
+        with pytest.raises(CommandArgumentError):
+            Script(version="26.120").emit(name, **kwargs)
+
+    good = Script(version="26.120")
+    good.emit("BOOLEAN_UNITE_MESH", num_bodies=3, body_indices=[1, 2, 3])
+    assert good.render().splitlines()[:2] == ["BOOLEAN_UNITE_MESH 3", "1 2 3"]

@@ -118,12 +118,22 @@ class FlagSpec:
 
 
 #: Every snapshot flag, in the emission order of the curated helper.
-# The eight Advanced Settings commands the v0.5.0 sweep entered on
-# 2026-08-08. Every command of a settings family is a snapshot flag, so
-# entering the chapter and leaving the model alone is not an option the
-# tier-1 guard allows; that is the guard working, and it is why these
-# arrived with the chapter rather than a release later.
-_ADVANCED_2026_08_08: tuple[FlagSpec, ...] = (
+# The wake, rotor and lift-model knobs of the Advanced Settings chapter,
+# entered by the v0.5.0 sweep on 2026-08-08. Named for what they are
+# rather than for the day they landed: this tuple splices into an
+# order-bearing sequence, so the next reader's question is why they emit
+# HERE, and a date cannot answer it.
+#
+# They emit after the separation models and before the boundary lists
+# because they are solver knobs read at initialization and depend on
+# nothing the helper emits: any position among the scalars would do, and
+# this one keeps them beside the wake settings already there.
+#
+# Every command of a settings family is a snapshot flag, so entering the
+# chapter and leaving the model alone is not an option the tier-1 guard
+# allows; that is the guard working, and it is why these arrived with
+# the chapter rather than a release later.
+_WAKE_AND_ROTOR_ADVANCED: tuple[FlagSpec, ...] = (
     FlagSpec("kutta_joukowski_lift", "KUTTA_JOUKOWSKI_LIFT_FORCES", "toggle"),
     FlagSpec("print_rotor_induced_velocities", "PRINT_ROTOR_INDUCED_VELOCITIES", "toggle"),
     FlagSpec("adaptive_field_grid_refinement", "SET_ADAPTIVE_FIELD_GRID_REFINEMENT", "toggle"),
@@ -165,7 +175,7 @@ FLAG_SPECS: tuple[FlagSpec, ...] = (
     FlagSpec("thin_boundaries", "SET_THIN_BOUNDARIES", "boundary_list"),
     FlagSpec("thin_boundaries", "DELETE_THIN_BOUNDARIES", "boundary_list_clear"),
     FlagSpec("bulk_separation", "CREATE_BULK_SEPARATION", "bulk_separation"),
-    *_ADVANCED_2026_08_08,
+    *_WAKE_AND_ROTOR_ADVANCED,
     # The last two settings-family commands of the v0.5.0 sweep, entered
     # 2026-08-08 with the tail chapters.
     FlagSpec("solver_stabilization", "SOLVER_STABILIZATION", "scalar"),

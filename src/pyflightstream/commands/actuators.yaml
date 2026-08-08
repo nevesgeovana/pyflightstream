@@ -17,7 +17,7 @@ CREATE_NEW_ACTUATOR:
       type: str
   manual_ref: "SRC-003 p.323"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.318, same grammar as 26.120"}
+    "26.100": {status: verified, report: "reports/compat/CMP-26100_2026-08-08_enableactuator.yaml"}
     "26.101": {status: documented, note: "SRC-725 p.322, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
