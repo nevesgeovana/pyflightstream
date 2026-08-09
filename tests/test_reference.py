@@ -156,3 +156,132 @@ def test_percent_script_markdown_splits_cells():
     assert "# Title\nProse line." in page
     assert "```python\nx = 1\n```" in page
     assert "Docstring" not in page
+
+
+# --- the evidence legend ------------------------------------------------------
+#
+# Added because a reader asked what the five cells mean and the pages
+# defined only two of them, the empty cell and the inheritance mark. A
+# legend is prose about behaviour, which is the kind of documentation
+# that goes stale silently, so these pin it against the behaviour rather
+# than against itself.
+
+
+def test_both_rendering_layers_carry_the_same_legend():
+    """Two layers, one legend, because this module has form on that.
+
+    `test_no_consumer_of_a_citation_prints_an_empty_one` records the
+    time a citation was added and one of the two renderers converted:
+    the markdown page was fixed and the HTML fallback printed a probe
+    report under a column headed Manual ref. Both layers read one tuple
+    now, and this is what keeps that true.
+    """
+    from pyflightstream.reference import (
+        _STATUS_LEGEND,
+        markdown_compatibility_matrix,
+        render_html,
+    )
+
+    matrix = markdown_compatibility_matrix()
+    page = render_html()
+    assert len(_STATUS_LEGEND) == 5, "the legend should name four statuses and the empty cell"
+    for state, rests_on, emitter in _STATUS_LEGEND:
+        for surface, text in (("matrix", matrix), ("html", page)):
+            assert state in text, f"the {surface} legend does not name {state!r}"
+            # A distinctive fragment rather than the whole sentence: the
+            # HTML layer escapes its text, so the two are not identical
+            # strings even though they are the same content.
+            assert rests_on.split(".")[0][:40] in text, (
+                f"the {surface} legend names {state!r} without saying what it rests on"
+            )
+            assert emitter.split(",")[0] in text, (
+                f"the {surface} legend does not say what the emitter does with {state!r}"
+            )
+
+
+def test_the_legend_describes_what_the_emitter_actually_does():
+    """The half a reader cannot check, checked.
+
+    The legend says two of the five states are refused and three are
+    not, and a reader planning a run acts on that. It is prose about
+    behaviour, so it is pinned to the behaviour: each claim is made by
+    emitting a real command of that status on a real build.
+    """
+    from pyflightstream.commands import CommandNotInVersionError, CommandRegistry, Status
+    from pyflightstream.reference import _STATUS_LEGEND
+    from pyflightstream.script import BrokenCommandError, Script
+
+    registry = CommandRegistry.load()
+
+    def one_with(status):
+        for name, entry in sorted(registry.commands.items()):
+            for canonical, row in entry.versions.items():
+                if row.status is status:
+                    return name, canonical
+        raise AssertionError(f"no {status} row in the database, so this guard walks nothing")
+
+    #: 26.000 carries no evidence for any command, which is what makes it
+    #: the population the empty-cell row describes.
+    population = {
+        "documented": one_with(Status.DOCUMENTED),
+        "verified": one_with(Status.VERIFIED),
+        "broken": one_with(Status.BROKEN),
+        "removed": one_with(Status.REMOVED),
+        "empty cell": ("START_SOLVER", "26.000"),
+    }
+
+    # THE EXPECTATION IS READ OFF THE LEGEND, not written here beside it.
+    # The first version of this test asserted the behaviour and never
+    # compared it to the prose, so rewriting the legend to call `broken`
+    # emitted left the whole file green: the guard measured the code and
+    # certified the sentence, which is the shape this repository keeps
+    # finding in its own guards.
+    legend = {state: emitter for state, _rests_on, emitter in _STATUS_LEGEND}
+    assert set(legend) == set(population), (
+        f"the legend and this walk disagree about which states exist: {sorted(legend)} "
+        f"versus {sorted(population)}"
+    )
+
+    for state, (name, canonical) in population.items():
+        says_refused = legend[state].startswith("REFUSED")
+        script = Script(version=canonical)
+        try:
+            script.emit(name)
+            refused = False
+        except (BrokenCommandError, CommandNotInVersionError):
+            refused = True
+        except Exception:  # noqa: BLE001 - an argument refusal is a separate gate
+            refused = False
+        assert refused == says_refused, (
+            f"the legend says {state!r} is "
+            f"{'refused' if says_refused else 'emitted'} and {name} on {canonical} was "
+            f"{'refused' if refused else 'emitted'}. One of the two is wrong, and the "
+            "page is the one a reader acts on"
+        )
+
+
+def test_the_legend_names_the_waiver_the_way_a_caller_must_call_it():
+    """A legend naming an API that does not exist is worse than no legend.
+
+    The first draft of this one said `Script(allow_broken=True)`, a
+    constructor keyword this package does not have; the real waiver is a
+    method, per command, and it refuses an empty reason because the
+    reason is recorded in the run manifest.
+    """
+    import inspect
+
+    import pytest as _pytest
+
+    from pyflightstream.reference import _STATUS_LEGEND
+    from pyflightstream.script import CommandArgumentError, Script
+
+    broken = next(row for row in _STATUS_LEGEND if row[0] == "broken")
+    assert "Script.allow_broken(name, reason=...)" in broken[2], (
+        "the legend describes the waiver in a form a caller cannot type"
+    )
+    signature = inspect.signature(Script.allow_broken)
+    assert list(signature.parameters) == ["self", "name", "reason"], signature
+    assert signature.parameters["reason"].kind is inspect.Parameter.KEYWORD_ONLY
+    assert "allow_broken" not in inspect.signature(Script.__init__).parameters
+    with _pytest.raises(CommandArgumentError, match="needs a reason"):
+        Script(version="26.100").allow_broken("AIR_ALTITUDE", reason="")

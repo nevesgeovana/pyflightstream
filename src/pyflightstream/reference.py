@@ -484,6 +484,96 @@ def _package_version() -> str:
         return "unknown"
 
 
+#: What each evidence state rests on and what the emitter does with it,
+#: as data, because there are TWO rendering layers and this repository
+#: has already shipped a correction to one of them and not the other.
+#: Both consume this tuple, so neither can carry a different legend.
+#:
+#: The right-hand column is the half a reader cannot get from the status
+#: name. These are EVIDENCE states rather than quality judgements, so
+#: `documented` says a manual page describes the command and nobody has
+#: run it, not that it works; and two of the five make the script
+#: builder refuse, which is what a person reading the matrix to plan a
+#: run actually needs to know.
+_STATUS_LEGEND: tuple[tuple[str, str, str], ...] = (
+    (
+        "documented",
+        "A manual page of that edition describes the command and its grammar "
+        "(manual_ref), or a committed report measured the solver ACCEPTING a "
+        "command no edition documents (probe_ref). Nobody has run it on this "
+        "build, so it is a claim about a document.",
+        "Emitted.",
+    ),
+    (
+        "verified",
+        "A Tier 2 probe ran the command on a licensed machine and observed its "
+        "effect. The strongest state here, and the only one that rests on the "
+        "solver rather than on a reading.",
+        "Emitted.",
+    ),
+    (
+        "broken",
+        "A probe recorded a discrepancy between the manual and the solver: the "
+        "script aborted at the command, the log carried an error inside the "
+        "probe's own region, or the command ran and changed nothing. A command "
+        "that runs but does nothing is broken, not verified.",
+        "REFUSED, with BrokenCommandError. Waivable per command with "
+        "Script.allow_broken(name, reason=...), which needs a reason because "
+        "the waiver, the report it overrides and the first line it covers are "
+        "all recorded in the run manifest.",
+    ),
+    (
+        "removed",
+        "The build does not carry the command, and the row says which of three "
+        "things happened: an edition STATES the withdrawal, an edition simply "
+        "STOPS PRINTING the command, or a probe MEASURED the solver refusing "
+        "the name. Only the third observes the solver, and it cites its run.",
+        "REFUSED, with CommandNotInVersionError naming the build and the citation.",
+    ),
+    (
+        "empty cell",
+        "No recorded evidence for that build. Not a claim that the command is "
+        "absent: it awaits a manual reading of that edition or a probe. This is "
+        "the honest absence, and no status is ever guessed to fill it.",
+        "REFUSED, with CommandNotInVersionError listing the evidence that does "
+        "exist on other builds.",
+    ),
+)
+
+
+def _status_legend_markdown() -> str:
+    """Render the evidence legend as a markdown section."""
+    rows = "\n".join(
+        f"| {state} | {rests_on} | {emitter} |" for state, rests_on, emitter in _STATUS_LEGEND
+    )
+    return (
+        "## Reading a cell\n\n"
+        "The five states are EVIDENCE states, not quality judgements, and "
+        "two of them make the script builder refuse the command. That "
+        "second column is the one a reader planning a run needs.\n\n"
+        "| Cell | What it rests on | What `Script.emit` does |\n"
+        "|---|---|---|\n"
+        f"{rows}\n"
+    )
+
+
+def _status_legend_html() -> str:
+    """Render the evidence legend as an HTML section."""
+    rows = "\n".join(
+        f"<tr><td>{html.escape(state)}</td><td>{html.escape(rests_on)}</td>"
+        f"<td>{html.escape(emitter)}</td></tr>"
+        for state, rests_on, emitter in _STATUS_LEGEND
+    )
+    return (
+        "<h2>Reading a status</h2>\n"
+        "<p>The five states are evidence states, not quality judgements, and "
+        "two of them make the script builder refuse the command.</p>\n"
+        "<table>\n<tr><th>Status</th><th>What it rests on</th>"
+        "<th>What Script.emit does</th></tr>\n"
+        f"{rows}\n</table>"
+    )
+
+
 def _database_meta_sentence(entry_count: int, scope: str) -> str:
     """Return the provenance sentence shared by both rendering layers."""
     registered = ", ".join(f"{v.canonical} ({v.alias})" for v in known_versions())
@@ -594,6 +684,7 @@ def render_html(version: str | FsVersion | None = None) -> str:
         f"<title>pyflightstream command reference</title><style>{_STYLE}</style></head>"
         "<body>\n<h1>pyflightstream command reference</h1>\n"
         f'<p class="meta">{html.escape(_database_meta_sentence(entry_count, scope))}</p>\n'
+        f"{_status_legend_html()}\n"
         f"{_conventions_html()}\n"
         f"{_coverage_html()}\n"
         f"{body}\n</body></html>\n"
@@ -807,10 +898,7 @@ def markdown_compatibility_matrix() -> str:
         "",
         _database_meta_sentence(entry_count, "all registered versions"),
         "",
-        "An empty cell means no recorded evidence for that version: the "
-        "command awaits release-notes review or backfill probing, and the "
-        "script builder refuses it for that version until evidence lands.",
-        "",
+        _status_legend_markdown(),
         "A cell marked " + _INHERITED_MARK + " carries the base release's "
         "evidence rather than evidence recorded for that build. A build "
         "inherits its base release's record until a probe overrides it, "
