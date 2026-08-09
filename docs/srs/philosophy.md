@@ -78,6 +78,8 @@ assumed ones.
 Since v0.5.0 that report has nothing to list, every command the
 registered editions document being recorded. Read that as the coverage
 question closing rather than as the honesty rule relaxing: the same
-release added three commands whose grammar DIFFERS per edition and one
-the newest build refuses, all of which a rule-driven backfill would have
-recorded as working.
+release found four commands whose grammar DIFFERS per edition and one
+the newest build refuses, every one of which a rule-driven backfill
+would have recorded as working. The count lives in the release note
+rather than here, a number restated in two homes being the thing this
+paragraph is about.

@@ -3,7 +3,7 @@
 Version-aware, didactic Python driver for the FlightStream panel-method
 solver. MIT licensed.
 
-Status: v0.4.0 is the current release on PyPI; the changelog records what each
+Status: v0.5.0 is the current release on PyPI; the changelog records what each
 release adds. Five command-line tools ship with the package: `pyfs-qa`
 (probes, physics regression, drift), `pyfs-workspace` (campaign
 workspace init), `pyfs-matrix` (run-matrix convert and pre-flight),

@@ -58,10 +58,23 @@ a licensed machine and the answer is a committed report.
   neighbour; with no 26.121 row the registry handed it 26.120's
   evidence by hotfix inheritance, so a caller on that build got a
   validated script the solver refuses with an unrecognised command. The
-  row is `removed` now, promoted from the report rather than read off
-  the hotfix edition's silence. Second measured counter-example to that
-  inheritance after `AIR_ALTITUDE`, and the first where the inherited
-  evidence was optimistic.
+  row is `removed` now, promoted from the run rather than read off the
+  hotfix edition's silence, and a caller on 26.121 gets a refusal naming
+  the build instead of a line the solver rejects. Second measured
+  counter-example to that inheritance after `AIR_ALTITUDE`, and the
+  first where the inherited evidence was optimistic.
+
+  That row also needed a citation kind the database did not have.
+  `ProbeOutcome` has no `removed` member, so the harness records a build
+  that lacks a command as `broken`, which claims something else, and the
+  guard that checks a status against its own compat yaml therefore had
+  nothing to open. `VersionStatus` gains `probe_ref`, a committed
+  narrative report of a run, admissible for `removed` and REFUSED for
+  every other status: `verified` and `broken` stay checkable against
+  harness output, because a guard whose population quietly shrinks
+  reports green either way.
+  `PLN-20260809-0300-the-harness-has-no-removed-outcome` carries the
+  harness change that retires the field.
 
   `CREATE_NEW_BASE_REGION` GAINS `CUSTOM`: the solver accepts either
   that or `USER` there, while `SET_BASE_REGION_CP` accepts `CUSTOM`
@@ -86,8 +99,15 @@ a licensed machine and the answer is a committed report.
   prints and nothing distinguished that from the command not existing.
   Forty of them were on the February build, which is why its minimal
   end-to-end workflow could not be built. All four registered builds now
-  derive `operational`. Emittable per version 345, 364, 365, 371, from
-  305, 332, 365, 371.
+  derive `operational`.
+
+  WHAT 122 COUNTS, since a reader comparing it against the diff will
+  otherwise reach for the wrong number: pairs, not commands. One command
+  documented by three editions and carrying a row for none of them is
+  three pairs, and the backfill wrote 124 version rows, the two over
+  being the per-version grammars written the same day. The count of
+  distinct COMMANDS touched is smaller than 122 and is not the figure
+  this stanza is about.
 
   EVERY PAIR WAS READ ON ITS PAGE, and four of the 122 turned out to
   differ, each now carrying its own per-version grammar rather than a
@@ -104,6 +124,9 @@ a licensed machine and the answer is a committed report.
     the older editions do not print, a count of -1 selecting every
     boundary and taking no index lines, so that row declares the
     sentinel and makes the list optional.
+  - `NEW_CCS_WING_CONTROL_SURFACE` on 26.100 and 26.101 takes eight
+    arguments and not ten: `SPACE` and `AXIS` arrive with 26.120, so
+    spanwise placement is parametric only on the older builds.
 
 * **The saved simulation is an instrument, and forty commands stop being
   unobservable** (`RPT-020`). The compat reports called their effects
@@ -190,24 +213,76 @@ a licensed machine and the answer is a committed report.
   current users are required, so the gap was latent, and it is the same
   failure class the field was added to prevent.
 
-**The public surface added in this window, in one place.**
+**INCOMPATIBLE CHANGES, first because they are what an upgrade can
+break.** Five, all of them from earlier in this development cycle and
+each explained in its own stanza below.
+
+* `resolve("26.1")` RAISES `AmbiguousVersionAliasError` where it
+  returned 26.100. The vendor shipped two releases under that one name,
+  so the alias no longer identifies a build; pass a canonical
+  identifier, `"26.100"` or `"26.101"`, and the refusal names both.
+* `FsVersion(...)` refuses construction at a hotfix index the registry
+  does not know. Building one by hand let a caller assert an
+  inheritance fact that is the registry's to state.
+* `SWEEPER_SET_VELOCITY_SWEEP`'s file path moved from the second
+  positional argument to the third. Pass it as `filename=`.
+* `solver_settings(viscous_excluded=[])` now emits
+  `DELETE_VISCOUS_EXCLUDED_BOUNDARIES` rather than a `SET` with a count
+  of zero and an empty payload line, which the solver misread.
+* A database entry with an inline list argument may no longer declare a
+  separator other than `space`; the load refuses it. This reaches an
+  entry author rather than a caller.
+
+**Deprecations: none.**
+
+**ONE THING THE v0.4.0 NOTES PROMISED FOR THIS RELEASE AND THIS RELEASE
+DOES NOT DO.** Those notes announced the dry-run rename, breaking and
+with no alias: `plan_matrix` to `dryrun_matrix`, `plan_campaign` to
+`dryrun_campaign`, and `pyfs-matrix plan` to `pyfs-matrix dryrun`. It
+has not landed. Nothing in the deprecation ledger held it, so no guard
+noticed, and it surfaced in this release's own documentation review.
+
+Said plainly rather than quietly carried forward, because an announced
+break that does not arrive is a promise a reader planned around. The
+three names are unchanged and keep working. The rename moves to the
+next minor and is registered as `PLN-20260809-0200` with the ledger
+entry it should have had.
+
+**The public surface ADDED, in one place.** A new console script,
+`pyfs-manual`, with the subcommands `coverage`, `draft` and `sweep`,
+behind a new optional extra `[manual]` (pypdf). A new subpackage,
+`pyflightstream.utils`, exporting `Edition`, `SweptCommand`,
+`sweep_editions`, `read_edition_manifest`, `Coverage`, `ManualCommand`,
+`ManualDraftError`, `TypeRule`, `TYPE_RULES`, `coverage_against`,
+`parse_script_index`, `parse_signatures`, `propose_layout`,
+`propose_type`, `read_pdf_pages`, `render_chapter`, `render_entry`,
+`sample_contradiction` and `write_chapter`.
+
 `helpers.solver_settings` gains TEN keyword parameters
 (`kutta_joukowski_lift`, `print_rotor_induced_velocities`,
 `adaptive_field_grid_refinement`, `jet_wake_filaments_grid_induction`,
 `rotor_induced_velocity_blending`, `wake_numerical_relaxation`,
 `jet_wake_decay_normalized_length`, `wake_decay_constant`,
 `solver_stabilization`, `disable_ref_velocity`). `ArgSpec` gains the
-field `on_command_line`. `pyflightstream.utils` gains `Edition`,
-`SweptCommand`, `sweep_editions` and `read_edition_manifest`, and
-`pyfs-manual` gains the `sweep` subcommand. No incompatible change and
-no deprecation. The stanzas below give the reasoning per chapter.
+fields `on_command_line`, `cites`, `all_sentinel` and `fixed_length`.
+The database gains two evidence citations: `probe_ref` on an ENTRY, for
+a command the solver accepts and no edition documents, and `probe_ref`
+on a VERSION ROW, for a measured removal, admissible there for `removed`
+alone. `qa` gains `fsm_gained`, `fsm_changed` and
+`ProbeSpec.save_state`. `script.solver_setup` gains the four separation
+models `AirfoilSeparation`, `AxialVortexSeparation`,
+`CylindricalBulkSeparation` and `StratfordBulkSeparation`. The version
+registry gains `inherits_base` and the registered version 26.101.
+
+The stanzas below give the reasoning per chapter.
 
 * **The tail entered: 28 commands across 21 sections, and THE SWEEP
   REACHES ZERO.** Every command that any of the four registered manual
   editions documents is now in the database: 388 entries, of which 387
   cite a manual page and one rests on a committed probe report
   (`DELETE_VALAREZO_SEPARATION_BOUNDARIES`, which the solver accepts and
-  no edition names). Emittable per version 305, 332, 365, 371.
+  no edition names). Emittable per version at this release: 345 on
+  26.100, 363 on 26.101, 363 on 26.120, 368 on 26.121.
 
   MEASURED ON 2026-08-08 against the four editions of the maintainer's
   own manifest: `pyfs-manual sweep` reports 0 absent. State it as a
@@ -307,11 +382,14 @@ no deprecation. The stanzas below give the reasoning per chapter.
 
   `SET_JET_WAKE_FILAMENTS_GRID_INDUCTION` is documented by 26.101 and
   26.120 and dropped by the hotfix that follows, the only such command
-  in the sweep. It gets no 26.121 row and is NOT marked removed, that
-  status meaning the manual says unsupported where here a document
-  merely goes quiet. It therefore still emits on 26.121 by inheritance
-  from its base release, which is the honest default and is marked as
-  inherited in the matrix. `PLN-20260808-2000` carries the probe.
+  in the sweep. It entered with no 26.121 row and deliberately not a
+  `removed` status, since a document going quiet is not a statement
+  about a solver, and so it emitted on that build by inheritance from
+  its base release. `PLN-20260808-2000` carried the probe that settled
+  it, and the probe ran later the same day: the build does not have the
+  command. What the row says now, and why a measured removal cites its
+  run differently from a read one, is under the chapter-questions entry
+  above.
 
   Inlets and Outlets is asymmetric and the asymmetry is the manual's: an
   inlet takes a custom velocity profile from a file and an outlet cannot,
@@ -442,7 +520,8 @@ no deprecation. The stanzas below give the reasoning per chapter.
 * **`pyfs-manual sweep`, and the four-edition worklist becomes a
   committed tool rather than a session's scratch script.** New public
   names in `pyflightstream.utils`: `Edition`, `SweptCommand`,
-  `sweep_editions` and `read_editions`. `coverage` answers what ONE
+  `sweep_editions` and `read_edition_manifest`, the last renamed from
+  `read_editions` before release. `coverage` answers what ONE
   manual documents and the database does not; no sweep asks that
   question. A command absent from one edition may be recorded from
   another, and a command the database lacks must be entered for every

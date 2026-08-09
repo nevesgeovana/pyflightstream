@@ -407,7 +407,7 @@ def _rewrite_version_line(
     block = f'{" " * 4}"{canonical}":'
     for index in range(start, end):
         if lines[index].rstrip() == block:
-            raise ValueError(
+            raise QaEvidenceError(
                 f"{chapter}: {name} already records {canonical!r} as a multi-line "
                 "block, which this promotion cannot rewrite without discarding the "
                 "note or argument override the block carries. Fold the new status "

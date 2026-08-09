@@ -17,7 +17,7 @@ private session records carry the day-to-day detail.
 | v0.1.0 | First tag (private phase) | 2026-07-21 |
 | M6 | FSI subpackage: structural branch, coupled driver, near-rigid pilot; two-way rotor coupling solver-blocked with the finding reported upstream | 2026-07-21 |
 | M7 | Far-field extraction: probe lattices, planar grids with geometry gating, conservation ledgers, licensed round trip | started 2026-07-21, core delivered |
-| v0.5.0 | The command database completed: 388 commands from four registered manual editions, a version row per documenting edition, all four builds `operational`; the saved simulation adopted as a probe instrument; the run matrix moved into the workspace | 2026-08-09 |
+
 | v0.2.0 | First public release: PyPI, Zenodo DOI, citation metadata | 2026-07-22 |
 | Usage-feedback line | FR-30 to FR-36: labels, provenance, tables, workspace input library, pre-flight and resume, matrix first-class, two-level help | 2026-07-22 |
 | v0.3.0 | Second public release: PyPI, Zenodo DOI, the usage-feedback line plus the options/exceptions/testing modules, the ProperDocs migration with a published docs site, role-based review, ITACA co-development (AD-07), and the licensed 26.1x evidence session | 2026-07-23 |
@@ -31,7 +31,7 @@ private session records carry the day-to-day detail.
 | Post-processing completion | FR-20 (labeled result arrays, interpolation, trim extraction) and FR-21 (established plot-file writers) | Design session |
 | Process adoption backlog | VCS-derived versioning, executable doc examples, mechanical repo review, supply-chain posture, support-window declaration (see [standards](standards.md)) | The author's per-item decisions |
 | Integrations | The RPT-008 decision list: pyvista viz extra, documented external-tool bridges | The author's review |
-| ITACA migration | AD-06 and AD-07: pandas and xarray leave the runtime set, ITACA becomes a core dependency, and the manifest, solver-setup snapshot and result tables become ITACA structures with provenance (supersedes both the RPT-008 on-hold entry and the `[itaca]` optional extra this row used to describe) | The far-field halves land in ITACA's `pproc/` and `aerospace/` first; the removal release is v0.5.0 (NFR-06) |
+| ITACA migration | AD-06 and AD-07: pandas and xarray leave the runtime set, ITACA becomes a core dependency, and the manifest, solver-setup snapshot and result tables become ITACA structures with provenance (supersedes both the RPT-008 on-hold entry and the `[itaca]` optional extra this row used to describe) | The far-field halves land in ITACA's `pproc/` and `aerospace/` first; the removal release number is unset since v0.5.0 shipped without it (NFR-06) |
 | HPC executor | FR-15 | Research-group cluster path |
 | Docs toolchain | The generator's upstream governance question | The author's decision |
 

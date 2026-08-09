@@ -41,6 +41,14 @@ from pyflightstream.qa.probes import (
 from pyflightstream.script import Script
 from pyflightstream.script.helpers import initialize_solver
 
+#: The catalog exports its catalog and nothing else. Without this, every
+#: non-underscore definition here is public the moment the wheel ships,
+#: which would make three effect-assertion helpers of this module part
+#: of the supported surface by accident (the rule is stated in
+#: tests/test_exceptions_catalog.py: an absent __all__ means the module
+#: declares none, and then every top-level name is public).
+__all__ = ["PROBE_SPECS"]
+
 _NESTED_NAME = "nested_probe.txt"
 _SHEET = "sheet.txt"
 
@@ -429,9 +437,9 @@ _spec(
     requires=Requires.SIM,
     assert_effect=_unobservable,
     effect_note=(
-        "the saved simulation does not move on the probe geometry, measured "
-        "2026-08-08; a clean synthetic wing may simply have no wake termination "
-        "nodes to find, so this needs a geometry that does"
+        "the saved simulation does not move on the probe geometry (RPT-020); a "
+        "clean synthetic wing may simply have no wake termination nodes to find, "
+        "so this needs a geometry that does"
     ),
 )
 _spec(
@@ -441,7 +449,8 @@ _spec(
     assert_effect=_unobservable,
     effect_note=(
         "the CONSTANT form is the solver default and the saved simulation does not "
-        "move, measured 2026-08-08; the CUSTOM and ROTATION forms await fixtures"
+        "move (RPT-020), so the state was already in the requested condition; the "
+        "CUSTOM and ROTATION forms await fixtures"
     ),
 )
 _spec(
@@ -765,9 +774,8 @@ _spec(
     requires=Requires.SOLUTION,
     assert_effect=_unobservable,
     effect_note=(
-        "the saved simulation does not move, measured 2026-08-08; every boundary "
-        "appears to be selected already, so setting all of them changes nothing to "
-        "observe"
+        "the saved simulation does not move (RPT-020); every boundary appears to be "
+        "selected already, so setting all of them changes nothing to observe"
     ),
 )
 _spec(
@@ -1234,9 +1242,9 @@ _spec(
     prelude=_ACTUATOR_PRELUDE,
     assert_effect=_unobservable,
     effect_note=(
-        "the saved simulation does not move when an actuator is enabled, measured "
-        "2026-08-08; an actuator appears to be enabled already when created, so the "
-        "state instrument cannot separate the two"
+        "the saved simulation does not move when an actuator is enabled (RPT-020); "
+        "an actuator appears to be enabled already when created, so the state "
+        "instrument cannot separate the two"
     ),
 )
 _spec(

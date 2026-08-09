@@ -365,9 +365,15 @@ def support_table(*, registry: CommandRegistry | None = None) -> tuple[VersionSu
     """Report every registered version, in release order.
 
     Release order comes from ``commands/_meta.yaml``, which is the only
-    ordering authority (CLAUDE.md invariant 4); it is NOT support order,
-    and the two differ today, since 26.100 is documented while the older
-    26.000 is merely registered and the newer 26.120 is operational.
+    ordering authority (CLAUDE.md invariant 4). It is NOT support order.
+    The two agree at this release only because four of the five builds
+    reached the same level: 26.000 is ``registered`` and every later
+    build is ``operational``. They came apart as recently as v0.5.0's own
+    development, when 26.100 sat at ``verified`` behind both of its
+    successors for want of database rows rather than for anything about
+    the solver, and nothing prevents them coming apart again the moment a
+    build is registered ahead of its evidence. Read the level off the
+    row, never off the position.
 
     Parameters
     ----------

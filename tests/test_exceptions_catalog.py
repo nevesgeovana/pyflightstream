@@ -398,9 +398,9 @@ def _exported_bare_raises() -> list[str]:
 #: cross-module caller, is on no list and does not fail today
 #: (PLN-20260804-1130).
 #:
-#: The set holds 29 entries in two tranches. The FIRST THREE raise
+#: The set holds 20 entries in two tranches. The FIRST THREE raise
 #: ``TypeError`` for an argument of a type the function does not accept;
-#: the other 26 are the reachability tranche and are almost all
+#: the other 17 are the reachability tranche and are almost all
 #: ``ValueError``. Re-basing the TypeError three onto a catalogued class
 #: is not the
 #: one-line change the ValueError sites were: ``except TypeError`` is
@@ -409,6 +409,24 @@ def _exported_bare_raises() -> list[str]:
 #: all ``ValueError``-based, so the fix needs a new base and a decision
 #: about what it means. Deferred rather than rushed the night before a
 #: tag (PLN-20260803-2340).
+#:
+#: It held 29 at v0.4.0. Nine left. Eight were the whole
+#: ``_check_layout_rules`` tranche, re-based onto ``CommandDatabaseError``
+#: at v0.5.0, which is what the exemption's own comment had been asking
+#: for: the class is already ``ValueError``-based, so pydantic's
+#: validation protocol is unaffected and a caller's ``except ValueError``
+#: catches exactly what it caught before. The occasion was three NEW
+#: raises added to that same function this release, and the choice
+#: between enlarging a ratchet and emptying it is not a close one.
+#:
+#: The re-anchoring friction the comment below describes is what found
+#: it, and found something sharper on the way. Insertions above the
+#: function moved all eight sites, and the shifted set OVERLAPPED the
+#: recorded one: the entry recorded for line 455 kept matching, having
+#: silently come to name a different raise. A line-keyed ratchet can
+#: therefore exempt a site nobody ever read. Every remaining entry below
+#: has the same weakness, which is an argument for emptying it rather
+#: than for re-keying it.
 _RATCHET = {
     # TypeError for an argument of an unaccepted type. The catalogue is
     # entirely ValueError-based, so re-basing these needs a new base and
@@ -423,18 +441,9 @@ _RATCHET = {
     # RAISES. The author's decision: measure now, fix at v0.5, so the
     # number is the debt and it is countable (PLN-20260804-0130).
     "pyflightstream.cases.cli._parse_recipes -> ValueError (cli.py:33)",
-    # The pydantic validation path, where ValueError IS the protocol.
     # These move whenever anything is inserted above them, and the
     # ratchet keys on the line number, so re-anchoring is deliberate
     # friction: a moved raise should be re-read.
-    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:429)",
-    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:431)",
-    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:433)",
-    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:441)",
-    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:455)",
-    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:461)",
-    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:475)",
-    "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:486)",
     "pyflightstream.farfield._delta_psi -> ValueError (__init__.py:152)",
     "pyflightstream.fsi.driver._verified_layout -> ValueError (driver.py:338)",
     "pyflightstream.fsi.loads._validate_block_boundaries -> ValueError (loads.py:397)",
@@ -447,8 +456,12 @@ _RATCHET = {
     "pyflightstream.post.writers._checked -> ValueError (writers.py:34)",
     "pyflightstream.post.writers._checked -> ValueError (writers.py:39)",
     "pyflightstream.probes.planar._unit -> ValueError (planar.py:50)",
+    # One of this helper's three sites left the ratchet at v0.5.0, not by
+    # a re-basing but because the condition it reported turned out to be
+    # a real evidence defect rather than a malformed line: apply-compat
+    # was writing a second `"26.121":` key into an entry that already had
+    # one, and it now raises QaEvidenceError, which is catalogued.
     "pyflightstream.qa.compat._rewrite_version_line -> ValueError (compat.py:381)",
-    "pyflightstream.qa.compat._rewrite_version_line -> ValueError (compat.py:410)",
     "pyflightstream.qa.compat._rewrite_version_line -> ValueError (compat.py:420)",
     "pyflightstream.results._parse_solver_flag -> ValueError (__init__.py:503)",
     "pyflightstream.results.tables._as_record -> ValueError (tables.py:538)",

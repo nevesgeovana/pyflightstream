@@ -17,8 +17,11 @@ Statuses follow the evidence rules of CLAUDE.md invariant 3:
 ``documented`` cites the manual through ``manual_ref``, or a committed
 report through ``probe_ref`` where no edition documents the command;
 ``verified`` and ``broken`` additionally cite a committed probe report;
-``removed`` records the manual page stating the removal and, when known,
-a successor command.
+``removed`` says which of three things happened, since an edition
+stating a withdrawal, an edition merely going quiet, and a probe
+measuring the solver refusing the name are not the same claim; the
+measured case cites its run through ``probe_ref``, and a successor is
+recorded where one is known.
 
 A command whose argument grammar differs between versions declares the
 grammar of the latest documented version in ``args`` and overrides it
@@ -46,6 +49,13 @@ from pyflightstream.versions import FsVersion, known_versions, resolve
 
 _MANUAL_REF_PATTERN = re.compile(r"^SRC-\d{3} pp?\.\d+")
 _PROBE_REF_PATTERN = re.compile(r"^reports/[\w./-]+\.md$")
+# A note claiming the solver was OBSERVED, in the wordings this database
+# uses for it. Deliberately a small closed list rather than a general
+# reading of the sentence: a pattern that guesses would refuse honest
+# notes, and the cost of missing one is that a row keeps the citation
+# rules it already had, while the cost of a false positive is a refused
+# load. Widen it when a new wording appears rather than loosening it.
+_MEASURED_CLAIM = re.compile(r"\b(measured|probed|observed|the solver (?:answers|refuses))\b", re.I)
 
 
 class Layout(enum.StrEnum):
@@ -93,7 +103,19 @@ class Status(enum.StrEnum):
     documents (``probe_ref``).
     ``verified``: a Tier 2 probe passed on a licensed machine.
     ``broken``: a probe recorded a manual-versus-reality discrepancy.
-    ``removed``: the manual states the command is no longer supported.
+    ``removed``: the command is not available in this build.
+
+    ``removed`` arrives three ways and the row says which, because the
+    three are not equally strong and a reader cannot tell them apart
+    from the status alone. An edition may STATE the withdrawal, which is
+    a fact about a supported build. An edition may simply STOP PRINTING
+    the command, which is a fact about a document and not about the
+    solver at all. Or a probe may MEASURE the solver refusing the name,
+    which is the only one of the three that observes the solver. The
+    note carries a manual page for the first two, and the measured case
+    additionally carries ``report``, on the same reasoning that makes
+    ``verified`` and ``broken`` require one: a claim about the solver
+    rests on a run, never on a reading.
     """
 
     DOCUMENTED = "documented"
@@ -247,10 +269,17 @@ class ArgSpec(BaseModel):
         The auxiliary entity this argument's index refers to, declared
         when the argument's name does not say so database-wide. The
         emitter resolves declared labels and checks index ranges from
-        it. Absent means the emitter falls back to its own name map,
-        which is right for a spelling that means one thing everywhere
-        (``motion_id``) and wrong for one that does not: the Mesh
-        Operations chapter spells a surface reference ``index``, and
+        it. ABSENT MEANS THE ARGUMENT CITES NOTHING: no declared label
+        resolves there and no index is range checked. Every argument
+        that cites an entity declares it, the emitter's two
+        argument-name maps having been removed at v0.5.0
+        (PLN-20260807-1410), so omitting this field is a decision and
+        not a default.
+
+        The maps could not carry a spelling that means different things
+        on different pages, which is the reason the field exists: the
+        Mesh Operations chapter spells a surface reference ``index``,
+        and
         three other chapters spell a section or separation index the
         same way (SRC-003 pp.309-313).
     all_sentinel : int, optional
@@ -426,11 +455,11 @@ def _check_layout_rules(name: str, layout: Layout, args: tuple[ArgSpec, ...]) ->
     renderer does not support.
     """
     if layout is Layout.BARE and args:
-        raise ValueError(f"{name} has layout bare and must not declare arguments")
+        raise CommandDatabaseError(f"{name} has layout bare and must not declare arguments")
     if layout is not Layout.INLINE and any(arg.own_line for arg in args):
-        raise ValueError(f"{name}: own_line only applies to inline commands")
+        raise CommandDatabaseError(f"{name}: own_line only applies to inline commands")
     if layout is not Layout.KEYWORD_BLOCK and any(arg.type is ArgType.BOOL for arg in args):
-        raise ValueError(
+        raise CommandDatabaseError(
             f"{name}: bool arguments are bare presence keywords of a "
             "keyword_block (SRC-003 p.307); other layouts spell their toggles "
             "as ENABLE/DISABLE enums"
@@ -438,7 +467,7 @@ def _check_layout_rules(name: str, layout: Layout, args: tuple[ArgSpec, ...]) ->
     if layout is Layout.INLINE:
         for arg in args:
             if arg.is_list and arg.separator is not ListSeparator.SPACE:
-                raise ValueError(
+                raise CommandDatabaseError(
                     f"{name}: the inline list {arg.name!r} declares separator "
                     f"{arg.separator.value!r}, and the inline renderer joins a list "
                     "with a space and cannot do otherwise. Declare 'space', which is "
@@ -452,13 +481,13 @@ def _check_layout_rules(name: str, layout: Layout, args: tuple[ArgSpec, ...]) ->
         if not arg.on_command_line:
             continue
         if layout is not Layout.KEYWORD_BLOCK:
-            raise ValueError(
+            raise CommandDatabaseError(
                 f"{name}: {arg.name!r} declares on_command_line, which only a "
                 "keyword_block needs. Every other layout already writes its "
                 "arguments on the command line or on a payload line of its own"
             )
         if any(not earlier.on_command_line for earlier in args[:position]):
-            raise ValueError(
+            raise CommandDatabaseError(
                 f"{name}: {arg.name!r} declares on_command_line but a keyword line "
                 "precedes it. The command line is written first and cannot be "
                 "appended to once a keyword line has been emitted, so the "
@@ -472,7 +501,7 @@ def _check_layout_rules(name: str, layout: Layout, args: tuple[ArgSpec, ...]) ->
             # the failure this whole field was added to prevent, on the
             # axis the ordering rule above does not cover, so it is
             # closed while both users of the field are required.
-            raise ValueError(
+            raise CommandDatabaseError(
                 f"{name}: {arg.name!r} is optional and sits on the command line, "
                 "where arguments are positional and unnamed. Omitting it would "
                 "shift the arguments after it into its place and the solver would "
@@ -483,7 +512,7 @@ def _check_layout_rules(name: str, layout: Layout, args: tuple[ArgSpec, ...]) ->
         if not arg.joins_previous:
             continue
         if layout is not Layout.KEYWORD_BLOCK or position == 0:
-            raise ValueError(
+            raise CommandDatabaseError(
                 f"{name}: joins_previous requires a keyword_block layout and a "
                 "preceding argument line to append to"
             )
@@ -501,8 +530,24 @@ class VersionStatus(BaseModel):
     note : str, optional
         Short paraphrased justification, with citation when needed.
     report : str, optional
-        Repository-relative path of the committed probe report; required
-        for ``verified`` and ``broken`` (CLAUDE.md invariant 3).
+        Repository-relative path of the committed compat report, the
+        machine-readable ``.yaml`` the probe harness writes; required for
+        ``verified`` and ``broken`` (CLAUDE.md invariant 3). A guard
+        opens it and compares its recorded outcome against this status,
+        so a citation here is checkable and not merely present.
+    probe_ref : str, optional
+        Repository-relative path of a committed NARRATIVE report
+        (``.md``) of a solver run, admissible for ``removed`` alone and
+        for no other status. The restriction is the whole point of the
+        field. ``verified`` and ``broken`` are the harness's to write and
+        stay cross-checkable against its own output, whereas the harness
+        has no ``removed`` outcome at all: a build that does not carry a
+        command records as ``broken``, which is a different claim (the
+        solver misbehaved) about a command that is present. Until the
+        harness can say it, a measured removal is a run a human wrote
+        down, and this field says so rather than dressing it as
+        machine-checked evidence. See
+        ``PLN-20260809-0300-the-harness-has-no-removed-outcome``.
     args : tuple of ArgSpec, optional
         Per-version argument grammar override. Declared when this
         version's manual documents a different signature than the
@@ -518,6 +563,7 @@ class VersionStatus(BaseModel):
     successor: str | None = None
     note: str | None = None
     report: str | None = None
+    probe_ref: str | None = None
     args: tuple[ArgSpec, ...] | None = None
 
     @model_validator(mode="after")
@@ -527,13 +573,41 @@ class VersionStatus(BaseModel):
                 f"status {self.status} requires a committed probe report; statuses are "
                 "promoted only through pyfs-qa apply-compat, never edited by hand"
             )
-        if self.successor is not None and self.status is not Status.REMOVED:
-            raise ValueError("successor is only recorded for removed commands")
         if self.args is not None and self.status is Status.REMOVED:
             raise ValueError(
                 "a removed version has no grammar to emit; args overrides are only "
                 "recorded for versions where the command exists"
             )
+        if self.probe_ref is not None:
+            if self.status is not Status.REMOVED:
+                raise ValueError(
+                    f"probe_ref is admissible for removed alone and this row is "
+                    f"{self.status}; a narrative report is not checkable against the "
+                    "status it supports, so a status the harness can write cites the "
+                    "compat yaml through report instead"
+                )
+            if not _PROBE_REF_PATTERN.match(self.probe_ref):
+                raise ValueError(
+                    f"probe_ref {self.probe_ref!r} is not a repository-relative path to "
+                    "a committed .md report"
+                )
+        if self.status is Status.REMOVED:
+            if not self.note:
+                raise ValueError(
+                    "status removed requires a note saying which of the three ways it "
+                    "arrived: an edition states the withdrawal, an edition stops "
+                    "printing the command, or a probe measured the solver refusing "
+                    "it; the status alone cannot be read as any one of them"
+                )
+            if _MEASURED_CLAIM.search(self.note) and not (self.report or self.probe_ref):
+                raise ValueError(
+                    "this removed note claims a measurement and cites no run; an "
+                    "edition dropping a page is a fact about a document and only a run "
+                    "is a fact about the solver. Cite the compat yaml through report, "
+                    "or the narrative report of the run through probe_ref"
+                )
+        if self.successor is not None and self.status is not Status.REMOVED:
+            raise ValueError("successor is only recorded for removed commands")
         return self
 
 
@@ -924,9 +998,11 @@ class VersionView:
         entry = self._registry.commands.get(name)
         if entry is None:
             raise CommandNotInVersionError(
-                f"{name} is not in the command database. The database only holds "
-                "commands drafted from the manual with citations; see CONTRIBUTING "
-                "for how to add one."
+                f"{name} is not in the command database. Every command the four "
+                "registered manual editions document is recorded, so this is "
+                "usually a spelling error or a command from a build this install "
+                "does not register. An entry rests on a manual page or on a "
+                "committed probe report; CONTRIBUTING says how to add one."
             )
         # evidence_in, not status_in: these refusals are read by a person
         # and this one asserted a fact about the requested build while

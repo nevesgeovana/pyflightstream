@@ -1415,3 +1415,130 @@ def test_no_chapter_file_records_a_version_twice():
         "these entries record one FlightStream version twice, so the loader keeps "
         f"the second and drops the first without complaining: {offenders}"
     )
+
+
+# --- what `removed` is allowed to rest on ------------------------------------
+#
+# Three different situations reach this one status, and the database
+# said all three in the same word before this release: an edition STATES
+# a withdrawal, an edition STOPS PRINTING a command, or a probe MEASURES
+# the solver refusing the name. Only the third observes the solver, and
+# it was the third that shipped uncited, in a row whose own entry notes
+# argued at length that measured-versus-silent is exactly the
+# distinction that matters. The model refuses the uncited form; these
+# pin it across the whole database.
+
+
+_NOTE_CITATION_IN_TEST = re.compile(r"SRC-\d{3}\s+pp?\.\s*\d+")
+
+
+def _removed_rows():
+    """Every (command, version, row) whose status is removed."""
+    registry = CommandRegistry.load()
+    return [
+        (name, version, row)
+        for name, entry in registry.commands.items()
+        for version, row in entry.versions.items()
+        if row.status is Status.REMOVED
+    ]
+
+
+def test_every_removed_row_says_which_of_the_three_it_is():
+    """A bare removed is unreadable: nothing recovers which claim it makes."""
+    bare = [f"{name} on {version}" for name, version, row in _removed_rows() if not row.note]
+    assert not bare, (
+        "these rows record removed with no note, so a reader cannot tell whether an "
+        f"edition withdrew the command, stopped printing it, or a probe refused it: {bare}"
+    )
+
+
+def test_a_removed_row_claiming_a_measurement_cites_the_run():
+    """The defect this rule is made of, swept across the database.
+
+    SET_JET_WAKE_FILAMENTS_GRID_INDUCTION recorded removed on 26.121
+    with a note beginning `Measured 2026-08-08` and no report at all,
+    while the same entry's notes explained that a claim about the solver
+    may not rest on a document's silence. The status rule had never
+    covered removed, so nothing objected.
+    """
+    from pyflightstream.commands import _MEASURED_CLAIM
+
+    uncited = [
+        f"{name} on {version}"
+        for name, version, row in _removed_rows()
+        if row.note and _MEASURED_CLAIM.search(row.note) and not (row.report or row.probe_ref)
+    ]
+    assert not uncited, (
+        f"these removed rows claim the solver was observed and cite no run: {uncited}"
+    )
+
+
+def test_a_removed_row_that_reads_a_page_cites_the_page():
+    """The other two cases are readings, and a reading cites its edition."""
+    uncited = [
+        f"{name} on {version}"
+        for name, version, row in _removed_rows()
+        if row.note
+        and not (row.report or row.probe_ref)
+        and not _NOTE_CITATION_IN_TEST.search(row.note)
+    ]
+    assert not uncited, (
+        "these removed rows rest on a manual edition and name no page, so the claim "
+        f"cannot be re-checked against the edition that makes it: {uncited}"
+    )
+
+
+def test_every_narrative_citation_names_a_report_that_exists():
+    """A narrative citation is not opened by the compat guard, so it is opened here.
+
+    ``report`` is checked against its own contents by
+    ``test_every_citation_records_the_status_the_record_claims``, which
+    skips anything that is not machine readable. ``probe_ref`` is
+    precisely the not-machine-readable kind, so the one thing that CAN
+    be checked mechanically about it, that the file is really committed,
+    has to be checked somewhere, and this is the somewhere.
+    """
+    missing = [
+        f"{name} on {version} cites {row.probe_ref}"
+        for name, version, row in _removed_rows()
+        if row.probe_ref and not (REPO_ROOT / row.probe_ref).exists()
+    ]
+    assert not missing, f"these rows cite a narrative report that is not committed: {missing}"
+
+
+def test_a_narrative_citation_is_admissible_for_removed_alone():
+    """The line that keeps `probe_ref` from becoming a way around the harness.
+
+    Every status the harness can write must keep citing the compat yaml,
+    because the guard that compares a status against its evidence can
+    only open a yaml. Allowing prose to support ``verified`` would leave
+    that guard walking a shrinking population and reporting green.
+    """
+    for status in (Status.VERIFIED, Status.BROKEN, Status.DOCUMENTED):
+        with pytest.raises(ValidationError, match="admissible for removed alone"):
+            VersionStatus(
+                status=status,
+                report="reports/compat/CMP-26121_2026-08-08_full.yaml",
+                probe_ref="reports/RPT-021_chapter-questions-measured_2026-08-08.md",
+            )
+
+
+def test_the_model_refuses_a_measured_removal_that_cites_no_run():
+    """The guard itself, at the layer no chapter file can bypass."""
+    with pytest.raises(ValidationError, match="claims a measurement"):
+        VersionStatus(status=Status.REMOVED, note="Measured 2026-08-08: the solver refuses it.")
+    with pytest.raises(ValidationError, match="requires a note"):
+        VersionStatus(status=Status.REMOVED)
+    with pytest.raises(ValidationError, match="not a repository-relative path"):
+        VersionStatus(status=Status.REMOVED, note="Withdrawn at SRC-003 p.1.", probe_ref="RPT-021")
+    # And the three honest forms load.
+    VersionStatus(
+        status=Status.REMOVED,
+        note="Measured 2026-08-08: the solver refuses it.",
+        probe_ref="reports/RPT-021_chapter-questions-measured_2026-08-08.md",
+    )
+    VersionStatus(status=Status.REMOVED, note="Withdrawn at SRC-003 p.328; no successor.")
+    VersionStatus(
+        status=Status.REMOVED,
+        note="Stops being printed at SRC-003 pp.366-367; no successor in the family.",
+    )

@@ -307,3 +307,180 @@ def test_early_prelude_lands_between_open_and_setup(tmp_path):
     create_at = lines.index("CREATE_NEW_COORDINATE_SYSTEM")
     start_at = lines.index("START_SOLVER")
     assert open_at < create_at < start_at
+
+
+# --- the saved-state instrument ----------------------------------------------
+#
+# Every defect this instrument has had was found by reading a diff by
+# hand, never by the suite, and each one wrote FALSE EVIDENCE: three
+# marked a working command broken, and one marked a command that did
+# nothing verified. The four tests below are those four defects, pinned.
+
+
+def _state(tmp_path, before: str | None, after: str | None):
+    """A ProbeArtifacts over a workdir holding whichever states are given."""
+    from pyflightstream.qa.probes import ProbeArtifacts
+    from pyflightstream.run import ExecutionResult
+
+    if before is not None:
+        (tmp_path / "state_before.fsm").write_text(before, encoding="utf-8")
+    if after is not None:
+        (tmp_path / "state_after.fsm").write_text(after, encoding="utf-8")
+    return ProbeArtifacts(
+        workdir=tmp_path,
+        log_before="",
+        log_after="",
+        begin_marker="B",
+        end_marker="E",
+        execution=ExecutionResult(
+            return_code=0, wall_time_s=0.05, timed_out=False, log_text=None, stdout="", stderr=""
+        ),
+    )
+
+
+# One pair of states, carrying both traps at once, because both defects
+# came from the same wrong idea about this format. Exactly one line
+# moves, from 0 to 37. The gained value 37 already sits on an UNCHANGED
+# line, and the departing value 0 sits on another, so the SET of lines is
+# byte-identical before and after while the files are not.
+_BEFORE = "0\n37\nnaca0012\n0\n1\n37\n"
+_AFTER = "0\n37\nnaca0012\n37\n1\n37\n"
+
+
+def test_a_value_on_a_changed_line_is_found_even_when_it_occurs_elsewhere(tmp_path):
+    """Defect 1: searching the WHOLE after-state and the whole before-state.
+
+    SET_SOLVER_CONVERGENCE_ITERATIONS wrote 37 and was recorded BROKEN,
+    because 37 also sat innocently in the before-state, so the
+    already-present rule fired. The question is about the changed lines
+    and nothing else.
+    """
+    from pyflightstream.qa.probes import fsm_gained
+
+    assert fsm_gained("37")(_state(tmp_path, _BEFORE, _AFTER)) is True
+
+
+def test_a_changed_line_of_short_tokens_is_not_read_as_a_set(tmp_path):
+    """Defect 2: comparing SETS of lines on a positional format.
+
+    SET_VISCOUS_EXCLUDED_BOUNDARIES and SET_VORTICITY_DRAG_BOUNDARIES
+    were recorded BROKEN with a three-line diff, because their changed
+    lines carry tokens that occur a hundred times elsewhere, so the set
+    of lines was identical before and after.
+    """
+    from pyflightstream.qa.probes import _added_lines, fsm_changed
+
+    assert _added_lines(_BEFORE, _AFTER) == ["37"]
+    assert set(_AFTER.splitlines()) == set(_BEFORE.splitlines()), (
+        "the fixture must reproduce the trap: identical SETS, different files"
+    )
+    assert fsm_changed()(_state(tmp_path, _BEFORE, _AFTER)) is True
+
+
+def test_a_missing_before_state_is_never_evidence(tmp_path):
+    """Defect 4, and the only one that wrote a false VERIFIED.
+
+    A missing before-state read as the empty string makes every line of
+    the after-state look changed, so both assertions passed on a command
+    that did nothing, and apply-compat promotes that. A false positive
+    is worse than a false negative here because nothing downstream
+    re-reads it.
+    """
+    from pyflightstream.qa.probes import fsm_changed, fsm_gained
+
+    only_after = _state(tmp_path, None, _AFTER)
+    assert fsm_gained("37")(only_after) is False
+    assert fsm_changed()(only_after) is False
+    assert fsm_gained("37", strict=False)(only_after) is None
+    assert fsm_changed(strict=False)(only_after) is None
+
+
+def test_a_state_that_did_not_move_is_broken_not_verified(tmp_path):
+    """The no-op reading, which is what `broken` means in this harness."""
+    from pyflightstream.qa.probes import fsm_changed, fsm_gained
+
+    unchanged = _state(tmp_path, _BEFORE, _BEFORE)
+    assert fsm_changed()(unchanged) is False
+    assert fsm_gained("37")(unchanged) is False
+
+
+def test_a_value_is_matched_in_the_form_the_file_stores_it(tmp_path):
+    """The file writes 0.98765 as 9.87650000000000028E-01.
+
+    Searching for the literal the script passed finds nothing, so the
+    renderings are what make the instrument work at all.
+    """
+    from pyflightstream.qa.probes import fsm_gained
+
+    before = "1\n 1.00000000000000000E+00\n2\n"
+    after = "1\n 9.87650000000000028E-01\n2\n"
+    assert fsm_gained("0.98765")(_state(tmp_path, before, after)) is True
+    assert fsm_gained("0.12345")(_state(tmp_path, before, after)) is False
+
+
+def test_fsm_gained_refuses_to_assert_nothing():
+    """With no token, `all()` is vacuously true and the report still reads
+    that the distinctive value was observed."""
+    import pytest as _pytest
+
+    from pyflightstream.qa.errors import QaEvidenceError
+    from pyflightstream.qa.probes import fsm_gained
+
+    with _pytest.raises(QaEvidenceError, match="at least one distinctive value"):
+        fsm_gained()
+
+
+def test_the_saved_state_pair_brackets_the_target_from_outside_the_sentinels():
+    """An instrument failure must not be recorded against the target.
+
+    SAVEAS can fail for reasons that have nothing to do with the command
+    under test, and inside the sentinels that failure lands in
+    `target_region()` and records the target BROKEN, which makes the
+    emitter refuse it for every user. This is the rule the `epilogue`
+    field already states and that `save_state` did not follow when it
+    was written.
+    """
+    from pathlib import Path
+
+    from pyflightstream.qa.probes import generate_probe_script
+    from pyflightstream.qa.specs import PROBE_SPECS
+
+    rendered = generate_probe_script(
+        PROBE_SPECS["SOLVER_MINIMUM_CP"],
+        version="26.121",
+        workdir=Path("wd"),
+        fsm=Path("x.fsm"),
+    ).render()
+    lines = rendered.splitlines()
+    saves = [i for i, line in enumerate(lines) if line.startswith("SAVEAS")]
+    begin = next(i for i, line in enumerate(lines) if "PYFS_PROBE_BEGIN" in line)
+    end = next(i for i, line in enumerate(lines) if "PYFS_PROBE_END" in line)
+    assert len(saves) == 2, rendered
+    assert saves[0] < begin, "the before-save must not sit inside the target region"
+    assert saves[1] > end, "the after-save must not sit inside the target region"
+
+
+def test_the_axis_probe_passes_a_unit_vector_so_the_value_asserted_is_the_value_stored():
+    """Defect 3: the solver NORMALISES a direction whatever the flag says.
+
+    The probe first passed 0.61234, 0.79012 with the normalise flag
+    FALSE and the file stored that vector divided by its magnitude, so
+    the assertion looked for a value the solver had never written and
+    recorded the command broken. A unit vector removes the difference.
+    Pinned numerically because a later edit to those numbers would
+    reintroduce it, and the fix is otherwise held only by a note.
+    """
+    import math
+
+    from pyflightstream.qa.specs import PROBE_SPECS
+    from pyflightstream.script import Script
+
+    script = Script(version="26.121")
+    script.emit("CREATE_NEW_COORDINATE_SYSTEM")
+    PROBE_SPECS["SET_COORDINATE_SYSTEM_AXIS"].build_target(script, None)
+    axis = script.render().strip().splitlines()[-1].split()
+    x, y, z = (float(value) for value in axis[3:6])
+    assert math.isclose(math.sqrt(x * x + y * y + z * z), 1.0, rel_tol=1e-12), (
+        f"the probe passes {x}, {y}, {z}, which the solver will normalise, so the "
+        "value the assertion looks for is not the value the file stores (RPT-020)"
+    )

@@ -86,7 +86,7 @@ structural side of the aeroelastic loop), `probes` and `farfield`
     agree. pandas and xarray are still declared and still imported at
     three sites in `src/` (`results/tables.py`, `farfield/__init__.py`,
     `post/writers.py`, with the test suite as a fourth surface), and
-    they stay through v0.4.0. v0.5.0 removes them, that release number
+    they stayed through v0.5.0, which shipped without the migration; the removal release number is NFR-06's to state and is unset, that release number
     being stated by [NFR-06](nonfunctional-requirements.md) as its home
     of record. There is no deprecation cycle in between and that is
     deliberate:

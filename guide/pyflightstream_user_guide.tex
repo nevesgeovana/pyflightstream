@@ -397,8 +397,9 @@ text = script.render()                  # complete ASCII script
 \begin{lstlisting}
 script.emit("IMPRT", ...)
 # CommandNotInVersionError: IMPRT is not in the command database.
-# The database only holds commands drafted from the manual with
-# citations; see CONTRIBUTING for how to add one.
+# Every command the four registered manual editions document is
+# recorded, so this is usually a spelling error or a command from a
+# build this install does not register.
 
 script.emit("SET_SIMULATION_LENGTH_UNITS", "PARSEC")
 # CommandArgumentError: names the argument, lists the allowed

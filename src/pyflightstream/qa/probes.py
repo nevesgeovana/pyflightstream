@@ -20,6 +20,14 @@ them before any command is judged, and a baseline failure aborts the
 whole run instead of writing false evidence (a dead license must never
 read as broken commands).
 
+Two further instruments are used PER SPEC rather than per run, and
+neither is baseline-validated: OUTPUT_SETTINGS_AND_STATUS for the
+settings dump, and SAVEAS for the saved-simulation assertions. The
+consequence is worth stating because it points the wrong way: an
+instrument that fails records the TARGET rather than the harness, so a
+spec that cannot rely on its instrument asks for ``strict=False`` and
+gets ``unprobed`` instead of ``broken``.
+
 Statuses are promoted from the resulting compat report only through
 ``pyfs-qa apply-compat`` (:mod:`pyflightstream.qa.compat`), never by
 hand (CLAUDE.md invariant 3).
@@ -27,6 +35,7 @@ hand (CLAUDE.md invariant 3).
 
 from __future__ import annotations
 
+import difflib
 import enum
 import hashlib
 import re
@@ -209,7 +218,7 @@ def printed_line(text: str, marker: str) -> bool:
     return False
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class ProbeSpec:
     """How to probe one command: emission, and the observable effect.
 
@@ -255,7 +264,8 @@ class ProbeSpec:
     save_state : bool
         Bracket the target with SAVEAS, writing the simulation file
         before and after it (``state_before.fsm`` and
-        ``state_after.fsm``) for :func:`fsm_gained` assertions. This is
+        ``state_after.fsm``) for the :func:`fsm_gained` and
+        :func:`fsm_changed` assertions. This is
         the instrument for the settings the solver keeps only in the
         simulation, which the settings dump does not print: actuator
         fields, frame origins and axes, motion rotor bindings.
@@ -427,13 +437,36 @@ def fsm_gained(*tokens: str, strict: bool = True) -> Callable[[ProbeArtifacts], 
     strict : bool
         Whether a missing state file breaks (the default) or records
         unprobed.
+
+    Raises
+    ------
+    QaEvidenceError
+        If no token is given. With none, ``all()`` is vacuously true and
+        this passes on any change at all, which is
+        :func:`fsm_changed` wearing this function's evidence line: the
+        committed report would say the distinctive value was observed.
     """
+    if not tokens:
+        raise QaEvidenceError(
+            "fsm_gained needs at least one distinctive value to look for. With none "
+            "it passes on any change at all, and the report still reads that the "
+            "distinctive value was observed. Pass the value the probe sets, or call "
+            "fsm_changed() where there is no distinctive value to pass."
+        )
 
     def check(artifacts: ProbeArtifacts) -> bool | None:
         after = artifacts.saved_after()
-        if after is None:
+        before = artifacts.saved_before()
+        if after is None or before is None:
+            # BOTH files, not just the after one. A missing before-state
+            # read as the empty string makes every line of the after look
+            # changed, which is the whole-file search this docstring says
+            # was wrong, and it turns a command that did nothing into
+            # VERIFIED evidence that apply-compat then promotes. A false
+            # positive here is worse than the false negatives caught by
+            # hand, because nothing downstream re-reads it (release
+            # review, 2026-08-09).
             return False if strict else None
-        before = artifacts.saved_before() or ""
         changed = "\n".join(_added_lines(before, after))
         if not changed:
             # Nothing in the saved state moved, so the command was a
@@ -473,9 +506,17 @@ def fsm_changed(*, strict: bool = True) -> Callable[[ProbeArtifacts], bool | Non
 
     def check(artifacts: ProbeArtifacts) -> bool | None:
         after = artifacts.saved_after()
-        if after is None:
+        before = artifacts.saved_before()
+        if after is None or before is None:
+            # BOTH files, not just the after one. A missing before-state
+            # read as the empty string makes every line of the after look
+            # changed, which is the whole-file search this docstring says
+            # was wrong, and it turns a command that did nothing into
+            # VERIFIED evidence that apply-compat then promotes. A false
+            # positive here is worse than the false negatives caught by
+            # hand, because nothing downstream re-reads it (release
+            # review, 2026-08-09).
             return False if strict else None
-        before = artifacts.saved_before() or ""
         return after != before
 
     return check
@@ -492,12 +533,13 @@ def _added_lines(before: str, after: str) -> list[str]:
     really written to the state were recorded BROKEN under that reading,
     and the diff of their two files was three lines long.
     """
-    import difflib
-
+    old, new = before.splitlines(), after.splitlines()
+    matcher = difflib.SequenceMatcher(None, old, new, autojunk=False)
     return [
-        line[2:]
-        for line in difflib.ndiff(before.splitlines(), after.splitlines())
-        if line.startswith("+ ")
+        line
+        for tag, _i1, _i2, first, last in matcher.get_opcodes()
+        if tag in ("insert", "replace")
+        for line in new[first:last]
     ]
 
 
@@ -722,19 +764,29 @@ def generate_probe_script(
         spec.early_prelude(script, workdir)
     if spec.prelude is not None:
         spec.prelude(script, workdir)
+    # The saved-state pair brackets the target from OUTSIDE the
+    # sentinels, which is the same attribution rule the epilogue field
+    # states: an instrument that fails must not be blamed on the target.
+    # SAVEAS can fail for reasons that have nothing to do with the
+    # command under test, an unwritable path or a state the build
+    # refuses to save, and inside the sentinels that failure lands in
+    # target_region() and records the target BROKEN, which makes the
+    # emitter refuse it for every user of the library. Nothing between
+    # the target and the after-save changes simulation state: a PRINT
+    # and a log export do not (release review, 2026-08-09).
+    if spec.save_state:
+        script.emit("SAVEAS", workdir / _SAVE_BEFORE)
     script.emit("PRINT", f"{_BEGIN}_{spec.command}")
     script.emit("EXPORT_LOG", workdir / _LOG_BEFORE)
     if spec.dump_state:
         script.emit("OUTPUT_SETTINGS_AND_STATUS", workdir / _DUMP_BEFORE)
-    if spec.save_state:
-        script.emit("SAVEAS", workdir / _SAVE_BEFORE)
     spec.build_target(script, workdir)
     if spec.dump_state:
         script.emit("OUTPUT_SETTINGS_AND_STATUS", workdir / _DUMP_AFTER)
-    if spec.save_state:
-        script.emit("SAVEAS", workdir / _SAVE_AFTER)
     script.emit("PRINT", f"{_END}_{spec.command}")
     script.emit("EXPORT_LOG", workdir / _LOG_AFTER)
+    if spec.save_state:
+        script.emit("SAVEAS", workdir / _SAVE_AFTER)
     if spec.epilogue is not None:
         spec.epilogue(script, workdir)
         script.emit("EXPORT_LOG", workdir / _LOG_FINAL)

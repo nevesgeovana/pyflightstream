@@ -360,10 +360,11 @@ SET_JET_WAKE_FILAMENTS_GRID_INDUCTION:
     "26.120": {status: documented}
     "26.121":
       status: removed
+      probe_ref: "reports/RPT-021_chapter-questions-measured_2026-08-08.md"
       note: >-
-        Measured 2026-08-08: the 26.121 solver answers with an
-        unrecognised-command error. Promoted from RPT-021 rather than
-        read off the hotfix edition's silence.
+        Measured 2026-08-08: the 26.121 solver answers the name with an
+        unrecognised-command error. Promoted from the run, not read off
+        the hotfix edition's silence.
   notes: >
     Whether the jet wake filaments induce velocity on the mesh.
 
@@ -374,25 +375,25 @@ SET_JET_WAKE_FILAMENTS_GRID_INDUCTION:
     February edition does not have it, so its whole documented life is
     two editions.
 
-    THERE IS NO 26.121 ROW AND THE STATUS IS NOT REMOVED. That status
-    means the manual states the command is no longer supported, and no
-    edition states anything here: one simply stops printing it. The
-    difference matters because removed is a claim about the solver and
-    silence is a fact about a document.
+    THAT SILENCE IS NOT WHY THE 26.121 ROW SAYS REMOVED. An edition
+    dropping a page is a fact about a document, and the default this
+    registry applies to one is inheritance: 26.121 carries 26.120's
+    evidence wherever no row overrides it, so before the probe ran this
+    command emitted on 26.121 as an inherited assumption, and the
+    emitter would have gone on writing it.
 
-    SO THIS COMMAND STILL EMITS ON 26.121, by inheritance from its base
-    release, and that is worth stating because the absent row looks like
-    a refusal and is not one. The registry has 26.121 inherit 26.120's
-    evidence where no row overrides it, which is the honest default when
-    nothing is known about the hotfix; an edition dropping a page is not
-    a measurement of the solver, so it does not override. Recording
-    removed instead would refuse a command that may work perfectly, on
-    the strength of a document's silence.
+    THE PROBE SETTLED IT THE OTHER WAY (RPT-021). The 26.121 solver does
+    not recognise the name, so the row records a measurement and cites
+    the run that made it, which is what makes removed sayable here at
+    all. Worth keeping in view: the reading and the measurement agreed
+    in this one case, and the reading still would not have been evidence
+    for it. Two chapter questions the same day went the other way, where
+    a page said less than the solver did.
 
-    PLN-20260808-2000 carries the probe that would settle it. Until then
-    the position is: documented for two editions, emitted on the third
-    as an inherited assumption, and that assumption is visible in the
-    compatibility matrix, which marks an inherited cell as such.
+    The practical consequence for a caller is a refusal rather than a
+    line: solver_settings(jet_wake_filaments_grid_induction=...) on
+    26.121 raises rather than emitting a command the solver would reject
+    at run time.
 
 SET_WAKE_DECAY_CONSTANT:
   layout: inline

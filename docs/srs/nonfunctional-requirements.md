@@ -123,7 +123,7 @@
     the release that changes it, so it names both the shipped set and
     the one it is moving to:
 
-    | Through v0.4.0 | From v0.5.0 |
+    | Through v0.5.0 | From the migration release |
     |---|---|
     | numpy, pandas, pydantic, PyYAML, xarray | numpy, itaca, pydantic, PyYAML |
 
@@ -140,7 +140,7 @@
     of record means this table is what they are checked against, not
     that no other copy exists.
 
-    The removal release, v0.5.0, is a fact of the same kind. Other
+    The removal release NUMBER is deliberately unset here as of 2026-08-09: v0.5.0 shipped without the migration, so naming it would repeat the error this table exists to prevent. The author sets the number when ITACA's `pproc/` and `aerospace/` halves are ready (PLN-20260809-0210). Other
     pages print the number rather than sending a reader two documents
     deep for it, and cite this requirement as the home the number is
     checked against.

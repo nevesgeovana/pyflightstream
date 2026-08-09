@@ -759,7 +759,9 @@ the base could not offer while it bundled several.
     that a public function calls reaches the caller exactly as an
     exported one does, found 21 more.
 
-    113 of those sites now raise a catalogued class, and nine classes
+    113 of those sites raised a catalogued class as measured at v0.4.0,
+    a figure this requirement carries as the measurement of that date
+    rather than as a running total, and nine classes
     were added for conditions that had no home: `MalformedOutputError`
     and `FieldNotInExportError` (results), `ProbeGeometryError`
     (probes), `CampaignConfigError` (cases), `FarfieldInputError` (far
@@ -769,15 +771,43 @@ the base could not offer while it bundled several.
     standard-library base, so no handler in the wild caught less
     afterwards than before.
 
-    **24 sites remain and this requirement does not claim them.** They
+    **20 sites remain and this requirement does not claim them.** They
     are named one by one in a ratchet in
     `tests/test_exceptions_catalog.py`, so the residual is countable and
     any site THE WALK REACHES that is not on that list fails today:
     three raise `TypeError` for an argument of an unaccepted type, which
     needs a base class this catalogue does not have
-    (`PLN-20260803-2340`), and 21 are the reachability tranche, deferred
+    (`PLN-20260803-2340`), and 17 are the reachability tranche, deferred
     to v0.5 by the author on 2026-08-04 with the measurement taken first
     rather than the promise trimmed to fit (`PLN-20260804-0130`).
+
+    The arithmetic, since this paragraph published a number that had
+    stopped being true. The ratchet held 29 entries going into v0.5.0,
+    not the 24 this requirement said: it grew by five over that
+    development cycle and the sentence above it did not move, which is
+    the drift NFR-11 exists to catch and which nothing mechanical
+    catches here, the count living in a test comment the requirement
+    merely describes. Nine entries then closed, leaving 20. Of the nine,
+    four were debt carried from v0.4.0 and five were sites this cycle
+    WROTE and exempted, which is a ratchet being used as a drawer and is
+    the reason the growth is stated here rather than netted away.
+
+    Eight of the nine were the whole
+    `commands._check_layout_rules` group, re-based onto the already
+    catalogued `CommandDatabaseError`, which is `ValueError`-based, so
+    pydantic's validation protocol is unaffected and a caller's
+    `except ValueError` catches what it always did. The ninth was a
+    refusal in `qa.compat` that turned out to report an evidence defect
+    rather than a malformed line, and now says so.
+
+    That group also measured a WEAKNESS OF THE RATCHET ITSELF, which is
+    recorded here rather than only in the test file, because it bounds
+    what "countable" is worth. Entries are keyed by line number. Adding
+    code above a debt site shifts every site below it, and the shifted
+    set can OVERLAP the recorded one, so an entry keeps matching while
+    silently naming a different raise. That happened to one of the eight
+    at v0.5.0 and was caught only because the other seven failed loudly
+    around it. Emptying the ratchet is the fix; re-keying it is not.
 
     The emphasis on what the walk reaches is a correction, not a
     flourish. This sentence read "any site not on that list fails today"

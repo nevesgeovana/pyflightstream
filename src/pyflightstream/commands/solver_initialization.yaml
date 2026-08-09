@@ -75,7 +75,7 @@ SOLVER_PROXIMAL_BOUNDARIES:
       args:
         - {name: count, type: int}
         - {name: boundary_indices, type: int_list, cites: boundaries,
-           separator: comma, required: false}
+           separator: newline, required: false}
   notes: >
     Enables solver proximity checking for the listed boundaries, one
     index per line. Must be called before INITIALIZE_SOLVER

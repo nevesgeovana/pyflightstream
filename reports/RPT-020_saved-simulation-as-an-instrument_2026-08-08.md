@@ -85,3 +85,43 @@ coefficient of 0.54321 was stored as 2.52735905991766747E+05, which is a
 force. Asserting on the value passed would report a working command
 broken, which is why it was deliberately not converted. Reading it needs
 the conversion, and the conversion is not documented.
+
+
+## Four commands whose state did not move, and why that is not `broken`
+
+Recorded here because four `effect_note` entries in `qa/specs.py` say
+"measured 2026-08-08" and, until this section, cited nothing. A note
+claiming a run has to name where the run is written down, and the
+saved-state instrument is what made all four observations, so this is
+the report they belong in.
+
+Each was emitted with the instrument bracketing it, on the probe
+geometry, on build #7262026. In each case the two saved states are
+identical over the target's region.
+
+| command | what was emitted | reading |
+|---|---|---|
+| `AUTO_DETECT_WAKE_TERMINATION_NODES` | the bare command | the probe geometry is a clean synthetic wing and may genuinely have no wake termination nodes to find |
+| `SET_FREESTREAM` | the `CONSTANT` form | `CONSTANT` is the solver default, so the state was already in the requested condition |
+| `SET_SOLVER_ANALYSIS_BOUNDARIES` | boundary 1 of 1 | every boundary appears to be selected already |
+| `ENABLE_ACTUATOR` | actuator 1, after the actuator prelude creates it | an actuator appears to be enabled when created |
+
+**None of the four is recorded `broken`, and the distinction is the
+point of writing them down.** `broken` means the solver was asked to do
+something and did not do it. Here the solver was asked for a state it
+was already in, three times over, and once was asked to search a
+geometry that plausibly contains nothing to find. A no-op is the correct
+behaviour under all four readings, so the instrument cannot separate a
+working command from a broken one and the specs assert nothing.
+
+They stay `unprobed` with the reason attached, which is the honest
+record: not evidence that the commands work, and not evidence that they
+do not.
+
+What would settle each is the same shape in all four cases, a starting
+state that differs from the requested one: a geometry with wake
+termination nodes to detect, a freestream set to `CUSTOM` or `ROTATION`
+first, a subset of boundaries rather than all of them, and an actuator
+explicitly disabled before being enabled. The first two need fixtures
+this repository does not have. The last two are cheap and are worth
+doing on the next licensed run.

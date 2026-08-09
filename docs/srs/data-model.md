@@ -32,22 +32,36 @@ argument's name. Each was added after that guess was measured wrong.
 
 | Field | Declare it when |
 |---|---|
-| `cites` | The argument is a 1-based index into one of the entity kinds the script builder tracks (local coordinate systems, actuators, motions, mesh boundaries) AND its name is not one the emitter already resolves database-wide. Declaring it is what makes a declared label resolve and an out-of-range index refuse. |
+| `cites` | The argument is a 1-based index into one of the entity kinds the script builder tracks (local coordinate systems, actuators, motions, mesh boundaries). Declaring it is what makes a declared label resolve and an out-of-range index refuse. |
 | `all_sentinel` | The command's page states a value that selects EVERY entity of that kind. Absent means the page states none, and the emitter then refuses every non-positive index. It requires `cites`, since a sentinel is only ever read where the entity kind is known. |
 | `fixed_length` | The manual fixes how many values a list takes and no count argument precedes it. A short payload otherwise makes the solver read the next command as data. |
+| `on_command_line` | The command's layout is `keyword_block` and this one argument is written on the COMMAND line rather than on a keyword line of its own. It must be the first argument and it must be required, since an argument that may be absent cannot hold a fixed position on that line. |
 
 The chapter files mirror each manual page's own argument names rather
 than harmonising them, so that an argument list still matches the page
-beside it. `cites` is what makes that affordable: the emitter resolves
-by declaration first and by name only as a fallback, so a chapter may
-spell one thing four ways without the checking becoming four different
-behaviours. A name that means DIFFERENT things in different chapters,
-as `index` does, can only ever be declared.
+beside it. `cites` is what makes that affordable: a chapter may spell
+one thing four ways and the checking stays one behaviour, because the
+emitter reads the declaration and nothing else.
 
-Forgetting is not silent. A tier 1 guard fails on any index argument
-whose name says it cites something and that resolves to nothing;
-indices of objects the builder does not track (CAD bodies and curves,
-sections, separations, trailing edges) are listed there by name.
+**Read that last clause strictly: there is ONE mechanism, and this
+document used to describe two.** Until v0.5.0 the emitter resolved by
+declaration first and fell back to matching the argument's NAME against
+two hardcoded lists, and this page said so. The fallback is deleted. A
+name that means different things in different chapters, as `index`
+does, was never resolvable by name anyway, and the arrangement's real
+cost was that an entry could be right by accident: an argument called
+`frame_index` cited a coordinate system with nothing in its own row
+saying so, so a chapter renaming it to match its page silently stopped
+being checked. Declaring is now the only way, and the declaration is
+visible in the row a reader is already looking at.
+
+Forgetting is not silent, but the guard is a heuristic and is worth
+knowing as one. A tier 1 test fails on any index argument whose NAME
+says it cites something and that declares nothing; indices of objects
+the builder does not track (CAD bodies and curves, sections,
+separations, trailing edges) are listed there by name. An argument that
+cites something and is named in a way the heuristic does not recognise
+is exactly what the guard cannot see.
 
 ### A chapter enters for every registered version at once
 

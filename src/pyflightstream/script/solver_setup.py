@@ -357,12 +357,13 @@ class AxialVortexSeparation(BaseModel):
 
     name: str
     diameter: float
-    # int OR str: `frame` is a recorded entity reference
-    # (script._SCALAR_REFERENCE_ARGS), so the emitter resolves a declared
-    # coordinate-system LABEL here exactly as it does everywhere else the
-    # library cites a frame. Typing it int alone made this the one frame
-    # citation in the package that refused the label vocabulary the
-    # helpers module docstring promises.
+    # int OR str: `frame` is a recorded entity reference, declared by the
+    # argument's own `cites` and resolved by script._reference_kind, so
+    # the emitter resolves a declared coordinate-system LABEL here
+    # exactly as it does everywhere else the library cites a frame.
+    # Typing it int alone made this the one frame citation in the package
+    # that refused the label vocabulary the helpers module docstring
+    # promises.
     frame: int | str = 1
     body_axis: Literal["X", "Y", "Z"] = "X"
     sharp_nose_vortices: bool = False
