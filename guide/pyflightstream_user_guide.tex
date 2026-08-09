@@ -1151,7 +1151,8 @@ pyfs-qa update-reference --case ... --reason "..."    # guarded write
 pyfs-workspace init      DIR                          # scaffold a workspace
 pyfs-matrix convert      matrix.fs -o campaign.toml   # run matrix to campaign
 pyfs-fsi                 (aeroelastic coupling executable)
-pyfs-manual coverage     --manual ... --source SRC-741 --chapter-pages 275-369 --index-pages 370-379
+pyfs-manual sweep        --editions MANIFEST [--by-section]  # every registered edition
+pyfs-manual coverage     --manual ... --source SRC-741 --chapter-pages 275-369
 \end{lstlisting}
   \begin{itemize}
     \item The \code{pyfs-qa} tools (and \code{pyfs-fsi}) require a licensed machine and write dated report pairs (markdown plus YAML) under \code{reports/}; \code{pyfs-qa cases} runs nothing.

@@ -70,6 +70,14 @@ of the repository, enforced by contribution policy.
 
 Where the package does not know, it says so: unprobed commands stay
 `documented`, undocumented defaults stay `unknown`, the unprobed
-version column stays empty, and the manual-coverage report lists the
-chapters not yet pulled into the database. A smaller set of honest
-claims is always preferred over a larger set of assumed ones.
+version column stays empty, and the manual-coverage report says what is
+not yet cited or drafted, including when the answer is nothing. A
+smaller set of honest claims is always preferred over a larger set of
+assumed ones.
+
+Since v0.5.0 that report has nothing to list, every command the
+registered editions document being recorded. Read that as the coverage
+question closing rather than as the honesty rule relaxing: the same
+release added three commands whose grammar DIFFERS per edition and one
+the newest build refuses, all of which a rule-driven backfill would have
+recorded as working.

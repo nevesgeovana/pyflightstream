@@ -7,6 +7,26 @@ FlightStream versions.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-08-09
+
+**The command database is complete.** Every command that any of the four
+registered FlightStream manual editions documents is in it, 388 entries,
+and every entry carries a version row for each edition that documents the
+command. Before this release the database held 147 commands and answered
+for a curated subset of the solver; it answers for the whole scripting
+surface now, and all four registered builds derive the `operational`
+support level, which is checked by building a minimal end-to-end workflow
+for each of them.
+
+The rest of the release follows from that. Reading 386 command pages
+across four editions found the ways a manual contradicts itself, and each
+one is recorded on the entry it affects rather than smoothed over: a
+sample copied from the neighbouring command, a heading and a table
+disagreeing about an argument count, one command documented on two pages
+where only one says anything, and a value set that gained a token between
+builds. Where a page could not settle a question, the solver was asked on
+a licensed machine and the answer is a committed report.
+
 ### API surface delta
 
 * **Eighteen commands verified through the saved-state instrument, and
