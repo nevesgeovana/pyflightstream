@@ -11,16 +11,18 @@ license: MIT
 # because a development tree has no release date; it once stated the
 # v0.3.0 date beside version 0.4.0.dev0, so a citation generated from
 # that tree asserted a release date for an artifact that was never
-# released (REV010-015). This is a RELEASE tree: the version carries no
-# .dev0 and the release date is set beside it, which is the pair the
+# released (REV010-015). This is a DEVELOPMENT tree: the version carries
+# .dev0 and there is no date-released beside it, which is the pair the
 # guard in tests/test_metadata_currency.py enforces in both directions.
+# The release commit sets the two together and this sentence flips with
+# them; it is written as a statement about the tree rather than as a
+# rule so that it cannot quietly stop describing the file it heads.
 # The archive DOIs below are one per release, newest first, with the
 # concept DOI last. A version DOI is minted from the GitHub release, so
 # it is always recorded one commit AFTER the tag it names. Older ones
 # stay, because those releases did happen and are still what a citation
 # of them should resolve to.
-version: 0.5.0
-date-released: 2026-08-09
+version: 0.6.0.dev0
 repository-code: "https://github.com/nevesgeovana/pyflightstream"
 identifiers:
   - type: doi

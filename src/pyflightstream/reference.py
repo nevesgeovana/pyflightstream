@@ -500,23 +500,27 @@ _STATUS_LEGEND: tuple[tuple[str, str, str], ...] = (
         "documented",
         "A manual page of that edition describes the command and its grammar "
         "(manual_ref), or a committed report measured the solver ACCEPTING a "
-        "command no edition documents (probe_ref). Nobody has run it on this "
-        "build, so it is a claim about a document.",
-        "Emitted.",
+        "command no edition documents (the ENTRY's probe_ref; on a version row "
+        "that field is for `removed` alone). Nobody has run it on this build, so "
+        "it is a claim about a document rather than about the solver.",
+        "Emitted, subject to the argument and phase checks every emission gets.",
     ),
     (
         "verified",
         "A Tier 2 probe ran the command on a licensed machine and observed its "
-        "effect. The strongest state here, and the only one that rests on the "
-        "solver rather than on a reading.",
-        "Emitted.",
+        "effect. The strongest POSITIVE state: a run watched the command do what "
+        "the manual says. `broken` and a measured `removed` also rest on a run, "
+        "and what they record is a failure.",
+        "Emitted, subject to the argument and phase checks every emission gets.",
     ),
     (
         "broken",
         "A probe recorded a discrepancy between the manual and the solver: the "
         "script aborted at the command, the log carried an error inside the "
         "probe's own region, or the command ran and changed nothing. A command "
-        "that runs but does nothing is broken, not verified.",
+        "that runs but does nothing is broken, not verified. A build that does "
+        "not carry the command at all also lands here, because the harness has "
+        "no `removed` outcome to write.",
         "REFUSED, with BrokenCommandError. Waivable per command with "
         "Script.allow_broken(name, reason=...), which needs a reason because "
         "the waiver, the report it overrides and the first line it covers are "
@@ -528,7 +532,9 @@ _STATUS_LEGEND: tuple[tuple[str, str, str], ...] = (
         "things happened: an edition STATES the withdrawal, an edition simply "
         "STOPS PRINTING the command, or a probe MEASURED the solver refusing "
         "the name. Only the third observes the solver, and it cites its run.",
-        "REFUSED, with CommandNotInVersionError naming the build and the citation.",
+        "REFUSED, with CommandNotInVersionError naming the build whose record it is, "
+        "the reason and the citation, and saying so explicitly when that record was "
+        "inherited from a base release rather than recorded for the build asked for.",
     ),
     (
         "empty cell",
@@ -541,16 +547,42 @@ _STATUS_LEGEND: tuple[tuple[str, str, str], ...] = (
 )
 
 
+def _spelled(count: int) -> str:
+    """Spell a small count, because these read as prose and not as data.
+
+    The counts are derived from :data:`_STATUS_LEGEND` rather than
+    written, so the sentence cannot disagree with the table under it;
+    that is the whole reason they are computed. Rendering them as
+    numerals was the cost, and this pays it back.
+    """
+    words = {
+        0: "none",
+        1: "one",
+        2: "two",
+        3: "three",
+        4: "four",
+        5: "five",
+        6: "six",
+        7: "seven",
+        8: "eight",
+    }
+    return words.get(count, str(count))
+
+
 def _status_legend_markdown() -> str:
     """Render the evidence legend as a markdown section."""
     rows = "\n".join(
         f"| {state} | {rests_on} | {emitter} |" for state, rests_on, emitter in _STATUS_LEGEND
     )
+    refusing = sum(1 for _s, _r, emitter in _STATUS_LEGEND if emitter.startswith("REFUSED"))
     return (
         "## Reading a cell\n\n"
-        "The five states are EVIDENCE states, not quality judgements, and "
-        "two of them make the script builder refuse the command. That "
-        "second column is the one a reader planning a run needs.\n\n"
+        f"The {_spelled(len(_STATUS_LEGEND))} states are EVIDENCE states, not "
+        f"quality judgements, and {_spelled(refusing)} of them make the script "
+        "builder REFUSE the "
+        "command, each with a different error. That second column is the one a "
+        "reader planning a run needs, and it is the one no status name carries."
+        "\n\n"
         "| Cell | What it rests on | What `Script.emit` does |\n"
         "|---|---|---|\n"
         f"{rows}\n"
@@ -564,11 +596,14 @@ def _status_legend_html() -> str:
         f"<td>{html.escape(emitter)}</td></tr>"
         for state, rests_on, emitter in _STATUS_LEGEND
     )
+    refusing = sum(1 for _s, _r, emitter in _STATUS_LEGEND if emitter.startswith("REFUSED"))
     return (
-        "<h2>Reading a status</h2>\n"
-        "<p>The five states are evidence states, not quality judgements, and "
-        "two of them make the script builder refuse the command.</p>\n"
-        "<table>\n<tr><th>Status</th><th>What it rests on</th>"
+        "<h2>Reading a cell</h2>\n"
+        f"<p>The {_spelled(len(_STATUS_LEGEND))} states are evidence states, not "
+        f"quality judgements, and {_spelled(refusing)} of them make the script "
+        "builder refuse the "
+        "command, each with a different error.</p>\n"
+        "<table>\n<tr><th>Cell</th><th>What it rests on</th>"
         "<th>What Script.emit does</th></tr>\n"
         f"{rows}\n</table>"
     )
@@ -828,14 +863,12 @@ def markdown_reference_pages() -> dict[str, str]:
             f"# {title}",
             "",
             f"Commands of the `{chapter}` chapter of the database, "
-            f"{len(members)} entries. Statuses follow the evidence rules of "
-            "CLAUDE.md invariant 3: `documented` cites the manual page that "
-            "documents the command, or a committed probe report where no "
-            "edition documents it; `verified` and `broken` cite a committed "
-            "probe report; `removed` records "
-            "the manual page stating the removal. A `broken` status is also "
-            "a refusal: the script builder will not emit that command for "
-            "that version without an explicit recorded waiver (FR-48).",
+            f"{len(members)} entries. The status words are defined once, on "
+            "the [compatibility matrix](../compatibility.md#reading-a-cell), "
+            "which says what each rests on and what the script builder does "
+            "with it. Read it before this page: `broken` and `removed` are "
+            "refusals, so a row here can be telling you the emitter will not "
+            "write that command for that version.",
             "",
         ]
         page_lines.extend(_entry_markdown(entry) for entry in members)

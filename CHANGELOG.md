@@ -7,6 +7,31 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+* **The compatibility matrix and the offline `help()` page define their own
+  cells.** Both carried a definition of the empty cell and of the
+  inheritance mark and left the four status words to be inferred from
+  their names. A legend now names all five, what each rests on, and what
+  `Script.emit` does with it, which is the half no status name carries:
+  three of the five are REFUSALS, each with a different exception class.
+  Both layers render one tuple, so they cannot come to disagree, and the
+  per-chapter reference pages stop restating the definitions and link to
+  it instead.
+
+  The reasoning worth keeping is about the guard rather than the text.
+  The first version of it let eight of nine mutants through: every check
+  was a search for a fragment ANYWHERE on the page, so the two columns
+  could be swapped between `documented` and `verified`, the named
+  exception class could be the wrong one, and the two non-refusing rows
+  were proven by an `except Exception` that read an argument refusal as
+  a successful emission. An emitter that could emit nothing at all left
+  the file green. The guards now locate a row and assert inside it, tie
+  each cell's opening clause to whether the model refuses that status
+  without a committed report, and prove emission by emitting. Eleven of
+  thirteen mutants die; the two that live are inversions of explanatory
+  prose and are registered rather than papered over.
+
 ## [0.5.0] - 2026-08-09
 
 **The command database is complete.** Every command that any of the four
