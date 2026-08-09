@@ -12,7 +12,7 @@ SET_VORTICITY_DRAG_BOUNDARIES:
       required: false
   manual_ref: "SRC-003 p.350"
   versions:
-    "26.121": {status: documented, note: "SRC-740 p.353, same grammar as 26.120"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
     "26.100": {status: documented, note: "SRC-741 p.346, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.349, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -67,7 +67,7 @@ SET_ANALYSIS_MOMENTS_MODEL:
       values: [PRESSURE, VORTICITY]
   manual_ref: "SRC-003 p.350"
   versions:
-    "26.121": {status: documented, note: "SRC-740 p.348, same grammar as 26.120"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
     "26.100": {status: documented, note: "SRC-741 p.342, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.344, same grammar as 26.120"}
     "26.120": {status: documented}

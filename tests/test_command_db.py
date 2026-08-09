@@ -1371,3 +1371,47 @@ def test_every_declared_sentinel_and_length_is_reachable_from_the_database():
         if spec.fixed_length is not None
     }
     assert lengths == {("SET_MOTION_6DOF_ACTIVE_VARIABLES", "variables", 6)}
+
+
+def test_no_chapter_file_records_a_version_twice():
+    """A duplicate version key is a silent overwrite, not a syntax error.
+
+    YAML keeps the LAST of two identical keys and says nothing, so a
+    command carrying two rows for one build loads with one of them and
+    the other is simply gone. On 2026-08-08 `pyfs-qa apply-compat`
+    produced exactly that: its matcher only sees a version row written
+    as a single-line flow mapping, so a hand-authored BLOCK row for the
+    same build was invisible and it inserted a second one. The block
+    carried a per-version grammar, which the inserted line would have
+    silenced.
+
+    Guarded here rather than only at the tool, because the class is
+    wider than its cause: any editor of these files, human or scripted,
+    can write the same key twice.
+    """
+    import re
+    from pathlib import Path
+
+    key = re.compile(r'^    "(\d+\.\d+)":')
+    offenders = []
+    root = Path(__file__).parents[1] / "src" / "pyflightstream" / "commands"
+    for path in sorted(root.glob("*.yaml")):
+        if path.name == "_meta.yaml":
+            continue
+        command = None
+        seen: dict[str, set[str]] = {}
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if line[:1].isalpha() and line.endswith(":"):
+                command = line[:-1]
+                continue
+            match = key.match(line)
+            if match is None or command is None:
+                continue
+            recorded = seen.setdefault(command, set())
+            if match.group(1) in recorded:
+                offenders.append(f"{path.name}: {command} records {match.group(1)} twice")
+            recorded.add(match.group(1))
+    assert not offenders, (
+        "these entries record one FlightStream version twice, so the loader keeps "
+        f"the second and drops the first without complaining: {offenders}"
+    )

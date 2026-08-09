@@ -34,7 +34,7 @@ SET_SOLVER_CONVERGENCE_ITERATIONS:
     "26.100": {status: documented, note: "SRC-741 p.341, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.343, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate.yaml"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
   notes: >
     Number of iterations the solver must remain below the convergence
     threshold before convergence is declared.
@@ -50,7 +50,7 @@ SOLVER_MINIMUM_CP:
     "26.100": {status: documented, note: "SRC-741 p.342, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.344, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate.yaml"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
   default: -20
   default_ref: "SRC-003 p.221"
   notes: >

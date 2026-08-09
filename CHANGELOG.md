@@ -9,6 +9,27 @@ FlightStream versions.
 
 ### API surface delta
 
+* **Eighteen commands verified through the saved-state instrument, and
+  four reverted to unobservable WITH their measurement.** 26.121 goes
+  from 67 verified to 84. New public assertion `qa.fsm_changed`, for the
+  commands whose effect is real and has no distinctive value to search
+  for: a toggle writes T or F and a binding writes an index of 1, which
+  match everywhere, so what it asserts is that the saved state MOVED.
+
+  The four that came back broken were triaged rather than recorded, and
+  none of them is broken: an actuator appears to be enabled at creation,
+  the constant free-stream form is the documented solver default, every
+  boundary appears pre-selected for analysis, and a clean synthetic wing
+  has no wake termination nodes to detect. Each keeps an unobservable
+  record whose note is now a measurement instead of a guess.
+
+  BOTH SAVED-STATE ASSERTIONS COMPARED SETS OF LINES AND BOTH WERE WRONG
+  FOR IT. The simulation file is positional and most of its lines are
+  short tokens, so a line that genuinely changed from `0` to `1`
+  contributes nothing to a set difference. Two commands that had really
+  written to the state were recorded broken under that reading. They
+  read a positional diff now.
+
 * **Four chapter questions measured, and one was a command the emitter
   was building and the solver rejects** (`RPT-021`).
 

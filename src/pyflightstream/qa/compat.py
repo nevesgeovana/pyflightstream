@@ -395,6 +395,27 @@ def _rewrite_version_line(
             lines[index] = f'{indent}"{canonical}": {{{fields}}}'
             return "\n".join(lines) + "\n"
 
+    # A version already recorded as a BLOCK rather than a one-line flow
+    # mapping is invisible to _VERSION_LINE, and inserting beside it
+    # writes the key twice. YAML keeps the last and drops the first
+    # silently, so on 2026-08-08 a promotion nearly erased a
+    # hand-authored per-version GRAMMAR (SOLVER_PROXIMAL_BOUNDARIES on
+    # 26.121). Refused rather than rewritten: the block carries a note
+    # and possibly an args override that this function has no way to
+    # preserve, and dropping either would be the same silent loss in a
+    # different place.
+    block = f'{" " * 4}"{canonical}":'
+    for index in range(start, end):
+        if lines[index].rstrip() == block:
+            raise ValueError(
+                f"{chapter}: {name} already records {canonical!r} as a multi-line "
+                "block, which this promotion cannot rewrite without discarding the "
+                "note or argument override the block carries. Fold the new status "
+                f"and report into that block by hand, citing {citation!r}, and leave "
+                "the rest of it alone; the status still comes from a committed "
+                "report, which is what invariant 3 asks."
+            )
+
     if not recorded:
         raise ValueError(
             f"{chapter}: {name} records no version as a single-line entry, so this "

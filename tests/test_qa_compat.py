@@ -166,9 +166,8 @@ def test_apply_compat_refuses_unknown_commands(tmp_path):
         apply_compat(report_path, repo_root=tmp_path, commands_dir=commands_dir)
 
 
-def test_apply_compat_refuses_a_multiline_version_entry(tmp_path):
-    commands_dir = tmp_path / "commands"
-    commands_dir.mkdir()
+def _fake_chapter(commands_dir, versions: str) -> None:
+    commands_dir.mkdir(exist_ok=True)
     (commands_dir / "_meta.yaml").write_text(META_FIXTURE, encoding="utf-8")
     (commands_dir / "fake.yaml").write_text(
         "FAKE_CMD:\n"
@@ -176,11 +175,47 @@ def test_apply_compat_refuses_a_multiline_version_entry(tmp_path):
         "  phase: control\n"
         "  args: []\n"
         '  manual_ref: "SRC-003 p.281"\n'
-        "  versions:\n"
-        '    "26.120":\n'
-        "      status: documented\n",
+        "  versions:\n" + versions,
         encoding="utf-8",
     )
+
+
+def test_apply_compat_refuses_to_promote_over_a_multiline_block(tmp_path):
+    """The promotion must not write the same version key twice.
+
+    A version already recorded as a BLOCK is invisible to the one-line
+    matcher, so the promotion used to insert a SECOND key beside it.
+    YAML keeps the last and drops the first without complaining, and on
+    2026-08-08 that nearly erased a hand-authored per-version GRAMMAR:
+    SOLVER_PROXIMAL_BOUNDARIES records a different argument list on
+    26.121, and the inserted line would have silenced it.
+
+    Refused rather than rewritten, because the block carries a note and
+    possibly an argument override this function cannot preserve, and
+    dropping either is the same silent loss somewhere else.
+    """
+    commands_dir = tmp_path / "commands"
+    _fake_chapter(
+        commands_dir,
+        '    "26.120":\n'
+        "      status: documented\n"
+        "      note: >-\n"
+        "        a hand-authored block carrying something worth keeping\n",
+    )
+    report_path = write_report(tmp_path, {"FAKE_CMD": {"outcome": "verified", "detail": "x"}})
+    with pytest.raises(ValueError, match="already records '26.120' as a multi-line block"):
+        apply_compat(report_path, repo_root=tmp_path, commands_dir=commands_dir)
+
+
+def test_apply_compat_refuses_when_no_line_shows_it_the_shape(tmp_path):
+    """The older refusal, still reachable and still its own case.
+
+    Here the block belongs to a DIFFERENT version, so there is no
+    collision to refuse and also no single-line entry whose shape the
+    new one could copy.
+    """
+    commands_dir = tmp_path / "commands"
+    _fake_chapter(commands_dir, '    "26.101":\n      status: documented\n')
     report_path = write_report(tmp_path, {"FAKE_CMD": {"outcome": "verified", "detail": "x"}})
     with pytest.raises(ValueError, match="records no version as a single-line entry"):
         apply_compat(report_path, repo_root=tmp_path, commands_dir=commands_dir)

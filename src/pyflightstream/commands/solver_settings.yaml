@@ -40,7 +40,7 @@ SET_BOUNDARY_LAYER_TYPE:
       values: [LAMINAR, TRANSITIONAL, TURBULENT]
   manual_ref: "SRC-003 p.341"
   versions:
-    "26.121": {status: documented, note: "SRC-740 p.344, same grammar as 26.120"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
     "26.100": {status: documented, note: "SRC-741 p.338, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.340, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -60,7 +60,7 @@ SET_SOLVER_VISCOUS_COUPLING:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 p.341"
   versions:
-    "26.121": {status: documented, note: "SRC-740 p.344, same grammar as 26.120"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
     "26.100": {status: documented, note: "SRC-741 p.338, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.340, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -83,7 +83,7 @@ SET_VISCOUS_EXCLUDED_BOUNDARIES:
     "26.100": {status: documented, note: "SRC-741 p.338, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.340, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.344, same grammar as 26.120"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
   notes: >
     Excludes the listed boundaries from viscous coupling; the indices
     follow on the next line as comma-separated values. Documented

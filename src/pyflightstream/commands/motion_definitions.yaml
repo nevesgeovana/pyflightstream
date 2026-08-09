@@ -114,7 +114,7 @@ SET_MOTION_COORDINATE_SYSTEM:
       cites: frames
   manual_ref: "SRC-003 p.332"
   versions:
-    "26.121": {status: documented, note: "SRC-740 p.335, same grammar as 26.120"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
     "26.100": {status: documented, note: "SRC-741 p.328, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.331, same grammar as 26.120"}
     "26.120": {status: documented}

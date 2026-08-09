@@ -398,9 +398,9 @@ def _exported_bare_raises() -> list[str]:
 #: cross-module caller, is on no list and does not fail today
 #: (PLN-20260804-1130).
 #:
-#: The set holds 28 entries in two tranches. The FIRST THREE raise
+#: The set holds 29 entries in two tranches. The FIRST THREE raise
 #: ``TypeError`` for an argument of a type the function does not accept;
-#: the other 25 are the reachability tranche and are almost all
+#: the other 26 are the reachability tranche and are almost all
 #: ``ValueError``. Re-basing the TypeError three onto a catalogued class
 #: is not the
 #: one-line change the ValueError sites were: ``except TypeError`` is
@@ -423,23 +423,10 @@ _RATCHET = {
     # RAISES. The author's decision: measure now, fix at v0.5, so the
     # number is the debt and it is countable (PLN-20260804-0130).
     "pyflightstream.cases.cli._parse_recipes -> ValueError (cli.py:33)",
-    # EIGHT sites on the pydantic validation path, where ValueError IS
-    # the protocol. They move down the file whenever anything is inserted
-    # above them, and did so three times: on 2026-08-07 when the
-    # all-entities sentinel, the entity citation and the fixed payload
-    # length joined ArgSpec; on 2026-08-08 when the Mesh Wrapper chapter
-    # needed `on_command_line` and brought two layout rules with it; and
-    # again the same day when the review found the third rule that field
-    # owed, refusing an OPTIONAL argument on the command line. The
+    # The pydantic validation path, where ValueError IS the protocol.
+    # These move whenever anything is inserted above them, and the
     # ratchet keys on the line number, so re-anchoring is deliberate
-    # friction rather than a defect: a moved raise should be re-read.
-    #
-    # The count went 5 to 8 across those two moves, which is new debt and
-    # not only a re-anchor. It is taken deliberately: these refusals sit
-    # beside five that already raise the same way on the same path, and
-    # giving three of a family of eight a catalogued base while five keep
-    # the bare one would make the family harder to read, not easier. They
-    # go with the rest under PLN-20260804-0130.
+    # friction: a moved raise should be re-read.
     "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:429)",
     "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:431)",
     "pyflightstream.commands._check_layout_rules -> ValueError (__init__.py:433)",
@@ -461,7 +448,8 @@ _RATCHET = {
     "pyflightstream.post.writers._checked -> ValueError (writers.py:39)",
     "pyflightstream.probes.planar._unit -> ValueError (planar.py:50)",
     "pyflightstream.qa.compat._rewrite_version_line -> ValueError (compat.py:381)",
-    "pyflightstream.qa.compat._rewrite_version_line -> ValueError (compat.py:399)",
+    "pyflightstream.qa.compat._rewrite_version_line -> ValueError (compat.py:410)",
+    "pyflightstream.qa.compat._rewrite_version_line -> ValueError (compat.py:420)",
     "pyflightstream.results._parse_solver_flag -> ValueError (__init__.py:503)",
     "pyflightstream.results.tables._as_record -> ValueError (tables.py:538)",
     "pyflightstream.results.tables._check_point_printback -> ValueError (tables.py:572)",

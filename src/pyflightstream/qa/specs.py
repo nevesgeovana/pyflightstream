@@ -33,6 +33,7 @@ from pyflightstream.qa.probes import (
     dump_gained,
     emit_solver_setup,
     file_effect,
+    fsm_changed,
     fsm_gained,
     printed_line,
     region_printed,
@@ -409,23 +410,29 @@ _spec(
     build_target=_emit("SET_TRAILING_EDGE_TYPE", 1, "RELAXED"),
     requires=Requires.SIM,
     prelude=_emit("AUTO_DETECT_TRAILING_EDGES"),
-    assert_effect=_unobservable,
-    effect_note="trailing-edge types are not exposed by any instrument yet",
+    save_state=True,
+    assert_effect=fsm_changed(),
+    effect_note=("the saved simulation carries the trailing-edge type"),
 )
 _spec(
     command="DISABLE_WAKE_NODES_ON_TRAILING_EDGE",
     build_target=_emit("DISABLE_WAKE_NODES_ON_TRAILING_EDGE", 1),
     requires=Requires.SIM,
     prelude=_emit("AUTO_DETECT_TRAILING_EDGES"),
-    assert_effect=_unobservable,
-    effect_note="wake-node states are not exposed by any instrument yet",
+    save_state=True,
+    assert_effect=fsm_changed(),
+    effect_note=("the saved simulation carries the wake-node state"),
 )
 _spec(
     command="AUTO_DETECT_WAKE_TERMINATION_NODES",
     build_target=_emit("AUTO_DETECT_WAKE_TERMINATION_NODES"),
     requires=Requires.SIM,
     assert_effect=_unobservable,
-    effect_note="wake termination nodes are not exposed by any instrument yet",
+    effect_note=(
+        "the saved simulation does not move on the probe geometry, measured "
+        "2026-08-08; a clean synthetic wing may simply have no wake termination "
+        "nodes to find, so this needs a geometry that does"
+    ),
 )
 _spec(
     command="SET_FREESTREAM",
@@ -433,8 +440,8 @@ _spec(
     requires=Requires.SIM,
     assert_effect=_unobservable,
     effect_note=(
-        "the CONSTANT form is the solver default and leaves no observable trace; the "
-        "ROTATION and CUSTOM forms await dedicated fixtures"
+        "the CONSTANT form is the solver default and the saved simulation does not "
+        "move, measured 2026-08-08; the CUSTOM and ROTATION forms await fixtures"
     ),
 )
 _spec(
@@ -558,8 +565,9 @@ _spec(
     command="SET_MAX_PARALLEL_THREADS",
     build_target=_emit("SET_MAX_PARALLEL_THREADS", 3),
     requires=Requires.SIM,
-    assert_effect=_unobservable,
-    effect_note="the thread count is not exposed by any instrument yet",
+    save_state=True,
+    assert_effect=fsm_changed(),
+    effect_note=("the saved simulation carries the thread count"),
 )
 
 
@@ -610,22 +618,25 @@ _spec(
     command="SET_BOUNDARY_LAYER_TYPE",
     build_target=_emit("SET_BOUNDARY_LAYER_TYPE", "TURBULENT"),
     requires=Requires.SIM,
-    assert_effect=_unobservable,
-    effect_note="the boundary-layer model choice is not exposed by any instrument yet",
+    save_state=True,
+    assert_effect=fsm_changed(),
+    effect_note=("the saved simulation carries the boundary-layer model choice"),
 )
 _spec(
     command="SET_SOLVER_VISCOUS_COUPLING",
     build_target=_emit("SET_SOLVER_VISCOUS_COUPLING", "ENABLE"),
     requires=Requires.SIM,
-    assert_effect=_unobservable,
-    effect_note="the viscous-coupling toggle is not exposed by any instrument yet",
+    save_state=True,
+    assert_effect=fsm_changed(),
+    effect_note=("the saved simulation carries the viscous-coupling choice"),
 )
 _spec(
     command="SET_VISCOUS_EXCLUDED_BOUNDARIES",
     build_target=_emit("SET_VISCOUS_EXCLUDED_BOUNDARIES", 1, [1]),
     requires=Requires.SIM,
-    assert_effect=_unobservable,
-    effect_note="viscous exclusions are not exposed by any instrument yet",
+    save_state=True,
+    assert_effect=fsm_changed(),
+    effect_note=("the saved simulation carries the viscous exclusion list"),
 )
 
 
@@ -648,8 +659,9 @@ _spec(
     command="SOLVER_PROXIMAL_BOUNDARIES",
     build_target=_emit("SOLVER_PROXIMAL_BOUNDARIES", 1, [1]),
     requires=Requires.SIM,
-    assert_effect=_unobservable,
-    effect_note="proximal-boundary marking is not exposed by any instrument yet",
+    save_state=True,
+    assert_effect=fsm_changed(),
+    effect_note=("the saved simulation carries the proximal-boundary marking"),
 )
 _spec(
     command="REMOVE_INITIALIZATION",
@@ -697,8 +709,9 @@ _spec(
     command="SET_VORTICITY_DRAG_BOUNDARIES",
     build_target=_emit("SET_VORTICITY_DRAG_BOUNDARIES", 1, [1]),
     requires=Requires.SOLUTION,
-    assert_effect=_unobservable,
-    effect_note="the vorticity-drag boundary list is not exposed by any instrument yet",
+    save_state=True,
+    assert_effect=fsm_changed(),
+    effect_note=("the saved simulation carries the vorticity-drag list"),
 )
 _spec(
     command="DELETE_VORTICITY_DRAG_BOUNDARIES",
@@ -723,8 +736,9 @@ _spec(
     command="SET_ANALYSIS_MOMENTS_MODEL",
     build_target=_emit("SET_ANALYSIS_MOMENTS_MODEL", "VORTICITY"),
     requires=Requires.SOLUTION,
-    assert_effect=_unobservable,
-    effect_note="the moments-model choice is not exposed by any instrument yet",
+    save_state=True,
+    assert_effect=fsm_changed(),
+    effect_note=("the saved simulation carries the moments-model choice"),
 )
 _spec(
     command="SET_ANALYSIS_SYMMETRY_LOADS",
@@ -751,8 +765,9 @@ _spec(
     requires=Requires.SOLUTION,
     assert_effect=_unobservable,
     effect_note=(
-        "the analysis boundary selection is indistinguishable on a single-boundary "
-        "geometry; needs a multi-boundary fixture"
+        "the saved simulation does not move, measured 2026-08-08; every boundary "
+        "appears to be selected already, so setting all of them changes nothing to "
+        "observe"
     ),
 )
 _spec(
@@ -852,10 +867,7 @@ _spec(
     requires=Requires.SOLUTION,
     prelude=_emit("NEW_PROBE_POINT", "VOLUME", 1.2345, 2.3456, 3.4567),
     assert_effect=_unobservable,
-    effect_note=(
-        "the probe export may refresh values on its own, so it cannot discriminate "
-        "UPDATE_PROBE_POINTS; needs a dedicated instrument"
-    ),
+    effect_note="the probe export may refresh; the stored points do not move",
 )
 _spec(
     command="EXPORT_PROBE_POINTS",
@@ -1221,7 +1233,11 @@ _spec(
     requires=Requires.SIM,
     prelude=_ACTUATOR_PRELUDE,
     assert_effect=_unobservable,
-    effect_note="the enable flag is stored in binary form; no instrument yet",
+    effect_note=(
+        "the saved simulation does not move when an actuator is enabled, measured "
+        "2026-08-08; an actuator appears to be enabled already when created, so the "
+        "state instrument cannot separate the two"
+    ),
 )
 _spec(
     command="DELETE_ACTUATOR",
@@ -1287,8 +1303,9 @@ _spec(
     build_target=_emit("SET_MOTION_COORDINATE_SYSTEM", 1, 2),
     requires=Requires.SIM,
     prelude=_motion_frame_prelude,
-    assert_effect=_unobservable,
-    effect_note="the motion frame binding is stored in binary form; no instrument yet",
+    save_state=True,
+    assert_effect=fsm_changed(),
+    effect_note=("the saved simulation carries the motion frame binding"),
 )
 _motion_setter(
     "SET_MOTION_START_TIME",
@@ -1394,7 +1411,7 @@ _spec(
     build_target=_emit("SWEEPER_CLEAR_SOLUTION", "ENABLE"),
     requires=Requires.SOLVER,
     assert_effect=_unobservable,
-    effect_note="the sweeper clear-solution toggle leaves no observable trace yet",
+    effect_note="the sweeper clear-solution toggle is not exposed by any instrument yet",
 )
 _spec(
     command="SWEEPER_REF_VELOCITY_SAME",

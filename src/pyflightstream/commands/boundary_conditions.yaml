@@ -41,7 +41,7 @@ SET_TRAILING_EDGE_TYPE:
       args:
         - {name: te_index, type: int}
         - {name: type, type: enum, values: [STANDARD, RELAXED, JET_OUTFLOW]}
-    "26.121": {status: documented, note: "SRC-740 p.322, same grammar as 26.120"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
     "26.101": {status: documented, note: "SRC-725 p.318, same grammar as 26.120"}
     "26.120": {status: documented}
   notes: >
@@ -57,7 +57,7 @@ DISABLE_WAKE_NODES_ON_TRAILING_EDGE:
       type: int
   manual_ref: "SRC-003 p.320"
   versions:
-    "26.121": {status: documented, note: "SRC-740 p.323, same grammar as 26.120"}
+    "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
     "26.101": {status: documented, note: "SRC-725 p.319, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.315, same grammar as 26.120"}
     "26.120": {status: documented}

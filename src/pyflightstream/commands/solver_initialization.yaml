@@ -60,21 +60,22 @@ SOLVER_PROXIMAL_BOUNDARIES:
       separator: newline
   manual_ref: "SRC-003 pp.337-338"
   versions:
+    "26.100": {status: documented, note: "SRC-741 p.335, same grammar as 26.120"}
+    "26.101": {status: documented, note: "SRC-725 p.336, same grammar as 26.120"}
+    "26.120": {status: documented}
     "26.121":
-      status: documented
+      status: verified
+      report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"
       note: >-
-        SRC-740 pp.340-341. This edition documents a SECOND call form no
-        older one prints: a count of -1 selects every boundary and takes
-        no index lines at all. So the count declares the all-boundaries
-        sentinel here and the index list is optional, neither of which is
-        true of the grammar the older editions state.
+        SRC-740 pp.340-341 documents a SECOND call form no older edition
+        prints: a count of -1 selects every boundary and takes no index
+        lines at all. So this build's grammar declares the all-boundaries
+        sentinel and makes the index list optional, which the grammar the
+        older editions state does not.
       args:
         - {name: count, type: int}
         - {name: boundary_indices, type: int_list, cites: boundaries,
            separator: comma, required: false}
-    "26.101": {status: documented, note: "SRC-725 p.336, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.335, same grammar as 26.120"}
-    "26.120": {status: documented}
   notes: >
     Enables solver proximity checking for the listed boundaries, one
     index per line. Must be called before INITIALIZE_SOLVER

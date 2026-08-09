@@ -434,15 +434,71 @@ def fsm_gained(*tokens: str, strict: bool = True) -> Callable[[ProbeArtifacts], 
         if after is None:
             return False if strict else None
         before = artifacts.saved_before() or ""
-        gained = set(after.splitlines()) - set(before.splitlines())
-        if not gained:
+        changed = "\n".join(_added_lines(before, after))
+        if not changed:
             # Nothing in the saved state moved, so the command was a
             # no-op whatever it printed to the log.
             return False
-        changed = "\n".join(gained)
         return all(any(form in changed for form in _fsm_renderings(token)) for token in tokens)
 
     return check
+
+
+def fsm_changed(*, strict: bool = True) -> Callable[[ProbeArtifacts], bool | None]:
+    """Make an effect assertion: the target ALTERED the saved simulation.
+
+    The weaker sibling of :func:`fsm_gained`, for the commands whose
+    effect is real and has no distinctive value to search for: a toggle
+    writes T or F, a selection writes a list, a binding writes an index
+    that is 1 or 2. Searching for those matches everywhere, which is how
+    a probe reports a pass on a command that did nothing.
+
+    What it asserts instead is that the saved state MOVED. A command
+    that changed nothing in the simulation did nothing, whatever it
+    printed to the log, and that is exactly the reading ``broken`` has
+    in this harness.
+
+    Use it deliberately and not as a default. A command whose work is
+    outside the simulation (an export, a refresh of a view, a selection
+    the file does not carry) legitimately changes nothing here, and this
+    assertion would call it broken. Those keep their unobservable
+    record and say why.
+
+    Parameters
+    ----------
+    strict : bool
+        Whether a missing state file breaks (the default) or records
+        unprobed.
+    """
+
+    def check(artifacts: ProbeArtifacts) -> bool | None:
+        after = artifacts.saved_after()
+        if after is None:
+            return False if strict else None
+        before = artifacts.saved_before() or ""
+        return after != before
+
+    return check
+
+
+def _added_lines(before: str, after: str) -> list[str]:
+    """Lines the target added or changed, read positionally rather than by value.
+
+    A SET difference was the first implementation and it is wrong on
+    this format. The saved simulation is positional and most of its
+    lines are short tokens, so a line that genuinely changed from ``0``
+    to ``1`` contributes nothing to a set difference: both spellings
+    occur a hundred times elsewhere in the file. Two commands that had
+    really written to the state were recorded BROKEN under that reading,
+    and the diff of their two files was three lines long.
+    """
+    import difflib
+
+    return [
+        line[2:]
+        for line in difflib.ndiff(before.splitlines(), after.splitlines())
+        if line.startswith("+ ")
+    ]
 
 
 def _fsm_renderings(token: str) -> tuple[str, ...]:

@@ -7,9 +7,9 @@ executor: LocalExecutor, -hidden --script (SRC-003 pp.279-280)
 solver_identity:
 - 'FlightStream version 26.1, build #7262026'
 summary:
-  verified: 8
+  verified: 18
   broken: 0
-  unprobed: 361
+  unprobed: 350
 commands:
   ACOUSTIC_SOURCES:
     outcome: unprobed
@@ -141,9 +141,9 @@ commands:
       sentinel_after: true
       effect: true
       log_errors: []
-    wall_time_s: 0.87
+    wall_time_s: 0.99
     return_code: 0
-    script_sha256: 086f0a11ac4d8171c911d8bf03ebb8591517a686d6a10f4de42c3038c6585c86
+    script_sha256: b374856398efa632cd2e965fafaa4793739f3b41040d274d2f7fac3253bc4595
   SET_ACTUATOR_RADIUS:
     outcome: verified
     detail: 'script processing continued past the command, no error between the sentinels, and the effect
@@ -153,9 +153,9 @@ commands:
       sentinel_after: true
       effect: true
       log_errors: []
-    wall_time_s: 0.87
+    wall_time_s: 0.98
     return_code: 0
-    script_sha256: b7916f2787f8ba98855b84132d8a175c0dd87b9ca174c3751877aea0842b8909
+    script_sha256: d09202f030ad4af4310e461c02869d73b81ca769bac9145c4844559768dab9e3
   SET_PROP_ACTUATOR_RPM:
     outcome: verified
     detail: 'script processing continued past the command, no error between the sentinels, and the effect
@@ -165,9 +165,9 @@ commands:
       sentinel_after: true
       effect: true
       log_errors: []
-    wall_time_s: 0.87
+    wall_time_s: 0.92
     return_code: 0
-    script_sha256: 4e8a70236292dc0d507f1d1d14f600c029874b87e8c32a6b0997460e91328812
+    script_sha256: 9f0f3ad2ec2f5eb9655033f8d9014b84a820bd90325740a9a69ccdd3fb66b35a
   SET_PROP_ACTUATOR_PROFILE:
     outcome: unprobed
     detail: not probed in this run
@@ -199,9 +199,9 @@ commands:
       sentinel_after: true
       effect: true
       log_errors: []
-    wall_time_s: 0.78
+    wall_time_s: 0.98
     return_code: 0
-    script_sha256: d98085a06c3230c63e71f862f0706287f7f09befa5431304c064c305e0de73f7
+    script_sha256: d42ead785dd8bdc7d69afe0d2095696f7a7b8910c8389a64a77b651bee0d0025
   ENABLE_ACTUATOR:
     outcome: unprobed
     detail: not probed in this run
@@ -235,9 +235,9 @@ commands:
       sentinel_after: true
       effect: true
       log_errors: []
-    wall_time_s: 0.86
+    wall_time_s: 0.95
     return_code: 0
-    script_sha256: 607280d6dadd7bd40b73c3487bf8375096ecfe5eed9162a1a59bb4b05e13fa46
+    script_sha256: 3d0ea27c2ba42c20fb52f29d54230986281e534ba11d60c72271f55a51e9c611
   SOLVER_MINIMUM_CP:
     outcome: verified
     detail: 'script processing continued past the command, no error between the sentinels, and the effect
@@ -247,9 +247,9 @@ commands:
       sentinel_after: true
       effect: true
       log_errors: []
-    wall_time_s: 0.9
+    wall_time_s: 0.95
     return_code: 0
-    script_sha256: 1e41399409b1212f1971186cee2cc1c3b2844ad4ddf73a74855402602c47d5f6
+    script_sha256: 929e71bea60f56ebebf03825da915e53e1320b23115fbea590a477fc380c93e5
   REYNOLDS_AVERAGED_DRAG_FORCES:
     outcome: unprobed
     detail: not probed in this run
@@ -405,17 +405,6 @@ commands:
     return_code: null
     script_sha256: null
   SET_JET_WAKE_DECAY_NORMALIZED_LENGTH:
-    outcome: unprobed
-    detail: not probed in this run
-    signals:
-      sentinel_before: false
-      sentinel_after: false
-      effect: null
-      log_errors: []
-    wall_time_s: null
-    return_code: null
-    script_sha256: null
-  SET_JET_WAKE_FILAMENTS_GRID_INDUCTION:
     outcome: unprobed
     detail: not probed in this run
     signals:
@@ -658,27 +647,29 @@ commands:
     return_code: null
     script_sha256: null
   SET_TRAILING_EDGE_TYPE:
-    outcome: unprobed
-    detail: not probed in this run
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels, and the effect
+      was observed: the saved simulation carries the trailing-edge type'
     signals:
-      sentinel_before: false
-      sentinel_after: false
-      effect: null
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
       log_errors: []
-    wall_time_s: null
-    return_code: null
-    script_sha256: null
+    wall_time_s: 0.96
+    return_code: 0
+    script_sha256: 539d4653afa6f3e2de94ee465a25de69db3581902542d8baf434f74a8395b0de
   DISABLE_WAKE_NODES_ON_TRAILING_EDGE:
-    outcome: unprobed
-    detail: not probed in this run
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels, and the effect
+      was observed: the saved simulation carries the wake-node state'
     signals:
-      sentinel_before: false
-      sentinel_after: false
-      effect: null
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
       log_errors: []
-    wall_time_s: null
-    return_code: null
-    script_sha256: null
+    wall_time_s: 0.97
+    return_code: 0
+    script_sha256: 928973de39f14dba34250db2d0df6520f7161dcef82a1db0b8992a8f993aca73
   AUTO_DETECT_WAKE_TERMINATION_NODES:
     outcome: unprobed
     detail: not probed in this run
@@ -1645,9 +1636,9 @@ commands:
       sentinel_after: true
       effect: true
       log_errors: []
-    wall_time_s: 0.81
+    wall_time_s: 0.89
     return_code: 0
-    script_sha256: 2e7b865f4db5aab66f23a025fa3e360e6e1ddd616d726ff4bbe2c3180ef52a67
+    script_sha256: 6c9c05f918bcc4e80797eb30cf9a80b6ee6de3bf6ae8abd031025e4ab1c50da0
   SET_COORDINATE_SYSTEM_AXIS:
     outcome: verified
     detail: 'script processing continued past the command, no error between the sentinels, and the effect
@@ -1661,9 +1652,9 @@ commands:
       sentinel_after: true
       effect: true
       log_errors: []
-    wall_time_s: 0.82
+    wall_time_s: 0.91
     return_code: 0
-    script_sha256: 9ced8b2ed8e0ec40095d1411604c38939bbc2f93dc9b42c715f70816da1a16ad
+    script_sha256: 14530710525e589f665c128a997ac1dad639a6dfc338a696d64389867940913f
   ROTATE_COORDINATE_SYSTEM:
     outcome: unprobed
     detail: not probed in this run
@@ -2358,16 +2349,17 @@ commands:
     return_code: null
     script_sha256: null
   SET_MOTION_COORDINATE_SYSTEM:
-    outcome: unprobed
-    detail: not probed in this run
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels, and the effect
+      was observed: the saved simulation carries the motion frame binding'
     signals:
-      sentinel_before: false
-      sentinel_after: false
-      effect: null
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
       log_errors: []
-    wall_time_s: null
-    return_code: null
-    script_sha256: null
+    wall_time_s: 0.99
+    return_code: 0
+    script_sha256: 2b042913638dd08f6fbc5974e56fccb4c53e11ac4378787be250c3fe63ec3f67
   SET_MOTION_START_TIME:
     outcome: unprobed
     detail: not probed in this run
@@ -2787,16 +2779,17 @@ commands:
     return_code: null
     script_sha256: null
   SET_MAX_PARALLEL_THREADS:
-    outcome: unprobed
-    detail: not probed in this run
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels, and the effect
+      was observed: the saved simulation carries the thread count'
     signals:
-      sentinel_before: false
-      sentinel_after: false
-      effect: null
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
       log_errors: []
-    wall_time_s: null
-    return_code: null
-    script_sha256: null
+    wall_time_s: 0.9
+    return_code: 0
+    script_sha256: e62e16e1225ad5d9e2ee4a26212a4fad9ef9723eb1c23be3925af62c94782e5f
   SET_SCENE_COLORMAP_TYPE:
     outcome: unprobed
     detail: not probed in this run
@@ -3095,16 +3088,17 @@ commands:
     return_code: null
     script_sha256: null
   SET_VORTICITY_DRAG_BOUNDARIES:
-    outcome: unprobed
-    detail: not probed in this run
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels, and the effect
+      was observed: the saved simulation carries the vorticity-drag list'
     signals:
-      sentinel_before: false
-      sentinel_after: false
-      effect: null
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
       log_errors: []
-    wall_time_s: null
-    return_code: null
-    script_sha256: null
+    wall_time_s: 1.01
+    return_code: 0
+    script_sha256: 0b98f4dfa61695126d13ad8a3a3ea7456ade2690d172efc1f3d00b3dc75d403a
   DELETE_VORTICITY_DRAG_BOUNDARIES:
     outcome: unprobed
     detail: not probed in this run
@@ -3128,16 +3122,17 @@ commands:
     return_code: null
     script_sha256: null
   SET_ANALYSIS_MOMENTS_MODEL:
-    outcome: unprobed
-    detail: not probed in this run
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels, and the effect
+      was observed: the saved simulation carries the moments-model choice'
     signals:
-      sentinel_before: false
-      sentinel_after: false
-      effect: null
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
       log_errors: []
-    wall_time_s: null
-    return_code: null
-    script_sha256: null
+    wall_time_s: 0.99
+    return_code: 0
+    script_sha256: 2941272ab8fdfeee6b99c0054d3225663d54110689f7a3a1b29898b59ab71783
   SET_ANALYSIS_SYMMETRY_LOADS:
     outcome: unprobed
     detail: not probed in this run
@@ -3293,16 +3288,17 @@ commands:
     return_code: null
     script_sha256: null
   SOLVER_PROXIMAL_BOUNDARIES:
-    outcome: unprobed
-    detail: not probed in this run
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels, and the effect
+      was observed: the saved simulation carries the proximal-boundary marking'
     signals:
-      sentinel_before: false
-      sentinel_after: false
-      effect: null
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
       log_errors: []
-    wall_time_s: null
-    return_code: null
-    script_sha256: null
+    wall_time_s: 0.88
+    return_code: 0
+    script_sha256: 433b18616cd1548a7c4de0b789ec1a4ea52e87118cbcfae3719f797080a3806f
   REMOVE_INITIALIZATION:
     outcome: unprobed
     detail: not probed in this run
@@ -3359,38 +3355,41 @@ commands:
     return_code: null
     script_sha256: null
   SET_BOUNDARY_LAYER_TYPE:
-    outcome: unprobed
-    detail: not probed in this run
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels, and the effect
+      was observed: the saved simulation carries the boundary-layer model choice'
     signals:
-      sentinel_before: false
-      sentinel_after: false
-      effect: null
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
       log_errors: []
-    wall_time_s: null
-    return_code: null
-    script_sha256: null
+    wall_time_s: 0.9
+    return_code: 0
+    script_sha256: f8d7ac5115539197f25395fa9b42ce5f13d5ccdf6b6d6920abad3399d23897c9
   SET_SOLVER_VISCOUS_COUPLING:
-    outcome: unprobed
-    detail: not probed in this run
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels, and the effect
+      was observed: the saved simulation carries the viscous-coupling choice'
     signals:
-      sentinel_before: false
-      sentinel_after: false
-      effect: null
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
       log_errors: []
-    wall_time_s: null
-    return_code: null
-    script_sha256: null
+    wall_time_s: 0.89
+    return_code: 0
+    script_sha256: e6a4104286f8f969a3887e917de09b5f67a6141e75d4669649faf37d652a84e1
   SET_VISCOUS_EXCLUDED_BOUNDARIES:
-    outcome: unprobed
-    detail: not probed in this run
+    outcome: verified
+    detail: 'script processing continued past the command, no error between the sentinels, and the effect
+      was observed: the saved simulation carries the viscous exclusion list'
     signals:
-      sentinel_before: false
-      sentinel_after: false
-      effect: null
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
       log_errors: []
-    wall_time_s: null
-    return_code: null
-    script_sha256: null
+    wall_time_s: 0.91
+    return_code: 0
+    script_sha256: 6f7892f386997b85ab0a125ff648d170dedd146954668e494e52379d8862835a
   DELETE_VISCOUS_EXCLUDED_BOUNDARIES:
     outcome: unprobed
     detail: not probed in this run
