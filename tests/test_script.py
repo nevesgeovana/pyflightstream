@@ -3022,18 +3022,22 @@ def test_the_base_region_cp_is_optional_only_where_a_sample_proves_it():
         Script(version="26.120").emit("CREATE_NEW_BASE_REGION", 3, "EMPIRICAL")
 
 
-def test_the_two_base_region_commands_do_not_share_a_user_model_token():
-    """CUSTOM here, USER there, two commands apart on one page.
+def test_the_two_base_region_commands_have_different_model_vocabularies():
+    """Measured, and the asymmetry is real (RPT-021, 2026-08-08).
 
-    A keyword is emitted literally, so accepting both on both would be
-    inventing grammar: if they name the same model then one of the two
-    pages is wrong, and nothing printed says which. Each entry records
-    its own page and refuses the other's.
+    The two pages spell the user-specified model differently, USER on
+    the creator and CUSTOM on the setter, two commands apart. This test
+    used to assert that each refuses the other's token, which was the
+    reading of the pages; the probe found the creator taking EITHER
+    word and the setter taking CUSTOM alone.
+
+    So the manual is right about the setter and incomplete about the
+    creator, and the asymmetry that looked like a documentation slip is
+    the solver's own.
     """
-    Script(version="26.120").emit("CREATE_NEW_BASE_REGION", 3, "USER", -0.2)
+    for token in ("USER", "CUSTOM"):
+        Script(version="26.120").emit("CREATE_NEW_BASE_REGION", 3, token, -0.2)
     Script(version="26.120").emit("SET_BASE_REGION_CP", 1, "CUSTOM", -0.2)
-    with pytest.raises(CommandArgumentError, match="expects one of"):
-        Script(version="26.120").emit("CREATE_NEW_BASE_REGION", 3, "CUSTOM", -0.2)
     with pytest.raises(CommandArgumentError, match="expects one of"):
         Script(version="26.120").emit("SET_BASE_REGION_CP", 1, "USER", -0.2)
 
@@ -3124,26 +3128,34 @@ def test_the_wake_decay_constant_exists_in_the_hotfix_alone():
             Script(version=earlier).emit("SET_WAKE_DECAY_CONSTANT", 120.125)
 
 
-def test_a_command_the_hotfix_manual_dropped_still_emits_by_inheritance():
-    """An absent version row is not a refusal on an inheriting build.
+def test_a_command_the_hotfix_build_dropped_is_refused_there():
+    """Measured: 26.121 does not know it (RPT-021, 2026-08-08).
 
     SET_JET_WAKE_FILAMENTS_GRID_INDUCTION is documented by 26.101 and
-    26.120 and by neither neighbour. It has no 26.121 row and is not
-    `removed`, because no edition says it is unsupported; one simply
-    stops printing it. 26.121 inherits its base release's evidence, so
-    the command emits there as an assumption rather than a measurement.
+    26.120 and by neither neighbour. It had no 26.121 row and was NOT
+    marked removed, because a document going quiet is not a statement
+    about a solver, and this test asserted the consequence: the command
+    emitted on 26.121 by hotfix inheritance.
 
-    This is pinned because the entry's own note first claimed the
-    opposite, that a caller on 26.121 would meet a refusal, and only
-    running it showed otherwise. PLN-20260808-2000 carries the probe.
+    That was true and it was wrong. The probe emitted it against the
+    26.121 build and the log answered with an unrecognised command, so
+    the emitter had been building a line the solver rejects. The row is
+    `removed` now, promoted from the report.
+
+    Kept, inverted, because the pair of facts is the point: absence from
+    a manual justified inheritance, and only a measurement could
+    overturn it.
     """
     entry = CommandRegistry.load().commands["SET_JET_WAKE_FILAMENTS_GRID_INDUCTION"]
-    assert set(entry.versions) == {"26.101", "26.120"}
-    assert all(row.status is not Status.REMOVED for row in entry.versions.values())
+    assert set(entry.versions) == {"26.101", "26.120", "26.121"}
+    assert entry.versions["26.121"].status is Status.REMOVED
 
-    inherited = Script(version="26.121")
-    inherited.emit("SET_JET_WAKE_FILAMENTS_GRID_INDUCTION", "ENABLE")
-    assert "SET_JET_WAKE_FILAMENTS_GRID_INDUCTION ENABLE" in inherited.render()
+    with pytest.raises(CommandNotInVersionError, match="removed"):
+        Script(version="26.121").emit("SET_JET_WAKE_FILAMENTS_GRID_INDUCTION", "ENABLE")
+
+    working = Script(version="26.120")
+    working.emit("SET_JET_WAKE_FILAMENTS_GRID_INDUCTION", "ENABLE")
+    assert "SET_JET_WAKE_FILAMENTS_GRID_INDUCTION ENABLE" in working.render()
 
     with pytest.raises(CommandNotInVersionError):
         Script(version="26.100").emit("SET_JET_WAKE_FILAMENTS_GRID_INDUCTION", "ENABLE")

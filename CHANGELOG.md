@@ -9,6 +9,35 @@ FlightStream versions.
 
 ### API surface delta
 
+* **Four chapter questions measured, and one was a command the emitter
+  was building and the solver rejects** (`RPT-021`).
+
+  `SET_JET_WAKE_FILAMENTS_GRID_INDUCTION` IS REMOVED ON 26.121. It is
+  documented by the 26.101 and 26.120 editions and by neither
+  neighbour; with no 26.121 row the registry handed it 26.120's
+  evidence by hotfix inheritance, so a caller on that build got a
+  validated script the solver refuses with an unrecognised command. The
+  row is `removed` now, promoted from the report rather than read off
+  the hotfix edition's silence. Second measured counter-example to that
+  inheritance after `AIR_ALTITUDE`, and the first where the inherited
+  evidence was optimistic.
+
+  `CREATE_NEW_BASE_REGION` GAINS `CUSTOM`: the solver accepts either
+  that or `USER` there, while `SET_BASE_REGION_CP` accepts `CUSTOM`
+  alone. The two pages disagreed and both are right about their own
+  command; the manual is merely incomplete about the creator.
+
+  DELETING A COORDINATE SYSTEM RENUMBERS the ones above it, so a frame
+  index recorded before a delete means something else after it. Nothing
+  in the library emits that delete and the entry states the safe
+  pattern; what to do in `EntityRegistry` is a design decision left
+  registered (`PLN-20260808-2100`).
+
+  Two judgements this sweep took on reasoning were confirmed by
+  measurement: `SURFACE_ROTATE` takes the sample's `SURFACES` and
+  refuses the table's `SURFACE`, and `CAD_CREATE_MIRROR_CURVE`, the
+  sample's spelling, is not a command.
+
 * **26.100 IS OPERATIONAL, and it was the DATABASE holding it back, not
   the solver.** A per-edition sweep found 122 pairs of (command, manual
   edition) that an edition documents and this database had no version

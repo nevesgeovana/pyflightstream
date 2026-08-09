@@ -32,7 +32,7 @@ CREATE_NEW_BASE_REGION:
       cites: boundaries
     - name: base_model
       type: enum
-      values: [EMPIRICAL, AXISYMMETRIC, USER]
+      values: [EMPIRICAL, AXISYMMETRIC, USER, CUSTOM]
     - name: cp
       type: float
   manual_ref: "SRC-003 p.317"
@@ -52,6 +52,14 @@ CREATE_NEW_BASE_REGION:
     because the sibling SET_BASE_REGION_CP's table spells it BASE_MODEL
     too, so the two commands agree under that reading and disagree under
     the other.
+
+    CUSTOM IS ACCEPTED HERE TOO, AND THE MANUAL DOES NOT SAY SO. This
+    page lists three models and the sibling setter lists CUSTOM where
+    this one lists USER; a 2026-08-08 probe found this command taking
+    EITHER word and the setter taking CUSTOM alone (RPT-021). So the
+    two vocabularies really do differ, the manual is right about the
+    setter and incomplete about this one, and the fourth token is
+    recorded from the measurement.
 
     The manual states that CP is ignored under the EMPIRICAL model. It
     is still required here, because this command's own sample passes
@@ -82,11 +90,13 @@ SET_BASE_REGION_CP:
 
     THE USER-SPECIFIED MODEL IS SPELLED CUSTOM HERE AND USER ON
     CREATE_NEW_BASE_REGION, two commands apart on the same page, in all
-    four editions. Each entry records its own page's token and neither
-    accepts the other's, because a keyword is emitted literally and
-    guessing that they are the same value would be inventing grammar: if
-    they are the same thing, one of the two pages is wrong, and nothing
-    printed says which. PLN-20260808-1900 carries the probe.
+    four editions.
+
+    MEASURED 2026-08-08 (RPT-021): this command takes CUSTOM and REFUSES
+    USER, while the creator takes either. So the asymmetry is real
+    rather than a documentation slip, and this entry's three tokens are
+    now a measurement instead of a reading. The creator gained CUSTOM
+    from the same run.
 
     CP IS OPTIONAL, and unusually the manual proves it rather than
     stating it: the page prints TWO samples for this command, one

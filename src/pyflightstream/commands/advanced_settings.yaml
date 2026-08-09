@@ -358,6 +358,12 @@ SET_JET_WAKE_FILAMENTS_GRID_INDUCTION:
   versions:
     "26.101": {status: documented, note: "SRC-725 p.345, same grammar as 26.120"}
     "26.120": {status: documented}
+    "26.121":
+      status: removed
+      note: >-
+        Measured 2026-08-08: the 26.121 solver answers with an
+        unrecognised-command error. Promoted from RPT-021 rather than
+        read off the hotfix edition's silence.
   notes: >
     Whether the jet wake filaments induce velocity on the mesh.
 

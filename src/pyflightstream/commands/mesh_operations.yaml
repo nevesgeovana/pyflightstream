@@ -86,14 +86,13 @@ SURFACE_ROTATE:
     the dual form, letters or indices, and here the manual states it
     outright rather than leaving it to a sample as CAD_BODY_ROTATE does.
 
-    THE KEYWORD IS SPELLED TWO WAYS ON ONE PAGE. The parameter table
-    names the row SURFACE and the sample writes SURFACES. A keyword is
-    emitted literally, so unlike an enumeration this cannot accept both:
-    one of them is what the solver reads. The plural is used here
-    because the sample is the only form the vendor has actually written
-    as a runnable line, while the table row is a label; that is a
-    judgement and not a measurement, and PLN-20260807-1000 carries the
-    probe.
+    THE KEYWORD IS SPELLED TWO WAYS ON ONE PAGE, AND THE SAMPLE IS
+    RIGHT. The parameter table names the row SURFACE and the sample
+    writes SURFACES. A keyword is emitted literally, so unlike an
+    enumeration this cannot accept both. The plural was recorded on the
+    reasoning that the sample is the only form the vendor has written as
+    a runnable line; a 2026-08-08 probe then measured it (RPT-021), the
+    solver accepting SURFACES and refusing SURFACE at that line.
 
     The count keyword is followed by the indices on the next line,
     EXCEPT at -1, which the page states selects every surface for
