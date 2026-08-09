@@ -481,7 +481,7 @@ class Coverage:
         )
 
 
-def coverage_against(manual: Mapping[str, ManualCommand], recorded: Iterable[str]) -> Coverage:
+def coverage_against(manual: Mapping[str, ManualCommand], *, recorded: Iterable[str]) -> Coverage:
     """Compare a parsed manual against the names the database records.
 
     Parameters
@@ -1422,7 +1422,7 @@ def render_chapter(
     return header + "\n".join(render_entry(c, source=source, versions=versions) for c in ordered)
 
 
-def write_chapter(path, body: str, *, write: bool = False) -> str:
+def write_chapter(body: str, *, path: str | Path, write: bool = False) -> str:
     """Write a drafted chapter, but only when asked.
 
     The default is a dry run, and the reason is the measurement in this
@@ -1433,11 +1433,16 @@ def write_chapter(path, body: str, *, write: bool = False) -> str:
 
     Parameters
     ----------
-    path : str or Path
-        Destination. Point it at a scratch file to review before moving
-        anything into ``src/pyflightstream/commands/``.
     body : str
         Output of :func:`render_chapter`.
+    path : str or Path, keyword-only
+        Destination. Point it at a scratch file to review before moving
+        anything into ``src/pyflightstream/commands/``. Keyword-only,
+        and it used to be the leading positional beside ``body``: two
+        adjacent arguments of the same kind, where swapping them and
+        taking the default ``write=False`` returned a well-formed dry
+        run reporting zero entries drafted, with the whole chapter body
+        printed back as the path it would have written to.
     write : bool, keyword-only
         False, the default, writes nothing. True writes ``body`` to
         ``path``, replacing it.

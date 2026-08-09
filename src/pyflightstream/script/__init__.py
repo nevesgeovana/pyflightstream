@@ -990,7 +990,33 @@ class Script:
         for spec in entry.args:
             if spec.name in _COUNT_ARG_NAMES and spec.name in bound:
                 count_value = bound[spec.name]
-            elif spec.is_list and spec.name in bound and isinstance(count_value, int):
+            elif spec.is_list and isinstance(count_value, int):
+                if spec.name not in bound:
+                    # An OPTIONAL payload list, omitted, under a count
+                    # that was given. The comparison below never ran here
+                    # because it needs the list, so the one shape it
+                    # exists to prevent walked straight through: a count
+                    # line with no payload under it means the solver
+                    # reads the FOLLOWING COMMANDS as data, silently and
+                    # without a syntax error, which is the failure this
+                    # method's own history is made of.
+                    #
+                    # -1 is the exemption, on the same reading as below:
+                    # the documented all-entities count takes no payload
+                    # by definition. SOLVER_PROXIMAL_BOUNDARIES on 26.121
+                    # is the live case, and it is the newest build that
+                    # made the list optional, so before this the newest
+                    # build was the loosest (release review, 2026-08-09).
+                    if count_value != -1:
+                        raise CommandArgumentError(
+                            f"{entry.name}: the declared count is {count_value} and no "
+                            f"{spec.name!r} were given, so the command line would be "
+                            "written with no payload under it and the solver would "
+                            "read the following commands as its data. Pass the "
+                            f"{count_value} values, or pass a count of -1, which is "
+                            f"the documented all-entities form ({entry.citation})"
+                        )
+                    continue
                 # Only -1 is exempt, being the documented all-entities
                 # count. `>= 0` let EVERY negative through, so a count
                 # of -2 silently disabled the comparison and the list

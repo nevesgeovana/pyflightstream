@@ -771,13 +771,13 @@ the base could not offer while it bundled several.
     standard-library base, so no handler in the wild caught less
     afterwards than before.
 
-    **20 sites remain and this requirement does not claim them.** They
+    **18 sites remain and this requirement does not claim them.** They
     are named one by one in a ratchet in
     `tests/test_exceptions_catalog.py`, so the residual is countable and
     any site THE WALK REACHES that is not on that list fails today:
     three raise `TypeError` for an argument of an unaccepted type, which
     needs a base class this catalogue does not have
-    (`PLN-20260803-2340`), and 17 are the reachability tranche, deferred
+    (`PLN-20260803-2340`), and 15 are the reachability tranche, deferred
     to v0.5 by the author on 2026-08-04 with the measurement taken first
     rather than the promise trimmed to fit (`PLN-20260804-0130`).
 
@@ -787,18 +787,20 @@ the base could not offer while it bundled several.
     development cycle and the sentence above it did not move, which is
     the drift NFR-11 exists to catch and which nothing mechanical
     catches here, the count living in a test comment the requirement
-    merely describes. Nine entries then closed, leaving 20. Of the nine,
-    four were debt carried from v0.4.0 and five were sites this cycle
-    WROTE and exempted, which is a ratchet being used as a drawer and is
-    the reason the growth is stated here rather than netted away.
+    merely describes. Eleven entries then closed, leaving 18. Of the
+    eleven, six were debt carried from v0.4.0 and five were sites this
+    cycle WROTE and exempted, which is a ratchet being used as a drawer
+    and is the reason the growth is stated here rather than netted away.
 
-    Eight of the nine were the whole
+    Eight of the eleven were the whole
     `commands._check_layout_rules` group, re-based onto the already
     catalogued `CommandDatabaseError`, which is `ValueError`-based, so
     pydantic's validation protocol is unaffected and a caller's
-    `except ValueError` catches what it always did. The ninth was a
-    refusal in `qa.compat` that turned out to report an evidence defect
-    rather than a malformed line, and now says so.
+    `except ValueError` catches what it always did. The other three were
+    the whole of `qa.compat._rewrite_version_line`: one turned out to
+    report an evidence defect rather than a malformed line, and the two
+    beside it refuse to promote a committed report's evidence, which is
+    what the catalogued `QaEvidenceError` is for.
 
     That group also measured a WEAKNESS OF THE RATCHET ITSELF, which is
     recorded here rather than only in the test file, because it bounds

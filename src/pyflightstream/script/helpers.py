@@ -881,10 +881,11 @@ def solver_settings(
         nothing to act on (SRC-003 p.345).
     jet_wake_filaments_grid_induction : bool or 'ENABLE' or 'DISABLE', optional
         Let the jet wake filaments induce velocity on the mesh
-        (SRC-003 p.346). Documented by the 26.101 and 26.120 editions
-        only; on 26.121 it is emitted on inherited evidence, the hotfix
-        manual having stopped printing it without saying it was removed
-        (PLN-20260808-2000).
+        (SRC-003 p.346). NOT AVAILABLE ON 26.121, where passing this
+        raises rather than emitting: the build does not recognise the
+        command, measured against the solver on 2026-08-08 (RPT-021).
+        Documented by the 26.101 and 26.120 editions and by neither
+        neighbour.
     rotor_induced_velocity_blending : float, optional
         Blending factor for wake stabilization, dimensionless, between 0
         and 1, solver default 0.25. Not available on 26.100

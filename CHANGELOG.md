@@ -18,8 +18,8 @@ surface now, and all four registered builds derive the `operational`
 support level, which is checked by building a minimal end-to-end workflow
 for each of them.
 
-The rest of the release follows from that. Reading 386 command pages
-across four editions found the ways a manual contradicts itself, and each
+The rest of the release follows from that. Reading the command pages of
+four editions found the ways a manual contradicts itself, and each
 one is recorded on the entry it affects rather than smoothed over: a
 sample copied from the neighbouring command, a heading and a table
 disagreeing about an argument count, one command documented on two pages
@@ -31,7 +31,10 @@ a licensed machine and the answer is a committed report.
 
 * **Eighteen commands verified through the saved-state instrument, and
   four reverted to unobservable WITH their measurement.** 26.121 goes
-  from 67 verified to 84. New public assertion `qa.fsm_changed`, for the
+  from 66 verified to 84: the full run of the same day recorded 66
+  (`CMP-26121_2026-08-08_full`) and the saved-state run added 18
+  (`CMP-26121_2026-08-08_savedstate2`). New public assertion `qa.fsm_changed`
+  (`RPT-022`), for the
   commands whose effect is real and has no distinctive value to search
   for: a toggle writes T or F and a binding writes an index of 1, which
   match everywhere, so what it asserts is that the saved state MOVED.
@@ -129,11 +132,12 @@ a licensed machine and the answer is a committed report.
     spanwise placement is parametric only on the older builds.
 
 * **The saved simulation is an instrument, and forty commands stop being
-  unobservable** (`RPT-020`). The compat reports called their effects
+  unobservable** (`RPT-020`, `RPT-022`). The compat reports called their effects
   "stored in binary form"; the .fsm is sectioned TEXT and carries them.
   `ProbeSpec.save_state` brackets the target with SAVEAS and the new
   `qa.fsm_gained` asserts a distinctive value appears on a line the
-  target added or changed. Eight commands verified on 26.121 with it,
+  target added or changed. Eighteen commands verified on 26.121 with it across the two saved-state
+  runs, eight of them through `fsm_gained`,
   among them the actuator axis, radius, rpm and swirl, and the frame
   origin and axes.
 
@@ -221,17 +225,28 @@ each explained in its own stanza below.
   returned 26.100. The vendor shipped two releases under that one name,
   so the alias no longer identifies a build; pass a canonical
   identifier, `"26.100"` or `"26.101"`, and the refusal names both.
-* `FsVersion(...)` refuses construction at a hotfix index the registry
-  does not know. Building one by hand let a caller assert an
-  inheritance fact that is the registry's to state.
+* `FsVersion(...)` refuses construction at a hotfix index, one whose
+  last digit is not zero, unless the call states `inherits_base`.
+  Whether a build carries its base release's command evidence is a fact
+  about two vendor builds, and defaulting it let a hand-built version
+  inherit a whole command set by omission. Registered builds are
+  unaffected: `resolve` fills the field from the registry.
 * `SWEEPER_SET_VELOCITY_SWEEP`'s file path moved from the second
   positional argument to the third. Pass it as `filename=`.
 * `solver_settings(viscous_excluded=[])` now emits
   `DELETE_VISCOUS_EXCLUDED_BOUNDARIES` rather than a `SET` with a count
   of zero and an empty payload line, which the solver misread.
 * A database entry with an inline list argument may no longer declare a
-  separator other than `space`; the load refuses it. This reaches an
-  entry author rather than a caller.
+  separator other than `space`, and an `on_command_line` argument may no
+  longer be optional or be preceded by a keyword line; the load refuses
+  each. Both reach an entry author rather than a caller, and no shipped
+  entry breaks.
+* `Script.emit` refuses a payload count with no payload under it, on any
+  command whose list argument is optional, unless the count is the
+  documented all-entities `-1`. One grammar in the database allowed the
+  refused shape (`SOLVER_PROXIMAL_BOUNDARIES` on 26.121) and it rendered
+  a count line the solver would have followed by reading the NEXT
+  commands as its data.
 
 **Deprecations: none.**
 
@@ -595,8 +610,12 @@ The stanzas below give the reasoning per chapter.
   manual page rather than being harmonised; the count spelled
   `surfaces` stays, being the house spelling on eight commands and not a
   slip in one; the positivity bounds the manual states on the spring
-  force stay unenforced; and the emitter's two argument-name maps stay
-  beside the `cites` declaration rather than being replaced by it.
+  force stay unenforced; and the emitter's two argument-name maps were
+  to stay beside the `cites` declaration rather than be replaced by it.
+  THAT LAST DECISION WAS REVERSED THREE DAYS LATER and the maps are
+  gone, which is the stanza at the top of this release; the reasoning
+  that kept them, recorded here as it was taken, is what the reversal
+  had to answer.
 
   One decision could not be carried out as taken.
   `ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS` was to have its lower bound
@@ -721,10 +740,11 @@ The stanzas below give the reasoning per chapter.
   Five of them reached neither map, so `SURFACE_DELETE` accepted a
   declared label and `SURFACE_INVERT` did not, and `SURFACE_COMBINE`'s
   index list and `TRANSLATE_SURFACE_BY_FRAME`'s two frames were range
-  checked against nothing. The name map stays for a spelling that means
-  one thing database-wide; it cannot be extended to `index`, which is a
-  surface here and a section or separation index in three other
-  chapters. An argument that needs it now says what it cites.
+  checked against nothing. The name map stayed at this point for a
+  spelling that means one thing database-wide, and could not be extended
+  to `index`, which is a surface here and a section or separation index
+  in three other chapters. An argument that needs it now says what it
+  cites, and the map itself was deleted later in this release.
 
   `SET_MOTION_6DOF_ACTIVE_VARIABLES` writes six toggle lines with no
   count before them, and a short payload made the solver read the next
@@ -855,11 +875,13 @@ The stanzas below give the reasoning per chapter.
   entry carries its own page per edition rather than one citation
   reused, and every command emits on all four builds.
 
-  One command is deliberately absent rather than omitted: the CAD Create
+  One command was held back at this point in the cycle: the CAD Create
   mirror, whose name the manual spells one way in its heading and
-  another in both its sample and its Script Index. A wrong command name
-  is a silent no-op in the solver, so it waits for a probe
-  (PLN-20260806-1200).
+  another in the sample beneath it. IT ENTERED LATER IN THIS SAME
+  RELEASE, under the heading's spelling `CAD_CREATE_MIRROR_CURVES`,
+  which the Script Index agrees with; the sample's singular was then
+  measured not to be a command at all (RPT-021). The stanza on the tail
+  of the sweep carries it.
 
   Facts the argument names do not carry, which is why these were read
   one at a time rather than pattern-matched:
@@ -893,10 +915,11 @@ The stanzas below give the reasoning per chapter.
   let a script emit it once and then refuse every remaining CAD Create
   command.
 
-  Not entered: the CAD Create mirror, whose name the manual spells two
-  ways with the heading against both the sample and the Script Index.
-  The emitter's failure mode for a wrong name is a silent no-op, so it
-  waits for a probe rather than shipping a guess.
+  Not entered at this point: the CAD Create mirror, whose name the
+  manual spells two ways, the heading and the Script Index together
+  against the sample. It entered later in the same release under the
+  heading's spelling, and the sample's spelling was measured not to be a
+  command (RPT-021).
 
 * **The Sweeper Toolbox chapter was drafted from a worked example and
   has been redrafted from the reference pages, which changes what the
@@ -1180,7 +1203,9 @@ The stanzas below give the reasoning per chapter.
   parsing half needs nothing, because it takes text. Only the pdf reader
   needs the extra.
 
-  **New console script `pyfs-manual`**, the fifth, with two subcommands.
+  **New console script `pyfs-manual`**, the fifth, with two subcommands
+  at this point in the cycle; `sweep` joined later and the shipped CLI
+  has three.
   `coverage` reports what a build's manual documents and the database
   does not. `draft` renders entries for those commands, and **writes
   nothing unless `--write` is passed with `--out`**; without a
@@ -1272,7 +1297,9 @@ The stanzas below give the reasoning per chapter.
   and they moved there with it. It began this release with no command
   evidence of its own and holds 11 entries since the flow-separation
   family landed, so its derived support level is `documented` rather
-  than `registered`.
+  than `registered`. It reaches `operational` later in this same
+  release, at 345 emittable commands, which is the per-edition residual
+  stanza above.
 
 ### Changed
 
@@ -3525,7 +3552,8 @@ the repository seeding and this tag (milestones M0 through M5).
 * 26.000: registered, no recorded evidence yet (honest empty column;
   backfill planned for v0.2+).
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.5.0
 [0.4.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.4.0
 [0.3.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.3.0
 [0.2.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.2.0

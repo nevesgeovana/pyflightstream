@@ -89,6 +89,12 @@ the conversion, and the conversion is not documented.
 
 ## Four commands whose state did not move, and why that is not `broken`
 
+**Added 2026-08-09, after the run this report describes.** The
+observations are from the 2026-08-08 runs; the section is later, and
+says so rather than letting the header date cover it. RPT-022 reads
+these four as the instrument's null control and states the stronger
+comparison that was actually observed.
+
 Recorded here because four `effect_note` entries in `qa/specs.py` say
 "measured 2026-08-08" and, until this section, cited nothing. A note
 claiming a run has to name where the run is written down, and the

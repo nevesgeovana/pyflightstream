@@ -436,6 +436,7 @@ _spec(
     build_target=_emit("AUTO_DETECT_WAKE_TERMINATION_NODES"),
     requires=Requires.SIM,
     assert_effect=_unobservable,
+    save_state=True,
     effect_note=(
         "the saved simulation does not move on the probe geometry (RPT-020); a "
         "clean synthetic wing may simply have no wake termination nodes to find, "
@@ -447,10 +448,13 @@ _spec(
     build_target=_emit("SET_FREESTREAM", "CONSTANT"),
     requires=Requires.SIM,
     assert_effect=_unobservable,
+    save_state=True,
     effect_note=(
-        "the CONSTANT form is the solver default and the saved simulation does not "
-        "move (RPT-020), so the state was already in the requested condition; the "
-        "CUSTOM and ROTATION forms await fixtures"
+        "the saved simulation does not move (RPT-020). The reading is that CONSTANT "
+        "is the state the simulation was already in, which would make the call a "
+        "no-op rather than a failure; no page has been found stating the default, so "
+        "the entry carries no default_ref and this stays a hypothesis. The CUSTOM and "
+        "ROTATION forms await fixtures"
     ),
 )
 _spec(
@@ -773,6 +777,7 @@ _spec(
     build_target=_emit("SET_SOLVER_ANALYSIS_BOUNDARIES", 1, [1]),
     requires=Requires.SOLUTION,
     assert_effect=_unobservable,
+    save_state=True,
     effect_note=(
         "the saved simulation does not move (RPT-020); every boundary appears to be "
         "selected already, so setting all of them changes nothing to observe"
@@ -1241,6 +1246,7 @@ _spec(
     requires=Requires.SIM,
     prelude=_ACTUATOR_PRELUDE,
     assert_effect=_unobservable,
+    save_state=True,
     effect_note=(
         "the saved simulation does not move when an actuator is enabled (RPT-020); "
         "an actuator appears to be enabled already when created, so the state "

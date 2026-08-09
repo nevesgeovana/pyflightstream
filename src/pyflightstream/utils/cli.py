@@ -279,7 +279,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
     except ManualDraftError as error:
         parser.error(str(error))
-    report = coverage_against(manual, CommandRegistry.load().commands)
+    report = coverage_against(manual, recorded=CommandRegistry.load().commands)
 
     if args.command == "coverage":
         print(f"{args.source}: {report.summary()}")
@@ -317,7 +317,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             f"nothing written. Re-run with --write{destination} to write them."
         )
         return 0
-    print(write_chapter(args.out, body, write=True))
+    print(write_chapter(body, path=args.out, write=True))
     return 0
 
 

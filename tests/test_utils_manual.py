@@ -182,7 +182,7 @@ def test_a_multi_line_payload_is_flagged_rather_than_counted():
 
 def test_coverage_names_all_three_sets():
     manual = parse_signatures({316: INLINE_PAGE, 330: CONTINUATION_PAGE})
-    report = coverage_against(manual, ["SET_BASE_REGION_CP", "START_SOLVER"])
+    report = coverage_against(manual, recorded=["SET_BASE_REGION_CP", "START_SOLVER"])
     assert report.absent == ("SET_PROP_ACTUATOR_PROFILE",)
     assert report.recorded == ("SET_BASE_REGION_CP",)
     assert report.undocumented == ("START_SOLVER",)
@@ -192,7 +192,7 @@ def test_coverage_names_all_three_sets():
 def test_coverage_carries_the_detail_of_what_is_absent():
     """So a maintainer can start writing without re-reading the manual."""
     manual = parse_signatures({330: CONTINUATION_PAGE})
-    report = coverage_against(manual, [])
+    report = coverage_against(manual, recorded=[])
     detail = report.details["SET_PROP_ACTUATOR_PROFILE"]
     assert detail.page == 330
     assert detail.inline_args == ("INDEX", "UNITS", "BLADES")
@@ -297,7 +297,7 @@ def test_the_default_writes_nothing(tmp_path):
         source="SRC-741",
         versions={"26.100": "documented"},
     )
-    message = write_chapter(target, body)
+    message = write_chapter(body, path=target)
     assert not target.exists(), "the default must not touch the filesystem"
     assert "dry run" in message and "nothing written" in message
 
@@ -311,7 +311,7 @@ def test_writing_is_possible_and_says_what_it_left_unanswered(tmp_path):
         source="SRC-741",
         versions={"26.100": "documented"},
     )
-    message = write_chapter(target, body, write=True)
+    message = write_chapter(body, path=target, write=True)
     assert target.read_text(encoding="utf-8") == body
     assert "wrote" in message and "review" in message
 

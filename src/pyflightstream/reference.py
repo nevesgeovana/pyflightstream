@@ -244,10 +244,24 @@ def _citation_label(entry: CommandEntry) -> str:
 
 
 def _evidence_text(record: VersionStatus) -> str:
-    """Return the evidence citation of one per-version record."""
+    """Return the evidence citation of one per-version record.
+
+    Both citation fields are printed, and the reason both are read here
+    rather than one is the defect this function has already had once. A
+    citation added to the model and consumed at a single call site
+    leaves every other consumer rendering the CLAIM without the evidence
+    for it, which reads as an unsupported assertion on the page a person
+    actually looks at. ``probe_ref`` on a version row arrived at v0.5.0
+    and this was the surface it did not reach: the one row using it
+    rendered "the 26.121 solver answers the name with an unrecognised
+    command error" beside the manual page of an edition that DOCUMENTS
+    the command, with the run that measured it named nowhere.
+    """
     parts = []
     if record.report:
         parts.append(record.report)
+    if record.probe_ref:
+        parts.append(record.probe_ref)
     if record.note:
         parts.append(record.note)
     if record.successor:
@@ -490,9 +504,24 @@ def _database_meta_sentence(entry_count: int, scope: str) -> str:
 # ---------------------------------------------------------------------------
 
 
+def _row_citation_html(record: VersionStatus) -> str:
+    """Name the ROW's own evidence, where it has evidence of its own.
+
+    Most rows have none and rest on the entry's citation, which the
+    rightmost column already prints. A measured removal is the case that
+    must not: it asserts the solver refused the name, and the entry cites
+    an edition that documents the command, so printing the status alone
+    beside that page sends a reader to a page contradicting the status.
+    """
+    if not record.probe_ref:
+        return ""
+    return f' <span class="notes">({html.escape(record.probe_ref)})</span>'
+
+
 def _format_versions_html(entry: CommandEntry) -> str:
     lines = [
         f'<span class="status-{record.status}">{html.escape(canonical)}: {record.status}</span>'
+        + _row_citation_html(record)
         for canonical, record in _version_records(entry)
     ]
     return "<br>".join(lines)

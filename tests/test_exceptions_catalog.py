@@ -398,9 +398,9 @@ def _exported_bare_raises() -> list[str]:
 #: cross-module caller, is on no list and does not fail today
 #: (PLN-20260804-1130).
 #:
-#: The set holds 20 entries in two tranches. The FIRST THREE raise
+#: The set holds 18 entries in two tranches. The FIRST THREE raise
 #: ``TypeError`` for an argument of a type the function does not accept;
-#: the other 17 are the reachability tranche and are almost all
+#: the other 15 are the reachability tranche and are almost all
 #: ``ValueError``. Re-basing the TypeError three onto a catalogued class
 #: is not the
 #: one-line change the ValueError sites were: ``except TypeError`` is
@@ -410,7 +410,7 @@ def _exported_bare_raises() -> list[str]:
 #: about what it means. Deferred rather than rushed the night before a
 #: tag (PLN-20260803-2340).
 #:
-#: It held 29 at v0.4.0. Nine left. Eight were the whole
+#: It held 29 at v0.4.0. Eleven left. Eight were the whole
 #: ``_check_layout_rules`` tranche, re-based onto ``CommandDatabaseError``
 #: at v0.5.0, which is what the exemption's own comment had been asking
 #: for: the class is already ``ValueError``-based, so pydantic's
@@ -456,13 +456,15 @@ _RATCHET = {
     "pyflightstream.post.writers._checked -> ValueError (writers.py:34)",
     "pyflightstream.post.writers._checked -> ValueError (writers.py:39)",
     "pyflightstream.probes.planar._unit -> ValueError (planar.py:50)",
-    # One of this helper's three sites left the ratchet at v0.5.0, not by
-    # a re-basing but because the condition it reported turned out to be
-    # a real evidence defect rather than a malformed line: apply-compat
-    # was writing a second `"26.121":` key into an entry that already had
-    # one, and it now raises QaEvidenceError, which is catalogued.
-    "pyflightstream.qa.compat._rewrite_version_line -> ValueError (compat.py:381)",
-    "pyflightstream.qa.compat._rewrite_version_line -> ValueError (compat.py:420)",
+    # `qa.compat._rewrite_version_line` held three entries and holds none.
+    # One left because the condition it reported turned out to be a real
+    # evidence defect rather than a malformed line (apply-compat writing
+    # a second `"26.121":` key into an entry that already had one). The
+    # other two were re-based in the same release review, once the
+    # insertion above them had moved them and they had to be re-read
+    # anyway: both refuse to promote a committed report's evidence, which
+    # is what `QaEvidenceError` is for, and it was already imported in
+    # that module for the sibling refusal three lines away.
     "pyflightstream.results._parse_solver_flag -> ValueError (__init__.py:503)",
     "pyflightstream.results.tables._as_record -> ValueError (tables.py:538)",
     "pyflightstream.results.tables._check_point_printback -> ValueError (tables.py:572)",

@@ -17,7 +17,7 @@ thing that goes unnoticed.
 
 import pytest
 
-from pyflightstream.commands import CommandNotInVersionError, CommandRegistry
+from pyflightstream.commands import CommandNotInVersionError, CommandRegistry, Status
 from pyflightstream.support import SupportLevel, support_table
 from pyflightstream.versions import known_versions
 
@@ -30,6 +30,20 @@ EMITTABLE = {
     "26.101": 363,
     "26.120": 363,
     "26.121": 368,
+}
+
+#: Rows recording `verified` per build, measured the same day. Pinned
+#: beside the emittable counts because the release notes quote a
+#: TRANSITION in this figure ("from 66 verified to 84") and nothing
+#: checked either endpoint: the shipped sentence said 67, which is not
+#: what the full run of that day recorded, and the arithmetic then did
+#: not close against its own two compat reports.
+VERIFIED = {
+    "26.000": 0,
+    "26.100": 13,
+    "26.101": 35,
+    "26.120": 66,
+    "26.121": 84,
 }
 
 ENTRIES = 388
@@ -77,8 +91,8 @@ def test_each_build_emits_the_number_of_commands_it_did_at_release(canonical):
 def test_the_february_build_is_not_quietly_behind_its_successors_again():
     """26.100 reached `operational` by gaining rows, not by anything solver-side.
 
-    It sat at `verified` for most of this database's life because 43 of
-    its rows were missing, and the level is derived, so the shortfall
+    It sat at `verified` for most of this database's life because forty
+    of its rows were missing, and the level is derived, so the shortfall
     read as a property of the build. Deleting those rows would put it
     back without touching a single status.
     """
@@ -90,3 +104,30 @@ def test_the_february_build_is_not_quietly_behind_its_successors_again():
     assert {levels[canonical] for canonical in ("26.100", "26.101", "26.120", "26.121")} == {
         SupportLevel.OPERATIONAL
     }, "the four documented builds are all operational at v0.5.0"
+
+
+@pytest.mark.parametrize("canonical", sorted(VERIFIED))
+def test_each_build_records_the_verified_count_it_did_at_release(canonical):
+    """The figure the release notes quote as a transition.
+
+    `verified` is the only status a probe run can raise, so this count
+    is what a licensed session moves and what the notes report moving.
+    It was reported wrongly at this release, as 67 to 84 where the full
+    run of that day recorded 66, and the error survived because the
+    endpoints lived only in prose while the reports that produce them
+    lived in `reports/compat/`.
+    """
+    registry = CommandRegistry.load()
+    version = next(v for v in known_versions() if v.canonical == canonical)
+    counted = sum(
+        1
+        for entry in registry.commands.values()
+        if (evidence := entry.evidence_in(version)) is not None
+        and not evidence.inherited
+        and evidence.record.status is Status.VERIFIED
+    )
+    assert counted == VERIFIED[canonical], (
+        f"{canonical} records {counted} verified rows and this table says "
+        f"{VERIFIED[canonical]}. A RISE is a licensed run and this table moves with "
+        "it, citing the compat report; a FALL is evidence lost"
+    )

@@ -69,9 +69,12 @@ SOLVER_PROXIMAL_BOUNDARIES:
       note: >-
         SRC-740 pp.340-341 documents a SECOND call form no older edition
         prints: a count of -1 selects every boundary and takes no index
-        lines at all. So this build's grammar declares the all-boundaries
-        sentinel and makes the index list optional, which the grammar the
-        older editions state does not.
+        lines at all. So this build's grammar makes the index list
+        optional, which the grammar the older editions state does not.
+        Not an all_sentinel declaration: that field is read on an index
+        argument, and the -1 here is written in the COUNT field. The
+        count-and-payload check is what enforces the pairing, refusing
+        any count except -1 when the list is omitted.
       args:
         - {name: count, type: int}
         - {name: boundary_indices, type: int_list, cites: boundaries,

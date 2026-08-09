@@ -26,7 +26,7 @@ Each command entry records:
 ### What an argument declares, and when it must
 
 An argument specification carries its type, its unit and its allowed
-tokens. Three further fields exist because the emitter would otherwise
+tokens. Four further fields exist because the emitter would otherwise
 decide a PER-COMMAND fact by a per-family rule or by guessing from the
 argument's name. Each was added after that guess was measured wrong.
 
@@ -35,7 +35,7 @@ argument's name. Each was added after that guess was measured wrong.
 | `cites` | The argument is a 1-based index into one of the entity kinds the script builder tracks (local coordinate systems, actuators, motions, mesh boundaries). Declaring it is what makes a declared label resolve and an out-of-range index refuse. |
 | `all_sentinel` | The command's page states a value that selects EVERY entity of that kind. Absent means the page states none, and the emitter then refuses every non-positive index. It requires `cites`, since a sentinel is only ever read where the entity kind is known. |
 | `fixed_length` | The manual fixes how many values a list takes and no count argument precedes it. A short payload otherwise makes the solver read the next command as data. |
-| `on_command_line` | The command's layout is `keyword_block` and this one argument is written on the COMMAND line rather than on a keyword line of its own. It must be the first argument and it must be required, since an argument that may be absent cannot hold a fixed position on that line. |
+| `on_command_line` | The command's layout is `keyword_block` and this one argument is written on the COMMAND line rather than on a keyword line of its own. The `on_command_line` arguments must be the LEADING ones, in a run from the first, since the command line is written before any keyword line and cannot be appended to afterwards; and each must be required, since the line is positional and unnamed, so an omitted argument would shift the ones after it into its place and the solver would read a well-formed line meaning something else. |
 
 The chapter files mirror each manual page's own argument names rather
 than harmonising them, so that an argument list still matches the page
@@ -100,7 +100,29 @@ Per-version statuses and their evidence rules:
 | documented | The manual says so, or a probe measured the solver accepting a command no edition documents | `manual_ref` page citation, or `probe_ref` naming a committed report |
 | verified | A probe proved it works | Committed compat report |
 | broken | A probe proved it fails | Committed compat report |
-| removed | The manual says it is gone | `manual_ref` page citation |
+| removed | The build does not carry the command, and the row says which of three things happened | A note, always, plus `probe_ref` naming a committed report when the note claims a MEASUREMENT |
+
+`removed` is the one status with three provenances, and the row is
+required to say which because they are not equally strong. An edition
+may STATE the withdrawal; an edition may simply STOP PRINTING the
+command, which is a fact about a document and not about the solver; or
+a probe may MEASURE the solver refusing the name, which is the only one
+of the three that observes the solver at all. The first two cite a
+manual page in the note. The third cites its run, and cites it through
+`probe_ref` rather than `report` because the probe harness has no
+`removed` outcome to write: a build that lacks a command records as
+`broken`, which is a claim about a command that is present. So a
+measured removal is a run a human wrote down, and the field says so.
+
+The same field name appears on an ENTRY and on a VERSION ROW and they
+are not the same admissibility. On an entry it is the alternative to
+`manual_ref` for a command the solver accepts and no edition documents.
+On a version row it is admissible for `removed` alone, and the loader
+refuses it on any other status, because `verified` and `broken` must
+stay checkable against the compat yaml the harness wrote; a guard whose
+population quietly shrinks reports green either way. Both go away when
+the harness learns the outcome
+(`PLN-20260809-0300-the-harness-has-no-removed-outcome`).
 
 The ordered version list in `_meta.yaml` is the only version-ordering
 authority (never string or float comparison). Canonical identifiers

@@ -76,3 +76,18 @@ repos:
         # and waved through at commit time. Two answers to one defect class.
         files: '(?i)\.(stl|tri|p3d|inp|lawgs|vtk|ac|fac|obj|fsm|step|stp|iges|igs|sat|x_t|x_b|3dm|msh|cgns|ply|off|nas|bdf)$'
         exclude: '^(tests/fixtures/cube\.obj|tests/goldens/planar_probes\.vtk)$'
+
+      # Guard: the FR-08 clean-room trailer must be a real git trailer, and
+      # this fires while the message can still be edited. The tier-1 walk
+      # (tests/test_clean_room.py) is the authority; it runs over every
+      # commit since the baseline, so its findings cannot be cleared by a
+      # follow-up commit the way a per-change check can, and a message that
+      # slipped past has to be rewritten. Measured 2026-08-09 on an unpushed
+      # release commit. The hook script carries the reasoning.
+      - id: clean-room-trailer
+        name: clean-room trailer is in the last paragraph
+        entry: python .claude/hooks/check_clean_room_trailer.py
+        language: system
+        stages: [commit-msg]
+        always_run: true
+        pass_filenames: true

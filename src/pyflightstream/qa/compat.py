@@ -14,6 +14,7 @@ are never hand-edited (CLAUDE.md invariant 3), and the schema rejects a
 from __future__ import annotations
 
 import datetime
+import json
 import re
 from importlib import resources
 from pathlib import Path
@@ -340,6 +341,123 @@ def _release_order(commands_dir: Path) -> dict[str, int]:
     }
 
 
+def _rewritten_flow_entry(
+    line: str,
+    chapter: str,
+    name: str,
+    canonical: str,
+    citation: str,
+    body: dict,
+) -> str:
+    """Rewrite one single-line version entry, KEEPING the keys it already has.
+
+    The first version of this rewrote the whole line from `status` and
+    `report`, which discarded every other key silently: the `note` that
+    carries a per-edition page citation, a `successor`, a `probe_ref`, an
+    inline `args` override. `_validate_chapter` re-parses the result and
+    passes, because what is left is well-formed YAML saying less.
+
+    That is the same loss the block form now refuses loudly, one shape
+    over, and the exposed population is not small: most rows of this
+    database carry a `note`, and those notes are the per-edition
+    citations the v0.5.0 backfill was written to record. One probe run on
+    an older build would have erased a chapter's worth with every guard
+    green.
+
+    Parameters
+    ----------
+    line : str
+        The existing entry line, indentation included.
+    chapter, name, canonical : str
+        Chapter file, command, and the build being promoted, for messages.
+    citation : str
+        Repository-relative path of the compat report being promoted from.
+    body : dict
+        The report's record for this command; ``outcome`` and, for a
+        broken outcome, ``detail``.
+
+    Returns
+    -------
+    str
+        The rewritten line, same indentation, same key order, with the
+        keys this promotion owns replaced and every other key carried
+        through unchanged.
+
+    Raises
+    ------
+    QaEvidenceError
+        If the entry cannot be parsed as a flow mapping, or if it carries
+        a narrative citation that the new status contradicts.
+    """
+    match = _VERSION_LINE.match(line)
+    if match is None:  # pragma: no cover - the caller matched it already
+        raise QaEvidenceError(f"{chapter}: {name} entry for {canonical!r} is not a flow mapping")
+    indent = match.group(1)
+    mapping = line[line.index("{") : line.rindex("}") + 1]
+    try:
+        existing = yaml.safe_load(mapping)
+    except yaml.YAMLError as error:
+        raise QaEvidenceError(
+            f"{chapter}: the {canonical!r} entry of {name} does not parse as YAML "
+            f"({error}), so this promotion cannot rewrite it without guessing at its "
+            "shape. Repair the line by hand and re-run"
+        ) from None
+    if not isinstance(existing, dict):
+        raise QaEvidenceError(
+            f"{chapter}: the {canonical!r} entry of {name} is not a mapping, so there "
+            "is nothing to rewrite in place"
+        )
+
+    status = body["outcome"]
+    # A measured removal cites a narrative report through `probe_ref`,
+    # which the model admits for `removed` alone, so promoting over one
+    # would either write a row the loader refuses or drop the citation.
+    # Neither is a mechanical decision: a probe that RUNS a command the
+    # database records as absent from the build means one of the two
+    # measurements is wrong, and which one is a person's call.
+    if existing.get("probe_ref") and status != existing.get("status"):
+        raise QaEvidenceError(
+            f"{chapter}: {name} records {canonical!r} as {existing.get('status')!r} on the "
+            f"strength of {existing['probe_ref']!r}, and this run judges it {status!r}. "
+            "One of the two measurements is wrong about whether the build carries the "
+            "command at all, which is not a promotion to make mechanically. Read both "
+            "and edit the row deliberately"
+        )
+
+    # The keys this promotion OWNS are rendered exactly as they were
+    # before this function existed, because the shape of a promoted line
+    # is pinned by tests and by 388 entries' worth of precedent. Only the
+    # carried-through keys are new output, and they go after.
+    owned = {"status", "report"}
+    fields = f'status: {status}, report: "{citation}"'
+    if status == ProbeOutcome.BROKEN.value:
+        fields += f', note: "{_one_line_note(str(body.get("detail", "")))}"'
+        owned.add("note")
+    carried = ", ".join(
+        f"{key}: {_flow_scalar(value)}" for key, value in existing.items() if key not in owned
+    )
+    rendered = f"{fields}, {carried}" if carried else fields
+    return f'{indent}"{canonical}": {{{rendered}}}'
+
+
+def _flow_scalar(value: object) -> str:
+    """Render one value inside a single-line YAML flow mapping.
+
+    Strings are quoted unconditionally rather than only where YAML would
+    require it. `status: documented` reads more naturally unquoted, and
+    deciding per value is how `OFF` or `NO` reaches the file as a boolean:
+    this database already lost an argument default that way, so the rule
+    here is the blunt one.
+    """
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)) or value is None:
+        return json.dumps(value)
+    if isinstance(value, (list, dict)):
+        return json.dumps(value)
+    return json.dumps(str(value))
+
+
 def _rewrite_version_line(
     text: str,
     chapter: str,
@@ -378,7 +496,11 @@ def _rewrite_version_line(
             end = index
             break
     if start is None:
-        raise ValueError(f"{chapter}: command block {name} not found")
+        raise QaEvidenceError(
+            f"{chapter}: command block {name} not found, so the report's evidence for "
+            "it has nowhere to be promoted to. The report and the database disagree "
+            "about which commands exist; re-run the probe against this tree"
+        )
 
     status = body["outcome"]
     fields = f'status: {status}, report: "{citation}"'
@@ -390,9 +512,11 @@ def _rewrite_version_line(
         for index in range(start, end)
         if (match := _VERSION_LINE.match(lines[index])) is not None
     ]
-    for index, indent, recorded_canonical in recorded:
+    for index, _indent, recorded_canonical in recorded:
         if recorded_canonical == canonical:
-            lines[index] = f'{indent}"{canonical}": {{{fields}}}'
+            lines[index] = _rewritten_flow_entry(
+                lines[index], chapter, name, canonical, citation, body
+            )
             return "\n".join(lines) + "\n"
 
     # A version already recorded as a BLOCK rather than a one-line flow
@@ -417,7 +541,7 @@ def _rewrite_version_line(
             )
 
     if not recorded:
-        raise ValueError(
+        raise QaEvidenceError(
             f"{chapter}: {name} records no version as a single-line entry, so this "
             f"promotion has no line to copy the shape of the new {canonical!r} entry "
             f"from. Rewrite the versions: block of {name} as one line per version "

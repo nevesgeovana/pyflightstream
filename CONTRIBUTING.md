@@ -39,7 +39,8 @@ command becomes `verified` only through a committed Tier 2 probe report.
 registered edition at once. Given a `--editions` YAML manifest naming the
 registered builds and their page ranges, it reports the commands no edition
 has an entry for, with the page and the editions each one needs, and
-`--by-section` groups them by chapter. Use it for a coverage push:
+`--by-section` groups them by chapter and `--fail-if-absent` makes a
+residual fail rather than report. Use it for a coverage push:
 `coverage`, below, answers the same question of ONE manual, and a command
 absent from one edition may be recorded from another. The manifest names
 paths of licensed manuals and is never committed (invariant 1);

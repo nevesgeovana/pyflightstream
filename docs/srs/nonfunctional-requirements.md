@@ -123,7 +123,7 @@
     the release that changes it, so it names both the shipped set and
     the one it is moving to:
 
-    | Through v0.5.0 | From the migration release |
+    | Today | From the migration release |
     |---|---|
     | numpy, pandas, pydantic, PyYAML, xarray | numpy, itaca, pydantic, PyYAML |
 

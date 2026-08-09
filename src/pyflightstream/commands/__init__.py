@@ -197,8 +197,17 @@ class CommandDatabaseError(PyflightstreamError, ValueError):
     from a registry that does not know which entry a name means.
 
     Keeps ``ValueError`` as a base, so an existing ``except ValueError``
-    around a registry load catches what it caught before; what changes
-    is that ``except PyflightstreamError`` catches it too (FR-39).
+    around a registry load catches what it caught before.
+
+    CATCH ``ValueError``, NOT ``PyflightstreamError``, and the
+    difference is not pedantry on this class. Only the duplicate-name
+    check in :meth:`CommandRegistry.load` reaches a caller as this type.
+    Every other raise site is inside a pydantic model validator, and
+    pydantic converts what a validator raises into
+    ``pydantic.ValidationError``, which IS a ``ValueError`` and is NOT a
+    ``PyflightstreamError``. FR-39's first clause is about the
+    exceptions this package delivers itself; most of this class's raises
+    are delivered by pydantic instead.
     """
 
 
@@ -1024,7 +1033,12 @@ class VersionView:
             )
         record = evidence.record
         if record.status is Status.REMOVED:
-            reason = record.note or "no longer supported"
+            # A note is mandatory for `removed`, so this reads the note
+            # and nothing else. The trailing full stop comes off because
+            # the citation is appended after a comma, and the shipped
+            # message read "...off the hotfix edition's silence., SRC-003
+            # p.346" (release review, 2026-08-09).
+            reason = " ".join(record.note.split()).rstrip(".")
             successor = (
                 f"Use {record.successor} instead."
                 if record.successor
@@ -1040,9 +1054,18 @@ class VersionView:
                 if evidence.inherited
                 else ""
             )
+            # The ROW's own citation wins over the entry's, and only for a
+            # MEASURED removal, because the two address different claims.
+            # `entry.citation` is the page of an edition that DOCUMENTS the
+            # command, which is the right thing to cite for a removal read
+            # off a manual and the wrong thing entirely beside a sentence
+            # saying the solver refused the name: the reader goes and reads
+            # a page that says the command exists. The narrative report is
+            # the only citation this refusal can honestly carry.
+            citation = record.probe_ref or entry.citation
             raise CommandNotInVersionError(
                 f"{name} is removed in FlightStream {evidence.source} "
-                f"({' '.join(reason.split())}, {entry.citation}).{inherited_note}"
+                f"({reason}, {citation}).{inherited_note}"
                 f"{last_part} {successor}"
             )
         if record.args is not None:

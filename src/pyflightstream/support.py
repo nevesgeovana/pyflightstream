@@ -311,8 +311,8 @@ def version_support(
     elif probed == 0:
         level = SupportLevel.DOCUMENTED
         why = (
-            f"{available} commands are drafted from the manual with page citations, "
-            "and none has been measured against a running solver on this version"
+            f"{available} commands carry recorded evidence for this build, and none "
+            "has been measured against a running solver on this version"
         )
     elif missing:
         level = SupportLevel.VERIFIED

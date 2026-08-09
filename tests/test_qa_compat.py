@@ -442,3 +442,99 @@ def test_the_live_database_carries_no_note_cut_mid_word():
     assert len(promoted) >= 5, (
         f"too few promoted notes for this guard to mean anything: {len(promoted)}"
     )
+
+
+#: A chapter whose version rows carry the keys a promotion does not own.
+#: Both notes are the shape the v0.5.0 backfill wrote 122 of.
+KEYS_FIXTURE = """\
+# Chapter: fixture for the key-preservation tests.
+
+PRINT:
+  layout: inline
+  phase: control
+  args:
+    - name: message
+      type: str
+  manual_ref: "SRC-003 p.281"
+  versions:
+    "26.100": {status: documented, note: "SRC-741 p.278, same grammar as 26.120"}
+    "26.120": {status: documented, note: "carried through untouched"}
+"""
+
+#: The same, with a MEASURED removal recorded for the build being probed.
+CONTRADICTION_FIXTURE = """\
+# Chapter: fixture for the contradicting-measurement refusal.
+
+PRINT:
+  layout: inline
+  phase: control
+  args:
+    - name: message
+      type: str
+  manual_ref: "SRC-003 p.281"
+  versions:
+    "26.120": {status: removed, note: "Measured: solver refuses it.", probe_ref: "reports/R.md"}
+"""
+
+
+def _chapter(tmp_path, body):
+    """Write a one-chapter fixture tree and return its commands directory."""
+    commands_dir = tmp_path / "commands"
+    write_chapter_fixture(commands_dir)
+    (commands_dir / "script_controls.yaml").unlink()
+    (commands_dir / "fixture.yaml").write_text(body, encoding="utf-8")
+    return commands_dir
+
+
+def test_a_promotion_keeps_the_keys_it_does_not_own(tmp_path):
+    """The silent half of the defect whose loud half this release fixed.
+
+    A promotion used to rewrite the whole version line from `status` and
+    `report`, discarding every other key on it: a `note`, a `successor`,
+    a `probe_ref`, an inline `args` override. `_validate_chapter`
+    re-parses the result and passes, because what is left is well-formed
+    YAML saying less, so the loss had nothing to report it.
+
+    The exposed population is not small and it is the most expensive
+    data in this database. Most rows carry a note, and those notes are
+    the per-edition page citations the v0.5.0 backfill read 122 manual
+    pages to write; the pages are licensed and uncommittable, so nothing
+    in this repository could put them back. One probe run on an older
+    build would have erased a chapter's worth with every guard green.
+    """
+    commands_dir = _chapter(tmp_path, KEYS_FIXTURE)
+    report_path = write_report(
+        tmp_path, {"PRINT": {"outcome": "verified", "detail": "effect observed"}}
+    )
+    apply_compat(report_path, repo_root=tmp_path, commands_dir=commands_dir)
+    text = (commands_dir / "fixture.yaml").read_text(encoding="utf-8")
+
+    assert "carried through untouched" in text, (
+        "the promoted row lost its note, which is a manual page citation, and no guard "
+        "downstream can tell it was ever there"
+    )
+    assert "SRC-741 p.278" in text, "a row this run never probed was rewritten"
+    promoted = yaml.safe_load(text)["PRINT"]["versions"]["26.120"]
+    assert promoted["status"] == "verified"
+    assert promoted["report"].endswith(".yaml")
+    assert promoted["note"] == "carried through untouched"
+
+
+def test_a_promotion_that_contradicts_a_measured_removal_is_refused(tmp_path):
+    """Two runs disagreeing about whether the build carries the command.
+
+    A measured removal cites its run through `probe_ref`, which the
+    model admits for `removed` alone. Promoting over it would either
+    write a row the loader refuses or drop the citation, and choosing
+    between those is not mechanical: a probe that RUNS a command
+    recorded as absent means one of the two measurements is wrong about
+    the build itself, which is a person's call.
+    """
+    from pyflightstream.qa.errors import QaEvidenceError
+
+    commands_dir = _chapter(tmp_path, CONTRADICTION_FIXTURE)
+    report_path = write_report(
+        tmp_path, {"PRINT": {"outcome": "verified", "detail": "effect observed"}}
+    )
+    with pytest.raises(QaEvidenceError, match="One of the two measurements is wrong"):
+        apply_compat(report_path, repo_root=tmp_path, commands_dir=commands_dir)

@@ -302,6 +302,22 @@ class ProbeSpec:
                 "runs but does nothing is broken, not verified (SAD Section 11), so "
                 "every probe must assert an observable effect"
             )
+        # A saved-state assertion with no saved state. Everything needed
+        # to refuse this is present at construction, which is import time
+        # of the spec catalog, and refusing it anywhere later costs a run
+        # on the licensed machine AND writes the wrong answer: with no
+        # state files the assertion returns False under its default, the
+        # command is recorded BROKEN, and apply-compat promotes that into
+        # the shipped database, where the emitter then refuses a working
+        # command for every user. A refusal that could have arrived
+        # before the seat was spent has to (release review, 2026-08-09).
+        if getattr(self.assert_effect, "needs_saved_state", False) and not self.save_state:
+            raise QaEvidenceError(
+                f"probe for {self.command} asserts on the saved simulation and declares "
+                "save_state False, so no state file would be written and the run would "
+                "record the command broken for want of the instrument rather than for "
+                "anything the solver did. Set save_state=True"
+            )
 
 
 @dataclass(frozen=True)
@@ -435,8 +451,22 @@ def fsm_gained(*tokens: str, strict: bool = True) -> Callable[[ProbeArtifacts], 
         produces: a probe asserting ``1.0`` or ``0`` would pass on a
         command that did nothing.
     strict : bool
-        Whether a missing state file breaks (the default) or records
-        unprobed.
+        Whether a missing or empty state file breaks (the default) or
+        records unprobed. It governs THE INSTRUMENT ONLY, and this is
+        the one place it differs from the older ``dump_gained``, whose
+        ``strict`` also governs an absent token and which defaults to
+        False. Here an absent token is always False, never unprobed: the
+        state file was written, the target ran, and the value it was
+        asked for is not on any line it changed, which is the reading
+        ``broken`` has in this harness rather than an absence of
+        evidence. Aligning the two signatures is
+        ``PLN-20260809-0400-the-two-strict-parameters-differ``.
+
+    Returns
+    -------
+    callable
+        The effect assertion, called with the probe artifacts and
+        returning True, False, or None for unprobed.
 
     Raises
     ------
@@ -457,15 +487,23 @@ def fsm_gained(*tokens: str, strict: bool = True) -> Callable[[ProbeArtifacts], 
     def check(artifacts: ProbeArtifacts) -> bool | None:
         after = artifacts.saved_after()
         before = artifacts.saved_before()
-        if after is None or before is None:
-            # BOTH files, not just the after one. A missing before-state
-            # read as the empty string makes every line of the after look
+        if not before or not after:
+            # BOTH files, and EMPTY counts as missing. A before-state read
+            # as the empty string makes every line of the after look
             # changed, which is the whole-file search this docstring says
             # was wrong, and it turns a command that did nothing into
             # VERIFIED evidence that apply-compat then promotes. A false
             # positive here is worse than the false negatives caught by
-            # hand, because nothing downstream re-reads it (release
-            # review, 2026-08-09).
+            # hand, because nothing downstream re-reads it.
+            #
+            # The first repair tested `is None`, which is what the reader
+            # returns for an ABSENT file, and left the door beside it
+            # open: a SAVEAS that failed after creating the file, or one
+            # interrupted mid-write, leaves a zero-byte state that reads
+            # as "" and walks straight back into the same false VERIFIED
+            # (release review, 2026-08-09). A saved simulation is never
+            # legitimately empty, so emptiness is an instrument failure
+            # and reads as one.
             return False if strict else None
         changed = "\n".join(_added_lines(before, after))
         if not changed:
@@ -474,6 +512,9 @@ def fsm_gained(*tokens: str, strict: bool = True) -> Callable[[ProbeArtifacts], 
             return False
         return all(any(form in changed for form in _fsm_renderings(token)) for token in tokens)
 
+    # Read by ProbeSpec.__post_init__, which refuses a spec asserting on
+    # a saved state it never asks to be written.
+    check.needs_saved_state = True  # type: ignore[attr-defined]
     return check
 
 
@@ -500,25 +541,44 @@ def fsm_changed(*, strict: bool = True) -> Callable[[ProbeArtifacts], bool | Non
     Parameters
     ----------
     strict : bool
-        Whether a missing state file breaks (the default) or records
-        unprobed.
+        Whether a missing or empty state file breaks (the default) or
+        records unprobed. As in :func:`fsm_gained`, it governs the
+        instrument and not the verdict: two identical states mean the
+        target did nothing, which is evidence and not its absence.
+
+    Returns
+    -------
+    callable
+        The effect assertion, called with the probe artifacts and
+        returning True, False, or None for unprobed.
     """
 
     def check(artifacts: ProbeArtifacts) -> bool | None:
         after = artifacts.saved_after()
         before = artifacts.saved_before()
-        if after is None or before is None:
-            # BOTH files, not just the after one. A missing before-state
-            # read as the empty string makes every line of the after look
+        if not before or not after:
+            # BOTH files, and EMPTY counts as missing. A before-state read
+            # as the empty string makes every line of the after look
             # changed, which is the whole-file search this docstring says
             # was wrong, and it turns a command that did nothing into
             # VERIFIED evidence that apply-compat then promotes. A false
             # positive here is worse than the false negatives caught by
-            # hand, because nothing downstream re-reads it (release
-            # review, 2026-08-09).
+            # hand, because nothing downstream re-reads it.
+            #
+            # The first repair tested `is None`, which is what the reader
+            # returns for an ABSENT file, and left the door beside it
+            # open: a SAVEAS that failed after creating the file, or one
+            # interrupted mid-write, leaves a zero-byte state that reads
+            # as "" and walks straight back into the same false VERIFIED
+            # (release review, 2026-08-09). A saved simulation is never
+            # legitimately empty, so emptiness is an instrument failure
+            # and reads as one.
             return False if strict else None
         return after != before
 
+    # Read by ProbeSpec.__post_init__, which refuses a spec asserting on
+    # a saved state it never asks to be written.
+    check.needs_saved_state = True  # type: ignore[attr-defined]
     return check
 
 
@@ -771,9 +831,15 @@ def generate_probe_script(
     # command under test, an unwritable path or a state the build
     # refuses to save, and inside the sentinels that failure lands in
     # target_region() and records the target BROKEN, which makes the
-    # emitter refuse it for every user of the library. Nothing between
-    # the target and the after-save changes simulation state: a PRINT
-    # and a log export do not (release review, 2026-08-09).
+    # emitter refuse it for every user of the library.
+    #
+    # A PRINT and a log export sit between the target and the after-save,
+    # and the whole fsm_changed instrument rests on their not moving the
+    # simulation: if either did, every such probe would pass on a command
+    # that did nothing. That is MEASURED rather than assumed, and the
+    # measurement is the null control of RPT-022: four commands bracketed
+    # by this same pair, through this same PRINT and EXPORT_LOG, came
+    # back with byte-identical saved states.
     if spec.save_state:
         script.emit("SAVEAS", workdir / _SAVE_BEFORE)
     script.emit("PRINT", f"{_BEGIN}_{spec.command}")

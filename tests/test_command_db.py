@@ -1443,34 +1443,67 @@ def _removed_rows():
     ]
 
 
-def test_every_removed_row_says_which_of_the_three_it_is():
-    """A bare removed is unreadable: nothing recovers which claim it makes."""
-    bare = [f"{name} on {version}" for name, version, row in _removed_rows() if not row.note]
-    assert not bare, (
-        "these rows record removed with no note, so a reader cannot tell whether an "
-        f"edition withdrew the command, stopped printing it, or a probe refused it: {bare}"
-    )
+#: How a `removed` note is read. The left column must be recognised as
+#: a claim ABOUT THE SOLVER and so require a citation of a run; the
+#: right column is a reading of a document and must not.
+#:
+#: This table exists because the two obvious tests here cannot fail. A
+#: walk over the loaded database looking for a bare `removed`, or for a
+#: measured one with no citation, finds zero by construction: the model
+#: refuses both at load, so the walk is over a population the loader has
+#: already emptied. What the model CANNOT check is the reach of its own
+#: pattern, which is a closed list of wordings whose comment asks for it
+#: to be widened as new ones appear. Two phrasings already in the tree
+#: sit in the right column and are admissible only because they also
+#: carry a page; had they not, nothing would have objected.
+MEASUREMENT_WORDINGS = (
+    "Measured 2026-08-08: the solver answers with an unrecognised command",
+    "Probed on the licensed build and the name is not recognised",
+    "The solver refuses the name on this build",
+    "The solver answers the line with an error",
+    "Observed on build #7262026: the command is gone",
+)
+
+READING_WORDINGS = (
+    "Withdrawn at SRC-003 p.328; no successor is documented",
+    "Absent from the 26.12 manual: the family no longer lists it (SRC-003 p.366)",
+    "No longer supported; the manual states the removal (SRC-725 p.327)",
+    # The two live in the tree today, on SET_SONIC_VELOCITY. Both DESCRIBE
+    # solver behaviour and neither claims to have watched it: they read a
+    # page that says what the solver does. The pattern does not match
+    # "warns" or "throws" and should not, since forcing a probe report
+    # for a documented statement makes the honest form unwritable.
+    "Already deprecated in 26.1: the solver warns and ignores the value (SRC-725 p.327)",
+    "No longer supported; the solver throws a deprecation warning (SRC-003 p.328)",
+)
 
 
-def test_a_removed_row_claiming_a_measurement_cites_the_run():
-    """The defect this rule is made of, swept across the database.
+@pytest.mark.parametrize("note", MEASUREMENT_WORDINGS)
+def test_a_note_claiming_the_solver_was_run_is_read_as_a_measurement(note):
+    """Widening the pattern is what makes this table grow, and the point.
 
-    SET_JET_WAKE_FILAMENTS_GRID_INDUCTION recorded removed on 26.121
-    with a note beginning `Measured 2026-08-08` and no report at all,
-    while the same entry's notes explained that a claim about the solver
-    may not rest on a document's silence. The status rule had never
-    covered removed, so nothing objected.
+    SET_JET_WAKE_FILAMENTS_GRID_INDUCTION shipped `removed` on 26.121
+    with a note beginning `Measured 2026-08-08` and no citation at all,
+    while the same entry's own notes explained at length that a claim
+    about the solver may not rest on a document's silence. The status
+    rule had never covered `removed`, so nothing objected. The rule now
+    exists; its blind spot is any wording it does not recognise.
     """
-    from pyflightstream.commands import _MEASURED_CLAIM
+    with pytest.raises(ValidationError, match="claims a measurement"):
+        VersionStatus(status=Status.REMOVED, note=note)
+    VersionStatus(status=Status.REMOVED, note=note, probe_ref="reports/RPT-021.md")
 
-    uncited = [
-        f"{name} on {version}"
-        for name, version, row in _removed_rows()
-        if row.note and _MEASURED_CLAIM.search(row.note) and not (row.report or row.probe_ref)
-    ]
-    assert not uncited, (
-        f"these removed rows claim the solver was observed and cite no run: {uncited}"
-    )
+
+@pytest.mark.parametrize("note", READING_WORDINGS)
+def test_a_note_reading_a_page_is_not_forced_to_cite_a_run(note):
+    """The other side, which a pattern that guessed would break.
+
+    An edition stating a withdrawal is evidence, and demanding a probe
+    report for it would make the honest form unwritable. That is why the
+    pattern is a closed list rather than a general reading of the
+    sentence: a false positive here refuses a true row.
+    """
+    VersionStatus(status=Status.REMOVED, note=note)
 
 
 def test_a_removed_row_that_reads_a_page_cites_the_page():
@@ -1498,12 +1531,33 @@ def test_every_narrative_citation_names_a_report_that_exists():
     be checked mechanically about it, that the file is really committed,
     has to be checked somewhere, and this is the somewhere.
     """
+    cited = [(name, version, row) for name, version, row in _removed_rows() if row.probe_ref]
+    # The floor, for the reason the entry-level sibling states: deleting
+    # the one row that uses the field leaves this walking an empty list
+    # and reporting green, and a guard is not allowed to pass by having
+    # nothing to check.
+    assert cited, (
+        "no removed row carries a probe_ref; this guard walks nothing. When the harness "
+        "gains a removed outcome the field goes away and this goes with it, deliberately"
+    )
     missing = [
         f"{name} on {version} cites {row.probe_ref}"
-        for name, version, row in _removed_rows()
-        if row.probe_ref and not (REPO_ROOT / row.probe_ref).exists()
+        for name, version, row in cited
+        if not (REPO_ROOT / row.probe_ref).exists()
     ]
     assert not missing, f"these rows cite a narrative report that is not committed: {missing}"
+    # And that the report is about THIS command, which is what stops a
+    # citation being pasted across from a sibling row. The measured case
+    # is the one where that matters most: the claim is about the solver,
+    # so a report that never mentions the command supports nothing.
+    silent = [
+        f"{name} on {version} cites {row.probe_ref}"
+        for name, version, row in cited
+        if name not in (REPO_ROOT / row.probe_ref).read_text(encoding="utf-8")
+    ]
+    assert not silent, (
+        f"these rows cite a report that never names the command they sit on: {silent}"
+    )
 
 
 def test_a_narrative_citation_is_admissible_for_removed_alone():
@@ -1542,3 +1596,57 @@ def test_the_model_refuses_a_measured_removal_that_cites_no_run():
         status=Status.REMOVED,
         note="Stops being printed at SRC-003 pp.366-367; no successor in the family.",
     )
+
+
+def test_no_consumer_of_a_version_row_citation_prints_the_claim_without_it():
+    """The same walk, one level down, where the class recurred.
+
+    Its sibling above was written when a citation added to the ENTRY was
+    consumed at one call site and dropped by every other, so the pages a
+    person reads printed the claim and not the evidence. That guard was
+    keyed on `entry.probe_ref` and did not generalise, and within one
+    release the identical thing happened to `VersionStatus.probe_ref`:
+    the reference page rendered the measurement sentence beside the
+    manual page of an edition that DOCUMENTS the command, and the
+    removal refusal did the same, with the run that measured it named
+    nowhere. Adding the field is not the work; being read is.
+    """
+    from pyflightstream.reference import markdown_reference_pages, render_html
+    from pyflightstream.script import Script
+
+    registry = CommandRegistry.load()
+    cited = sorted(
+        (name, canonical)
+        for name, entry in registry.commands.items()
+        for canonical, record in entry.versions.items()
+        if record.probe_ref
+    )
+    assert cited, (
+        "no version row carries a probe_ref; this guard walks nothing. Delete it with "
+        "the field when the harness gains a removed outcome, do not leave it green"
+    )
+
+    rendered = "\n".join(markdown_reference_pages().values())
+    page = render_html()
+    for name, canonical in cited:
+        record = registry.commands[name].versions[canonical]
+        with pytest.raises(CommandNotInVersionError) as caught:
+            Script(version=canonical).emit(name)
+        assert record.probe_ref in str(caught.value), (
+            f"the refusal for {name} on {canonical} asserts the solver was measured and "
+            f"cites {record.probe_ref!r} nowhere: {caught.value}"
+        )
+        # And it must not cite the entry-level page INSTEAD, which is the
+        # page of an edition documenting the command: a reader who follows
+        # it finds the command described as present.
+        entry_page = registry.commands[name].manual_ref
+        if entry_page:
+            assert entry_page not in str(caught.value), (
+                f"the refusal for {name} on {canonical} sends the reader to {entry_page}, "
+                "which documents the command as available"
+            )
+        for surface, text in (("markdown", rendered), ("html", page)):
+            assert record.probe_ref in text, (
+                f"the {surface} reference prints {name}'s measured removal without the "
+                "report that measured it"
+            )

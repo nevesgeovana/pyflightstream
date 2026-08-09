@@ -17,17 +17,17 @@ private session records carry the day-to-day detail.
 | v0.1.0 | First tag (private phase) | 2026-07-21 |
 | M6 | FSI subpackage: structural branch, coupled driver, near-rigid pilot; two-way rotor coupling solver-blocked with the finding reported upstream | 2026-07-21 |
 | M7 | Far-field extraction: probe lattices, planar grids with geometry gating, conservation ledgers, licensed round trip | started 2026-07-21, core delivered |
-
 | v0.2.0 | First public release: PyPI, Zenodo DOI, citation metadata | 2026-07-22 |
 | Usage-feedback line | FR-30 to FR-36: labels, provenance, tables, workspace input library, pre-flight and resume, matrix first-class, two-level help | 2026-07-22 |
 | v0.3.0 | Second public release: PyPI, Zenodo DOI, the usage-feedback line plus the options/exceptions/testing modules, the ProperDocs migration with a published docs site, role-based review, ITACA co-development (AD-07), and the licensed 26.1x evidence session | 2026-07-23 |
 | v0.4.0 | Third public release: the independent-review remediation line (FR-48 broken-command refusal, FR-49 derived support levels, FR-02c ambiguous vendor-name refusal), the FR-39 package base exception with its residual named site by site, manifest reconstruction, run-matrix output collection and HIDDEN derivation, inherited evidence marked as inherited in the compatibility matrix, the 26.121 onboarding with licensed evidence, Windows CI, and a publication path coupled to the exact wheel the gates passed | 2026-08-04 |
+| v0.5.0 | Fourth public release: the command database completed (388 entries, every command any of the four registered manual editions documents, a version row per documenting edition, all four builds `operational`), the saved simulation file adopted as a probe instrument, the argument-citation name-map fallback deleted in favour of the single `cites` declaration, and `pyfs-manual` with the per-edition `sweep` that makes the coverage measurement reproducible | 2026-08-09 |
 
 ## Open lines
 
 | Line | Content | Gate |
 |---|---|---|
-| Licensed evidence queue | OBJ export group-name probe (FR-30 inspector), undocumented solver defaults (FR-31), physics reference re-validation under the new minimum-Cp default, mesh-refinement and solver-flag physics cases, FSI family sweep, broken-command re-probes, 26.100 backfill | Licensed machine sessions |
+| Licensed evidence queue | OBJ export group-name probe (FR-30 inspector), undocumented solver defaults (FR-31), physics reference re-validation under the new minimum-Cp default, mesh-refinement and solver-flag physics cases, FSI family sweep, broken-command re-probes, PROBE coverage on 26.100 (its version-row backfill closed at v0.5.0; what is thin there is measured evidence, 13 verified against 331 documented) | Licensed machine sessions |
 | Post-processing completion | FR-20 (labeled result arrays, interpolation, trim extraction) and FR-21 (established plot-file writers) | Design session |
 | Process adoption backlog | VCS-derived versioning, executable doc examples, mechanical repo review, supply-chain posture, support-window declaration (see [standards](standards.md)) | The author's per-item decisions |
 | Integrations | The RPT-008 decision list: pyvista viz extra, documented external-tool bridges | The author's review |

@@ -484,3 +484,99 @@ def test_the_axis_probe_passes_a_unit_vector_so_the_value_asserted_is_the_value_
         f"the probe passes {x}, {y}, {z}, which the solver will normalise, so the "
         "value the assertion looks for is not the value the file stores (RPT-020)"
     )
+
+
+def test_an_empty_before_state_is_the_same_non_evidence_as_a_missing_one(tmp_path):
+    """The door beside defect 4, which the first repair left open.
+
+    The repair tested `is None`, the reader's answer for an ABSENT file.
+    A SAVEAS that failed after creating its file, or was interrupted
+    mid-write, leaves a ZERO-BYTE state that reads as the empty string,
+    and every line of the after-state then looks changed: the same false
+    VERIFIED through the other door, with the suite green.
+    """
+    from pyflightstream.qa.probes import fsm_changed, fsm_gained
+
+    empty_before = _state(tmp_path, "", _AFTER)
+    assert fsm_gained("37")(empty_before) is False
+    assert fsm_gained("naca0012")(empty_before) is False, (
+        "naca0012 was in the file BEFORE the target ran; an empty before-state is "
+        "what makes it look gained"
+    )
+    assert fsm_changed()(empty_before) is False
+    assert fsm_gained("37", strict=False)(empty_before) is None
+    assert fsm_changed(strict=False)(empty_before) is None
+
+
+# A file of realistic size, because difflib changes behaviour at 200
+# elements and every real saved simulation is far past that. Built from
+# a small repeating vocabulary so most lines are POPULAR, which is the
+# condition difflib's autojunk heuristic keys on.
+def _large_pair(changed_to: str) -> tuple[str, str]:
+    """Return (before, after) of 300 lines differing on exactly one."""
+    vocabulary = ["0", "1", "2", "T", "F", "0.0", "1.0", "naca0012"]
+    lines = [vocabulary[index % len(vocabulary)] for index in range(300)]
+    before = list(lines)
+    after = list(lines)
+    before[150] = "0.11111"
+    after[150] = changed_to
+    return "\n".join(before) + "\n", "\n".join(after) + "\n"
+
+
+def test_the_diff_reads_a_realistic_file_and_not_only_a_toy_one(tmp_path):
+    """difflib marks popular lines junk above 200 elements, and .fsm files are big.
+
+    The small fixture above pins the SET reading and pins nothing about
+    size: the earlier `ndiff` implementation returns the same answer on
+    six lines and a different one on three hundred, because `ndiff`
+    leaves autojunk ON and every short token in a saved simulation is
+    popular. Junk lines stop matching, whole blocks get reported as
+    replaced, and lines the target never touched land in the added set.
+    """
+    from pyflightstream.qa.probes import _added_lines, fsm_gained
+
+    before, after = _large_pair("8.76539999999999986E-01")
+    assert _added_lines(before, after) == ["8.76539999999999986E-01"], (
+        "exactly one line moved, so exactly one line is added; anything more means "
+        "popular lines are being reported as changed"
+    )
+    artifacts = _state(tmp_path, before, after)
+    assert fsm_gained("0.87654")(artifacts) is True
+    # And the reading that a looser diff gets wrong: a value sitting only
+    # on lines the target never touched was not gained by it.
+    assert fsm_gained("naca0012")(artifacts) is False, (
+        "naca0012 occurs on 37 unchanged lines and on no changed one; reporting it "
+        "gained is the false VERIFIED a junk-tolerant diff produces at this size"
+    )
+
+
+def test_a_distinctive_value_is_found_whatever_the_diff_algorithm_does(tmp_path):
+    """The property the eighteen saved-state verifications rest on.
+
+    Those runs were made on 2026-08-08 with `_added_lines` implemented
+    over `difflib.ndiff`, and the release review replaced it. Re-running
+    them needs the licensed solver, so what makes the committed statuses
+    trustworthy without a re-run is that the correction CANNOT flip a
+    verdict in the unsafe direction, and this is that argument made
+    mechanical rather than asserted in a report.
+
+    A token absent from the before-state and present in the after-state
+    is on a line no diff algorithm can match to a before-line, so every
+    correct diff puts it in the added set. The two implementations can
+    only disagree about POPULAR lines, which is exactly what autojunk
+    keys on, and a popular line carries no distinctive value by
+    definition: `fsm_gained` refuses an empty token list and its
+    docstring requires values no default produces. So the change removes
+    false positives and cannot create false negatives for any token the
+    function is allowed to be asked about.
+    """
+    from pyflightstream.qa.probes import _added_lines, fsm_gained
+
+    for distinctive in ("8.76539999999999986E-01", "2.52735905991766747E+05", "37.125"):
+        before, after = _large_pair(distinctive)
+        assert distinctive not in before, "the fixture must make the token genuinely new"
+        assert distinctive in _added_lines(before, after), (
+            f"{distinctive} is present after and absent before, so it cannot sit on a "
+            "line matched to the before-state; a diff that misses it is wrong"
+        )
+        assert fsm_gained(distinctive)(_state(tmp_path, before, after)) is True
