@@ -14,12 +14,18 @@ license: MIT
 # released (REV010-015). This is a RELEASE tree: the version carries no
 # .dev0 and the release date is set beside it, which is the pair the
 # guard in tests/test_metadata_currency.py enforces in both directions.
-# The older archive DOIs below stay, because those releases did happen
-# and are still what a citation of them should resolve to.
+# The archive DOIs below are one per release, newest first, with the
+# concept DOI last. A version DOI is minted from the GitHub release, so
+# it is always recorded one commit AFTER the tag it names. Older ones
+# stay, because those releases did happen and are still what a citation
+# of them should resolve to.
 version: 0.5.0
 date-released: 2026-08-09
 repository-code: "https://github.com/nevesgeovana/pyflightstream"
 identifiers:
+  - type: doi
+    value: 10.5281/zenodo.21857096
+    description: "Zenodo archive of release v0.5.0"
   - type: doi
     value: 10.5281/zenodo.21795265
     description: "Zenodo archive of release v0.4.0"
