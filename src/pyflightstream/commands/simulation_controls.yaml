@@ -94,10 +94,15 @@ SET_TRAILING_EDGE_BLUNTNESS_ANGLE:
         the rule that a script is written from a signature heading and
         an index entry only points at one, so an index lagging its own
         body is a defect of that document rather than a second opinion
-        about the solver. The disagreement is itself evidence about the
-        index: it gained SOLVER_TIME_AVERAGING, new in this edition,
-        while keeping four superseded names, so it is maintained by
-        addition and its silence would carry less than its speech. The
+        about the solver. The index is incomplete in BOTH
+        directions and neither half of it carries much: measured over
+        the ten commands this edition is the first to document, five
+        are in it and five are not, and it keeps four names the body
+        dropped plus one, SOLVER_INITIALIZATION, that is not a
+        command at all. So the body wins here on the rule and not on
+        any property of this index. A first draft of this note said
+        the index was maintained by addition, which was one
+        observation generalised and the measurement refutes it. The
         same edition is the first to print
         SET_GEOMETRIC_EDGE_BLUNTNESS_ANGLE, which takes one
         angle in degrees in the same place on the same page.

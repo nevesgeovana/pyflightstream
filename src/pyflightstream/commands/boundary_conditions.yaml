@@ -215,6 +215,7 @@ AIR_ALTITUDE:
       args:
         - name: value
           type: float
+          unit: "ft"
     "25.100": {status: documented, note: "SRC-748 p.302, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.301, same grammar as 26.120"}
     "26.100": {status: broken, report: "reports/compat/CMP-26100_2026-08-08_full.yaml", note: "the command ran (script processing continued past it) but its effect was not observed; expected: the settings dump reports the 5000 m [...]"}
@@ -223,6 +224,22 @@ AIR_ALTITUDE:
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
   notes: >
     Sets the air properties from a standard-atmosphere altitude.
+
+    THE 25.000 GRAMMAR TAKES A BARE VALUE AND THAT VALUE IS IN FEET.
+    SRC-749 p.286 states it on the parameter row itself, altitude in
+    feet units, with no units token to pass; SRC-748 p.302 introduces
+    the second argument and the FEET or METERS choice with it. So the
+    same call means different things on either side of that boundary,
+    by a factor of 3.28, and the number alone cannot say which.
+
+    Read the three broken rows beside that. Each records a 5000 with a
+    METERS token producing the density of the 5000 FOOT standard
+    atmosphere, 1.056 against the 0.736 expected, which is the token
+    being ignored rather than the command failing. The database records
+    what the probes measured, broken, and stops there: whether those
+    builds read every altitude as feet is a question about three
+    solvers that one more probe would answer, and no note here claims
+    it (PLN-20260810-2000).
 
 SONIC_VELOCITY:
   layout: inline

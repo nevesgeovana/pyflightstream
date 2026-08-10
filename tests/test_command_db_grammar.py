@@ -27,10 +27,10 @@ import pytest
 
 from pyflightstream.commands import CommandRegistry
 
-# command -> version -> the delta the manual pages showed, in the three
+# command -> version -> the delta the manual pages showed, in the four
 # forms it takes: `names` for an argument set that differs, `enum:<arg>`
-# for a value set that differs, and `optional` for an argument a newer
-# build stopped requiring.
+# for a value set that differs, `unit:<arg>` for a unit that differs,
+# and `optional` for an argument a newer build stopped requiring.
 #
 # `enum:` said "a value list that GREW" until 2026-08-10 and that was
 # wrong for two of the three rows it then carried:
@@ -76,7 +76,13 @@ PER_VERSION_GRAMMAR: dict[str, dict[str, dict[str, tuple[str, ...]]]] = {
         for version in ("25.000", "25.100", "26.000", "26.100", "26.101")
     },
     "AIR_ALTITUDE": {
-        "25.000": {"names": ("value",)},
+        # The unit is a manual claim and it belongs in a delta table
+        # rather than in the code. The base grammar carries a units
+        # TOKEN and so states no unit on the value; this edition takes
+        # no token and its page states the value is in feet on the
+        # parameter row itself (SRC-749 p.286). Same call, factor of
+        # 3.28, which is why the helper refuses silence on this build.
+        "25.000": {"names": ("value",), "unit:value": "ft"},
     },
     "BOOLEAN_UNITE_MESH": {
         version: {"names": ("num_bodies", "body_unite_types")}
@@ -298,6 +304,19 @@ def test_a_per_version_grammar_differs_in_the_way_the_manual_says(command):
                 f"{command} already leaves {arg_name} optional in the base grammar, "
                 "so the override records nothing"
             )
+        for key, unit in expected.items():
+            if not key.startswith("unit:"):
+                continue
+            arg_name = key.removeprefix("unit:")
+            assert by_name[arg_name].unit == unit, (
+                f"{command} on {version} states a different unit for {arg_name} than "
+                "recorded; a unit is a manual claim and moves with its page"
+            )
+            base_arg = next(a for a in entry.args if a.name == arg_name)
+            assert base_arg.unit != unit, (
+                f"{command} records the same {arg_name} unit for {version} as for "
+                "every other build, so the row claims a difference it does not have"
+            )
         for key, values in expected.items():
             if not key.startswith("enum:"):
                 continue
@@ -432,11 +451,15 @@ def test_each_override_leaves_optional_exactly_what_this_table_says():
             )
 
 
-#: The only two fields on which an override argument ever differs from
-#: the base argument of the same name, measured across the whole shipped
-#: database on 2026-08-10: `required` in three places and `values` in
-#: six. Every other field is identical everywhere.
-_FIELDS_A_DELTA_MAY_TOUCH = frozenset({"required", "values"})
+#: The fields on which an override argument may differ from the base
+#: argument of the same name, each of them named per row by a delta
+#: table above. Measured across the shipped database on 2026-08-10:
+#: `required` in three places, `values` in six, and `unit` in one. The
+#: unit joined the same day and by this guard firing on it, which is the
+#: intended way for a tenth field to arrive: as a finding a reader
+#: answers, not as a silent difference. Every other field is identical
+#: everywhere.
+_FIELDS_A_DELTA_MAY_TOUCH = frozenset({"required", "values", "unit"})
 
 #: Every field an ArgSpec carries that the check below compares.
 _COMPARED_FIELDS = (

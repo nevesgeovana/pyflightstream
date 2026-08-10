@@ -337,16 +337,19 @@ def atmosphere(
     script : Script
         Script under construction.
     altitude : float, optional
-        Standard-atmosphere altitude, in ``altitude_units``.
+        Standard-atmosphere altitude, in ``altitude_units``, which is
+        FEET and not the default on 25.000; see that parameter.
     altitude_units : str, optional
         ``METERS`` or ``FEET``, defaulting to ``METERS`` on the builds
-        that take a units token. THE 25.000 BUILD TAKES NONE: its
-        AIR_ALTITUDE is a bare value (SRC-749 p.286), and which unit it
-        reads that number in is documented nowhere, so passing this on
-        that build is refused rather than silently dropped. The default
-        is None rather than ``METERS`` so an explicit pass can be told
-        from an omission; a caller who never passes it gets ``METERS``
-        wherever a token is emitted, which is what it always did.
+        that take a units token. THE 25.000 BUILD TAKES NONE AND READS
+        THE BARE NUMBER IN FEET, which its page states on the parameter
+        row itself (SRC-749 p.286); the token arrives with the second
+        argument at 25.100. So the same call is metres on seven builds
+        and feet on one, a factor of 3.28 apart, and on that build this
+        helper REQUIRES ``FEET`` rather than assuming it: a caller who
+        says nothing is refused, so the boundary cannot be crossed
+        silently. The default is None rather than ``METERS`` so an
+        explicit pass can be told from an omission.
     density : float, optional
         Fluid density in kg/m^3.
     pressure : float, optional
@@ -381,14 +384,31 @@ def atmosphere(
             )
         takes_units = "units" in {arg.name for arg in script._view["AIR_ALTITUDE"].args}
         if not takes_units:
-            if altitude_units is not None:
+            # THAT BUILD READS THE BARE NUMBER IN FEET and its page says
+            # so on the parameter row (SRC-749 p.286). The units token
+            # arrives with the second argument at 25.100, so the same
+            # call means two things a factor of 3.28 apart across that
+            # boundary, and neither the number nor a default can say
+            # which. FEET is therefore accepted and required rather
+            # than assumed: a caller who says nothing is refused, so
+            # crossing the boundary cannot happen silently.
+            if altitude_units is None:
                 raise CommandArgumentError(
                     f"atmosphere: FlightStream {script.version.canonical} takes "
-                    "AIR_ALTITUDE with a bare value and no units token, so "
-                    "altitude_units has nothing to emit into. Which unit that build "
-                    "reads the number in is not documented, so this refuses rather "
-                    "than guessing; pass the fluid properties instead if the unit "
-                    "matters"
+                    "AIR_ALTITUDE with a bare value and reads it in FEET "
+                    "(SRC-749 p.286), while every later build takes a units token "
+                    "and this helper defaults that to METERS. Pass "
+                    "altitude_units='FEET' to say you meant feet; the same call "
+                    "without it means metres on the other seven builds, which is "
+                    "the same altitude times 3.28"
+                )
+            if altitude_units != "FEET":
+                raise CommandArgumentError(
+                    f"atmosphere: FlightStream {script.version.canonical} reads "
+                    f"AIR_ALTITUDE in FEET and takes no units token, so "
+                    f"{altitude_units!r} cannot be emitted or honoured "
+                    "(SRC-749 p.286). Convert the value, or set the fluid state "
+                    "through the five explicit properties instead"
                 )
             script.emit("AIR_ALTITUDE", altitude)
             return

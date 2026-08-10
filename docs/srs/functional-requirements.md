@@ -26,10 +26,15 @@ Milestones and session records are listed in the
     they went on naming real pages of a real manual and no guard could
     see it. The requirement is now that the claim be checkable, not only
     that it be present. Read its reach with it: the check reports how
-    many rows it could re-read at all, since a row citing no page of its
-    own cannot be checked. A quarter of all rows are in that position and
-    one whole build's rows are: 26.120 is the flagship, whose entries
-    carry the citation at entry level, so none of its 381 rows is read.
+    many rows it could re-read at all. Two reasons put a row out of
+    reach and they are not the same: a row citing no page of its own
+    cannot be checked, and a `removed` row's citation addresses an
+    ABSENCE, so re-reading it would report every honest removal record
+    as a defect. 26.120 shows both at once and is the build worth
+    knowing about: none of its 381 rows is read, 363 of them because
+    they rest on the entry's own citation and the other 18 because they
+    are removals. Attributing all 381 to the first reason is the swap
+    the code comment beside the counter warns about.
 
 !!! requirement "FR-02 Launch version set and ordering <span class='srs-implemented'>implemented</span>"
     *Origin: BRF-07, BRF-19. Evidence: milestone M1; `versions` tests.*

@@ -675,7 +675,7 @@ def _builds_where_air_altitude_works() -> list[str]:
 
 
 @pytest.mark.parametrize("canonical", _builds_where_air_altitude_works())
-def test_the_altitude_path_emits_on_every_build_whose_command_works(canonical):
+def test_the_altitude_path_pins_the_unit_each_build_reads(canonical):
     """Parametrised over the builds, which is what would have caught it.
 
     The version dispatch added on 2026-08-10 was tested only on the half
@@ -687,17 +687,39 @@ def test_the_altitude_path_emits_on_every_build_whose_command_works(canonical):
     from the one the fix was written for.
     """
     script = Script(version=canonical)
-    helpers.atmosphere(script, altitude=1000.0)
+    takes_units = canonical != "25.000"
+    if takes_units:
+        helpers.atmosphere(script, altitude=1000.0)
+    else:
+        helpers.atmosphere(script, altitude=1000.0, altitude_units="FEET")
     lines = [line for line in script.render().splitlines() if line and not line.startswith("#")]
-    assert lines[0].startswith("AIR_ALTITUDE 1000")
+    # THE UNIT, not just the number. Asserting the prefix alone passed
+    # while the same call emitted 1000 metres on seven builds and 1000
+    # FEET on the eighth, a factor of 3.28 with nothing to notice it:
+    # 25.000 reads the bare value in feet (SRC-749 p.286) and the token
+    # arrives at 25.100.
+    assert lines[0] == ("AIR_ALTITUDE 1000.0 METERS" if takes_units else "AIR_ALTITUDE 1000.0")
 
 
-def test_the_altitude_units_token_is_refused_where_the_build_takes_none():
-    """Refused rather than dropped, because the unit is undocumented there.
+def test_the_build_with_no_units_token_requires_the_unit_it_reads():
+    """FEET is accepted there and silence is not, which is the whole point.
 
-    25.000 reads the bare number in some unit its manual does not name.
-    Emitting the value and discarding the token would silently give a
-    caller who asked for FEET an altitude in whatever that unit is.
+    A first version of this refused FEET, on the written ground that
+    the unit was undocumented. SRC-749 p.286 documents it on the
+    parameter row: the bare value is in feet. So the refusal named the
+    one unit the page states and permitted the call that crosses the
+    boundary silently, which is the gate inverted with respect to both
+    hazards.
     """
-    with pytest.raises(CommandArgumentError, match="takes AIR_ALTITUDE with a bare value"):
-        helpers.atmosphere(Script(version="25.000"), altitude=1000.0, altitude_units="FEET")
+    # Accepted, and emitted as the bare value that build takes.
+    script = Script(version="25.000")
+    helpers.atmosphere(script, altitude=5000.0, altitude_units="FEET")
+    assert "AIR_ALTITUDE 5000.0" in script.render()
+
+    # Silence is refused, because the same call is metres everywhere else.
+    with pytest.raises(CommandArgumentError, match="reads it in FEET"):
+        helpers.atmosphere(Script(version="25.000"), altitude=5000.0)
+
+    # And a unit that build cannot honour is refused rather than dropped.
+    with pytest.raises(CommandArgumentError, match="cannot be emitted or honoured"):
+        helpers.atmosphere(Script(version="25.000"), altitude=5000.0, altitude_units="METERS")

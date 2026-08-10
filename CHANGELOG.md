@@ -15,15 +15,13 @@ newest four builds before.
 
 READ THAT CLAIM AT THE LEVEL IT IS MEASURED AT, because the first
 version of this paragraph did not. Zero absent is a statement about
-ENTRY NAMES. Ten readings across four commands remain deliberately
-unrecorded, so ten readings across four commands
-are withheld, so `IMPORT_CAD` and `CAD_CREATE_IMPORT_CURVE_CCS` cannot
-be emitted on three builds and `NEW_OFF_BODY_STREAMTUBE` and
+ENTRY NAMES. Ten readings across four commands are deliberately
+withheld, so `IMPORT_CAD` and `CAD_CREATE_IMPORT_CURVE_CCS` cannot be
+emitted on three builds and `NEW_OFF_BODY_STREAMTUBE` and
 `SET_SCENE_CONTOUR` cannot on two, even though those manuals document
 them: each of those editions writes the command in a LAYOUT a version
-row cannot express,
-and a row that ignored the difference would emit the newer shape under
-the older edition's citation. The entries say so and
+row cannot express, and a row that ignored the difference would emit
+the newer shape under the older edition's citation. The entries say so and
 `PLN-20260810-1200` holds the schema decision. The sweep now reports
 that second measure beside the first, so the gap is named by the tool
 rather than by this sentence alone.
