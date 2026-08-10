@@ -198,3 +198,51 @@ EXPORT_SOLVER_ANALYSIS_FORCE_DISTRIBUTIONS:
   notes: >
     Exports the force distribution vectors file for the initialized
     boundaries.
+
+EXPORT_BL_VELOCITY_PROFILE:
+  layout: inline
+  phase: export
+  args:
+    - name: frame
+      type: int
+      cites: frames
+    - name: x
+      type: float
+    - name: y
+      type: float
+    - name: z
+      type: float
+    - name: filename
+      type: path
+      own_line: true
+  manual_ref: "SRC-750 p.377"
+  notes: >
+    Exports the boundary-layer velocity profile through the wall at
+    one point, given in the named coordinate system, with the file
+    path on the line after the command. First documented by the
+    26.122 edition.
+
+    The page gives no units for X, Y and Z and no length unit
+    appears in the call, so they are the coordinate system's own,
+    which for the reference frame is the simulation length units.
+    Recorded as unitless floats rather than given a unit the manual
+    does not state.
+  versions:
+    "26.122":
+      status: documented
+      note: "SRC-750 p.377, the first edition to document it"
+
+DELETE_BL_VELOCITY_PROFILE:
+  layout: bare
+  phase: export
+  args: []
+  manual_ref: "SRC-750 p.377"
+  notes: >
+    Discards the boundary-layer velocity profile. The page states it
+    takes no parameters, so it clears whatever
+    EXPORT_BL_VELOCITY_PROFILE last produced rather than addressing
+    one profile of several. First documented by the 26.122 edition.
+  versions:
+    "26.122":
+      status: documented
+      note: "SRC-750 p.377, the first edition to document it"

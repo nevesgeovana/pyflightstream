@@ -420,11 +420,16 @@ def test_hotfix_inherits_base_release_until_overridden():
     lying = FsVersion(canonical="26.121", alias="26.12 hotfix 1", index=3, inherits_base=False)
     assert entry.status_in(lying) is entry.versions["26.120"]
     # And a canonical the registry has never heard of inherits NOTHING,
-    # however it is built. An unregistered 26.122 used to receive the
-    # whole 26.120 command set while the string "26.122" raised for not
+    # however it is built. An unregistered hotfix index used to receive
+    # the whole 26.120 command set while the same string raised for not
     # being registered, so the two input types of one parameter
     # disagreed about whether a build exists.
-    unregistered = FsVersion(canonical="26.122", alias="26.12", index=99, inherits_base=True)
+    #
+    # The example was 26.122 until 2026-08-10, when the vendor shipped
+    # that build and it stopped being unregistered. An example chosen
+    # for not existing has a shelf life, so this one sits far up the
+    # series rather than one step past the newest.
+    unregistered = FsVersion(canonical="26.199", alias="26.19", index=99, inherits_base=True)
     assert entry.status_in(unregistered) is None
     overridden = make_entry(
         versions={
@@ -1380,6 +1385,12 @@ def test_every_declared_sentinel_and_length_is_reachable_from_the_database():
         ("SELECT_GEOMETRY_BY_ID", "surface"),
         ("DELETE_SURFACES", "index"),
         ("EXPORT_SURFACE_MESH", "surface"),
+        # And the first one that is not a surface at all: a BASE REGION
+        # boundary, stated on SRC-750 p.331. The sentinel is declared
+        # here because it sits on an index that cites an inventory, and
+        # base regions are boundaries; the entry arrived with the 26.122
+        # edition, which is the first to document the command.
+        ("SET_OUTFLOW_TRAILING_EDGES", "base_region_boundary"),
     }, (
         "every boundary index that states an all-form declares it, and no other does: "
         "absent means the page states none, so SURFACE_RENAME and SURFACE_MIRROR refuse "

@@ -155,6 +155,7 @@ NEW_UNSTEADY_SOLVER_SURFACE_PROBE:
   manual_ref: "SRC-740 p.350"
   versions:
     "26.121": {status: documented}
+    "26.122": {status: documented, note: "SRC-750 p.352, same grammar as 26.121"}
   notes: >
     Samples one surface property per solver time step at a fixed
     vertex, the surface counterpart of UNSTEADY_SOLVER_NEW_FLUID_PLOT.
@@ -278,3 +279,61 @@ SET_UNSTEADY_VISCOUS_COUPLING_ITERATION:
         solver, which is the weakest of the three ways a removal
         is recorded here; no probe has asked this build whether
         it still answers the name.
+
+SOLVER_TIME_AVERAGING:
+  layout: inline
+  phase: init
+  args:
+    - name: mode
+      type: enum
+      values: [ENABLE, DISABLE]
+    - name: starting_iteration
+      type: int
+    - name: ending_iteration
+      type: int
+  manual_ref: "SRC-750 p.353"
+  notes: >
+    Averages the surface flow properties over a window of unsteady
+    time iterations, given as the first and last iteration to
+    include. First documented by the 26.122 edition.
+
+    The window is in ITERATIONS and not in seconds, so it moves with
+    the time-step size: halving the step doubles the iteration
+    numbers that bound the same physical interval. No edition says
+    what a DISABLE call does with the two bounds, and both are
+    required here because the signature and the sample both carry
+    all three.
+  versions:
+    "26.122":
+      status: documented
+      note: "SRC-750 p.353, the first edition to document it"
+
+SET_NEW_UNSTEADY_SOLVER_ACTION:
+  layout: inline
+  phase: init
+  args:
+    - name: type
+      type: enum
+      values: [SCRIPT, COMMAND_LINE]
+    - name: name
+      type: str
+    - name: filename
+      type: path
+      own_line: true
+  manual_ref: "SRC-750 p.353"
+  notes: >
+    Registers an action the solver runs after each unsteady time
+    step, either a FlightStream script or a shell command. First
+    documented by the 26.122 edition. The path goes on the line
+    after the command, which is what the printed sample shows.
+
+    COMMAND_LINE RUNS A SHELL COMMAND FROM INSIDE THE SOLVER, once
+    per time step. That is a capability worth naming rather than
+    leaving for a reader to infer from the value list: an unsteady
+    run of a thousand steps runs it a thousand times, and the
+    emitter validates the grammar of the line and nothing about what
+    the line does.
+  versions:
+    "26.122":
+      status: documented
+      note: "SRC-750 p.353, the first edition to document it"

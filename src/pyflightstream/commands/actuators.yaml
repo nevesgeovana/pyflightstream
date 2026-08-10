@@ -317,3 +317,29 @@ DISABLE_ACTUATOR:
     refuse the only runnable line the edition prints. Unlike
     ENABLE_ACTUATOR this one has NOT been measured against the solver,
     so the reading rests on the page and on its neighbour's probe.
+
+SET_ACTUATOR_WAKE_TYPE:
+  layout: inline
+  phase: setup
+  args:
+    - name: actuator_index
+      type: int
+      cites: actuators
+    - name: type
+      type: enum
+      values: [RIGID, RELAXED]
+  manual_ref: "SRC-750 p.328"
+  notes: >
+    Chooses whether a propeller actuator's wake holds its prescribed
+    shape or relaxes onto the local flow. First documented by the
+    26.122 edition.
+
+    The page states the actuator must be of the propeller type.
+    Nothing here can check that: the actuator type is set by another
+    command and the database records grammar, so passing the index
+    of an actuator of another type is a refusal the solver makes and
+    this emitter does not.
+  versions:
+    "26.122":
+      status: documented
+      note: "SRC-750 p.328, the first edition to document it"

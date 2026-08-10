@@ -41,6 +41,11 @@ EMITTABLE = {
     "26.101": 363,
     "26.120": 363,
     "26.121": 368,
+    # Registered 2026-08-10. Ten entries of its own, six rows catching up
+    # with what 26.121 added (inheritance runs from the base release, so
+    # a sibling hotfix's rows do not reach here), and the rest inherited
+    # from 26.120 less the two commands this edition replaces.
+    "26.122": 377,
 }
 
 #: Rows recording `verified` per build, measured the same day. Pinned
@@ -57,13 +62,20 @@ VERIFIED = {
     "26.101": 35,
     "26.120": 66,
     "26.121": 84,
+    # Zero of its own, and the level it derives is `operational` anyway,
+    # on 26.120's records reaching it by inheritance. That is what the
+    # hotfix declaration means and it is the reason this row is pinned:
+    # the first probe run against this build moves it, and a reader
+    # should be able to see that it has not happened yet.
+    "26.122": 0,
 }
 
 #: 388 at v0.5.0, then +16 on 2026-08-10 for the commands only the
-#: pre-26.100 editions document. Every one of the sixteen is absent from
-#: every edition after the one that drops it, so none of them raises the
-#: three newest builds' counts by anything.
-ENTRIES = 404
+#: pre-26.100 editions document and +10 the same day for the ones the
+#: 26.122 edition is the first to document. The sixteen are absent from
+#: every edition after the one that drops them, so none of them raises
+#: the newest builds' counts by anything.
+ENTRIES = 414
 
 
 def _emittable(canonical: str) -> int:

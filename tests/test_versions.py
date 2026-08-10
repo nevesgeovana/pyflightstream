@@ -45,6 +45,7 @@ def test_known_versions_ordered_by_list_position():
         "26.101",
         "26.120",
         "26.121",
+        "26.122",
     ]
     assert [v.index for v in versions] == list(range(len(versions)))
     # strict=False on purpose: this zips the list against itself
@@ -358,6 +359,12 @@ def test_a_version_the_registry_does_not_know_inherits_nothing():
     forms of both raised for not being registered. The two documented
     input types of one parameter disagreed about whether a build exists.
 
+    26.122 was registered on 2026-08-10 and stopped being an example of
+    the thing this test is about, so the pair below moved up the series.
+    The original numbers stay in this paragraph because they are what
+    the defect did, and 26.102 is kept as the second case for the same
+    reason it was chosen: it is a hotfix index of the OTHER release.
+
     The registry answers now, in the layer that consumes the fact, so a
     build it has never heard of has no recorded descent.
     """
@@ -365,7 +372,7 @@ def test_a_version_the_registry_does_not_know_inherits_nothing():
     from pyflightstream.script import Script
 
     registry = CommandRegistry.load()
-    for canonical in ("26.122", "26.102"):
+    for canonical in ("26.199", "26.102"):
         unregistered = FsVersion(canonical=canonical, alias="26.1", index=99, inherits_base=True)
         view = registry.for_version(unregistered)
         assert sum(1 for _ in view) == 0, f"{canonical} sees commands it has no evidence for"

@@ -159,6 +159,36 @@ versions:
     # wherever it is used.
     inherits_base: true
 
+  - canonical: "26.122"
+    alias: "26.12"
+    # reports/compat/CMP-26122_2026-08-10_identity.yaml
+    #
+    # The banner names release 26.1 at build 8092026, read from the log
+    # of an identity probe on the licensed machine the day after the
+    # build was issued.
+    build: "8092026"
+    prints: "26.1"
+    # The second hotfix of the same 26.12 release, and the descent is
+    # asserted from evidence rather than from the last digit, which is
+    # what the 26.100 and 26.101 pair taught. Four things agree: the
+    # vendor sells it as 26.12, the executable it ships is named for
+    # 26.12, the solver prints 26.1 exactly as the other two do, and the
+    # three build numbers are one release six weeks apart (1 July, 26
+    # July, 9 August 2026). 26.101 has none of that: it is an
+    # independent May release that took the next free index.
+    #
+    # Inheritance grants this build seven commands its own edition does
+    # not print, five of which 26.121 had already stopped printing. That
+    # is the deliberate reading and not an oversight: an edition going
+    # quiet is a fact about a document, and a hotfix manual is a
+    # re-issue. Deciding whether the SOLVER still answers those seven
+    # needs a probe, and none has run against this build.
+    #
+    # Inheritance runs from the BASE and not from the sibling, so the
+    # six commands 26.121 added over 26.120 do NOT reach here by
+    # descent. They carry their own rows below.
+    inherits_base: true
+
 # Every range below was MEASURED on 2026-08-06 rather than transcribed:
 # the first and last page carrying a signature heading, and the
 # contiguous run of pages the Script Index parser reads command lines
@@ -249,3 +279,17 @@ manual_editions:
     two are separate sources rather than one re-issue. The vendor
     release-notes pdf is byte-identical between the two installs and
     documents none of the difference (RPT-014).
+  "26.122": >
+    SRC-750: Altair FlightStream User Guide, 26.12 hotfix build 2
+    edition, 417 pages, scripting reference pp.283-383 with its Script
+    Index at pp.384-390; cited in version notes as "SRC-750 p.N".
+    Registered 2026-08-10, the day after the build was issued.
+    It is the LARGEST scripting surface of the eight registered
+    editions, 372 commands against 364 for the edition before it, and
+    the growth is not all new capability: two of the ten it gains stand
+    where a command it stops printing stood. SURFACE_ROTATE gives way to
+    ROTATE_SURFACE and SET_TRAILING_EDGE_BLUNTNESS_ANGLE to
+    SET_GEOMETRIC_EDGE_BLUNTNESS_ANGLE. Neither pair is a rename in the
+    sense of one entry gaining a name: the rotation command changes
+    layout and loses two options in the move, so each is entered
+    separately and each says what it stands next to.

@@ -415,3 +415,58 @@ PHYSICS:
         solver, which is the weakest of the three ways a removal
         is recorded here; no probe has asked this build whether
         it still answers the name.
+
+DETECT_LEADING_EDGES_WAKES_BY_SURFACE:
+  layout: keyword_block
+  phase: setup
+  args:
+    - name: surfaces
+      type: int
+    - name: surface_indices
+      type: int_list
+      cites: boundaries
+  manual_ref: "SRC-750 p.323"
+  notes: >
+    Runs wake detection on the LEADING edges of the listed surfaces,
+    which is what a vortex-shedding wake needs and what the
+    trailing-edge detection beside it does not do. First documented
+    by the 26.122 edition.
+
+    Its page describes the parameter as the count of surfaces
+    checked for TRAILING edge detection, word for word the sentence
+    on the trailing-edge command above it. Read as a copied sentence
+    rather than as a statement about this command, since the
+    function name and the section it sits in both say leading edges;
+    nothing here rests on that sentence.
+  versions:
+    "26.122":
+      status: documented
+      note: "SRC-750 p.323, the first edition to document it"
+
+IMPORT_WAKE_EDGES_FROM_FILE:
+  layout: inline
+  phase: setup
+  args:
+    - name: type
+      type: enum
+      values: [STANDARD, RELAXED, JET_OUTFLOW, VORTEX_SHEDDING]
+    - name: tolerance
+      type: float
+  manual_ref: "SRC-750 p.324"
+  notes: >
+    Marks wake edges from an imported node list, matching an
+    imported coordinate to a mesh edge whose mid-point is within
+    TOLERANCE of it. First documented by the 26.122 edition.
+
+    THE ARGUMENT ORDER IS THE SIGNATURE'S AND THE SAMPLE'S, not the
+    parameter table's, which lists TOLERANCE first. The signature
+    and the printed call agree with each other on type then
+    tolerance, and a table row order is not a call order.
+
+    The four types are the same four SET_TRAILING_EDGE_TYPE takes,
+    so this sets for a whole imported file what that command sets
+    for one edge.
+  versions:
+    "26.122":
+      status: documented
+      note: "SRC-750 p.324, the first edition to document it"

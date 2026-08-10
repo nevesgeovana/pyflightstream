@@ -99,6 +99,7 @@ DELETE_SURFACES:
   manual_ref: "SRC-740 pp.315-316"
   versions:
     "26.121": {status: documented}
+    "26.122": {status: documented, note: "SRC-750 p.316, same grammar as 26.121"}
   notes: >
     Deletes a mesh surface by 1-based index. The parameter table states
     no all-form; the sample passing -1 for every surface is on the

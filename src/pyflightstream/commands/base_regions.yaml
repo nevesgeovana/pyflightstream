@@ -296,3 +296,27 @@ REMESH_BASE_REGION:
     INNER_RADIUS takes 0.0 for no inner radius, which the manual states
     and which is worth reading as a documented value rather than as an
     edge case.
+
+SET_OUTFLOW_TRAILING_EDGES:
+  layout: inline
+  phase: setup
+  args:
+    - name: base_region_boundary
+      type: int
+      cites: boundaries
+      all_sentinel: -1
+  manual_ref: "SRC-750 p.331"
+  notes: >
+    Marks the trailing edges of a base region as outflow edges,
+    which is how a jet or duct exit gets a wake that leaves the body
+    instead of one that closes behind it. First documented by the
+    26.122 edition. A value of -1 selects every base region.
+
+    Its parameter table names the row after the command itself
+    rather than after the argument, which is a formatting slip on
+    that page and not a second call form: the signature and the
+    sample both carry one value.
+  versions:
+    "26.122":
+      status: documented
+      note: "SRC-750 p.331, the first edition to document it"

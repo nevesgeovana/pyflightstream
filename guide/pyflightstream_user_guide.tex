@@ -72,7 +72,7 @@
 \title[pyflightstream User Guide]{pyflightstream User Guide}
 \subtitle{A version-aware, didactic Python driver for the FlightStream solver}
 \author[G. Neves]{Geovana Neves}
-\institute[]{pyflightstream 0.6.0, MIT licensed}
+\institute[]{pyflightstream 0.7.0, MIT licensed}
 \date{August 2026}
 
 \AtBeginSection[]{
@@ -174,7 +174,7 @@ pyflightstream.help("26.120")   # scoped to one FlightStream version
     \column{0.55\textwidth}
     \begin{itemize}
       \item Vendor names ("26.1", "26.12") do not sort: neither string nor float comparison orders them correctly.
-      \item A vendor name can also name more than one build: 26.120 and 26.121 both ship as "26.12", and since 2026-08-04 so do 26.100 and 26.101 as "26.1". Resolution refuses such a name and lists the candidates, rather than returning one of them. Note what that means for a script you wrote earlier: a vendor name is unique only until the vendor ships the next build under it, so pass the canonical identifier.
+      \item A vendor name can also name more than one build: 26.120, 26.121 and 26.122 all ship as "26.12", and since 2026-08-04 so do 26.100 and 26.101 as "26.1". Resolution refuses such a name and lists the candidates, rather than returning one of them. Note what that means for a script you wrote earlier: a vendor name is unique only until the vendor ships the next build under it, so pass the canonical identifier.
       \item Canonical identifiers are the vendor major plus three fractional digits: \code{25.000}, \code{26.100}, \code{26.120}. The last digit indexes vendor hotfix builds.
       \item The ordered list in the database metadata is the only ordering authority, and it orders by RELEASE. Versions are never removed, and never removed is not the same as always appended: the 25 series was obtained after every 26 build and registered in front of all of them on 2026-08-09.
       \item Each build also carries the vendor BUILD NUMBER its solver prints, the only value that tells apart two builds sharing a release name. The generated "Which build do I have" page maps them.
@@ -186,10 +186,10 @@ v.canonical                # "26.120"
 v.build                    # "7012026", what its solver prints
 resolve("26.0")            # unambiguous vendor name, accepted
 resolve("26.1")            # AmbiguousVersionAliasError: 26.100 or 26.101?
-resolve("26.12")           # AmbiguousVersionAliasError: 26.120 or 26.121?
+resolve("26.12")           # Ambiguous: 26.120, 26.121 or 26.122?
 [str(k) for k in known_versions()]
 # ["25.000", "25.100", "26.000", "26.100",
-#  "26.101", "26.120", "26.121"]
+#  "26.101", "26.120", "26.121", "26.122"]
 \end{lstlisting}
     \column{0.42\textwidth}
     \begin{center}
@@ -201,13 +201,15 @@ resolve("26.12")           # AmbiguousVersionAliasError: 26.120 or 26.121?
       \node[draw=deepblue,thick,rounded corners,fill=softgray,minimum width=30mm,below=of b] (b2) {26.101 (alias 26.1)};
       \node[draw=deepblue,thick,rounded corners,fill=softgray,minimum width=30mm,below=of b2] (c) {26.120};
       \node[draw=deepblue,thick,rounded corners,fill=softgray,minimum width=30mm,below=of c] (d) {26.121};
+      \node[draw=deepblue,thick,rounded corners,fill=softgray,minimum width=30mm,below=of d] (e) {26.122};
       \draw[-{Stealth},thick,accentteal] (z0) -- (z1);
       \draw[-{Stealth},thick,accentteal] (z1) -- (a);
       \draw[-{Stealth},thick,accentteal] (a) -- (b);
       \draw[-{Stealth},thick,accentteal] (b) -- (b2);
       \draw[-{Stealth},thick,accentteal] (b2) -- (c);
       \draw[-{Stealth},thick,accentteal] (c) -- (d);
-      \node[below=3mm of d,text width=36mm,font=\tiny,align=center]
+      \draw[-{Stealth},thick,accentteal] (d) -- (e);
+      \node[below=3mm of e,text width=36mm,font=\tiny,align=center]
         {one vendor name, "26.12", names both of the last two; resolution refuses it and lists them};
     \end{tikzpicture}
     \end{center}
@@ -404,7 +406,7 @@ text = script.render()                  # complete ASCII script
 \begin{lstlisting}
 script.emit("IMPRT", ...)
 # CommandNotInVersionError: IMPRT is not in the command database.
-# Every command the four registered manual editions document is
+# Every command any registered manual edition documents is
 # recorded, so this is usually a spelling error or a command from a
 # build this install does not register.
 

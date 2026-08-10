@@ -82,6 +82,21 @@ SET_TRAILING_EDGE_BLUNTNESS_ANGLE:
     "26.101": {status: documented, note: "SRC-725 p.283, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.287, same grammar as 26.120"}
+    "26.122":
+      status: removed
+      successor: SET_GEOMETRIC_EDGE_BLUNTNESS_ANGLE
+      note: >-
+        SRC-750 pp.283-383, the whole scripting reference of the
+        26.122 edition, does not print this command, and the
+        same edition is the first to print
+        SET_GEOMETRIC_EDGE_BLUNTNESS_ANGLE, which takes one
+        angle in degrees in the same place on the same page.
+        Recorded as removed rather than left to inheritance for
+        the reason given on SURFACE_ROTATE. The successor names
+        a GEOMETRIC edge where this names a trailing edge, which
+        is the wider thing, and no edition says whether the
+        criterion moved with the name. No probe has asked the
+        26.122 solver whether it still answers this name.
   notes: >
     The other trailing-edge detection threshold: how blunt an edge may
     be and still count as a trailing edge.
@@ -118,3 +133,30 @@ SET_VERTEX_MERGE_TOLERANCE:
     metres and a very large one in microns, so the same number does
     different things under SET_SIMULATION_LENGTH_UNITS. No edition
     mentions the interaction.
+
+SET_GEOMETRIC_EDGE_BLUNTNESS_ANGLE:
+  layout: inline
+  phase: setup
+  args:
+    - name: angle
+      type: float
+      unit: "degrees"
+  manual_ref: "SRC-750 p.288"
+  notes: >
+    Angle above which a geometric edge counts as blunt, from 45 to
+    179 degrees. First documented by the 26.122 edition, which is
+    also the first to stop printing
+    SET_TRAILING_EDGE_BLUNTNESS_ANGLE.
+
+    The two take one angle in degrees and stand in the same place on
+    the page, so this one is where a script porting forward moves.
+    The name change is not cosmetic: the older one names the
+    trailing edge and this one names a geometric edge, which is the
+    wider thing, and no edition states whether the criterion changed
+    with the name. The manual's stated range is not enforced here,
+    because the database records grammar and the solver owns the
+    range.
+  versions:
+    "26.122":
+      status: documented
+      note: "SRC-750 p.288, the first edition to document it"

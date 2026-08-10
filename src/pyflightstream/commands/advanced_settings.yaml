@@ -425,6 +425,7 @@ SET_WAKE_DECAY_CONSTANT:
   manual_ref: "SRC-740 p.346"
   versions:
     "26.121": {status: documented}
+    "26.122": {status: documented, note: "SRC-750 p.348, same grammar as 26.121"}
   notes: >
     Rate at which wake vorticity decays with distance.
 

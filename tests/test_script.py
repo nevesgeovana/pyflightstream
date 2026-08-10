@@ -1339,7 +1339,7 @@ def test_every_cad_command_is_available_on_every_registered_build():
         available[version.canonical] = [name for name in members if name in view]
 
     whole = sorted(c for c, names in available.items() if len(names) == len(members))
-    assert whole == ["26.100", "26.101", "26.120", "26.121"], (
+    assert whole == ["26.100", "26.101", "26.120", "26.121", "26.122"], (
         "the builds carrying the CAD chapter WHOLE are " + ", ".join(whole) + "; the "
         "chapter arrives at 26.100 and every build from there on documents all of it"
     )
@@ -1710,7 +1710,10 @@ def test_the_two_surface_deletes_stop_at_the_edition_that_replaced_them():
             f"{name} reaches 26.121 by inheritance; if that stops being true the "
             "plan row has landed and this test states the old behaviour"
         )
-    assert sorted(registry.commands["DELETE_SURFACES"].versions) == ["26.121"]
+    # Its replacement is documented by the two editions from 26.121 on,
+    # which is the whole life of the command so far. The list is pinned
+    # rather than counted so that a build joining it is a decision.
+    assert sorted(registry.commands["DELETE_SURFACES"].versions) == ["26.121", "26.122"]
 
 
 def test_the_untyped_axis_of_the_circular_pattern_has_no_invented_value_set():
@@ -3179,10 +3182,16 @@ def test_the_advanced_settings_toggles_emit_on_the_editions_that_document_them()
         assert name in later.render()
 
 
-def test_the_wake_decay_constant_exists_in_the_hotfix_alone():
-    """New in 26.121, documented in no other edition, so one version row."""
+def test_the_wake_decay_constant_exists_in_the_hotfix_series_alone():
+    """New in 26.121 and carried by 26.122; documented by no earlier edition.
+
+    It was one row until 2026-08-10. The second hotfix of the same
+    release documents it too, and that row is explicit rather than
+    inherited: inheritance runs from the base release, and 26.120 is the
+    edition that does not have this command.
+    """
     entry = CommandRegistry.load().commands["SET_WAKE_DECAY_CONSTANT"]
-    assert set(entry.versions) == {"26.121"}
+    assert set(entry.versions) == {"26.121", "26.122"}
     assert entry.manual_ref.startswith("SRC-740"), (
         "a command the flagship edition does not document cites the edition that does"
     )

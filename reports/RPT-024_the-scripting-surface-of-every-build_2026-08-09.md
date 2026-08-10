@@ -105,8 +105,8 @@ THAT IS NO LONGER TRUE, and the paragraph is corrected rather than
 rewritten because the reason it changed is the useful part. On
 2026-08-10 the archive was converted to a pdf whose pagination is
 reproducible (`scripts/chm_to_pdf.py`, registered as SRC-749) and the
-build joined the manifest, so the generated sections below cover all
-seven. The figure below was measured before that, from the extracted
+build joined the manifest, so the generated sections below cover every
+registered build. The figure below was measured before that, from the extracted
 topics directly, and the two readings agree at 272.
 
 One error of the first writing is corrected here too. It said the
@@ -164,7 +164,7 @@ than as quietly different page numbers.
 
 ## The shape of the whole history
 
-The surface grew from 272 to 364 across seven builds, on one instrument
+The surface grew from 272 to 372 across eight builds, on one instrument
 since the calibration above, and it did not grow smoothly. One step
 accounts for most of it: 26.000 to 26.100 gained 75 commands,
 essentially the whole CAD and cross-section family arriving at once. The
@@ -172,6 +172,21 @@ next step, 26.100 to 26.101, is the one to be careful with: 35 gained
 and 16 lost between two builds the vendor ships under the SAME release
 name, "26.1". A reader who recorded only that name in a paper cannot
 tell which of those two surfaces was available to them.
+
+The eighth build was added on 2026-08-10, the day after the vendor
+issued it, and the tail below was regenerated to include it; this
+section was re-read rather than left, which is what the note at the top
+of this report requires. Its step is the second largest of the history
+in proportion, 10 gained and 2 lost, and it is the clearest case in the
+report of why a diff of names is evidence for a question rather than an
+answer to one. Two of its ten gains stand where its two losses stood.
+`SURFACE_ROTATE` gives way to `ROTATE_SURFACE` and
+`SET_TRAILING_EDGE_BLUNTNESS_ANGLE` to
+`SET_GEOMETRIC_EDGE_BLUNTNESS_ANGLE`. Counted mechanically that is
+twelve changes; read on the page it is eight new commands and two
+replacements, and the rotation replacement is not even a like-for-like
+one, being an inline call of five arguments where the old one was a
+keyword block of eight.
 
 The two 25 builds and 26.000 differ from each other by single digits,
 so a script written for one of them is close to portable across the
@@ -183,14 +198,24 @@ but the command line, where the 25 series and 26.000 disagree
 
 | Build | Commands documented |
 |---|---|
+| 25.000 | 272 |
 | 25.100 | 274 |
 | 26.000 | 276 |
 | 26.100 | 344 |
 | 26.101 | 363 |
 | 26.120 | 363 |
 | 26.121 | 364 |
+| 26.122 | 372 |
 
 ## What changed between consecutive builds
+
+### 25.000 to 25.100
+
+Gained 10, lost 8.
+
+Gained: `CLEAR_SOLUTION`, `CREATE_NEW_MOTION`, `DISABLE_WAKE_NODES_ON_TRAILING_EDGE`, `OUTPUT_SETTINGS_AND_STATUS`, `REMOVE_INITIALIZATION`, `REYNOLDS_AVERAGED_DRAG_FORCES`, `RUN_SCRIPT`, `SELECT_BASE_REGION_FACES`, `SELECT_MESH_NODE`, `TRANSFORM_SELECTED_NODES`
+
+Lost: `BOOLEAN_UNITE_GEOMETRY`, `CREATE_NEW_MOTION_6DOF`, `CREATE_NEW_MOTION_CUSTOM`, `CREATE_NEW_MOTION_EUCLIDEAN`, `CREATE_NEW_MOTION_FSI`, `SET_SOLVER_MODEL`, `SOLVER_CLEAR`, `SOLVER_UNINITIALIZE`
 
 ### 25.100 to 26.000
 
@@ -232,5 +257,13 @@ Gained: `CREATE_CYLINDRICAL_BULK_SEPARATION`, `CREATE_STRATFORD_BULK_SEPARATION`
 
 Lost: `CREATE_BULK_SEPARATION`, `SET_JET_WAKE_FILAMENTS_GRID_INDUCTION`, `SURFACE_CLEARALL`, `SURFACE_DELETE`, `SWEEPER_REF_VELOCITY_SAME`
 
+### 26.121 to 26.122
 
-Coverage: 6 of 7 registered build(s) read; no manifest row for 25.000.
+Gained 10, lost 2.
+
+Gained: `DELETE_BL_VELOCITY_PROFILE`, `DETECT_LEADING_EDGES_WAKES_BY_SURFACE`, `EXPORT_BL_VELOCITY_PROFILE`, `IMPORT_WAKE_EDGES_FROM_FILE`, `ROTATE_SURFACE`, `SET_ACTUATOR_WAKE_TYPE`, `SET_GEOMETRIC_EDGE_BLUNTNESS_ANGLE`, `SET_NEW_UNSTEADY_SOLVER_ACTION`, `SET_OUTFLOW_TRAILING_EDGES`, `SOLVER_TIME_AVERAGING`
+
+Lost: `SET_TRAILING_EDGE_BLUNTNESS_ANGLE`, `SURFACE_ROTATE`
+
+
+Coverage: 8 of 8 registered build(s) read.

@@ -275,6 +275,7 @@ CREATE_CYLINDRICAL_BULK_SEPARATION:
   manual_ref: "SRC-740 p.345"
   versions:
     "26.121": {status: documented}
+    "26.122": {status: documented, note: "SRC-750 p.347, same grammar as 26.121"}
   notes: >
     The cylindrical bulk separation model, split out of the
     SEPARATION_TYPE argument that CREATE_BULK_SEPARATION carried on
@@ -297,6 +298,7 @@ CREATE_STRATFORD_BULK_SEPARATION:
   manual_ref: "SRC-740 p.345"
   versions:
     "26.121": {status: documented}
+    "26.122": {status: documented, note: "SRC-750 p.347, same grammar as 26.121"}
   notes: >
     The Stratford bulk separation model, which takes no diameter. As
     with the cylindrical command above, RPT-015 accepted it on 26.120
@@ -609,6 +611,7 @@ DISABLE_SOLVER_REF_VELOCITY:
   manual_ref: "SRC-740 p.342"
   versions:
     "26.121": {status: documented}
+    "26.122": {status: documented, note: "SRC-750 p.344, same grammar as 26.121"}
   notes: >
     Makes the solver reference velocity equal the free-stream velocity,
     which is what the manual's sample comment states, rather than

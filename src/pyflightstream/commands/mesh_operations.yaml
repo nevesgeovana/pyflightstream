@@ -84,6 +84,23 @@ SURFACE_ROTATE:
     "26.101": {status: documented, note: "SRC-725 p.308, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.312, same grammar as 26.120"}
+    "26.122":
+      status: removed
+      successor: ROTATE_SURFACE
+      note: >-
+        SRC-750 pp.283-383, the whole scripting reference of the
+        26.122 edition, does not print this command, and the
+        same edition is the first to print ROTATE_SURFACE, which
+        rotates surfaces about an axis of a named frame exactly
+        as this does. Recorded as removed rather than left to
+        inheritance, unlike the five commands 26.121 stopped
+        printing: those went quiet with nothing standing in
+        their place, which is a fact about a document, while
+        here the capability is on the page under another name.
+        THE SUCCESSOR IS NOT A DROP-IN. It is one inline line
+        where this is a keyword block, and it has no equivalent
+        of SPLIT_VERTICES or ADAPTIVE_MESH. No probe has asked
+        the 26.122 solver whether it still answers this name.
   notes: >
     Rotates surfaces about an axis of a coordinate system. AXIS carries
     the dual form, letters or indices, and here the manual states it
@@ -733,3 +750,55 @@ TRANSFORM_SELECTED_NODES:
 
     It carries no unit argument, unlike the surface translations, so the
     values are read in the named coordinate system's own units.
+
+ROTATE_SURFACE:
+  layout: payload_lines
+  phase: geometry
+  args:
+    - name: frame
+      type: int
+      cites: frames
+    - name: axis
+      type: enum
+      values: [X, Y, Z]
+    - name: angle
+      type: float
+      unit: "degrees"
+    - name: surfaces
+      type: int
+    - name: detach_vertices
+      type: enum
+      values: [ENABLE, DISABLE]
+    - name: surface_indices
+      type: int_list
+      cites: boundaries
+      separator: comma
+      required: false
+  manual_ref: "SRC-750 p.313"
+  notes: >
+    Rotates surfaces about an axis of the named frame. First
+    documented by the 26.122 edition, which is also the first to
+    stop printing SURFACE_ROTATE.
+
+    IT IS NOT THAT COMMAND UNDER A NEW NAME, which is why it is
+    entered as its own command rather than recorded as a rename.
+    SURFACE_ROTATE is a keyword block of eight arguments; this is
+    one inline line of five with the surface indices on the line
+    after it. SPLIT_VERTICES and ADAPTIVE_MESH have no equivalent
+    here, so a script porting forward loses two options rather than
+    changing a word.
+
+    SURFACES is a COUNT and not an index, followed by the indices on
+    the next line, and -1 selects every surface and takes no index
+    line at all. It is spelled in the plural, unlike the manual's
+    own SURFACE placeholder and unlike the sibling
+    TRANSLATE_SURFACE_IN_FRAME, where the same word is a single
+    index: the emitter checks a count against the list it introduces
+    only for a recognised count spelling, and the singular is
+    already in use for the other meaning on the same page. The
+    26.121 entry for the older command spells this same count the
+    same way.
+  versions:
+    "26.122":
+      status: documented
+      note: "SRC-750 p.313, the first edition to document it"

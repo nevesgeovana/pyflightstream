@@ -7,6 +7,84 @@ FlightStream versions.
 
 ## [Unreleased]
 
+**Eight builds, and every command every one of them documents.** A
+FlightStream build is registered, 26.122, and the command database now
+answers for all eight registered editions with nothing absent from any
+of them. `pyfs-manual sweep` reports zero, which it has never done for
+more than the newest four builds before.
+
+### Added
+
+- **FlightStream 26.122 is registered**, vendor build 8092026, the day
+  after it was issued. It is the second hotfix of the 26.12 release and
+  says so from evidence rather than from its index: the vendor sells it
+  as 26.12, its executable is named for 26.12, its solver prints 26.1
+  like the other two, and the three build numbers are one release six
+  weeks apart. Its manual documents the largest scripting surface of the
+  eight editions, 372 commands. Read its `operational` level with its
+  evidence: it reaches that level entirely on records inherited from
+  26.120, because no command has been probed on this build.
+- **Ten commands the 26.122 edition is the first to document**, among
+  them `ROTATE_SURFACE`, `SOLVER_TIME_AVERAGING`,
+  `SET_NEW_UNSTEADY_SOLVER_ACTION`, `EXPORT_BL_VELOCITY_PROFILE` and
+  `SET_ACTUATOR_WAKE_TYPE`. Two of the ten stand where a command this
+  edition stops printing stood, and neither pair is a plain rename:
+  `ROTATE_SURFACE` is one inline line of five arguments where
+  `SURFACE_ROTATE` is a keyword block of eight, and the two options
+  `SPLIT_VERTICES` and `ADAPTIVE_MESH` have no equivalent in the newer
+  form. Both superseded commands carry a `removed` row for 26.122 naming
+  its successor.
+- **Sixteen commands only the pre-26.100 editions document**, which
+  closes the last gap in coverage. Three are version stories rather than
+  disappearances: `SET_SOLVER_MODEL` becomes an argument of
+  `INITIALIZE_SOLVER` in the edition that drops it,
+  `SOLVER_UNINITIALIZE` and `REMOVE_INITIALIZATION` are exactly
+  complementary across the eight editions, and the `PHYSICS` block
+  becomes the two standalone autodetection commands at 26.000. That last
+  one explains a gap this repository had already measured and misread:
+  the two 25 builds are not missing trailing-edge autodetection, they
+  spell it as one block.
+- **Nineteen per-version argument grammars** for the three pre-26.100
+  editions, read page against page. `FLUID_PROPERTIES` takes a sonic
+  velocity and no specific heat ratio on all three; `INITIALIZE_SOLVER`
+  has a different argument list on each of them.
+- **`pyfs-manual citations`**, which re-reads every version row's cited
+  page against the edition it names and exits non-zero when one does not
+  hold. It exists because ten citations were found pointing at a
+  document that had moved underneath them, each at a real page of a real
+  manual, and nothing re-checked a citation once written.
+- **Seven solver-setup flags** on `solver_settings`, for the
+  settings-family commands only the older editions document:
+  `solver_model`, `valarezo_criterion`, `crossflow_separation_cp`,
+  `wake_relaxation`, `wake_streamwise_agglomeration`,
+  `adverse_gradient_boundary_layer` and `vortex_ring_normalization`.
+
+### Changed
+
+- **A per-version argument override now states only its difference.**
+  Unstated fields are filled from the base argument of the same name, so
+  changing one field no longer means restating every other field of
+  every argument. That restating is how a second field changes by
+  accident: writing this release's overrides lost a list separator and
+  an entity citation, which is the same defect this repository already
+  had a test for. Writing `cites: null` still clears an inherited value,
+  since inheritance reads the raw file where an unstated field and one
+  stated at its default are distinguishable.
+- **A `removed` row's citation no longer counts as manual coverage.** An
+  absence is read across a whole chapter, so one such note marked every
+  page of an edition as cited and the published coverage section went
+  from a page-by-page gap listing to "every page is cited".
+- The steady-polar example's version-awareness section now shows the two
+  refusals that differ, a command a build does not carry and a command
+  it carries with a different argument list, replacing a claim about
+  26.0 having no recorded evidence that stopped being true.
+
+### Fixed
+
+- Ten version rows citing pages of the 25.000 manual were five or six
+  pages off, from the conversion of that edition being corrected after
+  the rows were written.
+
 ## [0.6.0] - 2026-08-09
 
 **Seven builds, every one of them identified.** Three more FlightStream
