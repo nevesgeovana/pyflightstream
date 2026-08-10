@@ -893,7 +893,7 @@ def test_every_evidence_citation_falls_inside_its_edition_page_range():
     # parser cannot read, which then goes unchecked in silence, and a
     # stale literal cannot tell that apart from an edition that is
     # simply new.
-    from pyflightstream.versions import manual_editions
+    from pyflightstream.versions import known_versions, manual_editions
 
     declared = {
         match.group(1)
@@ -901,6 +901,16 @@ def test_every_evidence_citation_falls_inside_its_edition_page_range():
         if (match := re.match(r"\s*(SRC-\d{3})\b", text))
     }
     assert declared, "no edition declares a source id; this guard would read nothing"
+    # And the population is anchored on the REGISTRY, because both sides
+    # above read `manual_editions()`: a registered build with no entry in
+    # that mapping at all appears on neither side, so the comparison
+    # would agree about a build it never saw. Every build has a row
+    # today, which is what this asserts rather than assumes.
+    assert len(declared) == len(known_versions()), (
+        f"{len(declared)} editions declare a source id and {len(known_versions())} "
+        "builds are registered; a build with no manual_editions entry is invisible "
+        "to the comparison below, which reads that same mapping on both sides"
+    )
     assert sorted(ranges) == sorted(declared), (
         f"the guard read ranges for {sorted(ranges)} and the registry declares "
         f"{sorted(declared)}; an edition whose range it cannot parse is an edition it "

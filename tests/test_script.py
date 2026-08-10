@@ -1353,6 +1353,34 @@ def test_every_cad_command_is_available_on_every_registered_build():
     # because the declared arity disagreed with the heading, and the
     # disagreement was the finding rather than the error: that edition
     # takes one argument fewer, and the row it now carries states so.
+    # By NAME and not only by count. The previous form asserted three
+    # numbers, so swapping one CAD command for another on 25.000 passed
+    # while the set changed underneath it; the count is what moved when
+    # a row was recovered, and the names are what the claim is about.
+    named = {c: tuple(sorted(names)) for c, names in available.items() if c not in whole}
+    assert named["25.000"] == named["25.100"] == named["26.000"], (
+        "the three pre-26.100 builds carry different parts of the CAD chapter: "
+        f"{ {c: v for c, v in named.items()} }. They are supposed to carry the same "
+        "sixteen, the chapter arriving whole only at 26.100"
+    )
+    assert named["25.000"] == (
+        "CAD_CREATE_AUTO_ANNULAR_CROSS_SECTIONS",
+        "CAD_CREATE_AUTO_CROSS_SECTIONS",
+        "CAD_CREATE_CROSS_SECTION",
+        "CAD_CREATE_CURVE_ARC",
+        "CAD_CREATE_CURVE_DELETE_ALL",
+        "CAD_CREATE_CURVE_DELETE_SELECTED",
+        "CAD_CREATE_CURVE_DELETE_UNSELECTED",
+        "CAD_CREATE_CURVE_EXPORT_CCS",
+        "CAD_CREATE_CURVE_LINE",
+        "CAD_CREATE_CURVE_POINT",
+        "CAD_CREATE_CURVE_REVERSE",
+        "CAD_CREATE_CURVE_SELECT",
+        "CAD_CREATE_CURVE_UNSELECT",
+        "CAD_CREATE_IMPORT_CURVE_TXT",
+        "CAD_CREATE_INITIALIZE",
+        "CONVERT_CAD_TO_MESH",
+    ), f"the CAD commands the older builds carry are now {named['25.000']}"
     partial = {c: len(names) for c, names in available.items() if c not in whole}
     assert partial == {"25.000": 16, "25.100": 16, "26.000": 16}, (
         f"the pre-26.100 builds carry {partial} of the {len(members)} CAD commands; "

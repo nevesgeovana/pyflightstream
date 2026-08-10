@@ -1760,3 +1760,29 @@ def test_the_citations_cli_names_the_builds_the_manifest_left_out(tmp_path, monk
     out = capsys.readouterr().out
     assert "no manifest row for" in out
     assert "25.000" in out
+
+
+def test_the_real_registry_satisfies_the_protocol_the_checks_declare():
+    """The seam between `utils` and `commands`, pinned from the low side.
+
+    `utils.manual` sits below `commands` and cannot import it, so the
+    citation and reachability checks read the database structurally.
+    Every read had a swallowing default, which means renaming
+    `VersionStatus.note` would have made the citation check return no
+    findings forever, over a green suite, and the report would have said
+    every citation holds. The protocol makes the contract writable and
+    this makes it checkable; the fixtures elsewhere in this module are
+    doubles and prove nothing about the real type.
+    """
+    from pyflightstream.commands import CommandRegistry
+    from pyflightstream.utils.manual import RegistryLike
+
+    registry = CommandRegistry.load()
+    assert isinstance(registry, RegistryLike)
+    entry = registry.commands["START_SOLVER"]
+    assert isinstance(entry.versions, dict)
+    row = next(iter(entry.versions.values()))
+    # The two attributes read by name, so a rename is a red here rather
+    # than silence in the report.
+    assert hasattr(row, "note")
+    assert hasattr(row.status, "value")

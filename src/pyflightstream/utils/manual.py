@@ -103,6 +103,7 @@ import re
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Protocol, runtime_checkable
 
 import yaml
 
@@ -114,6 +115,7 @@ __all__ = [
     "Edition",
     "ManualCommand",
     "StaleCitation",
+    "RegistryLike",
     "SurfaceChange",
     "UnreachableCommand",
     "SweptCommand",
@@ -973,6 +975,37 @@ class StaleCitation:
     found: int | None
 
 
+@runtime_checkable
+class VersionRowLike(Protocol):
+    """The two fields :func:`stale_citations` reads off a version row.
+
+    Declared as a protocol rather than left implicit, because this
+    module sits below ``commands`` in the dependency order and cannot
+    import the real type. Every read of that type was a ``getattr`` with
+    a swallowing default, so renaming ``VersionStatus.note`` would have
+    made the check return no findings forever with a green suite; the
+    tier-1 test asserting the real registry satisfies this is what turns
+    that silence into a red.
+    """
+
+    note: str | None
+    status: object
+
+
+@runtime_checkable
+class CommandEntryLike(Protocol):
+    """The one field :func:`stale_citations` reads off a command entry."""
+
+    versions: Mapping[str, VersionRowLike]
+
+
+@runtime_checkable
+class RegistryLike(Protocol):
+    """What the citation and reachability checks need of the database."""
+
+    commands: Mapping[str, CommandEntryLike]
+
+
 #: Rows seen and rows actually checked, per edition, from the last
 #: :func:`stale_citations` run. It exists because a clean report is not
 #: a clean bill and the caller cannot tell the two apart from the
@@ -986,7 +1019,7 @@ citation_reach: dict[str, list[int]] = {}
 def stale_citations(
     editions: Iterable[Edition],
     *,
-    recorded: object,
+    recorded: RegistryLike,
     reader: Callable[..., Mapping[int, str]] | None = None,
 ) -> tuple[StaleCitation, ...]:
     """Check every version row's page citation against the manual it names.
