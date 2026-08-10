@@ -88,19 +88,42 @@ SURFACE_ROTATE:
       status: removed
       successor: ROTATE_SURFACE
       note: >-
-        SRC-750 pp.283-383, the whole scripting reference of the
-        26.122 edition, does not print this command, and the
+        SRC-750 pp.283-383, the scripting reference of the 26.122
+        edition, does not print this command anywhere, AND THAT
+        EDITION'S INDEX DISAGREES WITH ITS OWN BODY: while its Script Index at
+        pp.384-390 still names it and does not name
+        ROTATE_SURFACE. The body is the reading recorded, on
+        the rule that a script is written from a signature heading and
+        an index entry only points at one, so an index lagging its own
+        body is a defect of that document rather than a second opinion
+        about the solver. The disagreement is itself evidence about the
+        index: it gained SOLVER_TIME_AVERAGING, new in this edition,
+        while keeping four superseded names, so it is maintained by
+        addition and its silence would carry less than its speech. The
         same edition is the first to print ROTATE_SURFACE, which
         rotates surfaces about an axis of a named frame exactly
         as this does. Recorded as removed rather than left to
-        inheritance, unlike the five commands 26.121 stopped
-        printing: those went quiet with nothing standing in
+        inheritance, unlike the THREE of the five commands 26.121
+        stopped printing that carry neither a successor nor a
+        measurement: those went quiet with nothing standing in
         their place, which is a fact about a document, while
         here the capability is on the page under another name.
-        THE SUCCESSOR IS NOT A DROP-IN. It is one inline line
-        where this is a keyword block, and it has no equivalent
-        of SPLIT_VERTICES or ADAPTIVE_MESH. No probe has asked
-        the 26.122 solver whether it still answers this name.
+        The other two of the five carry rows for a different
+        reason, a negative record on 26.121 that inheritance from
+        the base would have overturned, and this note counted all
+        five of them as left to inheritance before those rows were
+        written in the same change.
+        The whole split is PLN-20260810-1600.
+        THE SUCCESSOR IS NOT A DROP-IN. It takes six arguments,
+        five on the command line and the surface indices on the
+        next, where this is a keyword block of eight, and it has
+        no equivalent of SPLIT_VERTICES or ADAPTIVE_MESH. Whether
+        its DETACH_VERTICES is this command's
+        DETACH_NORMAL_TO_AXIS renamed is read from their position
+        on the page and is not measured, so the count of options
+        a port loses is two for certain and possibly three. No
+        probe has asked the 26.122 solver whether it still
+        answers this name.
   notes: >
     Rotates surfaces about an axis of a coordinate system. AXIS carries
     the dual form, letters or indices, and here the manual states it
@@ -782,10 +805,14 @@ ROTATE_SURFACE:
 
     IT IS NOT THAT COMMAND UNDER A NEW NAME, which is why it is
     entered as its own command rather than recorded as a rename.
-    SURFACE_ROTATE is a keyword block of eight arguments; this is
-    one inline line of five with the surface indices on the line
-    after it. SPLIT_VERTICES and ADAPTIVE_MESH have no equivalent
-    here, so a script porting forward loses two options rather than
+    SURFACE_ROTATE is a keyword block of eight arguments; this takes
+    six, five of them on the command line and the surface indices on
+    the line after it, which is the payload_lines layout rather than
+    the inline one. SPLIT_VERTICES and ADAPTIVE_MESH have no equivalent
+    here, and whether DETACH_NORMAL_TO_AXIS and this command's
+    DETACH_VERTICES are one option renamed is read from their position
+    on the page and is not measured, so a script porting forward loses
+    two options for certain and possibly three, rather than
     changing a word.
 
     SURFACES is a COUNT and not an index, followed by the indices on

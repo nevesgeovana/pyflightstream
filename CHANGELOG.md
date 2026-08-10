@@ -16,10 +16,12 @@ newest four builds before.
 READ THAT CLAIM AT THE LEVEL IT IS MEASURED AT, because the first
 version of this paragraph did not. Zero absent is a statement about
 ENTRY NAMES. Ten readings across four commands remain deliberately
-unrecorded, so three builds cannot emit `IMPORT_CAD`,
-`CAD_CREATE_IMPORT_CURVE_CCS`, `NEW_OFF_BODY_STREAMTUBE` or
-`SET_SCENE_CONTOUR` even though their manuals document them: those
-editions write the command in a LAYOUT a version row cannot express,
+unrecorded, so ten readings across four commands
+are withheld, so `IMPORT_CAD` and `CAD_CREATE_IMPORT_CURVE_CCS` cannot
+be emitted on three builds and `NEW_OFF_BODY_STREAMTUBE` and
+`SET_SCENE_CONTOUR` cannot on two, even though those manuals document
+them: each of those editions writes the command in a LAYOUT a version
+row cannot express,
 and a row that ignored the difference would emit the newer shape under
 the older edition's citation. The entries say so and
 `PLN-20260810-1200` holds the schema decision. The sweep now reports
@@ -31,10 +33,12 @@ rather than by this sentence alone.
 New public names: `pyflightstream.utils.stale_citations`,
 `pyflightstream.utils.StaleCitation`,
 `pyflightstream.utils.unreachable_commands`,
-`pyflightstream.utils.UnreachableCommand`, the `pyfs-manual citations`
-subcommand, and eight keyword arguments on
-`pyflightstream.script.helpers.solver_settings` and
-`pyflightstream.script.helpers.atmosphere`.
+`pyflightstream.utils.UnreachableCommand`, the three protocols
+`pyflightstream.utils.RegistryLike`, `CommandEntryLike` and
+`VersionRowLike`, `pyflightstream.utils.manual.citation_reach`, the
+`pyfs-manual citations` subcommand, seven keyword arguments on
+`pyflightstream.script.helpers.solver_settings`, and one
+(`sonic_velocity`) on `pyflightstream.script.helpers.atmosphere`.
 
 Behaviour changes a caller can see: `atmosphere` now takes
 `sonic_velocity` and reads its script's version to decide which five
@@ -63,8 +67,9 @@ none.
   `SET_NEW_UNSTEADY_SOLVER_ACTION`, `EXPORT_BL_VELOCITY_PROFILE` and
   `SET_ACTUATOR_WAKE_TYPE`. Two of the ten stand where a command this
   edition stops printing stood, and neither pair is a plain rename:
-  `ROTATE_SURFACE` is one inline line of five arguments where
-  `SURFACE_ROTATE` is a keyword block of eight, and the two options
+  `ROTATE_SURFACE` takes six arguments, five on the command line and the
+  surface indices on the next, where `SURFACE_ROTATE` is a keyword block
+  of eight, and the two options
   `SPLIT_VERTICES` and `ADAPTIVE_MESH` have no equivalent in the newer
   form. Both superseded commands carry a `removed` row for 26.122 naming
   its successor.
@@ -124,8 +129,8 @@ none.
   the coverage sweep reported zero absent throughout, because it
   compares entry names and an entry missing one edition's row reads as
   covered.
-- **26.122 would have emitted two commands the build before it was
-  measured refusing.** Inheritance runs from the base release rather
+- **26.122 would have emitted two commands the build before it has a
+  negative record for.** Inheritance runs from the base release rather
   than from the sibling hotfix, so a `removed`-on-a-run record and a
   `broken` record on 26.121 were both overturned by 26.120's
   `documented` one.
@@ -135,6 +140,29 @@ none.
   firing. It asserts now, and CONTRIBUTING states the limit.
 - A note on `SET_SOLVER_MODEL` said the successor takes the same four
   tokens. It takes six, of which one is shared.
+- **`atmosphere` serves the three pre-26.100 builds again.** Those
+  editions take a sonic velocity and no specific heat ratio on
+  `FLUID_PROPERTIES`, so entering their grammar closed both doors on
+  them at once: passing the five newer properties was refused by the
+  binder for a keyword the edition does not have, and omitting one was
+  refused by the helper, which quoted a page of a different edition.
+  The helper reads its script's version now and takes a new
+  `sonic_velocity` keyword. The 25 series is the series registered so
+  published work can be reproduced, so the curated path has to serve it.
+
+### Known gaps
+
+- **Three commands the 26.122 edition stops printing are still
+  emitted for it.** That build inherits from its base release 26.120,
+  and `CREATE_BULK_SEPARATION`, `SURFACE_DELETE` and `SURFACE_CLEARALL`
+  have neither a successor visible on the page nor any measurement, so
+  they rest on a reading rather than a run. The four that ARE refused
+  are refused on stronger evidence, and the split is not a rule anyone
+  chose: it is what the available evidence happens to look like. One
+  probe run of seven names settles it (`PLN-20260810-1600`, and the
+  licensed-evidence queue in `docs/srs/roadmap.md`).
+- **Nothing has been probed on 26.122 at all.** It derives
+  `operational` entirely on inherited records; the README row says so.
 
 ## [0.6.0] - 2026-08-09
 

@@ -14,7 +14,7 @@ registered, was accepted by ``Script(version="26.000")``, and carried
 evidence for zero of the database's commands, so nothing whatsoever
 could be built for it. The README said as much in a sentence; nothing
 said it in a value a caller could read (finding PYFS-019, SRS FR-49).
-That build's own manual was read on 2026-08-10 and it now carries 273
+That build's own manual was read on 2026-08-10 and it now carries 274
 emittable commands, which is the levels working: the value moved
 without anyone editing a claim.
 

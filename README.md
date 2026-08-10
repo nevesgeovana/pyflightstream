@@ -43,7 +43,7 @@ try:
                                 len_x=1.0, len_y=1.0, len_z=1.0)
     raise AssertionError("26.000 has no CAD chapter; this must refuse")
 except CommandNotInVersionError as error:
-    print(error)  # the CAD family arrives at 26.100
+    print(error)  # the CAD primitives arrive at 26.100
 ```
 
 The worked examples in `examples/` take it from here to executed
@@ -159,9 +159,9 @@ the evidence rather than declared:
 
 | Version | Vendor name | Support level | What that means here |
 |---|---|---|---|
-| 25.000 | 25.0 | `documented` | Vendor build 12162024, December 2024. Registered on 2026-08-09 so that published work run on it has an identifier that resolves, and its own manual read command by command on 2026-08-10: 267 commands are emittable for it. Not yet `operational`, and the blocker is solver evidence rather than database rows: no command has been measured on this build, and the level stops at `documented` for that reason before the workflow is even considered. 26.000 shows it, having every workflow command and the same level. Its manual documents 272 commands and 268 are emittable, the difference being four readings withheld where a version row cannot express a layout (PLN-20260810-1200). Behind the evidence gap there is also a workflow one: this edition runs the trailing-edge autodetection from inside a `PHYSICS` block and the standalone command arrives at 26.000 |
+| 25.000 | 25.0 | `documented` | Vendor build 12162024, December 2024. Registered on 2026-08-09 so that published work run on it has an identifier that resolves, and its own manual read command by command on 2026-08-10. Not yet `operational`, and the blocker is solver evidence rather than database rows: no command has been measured on this build, and the level stops at `documented` for that reason before the workflow is even considered. 26.000 shows it, having every workflow command and the same level. Its manual documents 272 commands and 268 are emittable, the difference being four readings withheld where a version row cannot express a layout (PLN-20260810-1200). Behind the evidence gap there is also a workflow one: this edition runs the trailing-edge autodetection from inside a `PHYSICS` block and the standalone command arrives at 26.000 |
 | 25.100 | 25.1 | `documented` | Vendor build 5062025, May 2025. Registered for the same reason. Its manual documents 274 commands and 270 are emittable, with the same four layout withholdings, and it uses the same `PHYSICS` block as 25.000. The 25 series checks out an EDU licence rather than the full feature set, so what either of these builds refuses may be the licence rather than the build; that is not yet measured |
-| 26.000 | 26.0 | `documented` | Vendor build 10202025, October 2025. Its manual documents 276 commands and 274 are emittable, the two withheld for the same layout reason. Nothing has been probed on it either, which is what holds it at this level. The CAD and cross-section families do not exist in this edition; they arrive with 26.100 |
+| 26.000 | 26.0 | `documented` | Vendor build 10202025, October 2025. Its manual documents 276 commands and 274 are emittable, the two withheld for the same layout reason. Nothing has been probed on it either, which is what holds it at this level. The CAD BODY operations, the four CAD primitives and the three CCS mesh chapters do not exist in this edition; they arrive with 26.100. What it does document, and what its sixteen CAD rows are, is CAD import and conversion plus the curve and cross-section commands |
 | 26.100 | 26.1 | `operational` | The February 2026 build, and the last to reach this level, on 2026-08-08. It was held at `verified` less by the solver than by the database: the per-edition sweep that day found 40 commands its own manual documents and this database had no row for, so the emitter refused them and the minimal end-to-end workflow could not be built. With those rows written the workflow builds. Probe coverage is still thinner here than on the newer builds, the harness reaching only commands that carry a probe spec; the compatibility matrix carries the live counts |
 | 26.101 | 26.1 | `operational` | The May 2026 build. Commands drafted from the manual with page citations, with the first harness promotions on 2026-08-08, which also carried it to the level where the minimal end-to-end workflow builds. It sits at a hotfix index and does NOT inherit from 26.100: the two are separate vendor releases under one name |
 | 26.120 | 26.12 | `operational` | Probe evidence from a licensed machine, and the minimal end-to-end workflow builds |
@@ -188,7 +188,7 @@ does not identify a build.
 
 Canonical identifiers use the YY.XXX scheme, the last digit indexing
 vendor hotfix builds, so 26.121 is hotfix build 1 of the 26.12 release.
-The vendor ships both 26.120 and 26.121 under the one release name
+The vendor ships 26.120, 26.121 and 26.122 under the one release name
 "26.12", and both 26.100 and 26.101 under "26.1", so neither name
 selects a build and each is refused with its candidates named; pass the
 canonical identifier. A vendor name is unique only until the vendor

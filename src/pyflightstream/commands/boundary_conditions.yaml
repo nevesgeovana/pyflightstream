@@ -154,6 +154,7 @@ FLUID_PROPERTIES:
           type: float
         - name: sonic_velocity
           type: float
+          unit: "m/s"
         - name: temperature
           type: float
         - name: viscosity
@@ -168,6 +169,7 @@ FLUID_PROPERTIES:
           type: float
         - name: sonic_velocity
           type: float
+          unit: "m/s"
         - name: temperature
           type: float
         - name: viscosity
@@ -182,6 +184,7 @@ FLUID_PROPERTIES:
           type: float
         - name: sonic_velocity
           type: float
+          unit: "m/s"
         - name: temperature
           type: float
         - name: viscosity

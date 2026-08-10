@@ -1689,6 +1689,10 @@ def test_a_citation_naming_another_edition_is_a_finding(tmp_path):
     (tmp_path / "ed.pdf").write_bytes(b"injected reader")
     (finding,) = stale_citations([edition], recorded=registry, reader=read)
     assert finding.command == "A_COMMAND"
+    # And it says WHICH finding it is: `found is None` alone carried
+    # both "the edition does not print it" and "the note names another
+    # document", and the report printed the first for both.
+    assert finding.reason == "wrong source"
 
 
 def test_the_citation_check_refuses_a_configuration_that_would_read_clean(tmp_path):

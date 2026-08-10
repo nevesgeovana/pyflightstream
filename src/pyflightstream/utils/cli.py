@@ -307,17 +307,22 @@ def _citations(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int
         f"citation this can re-read, and {len(stale)} of those do not hold"
     )
     for item in stale:
-        where = (
-            "the edition does not print it" if item.found is None else f"parses at p.{item.found}"
-        )
+        where = {
+            "absent": "the edition does not print it",
+            "wrong source": "the note names another edition's source",
+        }.get(item.reason, f"parses at p.{item.found}")
         print(f"  {item.command:<48} {item.edition}  cites p.{item.cited}, {where}")
 
     # Reach per edition, because a total hides the shape. A build whose
-    # rows carry no note of their own reads as fully checked inside a
-    # total and is not checked at all; 26.120 is that build, its rows
-    # resting on the entry's own manual_ref rather than on a page each.
+    # rows carry no checkable citation reads as fully checked inside a
+    # total and is not checked at all; 26.120 is that build.
     for label, (rows, able) in citation_reach.items():
-        note = "" if able else "   <- no row of this build carries one"
+        note = (
+            ""
+            if able
+            else "   <- nothing checkable here: these rows rest on the entry's own "
+            "manual_ref, and any that cite a page are removed rows this skips"
+        )
         print(f"    {label}  {able} of {rows}{note}")
 
     # And the builds the manifest did not cover, the door `surface`

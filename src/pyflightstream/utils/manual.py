@@ -115,6 +115,8 @@ __all__ = [
     "Edition",
     "ManualCommand",
     "StaleCitation",
+    "CommandEntryLike",
+    "VersionRowLike",
     "RegistryLike",
     "SurfaceChange",
     "UnreachableCommand",
@@ -862,7 +864,7 @@ class UnreachableCommand:
 def unreachable_commands(
     editions: Iterable[Edition],
     *,
-    recorded: object,
+    recorded: RegistryLike,
     reader: Callable[..., Mapping[int, str]] | None = None,
 ) -> tuple[UnreachableCommand, ...]:
     """Report, per edition, the documented commands its build cannot emit.
@@ -879,15 +881,15 @@ def unreachable_commands(
     same manual pages did carry the rows.
 
     Reachability, not row presence, is the measure, because a genuine
-    hotfix inherits its base release's records: 26.122 carries a direct
-    row for ten commands and reaches 377, and counting rows would report
-    it as missing hundreds.
+    hotfix inherits its base release's records: 26.122 carries twenty
+    direct rows and reaches 375, and counting rows would report it as
+    missing hundreds.
 
     Parameters
     ----------
     editions : iterable of Edition
         The manuals to read.
-    recorded : CommandRegistry
+    recorded : RegistryLike
         The loaded database. Typed loosely because this module sits
         below ``commands`` in the dependency order (CLAUDE.md Layout)
         and must not import it; it is used through ``.commands`` and
@@ -962,17 +964,23 @@ class StaleCitation:
     cited : int
         Page number written in the row's note.
     found : int or None
-        Page the edition actually prints the signature on, or None when
-        the edition does not print the command at all. The two are
-        different findings and the field says which: a moved page is a
-        citation to correct, and an absent command is a row that should
-        not exist.
+        Page the edition actually prints the signature on, or None.
+    reason : str
+        Which finding this is, because ``found is None`` alone carried
+        two of them and the report printed one: ``"moved"`` when the
+        edition prints the command elsewhere, ``"absent"`` when it does
+        not print it at all, and ``"wrong source"`` when the note names
+        another edition's source id. The three want different repairs.
+        A moved page is a citation to correct, an absent command is a
+        row that should not exist, and a wrong source is a row read
+        against the wrong document.
     """
 
     command: str
     edition: str
     cited: int
     found: int | None
+    reason: str
 
 
 @runtime_checkable
@@ -1001,18 +1009,35 @@ class CommandEntryLike(Protocol):
 
 @runtime_checkable
 class RegistryLike(Protocol):
-    """What the citation and reachability checks need of the database."""
+    """What the citation and reachability checks need of the database.
+
+    Both attributes, because the two checks need different halves:
+    :func:`stale_citations` walks ``commands`` and
+    :func:`unreachable_commands` also asks ``for_version`` what a build
+    can emit. An earlier version of this docstring named both checks
+    while declaring only the first one's half, so the protocol would not
+    have typed the function it claimed to cover.
+    """
 
     commands: Mapping[str, CommandEntryLike]
+
+    def for_version(self, version: object) -> object:
+        """Return the per-version view of the database."""
 
 
 #: Rows seen and rows actually checked, per edition, from the last
 #: :func:`stale_citations` run. It exists because a clean report is not
 #: a clean bill and the caller cannot tell the two apart from the
-#: findings alone: on 2026-08-10 the check reached 18 of the 26.120
-#: build's 381 rows, since most rows carry no page in their note, and
-#: printed that nothing was wrong. A count of editions read says nothing
-#: about that; a count of rows checked does.
+#: findings alone.
+#:
+#: 26.120 is the build that makes the point, and its figure was written
+#: here as 18 of 381 before being measured again: it is ZERO of 381.
+#: 363 of those rows cite no page of their own, because that build is
+#: the flagship whose entries carry the citation at entry level, and the
+#: 18 that do cite a page are every one of them `removed` rows, which
+#: this check skips by design since their citation addresses an absence.
+#: Eighteen is the number of rows SKIPPED, not checked, and the two are
+#: easy to swap when neither is printed.
 citation_reach: dict[str, list[int]] = {}
 
 
@@ -1041,7 +1066,7 @@ def stale_citations(
         :func:`sweep_editions` and :func:`coverage_against`; two
         adjacent positional parameters of unrelated kinds is a call
         nobody can read.
-    recorded : CommandRegistry
+    recorded : RegistryLike
         The loaded database, used through ``.commands``. Typed loosely
         because this module sits below ``commands`` in the dependency
         order (CLAUDE.md Layout) and must not import it, which is also
@@ -1143,7 +1168,15 @@ def stale_citations(
             command = parsed.get(name)
             expected = sources.get(label)
             if expected and source != expected:
-                stale.append(StaleCitation(command=name, edition=label, cited=first, found=None))
+                stale.append(
+                    StaleCitation(
+                        command=name,
+                        edition=label,
+                        cited=first,
+                        found=None,
+                        reason="wrong source",
+                    )
+                )
                 continue
             if command is not None and command.page in span:
                 continue
@@ -1153,6 +1186,7 @@ def stale_citations(
                     edition=label,
                     cited=first,
                     found=None if command is None else command.page,
+                    reason="absent" if command is None else "moved",
                 )
             )
     return tuple(sorted(stale, key=lambda item: (item.command, item.edition)))

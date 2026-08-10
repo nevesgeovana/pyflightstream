@@ -41,7 +41,7 @@
   },
   {
    "id": "FR-02c",
-   "text": "The vendor reuses a release name across builds, so a display alias can name more than one registered build: 26.120 and 26.121 are both shipped as \"26.12\", and 26.100 and 26.101 are both shipped as \"26.1\" although they are separate releases rather than a release and its hotfix. Resolution refuses such a name rather than returning any of the builds carrying it, and the refusal names every candidate so the caller can choose. A canonical identifier is matched across the whole registry before any alias is considered, so a build is never shadowed by an earlier entry whose alias equals its canonical.",
+   "text": "The vendor reuses a release name across builds, so a display alias can name more than one registered build: 26.120, 26.121 and 26.122 are all shipped as \"26.12\", and 26.100 and 26.101 are both shipped as \"26.1\" although they are separate releases rather than a release and its hotfix. Resolution refuses such a name rather than returning any of the builds carrying it, and the refusal names every candidate so the caller can choose. A canonical identifier is matched across the whole registry before any alias is considered, so a build is never shadowed by an earlier entry whose alias equals its canonical.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: BRF-03, BRF-19. Evidence: PFS-8 (2026-08-02); the ambiguous-alias tests in tests/test_versions.py.*",
@@ -521,7 +521,7 @@
   },
   {
    "id": "FR-49",
-   "text": "A registered version reports its support level as one of four named values, ascending: registered (ordered, no command carries evidence, nothing can be built), documented (commands drafted from the manual, none measured against a running solver), verified (probe evidence measured on this version) and operational (verified, and the minimal end-to-end workflow builds for it). Every level is derived from the command database; none is declared.",
+   "text": "A registered version reports its support level as one of four named values, ascending: registered (ordered, no command carries evidence, nothing can be built), documented (commands drafted from the manual, none measured against a running solver), verified (probe evidence REACHABLE for this version, measured on it or carried from its base release by declared hotfix inheritance; amended 2026-08-10, the definition having said \"measured on this version\" while the derivation counted inherited evidence, which the paragraph below now depends on) and operational (verified, and the minimal end-to-end workflow builds for it). Every level is derived from the command database; none is declared.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the independent review's finding PYFS-019, reproduced 2026-07-28 and again at HEAD on 2026-08-02. Evidence: src/pyflightstream/support.py; tests/test_support.py.*",

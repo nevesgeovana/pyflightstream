@@ -198,8 +198,19 @@ SWEEPER_REF_VELOCITY_SAME:
     "26.122":
       status: removed
       note: >-
-        SRC-750 pp.283-383, the whole scripting reference of the 26.122
-        edition, does not print this command. THIS ROW EXISTS BECAUSE
+        SRC-750 pp.283-383, the scripting reference of the 26.122
+        edition, does not print this command anywhere, AND THAT
+        EDITION'S INDEX DISAGREES WITH ITS OWN BODY: The Script
+        Index at pp.384-390 of the same document still names it, and
+        does not name any replacement. The body is the reading
+        recorded here, on the rule that a signature heading is what a
+        script is written from and an index entry is a pointer to one;
+        an index that lags its own body is a defect of that document
+        rather than a second opinion about the solver. Read the
+        disagreement as the evidence it is: this index gained
+        SOLVER_TIME_AVERAGING, a command new in this edition, while
+        keeping four superseded names, so it is maintained by addition
+        and its silence would mean less than its speech. THIS ROW EXISTS BECAUSE
         INHERITANCE WOULD SAY THE OPPOSITE. 26.122 inherits from the
         base release 26.120, not from the sibling hotfix, so without a
         row here the emitter would resolve 26.120's documented record

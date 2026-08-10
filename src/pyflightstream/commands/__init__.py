@@ -56,6 +56,22 @@ _PROBE_REF_PATTERN = re.compile(r"^reports/[\w./-]+\.md$")
 # rules it already had, while the cost of a false positive is a refused
 # load. Widen it when a new wording appears rather than loosening it.
 _MEASURED_CLAIM = re.compile(r"\b(measured|probed|observed|the solver (?:answers|refuses))\b", re.I)
+# A claim DENIED rather than made. The pattern above is a closed list of
+# affirmative wordings and cannot see a negation, so on 2026-08-10 it
+# refused four honest rows for saying "no probe has asked this build"
+# and "is not measured", which is the disclaimer this database wants on
+# every row that rests on a reading. The comment above prices the two
+# errors and prices them the right way round: a missed claim leaves a
+# row under the citation rules it already had, and a false positive
+# refuses the whole load. So the negators are subtracted first, and
+# subtracted by REMOVING the negated phrases from the text rather than
+# by widening the affirmative pattern, which keeps that list closed.
+_DENIED_CLAIM = re.compile(
+    r"\b(?:no|nothing|never|not|neither)\b[^.]{0,80}?"
+    r"\b(?:measured|probed|observed|measurement|probe|run)\b"
+    r"|\bun(?:measured|probed|observed)\b",
+    re.I,
+)
 
 
 class Layout(enum.StrEnum):
@@ -608,7 +624,8 @@ class VersionStatus(BaseModel):
                     "printing the command, or a probe measured the solver refusing "
                     "it; the status alone cannot be read as any one of them"
                 )
-            if _MEASURED_CLAIM.search(self.note) and not (self.report or self.probe_ref):
+            affirmative = _DENIED_CLAIM.sub(" ", self.note)
+            if _MEASURED_CLAIM.search(affirmative) and not (self.report or self.probe_ref):
                 raise ValueError(
                     "this removed note claims a measurement and cites no run; an "
                     "edition dropping a page is a fact about a document and only a run "
@@ -1090,9 +1107,9 @@ class VersionView:
             # work and a hotfix reaches its base release's records. Built
             # from `entry.versions` it hid exactly the newest build: on
             # 2026-08-10 a caller refused on an older build was shown
-            # four builds and never told that 26.122, which carries a
-            # direct row for ten commands and reaches 375, would serve
-            # them. Inherited rows are marked, since a caller weighing a
+            # four builds and never told that 26.122, which carries
+            # twenty direct rows and reaches 375, would serve them.
+            # Inherited rows are marked, since a caller weighing a
             # switch should see which answer was measured on the build
             # they would move to and which was carried forward.
             reachable = []

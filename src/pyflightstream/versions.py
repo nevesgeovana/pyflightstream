@@ -66,8 +66,8 @@ class AmbiguousVersionAliasError(PyflightstreamError, ValueError):
     """A vendor release name identifies more than one registered build.
 
     The vendor reuses a release name across builds, and not only across
-    the hotfixes of one release: 26.120 and 26.121 are both shipped as
-    "26.12", and 26.100 and 26.101 are both shipped as "26.1" although
+    the hotfixes of one release: 26.120, 26.121 and 26.122 are all
+    shipped as "26.12", and 26.100 and 26.101 are both shipped as "26.1" although
     they are the February and May 2026 releases rather than a release
     and its hotfix. A display alias therefore cannot select a build, and
     returning either one would hand the caller a silently wrong solver.
@@ -206,7 +206,7 @@ class FsVersion:
         footer, without the leading ``#``; ``None`` where no committed
         report records one. It is the only thing that tells two builds
         of one minor release apart at run time, because they print the
-        same version string: 26.120 and 26.121 both print "26.1".
+        same version string: 26.120, 26.121 and 26.122 all print "26.1".
         Registered from committed evidence, never guessed.
     prints : str or None
         Release name this version's solver PRINTS, which is not the

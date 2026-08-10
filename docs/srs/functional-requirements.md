@@ -27,7 +27,9 @@ Milestones and session records are listed in the
     see it. The requirement is now that the claim be checkable, not only
     that it be present. Read its reach with it: the check reports how
     many rows it could re-read at all, since a row citing no page of its
-    own cannot be checked and most do not carry one.
+    own cannot be checked. A quarter of all rows are in that position and
+    one whole build's rows are: 26.120 is the flagship, whose entries
+    carry the citation at entry level, so none of its 381 rows is read.
 
 !!! requirement "FR-02 Launch version set and ordering <span class='srs-implemented'>implemented</span>"
     *Origin: BRF-07, BRF-19. Evidence: milestone M1; `versions` tests.*
@@ -66,8 +68,8 @@ Milestones and session records are listed in the
     ambiguous-alias tests in `tests/test_versions.py`.*
 
     The vendor reuses a release name across builds, so a display alias
-    can name more than one registered build: 26.120 and 26.121 are both
-    shipped as "26.12", and 26.100 and 26.101 are both shipped as
+    can name more than one registered build: 26.120, 26.121 and 26.122
+    are all shipped as "26.12", and 26.100 and 26.101 are both shipped as
     "26.1" although they are separate releases rather than a release
     and its hotfix.
     Resolution refuses such a name rather than returning any of the
@@ -1035,7 +1037,11 @@ The allocation is recorded in the
     values, ascending: `registered` (ordered, no command carries
     evidence, nothing can be built), `documented` (commands drafted
     from the manual, none measured against a running solver),
-    `verified` (probe evidence measured on this version) and
+    `verified` (probe evidence REACHABLE for this version, measured on
+    it or carried from its base release by declared hotfix
+    inheritance; amended 2026-08-10, the definition having said
+    "measured on this version" while the derivation counted inherited
+    evidence, which the paragraph below now depends on) and
     `operational` (verified, and the minimal end-to-end workflow builds
     for it). Every level is derived from the command database; none is
     declared.

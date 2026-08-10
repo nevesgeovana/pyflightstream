@@ -5,8 +5,8 @@
 #
 # 1. generate a committable NACA 0012 wing mesh from code alone;
 # 2. build one version-validated FlightStream script per angle;
-# 3. show the version awareness: the same build request is refused for a
-#    FlightStream version without recorded evidence;
+# 3. show the two version refusals that differ: a command a build does
+#    not carry, and one it carries with a different argument list;
 # 4. optionally execute the solver and assemble the polar table.
 #
 # Without a FlightStream installation the example still runs steps 1 to 3
@@ -33,7 +33,7 @@ from pyflightstream.results import parse_loads
 from pyflightstream.run import LocalExecutor
 from pyflightstream.script import CommandArgumentError, Script
 
-FS_VERSION = "26.120"  # canonical; the vendor name 26.12 now names two builds
+FS_VERSION = "26.120"  # canonical; the vendor name 26.12 names three builds
 ALPHAS_DEG = [-4.0, -2.0, 0.0, 2.0, 4.0, 6.0, 8.0]
 VELOCITY_M_S = 30.0
 
@@ -160,6 +160,10 @@ for older, expected in (("25.000", CommandNotInVersionError), ("26.000", Command
         build_polar_point(older, 0.0, "loads.txt")
     except expected as error:
         print(f"refused for {older}, as it should be:\n  {error}")
+    else:
+        # An example whose only claim is that something is refused goes
+        # green the day the refusal stops firing. This one says so.
+        raise AssertionError(f"{older} was expected to refuse and did not")
 
 # %% [markdown]
 # ## 4. Optional: execute the sweep
