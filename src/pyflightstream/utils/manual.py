@@ -103,7 +103,7 @@ import re
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 import yaml
 
@@ -1043,15 +1043,22 @@ class VersionRowLike(Protocol):
     that silence into a red.
     """
 
-    note: str | None
-    status: object
+    @property
+    def note(self) -> str | None:
+        """Paraphrased justification, where the row carries one."""
+
+    @property
+    def status(self) -> object:
+        """The row's evidence status, read through its ``value``."""
 
 
 @runtime_checkable
 class CommandEntryLike(Protocol):
     """The one field :func:`stale_citations` reads off a command entry."""
 
-    versions: Mapping[str, VersionRowLike]
+    @property
+    def versions(self) -> Mapping[str, VersionRowLike]:
+        """Evidence per canonical version identifier."""
 
 
 @runtime_checkable
@@ -1066,9 +1073,11 @@ class RegistryLike(Protocol):
     have typed the function it claimed to cover.
     """
 
-    commands: Mapping[str, CommandEntryLike]
+    @property
+    def commands(self) -> Mapping[str, CommandEntryLike]:
+        """Every entry, keyed by command name."""
 
-    def for_version(self, version: object) -> object:
+    def for_version(self, version: Any) -> Any:
         """Return the per-version view of the database."""
 
 
@@ -1175,7 +1184,7 @@ def stale_citations(
             "against the last reading while leaving another edition unread"
         )
 
-    entries = getattr(recorded, "commands", recorded)
+    entries = recorded.commands
     if not any(getattr(entry, "versions", None) for entry in entries.values()):
         raise ManualDraftError(
             "the database given exposes no version rows, so there is nothing to check "

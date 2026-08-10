@@ -7,15 +7,20 @@
 Version-aware, didactic Python driver for the FlightStream panel-method
 solver. Successor of the author's legacy research scripts. MIT licensed.
 
-Status: v0.6.0 is the current release, published to
+Status: v0.7.0 is the current release, published to
 [PyPI](https://pypi.org/project/pyflightstream/) and archived on Zenodo
-(DOI recorded in CITATION.cff). CHANGELOG.md carries
-the release history. That release registered three more FlightStream
-builds and gave every registered build the vendor build number its
-solver prints, so an install can be identified rather than described.
-The release before it completed the command database: every command the
-four then-registered manual editions document is in it, with a version
-row per edition.
+(DOI recorded in CITATION.cff). CHANGELOG.md carries the release
+history. This release registers an eighth FlightStream build the day
+after the vendor issued it, and every command any of the eight
+registered manual editions documents now has an entry. Read that claim
+at the level it is measured at, which the release notes do: ten
+readings across four commands are deliberately withheld where a version
+row cannot express a layout, and the coverage tool reports that second
+measure beside the first rather than leaving it to prose.
+
+The release before it registered three older builds and gave every
+registered build the vendor build number its solver prints, so an
+install can be identified rather than described.
 
 ```
 pip install pyflightstream

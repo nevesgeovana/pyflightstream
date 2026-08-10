@@ -7,6 +7,8 @@ FlightStream versions.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-08-10
+
 **Eight builds, and every command every one of them documents.** A
 FlightStream build is registered, 26.122, and every command any of the
 eight registered editions documents now has an entry: `pyfs-manual
