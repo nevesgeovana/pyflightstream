@@ -21,6 +21,7 @@ from pyflightstream.utils import (
     Edition,
     ManualCommand,
     coverage_against,
+    edition_surfaces,
     parse_script_index,
     parse_signatures,
     propose_layout,
@@ -29,6 +30,7 @@ from pyflightstream.utils import (
     read_pdf_pages,
     render_entry,
     sample_contradiction,
+    surface_changes,
     sweep_editions,
 )
 from pyflightstream.utils.cli import main as cli_main
@@ -1335,3 +1337,100 @@ def test_the_sweep_cli_exits_zero_with_the_flag_when_nothing_is_absent(
     )
     assert cli_main(["sweep", "--editions", str(manifest), "--fail-if-absent"]) == 0
     assert "0 command(s) absent" in capsys.readouterr().out
+
+
+# ---------------------------------------------------------------------
+# The command surface per edition, and what changes between builds.
+# Added 2026-08-09 with the 25 series, whose whole point is comparison:
+# the registry gained three builds registered for reproducibility of
+# published runs, and the first question about them is what their
+# scripting surface has that the newer ones do not.
+# ---------------------------------------------------------------------
+
+
+def test_the_surface_of_each_edition_is_what_its_chapter_documents(tmp_path):
+    pages = {
+        "old": {1: {1: "Function name: A_COMMAND <A>\nFunction name: DROPPED_LATER <A>\n"}},
+        "new": {1: {1: "Function name: A_COMMAND <A>\nFunction name: ADDED_LATER <A>\n"}},
+    }
+    read, _calls = _recording_reader(pages)
+    surfaces = edition_surfaces(
+        [_edition(tmp_path, "old", (1, 1)), _edition(tmp_path, "new", (1, 1))],
+        reader=read,
+    )
+    # Sorted within an edition, so a diff of two editions is stable and
+    # reviewable; the ORDER OF THE EDITIONS is the manifest's and is
+    # asserted separately, because that one carries meaning.
+    assert surfaces == {
+        "old": ("A_COMMAND", "DROPPED_LATER"),
+        "new": ("ADDED_LATER", "A_COMMAND"),
+    }
+    assert list(surfaces) == ["old", "new"]
+
+
+def test_the_surface_read_never_opens_the_script_index(tmp_path):
+    """One read per edition, the chapter body.
+
+    The index is incomplete: a command can carry a signature heading and
+    no index row, which is why the sweep is body-driven. Reading the
+    index here would report a smaller surface for every edition and the
+    difference would look like the vendor removing commands.
+    """
+    pages = {
+        "ed": {
+            10: {10: "Function name: BODY_ONLY <A>\n"},
+            50: {50: "INDEXED_ONLY  Some Section\n"},
+        }
+    }
+    read, calls = _recording_reader(pages)
+    surfaces = edition_surfaces([_edition(tmp_path, "ed", (10, 10), index=(50, 50))], reader=read)
+    assert calls == [("ed", 10, 10)]
+    assert surfaces["ed"] == ("BODY_ONLY",)
+
+
+def test_consecutive_builds_are_compared_in_the_order_given():
+    """Insertion order, because sorting the labels picks wrong neighbours.
+
+    "26.100" and "26.101" sort into release order by luck; "26.12" sorts
+    between them and is neither's neighbour. The manifest's order is the
+    release order and this must use it.
+    """
+    surfaces = {
+        "26.100": ["KEPT", "DROPPED"],
+        "26.101": ["KEPT", "ADDED"],
+        "26.120": ["KEPT", "ADDED", "LATER"],
+    }
+    changes = surface_changes(surfaces)
+    assert [(c.older, c.newer) for c in changes] == [("26.100", "26.101"), ("26.101", "26.120")]
+    assert changes[0].gained == ("ADDED",)
+    assert changes[0].lost == ("DROPPED",)
+    assert changes[1].gained == ("LATER",)
+    assert changes[1].lost == ()
+
+
+def test_one_edition_yields_no_comparison_rather_than_a_self_comparison():
+    assert surface_changes({"26.121": ["ONLY"]}) == ()
+
+
+def test_reading_no_edition_is_refused_rather_than_reported_as_empty():
+    with pytest.raises(ManualDraftError, match="at least one edition"):
+        edition_surfaces([])
+
+
+def test_two_editions_sharing_a_label_are_refused(tmp_path):
+    """A repeated label would compare a build against itself.
+
+    The result is keyed by label, so the second reading overwrites the
+    first and the pair vanishes from the comparison entirely; the report
+    then shows one fewer change than there are neighbours and says
+    nothing about it.
+    """
+    pages = {
+        "a": {1: {1: "Function name: X_ONE <A>\n"}},
+        "b": {1: {1: "Function name: X_TWO <A>\n"}},
+    }
+    read, _calls = _recording_reader(pages)
+    editions = [_edition(tmp_path, "a", (1, 1)), _edition(tmp_path, "b", (1, 1))]
+    editions[1] = Edition(label="a", manual=editions[1].manual, chapter=(1, 1))
+    with pytest.raises(ManualDraftError, match="more than one edition the label"):
+        edition_surfaces(editions, reader=read)

@@ -11,9 +11,12 @@ FlightStream versions.
 
 New public names: `pyflightstream.run.SCRIPT_ARGUMENT`,
 `pyflightstream.run.describe_invocation`,
-`pyflightstream.reference.markdown_build_table`. Incompatible changes:
-none for callers; the solver command line changes, see below.
-Deprecations: none.
+`pyflightstream.reference.markdown_build_table`,
+`pyflightstream.utils.edition_surfaces`,
+`pyflightstream.utils.surface_changes`,
+`pyflightstream.utils.SurfaceChange`, and the `pyfs-manual surface`
+subcommand. Incompatible changes: none for callers; the solver command
+line changes, see below. Deprecations: none.
 
 ### Added
 
@@ -36,6 +39,32 @@ Deprecations: none.
   change, which is what it always meant; the major was written as a
   literal while 26 was the only one registered. No identifier was
   reassigned. SRS FR-02a and BRF-19 carry the amendment.
+
+* **`pyfs-manual surface` reports what each build documents and what
+  changed between builds.** The sibling of `sweep`, off the same edition
+  manifest: `sweep` asks what the database is missing, `surface` asks
+  what each build documents so two builds can be compared. RPT-024 is
+  its first output and is regenerated rather than maintained.
+
+  The measurement, since it is the answer to "what changed between the
+  builds I ran my research on": the scripting surface grew from 272
+  commands to 364 across the seven builds, and 75 of that arrived in one
+  step, 26.000 to 26.100, essentially the whole CAD and cross-section
+  family at once. The step to watch is 26.100 to 26.101, which gained 35
+  and lost 16 between two builds the vendor ships under the SAME release
+  name.
+
+  Lost means the newer manual stops printing the command, never that the
+  solver stopped accepting it; those are different facts and only a
+  probe separates them. The report says so rather than letting a reader
+  infer a removal, and it lists names rather than only counts, because
+  the counts cannot see that the four `CREATE_NEW_MOTION_*` commands of
+  25.000 are one renamed `CREATE_NEW_MOTION` in 25.100 rather than four
+  removals and one addition.
+
+  The reading is cross-checked against the command database: for all
+  four builds the database records, every command the manual documents
+  has an entry, which is what makes the page ranges trustworthy.
 
 * **A generated "Which build do I have" page.** The vendor ships two
   builds as "26.1" and two more as "26.12", so a paper recording

@@ -690,6 +690,131 @@ def sweep_editions(
     )
 
 
+@dataclass(frozen=True)
+class SurfaceChange:
+    """What one build's scripting surface gained and lost against the one before it.
+
+    Attributes
+    ----------
+    older : str
+        Label of the earlier edition.
+    newer : str
+        Label of the later edition.
+    gained : tuple of str
+        Commands the later edition documents and the earlier one does
+        not, sorted.
+    lost : tuple of str
+        Commands the earlier edition documents and the later one does
+        not, sorted. Lost means the later manual stops printing the
+        command, which is not the same as the solver refusing it: a
+        command can disappear from a manual and keep working. Deciding
+        which happened needs a probe, so this is evidence for a
+        question rather than an answer to it.
+    """
+
+    older: str
+    newer: str
+    gained: tuple[str, ...]
+    lost: tuple[str, ...]
+
+
+def edition_surfaces(
+    editions: Iterable[Edition],
+    *,
+    reader: Callable[..., Mapping[int, str]] | None = None,
+) -> dict[str, tuple[str, ...]]:
+    """Read each edition and return the command names it documents.
+
+    The whole surface, not the part the database lacks, which is what
+    :func:`sweep_editions` reports. Both read the chapter body the same
+    way, and the difference is the question: a sweep asks what is
+    missing from the database, this asks what each build documents so
+    two builds can be compared.
+
+    Parameters
+    ----------
+    editions : iterable of Edition
+        The manuals to read. Order is preserved in the result and is
+        the caller's to choose; :func:`surface_changes` compares
+        consecutive entries, so the intended order is release order.
+    reader : callable, optional
+        What turns a manual and a page range into text, defaulting to
+        :func:`read_pdf_pages`. Same seam as :func:`sweep_editions`,
+        for the same reason.
+
+    Returns
+    -------
+    dict of str to tuple of str
+        Command names per edition label, sorted within each edition,
+        with the editions in the order given.
+
+    Raises
+    ------
+    ManualDraftError
+        If no edition is given, or if two editions share a label. A
+        duplicate label would silently overwrite the first reading and
+        report a build compared against itself.
+    """
+    read = reader if reader is not None else read_pdf_pages
+    editions = tuple(editions)
+    if not editions:
+        raise ManualDraftError(
+            "reading the command surface needs at least one edition; with none there "
+            "is nothing to compare. Add a row to the manifest with label, manual and "
+            "chapter"
+        )
+    labels = [edition.label for edition in editions]
+    duplicated = sorted({label for label in labels if labels.count(label) > 1})
+    if duplicated:
+        raise ManualDraftError(
+            f"the manifest gives more than one edition the label(s) {', '.join(duplicated)}; "
+            "each label names one build and a repeat would overwrite the first reading, "
+            "reporting a build compared against itself"
+        )
+
+    surfaces: dict[str, tuple[str, ...]] = {}
+    for edition in editions:
+        parsed = parse_signatures(
+            read(edition.manual, first=edition.chapter[0], last=edition.chapter[1])
+        )
+        surfaces[edition.label] = tuple(sorted(parsed))
+    return surfaces
+
+
+def surface_changes(surfaces: Mapping[str, Iterable[str]]) -> tuple[SurfaceChange, ...]:
+    """Compare each edition's command surface with the one before it.
+
+    Parameters
+    ----------
+    surfaces : mapping of str to iterable of str
+        Command names per edition label, in release order. Python
+        mappings preserve insertion order and this relies on it, so a
+        caller that sorts the labels as strings gets the wrong
+        neighbours: "26.100" sorts before "26.101" by luck and "26.12"
+        would sort before both.
+
+    Returns
+    -------
+    tuple of SurfaceChange
+        One entry per consecutive pair, empty when fewer than two
+        editions are given.
+    """
+    labels = list(surfaces)
+    changes = []
+    for older, newer in zip(labels, labels[1:], strict=False):
+        before = set(surfaces[older])
+        after = set(surfaces[newer])
+        changes.append(
+            SurfaceChange(
+                older=older,
+                newer=newer,
+                gained=tuple(sorted(after - before)),
+                lost=tuple(sorted(before - after)),
+            )
+        )
+    return tuple(changes)
+
+
 #: What an edition row may hold, and what each key is for. Kept as data
 #: so the refusals can print it rather than restate it in prose.
 _MANIFEST_KEYS = {

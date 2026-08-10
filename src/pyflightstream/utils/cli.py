@@ -37,12 +37,14 @@ from pyflightstream.utils.errors import ManualDraftError
 from pyflightstream.utils.manual import (
     SweptCommand,
     coverage_against,
+    edition_surfaces,
     parse_script_index,
     parse_signatures,
     propose_layout,
     read_edition_manifest,
     read_pdf_pages,
     render_chapter,
+    surface_changes,
     sweep_editions,
     write_chapter,
 )
@@ -143,6 +145,37 @@ def _parser() -> argparse.ArgumentParser:
         ),
     )
 
+    # surface answers the other multi-edition question. sweep asks what
+    # the database is missing; this asks what each build documents, so
+    # two builds can be compared. Same manifest, so registering a build
+    # once serves both.
+    surf = sub.add_parser(
+        "surface",
+        help="report the command surface of each edition and what changed between builds",
+        epilog=_MANIFEST_EXAMPLE,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    surf.add_argument(
+        "--editions",
+        required=True,
+        metavar="MANIFEST",
+        help=(
+            "YAML manifest of the editions to read, one row per build, in "
+            "RELEASE order: consecutive rows are compared, so the order of "
+            "the file decides which builds are neighbours"
+        ),
+    )
+    surf.add_argument(
+        "--names",
+        action="store_true",
+        help="list the gained and lost command names, not only the counts",
+    )
+    surf.add_argument(
+        "--markdown",
+        action="store_true",
+        help="render as a markdown report, for committing under reports/",
+    )
+
     draft = sub.choices["draft"]
     draft.add_argument(
         # --fs-version, not --version: every other tool of this package
@@ -238,6 +271,82 @@ def _sweep(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
     return exit_code
 
 
+def _surface(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
+    """Report each edition's command surface and the changes between builds.
+
+    Returns
+    -------
+    int
+        0 always. This measures rather than judges: a build that gained
+        or lost commands is the ordinary case, and there is no state of
+        the manuals that makes this a failure.
+    """
+    try:
+        editions = read_edition_manifest(args.editions)
+        surfaces = edition_surfaces(editions)
+    except FileNotFoundError as missing:
+        parser.error(f"cannot read the manifest or a manual it names: {missing}")
+    except ManualDraftError as error:
+        parser.error(str(error))
+
+    changes = surface_changes(surfaces)
+    lines = (
+        _surface_markdown(surfaces, changes)
+        if args.markdown
+        else _surface_text(surfaces, changes, names=args.names)
+    )
+    print("\n".join(lines))
+    return 0
+
+
+def _surface_text(
+    surfaces: dict[str, tuple[str, ...]],
+    changes: Sequence[object],
+    *,
+    names: bool,
+) -> list[str]:
+    """Render the surface report for a terminal."""
+    lines = [f"{len(surfaces)} edition(s) read"]
+    for label, commands in surfaces.items():
+        lines.append(f"  {label}  {len(commands):4d} commands documented")
+    lines.append("")
+    for change in changes:
+        lines.append(
+            f"{change.older} -> {change.newer}: +{len(change.gained)} / -{len(change.lost)}"
+        )
+        if names:
+            if change.gained:
+                lines.append("  gained: " + ", ".join(change.gained))
+            if change.lost:
+                lines.append("  lost:   " + ", ".join(change.lost))
+    return lines
+
+
+def _surface_markdown(
+    surfaces: dict[str, tuple[str, ...]],
+    changes: Sequence[object],
+) -> list[str]:
+    """Render the surface report as a committable markdown section."""
+    lines = [
+        "## Command surface per edition",
+        "",
+        "| Build | Commands documented |",
+        "|---|---|",
+    ]
+    lines += [f"| {label} | {len(commands)} |" for label, commands in surfaces.items()]
+    lines += ["", "## What changed between consecutive builds", ""]
+    for change in changes:
+        lines.append(f"### {change.older} to {change.newer}")
+        lines.append("")
+        lines.append(f"Gained {len(change.gained)}, lost {len(change.lost)}.")
+        lines.append("")
+        if change.gained:
+            lines += ["Gained: " + ", ".join(f"`{name}`" for name in change.gained), ""]
+        if change.lost:
+            lines += ["Lost: " + ", ".join(f"`{name}`" for name in change.lost), ""]
+    return lines
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the command line and return a process exit code.
 
@@ -252,6 +361,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "sweep":
         return _sweep(parser, args)
+
+    if args.command == "surface":
+        return _surface(parser, args)
 
     # Every argument check happens before the manual is opened. The
     # --write refusal used to fire after two full pdf reads and a render,
