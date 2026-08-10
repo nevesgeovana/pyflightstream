@@ -144,6 +144,48 @@ FLUID_PROPERTIES:
       type: float
   manual_ref: "SRC-003 p.328"
   versions:
+    "25.000":
+      status: documented
+      note: "SRC-749 p.291, this edition's own grammar; see the note below"
+      args:
+        - name: density
+          type: float
+        - name: pressure
+          type: float
+        - name: sonic_velocity
+          type: float
+        - name: temperature
+          type: float
+        - name: viscosity
+          type: float
+    "25.100":
+      status: documented
+      note: "SRC-748 p.302, this edition's own grammar; see the note below"
+      args:
+        - name: density
+          type: float
+        - name: pressure
+          type: float
+        - name: sonic_velocity
+          type: float
+        - name: temperature
+          type: float
+        - name: viscosity
+          type: float
+    "26.000":
+      status: documented
+      note: "SRC-747 p.301, this edition's own grammar; see the note below"
+      args:
+        - name: density
+          type: float
+        - name: pressure
+          type: float
+        - name: sonic_velocity
+          type: float
+        - name: temperature
+          type: float
+        - name: viscosity
+          type: float
     "26.100": {status: documented, note: "SRC-741 p.324, same grammar as 26.120"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
@@ -164,6 +206,12 @@ AIR_ALTITUDE:
       values: [FEET, METERS]
   manual_ref: "SRC-003 p.328"
   versions:
+    "25.000":
+      status: documented
+      note: "SRC-749 p.291, this edition's own grammar; see the note below"
+      args:
+        - name: value
+          type: float
     "25.100": {status: documented, note: "SRC-748 p.302, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.301, same grammar as 26.120"}
     "26.100": {status: broken, report: "reports/compat/CMP-26100_2026-08-08_full.yaml", note: "the command ran (script processing continued past it) but its effect was not observed; expected: the settings dump reports the 5000 m [...]"}

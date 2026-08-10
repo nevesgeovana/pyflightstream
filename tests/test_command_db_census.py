@@ -21,13 +21,20 @@ from pyflightstream.commands import CommandNotInVersionError, CommandRegistry, S
 from pyflightstream.support import SupportLevel, support_table
 from pyflightstream.versions import known_versions
 
-#: Measured 2026-08-08 on the v0.5.0 tree. Emittable means the version
-#: view returns the entry: present with recorded evidence, of any status
-#: except `removed`, hotfix inheritance honoured.
+#: Measured 2026-08-08 on the v0.5.0 tree, and the three oldest builds
+#: moved on 2026-08-10 when their own manual pages were read command by
+#: command. Emittable means the version view returns the entry: present
+#: with recorded evidence, of any status except `removed`, hotfix
+#: inheritance honoured.
+#:
+#: The rise is +10, +5 and +4, which is exactly the nineteen rows that
+#: reading produced and no other row. Stating the arithmetic here is
+#: the point of pinning the numbers: a rise that does not decompose
+#: into named work is a rise nobody can account for.
 EMITTABLE = {
-    "25.000": 241,
-    "25.100": 256,
-    "26.000": 262,
+    "25.000": 251,
+    "25.100": 261,
+    "26.000": 266,
     "26.100": 345,
     "26.101": 363,
     "26.120": 363,

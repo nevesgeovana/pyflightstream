@@ -167,9 +167,13 @@ def test_percent_script_markdown_renders_the_committed_example():
     page = percent_script_markdown(source)
     assert page.startswith("# Steady polar")
     assert "```python" in page
-    # The module docstring is dropped, the imports survive.
+    # The module docstring is dropped, the imports survive. Matched on
+    # the import STATEMENT and not on the symbol list after it: this
+    # assertion is about what the renderer keeps, and pinning the names
+    # made it fail the day the example imported one more of them, which
+    # is a change the renderer has no part in.
     assert "Steady polar example: synthetic wing" not in page
-    assert "from pyflightstream.script import Script" in page
+    assert "from pyflightstream.script import" in page
 
 
 def test_percent_script_markdown_splits_cells():

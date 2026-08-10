@@ -304,6 +304,18 @@ SURFACE_CIRCULAR_COPY_PASTE:
       unit: "deg"
   manual_ref: "SRC-003 p.312"
   versions:
+    "25.000":
+      status: documented
+      note: "SRC-749 p.271, this edition's own grammar; see the note below"
+      args:
+        - name: surface
+          type: int
+        - name: coordinate_system
+          type: int
+        - name: axis
+          type: str
+        - name: num_copies
+          type: int
     "25.100": {status: documented, note: "SRC-748 p.286, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.285, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.307, same grammar as 26.120"}

@@ -13,6 +13,20 @@ OPEN:
       required: false
   manual_ref: "SRC-003 p.282"
   versions:
+    "25.000":
+      status: documented
+      note: "SRC-749 p.258, this edition's own grammar; see the note below"
+      args:
+        - name: filename
+          type: path
+        - name: reset_parallel_cores
+          type: enum
+          values: ["ENABLE", "DISABLE"]
+          required: false
+        - name: load_solver_initialization
+          type: enum
+          values: ["ENABLE", "DISABLE"]
+          required: false
     "25.100": {status: documented, note: "SRC-748 p.272, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.271, same grammar as 26.120"}
     "26.100": {status: verified, report: "reports/compat/CMP-26100_2026-08-08_full.yaml"}

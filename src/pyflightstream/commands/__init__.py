@@ -778,6 +778,49 @@ class CommandEntry(BaseModel):
                     )
         return data
 
+    @model_validator(mode="before")
+    @classmethod
+    def _a_version_override_states_only_its_difference(cls, data: dict) -> dict:
+        """Fill an override argument's unstated fields from the base one.
+
+        A per-version ``args`` override replaces the whole argument list,
+        so before this validator existed a row that changed one field had
+        to restate every other field of every argument. That is how a
+        second field changes by accident: the 26.121 override of
+        ``SOLVER_PROXIMAL_BOUNDARIES`` was written with a comma separator
+        while every other build writes one boundary index per line, and
+        the emitted line was wrong for that build alone.
+
+        A field is inherited only when the row's mapping does not carry
+        the KEY, which is why this runs on the raw YAML rather than on
+        parsed models, where an unstated field and one stated at its
+        default are the same value. Writing ``cites: null`` therefore
+        clears an inherited citation, and omitting ``cites`` keeps it.
+        Inheritance is by argument NAME: an argument the base does not
+        carry is parsed exactly as written, so an override may still
+        state a different argument SET.
+        """
+        base = data.get("args") if isinstance(data, dict) else None
+        versions = data.get("versions") if isinstance(data, dict) else None
+        if not isinstance(base, list) or not isinstance(versions, dict):
+            return data
+        by_name = {arg["name"]: arg for arg in base if isinstance(arg, dict) and "name" in arg}
+        if not by_name:
+            return data
+        for row in versions.values():
+            override = row.get("args") if isinstance(row, dict) else None
+            if not isinstance(override, list):
+                continue
+            for arg in override:
+                if not isinstance(arg, dict):
+                    continue
+                inherited = by_name.get(arg.get("name"))
+                if inherited is None:
+                    continue
+                for key, value in inherited.items():
+                    arg.setdefault(key, value)
+        return data
+
     @field_validator("manual_ref")
     @classmethod
     def _manual_ref_cites_a_page(cls, value: str) -> str:

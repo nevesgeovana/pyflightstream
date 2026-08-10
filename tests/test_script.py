@@ -1348,8 +1348,13 @@ def test_every_cad_command_is_available_on_every_registered_build():
     # that a build losing rows shows up here. Zero would mean the build
     # was never read; the full 45 would mean the chapter did not arrive
     # at 26.100 after all.
+    # 25.000 went from 15 to 16 when CAD_CREATE_AUTO_CROSS_SECTIONS was
+    # read page against page. The mechanical sweep had withheld that row
+    # because the declared arity disagreed with the heading, and the
+    # disagreement was the finding rather than the error: that edition
+    # takes one argument fewer, and the row it now carries states so.
     partial = {c: len(names) for c, names in available.items() if c not in whole}
-    assert partial == {"25.000": 15, "25.100": 16, "26.000": 16}, (
+    assert partial == {"25.000": 16, "25.100": 16, "26.000": 16}, (
         f"the pre-26.100 builds carry {partial} of the {len(members)} CAD commands; "
         "each of those counts is a measured edition surface, so a change here is "
         "either a sweep that found more or a row that was lost"

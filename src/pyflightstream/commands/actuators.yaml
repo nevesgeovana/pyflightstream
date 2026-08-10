@@ -141,6 +141,30 @@ SET_PROP_ACTUATOR_PROFILE:
       own_line: true
   manual_ref: "SRC-003 pp.323-324"
   versions:
+    "25.000":
+      status: documented
+      note: "SRC-749 p.286, this edition's own grammar; see the note below"
+      args:
+        - name: actuator_index
+          type: int
+        - name: units_type
+          type: enum
+          values: ["NEWTONS", "KILO-NEWTONS", "POUND-FORCE", "KILOGRAM-FORCE"]
+        - name: file_name
+          type: path
+          own_line: true
+    "25.100":
+      status: documented
+      note: "SRC-748 p.298, this edition's own grammar; see the note below"
+      args:
+        - name: actuator_index
+          type: int
+        - name: units_type
+          type: enum
+          values: ["NEWTONS", "KILO-NEWTONS", "POUND-FORCE", "KILOGRAM-FORCE"]
+        - name: file_name
+          type: path
+          own_line: true
     "26.000": {status: documented, note: "SRC-747 p.297, same grammar as 26.120"}
     "26.121": {status: documented, note: "SRC-740 p.326, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.319, same grammar as 26.120"}

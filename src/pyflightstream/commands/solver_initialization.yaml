@@ -30,6 +30,100 @@ INITIALIZE_SOLVER:
       required: false
   manual_ref: "SRC-003 p.337"
   versions:
+    "25.000":
+      status: documented
+      note: "SRC-749 p.303, this edition's own grammar; see the note below"
+      args:
+        - name: surfaces
+          type: int
+        - name: surface_toggles
+          type: str_list
+          required: false
+        - name: wake_termination_x
+          type: str
+        - name: symmetry_type
+          type: enum
+          values: ["NONE", "PLANE", "PERIODIC"]
+        - name: symmetry_periodicity
+          type: int
+        - name: load_frame
+          type: int
+          cites: frames
+        - name: proximity_avoidance
+          type: enum
+          values: ["ENABLE", "DISABLE"]
+        - name: stabilization
+          type: enum
+          values: ["ENABLE", "DISABLE"]
+        - name: stabilization_strength
+          type: float
+        - name: fast_multipole
+          type: enum
+          values: ["ENABLE", "DISABLE"]
+    "25.100":
+      status: documented
+      note: "SRC-748 p.312, this edition's own grammar; see the note below"
+      args:
+        - name: solver_model
+          type: enum
+          values: ["INCOMPRESSIBLE", "SUBSONIC_PRANDTL_GLAUERT", "TRANSONIC_FIELD_PANEL", "SUPERSONIC_LINEAR_DOUBLET", "TANGENT_CONE", "MODIFIED_NEWTONIAN"]
+        - name: surfaces
+          type: int
+        - name: surface_toggles
+          type: str_list
+          required: false
+        - name: wake_termination_x
+          type: str
+          required: false
+        - name: symmetry
+          type: enum
+          values: ["NONE", "MIRROR", "PERIODIC"]
+        - name: symmetry_copies
+          type: int
+          required: false
+        - name: wall_collision_avoidance
+          type: enum
+          values: ["ENABLE", "DISABLE"]
+          required: false
+        - name: stabilization
+          type: enum
+          values: ["ENABLE", "DISABLE"]
+          required: false
+        - name: stabilization_strength
+          type: float
+          required: false
+    "26.000":
+      status: documented
+      note: "SRC-747 p.311, this edition's own grammar; see the note below"
+      args:
+        - name: solver_model
+          type: enum
+          values: ["INCOMPRESSIBLE", "SUBSONIC_PRANDTL_GLAUERT", "TRANSONIC_FIELD_PANEL", "SUPERSONIC_LINEAR_DOUBLET", "TANGENT_CONE", "MODIFIED_NEWTONIAN"]
+        - name: surfaces
+          type: int
+        - name: surface_toggles
+          type: str_list
+          required: false
+        - name: wake_termination_x
+          type: str
+          required: false
+        - name: symmetry
+          type: enum
+          values: ["NONE", "MIRROR", "PERIODIC"]
+        - name: symmetry_copies
+          type: int
+          required: false
+        - name: wall_collision_avoidance
+          type: enum
+          values: ["ENABLE", "DISABLE"]
+          required: false
+        - name: stabilization
+          type: enum
+          values: ["ENABLE", "DISABLE"]
+          required: false
+        - name: stabilization_strength
+          type: float
+          required: false
     "26.100": {status: documented, note: "SRC-741 p.334, same grammar as 26.120"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}

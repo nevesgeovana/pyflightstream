@@ -144,6 +144,15 @@ NEW_OFF_BODY_STREAMTUBE:
     says which way the tube points. Recorded as the reading the two
     arguments together support, since neither alone would place a tube.
 
+    THE TWO 25 EDITIONS WRITE THIS COMMAND AS A KEYWORD BLOCK and carry
+    no row here because of it. They print KEY VALUE lines until a
+    terminator, where 26.000 onward prints the arguments inline. A
+    version row can override the argument grammar and cannot override
+    the layout, so a row for those editions would emit the newer shape
+    under an older build's citation, which is worse than refusing to
+    emit at all. The reading exists and is withheld deliberately; the
+    schema gap is PLN-20260810-1200.
+
 SET_OFF_BODY_STREAMLINE_LENGTH:
   layout: keyword_block
   phase: analysis

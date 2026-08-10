@@ -69,12 +69,18 @@ def test_evidence_in_reports_where_the_record_came_from():
     assert base.inherited is False
     assert base.record.status.value == "broken"
 
-    # Absent: no record anywhere in reach. The pair moved on 2026-08-10
-    # from 26.000, which then carried evidence for nothing at all, to
-    # the oldest build and a command that edition genuinely does not
-    # document: 25.000 sets the altitude with a bare number and the
-    # units token AIR_ALTITUDE takes arrives later.
-    absent = registry.commands["AIR_ALTITUDE"].evidence_in(versions["25.000"])
+    # Absent: no record anywhere in reach. The pair has now moved twice
+    # in one day, and the second move is the more instructive. It went
+    # first from 26.000, which by then carried evidence for nothing at
+    # all, to AIR_ALTITUDE on 25.000, on the reading that the oldest
+    # edition sets the altitude with a bare number and the units token
+    # arrives later. Reading that page settled it the other way: the
+    # edition DOES document the command, taking one argument instead of
+    # two, so what looked like an absence was a grammar difference and
+    # is recorded as one. An anchor for absence has to be a command the
+    # edition does not carry at all, which is what this one is: the
+    # trailing-edge autodetection arrives at 26.000.
+    absent = registry.commands["AUTO_DETECT_TRAILING_EDGES"].evidence_in(versions["25.000"])
     assert absent is None
 
 

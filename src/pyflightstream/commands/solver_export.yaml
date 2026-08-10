@@ -119,6 +119,23 @@ EXPORT_SOLVER_ANALYSIS_CSV:
       required: false
   manual_ref: "SRC-003 p.353"
   versions:
+    "25.000":
+      status: documented
+      note: "SRC-749 p.319, this edition's own grammar; see the note below"
+      args:
+        - name: filename
+          type: path
+        - name: format
+          type: enum
+          values: ["CP-FREESTREAM", "CP-REFERENCE", "PRESSURE", "DIFFERENCE-PRESSURE"]
+        - name: units
+          type: enum
+          values: ["PASCALS", "MEGAPASCALS", "BAR", "ATMOSPHERES", "PSI"]
+        - name: surfaces
+          type: int
+        - name: boundary_indices
+          type: int_list
+          required: false
     "25.100": {status: documented, note: "SRC-748 p.326, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.325, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.352, same grammar as 26.120"}

@@ -31,7 +31,7 @@ from pyflightstream.commands import CommandNotInVersionError
 from pyflightstream.qa.geometry import WingSpec, generate_wing_stl
 from pyflightstream.results import parse_loads
 from pyflightstream.run import LocalExecutor
-from pyflightstream.script import Script
+from pyflightstream.script import CommandArgumentError, Script
 
 FS_VERSION = "26.120"  # canonical; the vendor name 26.12 now names two builds
 ALPHAS_DEG = [-4.0, -2.0, 0.0, 2.0, 4.0, 6.0, 8.0]
@@ -140,16 +140,22 @@ print(scripts[ALPHAS_DEG[0]].render())
 # %% [markdown]
 # ## 3. Version awareness
 #
-# The same build request against FlightStream 26.0 is refused: the
-# database records no evidence for that version yet (its column in the
-# compatibility matrix is honestly empty), and the builder refuses to
-# emit what it cannot back with evidence.
+# The same build request is refused for an older FlightStream, and the
+# two refusals below are different failures rather than one message
+# twice. The first is a command the build does not carry at all. The
+# second is subtler and is the one worth reading twice: 26.000 carries
+# `FLUID_PROPERTIES`, so a check at command granularity would pass it,
+# but that edition's manual documents a different argument list and the
+# keyword written here is not on it. A script that emitted the newer
+# line would be accepted by the builder and refused by the solver, which
+# is the failure this library exists to move earlier.
 
 # %%
-try:
-    build_polar_point("26.0", 0.0, "loads.txt")
-except CommandNotInVersionError as error:
-    print(f"refused for 26.0, as it should be:\n  {error}")
+for older, expected in (("25.000", CommandNotInVersionError), ("26.000", CommandArgumentError)):
+    try:
+        build_polar_point(older, 0.0, "loads.txt")
+    except expected as error:
+        print(f"refused for {older}, as it should be:\n  {error}")
 
 # %% [markdown]
 # ## 4. Optional: execute the sweep

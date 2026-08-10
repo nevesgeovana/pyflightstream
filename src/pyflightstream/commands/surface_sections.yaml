@@ -67,6 +67,63 @@ NEW_SURFACE_SECTION_DISTRIBUTION:
       required: false
   manual_ref: "SRC-003 p.364"
   versions:
+    "25.000":
+      status: documented
+      note: "SRC-749 p.329, this edition's own grammar; see the note below"
+      args:
+        - name: frame
+          type: int
+        - name: plane
+          type: enum
+          values: ["XY", "XZ", "YZ"]
+        - name: num_sections
+          type: int
+        - name: plot_direction
+          type: enum
+          values: ["1", "2"]
+        - name: surfaces
+          type: int
+        - name: surface_indices
+          type: int_list
+          required: false
+    "25.100":
+      status: documented
+      note: "SRC-748 p.336, this edition's own grammar; see the note below"
+      args:
+        - name: frame
+          type: int
+        - name: plane
+          type: enum
+          values: ["XY", "XZ", "YZ"]
+        - name: num_sections
+          type: int
+        - name: plot_direction
+          type: enum
+          values: ["1", "2"]
+        - name: surfaces
+          type: int
+        - name: surface_indices
+          type: int_list
+          required: false
+    "26.000":
+      status: documented
+      note: "SRC-747 p.335, this edition's own grammar; see the note below"
+      args:
+        - name: frame
+          type: int
+        - name: plane
+          type: enum
+          values: ["XY", "XZ", "YZ"]
+        - name: num_sections
+          type: int
+        - name: plot_direction
+          type: enum
+          values: ["1", "2"]
+        - name: surfaces
+          type: int
+        - name: surface_indices
+          type: int_list
+          required: false
     "26.100":
       status: documented
       note: >-

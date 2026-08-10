@@ -53,6 +53,33 @@ BOOLEAN_UNITE_MESH:
       required: false
   manual_ref: "SRC-003 p.316"
   versions:
+    "25.000":
+      status: documented
+      note: "SRC-749 p.277, this edition's own grammar; see the note below"
+      args:
+        - name: num_bodies
+          type: int
+        - name: body_unite_types
+          type: str_list
+          required: false
+    "25.100":
+      status: documented
+      note: "SRC-748 p.290, this edition's own grammar; see the note below"
+      args:
+        - name: num_bodies
+          type: int
+        - name: body_unite_types
+          type: str_list
+          required: false
+    "26.000":
+      status: documented
+      note: "SRC-747 p.289, this edition's own grammar; see the note below"
+      args:
+        - name: num_bodies
+          type: int
+        - name: body_unite_types
+          type: str_list
+          required: false
     "26.100": {status: documented, note: "SRC-741 p.311, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.315, same grammar as 26.120"}
     "26.120": {status: documented}

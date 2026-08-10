@@ -77,3 +77,12 @@ SET_SCENE_CONTOUR:
     viscous solution has been computed. Nothing here can check that, so
     selecting one before the run is a scene showing an empty field
     rather than an error.
+
+    THE TWO 25 EDITIONS WRITE THIS COMMAND AS A KEYWORD BLOCK and carry
+    no row here because of it. They print KEY VALUE lines until a
+    terminator, where 26.000 onward prints the arguments inline. A
+    version row can override the argument grammar and cannot override
+    the layout, so a row for those editions would emit the newer shape
+    under an older build's citation, which is worse than refusing to
+    emit at all. The reading exists and is withheld deliberately; the
+    schema gap is PLN-20260810-1200.

@@ -214,6 +214,16 @@ IMPORT_CAD:
     three are required here: no edition prints a call omitting any of
     them, so a shorter form would be inferred rather than read.
 
+    THE THREE PRE-26.100 EDITIONS WRITE THIS COMMAND IN A DIFFERENT
+    LAYOUT and carry no row here because of it. They print the command
+    name alone on its line with each parameter on a line after it,
+    where 26.100 onward prints the arguments inline. A version row can
+    override the argument grammar and cannot override the layout, so a
+    row for those editions would emit the newer shape under an older
+    build's citation, which is worse than refusing to emit at all. The
+    reading exists and is withheld deliberately; the schema gap is
+    PLN-20260810-1200.
+
 CONVERT_CAD_TO_MESH:
   layout: inline
   phase: geometry

@@ -1,12 +1,21 @@
 """Tier 1: the per-version grammar overrides, pinned as data.
 
-Nine entries state a grammar for one build that differs from the one
-every other build uses. Each was hand-written from a manual page read
-side by side with another edition's page, which is the most expensive
-evidence in this database and the least mechanical: nothing regenerates
-it, and until this module nothing pinned it either. A bulk edit could
-quietly restore the base grammar and the emitter would go on writing a
-line the older solver refuses, silently, for that build alone.
+Seventeen entries state a grammar for some build that differs from the
+one the rest use, across twenty-nine rows. Each was hand-written from a
+manual page read side by side with another edition's page, which is the
+most expensive evidence in this database and the least mechanical:
+nothing regenerates it, and until this module nothing pinned it either.
+A bulk edit could quietly restore the base grammar and the emitter
+would go on writing a line the older solver refuses, silently, for that
+build alone.
+
+The nineteen rows added when the three pre-26.100 editions were read
+were all NEW rows and not one was a replacement, which is worth stating
+because it was not arranged. The mechanical sweep that wrote the other
+version rows withheld exactly the commands whose declared arity
+disagreed with the page, and those are precisely the commands whose
+grammar differs. The two passes were built independently and agree on
+which commands are the hard ones.
 
 The delta is the fact worth keeping, so the delta is what the table
 below states, rather than a copy of each argument list.
@@ -38,7 +47,13 @@ PER_VERSION_GRAMMAR: dict[str, dict[str, dict[str, tuple[str, ...]]]] = {
         "26.101": {"names": ("name", "v0", "v1", "u0", "u1", "hinge_height", "angle", "slot_gap")},
     },
     "NEW_SURFACE_SECTION_DISTRIBUTION": {
-        "26.100": {
+        # Five of the seven builds state this list, and the entry-level
+        # grammar belongs to the two newest alone. That is the shape the
+        # convention produces, the entry recording what the newest
+        # edition documents, and it is left visible here rather than
+        # inverted: the majority is not the authority, the newest
+        # edition is.
+        version: {
             "names": (
                 "frame",
                 "plane",
@@ -47,17 +62,77 @@ PER_VERSION_GRAMMAR: dict[str, dict[str, dict[str, tuple[str, ...]]]] = {
                 "surfaces",
                 "surface_indices",
             )
-        },
-        "26.101": {
+        }
+        for version in ("25.000", "25.100", "26.000", "26.100", "26.101")
+    },
+    "AIR_ALTITUDE": {
+        "25.000": {"names": ("value",)},
+    },
+    "BOOLEAN_UNITE_MESH": {
+        version: {"names": ("num_bodies", "body_unite_types")}
+        for version in ("25.000", "25.100", "26.000")
+    },
+    "CAD_CREATE_AUTO_CROSS_SECTIONS": {
+        "25.000": {
             "names": (
                 "frame",
-                "plane",
-                "num_sections",
-                "plot_direction",
-                "surfaces",
-                "surface_indices",
+                "axis",
+                "sections",
+                "body_index",
+                "growth_scheme",
+                "growth_rate",
+                "symmetry",
             )
         },
+    },
+    "EXPORT_SOLVER_ANALYSIS_CSV": {
+        "25.000": {"names": ("filename", "format", "units", "surfaces", "boundary_indices")},
+    },
+    "FLUID_PROPERTIES": {
+        version: {"names": ("density", "pressure", "sonic_velocity", "temperature", "viscosity")}
+        for version in ("25.000", "25.100", "26.000")
+    },
+    "INITIALIZE_SOLVER": {
+        "25.000": {
+            "names": (
+                "surfaces",
+                "surface_toggles",
+                "wake_termination_x",
+                "symmetry_type",
+                "symmetry_periodicity",
+                "load_frame",
+                "proximity_avoidance",
+                "stabilization",
+                "stabilization_strength",
+                "fast_multipole",
+            )
+        },
+        **{
+            version: {
+                "names": (
+                    "solver_model",
+                    "surfaces",
+                    "surface_toggles",
+                    "wake_termination_x",
+                    "symmetry",
+                    "symmetry_copies",
+                    "wall_collision_avoidance",
+                    "stabilization",
+                    "stabilization_strength",
+                )
+            }
+            for version in ("25.100", "26.000")
+        },
+    },
+    "OPEN": {
+        "25.000": {"names": ("filename", "reset_parallel_cores", "load_solver_initialization")},
+    },
+    "SET_PROP_ACTUATOR_PROFILE": {
+        version: {"names": ("actuator_index", "units_type", "file_name")}
+        for version in ("25.000", "25.100")
+    },
+    "SURFACE_CIRCULAR_COPY_PASTE": {
+        "25.000": {"names": ("surface", "coordinate_system", "axis", "num_copies")},
     },
     "SOLVER_PROXIMAL_BOUNDARIES": {
         "26.121": {"optional": ("boundary_indices",)},
