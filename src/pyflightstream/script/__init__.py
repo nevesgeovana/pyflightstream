@@ -144,6 +144,15 @@ _COUNT_ARG_NAMES = {
     # spelling of a count in this set and the first counting something
     # other than surfaces, bodies being a different inventory again.
     "num_bodies",
+    # BOOLEAN_UNITE_GEOMETRY's count of the GEOMETRY bodies it unites
+    # (SRC-749 p.272), added 2026-08-10 with the commands only the
+    # pre-26.100 editions document. Sixth spelling, and the one that
+    # makes the point of this set best: it counts the same kind of thing
+    # as num_bodies directly above, for a command printed on the SAME
+    # PAGE as the one that spells it num_bodies. The two are the
+    # vendor's, one per keyword, and they are mirrored rather than
+    # harmonised for the reason recorded above.
+    "bodies",
 }
 
 # Cross-reference ledger (SAD Section 4.2): commands that create an

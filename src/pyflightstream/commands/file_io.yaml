@@ -15,7 +15,7 @@ OPEN:
   versions:
     "25.000":
       status: documented
-      note: "SRC-749 p.258, this edition's own grammar; see the note below"
+      note: "SRC-749 p.253, this edition's own grammar; see the note below"
       args:
         - name: filename
           type: path

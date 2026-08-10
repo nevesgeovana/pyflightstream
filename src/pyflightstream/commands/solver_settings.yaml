@@ -626,3 +626,214 @@ DISABLE_SOLVER_REF_VELOCITY:
     different reported quantities and a stale reference velocity would
     change one of them. That is a reading of two pages together and not
     a measurement of what the solver does.
+
+SET_SOLVER_MODEL:
+  layout: inline
+  phase: init
+  args:
+    - name: type
+      type: enum
+      values: ["INCOMPRESSIBLE", "SUBSONIC", "TRANSONIC", "LOW_ORDER_SUPERSONIC"]
+  manual_ref: "SRC-749 p.302"
+  notes: >
+    Selects the flow model the solver runs. A standalone command on
+    25.000 alone, and the successor is not a guess: 25.100 stops
+    printing it and, on the same edition, INITIALIZE_SOLVER gains a
+    SOLVER_MODEL argument that its 25.000 form does not have. The
+    setting moved into the initialization block in the edition that
+    dropped the command.
+
+    The four values are the same four the argument carries, so a script
+    porting forward changes where the token is written and not which
+    token.
+  versions:
+    "25.000":
+      status: documented
+      note: "SRC-749 p.302, this edition documents it"
+    "25.100":
+      status: removed
+      successor: INITIALIZE_SOLVER
+      note: >-
+        SRC-748 pp.271-347, the whole scripting reference of the
+        25.100 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.000":
+      status: removed
+      successor: INITIALIZE_SOLVER
+      note: >-
+        SRC-747 pp.270-346, the whole scripting reference of the
+        26.000 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.100":
+      status: removed
+      successor: INITIALIZE_SOLVER
+      note: >-
+        SRC-741 pp.275-369, the whole scripting reference of the
+        26.100 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.101":
+      status: removed
+      successor: INITIALIZE_SOLVER
+      note: >-
+        SRC-725 pp.280-375, the whole scripting reference of the
+        26.101 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.120":
+      status: removed
+      successor: INITIALIZE_SOLVER
+      note: >-
+        SRC-003 pp.281-376, the whole scripting reference of the
+        26.120 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.121":
+      status: removed
+      successor: INITIALIZE_SOLVER
+      note: >-
+        SRC-740 pp.284-379, the whole scripting reference of the
+        26.121 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+
+VALAREZO_CRITERION:
+  layout: inline
+  phase: init
+  args:
+    - name: state
+      type: enum
+      values: ["ENABLE", "DISABLE"]
+  manual_ref: "SRC-747 p.316"
+  notes: >
+    Enables the Valarezo pressure-difference criterion for predicting
+    the onset of separation. Documented by the three pre-26.100 editions
+    and by none after them.
+
+    The 26.100 editions document a separate Valarezo family of their
+    own, which is why the absence of this switch is worth stating rather
+    than reading as the capability leaving.
+  versions:
+    "25.000":
+      status: documented
+      note: "SRC-749 p.303, this edition documents it"
+    "25.100":
+      status: documented
+      note: "SRC-748 p.317, this edition documents it"
+    "26.000":
+      status: documented
+      note: "SRC-747 p.316, this edition documents it"
+    "26.100":
+      status: removed
+      note: >-
+        SRC-741 pp.275-369, the whole scripting reference of the
+        26.100 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.101":
+      status: removed
+      note: >-
+        SRC-725 pp.280-375, the whole scripting reference of the
+        26.101 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.120":
+      status: removed
+      note: >-
+        SRC-003 pp.281-376, the whole scripting reference of the
+        26.120 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.121":
+      status: removed
+      note: >-
+        SRC-740 pp.284-379, the whole scripting reference of the
+        26.121 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+
+SET_CROSSFLOW_SEPARATION_CP:
+  layout: inline
+  phase: init
+  args:
+    - name: mean_diameter
+      type: float
+  manual_ref: "SRC-747 p.316"
+  notes: >
+    Sets the mean diameter of the body the cross-flow separation model
+    is applied to, which the model needs because the critical pressure
+    coefficient it uses depends on the cross-sectional scale. Strictly
+    positive, in the simulation length units.
+
+    Documented by the three pre-26.100 editions. The boundary selection
+    commands beside it on the same page,
+    SET_CROSSFLOW_SEPARATION_BOUNDARIES and its delete, are on every
+    build; this one scalar is what stops being printed.
+  versions:
+    "25.000":
+      status: documented
+      note: "SRC-749 p.304, this edition documents it"
+    "25.100":
+      status: documented
+      note: "SRC-748 p.317, this edition documents it"
+    "26.000":
+      status: documented
+      note: "SRC-747 p.316, this edition documents it"
+    "26.100":
+      status: removed
+      note: >-
+        SRC-741 pp.275-369, the whole scripting reference of the
+        26.100 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.101":
+      status: removed
+      note: >-
+        SRC-725 pp.280-375, the whole scripting reference of the
+        26.101 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.120":
+      status: removed
+      note: >-
+        SRC-003 pp.281-376, the whole scripting reference of the
+        26.120 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.121":
+      status: removed
+      note: >-
+        SRC-740 pp.284-379, the whole scripting reference of the
+        26.121 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.

@@ -146,7 +146,7 @@ FLUID_PROPERTIES:
   versions:
     "25.000":
       status: documented
-      note: "SRC-749 p.291, this edition's own grammar; see the note below"
+      note: "SRC-749 p.286, this edition's own grammar; see the note below"
       args:
         - name: density
           type: float
@@ -208,7 +208,7 @@ AIR_ALTITUDE:
   versions:
     "25.000":
       status: documented
-      note: "SRC-749 p.291, this edition's own grammar; see the note below"
+      note: "SRC-749 p.286, this edition's own grammar; see the note below"
       args:
         - name: value
           type: float
@@ -333,3 +333,85 @@ MARK_WAKE_TERMINATION_NODES:
     entirely from the selection state left by SELECT_MESH_NODE.
 
     Absent from the February 2026 edition, so no 26.100 row.
+
+PHYSICS:
+  layout: keyword_block
+  phase: setup
+  args:
+    - name: auto_trail_edges
+      type: bool
+    - name: auto_wake_nodes
+      type: bool
+  manual_ref: "SRC-748 p.293"
+  notes: >
+    Opens a block that launches the geometry autodetection tools,
+    trailing edges and wake termination nodes, and closes on END. Both
+    are presence keywords: writing the keyword runs that tool, omitting
+    it runs nothing.
+
+    THE HANDOVER IS EXACT AND IT EXPLAINS A WORKFLOW GAP. This block is
+    on 25.000 and 25.100 and on no later edition, while
+    AUTO_DETECT_TRAILING_EDGES and AUTO_DETECT_WAKE_TERMINATION_NODES
+    are on 26.000 and every edition after it and on neither before. The
+    two 25 builds are therefore not missing the capability, which is
+    what their empty column looked like before this entry: they spell it
+    as one block where the later builds spell it as two commands. A
+    single successor is recorded because the field takes one name, and
+    the wake-node command is the other half.
+  versions:
+    "25.000":
+      status: documented
+      note: "SRC-749 p.276, this edition documents it"
+    "25.100":
+      status: documented
+      note: "SRC-748 p.293, this edition documents it"
+    "26.000":
+      status: removed
+      successor: AUTO_DETECT_TRAILING_EDGES
+      note: >-
+        SRC-747 pp.270-346, the whole scripting reference of the
+        26.000 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.100":
+      status: removed
+      successor: AUTO_DETECT_TRAILING_EDGES
+      note: >-
+        SRC-741 pp.275-369, the whole scripting reference of the
+        26.100 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.101":
+      status: removed
+      successor: AUTO_DETECT_TRAILING_EDGES
+      note: >-
+        SRC-725 pp.280-375, the whole scripting reference of the
+        26.101 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.120":
+      status: removed
+      successor: AUTO_DETECT_TRAILING_EDGES
+      note: >-
+        SRC-003 pp.281-376, the whole scripting reference of the
+        26.120 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.121":
+      status: removed
+      successor: AUTO_DETECT_TRAILING_EDGES
+      note: >-
+        SRC-740 pp.284-379, the whole scripting reference of the
+        26.121 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.

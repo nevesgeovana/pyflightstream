@@ -27,14 +27,16 @@ from pyflightstream.versions import known_versions
 #: with recorded evidence, of any status except `removed`, hotfix
 #: inheritance honoured.
 #:
-#: The rise is +10, +5 and +4, which is exactly the nineteen rows that
-#: reading produced and no other row. Stating the arithmetic here is
-#: the point of pinning the numbers: a rise that does not decompose
-#: into named work is a rise nobody can account for.
+#: The rise decomposes twice over, and stating the arithmetic is the
+#: point of pinning the numbers: a rise that does not decompose into
+#: named work is a rise nobody can account for. Reading the three
+#: editions' own pages gave nineteen per-version grammar rows, +10, +5
+#: and +4. Entering the sixteen commands only those editions document
+#: gave +16, +8 and +7. Both together are 241+26, 256+13 and 262+11.
 EMITTABLE = {
-    "25.000": 251,
-    "25.100": 261,
-    "26.000": 266,
+    "25.000": 267,
+    "25.100": 269,
+    "26.000": 273,
     "26.100": 345,
     "26.101": 363,
     "26.120": 363,
@@ -57,7 +59,11 @@ VERIFIED = {
     "26.121": 84,
 }
 
-ENTRIES = 388
+#: 388 at v0.5.0, then +16 on 2026-08-10 for the commands only the
+#: pre-26.100 editions document. Every one of the sixteen is absent from
+#: every edition after the one that drops it, so none of them raises the
+#: three newest builds' counts by anything.
+ENTRIES = 404
 
 
 def _emittable(canonical: str) -> int:
@@ -75,7 +81,7 @@ def _emittable(canonical: str) -> int:
 
 
 def test_the_database_holds_every_command_the_registered_editions_document():
-    """388, the figure the release notes and the SRS both quote."""
+    """The figure the release notes and the SRS both quote."""
     assert len(CommandRegistry.load().commands) == ENTRIES, (
         "the entry count moved. If a chapter was added the figure rises and this "
         "line moves with it; if it FELL, a chapter file stopped loading and every "

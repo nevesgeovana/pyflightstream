@@ -30,6 +30,7 @@ from pyflightstream.utils import (
     read_pdf_pages,
     render_entry,
     sample_contradiction,
+    stale_citations,
     surface_changes,
     sweep_editions,
 )
@@ -1506,3 +1507,105 @@ def test_the_pdf_reader_asks_for_layout_extraction(monkeypatch, tmp_path):
         f"read_pdf_pages asked for {seen!r}; it must request layout extraction, or a "
         "converted manual loses three quarters of its commands"
     )
+
+
+# ---------------------------------------------------------------------
+# Citations re-checked against the document they cite. Added 2026-08-10,
+# after ten rows were found citing a 25.000 manual that had moved five
+# pages underneath them: the conversion of that edition was corrected to
+# strip a generator footer, and the rows written from the earlier
+# conversion kept its numbers. Every one pointed at a real page of a
+# real manual, so nothing about them looked wrong.
+# ---------------------------------------------------------------------
+
+
+class _Row:
+    """The two fields of a version row this check reads."""
+
+    def __init__(self, note=None, status=None):
+        self.note = note
+        self.status = status
+
+
+class _Entry:
+    def __init__(self, versions):
+        self.versions = versions
+
+
+class _Status:
+    def __init__(self, value):
+        self.value = value
+
+
+def test_a_citation_pointing_at_the_wrong_page_is_a_finding(tmp_path):
+    pages = {"ed": {1: {1: "Function name: A_COMMAND <A>\n", 7: "Function name: A_COMMAND <A>\n"}}}
+    read, _calls = _recording_reader(pages)
+    registry = {"A_COMMAND": _Entry({"ed": _Row(note="SRC-999 p.7, this edition")})}
+    (finding,) = stale_citations(registry, [_edition(tmp_path, "ed", (1, 1))], reader=read)
+    assert (finding.command, finding.edition, finding.cited, finding.found) == (
+        "A_COMMAND",
+        "ed",
+        7,
+        1,
+    )
+
+
+def test_a_citation_on_the_right_page_is_silent(tmp_path):
+    pages = {"ed": {1: {1: "Function name: A_COMMAND <A>\n"}}}
+    read, _calls = _recording_reader(pages)
+    registry = {"A_COMMAND": _Entry({"ed": _Row(note="SRC-999 p.1, this edition")})}
+    assert stale_citations(registry, [_edition(tmp_path, "ed", (1, 1))], reader=read) == ()
+
+
+def test_a_command_the_edition_does_not_print_reports_no_page(tmp_path):
+    """The two findings are different and the field says which.
+
+    A moved page is a citation to correct. A row citing an edition that
+    does not document the command at all is a row that should not exist,
+    and reporting both as `found=<some page>` would hide the second
+    inside the first.
+    """
+    pages = {"ed": {1: {1: "Function name: OTHER_COMMAND <A>\n"}}}
+    read, _calls = _recording_reader(pages)
+    registry = {"A_COMMAND": _Entry({"ed": _Row(note="SRC-999 p.1, this edition")})}
+    (finding,) = stale_citations(registry, [_edition(tmp_path, "ed", (1, 1))], reader=read)
+    assert finding.found is None
+
+
+def test_a_removed_row_cites_the_edition_that_states_the_withdrawal(tmp_path):
+    """Not a finding, and the reason is what `removed` means.
+
+    A removed row's citation is evidence ABOUT an absence, so the page
+    it names is one where the command is legitimately not printed.
+    Checking it the same way would report every honest removal record as
+    a defect, which is the fastest way to get a check switched off.
+    """
+    pages = {"ed": {1: {1: "Function name: OTHER_COMMAND <A>\n"}}}
+    read, _calls = _recording_reader(pages)
+    registry = {
+        "A_COMMAND": _Entry(
+            {"ed": _Row(note="SRC-999 p.1, stops printing it", status=_Status("removed"))}
+        )
+    }
+    assert stale_citations(registry, [_edition(tmp_path, "ed", (1, 1))], reader=read) == ()
+
+
+def test_an_edition_outside_the_manifest_is_not_checked_and_not_reported(tmp_path):
+    """Silence is never a claim that a row is right.
+
+    Six of the seven registered builds could be dropped from a manifest
+    by mistake and this would still return nothing, which is why the
+    function returns findings and the caller prints how many editions it
+    read.
+    """
+    pages = {"ed": {1: {1: "Function name: A_COMMAND <A>\n"}}}
+    read, _calls = _recording_reader(pages)
+    registry = {"A_COMMAND": _Entry({"unlisted": _Row(note="SRC-999 p.4444, this edition")})}
+    assert stale_citations(registry, [_edition(tmp_path, "ed", (1, 1))], reader=read) == ()
+
+
+def test_a_row_with_no_page_in_its_note_is_not_checked(tmp_path):
+    pages = {"ed": {1: {1: "Function name: A_COMMAND <A>\n"}}}
+    read, _calls = _recording_reader(pages)
+    registry = {"A_COMMAND": _Entry({"ed": _Row(note="verified by probe, no page")})}
+    assert stale_citations(registry, [_edition(tmp_path, "ed", (1, 1))], reader=read) == ()

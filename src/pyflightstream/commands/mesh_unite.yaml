@@ -55,7 +55,7 @@ BOOLEAN_UNITE_MESH:
   versions:
     "25.000":
       status: documented
-      note: "SRC-749 p.277, this edition's own grammar; see the note below"
+      note: "SRC-749 p.272, this edition's own grammar; see the note below"
       args:
         - name: num_bodies
           type: int
@@ -100,3 +100,91 @@ BOOLEAN_UNITE_MESH:
     These are MESH BODY indices, not the mesh boundary indices the rest
     of the database cites, so nothing resolves or range checks them: the
     script builder tracks boundaries and has no inventory of bodies.
+
+BOOLEAN_UNITE_GEOMETRY:
+  layout: keyword_block
+  phase: geometry
+  args:
+    - name: bodies
+      type: int
+    - name: body_unite_types
+      type: str_list
+      separator: newline
+    - name: openvsp_path
+      type: path
+  manual_ref: "SRC-749 p.272"
+  notes: >
+    Boolean-unites CAD GEOMETRY bodies, where BOOLEAN_UNITE_MESH unites
+    mesh bodies. The two are siblings on the same page of the 25.000
+    edition and only the mesh one survives: no edition from 25.100 on
+    prints this name.
+
+    The unite is not performed by FlightStream. Both commands call out
+    to an external OpenVSP executable for the CompGeom operation, and
+    OPENVSP_PATH is where that executable is, which is why a path
+    belongs in a geometry command at all. A wrong path is an environment
+    failure and not a modelling one.
+
+    BODIES takes a count followed by one line per body pairing the body
+    index with POSITIVE or NEGATIVE, the sign being whether that body
+    adds volume or subtracts it. A count of -1 means every body with a
+    positive volume, which is the additive unite, and then no body lines
+    follow.
+  versions:
+    "25.000":
+      status: documented
+      note: "SRC-749 p.272, this edition documents it"
+    "25.100":
+      status: removed
+      note: >-
+        SRC-748 pp.271-347, the whole scripting reference of the
+        25.100 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.000":
+      status: removed
+      note: >-
+        SRC-747 pp.270-346, the whole scripting reference of the
+        26.000 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.100":
+      status: removed
+      note: >-
+        SRC-741 pp.275-369, the whole scripting reference of the
+        26.100 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.101":
+      status: removed
+      note: >-
+        SRC-725 pp.280-375, the whole scripting reference of the
+        26.101 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.120":
+      status: removed
+      note: >-
+        SRC-003 pp.281-376, the whole scripting reference of the
+        26.120 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.121":
+      status: removed
+      note: >-
+        SRC-740 pp.284-379, the whole scripting reference of the
+        26.121 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.

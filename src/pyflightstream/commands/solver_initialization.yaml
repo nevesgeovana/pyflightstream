@@ -32,7 +32,7 @@ INITIALIZE_SOLVER:
   versions:
     "25.000":
       status: documented
-      note: "SRC-749 p.303, this edition's own grammar; see the note below"
+      note: "SRC-749 p.298, this edition's own grammar; see the note below"
       args:
         - name: surfaces
           type: int
@@ -186,6 +186,12 @@ REMOVE_INITIALIZATION:
   phase: init
   args: []
   manual_ref: "SRC-003 p.338"
+  notes: >
+    Discards the solver initialization. Its empty 25.000 column is not a
+    gap: that edition spells the same capability SOLVER_UNINITIALIZE,
+    and the two are exactly complementary across the seven editions,
+    sharing the bare layout, the init phase and the chapter. The
+    changeover is at 25.100 and the older entry carries the successor.
   versions:
     "25.100": {status: documented, note: "SRC-748 p.313, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.312, same grammar as 26.120"}
@@ -226,3 +232,157 @@ CLEAR_SOLUTION:
   notes: >
     Clears the existing solution while keeping the initialization;
     used between sweep points when solution reuse is not wanted.
+
+SOLVER_UNINITIALIZE:
+  layout: bare
+  phase: init
+  args: []
+  manual_ref: "SRC-749 p.298"
+  notes: >
+    Discards the solver initialization, returning the model to the state
+    before INITIALIZE_SOLVER ran. Printed by the 25.000 edition and by
+    no edition after it.
+
+    IT WAS RENAMED RATHER THAN WITHDRAWN, and the reading is a
+    measurement rather than an inference from the two names. Across the
+    seven editions this command and REMOVE_INITIALIZATION are exactly
+    complementary: this one is printed by 25.000 alone, that one by
+    every edition from 25.100 on and by no earlier one. They share the
+    bare layout, the init phase and the chapter. One capability, two
+    spellings, with the changeover at 25.100.
+
+    SOLVER_CLEAR is NOT the successor even though it leaves at the same
+    edition, because it clears the SOLUTION rather than the
+    initialization, and unlike this command nothing takes its place.
+  versions:
+    "25.000":
+      status: documented
+      note: "SRC-749 p.298, this edition documents it"
+    "25.100":
+      status: removed
+      successor: REMOVE_INITIALIZATION
+      note: >-
+        SRC-748 pp.271-347, the whole scripting reference of the
+        25.100 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.000":
+      status: removed
+      successor: REMOVE_INITIALIZATION
+      note: >-
+        SRC-747 pp.270-346, the whole scripting reference of the
+        26.000 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.100":
+      status: removed
+      successor: REMOVE_INITIALIZATION
+      note: >-
+        SRC-741 pp.275-369, the whole scripting reference of the
+        26.100 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.101":
+      status: removed
+      successor: REMOVE_INITIALIZATION
+      note: >-
+        SRC-725 pp.280-375, the whole scripting reference of the
+        26.101 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.120":
+      status: removed
+      successor: REMOVE_INITIALIZATION
+      note: >-
+        SRC-003 pp.281-376, the whole scripting reference of the
+        26.120 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.121":
+      status: removed
+      successor: REMOVE_INITIALIZATION
+      note: >-
+        SRC-740 pp.284-379, the whole scripting reference of the
+        26.121 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+
+SOLVER_CLEAR:
+  layout: bare
+  phase: exec
+  args: []
+  manual_ref: "SRC-749 p.307"
+  notes: >
+    Clears the solver solution, leaving the initialization in place. The
+    25.000 edition states it takes no parameters and no later edition
+    prints it.
+  versions:
+    "25.000":
+      status: documented
+      note: "SRC-749 p.307, this edition documents it"
+    "25.100":
+      status: removed
+      note: >-
+        SRC-748 pp.271-347, the whole scripting reference of the
+        25.100 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.000":
+      status: removed
+      note: >-
+        SRC-747 pp.270-346, the whole scripting reference of the
+        26.000 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.100":
+      status: removed
+      note: >-
+        SRC-741 pp.275-369, the whole scripting reference of the
+        26.100 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.101":
+      status: removed
+      note: >-
+        SRC-725 pp.280-375, the whole scripting reference of the
+        26.101 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.120":
+      status: removed
+      note: >-
+        SRC-003 pp.281-376, the whole scripting reference of the
+        26.120 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.121":
+      status: removed
+      note: >-
+        SRC-740 pp.284-379, the whole scripting reference of the
+        26.121 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.

@@ -180,6 +180,24 @@ FLAG_SPECS: tuple[FlagSpec, ...] = (
     # 2026-08-08 with the tail chapters.
     FlagSpec("solver_stabilization", "SOLVER_STABILIZATION", "scalar"),
     FlagSpec("disable_ref_velocity", "DISABLE_SOLVER_REF_VELOCITY", "bare_request"),
+    # The seven settings-family commands only the pre-26.100 editions
+    # document, entered 2026-08-10 with those editions' own chapters.
+    # They carry flags for the same reason every other command of these
+    # families does, and the point is sharper here than usual: these are
+    # exactly the commands a script targeting an OLD build sets, so a
+    # snapshot silent about them would be least complete for the runs
+    # the older builds are registered to reproduce.
+    FlagSpec("solver_model", "SET_SOLVER_MODEL", "enum"),
+    FlagSpec("valarezo_criterion", "VALAREZO_CRITERION", "toggle"),
+    FlagSpec("crossflow_separation_cp", "SET_CROSSFLOW_SEPARATION_CP", "scalar"),
+    FlagSpec("wake_relaxation", "SET_WAKE_RELAXATION", "toggle"),
+    FlagSpec("wake_streamwise_agglomeration", "SET_WAKE_STREAMWISE_AGGLOMERATION", "toggle"),
+    FlagSpec(
+        "adverse_gradient_boundary_layer",
+        "SOLVER_SET_ADVERSE_GRADIENT_BOUNDARY_LAYER",
+        "toggle",
+    ),
+    FlagSpec("vortex_ring_normalization", "SOLVER_VORTEX_RING_NORMALIZATION", "toggle"),
     # The named separation models of 26.101 and later. One keyword per
     # command rather than one shared sequence: the solver indexes the
     # models in creation order and DELETE_SEPARATION addresses them by

@@ -633,6 +633,13 @@ def solver_settings(
     wake_decay_constant: float | None = None,
     solver_stabilization: float | None = None,
     disable_ref_velocity: bool = False,
+    solver_model: str | None = None,
+    valarezo_criterion: Toggle | None = None,
+    crossflow_separation_cp: float | None = None,
+    wake_relaxation: Toggle | None = None,
+    wake_streamwise_agglomeration: Toggle | None = None,
+    adverse_gradient_boundary_layer: Toggle | None = None,
+    vortex_ring_normalization: Toggle | None = None,
 ) -> SolverSetup:
     """Set the solver flags, record their provenance, and return the snapshot.
 
@@ -913,6 +920,43 @@ def solver_settings(
         request rather than a way of asking for the opposite: the solver
         has no way to be told not to do this. Documented by the 26.121
         edition alone (SRC-740 p.342).
+    solver_model : str, optional
+        Flow model the solver runs, one of INCOMPRESSIBLE, SUBSONIC,
+        TRANSONIC and LOW_ORDER_SUPERSONIC. Documented by the 25.000
+        edition alone (SRC-749 p.302), which is the last one to carry it
+        as a command: the 25.100 edition drops the command and gives
+        INITIALIZE_SOLVER a SOLVER_MODEL argument in the same release.
+        On any build from 25.100 on, set the model there instead.
+    valarezo_criterion : bool or str, optional
+        Enable the Valarezo pressure-difference criterion for predicting
+        the onset of separation. Documented by the three pre-26.100
+        editions (SRC-747 p.316) and by none after them.
+    crossflow_separation_cp : float, optional
+        Mean diameter of the body the cross-flow separation model
+        applies to, strictly positive, in the simulation length units.
+        The model needs it because the critical pressure coefficient it
+        uses depends on the cross-sectional scale. Documented by the
+        three pre-26.100 editions (SRC-747 p.316).
+    wake_relaxation : bool or str, optional
+        Enable relaxation of the wake geometry between solver
+        iterations, which damps the wake movement and helps a case that
+        oscillates rather than converging. Documented by the three
+        pre-26.100 editions (SRC-747 p.319).
+    wake_streamwise_agglomeration : bool or str, optional
+        Enable agglomeration of wake filament edges along the streamwise
+        direction, trading wake resolution for fewer wake elements.
+        Documented by the three pre-26.100 editions (SRC-747 p.318).
+    adverse_gradient_boundary_layer : bool or str, optional
+        Enable the adverse-pressure-gradient treatment in the
+        boundary-layer model, which lets the layer thicken approaching
+        separation instead of following the flat-plate relation
+        everywhere. Documented by the three pre-26.100 editions
+        (SRC-747 p.318).
+    vortex_ring_normalization : bool or str, optional
+        Enable normalization of the vortex-ring strengths on the wake
+        panels. The page gives the switch and no definition of what the
+        normalization does, so nothing further is stated here.
+        Documented by the three pre-26.100 editions (SRC-747 p.318).
     wake_decay_constant : float, optional
         Rate at which wake vorticity decays with distance, in units of
         1/m. The manual gives it as 19.1 divided by a characteristic
@@ -1316,6 +1360,22 @@ def solver_settings(
         script.emit("SOLVER_STABILIZATION", solver_stabilization)
     if disable_ref_velocity:
         script.emit("DISABLE_SOLVER_REF_VELOCITY")
+    if solver_model is not None:
+        script.emit("SET_SOLVER_MODEL", solver_model)
+    if valarezo_criterion is not None:
+        script.emit("VALAREZO_CRITERION", _toggle(valarezo_criterion))
+    if crossflow_separation_cp is not None:
+        script.emit("SET_CROSSFLOW_SEPARATION_CP", crossflow_separation_cp)
+    if wake_relaxation is not None:
+        script.emit("SET_WAKE_RELAXATION", _toggle(wake_relaxation))
+    if wake_streamwise_agglomeration is not None:
+        script.emit("SET_WAKE_STREAMWISE_AGGLOMERATION", _toggle(wake_streamwise_agglomeration))
+    if adverse_gradient_boundary_layer is not None:
+        script.emit(
+            "SOLVER_SET_ADVERSE_GRADIENT_BOUNDARY_LAYER", _toggle(adverse_gradient_boundary_layer)
+        )
+    if vortex_ring_normalization is not None:
+        script.emit("SOLVER_VORTEX_RING_NORMALIZATION", _toggle(vortex_ring_normalization))
 
     if vorticity_drag_boundaries is not None:
         script._vorticity_selection = selection
@@ -1366,6 +1426,13 @@ def solver_settings(
         "wake_decay_constant": wake_decay_constant,
         "solver_stabilization": solver_stabilization,
         "disable_ref_velocity": disable_ref_velocity,
+        "solver_model": solver_model,
+        "valarezo_criterion": valarezo_criterion,
+        "crossflow_separation_cp": crossflow_separation_cp,
+        "wake_relaxation": wake_relaxation,
+        "wake_streamwise_agglomeration": wake_streamwise_agglomeration,
+        "adverse_gradient_boundary_layer": adverse_gradient_boundary_layer,
+        "vortex_ring_normalization": vortex_ring_normalization,
         "reynolds_averaged_drag": reynolds_averaged_drag,
         "mesh_induced_wake_velocity": mesh_induced_wake_velocity,
         "farfield_layers": farfield_layers,

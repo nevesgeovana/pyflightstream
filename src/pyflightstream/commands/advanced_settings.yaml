@@ -448,3 +448,247 @@ SET_WAKE_DECAY_CONSTANT:
     It sits in the Solver Settings chapter of that edition while the
     Script Index files it under Advanced Settings, and it is kept here
     with the rest of the wake knobs.
+
+SET_WAKE_RELAXATION:
+  layout: inline
+  phase: init
+  args:
+    - name: state
+      type: enum
+      values: ["ENABLE", "DISABLE"]
+  manual_ref: "SRC-747 p.319"
+  notes: >
+    Enables relaxation of the wake geometry between solver iterations,
+    which damps the wake movement and helps a case that oscillates
+    rather than converging. Documented by the three pre-26.100 editions
+    and by none after.
+  versions:
+    "25.000":
+      status: documented
+      note: "SRC-749 p.306, this edition documents it"
+    "25.100":
+      status: documented
+      note: "SRC-748 p.320, this edition documents it"
+    "26.000":
+      status: documented
+      note: "SRC-747 p.319, this edition documents it"
+    "26.100":
+      status: removed
+      note: >-
+        SRC-741 pp.275-369, the whole scripting reference of the
+        26.100 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.101":
+      status: removed
+      note: >-
+        SRC-725 pp.280-375, the whole scripting reference of the
+        26.101 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.120":
+      status: removed
+      note: >-
+        SRC-003 pp.281-376, the whole scripting reference of the
+        26.120 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.121":
+      status: removed
+      note: >-
+        SRC-740 pp.284-379, the whole scripting reference of the
+        26.121 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+
+SET_WAKE_STREAMWISE_AGGLOMERATION:
+  layout: inline
+  phase: init
+  args:
+    - name: state
+      type: enum
+      values: ["ENABLE", "DISABLE"]
+  manual_ref: "SRC-747 p.318"
+  notes: >
+    Enables agglomeration of wake filament edges along the streamwise
+    direction, which reduces the number of wake elements the solver
+    carries at some cost in wake resolution. Documented by the three
+    pre-26.100 editions and by none after.
+  versions:
+    "25.000":
+      status: documented
+      note: "SRC-749 p.305, this edition documents it"
+    "25.100":
+      status: documented
+      note: "SRC-748 p.319, this edition documents it"
+    "26.000":
+      status: documented
+      note: "SRC-747 p.318, this edition documents it"
+    "26.100":
+      status: removed
+      note: >-
+        SRC-741 pp.275-369, the whole scripting reference of the
+        26.100 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.101":
+      status: removed
+      note: >-
+        SRC-725 pp.280-375, the whole scripting reference of the
+        26.101 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.120":
+      status: removed
+      note: >-
+        SRC-003 pp.281-376, the whole scripting reference of the
+        26.120 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.121":
+      status: removed
+      note: >-
+        SRC-740 pp.284-379, the whole scripting reference of the
+        26.121 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+
+SOLVER_SET_ADVERSE_GRADIENT_BOUNDARY_LAYER:
+  layout: inline
+  phase: init
+  args:
+    - name: state
+      type: enum
+      values: ["ENABLE", "DISABLE"]
+  manual_ref: "SRC-747 p.318"
+  notes: >
+    Enables the adverse-pressure-gradient treatment in the
+    boundary-layer model, which is what lets the model thicken the layer
+    approaching separation instead of running the flat-plate relation
+    everywhere. Documented by the three pre-26.100 editions and by none
+    after.
+  versions:
+    "25.000":
+      status: documented
+      note: "SRC-749 p.305, this edition documents it"
+    "25.100":
+      status: documented
+      note: "SRC-748 p.319, this edition documents it"
+    "26.000":
+      status: documented
+      note: "SRC-747 p.318, this edition documents it"
+    "26.100":
+      status: removed
+      note: >-
+        SRC-741 pp.275-369, the whole scripting reference of the
+        26.100 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.101":
+      status: removed
+      note: >-
+        SRC-725 pp.280-375, the whole scripting reference of the
+        26.101 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.120":
+      status: removed
+      note: >-
+        SRC-003 pp.281-376, the whole scripting reference of the
+        26.120 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.121":
+      status: removed
+      note: >-
+        SRC-740 pp.284-379, the whole scripting reference of the
+        26.121 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+
+SOLVER_VORTEX_RING_NORMALIZATION:
+  layout: inline
+  phase: init
+  args:
+    - name: state
+      type: enum
+      values: ["ENABLE", "DISABLE"]
+  manual_ref: "SRC-747 p.318"
+  notes: >
+    Enables normalization of the vortex-ring strengths on the wake
+    panels. Documented by the three pre-26.100 editions and by none
+    after.
+
+    The page gives the switch and no definition of what the
+    normalization does, so nothing further is recorded here: the reading
+    of a name is not a description of a numerical method.
+  versions:
+    "25.000":
+      status: documented
+      note: "SRC-749 p.305, this edition documents it"
+    "25.100":
+      status: documented
+      note: "SRC-748 p.319, this edition documents it"
+    "26.000":
+      status: documented
+      note: "SRC-747 p.318, this edition documents it"
+    "26.100":
+      status: removed
+      note: >-
+        SRC-741 pp.275-369, the whole scripting reference of the
+        26.100 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.101":
+      status: removed
+      note: >-
+        SRC-725 pp.280-375, the whole scripting reference of the
+        26.101 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.120":
+      status: removed
+      note: >-
+        SRC-003 pp.281-376, the whole scripting reference of the
+        26.120 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.121":
+      status: removed
+      note: >-
+        SRC-740 pp.284-379, the whole scripting reference of the
+        26.121 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.

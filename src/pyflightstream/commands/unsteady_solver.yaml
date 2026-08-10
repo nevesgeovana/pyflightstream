@@ -219,3 +219,62 @@ UNSTEADY_SOLVER_ANIMATION:
     step, 2 every second step. Combined with PARAVIEW_VTK on a long run
     this is the fastest way in the package to fill a disk, and no
     edition says so.
+
+SET_UNSTEADY_VISCOUS_COUPLING_ITERATION:
+  layout: inline
+  phase: init
+  args:
+    - name: num_iteration
+      type: int
+  manual_ref: "SRC-747 p.321"
+  notes: >
+    Sets the unsteady time-stepping iteration at which the viscous
+    coupling switches on, so the early steps run inviscid and the
+    boundary-layer coupling starts once the wake has developed.
+    Documented by the three pre-26.100 editions and by none after.
+  versions:
+    "25.000":
+      status: documented
+      note: "SRC-749 p.309, this edition documents it"
+    "25.100":
+      status: documented
+      note: "SRC-748 p.322, this edition documents it"
+    "26.000":
+      status: documented
+      note: "SRC-747 p.321, this edition documents it"
+    "26.100":
+      status: removed
+      note: >-
+        SRC-741 pp.275-369, the whole scripting reference of the
+        26.100 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.101":
+      status: removed
+      note: >-
+        SRC-725 pp.280-375, the whole scripting reference of the
+        26.101 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.120":
+      status: removed
+      note: >-
+        SRC-003 pp.281-376, the whole scripting reference of the
+        26.120 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.121":
+      status: removed
+      note: >-
+        SRC-740 pp.284-379, the whole scripting reference of the
+        26.121 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.

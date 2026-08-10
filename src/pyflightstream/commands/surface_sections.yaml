@@ -69,7 +69,7 @@ NEW_SURFACE_SECTION_DISTRIBUTION:
   versions:
     "25.000":
       status: documented
-      note: "SRC-749 p.329, this edition's own grammar; see the note below"
+      note: "SRC-749 p.323, this edition's own grammar; see the note below"
       args:
         - name: frame
           type: int

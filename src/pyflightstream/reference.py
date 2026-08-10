@@ -355,6 +355,17 @@ def _database_cited_pages() -> dict[str, set[int]]:
     and the per-version notes, so the gap analysis credits every
     recorded citation.
 
+    A ``removed`` row's note is NOT credited, and the exclusion is what
+    keeps this report meaning anything. That note cites the edition the
+    absence was read from, and an absence is read across a whole
+    chapter: the rows entered on 2026-08-10 cite ranges like
+    ``pp.275-369``. Credited, one such note marks every page of an
+    edition as cited, and the section it feeds went from a page-by-page
+    gap listing to "every page is cited" for that edition in a single
+    change. The question this report answers is which pages somebody has
+    drafted a command FROM, and a note saying a command is not on any of
+    them is not an answer to it.
+
     Returns
     -------
     dict of str to set of int
@@ -375,7 +386,8 @@ def _database_cited_pages() -> dict[str, set[int]]:
         absorb(entry.citation)
         absorb(entry.notes)
         for record in entry.versions.values():
-            absorb(record.note)
+            if record.status is not Status.REMOVED:
+                absorb(record.note)
     return pages
 
 

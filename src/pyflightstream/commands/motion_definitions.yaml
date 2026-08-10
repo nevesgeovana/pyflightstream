@@ -869,3 +869,306 @@ EXPORT_6DOF_TRAJECTORY:
     evidence about when the trajectory becomes available to write, so
     the entry does not imply that a script may call it before the solver
     has produced one.
+
+CREATE_NEW_MOTION_EUCLIDEAN:
+  layout: bare
+  phase: setup
+  args: []
+  manual_ref: "SRC-749 p.291"
+  notes: >
+    Creates a Euclidean motion definition. On 25.000 each motion type is
+    its own bare command, and 26.100 replaces all four with
+    CREATE_NEW_MOTION taking the type as an argument.
+
+    THE FOUR DID NOT SURVIVE AS THREE PLUS ONE. CREATE_NEW_MOTION
+    accepts EUCLIDEAN, 6DOF and CUSTOM, so the FSI type has no argument
+    value on the newer builds and the fourth command is the only one of
+    the four with nothing to become.
+  versions:
+    "25.000":
+      status: documented
+      note: "SRC-749 p.291, this edition documents it"
+    "25.100":
+      status: removed
+      successor: CREATE_NEW_MOTION
+      note: >-
+        SRC-748 pp.271-347, the whole scripting reference of the
+        25.100 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.000":
+      status: removed
+      successor: CREATE_NEW_MOTION
+      note: >-
+        SRC-747 pp.270-346, the whole scripting reference of the
+        26.000 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.100":
+      status: removed
+      successor: CREATE_NEW_MOTION
+      note: >-
+        SRC-741 pp.275-369, the whole scripting reference of the
+        26.100 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.101":
+      status: removed
+      successor: CREATE_NEW_MOTION
+      note: >-
+        SRC-725 pp.280-375, the whole scripting reference of the
+        26.101 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.120":
+      status: removed
+      successor: CREATE_NEW_MOTION
+      note: >-
+        SRC-003 pp.281-376, the whole scripting reference of the
+        26.120 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.121":
+      status: removed
+      successor: CREATE_NEW_MOTION
+      note: >-
+        SRC-740 pp.284-379, the whole scripting reference of the
+        26.121 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+
+CREATE_NEW_MOTION_CUSTOM:
+  layout: bare
+  phase: setup
+  args: []
+  manual_ref: "SRC-749 p.291"
+  notes: >
+    Creates a custom motion definition, whose position history comes
+    from a file rather than from a rule. One of the four type-specific
+    creation commands 26.100 folds into CREATE_NEW_MOTION.
+  versions:
+    "25.000":
+      status: documented
+      note: "SRC-749 p.291, this edition documents it"
+    "25.100":
+      status: removed
+      successor: CREATE_NEW_MOTION
+      note: >-
+        SRC-748 pp.271-347, the whole scripting reference of the
+        25.100 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.000":
+      status: removed
+      successor: CREATE_NEW_MOTION
+      note: >-
+        SRC-747 pp.270-346, the whole scripting reference of the
+        26.000 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.100":
+      status: removed
+      successor: CREATE_NEW_MOTION
+      note: >-
+        SRC-741 pp.275-369, the whole scripting reference of the
+        26.100 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.101":
+      status: removed
+      successor: CREATE_NEW_MOTION
+      note: >-
+        SRC-725 pp.280-375, the whole scripting reference of the
+        26.101 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.120":
+      status: removed
+      successor: CREATE_NEW_MOTION
+      note: >-
+        SRC-003 pp.281-376, the whole scripting reference of the
+        26.120 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.121":
+      status: removed
+      successor: CREATE_NEW_MOTION
+      note: >-
+        SRC-740 pp.284-379, the whole scripting reference of the
+        26.121 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+
+CREATE_NEW_MOTION_6DOF:
+  layout: bare
+  phase: setup
+  args: []
+  manual_ref: "SRC-749 p.291"
+  notes: >
+    Creates a six-degree-of-freedom motion definition, where the
+    trajectory is solved from the aerodynamic loads rather than
+    prescribed. One of the four type-specific creation commands 26.100
+    folds into CREATE_NEW_MOTION.
+  versions:
+    "25.000":
+      status: documented
+      note: "SRC-749 p.291, this edition documents it"
+    "25.100":
+      status: removed
+      successor: CREATE_NEW_MOTION
+      note: >-
+        SRC-748 pp.271-347, the whole scripting reference of the
+        25.100 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.000":
+      status: removed
+      successor: CREATE_NEW_MOTION
+      note: >-
+        SRC-747 pp.270-346, the whole scripting reference of the
+        26.000 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.100":
+      status: removed
+      successor: CREATE_NEW_MOTION
+      note: >-
+        SRC-741 pp.275-369, the whole scripting reference of the
+        26.100 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.101":
+      status: removed
+      successor: CREATE_NEW_MOTION
+      note: >-
+        SRC-725 pp.280-375, the whole scripting reference of the
+        26.101 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.120":
+      status: removed
+      successor: CREATE_NEW_MOTION
+      note: >-
+        SRC-003 pp.281-376, the whole scripting reference of the
+        26.120 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.121":
+      status: removed
+      successor: CREATE_NEW_MOTION
+      note: >-
+        SRC-740 pp.284-379, the whole scripting reference of the
+        26.121 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+
+CREATE_NEW_MOTION_FSI:
+  layout: bare
+  phase: setup
+  args: []
+  manual_ref: "SRC-749 p.291"
+  notes: >
+    Creates a fluid-structure-interaction motion definition, where the
+    surface deflects under the aerodynamic loads and the deflection
+    changes the loads.
+
+    IT IS THE ONE OF THE FOUR WITH NO SUCCESSOR RECORDED, and that is
+    why no successor is named rather than an oversight. The other three
+    become argument values of CREATE_NEW_MOTION on 26.100; that
+    command's documented type list is EUCLIDEAN, 6DOF and CUSTOM, with
+    no FSI among them. Whether the capability moved elsewhere or left is
+    a question about the solver, and nothing here has measured it.
+  versions:
+    "25.000":
+      status: documented
+      note: "SRC-749 p.291, this edition documents it"
+    "25.100":
+      status: removed
+      note: >-
+        SRC-748 pp.271-347, the whole scripting reference of the
+        25.100 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.000":
+      status: removed
+      note: >-
+        SRC-747 pp.270-346, the whole scripting reference of the
+        26.000 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.100":
+      status: removed
+      note: >-
+        SRC-741 pp.275-369, the whole scripting reference of the
+        26.100 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.101":
+      status: removed
+      note: >-
+        SRC-725 pp.280-375, the whole scripting reference of the
+        26.101 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.120":
+      status: removed
+      note: >-
+        SRC-003 pp.281-376, the whole scripting reference of the
+        26.120 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.
+    "26.121":
+      status: removed
+      note: >-
+        SRC-740 pp.284-379, the whole scripting reference of the
+        26.121 edition, does not print this command. That is a
+        fact about the document rather than a measurement of the
+        solver, which is the weakest of the three ways a removal
+        is recorded here; no probe has asked this build whether
+        it still answers the name.

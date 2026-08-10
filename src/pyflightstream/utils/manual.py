@@ -113,6 +113,7 @@ __all__ = [
     "Coverage",
     "Edition",
     "ManualCommand",
+    "StaleCitation",
     "SurfaceChange",
     "SweptCommand",
     "TypeRule",
@@ -127,6 +128,7 @@ __all__ = [
     "render_chapter",
     "render_entry",
     "sample_contradiction",
+    "stale_citations",
     "surface_changes",
     "sweep_editions",
     "write_chapter",
@@ -830,6 +832,120 @@ def surface_changes(surfaces: Mapping[str, Iterable[str]]) -> tuple[SurfaceChang
         )
     return tuple(changes)
 
+
+@dataclass(frozen=True, kw_only=True)
+class StaleCitation:
+    """A version row whose cited page does not hold the command.
+
+    Attributes
+    ----------
+    command : str
+        Command name the row belongs to.
+    edition : str
+        Label of the edition the row cites.
+    cited : int
+        Page number written in the row's note.
+    found : int or None
+        Page the edition actually prints the signature on, or None when
+        the edition does not print the command at all. The two are
+        different findings and the field says which: a moved page is a
+        citation to correct, and an absent command is a row that should
+        not exist.
+    """
+
+    command: str
+    edition: str
+    cited: int
+    found: int | None
+
+
+def stale_citations(
+    registry: Mapping[str, object],
+    editions: Iterable[Edition],
+    *,
+    reader: Callable[..., Mapping[int, str]] | None = None,
+) -> tuple[StaleCitation, ...]:
+    """Check every version row's page citation against the manual.
+
+    A citation is written once, from a reading, and then nothing looks
+    at it again. That is how ten rows came to cite a document that had
+    moved underneath them: the 25.000 manual is a conversion of a help
+    archive, the conversion was corrected to strip a generator footer,
+    the correction shifted the document by five pages, and the rows
+    written from the earlier conversion kept its numbers. Every one of
+    the ten pointed at a real page of a real manual, which is why
+    nothing looked wrong.
+
+    Parameters
+    ----------
+    registry : mapping of str to CommandEntry
+        The command database, as ``CommandRegistry.commands``. Typed
+        loosely on purpose: this module sits below ``commands`` in the
+        dependency order (CLAUDE.md Layout) and must not import it.
+    editions : iterable of Edition
+        The manuals to check against. An edition the manifest does not
+        carry is not checked and not reported, since the check is
+        against a document and there is none.
+    reader : callable, optional
+        What turns a manual and a page range into text, defaulting to
+        :func:`read_pdf_pages`. Same seam as :func:`edition_surfaces`.
+
+    Returns
+    -------
+    tuple of StaleCitation
+        One entry per disagreeing row, sorted by command then edition.
+        Empty means every citation the manifest can reach was checked
+        and holds.
+
+    Notes
+    -----
+    Only rows whose note carries a ``p.N`` are checked, and only against
+    an edition present in the manifest. Silence about a row is therefore
+    never a claim that the row is right, and this is the reason the
+    function returns findings rather than a boolean.
+    """
+    read = reader if reader is not None else read_pdf_pages
+    surfaces: dict[str, dict[str, ManualCommand]] = {}
+    for edition in editions:
+        surfaces[edition.label] = dict(
+            parse_signatures(
+                read(edition.manual, first=edition.chapter[0], last=edition.chapter[1])
+            )
+        )
+
+    stale = []
+    for name, entry in registry.items():
+        for label, row in getattr(entry, "versions", {}).items():
+            parsed = surfaces.get(label)
+            note = getattr(row, "note", None)
+            if parsed is None or not note:
+                continue
+            match = _CITED_PAGE.search(note)
+            if match is None:
+                continue
+            cited = int(match.group(1))
+            command = parsed.get(name)
+            if command is not None and command.page == cited:
+                continue
+            # A `removed` row cites the page of the edition that
+            # documents the WITHDRAWAL, which is a page this edition may
+            # legitimately not print the command on. Checking it here
+            # would report the row's whole purpose as a defect.
+            if getattr(getattr(row, "status", None), "value", None) == "removed":
+                continue
+            stale.append(
+                StaleCitation(
+                    command=name,
+                    edition=label,
+                    cited=cited,
+                    found=None if command is None else command.page,
+                )
+            )
+    return tuple(sorted(stale, key=lambda item: (item.command, item.edition)))
+
+
+#: A page citation inside a version-row note, for example "SRC-749 p.286".
+_CITED_PAGE = re.compile(r"\bpp?\.(\d+)")
 
 #: What an edition row may hold, and what each key is for. Kept as data
 #: so the refusals can print it rather than restate it in prose.

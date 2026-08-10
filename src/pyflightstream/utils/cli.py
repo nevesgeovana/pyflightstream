@@ -4,7 +4,7 @@ Pipeline role: maintainer entry point, outside the run pipeline. It reads
 licensed vendor documentation from a path the caller gives and writes
 nothing unless told to.
 
-Four subcommands, and the split between them is the point.
+Five subcommands, and the split between them is the point.
 
 ``sweep`` answers "what do the registered builds document that we do not
 have", reading every edition named in a manifest and reporting the
@@ -20,6 +20,13 @@ about the database at all.
 
 ``coverage`` answers the sweep's question of ONE manual, which is what a
 single new release raises before it has a manifest row.
+
+``citations`` asks the one question the other four do not: not what the
+manual holds, but whether what the database already SAYS about the
+manual is still true. It re-reads every version row's page citation
+against the edition it names. It is the only one that exits non-zero on
+a finding, because a sweep's findings are work remaining while a
+citation that does not hold is a shipped statement that is wrong.
 
 ``draft`` turns either answer into entries to review, and only writes
 when ``--write`` is passed with a destination.
@@ -51,6 +58,7 @@ from pyflightstream.utils.manual import (
     read_edition_manifest,
     read_pdf_pages,
     render_chapter,
+    stale_citations,
     surface_changes,
     sweep_editions,
     write_chapter,
@@ -192,6 +200,27 @@ def _parser() -> argparse.ArgumentParser:
         ),
     )
 
+    # citations asks the question the other three do not: not what the
+    # manual holds and the database lacks, but whether what the database
+    # already SAYS about the manual is still true.
+    cite = sub.add_parser(
+        "citations",
+        help="check every version row's page citation against the manual it cites",
+        epilog=_MANIFEST_EXAMPLE,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    cite.add_argument(
+        "--editions",
+        required=True,
+        metavar="MANIFEST",
+        help=(
+            "YAML manifest of the editions to check against. A row the "
+            "manifest does not carry is not checked and is not reported: "
+            "the check is against a document, and without the document "
+            "there is nothing to check"
+        ),
+    )
+
     draft = sub.choices["draft"]
     draft.add_argument(
         # --fs-version, not --version: every other tool of this package
@@ -240,6 +269,37 @@ def _pages(parser: argparse.ArgumentParser, flag: str, spec: str) -> tuple[int, 
     if not last or not first.isdigit() or not last.isdigit():
         parser.error(f"{flag} takes FIRST-LAST in one-based page numbers, for example 273-370")
     return int(first), int(last)
+
+
+def _citations(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
+    """Check the database's page citations against the manuals.
+
+    Returns
+    -------
+    int
+        0 when every citation the manifest can reach holds, 1 otherwise.
+        This one FAILS on a finding, unlike ``sweep``, whose findings are
+        remaining work: a citation that does not hold is not work left to
+        do, it is a statement in a shipped file that is wrong.
+    """
+    try:
+        editions = read_edition_manifest(args.editions)
+        stale = stale_citations(CommandRegistry.load().commands, editions)
+    except FileNotFoundError as missing:
+        parser.error(f"cannot read the manifest or a manual it names: {missing}")
+    except ManualDraftError as error:
+        parser.error(str(error))
+
+    labels = " ".join(edition.label for edition in editions)
+    print(f"{len(editions)} edition(s) checked ({labels}): {len(stale)} citation(s) do not hold")
+    for item in stale:
+        where = (
+            "the edition does not print it" if item.found is None else f"parses at p.{item.found}"
+        )
+        print(f"  {item.command:<48} {item.edition}  cites p.{item.cited}, {where}")
+    if not stale:
+        print("  every row citing a page of a manifest edition points at that command's page")
+    return 1 if stale else 0
 
 
 def _sweep(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
@@ -408,6 +468,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "surface":
         return _surface(parser, args)
+
+    if args.command == "citations":
+        return _citations(parser, args)
 
     # Every argument check happens before the manual is opened. The
     # --write refusal used to fire after two full pdf reads and a render,

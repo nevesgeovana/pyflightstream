@@ -964,7 +964,7 @@ CAD_CREATE_AUTO_CROSS_SECTIONS:
   versions:
     "25.000":
       status: documented
-      note: "SRC-749 p.262, this edition's own grammar; see the note below"
+      note: "SRC-749 p.257, this edition's own grammar; see the note below"
       args:
         - name: frame
           type: int

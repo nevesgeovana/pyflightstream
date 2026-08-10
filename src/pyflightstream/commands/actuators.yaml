@@ -143,7 +143,7 @@ SET_PROP_ACTUATOR_PROFILE:
   versions:
     "25.000":
       status: documented
-      note: "SRC-749 p.286, this edition's own grammar; see the note below"
+      note: "SRC-749 p.281, this edition's own grammar; see the note below"
       args:
         - name: actuator_index
           type: int
