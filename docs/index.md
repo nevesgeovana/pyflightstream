@@ -3,8 +3,11 @@
 Version-aware, didactic Python driver for the FlightStream panel-method
 solver. MIT licensed.
 
-Status: v0.6.0 is the current release on PyPI; the changelog records what each
-release adds. That release registered three more FlightStream builds and
+Status: v0.7.0 is the current release on PyPI; the changelog records what each
+release adds. This release registers an eighth FlightStream build the day
+after the vendor issued it, and every command any of the eight registered
+manual editions documents now has an entry, at the level the release notes
+measure it. The release before it registered three older builds and
 gave every registered build the vendor build number its solver prints,
 so an install can be identified rather than described. Five command-line
 tools ship with the package: `pyfs-qa`
@@ -49,7 +52,7 @@ added, never dropped.
   offline.
 * [Which build do I have](builds.md): the release name and build number
   your solver prints, mapped onto the identifier to pass. The release
-  name alone does not identify a build, and for two registered builds it
+  name alone does not identify a build, and for the 26.12 builds it
   is not even the name the vendor sells them under.
 * [Compatibility matrix](compatibility.md): every command against every
   registered FlightStream version, generated from the same database. Cells

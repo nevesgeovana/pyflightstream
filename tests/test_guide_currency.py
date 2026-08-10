@@ -360,12 +360,6 @@ def test_the_pitfall_table_names_the_builds_the_database_calls_broken():
             if evidence.inherited:
                 inherited.add(version.canonical)
         cell = builds.strip()
-        # "both" resolves against the versions this entry is BROKEN on,
-        # never against every version it has a record for. The latter was
-        # self-adjusting in two directions: register a third build and
-        # probe it broken, and "both" silently came to mean three while
-        # the guide still said two; give the entry a `documented` record
-        # on an older release, and the guard went red on a correct guide.
         starred = {
             token for token in CANONICAL.findall(cell.replace("*", "* ")) if f"{token}*" in cell
         }
@@ -380,8 +374,7 @@ def test_the_pitfall_table_names_the_builds_the_database_calls_broken():
         declared = set(CANONICAL.findall(cell_versions))
         assert declared, (
             f"the pitfall table's Builds cell for {name} reads {cell!r}, which "
-            f"names no version this guard can read. Write canonical "
-            f"identifiers, or the word 'both'"
+            "names no version this guard can read. Write canonical identifiers"
         )
         assert declared == measured, (
             f"the guide says {name} is broken on {sorted(declared)} and the "

@@ -189,7 +189,7 @@ FLAG_SPECS: tuple[FlagSpec, ...] = (
     # the older builds are registered to reproduce.
     FlagSpec("solver_model", "SET_SOLVER_MODEL", "enum"),
     FlagSpec("valarezo_criterion", "VALAREZO_CRITERION", "toggle"),
-    FlagSpec("crossflow_separation_cp", "SET_CROSSFLOW_SEPARATION_CP", "scalar"),
+    FlagSpec("crossflow_separation_mean_diameter", "SET_CROSSFLOW_SEPARATION_CP", "scalar"),
     FlagSpec("wake_relaxation", "SET_WAKE_RELAXATION", "toggle"),
     FlagSpec("wake_streamwise_agglomeration", "SET_WAKE_STREAMWISE_AGGLOMERATION", "toggle"),
     FlagSpec(

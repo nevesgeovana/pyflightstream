@@ -423,14 +423,13 @@ def test_every_field_an_override_leaves_unstated_is_filled_from_the_base():
     # Deleting a whole ROW is caught by the set assertion above, so this
     # floor's real job is only that the walk still reaches the chapter
     # files, and it sits near the true value.
-    # EXACT, not a floor. A floor was tried at 25 against a stated 29,
-    # then at 30 against a measured 33, and both times the slack was
-    # large enough that whole chapter files could drop out of the walk
-    # unnoticed: four of the seven, at the second floor. Deleting a row
-    # is caught by the set assertion above, so the only job left here is
-    # that the walk still reaches everything, and a number is the way to
-    # say that. It moves when an override is added, which is a sentence
-    # in a delta table anyway.
+    # EXACT, not a floor. Two floors were tried, at 25 against a stated
+    # 29 and then at 30 against a measured 33, and both had slack enough
+    # for whole chapter files to drop out of the walk unnoticed: four of
+    # seven, at the second. Deleting a row is caught by the set
+    # assertion above, so all this has left to say is that the walk
+    # still reaches everything, and a number says it. It moves when an
+    # override is added, which costs a sentence in a delta table anyway.
     assert checked == 33, (
         f"{checked} inherited fields were checked and the shipped database has 33, "
         "distributed cites 12, unit 12, separator 7 and joins_previous 2. A change "

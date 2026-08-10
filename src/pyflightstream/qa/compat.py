@@ -427,7 +427,7 @@ def _rewritten_flow_entry(
 
     # The keys this promotion OWNS are rendered exactly as they were
     # before this function existed, because the shape of a promoted line
-    # is pinned by tests and by 388 entries' worth of precedent. Only the
+    # is pinned by tests and by the whole database's worth of precedent. Only the
     # carried-through keys are new output, and they go after.
     owned = {"status", "report"}
     fields = f'status: {status}, report: "{citation}"'

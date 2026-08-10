@@ -119,6 +119,7 @@ __all__ = [
     "VersionRowLike",
     "RegistryLike",
     "SurfaceChange",
+    "Reachability",
     "UnreachableCommand",
     "SweptCommand",
     "TypeRule",
@@ -872,7 +873,10 @@ class UnreachableCommand:
         ``"no entry"`` when the database has no entry of that name at
         all, or ``"refused"`` when it has one and the version view
         refuses it, which means no row for this build and none reachable
-        by hotfix inheritance.
+        by hotfix inheritance. Those two and no others: an edition whose
+        label cannot be resolved is not a command and is reported
+        through :attr:`Reachability.unmeasured` instead, having been a
+        third value of this field for one commit.
     """
 
     command: str
@@ -885,7 +889,7 @@ def unreachable_commands(
     *,
     recorded: RegistryLike,
     reader: Callable[..., Mapping[int, str]] | None = None,
-) -> tuple[UnreachableCommand, ...]:
+) -> Reachability:
     """Report, per edition, the documented commands its build cannot emit.
 
     This is the row-level half of the coverage question, and it exists
@@ -919,9 +923,12 @@ def unreachable_commands(
 
     Returns
     -------
-    tuple of UnreachableCommand
-        Sorted by edition then command. Empty means every command every
-        given edition documents can be emitted for that build.
+    Reachability
+        Its ``findings`` are sorted by edition then command and empty
+        means every command every readable edition documents can be
+        emitted for that build. Its ``unmeasured`` names the editions
+        whose label the registry could not resolve, about which nothing
+        was learned either way.
 
     Raises
     ------
@@ -933,6 +940,7 @@ def unreachable_commands(
     """
     read = reader if reader is not None else read_pdf_pages
     editions = tuple(editions)
+    unmeasured: list[str] = []
     if not editions:
         raise ManualDraftError(
             "measuring reachability needs at least one edition; with none every "
@@ -973,13 +981,7 @@ def unreachable_commands(
             # That raised out of the CLI.
             if type(unresolved).__name__ not in _UNRESOLVED_LABEL:
                 raise
-            found.append(
-                UnreachableCommand(
-                    command="(every command)",
-                    edition=edition.label,
-                    reason="label resolves to no single build",
-                )
-            )
+            unmeasured.append(edition.label)
             continue
         for name in sorted(printed):
             if name not in entries:
@@ -995,7 +997,35 @@ def unreachable_commands(
                 found.append(
                     UnreachableCommand(command=name, edition=edition.label, reason="refused")
                 )
-    return tuple(found)
+    return Reachability(findings=tuple(found), unmeasured=tuple(unmeasured))
+
+
+@dataclass(frozen=True, kw_only=True)
+class Reachability:
+    """What a reachability sweep found, and what it could not look at.
+
+    Two fields rather than one tuple, because an edition whose label the
+    registry cannot resolve is not a command and was being reported as
+    one: it entered the findings with the string ``(every command)`` in
+    the command field, so the CLI counted it in "N command(s) an edition
+    documents that its build cannot emit" and ``--fail-if-absent``
+    failed on it. That is a build nobody has registered yet, which
+    ``Edition.label`` explicitly promises can be swept.
+
+    Attributes
+    ----------
+    findings : tuple of UnreachableCommand
+        One per command an edition documents that its build cannot
+        emit. Empty when every edition read is complete.
+    unmeasured : tuple of str
+        Labels the version registry could not turn into exactly one
+        build, either unregistered or a vendor alias several builds
+        share. Nothing is known about their commands, which is a
+        different statement from knowing they cannot be emitted.
+    """
+
+    findings: tuple[UnreachableCommand, ...]
+    unmeasured: tuple[str, ...]
 
 
 @dataclass(frozen=True, kw_only=True)

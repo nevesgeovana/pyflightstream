@@ -651,6 +651,41 @@ def test_the_container_allowlist_has_no_stale_entry():
     )
 
 
+#: Every codepoint this workflow renders as nothing: delete, the C1
+#: control range, the invisible spaces and joiners, the direction marks
+#: and the byte order mark. A byte threshold cannot reach any of these,
+#: because they all encode above 127 in utf-8, which is how a
+#: zero-width space reproduced the backspace defect past the first
+#: version of the guard below.
+#:
+#: Built from codepoints, like FORBIDDEN above and for the same reason:
+#: written as literals this file would be its own only offender, and a
+#: first attempt wrote exactly that.
+_INVISIBLE = frozenset(
+    chr(code)
+    for code in (
+        0x7F,
+        0x85,
+        0xA0,
+        0x200B,
+        0x200C,
+        0x200D,
+        0x200E,
+        0x200F,
+        0x2028,
+        0x2029,
+        0x202A,
+        0x202B,
+        0x202C,
+        0x202D,
+        0x202E,
+        0x2060,
+        0xFEFF,
+        *range(0x80, 0xA0),
+    )
+)
+
+
 def test_no_tracked_text_file_carries_a_control_byte():
     """A backspace in a regex spent a guard and nothing could see it.
 
@@ -671,27 +706,38 @@ def test_no_tracked_text_file_carries_a_control_byte():
 
     Tab, newline and carriage return are the three that belong in text.
     Everything else is written as an escape, which is visible.
+
+    THE FIRST VERSION OF THIS GUARD CHECKED BYTES BELOW 32 ONLY, and a
+    reviewer got the same defect past it with a zero-width space: put
+    U+200B where the escape belongs and the pattern matches nothing, the
+    helper returns the empty set, two assertions go silent, and the
+    suite is green. It encodes as three bytes above 127, so a byte
+    threshold cannot see it. The set below is every codepoint this
+    workflow renders as nothing: the C0 controls, delete, the C1 range,
+    the invisible spaces and the direction marks.
+
+    The file list is a BINARY denylist rather than a text allowlist, for
+    the same reason: an allowlist scans the extensions somebody thought
+    of, so thirteen tracked text files including every golden and
+    fixture that is not .txt or .yaml went unscanned by the first
+    version.
     """
     offenders = []
-    text_suffixes = {
-        ".cff",
-        ".cfg",
-        ".json",
-        ".md",
-        ".py",
-        ".tex",
-        ".toml",
-        ".txt",
-        ".yaml",
-        ".yml",
-    }
+    binary_suffixes = {".obj", ".pdf", ".png", ".jpg", ".ico", ".stl", ".whl", ".gz"}
     for path in _tracked_files():
-        if path.suffix not in text_suffixes:
+        if path.suffix.lower() in binary_suffixes:
             continue
         raw = path.read_bytes()
         found = sorted({byte for byte in raw if byte < 32 and byte not in (9, 10, 13)})
-        if found:
-            offenders.append(f"{path}: {', '.join(hex(byte) for byte in found)}")
+        try:
+            text = raw.decode("utf-8")
+        except UnicodeDecodeError:
+            text = ""
+        invisible = sorted({char for char in text if char in _INVISIBLE})
+        if found or invisible:
+            names = [hex(byte) for byte in found]
+            names += [f"U+{ord(char):04X}" for char in invisible]
+            offenders.append(f"{path}: {', '.join(names)}")
     assert not offenders, (
         "these tracked files carry a control byte, which every editor and diff in "
         "this workflow renders as nothing: " + "; ".join(offenders) + ". Write it as "

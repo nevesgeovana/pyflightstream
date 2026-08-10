@@ -1,7 +1,7 @@
 schema: pyflightstream-compat-report/1
 fs_version: '26.122'
 date: '2026-08-10'
-package_version: 0.6.0
+package_version: 0.7.0
 fs_exe: Flightstream_2612.exe
 executor: LocalExecutor, -hidden -script (mechanism SRC-003 pp.279-280; argument spelling RPT-023)
 solver_identity:
@@ -9,7 +9,7 @@ solver_identity:
 summary:
   verified: 0
   broken: 0
-  unprobed: 377
+  unprobed: 375
 commands:
   ACOUSTIC_SOURCES:
     outcome: unprobed
@@ -408,17 +408,6 @@ commands:
     return_code: null
     script_sha256: null
   SET_JET_WAKE_DECAY_NORMALIZED_LENGTH:
-    outcome: unprobed
-    detail: not probed in this run
-    signals:
-      sentinel_before: false
-      sentinel_after: false
-      effect: null
-      log_errors: []
-    wall_time_s: null
-    return_code: null
-    script_sha256: null
-  SET_JET_WAKE_FILAMENTS_GRID_INDUCTION:
     outcome: unprobed
     detail: not probed in this run
     signals:
@@ -3917,17 +3906,6 @@ commands:
     return_code: null
     script_sha256: null
   SWEEPER_CLEAR_SOLUTION:
-    outcome: unprobed
-    detail: not probed in this run
-    signals:
-      sentinel_before: false
-      sentinel_after: false
-      effect: null
-      log_errors: []
-    wall_time_s: null
-    return_code: null
-    script_sha256: null
-  SWEEPER_REF_VELOCITY_SAME:
     outcome: unprobed
     detail: not probed in this run
     signals:

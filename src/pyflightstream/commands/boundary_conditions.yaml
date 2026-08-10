@@ -232,14 +232,22 @@ AIR_ALTITUDE:
     same call means different things on either side of that boundary,
     by a factor of 3.28, and the number alone cannot say which.
 
-    Read the three broken rows beside that. Each records a 5000 with a
-    METERS token producing the density of the 5000 FOOT standard
-    atmosphere, 1.056 against the 0.736 expected, which is the token
-    being ignored rather than the command failing. The database records
-    what the probes measured, broken, and stops there: whether those
-    builds read every altitude as feet is a question about three
-    solvers that one more probe would answer, and no note here claims
-    it (PLN-20260810-2000).
+    Read the three broken rows beside that, and read them for what they
+    actually record. All three say the same thing: the command ran and
+    the expected density was not observed. ONE of them, 26.120, has a
+    reading behind it, 1.056 against the 0.736 expected, which is the
+    5000 FOOT standard state and was seen twice on build 7012026
+    (RPT-014). On 26.100 and 26.101 the probe recorded only that the
+    expected value was absent.
+
+    An earlier version of this note said all three recorded 1.056. They
+    do all CARRY that sentence, because it is the probe spec's static
+    effect_note rather than a per-run reading, and the same sentence
+    appears in 26.121's row under outcome verified, which is the proof
+    that it is boilerplate. Whether those builds read every altitude in
+    feet is a question about three solvers, and it now needs the
+    density read back on 26.100 and 26.101 as well as 26.120
+    (PLN-20260810-2000).
 
 SONIC_VELOCITY:
   layout: inline

@@ -501,8 +501,12 @@ helpers.free_stream(script)              # CONSTANT (default)
 helpers.free_stream(script, "ROTATION",  # hover / rotor frames
                     frame=2, axis="X", rpm=2000.0)
 \end{lstlisting}
+  \begin{block}{Which five properties, and which unit, depend on the build}
+    The helper reads its script's version rather than making you look it up. Builds from 26.100 on take \code{specific\_heat\_ratio} and derive the sonic velocity; the three pre-26.100 editions take \code{sonic\_velocity} and have no specific-heat-ratio argument at all (SRC-749 p.286), so the call above is refused there and the refusal names the keyword that edition wants.
+    The altitude form carries the sharper trap. 25.000 takes AIR\_ALTITUDE with a bare value and reads it in FEET; every later build takes a units token, which this helper defaults to METERS. Same call, factor of 3.28. So on 25.000 it REQUIRES \code{altitude\_units="FEET"} and refuses silence, that being the one omission which would change the physics without changing how the script looks.
+  \end{block}
   \begin{alertblock}{Why explicit properties}
-    The altitude form (AIR\_ALTITUDE, SRC-003 p.328) was probed broken on 26.100, 26.101 and 26.120: asked for 5000 METERS it produced 1.056 kg/m$^3$, the 5000 ft standard state, where 0.736 is correct. A density 43\% too high, with no error (committed compat report). The measurement is at ONE altitude, so what this page claims is that the METERS argument read as ignored there, and no more. The same probe passes on 26.121, and the 2026-08-08 run extended the finding backwards: the two earlier builds carry it too, so 26.121 is the only registered build where the altitude form is measured to work. Three variables separate the two runs (build, probe harness, session file), so RPT-014 declines to credit the vendor build alone and so does this page: it is the strongest candidate for a vendor fix, and it is still a candidate. On 26.120, use FLUID\_PROPERTIES.
+    The altitude form (AIR\_ALTITUDE, SRC-003 p.328) is recorded broken on 26.100, 26.101 and 26.120: the probe passed 5000 with a METERS token and the expected 0.736 kg/m$^3$ was not observed, with no error. ONE of the three has a reading behind it, 26.120, where 1.056 kg/m$^3$ was seen twice, the 5000 ft standard state and 43\% high. On the other two the probe recorded only the absence; the 1.056 sentence appears in all three reports because it is the probe spec's own expectation, and it appears in 26.121's PASSING row too. So the units-ignored reading is a hypothesis with one measurement, registered as PLN-20260810-2000, and this page does not state it as three. The measurement is at ONE altitude, so what this page claims is that the METERS argument read as ignored there, and no more. The same probe passes on 26.121, and the 2026-08-08 run extended the finding backwards: the two earlier builds carry it too, so 26.121 is the only registered build where the altitude form is measured to work. Three variables separate the two runs (build, probe harness, session file), so RPT-014 declines to credit the vendor build alone and so does this page: it is the strongest candidate for a vendor fix, and it is still a candidate. On 26.120, use FLUID\_PROPERTIES.
   \end{alertblock}
 \end{frame}
 
@@ -1055,7 +1059,7 @@ samples = parse_residual_history(log_text)
     \toprule
     Finding & Builds & Practical rule \\
     \midrule
-    AIR\_ALTITUDE ignores its units argument and applies feet & 26.100, 26.101, 26.120, 26.122* & set the fluid state through FLUID\_PROPERTIES, or move to 26.121, the one registered build where the same probe passes \\
+    AIR\_ALTITUDE does not produce the altitude asked for & 26.100, 26.101, 26.120, 26.122* & set the fluid state through FLUID\_PROPERTIES, or move to 26.121, the one registered build where the same probe passes \\
     SET\_MOTION\_START\_TIME aborts the script & 26.101, 26.120, 26.121, 26.122* & converge the base flow another way; every build probed since has found the same abort, the May one for the first time on 2026-08-08 \\
     NEW\_OFF\_BODY\_STREAMLINE aborts the script & 26.120, 26.121, 26.122* & use probe lattices for off-body data \\
     SWEEPER\_REF\_VELOCITY\_SAME aborts the script & 26.121 & prefer one script per sweep point \\

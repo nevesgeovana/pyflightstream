@@ -36,17 +36,33 @@ New public names: `pyflightstream.utils.stale_citations`,
 `pyflightstream.utils.UnreachableCommand`, the three protocols
 `pyflightstream.utils.RegistryLike`, `CommandEntryLike` and
 `VersionRowLike`, `pyflightstream.utils.manual.citation_reach`, the
-`pyfs-manual citations` subcommand, seven keyword arguments on
-`pyflightstream.script.helpers.solver_settings`, and one
-(`sonic_velocity`) on `pyflightstream.script.helpers.atmosphere`.
+`pyflightstream.utils.manual.Reachability`, the `pyfs-manual
+citations` subcommand, seven keyword arguments on
+`pyflightstream.script.helpers.solver_settings`, one (`sonic_velocity`)
+on `pyflightstream.script.helpers.atmosphere`, and the `source` field on
+`pyflightstream.utils.Edition` with the matching `source:` key in the
+edition manifest, which is what lets a citation be checked against the
+document it names.
 
-Behaviour changes a caller can see: `atmosphere` now takes
-`sonic_velocity` and reads its script's version to decide which five
-fluid properties FLUID_PROPERTIES wants, so it serves the three
-pre-26.100 builds it had stopped serving; the refusal for a command
+Behaviour changes a caller can see. `atmosphere` takes `sonic_velocity`
+and reads its script's version to decide which five fluid properties
+FLUID_PROPERTIES wants, so it serves the three pre-26.100 builds it had
+stopped serving. Its `altitude_units` defaults to None instead of
+`"METERS"`, so an omission can be told from an explicit pass: nothing
+changes on the seven builds that take a units token, which still emit
+METERS when nothing is given, but 25.000 takes no token and reads the
+bare AIR_ALTITUDE value in FEET (SRC-749 p.286), so there the helper
+REQUIRES `altitude_units='FEET'` and refuses silence. The same call is
+metres on the other seven, a factor of 3.28, which is the one silence
+worth refusing. `initialize_solver` refuses at entry on 25.000 rather
+than dying inside the binder on a keyword the caller never typed: that
+edition's grammar takes ten arguments and this helper's parameters do
+not map onto it. The refusal for a command the refusal for a command
 with no evidence lists builds by reachability and marks inherited ones,
 so it no longer hides the newest build; and `pyfs-manual sweep` reports
-a second finding and `--fail-if-absent` gates on the row-level one, which subsumes the other: a name with no entry is unreachable too.
+a second finding, and `--fail-if-absent` gates on the row-level measure
+alone: a name with no entry is unreachable too, so one term covers both
+and the other could not have been falsified by any test.
 
 Incompatible changes: none for a released signature. Deprecations:
 none.
@@ -160,7 +176,8 @@ The completeness claim was measured by a tool that cannot measure it.
 `pyfs-manual sweep` compares entry NAMES, so an entry carrying no row
 for one edition read as covered, and it reported zero absent while
 three builds could not emit a command their own manuals document. The
-sweep now reports both halves and `--fail-if-absent` gates on the row-level one, which subsumes the other: a name with no entry is unreachable too.
+sweep now reports both halves, and the completeness gate reads the
+row-level one.
 
 Four `removed` rows said the 26.122 edition does not print a command
 while that edition's Script Index names it. The body does not, the
@@ -181,14 +198,26 @@ parametrised over the builds instead of testing the one that changed.
 - **Three commands the 26.122 edition stops printing are still
   emitted for it.** That build inherits from its base release 26.120,
   and `CREATE_BULK_SEPARATION`, `SURFACE_DELETE` and `SURFACE_CLEARALL`
-  have neither a successor visible on the page nor any measurement, so
-  they rest on a reading rather than a run. The four that ARE refused
+  have no record on the builds inheritance reaches past. Not that they
+  have no successor and no measurement, which an earlier draft said and
+  this repository's own files refute three times over: `DELETE_SURFACES`
+  is recorded as replacing two of them and RPT-015 measured 26.121
+  rejecting the third. The four that ARE refused
   are refused on stronger evidence, and the split is not a rule anyone
   chose: it is what the available evidence happens to look like. One
   probe run of seven names settles it (`PLN-20260810-1600`, and the
   licensed-evidence queue in `docs/srs/roadmap.md`).
 - **Nothing has been probed on 26.122 at all.** It derives
   `operational` entirely on inherited records; the README row says so.
+  The same is true of 25.000, 25.100 and 26.000, so four of the eight
+  registered builds rest on manual evidence or on inheritance and no
+  COMMAND has been measured on any of the four. Each has met a solver:
+  an identity probe read its banner, which is where its build number
+  comes from and is all it claims.
+- **`initialize_solver` does not serve the three pre-26.100 builds.**
+  Their INITIALIZE_SOLVER takes a different argument set, and this
+  release fixes only `atmosphere`, the other helper the same gap hit.
+  The refusal names the page and points at `script.emit`.
 
 ## [0.6.0] - 2026-08-09
 
@@ -3946,7 +3975,8 @@ the repository seeding and this tag (milestones M0 through M5).
 * 26.000: registered, no recorded evidence yet (honest empty column;
   backfill planned for v0.2+).
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.7.0
 [0.6.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.6.0
 [0.5.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.5.0
 [0.4.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.4.0

@@ -132,8 +132,8 @@ def _parser() -> argparse.ArgumentParser:
     swp = sub.add_parser(
         "sweep",
         help=(
-            "report the commands at least one registered edition documents "
-            "and the database does not"
+            "report what no entry covers, and what an edition documents that "
+            "its own build cannot emit"
         ),
         epilog=_MANIFEST_EXAMPLE,
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -157,9 +157,12 @@ def _parser() -> argparse.ArgumentParser:
         "--fail-if-absent",
         action="store_true",
         help=(
-            "exit 1 when anything is absent, for a check that asserts the "
-            "database is complete. Without it the sweep always exits 0, "
-            "because a maintainer reading the report is the ordinary use"
+            "exit 1 when any command an edition documents cannot be emitted "
+            "for that build, which subsumes a command with no entry at all. "
+            "An edition whose label the registry cannot resolve does NOT "
+            "fail it: nothing was measured there. Without the flag the sweep "
+            "always exits 0, because a maintainer reading the report is the "
+            "ordinary use"
         ),
     )
 
@@ -366,7 +369,8 @@ def _sweep(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
         editions = read_edition_manifest(args.editions)
         registry = CommandRegistry.load()
         absent = sweep_editions(editions, recorded=registry.commands)
-        unreachable = unreachable_commands(editions, recorded=registry)
+        reachability = unreachable_commands(editions, recorded=registry)
+        unreachable = reachability.findings
     except FileNotFoundError as missing:
         parser.error(f"cannot read the manifest or a manual it names: {missing}")
     except ManualDraftError as error:
@@ -381,6 +385,15 @@ def _sweep(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
     )
     for item in unreachable:
         print(f"    {item.edition}  {item.command:<44} {item.reason}")
+    # An edition the registry could not resolve is reported as itself,
+    # not as a command, and does not fail the gate: reading a new
+    # vendor manual before the build is registered is what this tool is
+    # for, and `Edition.label` promises nothing resolves it.
+    for label in reachability.unmeasured:
+        print(
+            f"    {label}: read, but the registry resolves that label to no single "
+            "build, so nothing is known about what it can emit"
+        )
     # ONE TERM, because the other is subsumed. `sweep_editions` reports
     # names the database has no entry for; `unreachable_commands`
     # reports the same names with reason "no entry" plus the row-level

@@ -66,6 +66,7 @@ PAGES = (
     "docs/mesh-inputs.md",
     "docs/srs/data-model.md",
     "docs/srs/philosophy.md",
+    "docs/srs/roadmap.md",
     "docs/srs/scope.md",
     "docs/srs/functional-requirements.md",
     "docs/srs/introduction.md",

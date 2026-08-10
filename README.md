@@ -7,10 +7,11 @@
 Version-aware, didactic Python driver for the FlightStream panel-method
 solver. Successor of the author's legacy research scripts. MIT licensed.
 
-Status: v0.7.0 is the current release, published to
-[PyPI](https://pypi.org/project/pyflightstream/) and archived on Zenodo
-(DOI recorded in CITATION.cff). CHANGELOG.md carries the release
-history. This release registers an eighth FlightStream build the day
+Status: v0.7.0 is the current release. It publishes to
+[PyPI](https://pypi.org/project/pyflightstream/) and archives on Zenodo
+from the tag, so the concept DOI in CITATION.cff resolves to the newest
+archived version and the version DOI is recorded one commit after the
+tag that names it. CHANGELOG.md carries the release history. This release registers an eighth FlightStream build the day
 after the vendor issued it, and every command any of the eight
 registered manual editions documents now has an entry. Read that claim
 at the level it is measured at, which the release notes do: ten
@@ -153,7 +154,7 @@ runs, not that its physics is right for a case nobody has measured.
 | `pyfs-qa` | Tier 2 command-validity probes, Tier 3 physics regression and cross-version drift, status promotion from committed reports |
 | `pyfs-workspace` | Initialize the managed campaign workspace tree |
 | `pyfs-matrix` | Convert and pre-flight run matrices |
-| `pyfs-manual` | Compare FlightStream manuals against the command database: one manual, every registered edition at once (`sweep`, which reports both what has no entry and what an edition documents that its build cannot emit), what each build documents and what changed between builds (`surface`), or whether the citations already written still point where they say (`citations`, the one subcommand that exits non-zero on a finding). Maintainer tool; needs the `[manual]` extra and writes only with `--write` |
+| `pyfs-manual` | Compare FlightStream manuals against the command database: one manual, every registered edition at once (`sweep`, which reports both what has no entry and what an edition documents that its build cannot emit), what each build documents and what changed between builds (`surface`), or whether the citations already written still point where they say (`citations`, the one subcommand that fails by default on a finding, because a citation that does not hold is a statement already shipped rather than work remaining). Maintainer tool; needs the `[manual]` extra and writes only with `--write` |
 | `pyfs-fsi` | The structural executable of the aeroelastic coupling loop |
 
 ## Supported FlightStream versions

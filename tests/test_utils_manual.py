@@ -1855,7 +1855,7 @@ def test_a_documented_command_with_no_entry_is_unreachable(tmp_path):
     read, _calls = _recording_reader({"ed": {1: {1: "Function name: NOT_IN_THE_DATABASE <A>\n"}}})
     (found,) = unreachable_commands(
         [_edition(tmp_path, "ed", (1, 1))], recorded=_reg({}, _View()), reader=read
-    )
+    ).findings
     assert (found.command, found.reason) == ("NOT_IN_THE_DATABASE", "no entry")
 
 
@@ -1871,7 +1871,7 @@ def test_an_entry_with_no_row_for_the_edition_is_unreachable(tmp_path):
         [_edition(tmp_path, "ed", (1, 1))],
         recorded=_reg({"HAS_AN_ENTRY": object()}, _View(refuses=["HAS_AN_ENTRY"])),
         reader=read,
-    )
+    ).findings
     assert (found.command, found.reason) == ("HAS_AN_ENTRY", "refused")
 
 
@@ -1889,7 +1889,7 @@ def test_a_command_reachable_only_by_inheritance_is_not_reported(tmp_path):
             [_edition(tmp_path, "ed", (1, 1))],
             recorded=_reg({"INHERITED": object()}, _View()),
             reader=read,
-        )
+        ).findings
         == ()
     )
 
@@ -1904,10 +1904,15 @@ def test_an_unregistered_build_is_swept_and_reported_rather_than_raising(tmp_pat
     commit.
     """
     read, _calls = _recording_reader({"ed": {1: {1: "Function name: ANY_COMMAND <A>\n"}}})
-    (found,) = unreachable_commands(
+    result = unreachable_commands(
         [_edition(tmp_path, "ed", (1, 1))], recorded=_reg({}), reader=read
     )
-    assert found.reason == "label resolves to no single build"
+    # Reported as an EDITION, not as a command. It was a finding with
+    # the string "(every command)" in the command field for one commit,
+    # so the CLI counted it among the commands that cannot be emitted
+    # and --fail-if-absent failed on a build nobody has registered yet.
+    assert result.findings == ()
+    assert result.unmeasured == ("ed",)
 
 
 def test_the_reachability_check_refuses_a_configuration_that_would_read_clean(tmp_path):
@@ -1998,8 +2003,13 @@ def test_a_label_the_registry_cannot_resolve_is_reported_by_the_real_sweep(
         "pyflightstream.utils.manual.read_pdf_pages",
         lambda manual, *, first, last: {10: "Function name: START_SOLVER <A>\n"},
     )
+    # Exit 0, not 1: this is the read-before-you-register workflow, and
+    # an edition nobody has registered must not fail a completeness gate.
     assert cli_main(["sweep", "--editions", str(manifest)]) == 0
-    assert "label resolves to no single build" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "resolves that label to no single build" in out
+    assert "0 command(s) absent" in out
+    assert "1 command(s)" not in out
 
 
 def test_the_reach_record_is_cleared_before_the_manuals_are_read():

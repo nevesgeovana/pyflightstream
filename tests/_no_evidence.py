@@ -4,7 +4,7 @@ Several tests need a build that refuses a command, and until 2026-08-10
 they got one for free: 26.000 was registered and carried evidence for
 nothing, so any command refused there. Reading its own manual edition
 gave it 262 commands and took that fixture away, and the four commands
-those tests used are now documented by all seven registered builds.
+those tests used are now documented by every registered build.
 
 That is the work succeeding, not a regression, so the fixture moves
 rather than the assertion. Emptying ONE command's rows keeps the refusal

@@ -731,3 +731,22 @@ def test_the_build_with_no_units_token_requires_the_unit_it_reads():
     # And a unit that build cannot honour is refused rather than dropped.
     with pytest.raises(CommandArgumentError, match="cannot be emitted or honoured"):
         helpers.atmosphere(Script(version="25.000"), altitude=5000.0, altitude_units="METERS")
+
+
+def test_the_solver_initializer_says_it_cannot_serve_the_oldest_build():
+    """A refusal naming a keyword the caller never typed is not a refusal.
+
+    25.000's INITIALIZE_SOLVER takes ten arguments, has no SOLVER_MODEL
+    and spells symmetry SYMMETRY_TYPE with its own tokens. This helper
+    binds `solver_model` and `symmetry` from defaults, so a bare call
+    on that build died inside the binder on a name the caller had not
+    written. It says what it cannot do, and where to go instead.
+    """
+    with pytest.raises(CommandArgumentError, match="cannot express the INITIALIZE_SOLVER grammar"):
+        helpers.initialize_solver(Script(version="25.000"))
+
+    # And the seven it does serve are untouched.
+    script = Script(version="26.120")
+    script.declare_existing(boundaries=2)
+    helpers.initialize_solver(script)
+    assert "INITIALIZE_SOLVER" in script.render()

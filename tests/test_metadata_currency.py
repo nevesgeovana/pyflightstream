@@ -218,3 +218,56 @@ def test_the_installed_metadata_matches_the_source_tree() -> None:
         "Re-install the project before producing evidence: "
         "python -m pip install -e . --no-deps"
     )
+
+
+def test_every_release_heading_has_a_link_definition_and_the_compare_base_is_current():
+    """The half of a changelog promotion that renders and nothing checked.
+
+    Promoting a section is two edits: the heading, and the reference
+    link at the tail that makes it a link rather than literal bracket
+    text. The v0.7.0 promotion did the first and not the second, and
+    left `[Unreleased]` comparing from the release before, which after
+    the tag claims the whole shipped section as unreleased work.
+    """
+    import re
+
+    text = (Path(__file__).parents[1] / "CHANGELOG.md").read_text(encoding="utf-8")
+    headings = re.findall(r"^## \[([^\]]+)\]", text, re.M)
+    definitions = set(re.findall(r"^\[([^\]]+)\]:", text, re.M))
+    released = [name for name in headings if name != "Unreleased"]
+    missing = [name for name in headings if name not in definitions]
+    assert not missing, (
+        f"these changelog headings have no link definition and render as literal "
+        f"bracket text: {missing}. A promotion is the heading AND the definition"
+    )
+    compare = re.search(r"^\[Unreleased\]:\s*(\S+)", text, re.M)
+    assert compare, "the Unreleased link definition is gone"
+    assert f"v{released[0]}...HEAD" in compare.group(1), (
+        f"the Unreleased compare link reads {compare.group(1)} while the newest "
+        f"released section is {released[0]}, so it claims that whole section as "
+        "unreleased work"
+    )
+
+
+def test_the_release_date_is_the_one_the_changelog_states():
+    """Asserted present since v0.4.0, and never asserted correct.
+
+    `date-released` and the dated heading are written by hand in two
+    files in one commit, which is the shape every other version-bearing
+    pair in this repository has a guard for.
+    """
+    import re
+
+    root = Path(__file__).parents[1]
+    citation = (root / "CITATION.cff").read_text(encoding="utf-8")
+    stated = re.search(r"^date-released:\s*(\S+)", citation, re.M)
+    if stated is None:
+        return  # a development version carries none, which its own guard covers
+    text = (root / "CHANGELOG.md").read_text(encoding="utf-8")
+    heading = re.search(r"^## \[(?!Unreleased)([^\]]+)\] - (\S+)", text, re.M)
+    assert heading, "no dated release heading to compare against"
+    assert stated.group(1) == heading.group(2), (
+        f"CITATION.cff says the release is dated {stated.group(1)} and the newest "
+        f"changelog heading says {heading.group(2)}; the two are written by hand "
+        "in one commit and nothing compared them"
+    )

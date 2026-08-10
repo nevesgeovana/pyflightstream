@@ -8,9 +8,10 @@ prose.
 Two of them exist because a first draft got the identifying value
 wrong in a way that was worse than having no page. It keyed the "release
 name it prints" column on ``FsVersion.alias``, the name the VENDOR SELLS
-the build under. Those two facts differ for four of the seven registered
-builds: 26.120 and 26.121 are sold as 26.12 and both binaries print
-26.1. A reader with either install would have found no row carrying
+the build under. Those two facts differ for every build of the 26.12
+release: all of them are sold as 26.12 and all of them print 26.1. No
+count is written here, because it has moved twice. A reader with
+any of those installs would have found no row carrying
 their printed name, matched one of the rows that does, and left with the
 identifier of a different solver. The page is keyed on
 ``FsVersion.prints`` now, and one guard below cross-checks that field

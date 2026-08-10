@@ -209,9 +209,12 @@ SWEEPER_REF_VELOCITY_SAME:
         rather than a second opinion about the solver. The index is incomplete in BOTH
         directions and neither half of it carries much: counted over
         the ten commands this edition is the first to document, five
-        are in it and five are not, and it keeps four names the body
-        dropped plus one, SOLVER_INITIALIZATION, that is not a
-        command at all. So the body wins here on the rule and not on
+        are in it and five are not, and it keeps four of the seven
+        names this edition stops printing relative to 26.120, plus at
+        least one token that is no command at all,
+        SOLVER_INITIALIZATION. Read the four with that scope: counted
+        without it the kept names are five, DISABLE_ACTUATOR having
+        left the body at 26.101 and stayed in the index. So the body wins here on the rule and not on
         any property of this index. A first draft of this note said
         the index was maintained by addition, which was one
         observation generalised and the count refutes it. THIS ROW EXISTS BECAUSE

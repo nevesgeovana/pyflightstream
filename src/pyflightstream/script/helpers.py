@@ -392,7 +392,13 @@ def atmosphere(
             # which. FEET is therefore accepted and required rather
             # than assumed: a caller who says nothing is refused, so
             # crossing the boundary cannot happen silently.
-            if altitude_units is None:
+            # Normalised first. Every other token in this package is
+            # matched case-insensitively, so a refusal that reads
+            # altitude_units != "FEET" told a caller who asked for
+            # "feet" that feet cannot be honoured, citing the page that
+            # says they are.
+            spelled = altitude_units.upper() if altitude_units is not None else None
+            if spelled is None:
                 raise CommandArgumentError(
                     f"atmosphere: FlightStream {script.version.canonical} takes "
                     "AIR_ALTITUDE with a bare value and reads it in FEET "
@@ -402,7 +408,7 @@ def atmosphere(
                     "without it means metres on the other seven builds, which is "
                     "the same altitude times 3.28"
                 )
-            if altitude_units != "FEET":
+            if spelled != "FEET":
                 raise CommandArgumentError(
                     f"atmosphere: FlightStream {script.version.canonical} reads "
                     f"AIR_ALTITUDE in FEET and takes no units token, so "
@@ -711,7 +717,7 @@ def solver_settings(
     disable_ref_velocity: bool = False,
     solver_model: str | None = None,
     valarezo_criterion: Toggle | None = None,
-    crossflow_separation_cp: float | None = None,
+    crossflow_separation_mean_diameter: float | None = None,
     wake_relaxation: Toggle | None = None,
     wake_streamwise_agglomeration: Toggle | None = None,
     adverse_gradient_boundary_layer: Toggle | None = None,
@@ -1020,17 +1026,22 @@ def solver_settings(
         Enable the Valarezo pressure-difference criterion for predicting
         the onset of separation. Documented by the three pre-26.100
         editions (SRC-747 p.316) and by none after them.
-    crossflow_separation_cp : float, optional
-        DESPITE THE NAME THIS IS A LENGTH, not a pressure coefficient:
-        the mean diameter of the body the cross-flow separation model
+    crossflow_separation_mean_diameter : float, optional
+        Mean diameter of the body the cross-flow separation model
         applies to, strictly positive, in the simulation length units.
-        The vendor's command is SET_CROSSFLOW_SEPARATION_CP because the
-        critical Cp the model uses is derived from that scale, and the
-        keyword mirrors the command. Read it beside `minimum_cp` in this
-        same signature, which really is a pressure coefficient, and
-        beside `crossflow_separation_diameter`, which is this same
-        quantity under its own name on 26.100 and later. Documented by
-        the three pre-26.100 editions (SRC-747 p.316).
+        The model needs it because the critical pressure coefficient it
+        uses depends on the cross-sectional scale.
+
+        NAMED FOR THE QUANTITY AND NOT FOR THE COMMAND, unlike its
+        siblings, and deliberately: the vendor spells the command
+        SET_CROSSFLOW_SEPARATION_CP, so mirroring it would put a
+        keyword reading `_cp` on an argument the database itself calls
+        `mean_diameter`, one screen from `minimum_cp`, which really is a
+        pressure coefficient. It shipped as `crossflow_separation_cp`
+        in no release. Its 26.100 counterpart is
+        `crossflow_separation_diameter`, the same physical quantity
+        under a command the vendor named after it. Documented by the
+        three pre-26.100 editions (SRC-747 p.316).
     wake_relaxation : bool or 'ENABLE' or 'DISABLE', optional
         Enable relaxation of the wake geometry between solver
         iterations, which damps the wake movement and helps a case that
@@ -1447,8 +1458,8 @@ def solver_settings(
         script.emit("SET_SOLVER_MODEL", solver_model)
     if valarezo_criterion is not None:
         script.emit("VALAREZO_CRITERION", _toggle(valarezo_criterion))
-    if crossflow_separation_cp is not None:
-        script.emit("SET_CROSSFLOW_SEPARATION_CP", crossflow_separation_cp)
+    if crossflow_separation_mean_diameter is not None:
+        script.emit("SET_CROSSFLOW_SEPARATION_CP", crossflow_separation_mean_diameter)
     if wake_relaxation is not None:
         script.emit("SET_WAKE_RELAXATION", _toggle(wake_relaxation))
     if wake_streamwise_agglomeration is not None:
@@ -1511,7 +1522,7 @@ def solver_settings(
         "disable_ref_velocity": disable_ref_velocity,
         "solver_model": solver_model,
         "valarezo_criterion": valarezo_criterion,
-        "crossflow_separation_cp": crossflow_separation_cp,
+        "crossflow_separation_mean_diameter": crossflow_separation_mean_diameter,
         "wake_relaxation": wake_relaxation,
         "wake_streamwise_agglomeration": wake_streamwise_agglomeration,
         "adverse_gradient_boundary_layer": adverse_gradient_boundary_layer,
@@ -1602,7 +1613,34 @@ def initialize_solver(
         and forbidden otherwise.
     wall_collision_avoidance : bool or 'ENABLE' or 'DISABLE', optional
         Applies to solver models 1 to 3.
+
+    Raises
+    ------
+    CommandArgumentError
+        On FlightStream 25.000, whose INITIALIZE_SOLVER this helper
+        cannot express: that edition takes ten arguments, spells
+        symmetry SYMMETRY_TYPE with its own token set and has no
+        SOLVER_MODEL, so the defaults here would bind two names it does
+        not carry. Refused at entry, before anything is emitted, and the
+        message points at ``script.emit`` (SRC-749 p.298).
     """
+    # THIS HELPER CANNOT EXPRESS THE 25.000 GRAMMAR, and says so here
+    # rather than letting the binder refuse a keyword the caller never
+    # typed. That edition's INITIALIZE_SOLVER takes ten arguments, has
+    # no SOLVER_MODEL, spells symmetry SYMMETRY_TYPE with a different
+    # token set, and requires five more this helper has no parameter
+    # for. The defaults below would bind two of them, so a bare call
+    # died on a name the caller never wrote (SRC-749 p.298).
+    if "solver_model" not in {arg.name for arg in script._view["INITIALIZE_SOLVER"].args}:
+        raise CommandArgumentError(
+            f"initialize_solver cannot express the INITIALIZE_SOLVER grammar of "
+            f"FlightStream {script.version.canonical}: that edition takes ten "
+            "arguments, spells symmetry SYMMETRY_TYPE with its own token set, and "
+            "has no SOLVER_MODEL, so this helper's parameters do not map onto it "
+            "(SRC-749 p.298). Emit the command directly with "
+            "script.emit('INITIALIZE_SOLVER', ...), which validates against that "
+            "build's own grammar"
+        )
     if (symmetry.upper() == "PERIODIC") != (periodic_copies is not None):
         raise CommandArgumentError(
             "INITIALIZE_SOLVER: PERIODIC symmetry appends the number of copies, so "
