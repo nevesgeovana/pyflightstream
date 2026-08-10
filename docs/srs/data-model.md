@@ -20,8 +20,37 @@ Each command entry records:
 | args | Typed argument specifications, with enums and optional flags |
 | manual_ref | The manual page citation backing the entry; exclusive with `probe_ref` |
 | probe_ref | A committed probe report backing an entry no manual edition documents; exclusive with `manual_ref` |
-| versions | Per-version presence, status, and (where they differ) per-version argument grammars |
+| versions | Per-version presence, status, and (where they differ) per-version argument grammars, each stating its DIFFERENCE from the entry-level grammar rather than replacing it |
 | default / default_ref | Optional evidence-cited default value of a settings flag |
+
+### A per-version grammar states its difference
+
+Amended 2026-08-10. A version row's `args` used to replace the
+entry-level argument list outright, so a row changing one field of one
+argument had to restate every other field of every argument. An
+override now inherits, per argument matched by NAME, every field it does
+not itself write.
+
+The reason is measured rather than aesthetic. Restating a whole argument
+to change one flag is how a second flag changes by accident: writing
+nineteen overrides in one pass lost a list separator and an entity
+citation, which is the same defect a test in this repository already
+named as the one this family had produced. A later measurement found the
+mechanism covers four kinds of field and only two were guarded, and that
+dropping two of the four changed what one command emits on two builds
+without failing a single test.
+
+Inheritance reads the RAW file, because that is the only place where
+"the row did not write this" is observable: on a parsed model an omitted
+field and one set to its default are the same value. Writing any field
+as null therefore clears it rather than inheriting it, and an argument
+whose name the entry-level list does not carry is taken exactly as
+written, so a row may still state a different argument SET.
+
+What a version row still cannot override is the LAYOUT. Ten readings
+across four commands are withheld for that reason rather than recorded
+in a shape that would emit the newer form under the older edition's
+citation (`PLN-20260810-1200`).
 
 ### What an argument declares, and when it must
 

@@ -34,10 +34,16 @@ script.emit("SOLVER_SET_AOA", 4.0)
 script.emit("START_SOLVER")
 print(script.render())  # validated ASCII script, ready for the solver
 
+# The version is checked, and the check ASSERTS rather than prints:
+# an example whose only claim is that something is refused goes green
+# in CI the day the refusal stops firing, which is how this block came
+# to promise a refusal it no longer made.
 try:
-    Script(version="26.0").emit("SOLVER_SET_AOA", 4.0)
+    Script(version="26.0").emit("CAD_CREATE_BOX", frame=1, x=0.0, y=0.0, z=0.0,
+                                len_x=1.0, len_y=1.0, len_z=1.0)
+    raise AssertionError("26.000 has no CAD chapter; this must refuse")
 except CommandNotInVersionError as error:
-    print(error)  # refused: no recorded evidence for that version
+    print(error)  # the CAD family arrives at 26.100
 ```
 
 The worked examples in `examples/` take it from here to executed
@@ -142,7 +148,7 @@ runs, not that its physics is right for a case nobody has measured.
 | `pyfs-qa` | Tier 2 command-validity probes, Tier 3 physics regression and cross-version drift, status promotion from committed reports |
 | `pyfs-workspace` | Initialize the managed campaign workspace tree |
 | `pyfs-matrix` | Convert and pre-flight run matrices |
-| `pyfs-manual` | Compare FlightStream manuals against the command database: one manual, every registered edition at once (`sweep`), or what each build documents and what changed between builds (`surface`). Maintainer tool; needs the `[manual]` extra and writes only with `--write` |
+| `pyfs-manual` | Compare FlightStream manuals against the command database: one manual, every registered edition at once (`sweep`, which reports both what has no entry and what an edition documents that its build cannot emit), what each build documents and what changed between builds (`surface`), or whether the citations already written still point where they say (`citations`, the one subcommand that exits non-zero on a finding). Maintainer tool; needs the `[manual]` extra and writes only with `--write` |
 | `pyfs-fsi` | The structural executable of the aeroelastic coupling loop |
 
 ## Supported FlightStream versions
@@ -153,9 +159,9 @@ the evidence rather than declared:
 
 | Version | Vendor name | Support level | What that means here |
 |---|---|---|---|
-| 25.000 | 25.0 | `documented` | Vendor build 12162024, December 2024. Registered on 2026-08-09 so that published work run on it has an identifier that resolves, and its own manual read command by command on 2026-08-10: 267 commands are emittable for it. Not yet `operational`, and the gap is one command in the minimal workflow rather than a missing capability: this edition runs the trailing-edge autodetection from inside a `PHYSICS` block, and the standalone command the workflow uses arrives at 26.000 |
-| 25.100 | 25.1 | `documented` | Vendor build 5062025, May 2025. Registered for the same reason, 269 commands from its own manual, and the same `PHYSICS` block as 25.000. The 25 series checks out an EDU licence rather than the full feature set, so what either of these builds refuses may be the licence rather than the build; that is not yet measured |
-| 26.000 | 26.0 | `documented` | Vendor build 10202025, October 2025. 273 commands from its own manual. The CAD and cross-section families do not exist in this edition; they arrive with 26.100 |
+| 25.000 | 25.0 | `documented` | Vendor build 12162024, December 2024. Registered on 2026-08-09 so that published work run on it has an identifier that resolves, and its own manual read command by command on 2026-08-10: 267 commands are emittable for it. Not yet `operational`, and the blocker is solver evidence rather than database rows: no command has been measured on this build, and the level stops at `documented` for that reason before the workflow is even considered. 26.000 shows it, having every workflow command and the same level. Its manual documents 272 commands and 268 are emittable, the difference being four readings withheld where a version row cannot express a layout (PLN-20260810-1200). Behind the evidence gap there is also a workflow one: this edition runs the trailing-edge autodetection from inside a `PHYSICS` block and the standalone command arrives at 26.000 |
+| 25.100 | 25.1 | `documented` | Vendor build 5062025, May 2025. Registered for the same reason. Its manual documents 274 commands and 270 are emittable, with the same four layout withholdings, and it uses the same `PHYSICS` block as 25.000. The 25 series checks out an EDU licence rather than the full feature set, so what either of these builds refuses may be the licence rather than the build; that is not yet measured |
+| 26.000 | 26.0 | `documented` | Vendor build 10202025, October 2025. Its manual documents 276 commands and 274 are emittable, the two withheld for the same layout reason. Nothing has been probed on it either, which is what holds it at this level. The CAD and cross-section families do not exist in this edition; they arrive with 26.100 |
 | 26.100 | 26.1 | `operational` | The February 2026 build, and the last to reach this level, on 2026-08-08. It was held at `verified` less by the solver than by the database: the per-edition sweep that day found 40 commands its own manual documents and this database had no row for, so the emitter refused them and the minimal end-to-end workflow could not be built. With those rows written the workflow builds. Probe coverage is still thinner here than on the newer builds, the harness reaching only commands that carry a probe spec; the compatibility matrix carries the live counts |
 | 26.101 | 26.1 | `operational` | The May 2026 build. Commands drafted from the manual with page citations, with the first harness promotions on 2026-08-08, which also carried it to the level where the minimal end-to-end workflow builds. It sits at a hotfix index and does NOT inherit from 26.100: the two are separate vendor releases under one name |
 | 26.120 | 26.12 | `operational` | Probe evidence from a licensed machine, and the minimal end-to-end workflow builds |

@@ -36,6 +36,7 @@ Extraction of the archive is deliberately NOT done here: it needs an
 archive tool, and the manual is licensed material that stays outside
 Git. Extract first, then point this at the directory.
 
+    pip install pyflightstream[manual]
     7z x -o<dir> <manual>.chm
     python scripts/chm_to_pdf.py <dir> <out>.pdf
 
@@ -53,14 +54,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pypdf
-
-#: Where a Chrome or Chromium binary lives. Overridable, because the
-#: pagination depends on the renderer and its version, and the source
-#: row records which one produced the committed page numbers.
-CHROME = Path(
-    sys.argv[3] if len(sys.argv) > 3 else r"C:\Program Files\Google\Chrome\Application\chrome.exe"
-)
+#: Where a Chrome or Chromium binary lives when the caller names none.
+#: Resolved in main() rather than here: read at import time it consumed
+#: whatever argv the importer happened to have, so importing this module
+#: for any other reason picked up a third argument that was not its own.
+DEFAULT_CHROME = Path(r"C:\Program Files\Google\Chrome\Application\chrome.exe")
 
 TOC = re.compile(r'param\s+name="Local"\s+value="([^"]+)"', re.I)
 BODY = re.compile(r"(?is)<body[^>]*>(.*)</body>")
@@ -135,7 +133,7 @@ def combine(root: Path) -> tuple[Path, int, int]:
     return combined, len(order), kept
 
 
-def render(combined: Path, out: Path) -> None:
+def render(combined: Path, out: Path, chrome: Path) -> None:
     """Print the combined html to pdf and strip what makes it unique.
 
     The output path is resolved ABSOLUTE first: the renderer resolves a
@@ -143,12 +141,14 @@ def render(combined: Path, out: Path) -> None:
     a relative argument silently writes the pdf somewhere else and this
     reports that no file was produced.
     """
+    import pypdf  # noqa: PLC0415 - the [manual] extra, not a base dependency
+
     out = out.resolve()
     out.parent.mkdir(parents=True, exist_ok=True)
     out.unlink(missing_ok=True)
     subprocess.run(
         [
-            str(CHROME),
+            str(chrome),
             "--headless=new",
             "--disable-gpu",
             "--no-pdf-header-footer",
@@ -193,11 +193,22 @@ def main() -> int:
         print("usage: chm_to_pdf.py <extracted-archive-dir> <out.pdf> [chrome.exe]")
         return 2
 
+    try:
+        import pypdf  # noqa: PLC0415
+    except ModuleNotFoundError:
+        print(
+            "this tool reads and rewrites a pdf and needs pypdf, which is the "
+            "[manual] extra rather than a base dependency: "
+            "pip install pyflightstream[manual]"
+        )
+        return 2
+
     root = Path(sys.argv[1])
     out = Path(sys.argv[2])
+    chrome = Path(sys.argv[3]) if len(sys.argv) > 3 else DEFAULT_CHROME
     combined, topics, kept = combine(root)
     print(f"{topics} topics in the archive's own order, {kept} signature blocks held whole")
-    render(combined, out)
+    render(combined, out, chrome)
     out = out.resolve()
 
     reader = pypdf.PdfReader(str(out))

@@ -19,6 +19,16 @@ Milestones and session records are listed in the
     page, or a committed probe report for a command the solver accepts
     and no manual edition documents.
 
+    A page citation is RE-READABLE against the edition it names, and a
+    tool re-reads it (`pyfs-manual citations`). Amended 2026-08-10: a
+    citation was written once from a reading and nothing looked at it
+    again, so when the 25.000 manual's pagination moved under ten rows
+    they went on naming real pages of a real manual and no guard could
+    see it. The requirement is now that the claim be checkable, not only
+    that it be present. Read its reach with it: the check reports how
+    many rows it could re-read at all, since a row citing no page of its
+    own cannot be checked and most do not carry one.
+
 !!! requirement "FR-02 Launch version set and ordering <span class='srs-implemented'>implemented</span>"
     *Origin: BRF-07, BRF-19. Evidence: milestone M1; `versions` tests.*
 
@@ -1044,9 +1054,23 @@ The allocation is recorded in the
     Why the taxonomy is a requirement rather than a docs improvement:
     registering a version made every surface call it supported, and the
     distance between two versions wearing that one word was measured.
-    26.000 is registered, is accepted by `Script(version="26.000")` and
-    by a campaign, and carries evidence for zero of the database's
-    commands, so nothing whatever can be built for it. Read with FR-02:
-    versions are only ever added, never dropped, so the registry
-    accumulates entries whose evidence has not caught up, and this
-    requirement is what keeps that honest as the list grows.
+    On 2026-08-02, 26.000 was registered, was accepted by
+    `Script(version="26.000")` and by a campaign, and carried evidence
+    for zero of the database's commands, so nothing whatever could be
+    built for it. That build's own manual was read on 2026-08-10 and it
+    now derives `documented`, which is the mechanism working rather than
+    the example expiring: the level moved because the evidence did, with
+    nobody editing a claim. Read with FR-02: versions are only ever
+    added, never dropped, so the registry accumulates entries whose
+    evidence has not caught up, and this requirement is what keeps that
+    honest as the list grows.
+
+    THE LEVEL IS DERIVED FROM REACHABLE EVIDENCE, WHICH INCLUDES
+    INHERITED EVIDENCE, and 26.122 is the first build to make that
+    distinction matter. Amended 2026-08-10: it derives `operational` on
+    records inherited from its base release 26.120, with no command
+    probed on it at all. That is what declaring a build a genuine hotfix
+    means and the derivation is not weakened by it, but a reader taking
+    `operational` as a statement about measurements made on THAT BUILD
+    would be wrong. Anything presenting the level to a user states what
+    it rests on where the two differ.

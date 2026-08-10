@@ -234,9 +234,14 @@ manual_editions:
     and it rendered INSIDE the last command's sample window on 26 pages,
     so the package reader returned it as a continuation line and those
     commands read as taking one argument more than they do. Stripping it
-    shortened the document by six pages and shifted every citation by
-    five. The 241 rows citing this edition were rewritten against the
-    corrected document rather than left pointing five pages early.
+    shortened the document by six pages and moved every citation by five
+    or six, since how far a page moved depends on how many stripped
+    footers fell before it; an earlier wording here said five for all of
+    them, which a six-page shortening cannot produce. The 241 rows
+    citing this edition at the time were rewritten against the corrected
+    document. TEN MORE WERE WRITTEN AFTER THAT REWRITE AND FROM THE
+    EARLIER READING, and were found on 2026-08-10 by the check that now
+    exists for it, `pyfs-manual citations`.
 
     Four things had to be fixed before the conversion was usable, and
     the first three had made a citation point at a page where the

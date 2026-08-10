@@ -12,8 +12,9 @@ tools ship with the package: `pyfs-qa`
 workspace init), `pyfs-matrix` (run-matrix convert and pre-flight),
 `pyfs-fsi` (the aeroelastic coupling executable), and `pyfs-manual`
 (maintainer tool: compares a vendor manual against the command
-database, and reports what each build documents and what changed
-between builds; needs the `[manual]` extra).
+database, reports what each build documents and what changed between
+builds, and re-reads the page citations already written to check they
+still point where they say; needs the `[manual]` extra).
 
 ## The idea in one paragraph
 

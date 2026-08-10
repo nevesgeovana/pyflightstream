@@ -42,7 +42,23 @@ has an entry for, with the page and the editions each one needs, and
 `--by-section` groups them by chapter and `--fail-if-absent` makes a
 residual fail rather than report. Use it for a coverage push:
 `coverage`, below, answers the same question of ONE manual, and a command
-absent from one edition may be recorded from another. The manifest names
+absent from one edition may be recorded from another.
+
+`sweep` reports a SECOND finding beside that one, and the two answer
+different questions. The first asks which commands have no entry; the
+second asks which commands an edition documents that its own build
+cannot emit, which the first is structurally blind to because it
+compares entry names. An entry that exists and carries no row for one
+edition reads as covered, and on 2026-08-10 exactly that hid a command
+three builds could not emit.
+
+`citations` is the one to run AFTER writing page citations, and the
+step is not optional bookkeeping: it exists because ten citations were
+found pointing at a document whose pagination had moved under them,
+each at a real page of a real manual, so nothing looked wrong. Run it
+over the whole manifest rather than the edition you just touched, since
+a re-conversion of an OLD manual is what produced those ten. It is the
+only subcommand that exits non-zero on a finding. The manifest names
 paths of licensed manuals and is never committed (invariant 1);
 `pyfs-manual sweep --help` prints an example row.
 

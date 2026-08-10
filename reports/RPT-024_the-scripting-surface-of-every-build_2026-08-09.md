@@ -1,4 +1,4 @@
-# RPT-024: the scripting surface of every build (2026-08-09)
+# RPT-024: the scripting surface of every build (2026-08-09, amended 2026-08-10)
 
 What each registered FlightStream build documents as its scripting
 command set, and what changed from one build to the next. Command names
@@ -48,51 +48,58 @@ removing commands.
 
 ## Cross-checked against the command database
 
-The check that makes the page ranges trustworthy: for all four builds
-the database records, every command the manual documents has an entry.
-MANUAL-ONLY IS ZERO on all four. A range that missed pages would show up
-here as commands the manual documents and the database never heard of.
+RE-READ 2026-08-10, and the previous version of this section is why the
+note at the top of this report exists. It described four builds under a
+table regenerated for eight, which is exactly the stale hand-written
+section under a fresh table that the note warns against.
 
-The reverse direction is not zero, and the set has to be defined before
-the numbers mean anything. Counted below is every command carrying an
-evidence row for that build, DIRECT OR INHERITED, `removed` rows
-included:
+Two directions, and they are different questions.
+
+**Manual to database, now measured rather than asserted.** Every command
+every edition documents has an entry: `pyfs-manual sweep` reports zero
+absent across all eight. The previous wording stopped there, and
+stopping there was the error, because that measure compares entry NAMES
+and cannot see an entry missing one edition's ROW. It reported zero
+while three builds could not emit `EXPORT_ALL_SURFACE_STREAMLINES`. The
+sweep reports both halves now, and the second currently names ten
+readings deliberately withheld across four commands whose older editions
+use a layout a version row cannot express (PLN-20260810-1200), and
+nothing else.
+
+**Database to manual**, counting every command carrying an evidence row
+for that build, direct or inherited, `removed` rows included:
 
 | Build | Manual | Rows | Rows with no page in that manual |
 |---|---|---|---|
-| 26.100 | 344 | 345 | 1 |
-| 26.101 | 363 | 364 | 1 |
-| 26.120 | 363 | 365 | 2 |
-| 26.121 | 364 | 371 | 7 |
+| 25.000 | 272 | 268 | 0 |
+| 25.100 | 274 | 278 | 8 |
+| 26.000 | 276 | 283 | 9 |
+| 26.100 | 344 | 361 | 17 |
+| 26.101 | 363 | 380 | 17 |
+| 26.120 | 363 | 381 | 18 |
+| 26.121 | 364 | 387 | 23 |
+| 26.122 | 372 | 397 | 25 |
 
-Four causes account for all eleven, and the largest is not a
-disagreement at all:
+The last column grew from eleven to a hundred and seventeen, and the
+growth is one cause rather than a new disagreement. Eighty-one `removed`
+rows were written on 2026-08-10 for the commands only the pre-26.100
+editions document, each recording that a later edition stops printing
+the command. Every one of them counts here as a row whose build's manual
+does not document it, which is arithmetically right and is the database
+agreeing with the sweep in its own vocabulary rather than contradicting
+it. The three other causes the previous version named, inheritance on a
+hotfix, an entry resting on a probe rather than a page, and one command
+probed broken on a build whose manual is silent, all still stand and are
+a small remainder beside that.
 
-* **A `removed` row, five of the eleven.** `SONIC_VELOCITY` on 26.101,
-  it and `VOLUME_SECTION_BOUNDARY_LAYER` on 26.120,
-  `SET_JET_WAKE_FILAMENTS_GRID_INDUCTION` on 26.121. A `removed` row is
-  the database recording that this edition stopped printing the command.
-  It says the same thing the sweep says, in the database's own
-  vocabulary, so counting it as a row the manual does not document is
-  arithmetically right and reads as a contradiction it is not.
-* **Inheritance, four of the eleven, all on 26.121.**
-  `CREATE_BULK_SEPARATION`, `SURFACE_CLEARALL`, `SURFACE_DELETE`, plus
-  the two inherited `removed` rows counted above. 26.121 declares
-  `inherits_base`, so it carries 26.120's record where its own manual is
-  silent; the compatibility matrix marks every such cell.
-* **An entry documented by no edition at all, one.**
-  `DELETE_VALAREZO_SEPARATION_BOUNDARIES` on 26.100, which reached the
-  database from a probe rather than from a page and carries a
-  `probe_ref` instead of a `manual_ref` (RPT-018 measured 26.100
-  accepting it while refusing the name its own manual prints).
-* **One command probed and found broken on a build whose manual does not
-  document it**: `SWEEPER_REF_VELOCITY_SAME` on 26.121, a direct
-  `broken` row rather than an inherited one.
+25.000 is the only build with a zero in that column, which is what the
+START of the registered series looks like: nothing later has stopped
+printing anything for it.
 
-The cross-check itself is not a committed subcommand; it was run once,
-against the surfaces the generated sections below report and against
-`CommandRegistry.load()`. Regenerating it is registered as
-PLN-20260809-2400.
+The cross-check is still not a committed subcommand and was run by hand;
+regenerating it is PLN-20260809-2400. What IS committed now is the
+row-level half of the first direction, which is the part that was
+silently wrong.
 
 ## 25.000 is measured, and not by this tool
 

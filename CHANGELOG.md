@@ -8,10 +8,44 @@ FlightStream versions.
 ## [Unreleased]
 
 **Eight builds, and every command every one of them documents.** A
-FlightStream build is registered, 26.122, and the command database now
-answers for all eight registered editions with nothing absent from any
-of them. `pyfs-manual sweep` reports zero, which it has never done for
-more than the newest four builds before.
+FlightStream build is registered, 26.122, and every command any of the
+eight registered editions documents now has an entry: `pyfs-manual
+sweep` reports zero absent, which it has never done for more than the
+newest four builds before.
+
+READ THAT CLAIM AT THE LEVEL IT IS MEASURED AT, because the first
+version of this paragraph did not. Zero absent is a statement about
+ENTRY NAMES. Ten readings across four commands remain deliberately
+unrecorded, so three builds cannot emit `IMPORT_CAD`,
+`CAD_CREATE_IMPORT_CURVE_CCS`, `NEW_OFF_BODY_STREAMTUBE` or
+`SET_SCENE_CONTOUR` even though their manuals document them: those
+editions write the command in a LAYOUT a version row cannot express,
+and a row that ignored the difference would emit the newer shape under
+the older edition's citation. The entries say so and
+`PLN-20260810-1200` holds the schema decision. The sweep now reports
+that second measure beside the first, so the gap is named by the tool
+rather than by this sentence alone.
+
+### API surface delta
+
+New public names: `pyflightstream.utils.stale_citations`,
+`pyflightstream.utils.StaleCitation`,
+`pyflightstream.utils.unreachable_commands`,
+`pyflightstream.utils.UnreachableCommand`, the `pyfs-manual citations`
+subcommand, and eight keyword arguments on
+`pyflightstream.script.helpers.solver_settings` and
+`pyflightstream.script.helpers.atmosphere`.
+
+Behaviour changes a caller can see: `atmosphere` now takes
+`sonic_velocity` and reads its script's version to decide which five
+fluid properties FLUID_PROPERTIES wants, so it serves the three
+pre-26.100 builds it had stopped serving; the refusal for a command
+with no evidence lists builds by reachability and marks inherited ones,
+so it no longer hides the newest build; and `pyfs-manual sweep` reports
+a second finding and `--fail-if-absent` covers both.
+
+Incompatible changes: none for a released signature. Deprecations:
+none.
 
 ### Added
 
@@ -84,6 +118,23 @@ more than the newest four builds before.
 - Ten version rows citing pages of the 25.000 manual were five or six
   pages off, from the conversion of that edition being corrected after
   the rows were written.
+- **Three builds could not emit a command their own manuals document.**
+  `EXPORT_ALL_SURFACE_STREAMLINES` had no row for 25.000, 25.100 or
+  26.000 while its two family siblings on the same manual pages did, and
+  the coverage sweep reported zero absent throughout, because it
+  compares entry names and an entry missing one edition's row reads as
+  covered.
+- **26.122 would have emitted two commands the build before it was
+  measured refusing.** Inheritance runs from the base release rather
+  than from the sibling hotfix, so a `removed`-on-a-run record and a
+  `broken` record on 26.121 were both overturned by 26.120's
+  `documented` one.
+- The README's opening example promised a refusal it no longer made and
+  printed nothing, and CI could not see it: an example whose only claim
+  is that something is refused goes green the day the refusal stops
+  firing. It asserts now, and CONTRIBUTING states the limit.
+- A note on `SET_SOLVER_MODEL` said the successor takes the same four
+  tokens. It takes six, of which one is shared.
 
 ## [0.6.0] - 2026-08-09
 

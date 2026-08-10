@@ -76,8 +76,13 @@ PAGES = (
     "src/pyflightstream/reference.py",
     # Joined 2026-08-10 with the `citations` subcommand, whose whole
     # subject is the citation fields and whose module docstring
-    # describes them. The guard's own walk is what put it here.
+    # describes them. The guard's own walk is what put both here.
     "src/pyflightstream/utils/cli.py",
+    # And the procedure that WRITES the citations, which now names the
+    # tool that re-reads them. It is the most load-bearing of the three:
+    # this is the file a maintainer follows when registering a build,
+    # and it is the file whose silence let ten stale citations ship.
+    ".claude/skills/fts-version-update/SKILL.md",
 )
 
 #: The claim shape: a citation OF THE MANUAL offered as an entry's

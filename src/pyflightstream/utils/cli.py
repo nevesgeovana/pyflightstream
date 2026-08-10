@@ -202,12 +202,20 @@ def _parser() -> argparse.ArgumentParser:
         ),
     )
 
-    # citations asks the question the other three do not: not what the
+    # citations asks the question the other four do not: not what the
     # manual holds and the database lacks, but whether what the database
     # already SAYS about the manual is still true.
     cite = sub.add_parser(
         "citations",
-        help="check every version row's page citation against the manual it cites",
+        help="re-read the database's page citations against the manuals they name",
+        description=(
+            "Re-read every version-row page citation against the edition it "
+            "names. EXITS 1 WHEN ONE DOES NOT HOLD, unlike sweep, whose "
+            "findings are work remaining: a citation that does not hold is a "
+            "statement already shipped. The report also says how many rows "
+            "could be re-read at all, since most rows carry no page of their "
+            "own and a count of editions would hide that."
+        ),
         epilog=_MANIFEST_EXAMPLE,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )

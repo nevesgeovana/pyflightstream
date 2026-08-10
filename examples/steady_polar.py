@@ -142,7 +142,11 @@ print(scripts[ALPHAS_DEG[0]].render())
 #
 # The same build request is refused for an older FlightStream, and the
 # two refusals below are different failures rather than one message
-# twice. The first is a command the build does not carry at all. The
+# twice. The first is `AUTO_DETECT_TRAILING_EDGES`, a command the 25
+# builds do not carry at all: those editions run the same autodetection
+# from inside a `PHYSICS` block and the standalone command arrives at
+# 26.000, which is also the one gap keeping this workflow from building
+# on them. The
 # second is subtler and is the one worth reading twice: 26.000 carries
 # `FLUID_PROPERTIES`, so a check at command granularity would pass it,
 # but that edition's manual documents a different argument list and the

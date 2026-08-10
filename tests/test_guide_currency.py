@@ -339,16 +339,26 @@ def test_the_pitfall_table_names_the_builds_the_database_calls_broken():
         entry = registry.commands.get(name)
         assert entry is not None, f"the pitfall table names {name}, which is not in the database"
 
-        # Read the entry's OWN records, never status_in: that accessor
-        # falls back from a hotfix build to its base release, so a
-        # command recorded broken on 26.120 alone would answer "broken"
-        # for 26.121 too and this guard would certify a claim the
-        # database does not hold (PLN-20260802-2016).
-        measured = {
-            canonical
-            for canonical, record in entry.versions.items()
-            if record.status is Status.BROKEN
-        }
+        # WHAT THE EMITTER REFUSES, which follows inheritance, together
+        # with which of those answers was probed on the build itself.
+        # This guard used to read the entry's own rows only, on the
+        # reasoning that status_in falls back from a hotfix to its base
+        # and would certify a claim the database does not hold
+        # (PLN-20260802-2016). That concern is real and is met by the
+        # asterisk rather than by narrowing the set: the column tells a
+        # reader which builds the builder will refuse the command on, so
+        # omitting an inherited build makes the column wrong in the
+        # direction that costs a caller a run. Registering 26.122 on
+        # 2026-08-10 made the difference visible, three of the four rows
+        # gaining a build nobody has probed.
+        measured, inherited = set(), set()
+        for version in known_versions():
+            evidence = entry.evidence_in(version)
+            if evidence is None or evidence.record.status is not Status.BROKEN:
+                continue
+            measured.add(version.canonical)
+            if evidence.inherited:
+                inherited.add(version.canonical)
         cell = builds.strip()
         # "both" resolves against the versions this entry is BROKEN on,
         # never against every version it has a record for. The latter was
@@ -361,6 +371,10 @@ def test_the_pitfall_table_names_the_builds_the_database_calls_broken():
             for canonical, record in entry.versions.items()
             if record.status is Status.BROKEN
         }
+        starred = {
+            token for token in CANONICAL.findall(cell.replace("*", "* ")) if f"{token}*" in cell
+        }
+        cell_versions = cell.replace("*", "")
         if cell == "both":
             assert len(broken_versions) == 2, (
                 f"the pitfall table says {name} is broken on 'both', and the "
@@ -370,7 +384,7 @@ def test_the_pitfall_table_names_the_builds_the_database_calls_broken():
             )
             declared = broken_versions
         else:
-            declared = set(CANONICAL.findall(cell))
+            declared = set(CANONICAL.findall(cell_versions))
         assert declared, (
             f"the pitfall table's Builds cell for {name} reads {cell!r}, which "
             f"names no version this guard can read. Write canonical "
@@ -378,9 +392,15 @@ def test_the_pitfall_table_names_the_builds_the_database_calls_broken():
         )
         assert declared == measured, (
             f"the guide says {name} is broken on {sorted(declared)} and the "
-            f"database records it broken on {sorted(measured)}. A reader avoids "
+            f"builder refuses it on {sorted(measured)}. A reader avoids "
             f"a command on a build where it works, or uses one on a build where "
             f"it aborts"
+        )
+        assert starred == inherited, (
+            f"the guide marks {sorted(starred)} as inherited for {name} and the "
+            f"database inherits {sorted(inherited)}. The asterisk is what keeps "
+            f"the column honest: a build listed without one reads as a build "
+            f"somebody watched the command fail on"
         )
 
 

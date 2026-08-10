@@ -62,14 +62,28 @@ Onboard a new FlightStream version end to end.
    and suspected renames. `surface` reports a rename as one loss and one
    gain and cannot tell you it is a rename.
 5. Propose database edits with page citations, status `documented`.
-6. Regenerate golden scripts for the new version.
-7. On a licensed machine, run the Tier 2 probe suite
+6. **Re-read the citations you just wrote**, over the WHOLE manifest and
+   not only the new edition:
+   `pyfs-manual citations --editions <manifest>`. It exits non-zero on a
+   finding. This step exists because ten citations were found on
+   2026-08-10 pointing at a document whose pagination had moved under
+   them, and every one addressed a real page of a real manual, so
+   nothing about them looked wrong to a reader. A re-conversion of an
+   OLD manual is what caused it, which is why the check is not scoped to
+   the build being registered. Read the reach line it prints too: most
+   rows carry no page of their own and are not checked at all.
+7. Run `pyfs-manual sweep --editions <manifest> --fail-if-absent` once
+   the rows are written, and read BOTH findings it reports. The second
+   one, the commands an edition documents that its build cannot emit, is
+   the one the entry-level sweep cannot see.
+8. Regenerate golden scripts for the new version.
+9. On a licensed machine, run the Tier 2 probe suite
    (`pyfs-qa probe --fs-version <v>`); flag every manual-versus-reality
    discrepancy prominently: documented but broken, or working but changed
    without documentation.
-8. Present a human-decision checklist for suspected renames. A rename is
+10. Present a human-decision checklist for suspected renames. A rename is
    an engineering judgment; never decide it automatically.
-9. Run Tier 1; update the docs compatibility matrix and the changelog.
+11. Run Tier 1; update the docs compatibility matrix and the changelog.
 
 ## Outputs
 
