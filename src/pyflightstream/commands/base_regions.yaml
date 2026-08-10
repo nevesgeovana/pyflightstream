@@ -37,6 +37,9 @@ CREATE_NEW_BASE_REGION:
       type: float
   manual_ref: "SRC-003 p.317"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.279, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.291, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.290, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.312, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.316, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -81,6 +84,9 @@ SET_BASE_REGION_CP:
       required: false
   manual_ref: "SRC-003 pp.317-318"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.280, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.291, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.290, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 pp.312-313, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 pp.316-317, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -119,6 +125,9 @@ SET_BASE_REGION_BENDING_ANGLE:
       unit: "deg"
   manual_ref: "SRC-003 p.284"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.260, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.274, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.273, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.278, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.283, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -149,6 +158,9 @@ AUTO_DETECT_BASE_REGIONS:
   args: []
   manual_ref: "SRC-003 p.317"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.279, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.291, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.290, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.312, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.316, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -167,6 +179,9 @@ DETECT_BASE_REGIONS_BY_SURFACE:
       cites: boundaries
   manual_ref: "SRC-003 p.317"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.279, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.291, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.290, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.312, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.316, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -185,6 +200,9 @@ SET_BASE_REGION_TRAILING_EDGES:
       type: int
   manual_ref: "SRC-003 p.317"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.279, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.291, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.290, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.312, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.316, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -206,6 +224,9 @@ DELETE_BASE_REGION:
       type: int
   manual_ref: "SRC-003 p.317"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.279, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.291, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.290, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.312, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.316, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -225,6 +246,8 @@ SELECT_BASE_REGION_FACES:
       type: int
   manual_ref: "SRC-003 p.318"
   versions:
+    "25.100": {status: documented, note: "SRC-748 p.292, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.291, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.313, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.317, same grammar as 26.120"}
     "26.120": {status: documented}

@@ -9,6 +9,7 @@ AUTO_DETECT_TRAILING_EDGES:
   args: []
   manual_ref: "SRC-003 p.319"
   versions:
+    "26.000": {status: documented, note: "SRC-747 p.292, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.314, same grammar as 26.120"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
@@ -29,6 +30,7 @@ SET_TRAILING_EDGE_TYPE:
       values: [STANDARD, RELAXED, JET_OUTFLOW, VORTEX_SHEDDING]
   manual_ref: "SRC-003 pp.319-320"
   versions:
+    "26.000": {status: documented, note: "SRC-747 p.292, same grammar as 26.120"}
     "26.100":
       status: documented
       note: >-
@@ -57,6 +59,8 @@ DISABLE_WAKE_NODES_ON_TRAILING_EDGE:
       type: int
   manual_ref: "SRC-003 p.320"
   versions:
+    "25.100": {status: documented, note: "SRC-748 p.294, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.293, same grammar as 26.120"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
     "26.101": {status: documented, note: "SRC-725 p.319, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.315, same grammar as 26.120"}
@@ -68,6 +72,7 @@ AUTO_DETECT_WAKE_TERMINATION_NODES:
   args: []
   manual_ref: "SRC-003 p.321"
   versions:
+    "26.000": {status: documented, note: "SRC-747 p.294, same grammar as 26.120"}
     "26.121": {status: documented, note: "SRC-740 p.324, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.316, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.320, same grammar as 26.120"}
@@ -104,6 +109,9 @@ SET_FREESTREAM:
       own_line: true
   manual_ref: "SRC-003 p.322"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.284, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.296, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.295, same grammar as 26.120"}
     "26.121": {status: documented, note: "SRC-740 p.325, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.317, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.321, same grammar as 26.120"}
@@ -156,6 +164,8 @@ AIR_ALTITUDE:
       values: [FEET, METERS]
   manual_ref: "SRC-003 p.328"
   versions:
+    "25.100": {status: documented, note: "SRC-748 p.302, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.301, same grammar as 26.120"}
     "26.100": {status: broken, report: "reports/compat/CMP-26100_2026-08-08_full.yaml", note: "the command ran (script processing continued past it) but its effect was not observed; expected: the settings dump reports the 5000 m [...]"}
     "26.101": {status: broken, report: "reports/compat/CMP-26101_2026-08-08_full.yaml", note: "the command ran (script processing continued past it) but its effect was not observed; expected: the settings dump reports the 5000 m [...]"}
     "26.120": {status: broken, report: "reports/compat/CMP-26120_2026-08-08_full.yaml", note: "the command ran (script processing continued past it) but its effect was not observed; expected: the settings dump reports the 5000 m [...]"}
@@ -193,6 +203,9 @@ DETECT_TRAILING_EDGES_BY_SURFACE:
       separator: comma
   manual_ref: "SRC-003 p.319"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.281, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.293, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.292, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.314, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.318, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -216,6 +229,9 @@ TRAILING_EDGES_IMPORT:
       own_line: true
   manual_ref: "SRC-003 p.319"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.281, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.293, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.292, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.314, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.318, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -241,6 +257,9 @@ DETECT_WAKE_TERMINATION_NODES_BY_SURFACE:
       cites: boundaries
   manual_ref: "SRC-003 p.321"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.283, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.295, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.294, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.316, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.320, same grammar as 26.120"}
     "26.120": {status: documented}

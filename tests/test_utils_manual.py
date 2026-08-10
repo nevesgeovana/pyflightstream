@@ -1434,3 +1434,75 @@ def test_two_editions_sharing_a_label_are_refused(tmp_path):
     editions[1] = Edition(label="a", manual=editions[1].manual, chapter=(1, 1))
     with pytest.raises(ManualDraftError, match="more than one edition the label"):
         edition_surfaces(editions, reader=read)
+
+
+# ---------------------------------------------------------------------
+# Reading a pdf that a renderer produced, not the vendor's typesetter
+# (2026-08-10). The 25.000 install ships only a compiled help archive,
+# so its manual is converted to pdf before it can be cited by page. Two
+# properties of the reader turned out to be load bearing for that, and
+# both were measured across all six vendor editions before changing:
+# neither costs a single command there.
+# ---------------------------------------------------------------------
+
+
+def test_a_signature_behind_a_margin_glyph_is_still_read():
+    """Layout extraction keeps a margin glyph in its own column.
+
+    The line then reads as that glyph, a run of spaces, and only then
+    the heading. Anchored at position zero the match fails and the
+    command is invisible; measured at two commands of 272 in the
+    converted 25.000 pdf.
+    """
+    page = "\ufffd" + " " * 40 + "Function name: CLOSE_FLIGHTSTREAM\n"
+    found = parse_signatures({343: page})
+    assert "CLOSE_FLIGHTSTREAM" in found, (
+        "a heading preceded by a margin glyph is not read, so every command whose "
+        "page carries one is invisible"
+    )
+
+
+def test_the_heading_is_still_required_to_stand_on_its_own():
+    """Tolerating a prefix must not tolerate a mention inside a word.
+
+    The widened pattern requires the heading to begin a line or follow
+    whitespace. Without that it would match inside another token and
+    invent commands out of prose, which is the failure mode a looser
+    pattern buys.
+    """
+    assert parse_signatures({1: "xFunction name: NOT_A_COMMAND\n"}) == {}
+
+
+def test_the_pdf_reader_asks_for_layout_extraction(monkeypatch, tmp_path):
+    """The default mode joins separate visual lines into one.
+
+    A sample block and the signature heading after it then come back as
+    a single line, and a parser reading line by line sees neither. On
+    the converted 25.000 pdf the default found 58 commands of 272 and
+    layout found 270; on all six vendor editions the two modes agree
+    exactly, so this costs nothing and is not visible in any count.
+    A silent revert to the default would be.
+    """
+    import pypdf
+
+    from pyflightstream.utils import manual as manual_module
+
+    seen = {}
+
+    class Page:
+        def extract_text(self, **kwargs):
+            seen.update(kwargs)
+            return "Function name: SOMETHING <A>\n"
+
+    class Reader:
+        def __init__(self, _path):
+            self.pages = [Page()]
+
+    monkeypatch.setattr(pypdf, "PdfReader", Reader)
+    target = tmp_path / "manual.pdf"
+    target.write_bytes(b"%PDF-1.4 not a real pdf; the reader is stubbed")
+    manual_module.read_pdf_pages(target, first=1, last=1)
+    assert seen.get("extraction_mode") == "layout", (
+        f"read_pdf_pages asked for {seen!r}; it must request layout extraction, or a "
+        "converted manual loses three quarters of its commands"
+    )

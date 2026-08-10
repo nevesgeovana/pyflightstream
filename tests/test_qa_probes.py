@@ -10,6 +10,7 @@ environment guard.
 from pathlib import Path
 
 import pytest
+from tests._no_evidence import registry_without_version
 
 from pyflightstream.qa import (
     PROBE_SPECS,
@@ -597,15 +598,27 @@ def test_a_distinctive_value_is_found_whatever_the_diff_algorithm_does(tmp_path)
 
 
 def test_a_build_with_no_command_rows_still_gets_a_baseline(tmp_path):
-    """25.000 records no command, and must still be identifiable.
+    """A build with no rows must still be identifiable.
 
     Registering a build precedes probing it, so the first run against a
     new build has no rows to build its instruments from. Refusing there
     would make the build's own build number unobtainable, since the
     registry admits one only from a report and a report needs a run.
+
+    25.000 was that build for one day and is not any more: its own
+    manual edition was read on 2026-08-10 and it records 241 commands,
+    the three probe instruments among them. So the state is made rather
+    than found, which also keeps the test true of the NEXT build
+    registered rather than of one particular one.
     """
-    executor = FakeFlightStream()
-    run = probe_version("25.000", workroot=tmp_path / "probes", executor=executor, commands=[])
+    empty = registry_without_version("25.000")
+    run = probe_version(
+        "25.000",
+        workroot=tmp_path / "probes",
+        executor=FakeFlightStream(),
+        commands=[],
+        registry=empty,
+    )
     assert run.solver_identity, "the baseline ran but captured no identity line"
     assert run.results == (), "identity-only judged a command"
 
@@ -620,8 +633,14 @@ def test_the_borrowed_baseline_puts_the_export_filename_on_its_own_line(tmp_path
     first version of this fallback did, and it cost a day of diagnosis
     pointed at a licence server.
     """
-    executor = FakeFlightStream()
-    probe_version("25.000", workroot=tmp_path / "probes", executor=executor, commands=[])
+    empty = registry_without_version("25.000")
+    probe_version(
+        "25.000",
+        workroot=tmp_path / "probes",
+        executor=FakeFlightStream(),
+        commands=[],
+        registry=empty,
+    )
 
     # The SCRIPT, not the log it exports: the exported log also carries
     # the sentinel, and matching on the sentinel alone picks it up.

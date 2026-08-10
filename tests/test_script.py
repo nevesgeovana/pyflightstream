@@ -1322,52 +1322,44 @@ def test_every_cad_command_is_available_on_every_registered_build():
         f"the CAD chapters hold {len(members)} entries; the walk found fewer than the "
         "33 entered by 2026-08-06, so the chapter filter has stopped matching"
     )
-    # Which builds carry the chapter is derived, not listed, because the
-    # registry gained three builds on 2026-08-09 that record no command
-    # at all (25.000, 25.100 and 26.000, registered for reproducibility
-    # of the author's published runs before any of them was swept). A
-    # hardcoded skip list would have grown by three and said nothing;
-    # this splits the builds by what they actually record and then pins
-    # both sides, so a new build silently joining the empty side fails
-    # here rather than passing quietly.
+    # The claim is about the builds the chapter ARRIVED on, and the
+    # chapter arrived at 26.100: the CAD and cross-section families are
+    # 75 of the commands 26.100 gained over 26.000 (RPT-024). So the
+    # builds split in two and each half is pinned, rather than one being
+    # skipped by name.
+    #
+    # Twice now a wider skip would have hidden something. The first
+    # version skipped 26.000 by name and would have skipped three more
+    # when they were registered. The second asserted the three carried
+    # NO command at all, which was true for one day and stopped being
+    # true the moment their own editions were read.
     available: dict[str, list[str]] = {}
     for version in known_versions():
         view = registry.for_version(version.canonical)
         available[version.canonical] = [name for name in members if name in view]
 
-    without = sorted(canonical for canonical, names in available.items() if not names)
-    assert without == ["25.000", "25.100", "26.000"], (
-        "the builds carrying no CAD command are " + ", ".join(without) + "; the three "
-        "expected are the ones registered without a command sweep. A build that joined "
-        "or left this set needs its entry swept or its evidence explained, not a wider "
-        "skip here"
+    whole = sorted(c for c, names in available.items() if len(names) == len(members))
+    assert whole == ["26.100", "26.101", "26.120", "26.121"], (
+        "the builds carrying the CAD chapter WHOLE are " + ", ".join(whole) + "; the "
+        "chapter arrives at 26.100 and every build from there on documents all of it"
     )
 
-    # Measure the exemption by its stated CAUSE, not by its symptom. The
-    # sentence above says these three are "registered without a command
-    # sweep", and the code above only checks that they carry no CAD
-    # command. A QA pass gave 25.000 a single non-CAD command row and
-    # this test passed, so a build could be swept everywhere except the
-    # CAD chapters and hide inside the exemption.
-    for canonical in without:
-        carried = [name for name in registry.commands if name in registry.for_version(canonical)]
-        assert not carried, (
-            f"{canonical} is exempt here as a build registered without a command sweep, "
-            f"and it now carries {len(carried)} command(s), the first being "
-            f"{carried[0]}. Either it was swept, in which case the CAD chapter is "
-            "genuinely missing from it, or the exemption needs a different reason"
-        )
-
-    partial = {
-        canonical: sorted(set(members) - set(names))
-        for canonical, names in available.items()
-        if names and len(names) != len(members)
-    }
-    assert not partial, (
-        "these CAD commands are unavailable on a build that carries the rest of the "
-        f"chapter, while both chapter headers and the CHANGELOG say the chapter emits "
-        f"whole: {partial}"
+    # The older half carries a PART, and the part is pinned by size so
+    # that a build losing rows shows up here. Zero would mean the build
+    # was never read; the full 45 would mean the chapter did not arrive
+    # at 26.100 after all.
+    partial = {c: len(names) for c, names in available.items() if c not in whole}
+    assert partial == {"25.000": 15, "25.100": 16, "26.000": 16}, (
+        f"the pre-26.100 builds carry {partial} of the {len(members)} CAD commands; "
+        "each of those counts is a measured edition surface, so a change here is "
+        "either a sweep that found more or a row that was lost"
     )
+
+    # And what they carry must be a SUBSET of the whole chapter, not a
+    # different set: a command on an old build and on no new one would
+    # mean the chapter is not simply growing.
+    for canonical, names in available.items():
+        assert set(names) <= set(members), canonical
 
 
 # --- CAD Create: imports, cross-sections and the lofted meshes --------------
@@ -1643,14 +1635,25 @@ def test_the_mirror_plane_is_an_index_and_refuses_a_plane_name():
 def test_the_renamed_selection_command_is_recorded_once_per_edition():
     """A rename the manual performs without ever stating a removal.
 
-    SELECT_GEOMETRY_BY_ID is documented in the February edition alone
-    and SURFACE_SELECT_BY_ID in every edition after it, with the same
-    argument and the same sample. Each carries only the versions that
-    document it, so emitting the wrong one for a build is refused rather
-    than silently accepted.
+    SELECT_GEOMETRY_BY_ID is documented up to and including the February
+    edition and SURFACE_SELECT_BY_ID in every edition after it, with the
+    same argument and the same sample. Each carries only the versions
+    that document it, so emitting the wrong one for a build is refused
+    rather than silently accepted.
+
+    The earlier half of that sentence was written as "the February
+    edition alone" while 26.100 was the OLDEST registered build, which
+    made a fact about the registry read as a fact about the vendor. The
+    25 series and 26.000 document it too, so the boundary is where it
+    STOPS, and that is what is asserted now.
     """
     registry = CommandRegistry.load()
-    assert sorted(registry.commands["SELECT_GEOMETRY_BY_ID"].versions) == ["26.100"]
+    assert sorted(registry.commands["SELECT_GEOMETRY_BY_ID"].versions) == [
+        "25.000",
+        "25.100",
+        "26.000",
+        "26.100",
+    ]
     assert sorted(registry.commands["SURFACE_SELECT_BY_ID"].versions) == [
         "26.101",
         "26.120",
@@ -1667,10 +1670,15 @@ def test_the_renamed_selection_command_is_recorded_once_per_edition():
 def test_the_two_surface_deletes_stop_at_the_edition_that_replaced_them():
     """SURFACE_DELETE and SURFACE_CLEARALL give way to DELETE_SURFACES.
 
-    Three editions document the pair and the fourth documents the
+    Six editions document the pair and the seventh documents the
     replacement instead. Neither is `removed`: this database promotes to
     that status only when a manual STATES a removal, and SRC-740 states
     nothing, it simply stops printing them.
+
+    "Three editions" here meant the three registered when it was
+    written. The 25 series and 26.000 document the pair too, so the fact
+    is older than the registry was, and the boundary that matters is
+    unchanged: the replacement arrives at 26.121.
 
     AND THE EMITTER STILL ACCEPTS THEM ON 26.121, which is asserted here
     rather than wished away. 26.121 is a real hotfix of 26.120 and
@@ -1683,7 +1691,14 @@ def test_the_two_surface_deletes_stop_at_the_edition_that_replaced_them():
     registry = CommandRegistry.load()
     for name in ("SURFACE_DELETE", "SURFACE_CLEARALL"):
         entry = registry.commands[name]
-        assert sorted(entry.versions) == ["26.100", "26.101", "26.120"], name
+        assert sorted(entry.versions) == [
+            "25.000",
+            "25.100",
+            "26.000",
+            "26.100",
+            "26.101",
+            "26.120",
+        ], name
         assert all(r.status is Status.DOCUMENTED for r in entry.versions.values()), name
         evidence = entry.evidence_in(next(v for v in known_versions() if v.canonical == "26.121"))
         assert evidence is not None and evidence.inherited, (
@@ -1792,24 +1807,36 @@ def test_the_three_motion_frames_are_each_recorded_where_they_apply():
     assert "MOTION DEFINITION" in entries["SET_MOTION_VELOCITY"].notes.upper()
 
 
-def test_the_february_kinematic_family_exists_on_that_build_alone():
+def test_the_pre_may_kinematic_family_stops_at_the_february_build():
     """Five commands with no successor, because the capability changed.
 
-    February's EUCLIDEAN motion is set by velocity and acceleration
-    directly; May's ROTARY motion is set by axis and RPM. So these are
-    not renamed, they are gone, and the two rotor commands that replace
-    the capability exist in no earlier edition.
+    The EUCLIDEAN motion of every edition up to February is set by
+    velocity and acceleration directly; May's ROTARY motion is set by
+    axis and RPM. So these are not renamed, they are gone, and the two
+    rotor commands that replace the capability exist in no earlier
+    edition.
+
+    The name of this test said "that build alone" and meant it about
+    26.100, which was the oldest registered build when it was written.
+    Registering the 25 series and 26.000 showed the family reaching back
+    through all of them, so the fact was never about February: it is
+    about where the capability STOPS, which is unchanged.
     """
     registry = CommandRegistry.load()
-    february_only = (
+    pre_may = (
         "SET_MOTION_VELOCITY",
         "SET_MOTION_ACCELERATION",
         "SET_MOTION_ANGULAR_VELOCITY",
         "SET_MOTION_ANGULAR_ACCELERATION",
         "SET_MOTION_IS_ROTOR",
     )
-    for name in february_only:
-        assert sorted(registry.commands[name].versions) == ["26.100"], name
+    for name in pre_may:
+        assert sorted(registry.commands[name].versions) == [
+            "25.000",
+            "25.100",
+            "26.000",
+            "26.100",
+        ], name
         Script(version="26.100").declare_existing(motions=1)
         with pytest.raises(CommandNotInVersionError):
             Script(version="26.120").emit(name, 1)
@@ -3524,11 +3551,16 @@ def test_the_unsteady_animation_writes_both_of_its_printed_forms(version):
     assert disabling.render().strip() == "UNSTEADY_SOLVER_ANIMATION DISABLE"
 
 
-def test_the_february_only_commands_refuse_on_every_later_build():
-    """Two commands the February edition documents and no later one does."""
+def test_the_pre_may_commands_refuse_on_every_later_build():
+    """Two commands every edition up to February documents and no later one does.
+
+    Written as "the February edition" while 26.100 was the oldest build
+    registered. Both reach back to 25.000; what the test is for, that
+    they refuse on every build after February, is unchanged.
+    """
     for name, args in (("DISABLE_ACTUATOR", (2,)), ("EXECUTE_SOLVER_SWEEPER", ())):
         entry = CommandRegistry.load().commands[name]
-        assert set(entry.versions) == {"26.100"}, name
+        assert sorted(entry.versions) == ["25.000", "25.100", "26.000", "26.100"], name
         for later in ("26.101", "26.120", "26.121"):
             with pytest.raises(CommandNotInVersionError):
                 Script(version=later).emit(name, *args)

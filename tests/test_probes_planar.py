@@ -3,6 +3,7 @@
 import numpy as np
 import pytest
 from pydantic import ValidationError
+from tests._no_evidence import registry_without
 
 from pyflightstream.commands import CommandNotInVersionError
 from pyflightstream.probes import (
@@ -122,8 +123,11 @@ def test_grid_emission_goes_through_the_documented_import(tmp_path):
     script = Script(version="26.120")
     emit_probe_import(script, csv, units="METER", frame=1)
     assert "PROBE_POINTS_IMPORT\nUNITS METER\nFRAME 1\n" in script.render()
+    # Silenced rather than aimed at a build that lacks it: every
+    # registered build documents this command since 2026-08-10.
+    silent = registry_without("PROBE_POINTS_IMPORT")
     with pytest.raises(CommandNotInVersionError, match="no recorded evidence"):
-        emit_probe_import(Script(version="26.0"), csv)
+        emit_probe_import(Script(version="26.120", registry=silent), csv)
 
 
 def test_coordinate_frame_helper_mirrors_the_frame_definition():

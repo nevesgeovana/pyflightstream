@@ -139,7 +139,16 @@ _INDEX_LINE = re.compile(r"^([A-Z][A-Z0-9_]{3,})\s+(\S.*?)\s*$")
 
 #: The scripting reference introduces each command the same way, and the
 #: placeholders after the name are its inline arguments in order.
-_SIGNATURE = re.compile(r"^Function name:\s*([A-Z][A-Z0-9_]{2,})\s*(.*)$")
+#:
+#: NOT anchored at the start of the line, and the difference is a
+#: margin. Under layout extraction a glyph sitting in the left margin
+#: keeps its column, so the line reads as that glyph, a run of spaces,
+#: then the heading; anchored, the match fails and the command is
+#: invisible. Measured on 2026-08-10 across all six pdf editions: the
+#: tolerant form finds exactly what the anchored one finds and nothing
+#: more, so it costs no precision, and it recovers two commands of 272
+#: in a pdf converted from a compiled help archive.
+_SIGNATURE = re.compile(r"(?:^|\s)Function name:\s*([A-Z][A-Z0-9_]{2,})\s*(.*)$")
 _PLACEHOLDER = re.compile(r"<([^>]+)>")
 
 #: A signature heading that WRAPS: the line after it is placeholders and
@@ -313,7 +322,11 @@ def parse_signatures(
     for page in sorted(pages):
         lines = [line.rstrip() for line in pages[page].splitlines()]
         for i, line in enumerate(lines):
-            match = _SIGNATURE.match(line.strip())
+            # search, not match: the pattern already requires the heading
+            # to start a line or follow whitespace, and anchoring at
+            # position zero as well would defeat the margin tolerance the
+            # pattern was widened for.
+            match = _SIGNATURE.search(line.strip())
             if match is None:
                 continue
             name = match.group(1)
@@ -1000,7 +1013,19 @@ def read_pdf_pages(path: str | Path, *, first: int, last: int) -> dict[int, str]
             "the page count is also the cheapest sign that this is the wrong edition: "
             "the registered manuals run between roughly 350 and 415 pages."
         )
-    return {i + 1: (reader.pages[i].extract_text() or "") for i in range(first - 1, last)}
+    # LAYOUT mode, not the default. The default reconstructs a page as a
+    # flowing string and, on some renderers, joins what were separate
+    # visual lines: a sample block and the signature heading after it
+    # come back as ONE line, and a parser that anchors on the start of a
+    # line then sees neither. Measured on 2026-08-10 across all six pdf
+    # editions this repository reads: the two modes find exactly the same
+    # commands, 274, 276, 344, 363, 363 and 364, so nothing is traded
+    # away. On a pdf converted from a compiled help archive the default
+    # found 58 commands of 272 and layout found 270.
+    return {
+        i + 1: (reader.pages[i].extract_text(extraction_mode="layout") or "")
+        for i in range(first - 1, last)
+    }
 
 
 # --- drafting -------------------------------------------------------------

@@ -297,6 +297,9 @@ EXECUTE_SOLVER_SWEEPER:
       type: path
   manual_ref: "SRC-741 p.354"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.325, same grammar as 26.100"}
+    "25.100": {status: documented, note: "SRC-748 p.332, same grammar as 26.100"}
+    "26.000": {status: documented, note: "SRC-747 p.331, same grammar as 26.100"}
     "26.100": {status: documented}
   notes: >
     Configures and runs a whole parameter sweep in ONE command, where

@@ -19,6 +19,9 @@ NEW_PROBE_POINT:
       type: float
   manual_ref: "SRC-003 p.362"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.327, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.334, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.333, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.356, same grammar as 26.120"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
@@ -44,6 +47,9 @@ NEW_PROBE_LINE:
       type: float
   manual_ref: "SRC-003 p.362"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.327, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.334, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.333, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.356, same grammar as 26.120"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
@@ -58,6 +64,9 @@ UPDATE_PROBE_POINTS:
   args: []
   manual_ref: "SRC-003 p.362"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.327, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.334, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.333, same grammar as 26.120"}
     "26.121": {status: documented, note: "SRC-740 p.365, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.356, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.361, same grammar as 26.120"}
@@ -81,6 +90,9 @@ PROBE_POINTS_IMPORT:
       type: path
   manual_ref: "SRC-003 pp.362-363"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.327, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.334, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.333, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.356, same grammar as 26.120"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
@@ -102,6 +114,9 @@ EXPORT_PROBE_POINTS:
       type: path
   manual_ref: "SRC-003 p.363"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.328, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.335, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.334, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.357, same grammar as 26.120"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
@@ -123,6 +138,9 @@ DELETE_PROBE_POINTS:
   args: []
   manual_ref: "SRC-003 p.363"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.328, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.335, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.334, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.357, same grammar as 26.120"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}

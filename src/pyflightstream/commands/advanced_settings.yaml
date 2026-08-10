@@ -31,6 +31,9 @@ SET_SOLVER_CONVERGENCE_ITERATIONS:
       type: int
   manual_ref: "SRC-003 p.344"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.310, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.319, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.318, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.341, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.343, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -47,6 +50,9 @@ SOLVER_MINIMUM_CP:
       type: float
   manual_ref: "SRC-003 p.345"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.306, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.315, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.314, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.342, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.344, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -66,6 +72,8 @@ REYNOLDS_AVERAGED_DRAG_FORCES:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 p.344"
   versions:
+    "25.100": {status: documented, note: "SRC-748 p.319, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.318, same grammar as 26.120"}
     "26.121": {status: documented, note: "SRC-740 p.347, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.341, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.343, same grammar as 26.120"}
@@ -83,6 +91,9 @@ SOLVER_SET_MESH_INDUCED_WAKE_VELOCITY:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 p.344"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.310, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.319, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.318, same grammar as 26.120"}
     "26.121": {status: documented, note: "SRC-740 p.347, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.341, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.343, same grammar as 26.120"}
@@ -96,6 +107,9 @@ SOLVER_SET_FARFIELD_LAYERS:
       type: int
   manual_ref: "SRC-003 p.344"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.310, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.319, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.318, same grammar as 26.120"}
     "26.121": {status: documented, note: "SRC-740 p.347, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.341, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.343, same grammar as 26.120"}
@@ -115,6 +129,9 @@ SOLVER_UNSTEADY_PRESSURE_AND_KUTTA:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 p.344"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.310, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.319, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.318, same grammar as 26.120"}
     "26.121": {status: documented, note: "SRC-740 p.347, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.341, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.343, same grammar as 26.120"}
@@ -131,6 +148,9 @@ SET_WAKE_TERMINATION_TIME_STEPS:
       type: int
   manual_ref: "SRC-003 p.344"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.311, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.319, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.318, same grammar as 26.120"}
     "26.121": {status: documented, note: "SRC-740 p.347, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.341, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.343, same grammar as 26.120"}

@@ -13,6 +13,8 @@ OPEN:
       required: false
   manual_ref: "SRC-003 p.282"
   versions:
+    "25.100": {status: documented, note: "SRC-748 p.272, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.271, same grammar as 26.120"}
     "26.100": {status: verified, report: "reports/compat/CMP-26100_2026-08-08_full.yaml"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
@@ -30,6 +32,9 @@ SAVEAS:
       type: path
   manual_ref: "SRC-003 p.282"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.258, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.272, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.271, same grammar as 26.120"}
     "26.100": {status: verified, report: "reports/compat/CMP-26100_2026-08-08_full.yaml"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
@@ -43,6 +48,9 @@ NEW_SIMULATION:
   args: []
   manual_ref: "SRC-003 p.282"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.258, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.272, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.271, same grammar as 26.120"}
     "26.100": {status: verified, report: "reports/compat/CMP-26100_2026-08-08_full.yaml"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
@@ -54,6 +62,9 @@ CLOSE_FLIGHTSTREAM:
   args: []
   manual_ref: "SRC-003 p.282"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.343, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.272, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.271, same grammar as 26.120"}
     "26.100": {status: verified, report: "reports/compat/CMP-26100_2026-08-08_full.yaml"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
@@ -70,6 +81,9 @@ EXPORT_LOG:
       type: path
   manual_ref: "SRC-003 p.283"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.342, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.273, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.272, same grammar as 26.120"}
     "26.100": {status: verified, report: "reports/compat/CMP-26100_2026-08-08_full.yaml"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
@@ -86,6 +100,8 @@ OUTPUT_SETTINGS_AND_STATUS:
       type: path
   manual_ref: "SRC-003 p.283"
   versions:
+    "25.100": {status: documented, note: "SRC-748 p.273, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.272, same grammar as 26.120"}
     "26.100": {status: verified, report: "reports/compat/CMP-26100_2026-08-08_full.yaml"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
@@ -99,6 +115,9 @@ CLEAR_LOG:
   args: []
   manual_ref: "SRC-003 p.283"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.342, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.273, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.272, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.277, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.282, same grammar as 26.120"}
     "26.120": {status: documented}

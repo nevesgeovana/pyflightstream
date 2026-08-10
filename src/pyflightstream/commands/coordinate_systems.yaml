@@ -9,6 +9,9 @@ CREATE_NEW_COORDINATE_SYSTEM:
   args: []
   manual_ref: "SRC-003 p.329"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.292, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.303, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.302, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.325, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.328, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
@@ -52,6 +55,9 @@ EDIT_COORDINATE_SYSTEM:
       type: float
   manual_ref: "SRC-003 p.329"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.292, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.303, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.302, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.325, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.328, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
@@ -79,6 +85,9 @@ SET_COORDINATE_SYSTEM_ORIGIN:
                MILS, MICRON, CENTIMETER, MICROINCH]
   manual_ref: "SRC-003 pp.329-330"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.293, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.303, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.302, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.325, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.328, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -107,6 +116,9 @@ SET_COORDINATE_SYSTEM_AXIS:
       values: ["TRUE", "FALSE"]
   manual_ref: "SRC-003 p.330"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.293, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.304, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.303, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.326, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.329, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -134,6 +146,9 @@ ROTATE_COORDINATE_SYSTEM:
       unit: "deg"
   manual_ref: "SRC-003 p.330"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.294, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.304, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.303, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.326, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.329, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -153,6 +168,9 @@ SET_COORDINATE_SYSTEM_NAME:
       type: str
   manual_ref: "SRC-003 p.329"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.292, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.303, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.302, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.325, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.328, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -170,6 +188,9 @@ NORMALIZE_COORDINATE_SYSTEM:
       cites: frames
   manual_ref: "SRC-003 p.330"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.293, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.304, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.303, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.326, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.329, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -213,6 +234,9 @@ TRANSLATE_COORDINATE_SYSTEM:
                MILS, MICRON, CENTIMETER, MICROINCH]
   manual_ref: "SRC-003 pp.330-331"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.294, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.305, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.304, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.327, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.329, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -238,6 +262,9 @@ DUPLICATE_COORDINATE_SYSTEM:
       cites: frames
   manual_ref: "SRC-003 p.331"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.294, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.305, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.304, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.327, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.330, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -263,6 +290,9 @@ MIRROR_COORDINATE_SYSTEM:
       values: [YZ, XZ, XY]
   manual_ref: "SRC-003 p.331"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.295, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.305, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.304, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.327, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.330, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -290,6 +320,9 @@ DELETE_COORDINATE_SYSTEM:
       cites: frames
   manual_ref: "SRC-003 p.331"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.295, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.305, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.304, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.327, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.330, same grammar as 26.120"}
     "26.120": {status: documented}

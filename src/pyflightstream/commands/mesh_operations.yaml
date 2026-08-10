@@ -77,6 +77,9 @@ SURFACE_ROTATE:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 p.309"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.268, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.283, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.282, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.304, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.308, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -128,6 +131,9 @@ TRANSLATE_SURFACE_IN_FRAME:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 p.309"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.268, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.283, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.282, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.304, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.308, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -159,6 +165,9 @@ TRANSLATE_SURFACE_BY_FRAME:
       all_sentinel: 0
   manual_ref: "SRC-003 p.309"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.269, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.283, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.282, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.304, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.308, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -188,6 +197,9 @@ SURFACE_SCALE:
       all_sentinel: -1
   manual_ref: "SRC-003 p.310"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.269, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.284, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.283, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.305, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.309, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -218,6 +230,9 @@ SURFACE_MIRROR:
       values: ["TRUE", "FALSE"]
   manual_ref: "SRC-003 p.311"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.271, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.285, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.284, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.306, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.310, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -257,6 +272,9 @@ SURFACE_LINEAR_COPY_PASTE:
       type: float
   manual_ref: "SRC-003 pp.311-312"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.271, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.285, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.284, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.306, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.310, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -286,6 +304,8 @@ SURFACE_CIRCULAR_COPY_PASTE:
       unit: "deg"
   manual_ref: "SRC-003 p.312"
   versions:
+    "25.100": {status: documented, note: "SRC-748 p.286, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.285, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.307, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.311, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -338,6 +358,9 @@ SELECT_GEOMETRY_BY_ID:
       all_sentinel: -1
   manual_ref: "SRC-741 p.305"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.270, same grammar as 26.100"}
+    "25.100": {status: documented, note: "SRC-748 p.284, same grammar as 26.100"}
+    "26.000": {status: documented, note: "SRC-747 p.283, same grammar as 26.100"}
     "26.100": {status: documented}
   notes: >
     The February 2026 spelling of SURFACE_SELECT_BY_ID above, documented
@@ -373,6 +396,9 @@ SURFACE_SELECT_BY_THRESHOLD:
       values: [ALL_FACES, VISIBLE_FACES, SELECTED_FACES]
   manual_ref: "SRC-003 p.310"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.270, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.284, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.283, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.305, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.309, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -399,6 +425,9 @@ CREATE_NEW_SURFACE_FROM_SELECTION:
   args: []
   manual_ref: "SRC-003 p.311"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.270, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.285, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.284, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.306, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.310, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -427,6 +456,9 @@ SURFACE_CUT_BY_PLANE:
       all_sentinel: -1
   manual_ref: "SRC-003 p.311"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.270, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.285, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.284, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.306, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.310, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -455,6 +487,9 @@ SURFACE_COMBINE:
       separator: comma
   manual_ref: "SRC-003 p.312"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.272, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.286, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.285, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.307, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.311, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -474,6 +509,9 @@ SURFACE_AUTO_HOLE_FILL:
       cites: boundaries
   manual_ref: "SRC-003 p.312"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.272, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.286, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.285, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.307, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.311, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -492,6 +530,9 @@ SURFACE_INVERT:
       all_sentinel: -1
   manual_ref: "SRC-003 p.310"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.269, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.284, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.283, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.305, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.309, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -512,6 +553,9 @@ SURFACE_RENAME:
       type: str
   manual_ref: "SRC-003 p.310"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.269, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.284, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.283, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.305, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.309, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -535,6 +579,9 @@ DELETE_SELECTED_FACES:
   args: []
   manual_ref: "SRC-003 p.312"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.272, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.287, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.286, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.308, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.311, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -550,6 +597,9 @@ DELETE_DEGENERATE_FACES:
   args: []
   manual_ref: "SRC-003 p.313"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.273, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.287, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.286, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.308, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.312, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -568,6 +618,9 @@ SURFACE_DELETE:
       cites: boundaries
   manual_ref: "SRC-003 p.312"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.272, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.287, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.286, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.308, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.311, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -597,6 +650,9 @@ SURFACE_CLEARALL:
   args: []
   manual_ref: "SRC-003 p.313"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.273, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.287, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.286, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.308, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.312, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -619,6 +675,8 @@ SELECT_MESH_NODE:
       type: int
   manual_ref: "SRC-003 p.313"
   versions:
+    "25.100": {status: documented, note: "SRC-748 p.287, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.286, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.308, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.312, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -647,6 +705,8 @@ TRANSFORM_SELECTED_NODES:
       type: float
   manual_ref: "SRC-003 p.313"
   versions:
+    "25.100": {status: documented, note: "SRC-748 p.287, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.286, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.308, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.312, same grammar as 26.120"}
     "26.120": {status: documented}

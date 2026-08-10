@@ -25,7 +25,9 @@ from pyflightstream.versions import known_versions
 #: view returns the entry: present with recorded evidence, of any status
 #: except `removed`, hotfix inheritance honoured.
 EMITTABLE = {
-    "26.000": 0,
+    "25.000": 241,
+    "25.100": 256,
+    "26.000": 262,
     "26.100": 345,
     "26.101": 363,
     "26.120": 363,
@@ -39,6 +41,8 @@ EMITTABLE = {
 #: what the full run of that day recorded, and the arithmetic then did
 #: not close against its own two compat reports.
 VERIFIED = {
+    "25.000": 0,
+    "25.100": 0,
     "26.000": 0,
     "26.100": 13,
     "26.101": 35,

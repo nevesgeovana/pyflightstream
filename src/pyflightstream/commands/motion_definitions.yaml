@@ -22,6 +22,8 @@ CREATE_NEW_MOTION:
       values: [ROTARY, 6DOF, CUSTOM]
   manual_ref: "SRC-003 p.332"
   versions:
+    "25.100": {status: documented, note: "SRC-748 p.306, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.305, same grammar as 26.120"}
     "26.121": {status: documented, note: "SRC-740 p.335, same grammar as 26.120"}
     "26.100":
       status: documented
@@ -70,6 +72,9 @@ SET_MOTION_BOUNDARIES:
       required: false
   manual_ref: "SRC-003 p.332"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.296, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.306, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.305, same grammar as 26.120"}
     "26.121": {status: documented, note: "SRC-740 p.335, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.328, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.331, same grammar as 26.120"}
@@ -94,6 +99,9 @@ SET_MOTION_MOVING_FRAMES:
       required: false
   manual_ref: "SRC-003 p.332"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.296, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.306, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.305, same grammar as 26.120"}
     "26.121": {status: documented, note: "SRC-740 p.335, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.328, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.331, same grammar as 26.120"}
@@ -114,6 +122,9 @@ SET_MOTION_COORDINATE_SYSTEM:
       cites: frames
   manual_ref: "SRC-003 p.332"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.297, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.306, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.305, same grammar as 26.120"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
     "26.100": {status: documented, note: "SRC-741 p.328, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.331, same grammar as 26.120"}
@@ -131,6 +142,9 @@ SET_MOTION_START_TIME:
       unit: "s"
   manual_ref: "SRC-003 p.332"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.297, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.306, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.305, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.328, same grammar as 26.120; never probed on this build, so the abort measured on 26.120 and 26.121 is not claimed here"}
     "26.101": {status: broken, report: "reports/compat/CMP-26101_2026-08-08_full.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing)"}
     "26.120": {status: broken, report: "reports/compat/CMP-26120_2026-08-08_full.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing)"}
@@ -229,6 +243,9 @@ SET_MOTION_FSI_EXECUTABLE:
       own_line: true
   manual_ref: "SRC-003 pp.335-336"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.301, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.310, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.309, same grammar as 26.120"}
     "26.121": {status: documented, note: "SRC-740 p.338, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.332, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 pp.334-335, same grammar as 26.120"}
@@ -257,6 +274,9 @@ SET_MOTION_FSI_STRUCTURAL_NODES:
       own_line: true
   manual_ref: "SRC-003 p.336"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.301, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.310, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.309, same grammar as 26.120"}
     "26.121": {status: documented, note: "SRC-740 p.339, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.332, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.335, same grammar as 26.120"}
@@ -279,6 +299,9 @@ DELETE_MOTION:
       cites: motions
   manual_ref: "SRC-003 p.336"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.301, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.310, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.309, same grammar as 26.120"}
     "26.121": {status: documented, note: "SRC-740 p.339, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.333, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.335, same grammar as 26.120"}
@@ -313,6 +336,9 @@ SET_MOTION_VELOCITY:
       type: float
   manual_ref: "SRC-741 p.329"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.297, same grammar as 26.100"}
+    "25.100": {status: documented, note: "SRC-748 p.307, same grammar as 26.100"}
+    "26.000": {status: documented, note: "SRC-747 p.306, same grammar as 26.100"}
     "26.100": {status: documented}
   notes: >
     Velocity vector of a February 2026 Euclidean motion, in the MOTION
@@ -337,6 +363,9 @@ SET_MOTION_ACCELERATION:
       type: float
   manual_ref: "SRC-741 p.329"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.297, same grammar as 26.100"}
+    "25.100": {status: documented, note: "SRC-748 p.307, same grammar as 26.100"}
+    "26.000": {status: documented, note: "SRC-747 p.306, same grammar as 26.100"}
     "26.100": {status: documented}
   notes: >
     Acceleration vector of a February 2026 Euclidean motion, in the
@@ -360,6 +389,9 @@ SET_MOTION_ANGULAR_VELOCITY:
       type: float
   manual_ref: "SRC-741 p.329"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.297, same grammar as 26.100"}
+    "25.100": {status: documented, note: "SRC-748 p.307, same grammar as 26.100"}
+    "26.000": {status: documented, note: "SRC-747 p.306, same grammar as 26.100"}
     "26.100": {status: documented}
   notes: >
     Angular velocity vector of a February 2026 Euclidean motion, in the
@@ -383,6 +415,9 @@ SET_MOTION_ANGULAR_ACCELERATION:
       type: float
   manual_ref: "SRC-741 p.329"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.298, same grammar as 26.100"}
+    "25.100": {status: documented, note: "SRC-748 p.307, same grammar as 26.100"}
+    "26.000": {status: documented, note: "SRC-747 p.306, same grammar as 26.100"}
     "26.100": {status: documented}
   notes: >
     Angular acceleration vector of a February 2026 Euclidean motion, in
@@ -403,6 +438,9 @@ SET_MOTION_IS_ROTOR:
       values: [X, Y, Z]
   manual_ref: "SRC-741 p.329"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.298, same grammar as 26.100"}
+    "25.100": {status: documented, note: "SRC-748 p.307, same grammar as 26.100"}
+    "26.000": {status: documented, note: "SRC-747 p.306, same grammar as 26.100"}
     "26.100": {status: documented}
   notes: >
     Marks a February 2026 motion as a rotor or propeller. AXIS is the
@@ -438,6 +476,9 @@ SET_MOTION_MASS_PROPERTIES:
       type: float
   manual_ref: "SRC-003 p.333"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.298, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.308, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.307, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.330, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.332, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -467,6 +508,9 @@ SET_MOTION_GRAVITY:
       type: float
   manual_ref: "SRC-003 p.333"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.299, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.308, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.307, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.330, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.332, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -497,6 +541,9 @@ SET_MOTION_CUSTOM_TABLE:
       own_line: true
   manual_ref: "SRC-003 p.333"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.298, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.307, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.306, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.330, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.332, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -531,6 +578,9 @@ SET_MOTION_6DOF_INITIAL_VELOCITY:
       type: float
   manual_ref: "SRC-003 p.334"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.299, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.308, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.307, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.330, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.333, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -554,6 +604,9 @@ SET_MOTION_6DOF_INITIAL_ANGULAR_VELOCITY:
       type: float
   manual_ref: "SRC-003 p.334"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.299, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.308, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.307, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.330, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.333, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -576,6 +629,9 @@ SET_MOTION_6DOF_ACTIVE_VARIABLES:
       fixed_length: 6
   manual_ref: "SRC-003 p.334"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.299, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.308, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.307, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.331, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.333, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -629,6 +685,9 @@ CREATE_NEW_6DOF_EXTERNAL_FORCE:
       type: float
   manual_ref: "SRC-003 p.334"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.300, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.309, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.308, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.331, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.333, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -657,6 +716,9 @@ CREATE_NEW_6DOF_CUSTOM_FORCE:
       own_line: true
   manual_ref: "SRC-003 p.335"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.300, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.309, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.308, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.331, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.334, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -697,6 +759,9 @@ CREATE_NEW_6DOF_SPRING_FORCE:
       unit: "N/m"
   manual_ref: "SRC-003 p.335"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.300, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.309, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.308, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.332, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.334, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -728,6 +793,9 @@ DELETE_6DOF_EXTERNAL_FORCE:
       type: int
   manual_ref: "SRC-003 p.335"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.301, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.310, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.309, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.332, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.334, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -749,6 +817,9 @@ SET_6DOF_MOTION_SYMMETRY_LOADS:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 p.334"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.299, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.309, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.308, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.331, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.333, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -780,6 +851,9 @@ EXPORT_6DOF_TRAJECTORY:
       own_line: true
   manual_ref: "SRC-003 p.335"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.301, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.310, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.309, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.332, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.334, same grammar as 26.120"}
     "26.120": {status: documented}

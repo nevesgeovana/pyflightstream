@@ -50,14 +50,44 @@ def test_the_levels_are_a_closed_named_set_in_ascending_order():
     )
 
 
+def replace_versions_with_nothing(registry):
+    """Return the registry with every version row dropped.
+
+    The `registered` level means ordered but carrying evidence for
+    nothing, and no registered build is in that state any more. Rather
+    than pick a build and pretend, this empties the evidence and leaves
+    the registry otherwise real, so the level is exercised on the same
+    code path a genuinely unread build would take.
+    """
+    import dataclasses
+
+    # The registry is a dataclass and the entries are pydantic models,
+    # so the two halves are copied by their own idioms rather than by
+    # one guessed at.
+    commands = {
+        name: entry.model_copy(update={"versions": {}}) for name, entry in registry.commands.items()
+    }
+    return dataclasses.replace(registry, commands=commands)
+
+
 @pytest.mark.requirement("FR-49")
 def test_a_version_with_no_evidence_is_reported_registered_and_not_supported():
     """The finding, stated as its own assertion.
 
-    26.000 is the case: registered, ordered, accepted by `Script`, and
-    carrying evidence for nothing. The level has to say so out loud.
+    A build can be registered, ordered and accepted by `Script` while
+    carrying evidence for nothing, and the level has to say so out loud.
+
+    NO REGISTERED BUILD IS IN THAT STATE TODAY, which is why the version
+    here is synthetic. 26.000 was the case for one day; reading its own
+    manual edition on 2026-08-10 gave it 262 commands and moved it to
+    `documented`. The state is still reachable, and reachable on the
+    ordinary path rather than an exotic one: a build is registered
+    before anybody reads its manual, and all three registered this week
+    passed through it.
     """
-    row = version_support("26.000")
+    empty = CommandRegistry.load()
+    empty = replace_versions_with_nothing(empty)
+    row = version_support("26.000", registry=empty)
     assert row.level is SupportLevel.REGISTERED
     assert row.commands_available == 0
     assert row.commands_probed == 0
@@ -141,17 +171,37 @@ def test_there_is_at_least_one_operational_version():
 def test_a_version_that_cannot_build_the_workflow_says_which_command_is_missing():
     """The refusal is the honest answer to "can I use this version?".
 
-    26.000 has no commands at all, so the first link of the chain is
-    where it stops, and the message names it.
+    Two cases, and the second is the one a user actually meets. A build
+    with no commands at all stops at the first link, and the message
+    names it. A build that carries most of the chain stops at the link
+    it lacks, which is harder to guess and more useful to be told: the
+    25 series documents sixteen of the seventeen workflow commands and
+    lacks the automatic trailing-edge detection that arrives at 26.000.
     """
+    empty = replace_versions_with_nothing(CommandRegistry.load())
     with pytest.raises(CommandNotInVersionError, match="NEW_SIMULATION"):
-        minimal_workflow("26.000")
-    assert version_support("26.000").workflow_missing == MINIMAL_WORKFLOW_COMMANDS
+        minimal_workflow("26.000", registry=empty)
+    assert version_support("26.000", registry=empty).workflow_missing == (MINIMAL_WORKFLOW_COMMANDS)
+
+    with pytest.raises(CommandNotInVersionError, match="AUTO_DETECT_TRAILING_EDGES"):
+        minimal_workflow("25.100")
+    missing = version_support("25.100").workflow_missing
+    # A SUBSET and a membership, not the exact tuple: the other names in
+    # it are commands whose 25.100 grammar differs and is still being
+    # written, so the list shrinks as that lands. What will not change is
+    # that the automatic trailing-edge detection is absent from this
+    # edition, the command having arrived at 26.000.
+    assert "AUTO_DETECT_TRAILING_EDGES" in missing
+    assert set(missing) <= set(MINIMAL_WORKFLOW_COMMANDS)
+    assert missing[0] == "AUTO_DETECT_TRAILING_EDGES", (
+        "the refusal names the FIRST link of the chain that is missing, so the order "
+        "of workflow_missing is the order of the workflow"
+    )
 
 
 def test_the_support_level_is_reachable_from_the_top_level_package():
     """ "Reported by the public surface" means without knowing a module."""
-    assert pyflightstream.support_level("26.000") is SupportLevel.REGISTERED
+    assert pyflightstream.support_level("26.000") is SupportLevel.DOCUMENTED
     for name in ("SupportLevel", "support_level", "support_table", "version_support"):
         assert name in pyflightstream.__all__
         assert hasattr(pyflightstream, name)

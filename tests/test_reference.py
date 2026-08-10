@@ -67,13 +67,35 @@ def test_markdown_pages_carry_the_navigation_and_evidence():
 def test_compatibility_matrix_is_honest_about_missing_evidence():
     page = markdown_compatibility_matrix()
     registry = CommandRegistry.load()
-    # Every registered version is a column; 26.000 has no evidence yet,
-    # so its summary row reports the whole database as unrecorded, and
-    # none of that absence can be inherited (it is a base release, and
-    # there is nothing below it to inherit from).
-    assert (
-        f"| 26.000 | 26.0 | 0 | 0 | 0 | 0 | {len(registry.commands)} | 0 | none registered |"
-    ) in page
+    # Honest about what is NOT recorded, which is the property this test
+    # is named for. 26.000 carried evidence for nothing until its own
+    # manual edition was read on 2026-08-10; it documents 262 commands
+    # now and is silent about the other 126, and the row has to say so
+    # rather than leaving the reader to subtract.
+    #
+    # Derived from the registry rather than pinned as a literal: the
+    # first version pinned the whole row, so the day evidence arrived it
+    # failed for the right reason and had to be retyped, which is how a
+    # pinned row becomes a row nobody reads.
+    from pyflightstream.versions import known_versions
+
+    version = next(v for v in known_versions() if v.canonical == "26.000")
+    recorded = sum(1 for e in registry.commands.values() if e.evidence_in(version) is not None)
+    silent = len(registry.commands) - recorded
+    assert recorded and silent, (
+        "26.000 either records everything or nothing, so this row cannot show the "
+        "honest-absence column this test is about"
+    )
+    edition_cell = [line for line in page.splitlines() if line.startswith("| 26.000 | 26.0 |")]
+    assert len(edition_cell) == 1, edition_cell
+    row = edition_cell[0]
+    assert f"| {silent} |" in row, (
+        f"the matrix does not report {silent} commands as unrecorded for 26.000: {row}"
+    )
+    assert "| 0 |" in row, "no command is inherited by a base release, and the row must say 0"
+    assert "SRC-747" in row, (
+        f"26.000's manual edition was registered, so the matrix must name it: {row}"
+    )
     assert "SRC-725" in page and "SRC-003" in page
     # Commands link back to their reference entry anchors.
     assert "[SET_SOLVER_STEADY](reference/solver_settings.md#set_solver_steady)" in page
@@ -320,9 +342,13 @@ def test_the_legend_describes_what_the_emitter_actually_does():
         str(Status.VERIFIED): witness(Status.VERIFIED, argless=True),
         str(Status.BROKEN): witness(Status.BROKEN),
         str(Status.REMOVED): witness(Status.REMOVED),
-        # 26.000 is registered and carries evidence for no command at
-        # all, which is what makes it the population of the empty cell.
-        "empty cell": ("START_SOLVER", "26.000"),
+        # An empty cell is a command with no record for a build. It used
+        # to be reachable with any command on 26.000, which carried
+        # evidence for nothing; reading that edition on 2026-08-10 gave
+        # it 262 commands, so the witness is now a command that arrived
+        # AFTER the build: the aeroelastic toolbox is documented from
+        # 26.101 and the 25 series predates it.
+        "empty cell": ("ASSIGN_AEROELASTIC_SURFACES", "25.000"),
     }
     legend = {state: emitter for state, _rests_on, emitter in _STATUS_LEGEND}
     assert set(legend) == set(population), (

@@ -60,6 +60,9 @@ SOLVER_PROXIMAL_BOUNDARIES:
       separator: newline
   manual_ref: "SRC-003 pp.337-338"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.303, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.313, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.312, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.335, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.336, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -90,6 +93,8 @@ REMOVE_INITIALIZATION:
   args: []
   manual_ref: "SRC-003 p.338"
   versions:
+    "25.100": {status: documented, note: "SRC-748 p.313, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.312, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.335, same grammar as 26.120"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
@@ -101,6 +106,9 @@ START_SOLVER:
   args: []
   manual_ref: "SRC-003 p.338"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.312, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.313, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.312, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.335, same grammar as 26.120"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
@@ -115,6 +123,8 @@ CLEAR_SOLUTION:
   args: []
   manual_ref: "SRC-003 p.338"
   versions:
+    "25.100": {status: documented, note: "SRC-748 p.313, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.312, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.337, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.335, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}

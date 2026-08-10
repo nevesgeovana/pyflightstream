@@ -69,8 +69,12 @@ def test_evidence_in_reports_where_the_record_came_from():
     assert base.inherited is False
     assert base.record.status.value == "broken"
 
-    # Absent: no record anywhere in reach.
-    absent = registry.commands["AIR_ALTITUDE"].evidence_in(versions["26.000"])
+    # Absent: no record anywhere in reach. The pair moved on 2026-08-10
+    # from 26.000, which then carried evidence for nothing at all, to
+    # the oldest build and a command that edition genuinely does not
+    # document: 25.000 sets the altitude with a bare number and the
+    # units token AIR_ALTITUDE takes arrives later.
+    absent = registry.commands["AIR_ALTITUDE"].evidence_in(versions["25.000"])
     assert absent is None
 
 

@@ -40,6 +40,9 @@ SET_PLOT_TYPE:
         - UNSTEADY
   manual_ref: "SRC-003 p.361"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.326, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.333, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.332, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.355, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.360, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -71,6 +74,9 @@ SAVE_PLOT_TO_FILE:
       own_line: true
   manual_ref: "SRC-003 p.361"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.326, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.333, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.332, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.355, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.360, same grammar as 26.120"}
     "26.120": {status: documented}

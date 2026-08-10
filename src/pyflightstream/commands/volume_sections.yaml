@@ -35,6 +35,9 @@ CREATE_NEW_RECTANGLE_VOLUME_SECTION:
       type: float
   manual_ref: "SRC-003 p.366"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.331, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.338, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.337, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.365, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.360, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
@@ -74,6 +77,9 @@ CREATE_NEW_CIRCLE_VOLUME_SECTION:
       type: float
   manual_ref: "SRC-003 p.366"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.331, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.338, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.337, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.365, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.360, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
@@ -94,6 +100,9 @@ VOLUME_SECTION_BOUNDARY_LAYER:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-725 p.365"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.331, same grammar as 26.101"}
+    "25.100": {status: documented, note: "SRC-748 p.338, same grammar as 26.101"}
+    "26.000": {status: documented, note: "SRC-747 p.337, same grammar as 26.101"}
     "26.100": {status: documented, note: "SRC-741 p.360, same grammar as 26.101"}
     "26.101": {status: documented}
     "26.120":
@@ -114,6 +123,9 @@ UPDATE_ALL_VOLUME_SECTIONS:
   args: []
   manual_ref: "SRC-003 p.366"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.332, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.339, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.338, same grammar as 26.120"}
     "26.121": {status: documented, note: "SRC-740 p.369, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.366, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.361, same grammar as 26.120"}
@@ -130,6 +142,9 @@ EXPORT_VOLUME_SECTION_VTK:
       own_line: true
   manual_ref: "SRC-003 pp.366-367"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.332, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.339, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.338, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.366, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.361, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
@@ -148,6 +163,9 @@ EXPORT_VOLUME_SECTION_TECPLOT:
       own_line: true
   manual_ref: "SRC-003 p.367"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.332, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.339, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.338, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.366, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.361, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
@@ -163,6 +181,9 @@ DELETE_VOLUME_SECTION:
       type: int
   manual_ref: "SRC-003 p.367"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.333, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.339, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.338, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.366, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.361, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
@@ -174,6 +195,9 @@ DELETE_ALL_VOLUME_SECTIONS:
   args: []
   manual_ref: "SRC-003 p.367"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.333, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.339, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.338, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.361, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.366, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -193,6 +217,9 @@ VOLUME_SECTION_WIREFRAME:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 p.366"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.332, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.338, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.337, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.360, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.365, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -219,6 +246,9 @@ EXPORT_VOLUME_SECTION_2D_VTK:
       own_line: true
   manual_ref: "SRC-003 p.367"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.332, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.339, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.338, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.361, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.366, same grammar as 26.120"}
     "26.120": {status: documented}

@@ -6,6 +6,7 @@ import warnings
 from pathlib import Path
 
 import pytest
+from tests._no_evidence import registry_without
 
 from pyflightstream.commands import CommandNotInVersionError, CommandRegistry
 from pyflightstream.script import (
@@ -13,6 +14,7 @@ from pyflightstream.script import (
     Script,
     ScriptReferenceError,
     helpers,
+    solver_setup,
 )
 from pyflightstream.script.solver_setup import (
     FLAG_SPECS,
@@ -218,10 +220,21 @@ def test_an_unset_selection_emits_nothing_and_leaves_the_solver_default():
     assert counts["explicit"] + counts["default"] + counts["unknown"] == len(setup.flags)
 
 
-def test_an_unset_selection_stays_unknown_without_the_command_in_the_version():
-    # 26.000 records no evidence for the selection command, so the
-    # library claims no default there (invariant 3, honest unknown).
-    script = Script(version="26.0")
+def test_an_unset_selection_stays_unknown_without_the_command_in_the_version(monkeypatch):
+    """No evidence for the selection command means no claimed default.
+
+    Invariant 3, the honest unknown. 26.000 played this part until its
+    own manual was read on 2026-08-10; the command is documented by
+    every registered build now, so the silence is made rather than
+    found.
+    """
+    # Monkeypatched rather than passed: build_setup calls
+    # CommandRegistry.load() itself and ignores the registry its Script
+    # was built with, so a registry argument here would be honoured by
+    # the emitter and ignored by the snapshot (PLN-20260810-1100).
+    silent = registry_without(VORTICITY_COMMAND)
+    monkeypatch.setattr(solver_setup.CommandRegistry, "load", classmethod(lambda cls: silent))
+    script = Script(version="26.0", registry=silent)
     setup = helpers.solver_settings(script)
     record = setup.flags[VORTICITY_COMMAND]
     assert record.provenance == "unknown"

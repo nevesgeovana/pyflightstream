@@ -3,6 +3,7 @@
 import numpy as np
 import pytest
 from pydantic import ValidationError
+from tests._no_evidence import registry_without
 
 from pyflightstream.commands import CommandNotInVersionError
 from pyflightstream.probes import (
@@ -101,12 +102,19 @@ def test_emission_renders_version_validated_probe_lines():
 
 
 def test_emission_is_version_aware_across_the_registered_versions():
-    # The probe family is stable across 26.1 and 26.12 (SRC-725
-    # pp.361-362 / SRC-003 pp.362-363) and has no 26.000 evidence yet,
-    # so 26.000 refuses with the didactic citation.
+    """The emitter refuses where the database is silent.
+
+    26.000 used to be the silent build and is not any more: its own
+    manual edition was read on 2026-08-10 and the probe family is
+    documented by all seven registered builds. The refusal is exercised
+    by silencing the command rather than by finding a build that lacks
+    it, which is the same code path and does not rot the next time an
+    edition is read.
+    """
     emit_probe_points(Script(version="26.101"), small_lattice())
+    silent = registry_without("NEW_PROBE_POINT")
     with pytest.raises(CommandNotInVersionError, match="no recorded evidence"):
-        emit_probe_points(Script(version="26.0"), small_lattice())
+        emit_probe_points(Script(version="26.101", registry=silent), small_lattice())
 
 
 def test_probe_csv_follows_the_documented_import_format(tmp_path):

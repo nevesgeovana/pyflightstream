@@ -287,7 +287,7 @@ def version_support(
     --------
     >>> from pyflightstream.support import version_support
     >>> version_support("26.000").level
-    <SupportLevel.REGISTERED: 'registered'>
+    <SupportLevel.DOCUMENTED: 'documented'>
     """
     resolved = resolve(version)
     registry = registry or CommandRegistry.load()
@@ -389,7 +389,7 @@ def support_table(*, registry: CommandRegistry | None = None) -> tuple[VersionSu
     --------
     >>> from pyflightstream.support import support_table
     >>> {row.canonical: str(row.level) for row in support_table()}["26.000"]
-    'registered'
+    'documented'
     """
     registry = registry or CommandRegistry.load()
     return tuple(version_support(version, registry=registry) for version in known_versions())

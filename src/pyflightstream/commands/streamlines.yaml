@@ -29,6 +29,9 @@ NEW_OFF_BODY_STREAMLINE:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 p.368"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.334, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.341, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.340, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.363, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.367, same grammar as 26.120"}
     "26.120": {status: broken, report: "reports/compat/CMP-26120_2026-08-08_full.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing)"}
@@ -54,6 +57,9 @@ NEW_STREAMLINE_DISTRIBUTION:
       type: int
   manual_ref: "SRC-003 p.368"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.334, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.341, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.340, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.363, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.367, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
@@ -68,6 +74,9 @@ GENERATE_ALL_OFF_BODY_STREAMLINES:
   args: []
   manual_ref: "SRC-003 p.368"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.335, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.342, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.340, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.363, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.367, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
@@ -81,6 +90,9 @@ EXPORT_ALL_OFF_BODY_STREAMLINES:
       type: path
   manual_ref: "SRC-003 p.369"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.335, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.342, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.341, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.364, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.368, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
@@ -114,6 +126,7 @@ NEW_OFF_BODY_STREAMTUBE:
       type: int
   manual_ref: "SRC-003 p.368"
   versions:
+    "26.000": {status: documented, note: "SRC-747 p.340, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.363, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.367, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -144,6 +157,9 @@ SET_OFF_BODY_STREAMLINE_LENGTH:
       required: false
   manual_ref: "SRC-003 p.368"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.334, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.341, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.340, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.363, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.367, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -172,6 +188,9 @@ SET_ALL_OFF_BODY_STREAMLINES_UPSTREAM:
   args: []
   manual_ref: "SRC-003 p.368"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.335, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.342, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.340, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.363, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.367, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -187,6 +206,9 @@ SET_ALL_OFF_BODY_STREAMLINES_DOWNSTREAM:
   args: []
   manual_ref: "SRC-003 p.368"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.335, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.342, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.340, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.363, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.367, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -201,6 +223,9 @@ DELETE_ALL_OFF_BODY_STREAMLINES:
   args: []
   manual_ref: "SRC-003 p.369"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.335, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.342, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.341, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.364, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.368, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -215,6 +240,9 @@ GENERATE_ALL_SURFACE_STREAMLINES:
   args: []
   manual_ref: "SRC-003 p.370"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.336, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.343, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.342, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.365, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.369, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -235,6 +263,9 @@ DELETE_ALL_SURFACE_STREAMLINES:
   args: []
   manual_ref: "SRC-003 p.370"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.336, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.343, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.342, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.365, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.369, same grammar as 26.120"}
     "26.120": {status: documented}

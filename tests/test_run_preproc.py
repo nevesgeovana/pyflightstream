@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import pytest
+from tests._no_evidence import registry_without_version
 
 from pyflightstream.commands import CommandNotInVersionError
 from pyflightstream.run import (
@@ -60,7 +61,27 @@ def test_missing_executor_and_exe_is_refused(tmp_path):
         export_surface_mesh(tmp_path / "case.fsm", tmp_path / "pre", version="26.120")
 
 
-def test_version_without_evidence_refuses_didactically(tmp_path):
+def test_version_without_evidence_refuses_didactically(tmp_path, monkeypatch):
+    """The exporter refuses where the database is silent about its commands.
+
+    26.000 was the silent build until its own manual edition was read on
+    2026-08-10; all three commands this path emits are documented by
+    every registered build now. The silence is made rather than found,
+    and by dropping ONE build's rows rather than emptying the database,
+    so the refusal comes from the same comparison a genuinely unread
+    build would meet.
+
+    Monkeypatched because export_surface_mesh builds its own Script and
+    takes no registry, which is the same seam PLN-20260810-1100 records
+    for the solver-setup snapshot.
+    """
+    from pyflightstream.commands import CommandRegistry
+
+    # Patched on the class the run module reaches through Script, since
+    # Script itself calls CommandRegistry.load() when given no registry
+    # and export_surface_mesh gives it none.
+    silent = registry_without_version("26.000")
+    monkeypatch.setattr(CommandRegistry, "load", classmethod(lambda cls: silent))
     with pytest.raises(CommandNotInVersionError):
         export_surface_mesh(
             tmp_path / "case.fsm",

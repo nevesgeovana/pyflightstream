@@ -32,6 +32,9 @@ CREATE_NEW_INLET:
       unit: "simulation velocity units"
   manual_ref: "SRC-003 p.325"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.288, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.300, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.299, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.321, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.324, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -60,6 +63,9 @@ SET_INLET_CUSTOM_PROFILE:
       own_line: true
   manual_ref: "SRC-003 p.325"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.288, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.300, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.299, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.321, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.324, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -93,6 +99,9 @@ REMESH_INLET:
       type: float
   manual_ref: "SRC-003 p.325"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.288, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.300, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.299, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.321, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.324, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -121,6 +130,9 @@ DELETE_INLET:
       type: int
   manual_ref: "SRC-003 p.325"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.288, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.300, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.299, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.321, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.324, same grammar as 26.120"}
     "26.120": {status: documented}

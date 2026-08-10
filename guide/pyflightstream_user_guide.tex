@@ -419,14 +419,15 @@ script.emit("SET_SIMULATION_LENGTH_UNITS", "PARSEC")
 
 \begin{frame}[fragile]{The errors are the teachers (2): version refusals}
 \begin{lstlisting}[style=txt]
->>> Script(version="26.0").emit("NEW_SIMULATION")
-CommandNotInVersionError: NEW_SIMULATION has no recorded evidence
-for FlightStream 26.000. Recorded evidence: 26.100 (verified),
-26.101 (verified), 26.120 (verified), 26.121 (verified). Earlier
-versions await release-notes review or backfill probing.
+>>> Script(version="25.0").emit("CAD_CREATE_BOX")
+CommandNotInVersionError: CAD_CREATE_BOX has no recorded evidence
+for FlightStream 25.000. Recorded evidence: 26.100 (documented),
+26.101 (documented), 26.120 (documented), 26.121 (documented).
+Earlier versions await release-notes review or backfill probing.
 \end{lstlisting}
   \begin{itemize}
     \item The refusal lists exactly what is known, per version, so you can decide: switch versions, or contribute the missing evidence.
+    \item This sample used to refuse \code{NEW\_SIMULATION} on 26.0, and stopped: that edition's own manual was read on 2026-08-10 and the command has a page citation there now. The CAD chapter is the honest example today, arriving with 26.100 and absent from every earlier build.
     \item Removed commands explain themselves too: the removal note, the manual page, the last documented version, and the successor command when one is recorded.
   \end{itemize}
 \end{frame}

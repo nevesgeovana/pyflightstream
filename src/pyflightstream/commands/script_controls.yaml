@@ -8,6 +8,9 @@ STOP:
   args: []
   manual_ref: "SRC-003 p.281"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.257, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.271, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.270, same grammar as 26.120"}
     "26.100": {status: verified, report: "reports/compat/CMP-26100_2026-08-08_full.yaml"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
@@ -24,6 +27,9 @@ PRINT:
       type: str
   manual_ref: "SRC-003 p.281"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.257, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.271, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.270, same grammar as 26.120"}
     "26.100": {status: verified, report: "reports/compat/CMP-26100_2026-08-08_full.yaml"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
@@ -40,6 +46,8 @@ RUN_SCRIPT:
       type: path
   manual_ref: "SRC-003 p.281"
   versions:
+    "25.100": {status: documented, note: "SRC-748 p.271, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.270, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.280, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.275, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}

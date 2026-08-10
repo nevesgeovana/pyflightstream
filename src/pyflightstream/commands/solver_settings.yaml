@@ -6,6 +6,9 @@ SET_SOLVER_STEADY:
   args: []
   manual_ref: "SRC-003 p.341"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.307, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.316, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.315, same grammar as 26.120"}
     "26.100": {status: verified, report: "reports/compat/CMP-26100_2026-08-08_full.yaml"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
@@ -22,6 +25,9 @@ SET_SOLVER_UNSTEADY:
       unit: "s"
   manual_ref: "SRC-003 p.341"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.307, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.316, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.315, same grammar as 26.120"}
     "26.100": {status: verified, report: "reports/compat/CMP-26100_2026-08-08_full.yaml"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
@@ -40,6 +46,9 @@ SET_BOUNDARY_LAYER_TYPE:
       values: [LAMINAR, TRANSITIONAL, TURBULENT]
   manual_ref: "SRC-003 p.341"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.307, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.316, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.315, same grammar as 26.120"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
     "26.100": {status: documented, note: "SRC-741 p.338, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.340, same grammar as 26.120"}
@@ -60,6 +69,9 @@ SET_SOLVER_VISCOUS_COUPLING:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 p.341"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.307, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.316, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.315, same grammar as 26.120"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
     "26.100": {status: documented, note: "SRC-741 p.338, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.340, same grammar as 26.120"}
@@ -80,6 +92,9 @@ SET_VISCOUS_EXCLUDED_BOUNDARIES:
       cites: boundaries
   manual_ref: "SRC-003 p.341"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.308, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.316, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.315, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.338, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.340, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -96,6 +111,9 @@ DELETE_VISCOUS_EXCLUDED_BOUNDARIES:
   args: []
   manual_ref: "SRC-003 p.341"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.308, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.316, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.315, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.338"}
     "26.101": {status: documented, note: "SRC-725 p.340"}
     "26.120": {status: documented}
@@ -331,6 +349,9 @@ SET_AXIAL_SEPARATION_BOUNDARIES:
       required: false
   manual_ref: "SRC-741 p.339"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.308, same grammar as 26.100"}
+    "25.100": {status: documented, note: "SRC-748 p.317, same grammar as 26.100"}
+    "26.000": {status: documented, note: "SRC-747 p.316, same grammar as 26.100"}
     "26.100": {status: documented}
   notes: >
     Adds boundaries to the axial flow separation list. NUM_BOUNDARIES
@@ -344,6 +365,9 @@ DELETE_AXIAL_SEPARATION_BOUNDARIES:
   args: []
   manual_ref: "SRC-741 p.339"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.308, same grammar as 26.100"}
+    "25.100": {status: documented, note: "SRC-748 p.317, same grammar as 26.100"}
+    "26.000": {status: documented, note: "SRC-747 p.316, same grammar as 26.100"}
     "26.100": {status: documented}
   notes: >
     Clears the axial flow separation list. Spelled as an empty
@@ -419,6 +443,9 @@ SET_CROSSFLOW_SEPARATION_BOUNDARIES:
       required: false
   manual_ref: "SRC-741 p.339"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.308, same grammar as 26.100"}
+    "25.100": {status: documented, note: "SRC-748 p.317, same grammar as 26.100"}
+    "26.000": {status: documented, note: "SRC-747 p.316, same grammar as 26.100"}
     "26.100": {status: documented}
   notes: >
     Adds boundaries to the cross-flow separation list, with the -1 form
@@ -430,6 +457,9 @@ DELETE_CROSSFLOW_SEPARATION_BOUNDARIES:
   args: []
   manual_ref: "SRC-741 p.340"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.309, same grammar as 26.100"}
+    "25.100": {status: documented, note: "SRC-748 p.317, same grammar as 26.100"}
+    "26.000": {status: documented, note: "SRC-747 p.316, same grammar as 26.100"}
     "26.100": {status: documented}
   notes: >
     Clears the cross-flow separation list. Spelled as an empty
@@ -483,6 +513,9 @@ SET_SURFACE_ROUGHNESS:
       unit: "nm"
   manual_ref: "SRC-003 p.341"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.307, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.316, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.315, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.338, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.340, same grammar as 26.120"}
     "26.120": {status: documented}

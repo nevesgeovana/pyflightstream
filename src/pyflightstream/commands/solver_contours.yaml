@@ -45,6 +45,7 @@ SET_SCENE_CONTOUR:
         - proximity
   manual_ref: "SRC-003 pp.349-350"
   versions:
+    "26.000": {status: documented, note: "SRC-747 p.322, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 pp.345-346, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 pp.348-349, same grammar as 26.120"}
     "26.120": {status: documented}

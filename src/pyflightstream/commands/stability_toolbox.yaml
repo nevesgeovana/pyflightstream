@@ -35,6 +35,9 @@ STABILITY_TOOLBOX_SETTINGS:
       unit: "rad/s"
   manual_ref: "SRC-003 p.371"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.337, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.344, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.343, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.366, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.370, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -96,6 +99,9 @@ STABILITY_TOOLBOX_NEW_COEFFICIENT:
       required: false
   manual_ref: "SRC-003 p.371"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.337, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.344, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.343, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.366, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.370, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -134,6 +140,9 @@ STABILITY_TOOLBOX_DELETE_ALL:
   args: []
   manual_ref: "SRC-003 p.371"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.337, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.344, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.343, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.366, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.370, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -148,6 +157,9 @@ COMPUTE_STABILITY_COEFFICIENTS:
   args: []
   manual_ref: "SRC-003 pp.371-372"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.338, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.344, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.343, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 pp.366-367, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 pp.370-371, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -172,6 +184,9 @@ STABILITY_TOOLBOX_EXPORT:
       own_line: true
   manual_ref: "SRC-003 p.372"
   versions:
+    "25.000": {status: documented, note: "SRC-749 p.338, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.345, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.344, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.367, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.371, same grammar as 26.120"}
     "26.120": {status: documented}

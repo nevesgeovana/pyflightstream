@@ -880,9 +880,26 @@ def test_every_evidence_citation_falls_inside_its_edition_page_range():
     """
     registry = CommandRegistry.load()
     ranges = _registered_edition_ranges()
-    assert sorted(ranges) == ["SRC-003", "SRC-725", "SRC-740", "SRC-741"], (
-        f"the guard read ranges for {sorted(ranges)}; an edition whose range it "
-        "cannot parse is an edition it silently stops checking"
+
+    # DERIVED from the registered editions, not listed. The hardcoded
+    # four went stale the moment three more editions were registered,
+    # and a list that has to be retyped is a list that eventually is not:
+    # the failure it protects against is an edition whose range the
+    # parser cannot read, which then goes unchecked in silence, and a
+    # stale literal cannot tell that apart from an edition that is
+    # simply new.
+    from pyflightstream.versions import manual_editions
+
+    declared = {
+        match.group(1)
+        for text in manual_editions().values()
+        if (match := re.match(r"\s*(SRC-\d{3})\b", text))
+    }
+    assert declared, "no edition declares a source id; this guard would read nothing"
+    assert sorted(ranges) == sorted(declared), (
+        f"the guard read ranges for {sorted(ranges)} and the registry declares "
+        f"{sorted(declared)}; an edition whose range it cannot parse is an edition it "
+        "silently stops checking"
     )
     citation = re.compile(r"(SRC-\d{3})\s+pp?\.\s*(\d+)(?:\s*-\s*(\d+))?")
     offenders = []

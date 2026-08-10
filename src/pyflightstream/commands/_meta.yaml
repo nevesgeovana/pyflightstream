@@ -167,6 +167,46 @@ versions:
 # the range this file declared for SRC-003. tests/test_command_db.py now
 # fails on that, so the next drift is caught without reading a pdf.
 manual_editions:
+  "25.000": >
+    SRC-749: Altair FlightStream User Guide, 25.0 edition, 348 pages,
+    scripting reference pp.257-343 with its Script Index at pp.344-347;
+    cited in version notes as "SRC-749 p.N".
+
+    READ THIS BEFORE CITING A PAGE OF IT, because this edition is the
+    one document here that the vendor did not paginate. The 25.000
+    install ships its manual only as a compiled HTML help archive, which
+    has topics and no pages, so a page citation against it would have
+    been a number nobody wrote. The pdf is a CONVERSION, produced by
+    scripts/chm_to_pdf.py from the extracted archive, and its page
+    numbers are citable only because that script is deterministic: the
+    topic order is the archive's own table of contents rather than a
+    choice, the geometry is pinned, and the timestamps the renderer
+    embeds are stripped, so two runs give byte-identical output. The
+    committed pages are md5 AE8E606C8F48D89BE2043CFF853D8255, 10857767
+    bytes, rendered by Chrome 151.0.7922.76. Re-render with a different
+    renderer and the page numbers move; the script prints the hash so
+    the difference is visible rather than silent.
+
+    Three things had to be fixed before the conversion was usable, and
+    each had made a citation point at a page where the command could not
+    be found: a signature split across a page break (seven commands), a
+    block heading putting the label and the command on separate lines,
+    which the reader requires on one (all 272), and a margin glyph
+    sharing the line (two). All 272 commands the archive documents are
+    read from the pdf by pyflightstream.utils.manual.
+  "25.100": >
+    SRC-748: Altair FlightStream User Guide, 25.1 edition (local,
+    also shipped inside _private/exe/FlightStream_25100/), 361 pages,
+    scripting reference pp.271-347 with its Script Index at pp.348-352;
+    cited in version notes as "SRC-748 p.N".
+  "26.000": >
+    SRC-747: Altair FlightStream User Guide, 26.0 edition (local,
+    also shipped inside _private/exe/FlightStream_26000/), 360 pages,
+    scripting reference pp.270-346 with its Script Index at pp.347-351;
+    cited in version notes as "SRC-747 p.N". NOT the same document as
+    SRC-741 despite both being called a User Guide for a 26 series
+    build: that one is 396 pages and belongs to the build that prints
+    26.1.
   "26.100": >
     SRC-741: Altair FlightStream User Guide, 26.1 February 2026 edition
     (local, _private/exe/FlightStream_26100/), 396 pages, scripting
