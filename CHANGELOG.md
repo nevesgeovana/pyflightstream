@@ -150,6 +150,32 @@ none.
   `sonic_velocity` keyword. The 25 series is the series registered so
   published work can be reproduced, so the curated path has to serve it.
 
+### What the review changed
+
+Eight reviewer passes over three rounds read this work, and the entries
+above are what survived them. Three findings are worth a reader's
+attention because they were wrong in ways nothing mechanical could see.
+
+The completeness claim was measured by a tool that cannot measure it.
+`pyfs-manual sweep` compares entry NAMES, so an entry carrying no row
+for one edition read as covered, and it reported zero absent while
+three builds could not emit a command their own manuals document. The
+sweep now reports both halves and `--fail-if-absent` covers both.
+
+Four `removed` rows said the 26.122 edition does not print a command
+while that edition's Script Index names it. The body does not, the
+index does, and the body is what a script is written from, so the
+conclusion stands and the citation did not. Each row states both
+sources now. Measuring it inverted something worth knowing: the three
+commands still emitted for that build are absent from the body AND the
+index, while the four refused are absent from the body and present in
+the index.
+
+And two curated helpers stopped serving three builds the moment their
+grammar was entered. `atmosphere` is fixed on both halves of its
+signature; the second half was found only because a reviewer
+parametrised over the builds instead of testing the one that changed.
+
 ### Known gaps
 
 - **Three commands the 26.122 edition stops printing are still
