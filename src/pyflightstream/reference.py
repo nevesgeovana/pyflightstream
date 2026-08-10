@@ -477,8 +477,9 @@ def _coverage_notes() -> list[str]:
             )
     notes.append(
         "Each chapter header states whether the chapter is complete for its "
-        "page range, and as of 2026-08-08 every one of them declares itself "
-        "complete against the four registered editions. Read a cited page as "
+        f"page range, against the {len(manual_editions())} editions registered "
+        "when the header was last stamped; a header naming a smaller number "
+        "predates a build that has since joined. Read a cited page as "
         "cited rather than as exhausted: the claim is that the commands the "
         "editions document are recorded, not that nothing else could be on "
         "the page. Manual areas outside the scripting chapters (GUI "
@@ -997,6 +998,21 @@ def markdown_compatibility_matrix() -> str:
     return "\n".join(lines)
 
 
+def _sharing_a_printed_name(versions) -> int:
+    """Count the builds whose printed release name another build shares.
+
+    Derived rather than written down: the figure moved from four to five
+    the day 26.122 was registered, and the sentence carrying it as a
+    literal sat seven lines from the code that computes the same set.
+    """
+    return sum(
+        1
+        for version in versions
+        if version.prints is not None
+        and sum(1 for other in versions if other.prints == version.prints) > 1
+    )
+
+
 def markdown_build_table() -> str:
     """Render the build correspondence table as one markdown page.
 
@@ -1009,8 +1025,11 @@ def markdown_build_table() -> str:
     The printed release name alone cannot do this job, which is the
     whole reason the page exists, and the name to print is
     :attr:`FsVersion.prints` rather than :attr:`FsVersion.alias`. Those
-    two differ for four of the seven registered builds: the vendor ships
-    26.120 and 26.121 as "26.12" and both binaries print "26.1". A table
+    two differ wherever the vendor has shipped more than one build under
+    one release name: 26.120, 26.121 and 26.122 all ship as "26.12" and
+    all three binaries print "26.1". The tally is not written here
+    because it moves with every build the vendor issues; the rendered
+    page computes it. A table
     keyed on the alias would offer a 26.12 owner a name their solver
     never prints, they would match one of the rows that does print
     "26.1", and they would leave with the identifier of a different
@@ -1036,9 +1055,10 @@ def markdown_build_table() -> str:
         "",
         "Every FlightStream install prints its release name and its build "
         "number when it starts. That PAIR is what identifies a build. "
-        "Neither half does it alone: four registered builds print the same "
-        "release name, and the name the vendor sells a build under is not "
-        "always the name the binary prints.",
+        f"Neither half does it alone: {_sharing_a_printed_name(versions)} "
+        "registered builds print the same release name as at least one "
+        "other, and the name the vendor sells a build under is not always "
+        "the name the binary prints.",
         "",
         "Read the two values off that line, find the row carrying both, "
         "and pass the identifier beside them wherever this package asks "

@@ -763,7 +763,7 @@ ROTATE_SURFACE:
       values: [X, Y, Z]
     - name: angle
       type: float
-      unit: "degrees"
+      unit: "deg"
     - name: surfaces
       type: int
     - name: detach_vertices

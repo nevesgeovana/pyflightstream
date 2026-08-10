@@ -310,13 +310,27 @@ def atmosphere(
     temperature: float | None = None,
     viscosity: float | None = None,
     specific_heat_ratio: float | None = None,
+    sonic_velocity: float | None = None,
 ) -> None:
     """Set the working fluid state (SRC-003 p.328).
 
     Either from a standard-atmosphere altitude (AIR_ALTITUDE) or from
     the five explicit fluid properties (FLUID_PROPERTIES); the two
-    paths are mutually exclusive. Sonic velocity is derived from
-    temperature and specific heat ratio and is no longer an input.
+    paths are mutually exclusive.
+
+    WHICH FIVE DEPENDS ON THE BUILD, and this helper reads its script's
+    version to find out rather than making the caller discover it from a
+    refusal. Builds from 26.100 on derive the sonic velocity from
+    temperature and specific heat ratio and take
+    ``specific_heat_ratio``; the three pre-26.100 editions take
+    ``sonic_velocity`` and have no specific-heat-ratio argument at all
+    (SRC-749 p.286).
+
+    Before 2026-08-10 the helper only knew the newer form, and entering
+    the older grammar closed both doors at once on those builds: passing
+    the five was refused by the binder for a keyword the edition does not
+    have, and omitting one was refused by this helper, which quoted a
+    page of a different edition at a caller who was not reading it.
 
     Parameters
     ----------
@@ -335,11 +349,24 @@ def atmosphere(
     viscosity : float, optional
         Dynamic viscosity in Pa s.
     specific_heat_ratio : float, optional
-        Ratio of specific heats (1.4 for air).
+        Ratio of specific heats (1.4 for air). Taken by builds from
+        26.100 on; the older three have no such argument.
+    sonic_velocity : float, optional
+        Speed of sound in m/s. Taken by the three pre-26.100 builds,
+        where it is an input rather than a derived quantity; the newer
+        builds compute it from temperature and specific heat ratio and
+        have no such argument.
     """
-    properties = (density, pressure, temperature, viscosity, specific_heat_ratio)
+    takes_ratio = "specific_heat_ratio" in {
+        arg.name for arg in script._view["FLUID_PROPERTIES"].args
+    }
+    fifth = "specific_heat_ratio" if takes_ratio else "sonic_velocity"
+    given_fifth = specific_heat_ratio if takes_ratio else sonic_velocity
+    unwanted = sonic_velocity if takes_ratio else specific_heat_ratio
+    properties = (density, pressure, temperature, viscosity, given_fifth)
+
     if altitude is not None:
-        if any(value is not None for value in properties):
+        if any(value is not None for value in properties) or unwanted is not None:
             raise CommandArgumentError(
                 "atmosphere takes either an altitude or the five explicit fluid "
                 "properties, not both: AIR_ALTITUDE already sets the whole standard "
@@ -347,11 +374,20 @@ def atmosphere(
             )
         script.emit("AIR_ALTITUDE", altitude, altitude_units)
         return
+    if unwanted is not None:
+        other = "sonic_velocity" if takes_ratio else "specific_heat_ratio"
+        raise CommandArgumentError(
+            f"atmosphere: FlightStream {script.version.canonical} takes {fifth} and "
+            f"has no {other} argument on FLUID_PROPERTIES, so passing it would emit "
+            "a keyword that build refuses. The two are the same physical fact stated "
+            "the two ways the editions state it, one derived and one given"
+        )
     if any(value is None for value in properties):
         raise CommandArgumentError(
-            "atmosphere without an altitude needs all five fluid properties (density, "
-            "pressure, temperature, viscosity, specific_heat_ratio), because "
-            "FLUID_PROPERTIES sets the complete fluid state (SRC-003 p.328)"
+            f"atmosphere without an altitude needs all five fluid properties "
+            f"(density, pressure, temperature, viscosity, {fifth}) for FlightStream "
+            f"{script.version.canonical}, because FLUID_PROPERTIES sets the complete "
+            "fluid state"
         )
     script.emit(
         "FLUID_PROPERTIES",
@@ -359,7 +395,7 @@ def atmosphere(
         pressure=pressure,
         temperature=temperature,
         viscosity=viscosity,
-        specific_heat_ratio=specific_heat_ratio,
+        **{fifth: given_fifth},
     )
 
 

@@ -21,6 +21,8 @@ The delta is the fact worth keeping, so the delta is what the table
 below states, rather than a copy of each argument list.
 """
 
+from importlib import resources
+
 import pytest
 
 from pyflightstream.commands import CommandRegistry
@@ -159,6 +161,50 @@ PER_VERSION_GRAMMAR: dict[str, dict[str, dict[str, tuple[str, ...]]]] = {
     },
 }
 
+#: Which arguments each override leaves OPTIONAL, stated exhaustively
+#: rather than as the exceptions. The `names` tuples above pin the
+#: argument SEQUENCE and nothing else, so deleting `required: false`
+#: from one argument of one build left the whole tier 1 suite green
+#: while turning an omissible keyword into one the emitter writes into
+#: every script for that build. Arity versus optionality is exactly what
+#: reading the pre-26.100 pages against each other found, so it is the
+#: half worth pinning beside the names.
+#:
+#: A row absent from this mapping asserts that its override leaves NOTHING
+#: optional, which is why the check below reads the mapping with a default
+#: rather than skipping what it does not find.
+PER_VERSION_OPTIONAL: dict[tuple[str, str], tuple[str, ...]] = {
+    ("BOOLEAN_UNITE_MESH", "25.000"): ("body_unite_types",),
+    ("BOOLEAN_UNITE_MESH", "25.100"): ("body_unite_types",),
+    ("BOOLEAN_UNITE_MESH", "26.000"): ("body_unite_types",),
+    ("CREATE_BULK_SEPARATION", "26.101"): ("boundary_indices",),
+    ("EXPORT_SOLVER_ANALYSIS_CSV", "25.000"): ("boundary_indices",),
+    ("INITIALIZE_SOLVER", "25.000"): ("surface_toggles",),
+    ("INITIALIZE_SOLVER", "25.100"): (
+        "surface_toggles",
+        "wake_termination_x",
+        "symmetry_copies",
+        "wall_collision_avoidance",
+        "stabilization",
+        "stabilization_strength",
+    ),
+    ("INITIALIZE_SOLVER", "26.000"): (
+        "surface_toggles",
+        "wake_termination_x",
+        "symmetry_copies",
+        "wall_collision_avoidance",
+        "stabilization",
+        "stabilization_strength",
+    ),
+    ("NEW_SURFACE_SECTION_DISTRIBUTION", "25.000"): ("surface_indices",),
+    ("NEW_SURFACE_SECTION_DISTRIBUTION", "25.100"): ("surface_indices",),
+    ("NEW_SURFACE_SECTION_DISTRIBUTION", "26.000"): ("surface_indices",),
+    ("NEW_SURFACE_SECTION_DISTRIBUTION", "26.100"): ("surface_indices",),
+    ("NEW_SURFACE_SECTION_DISTRIBUTION", "26.101"): ("surface_indices",),
+    ("OPEN", "25.000"): ("reset_parallel_cores", "load_solver_initialization"),
+    ("SOLVER_PROXIMAL_BOUNDARIES", "26.121"): ("boundary_indices",),
+}
+
 
 def _overrides():
     """Return the registry and every (command, version) row stating args."""
@@ -264,3 +310,92 @@ def test_a_list_argument_keeps_its_separator_across_a_per_version_override():
                     "a per-version override is for the difference the manual states, "
                     "not for the flags around it"
                 )
+
+
+def test_every_field_an_override_leaves_unstated_is_filled_from_the_base():
+    """The inheritance itself, pinned, rather than two of its outcomes.
+
+    Two guards in this repository catch a lost `separator` and a lost
+    `cites`, and both were written after that field went missing. They
+    are the only two, and the fill covers more: measured on the shipped
+    database, 29 override arguments inherit at least one key, across
+    `cites`, `unit`, `separator` and `joins_previous`.
+
+    Narrowing the fill to skip `joins_previous` and `unit` left the whole
+    tier 1 suite green while changing what INITIALIZE_SOLVER emits on
+    two builds, from one line to two:
+
+        SYMMETRY MIRROR 2   becomes   SYMMETRY MIRROR
+                                      SYMMETRY_COPIES 2
+
+    A wrong script for those builds alone, silently, which is the defect
+    class the validator was added to end. So this asserts the MECHANISM
+    and not a list of fields: for every key the base declares and the
+    override does not write, the loaded value must equal the base's.
+
+    It reads the raw YAML because that is where "did not write it" is
+    observable at all; on the parsed models an omitted field and one
+    stated at its default are the same value, which is the whole reason
+    the validator runs before parsing.
+    """
+    import yaml  # noqa: PLC0415
+
+    registry = CommandRegistry.load()
+    checked = 0
+    for path in resources.files("pyflightstream.commands").iterdir():
+        if not path.name.endswith(".yaml") or path.name == "_meta.yaml":
+            continue
+        raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        for name, body in raw.items():
+            base_raw = {arg["name"]: arg for arg in body.get("args") or []}
+            if not base_raw:
+                continue
+            entry = registry.commands[name]
+            base_parsed = {arg.name: arg for arg in entry.args}
+            for version, row in (body.get("versions") or {}).items():
+                if not isinstance(row, dict) or not row.get("args"):
+                    continue
+                loaded = {arg.name: arg for arg in entry.versions[version].args}
+                for written in row["args"]:
+                    inherited_from = base_raw.get(written["name"])
+                    if inherited_from is None:
+                        continue
+                    for key in inherited_from:
+                        if key in written or key == "name":
+                            continue
+                        checked += 1
+                        assert getattr(loaded[written["name"]], key) == getattr(
+                            base_parsed[written["name"]], key
+                        ), (
+                            f"{name} on {version} states no {key!r} for argument "
+                            f"{written['name']!r}, so it must carry the base entry's "
+                            "value; an override states its difference and inherits "
+                            "everything else"
+                        )
+    assert checked >= 25, (
+        f"only {checked} inherited fields were checked, and 29 argument fields "
+        "inherit in the shipped database. A drop means the overrides now restate "
+        "what they used to inherit, which is the shape this guard exists to stop, "
+        "or that this walk stopped reaching the chapter files"
+    )
+
+
+def test_each_override_leaves_optional_exactly_what_this_table_says():
+    """Optionality, pinned per row, because the names tuples do not pin it.
+
+    Deleting `required: false` from `wake_termination_x` in the 25.100
+    INITIALIZE_SOLVER override left the whole suite green. That change
+    makes the emitter demand a keyword on one build that the build's own
+    manual documents a call form without, so a caller who omits it is
+    refused for a reason the manual contradicts.
+    """
+    _, found = _overrides()
+    for command, rows in sorted(found.items()):
+        for version, args in sorted(rows.items()):
+            optional = tuple(arg.name for arg in args if not arg.required)
+            expected = PER_VERSION_OPTIONAL.get((command, version), ())
+            assert optional == expected, (
+                f"{command} on {version} leaves {optional} optional and this table "
+                f"says {expected}. A change here is a claim about a call form the "
+                "manual prints, so it moves with the page rather than with the code"
+            )

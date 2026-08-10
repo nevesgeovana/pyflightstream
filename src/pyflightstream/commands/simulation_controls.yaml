@@ -140,7 +140,7 @@ SET_GEOMETRIC_EDGE_BLUNTNESS_ANGLE:
   args:
     - name: angle
       type: float
-      unit: "degrees"
+      unit: "deg"
   manual_ref: "SRC-750 p.288"
   notes: >
     Angle above which a geometric edge counts as blunt, from 45 to

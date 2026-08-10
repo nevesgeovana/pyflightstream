@@ -195,6 +195,20 @@ SWEEPER_REF_VELOCITY_SAME:
     "26.101": {status: documented, note: "SRC-725 p.359, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: broken, report: "reports/compat/CMP-26121_2026-08-08_full.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing)"}
+    "26.122":
+      status: removed
+      note: >-
+        SRC-750 pp.283-383, the whole scripting reference of the 26.122
+        edition, does not print this command. THIS ROW EXISTS BECAUSE
+        INHERITANCE WOULD SAY THE OPPOSITE. 26.122 inherits from the
+        base release 26.120, not from the sibling hotfix, so without a
+        row here the emitter would resolve 26.120's documented record
+        and write a command that the 26.121 row above records as broken,
+        its script aborting at that line. That row is about 26.121 and
+        this one is not, which is why it carries no report of its own
+        and rests on the edition's silence; silence alone is the weakest
+        of the three routes to this status, and it is still a better
+        answer than the opposite one inheritance would give.
   notes: >
     Keeps the reference velocity equal to the free-stream velocity at
     every sweep point. The 26.121 abort recorded above now has a

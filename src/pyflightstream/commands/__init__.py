@@ -798,7 +798,20 @@ class CommandEntry(BaseModel):
         clears an inherited citation, and omitting ``cites`` keeps it.
         Inheritance is by argument NAME: an argument the base does not
         carry is parsed exactly as written, so an override may still
-        state a different argument SET.
+        state a different argument SET. Any field clears the same way
+        `cites` does, by being written as null; the citation is named
+        above because it is the one with a second guard behind it, not
+        because it is special.
+
+        IT DOES NOTHING WHEN THE ENTRY IS BUILT FROM MODEL OBJECTS, and
+        the asymmetry is stated rather than hidden. Both gates below
+        test for `dict`, so `CommandEntry(args=[ArgSpec(...)], ...)`
+        constructed in Python gets no fill and its overrides revert to
+        full replacement. That path cannot express "unstated" at all: on
+        a parsed model an omitted field and one set to its default are
+        the same value, which is the whole reason this runs before
+        parsing. A fixture built that way is exercising a grammar the
+        YAML cannot produce.
         """
         base = data.get("args") if isinstance(data, dict) else None
         versions = data.get("versions") if isinstance(data, dict) else None
@@ -811,14 +824,21 @@ class CommandEntry(BaseModel):
             override = row.get("args") if isinstance(row, dict) else None
             if not isinstance(override, list):
                 continue
+            # A NEW list of NEW dicts, never a write into the caller's.
+            # Validation that edits its input is a side effect no
+            # signature declares, and setdefault would alias a mutable
+            # value such as an enum's `values` list between the base row
+            # and every override that inherits it.
+            filled = []
             for arg in override:
                 if not isinstance(arg, dict):
+                    filled.append(arg)
                     continue
                 inherited = by_name.get(arg.get("name"))
-                if inherited is None:
-                    continue
-                for key, value in inherited.items():
-                    arg.setdefault(key, value)
+                merged = dict(inherited) if inherited else {}
+                merged.update(arg)
+                filled.append(merged)
+            row["args"] = filled
         return data
 
     @field_validator("manual_ref")
@@ -1050,8 +1070,8 @@ class VersionView:
         entry = self._registry.commands.get(name)
         if entry is None:
             raise CommandNotInVersionError(
-                f"{name} is not in the command database. Every command the four "
-                "registered manual editions document is recorded, so this is "
+                f"{name} is not in the command database. Every command any "
+                "registered manual edition documents is recorded, so this is "
                 "usually a spelling error or a command from a build this install "
                 "does not register. An entry rests on a manual page or on a "
                 "committed probe report; CONTRIBUTING says how to add one."
@@ -1065,14 +1085,27 @@ class VersionView:
         # different page entirely (V&V pass, 2026-08-03).
         evidence = entry.evidence_in(self.version)
         if evidence is None:
-            recorded = ", ".join(
-                f"{canonical} ({entry.versions[canonical].status})"
-                for canonical in sorted(entry.versions)
-            )
+            # Listed by REACHABILITY and not by direct row, because the
+            # point of the list is to tell the caller which builds would
+            # work and a hotfix reaches its base release's records. Built
+            # from `entry.versions` it hid exactly the newest build: on
+            # 2026-08-10 a caller refused on an older build was shown
+            # four builds and never told that 26.122, which carries a
+            # direct row for ten commands and reaches 375, would serve
+            # them. Inherited rows are marked, since a caller weighing a
+            # switch should see which answer was measured on the build
+            # they would move to and which was carried forward.
+            reachable = []
+            for candidate in known_versions():
+                found = entry.evidence_in(candidate)
+                if found is None or found.record.status is Status.REMOVED:
+                    continue
+                mark = ", inherited" if found.inherited else ""
+                reachable.append(f"{candidate.canonical} ({found.record.status}{mark})")
+            recorded = ", ".join(reachable) if reachable else "none"
             raise CommandNotInVersionError(
                 f"{name} has no recorded evidence for FlightStream {self.version.canonical}. "
-                f"Recorded evidence: {recorded}. Earlier versions await release-notes review "
-                "or backfill probing."
+                f"Recorded evidence: {recorded}."
             )
         record = evidence.record
         if record.status is Status.REMOVED:

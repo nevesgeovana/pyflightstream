@@ -16,9 +16,10 @@
 # prints: the release name the solver STATES ABOUT ITSELF, from the same
 #   solver_identity line as the build number. It is NOT the alias and may
 #   not be derived from it, which is the whole reason it is a field: the
-#   vendor ships 26.120 and 26.121 under the name 26.12 and both binaries
-#   print 26.1. Four of the seven registered builds print a name that is
-#   not their alias. A reader holding an install has only what it prints,
+#   vendor ships 26.120, 26.121 and 26.122 under the name 26.12 and all
+#   three binaries print 26.1. No tally is written here: it moved the day
+#   the third of those was registered, and the generated build page
+#   computes it. A reader holding an install has only what it prints,
 #   so anything that asks them to match on a name must offer this one.
 versions:
   # ADDED 2026-08-09, on the author's decision, and read the ordering
@@ -177,12 +178,22 @@ versions:
     # July, 9 August 2026). 26.101 has none of that: it is an
     # independent May release that took the next free index.
     #
-    # Inheritance grants this build seven commands its own edition does
-    # not print, five of which 26.121 had already stopped printing. That
-    # is the deliberate reading and not an oversight: an edition going
-    # quiet is a fact about a document, and a hotfix manual is a
-    # re-issue. Deciding whether the SOLVER still answers those seven
-    # needs a probe, and none has run against this build.
+    # Its own edition stops printing seven commands 26.120 prints, and
+    # inheritance grants THREE of them, which is the number to read
+    # rather than seven: four carry an explicit removed row. Two of the
+    # four were re-spelled in this same edition and name their
+    # successor; the other two were MEASURED on 26.121, one refused
+    # outright and one aborting script processing, and inheritance from
+    # the base would have handed this build the opposite answer from the
+    # only measurements the 26.12 line has.
+    #
+    # THAT ASYMMETRY IS NOT SETTLED. The remaining three rest on the
+    # same evidence class as the four, an edition going quiet, and are
+    # emitted while the four are refused. An edition going quiet is a
+    # fact about a document and a hotfix manual is a re-issue, which is
+    # the reading that leaves them emittable; a probe on this build is
+    # what would replace the reading with a measurement, and none has
+    # run. Registered as PLN-20260810-1600 for the author.
     #
     # Inheritance runs from the BASE and not from the sibling, so the
     # six commands 26.121 added over 26.120 do NOT reach here by

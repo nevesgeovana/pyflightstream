@@ -1519,6 +1519,13 @@ def test_the_pdf_reader_asks_for_layout_extraction(monkeypatch, tmp_path):
 # ---------------------------------------------------------------------
 
 
+class _FakeRegistry:
+    """The two attributes the check reads off a loaded registry."""
+
+    def __init__(self, commands):
+        self.commands = commands
+
+
 class _Row:
     """The two fields of a version row this check reads."""
 
@@ -1541,7 +1548,9 @@ def test_a_citation_pointing_at_the_wrong_page_is_a_finding(tmp_path):
     pages = {"ed": {1: {1: "Function name: A_COMMAND <A>\n", 7: "Function name: A_COMMAND <A>\n"}}}
     read, _calls = _recording_reader(pages)
     registry = {"A_COMMAND": _Entry({"ed": _Row(note="SRC-999 p.7, this edition")})}
-    (finding,) = stale_citations(registry, [_edition(tmp_path, "ed", (1, 1))], reader=read)
+    (finding,) = stale_citations(
+        [_edition(tmp_path, "ed", (1, 1))], recorded=_FakeRegistry(registry), reader=read
+    )
     assert (finding.command, finding.edition, finding.cited, finding.found) == (
         "A_COMMAND",
         "ed",
@@ -1554,7 +1563,12 @@ def test_a_citation_on_the_right_page_is_silent(tmp_path):
     pages = {"ed": {1: {1: "Function name: A_COMMAND <A>\n"}}}
     read, _calls = _recording_reader(pages)
     registry = {"A_COMMAND": _Entry({"ed": _Row(note="SRC-999 p.1, this edition")})}
-    assert stale_citations(registry, [_edition(tmp_path, "ed", (1, 1))], reader=read) == ()
+    assert (
+        stale_citations(
+            [_edition(tmp_path, "ed", (1, 1))], recorded=_FakeRegistry(registry), reader=read
+        )
+        == ()
+    )
 
 
 def test_a_command_the_edition_does_not_print_reports_no_page(tmp_path):
@@ -1568,7 +1582,9 @@ def test_a_command_the_edition_does_not_print_reports_no_page(tmp_path):
     pages = {"ed": {1: {1: "Function name: OTHER_COMMAND <A>\n"}}}
     read, _calls = _recording_reader(pages)
     registry = {"A_COMMAND": _Entry({"ed": _Row(note="SRC-999 p.1, this edition")})}
-    (finding,) = stale_citations(registry, [_edition(tmp_path, "ed", (1, 1))], reader=read)
+    (finding,) = stale_citations(
+        [_edition(tmp_path, "ed", (1, 1))], recorded=_FakeRegistry(registry), reader=read
+    )
     assert finding.found is None
 
 
@@ -1587,7 +1603,12 @@ def test_a_removed_row_cites_the_edition_that_states_the_withdrawal(tmp_path):
             {"ed": _Row(note="SRC-999 p.1, stops printing it", status=_Status("removed"))}
         )
     }
-    assert stale_citations(registry, [_edition(tmp_path, "ed", (1, 1))], reader=read) == ()
+    assert (
+        stale_citations(
+            [_edition(tmp_path, "ed", (1, 1))], recorded=_FakeRegistry(registry), reader=read
+        )
+        == ()
+    )
 
 
 def test_an_edition_outside_the_manifest_is_not_checked_and_not_reported(tmp_path):
@@ -1601,11 +1622,141 @@ def test_an_edition_outside_the_manifest_is_not_checked_and_not_reported(tmp_pat
     pages = {"ed": {1: {1: "Function name: A_COMMAND <A>\n"}}}
     read, _calls = _recording_reader(pages)
     registry = {"A_COMMAND": _Entry({"unlisted": _Row(note="SRC-999 p.4444, this edition")})}
-    assert stale_citations(registry, [_edition(tmp_path, "ed", (1, 1))], reader=read) == ()
+    assert (
+        stale_citations(
+            [_edition(tmp_path, "ed", (1, 1))], recorded=_FakeRegistry(registry), reader=read
+        )
+        == ()
+    )
 
 
 def test_a_row_with_no_page_in_its_note_is_not_checked(tmp_path):
     pages = {"ed": {1: {1: "Function name: A_COMMAND <A>\n"}}}
     read, _calls = _recording_reader(pages)
     registry = {"A_COMMAND": _Entry({"ed": _Row(note="verified by probe, no page")})}
-    assert stale_citations(registry, [_edition(tmp_path, "ed", (1, 1))], reader=read) == ()
+    assert (
+        stale_citations(
+            [_edition(tmp_path, "ed", (1, 1))], recorded=_FakeRegistry(registry), reader=read
+        )
+        == ()
+    )
+
+
+def test_a_page_span_is_satisfied_by_either_page(tmp_path):
+    """Twenty-six shipped rows cite a span and none of them was tested.
+
+    Narrowing the pattern from `pp?` to `p` left every citation test
+    green while dropping those twenty-six rows from the check, and
+    reading only the first page of a span reports a correct citation as
+    wrong whenever the heading sits on the second. Both halves are
+    pinned here: the span is accepted, and either page satisfies it.
+    """
+    pages = {
+        "ed": {
+            7: {7: "Function name: ON_SEVEN <A>\n", 8: "Function name: ON_EIGHT <A>\n"},
+        }
+    }
+
+    def read(manual, *, first, last):
+        return {page: pages["ed"][7][page] for page in range(first, last + 1)}
+
+    registry = _FakeRegistry(
+        {
+            "ON_SEVEN": _Entry({"ed": _Row(note="SRC-999 pp.7-8, this edition")}),
+            "ON_EIGHT": _Entry({"ed": _Row(note="SRC-999 pp.7-8, this edition")}),
+        }
+    )
+    edition = Edition(label="ed", manual=tmp_path / "ed.pdf", chapter=(7, 8), source="SRC-999")
+    (tmp_path / "ed.pdf").write_bytes(b"injected reader")
+    assert stale_citations([edition], recorded=registry, reader=read) == ()
+
+
+def test_a_citation_naming_another_edition_is_a_finding(tmp_path):
+    """Half a citation checked is worse than none, because it reads clean.
+
+    A note carries a source id and a page. Reading the page alone runs a
+    26.121 row against the 26.121 pdf while the note says SRC-003, whose
+    pages differ from it by a uniform three, so the wrong document is
+    checked and a coincidence is cheap.
+    """
+    pages = {"ed": {1: "Function name: A_COMMAND <A>\n"}}
+
+    def read(manual, *, first, last):
+        return {page: pages["ed"][1] for page in range(first, last + 1)}
+
+    registry = _FakeRegistry({"A_COMMAND": _Entry({"ed": _Row(note="SRC-003 p.1, another")})})
+    edition = Edition(label="ed", manual=tmp_path / "ed.pdf", chapter=(1, 1), source="SRC-999")
+    (tmp_path / "ed.pdf").write_bytes(b"injected reader")
+    (finding,) = stale_citations([edition], recorded=registry, reader=read)
+    assert finding.command == "A_COMMAND"
+
+
+def test_the_citation_check_refuses_a_configuration_that_would_read_clean(tmp_path):
+    """Three refusals, all of the same shape as the siblings' own.
+
+    An empty manifest, a duplicate label and a database with no version
+    rows each return no findings, and no findings is what this function
+    says when everything is right. A configuration error reading as the
+    good outcome is the one shape worth refusing outright, which this
+    module already says twice about its neighbours.
+    """
+    registry = _FakeRegistry({"A": _Entry({"ed": _Row(note="SRC-999 p.1, x")})})
+    read, _calls = _recording_reader({"ed": {1: {1: "Function name: A <X>\n"}}})
+    with pytest.raises(ManualDraftError, match="at least one edition"):
+        stale_citations([], recorded=registry, reader=read)
+    with pytest.raises(ManualDraftError, match="more than one edition the label"):
+        stale_citations(
+            [_edition(tmp_path, "ed", (1, 1)), _edition(tmp_path, "ed", (1, 1))],
+            recorded=registry,
+            reader=read,
+        )
+    with pytest.raises(ManualDraftError, match="no version rows"):
+        stale_citations(
+            [_edition(tmp_path, "ed", (1, 1))],
+            recorded=_FakeRegistry({"A": _Entry({})}),
+            reader=read,
+        )
+
+
+def test_the_citations_cli_exits_non_zero_on_a_finding(tmp_path, monkeypatch, capsys):
+    """The subcommand's whole distinguishing property, which nothing pinned.
+
+    It is the only one of the five that gates on exit code, and the
+    incident it was built for is a citation nobody re-read. A `return 0`
+    on findings, or a dropped dispatch branch, would leave the only
+    mechanism against that incident silently green.
+    """
+    monkeypatch.chdir(tmp_path)
+    manifest = _manifest(
+        tmp_path, '- label: "26.121"\n  source: SRC-740\n  manual: x.pdf\n  chapter: 10-11\n'
+    )
+    # Two pages, neither of them holding the command the row cites.
+    monkeypatch.setattr(
+        "pyflightstream.utils.manual.read_pdf_pages",
+        lambda manual, *, first, last: {
+            10: "Function name: START_SOLVER <A>\n",
+            11: "Function name: STOP <A>\n",
+        },
+    )
+    assert cli_main(["citations", "--editions", str(manifest)]) == 1
+    out = capsys.readouterr().out
+    assert "do not hold" in out
+    # And the reach line, because a clean count of editions over an
+    # unchecked database is what this report used to print.
+    assert "version rows carry a citation this can re-read" in out
+
+
+def test_the_citations_cli_names_the_builds_the_manifest_left_out(tmp_path, monkeypatch, capsys):
+    """A one-build manifest must not read as a clean bill for eight."""
+    monkeypatch.chdir(tmp_path)
+    manifest = _manifest(
+        tmp_path, '- label: "26.121"\n  source: SRC-740\n  manual: x.pdf\n  chapter: 10-10\n'
+    )
+    monkeypatch.setattr(
+        "pyflightstream.utils.manual.read_pdf_pages",
+        lambda manual, *, first, last: {10: "Function name: START_SOLVER <A>\n"},
+    )
+    cli_main(["citations", "--editions", str(manifest)])
+    out = capsys.readouterr().out
+    assert "no manifest row for" in out
+    assert "25.000" in out

@@ -212,9 +212,11 @@ class FsVersion:
         Release name this version's solver PRINTS, which is not the
         same fact as :attr:`alias` and must not be derived from it.
         The alias is the name the vendor ships the build under; this is
-        the name the binary states about itself, and for four of the
-        seven registered builds the two differ: 26.120 and 26.121 are
-        shipped as "26.12" and both print "26.1". A reader holding an
+        the name the binary states about itself, and the two differ
+        wherever the vendor has reused a release name: 26.120, 26.121 and
+        26.122 all ship as "26.12" and all three print "26.1". No tally
+        appears here, because it moved the day the third of those was
+        registered. A reader holding an
         install has only the printed name, so a table that offers them
         the alias to match on sends the 26.12 owner to a 26.1 row and
         hands them the wrong identifier, which is the exact failure the

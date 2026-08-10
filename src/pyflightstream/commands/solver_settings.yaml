@@ -646,9 +646,21 @@ SET_SOLVER_MODEL:
     setting moved into the initialization block in the edition that
     dropped the command.
 
-    The four values are the same four the argument carries, so a script
-    porting forward changes where the token is written and not which
-    token.
+    THE TOKENS CHANGE TOO, and a first draft of this note said they did
+    not. This command takes INCOMPRESSIBLE, SUBSONIC, TRANSONIC and
+    LOW_ORDER_SUPERSONIC. The argument that replaces it takes
+    INCOMPRESSIBLE, SUBSONIC_PRANDTL_GLAUERT, TRANSONIC_FIELD_PANEL,
+    SUPERSONIC_LINEAR_DOUBLET, TANGENT_CONE and MODIFIED_NEWTONIAN.
+    Only INCOMPRESSIBLE is common to both, so a script porting forward
+    changes where the token is written AND which token, and three of the
+    four old names have no identical successor.
+
+    No edition states the mapping between the two vocabularies, so none
+    is recorded here. The names suggest the obvious pairs and suggesting
+    is not evidence: SUBSONIC and SUBSONIC_PRANDTL_GLAUERT may name the
+    same model or a narrowing of it, and LOW_ORDER_SUPERSONIC has two
+    plausible partners among the newer six. Choosing one would put a
+    physics claim in a grammar record.
   versions:
     "25.000":
       status: documented
@@ -718,7 +730,7 @@ VALAREZO_CRITERION:
   layout: inline
   phase: init
   args:
-    - name: state
+    - name: mode
       type: enum
       values: ["ENABLE", "DISABLE"]
   manual_ref: "SRC-747 p.316"

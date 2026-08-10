@@ -9,11 +9,19 @@
 # unlike every other chapter of the sweep its version rows differ per
 # command and none of them is boilerplate. Four commands are absent from
 # the February edition, one is absent from the hotfix that FOLLOWS the
-# edition documenting it, and one exists in that hotfix alone. Each is
-# recorded from the editions that print it and from no others: silence is
-# not a statement that a command was removed, so an edition that stops
-# printing one gets NO row rather than a removed one, which the schema
-# reserves for a manual saying so.
+# edition documenting it, and one exists in that hotfix alone.
+#
+# THE RULE IN THIS HEADER CHANGED ON 2026-08-09 and the old wording is
+# replaced rather than kept, because it described a schema that no
+# longer exists. It said an edition that stops printing a command gets
+# NO row, since `removed` was reserved for a manual saying so. `removed`
+# now admits three routes and the row says which: an edition states the
+# withdrawal, an edition merely stops printing the command, or a run
+# measures the solver refusing it. The middle one is the weakest and is
+# still a record, so silence now gets a row that says it is silence.
+# What has not changed is the thing the old wording was protecting: a
+# row read off an edition's silence never claims anything about the
+# solver.
 #
 # It is also the chapter of solver knobs, so almost everything here is
 # phase init. Read that as this database's PLACEMENT of the chapter and
@@ -385,6 +393,20 @@ SET_JET_WAKE_FILAMENTS_GRID_INDUCTION:
         Measured 2026-08-08: the 26.121 solver answers the name with an
         unrecognised-command error. Promoted from the run, not read off
         the hotfix edition's silence.
+    "26.122":
+      status: removed
+      note: >-
+        SRC-750 pp.283-383, the whole scripting reference of the 26.122
+        edition, does not print this command. THIS ROW EXISTS BECAUSE
+        INHERITANCE WOULD SAY THE OPPOSITE. 26.122 inherits from the
+        base release 26.120 and not from the sibling hotfix, so without
+        a row here the emitter would resolve 26.120's documented record
+        and write a command that the 26.121 row above records as removed
+        on a run. That row is about 26.121 and this one is not, which is
+        why it carries no run of its own and rests on the edition's
+        silence; silence alone is the weakest of the three routes to
+        this status, and it is still a better answer than the opposite
+        one inheritance would give.
   notes: >
     Whether the jet wake filaments induce velocity on the mesh.
 
@@ -454,7 +476,7 @@ SET_WAKE_RELAXATION:
   layout: inline
   phase: init
   args:
-    - name: state
+    - name: mode
       type: enum
       values: ["ENABLE", "DISABLE"]
   manual_ref: "SRC-747 p.319"
@@ -514,7 +536,7 @@ SET_WAKE_STREAMWISE_AGGLOMERATION:
   layout: inline
   phase: init
   args:
-    - name: state
+    - name: mode
       type: enum
       values: ["ENABLE", "DISABLE"]
   manual_ref: "SRC-747 p.318"
@@ -574,7 +596,7 @@ SOLVER_SET_ADVERSE_GRADIENT_BOUNDARY_LAYER:
   layout: inline
   phase: init
   args:
-    - name: state
+    - name: mode
       type: enum
       values: ["ENABLE", "DISABLE"]
   manual_ref: "SRC-747 p.318"
@@ -635,7 +657,7 @@ SOLVER_VORTEX_RING_NORMALIZATION:
   layout: inline
   phase: init
   args:
-    - name: state
+    - name: mode
       type: enum
       values: ["ENABLE", "DISABLE"]
   manual_ref: "SRC-747 p.318"

@@ -8,11 +8,15 @@ The package registers a version by adding it to the ordered list in
 ``commands/_meta.yaml``, and from that moment every public surface
 called it supported. That word covered four very different states at
 once, and the widest gap between two of them was measured by the
-independent review: 26.000 is registered, is accepted by
-``Script(version="26.000")``, and carries evidence for zero of the
-database's commands, so nothing whatsoever can be built for it. The
-README said as much in a sentence; nothing said it in a value a caller
-could read (finding PYFS-019, SRS FR-49).
+independent review, and it is quoted here as the measurement of
+2026-08-02 that it was rather than as a present fact: 26.000 was
+registered, was accepted by ``Script(version="26.000")``, and carried
+evidence for zero of the database's commands, so nothing whatsoever
+could be built for it. The README said as much in a sentence; nothing
+said it in a value a caller could read (finding PYFS-019, SRS FR-49).
+That build's own manual was read on 2026-08-10 and it now carries 273
+emittable commands, which is the levels working: the value moved
+without anyone editing a claim.
 
 The four levels, and every one of them is DERIVED. Nothing here is
 declared in a file, because a hand-set support level is exactly the
@@ -366,9 +370,11 @@ def support_table(*, registry: CommandRegistry | None = None) -> tuple[VersionSu
 
     Release order comes from ``commands/_meta.yaml``, which is the only
     ordering authority (CLAUDE.md invariant 4). It is NOT support order.
-    The two agree at this release only because the seven builds split
-    cleanly by age: the three oldest are ``registered`` and the four
-    newest are ``operational``. They came apart as recently as v0.5.0's own
+    The two agree at this release only because the builds split cleanly
+    by age: the ones whose manuals have been read but whose solvers have
+    not been probed derive ``documented``, and the probed ones derive
+    ``operational``. No tally is written here, because it moves with
+    every build registered. They came apart as recently as v0.5.0's own
     development, when 26.100 sat at ``verified`` behind both of its
     successors for want of database rows rather than for anything about
     the solver, and nothing prevents them coming apart again the moment a

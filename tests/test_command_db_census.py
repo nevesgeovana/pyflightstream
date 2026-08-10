@@ -27,16 +27,20 @@ from pyflightstream.versions import known_versions
 #: with recorded evidence, of any status except `removed`, hotfix
 #: inheritance honoured.
 #:
-#: The rise decomposes twice over, and stating the arithmetic is the
-#: point of pinning the numbers: a rise that does not decompose into
+#: The rise decomposes three times over, and stating the arithmetic is
+#: the point of pinning the numbers: a rise that does not decompose into
 #: named work is a rise nobody can account for. Reading the three
 #: editions' own pages gave nineteen per-version grammar rows, +10, +5
 #: and +4. Entering the sixteen commands only those editions document
-#: gave +16, +8 and +7. Both together are 241+26, 256+13 and 262+11.
+#: gave +16, +8 and +7. And the row-level completeness measure found one
+#: command missing its row on each of the three, +1 each: the coverage
+#: sweep compares entry NAMES and cannot see an entry missing an
+#: edition, so EXPORT_ALL_SURFACE_STREAMLINES read as covered while
+#: three builds could not emit it.
 EMITTABLE = {
-    "25.000": 267,
-    "25.100": 269,
-    "26.000": 273,
+    "25.000": 268,
+    "25.100": 270,
+    "26.000": 274,
     "26.100": 345,
     "26.101": 363,
     "26.120": 363,
@@ -44,8 +48,10 @@ EMITTABLE = {
     # Registered 2026-08-10. Ten entries of its own, six rows catching up
     # with what 26.121 added (inheritance runs from the base release, so
     # a sibling hotfix's rows do not reach here), and the rest inherited
-    # from 26.120 less the two commands this edition replaces.
-    "26.122": 377,
+    # from 26.120 less FOUR: the two commands this edition replaces, and
+    # two that the preceding hotfix has a negative record for, which
+    # inheritance from the base would otherwise have overturned.
+    "26.122": 375,
 }
 
 #: Rows recording `verified` per build, measured the same day. Pinned

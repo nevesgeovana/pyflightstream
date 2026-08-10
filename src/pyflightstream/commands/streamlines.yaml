@@ -291,6 +291,14 @@ EXPORT_ALL_SURFACE_STREAMLINES:
       own_line: true
   manual_ref: "SRC-003 p.370"
   versions:
+    # These three were missing until 2026-08-10 and were found by the
+    # row-level reachability measure rather than by the coverage sweep,
+    # which compares ENTRY NAMES and is blind to an entry missing one
+    # edition's row. Its two family siblings on the same manual pages
+    # had them, which is what made the hole invisible to a reader too.
+    "25.000": {status: documented, note: "SRC-749 p.330, same grammar as 26.120"}
+    "25.100": {status: documented, note: "SRC-748 p.343, same grammar as 26.120"}
+    "26.000": {status: documented, note: "SRC-747 p.342, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.365, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.369, same grammar as 26.120"}
     "26.120": {status: documented}

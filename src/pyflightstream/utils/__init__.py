@@ -32,9 +32,11 @@ from pyflightstream.utils.manual import (
     Coverage,
     Edition,
     ManualCommand,
+    StaleCitation,
     SurfaceChange,
     SweptCommand,
     TypeRule,
+    UnreachableCommand,
     coverage_against,
     edition_surfaces,
     parse_script_index,
@@ -49,6 +51,7 @@ from pyflightstream.utils.manual import (
     stale_citations,
     surface_changes,
     sweep_editions,
+    unreachable_commands,
     write_chapter,
 )
 
@@ -59,6 +62,7 @@ __all__ = [
     "ManualCommand",
     "ManualDraftError",
     "SurfaceChange",
+    "UnreachableCommand",
     "SweptCommand",
     "TypeRule",
     "coverage_against",
@@ -72,8 +76,10 @@ __all__ = [
     "render_chapter",
     "render_entry",
     "sample_contradiction",
+    "StaleCitation",
     "stale_citations",
     "surface_changes",
     "sweep_editions",
+    "unreachable_commands",
     "write_chapter",
 ]

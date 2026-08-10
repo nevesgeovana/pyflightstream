@@ -50,6 +50,7 @@ from pyflightstream.utils.errors import ManualDraftError
 from pyflightstream.utils.manual import (
     SurfaceChange,
     SweptCommand,
+    citation_reach,
     coverage_against,
     edition_surfaces,
     parse_script_index,
@@ -61,6 +62,7 @@ from pyflightstream.utils.manual import (
     stale_citations,
     surface_changes,
     sweep_editions,
+    unreachable_commands,
     write_chapter,
 )
 from pyflightstream.versions import known_versions
@@ -284,39 +286,68 @@ def _citations(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int
     """
     try:
         editions = read_edition_manifest(args.editions)
-        stale = stale_citations(CommandRegistry.load().commands, editions)
+        stale = stale_citations(editions, recorded=CommandRegistry.load())
     except FileNotFoundError as missing:
         parser.error(f"cannot read the manifest or a manual it names: {missing}")
     except ManualDraftError as error:
         parser.error(str(error))
 
-    labels = " ".join(edition.label for edition in editions)
-    print(f"{len(editions)} edition(s) checked ({labels}): {len(stale)} citation(s) do not hold")
+    checked = sum(pair[1] for pair in citation_reach.values())
+    seen = sum(pair[0] for pair in citation_reach.values())
+    print(
+        f"{len(editions)} edition(s) checked: {checked} of {seen} version rows carry a "
+        f"citation this can re-read, and {len(stale)} of those do not hold"
+    )
     for item in stale:
         where = (
             "the edition does not print it" if item.found is None else f"parses at p.{item.found}"
         )
         print(f"  {item.command:<48} {item.edition}  cites p.{item.cited}, {where}")
-    if not stale:
-        print("  every row citing a page of a manifest edition points at that command's page")
+
+    # Reach per edition, because a total hides the shape. A build whose
+    # rows carry no note of their own reads as fully checked inside a
+    # total and is not checked at all; 26.120 is that build, its rows
+    # resting on the entry's own manual_ref rather than on a page each.
+    for label, (rows, able) in citation_reach.items():
+        note = "" if able else "   <- no row of this build carries one"
+        print(f"    {label}  {able} of {rows}{note}")
+
+    # And the builds the manifest did not cover, the door `surface`
+    # closed last release and this subcommand had left open: without
+    # this line a one-build manifest prints a clean report and exits 0.
+    unchecked = [v.canonical for v in known_versions() if v.canonical not in citation_reach]
+    if unchecked:
+        print(f"  no manifest row for {', '.join(unchecked)}; their rows were not checked")
     return 1 if stale else 0
 
 
 def _sweep(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
     """Run the multi-edition sweep and print it, grouped or flat.
 
+    Reports BOTH halves of the coverage question, because for a long
+    time it reported only one and the other was where the gap was. The
+    first half asks which commands have no ENTRY; the second asks which
+    commands an edition documents that its own build cannot emit, which
+    is a different question and the sweep is structurally blind to it: it
+    compares entry names, so an entry missing one edition's row reads as
+    covered. On 2026-08-10 this command reported zero absent across eight
+    editions while three of them could not emit
+    ``EXPORT_ALL_SURFACE_STREAMLINES``.
+
     Returns
     -------
     int
-        0, unless ``--fail-if-absent`` was passed and something is
-        absent. Reporting is the ordinary use and a maintainer runs it in
-        a loop, so a non-empty sweep is an answer rather than a failure;
-        the flag is for the other use, asserting that the database is
+        0, unless ``--fail-if-absent`` was passed and either half is
+        non-empty. Reporting is the ordinary use and a maintainer runs it
+        in a loop, so a finding is an answer rather than a failure; the
+        flag is for the other use, asserting that the database is
         complete.
     """
     try:
         editions = read_edition_manifest(args.editions)
-        absent = sweep_editions(editions, recorded=CommandRegistry.load().commands)
+        registry = CommandRegistry.load()
+        absent = sweep_editions(editions, recorded=registry.commands)
+        unreachable = unreachable_commands(editions, recorded=registry)
     except FileNotFoundError as missing:
         parser.error(f"cannot read the manifest or a manual it names: {missing}")
     except ManualDraftError as error:
@@ -324,7 +355,14 @@ def _sweep(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
 
     labels = " ".join(edition.label for edition in editions)
     print(f"{len(editions)} edition(s) read ({labels}): {len(absent)} command(s) absent")
-    exit_code = 1 if (absent and args.fail_if_absent) else 0
+    print(
+        f"  and {len(unreachable)} command(s) an edition documents that its build cannot emit:"
+        if unreachable
+        else "  and every command every edition documents is emittable for that build"
+    )
+    for item in unreachable:
+        print(f"    {item.edition}  {item.command:<44} {item.reason}")
+    exit_code = 1 if ((absent or unreachable) and args.fail_if_absent) else 0
     if not args.by_section:
         for command in absent:
             pages = " ".join(f"{label}:p.{page}" for label, page in command.pages.items())

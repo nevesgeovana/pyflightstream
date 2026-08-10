@@ -587,3 +587,67 @@ def test_sweep_emits_every_keyword_it_documents():
         "Every keyword the helper offers must appear in a rendered line here, because "
         "the one that did not is the one that broke."
     )
+
+
+def test_the_atmosphere_helper_serves_both_fluid_property_grammars():
+    """The three older builds take a sonic velocity and no heat ratio.
+
+    Entering their grammar on 2026-08-10 closed both doors at once until
+    this helper learned to read its script's version: passing the five
+    the newer builds take was refused by the binder for a keyword the
+    edition does not have, and omitting one was refused by the helper
+    itself, quoting a page of a DIFFERENT edition to a caller who was
+    not reading it. The 25 series is the series registered so published
+    work can be reproduced, so the curated path has to serve it.
+    """
+    older = Script(version="25.000")
+    helpers.atmosphere(
+        older,
+        density=1.225,
+        pressure=101325.0,
+        temperature=288.15,
+        viscosity=1.7894e-05,
+        sonic_velocity=340.29,
+    )
+    lines = [line for line in older.render().splitlines() if line and not line.startswith("#")]
+    assert "SONIC_VELOCITY 340.29" in lines
+    assert not any(line.startswith("SPECIFIC_HEAT_RATIO") for line in lines)
+
+    newer = Script(version="26.120")
+    helpers.atmosphere(
+        newer,
+        density=1.225,
+        pressure=101325.0,
+        temperature=288.15,
+        viscosity=1.7894e-05,
+        specific_heat_ratio=1.4,
+    )
+    lines = [line for line in newer.render().splitlines() if line and not line.startswith("#")]
+    assert "SPECIFIC_HEAT_RATIO 1.4" in lines
+    assert not any(line.startswith("SONIC_VELOCITY") for line in lines)
+
+
+def test_the_atmosphere_helper_names_the_build_when_the_fifth_property_is_wrong():
+    """Both refusals name the caller's build and its own vocabulary.
+
+    The old message quoted SRC-003 p.328 at every caller, which is the
+    right page for five of the eight builds and a page about another
+    document for the other three.
+    """
+    with pytest.raises(CommandArgumentError, match=r"25\.000 takes sonic_velocity"):
+        helpers.atmosphere(
+            Script(version="25.000"),
+            density=1.0,
+            pressure=1.0,
+            temperature=1.0,
+            viscosity=1.0,
+            specific_heat_ratio=1.4,
+        )
+    with pytest.raises(CommandArgumentError, match=r"viscosity, sonic_velocity\) for .*25\.000"):
+        helpers.atmosphere(
+            Script(version="25.000"),
+            density=1.0,
+            pressure=1.0,
+            temperature=1.0,
+            viscosity=1.0,
+        )

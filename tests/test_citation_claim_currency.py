@@ -74,6 +74,10 @@ PAGES = (
     "src/pyflightstream/__init__.py",
     "src/pyflightstream/commands/__init__.py",
     "src/pyflightstream/reference.py",
+    # Joined 2026-08-10 with the `citations` subcommand, whose whole
+    # subject is the citation fields and whose module docstring
+    # describes them. The guard's own walk is what put it here.
+    "src/pyflightstream/utils/cli.py",
 )
 
 #: The claim shape: a citation OF THE MANUAL offered as an entry's

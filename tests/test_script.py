@@ -3224,7 +3224,16 @@ def test_a_command_the_hotfix_build_dropped_is_refused_there():
     overturn it.
     """
     entry = CommandRegistry.load().commands["SET_JET_WAKE_FILAMENTS_GRID_INDUCTION"]
-    assert set(entry.versions) == {"26.101", "26.120", "26.121"}
+    assert set(entry.versions) == {"26.101", "26.120", "26.121", "26.122"}
+    # 26.122 joined on 2026-08-10 and its row is the same lesson a step
+    # further on. That build inherits from the BASE release, not from
+    # the sibling hotfix, so without a row of its own it would have
+    # resolved 26.120's documented record and the emitter would have
+    # gone back to writing the line the 26.121 run refused. The row
+    # rests on the newer edition's silence rather than on a run, because
+    # no probe has asked this build; that is weaker evidence and it is
+    # still the right way round.
+    assert entry.versions["26.122"].status is Status.REMOVED
     assert entry.versions["26.121"].status is Status.REMOVED
 
     with pytest.raises(CommandNotInVersionError, match="removed"):

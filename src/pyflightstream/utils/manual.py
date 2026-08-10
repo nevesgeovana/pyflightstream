@@ -115,6 +115,7 @@ __all__ = [
     "ManualCommand",
     "StaleCitation",
     "SurfaceChange",
+    "UnreachableCommand",
     "SweptCommand",
     "TypeRule",
     "coverage_against",
@@ -131,6 +132,7 @@ __all__ = [
     "stale_citations",
     "surface_changes",
     "sweep_editions",
+    "unreachable_commands",
     "write_chapter",
 ]
 
@@ -834,6 +836,118 @@ def surface_changes(surfaces: Mapping[str, Iterable[str]]) -> tuple[SurfaceChang
 
 
 @dataclass(frozen=True, kw_only=True)
+class UnreachableCommand:
+    """A command an edition documents that its build cannot emit.
+
+    Attributes
+    ----------
+    command : str
+        Command name as the edition prints it.
+    edition : str
+        Label of the edition that documents it.
+    reason : str
+        ``"no entry"`` when the database has no entry of that name at
+        all, or ``"refused"`` when it has one and the version view
+        refuses it, which means no row for this build and none reachable
+        by hotfix inheritance.
+    """
+
+    command: str
+    edition: str
+    reason: str
+
+
+def unreachable_commands(
+    editions: Iterable[Edition],
+    *,
+    recorded: object,
+    reader: Callable[..., Mapping[int, str]] | None = None,
+) -> tuple[UnreachableCommand, ...]:
+    """Report, per edition, the documented commands its build cannot emit.
+
+    This is the row-level half of the coverage question, and it exists
+    because the entry-level half cannot answer it.
+    :func:`sweep_editions` compares the manuals against the set of entry
+    NAMES, so an entry that exists but carries no row for one edition is
+    invisible to it: the sweep reports zero absent while that build's
+    emitter refuses a command the caller's own manual documents. That is
+    not a hypothetical. On 2026-08-10 the sweep reported zero across
+    eight editions while three editions could not emit
+    ``EXPORT_ALL_SURFACE_STREAMLINES``, whose two family siblings on the
+    same manual pages did carry the rows.
+
+    Reachability, not row presence, is the measure, because a genuine
+    hotfix inherits its base release's records: 26.122 carries a direct
+    row for ten commands and reaches 377, and counting rows would report
+    it as missing hundreds.
+
+    Parameters
+    ----------
+    editions : iterable of Edition
+        The manuals to read.
+    recorded : CommandRegistry
+        The loaded database. Typed loosely because this module sits
+        below ``commands`` in the dependency order (CLAUDE.md Layout)
+        and must not import it; it is used through ``.commands`` and
+        ``.for_version``.
+    reader : callable, optional
+        What turns a manual and a page range into text, defaulting to
+        :func:`read_pdf_pages`.
+
+    Returns
+    -------
+    tuple of UnreachableCommand
+        Sorted by edition then command. Empty means every command every
+        given edition documents can be emitted for that build.
+
+    Raises
+    ------
+    ManualDraftError
+        If no edition is given, or if two editions share a label. Same
+        two refusals as :func:`edition_surfaces` and for the same
+        reason: with no edition every command is vacuously reachable,
+        which is a configuration error reading as the good outcome.
+    """
+    read = reader if reader is not None else read_pdf_pages
+    editions = tuple(editions)
+    if not editions:
+        raise ManualDraftError(
+            "measuring reachability needs at least one edition; with none every "
+            "command is vacuously reachable and the answer would be a clean report "
+            "over nothing. Add a row to the manifest with label, manual and chapter"
+        )
+    labels = [edition.label for edition in editions]
+    duplicated = sorted({label for label in labels if labels.count(label) > 1})
+    if duplicated:
+        raise ManualDraftError(
+            f"the manifest gives more than one edition the label(s) {', '.join(duplicated)}; "
+            "each label names one build and a repeat would measure that build twice while "
+            "leaving another unmeasured"
+        )
+
+    entries = recorded.commands
+    found = []
+    for edition in editions:
+        printed = parse_signatures(
+            read(edition.manual, first=edition.chapter[0], last=edition.chapter[1])
+        )
+        view = recorded.for_version(edition.label)
+        for name in sorted(printed):
+            if name not in entries:
+                found.append(
+                    UnreachableCommand(command=name, edition=edition.label, reason="no entry")
+                )
+                continue
+            try:
+                view[name]
+            except Exception:  # noqa: BLE001 - the refusal type lives a layer above
+                found.append(
+                    UnreachableCommand(command=name, edition=edition.label, reason="refused")
+                )
+    return tuple(found)
+
+
+@dataclass(frozen=True, kw_only=True)
 class StaleCitation:
     """A version row whose cited page does not hold the command.
 
@@ -859,13 +973,23 @@ class StaleCitation:
     found: int | None
 
 
+#: Rows seen and rows actually checked, per edition, from the last
+#: :func:`stale_citations` run. It exists because a clean report is not
+#: a clean bill and the caller cannot tell the two apart from the
+#: findings alone: on 2026-08-10 the check reached 18 of the 26.120
+#: build's 381 rows, since most rows carry no page in their note, and
+#: printed that nothing was wrong. A count of editions read says nothing
+#: about that; a count of rows checked does.
+citation_reach: dict[str, list[int]] = {}
+
+
 def stale_citations(
-    registry: Mapping[str, object],
     editions: Iterable[Edition],
     *,
+    recorded: object,
     reader: Callable[..., Mapping[int, str]] | None = None,
 ) -> tuple[StaleCitation, ...]:
-    """Check every version row's page citation against the manual.
+    """Check every version row's page citation against the manual it names.
 
     A citation is written once, from a reading, and then nothing looks
     at it again. That is how ten rows came to cite a document that had
@@ -878,14 +1002,17 @@ def stale_citations(
 
     Parameters
     ----------
-    registry : mapping of str to CommandEntry
-        The command database, as ``CommandRegistry.commands``. Typed
-        loosely on purpose: this module sits below ``commands`` in the
-        dependency order (CLAUDE.md Layout) and must not import it.
     editions : iterable of Edition
-        The manuals to check against. An edition the manifest does not
-        carry is not checked and not reported, since the check is
-        against a document and there is none.
+        The manuals to check against. The manual side comes first and
+        the database is keyword-only, matching
+        :func:`sweep_editions` and :func:`coverage_against`; two
+        adjacent positional parameters of unrelated kinds is a call
+        nobody can read.
+    recorded : CommandRegistry
+        The loaded database, used through ``.commands``. Typed loosely
+        because this module sits below ``commands`` in the dependency
+        order (CLAUDE.md Layout) and must not import it, which is also
+        why the check cannot default to loading it.
     reader : callable, optional
         What turns a manual and a page range into text, defaulting to
         :func:`read_pdf_pages`. Same seam as :func:`edition_surfaces`.
@@ -894,17 +1021,64 @@ def stale_citations(
     -------
     tuple of StaleCitation
         One entry per disagreeing row, sorted by command then edition.
-        Empty means every citation the manifest can reach was checked
-        and holds.
+
+    Raises
+    ------
+    ManualDraftError
+        If no edition is given, or if two editions share a label, or if
+        the mapping exposes no version rows at all. All three are
+        configuration errors that would otherwise return an empty tuple,
+        and an empty tuple from this function reads as a clean bill.
 
     Notes
     -----
-    Only rows whose note carries a ``p.N`` are checked, and only against
-    an edition present in the manifest. Silence about a row is therefore
-    never a claim that the row is right, and this is the reason the
-    function returns findings rather than a boolean.
+    Three classes of row are NOT checked, and silence about a row is
+    therefore never a claim that the row is right.
+
+    A ``removed`` row is skipped: its citation addresses an ABSENCE and
+    names the pages the command is not on, so checking it the same way
+    would report every honest removal record as a defect.
+
+    A row whose note carries no page cannot be checked, and most rows do
+    not carry one. So can a row whose edition the manifest does not
+    list.
+
+    A note citing a page RANGE is satisfied by any page in it. Twenty-six
+    shipped rows cite one, and reading only the first page of a span
+    reports a correct citation as wrong whenever the signature heading
+    sits on the second.
+
+    The SOURCE is checked too, where the manifest records one: a note
+    citing SRC-003 on a row keyed to the edition SRC-740 was reading a
+    different document, and page numbers between those two differ by a
+    uniform three, so a coincidence is cheap.
     """
     read = reader if reader is not None else read_pdf_pages
+    editions = tuple(editions)
+    if not editions:
+        raise ManualDraftError(
+            "checking citations needs at least one edition; with none every citation "
+            "holds vacuously and the report would be a clean bill over nothing. Add a "
+            "row to the manifest with label, manual and chapter"
+        )
+    labels = [edition.label for edition in editions]
+    duplicated = sorted({label for label in labels if labels.count(label) > 1})
+    if duplicated:
+        raise ManualDraftError(
+            f"the manifest gives more than one edition the label(s) {', '.join(duplicated)}; "
+            "each label names one build and a repeat would check every row of that label "
+            "against the last reading while leaving another edition unread"
+        )
+
+    entries = getattr(recorded, "commands", recorded)
+    if not any(getattr(entry, "versions", None) for entry in entries.values()):
+        raise ManualDraftError(
+            "the database given exposes no version rows, so there is nothing to check "
+            "and the answer would be a clean bill. Pass a loaded CommandRegistry"
+        )
+
+    sources = {edition.label: edition.source for edition in editions}
+    reach = citation_reach
     surfaces: dict[str, dict[str, ManualCommand]] = {}
     for edition in editions:
         surfaces[edition.label] = dict(
@@ -914,38 +1088,52 @@ def stale_citations(
         )
 
     stale = []
-    for name, entry in registry.items():
+    reach.clear()
+    for name, entry in entries.items():
         for label, row in getattr(entry, "versions", {}).items():
             parsed = surfaces.get(label)
+            if parsed is None:
+                continue
+            seen, checked = reach.setdefault(label, [0, 0])
+            reach[label] = [seen + 1, checked]
             note = getattr(row, "note", None)
-            if parsed is None or not note:
+            if not note:
                 continue
             match = _CITED_PAGE.search(note)
             if match is None:
                 continue
-            cited = int(match.group(1))
-            command = parsed.get(name)
-            if command is not None and command.page == cited:
-                continue
-            # A `removed` row cites the page of the edition that
-            # documents the WITHDRAWAL, which is a page this edition may
-            # legitimately not print the command on. Checking it here
-            # would report the row's whole purpose as a defect.
             if getattr(getattr(row, "status", None), "value", None) == "removed":
+                continue
+            reach[label][1] += 1
+            source, first, last = match.group(1), int(match.group(2)), match.group(3)
+            span = range(first, (int(last) if last else first) + 1)
+            command = parsed.get(name)
+            expected = sources.get(label)
+            if expected and source != expected:
+                stale.append(StaleCitation(command=name, edition=label, cited=first, found=None))
+                continue
+            if command is not None and command.page in span:
                 continue
             stale.append(
                 StaleCitation(
                     command=name,
                     edition=label,
-                    cited=cited,
+                    cited=first,
                     found=None if command is None else command.page,
                 )
             )
     return tuple(sorted(stale, key=lambda item: (item.command, item.edition)))
 
 
-#: A page citation inside a version-row note, for example "SRC-749 p.286".
-_CITED_PAGE = re.compile(r"\bpp?\.(\d+)")
+#: A page citation inside a version-row note, source and page together,
+#: for example "SRC-749 p.286" or "SRC-741 pp.312-313". The source is
+#: captured because a page number alone checks half a citation: a note
+#: naming another edition's source would otherwise be read against this
+#: edition's pdf, and between SRC-003 and SRC-740 the pages differ by a
+#: uniform three, so a coincidence is cheap. The optional second page is
+#: captured because a span is satisfied by any page in it, and 26
+#: shipped rows cite one.
+_CITED_PAGE = re.compile(r"\b(SRC-\d{3})\s+pp?\.\s*(\d+)(?:\s*-\s*(\d+))?")
 
 #: What an edition row may hold, and what each key is for. Kept as data
 #: so the refusals can print it rather than restate it in prose.
