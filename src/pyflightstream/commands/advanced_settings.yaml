@@ -244,7 +244,7 @@ LAMINAR_SEPARATION:
   notes: >
     Laminar boundary layer separation. This is the one member of the
     flow-separation family that survived the 26.101 redesign unchanged
-    and is documented in all four editions; RPT-018 accepted it on
+    and is documented in the four editions read then; RPT-018 accepted it on
     26.100, 26.101 and 26.121.
 
 KUTTA_JOUKOWSKI_LIFT_FORCES:

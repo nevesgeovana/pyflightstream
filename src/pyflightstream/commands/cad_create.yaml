@@ -532,7 +532,7 @@ CAD_CREATE_ROTATE_CURVES:
 
     AXIS takes the index as well as the letter, for the reason recorded
     at CAD_BODY_ROTATE: the table names X, Y or Z and the sample beneath
-    it passes 2, in all four editions, and two other tables in this
+    it passes 2, in the four editions read then, and two other tables in this
     chapter state the dual form outright. Pass the index as the string
     "2" (PLN-20260806-1130).
 

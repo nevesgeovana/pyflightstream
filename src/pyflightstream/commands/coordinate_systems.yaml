@@ -251,7 +251,7 @@ TRANSLATE_COORDINATE_SYSTEM:
     THE TRANSLATION IS READ IN THE FRAME BEING MOVED, which the manual
     states, so a translation is not in general along the reference axes.
     The table row also describes the frame as the one to be ROTATED,
-    copied from the rotate command above it, in all four editions.
+    copied from the rotate command above it, in the four editions read then.
 
 DUPLICATE_COORDINATE_SYSTEM:
   layout: inline

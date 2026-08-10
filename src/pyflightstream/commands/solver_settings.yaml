@@ -102,7 +102,7 @@ SET_VISCOUS_EXCLUDED_BOUNDARIES:
   notes: >
     Excludes the listed boundaries from viscous coupling; the indices
     follow on the next line as comma-separated values. Documented
-    unchanged in all four editions; the three added on 2026-08-05 were
+    unchanged in the four editions read then; the three added on 2026-08-05 were
     read from their own pages, not inherited.
 
 DELETE_VISCOUS_EXCLUDED_BOUNDARIES:

@@ -58,7 +58,25 @@ found pointing at a document whose pagination had moved under them,
 each at a real page of a real manual, so nothing looked wrong. Run it
 over the whole manifest rather than the edition you just touched, since
 a re-conversion of an OLD manual is what produced those ten. It is the
-only subcommand that exits non-zero on a finding. The manifest names
+only subcommand that exits non-zero on a finding.
+
+It also reports, per edition, how many rows it could re-read at all.
+Most rows of the flagship build carry no page of their own, resting on
+the entry's `manual_ref` instead, so a low figure or a zero there is the
+shape of the database rather than a defect; the number is printed
+because a count of editions read would hide it.
+
+`scripts/chm_to_pdf.py` is the reading tool that is not a subcommand.
+One install, 25.000, ships its manual only as a compiled help archive,
+and this converts it to a pdf whose page numbers anyone can land on
+again: the topic order comes from the archive's own table of contents,
+the geometry is pinned, the timestamps the renderer embeds are
+stripped, and the hash is printed. Ten committed citations depend on
+that reproducibility, so re-render with a different renderer and expect
+the page numbers to move. It needs the `[manual]` extra and an archive
+extractor; its own docstring carries the two commands.
+
+The manifest names
 paths of licensed manuals and is never committed (invariant 1);
 `pyfs-manual sweep --help` prints an example row.
 

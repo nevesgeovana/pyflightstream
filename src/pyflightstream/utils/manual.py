@@ -152,7 +152,9 @@ _INDEX_LINE = re.compile(r"^([A-Z][A-Z0-9_]{3,})\s+(\S.*?)\s*$")
 #: margin. Under layout extraction a glyph sitting in the left margin
 #: keeps its column, so the line reads as that glyph, a run of spaces,
 #: then the heading; anchored, the match fails and the command is
-#: invisible. Measured on 2026-08-10 across all six pdf editions: the
+#: invisible. Measured on 2026-08-10 across the six pdf editions in the
+#: manifest at that hour, which was before 25.000's conversion and
+#: before 26.122 was registered the same day: the
 #: tolerant form finds exactly what the anchored one finds and nothing
 #: more, so it costs no precision, and it recovers two commands of 272
 #: in a pdf converted from a compiled help archive.

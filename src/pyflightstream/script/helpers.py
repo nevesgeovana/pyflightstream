@@ -875,8 +875,10 @@ def solver_settings(
         separation model (SRC-741 p.340).
     laminar_separation : bool or 'ENABLE' or 'DISABLE', optional
         Laminar boundary layer separation (SRC-003 p.345); the one
-        member of the separation family documented unchanged in all
-        four editions.
+        member of the separation family documented unchanged across the
+        four 26.1x editions. It carries no row for the three pre-26.100
+        builds, so it is refused there, and the phrase used to read "all
+        four editions" while eight are registered.
     convergence_iterations : int, optional
         Iterations the solver must stay below the convergence
         threshold before convergence is declared (SRC-003 p.344).

@@ -166,7 +166,7 @@ CREATE_NEW_OUTLET:
     Always uniform: there is no outlet profile command.
 
     The table's description of VELOCITY is copied from the inlet and
-    names the inlet faces, in all four editions. Cosmetic.
+    names the inlet faces, in the four editions read then. Cosmetic.
 
 REMESH_OUTLET:
   layout: keyword_block
