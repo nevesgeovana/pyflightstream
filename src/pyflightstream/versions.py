@@ -3,7 +3,7 @@
 Pipeline role: the lowest layer. Everything else asks this module which
 FlightStream versions exist and how they are ordered.
 
-Canonical identifiers use the 26.XXX three-digit scheme (for example
+Canonical identifiers use the YY.XXX three-digit scheme (for example
 ``26.120`` for the vendor release named 26.12); the last digit indexes
 vendor builds within one minor release. It is an ORDERING position and
 not a claim of descent: 26.101 sits behind 26.100 and is an independent
@@ -105,7 +105,7 @@ def _build_note(canonical: str) -> str:
     Parameters
     ----------
     canonical : str
-        Canonical identifier in the ``26.XXX`` scheme.
+        Canonical identifier in the ``YY.XXX`` scheme.
 
     Returns
     -------
@@ -183,7 +183,7 @@ def _and_join(parts: list[str]) -> str:
 class FsVersion:
     """One registered FlightStream version.
 
-    Value object wrapping a canonical ``26.XXX`` identifier. Instances
+    Value object wrapping a canonical ``YY.XXX`` identifier. Instances
     are obtained through :func:`resolve` or :func:`known_versions`;
     constructing one by hand bypasses the registry and is reserved to
     this module.
@@ -472,7 +472,7 @@ def resolve(version: str | FsVersion) -> FsVersion:
             f"build: {builds}. The vendor reuses a release name across builds, so this "
             "name cannot select one and returning either would silently pick a solver "
             "you did not choose. Your install prints its build number in the footer of "
-            "its own output. Pass the canonical 26.XXX identifier of the build you "
+            "its own output. Pass the canonical YY.XXX identifier of the build you "
             "mean.",
             alias=version,
             candidates=tuple(e.canonical for e in matching),
@@ -480,7 +480,7 @@ def resolve(version: str | FsVersion) -> FsVersion:
     known = ", ".join(f"{v.canonical} (vendor name {v.alias})" for v in known_versions())
     raise UnknownVersionError(
         f"FlightStream version {version!r} is not registered. Known versions, "
-        f"in release order: {known}. Canonical identifiers use the 26.XXX "
+        f"in release order: {known}. Canonical identifiers use the YY.XXX "
         "three-digit scheme; register new versions in commands/_meta.yaml, "
         "which is the only ordering authority.",
         version=version,

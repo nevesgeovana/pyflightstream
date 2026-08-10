@@ -1,0 +1,13 @@
+schema: pyflightstream-compat-report/1
+fs_version: '25.100'
+date: '2026-08-09'
+package_version: 0.5.0
+fs_exe: FlightStream_25_1.exe
+executor: LocalExecutor, -hidden -script (SRC-003 pp.279-280, RPT-023)
+solver_identity:
+- 'FlightStream version 25.1, build #5062025'
+summary:
+  verified: 0
+  broken: 0
+  unprobed: 0
+commands: {}

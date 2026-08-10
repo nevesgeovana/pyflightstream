@@ -12,7 +12,7 @@ Onboard a new FlightStream version end to end.
 ## Inputs
 
 * New manual pdf placed in `_private/manual/` (never committed).
-* The new version identifier in the canonical 26.XXX scheme.
+* The new version identifier in the canonical YY.XXX scheme.
 * Optionally: vendor release notes (treat as incomplete; the database diff
   and the probe suite are the authority, not the changelog).
 

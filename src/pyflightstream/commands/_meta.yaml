@@ -1,16 +1,84 @@
 # Ordered FlightStream version list: release order, append only.
 # This list is the only ordering authority (CLAUDE.md invariant 4).
-# canonical: 26.XXX scheme, last digit indexes vendor hotfix builds.
+# canonical: YY.XXX scheme, last digit indexes vendor hotfix builds.
+#   It was written here as 26.XXX while 26 was the only major registered;
+#   the 2026-08-09 addition of the 25 series makes the major a variable,
+#   which is what the scheme always meant. CLAUDE.md invariant 4 and SRS
+#   FR-02a were moved to YY.XXX the same day.
 # alias: the vendor-facing release name.
 # build: the vendor build number this version's solver prints in its own
-#   output footer, without the leading '#'. Optional, and recorded only
-#   from a committed report's solver_identity, never guessed: it is what
-#   lets a run tell WHICH build actually produced its results, since the
-#   printed version line does not (every build below prints "26.1").
-#   26.000 has none because no committed report records one.
+#   output footer, without the leading '#'. Recorded only from a
+#   committed report's solver_identity, never guessed: it is what lets a
+#   run tell WHICH build actually produced its results, since the printed
+#   version line does not distinguish them within a release name.
+#   Every registered build carries one as of 2026-08-09; the field stays
+#   optional because a build is registered before it is ever run.
 versions:
+  # ADDED 2026-08-09, on the author's decision, and read the ordering
+  # note before reading the position. These two precede every version
+  # this repository had registered until now, so they are inserted at
+  # the FRONT rather than appended. The append-only rule above is about
+  # never DROPPING a version (CLAUDE.md invariant 4), not about the end of the
+  # list: the list is ordered by RELEASE order and a build obtained
+  # later can belong earlier, which is exactly what happened when the
+  # February 2026 build arrived after the May one and took the earlier
+  # index.
+  #
+  # Why they are here at all: they are the builds the author's PUBLISHED
+  # work was run on. 25.000 and 25.100 carried two AIAA Aviation 2025
+  # papers and 26.100 the AIAA AVIATION 2026 one, so a reader
+  # reproducing any of them needs the identifier to exist and to resolve
+  # to a build number they can check against their own install. That is
+  # a reproducibility requirement rather than a coverage one, and it is
+  # why registering them precedes probing them.
+  # THESE THREE CARRIED NO BUILD NUMBER FOR ONE EVENING, and the reason
+  # is worth keeping because two wrong diagnoses were written down
+  # before the right one, one of them in this file.
+  #
+  # The identity probe of 2026-08-09 read the banner of the four 26.1x
+  # installs in seconds and got nothing from these. It was first written
+  # here that the boundary was release 26.1 and the executor's flags
+  # were the suspect, then that the EDU licence seat was. Both were
+  # wrong. The executor passed the script argument with two dashes, the
+  # spelling SRC-003 documents, and the 25 series does not know it: the
+  # 25.0 manual documents the one-dash form. A build given the
+  # spelling it does not know starts, checks out its licence, receives
+  # no script and waits, which under -hidden with the streams redirected
+  # ends in a Fortran runtime error on CONOUT$ and a modal dialog nobody
+  # can answer. Clean licence, empty log, and a timeout that says
+  # nothing. RPT-023 has the sweep of both spellings over all seven
+  # builds; the executor now passes one dash, which every build accepts.
+  #
+  # Read that as the standing warning it is: on these builds an empty
+  # log is not evidence of a solver that failed, and a successful
+  # licence checkout is not evidence that the run reached the script.
+  - canonical: "25.000"
+    alias: "25.0"
+    # reports/compat/CMP-25000_2026-08-09_identity.yaml
+    #
+    # The banner names release 25.0 at build 12162024, agreeing with the
+    # author's record of the build two AIAA Aviation 2025 papers were
+    # written on. This install ships its manual only as .chm, so the pdf
+    # sweep cannot read it; the archive extracts to HTML topics and the
+    # command surface is readable that way (RPT-023).
+    build: "12162024"
+    # The 25 series checks out an EDU licence rather than the full
+    # feature set: the banner reports the feature and Altair units
+    # checkouts unavailable and the EDU checkout successful. What an EDU
+    # seat may refuse is not yet measured, so a validity sweep of this
+    # build is not simply the 26.1 sweep pointed elsewhere.
+  - canonical: "25.100"
+    alias: "25.1"
+    # reports/compat/CMP-25100_2026-08-09_identity.yaml
+    build: "5062025"
   - canonical: "26.000"
     alias: "26.0"
+    # reports/compat/CMP-26000_2026-08-09_identity.yaml
+    #
+    # First build that accepts BOTH spellings of the script argument, so
+    # the boundary that RPT-023 measured falls between 25.100 and this
+    # entry rather than at a series edge.
+    build: "10202025"
   # RENUMBERED 2026-08-04, and read this before reading any 26.1x
   # evidence dated earlier. Until that date this repository's "26.100"
   # meant vendor build 5012026, a May 2026 install. The author then
@@ -21,18 +89,23 @@ versions:
   # (invariant 4): the identifier was reassigned and the May build kept
   # every record and every report it had, under its new name.
   #
-  # 26.100 therefore carries NO build here yet, and the reason is
-  # narrower than "unknown". Its build is 2122026, read from the
-  # solver's own banner and written down in RPT-018, which is committed.
-  # What is missing is the machine-readable half: the rule above admits
-  # a build from a report's solver_identity field, which the Tier 2
-  # harness writes and an ad-hoc probe report does not have, and
-  # tests/test_results.py checks every registered build against one. So
-  # the number is known and cited, and the registry stays silent until a
-  # harness run records it in the field the guard reads
-  # (PLN-20260805-1520).
+  # 26.100's build was recorded on 2026-08-09 and the delay is worth one
+  # sentence, because it is what the identity probe was built for. The
+  # number was known from the day the install arrived, read off the
+  # solver's own banner and written into RPT-018, and the registry stayed
+  # silent for four days anyway: the rule above admits a build from a
+  # report's solver_identity field, an ad-hoc probe report has no such
+  # field, and tests/test_results.py checks every registered build
+  # against one. Known and cited was not enough; machine-readable was
+  # the requirement (PLN-20260805-1520, closed by that run).
   - canonical: "26.100"
     alias: "26.1"
+    # reports/compat/CMP-26100_2026-08-09_identity.yaml
+    #
+    # The banner names release 26.1 at build 2122026, agreeing with
+    # RPT-018 and with the author's own record of the build she wrote
+    # the AIAA AVIATION 2026 paper on.
+    build: "2122026"
   - canonical: "26.101"
     alias: "26.1"
     # reports/physics/PHY-26100_2026-07-21_smi01-triage-rerun.yaml, whose

@@ -93,7 +93,7 @@ PITFALL_TABLE = re.compile(
 #: A FlightStream command name as the guide escapes it for LaTeX.
 COMMAND_IN_TEX = re.compile(r"\b[A-Z][A-Z0-9]*(?:\\_[A-Z0-9]+)+\b")
 
-#: A canonical version identifier, 26.XXX.
+#: A canonical version identifier, YY.XXX.
 CANONICAL = re.compile(r"\b\d\d\.\d\d\d\b")
 
 WORD_NUMBERS = {

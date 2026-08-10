@@ -51,7 +51,7 @@ from pyflightstream.qa.errors import QaEvidenceError
 from pyflightstream.run import ExecutionResult, Executor, LocalExecutor
 from pyflightstream.script import CommandArgumentError, Script
 from pyflightstream.script.helpers import initialize_solver
-from pyflightstream.versions import FsVersion, resolve
+from pyflightstream.versions import FsVersion, known_versions, resolve
 
 _BEGIN = "PYFS_PROBE_BEGIN"
 _END = "PYFS_PROBE_END"
@@ -960,6 +960,10 @@ def probe_version(
                 f"{resolved.canonical}. Probes only run database commands of the "
                 "target version."
             )
+    # An EMPTY list is not the same as None and is not a mistake: it
+    # asks for the baseline and nothing else, which is how a build that
+    # records no commands yet gets its solver_identity into a committed
+    # report. `None` still means every command with a spec.
     requested = None if commands is None else set(commands)
 
     solver_identity = _run_baseline(executor, resolved, workroot, timeout_s, registry)
@@ -1111,6 +1115,39 @@ def _read_log(path: Path) -> str | None:
     return path.read_text(encoding="utf-8", errors="replace").replace("\x00", "")
 
 
+def _newest_build_recording(
+    registry: CommandRegistry | None, commands: Sequence[str]
+) -> FsVersion | None:
+    """Return the latest registered build whose database rows cover ``commands``.
+
+    Used only to borrow an instrument GRAMMAR for a build that records
+    nothing yet. The newest is chosen rather than the nearest, because
+    the nearest in release order is not the nearest in grammar: the
+    database records what its editions document, and a build with no
+    rows has no neighbours in that sense at all.
+
+    Parameters
+    ----------
+    registry : CommandRegistry or None
+        Database to read; None loads the installed one.
+    commands : sequence of str
+        Every command the borrowed script emits.
+
+    Returns
+    -------
+    FsVersion or None
+        The donor build, or None when no registered build records all
+        of them, which would mean the harness has no instruments.
+    """
+    loaded = registry or CommandRegistry.load()
+    for candidate in reversed(list(known_versions())):
+        view = loaded.for_version(candidate)
+        available = set(view)
+        if all(name in available for name in commands):
+            return candidate
+    return None
+
+
 def _run_baseline(
     executor: Executor,
     version: FsVersion,
@@ -1129,9 +1166,53 @@ def _run_baseline(
     log_path = workdir / _LOG_AFTER
     script = Script(version, registry=registry)
     script.comment("tier 2 baseline probe: validates the probe instruments")
-    script.emit("PRINT", _BASELINE_MARKER)
-    script.emit("EXPORT_LOG", log_path)
-    script.emit("CLOSE_FLIGHTSTREAM")
+    try:
+        script.emit("PRINT", _BASELINE_MARKER)
+        script.emit("EXPORT_LOG", log_path)
+        script.emit("CLOSE_FLIGHTSTREAM")
+    except CommandNotInVersionError:
+        # A NEWLY REGISTERED version has no rows at all, so the database
+        # cannot say that this build has PRINT, and the baseline that
+        # asks it refuses before the solver is ever started. That made
+        # the registry's own build-recording rule unreachable for
+        # exactly the versions needing it: a build number is admitted
+        # only from a report's solver_identity, a report needs a
+        # baseline, a baseline needed a row, and a row needs the manual
+        # reading that registering a build is the first step of
+        # (measured 2026-08-09 on three builds at once).
+        #
+        # The instruments are borrowed from the NEWEST build that
+        # records them, and the word borrowed is doing real work. The
+        # first version of this fallback wrote the three lines by hand
+        # and got EXPORT_LOG wrong: it is `param_lines`, so the filename
+        # goes on its own line, and written inline the 25.0 solver read
+        # the FOLLOWING command as the filename, exported the log into a
+        # file called CLOSE_FLIGHTSTREAM and then sat open forever
+        # because the command to close it had been eaten. That is this
+        # repository's whole subject arriving inside its own harness, so
+        # the grammar comes from the database here exactly as it does
+        # everywhere else. What the fallback supplies is the AVAILABILITY
+        # the target build cannot vouch for, never the grammar.
+        #
+        # Borrowing is a guess about this build and is treated as one:
+        # the check below is empirical, and a build whose instruments
+        # differ fails it and is reported unusable rather than judged.
+        donor = _newest_build_recording(registry, ("PRINT", "EXPORT_LOG", "CLOSE_FLIGHTSTREAM"))
+        if donor is None:
+            raise ProbeEnvironmentError(
+                "no registered build records the probe instruments (PRINT, EXPORT_LOG, "
+                "CLOSE_FLIGHTSTREAM), so the baseline cannot be built for "
+                f"{version.canonical}, which records none of its own"
+            ) from None
+        script = Script(donor, registry=registry)
+        script.comment("tier 2 baseline probe: validates the probe instruments")
+        script.comment(
+            f"{version.canonical} records no commands yet, so the instrument grammar is "
+            f"borrowed from {donor.canonical}; the log check below is what tests it"
+        )
+        script.emit("PRINT", _BASELINE_MARKER)
+        script.emit("EXPORT_LOG", log_path)
+        script.emit("CLOSE_FLIGHTSTREAM")
     script_path = workdir / _SCRIPT_NAME
     script_path.write_text(script.render(), encoding="utf-8")
     execution = executor.run_script(script_path, working_dir=workdir, timeout_s=timeout_s)

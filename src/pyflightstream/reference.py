@@ -83,7 +83,7 @@ CONVENTIONS: tuple[tuple[str, str], ...] = (
     ),
     (
         "Versions use the canonical scheme",
-        "FlightStream versions are canonical 26.XXX identifiers with "
+        "FlightStream versions are canonical YY.XXX identifiers with "
         "exactly three fractional digits (26.120), the vendor display "
         "name is recorded as an alias (26.12), and ordering comes only "
         "from the registered list position, never from parsing the "
@@ -982,6 +982,97 @@ def markdown_compatibility_matrix() -> str:
             link = f"[{entry.name}](reference/{entry.chapter}.md#{entry.name.lower()})"
             lines.append(f"| {link} | " + " | ".join(cells) + " |")
         lines.append("")
+    return "\n".join(lines)
+
+
+def markdown_build_table() -> str:
+    """Render the build correspondence table as one markdown page.
+
+    Answers one question and is shaped around it: the reader has an
+    install, wants to know which canonical identifier names it, and the
+    only thing their install tells them is the line it prints when it
+    starts. So the first column is that line, not the identifier.
+
+    The vendor release name cannot do this job, which is the whole
+    reason the page exists. Two builds ship as "26.1" and two more as
+    "26.12", so a paper that records "run on FlightStream 26.1" has not
+    said which solver produced its numbers. The build number has been
+    unique across every install registered here.
+
+    Returns
+    -------
+    str
+        Complete markdown page, generated from the version registry at
+        docs build time and never committed.
+    """
+    versions = known_versions()
+    shared = {
+        version.alias
+        for version in versions
+        if sum(1 for other in versions if other.alias == version.alias) > 1
+    }
+
+    lines = [
+        "# Which build do I have",
+        "",
+        "Every FlightStream install prints its release name and its build "
+        "number when it starts. That pair is what identifies a build; the "
+        "release name alone does not, because the vendor ships more than "
+        "one build under one name.",
+        "",
+        "Read the two values off that line, find the row carrying both, "
+        "and pass the identifier beside them wherever this package asks "
+        "for a version. The columns are the two values rather than the "
+        "whole line because the line itself is not formatted identically "
+        "across builds.",
+        "",
+        "| Release name it prints | Build number it prints | Pass this |",
+        "|---|---|---|",
+    ]
+    for version in versions:
+        build = "not recorded here yet" if version.build is None else f"#{version.build}"
+        note = " (names more than one build)" if version.alias in shared else ""
+        lines.append(f"| {version.alias}{note} | {build} | `{version.canonical}` |")
+
+    lines.extend(
+        [
+            "",
+            "## Reading the table",
+            "",
+            "The identifiers in the middle column are this package's own, "
+            "in the `YY.XXX` scheme: the vendor major, the minor release, "
+            "and a last digit that indexes builds within that release. "
+            "That last digit is an ORDERING position and not a claim of "
+            "descent, so a build at a hotfix index is not necessarily a "
+            "hotfix of the one before it.",
+            "",
+        ]
+    )
+    if shared:
+        names = ", ".join(sorted(shared))
+        lines.extend(
+            [
+                f"The release names marked above ({names}) each name more "
+                "than one registered build. Passing such a name is refused "
+                "rather than resolved to either build, and the refusal "
+                "lists the candidates by build number. Pass the canonical "
+                "identifier instead.",
+                "",
+            ]
+        )
+    lines.extend(
+        [
+            "A build number recorded here comes from the solver's own "
+            "banner captured in a committed report, never from a note or "
+            "a recollection. That is why a newly registered build can "
+            "appear with no number: it is registered before it is run.",
+            "",
+            "Registered is not the same as supported. What each build can "
+            "actually do is on the [compatibility matrix](compatibility.md), "
+            "and the level each one has reached is in "
+            "`pyflightstream.support_table()`.",
+        ]
+    )
     return "\n".join(lines)
 
 

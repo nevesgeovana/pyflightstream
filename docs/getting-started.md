@@ -31,7 +31,7 @@ carrying the exact install command:
 
 This is the first question the package asks, and it asks it explicitly
 rather than detecting anything. Supported versions are named by a
-canonical `26.XXX` identifier, where the last digit is the vendor's
+canonical `YY.XXX` identifier, where the last digit is the vendor's
 hotfix build.
 
 ```python

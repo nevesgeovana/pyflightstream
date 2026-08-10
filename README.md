@@ -150,7 +150,9 @@ the evidence rather than declared:
 
 | Version | Vendor name | Support level | What that means here |
 |---|---|---|---|
-| 26.000 | 26.0 | `registered` | Ordered in the registry, no command carries evidence for it, so nothing can be built yet |
+| 25.000 | 25.0 | `registered` | Vendor build 12162024, December 2024. Registered on 2026-08-09 so that published work run on it has an identifier that resolves; no command carries evidence for it, so nothing can be built yet. Its solver checks out an EDU licence rather than the full feature set |
+| 25.100 | 25.1 | `registered` | Vendor build 5062025, May 2025. Registered for the same reason and at the same level |
+| 26.000 | 26.0 | `registered` | Vendor build 10202025, October 2025. Ordered in the registry, no command carries evidence for it, so nothing can be built yet |
 | 26.100 | 26.1 | `operational` | The February 2026 build, and the last to reach this level, on 2026-08-08. It was held at `verified` less by the solver than by the database: the per-edition sweep that day found 40 commands its own manual documents and this database had no row for, so the emitter refused them and the minimal end-to-end workflow could not be built. With those rows written the workflow builds. Probe coverage is still thinner here than on the newer builds, the harness reaching only commands that carry a probe spec; the compatibility matrix carries the live counts |
 | 26.101 | 26.1 | `operational` | The May 2026 build. Commands drafted from the manual with page citations, with the first harness promotions on 2026-08-08, which also carried it to the level where the minimal end-to-end workflow builds. It sits at a hotfix index and does NOT inherit from 26.100: the two are separate vendor releases under one name |
 | 26.120 | 26.12 | `operational` | Probe evidence from a licensed machine, and the minimal end-to-end workflow builds |
@@ -168,7 +170,13 @@ a loads file, and it is checkable rather than asserted: it holds only
 when `pyflightstream.support.minimal_workflow(version)` builds, which a
 tier 1 test builds for every version reported at that level.
 
-Canonical identifiers use the 26.XXX scheme, the last digit indexing
+Not sure which one you have? Every install prints its release name and
+its build number when it starts, and the generated
+[Which build do I have](https://nevesgeovana.github.io/pyflightstream/builds/)
+page maps that pair onto the identifier to pass. The release name alone
+does not identify a build.
+
+Canonical identifiers use the YY.XXX scheme, the last digit indexing
 vendor hotfix builds, so 26.121 is hotfix build 1 of the 26.12 release.
 The vendor ships both 26.120 and 26.121 under the one release name
 "26.12", and both 26.100 and 26.101 under "26.1", so neither name

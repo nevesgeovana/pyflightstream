@@ -35,6 +35,7 @@ from pyflightstream.qa.physics import (
     registered_cases,
     run_physics,
 )
+from pyflightstream.run import describe_invocation
 from pyflightstream.versions import resolve
 
 DRIFT_SCHEMA = "pyflightstream-drift-report/1"
@@ -324,7 +325,7 @@ def write_drift_report(
         "date": date,
         "package_version": run.package_version,
         "fs_exes": dict(run.fs_exe_names),
-        "executor": "LocalExecutor, -hidden --script (SRC-003 pp.279-280)",
+        "executor": describe_invocation(),
         "solver_identity": list(run.solver_identity),
         "summary": counts,
         "cases": {
@@ -373,7 +374,7 @@ def _render_markdown(run: DriftRun, date: str, counts: dict[str, int]) -> str:
         "(local, `_private/exe/`) |",
         f"| Compared (B) | FlightStream {b}, {run.fs_exe_names.get(b, '?')} "
         "(local, `_private/exe/`) |",
-        "| Executor | LocalExecutor, `-hidden --script` (SRC-003 pp.279-280) |",
+        f"| Executor | {describe_invocation(code=True)} |",
         f"| Package | pyflightstream {run.package_version} |",
         f"| Solver identity | {'; '.join(run.solver_identity) or 'none captured'} |",
         "",

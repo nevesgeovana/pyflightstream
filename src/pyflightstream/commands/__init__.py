@@ -734,7 +734,7 @@ class CommandEntry(BaseModel):
         ``probe_ref`` records is that the command EXISTS, which is a
         different claim from how it behaves.
     versions : mapping of str to VersionStatus
-        Evidence per canonical version identifier (quoted ``"26.XXX"``
+        Evidence per canonical version identifier (quoted ``"YY.XXX"``
         keys). Versions without an entry have no recorded evidence.
     notes : str, optional
         Paraphrased usage caveats with citations.

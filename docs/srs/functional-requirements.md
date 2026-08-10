@@ -27,18 +27,29 @@ Milestones and session records are listed in the
     relies on string or float comparison ("26.1" < "26.12" fails
     both).
 
-!!! requirement "FR-02a Canonical 26.XXX identifiers <span class='srs-implemented'>implemented</span>"
-    *Origin: BRF-19. Evidence: milestone M1.*
+!!! requirement "FR-02a Canonical YY.XXX identifiers <span class='srs-implemented'>implemented</span>"
+    *Origin: BRF-19. Evidence: milestone M1; amended 2026-08-09 when the
+    25 series was registered.*
 
-    The canonical version identifier is `26.XXX` with exactly three
-    fractional digits: the first two carry the official minor release,
-    the last indexes builds within it (0 = the release the vendor
-    named). The last digit is an ORDERING position and not a claim of
-    descent, which is why whether a build carries its base release's
-    command evidence is stated per build rather than derived from it.
+    The canonical version identifier is `YY.XXX`: the vendor's two-digit
+    major, then exactly three fractional digits of which the first two
+    carry the official minor release and the last indexes builds within
+    it (0 = the release the vendor named). The last digit is an ORDERING
+    position and not a claim of descent, which is why whether a build
+    carries its base release's command evidence is stated per build
+    rather than derived from it.
     Launch set: 26.000, 26.100, 26.120. The registry stores
     the vendor release name of each build as a display alias, and a
     user may write that name wherever it names exactly one build.
+
+    Amendment of 2026-08-09: the major was written `26` here while 26
+    was the only registered major. Registering the 25 series made it a
+    variable, which is what the scheme always meant; nothing about the
+    three fractional digits changed and no identifier was reassigned.
+    Registering an EARLIER series is admitted by the append-only rule
+    (BRF-19 forbids dropping a version, not inserting one), and the
+    ordered list places it by release order, so the 25 builds sit at the
+    front rather than at the end.
 
 !!! requirement "FR-02c Ambiguous vendor names are refused <span class='srs-implemented'>implemented</span>"
     *Origin: BRF-03, BRF-19. Evidence: PFS-8 (2026-08-02); the

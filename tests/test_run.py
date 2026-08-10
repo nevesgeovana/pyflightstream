@@ -10,7 +10,25 @@ from pathlib import Path
 
 import pytest
 
-from pyflightstream.run import ExecutionResult, ExecutorConfigurationError, LocalExecutor
+from pyflightstream.run import (
+    SCRIPT_ARGUMENT,
+    ExecutionResult,
+    ExecutorConfigurationError,
+    LocalExecutor,
+    describe_invocation,
+)
+
+
+def _flag_tokens(description: str) -> list[str]:
+    """Flags of a rendered description, as whole tokens in order.
+
+    Splitting on whitespace and stripping markdown and punctuation is
+    what makes the comparison an equality rather than a containment;
+    the page citation in the description carries a hyphen but no token
+    that starts with one.
+    """
+    tokens = (token.strip("`,") for token in description.split())
+    return [token for token in tokens if token.startswith("-")]
 
 
 class FakeSolver(LocalExecutor):
@@ -28,9 +46,68 @@ def test_argv_follows_the_documented_headless_mechanism(tmp_path):
     executor = LocalExecutor(fs_exe=exe)
     script = Path("C:/runs/point.txt")
     argv = executor._argv(script)
-    assert argv == [str(exe), "-hidden", "--script", str(script)]
+    assert argv == [str(exe), "-hidden", "-script", str(script)]
     visible = LocalExecutor(fs_exe=exe, hidden=False)
     assert "-hidden" not in visible._argv(Path("point.txt"))
+
+
+def test_the_script_argument_is_the_spelling_every_build_accepts():
+    """One dash, not two.
+
+    RPT-023 swept both spellings across all seven registered builds:
+    one dash works on every one of them, two dashes fail on 25.000 and
+    25.100. A build given the spelling it does not know starts, checks
+    out its licence, receives no script and waits, which reads as a
+    hang with a clean licence and an empty log.
+    """
+    assert SCRIPT_ARGUMENT == "-script"
+    assert not SCRIPT_ARGUMENT.startswith("--")
+
+
+def test_every_report_derives_its_executor_line_from_the_executor(tmp_path):
+    """The report sentence and the flags cannot drift apart.
+
+    Six copies of that sentence used to sit as literals in the three
+    report writers, one machine-readable and one rendered each. Nothing
+    would have caught them disagreeing with ``_argv``; changing the
+    argument would have left forty reports describing an invocation the
+    package no longer made.
+    """
+    exe = tmp_path / "FlightStream.exe"
+    exe.write_bytes(b"")
+    flags = [a for a in LocalExecutor(fs_exe=exe)._argv(Path("p.txt")) if a.startswith("-")]
+    assert flags, "the executor passes no flags, so the description below proves nothing"
+
+    # Whole tokens, never containment: the first version of this guard
+    # asked whether each flag appeared in the description, and a
+    # description hardcoding "--script" passed it, because "-script" is
+    # a substring of "--script". A guard that a wrong answer satisfies
+    # is not a guard.
+    assert _flag_tokens(describe_invocation()) == flags
+    assert _flag_tokens(describe_invocation(code=True)) == flags
+
+    # The visible-run description drops exactly the windowless flag.
+    assert _flag_tokens(describe_invocation(hidden=False)) == [SCRIPT_ARGUMENT]
+
+    # Rendered form is the plain one inside a code span, not a second
+    # sentence written separately.
+    assert describe_invocation(code=True).replace("`", "") == describe_invocation()
+
+
+def test_no_report_writer_restates_the_invocation_as_a_literal():
+    """The single home is enforced, not just currently obeyed.
+
+    A future edit that pastes the sentence back into a report writer is
+    the failure this guards; it is cheaper to forbid the literal than
+    to notice it disagreeing later (NFR-11).
+    """
+    qa = Path(__file__).resolve().parents[1] / "src" / "pyflightstream" / "qa"
+    offenders = [
+        path.name
+        for path in sorted(qa.glob("*.py"))
+        if "LocalExecutor, -hidden" in path.read_text(encoding="utf-8")
+    ]
+    assert not offenders, f"executor line restated as a literal in: {offenders}"
 
 
 def test_missing_executable_fails_at_construction(tmp_path):
@@ -144,14 +221,22 @@ def test_the_preflight_is_silent_on_the_build_the_campaign_declares(tmp_path):
 
 
 def test_the_preflight_spends_no_solver_process_where_there_is_nothing_to_check(tmp_path):
-    # 26.000 has no registered build, so there is nothing to compare and
-    # no reason to start the solver. A check that ran anyway would cost a
-    # process per campaign for no information.
-    from pyflightstream.run import check_solver_identity
-    from pyflightstream.versions import resolve
+    """No recorded build means nothing to compare, so do not start one.
 
+    This ran against 26.000 until 2026-08-09, when the identity sweep
+    gave every registered build a number and left the registry unable
+    to produce the case. The version is synthetic now for that reason
+    alone; the branch is as live as it ever was, since a build is
+    registered before it is ever run and a campaign may name it. A
+    check that started the solver anyway would cost one process per
+    campaign and learn nothing from it.
+    """
+    from pyflightstream.run import check_solver_identity
+    from pyflightstream.versions import FsVersion
+
+    unrecorded = FsVersion(canonical="26.000", alias="26.0", index=2, build=None)
     solver = IdentitySolver(build="7262026")
-    check_solver_identity(solver, resolve("26.000"), tmp_path)
+    check_solver_identity(solver, unrecorded, tmp_path)
     assert solver.calls == 0
 
 

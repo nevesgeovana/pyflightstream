@@ -11,7 +11,7 @@ Run the physics regression evidence for one FlightStream version.
 
 ## Inputs
 
-* Target version (26.XXX).
+* Target version (YY.XXX).
 * The PHY case list (synthetic, committed) and, locally, the SMI
   version-comparison cases from `_private/geometry/smi/` (geometry never
   committed; reports carry aggregated coefficients only).

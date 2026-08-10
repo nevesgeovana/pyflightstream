@@ -173,10 +173,22 @@ def test_the_build_number_catches_the_hotfix_the_version_string_cannot(recwarn):
         parse_loads(text, requested_version="26.120")
 
 
-def test_a_coarse_mismatch_still_warns_where_no_build_is_registered():
-    # 26.000 has no committed report recording a build, so the check
-    # falls back to the version string, which is enough for a mismatch
-    # this coarse. The fallback must not be lost to the new path.
+def test_a_coarse_mismatch_still_warns_where_no_build_is_registered(monkeypatch):
+    """The fallback for a build whose number is not recorded yet.
+
+    This used to run against 26.000, which carried no build number until
+    2026-08-09. Every registered build carries one now, so the registry
+    can no longer produce the case and the version this test needs is
+    made rather than found. The branch is not dead: a build is
+    registered before it is ever run, and the whole evening of
+    2026-08-09 had three builds in exactly this state.
+    """
+    from pyflightstream import results as results_module
+    from pyflightstream.versions import FsVersion
+
+    unrecorded = FsVersion(canonical="26.000", alias="26.0", index=2, build=None)
+    monkeypatch.setattr(results_module, "resolve", lambda _requested: unrecorded)
+
     text = read_fixture("loads_steady_26.120.txt")
     with pytest.warns(VersionMismatchWarning, match="wrong executable may have run"):
         parse_loads(text, requested_version="26.000")

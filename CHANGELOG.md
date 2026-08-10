@@ -7,7 +7,76 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### API surface delta
+
+New public names: `pyflightstream.run.SCRIPT_ARGUMENT`,
+`pyflightstream.run.describe_invocation`,
+`pyflightstream.reference.markdown_build_table`. Incompatible changes:
+none for callers; the solver command line changes, see below.
+Deprecations: none.
+
 ### Added
+
+* **Three more FlightStream builds are registered, and every registered
+  build now carries its vendor build number.** 25.000 (build 12162024,
+  December 2024), 25.100 (build 5062025, May 2025) and 26.000 (build
+  10202025, October 2025) join the registry at `registered` level. They
+  are there for reproducibility rather than coverage: published work was
+  run on the 25 series, and a reader of it needs the identifier to exist
+  and to resolve to a build number they can check against their own
+  install.
+
+  Read their POSITION rather than assuming it. They precede every build
+  the registry had, so they were inserted at the FRONT. The rule that
+  versions are only added and never dropped is about dropping, not about
+  the end of the list: the list is ordered by RELEASE order, so a build
+  obtained later can belong earlier in it.
+
+  The canonical scheme generalises from `26.XXX` to `YY.XXX` in the same
+  change, which is what it always meant; the major was written as a
+  literal while 26 was the only one registered. No identifier was
+  reassigned. SRS FR-02a and BRF-19 carry the amendment.
+
+* **A generated "Which build do I have" page.** The vendor ships two
+  builds as "26.1" and two more as "26.12", so a paper recording
+  "FlightStream 26.1" has not said which solver produced its numbers.
+  The page maps the release name and build number a solver prints onto
+  the canonical identifier to pass, and it is generated from the
+  registry at docs build time so it cannot drift from it. It shows the
+  two fields separately rather than the banner line, because the 25.0
+  build prints that line with different spacing from the 26.1 builds.
+
+### Fixed
+
+* **The solver command line was version dependent and hardcoded as if it
+  were not, which made three builds look broken.** The executor passed
+  the script argument with two dashes, the spelling SRC-003 documents.
+  The 25 series does not recognise it: the 25.0 manual documents the
+  one-dash form. `pyflightstream.run.SCRIPT_ARGUMENT` is now the
+  one-dash form, which RPT-023 measured working on all seven registered
+  builds.
+
+  The failure mode is the part worth publishing. A build given the
+  spelling it does not know does not refuse it. It starts, prints its
+  banner, checks out its licence successfully, receives no script, and
+  waits for a user. Under `-hidden` with the standard streams redirected
+  there is no console for it to report on, so the Fortran runtime raises
+  `severe (30)` on `CONOUT$` and opens a modal dialog that no timeout can
+  answer. What the harness sees is a clean licence checkout, an empty
+  log, and a wall-clock time equal to its own timeout. Two diagnoses
+  were written down before the right one, one of them naming a licence
+  seat that was never held.
+
+* **Every report derives its executor line instead of restating it.**
+  That sentence sat as six literals across the three report writers, one
+  machine-readable and one rendered each, and nothing would have noticed
+  them disagreeing with the code: changing the argument would have left
+  forty reports describing an invocation the package no longer made. It
+  comes from `describe_invocation()` now, and a tier 1 guard compares
+  the flags in the sentence with the flags the executor passes, as whole
+  tokens. The first version of that guard asked whether each flag
+  appeared in the sentence and a wrong sentence satisfied it, because
+  `-script` is a substring of `--script`.
 
 * **The compatibility matrix and the offline `help()` page define their own
   cells.** Both carried a definition of the empty cell and of the

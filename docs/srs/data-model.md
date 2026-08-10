@@ -126,7 +126,7 @@ the harness learns the outcome
 
 The ordered version list in `_meta.yaml` is the only version-ordering
 authority (never string or float comparison). Canonical identifiers
-use the 26.XXX scheme; display aliases record the vendor release name
+use the YY.XXX scheme; display aliases record the vendor release name
 of each build and resolve only where that name identifies exactly one
 build (FR-02c).
 

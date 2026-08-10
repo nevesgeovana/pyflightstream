@@ -192,6 +192,60 @@ class Executor(Protocol):
         ...
 
 
+#: Command-line argument that names the script file, one dash.
+#:
+#: Read this together with :func:`describe_invocation`, which is what
+#: every report prints; the two must not be restated apart.
+#:
+#: The vendor spells this argument two ways and the difference is not
+#: cosmetic. The 25.0 edition documents ``-script`` and the 26.12
+#: edition documents ``--script``; a build that does not recognise the
+#: spelling it is given does not refuse it, it starts, checks out its
+#: licence, receives no script, and waits for a user. Under ``-hidden``
+#: with the standard streams redirected there is no console for it to
+#: report on, so the Fortran runtime raises severe(30) on ``CONOUT$``
+#: and opens a modal dialog that no timeout can answer. That is a hang
+#: with a clean licence checkout and an empty log, which is how it was
+#: misread for a day as a licence-seat problem.
+#:
+#: One dash is used for every build because it is the only spelling
+#: measured to work on all of them: the seven registered builds were
+#: swept with both spellings on 2026-08-09 and two dashes failed on
+#: 25.000 and 25.100 (RPT-023). A future build that drops the one-dash
+#: spelling fails its probe baseline loudly rather than silently, since
+#: the baseline asserts the sentinel reached the exported log.
+SCRIPT_ARGUMENT = "-script"
+
+
+def describe_invocation(hidden: bool = True, code: bool = False) -> str:
+    """Return the one-line description of the solver invocation.
+
+    Single home of the sentence every report prints about how the
+    solver was called, derived from the argument the executor actually
+    passes rather than restated next to it. Six copies of that sentence
+    used to sit in the report writers, where nothing would have noticed
+    them disagreeing with the code (NFR-11).
+
+    Parameters
+    ----------
+    hidden : bool
+        Whether the description covers a windowless run.
+    code : bool
+        Wrap the flags in a markdown code span, for the rendered table
+        of a report; the machine-readable field takes them plain.
+
+    Returns
+    -------
+    str
+        Description naming the executor class and its flags, for the
+        ``executor`` field of a compat, drift, or physics report.
+    """
+    flags = f"-hidden {SCRIPT_ARGUMENT}" if hidden else SCRIPT_ARGUMENT
+    if code:
+        flags = f"`{flags}`"
+    return f"LocalExecutor, {flags} (SRC-003 pp.279-280, RPT-023)"
+
+
 class LocalExecutor:
     """Runs FlightStream as a local subprocess (SRC-003 pp.279-280).
 
@@ -221,7 +275,7 @@ class LocalExecutor:
         argv = [str(self.fs_exe)]
         if self.hidden:
             argv.append("-hidden")
-        argv.extend(["--script", str(script_path)])
+        argv.extend([SCRIPT_ARGUMENT, str(script_path)])
         return argv
 
     def run_script(

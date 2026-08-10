@@ -46,7 +46,7 @@ from pyflightstream._errors import PyflightstreamError
 from pyflightstream.qa.errors import QaEvidenceError
 from pyflightstream.qa.geometry import BladeSpec, WingSpec, generate_blade_stl, generate_wing_stl
 from pyflightstream.results import IncompleteOutputError, LoadsReport, parse_loads
-from pyflightstream.run import ExecutionResult, LocalExecutor
+from pyflightstream.run import ExecutionResult, LocalExecutor, describe_invocation
 from pyflightstream.script import Script
 from pyflightstream.versions import resolve
 
@@ -1593,7 +1593,7 @@ def write_physics_report(
         "date": date,
         "package_version": run.package_version,
         "fs_exe": run.fs_exe_name,
-        "executor": "LocalExecutor, -hidden --script (SRC-003 pp.279-280)",
+        "executor": describe_invocation(),
         "solver_identity": list(run.solver_identity),
         "summary": counts,
         "cases": {
@@ -1646,7 +1646,7 @@ def _render_markdown(run: PhysicsRun, date: str, counts: dict[str, int]) -> str:
         "| Item | Value |",
         "|---|---|",
         f"| Executable | {run.fs_exe_name} (local, `_private/exe/`, never committed) |",
-        "| Executor | LocalExecutor, `-hidden --script` (SRC-003 pp.279-280) |",
+        f"| Executor | {describe_invocation(code=True)} |",
         f"| Package | pyflightstream {run.package_version} |",
         f"| Solver identity | {'; '.join(run.solver_identity) or 'none captured'} |",
         "",

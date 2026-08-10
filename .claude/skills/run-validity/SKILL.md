@@ -11,7 +11,7 @@ Produce and apply command-validity evidence for one FlightStream version.
 
 ## Inputs
 
-* Target version (26.XXX); optionally a command subset.
+* Target version (YY.XXX); optionally a command subset.
 
 ## Steps
 

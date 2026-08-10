@@ -1322,15 +1322,36 @@ def test_every_cad_command_is_available_on_every_registered_build():
         f"the CAD chapters hold {len(members)} entries; the walk found fewer than the "
         "33 entered by 2026-08-06, so the chapter filter has stopped matching"
     )
-    missing = []
+    # Which builds carry the chapter is derived, not listed, because the
+    # registry gained three builds on 2026-08-09 that record no command
+    # at all (25.000, 25.100 and 26.000, registered for reproducibility
+    # of the author's published runs before any of them was swept). A
+    # hardcoded skip list would have grown by three and said nothing;
+    # this splits the builds by what they actually record and then pins
+    # both sides, so a new build silently joining the empty side fails
+    # here rather than passing quietly.
+    available: dict[str, list[str]] = {}
     for version in known_versions():
-        if version.canonical == "26.000":
-            continue
         view = registry.for_version(version.canonical)
-        missing += [f"{name} on {version.canonical}" for name in members if name not in view]
-    assert not missing, (
-        "these CAD commands are unavailable on a registered build, while both chapter "
-        "headers and the CHANGELOG say every one of them emits on all four: " + "; ".join(missing)
+        available[version.canonical] = [name for name in members if name in view]
+
+    without = sorted(canonical for canonical, names in available.items() if not names)
+    assert without == ["25.000", "25.100", "26.000"], (
+        "the builds carrying no CAD command are " + ", ".join(without) + "; the three "
+        "expected are the ones registered without a command sweep. A build that joined "
+        "or left this set needs its entry swept or its evidence explained, not a wider "
+        "skip here"
+    )
+
+    partial = {
+        canonical: sorted(set(members) - set(names))
+        for canonical, names in available.items()
+        if names and len(names) != len(members)
+    }
+    assert not partial, (
+        "these CAD commands are unavailable on a build that carries the rest of the "
+        f"chapter, while both chapter headers and the CHANGELOG say the chapter emits "
+        f"whole: {partial}"
     )
 
 

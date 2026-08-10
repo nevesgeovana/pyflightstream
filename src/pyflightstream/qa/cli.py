@@ -65,6 +65,16 @@ def _build_parser() -> argparse.ArgumentParser:
         help="comma-separated subset to probe; default: every command with a probe spec",
     )
     probe.add_argument(
+        "--identity-only",
+        action="store_true",
+        help=(
+            "judge no command: run the baseline, capture the solver's identity banner, "
+            "and write the report pair. This is how a newly registered build gets its "
+            "build number into a committed report, which is the only place the version "
+            "registry accepts one from"
+        ),
+    )
+    probe.add_argument(
         "--fsm",
         help=(
             "local simulation (.fsm) file for prelude tiers above none; specs needing "
@@ -289,7 +299,13 @@ def _cmd_probe(args: argparse.Namespace) -> int:
     if canonical is None:
         return 2
     commands = None
-    if args.commands:
+    if args.identity_only:
+        # The empty list, which probe_version reads as "the baseline and
+        # nothing else". A build that records no commands cannot be
+        # probed for one, and its solver_identity is what the version
+        # registry needs before anything else can happen.
+        commands = []
+    elif args.commands:
         commands = [name.strip() for name in args.commands.split(",") if name.strip()]
     try:
         run = probe_version(

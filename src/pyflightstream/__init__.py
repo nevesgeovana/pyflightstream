@@ -12,7 +12,7 @@ time what the solver would reject (or silently ignore) at run time.
 
 Pipeline layers, dependencies flowing strictly downward:
 
-- ``versions``: canonical 26.XXX version identifiers and ordering.
+- ``versions``: canonical YY.XXX version identifiers and ordering.
 - ``commands``: the evidence-backed per-version command database.
 - ``script``: the validating ASCII script builder.
 - ``results``: anchor-based parsers for solver output files.

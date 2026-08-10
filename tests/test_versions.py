@@ -20,17 +20,39 @@ from pyflightstream.versions import (
     AmbiguousVersionAliasError,
     FsVersion,
     UnknownVersionError,
+    _candidate_note,
     known_versions,
     resolve,
 )
 
 
 def test_known_versions_ordered_by_list_position():
+    """Release order, and the 25 series is at the FRONT.
+
+    Registering 25.000 and 25.100 on 2026-08-09 is what makes this list
+    worth pinning rather than merely long. They were obtained after
+    every 26 build and belong before all of them, so the append-only
+    rule was exercised in the direction that reads like a violation and
+    is not: nothing was dropped, and the list is ordered by RELEASE
+    order, which is why an entry can arrive at the front.
+    """
     versions = known_versions()
-    assert [v.canonical for v in versions] == ["26.000", "26.100", "26.101", "26.120", "26.121"]
-    assert [v.index for v in versions] == [0, 1, 2, 3, 4]
-    assert versions[0] < versions[1] < versions[2] < versions[3] < versions[4]
-    assert versions[4] >= versions[3] >= versions[2] >= versions[1] >= versions[0]
+    assert [v.canonical for v in versions] == [
+        "25.000",
+        "25.100",
+        "26.000",
+        "26.100",
+        "26.101",
+        "26.120",
+        "26.121",
+    ]
+    assert [v.index for v in versions] == list(range(len(versions)))
+    # strict=False on purpose: this zips the list against itself
+    # shifted by one, so the shorter tail is the pairing, not a bug.
+    pairs = list(zip(versions, versions[1:], strict=False))
+    assert len(pairs) == len(versions) - 1
+    assert all(a < b for a, b in pairs)
+    assert all(b >= a for a, b in pairs)
 
 
 def test_resolve_accepts_canonical_and_instance():
@@ -55,8 +77,12 @@ def test_resolve_unknown_version_lists_known_ones():
         resolve("25.3")
     message = str(excinfo.value)
     assert "25.3" in message
-    for canonical in ("26.000", "26.100", "26.101", "26.120", "26.121"):
-        assert canonical in message
+    # Derived, not listed: the hardcoded five here silently stopped
+    # covering the registry when the 25 series was registered, and a
+    # message that omits a known version is exactly what this test is
+    # for.
+    for version in known_versions():
+        assert version.canonical in message, (version.canonical, message)
 
 
 def test_ordering_is_not_string_or_float_ordering():
@@ -163,14 +189,32 @@ def test_the_refusal_says_which_candidate_is_which_build():
     assert "26.121 (vendor build 7262026)" in message, message
     assert "hotfix build" not in message, message
 
-    # The 26.1 pair is the case the wording was corrected for, and one of
-    # its builds has no recorded number, so the message says that rather
-    # than leaving the parenthetical empty.
+    # The 26.1 pair is the case the wording was corrected for. Both of
+    # its builds carry a number since 2026-08-09, so this pair no longer
+    # exercises the unrecorded branch; the test below does that directly
+    # rather than letting the branch go quietly uncovered.
     with pytest.raises(AmbiguousVersionAliasError) as excinfo:
         resolve("26.1")
     message = str(excinfo.value)
-    assert "26.100 (no vendor build recorded here yet)" in message, message
+    assert "26.100 (vendor build 2122026)" in message, message
     assert "26.101 (vendor build 5012026)" in message, message
+
+
+def test_a_candidate_with_no_recorded_build_says_so():
+    """The unrecorded branch outlived the registry state that reached it.
+
+    Every registered build carries a number as of 2026-08-09, so no
+    ambiguous alias can produce this phrasing from the real registry any
+    more. The branch is still live: a build is registered before it is
+    ever run, and the evening this was written three builds sat in the
+    registry without numbers. Asserting it on a synthetic entry keeps it
+    covered without pretending the registry can still reach it.
+    """
+    unrecorded = FsVersion(canonical="27.000", alias="27.0", index=99, build=None)
+    assert _candidate_note(unrecorded) == "27.000 (no vendor build recorded here yet)"
+
+    recorded = FsVersion(canonical="27.000", alias="27.0", index=99, build="1012027")
+    assert _candidate_note(recorded) == "27.000 (vendor build 1012027)"
 
 
 @pytest.mark.parametrize(

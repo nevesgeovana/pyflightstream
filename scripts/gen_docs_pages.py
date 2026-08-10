@@ -14,6 +14,7 @@ import mkdocs_gen_files
 from pyflightstream.overview import markdown_overview
 from pyflightstream.reference import (
     conventions_markdown,
+    markdown_build_table,
     markdown_compatibility_matrix,
     markdown_reference_pages,
     percent_script_markdown,
@@ -37,6 +38,13 @@ with mkdocs_gen_files.open("architecture.md", "w") as page:
 
 with mkdocs_gen_files.open("compatibility.md", "w") as page:
     page.write(markdown_compatibility_matrix())
+
+# The build correspondence table, generated from the version registry so
+# a reader can map the line their solver prints onto the identifier this
+# package wants. Generated rather than written because the registry is
+# the single home of every build number (NFR-11).
+with mkdocs_gen_files.open("builds.md", "w") as page:
+    page.write(markdown_build_table())
 
 # House conventions, from the same single source as pyflightstream.help()
 # (reference.conventions_markdown), so the site and the offline help can

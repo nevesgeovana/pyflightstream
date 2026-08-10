@@ -17,8 +17,14 @@ solver. Successor of the author's legacy research scripts. MIT licensed.
    documented entries, a committed probe report for verified/broken.
    No status is hand-edited.
 4. Supported FlightStream versions are only added, never dropped.
-   Canonical version identifiers use the 26.XXX three-digit scheme;
-   the ordered list in commands/_meta.yaml is the only ordering
+   Canonical version identifiers use the YY.XXX scheme: the vendor's
+   two-digit major, then three digits whose last indexes the hotfix
+   build. This said 26.XXX until 2026-08-09, when the 25 series was
+   registered and made the major a variable; only added, never dropped
+   is why an older series can arrive later. Added is not the same as
+   appended: the list is ordered by RELEASE order, so a build obtained
+   later can belong earlier in it, and two already have.
+   The ordered list in commands/_meta.yaml is the only ordering
    authority.
 5. No proprietary content: no employer or third-party data, no
    research geometry. SMI geometry stays in _private/ and is referenced

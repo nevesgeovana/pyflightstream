@@ -59,7 +59,7 @@ the same edit.
 
 ## How to report a version break
 
-Open an issue with: the FlightStream version (26.XXX), the script excerpt
+Open an issue with: the FlightStream version (YY.XXX), the script excerpt
 that fails, and the relevant log lines. This is exactly the evidence the
 probe suite needs to reproduce and classify the break.
 

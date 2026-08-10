@@ -27,7 +27,12 @@ from pyflightstream.versions import FsVersion
 REPO_ROOT = Path(__file__).resolve().parents[1]
 REPORTS_DIR = REPO_ROOT / "reports"
 COMMANDS_DIR = REPO_ROOT / "src" / "pyflightstream" / "commands"
-CANONICAL_PATTERN = re.compile(r"^26\.\d{3}$")
+#: The canonical identifier scheme, YY.XXX: the vendor's two-digit
+#: major, then three digits whose last indexes the hotfix build. It read
+#: `^26\.\d{3}$` until 2026-08-09, when registering the 25 series made
+#: the major a variable, which is what the scheme always meant; the
+#: charter moved in the same change (CLAUDE.md invariant 4).
+CANONICAL_PATTERN = re.compile(r"^\d{2}\.\d{3}$")
 # A report is cited two ways in this database: as a repository-relative path
 # with a suffix, and as the bare id alone (motion_definitions.yaml cites
 # "reports/RPT-005", which is neither a real path nor a bare id). Resolving by
