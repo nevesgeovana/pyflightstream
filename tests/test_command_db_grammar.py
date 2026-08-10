@@ -423,10 +423,20 @@ def test_every_field_an_override_leaves_unstated_is_filled_from_the_base():
     # Deleting a whole ROW is caught by the set assertion above, so this
     # floor's real job is only that the walk still reaches the chapter
     # files, and it sits near the true value.
-    assert checked >= 30, (
-        f"only {checked} inherited fields were checked, and 33 inherit in the "
-        "shipped database. A drop means the overrides now restate what they used "
-        "to inherit, or that this walk stopped reaching the chapter files"
+    # EXACT, not a floor. A floor was tried at 25 against a stated 29,
+    # then at 30 against a measured 33, and both times the slack was
+    # large enough that whole chapter files could drop out of the walk
+    # unnoticed: four of the seven, at the second floor. Deleting a row
+    # is caught by the set assertion above, so the only job left here is
+    # that the walk still reaches everything, and a number is the way to
+    # say that. It moves when an override is added, which is a sentence
+    # in a delta table anyway.
+    assert checked == 33, (
+        f"{checked} inherited fields were checked and the shipped database has 33, "
+        "distributed cites 12, unit 12, separator 7 and joins_previous 2. A change "
+        "here is an override that stopped inheriting or started, both of which are "
+        "readable in the diff; a DROP with no such diff means the walk stopped "
+        "reaching a chapter file"
     )
 
 
@@ -515,8 +525,52 @@ def test_an_override_differs_from_its_base_only_where_a_delta_table_says_so():
                         "claim that needs its page and a line in a delta table, or an "
                         "edit nobody meant"
                     )
-    assert compared > 900, (
-        f"only {compared} field comparisons ran over the override arguments, and the "
-        "shipped database has 136 of them across nine compared fields. A drop means "
-        "the walk stopped reaching the overrides"
+    # EXACT, for the reason the sibling floor above gives. At 900 the
+    # slack was 162 and sixteen of the seventeen commands could vanish
+    # from the walk with it green, on a guard whose subject is silent
+    # drops. 944 is 118 override arguments with a base counterpart times
+    # the eight fields no delta table may name; the other 18 arguments
+    # name nothing the base carries and are skipped. It was 1062 before
+    # `unit` became a delta form, which is one fewer compared field.
+    assert compared == 944, (
+        f"{compared} field comparisons ran and the shipped database supports 944. "
+        "A rise is an override gaining an argument the base also carries, a fall is "
+        "one losing it or the walk losing a chapter file"
+    )
+
+
+def test_every_value_delta_in_the_database_is_one_this_table_names():
+    """The other direction, which the pair check does not cover.
+
+    `test_the_set_of_per_version_grammars_is_the_set_this_table_states`
+    compares (command, version) PAIRS, so a value set differing on a row
+    already listed for some other reason is invisible to it. Appending
+    an invented token to one override's value list passed the whole
+    suite, on a row the table names for its argument set.
+
+    `required` has had this guard since PER_VERSION_OPTIONAL, which
+    reads with a default so a row absent from it asserts nothing is
+    optional. This is the same shape for values.
+    """
+    registry, found = _overrides()
+    measured = set()
+    for command, rows in found.items():
+        base = {arg.name: arg for arg in registry.commands[command].args}
+        for version, args in rows.items():
+            for arg in args:
+                inherited = base.get(arg.name)
+                if inherited is not None and arg.values != inherited.values:
+                    measured.add((command, version, arg.name))
+    listed = {
+        (command, version, key.removeprefix("enum:"))
+        for command, rows in PER_VERSION_GRAMMAR.items()
+        for version, delta in rows.items()
+        for key in delta
+        if key.startswith("enum:")
+    }
+    assert measured == listed, (
+        "the database and this table disagree about which overrides state their own "
+        f"value set; only in the database: {sorted(measured - listed)}; only in the "
+        f"table: {sorted(listed - measured)}. A value set is a manual claim and costs "
+        "a line here"
     )

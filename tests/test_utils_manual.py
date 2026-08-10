@@ -14,6 +14,8 @@ tests, so nobody reads a proposal as an answer. Those four are why
 
 from __future__ import annotations
 
+import pathlib
+
 import pytest
 
 from pyflightstream.utils import (
@@ -1810,7 +1812,7 @@ def _reg(commands, view=None):
 
         def for_version(self, label):
             if view is None:
-                raise ValueError(f"FlightStream version {label!r} is not registered")
+                raise _UnknownVersionError(f"FlightStream version {label!r} is not registered")
             return view
 
     return _R()
@@ -1826,6 +1828,19 @@ class _View:
         if name in self._refuses:
             raise _RefusalError(f"{name} has no recorded evidence")
         return name
+
+
+class _UnknownVersionError(Exception):
+    """Stands in for UnknownVersionError, which this layer cannot import.
+
+    Named rather than a bare ValueError because the code under test
+    matches the class NAME across the layer boundary, so a double that
+    raises something else proves nothing about the seam. The real thing
+    is covered by the sweep test that uses the registry itself.
+    """
+
+
+_UnknownVersionError.__name__ = "UnknownVersionError"
 
 
 class _RefusalError(Exception):
@@ -1892,7 +1907,7 @@ def test_an_unregistered_build_is_swept_and_reported_rather_than_raising(tmp_pat
     (found,) = unreachable_commands(
         [_edition(tmp_path, "ed", (1, 1))], recorded=_reg({}), reader=read
     )
-    assert found.reason == "build not registered"
+    assert found.reason == "label resolves to no single build"
 
 
 def test_the_reachability_check_refuses_a_configuration_that_would_read_clean(tmp_path):
@@ -1959,3 +1974,64 @@ def test_an_edition_read_with_no_rows_is_not_reported_as_missing_from_the_manife
     out = capsys.readouterr().out
     assert "26.130  0 of 0   <- read, and no entry carries a row for it" in out
     assert "no manifest row for 26.130" not in out
+
+
+@pytest.mark.parametrize("label", ["26.130", "26.12"])
+def test_a_label_the_registry_cannot_resolve_is_reported_by_the_real_sweep(
+    label, tmp_path, monkeypatch, capsys
+):
+    """Both refusals, against the REAL registry rather than a double.
+
+    A version registry refuses a label two ways: the name is
+    unregistered, or it is a vendor alias several builds share. The
+    first version of this handling matched the wording of one, so a
+    manifest naming 26.12, which is the name the pdf prints and the
+    likelier of the two in the read-before-you-register workflow, put an
+    AmbiguousVersionAliasError through the CLI as a traceback.
+    """
+    monkeypatch.chdir(tmp_path)
+    manifest = _manifest(
+        tmp_path,
+        f'- label: "{label}"\n  source: SRC-999\n  manual: x.pdf\n  chapter: 10-10\n',
+    )
+    monkeypatch.setattr(
+        "pyflightstream.utils.manual.read_pdf_pages",
+        lambda manual, *, first, last: {10: "Function name: START_SOLVER <A>\n"},
+    )
+    assert cli_main(["sweep", "--editions", str(manifest)]) == 0
+    assert "label resolves to no single build" in capsys.readouterr().out
+
+
+def test_the_reach_record_is_cleared_before_the_manuals_are_read():
+    """A failed run must not leave the previous manifest's numbers behind.
+
+    The reset sat after the loop that opens the manuals, so a reader
+    that raised left the last good run's counts in place for a caller
+    that caught the error and printed the reach. Moving it earlier fixed
+    that and nothing asserted it, so the ordering could drift back.
+    """
+    from pyflightstream.utils.manual import citation_reach
+
+    class _BoomError(Exception):
+        pass
+
+    good = _FakeRegistry({"A_COMMAND": _Entry({"ed": _Row(note="SRC-999 p.1, x")})})
+    edition = Edition(label="ed", manual=pathlib.Path("x.pdf"), chapter=(1, 1), source="SRC-999")
+
+    stale_citations(
+        [edition],
+        recorded=good,
+        reader=lambda manual, *, first, last: {1: "Function name: A_COMMAND <A>\n"},
+    )
+    assert citation_reach == {"ed": [1, 1]}
+
+    def explode(manual, *, first, last):
+        raise _BoomError("pdf unreadable")
+
+    with pytest.raises(_BoomError):
+        stale_citations([edition], recorded=good, reader=explode)
+    assert citation_reach == {"ed": [0, 0]}, (
+        "a run whose reader raised left the previous manifest's reach in place, so a "
+        "caller catching the error and printing the reach would report numbers from "
+        "a different measurement"
+    )

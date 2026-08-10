@@ -90,7 +90,7 @@ def _trailer_values(commit: str) -> list[str]:
         "log", "-1", f"--format=%(trailers:key={TRAILER},valueonly,separator=%x1f)", commit
     )
     assert result.returncode == 0, f"cannot read the trailers of {commit}"
-    return [value.strip() for value in result.stdout.strip().split("") if value.strip()]
+    return [value.strip() for value in result.stdout.strip().split("\x1f") if value.strip()]
 
 
 def _subject(commit: str) -> str:

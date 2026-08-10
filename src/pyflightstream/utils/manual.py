@@ -849,6 +849,14 @@ def surface_changes(surfaces: Mapping[str, Iterable[str]]) -> tuple[SurfaceChang
 #: anything that is not the refusal propagates.
 _REFUSAL_NAME = "CommandNotInVersionError"
 
+#: The two refusals a version registry makes for a label it cannot turn
+#: into exactly one build: the name is unregistered, or it is a vendor
+#: alias several builds share. Both are ordinary in the read-before-you-
+#: register workflow and neither is a program error, so both are
+#: reported rather than raised out of a CLI. Matched by class name for
+#: the same layering reason as the refusal above.
+_UNRESOLVED_LABEL = frozenset({"UnknownVersionError", "AmbiguousVersionAliasError"})
+
 
 @dataclass(frozen=True, kw_only=True)
 class UnreachableCommand:
@@ -955,14 +963,21 @@ def unreachable_commands(
         # which is what it did for one commit.
         try:
             view = recorded.for_version(edition.label)
-        except Exception as unregistered:  # noqa: BLE001 - the type lives a layer above
-            if "not registered" not in str(unregistered):
+        except Exception as unresolved:  # noqa: BLE001 - the types live a layer above
+            # TWO refusals reach here and the first version of this
+            # matched the wording of one. A label the registry cannot
+            # turn into exactly one build is either unregistered or an
+            # ALIAS naming several, and the alias is the likelier of the
+            # two in this workflow: a maintainer holding a new manual
+            # writes the name the pdf prints, which is the vendor name.
+            # That raised out of the CLI.
+            if type(unresolved).__name__ not in _UNRESOLVED_LABEL:
                 raise
             found.append(
                 UnreachableCommand(
                     command="(every command)",
                     edition=edition.label,
-                    reason="build not registered",
+                    reason="label resolves to no single build",
                 )
             )
             continue

@@ -366,27 +366,18 @@ def test_the_pitfall_table_names_the_builds_the_database_calls_broken():
         # probe it broken, and "both" silently came to mean three while
         # the guide still said two; give the entry a `documented` record
         # on an older release, and the guard went red on a correct guide.
-        # The same set `measured` holds, rather than a second
-        # computation of it. This read direct rows while `measured`
-        # moved to reachability, so the word "both" could have resolved
-        # against one number while the cell was checked against another.
-        # No cell says "both" today, which is exactly how a disagreement
-        # like that survives until one does.
-        broken_versions = measured
         starred = {
             token for token in CANONICAL.findall(cell.replace("*", "* ")) if f"{token}*" in cell
         }
         cell_versions = cell.replace("*", "")
-        if cell == "both":
-            assert len(broken_versions) == 2, (
-                f"the pitfall table says {name} is broken on 'both', and the "
-                f"database records it broken on {sorted(broken_versions)}. The "
-                f"word names two builds; write canonical identifiers when it is "
-                f"any other number"
-            )
-            declared = broken_versions
-        else:
-            declared = set(CANONICAL.findall(cell_versions))
+        # THE "both" AFFORDANCE IS GONE. It resolved the word against a
+        # second computation of the broken set, and when this guard
+        # moved to reachability that second computation moved with it,
+        # leaving the branch asserting measured == measured. No cell in
+        # the guide says "both", so removing the affordance costs
+        # nothing and one fewer thing can be tautological; a cell that
+        # says it now fails on naming no version this can read.
+        declared = set(CANONICAL.findall(cell_versions))
         assert declared, (
             f"the pitfall table's Builds cell for {name} reads {cell!r}, which "
             f"names no version this guard can read. Write canonical "

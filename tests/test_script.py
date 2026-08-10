@@ -2329,7 +2329,7 @@ _INDEXES_OF_UNTRACKED_OBJECTS = {
 #: so the stems below are broad, and the test name and docstring say
 #: heuristic rather than closed.
 _LOOKS_LIKE_A_CITATION = re.compile(
-    r"index|indices|id|_id|frame|surface|surf|coordinate_system|cs|motion"
+    r"index|indices|\bid\b|_id|frame|surface|surf|coordinate_system|\bcs\b|motion"
     r"|actuator|boundar|body|component|part|section|curve|node|vertex|group|owner"
     r"|target|wake|probe|plane|system"
 )

@@ -56,22 +56,26 @@ _PROBE_REF_PATTERN = re.compile(r"^reports/[\w./-]+\.md$")
 # rules it already had, while the cost of a false positive is a refused
 # load. Widen it when a new wording appears rather than loosening it.
 _MEASURED_CLAIM = re.compile(r"\b(measured|probed|observed|the solver (?:answers|refuses))\b", re.I)
-# A claim DENIED rather than made. The pattern above is a closed list of
-# affirmative wordings and cannot see a negation, so on 2026-08-10 it
-# refused four honest rows for saying "no probe has asked this build"
-# and "is not measured", which is the disclaimer this database wants on
-# every row that rests on a reading. The comment above prices the two
-# errors and prices them the right way round: a missed claim leaves a
-# row under the citation rules it already had, and a false positive
-# refuses the whole load. So the negators are subtracted first, and
-# subtracted by REMOVING the negated phrases from the text rather than
-# by widening the affirmative pattern, which keeps that list closed.
-_DENIED_CLAIM = re.compile(
-    r"\b(?:no|nothing|never|not|neither)\b[^.]{0,80}?"
-    r"\b(?:measured|probed|observed|measurement|probe|run)\b"
-    r"|\bun(?:measured|probed|observed)\b",
-    re.I,
-)
+# A NEGATION PASS WAS TRIED HERE ON 2026-08-10 AND WITHDRAWN THE SAME
+# DAY, which is worth the lines because the reasoning that produced it
+# was sound and the mechanism was not. Four rows had been written saying
+# "measured over the ten commands this edition documents", a count of a
+# DOCUMENT, and the closed list above cannot tell that from a claim
+# about the solver, so it refused them. The pass subtracted negated
+# phrases before matching.
+#
+# Measured, it let genuine claims through. Its window spanned the
+# sentence, so an opening clause like "the edition does not print it"
+# reached forward and the subtraction removed the negator, the claim
+# word and everything between: "...does not print it, and the solver
+# was observed refusing it on 26.121" became a note with no claim in it
+# and loaded. It also refused honest disclaimers whose negator fell
+# after the claim word or beyond the window.
+#
+# The rows were reworded instead. A count of a document says counted, a
+# claim about the solver says measured, and the guard stays a closed
+# list of affirmative wordings with no cleverness in it. Widen that list
+# when a new wording appears; do not teach it to read English.
 
 
 class Layout(enum.StrEnum):
@@ -624,8 +628,7 @@ class VersionStatus(BaseModel):
                     "printing the command, or a probe measured the solver refusing "
                     "it; the status alone cannot be read as any one of them"
                 )
-            affirmative = _DENIED_CLAIM.sub(" ", self.note)
-            if _MEASURED_CLAIM.search(affirmative) and not (self.report or self.probe_ref):
+            if _MEASURED_CLAIM.search(self.note) and not (self.report or self.probe_ref):
                 raise ValueError(
                     "this removed note claims a measurement and cites no run; an "
                     "edition dropping a page is a fact about a document and only a run "

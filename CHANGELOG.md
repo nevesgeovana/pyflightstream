@@ -44,7 +44,7 @@ fluid properties FLUID_PROPERTIES wants, so it serves the three
 pre-26.100 builds it had stopped serving; the refusal for a command
 with no evidence lists builds by reachability and marks inherited ones,
 so it no longer hides the newest build; and `pyfs-manual sweep` reports
-a second finding and `--fail-if-absent` covers both.
+a second finding and `--fail-if-absent` gates on the row-level one, which subsumes the other: a name with no entry is unreachable too.
 
 Incompatible changes: none for a released signature. Deprecations:
 none.
@@ -158,7 +158,7 @@ The completeness claim was measured by a tool that cannot measure it.
 `pyfs-manual sweep` compares entry NAMES, so an entry carrying no row
 for one edition read as covered, and it reported zero absent while
 three builds could not emit a command their own manuals document. The
-sweep now reports both halves and `--fail-if-absent` covers both.
+sweep now reports both halves and `--fail-if-absent` gates on the row-level one, which subsumes the other: a name with no entry is unreachable too.
 
 Four `removed` rows said the 26.122 edition does not print a command
 while that edition's Script Index names it. The body does not, the

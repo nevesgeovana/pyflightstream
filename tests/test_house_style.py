@@ -649,3 +649,51 @@ def test_the_container_allowlist_has_no_stale_entry():
         "promotion landed; delete the entry and close its half of "
         "PLN-20260803-1500"
     )
+
+
+def test_no_tracked_text_file_carries_a_control_byte():
+    """A backspace in a regex spent a guard and nothing could see it.
+
+    On 2026-08-10 a raw string meant to read `\b` was written through a
+    shell heredoc and reached the file as byte 0x08. The pattern then
+    required a literal backspace, the helper it powered returned the
+    empty set, and two assertions built on it stopped asserting: one
+    loop ran zero iterations and one set difference was empty minus
+    anything. The suite stayed green while seven of eight editions could
+    go silent in the published coverage section.
+
+    NOTHING COULD SEE IT BY READING. Editors, diffs and the tools used
+    to review this repository all render 0x08 as nothing at all, so the
+    line looked correct in every view anyone had of it. Four more of the
+    same byte were then found in a second file, from the same cause, and
+    one deliberate 0x1f that was functional and indistinguishable from
+    the accident.
+
+    Tab, newline and carriage return are the three that belong in text.
+    Everything else is written as an escape, which is visible.
+    """
+    offenders = []
+    text_suffixes = {
+        ".cff",
+        ".cfg",
+        ".json",
+        ".md",
+        ".py",
+        ".tex",
+        ".toml",
+        ".txt",
+        ".yaml",
+        ".yml",
+    }
+    for path in _tracked_files():
+        if path.suffix not in text_suffixes:
+            continue
+        raw = path.read_bytes()
+        found = sorted({byte for byte in raw if byte < 32 and byte not in (9, 10, 13)})
+        if found:
+            offenders.append(f"{path}: {', '.join(hex(byte) for byte in found)}")
+    assert not offenders, (
+        "these tracked files carry a control byte, which every editor and diff in "
+        "this workflow renders as nothing: " + "; ".join(offenders) + ". Write it as "
+        r"an escape (\b, \x1f) so the character is visible to a reader"
+    )

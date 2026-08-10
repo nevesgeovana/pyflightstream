@@ -1705,31 +1705,36 @@ def test_no_consumer_of_a_version_row_citation_prints_the_claim_without_it():
 @pytest.mark.parametrize(
     "note",
     [
+        # A count of a DOCUMENT, which is what the four 26.122 rows make.
+        "SRC-750 p.283, the edition does not print it; counted over the ten it adds.",
+        # A disclaimer, in the wordings this database uses for one.
         "SRC-750 p.283, the edition does not print it; no probe has asked this build.",
-        "SRC-750 p.283, the edition does not print it, and the equivalence is not measured.",
-        "SRC-750 p.283, the edition does not print it; nothing has probed this name here.",
-        "SRC-750 p.283, the edition does not print it; the successor is unmeasured.",
+        "SRC-750 p.283, the edition does not print it; the successor is untested here.",
     ],
 )
-def test_a_removed_note_denying_a_measurement_is_not_a_measurement_claim(note):
-    """A disclaimer is the opposite of the claim the guard is for.
+def test_a_removed_note_that_claims_nothing_about_the_solver_loads(note):
+    """The guard is a closed list and stays one, which costs a wording.
 
-    The affirmative pattern is a closed list and cannot see a negation,
-    so on 2026-08-10 it refused four honest rows for saying "no probe
-    has asked this build", which is the sentence this database wants on
-    every row resting on a reading. Its own comment prices the two
-    errors the right way round: a missed claim leaves a row under the
-    citation rules it already had, and a false positive refuses the
-    whole load.
+    A negation pass was tried on 2026-08-10 so that a row could say "is
+    not measured" and load. It let genuine claims through: its window
+    spanned the sentence, so an opening "the edition does not print it"
+    reached forward and the subtraction removed the negator, the claim
+    word and everything between, and "and the solver was observed
+    refusing it" loaded with no claim left in it. Withdrawn the same
+    day. A count of a document says counted; only a claim about the
+    solver says measured.
     """
     VersionStatus(status=Status.REMOVED, note=note)
 
 
 def test_a_removed_note_still_cannot_claim_a_measurement_without_a_run():
-    """The other side, unchanged, which the narrowing must not cost."""
+    """The other side, and the two the withdrawn pass would have let in."""
     for note in (
         "Measured 2026-08-10: the solver refuses the name (SRC-003 p.1).",
         "SRC-003 p.1, and a probe observed the abort.",
+        # Both of these loaded while the negation pass was in place.
+        "SRC-750 p.1, the edition does not print it, and the solver was observed refusing it.",
+        "SRC-750 p.1, no page prints it; the solver was observed rejecting the name.",
     ):
         with pytest.raises(ValueError, match="claims a measurement and cites no run"):
             VersionStatus(status=Status.REMOVED, note=note)

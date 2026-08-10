@@ -671,6 +671,14 @@ def _builds_where_air_altitude_works() -> list[str]:
         if evidence is None or evidence.record.status is Status.BROKEN:
             continue
         working.append(version.canonical)
+    # A derived parametrisation that empties turns the test into a
+    # SKIP, silently, under pytest's default empty-parameter handling.
+    # The population is four today and the check costs a line.
+    assert working, (
+        "AIR_ALTITUDE is broken on every registered build, so the test this feeds "
+        "would be skipped rather than run. If that is really true, the helper's "
+        "altitude path is unreachable everywhere and wants deleting, not skipping"
+    )
     return working
 
 

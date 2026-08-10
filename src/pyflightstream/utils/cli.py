@@ -353,8 +353,11 @@ def _sweep(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
     Returns
     -------
     int
-        0, unless ``--fail-if-absent`` was passed and either half is
-        non-empty. Reporting is the ordinary use and a maintainer runs it
+        0, unless ``--fail-if-absent`` was passed and the row-level
+        measure is non-empty. That measure subsumes the entry-level one,
+        which reports a name with no entry as unreachable too, so one
+        term gates both findings and the other could not be falsified by
+        any test. Reporting is the ordinary use and a maintainer runs it
         in a loop, so a finding is an answer rather than a failure; the
         flag is for the other use, asserting that the database is
         complete.
@@ -378,7 +381,14 @@ def _sweep(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
     )
     for item in unreachable:
         print(f"    {item.edition}  {item.command:<44} {item.reason}")
-    exit_code = 1 if ((absent or unreachable) and args.fail_if_absent) else 0
+    # ONE TERM, because the other is subsumed. `sweep_editions` reports
+    # names the database has no entry for; `unreachable_commands`
+    # reports the same names with reason "no entry" plus the row-level
+    # gaps, over the same parsed set. So a non-empty `absent` implies a
+    # non-empty `unreachable` and the disjunction that used to be here
+    # had a term no test could decide. Both findings are still PRINTED;
+    # what changed is that the gate names the measure it actually reads.
+    exit_code = 1 if (unreachable and args.fail_if_absent) else 0
     if not args.by_section:
         for command in absent:
             pages = " ".join(f"{label}:p.{page}" for label, page in command.pages.items())

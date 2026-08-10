@@ -27,7 +27,7 @@ def _registered_sources() -> set[str]:
     return {
         match.group(1)
         for text in manual_editions().values()
-        if (match := re.match(r"\s*(SRC-\d{3})", text))
+        if (match := re.match(r"\s*(SRC-\d{3})\b", text))
     }
 
 
