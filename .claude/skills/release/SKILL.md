@@ -57,6 +57,19 @@ the changelog alone.
 
 1. Build sdist and wheel from a clean checkout; inspect the contents
    once (no private material, no generated docs).
+1a. **Run tier 1 against the built wheel in a fresh environment with the
+   extras the release job installs**, which today is
+   `pip install "dist/<wheel>[dev,fsi,geom]"` in a venv that has nothing
+   else. This is not the same run as tier 1 in the development
+   checkout and it has caught what that run cannot: a maintainer's
+   environment carries every optional extra, so a test importing one
+   unconditionally passes locally forever and fails only here. At the
+   v0.7.0 tag exactly that happened, one unguarded `import pypdf` that
+   had been red in this job since the release's first commit while
+   fourteen reviewer passes and every local run stayed green. The job
+   is the guard; running it before the tag rather than after is the
+   step. Rebuild the wheel first if anything was committed since the
+   last build, or this tests the previous one.
 2. Role-review the whole release diff with the specialist agents (the
    `role-review` skill, not paraphrased manual checks) and drive every
    finding to fixed or registered, then write BOTH attestations,

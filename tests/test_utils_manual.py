@@ -1487,8 +1487,16 @@ def test_the_pdf_reader_asks_for_layout_extraction(monkeypatch, tmp_path):
     layout found 270; on all six vendor editions the two modes agree
     exactly, so this costs nothing and is not visible in any count.
     A silent revert to the default would be.
+
+    SKIPPED WITHOUT THE `[manual]` EXTRA, which is the only reason this
+    is not an unconditional import. It was one from 2026-08-09 until the
+    v0.7.0 tag, and every local run passed because a maintainer's
+    environment has pypdf: the job that installs the built wheel WITHOUT
+    the extra is the only place the difference shows, and it is a
+    release job, so it showed at the tag. Fourteen reviewer passes ran
+    in environments that had the extra.
     """
-    import pypdf
+    pypdf = pytest.importorskip("pypdf")
 
     from pyflightstream.utils import manual as manual_module
 
