@@ -66,6 +66,15 @@ TOC = re.compile(r'param\s+name="Local"\s+value="([^"]+)"', re.I)
 BODY = re.compile(r"(?is)<body[^>]*>(.*)</body>")
 DROP = re.compile(r"(?is)<(script|noscript)\b.*?</\1>")
 
+#: The generator's per-topic footer. Not part of the manual, and not
+#: harmless: it renders inside the last command's sample window, so the
+#: package reader returns it as a CONTINUATION LINE and that command
+#: reads as taking one argument more than it does. Measured on the first
+#: conversion at 26 of the 272 commands, every one of them the last on
+#: its page. It is stripped here rather than filtered downstream because
+#: a reader has no way to tell it from a real payload line.
+FOOTER = re.compile(r"(?is)<h6[^>]*generatorCopyright.*?</h6>")
+
 #: The block a signature lives in: a paragraph div opening with the
 #: "Function name:" heading. Matched on the heading rather than on the
 #: generated class name, which differs per topic.
@@ -111,6 +120,7 @@ def combine(root: Path) -> tuple[Path, int, int]:
     for name in order:
         path = root / name.split("/")[-1]
         raw = DROP.sub(" ", path.read_text(encoding="utf-8", errors="replace"))
+        raw = FOOTER.sub(" ", raw)
         match = BODY.search(raw)
         body = match.group(1) if match else raw
         body, n = KEEP.subn(r'<div class="pyfs-keep \1"><h2>Function name', body)

@@ -17,7 +17,7 @@ IMPORT:
       required: false
   manual_ref: "SRC-003 p.307"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.266, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.261, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.281, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.280, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.302, same grammar as 26.120"}
@@ -47,7 +47,7 @@ CCS_IMPORT:
       type: path
   manual_ref: "SRC-003 p.307"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.267, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.262, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.281, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.280, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.302, same grammar as 26.120"}
@@ -76,7 +76,7 @@ EXPORT_SURFACE_MESH:
       own_line: true
   manual_ref: "SRC-003 pp.307-308"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.267, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.262, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.281, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.280, same grammar as 26.120"}
     "26.121": {status: documented, note: "SRC-740 p.310, same grammar as 26.120"}

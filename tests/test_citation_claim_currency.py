@@ -379,6 +379,11 @@ DELIBERATELY_UNLISTED = {
     "src/pyflightstream/qa/compat.py",
     "scripts/gen_docs_pages.py",
     "examples/steady_polar.py",
+    # A converter, not a page. It names manual_ref only to explain why a
+    # page citation against a compiled help archive would be a number
+    # nobody wrote, which is the reason the script exists; it makes no
+    # claim about what an entry carries.
+    "scripts/chm_to_pdf.py",
     # Maintainer tooling rather than a page a user reads. They DO carry
     # instructions and could go stale the same way; listing them here
     # records that the guard does not watch them.

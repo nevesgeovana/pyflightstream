@@ -25,7 +25,7 @@ DELETE_TRANSITION_TRIP:
       type: int
   manual_ref: "SRC-003 p.327"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.290, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.285, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.301, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.300, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.323, same grammar as 26.120"}

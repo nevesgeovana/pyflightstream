@@ -222,7 +222,7 @@ CONVERT_CAD_TO_MESH:
       type: int
   manual_ref: "SRC-003 p.286"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.265, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.260, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.279, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.278, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.280, same grammar as 26.120"}

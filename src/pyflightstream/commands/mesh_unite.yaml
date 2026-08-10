@@ -22,7 +22,7 @@ BOOLEAN_UNITE_PATH:
       type: path
   manual_ref: "SRC-003 p.316"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.277, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.272, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.290, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.289, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.311, same grammar as 26.120"}

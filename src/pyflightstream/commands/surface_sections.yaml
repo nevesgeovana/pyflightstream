@@ -28,7 +28,7 @@ CREATE_NEW_SURFACE_SECTION:
       required: false
   manual_ref: "SRC-003 p.364"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.329, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.323, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.336, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.335, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.363, same grammar as 26.120"}
@@ -130,7 +130,7 @@ COMPUTE_SURFACE_SECTIONAL_LOADS:
                KILOGRAM-FORCE]
   manual_ref: "SRC-003 p.364"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.329, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.323, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.336, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.335, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.363, same grammar as 26.120"}
@@ -150,7 +150,7 @@ EXPORT_SURFACE_SECTIONAL_LOADS:
       type: path
   manual_ref: "SRC-003 pp.364-365"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.330, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.324, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.337, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.336, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.363, same grammar as 26.120"}
@@ -167,7 +167,7 @@ UPDATE_ALL_SURFACE_SECTIONS:
   args: []
   manual_ref: "SRC-003 p.365"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.330, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.324, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.337, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.336, same grammar as 26.120"}
     "26.121": {status: documented, note: "SRC-740 p.368, same grammar as 26.120"}
@@ -183,7 +183,7 @@ EXPORT_ALL_SURFACE_SECTIONS:
       type: path
   manual_ref: "SRC-003 p.365"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.330, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.324, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.337, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.336, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.364, same grammar as 26.120"}
@@ -216,7 +216,7 @@ DELETE_SURFACE_SECTION:
       type: int
   manual_ref: "SRC-003 p.365"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.330, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.324, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.337, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.336, same grammar as 26.120"}
     "26.121": {status: documented, note: "SRC-740 p.368, same grammar as 26.120"}
@@ -230,7 +230,7 @@ DELETE_ALL_SURFACE_SECTIONS:
   args: []
   manual_ref: "SRC-003 p.365"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.330, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.324, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.337, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.336, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.359, same grammar as 26.120"}

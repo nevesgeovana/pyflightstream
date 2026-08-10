@@ -32,7 +32,7 @@ CREATE_NEW_INLET:
       unit: "simulation velocity units"
   manual_ref: "SRC-003 p.325"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.288, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.283, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.300, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.299, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.321, same grammar as 26.120"}
@@ -63,7 +63,7 @@ SET_INLET_CUSTOM_PROFILE:
       own_line: true
   manual_ref: "SRC-003 p.325"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.288, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.283, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.300, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.299, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.321, same grammar as 26.120"}
@@ -99,7 +99,7 @@ REMESH_INLET:
       type: float
   manual_ref: "SRC-003 p.325"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.288, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.283, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.300, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.299, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.321, same grammar as 26.120"}
@@ -130,7 +130,7 @@ DELETE_INLET:
       type: int
   manual_ref: "SRC-003 p.325"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.288, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.283, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.300, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.299, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.321, same grammar as 26.120"}

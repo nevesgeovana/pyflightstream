@@ -25,7 +25,7 @@ UNSTEADY_SOLVER_NEW_FORCE_PLOT:
       required: false
   manual_ref: "SRC-003 p.347"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.313, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.308, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.321, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.320, same grammar as 26.120"}
     "26.121": {status: documented, note: "SRC-740 p.350, same grammar as 26.120"}
@@ -55,7 +55,7 @@ UNSTEADY_SOLVER_NEW_FLUID_PLOT:
       type: str
   manual_ref: "SRC-003 p.347"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.313, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.308, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.321, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.320, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.346, same grammar as 26.120"}
@@ -97,7 +97,7 @@ UNSTEADY_SOLVER_DELETE_ALL_PLOTS:
   args: []
   manual_ref: "SRC-003 p.347"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.313, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.308, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.321, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.320, same grammar as 26.120"}
     "26.121": {status: documented, note: "SRC-740 p.351, same grammar as 26.120"}
@@ -119,7 +119,7 @@ UNSTEADY_SOLVER_EXPORT_PLOTS:
       type: path
   manual_ref: "SRC-003 p.347"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.313, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.308, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.321, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.320, same grammar as 26.120"}
     "26.121": {status: documented, note: "SRC-740 p.350, same grammar as 26.120"}
@@ -194,7 +194,7 @@ UNSTEADY_SOLVER_ANIMATION:
       joins_previous: true
   manual_ref: "SRC-003 pp.347-348"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.314, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.309, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.321, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.320, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 pp.343-344, same grammar as 26.120"}

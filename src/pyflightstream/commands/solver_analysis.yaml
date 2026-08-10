@@ -12,7 +12,7 @@ SET_VORTICITY_DRAG_BOUNDARIES:
       required: false
   manual_ref: "SRC-003 p.350"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.316, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.311, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.324, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.323, same grammar as 26.120"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
@@ -39,7 +39,7 @@ DELETE_VORTICITY_DRAG_BOUNDARIES:
   args: []
   manual_ref: "SRC-003 p.350"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.316, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.311, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.324, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.323, same grammar as 26.120"}
     "26.121": {status: documented, note: "SRC-740 p.353, same grammar as 26.120"}
@@ -56,7 +56,7 @@ SET_SOLVER_ANALYSIS_LOADS_FRAME:
       cites: frames
   manual_ref: "SRC-003 p.350"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.316, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.311, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.324, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.323, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.346, same grammar as 26.120"}
@@ -76,7 +76,7 @@ SET_ANALYSIS_MOMENTS_MODEL:
       values: [PRESSURE, VORTICITY]
   manual_ref: "SRC-003 p.350"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.316, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.311, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.324, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.323, same grammar as 26.120"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
@@ -95,7 +95,7 @@ SET_ANALYSIS_SYMMETRY_LOADS:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 p.350"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.316, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.311, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.324, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.323, same grammar as 26.120"}
     "26.121": {status: documented, note: "SRC-740 p.353, same grammar as 26.120"}
@@ -123,7 +123,7 @@ SET_LOADS_AND_MOMENTS_UNITS:
                KILOGRAM-FORCE]
   manual_ref: "SRC-003 pp.350-351"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.317, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.312, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.324, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.323, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.346, same grammar as 26.120"}
@@ -142,7 +142,7 @@ SET_SOLVER_ANALYSIS_BOUNDARIES:
       cites: boundaries
   manual_ref: "SRC-003 p.351"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.317, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.312, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.325, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.324, same grammar as 26.120"}
     "26.121": {status: documented, note: "SRC-740 p.354, same grammar as 26.120"}
@@ -162,7 +162,7 @@ SET_INVISCID_LOADS:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 p.351"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.317, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.312, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.325, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.324, same grammar as 26.120"}
     "26.121": {status: documented, note: "SRC-740 p.347, same grammar as 26.120"}
@@ -181,7 +181,7 @@ SET_VORTICITY_LIFT_MODEL:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 p.350"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.317, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.312, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.324, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.323, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.346, same grammar as 26.120"}

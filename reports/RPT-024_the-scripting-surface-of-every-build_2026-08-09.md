@@ -97,13 +97,27 @@ PLN-20260809-2400.
 ## 25.000 is measured, and not by this tool
 
 The 25.000 install ships its manual only as a compiled HTML help
-archive, and `pyfs-manual` reads pdf, so that build has no row in the
-manifest and does not appear in the generated sections below.
+archive, and `pyfs-manual` reads pdf, so that build had no row in the
+manifest when this report was first written and did not appear in the
+generated sections below.
+
+THAT IS NO LONGER TRUE, and the paragraph is corrected rather than
+rewritten because the reason it changed is the useful part. On
+2026-08-10 the archive was converted to a pdf whose pagination is
+reproducible (`scripts/chm_to_pdf.py`, registered as SRC-749) and the
+build joined the manifest, so the generated sections below cover all
+seven. The figure below was measured before that, from the extracted
+topics directly, and the two readings agree at 272.
+
+One error of the first writing is corrected here too. It said the
+archive extracts to 960 HTML topics. 960 is the number of FILES, images
+and stylesheets included; the topics are 154, which is what the
+archive's own table of contents lists.
 
 Its surface was measured separately. The archive was extracted with
-7-Zip to 960 HTML topics; tags were stripped from each topic, entities
-unescaped, and the same signature heading counted, the string the pdf
-parser keys on. That yields:
+7-Zip; tags were stripped from each topic, entities unescaped, and the
+same signature heading counted, the string the pdf parser keys on. That
+yields:
 
 **272 commands documented.**
 
@@ -129,21 +143,29 @@ shown that the new name does what the old one did, and a name is not
 behaviour. What the pairing establishes is where to point a probe, not
 what it will find.
 
-TWO INSTRUMENTS, NOT ONE, and the two numbers either side of that
-sentence were produced by different readers. The 272 comes from an
-ad-hoc count over extracted HTML; every other count in this report comes
-from the package's own fixtured pdf parser. No install ships both
-formats, so the two readers have never been calibrated against each
-other, and the difference between them is unmeasured. That uncertainty
-rides on the 25.000 to 25.100 delta above and on the "272 to 364" span
-below; neither is a like-for-like subtraction. Giving the tools a reader
-for the help archive is registered as PLN-20260809-2200, and the
-calibration is part of it.
+TWO INSTRUMENTS, NOT ONE, when this was written: the 272 came from an
+ad-hoc count over extracted HTML while every other count came from the
+package's own fixtured pdf parser, and no install shipped both formats,
+so the two had never been calibrated against each other.
+
+THEY HAVE BEEN NOW, and the calibration is the reason to trust the
+number rather than merely to state it. Converting the archive to a pdf
+put both instruments on one document, and the package's own parser
+finds 272 commands in it, the same 272 the HTML count found. The
+uncertainty that rode on the 25.000 to 25.100 delta and on the "272 to
+364" span is measured and is zero for this document.
+
+The conversion is not free of assumptions and they are recorded where
+the citations point, in the `manual_editions` entry for SRC-749: the
+page numbers depend on the renderer, so the script strips what makes
+its output unique and two runs give byte-identical bytes, and the hash
+is recorded so a different renderer shows up as a different file rather
+than as quietly different page numbers.
 
 ## The shape of the whole history
 
-The surface grew from 272 to 364 across seven builds, across two
-instruments as stated above, and it did not grow smoothly. One step
+The surface grew from 272 to 364 across seven builds, on one instrument
+since the calibration above, and it did not grow smoothly. One step
 accounts for most of it: 26.000 to 26.100 gained 75 commands,
 essentially the whole CAD and cross-section family arriving at once. The
 next step, 26.100 to 26.101, is the one to be careful with: 35 gained

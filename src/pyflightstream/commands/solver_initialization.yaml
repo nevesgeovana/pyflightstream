@@ -60,7 +60,7 @@ SOLVER_PROXIMAL_BOUNDARIES:
       separator: newline
   manual_ref: "SRC-003 pp.337-338"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.303, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.298, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.313, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.312, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.335, same grammar as 26.120"}
@@ -106,7 +106,7 @@ START_SOLVER:
   args: []
   manual_ref: "SRC-003 p.338"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.312, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.307, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.313, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.312, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.335, same grammar as 26.120"}

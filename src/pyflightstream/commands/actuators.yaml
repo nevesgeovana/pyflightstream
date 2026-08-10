@@ -17,7 +17,7 @@ CREATE_NEW_ACTUATOR:
       type: str
   manual_ref: "SRC-003 p.323"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.285, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.280, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.297, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.296, same grammar as 26.120"}
     "26.100": {status: verified, report: "reports/compat/CMP-26100_2026-08-08_enableactuator.yaml"}
@@ -40,7 +40,7 @@ SET_ACTUATOR_NAME:
       type: str
   manual_ref: "SRC-003 p.323"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.285, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.280, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.297, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.296, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.322, same grammar as 26.120"}
@@ -66,7 +66,7 @@ SET_ACTUATOR_AXIS:
       unit: "simulation length units"
   manual_ref: "SRC-003 p.323"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.285, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.280, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.297, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.296, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.318, same grammar as 26.120"}
@@ -94,7 +94,7 @@ SET_ACTUATOR_RADIUS:
       unit: "simulation length units"
   manual_ref: "SRC-003 p.323"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.285, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.280, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.297, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.296, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.318, same grammar as 26.120"}
@@ -114,7 +114,7 @@ SET_PROP_ACTUATOR_RPM:
       unit: "rev/min"
   manual_ref: "SRC-003 p.323"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.286, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.281, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.297, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.296, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.318, same grammar as 26.120"}
@@ -165,7 +165,7 @@ SET_PROP_ACTUATOR_THRUST:
       values: [COEFFICIENT, NEWTONS, POUNDS]
   manual_ref: "SRC-003 p.324"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.286, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.281, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.298, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.297, same grammar as 26.120"}
     "26.121": {status: documented, note: "SRC-740 p.327, same grammar as 26.120"}
@@ -188,7 +188,7 @@ SET_PROP_ACTUATOR_SWIRL:
       type: float
   manual_ref: "SRC-003 p.324"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.286, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.281, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.298, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.297, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.319, same grammar as 26.120"}
@@ -209,7 +209,7 @@ ENABLE_ACTUATOR:
       cites: actuators
   manual_ref: "SRC-003 p.324"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.286, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.281, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.298, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.297, same grammar as 26.120"}
     "26.121": {status: documented, note: "SRC-740 p.327, same grammar as 26.120"}
@@ -255,7 +255,7 @@ DELETE_ACTUATOR:
       cites: actuators
   manual_ref: "SRC-003 p.324"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.287, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.282, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.298, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.297, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.323, same grammar as 26.120"}
@@ -272,7 +272,7 @@ DISABLE_ACTUATOR:
       cites: actuators
   manual_ref: "SRC-741 p.319"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.287, same grammar as 26.100"}
+    "25.000": {status: documented, note: "SRC-749 p.282, same grammar as 26.100"}
     "25.100": {status: documented, note: "SRC-748 p.298, same grammar as 26.100"}
     "26.000": {status: documented, note: "SRC-747 p.297, same grammar as 26.100"}
     "26.100": {status: documented}

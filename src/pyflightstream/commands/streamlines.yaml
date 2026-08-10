@@ -29,7 +29,7 @@ NEW_OFF_BODY_STREAMLINE:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 p.368"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.334, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.328, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.341, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.340, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.363, same grammar as 26.120"}
@@ -57,7 +57,7 @@ NEW_STREAMLINE_DISTRIBUTION:
       type: int
   manual_ref: "SRC-003 p.368"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.334, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.328, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.341, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.340, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.363, same grammar as 26.120"}
@@ -74,7 +74,7 @@ GENERATE_ALL_OFF_BODY_STREAMLINES:
   args: []
   manual_ref: "SRC-003 p.368"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.335, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.329, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.342, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.340, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.363, same grammar as 26.120"}
@@ -90,7 +90,7 @@ EXPORT_ALL_OFF_BODY_STREAMLINES:
       type: path
   manual_ref: "SRC-003 p.369"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.335, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.329, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.342, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.341, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.364, same grammar as 26.120"}
@@ -157,7 +157,7 @@ SET_OFF_BODY_STREAMLINE_LENGTH:
       required: false
   manual_ref: "SRC-003 p.368"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.334, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.328, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.341, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.340, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.363, same grammar as 26.120"}
@@ -188,7 +188,7 @@ SET_ALL_OFF_BODY_STREAMLINES_UPSTREAM:
   args: []
   manual_ref: "SRC-003 p.368"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.335, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.329, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.342, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.340, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.363, same grammar as 26.120"}
@@ -206,7 +206,7 @@ SET_ALL_OFF_BODY_STREAMLINES_DOWNSTREAM:
   args: []
   manual_ref: "SRC-003 p.368"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.335, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.329, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.342, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.340, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.363, same grammar as 26.120"}
@@ -223,7 +223,7 @@ DELETE_ALL_OFF_BODY_STREAMLINES:
   args: []
   manual_ref: "SRC-003 p.369"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.335, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.329, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.342, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.341, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.364, same grammar as 26.120"}
@@ -240,7 +240,7 @@ GENERATE_ALL_SURFACE_STREAMLINES:
   args: []
   manual_ref: "SRC-003 p.370"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.336, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.330, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.343, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.342, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.365, same grammar as 26.120"}
@@ -263,7 +263,7 @@ DELETE_ALL_SURFACE_STREAMLINES:
   args: []
   manual_ref: "SRC-003 p.370"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.336, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.330, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.343, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.342, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.365, same grammar as 26.120"}

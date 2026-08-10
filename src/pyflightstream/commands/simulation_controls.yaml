@@ -10,7 +10,7 @@ SET_SIMULATION_LENGTH_UNITS:
                MILS, MICRON, CENTIMETER, MICROINCH]
   manual_ref: "SRC-003 p.284"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.259, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.254, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.274, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.273, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.278, same grammar as 26.120"}
@@ -29,7 +29,7 @@ SET_SIGNIFICANT_DIGITS:
       type: int
   manual_ref: "SRC-003 p.284"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.259, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.254, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.274, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.273, same grammar as 26.120"}
     "26.121": {status: documented, note: "SRC-740 p.287, same grammar as 26.120"}
@@ -49,7 +49,7 @@ SET_TRAILING_EDGE_SWEEP_ANGLE:
       unit: "deg"
   manual_ref: "SRC-003 p.284"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.259, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.254, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.274, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.273, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.278, same grammar as 26.120"}
@@ -75,7 +75,7 @@ SET_TRAILING_EDGE_BLUNTNESS_ANGLE:
       unit: "deg"
   manual_ref: "SRC-003 p.284"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.260, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.255, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.274, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.273, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.278, same grammar as 26.120"}
@@ -101,7 +101,7 @@ SET_VERTEX_MERGE_TOLERANCE:
       unit: "simulation length units"
   manual_ref: "SRC-003 p.284"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.259, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.254, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.274, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.273, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.278, same grammar as 26.120"}

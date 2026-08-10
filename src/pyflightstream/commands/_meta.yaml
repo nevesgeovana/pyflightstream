@@ -66,9 +66,10 @@ versions:
     #
     # The banner names release 25.0 at build 12162024, agreeing with the
     # author's record of the build two AIAA Aviation 2025 papers were
-    # written on. This install ships its manual only as .chm, so the pdf
-    # sweep cannot read it; the archive extracts to HTML topics and the
-    # command surface is readable that way (RPT-023).
+    # written on. This install ships its manual only as .chm; it was
+    # converted to a pdf with a reproducible pagination on 2026-08-10
+    # and registered as SRC-749, so this build is read by the same tools
+    # as every other (see the manual_editions entry below).
     build: "12162024"
     prints: "25.0"
     # The 25 series checks out an EDU licence rather than the full
@@ -168,8 +169,8 @@ versions:
 # fails on that, so the next drift is caught without reading a pdf.
 manual_editions:
   "25.000": >
-    SRC-749: Altair FlightStream User Guide, 25.0 edition, 348 pages,
-    scripting reference pp.257-343 with its Script Index at pp.344-347;
+    SRC-749: Altair FlightStream User Guide, 25.0 edition, 342 pages,
+    scripting reference pp.252-337 with its Script Index at pp.338-341;
     cited in version notes as "SRC-749 p.N".
 
     READ THIS BEFORE CITING A PAGE OF IT, because this edition is the
@@ -182,17 +183,27 @@ manual_editions:
     topic order is the archive's own table of contents rather than a
     choice, the geometry is pinned, and the timestamps the renderer
     embeds are stripped, so two runs give byte-identical output. The
-    committed pages are md5 AE8E606C8F48D89BE2043CFF853D8255, 10857767
+    committed pages are md5 4F4130513BB881DF51BEC47C26A4BDE2, 10780659
     bytes, rendered by Chrome 151.0.7922.76. Re-render with a different
     renderer and the page numbers move; the script prints the hash so
     the difference is visible rather than silent.
 
-    Three things had to be fixed before the conversion was usable, and
-    each had made a citation point at a page where the command could not
-    be found: a signature split across a page break (seven commands), a
-    block heading putting the label and the command on separate lines,
-    which the reader requires on one (all 272), and a margin glyph
-    sharing the line (two). All 272 commands the archive documents are
+    They moved once already, and the episode is the argument for
+    recording the hash. The generator stamps a footer on every topic,
+    and it rendered INSIDE the last command's sample window on 26 pages,
+    so the package reader returned it as a continuation line and those
+    commands read as taking one argument more than they do. Stripping it
+    shortened the document by six pages and shifted every citation by
+    five. The 241 rows citing this edition were rewritten against the
+    corrected document rather than left pointing five pages early.
+
+    Four things had to be fixed before the conversion was usable, and
+    the first three had made a citation point at a page where the
+    command could not be found: a signature split across a page break
+    (seven commands), a block heading putting the label and the command
+    on separate lines, which the reader requires on one (all 272), a
+    margin glyph sharing the line (two), and the generator footer
+    described above (26). All 272 commands the archive documents are
     read from the pdf by pyflightstream.utils.manual.
   "25.100": >
     SRC-748: Altair FlightStream User Guide, 25.1 edition (local,

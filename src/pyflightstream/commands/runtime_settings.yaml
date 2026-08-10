@@ -11,7 +11,7 @@ SOLVER_SET_AOA:
       unit: "deg"
   manual_ref: "SRC-003 p.339"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.305, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.300, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.314, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.313, same grammar as 26.120"}
     "26.100": {status: verified, report: "reports/compat/CMP-26100_2026-08-08_full.yaml"}
@@ -30,7 +30,7 @@ SOLVER_SET_SIDESLIP:
       unit: "deg"
   manual_ref: "SRC-003 p.339"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.305, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.300, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.314, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.313, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.338, same grammar as 26.120"}
@@ -49,7 +49,7 @@ SOLVER_SET_VELOCITY:
       unit: "m/s"
   manual_ref: "SRC-003 p.339"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.305, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.300, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.314, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.313, same grammar as 26.120"}
     "26.100": {status: verified, report: "reports/compat/CMP-26100_2026-08-08_full.yaml"}
@@ -67,7 +67,7 @@ SOLVER_SET_MACH_NUMBER:
       type: float
   manual_ref: "SRC-003 p.339"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.305, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.300, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.314, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.313, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.338, same grammar as 26.120"}
@@ -83,7 +83,7 @@ SOLVER_SET_ITERATIONS:
       type: int
   manual_ref: "SRC-003 p.339"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.305, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.300, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.314, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.313, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.336, same grammar as 26.120"}
@@ -99,7 +99,7 @@ SOLVER_SET_CONVERGENCE:
       type: float
   manual_ref: "SRC-003 p.339"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.305, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.300, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.314, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.313, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.336, same grammar as 26.120"}
@@ -119,7 +119,7 @@ SOLVER_SET_FORCED_ITERATIONS:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 p.339"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.305, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.300, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.314, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.313, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.336, same grammar as 26.120"}
@@ -139,7 +139,7 @@ SOLVER_SET_REF_VELOCITY:
       unit: "m/s"
   manual_ref: "SRC-003 p.339"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.306, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.301, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.314, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.313, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.336, same grammar as 26.120"}
@@ -160,7 +160,7 @@ SOLVER_SET_REF_MACH_NUMBER:
       type: float
   manual_ref: "SRC-003 p.339"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.306, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.301, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.314, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.313, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.338, same grammar as 26.120"}
@@ -177,7 +177,7 @@ SOLVER_SET_REF_AREA:
       unit: "simulation length units squared"
   manual_ref: "SRC-003 pp.339-340"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.306, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.301, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.315, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.314, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.337, same grammar as 26.120"}
@@ -197,7 +197,7 @@ SOLVER_SET_REF_LENGTH:
       unit: "simulation length units"
   manual_ref: "SRC-003 p.340"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.306, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.301, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.315, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.314, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.337, same grammar as 26.120"}
@@ -216,7 +216,7 @@ SET_MAX_PARALLEL_THREADS:
       type: int
   manual_ref: "SRC-003 p.340"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.306, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.301, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.315, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.314, same grammar as 26.120"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}

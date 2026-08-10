@@ -109,7 +109,7 @@ SET_FREESTREAM:
       own_line: true
   manual_ref: "SRC-003 p.322"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.284, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.279, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.296, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.295, same grammar as 26.120"}
     "26.121": {status: documented, note: "SRC-740 p.325, same grammar as 26.120"}
@@ -203,7 +203,7 @@ DETECT_TRAILING_EDGES_BY_SURFACE:
       separator: comma
   manual_ref: "SRC-003 p.319"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.281, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.276, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.293, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.292, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.314, same grammar as 26.120"}
@@ -229,7 +229,7 @@ TRAILING_EDGES_IMPORT:
       own_line: true
   manual_ref: "SRC-003 p.319"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.281, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.276, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.293, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.292, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.314, same grammar as 26.120"}
@@ -257,7 +257,7 @@ DETECT_WAKE_TERMINATION_NODES_BY_SURFACE:
       cites: boundaries
   manual_ref: "SRC-003 p.321"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.283, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.278, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.295, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.294, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.316, same grammar as 26.120"}

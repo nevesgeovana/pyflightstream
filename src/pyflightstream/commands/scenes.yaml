@@ -25,7 +25,7 @@ VIEW_RESIZE:
   args: []
   manual_ref: "SRC-003 p.355"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.321, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.316, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.329, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.328, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.351, same grammar as 26.120"}
@@ -43,7 +43,7 @@ CHANGE_SCENE_TO_CAD:
   args: []
   manual_ref: "SRC-003 p.355"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.321, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.316, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.329, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.328, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.351, same grammar as 26.120"}
@@ -61,7 +61,7 @@ CHANGE_SCENE_TO_GEOMETRY:
   args: []
   manual_ref: "SRC-003 p.355"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.321, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.316, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.329, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.328, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.351, same grammar as 26.120"}
@@ -77,7 +77,7 @@ CHANGE_SCENE_TO_SOLVER:
   args: []
   manual_ref: "SRC-003 p.355"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.321, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.316, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.329, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.328, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.351, same grammar as 26.120"}
@@ -94,7 +94,7 @@ CHANGE_SCENE_TO_PLOTS:
   args: []
   manual_ref: "SRC-003 p.355"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.321, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.316, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.329, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.328, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.351, same grammar as 26.120"}
@@ -116,7 +116,7 @@ SAVE_SCENE_AS_IMAGE:
       own_line: true
   manual_ref: "SRC-003 p.355"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.321, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.316, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.329, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.328, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.351, same grammar as 26.120"}
@@ -140,7 +140,7 @@ SET_SCENE_DEFAULTVIEW:
   args: []
   manual_ref: "SRC-003 p.355"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.321, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.316, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.329, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.328, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.351, same grammar as 26.120"}
@@ -156,7 +156,7 @@ SET_SCENE_XY_POSITIVE:
   args: []
   manual_ref: "SRC-003 p.355"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.321, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.316, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.329, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.328, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.351, same grammar as 26.120"}
@@ -176,7 +176,7 @@ SET_SCENE_XY_NEGATIVE:
   args: []
   manual_ref: "SRC-003 p.355"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.321, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.316, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.329, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.328, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.351, same grammar as 26.120"}
@@ -192,7 +192,7 @@ SET_SCENE_XZ_POSITIVE:
   args: []
   manual_ref: "SRC-003 p.355"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.321, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.316, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.329, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.328, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.351, same grammar as 26.120"}
@@ -208,7 +208,7 @@ SET_SCENE_XZ_NEGATIVE:
   args: []
   manual_ref: "SRC-003 p.355"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.321, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.316, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.329, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.328, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.351, same grammar as 26.120"}
@@ -224,7 +224,7 @@ SET_SCENE_YZ_POSITIVE:
   args: []
   manual_ref: "SRC-003 p.355"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.321, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.316, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.329, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.328, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.351, same grammar as 26.120"}
@@ -240,7 +240,7 @@ SET_SCENE_YZ_NEGATIVE:
   args: []
   manual_ref: "SRC-003 p.355"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.321, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.316, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.329, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.328, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.351, same grammar as 26.120"}

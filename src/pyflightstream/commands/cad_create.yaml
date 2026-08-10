@@ -32,7 +32,7 @@ CAD_CREATE_INITIALIZE:
   args: []
   manual_ref: "SRC-003 p.289"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.261, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.256, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.276, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.275, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.283, same grammar as 26.120"}
@@ -291,7 +291,7 @@ CAD_CREATE_CURVE_POINT:
       type: float
   manual_ref: "SRC-003 p.293"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.263, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.258, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.277, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.276, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.287, same grammar as 26.120"}
@@ -321,7 +321,7 @@ CAD_CREATE_CURVE_LINE:
       type: float
   manual_ref: "SRC-003 p.293"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.263, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.258, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.277, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.276, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.287, same grammar as 26.120"}
@@ -357,7 +357,7 @@ CAD_CREATE_CURVE_ARC:
       type: float
   manual_ref: "SRC-003 p.293"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.263, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.258, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.278, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.277, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.287, same grammar as 26.120"}
@@ -388,7 +388,7 @@ CAD_CREATE_CURVE_SELECT:
       type: int
   manual_ref: "SRC-003 p.294"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.263, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.258, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.278, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.277, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.288, same grammar as 26.120"}
@@ -409,7 +409,7 @@ CAD_CREATE_CURVE_UNSELECT:
       type: int
   manual_ref: "SRC-003 p.294"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.264, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.259, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.278, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.277, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.288, same grammar as 26.120"}
@@ -428,7 +428,7 @@ CAD_CREATE_CURVE_REVERSE:
       type: int
   manual_ref: "SRC-003 p.294"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.264, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.259, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.278, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.277, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.288, same grammar as 26.120"}
@@ -446,7 +446,7 @@ CAD_CREATE_CURVE_DELETE_ALL:
   args: []
   manual_ref: "SRC-003 p.296"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.264, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.259, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.279, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.278, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.290, same grammar as 26.120"}
@@ -462,7 +462,7 @@ CAD_CREATE_CURVE_DELETE_SELECTED:
   args: []
   manual_ref: "SRC-003 p.296"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.264, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.259, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.279, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.278, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.291, same grammar as 26.120"}
@@ -479,7 +479,7 @@ CAD_CREATE_CURVE_DELETE_UNSELECTED:
   args: []
   manual_ref: "SRC-003 p.296"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.264, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.259, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.279, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.278, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.291, same grammar as 26.120"}
@@ -732,7 +732,7 @@ CAD_CREATE_CURVE_EXPORT_CCS:
       type: path
   manual_ref: "SRC-003 pp.294-295"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.265, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.260, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.279, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.278, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.289, same grammar as 26.120"}
@@ -783,7 +783,7 @@ CAD_CREATE_IMPORT_CURVE_TXT:
       own_line: true
   manual_ref: "SRC-003 p.291"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.261, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.256, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.276, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.275, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.285, same grammar as 26.120"}
@@ -899,7 +899,7 @@ CAD_CREATE_CROSS_SECTION:
       type: int
   manual_ref: "SRC-003 pp.292-293"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.262, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.257, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.277, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.276, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.286, same grammar as 26.120"}
@@ -998,7 +998,7 @@ CAD_CREATE_AUTO_ANNULAR_CROSS_SECTIONS:
       type: int
   manual_ref: "SRC-003 p.292"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.262, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.257, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.277, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.276, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.286, same grammar as 26.120"}

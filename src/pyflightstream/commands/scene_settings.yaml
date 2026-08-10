@@ -42,7 +42,7 @@ SET_SCENE_COLORMAP_TYPE:
         - BLACK_BLUE_WHITE
   manual_ref: "SRC-003 p.356"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.322, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.317, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.330, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.329, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.352, same grammar as 26.120"}
@@ -70,7 +70,7 @@ SET_SCENE_COLORMAP_SIZE:
       unit: "pixels"
   manual_ref: "SRC-003 p.356"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.322, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.317, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.330, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.329, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.352, same grammar as 26.120"}
@@ -97,7 +97,7 @@ SET_SCENE_COLORMAP_POSITION:
       unit: "pixels"
   manual_ref: "SRC-003 p.356"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.322, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.317, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.330, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.329, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.352, same grammar as 26.120"}
@@ -124,7 +124,7 @@ SET_SCENE_COLORMAP_SHADING:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 pp.356-357"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.322, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.317, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.330, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.329, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 pp.352-353, same grammar as 26.120"}
@@ -149,7 +149,7 @@ SET_SCENE_COLORMAP_CUSTOM_MODE:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 p.357"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.323, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.318, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.331, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.330, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.353, same grammar as 26.120"}
@@ -182,7 +182,7 @@ SET_SCENE_COLORMAP_CUSTOM_RANGE:
       type: float
   manual_ref: "SRC-003 p.357"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.323, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.318, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.331, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.330, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.353, same grammar as 26.120"}

@@ -36,7 +36,7 @@ ACOUSTIC_SOURCES:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 p.373"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.339, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.333, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.346, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.345, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.368, same grammar as 26.120"}
@@ -75,7 +75,7 @@ CREATE_NEW_ACOUSTIC_OBSERVER:
       unit: "simulation length units"
   manual_ref: "SRC-003 p.373"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.339, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.333, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.346, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.345, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.368, same grammar as 26.120"}
@@ -98,7 +98,7 @@ ACOUSTIC_OBSERVERS_IMPORT:
       own_line: true
   manual_ref: "SRC-003 p.373"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.339, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.333, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.346, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.345, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.368, same grammar as 26.120"}
@@ -123,7 +123,7 @@ DELETE_ACOUSTIC_OBSERVER:
       type: int
   manual_ref: "SRC-003 p.373"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.339, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.333, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.346, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.345, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.368, same grammar as 26.120"}
@@ -145,7 +145,7 @@ DELETE_ALL_ACOUSTIC_OBSERVERS:
   args: []
   manual_ref: "SRC-003 p.373"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.340, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.334, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.346, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.345, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.368, same grammar as 26.120"}
@@ -170,7 +170,7 @@ SET_ACOUSTIC_OBSERVER_TIME:
       type: int
   manual_ref: "SRC-003 pp.373-374"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.340, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.334, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.346, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.345, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 pp.368-369, same grammar as 26.120"}
@@ -190,7 +190,7 @@ COMPUTE_ACOUSTIC_SIGNALS:
   args: []
   manual_ref: "SRC-003 p.374"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.340, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.334, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.347, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.346, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.369, same grammar as 26.120"}
@@ -211,7 +211,7 @@ EXPORT_ACOUSTIC_SIGNALS:
       own_line: true
   manual_ref: "SRC-003 p.374"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.340, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.334, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.347, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.346, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.369, same grammar as 26.120"}
@@ -249,7 +249,7 @@ CREATE_ACOUSTIC_SECTION:
       type: path
   manual_ref: "SRC-003 p.374"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.340, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.334, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.347, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.346, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.369, same grammar as 26.120"}

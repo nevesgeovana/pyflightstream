@@ -37,7 +37,7 @@ WRAPPER_SET_INPUT:
       separator: comma
   manual_ref: "SRC-003 p.314"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.274, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.269, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.288, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.287, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.309, same grammar as 26.120"}
@@ -60,7 +60,7 @@ WRAPPER_SET_GLOBAL_SIZE:
       unit: "simulation length units"
   manual_ref: "SRC-003 p.314"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.274, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.269, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.288, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.287, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.309, same grammar as 26.120"}
@@ -81,7 +81,7 @@ WRAPPER_SET_VERTEX_PROJECTION:
       values: [ENABLE, DISABLE]
   manual_ref: "SRC-003 p.314"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.274, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.269, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.288, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.287, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.309, same grammar as 26.120"}
@@ -111,7 +111,7 @@ WRAPPER_SET_ANISOTROPY:
       type: float
   manual_ref: "SRC-003 p.314"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.274, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.269, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.288, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.287, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.309, same grammar as 26.120"}
@@ -134,7 +134,7 @@ WRAPPER_CREATE_LOCAL_CONTROL:
   args: []
   manual_ref: "SRC-003 p.314"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.274, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.269, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.288, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.287, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.309, same grammar as 26.120"}
@@ -174,7 +174,7 @@ WRAPPER_EDIT_LOCAL_CONTROL:
       unit: "simulation length units"
   manual_ref: "SRC-003 p.314"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.275, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.270, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.288, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.287, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.309, same grammar as 26.120"}
@@ -201,7 +201,7 @@ WRAPPER_DELETE_ALL_LOCAL_CONTROLS:
   args: []
   manual_ref: "SRC-003 pp.314-315"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.275, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.270, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.289, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.288, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.310, same grammar as 26.120"}
@@ -248,7 +248,7 @@ WRAPPER_NEW_VOLUME_CONTROL:
       type: str
   manual_ref: "SRC-003 p.315"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.275, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.270, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.289, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.288, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.310, same grammar as 26.120"}
@@ -275,7 +275,7 @@ WRAPPER_DELETE_ALL_VOLUME_CONTROLS:
   args: []
   manual_ref: "SRC-003 p.315"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.275, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.270, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.289, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.288, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.310, same grammar as 26.120"}
@@ -292,7 +292,7 @@ WRAPPER_EXECUTE:
   args: []
   manual_ref: "SRC-003 p.315"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.275, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.270, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.289, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.288, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.310, same grammar as 26.120"}
@@ -313,7 +313,7 @@ WRAPPER_TRANSFER:
       values: [REPLACE, RETAIN]
   manual_ref: "SRC-003 p.315"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.276, same grammar as 26.120"}
+    "25.000": {status: documented, note: "SRC-749 p.271, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.289, same grammar as 26.120"}
     "26.000": {status: documented, note: "SRC-747 p.288, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.310, same grammar as 26.120"}
