@@ -4,7 +4,7 @@ Pipeline role: maintainer entry point, outside the run pipeline. It reads
 licensed vendor documentation from a path the caller gives and writes
 nothing unless told to.
 
-Three subcommands, and the split between them is the point.
+Four subcommands, and the split between them is the point.
 
 ``sweep`` answers "what do the registered builds document that we do not
 have", reading every edition named in a manifest and reporting the
@@ -12,7 +12,13 @@ union. That is the question a coverage push asks, and it is not the same
 question as the one below: a command absent from one edition may be
 recorded from another.
 
-``coverage`` answers the same question of ONE manual, which is what a
+``surface`` reads the same manifest and asks the other multi-edition
+question: what each build documents, and what changed between one build
+and the next. ``sweep`` measures this package against the manuals;
+``surface`` measures the manuals against each other, and answers nothing
+about the database at all.
+
+``coverage`` answers the sweep's question of ONE manual, which is what a
 single new release raises before it has a manifest row.
 
 ``draft`` turns either answer into entries to review, and only writes
@@ -35,6 +41,7 @@ from collections.abc import Sequence
 from pyflightstream.commands import CommandRegistry
 from pyflightstream.utils.errors import ManualDraftError
 from pyflightstream.utils.manual import (
+    SurfaceChange,
     SweptCommand,
     coverage_against,
     edition_surfaces,
@@ -48,6 +55,7 @@ from pyflightstream.utils.manual import (
     sweep_editions,
     write_chapter,
 )
+from pyflightstream.versions import known_versions
 
 #: Shown as the epilog of ``sweep --help``. A maintainer writing their
 #: first manifest should not have to read the library to learn its shape,
@@ -168,12 +176,20 @@ def _parser() -> argparse.ArgumentParser:
     surf.add_argument(
         "--names",
         action="store_true",
-        help="list the gained and lost command names, not only the counts",
+        help=(
+            "list the gained and lost command names, not only the counts. "
+            "Applies to both renderings; without it a long history stays "
+            "readable as counts alone"
+        ),
     )
     surf.add_argument(
         "--markdown",
         action="store_true",
-        help="render as a markdown report, for committing under reports/",
+        help=(
+            "render as markdown on standard output, to paste into a report "
+            "under reports/. This subcommand writes no file: it judges "
+            "nothing and has no evidence to place, unlike draft"
+        ),
     )
 
     draft = sub.choices["draft"]
@@ -290,18 +306,42 @@ def _surface(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
         parser.error(str(error))
 
     changes = surface_changes(surfaces)
+
+    # Name what the manifest did NOT cover. The manifest is the whole
+    # input, so a build missing a row is invisible: the tool would report
+    # its two neighbours as consecutive and no reader could tell that
+    # something sat between them. That is the wrong-neighbour failure
+    # arriving through a door with no warning, so the door gets one.
+    # A label that is not a registered build is reported rather than
+    # refused, a fork's manifest being allowed to hold editions this
+    # registry does not know.
+    read = set(surfaces)
+    registered = [version.canonical for version in known_versions()]
+    # Not named `missing`: that is the `except FileNotFoundError as
+    # missing` variable above, which Python deletes when the block ends,
+    # so reusing it reads a deleted name (mypy caught this).
+    unread = [canonical for canonical in registered if canonical not in read]
+    unregistered = sorted(read - set(registered))
+
     lines = (
-        _surface_markdown(surfaces, changes)
+        _surface_markdown(surfaces, changes, names=args.names)
         if args.markdown
         else _surface_text(surfaces, changes, names=args.names)
     )
+    coverage = f"{len(read)} of {len(registered)} registered build(s) read"
+    if unread:
+        coverage += "; no manifest row for " + ", ".join(unread)
+    if unregistered:
+        coverage += "; not a registered build: " + ", ".join(unregistered)
+    lines.append("")
+    lines.append(coverage if not args.markdown else f"Coverage: {coverage}.")
     print("\n".join(lines))
     return 0
 
 
 def _surface_text(
     surfaces: dict[str, tuple[str, ...]],
-    changes: Sequence[object],
+    changes: Sequence[SurfaceChange],
     *,
     names: bool,
 ) -> list[str]:
@@ -310,6 +350,8 @@ def _surface_text(
     for label, commands in surfaces.items():
         lines.append(f"  {label}  {len(commands):4d} commands documented")
     lines.append("")
+    if not changes:
+        lines.append("one edition, so there is nothing to compare")
     for change in changes:
         lines.append(
             f"{change.older} -> {change.newer}: +{len(change.gained)} / -{len(change.lost)}"
@@ -324,7 +366,9 @@ def _surface_text(
 
 def _surface_markdown(
     surfaces: dict[str, tuple[str, ...]],
-    changes: Sequence[object],
+    changes: Sequence[SurfaceChange],
+    *,
+    names: bool = True,
 ) -> list[str]:
     """Render the surface report as a committable markdown section."""
     lines = [
@@ -340,9 +384,9 @@ def _surface_markdown(
         lines.append("")
         lines.append(f"Gained {len(change.gained)}, lost {len(change.lost)}.")
         lines.append("")
-        if change.gained:
+        if names and change.gained:
             lines += ["Gained: " + ", ".join(f"`{name}`" for name in change.gained), ""]
-        if change.lost:
+        if names and change.lost:
             lines += ["Lost: " + ", ".join(f"`{name}`" for name in change.lost), ""]
     return lines
 

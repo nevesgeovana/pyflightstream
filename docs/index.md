@@ -3,13 +3,17 @@
 Version-aware, didactic Python driver for the FlightStream panel-method
 solver. MIT licensed.
 
-Status: v0.5.0 is the current release on PyPI; the changelog records what each
-release adds. Five command-line tools ship with the package: `pyfs-qa`
+Status: v0.6.0 is the current release on PyPI; the changelog records what each
+release adds. That release registered three more FlightStream builds and
+gave every registered build the vendor build number its solver prints,
+so an install can be identified rather than described. Five command-line
+tools ship with the package: `pyfs-qa`
 (probes, physics regression, drift), `pyfs-workspace` (campaign
 workspace init), `pyfs-matrix` (run-matrix convert and pre-flight),
 `pyfs-fsi` (the aeroelastic coupling executable), and `pyfs-manual`
 (maintainer tool: compares a vendor manual against the command
-database, needs the `[manual]` extra).
+database, and reports what each build documents and what changed
+between builds; needs the `[manual]` extra).
 
 ## The idea in one paragraph
 
@@ -42,6 +46,10 @@ added, never dropped.
   every docs build, one page per manual chapter, with per-version evidence
   for every command. `pyflightstream.help()` renders the same database
   offline.
+* [Which build do I have](builds.md): the release name and build number
+  your solver prints, mapped onto the identifier to pass. The release
+  name alone does not identify a build, and for two registered builds it
+  is not even the name the vendor sells them under.
 * [Compatibility matrix](compatibility.md): every command against every
   registered FlightStream version, generated from the same database. Cells
   are filled only by evidence: for `documented`, the manual page or a

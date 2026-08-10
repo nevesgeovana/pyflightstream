@@ -5,6 +5,8 @@ the subprocess mechanics (return codes, timeout, log capture, working
 directory) are exercised exactly as FlightStream would exercise them.
 """
 
+import ast
+import re
 import sys
 from pathlib import Path
 
@@ -27,8 +29,13 @@ def _flag_tokens(description: str) -> list[str]:
     the page citation in the description carries a hyphen but no token
     that starts with one.
     """
+    # A dash followed by a LETTER. Bare dashes are not flags, and the
+    # difference matters once this is used over docstrings: numpydoc
+    # underlines a section with a row of dashes, and the first version
+    # read `----------` as three flags and reported a cross-reference as
+    # a restated invocation.
     tokens = (token.strip("`,") for token in description.split())
-    return [token for token in tokens if token.startswith("-")]
+    return [token for token in tokens if re.fullmatch(r"-{1,2}[A-Za-z][\w-]*", token)]
 
 
 class FakeSolver(LocalExecutor):
@@ -84,14 +91,25 @@ def test_every_report_derives_its_executor_line_from_the_executor(tmp_path):
     # a substring of "--script". A guard that a wrong answer satisfies
     # is not a guard.
     assert _flag_tokens(describe_invocation()) == flags
-    assert _flag_tokens(describe_invocation(code=True)) == flags
+    assert _flag_tokens(describe_invocation(markdown=True)) == flags
 
     # The visible-run description drops exactly the windowless flag.
     assert _flag_tokens(describe_invocation(hidden=False)) == [SCRIPT_ARGUMENT]
 
     # Rendered form is the plain one inside a code span, not a second
     # sentence written separately.
-    assert describe_invocation(code=True).replace("`", "") == describe_invocation()
+    assert describe_invocation(markdown=True).replace("`", "") == describe_invocation()
+
+    # The WHOLE sentence, not only its flags. A QA pass measured that a
+    # body reduced to `return flags` left this file and seven other test
+    # modules green, 96 tests, while every report thereafter recorded an
+    # executor field with no executor class and no citation in it. The
+    # field exists to be the report's provenance; two tokens out of it
+    # are not the provenance.
+    assert describe_invocation() == (
+        f"LocalExecutor, -hidden {SCRIPT_ARGUMENT} "
+        "(mechanism SRC-003 pp.279-280; argument spelling RPT-023)"
+    )
 
 
 def test_no_report_writer_restates_the_invocation_as_a_literal():
@@ -100,14 +118,63 @@ def test_no_report_writer_restates_the_invocation_as_a_literal():
     A future edit that pastes the sentence back into a report writer is
     the failure this guards; it is cheaper to forbid the literal than
     to notice it disagreeing later (NFR-11).
+
+    The first version of this guard looked for ``LocalExecutor, -hidden``
+    and missed three of the six copies it names in its own docstring:
+    the RENDERED halves read ``LocalExecutor, `-hidden ...``, with a
+    backtick between the two words. A QA pass pasted one of those back
+    into the compat writer and the whole suite stayed green. It looks
+    for the class name alone now, which no writer has any other reason
+    to spell.
+    """
+    # Inside STRING LITERALS only, read through the parser. A textual
+    # scan for the class name also matches its type annotation in a
+    # function signature, which is a legitimate use, and widening the
+    # pattern to dodge that is how a guard drifts back to matching one
+    # spelling of the sentence instead of the sentence.
+    #
+    # The WHOLE package, and recursively. The first version globbed
+    # `qa/*.py` flat, so a subpackage was invisible and so were `run/`,
+    # `cases/` and `workspace/`; a report writer one directory down
+    # survived it.
+    package = Path(__file__).resolve().parents[1] / "src" / "pyflightstream"
+    home = package / "run" / "__init__.py"
+    offenders = []
+    for path in sorted(package.rglob("*.py")):
+        if path == home:
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Constant) or not isinstance(node.value, str):
+                continue
+            # The SENTENCE, which always carries the class name and a
+            # flag together. A docstring cross-reference to the class
+            # (`:class:`pyflightstream.run.LocalExecutor``) is a
+            # legitimate mention and carries no flag.
+            if "LocalExecutor" in node.value and _flag_tokens(node.value):
+                offenders.append(f"{path.relative_to(package)}:{node.lineno}")
+    assert not offenders, (
+        f"the executor sentence is restated inside a string literal at {offenders}; "
+        "it has one home, pyflightstream.run.describe_invocation"
+    )
+
+
+def test_each_report_writer_actually_calls_the_single_home():
+    """Forbidding the literal is half of it; the other half is positive.
+
+    A writer could drop the sentence entirely and satisfy the guard
+    above by writing nothing, which would pass every test in this file
+    and leave the reports with no provenance field at all.
     """
     qa = Path(__file__).resolve().parents[1] / "src" / "pyflightstream" / "qa"
-    offenders = [
-        path.name
-        for path in sorted(qa.glob("*.py"))
-        if "LocalExecutor, -hidden" in path.read_text(encoding="utf-8")
-    ]
-    assert not offenders, f"executor line restated as a literal in: {offenders}"
+    for name in ("compat.py", "drift.py", "physics.py"):
+        text = (qa / name).read_text(encoding="utf-8")
+        assert '"executor": describe_invocation()' in text, (
+            f"{name} no longer writes the machine-readable executor field from the single home"
+        )
+        assert "describe_invocation(markdown=True)" in text, (
+            f"{name} no longer renders the executor row from the single home"
+        )
 
 
 def test_missing_executable_fails_at_construction(tmp_path):

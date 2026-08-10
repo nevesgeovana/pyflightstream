@@ -113,9 +113,11 @@ __all__ = [
     "Coverage",
     "Edition",
     "ManualCommand",
+    "SurfaceChange",
     "SweptCommand",
     "TypeRule",
     "coverage_against",
+    "edition_surfaces",
     "parse_script_index",
     "parse_signatures",
     "propose_layout",
@@ -125,6 +127,7 @@ __all__ = [
     "render_chapter",
     "render_entry",
     "sample_contradiction",
+    "surface_changes",
     "sweep_editions",
     "write_chapter",
 ]
@@ -690,7 +693,7 @@ def sweep_editions(
     )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class SurfaceChange:
     """What one build's scripting surface gained and lost against the one before it.
 
@@ -995,7 +998,7 @@ def read_pdf_pages(path: str | Path, *, first: int, last: int) -> dict[int, str]
             f"page range {first}-{last} reaches past the end of {path}, which has "
             f"{len(reader.pages)} pages. Truncating would answer from a short read, and "
             "the page count is also the cheapest sign that this is the wrong edition: "
-            "the four registered manuals run 396, 409, 410 and 413 pages."
+            "the registered manuals run between roughly 350 and 415 pages."
         )
     return {i + 1: (reader.pages[i].extract_text() or "") for i in range(first - 1, last)}
 

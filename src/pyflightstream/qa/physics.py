@@ -1276,17 +1276,14 @@ class _CaseContext:
         # Absolute on purpose: the executor sets the solver's working
         # directory to workdir, so a workdir-relative script path would
         # be resolved against itself and FlightStream exits silently
-        # (code 0, no outputs) when --script names a missing file.
+        # (code 0, no outputs) when -script names a missing file.
         script_path = (self.workdir / script_name).resolve()
         script_path.write_text(script.render(), encoding="utf-8")
         result: ExecutionResult = self.executor.run_script(
             script_path, working_dir=self.workdir, timeout_s=self.timeout_s
         )
         if result.failed:
-            evidence = result.log_text or result.stderr or f"return code {result.return_code}"
-            if result.timed_out:
-                evidence = f"timed out after {result.wall_time_s:.0f} s"
-            raise RuntimeError(f"solver run {script_name} failed: {evidence}")
+            raise RuntimeError(f"solver run {script_name} failed: {result.diagnosis()}")
         loads_path = self.workdir / loads_name
         try:
             text = loads_path.read_text(encoding="utf-8", errors="replace")
@@ -1646,7 +1643,7 @@ def _render_markdown(run: PhysicsRun, date: str, counts: dict[str, int]) -> str:
         "| Item | Value |",
         "|---|---|",
         f"| Executable | {run.fs_exe_name} (local, `_private/exe/`, never committed) |",
-        f"| Executor | {describe_invocation(code=True)} |",
+        f"| Executor | {describe_invocation(markdown=True)} |",
         f"| Package | pyflightstream {run.package_version} |",
         f"| Solver identity | {'; '.join(run.solver_identity) or 'none captured'} |",
         "",

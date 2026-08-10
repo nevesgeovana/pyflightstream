@@ -194,6 +194,35 @@ def test_a_coarse_mismatch_still_warns_where_no_build_is_registered(monkeypatch)
         parse_loads(text, requested_version="26.000")
 
 
+def test_the_coarse_fallback_is_silent_when_the_version_string_agrees(monkeypatch):
+    """Control for the fallback above, and it took two attempts.
+
+    A fallback that warned unconditionally would satisfy the test above
+    and be worse than no check: every correct run would cry wolf. A QA
+    pass measured exactly that, turning the comparison into ``if True``
+    and finding 200 tests still green, because the control had been
+    DELETED on the ground that no fixture could produce the silent case.
+
+    It can, and this is it. The fixture's footer version is rewritten to
+    one no registered build prints, and the version resolved to is a
+    synthetic build carrying that same name and no number. Same branch,
+    agreement instead of disagreement, and the alias is unshared so the
+    second branch below it cannot fire either.
+    """
+    import warnings
+
+    from pyflightstream import results as results_module
+    from pyflightstream.versions import FsVersion
+
+    text = read_fixture("loads_steady_26.120.txt").replace("26.1", "27.9")
+    unrecorded = FsVersion(canonical="27.900", alias="27.9", index=99, build=None)
+    monkeypatch.setattr(results_module, "resolve", lambda _requested: unrecorded)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        parse_loads(text, requested_version="27.900")
+
+
 def test_every_registered_build_comes_from_a_committed_report(recwarn):
     """A build number is evidence, so it may not be typed in from memory.
 

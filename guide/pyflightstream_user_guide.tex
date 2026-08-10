@@ -450,7 +450,7 @@ if not result.failed:
     print(report.total["CL"], report.total["CDi"])
 \end{lstlisting}
   \begin{itemize}
-    \item \code{LocalExecutor} runs the documented headless invocation (\code{-hidden --script}, SRC-003 pp.279-280) with the working directory set for you.
+    \item \code{LocalExecutor} runs the documented headless invocation (\code{-hidden -script}, SRC-003 pp.279-280 and RPT-023) with the working directory set for you. One dash, not two: the 25 series does not accept the two-dash spelling and does not say so, it waits for a user instead.
   \end{itemize}
 \end{frame}
 
@@ -1067,7 +1067,8 @@ samples = parse_residual_history(log_text)
 
 \begin{frame}{Pitfalls found by real runs (Tiers 2 and 3)}
   \begin{itemize}
-    \item \textbf{Silent exit 0.} If \code{--script} names a missing file, the solver exits with code 0 and zero outputs. Always resolve the script path absolute, and treat "no outputs" as failure (the campaign loop does).
+    \item \textbf{Silent exit 0.} If \code{-script} names a missing file, the solver exits with code 0 and zero outputs. Always resolve the script path absolute, and treat "no outputs" as failure (the campaign loop does).
+    \item \textbf{A command line the build does not know is a hang, not an error.} Give a 25.x build the two-dash spelling and it starts, checks out its licence, receives no script and waits; windowless with the streams redirected, the Fortran runtime then opens a modal dialog nobody can answer. A clean licence checkout is not evidence that a run reached the script (RPT-023).
     \item \textbf{Relative paths resolve against the solver working directory.} Imported geometry: absolute. EXPORT\_LOG: absolute, or it fails silently.
     \item \textbf{The hidden solver idles after STOP.} A headless session that hits STOP does not exit; the executor's timeout is your safety net, and the log pair is the halt evidence.
     \item \textbf{Zero induced drag is not always good news.} A boundary without a user-defined trailing-edge condition, a bluff body such as a tubular fuselage or a pod, reports zero induced drag once it is placed on the vorticity CDi list; left off the list it keeps the surface pressure integration instead (SRC-003 p.202). This is why \code{vorticity\_drag\_boundaries="all"} is unsafe on a mixed geometry.
@@ -1160,6 +1161,7 @@ pyfs-workspace init      DIR                          # scaffold a workspace
 pyfs-matrix convert      matrix.fs -o campaign.toml   # run matrix to campaign
 pyfs-fsi                 (aeroelastic coupling executable)
 pyfs-manual sweep        --editions MANIFEST [--by-section]  # every registered edition
+pyfs-manual surface      --editions MANIFEST [--names]     # what changed between builds
 pyfs-manual coverage     --manual ... --source SRC-741 --chapter-pages 275-369
 \end{lstlisting}
   \begin{itemize}

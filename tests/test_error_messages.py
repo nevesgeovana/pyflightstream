@@ -46,8 +46,8 @@ def test_malformed_canonical_identifier_names_the_scheme():
     """A two-digit fraction is refused with the scheme and a worked example."""
     with pytest.raises(
         UnknownVersionError,
-        match=r"canonical MAJOR\.XXX scheme with exactly three fractional digits "
-        r"\(example: 26\.120\)",
+        match=r"canonical YY\.XXX scheme, the vendor major with exactly three "
+        r"fractional digits \(example: 26\.120\)",
     ):
         FsVersion(canonical="26.12", alias="26.12", index=0)
 
@@ -178,3 +178,149 @@ def test_contentless_matrix_file_is_named_as_such(tmp_path):
     empty.write_text("\n----\n\n", encoding="utf-8")
     with pytest.raises(MatrixError, match=r"holds no matrix content"):
         read_matrix(empty)
+
+
+# --- the diagnosis composer (INC-20260809-2230) -----------------------------
+#
+# A solver that never reaches the script writes no log, so every channel
+# the harness read was empty and the one channel that carried the answer
+# was discarded. These pin the message that misled, from the outside.
+
+
+def _pre_script_failure():
+    """The 2026-08-09 run, reconstructed field for field.
+
+    Timed out and killed, no exported log, no FlightStreamLog.txt, empty
+    stderr, and a banner plus a licence report on standard output. Every
+    value here is what the real run produced.
+    """
+    from pyflightstream.run import ExecutionResult
+
+    return ExecutionResult(
+        return_code=None,
+        wall_time_s=120.2,
+        timed_out=True,
+        log_text=None,
+        stdout=(
+            "FlightStream version \x0025.0, build #12162024\n"
+            "Software copyrights: Altair, 2024.\n"
+            "Attempting feature license checkout...Not available. "
+            "Attempting EDU feature checkout...Success!\n"
+        ),
+        stderr="",
+        timeout_s=120.0,
+    )
+
+
+def test_a_run_that_never_reached_the_script_still_says_what_the_solver_said():
+    """Standard output is the only channel a pre-script failure leaves."""
+    diagnosis = _pre_script_failure().diagnosis()
+    assert "timed out" in diagnosis
+    assert "120.2" in diagnosis
+    assert "EDU feature checkout...Success!" in diagnosis, (
+        "the diagnosis drops standard output, which is the only channel a run that "
+        "never reached the script writes to"
+    )
+    assert "\x00" not in diagnosis, "a NUL byte reaches the reader as an invisible space"
+
+
+def test_the_baseline_refusal_quotes_the_solver_instead_of_naming_suspects(tmp_path):
+    """The refusal that sent a day after a licence that was never held.
+
+    It used to say the environment was unusable and offer three causes,
+    one of them the licence checkout, while holding the line that said
+    the checkout succeeded. Naming candidate causes it cannot rank is
+    the defect; quoting the solver is the fix.
+    """
+    import pytest
+
+    from pyflightstream.qa import probe_version
+    from pyflightstream.qa.probes import ProbeEnvironmentError
+
+    class SilentSolver:
+        """Starts, banners, accepts nothing, and is killed at the limit."""
+
+        def run_script(self, script_path, working_dir, timeout_s=None):
+            return _pre_script_failure()
+
+    with pytest.raises(ProbeEnvironmentError) as excinfo:
+        probe_version("26.120", workroot=tmp_path / "probes", executor=SilentSolver(), commands=[])
+    message = str(excinfo.value)
+    assert "EDU feature checkout...Success!" in message, (
+        "the refusal does not quote what the solver said, so a reader cannot rule out the licence"
+    )
+    assert "license checkout, or log export" not in message, (
+        "the refusal still offers candidate causes it cannot rank, and one of them is "
+        "contradicted by the output it now quotes"
+    )
+
+
+def test_no_module_composes_its_own_diagnosis_from_the_captured_channels():
+    """One composer, enforced, because four sites each wrote their own.
+
+    Four independent authors reached for
+    ``log_text or stderr or return code`` and all four omitted stdout.
+    That is an absent abstraction rather than four oversights, so the
+    guard is on the shape and not on the four sites: reading two or more
+    captured channels in one expression is composing a diagnosis, and
+    there is one place for that.
+    """
+    import ast
+    from pathlib import Path
+
+    channels = {"log_text", "stderr", "stdout", "return_code"}
+    home = Path("src/pyflightstream/run/__init__.py")
+    root = Path(__file__).resolve().parents[1]
+    offenders = []
+    for path in sorted((root / "src" / "pyflightstream").rglob("*.py")):
+        if path.name == home.name and path.parent.name == "run":
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.BoolOp):
+                continue
+            read = {
+                child.attr
+                for child in ast.walk(node)
+                if isinstance(child, ast.Attribute) and child.attr in channels
+            }
+            if len(read) >= 2:
+                offenders.append(f"{path.relative_to(root)}:{node.lineno} reads {sorted(read)}")
+    assert not offenders, (
+        "these compose a diagnosis from the captured channels by hand:\n  "
+        + "\n  ".join(offenders)
+        + "\n\nCall ExecutionResult.diagnosis(). Every hand-rolled chain so far has "
+        "omitted standard output, which is the only channel a run that never reached "
+        "the script writes to (INC-20260809-2230)."
+    )
+
+
+def test_the_diagnosis_carries_every_channel_and_not_the_first_one_it_finds():
+    """First-match was the defect, in its general form.
+
+    The four chains this composer replaced were `a or b or c`, which
+    stops at the first non-empty channel. That is why standard output
+    never appeared even on runs that had all three: an exported log
+    existed, so nothing looked further. A composer that kept the
+    or-chain's short circuit would read as fixed and behave the same
+    way on every run that writes a log.
+    """
+    from pyflightstream.run import ExecutionResult
+
+    result = ExecutionResult(
+        return_code=3,
+        wall_time_s=2.0,
+        timed_out=False,
+        log_text="Unknown command SET_NOTHING",
+        stdout="license feature checkout SUCCESS",
+        stderr="warning: deprecated flag",
+        timeout_s=60.0,
+    )
+    diagnosis = result.diagnosis()
+    for expected in (
+        "return code 3",
+        "Unknown command SET_NOTHING",
+        "warning: deprecated flag",
+        "license feature checkout SUCCESS",
+    ):
+        assert expected in diagnosis, f"{expected!r} missing from {diagnosis!r}"

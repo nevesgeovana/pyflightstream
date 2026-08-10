@@ -580,3 +580,124 @@ def test_a_distinctive_value_is_found_whatever_the_diff_algorithm_does(tmp_path)
             "line matched to the before-state; a diff that misses it is wrong"
         )
         assert fsm_gained(distinctive)(_state(tmp_path, before, after)) is True
+
+
+# ---------------------------------------------------------------------
+# Registering a build before it has any command rows (v0.6.0).
+#
+# This whole path shipped unguarded and produced the seven committed
+# identity reports, so every registered build number came through code
+# nothing in tier 1 exercised. A QA pass measured that and these close
+# it. The fake above reads EXPORT_LOG's target from the FOLLOWING line,
+# which is the property that makes the second test able to fail: the
+# first version of the borrowed baseline wrote that filename inline, the
+# real 25.0 solver read the next command as the filename, and the run
+# hung with the command to close it eaten.
+# ---------------------------------------------------------------------
+
+
+def test_a_build_with_no_command_rows_still_gets_a_baseline(tmp_path):
+    """25.000 records no command, and must still be identifiable.
+
+    Registering a build precedes probing it, so the first run against a
+    new build has no rows to build its instruments from. Refusing there
+    would make the build's own build number unobtainable, since the
+    registry admits one only from a report and a report needs a run.
+    """
+    executor = FakeFlightStream()
+    run = probe_version("25.000", workroot=tmp_path / "probes", executor=executor, commands=[])
+    assert run.solver_identity, "the baseline ran but captured no identity line"
+    assert run.results == (), "identity-only judged a command"
+
+
+def test_the_borrowed_baseline_puts_the_export_filename_on_its_own_line(tmp_path):
+    """The grammar is borrowed from the database, never written by hand.
+
+    EXPORT_LOG is `param_lines`: the filename goes on the line after the
+    command. Written inline, the solver reads the NEXT COMMAND as the
+    filename, exports the log into a file named after it, and then never
+    closes because the closing command has been eaten. That is what the
+    first version of this fallback did, and it cost a day of diagnosis
+    pointed at a licence server.
+    """
+    executor = FakeFlightStream()
+    probe_version("25.000", workroot=tmp_path / "probes", executor=executor, commands=[])
+
+    # The SCRIPT, not the log it exports: the exported log also carries
+    # the sentinel, and matching on the sentinel alone picks it up.
+    scripts = sorted((tmp_path / "probes").rglob("probe_script.txt"))
+    baselines = [p for p in scripts if "PYFS_BASELINE_ALIVE" in p.read_text(encoding="utf-8")]
+    assert baselines, f"no baseline script written; found {[p.name for p in scripts]}"
+
+    lines = [
+        line.strip()
+        for line in baselines[0].read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.strip().startswith("#")
+    ]
+    export = lines.index("EXPORT_LOG")
+    assert lines[export] == "EXPORT_LOG", "the filename is on the command's own line"
+    assert lines[export + 1] != "CLOSE_FLIGHTSTREAM", (
+        "the line after EXPORT_LOG is the next command, so the solver would read that "
+        "command as the export filename"
+    )
+    assert lines[export + 1].lower().endswith(".txt")
+    assert "CLOSE_FLIGHTSTREAM" in lines[export + 1 :]
+
+
+def test_the_donor_is_the_newest_build_that_records_every_instrument():
+    """Newest, so a borrowed grammar is the most recent statement of it."""
+    from pyflightstream.commands import CommandRegistry
+    from pyflightstream.qa.probes import _newest_build_recording
+    from pyflightstream.versions import known_versions
+
+    registry = CommandRegistry.load()
+    donor = _newest_build_recording(registry, ("PRINT", "EXPORT_LOG", "CLOSE_FLIGHTSTREAM"))
+    assert donor is not None
+    recording = [
+        version
+        for version in known_versions()
+        if all(
+            name in registry.for_version(version.canonical)
+            for name in ("PRINT", "EXPORT_LOG", "CLOSE_FLIGHTSTREAM")
+        )
+    ]
+    assert recording, "no build records the instruments; the fallback would refuse"
+    assert donor.canonical == recording[-1].canonical
+
+
+def test_no_donor_at_all_is_refused_rather_than_guessed():
+    """With nothing to borrow from, the baseline cannot be built.
+
+    Named because the alternative is worse than a refusal: writing the
+    three instruments by hand is exactly what produced the defect this
+    fallback exists to prevent.
+    """
+    from pyflightstream.commands import CommandRegistry
+    from pyflightstream.qa.probes import _newest_build_recording
+
+    registry = CommandRegistry.load()
+    assert _newest_build_recording(registry, ("NO_SUCH_COMMAND_AT_ALL",)) is None
+
+
+def test_commands_none_and_commands_empty_mean_opposite_things(tmp_path):
+    """One character apart in a caller, and inverted in meaning.
+
+    `commands=None` is every command with a probe spec; `commands=[]` is
+    none of them, the baseline alone, which is what --identity-only
+    passes. A caller that confuses them either spends a licensed run on
+    the whole suite or judges nothing while believing it swept.
+    """
+    everything = probe_version(
+        "26.120", workroot=tmp_path / "all", executor=FakeFlightStream(), commands=None
+    )
+    nothing = probe_version(
+        "26.120", workroot=tmp_path / "none", executor=FakeFlightStream(), commands=[]
+    )
+    judged = {ProbeOutcome.VERIFIED, ProbeOutcome.BROKEN}
+    assert any(r.outcome in judged for r in everything.results), "commands=None judged nothing"
+    assert not any(r.outcome in judged for r in nothing.results), "commands=[] judged something"
+    # A build that HAS rows still gets one line per row, marked
+    # unprobed, which is what distinguishes this from a build with no
+    # rows at all: there the result tuple really is empty.
+    assert nothing.results, "a build with rows should still be listed as unprobed"
+    assert nothing.solver_identity == everything.solver_identity

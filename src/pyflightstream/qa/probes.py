@@ -1077,8 +1077,7 @@ def _validate_tiers(
         execution = executor.run_script(script_path, working_dir=workdir, timeout_s=timeout_s)
         log_text = _read_log(workdir / _LOG_AFTER)
         if log_text is None or not printed_line(log_text, marker):
-            hint = execution.log_text or execution.stderr or f"return code {execution.return_code}"
-            failures[tier] = f"prelude did not reach its sentinel ({hint or 'no solver output'})"
+            failures[tier] = f"prelude did not reach its sentinel ({execution.diagnosis()})"
     return failures
 
 
@@ -1218,11 +1217,20 @@ def _run_baseline(
     execution = executor.run_script(script_path, working_dir=workdir, timeout_s=timeout_s)
     log_text = _read_log(log_path)
     if log_text is None or not printed_line(log_text, _BASELINE_MARKER):
-        hint = execution.log_text or execution.stderr or f"return code {execution.return_code}"
+        # The message that cost a day, rewritten. It used to offer three
+        # candidate causes, one of them the licence checkout, while the
+        # captured stdout it discarded said the licence checkout had
+        # SUCCEEDED. It names no candidates now: it says what the run
+        # did and quotes what the solver actually said, including the
+        # channel that carries everything printed BEFORE a script is
+        # accepted, which is the only evidence a pre-script failure
+        # leaves (INC-20260809-2230).
         raise ProbeEnvironmentError(
             "baseline probe failed: the PRINT sentinel never reached the exported log, "
-            "so the environment (executable, license checkout, or log export) is "
-            f"unusable and no command was judged. Solver said: {hint or 'nothing'}"
+            "so no command was judged. A run that never reached the script prints its "
+            "reason on standard output and writes no log at all, so read what the "
+            f"solver said before guessing at the environment. Solver said: "
+            f"{execution.diagnosis()}"
         )
     identity = tuple(
         line.strip()

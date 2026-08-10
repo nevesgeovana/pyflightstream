@@ -366,9 +366,9 @@ def support_table(*, registry: CommandRegistry | None = None) -> tuple[VersionSu
 
     Release order comes from ``commands/_meta.yaml``, which is the only
     ordering authority (CLAUDE.md invariant 4). It is NOT support order.
-    The two agree at this release only because four of the five builds
-    reached the same level: 26.000 is ``registered`` and every later
-    build is ``operational``. They came apart as recently as v0.5.0's own
+    The two agree at this release only because the seven builds split
+    cleanly by age: the three oldest are ``registered`` and the four
+    newest are ``operational``. They came apart as recently as v0.5.0's own
     development, when 26.100 sat at ``verified`` behind both of its
     successors for want of database rows rather than for anything about
     the solver, and nothing prevents them coming apart again the moment a
@@ -388,8 +388,8 @@ def support_table(*, registry: CommandRegistry | None = None) -> tuple[VersionSu
     Examples
     --------
     >>> from pyflightstream.support import support_table
-    >>> [(row.canonical, str(row.level)) for row in support_table()][0]
-    ('26.000', 'registered')
+    >>> {row.canonical: str(row.level) for row in support_table()}["26.000"]
+    'registered'
     """
     registry = registry or CommandRegistry.load()
     return tuple(version_support(version, registry=registry) for version in known_versions())

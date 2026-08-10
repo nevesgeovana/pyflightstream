@@ -208,6 +208,19 @@ class FsVersion:
         of one minor release apart at run time, because they print the
         same version string: 26.120 and 26.121 both print "26.1".
         Registered from committed evidence, never guessed.
+    prints : str or None
+        Release name this version's solver PRINTS, which is not the
+        same fact as :attr:`alias` and must not be derived from it.
+        The alias is the name the vendor ships the build under; this is
+        the name the binary states about itself, and for four of the
+        seven registered builds the two differ: 26.120 and 26.121 are
+        shipped as "26.12" and both print "26.1". A reader holding an
+        install has only the printed name, so a table that offers them
+        the alias to match on sends the 26.12 owner to a 26.1 row and
+        hands them the wrong identifier, which is the exact failure the
+        build-correspondence page exists to prevent. Registered from a
+        committed report's ``solver_identity``, never guessed; ``None``
+        where no report records one.
     inherits_base : bool
         Whether this build's command evidence falls back to the record
         of the base release when it has none of its own. True for a
@@ -232,6 +245,7 @@ class FsVersion:
     alias: str
     index: int
     build: str | None = None
+    prints: str | None = None
     inherits_base: bool | None = None
 
     def __post_init__(self) -> None:
@@ -249,8 +263,9 @@ class FsVersion:
         """
         if not _CANONICAL_PATTERN.match(self.canonical):
             raise UnknownVersionError(
-                f"{self.canonical!r} does not follow the canonical MAJOR.XXX "
-                "scheme with exactly three fractional digits (example: 26.120).",
+                f"{self.canonical!r} does not follow the canonical YY.XXX "
+                "scheme, the vendor major with exactly three fractional digits "
+                "(example: 26.120).",
                 version=self.canonical,
             )
         if self.inherits_base is None and not self.canonical.endswith("0"):
@@ -333,6 +348,7 @@ def known_versions() -> tuple[FsVersion, ...]:
             alias=str(entry["alias"]),
             index=position,
             build=None if entry.get("build") is None else str(entry["build"]),
+            prints=None if entry.get("prints") is None else str(entry["prints"]),
             inherits_base=_inherits_base(entry),
         )
         for position, entry in enumerate(meta["versions"])

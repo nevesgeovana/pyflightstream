@@ -404,11 +404,20 @@ def test_a_state_that_rests_on_a_run_says_so_and_one_that_reads_a_page_says_that
     accepts `documented` and a page-read `removed` without one, and that
     refusal is the model's own statement of which states rest on a run.
 
-    THE LIMIT, stated rather than left to be discovered: this pins ONE
-    axis by keyword. Free prose after the load-bearing clause is not
-    pinned, so inverting a trailing sentence still passes, and the
-    keyword list is a heuristic in the same way the database's own
-    measured-claim pattern is. Widening it is
+    ONE AXIS IS NOT ENOUGH, and a QA pass proved it: `documented` and
+    `removed` are BOTH on the read side, so swapping their prose keeps
+    each row on its correct side of this test and passes. The published
+    matrix then says that `documented` means the build does not carry
+    the command and that `removed` means a manual page describes it,
+    which is a straight inversion of the two. The per-state
+    expectations below close that, and they live OUTSIDE
+    `_STATUS_LEGEND` on purpose: an expectation stored beside the prose
+    moves with it and pins nothing.
+
+    THE LIMIT, stated rather than left to be discovered: what is pinned
+    is the axis plus one distinguishing phrase per state. Free prose
+    after that is not pinned, so inverting a trailing sentence still
+    passes. Widening it is
     `PLN-20260809-0700-the-legend-prose-is-pinned-on-one-axis`.
     """
     from pydantic import ValidationError
@@ -452,3 +461,85 @@ def test_a_state_that_rests_on_a_run_says_so_and_one_that_reads_a_page_says_that
                 f"the model accepts {state!r} with no report, so it rests on a READING, "
                 f"and the legend opens by saying: {rests_on.split('. ')[0]!r}"
             )
+
+    # Per state, one phrase that ONLY that state's row can honestly
+    # carry. Written here rather than in the tuple so the expectation
+    # cannot move with the prose it checks.
+    # "does not carry the command" is NOT usable for `removed`: the
+    # `broken` row says it too, legitimately, because a build that does
+    # not carry a command lands in `broken` when the harness has no
+    # `removed` outcome to write. A phrase that two rows may honestly
+    # carry cannot tell them apart.
+    distinguishing = {
+        "documented": "describes the command and its grammar",
+        "verified": "observed its effect",
+        "broken": "discrepancy between the manual and the solver",
+        "removed": "which of three",
+        "empty cell": "No recorded evidence",
+    }
+    assert set(distinguishing) == {state for state, _r, _e in _STATUS_LEGEND}, (
+        "a legend row was added or renamed without a distinguishing phrase; add one "
+        "rather than dropping the check, or the new row is unpinned"
+    )
+    for state, rests_on, _emitter in _STATUS_LEGEND:
+        phrase = distinguishing[state]
+        assert phrase in rests_on, (
+            f"the {state!r} row no longer says {phrase!r}, so its cell can no longer be "
+            f"told from another state's: {rests_on!r}"
+        )
+        others = [s for s in distinguishing if s != state]
+        wrong = [s for s in others if distinguishing[s] in rests_on]
+        assert not wrong, (
+            f"the {state!r} row carries the phrase that identifies {wrong}, so the two "
+            "rows can be swapped without this test noticing"
+        )
+
+
+def test_the_srs_data_model_table_agrees_with_the_status_legend():
+    """A third home for the five definitions, and it had no guard.
+
+    `_STATUS_LEGEND` exists so the compatibility matrix and the offline
+    `help()` page cannot carry different legends. `docs/srs/data-model.md`
+    restates the same definitions in its own table and is reached by
+    neither, so a QA pass could invert two legend rows and leave that
+    page saying the opposite with the SRS consistency suite green.
+
+    What is tied here is the distinguishing phrase per status, the same
+    one the legend guard uses, rather than the whole sentence: the two
+    documents are written for different readers and should not be
+    required to word it identically. What they may not do is disagree
+    about which status means what.
+    """
+    from pathlib import Path
+
+    from pyflightstream.reference import _STATUS_LEGEND
+
+    page = (Path(__file__).resolve().parents[1] / "docs" / "srs" / "data-model.md").read_text(
+        encoding="utf-8"
+    )
+    rows = [line for line in page.splitlines() if line.startswith("| ")]
+    assert rows, "the data model page carries no table"
+
+    shared = {
+        "documented": "manual says so",
+        "verified": "proved it works",
+        "broken": "proved it fails",
+        "removed": "which of three",
+    }
+    legend = {state: rests_on for state, rests_on, _emitter in _STATUS_LEGEND}
+    for status, phrase in shared.items():
+        row = [line for line in rows if line.startswith(f"| {status} |")]
+        assert len(row) == 1, f"the data model page has {len(row)} rows for {status!r}"
+        assert phrase in row[0], (
+            f"the data model page no longer says {phrase!r} for {status!r}, so it can "
+            f"no longer be told from another status: {row[0]!r}"
+        )
+        wrong = [s for s, other in shared.items() if s != status and other in row[0]]
+        assert not wrong, f"the {status!r} row carries the phrase identifying {wrong}"
+
+    # And the two documents must still agree on the one claim that is
+    # word for word shared: what `removed` says about the build.
+    assert "which of three" in legend["removed"]
+    assert "does not carry the command" in legend["removed"]
+    removed_row = next(line for line in rows if line.startswith("| removed |"))
+    assert "does not carry the command" in removed_row

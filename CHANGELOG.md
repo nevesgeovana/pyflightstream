@@ -7,10 +7,37 @@ FlightStream versions.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-08-09
+
+**Seven builds, every one of them identified.** Three more FlightStream
+builds are registered and every registered build now carries the vendor
+build number its solver prints, read from a committed report. The three
+that joined are the ones the author's published work was run on, so a
+reader reproducing any of it has an identifier that resolves to a number
+they can check against their own install.
+
+Getting there meant finding out why three installs had looked broken.
+They were not: the package was calling them with a command line they do
+not accept, and a FlightStream build given a script argument it does not
+recognise starts, checks out its licence, receives no script, and waits.
+That reads as a hang with a clean licence and an empty log, which is why
+two wrong diagnoses were written down before the right one. The fix is
+one dash instead of two, measured across all seven builds.
+
+The rest of the release follows from having seven readable builds. A
+generated page maps what a solver prints onto the identifier to pass,
+because a release name does not identify a build: the vendor ships two
+builds as "26.1" and two more as "26.12". A new `pyfs-manual surface`
+reports what each build documents and what changed between them, and
+RPT-024 is its first output: the scripting surface grew from 272
+commands to 364, unevenly, with 75 arriving in a single step.
+
 ### API surface delta
 
 New public names: `pyflightstream.run.SCRIPT_ARGUMENT`,
 `pyflightstream.run.describe_invocation`,
+`pyflightstream.run.ExecutionResult.diagnosis`,
+`pyflightstream.versions.FsVersion.prints`,
 `pyflightstream.reference.markdown_build_table`,
 `pyflightstream.utils.edition_surfaces`,
 `pyflightstream.utils.surface_changes`,
@@ -72,8 +99,35 @@ line changes, see below. Deprecations: none.
   The page maps the release name and build number a solver prints onto
   the canonical identifier to pass, and it is generated from the
   registry at docs build time so it cannot drift from it. It shows the
-  two fields separately rather than the banner line, because the 25.0
-  build prints that line with different spacing from the 26.1 builds.
+  two fields separately rather than the banner line, because that line
+  is not byte-identical across builds: the 25.0 solver writes a NUL byte
+  into it where the newer builds write a space.
+
+  The registry gained a field for this and the reason is the sharper
+  half of the release. `FsVersion.prints` records the release name the
+  solver STATES ABOUT ITSELF, which is not the name the vendor sells the
+  build under and may not be derived from it: 26.120 and 26.121 are sold
+  as "26.12" and both binaries print "26.1". A first draft of the page
+  keyed the column on the sold name, which would have sent the owner of
+  either build to a row naming a different solver. It is recorded from a
+  committed report's `solver_identity`, like the build number, and a
+  tier 1 guard cross-checks it against the banners in those reports.
+
+* **`pyfs-qa probe --identity-only`.** Judges no command: it runs the
+  baseline, captures the solver's identity banner, and writes the report
+  pair. That is how a newly registered build gets its build number into
+  a committed report, which is the only place the registry accepts one
+  from. Registering the three new builds is what it was built for, and
+  it reads a build in about a second.
+
+* **The probe baseline can run on a build that records no command.**
+  Such a build has no grammar of its own for the three instruments, so
+  the baseline borrows it from the newest build that records all three
+  and reports the build unusable if the borrowed grammar does not work
+  there. Without this the three builds registered in this release could
+  not be probed at all, since a baseline needed a row and a row needed a
+  probe. What the report does not yet say is that the borrowing
+  happened, which is registered as PLN-20260809-2410.
 
 ### Fixed
 
@@ -106,6 +160,40 @@ line changes, see below. Deprecations: none.
   tokens. The first version of that guard asked whether each flag
   appeared in the sentence and a wrong sentence satisfied it, because
   `-script` is a substring of `--script`.
+
+* **A failed solver run now says what the solver said.** Four sites
+  composed `log_text or stderr or return code` by hand and all four
+  omitted the same field: standard output, which the executor captures
+  on every run and which nothing in the package read. A fifth, the
+  timeout branch, discarded even those and recorded only "timed out and
+  was killed".
+
+  That is what made this release's own defect cost a day. Everything the
+  harness reads is written by the solver AFTER it accepts a script, so
+  every failure BEFORE that point looks identical; the baseline refusal
+  told the operator the environment was unusable and offered the licence
+  checkout as one of three candidate causes, while holding unprinted the
+  line saying the checkout had succeeded. About a dozen licensed solver
+  launches went into the licence hypothesis.
+
+  `ExecutionResult.diagnosis()` is now the single composer, reporting
+  the outcome and every non-empty channel, and the refusal quotes it
+  instead of naming suspects it cannot rank. A tier 1 AST guard refuses
+  any module outside the composer's home that reads two or more captured
+  channels in one expression, which guards the shape rather than the
+  five sites (INC-20260809-2230).
+
+* **A stale editable install no longer stamps the wrong version into
+  evidence.** Every compat, drift and physics report records
+  `package_version` from the installed metadata, which for an editable
+  install is whatever was recorded the last time the project was
+  installed rather than what the source says today. That gap put
+  `package_version: 0.5.0` into seven identity reports produced by the
+  0.6.0 tree, one of them for a build the published 0.5.0 could not have
+  driven at all. The reports were not rewritten, the writer refusing to
+  overwrite evidence and rightly so; a tier 1 guard now fails when the
+  installed metadata disagrees with the source tree, before a licensed
+  run is spent, and names the one-line remedy.
 
 * **The compatibility matrix and the offline `help()` page define their own
   cells.** Both carried a definition of the empty cell and of the
@@ -3675,7 +3763,8 @@ the repository seeding and this tag (milestones M0 through M5).
 * 26.000: registered, no recorded evidence yet (honest empty column;
   backfill planned for v0.2+).
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.6.0
 [0.5.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.5.0
 [0.4.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.4.0
 [0.3.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.3.0

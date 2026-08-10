@@ -89,13 +89,39 @@ manual because that install ships only a `.chm`. The file extracts to
 was read. The claim was true about the pdf sweep tool and false about
 the manual.
 
+## One more thing the runs measured: the banner is not byte-identical
+
+The 25.0 solver writes a NUL byte into its console banner where the
+newer builds write a space: `FlightStream version \x00 25.0, build
+#12162024` on standard output, against a plain space on 26.121. The
+EXPORTED LOG carries a plain space on both, which is why the committed
+reports show no difference and why this is recorded here rather than
+being visible in them.
+
+It is recorded for two reasons. It is why the build-correspondence page
+shows the release name and the build number as separate fields instead
+of a banner line a reader would compare character by character. And the
+first version of that page's guard said "two spaces", which is what a
+terminal draws that byte as: reading a rendering is not reading bytes,
+and this repository has an incident on exactly that
+(INC-20260724-0410-shared).
+
 ## What changed in the package
 
-`pyflightstream.run.SCRIPT_ARGUMENT` is `-script`, and every report's
-executor line derives from `pyflightstream.run.describe_invocation()`
-rather than restating it. The six restatements that lived in the three
-report writers are gone; a tier 1 guard asserts the derivation, so the
-flag and the sentence describing it cannot disagree again.
+`pyflightstream.run.SCRIPT_ARGUMENT` is `-script`, and every report
+written FROM NOW ON derives its executor line from
+`pyflightstream.run.describe_invocation()` rather than restating it. The
+six restatements that lived in the three report writers are gone; a
+tier 1 guard asserts the derivation, so the flag and the sentence
+describing it cannot disagree again.
+
+Reports committed BEFORE this fix are unchanged and correct as written:
+they record runs that really did pass two dashes. The four 26.1x
+identity reports of 2026-08-09 are among them, so two reports produced
+the same day on the same harness carry different executor lines, and
+that is a record of the fix landing between them rather than an
+inconsistency. Both spellings work on those four builds, which is why
+those runs succeeded at all.
 
 One spelling is used for every build rather than one per build,
 because one spelling is measured to work on all of them. A future build
@@ -103,13 +129,55 @@ that drops it fails its probe baseline loudly, since the baseline
 asserts the sentinel reached the exported log and reports the
 environment unusable when it did not.
 
-## Reproduction
+## How the runs were made, and what cannot be re-run
+
+THE TWO-DASH COLUMN CANNOT BE REPRODUCED THROUGH THIS PACKAGE, and that
+is by design: `SCRIPT_ARGUMENT` is a module constant and `LocalExecutor`
+exposes no parameter for it, so no public surface can ask for the
+spelling that fails. Reproducing that column means driving the
+executables directly, as the sweep did.
+
+The sweep was a local PowerShell script under
+`_private/exe/handrun/`, NOT COMMITTED, because it names licensed
+install paths (invariant 1) and a licensed machine to run on. Its shape,
+so it can be rebuilt:
+
+* One script for every run, the probe harness baseline: a `PRINT` of a
+  sentinel, an `EXPORT_LOG` naming an absolute path, and
+  `CLOSE_FLIGHTSTREAM`. Its grammar came from the command database
+  through `Script`, not from hand; a hand-written `EXPORT_LOG` written
+  inline where it is `param_lines` is what produced the first day's
+  wrong diagnosis.
+* Fourteen runs, seven builds by two spellings. Each launched
+  `-hidden <flag> <script>` with standard output and standard error
+  redirected to files, a 60 second limit, and the working directory set
+  to the script's own folder.
+* Success was asserted, not eyeballed: the exported log had to exist and
+  contain the sentinel. A run that did not exit was force-ended before
+  the next began.
+* The artifacts (per-run stdout, stderr and exported log) were
+  overwritten by each successive run and are not retained. The table
+  above is the record.
+
+What CAN be re-run through the package, for the chosen spelling on any
+one build:
 
 ```
 pyfs-qa probe --fs-version 25.000 --fs-exe <install>/FlightStream.exe --identity-only
 ```
 
-The identity reports written from these runs are
+The identity reports written that way are
 `reports/compat/CMP-25000_2026-08-09_identity.yaml` and its 25100 and
 26000 siblings; each carries the solver's own banner, which is where
 the build numbers in the table above come from.
+
+One caveat on those three reports and on the four 26.1x ones dated the
+same day: each records `package_version: 0.5.0`, and the code that
+produced them was the 0.6.0 tree. The environment's editable install
+carried stale metadata, so the package misreported its own version. The
+reports are not rewritten, a compat report being evidence that the
+writer refuses to overwrite; the cause is guarded upstream instead, by
+`tests/test_metadata_currency.py`, which now fails when the installed
+metadata disagrees with the source tree and names the one-line remedy.
+`CMP-26121_2026-08-09_v060-onedash.yaml` is the same measurement taken
+after that fix and records 0.6.0.

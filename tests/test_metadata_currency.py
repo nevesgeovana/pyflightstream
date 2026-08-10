@@ -184,3 +184,37 @@ def test_a_development_version_states_no_release_date() -> None:
         assert "date-released" in citation, (
             "a final version must state its release date in CITATION.cff"
         )
+
+
+def test_the_installed_metadata_matches_the_source_tree() -> None:
+    """A stale editable install stamps the wrong version into evidence.
+
+    Every compat, drift and physics report records
+    ``package_version`` from ``importlib.metadata``, which for an
+    editable install is whatever was recorded the last time the project
+    was installed, NOT what the source says today. On 2026-08-09 that
+    gap put ``package_version: 0.5.0`` into seven identity reports
+    produced by the 0.6.0 tree, one of them for a build that the
+    published 0.5.0 could not drive at all, since the script argument
+    it passed was the one that build does not accept.
+
+    The reports themselves are evidence and were not rewritten; the
+    report writer refuses to overwrite one, which is the right refusal.
+    So the fix has to be upstream of the writer, and this is it: a
+    contributor whose environment would stamp the wrong version is told
+    before they spend a licensed run, not after they commit the file.
+
+    The remedy is one command, and the message says it rather than
+    leaving a version mismatch to be interpreted.
+    """
+    from importlib import metadata
+
+    installed = metadata.version("pyflightstream")
+    source = _pyproject_version()
+    assert installed == source, (
+        f"the installed pyflightstream reports version {installed} and the source tree "
+        f"says {source}. Any report produced in this environment would record "
+        f"{installed} as the package that made it, which is not the code that ran. "
+        "Re-install the project before producing evidence: "
+        "python -m pip install -e . --no-deps"
+    )

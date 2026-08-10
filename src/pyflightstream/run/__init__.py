@@ -20,8 +20,13 @@ rejection is what makes the skip safe, and with ``resume=False`` a
 duplicate point raises before anything executes.
 
 The local mechanism is the documented command-line script execution:
-``FlightStream.exe --script <file>`` (SRC-003 p.279), with the
-``-hidden`` flag for windowless batch runs; in hidden mode an
+``FlightStream.exe -script <file>``, with the
+``-hidden`` flag for windowless batch runs. ONE dash on the script
+argument, and the spelling is the module constant
+:data:`SCRIPT_ARGUMENT` rather than a literal here: SRC-003
+pp.279-280 documents the two-dash form, the 25 series does not accept
+it, and one dash is the spelling every registered build accepts
+(RPT-023). In hidden mode an
 abnormal termination writes ``FlightStreamLog.txt`` into the command
 execution directory, which is why the executor runs the solver inside
 the simulation folder and captures that file (SRC-003 p.280). An HPC
@@ -94,6 +99,7 @@ from pyflightstream.workspace import (
 )
 
 __all__ = [
+    "SCRIPT_ARGUMENT",
     "Assessment",
     "CampaignErrors",
     "CampaignPlan",
@@ -108,6 +114,7 @@ __all__ = [
     "Reconstruction",
     "SurfaceMeshExportError",
     "check_solver_identity",
+    "describe_invocation",
     "export_surface_mesh",
     "package_vcs_state",
     "plan_campaign",
@@ -126,6 +133,37 @@ class ExecutorConfigurationError(PyflightstreamError, ValueError):
     The FlightStream path is always explicit input (SAD Section 5):
     nothing is read from environment variables or guessed.
     """
+
+
+#: How many trailing lines of a captured channel a diagnosis quotes.
+#: The last lines are where a solver says why it stopped, and a whole
+#: log in an exception message is unreadable.
+_DIAGNOSIS_LINES = 3
+
+
+def _last_lines(text: str | None) -> str:
+    """Return the last few non-blank lines of a captured channel.
+
+    NUL bytes are stripped: real hidden-mode exports carry them
+    (RPT-001) and the 25.0 banner embeds one mid-line (RPT-023), where
+    a terminal draws it as a space and a reader cannot see it at all.
+
+    Parameters
+    ----------
+    text : str or None
+        A captured channel, possibly empty or absent.
+
+    Returns
+    -------
+    str
+        The trailing lines joined by ``" / "``, or the empty string
+        when the channel carried nothing.
+    """
+    if not text:
+        return ""
+    lines = [line.strip().replace("\x00", "") for line in text.splitlines()]
+    kept = [line for line in lines if line]
+    return " / ".join(kept[-_DIAGNOSIS_LINES:])
 
 
 @dataclass(frozen=True)
@@ -176,6 +214,59 @@ class ExecutionResult:
         """Whether the process timed out or returned a nonzero code."""
         return self.timed_out or self.return_code != 0
 
+    def diagnosis(self) -> str:
+        """Say what happened, from every channel this run captured.
+
+        Single home of the sentence a refusal quotes when a solver run
+        goes wrong. Every caller that needs one calls this; none builds
+        its own, and a tier 1 AST guard enforces that.
+
+        WHY THIS EXISTS, because the reason is the whole design. Four
+        sites independently composed
+        ``log_text or stderr or f"return code {return_code}"``, and all
+        four omitted the same field: STDOUT, which the executor captures
+        on every run and which nothing in the package read. On
+        2026-08-09 a build was handed a command-line spelling it does
+        not accept; it started, printed its banner, checked out its
+        licence successfully, received no script and waited. The harness
+        saw a timeout, no exported log and an empty stderr, and told the
+        operator that the environment was unusable and that the licence
+        checkout was one of three candidate causes, while holding
+        unprinted the line saying the checkout had SUCCEEDED. About a
+        dozen licensed solver launches went into the licence hypothesis
+        (RPT-023, INC-20260809-2230).
+
+        The lesson generalises past that spelling: everything the
+        harness reads is written by the solver AFTER it accepts a
+        script, so every failure BEFORE that point looks identical.
+        Standard output is the only channel that carries pre-script
+        evidence, and it is the one the four chains dropped.
+
+        Returns
+        -------
+        str
+            One line naming the outcome, then whichever captured
+            channels are non-empty, most specific first. Never empty:
+            with nothing captured it still reports the outcome, which
+            is more than "return code None" said.
+        """
+        parts: list[str] = []
+        if self.timed_out:
+            limit = "" if self.timeout_s is None else f" of {self.timeout_s:g} s"
+            parts.append(f"timed out after {self.wall_time_s:.1f} s (limit{limit}) and was killed")
+        else:
+            parts.append(f"exited with return code {self.return_code}")
+
+        for label, text in (
+            ("FlightStreamLog.txt", self.log_text),
+            ("stderr", self.stderr),
+            ("stdout", self.stdout),
+        ):
+            tail = _last_lines(text)
+            if tail:
+                parts.append(f"{label}: {tail}")
+        return "; ".join(parts)
+
 
 class Executor(Protocol):
     """Anything that can run one rendered script to completion.
@@ -198,8 +289,16 @@ class Executor(Protocol):
 #: every report prints; the two must not be restated apart.
 #:
 #: The vendor spells this argument two ways and the difference is not
-#: cosmetic. The 25.0 edition documents ``-script`` and the 26.12
-#: edition documents ``--script``; a build that does not recognise the
+#: cosmetic. The 25.0 edition documents ``-script`` on its command-line
+#: inputs topic and the 26.12 edition documents ``--script`` at SRC-003
+#: pp.279-280. Note the asymmetry in what can be CITED: the 26.12
+#: edition has a source id and a page, and the 25.0 edition has neither,
+#: because that install ships a compiled help archive with topics rather
+#: than pages and no source id has been allocated for it
+#: (PLN-20260809-2350). So the spelling used here rests on the
+#: measurement, RPT-023, and not on a page reference.
+#:
+#: A build that does not recognise the
 #: spelling it is given does not refuse it, it starts, checks out its
 #: licence, receives no script, and waits for a user. Under ``-hidden``
 #: with the standard streams redirected there is no console for it to
@@ -217,22 +316,37 @@ class Executor(Protocol):
 SCRIPT_ARGUMENT = "-script"
 
 
-def describe_invocation(hidden: bool = True, code: bool = False) -> str:
+def describe_invocation(*, hidden: bool = True, markdown: bool = False) -> str:
     """Return the one-line description of the solver invocation.
 
     Single home of the sentence every report prints about how the
-    solver was called, derived from the argument the executor actually
-    passes rather than restated next to it. Six copies of that sentence
-    used to sit in the report writers, where nothing would have noticed
-    them disagreeing with the code (NFR-11).
+    solver was called, so the script argument it names is the one
+    :func:`LocalExecutor._argv` passes rather than a copy of it. Six
+    copies of that sentence used to sit in the report writers, where
+    nothing would have noticed them disagreeing with the code (NFR-11).
+
+    What it derives and what it still restates, stated because the
+    difference is the residual: the script argument is read from
+    :data:`SCRIPT_ARGUMENT`, while the executor's class name and the
+    windowless flag are described rather than read from an executor.
+    Both are true of every report this package can currently write, the
+    QA layer building a default :class:`LocalExecutor` at each of its
+    three entry points, and both would become wrong the day an HPC
+    executor lands (FR-15) or a report is written from a visible run.
+    Taking the executor as an argument is registered as
+    PLN-20260809-2340.
 
     Parameters
     ----------
     hidden : bool
-        Whether the description covers a windowless run.
-    code : bool
+        Whether the description covers a windowless run. Keyword-only:
+        two adjacent booleans read as nothing at a call site, and this
+        value is written verbatim into committed evidence.
+    markdown : bool
         Wrap the flags in a markdown code span, for the rendered table
-        of a report; the machine-readable field takes them plain.
+        of a report; the machine-readable field takes them plain. Named
+        for the output format rather than for the span, ``code`` being
+        ambiguous next to :attr:`ExecutionResult.return_code`.
 
     Returns
     -------
@@ -241,9 +355,15 @@ def describe_invocation(hidden: bool = True, code: bool = False) -> str:
         ``executor`` field of a compat, drift, or physics report.
     """
     flags = f"-hidden {SCRIPT_ARGUMENT}" if hidden else SCRIPT_ARGUMENT
-    if code:
+    if markdown:
         flags = f"`{flags}`"
-    return f"LocalExecutor, {flags} (SRC-003 pp.279-280, RPT-023)"
+    # The two citations are split because they answer different halves
+    # and one of them does NOT support the spelling beside it: SRC-003
+    # documents the mechanism and the windowless flag, and documents the
+    # script argument with TWO dashes. Printing that page beside one
+    # dash, as this string did when it was first written, cites a page
+    # for a claim it denies. RPT-023 is what carries the spelling.
+    return f"LocalExecutor, {flags} (mechanism SRC-003 pp.279-280; argument spelling RPT-023)"
 
 
 class LocalExecutor:
@@ -1938,10 +2058,10 @@ def _execute_point(
     base["cwd"] = result.cwd
     base["timeout_s"] = result.timeout_s
     if result.failed:
-        if result.timed_out:
-            error = f"timed out after {result.wall_time_s:.1f} s and was killed"
-        else:
-            error = result.log_text or result.stderr or f"return code {result.return_code}"
+        # One composer, never a chain here: the timeout branch used to
+        # discard every captured channel, and the timeout branch is the
+        # one a pre-script failure takes (INC-20260809-2230).
+        error = result.diagnosis()
         return RunRecord(
             **base,
             status=RunStatus.FAILED_EXECUTION,

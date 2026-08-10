@@ -991,12 +991,18 @@ def markdown_build_table() -> str:
     Answers one question and is shaped around it: the reader has an
     install, wants to know which canonical identifier names it, and the
     only thing their install tells them is the line it prints when it
-    starts. So the first column is that line, not the identifier.
+    starts. So the first two columns are the two values off that line,
+    not the identifier.
 
-    The vendor release name cannot do this job, which is the whole
-    reason the page exists. Two builds ship as "26.1" and two more as
-    "26.12", so a paper that records "run on FlightStream 26.1" has not
-    said which solver produced its numbers. The build number has been
+    The printed release name alone cannot do this job, which is the
+    whole reason the page exists, and the name to print is
+    :attr:`FsVersion.prints` rather than :attr:`FsVersion.alias`. Those
+    two differ for four of the seven registered builds: the vendor ships
+    26.120 and 26.121 as "26.12" and both binaries print "26.1". A table
+    keyed on the alias would offer a 26.12 owner a name their solver
+    never prints, they would match one of the rows that does print
+    "26.1", and they would leave with the identifier of a different
+    solver. The build number is what separates them, and it has been
     unique across every install registered here.
 
     Returns
@@ -1007,44 +1013,52 @@ def markdown_build_table() -> str:
     """
     versions = known_versions()
     shared = {
-        version.alias
+        version.prints
         for version in versions
-        if sum(1 for other in versions if other.alias == version.alias) > 1
+        if version.prints is not None
+        and sum(1 for other in versions if other.prints == version.prints) > 1
     }
 
     lines = [
         "# Which build do I have",
         "",
         "Every FlightStream install prints its release name and its build "
-        "number when it starts. That pair is what identifies a build; the "
-        "release name alone does not, because the vendor ships more than "
-        "one build under one name.",
+        "number when it starts. That PAIR is what identifies a build. "
+        "Neither half does it alone: four registered builds print the same "
+        "release name, and the name the vendor sells a build under is not "
+        "always the name the binary prints.",
         "",
         "Read the two values off that line, find the row carrying both, "
         "and pass the identifier beside them wherever this package asks "
         "for a version. The columns are the two values rather than the "
-        "whole line because the line itself is not formatted identically "
-        "across builds.",
+        "whole line, because the line is not byte-identical across "
+        "builds: the 25.0 solver writes a NUL byte into it where the "
+        "newer builds write a space, which a terminal draws as a space "
+        "and a comparison does not (RPT-023).",
         "",
-        "| Release name it prints | Build number it prints | Pass this |",
-        "|---|---|---|",
+        "| Release name it prints | Build number it prints | Pass this | Vendor ships it as |",
+        "|---|---|---|---|",
     ]
     for version in versions:
+        printed = "not recorded here yet" if version.prints is None else version.prints
         build = "not recorded here yet" if version.build is None else f"#{version.build}"
-        note = " (names more than one build)" if version.alias in shared else ""
-        lines.append(f"| {version.alias}{note} | {build} | `{version.canonical}` |")
+        note = " (shared)" if version.prints in shared else ""
+        sold = version.alias
+        if version.prints is not None and version.alias != version.prints:
+            sold = f"{version.alias} (not what it prints)"
+        lines.append(f"| {printed}{note} | {build} | `{version.canonical}` | {sold} |")
 
     lines.extend(
         [
             "",
             "## Reading the table",
             "",
-            "The identifiers in the middle column are this package's own, "
-            "in the `YY.XXX` scheme: the vendor major, the minor release, "
-            "and a last digit that indexes builds within that release. "
-            "That last digit is an ORDERING position and not a claim of "
-            "descent, so a build at a hotfix index is not necessarily a "
-            "hotfix of the one before it.",
+            "The identifiers in the *Pass this* column are this package's "
+            "own, in the `YY.XXX` scheme: the vendor major, the minor "
+            "release, and a last digit that indexes builds within that "
+            "release. That last digit is an ORDERING position and not a "
+            "claim of descent, so a build at a hotfix index is not "
+            "necessarily a hotfix of the one before it.",
             "",
         ]
     )
@@ -1052,11 +1066,24 @@ def markdown_build_table() -> str:
         names = ", ".join(sorted(shared))
         lines.extend(
             [
-                f"The release names marked above ({names}) each name more "
-                "than one registered build. Passing such a name is refused "
-                "rather than resolved to either build, and the refusal "
-                "lists the candidates by build number. Pass the canonical "
-                "identifier instead.",
+                f"A printed name marked (shared) is printed by more than one "
+                f"registered build: {names}. Match on the build number, "
+                "which is unique. Passing a shared release name to this "
+                "package is refused rather than resolved to one of the "
+                "builds, and the refusal lists the candidates by build "
+                "number.",
+                "",
+            ]
+        )
+    if any(v.prints is not None and v.alias != v.prints for v in versions):
+        lines.extend(
+            [
+                "The last column is the name the vendor sells the build "
+                "under, which is the name that appears in release notes "
+                "and download pages. Where it says *not what it prints*, "
+                "the binary states a different release name about itself, "
+                "so a reader matching on the sold name would land on the "
+                "wrong row. Match on what your install prints.",
                 "",
             ]
         )

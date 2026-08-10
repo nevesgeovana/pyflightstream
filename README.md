@@ -7,12 +7,15 @@
 Version-aware, didactic Python driver for the FlightStream panel-method
 solver. Successor of the author's legacy research scripts. MIT licensed.
 
-Status: v0.5.0 is the current release, published to
+Status: v0.6.0 is the current release, published to
 [PyPI](https://pypi.org/project/pyflightstream/) and archived on Zenodo
 (DOI recorded in CITATION.cff). CHANGELOG.md carries
-the release history. That release completed the command database: every
-command the four registered manual editions document is in it, with a
-version row per edition.
+the release history. That release registered three more FlightStream
+builds and gave every registered build the vendor build number its
+solver prints, so an install can be identified rather than described.
+The release before it completed the command database: every command the
+four then-registered manual editions document is in it, with a version
+row per edition.
 
 ```
 pip install pyflightstream
@@ -139,7 +142,7 @@ runs, not that its physics is right for a case nobody has measured.
 | `pyfs-qa` | Tier 2 command-validity probes, Tier 3 physics regression and cross-version drift, status promotion from committed reports |
 | `pyfs-workspace` | Initialize the managed campaign workspace tree |
 | `pyfs-matrix` | Convert and pre-flight run matrices |
-| `pyfs-manual` | Compare one FlightStream manual, or every registered edition at once (`sweep`), against the command database (maintainer tool, needs the `[manual]` extra; writes only with `--write`) |
+| `pyfs-manual` | Compare FlightStream manuals against the command database: one manual, every registered edition at once (`sweep`), or what each build documents and what changed between builds (`surface`). Maintainer tool; needs the `[manual]` extra and writes only with `--write` |
 | `pyfs-fsi` | The structural executable of the aeroelastic coupling loop |
 
 ## Supported FlightStream versions
@@ -150,8 +153,8 @@ the evidence rather than declared:
 
 | Version | Vendor name | Support level | What that means here |
 |---|---|---|---|
-| 25.000 | 25.0 | `registered` | Vendor build 12162024, December 2024. Registered on 2026-08-09 so that published work run on it has an identifier that resolves; no command carries evidence for it, so nothing can be built yet. Its solver checks out an EDU licence rather than the full feature set |
-| 25.100 | 25.1 | `registered` | Vendor build 5062025, May 2025. Registered for the same reason and at the same level |
+| 25.000 | 25.0 | `registered` | Vendor build 12162024, December 2024. Registered on 2026-08-09 so that published work run on it has an identifier that resolves; no command carries evidence for it, so nothing can be built yet |
+| 25.100 | 25.1 | `registered` | Vendor build 5062025, May 2025. Registered for the same reason and at the same level. The 25 series checks out an EDU licence rather than the full feature set, so what either of these builds refuses may be the licence rather than the build; that is not yet measured |
 | 26.000 | 26.0 | `registered` | Vendor build 10202025, October 2025. Ordered in the registry, no command carries evidence for it, so nothing can be built yet |
 | 26.100 | 26.1 | `operational` | The February 2026 build, and the last to reach this level, on 2026-08-08. It was held at `verified` less by the solver than by the database: the per-edition sweep that day found 40 commands its own manual documents and this database had no row for, so the emitter refused them and the minimal end-to-end workflow could not be built. With those rows written the workflow builds. Probe coverage is still thinner here than on the newer builds, the harness reaching only commands that carry a probe spec; the compatibility matrix carries the live counts |
 | 26.101 | 26.1 | `operational` | The May 2026 build. Commands drafted from the manual with page citations, with the first harness promotions on 2026-08-08, which also carried it to the level where the minimal end-to-end workflow builds. It sits at a hotfix index and does NOT inherit from 26.100: the two are separate vendor releases under one name |

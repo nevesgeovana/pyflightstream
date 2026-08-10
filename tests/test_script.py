@@ -1343,6 +1343,21 @@ def test_every_cad_command_is_available_on_every_registered_build():
         "skip here"
     )
 
+    # Measure the exemption by its stated CAUSE, not by its symptom. The
+    # sentence above says these three are "registered without a command
+    # sweep", and the code above only checks that they carry no CAD
+    # command. A QA pass gave 25.000 a single non-CAD command row and
+    # this test passed, so a build could be swept everywhere except the
+    # CAD chapters and hide inside the exemption.
+    for canonical in without:
+        carried = [name for name in registry.commands if name in registry.for_version(canonical)]
+        assert not carried, (
+            f"{canonical} is exempt here as a build registered without a command sweep, "
+            f"and it now carries {len(carried)} command(s), the first being "
+            f"{carried[0]}. Either it was swept, in which case the CAD chapter is "
+            "genuinely missing from it, or the exemption needs a different reason"
+        )
+
     partial = {
         canonical: sorted(set(members) - set(names))
         for canonical, names in available.items()

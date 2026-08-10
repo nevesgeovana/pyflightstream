@@ -155,7 +155,7 @@ except CommandNotInVersionError as error:
 # ## 4. Optional: execute the sweep
 #
 # With a licensed executable the sweep runs headless (`-hidden
-# --script`) inside a managed campaign workspace:
+# -script`) inside a managed campaign workspace:
 #
 # - `CampaignWorkspace` owns the folder layout and the `runs.json`
 #   manifest; run identity lives in the manifest, never in folder names.

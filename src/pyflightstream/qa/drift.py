@@ -374,7 +374,7 @@ def _render_markdown(run: DriftRun, date: str, counts: dict[str, int]) -> str:
         "(local, `_private/exe/`) |",
         f"| Compared (B) | FlightStream {b}, {run.fs_exe_names.get(b, '?')} "
         "(local, `_private/exe/`) |",
-        f"| Executor | {describe_invocation(code=True)} |",
+        f"| Executor | {describe_invocation(markdown=True)} |",
         f"| Package | pyflightstream {run.package_version} |",
         f"| Solver identity | {'; '.join(run.solver_identity) or 'none captured'} |",
         "",

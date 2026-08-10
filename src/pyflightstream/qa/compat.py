@@ -125,7 +125,7 @@ def _render_markdown(run: ProbeRun, date: str, counts: dict[str, int]) -> str:
         "| Item | Value |",
         "|---|---|",
         f"| Executable | {run.fs_exe_name} (local, `_private/exe/`, never committed) |",
-        f"| Executor | {describe_invocation(code=True)} |",
+        f"| Executor | {describe_invocation(markdown=True)} |",
         f"| Package | pyflightstream {run.package_version} |",
         f"| Solver identity lines | {'; '.join(run.solver_identity) or 'none captured'} |",
         "",

@@ -5,16 +5,25 @@ command set, and what changed from one build to the next. Command names
 only; nothing of the manual's text appears here or in the tool that
 produced it.
 
-This report is REGENERATED rather than maintained. Everything below the
-first two sections is the output of
+## What is regenerated and what is written by hand
+
+The LAST two sections, `Command surface per edition` and `What changed
+between consecutive builds`, plus the coverage line that closes the
+report, are the verbatim output of
 
 ```
-pyfs-manual surface --editions <manifest> --markdown
+pyfs-manual surface --editions <manifest> --names --markdown
 ```
 
 reading the local edition manifest, so re-running it after a new install
-arrives is the whole update procedure. The manifest is local because it
-names licensed manual paths; registering a build is adding a row to it.
+arrives refreshes them. The manifest is local because it names licensed
+manual paths; registering a build is adding a row to it.
+
+Every section ABOVE those two is written by hand and does not refresh.
+Re-running the command replaces the tail; the head has to be re-read.
+Said plainly because "regenerated" invites the opposite assumption, and
+a stale hand-written section under a freshly generated table is the
+worst of both.
 
 ## What "gained" and "lost" mean here, and what they do not
 
@@ -37,29 +46,64 @@ bearing: the index is incomplete, and an index-driven reading reports a
 smaller surface for every edition, which would look like the vendor
 removing commands.
 
-## The reading was cross-checked against the command database
+## Cross-checked against the command database
 
-For the four builds the database records, every command the manual
-documents has an entry: manual-only is ZERO on all four. That is the
-check that the page ranges are right, since a range that missed pages
-would show up here as commands the manual documents and the database
-never heard of.
+The check that makes the page ranges trustworthy: for all four builds
+the database records, every command the manual documents has an entry.
+MANUAL-ONLY IS ZERO on all four. A range that missed pages would show up
+here as commands the manual documents and the database never heard of.
 
-The reverse direction is not zero and is expected. The database records
-1 command 26.100's manual does not document, 1 for 26.101, 2 for 26.120
-and 7 for 26.121. Two causes account for all of them: an entry
-documented by no edition and carried on probe evidence instead
-(`SONIC_VELOCITY`), and 26.121 inheriting its base release's records for
-commands its own manual stops printing, which is what `inherits_base`
-means and what the compatibility matrix marks per cell.
+The reverse direction is not zero, and the set has to be defined before
+the numbers mean anything. Counted below is every command carrying an
+evidence row for that build, DIRECT OR INHERITED, `removed` rows
+included:
 
-## 25.000 is measured but not by this tool
+| Build | Manual | Rows | Rows with no page in that manual |
+|---|---|---|---|
+| 26.100 | 344 | 345 | 1 |
+| 26.101 | 363 | 364 | 1 |
+| 26.120 | 363 | 365 | 2 |
+| 26.121 | 364 | 371 | 7 |
+
+Four causes account for all eleven, and the largest is not a
+disagreement at all:
+
+* **A `removed` row, five of the eleven.** `SONIC_VELOCITY` on 26.101,
+  it and `VOLUME_SECTION_BOUNDARY_LAYER` on 26.120,
+  `SET_JET_WAKE_FILAMENTS_GRID_INDUCTION` on 26.121. A `removed` row is
+  the database recording that this edition stopped printing the command.
+  It says the same thing the sweep says, in the database's own
+  vocabulary, so counting it as a row the manual does not document is
+  arithmetically right and reads as a contradiction it is not.
+* **Inheritance, four of the eleven, all on 26.121.**
+  `CREATE_BULK_SEPARATION`, `SURFACE_CLEARALL`, `SURFACE_DELETE`, plus
+  the two inherited `removed` rows counted above. 26.121 declares
+  `inherits_base`, so it carries 26.120's record where its own manual is
+  silent; the compatibility matrix marks every such cell.
+* **An entry documented by no edition at all, one.**
+  `DELETE_VALAREZO_SEPARATION_BOUNDARIES` on 26.100, which reached the
+  database from a probe rather than from a page and carries a
+  `probe_ref` instead of a `manual_ref` (RPT-018 measured 26.100
+  accepting it while refusing the name its own manual prints).
+* **One command probed and found broken on a build whose manual does not
+  document it**: `SWEEPER_REF_VELOCITY_SAME` on 26.121, a direct
+  `broken` row rather than an inherited one.
+
+The cross-check itself is not a committed subcommand; it was run once,
+against the surfaces the generated sections below report and against
+`CommandRegistry.load()`. Regenerating it is registered as
+PLN-20260809-2400.
+
+## 25.000 is measured, and not by this tool
 
 The 25.000 install ships its manual only as a compiled HTML help
 archive, and `pyfs-manual` reads pdf, so that build has no row in the
-manifest and does not appear in the generated sections below. Its
-surface was measured separately, by extracting the archive and counting
-the same signature headings in the extracted topics:
+manifest and does not appear in the generated sections below.
+
+Its surface was measured separately. The archive was extracted with
+7-Zip to 960 HTML topics; tags were stripped from each topic, entities
+unescaped, and the same signature heading counted, the string the pdf
+parser keys on. That yields:
 
 **272 commands documented.**
 
@@ -76,25 +120,36 @@ Lost: `BOOLEAN_UNITE_GEOMETRY`, `CREATE_NEW_MOTION_6DOF`,
 `CREATE_NEW_MOTION_FSI`, `SET_SOLVER_MODEL`, `SOLVER_CLEAR`,
 `SOLVER_UNINITIALIZE`
 
-Read that pair together rather than as two lists. The four
-`CREATE_NEW_MOTION_*` commands become one `CREATE_NEW_MOTION`, and
-`SOLVER_CLEAR` becomes `CLEAR_SOLUTION`: this is one vendor renaming,
-not eight removals and ten additions. The counts cannot see that and a
-reader can, which is the reason this report lists names and not only
-numbers.
+Read that pair together rather than as two lists. Several entries look
+like renamings rather than removals and additions: the four
+`CREATE_NEW_MOTION_*` commands against one `CREATE_NEW_MOTION`,
+`SOLVER_CLEAR` against `CLEAR_SOLUTION`, and `SOLVER_UNINITIALIZE`
+against `REMOVE_INITIALIZATION`. Say LOOK LIKE and mean it: no probe has
+shown that the new name does what the old one did, and a name is not
+behaviour. What the pairing establishes is where to point a probe, not
+what it will find.
 
-Adding a reader for the help archive so 25.000 joins the generated
-sections is registered as PLN-20260809-2200.
+TWO INSTRUMENTS, NOT ONE, and the two numbers either side of that
+sentence were produced by different readers. The 272 comes from an
+ad-hoc count over extracted HTML; every other count in this report comes
+from the package's own fixtured pdf parser. No install ships both
+formats, so the two readers have never been calibrated against each
+other, and the difference between them is unmeasured. That uncertainty
+rides on the 25.000 to 25.100 delta above and on the "272 to 364" span
+below; neither is a like-for-like subtraction. Giving the tools a reader
+for the help archive is registered as PLN-20260809-2200, and the
+calibration is part of it.
 
 ## The shape of the whole history
 
-The surface grew from 272 to 364 across seven builds, and it did not
-grow smoothly. One step accounts for most of it: 26.000 to 26.100 gained
-75 commands, essentially the whole CAD and cross-section family arriving
-at once. The next step, 26.100 to 26.101, is the one to be careful
-with: 35 gained and 16 lost between two builds the vendor ships under
-the SAME release name, "26.1". A reader who recorded only that name in a
-paper cannot tell which of those two surfaces was available to them.
+The surface grew from 272 to 364 across seven builds, across two
+instruments as stated above, and it did not grow smoothly. One step
+accounts for most of it: 26.000 to 26.100 gained 75 commands,
+essentially the whole CAD and cross-section family arriving at once. The
+next step, 26.100 to 26.101, is the one to be careful with: 35 gained
+and 16 lost between two builds the vendor ships under the SAME release
+name, "26.1". A reader who recorded only that name in a paper cannot
+tell which of those two surfaces was available to them.
 
 The two 25 builds and 26.000 differ from each other by single digits,
 so a script written for one of them is close to portable across the
@@ -154,3 +209,6 @@ Gained 6, lost 5.
 Gained: `CREATE_CYLINDRICAL_BULK_SEPARATION`, `CREATE_STRATFORD_BULK_SEPARATION`, `DELETE_SURFACES`, `DISABLE_SOLVER_REF_VELOCITY`, `NEW_UNSTEADY_SOLVER_SURFACE_PROBE`, `SET_WAKE_DECAY_CONSTANT`
 
 Lost: `CREATE_BULK_SEPARATION`, `SET_JET_WAKE_FILAMENTS_GRID_INDUCTION`, `SURFACE_CLEARALL`, `SURFACE_DELETE`, `SWEEPER_REF_VELOCITY_SAME`
+
+
+Coverage: 6 of 7 registered build(s) read; no manifest row for 25.000.

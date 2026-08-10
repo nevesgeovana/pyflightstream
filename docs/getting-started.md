@@ -55,6 +55,12 @@ and its hotfix, while 26.100 and 26.101 are the February and May 2026
 releases, which is why the registry states descent per build instead
 of reading it off the last digit.
 
+If you are not sure which one you have, the
+[Which build do I have](builds.md) page maps the release name and build
+number your solver prints onto the identifier to pass. Read it before
+assuming: two registered builds print a release name that is not even
+the one the vendor sells them under.
+
 ## Build a script
 
 Nothing here runs a solver. The point of this package is that the

@@ -13,24 +13,32 @@
 #   version line does not distinguish them within a release name.
 #   Every registered build carries one as of 2026-08-09; the field stays
 #   optional because a build is registered before it is ever run.
+# prints: the release name the solver STATES ABOUT ITSELF, from the same
+#   solver_identity line as the build number. It is NOT the alias and may
+#   not be derived from it, which is the whole reason it is a field: the
+#   vendor ships 26.120 and 26.121 under the name 26.12 and both binaries
+#   print 26.1. Four of the seven registered builds print a name that is
+#   not their alias. A reader holding an install has only what it prints,
+#   so anything that asks them to match on a name must offer this one.
 versions:
   # ADDED 2026-08-09, on the author's decision, and read the ordering
-  # note before reading the position. These two precede every version
-  # this repository had registered until now, so they are inserted at
-  # the FRONT rather than appended. The append-only rule above is about
+  # note before reading the position. These THREE (25.000, 25.100 and
+  # 26.000) precede every version this repository had registered until
+  # now, so they are inserted at the FRONT rather than appended. The append-only rule above is about
   # never DROPPING a version (CLAUDE.md invariant 4), not about the end of the
   # list: the list is ordered by RELEASE order and a build obtained
   # later can belong earlier, which is exactly what happened when the
   # February 2026 build arrived after the May one and took the earlier
   # index.
   #
-  # Why they are here at all: they are the builds the author's PUBLISHED
-  # work was run on. 25.000 and 25.100 carried two AIAA Aviation 2025
-  # papers and 26.100 the AIAA AVIATION 2026 one, so a reader
-  # reproducing any of them needs the identifier to exist and to resolve
-  # to a build number they can check against their own install. That is
-  # a reproducibility requirement rather than a coverage one, and it is
-  # why registering them precedes probing them.
+  # Why they are here at all: two of the three are builds the author's
+  # PUBLISHED work was run on. 25.000 and 25.100 carried two AIAA
+  # Aviation 2025 papers, so a reader reproducing either needs the
+  # identifier to exist and to resolve to a build number they can check
+  # against their own install. That is a reproducibility requirement
+  # rather than a coverage one, and it is why registering them precedes
+  # probing them. 26.000 is here for continuity of the series rather
+  # than for a paper.
   # THESE THREE CARRIED NO BUILD NUMBER FOR ONE EVENING, and the reason
   # is worth keeping because two wrong diagnoses were written down
   # before the right one, one of them in this file.
@@ -62,6 +70,7 @@ versions:
     # sweep cannot read it; the archive extracts to HTML topics and the
     # command surface is readable that way (RPT-023).
     build: "12162024"
+    prints: "25.0"
     # The 25 series checks out an EDU licence rather than the full
     # feature set: the banner reports the feature and Altair units
     # checkouts unavailable and the EDU checkout successful. What an EDU
@@ -71,6 +80,7 @@ versions:
     alias: "25.1"
     # reports/compat/CMP-25100_2026-08-09_identity.yaml
     build: "5062025"
+    prints: "25.1"
   - canonical: "26.000"
     alias: "26.0"
     # reports/compat/CMP-26000_2026-08-09_identity.yaml
@@ -79,6 +89,7 @@ versions:
     # the boundary that RPT-023 measured falls between 25.100 and this
     # entry rather than at a series edge.
     build: "10202025"
+    prints: "26.0"
   # RENUMBERED 2026-08-04, and read this before reading any 26.1x
   # evidence dated earlier. Until that date this repository's "26.100"
   # meant vendor build 5012026, a May 2026 install. The author then
@@ -106,6 +117,7 @@ versions:
     # RPT-018 and with the author's own record of the build she wrote
     # the AIAA AVIATION 2026 paper on.
     build: "2122026"
+    prints: "26.1"
   - canonical: "26.101"
     alias: "26.1"
     # reports/physics/PHY-26100_2026-07-21_smi01-triage-rerun.yaml, whose
@@ -114,6 +126,7 @@ versions:
     # the version it records deliberately disagree here; the report's own
     # dated banner says so.
     build: "5012026"
+    prints: "26.1"
     # NOT a hotfix of 26.100, although it sits at a hotfix index. 26.100
     # is the February 2026 build and this is the May one: two releases
     # the vendor shipped under the one name "26.1", with different
@@ -127,6 +140,7 @@ versions:
     alias: "26.12"
     # reports/compat/CMP-26120_2026-07-21_full.yaml
     build: "7012026"
+    prints: "26.1"
   # The vendor ships this hotfix build under the SAME release name as
   # 26.120, so the alias below is deliberately NOT unique. Recording the
   # vendor's own name is the point; the ambiguity is refused at
@@ -135,6 +149,7 @@ versions:
     alias: "26.12"
     # reports/compat/CMP-26121_2026-08-02_full.yaml
     build: "7262026"
+    prints: "26.1"
     # A real hotfix of 26.120: same release, one manual re-issue apart
     # (413 pages against 410, every SRC-003 page shifted by +3), so a
     # command 26.120 records and this build does not re-probe is

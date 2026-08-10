@@ -42,10 +42,57 @@ EXAMPLE_EXTRAS: dict[str, frozenset[str]] = {
 GATED_SUBPACKAGES = {"pyflightstream.fsi": "fsi", "pyflightstream.probes.geometry": "geom"}
 
 
+#: Scratch trees a run creates at whatever its working directory is.
+#: Gitignored, so the closure below cannot see them, and still a
+#: finding at the ROOT: one here means a test ran in the wrong place.
+SCRATCH_ROOTS = ("runs", "site_check")
+
+
 def _root_artifacts() -> list[str]:
-    """Names of the artifacts an example or a docs block leaves at the root."""
-    found = [path.name for path in REPO.glob("*.png")]
-    found += [name for name in ("runs", "site_check") if (REPO / name).exists()]
+    """Names of everything at the repository root that nothing accounts for.
+
+    DERIVED, not enumerated. The first version listed the artifact kinds
+    it knew about (``*.png``, then two directory names), so it could
+    only ever catch a leftover somebody had already met. On 2026-08-09 a
+    solver run left a file called ``CLOSE_FLIGHTSTREAM`` at the root,
+    named after the command it had eaten as an export filename, and this
+    guard did not see it: it was committed, and the artifact of the
+    defect this release fixes nearly shipped inside the release that
+    fixes it.
+
+    So the question is closed instead of sampled. A path at the root is
+    accounted for when git tracks it or when git ignores it; anything
+    else is something a run left behind, whatever it is called. That
+    also means a genuinely new file must be added or ignored
+    deliberately, which is the same discipline applied to the tree.
+    """
+    tracked = subprocess.run(
+        ["git", "ls-files", "-z", "--", ":(top)*"],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split("\0")
+    known = {name.split("/", 1)[0] for name in tracked if name}
+
+    found = []
+    for path in sorted(REPO.iterdir()):
+        if path.name in known or path.name == ".git":
+            continue
+        ignored = subprocess.run(
+            ["git", "check-ignore", "-q", path.name], cwd=REPO, capture_output=True
+        )
+        if ignored.returncode != 0:
+            found.append(path.name)
+
+    # And the scratch roots, which ARE ignored and are still findings
+    # HERE. Being ignored answers "may this be committed"; this guard
+    # asks the different question of whether a test ran with the
+    # repository as its working directory, and a scratch tree at the
+    # root is the evidence that one did. Dropping these when the closure
+    # above arrived would have traded a specific catch for a general
+    # one, so both questions are asked.
+    found += [name for name in SCRATCH_ROOTS if (REPO / name).exists()]
     return sorted(found)
 
 

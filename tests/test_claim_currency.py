@@ -15,6 +15,7 @@ establish.
 """
 
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -326,3 +327,103 @@ def test_every_home_carries_the_qualifiers_and_the_same_residual_bases() -> None
         "the same set of bases that covers it, or they drift. They drifted five times "
         "during the v0.4.0 release."
     )
+
+
+#: Prose that a reader may act on, as opposed to a dated record of what
+#: once happened. CHANGELOG entries and everything under reports/ are
+#: excluded deliberately: a released section and a committed report state
+#: what was true on their date, and correcting one would be rewriting
+#: history rather than fixing a claim.
+_LIVE_PROSE = (
+    "README.md",
+    "CONTRIBUTING.md",
+    "docs",
+    "guide",
+    "examples",
+    "src",
+)
+
+
+def _live_prose_files() -> list[Path]:
+    """Tracked files whose text a reader may act on today."""
+    root = Path(__file__).resolve().parent.parent
+    tracked = subprocess.run(
+        ["git", "ls-files", *_LIVE_PROSE],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split()
+    suffixes = {".md", ".py", ".tex", ".yaml", ".yml", ".txt"}
+    return [root / name for name in tracked if Path(name).suffix in suffixes]
+
+
+def test_this_guard_reads_a_population_it_could_fail_on() -> None:
+    """Non-vacuity: a broken file list would make the sweep below pass."""
+    files = _live_prose_files()
+    assert len(files) > 50, f"only {len(files)} live prose files found; the listing broke"
+    assert any(path.name == "pyflightstream_user_guide.tex" for path in files)
+    assert any(path.name == "steady_polar.py" for path in files)
+
+
+def test_no_live_prose_states_the_script_argument_with_two_dashes() -> None:
+    """The spelling is a fact about builds and lives in ONE place.
+
+    `pyflightstream.run.SCRIPT_ARGUMENT` is the home and
+    `describe_invocation()` is how a report states it, but prose is not
+    reached by either: the user guide and one example each announced the
+    invocation in their own words, and both went on saying two dashes
+    after the code stopped. A reader following the guide by hand on a
+    25.x install would get the failure this release exists to remove,
+    and would get it as a hang with a clean licence checkout, which is
+    the least diagnosable form it takes.
+
+    Two dashes work from 26.000 onward, so this is not a wrong command
+    for most readers. It is a wrong command for exactly the readers with
+    the oldest installs, who have the least recourse.
+    """
+    # Derived from the constant, never from yesterday's wrong spelling.
+    # The first version forbade the literal `--script`, which catches the
+    # 2026-08-09 defect and nothing after it: change SCRIPT_ARGUMENT
+    # again and every page still printing the old value passes, which is
+    # the same drift one turn later.
+    from pyflightstream.run import SCRIPT_ARGUMENT
+
+    # One file may write another spelling, and only one: the home of the
+    # constant, where the difference between them is the subject.
+    # Anywhere else it is an instruction, and a reader follows it.
+    home = Path("src/pyflightstream/run/__init__.py")
+    written = re.compile(r"-{1,2}script\w*")
+    offenders = []
+    for path in _live_prose_files():
+        if path.as_posix().endswith(home.as_posix()):
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for number, line in enumerate(text.splitlines(), start=1):
+            for found in written.findall(line):
+                if found != SCRIPT_ARGUMENT:
+                    offenders.append(f"{path.name}:{number}: {found} in {line.strip()[:80]}")
+    assert not offenders, (
+        "\n  " + "\n  ".join(offenders) + f"\n\nThe script argument is {SCRIPT_ARGUMENT!r} "
+        "(pyflightstream.run.SCRIPT_ARGUMENT). Live prose states the current value or "
+        "does not state one; a page carrying a spelling the package no longer passes "
+        "teaches a reader a command line that hangs on the builds it is wrong for, "
+        "with a clean licence checkout and an empty log (RPT-023)."
+    )
+
+
+def test_the_home_of_the_constant_still_explains_the_other_spelling() -> None:
+    """The one exemption above must be earning itself.
+
+    `run/__init__.py` is allowed to write the two-dash form because it
+    is where the difference is explained. If that explanation is ever
+    deleted, the exemption becomes a hole rather than a carve-out, and
+    the file could quietly go back to instructing readers wrongly.
+    """
+    home = Path(__file__).resolve().parents[1] / "src" / "pyflightstream" / "run" / "__init__.py"
+    text = home.read_text(encoding="utf-8")
+    assert "--script" in text, (
+        "the constant's home no longer discusses the two-dash spelling, so the "
+        "exemption in the guard above protects nothing; drop the exemption"
+    )
+    assert "RPT-023" in text, "the explanation no longer cites the measurement behind it"
