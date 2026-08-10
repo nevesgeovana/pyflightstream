@@ -28,6 +28,7 @@ from pyflightstream.qa import physics as _physics
 from pyflightstream.qa import specs as _specs
 from pyflightstream.script import entities as _entities
 from pyflightstream.script import solver_setup as _solver_setup
+from pyflightstream.utils import manual as _manual
 
 
 def _mutable_module_state() -> list[dict]:
@@ -51,6 +52,11 @@ def _mutable_module_state() -> list[dict]:
         _entities._NOUNS,
         _options._REGISTRY,
         _options._VALUES,
+        # The reach record of the last citation check, written as a side
+        # effect of `stale_citations` and read by the CLI afterwards. It
+        # joined on 2026-08-10, one commit after it was created, which
+        # is one commit later than the paragraph above asks for.
+        _manual.citation_reach,
         # Cached mutable objects: the cache keeps returning the same
         # dict, so an in-place mutation outlives the test that made it.
         CommandRegistry.load().commands,

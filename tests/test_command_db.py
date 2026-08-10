@@ -906,10 +906,17 @@ def test_every_evidence_citation_falls_inside_its_edition_page_range():
     # that mapping at all appears on neither side, so the comparison
     # would agree about a build it never saw. Every build has a row
     # today, which is what this asserts rather than assumes.
-    assert len(declared) == len(known_versions()), (
-        f"{len(declared)} editions declare a source id and {len(known_versions())} "
-        "builds are registered; a build with no manual_editions entry is invisible "
-        "to the comparison below, which reads that same mapping on both sides"
+    # By NAME, not by count, which is the weakening this repository had
+    # just been corrected for elsewhere and which this line reproduced:
+    # a count encodes the unstated invariant "exactly one distinct source
+    # id per build" and names nobody when it fires.
+    registered = {version.canonical for version in known_versions()}
+    assert set(manual_editions()) == registered, (
+        f"these builds have no manual_editions entry: "
+        f"{sorted(registered - set(manual_editions()))}; and these entries name no "
+        f"registered build: {sorted(set(manual_editions()) - registered)}. Either way "
+        "the comparison below reads that mapping on both sides, so such a build is "
+        "invisible to it"
     )
     assert sorted(ranges) == sorted(declared), (
         f"the guard read ranges for {sorted(ranges)} and the registry declares "

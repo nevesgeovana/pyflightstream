@@ -33,9 +33,11 @@ from pyflightstream.utils import (
     stale_citations,
     surface_changes,
     sweep_editions,
+    unreachable_commands,
 )
 from pyflightstream.utils.cli import main as cli_main
 from pyflightstream.utils.errors import ManualDraftError
+from pyflightstream.utils.manual import citation_reach
 
 INDEX_PAGE = """376
 Script Index
@@ -1051,10 +1053,10 @@ def test_only_a_line_of_pure_placeholders_continues_a_signature(following):
 # ---------------------------------------------------------------------
 
 
-def _edition(tmp_path, label, chapter, index=None):
+def _edition(tmp_path, label, chapter, index=None, source=None):
     manual = tmp_path / f"{label}.pdf"
     manual.write_bytes(b"not a pdf; the reader is injected")
-    return Edition(label=label, manual=manual, chapter=chapter, index=index)
+    return Edition(label=label, manual=manual, chapter=chapter, index=index, source=source)
 
 
 def _recording_reader(pages):
@@ -1651,24 +1653,31 @@ def test_a_page_span_is_satisfied_by_either_page(tmp_path):
     wrong whenever the heading sits on the second. Both halves are
     pinned here: the span is accepted, and either page satisfies it.
     """
-    pages = {
-        "ed": {
-            7: {7: "Function name: ON_SEVEN <A>\n", 8: "Function name: ON_EIGHT <A>\n"},
-        }
-    }
-
-    def read(manual, *, first, last):
-        return {page: pages["ed"][7][page] for page in range(first, last + 1)}
-
+    read, calls = _recording_reader(
+        {"ed": {7: {7: "Function name: ON_SEVEN <A>\n", 8: "Function name: ON_EIGHT <A>\n"}}}
+    )
     registry = _FakeRegistry(
         {
             "ON_SEVEN": _Entry({"ed": _Row(note="SRC-999 pp.7-8, this edition")}),
             "ON_EIGHT": _Entry({"ed": _Row(note="SRC-999 pp.7-8, this edition")}),
         }
     )
-    edition = Edition(label="ed", manual=tmp_path / "ed.pdf", chapter=(7, 8), source="SRC-999")
-    (tmp_path / "ed.pdf").write_bytes(b"injected reader")
+    edition = _edition(tmp_path, "ed", (7, 8), source="SRC-999")
     assert stale_citations([edition], recorded=registry, reader=read) == ()
+    # The recording reader is used rather than a local one so the range
+    # asked for is visible: a reader returning the same text for every
+    # page would let this pass while the check read the wrong pages.
+    assert calls == [("ed", 7, 8)]
+    # ASSERT THE REACH, NOT THE SILENCE. Narrowing the pattern from `pp?`
+    # to `p` also produces no findings, because every span row then
+    # fails to match and is skipped, and an empty tuple cannot tell a
+    # span that was read from one that was never looked at.
+    assert citation_reach == {"ed": [2, 2]}
+
+    # And the span must still be able to FAIL, on a page outside it.
+    outside = _FakeRegistry({"ON_SEVEN": _Entry({"ed": _Row(note="SRC-999 pp.4-5, this edition")})})
+    (finding,) = stale_citations([edition], recorded=outside, reader=read)
+    assert (finding.cited, finding.found, finding.reason) == (4, 7, "moved")
 
 
 def test_a_citation_naming_another_edition_is_a_finding(tmp_path):
@@ -1790,3 +1799,163 @@ def test_the_real_registry_satisfies_the_protocol_the_checks_declare():
     # than silence in the report.
     assert hasattr(row, "note")
     assert hasattr(row.status, "value")
+
+
+def _reg(commands, view=None):
+    """A registry double carrying the two attributes the checks read."""
+
+    class _R:
+        def __init__(self):
+            self.commands = commands
+
+        def for_version(self, label):
+            if view is None:
+                raise ValueError(f"FlightStream version {label!r} is not registered")
+            return view
+
+    return _R()
+
+
+class _View:
+    """A version view that refuses the names it was told to refuse."""
+
+    def __init__(self, refuses=()):
+        self._refuses = set(refuses)
+
+    def __getitem__(self, name):
+        if name in self._refuses:
+            raise _RefusalError(f"{name} has no recorded evidence")
+        return name
+
+
+class _RefusalError(Exception):
+    """Stands in for CommandNotInVersionError, which this layer cannot import."""
+
+
+_RefusalError.__name__ = "CommandNotInVersionError"
+
+
+def test_a_documented_command_with_no_entry_is_unreachable(tmp_path):
+    """The first of the two reasons, and the one the sweep already saw."""
+    read, _calls = _recording_reader({"ed": {1: {1: "Function name: NOT_IN_THE_DATABASE <A>\n"}}})
+    (found,) = unreachable_commands(
+        [_edition(tmp_path, "ed", (1, 1))], recorded=_reg({}, _View()), reader=read
+    )
+    assert (found.command, found.reason) == ("NOT_IN_THE_DATABASE", "no entry")
+
+
+def test_an_entry_with_no_row_for_the_edition_is_unreachable(tmp_path):
+    """The second reason, and the one the coverage sweep is blind to.
+
+    This is the whole point of the measure: the entry EXISTS, so a
+    comparison of entry names reports nothing, while the build cannot
+    emit a command its own manual documents.
+    """
+    read, _calls = _recording_reader({"ed": {1: {1: "Function name: HAS_AN_ENTRY <A>\n"}}})
+    (found,) = unreachable_commands(
+        [_edition(tmp_path, "ed", (1, 1))],
+        recorded=_reg({"HAS_AN_ENTRY": object()}, _View(refuses=["HAS_AN_ENTRY"])),
+        reader=read,
+    )
+    assert (found.command, found.reason) == ("HAS_AN_ENTRY", "refused")
+
+
+def test_a_command_reachable_only_by_inheritance_is_not_reported(tmp_path):
+    """The control a row-counting implementation would get wrong.
+
+    Reachability is the measure and row presence is not, because a
+    genuine hotfix carries its base release's records: 26.122 holds
+    twenty direct rows and reaches 375, so counting rows would report it
+    as missing hundreds.
+    """
+    read, _calls = _recording_reader({"ed": {1: {1: "Function name: INHERITED <A>\n"}}})
+    assert (
+        unreachable_commands(
+            [_edition(tmp_path, "ed", (1, 1))],
+            recorded=_reg({"INHERITED": object()}, _View()),
+            reader=read,
+        )
+        == ()
+    )
+
+
+def test_an_unregistered_build_is_swept_and_reported_rather_than_raising(tmp_path):
+    """Reading a new manual before registering the build is the first workflow.
+
+    `Edition.label` promises that nothing resolves it against the
+    version registry. Asking for a version view does resolve it, so
+    this reports the label as unmeasurable instead of letting an
+    UnknownVersionError out of a CLI, which is what it did for one
+    commit.
+    """
+    read, _calls = _recording_reader({"ed": {1: {1: "Function name: ANY_COMMAND <A>\n"}}})
+    (found,) = unreachable_commands(
+        [_edition(tmp_path, "ed", (1, 1))], recorded=_reg({}), reader=read
+    )
+    assert found.reason == "build not registered"
+
+
+def test_the_reachability_check_refuses_a_configuration_that_would_read_clean(tmp_path):
+    """Same two refusals as its siblings, for the same reason."""
+    read, _calls = _recording_reader({"ed": {1: {1: "Function name: A <X>\n"}}})
+    with pytest.raises(ManualDraftError, match="at least one edition"):
+        unreachable_commands([], recorded=_reg({}, _View()), reader=read)
+    with pytest.raises(ManualDraftError, match="more than one edition the label"):
+        unreachable_commands(
+            [_edition(tmp_path, "ed", (1, 1)), _edition(tmp_path, "ed", (1, 1))],
+            recorded=_reg({}, _View()),
+            reader=read,
+        )
+
+
+def test_the_sweep_fails_on_a_row_level_gap_alone(tmp_path, monkeypatch, capsys):
+    """The second half of the disjunction, which the first hid.
+
+    `--fail-if-absent` reads `absent or unreachable`, and the test that
+    covered it used a command that is both, so either half could be
+    deleted with a green suite. This uses a command the database HAS an
+    entry for and no row for on the swept build: absent is empty and the
+    run must still fail, which is the whole reason the second measure
+    exists.
+    """
+    monkeypatch.chdir(tmp_path)
+    manifest = _manifest(
+        tmp_path, '- label: "25.000"\n  source: SRC-749\n  manual: x.pdf\n  chapter: 10-10\n'
+    )
+    # IMPORT_CAD is in the database and deliberately carries no 25.000
+    # row, its older editions using a layout a version row cannot
+    # express (PLN-20260810-1200).
+    monkeypatch.setattr(
+        "pyflightstream.utils.manual.read_pdf_pages",
+        lambda manual, *, first, last: {10: "Function name: IMPORT_CAD <A>\n"},
+    )
+    assert cli_main(["sweep", "--editions", str(manifest), "--fail-if-absent"]) == 1
+    out = capsys.readouterr().out
+    assert "0 command(s) absent" in out
+    assert "cannot emit" in out
+
+
+def test_an_edition_read_with_no_rows_is_not_reported_as_missing_from_the_manifest(
+    tmp_path, monkeypatch, capsys
+):
+    """Two states the report used to print as one, and it printed the wrong one.
+
+    The reach dict only gained a key inside the walk over the database,
+    so a manifest edition that no entry has a row for never entered it,
+    and the CLI then said "no manifest row for" a build whose manual it
+    had just read. That is the same hiding the reach counter was added
+    to end, one level down.
+    """
+    monkeypatch.chdir(tmp_path)
+    manifest = _manifest(
+        tmp_path,
+        '- label: "26.130"\n  source: SRC-999\n  manual: x.pdf\n  chapter: 10-10\n',
+    )
+    monkeypatch.setattr(
+        "pyflightstream.utils.manual.read_pdf_pages",
+        lambda manual, *, first, last: {10: "Function name: START_SOLVER <A>\n"},
+    )
+    cli_main(["citations", "--editions", str(manifest)])
+    out = capsys.readouterr().out
+    assert "26.130  0 of 0   <- read, and no entry carries a row for it" in out
+    assert "no manifest row for 26.130" not in out

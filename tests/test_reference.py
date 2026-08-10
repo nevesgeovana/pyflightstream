@@ -14,6 +14,23 @@ from pyflightstream.reference import (
 )
 
 
+def _registered_sources() -> set[str]:
+    """Every source id the registry declares, derived from the registry.
+
+    A literal list of them went stale the moment a build was registered,
+    twice, so the population comes from the same place the pages do.
+    """
+    import re
+
+    from pyflightstream.versions import manual_editions
+
+    return {
+        match.group(1)
+        for text in manual_editions().values()
+        if (match := re.match(r"\s*(SRC-\d{3})", text))
+    }
+
+
 def test_render_html_covers_the_whole_database():
     page = render_html()
     assert page.startswith("<!DOCTYPE html>")
@@ -120,15 +137,20 @@ def test_markdown_index_carries_the_manual_coverage_section():
     assert "SRC-003 pp.341-343" in index
     assert "## Manual coverage" in index
     assert "not yet cited" in index
-    # Every registered edition answers. Two of the four stopped answering
-    # when the February and May editions were registered with prose that
-    # named their chapter start and no closed range, and the section
-    # printed "no gap listing can be computed for it" for both: the
-    # published page went quiet on half the manuals in the same change
-    # that added the tool for reading them. The assertion is on the four
-    # source ids rather than on the absence of that sentence, because
-    # absence is what it was asserting before, from the other side.
-    for source in ("SRC-741", "SRC-725", "SRC-003", "SRC-740"):
+    # EVERY REGISTERED EDITION ANSWERS, derived rather than listed. Two
+    # of the then four stopped answering when the February and May
+    # editions were registered with prose naming their chapter start and
+    # no closed range, and the section printed "no gap listing can be
+    # computed for it" for both: the published page went quiet on half
+    # the manuals in the same change that added the tool for reading
+    # them. The assertion is on the source ids rather than on the
+    # absence of that sentence, because absence is what it was asserting
+    # before, from the other side.
+    #
+    # The four were hardcoded until 2026-08-10 and covered half the
+    # registered set by then, which is the same staleness the sibling
+    # guard in test_command_db.py had already been corrected for.
+    for source in _registered_sources():
         assert f"{source} scripting reference pages not yet cited" in index, (
             f"the manual-coverage section computes no gap listing for {source}; "
             "an edition registered without a closed page range goes silent here"
@@ -149,9 +171,15 @@ def test_coverage_gap_analysis_is_derived_not_guessed():
     assert {row[0] for row in rows} == {entry.chapter for entry in registry.commands.values()}
     assert sum(row[3] for row in rows) == len(registry.commands)
 
-    # The cited-page scan sees both registered manual sources.
+    # The cited-page scan sees every registered manual source, derived
+    # rather than listed: the pair that used to be named here covered
+    # two of eight editions by 2026-08-10.
     cited = _database_cited_pages()
-    assert "SRC-003" in cited and "SRC-725" in cited
+    missing = _registered_sources() - set(cited)
+    assert not missing, (
+        f"these registered editions contribute no cited page at all: {sorted(missing)}. "
+        "An edition nothing cites is one the coverage section can say nothing about"
+    )
 
     # Span collapsing is exact.
     assert _page_spans({300, 301, 302, 310}) == "300-302, 310"
@@ -573,3 +601,28 @@ def test_the_srs_data_model_table_agrees_with_the_status_legend():
     assert "does not carry the command" in legend["removed"]
     removed_row = next(line for line in rows if line.startswith("| removed |"))
     assert "does not carry the command" in removed_row
+
+
+def test_the_build_page_counts_the_shared_release_names_it_actually_shares():
+    """A derived number on a published page, which replaced a stale literal.
+
+    Changing the predicate from "more than one" to "at least one" makes
+    the page say every registered build shares its printed name, and
+    nothing noticed: replacing a hardcoded count with an unchecked
+    derivation is the same defect one step along.
+    """
+    from pyflightstream.reference import _sharing_a_printed_name
+    from pyflightstream.versions import known_versions
+
+    versions = known_versions()
+    shared = {
+        version.prints
+        for version in versions
+        if version.prints is not None
+        and sum(1 for other in versions if other.prints == version.prints) > 1
+    }
+    expected = sum(1 for version in versions if version.prints in shared)
+    assert _sharing_a_printed_name(versions) == expected
+    # And the figure itself, so the two computations cannot drift into
+    # agreeing on a wrong answer: the five 26.1x builds all print 26.1.
+    assert _sharing_a_printed_name(versions) == 5

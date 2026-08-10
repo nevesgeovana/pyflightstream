@@ -317,12 +317,15 @@ def _citations(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int
     # rows carry no checkable citation reads as fully checked inside a
     # total and is not checked at all; 26.120 is that build.
     for label, (rows, able) in citation_reach.items():
-        note = (
-            ""
-            if able
-            else "   <- nothing checkable here: these rows rest on the entry's own "
-            "manual_ref, and any that cite a page are removed rows this skips"
-        )
+        if rows == 0:
+            note = "   <- read, and no entry carries a row for it"
+        elif able == 0:
+            note = (
+                "   <- nothing checkable here: these rows rest on the entry's own "
+                "manual_ref, and any that cite a page are removed rows this skips"
+            )
+        else:
+            note = ""
         print(f"    {label}  {able} of {rows}{note}")
 
     # And the builds the manifest did not cover, the door `surface`

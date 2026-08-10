@@ -28,9 +28,17 @@ import pytest
 from pyflightstream.commands import CommandRegistry
 
 # command -> version -> the delta the manual pages showed, in the three
-# forms it takes: `names` for an argument a build does not take,
-# `enum:<arg>` for a value list that grew, `optional` for an argument a
-# newer build stopped requiring.
+# forms it takes: `names` for an argument set that differs, `enum:<arg>`
+# for a value set that differs, and `optional` for an argument a newer
+# build stopped requiring.
+#
+# `enum:` said "a value list that GREW" until 2026-08-10 and that was
+# wrong for two of the three rows it then carried:
+# SET_TRAILING_EDGE_TYPE on 26.100 SHRANK from four tokens to three, and
+# CREATE_NEW_MOTION on 26.100 renamed one, ROTARY becoming EUCLIDEAN.
+# Three more value deltas were missing from the table entirely, so the
+# claim below that this is the review record of every pair of pages read
+# twice was false while it was being made.
 PER_VERSION_GRAMMAR: dict[str, dict[str, dict[str, tuple[str, ...]]]] = {
     "CREATE_NEW_MOTION": {
         "26.100": {"enum:type": ("EUCLIDEAN", "6DOF", "CUSTOM")},
@@ -88,7 +96,15 @@ PER_VERSION_GRAMMAR: dict[str, dict[str, dict[str, tuple[str, ...]]]] = {
         },
     },
     "EXPORT_SOLVER_ANALYSIS_CSV": {
-        "25.000": {"names": ("filename", "format", "units", "surfaces", "boundary_indices")},
+        "25.000": {
+            "names": ("filename", "format", "units", "surfaces", "boundary_indices"),
+            "enum:format": (
+                "CP-FREESTREAM",
+                "CP-REFERENCE",
+                "PRESSURE",
+                "DIFFERENCE-PRESSURE",
+            ),
+        },
     },
     "FLUID_PROPERTIES": {
         version: {"names": ("density", "pressure", "sonic_velocity", "temperature", "viscosity")}
@@ -121,7 +137,15 @@ PER_VERSION_GRAMMAR: dict[str, dict[str, dict[str, tuple[str, ...]]]] = {
                     "wall_collision_avoidance",
                     "stabilization",
                     "stabilization_strength",
-                )
+                ),
+                "enum:solver_model": (
+                    "INCOMPRESSIBLE",
+                    "SUBSONIC_PRANDTL_GLAUERT",
+                    "TRANSONIC_FIELD_PANEL",
+                    "SUPERSONIC_LINEAR_DOUBLET",
+                    "TANGENT_CONE",
+                    "MODIFIED_NEWTONIAN",
+                ),
             }
             for version in ("25.100", "26.000")
         },
@@ -372,11 +396,18 @@ def test_every_field_an_override_leaves_unstated_is_filled_from_the_base():
                             "value; an override states its difference and inherits "
                             "everything else"
                         )
-    assert checked >= 25, (
-        f"only {checked} inherited fields were checked, and 29 argument fields "
-        "inherit in the shipped database. A drop means the overrides now restate "
-        "what they used to inherit, which is the shape this guard exists to stop, "
-        "or that this walk stopped reaching the chapter files"
+    # 33 fields inherit in the shipped database, distributed cites 12,
+    # unit 12, separator 7 and joins_previous 2. The floor was written
+    # as 25 against a stated 29, so its message contradicted its own
+    # output and its slack was 8 rather than the 4 intended: a 24
+    # percent silent-drop budget on a guard whose subject is drops.
+    # Deleting a whole ROW is caught by the set assertion above, so this
+    # floor's real job is only that the walk still reaches the chapter
+    # files, and it sits near the true value.
+    assert checked >= 30, (
+        f"only {checked} inherited fields were checked, and 33 inherit in the "
+        "shipped database. A drop means the overrides now restate what they used "
+        "to inherit, or that this walk stopped reaching the chapter files"
     )
 
 
@@ -399,3 +430,70 @@ def test_each_override_leaves_optional_exactly_what_this_table_says():
                 f"says {expected}. A change here is a claim about a call form the "
                 "manual prints, so it moves with the page rather than with the code"
             )
+
+
+#: The only two fields on which an override argument ever differs from
+#: the base argument of the same name, measured across the whole shipped
+#: database on 2026-08-10: `required` in three places and `values` in
+#: six. Every other field is identical everywhere.
+_FIELDS_A_DELTA_MAY_TOUCH = frozenset({"required", "values"})
+
+#: Every field an ArgSpec carries that the check below compares.
+_COMPARED_FIELDS = (
+    "type",
+    "values",
+    "required",
+    "unit",
+    "separator",
+    "cites",
+    "own_line",
+    "joins_previous",
+    "on_command_line",
+    "fixed_length",
+    "all_sentinel",
+)
+
+
+def test_an_override_differs_from_its_base_only_where_a_delta_table_says_so():
+    """Everything the two delta tables do not name, pinned in one loop.
+
+    `PER_VERSION_GRAMMAR` pins argument NAMES and value sets;
+    `PER_VERSION_OPTIONAL` pins optionality. Between them they leave
+    `type`, `unit`, `separator`, `cites`, `own_line`, `joins_previous`,
+    `on_command_line`, `fixed_length` and `all_sentinel` unguarded
+    across 136 override argument declarations, and retyping one
+    argument of one build from int to float left the whole tier 1 suite
+    green while making the emitter render 3.0 where that build's page
+    prints 3.
+
+    Closed as one loop rather than nine table columns because the data
+    allows it: measured over the shipped database, an override differs
+    from its base on `required` and `values` and on nothing else, ever.
+    A tenth field starting to differ is a finding for a reader, which is
+    what this says when it fires.
+    """
+    registry, found = _overrides()
+    compared = 0
+    for command, rows in sorted(found.items()):
+        base = {arg.name: arg for arg in registry.commands[command].args}
+        for version, args in sorted(rows.items()):
+            for arg in args:
+                inherited = base.get(arg.name)
+                if inherited is None:
+                    continue
+                for field in _COMPARED_FIELDS:
+                    if field in _FIELDS_A_DELTA_MAY_TOUCH:
+                        continue
+                    compared += 1
+                    assert getattr(arg, field) == getattr(inherited, field), (
+                        f"{command} on {version} gives {arg.name!r} a different {field!r} "
+                        f"from the base grammar. Only required and values have ever "
+                        "differed in this database; a change here is either a manual "
+                        "claim that needs its page and a line in a delta table, or an "
+                        "edit nobody meant"
+                    )
+    assert compared > 900, (
+        f"only {compared} field comparisons ran over the override arguments, and the "
+        "shipped database has 136 of them across nine compared fields. A drop means "
+        "the walk stopped reaching the overrides"
+    )

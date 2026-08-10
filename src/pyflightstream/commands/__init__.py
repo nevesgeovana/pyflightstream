@@ -841,11 +841,18 @@ class CommandEntry(BaseModel):
             override = row.get("args") if isinstance(row, dict) else None
             if not isinstance(override, list):
                 continue
-            # A NEW list of NEW dicts, never a write into the caller's.
-            # Validation that edits its input is a side effect no
-            # signature declares, and setdefault would alias a mutable
-            # value such as an enum's `values` list between the base row
-            # and every override that inherits it.
+            # A NEW list of NEW dicts. The aliasing hazard is what this
+            # is for: `setdefault` shared a mutable value such as an
+            # enum's `values` list between the base row and every
+            # override inheriting it, so a later edit of one changed all
+            # of them.
+            #
+            # It still REBINDS `row["args"]`, so the caller's mapping is
+            # written to and the earlier wording here, claiming no write
+            # at all, described code that does not exist. Contained on
+            # the load path, which builds its mapping fresh per file,
+            # and stated rather than left for the next reader to
+            # measure.
             filled = []
             for arg in override:
                 if not isinstance(arg, dict):

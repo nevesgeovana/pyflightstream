@@ -477,9 +477,11 @@ def _coverage_notes() -> list[str]:
             )
     notes.append(
         "Each chapter header states whether the chapter is complete for its "
-        f"page range, against the {len(manual_editions())} editions registered "
-        "when the header was last stamped; a header naming a smaller number "
-        "predates a build that has since joined. Read a cited page as "
+        "page range, and each says how many editions it was stamped "
+        "against. A header naming fewer than the registered count predates "
+        "a build that has since joined; no number is interpolated here, "
+        "because the count that belongs in that sentence is the one the "
+        "header was written with and not today's. Read a cited page as "
         "cited rather than as exhausted: the claim is that the commands the "
         "editions document are recorded, not that nothing else could be on "
         "the page. Manual areas outside the scripting chapters (GUI "
@@ -998,12 +1000,23 @@ def markdown_compatibility_matrix() -> str:
     return "\n".join(lines)
 
 
-def _sharing_a_printed_name(versions) -> int:
+def _sharing_a_printed_name(versions: tuple[FsVersion, ...]) -> int:
     """Count the builds whose printed release name another build shares.
 
     Derived rather than written down: the figure moved from four to five
     the day 26.122 was registered, and the sentence carrying it as a
     literal sat seven lines from the code that computes the same set.
+
+    Parameters
+    ----------
+    versions : tuple of FsVersion
+        The registered builds, in release order.
+
+    Returns
+    -------
+    int
+        How many of them print a release name at least one other build
+        also prints. Zero when every build prints a distinct name.
     """
     return sum(
         1

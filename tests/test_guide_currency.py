@@ -366,11 +366,13 @@ def test_the_pitfall_table_names_the_builds_the_database_calls_broken():
         # probe it broken, and "both" silently came to mean three while
         # the guide still said two; give the entry a `documented` record
         # on an older release, and the guard went red on a correct guide.
-        broken_versions = {
-            canonical
-            for canonical, record in entry.versions.items()
-            if record.status is Status.BROKEN
-        }
+        # The same set `measured` holds, rather than a second
+        # computation of it. This read direct rows while `measured`
+        # moved to reachability, so the word "both" could have resolved
+        # against one number while the cell was checked against another.
+        # No cell says "both" today, which is exactly how a disagreement
+        # like that survives until one does.
+        broken_versions = measured
         starred = {
             token for token in CANONICAL.findall(cell.replace("*", "* ")) if f"{token}*" in cell
         }

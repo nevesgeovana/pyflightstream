@@ -651,3 +651,53 @@ def test_the_atmosphere_helper_names_the_build_when_the_fifth_property_is_wrong(
             temperature=1.0,
             viscosity=1.0,
         )
+
+
+def _builds_where_air_altitude_works() -> list[str]:
+    """Every registered build whose AIR_ALTITUDE row is not `broken`.
+
+    Derived rather than listed, because the list is exactly what moves:
+    the command is broken on four builds today, one of them inheriting
+    that from its base, and a hardcoded set would either go stale or
+    silently stop covering a build.
+    """
+    from pyflightstream.commands import CommandRegistry, Status
+    from pyflightstream.versions import known_versions
+
+    entry = CommandRegistry.load().commands["AIR_ALTITUDE"]
+    working = []
+    for version in known_versions():
+        evidence = entry.evidence_in(version)
+        if evidence is None or evidence.record.status is Status.BROKEN:
+            continue
+        working.append(version.canonical)
+    return working
+
+
+@pytest.mark.parametrize("canonical", _builds_where_air_altitude_works())
+def test_the_altitude_path_emits_on_every_build_whose_command_works(canonical):
+    """Parametrised over the builds, which is what would have caught it.
+
+    The version dispatch added on 2026-08-10 was tested only on the half
+    of this helper's signature it touched, and the other half was broken
+    on 25.000 the whole time: that build's AIR_ALTITUDE takes a bare
+    value and the helper always passed a units token, so there was no
+    call to `atmosphere(script, altitude=...)` that worked there at all.
+    The database already recorded the one-argument grammar four lines
+    from the one the fix was written for.
+    """
+    script = Script(version=canonical)
+    helpers.atmosphere(script, altitude=1000.0)
+    lines = [line for line in script.render().splitlines() if line and not line.startswith("#")]
+    assert lines[0].startswith("AIR_ALTITUDE 1000")
+
+
+def test_the_altitude_units_token_is_refused_where_the_build_takes_none():
+    """Refused rather than dropped, because the unit is undocumented there.
+
+    25.000 reads the bare number in some unit its manual does not name.
+    Emitting the value and discarding the token would silently give a
+    caller who asked for FEET an altitude in whatever that unit is.
+    """
+    with pytest.raises(CommandArgumentError, match="takes AIR_ALTITUDE with a bare value"):
+        helpers.atmosphere(Script(version="25.000"), altitude=1000.0, altitude_units="FEET")

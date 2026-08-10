@@ -304,7 +304,7 @@ def atmosphere(
     script: Script,
     *,
     altitude: float | None = None,
-    altitude_units: str = "METERS",
+    altitude_units: str | None = None,
     density: float | None = None,
     pressure: float | None = None,
     temperature: float | None = None,
@@ -338,8 +338,15 @@ def atmosphere(
         Script under construction.
     altitude : float, optional
         Standard-atmosphere altitude, in ``altitude_units``.
-    altitude_units : str
-        ``METERS`` or ``FEET``.
+    altitude_units : str, optional
+        ``METERS`` or ``FEET``, defaulting to ``METERS`` on the builds
+        that take a units token. THE 25.000 BUILD TAKES NONE: its
+        AIR_ALTITUDE is a bare value (SRC-749 p.286), and which unit it
+        reads that number in is documented nowhere, so passing this on
+        that build is refused rather than silently dropped. The default
+        is None rather than ``METERS`` so an explicit pass can be told
+        from an omission; a caller who never passes it gets ``METERS``
+        wherever a token is emitted, which is what it always did.
     density : float, optional
         Fluid density in kg/m^3.
     pressure : float, optional
@@ -372,7 +379,20 @@ def atmosphere(
                 "properties, not both: AIR_ALTITUDE already sets the whole standard "
                 "atmosphere state (SRC-003 p.328)"
             )
-        script.emit("AIR_ALTITUDE", altitude, altitude_units)
+        takes_units = "units" in {arg.name for arg in script._view["AIR_ALTITUDE"].args}
+        if not takes_units:
+            if altitude_units is not None:
+                raise CommandArgumentError(
+                    f"atmosphere: FlightStream {script.version.canonical} takes "
+                    "AIR_ALTITUDE with a bare value and no units token, so "
+                    "altitude_units has nothing to emit into. Which unit that build "
+                    "reads the number in is not documented, so this refuses rather "
+                    "than guessing; pass the fluid properties instead if the unit "
+                    "matters"
+                )
+            script.emit("AIR_ALTITUDE", altitude)
+            return
+        script.emit("AIR_ALTITUDE", altitude, altitude_units or "METERS")
         return
     if unwanted is not None:
         other = "sonic_velocity" if takes_ratio else "specific_heat_ratio"

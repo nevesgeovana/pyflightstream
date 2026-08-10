@@ -841,6 +841,15 @@ def surface_changes(surfaces: Mapping[str, Iterable[str]]) -> tuple[SurfaceChang
     return tuple(changes)
 
 
+#: What a version view raises for a command it does not carry. Matched
+#: by CLASS NAME rather than imported, because this module sits below
+#: `commands` in the dependency order. A bare `except Exception` was
+#: measured reporting a patched-in TypeError as "this build has no row",
+#: which would send a maintainer to add rows that already exist, so
+#: anything that is not the refusal propagates.
+_REFUSAL_NAME = "CommandNotInVersionError"
+
+
 @dataclass(frozen=True, kw_only=True)
 class UnreachableCommand:
     """A command an edition documents that its build cannot emit.
@@ -937,7 +946,26 @@ def unreachable_commands(
         printed = parse_signatures(
             read(edition.manual, first=edition.chapter[0], last=edition.chapter[1])
         )
-        view = recorded.for_version(edition.label)
+        # AN UNREGISTERED BUILD IS SWEPT, NOT REFUSED. Reading a new
+        # vendor manual before the build is registered is this tool's
+        # first workflow and `Edition.label` promises it: nothing
+        # resolves the label against the version registry. Asking for a
+        # version view does resolve it, so an unregistered label is
+        # reported as unmeasurable rather than raised out of a CLI,
+        # which is what it did for one commit.
+        try:
+            view = recorded.for_version(edition.label)
+        except Exception as unregistered:  # noqa: BLE001 - the type lives a layer above
+            if "not registered" not in str(unregistered):
+                raise
+            found.append(
+                UnreachableCommand(
+                    command="(every command)",
+                    edition=edition.label,
+                    reason="build not registered",
+                )
+            )
+            continue
         for name in sorted(printed):
             if name not in entries:
                 found.append(
@@ -946,7 +974,9 @@ def unreachable_commands(
                 continue
             try:
                 view[name]
-            except Exception:  # noqa: BLE001 - the refusal type lives a layer above
+            except Exception as refusal:  # noqa: BLE001 - the type lives a layer above
+                if type(refusal).__name__ != _REFUSAL_NAME:
+                    raise
                 found.append(
                     UnreachableCommand(command=name, edition=edition.label, reason="refused")
                 )
@@ -1138,7 +1168,14 @@ def stale_citations(
         )
 
     sources = {edition.label: edition.source for edition in editions}
+    # CLEARED BEFORE THE READS, not after them. It sat after the loop
+    # that opens the manuals, so a run whose reader raised left the
+    # PREVIOUS manifest's numbers in place for a caller that caught the
+    # error and printed the reach.
     reach = citation_reach
+    reach.clear()
+    for edition in editions:
+        reach[edition.label] = [0, 0]
     surfaces: dict[str, dict[str, ManualCommand]] = {}
     for edition in editions:
         surfaces[edition.label] = dict(
@@ -1148,14 +1185,12 @@ def stale_citations(
         )
 
     stale = []
-    reach.clear()
     for name, entry in entries.items():
         for label, row in getattr(entry, "versions", {}).items():
             parsed = surfaces.get(label)
             if parsed is None:
                 continue
-            seen, checked = reach.setdefault(label, [0, 0])
-            reach[label] = [seen + 1, checked]
+            reach[label][0] += 1
             note = getattr(row, "note", None)
             if not note:
                 continue
