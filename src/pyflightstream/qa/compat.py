@@ -148,6 +148,27 @@ def _render_markdown(run: ProbeRun, date: str, counts: dict[str, int]) -> str:
     return "\n".join(lines)
 
 
+def _load_yaml(path: Path) -> object:
+    """Read and parse one YAML file, refusing in this module's own type.
+
+    Fixed as a CLASS rather than at the one site review found. The
+    promotion path documents ``QaEvidenceError`` and the CLI traps it,
+    and three reachable inputs escaped both: a mistyped report path
+    (``FileNotFoundError``), an unparsable report (``yaml.YAMLError``,
+    which is not a ``ValueError``), and any unparsable file in the
+    corpus directory. Each reached the operator as a stack that says
+    nothing about whether the database was written.
+    """
+    try:
+        return yaml.safe_load(path.read_text(encoding="utf-8"))
+    except OSError as error:
+        raise QaEvidenceError(f"{path} cannot be read ({error}); nothing was written") from None
+    except yaml.YAMLError as error:
+        raise QaEvidenceError(
+            f"{path} is not parsable YAML ({error}); nothing was written"
+        ) from None
+
+
 def read_compat_report(path: str | Path) -> dict:
     """Load and check a machine-readable compat report.
 
@@ -166,7 +187,7 @@ def read_compat_report(path: str | Path) -> dict:
     ValueError
         When the file does not carry the compat report schema marker.
     """
-    document = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+    document = _load_yaml(Path(path))
     if not isinstance(document, dict) or document.get("schema") != COMPAT_SCHEMA:
         raise QaEvidenceError(
             f"{path} is not a compat report (expected schema {COMPAT_SCHEMA!r}); "
@@ -233,8 +254,8 @@ class Judgment:
     report: str
 
 
-def compat_corpus(
-    corpus_dir: str | Path, *, repo_root: str | Path = "."
+def read_compat_reports(
+    reports_dir: str | Path | None = None, *, repo_root: str | Path = "."
 ) -> dict[tuple[str, str], tuple[Judgment, ...]]:
     """Index every promotable judgment in a directory of compat reports.
 
@@ -244,7 +265,7 @@ def compat_corpus(
 
     Parameters
     ----------
-    corpus_dir : str or Path
+    reports_dir : str or Path
         Directory of compat report YAML files, normally
         ``reports/compat/``.
     repo_root : str or Path
@@ -258,13 +279,26 @@ def compat_corpus(
         ``(command, fs_version)`` to the judgments of that pair, oldest
         first. A pair no report judges promotably is absent.
     """
-    corpus_dir = Path(corpus_dir)
     root = Path(repo_root).resolve()
+    # Defaulting here rather than only in apply_compat: every caller of
+    # this function was retyping the location that function already
+    # knows, so the default lived in one of the pair and was duplicated
+    # by the other.
+    if reports_dir is None:
+        reports_dir = Path(repo_root) / "reports" / "compat"
+    reports_dir = Path(reports_dir)
     index: dict[tuple[str, str], list[Judgment]] = {}
-    if not corpus_dir.is_dir():
+    if not reports_dir.is_dir():
         return {}
-    for path in sorted(corpus_dir.glob("*.yaml")):
-        document = yaml.safe_load(path.read_text(encoding="utf-8"))
+    for path in sorted(reports_dir.glob("*.yaml")):
+        # An unparsable file is REFUSED rather than skipped, and the
+        # difference matters here: skipping means the supersession check
+        # silently loses whatever that file judged, which is a guard
+        # reading its own missing information as permission. A file that
+        # parses and is not a report is a different thing and is skipped
+        # by design, so a README beside the evidence cannot stop a
+        # promotion.
+        document = _load_yaml(path)
         if not isinstance(document, dict) or document.get("schema") != COMPAT_SCHEMA:
             continue
         try:
@@ -318,7 +352,7 @@ def contradicting_evidence(
     Parameters
     ----------
     corpus : dict
-        Index from :func:`compat_corpus`.
+        Index from :func:`read_compat_reports`.
     incoming : Judgment
         The judgment about to be written. Passed as the record rather
         than as its five fields, because five interchangeable strings in
@@ -348,7 +382,7 @@ def apply_compat(
     *,
     repo_root: str | Path = ".",
     commands_dir: str | Path | None = None,
-    corpus_dir: str | Path | None = None,
+    reports_dir: str | Path | None = None,
 ) -> list[tuple[str, str, str]]:
     """Promote database statuses from a committed compat report.
 
@@ -375,7 +409,7 @@ def apply_compat(
         Chapter YAML directory; defaults to the installed
         ``pyflightstream.commands`` package data (the working tree in
         an editable install). Tests point it at a copy.
-    corpus_dir : str or Path, optional
+    reports_dir : str or Path, optional
         Directory of committed compat reports the incoming one is
         checked against for supersession; defaults to
         ``<repo_root>/reports/compat``. It is anchored on the
@@ -395,7 +429,7 @@ def apply_compat(
     QaEvidenceError
         When the report is not a compat report, when it lies outside
         ``repo_root``, when it names an unregistered version, when an
-        explicitly given ``corpus_dir`` is not a directory, when a
+        explicitly given ``reports_dir`` is not a directory, when a
         judged command or its version line cannot be found, when a
         rewritten entry fails schema validation, when a report at least
         as recent already records a different outcome for a pair this
@@ -440,21 +474,21 @@ def apply_compat(
     # written. Per-command refusal would leave the database half
     # promoted from a report the tool has already judged unfit, which
     # is a worse state than either applying it or refusing it.
-    if corpus_dir is None:
-        corpus_dir = Path(repo_root) / "reports" / "compat"
-    elif not Path(corpus_dir).is_dir():
+    if reports_dir is None:
+        reports_dir = Path(repo_root) / "reports" / "compat"
+    elif not Path(reports_dir).is_dir():
         # An ABSENT default is the first-report case and yields an empty
-        # corpus. A corpus_dir the caller typed is different: reading a
+        # corpus. A reports_dir the caller typed is different: reading a
         # mistyped path as "nothing supersedes this" would turn the only
         # supersession check in the write path into a no-op, silently.
         # That is the shape CLAUDE.md names for COORD_INCIDENT_LEDGER, a
         # guard that reads its own missing information as permission.
         raise QaEvidenceError(
-            f"corpus_dir {corpus_dir} is not a directory. It was given explicitly, and "
+            f"reports_dir {reports_dir} is not a directory. It was given explicitly, and "
             "an unreadable corpus would disable the supersession check rather than "
             "run it, so this is refused instead of skipped; nothing was written"
         )
-    corpus = compat_corpus(corpus_dir, repo_root=repo_root)
+    corpus = read_compat_reports(reports_dir, repo_root=repo_root)
     incoming_date = str(report.get("date") or "")
     superseded = [
         (name, body["outcome"], contradicting)
@@ -725,7 +759,7 @@ def _rewritten_flow_entry(
         # A removed row REQUIRES a note (the model refuses one without),
         # because the status alone cannot say which of the three ways it
         # arrived; the probe detail says it was measured.
-        fields += f', note: "{_one_line_note(str(body.get("detail", "")))}"'
+        fields += f", note: {_flow_scalar(_one_line_note(str(body.get('detail', ''))))}"
         owned.add("note")
     carried = ", ".join(
         f"{key}: {_flow_scalar(value)}" for key, value in existing.items() if key not in owned
@@ -799,7 +833,7 @@ def _rewrite_version_line(
     status = body["outcome"]
     fields = f'status: {status}, report: "{citation}"'
     if status in (ProbeOutcome.BROKEN.value, ProbeOutcome.REMOVED.value):
-        fields += f', note: "{_one_line_note(str(body.get("detail", "")))}"'
+        fields += f", note: {_flow_scalar(_one_line_note(str(body.get('detail', ''))))}"
 
     recorded = [
         (index, match.group(1), match.group(2))
@@ -866,7 +900,18 @@ def _validate_chapter(chapter_name: str, text: str, names: list[str]) -> None:
     file had already been written, which is the partial-promotion state
     :func:`apply_compat` promises not to leave behind.
     """
-    data = yaml.safe_load(text)
+    try:
+        data = yaml.safe_load(text)
+    except yaml.YAMLError as error:
+        # Outside the try until 2026-08-11, so an unparsable rewrite
+        # left this function raising a scanner error out of a
+        # promotion documented to raise QaEvidenceError, past the
+        # CLI trap. Reachable: one backslash in a solver message
+        # used to reach the note unescaped.
+        raise QaEvidenceError(
+            f"{chapter_name}: the rewritten chapter does not parse as YAML "
+            f"({error}). Nothing was written"
+        ) from None
     chapter = chapter_name.removesuffix(".yaml")
     for name in names:
         try:
@@ -878,7 +923,14 @@ def _validate_chapter(chapter_name: str, text: str, names: list[str]) -> None:
             # operator as a stack, on a reachable path: a hand-written
             # `removed` report with no `detail` yields an empty note,
             # which the model refuses.
+            # "after this promotion" rather than "the rewritten entry",
+            # because this validates the WHOLE entry: a defect that
+            # predates the run would otherwise be reported as something
+            # the tool wrote.
             raise QaEvidenceError(
-                f"{chapter_name}: the rewritten {name} entry does not satisfy the "
-                f"command schema ({error}). Nothing was written"
+                f"{chapter_name}: after this promotion the {name} entry does not "
+                f"satisfy the command schema ({error}). Nothing was written. The "
+                "report's judgment for this command produced a value the model "
+                "refuses, so fix the report or the row and re-run; if the entry was "
+                "already invalid before this run, repair it first"
             ) from None

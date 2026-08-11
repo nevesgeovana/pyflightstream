@@ -9,3 +9,8 @@ promoted only from these reports, never hand-edited (CLAUDE.md
 invariant 3). Reports are named `CMP-<version digits>_<date>[_label]`
 and are never overwritten; the newest promotable one per pair is what
 the database cites, and re-applying an older one is refused.
+
+A report is corrected by a new dated report or by an ERRATUM beside it,
+named `<report stem>_erratum_<date>.md`, never by editing the file. An
+erratum is not a report and carries no judgment; anything citing a
+report that has one cites both.

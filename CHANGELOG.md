@@ -35,9 +35,9 @@ matrix could not have discriminated.
 ### API surface delta
 
 New public names, all reachable from `pyflightstream.qa`:
-`ProbeOutcome.REMOVED`, `unrecognised_commands`, `compat_corpus`,
+`ProbeOutcome.REMOVED`, `unrecognised_commands`, `read_compat_reports`,
 `contradicting_evidence`, `Judgment` and `PROMOTABLE_OUTCOMES`. One new keyword
-argument: `corpus_dir` on `apply_compat`. Incompatible changes: none.
+argument: `reports_dir` on `apply_compat`. Incompatible changes: none.
 Deprecations: none.
 
 ### Added
@@ -73,13 +73,25 @@ Deprecations: none.
   first probe on this build reads the 5000 m standard-atmosphere
   density correctly, so the builder no longer refuses it there. This is
   the one caller-visible change to what a 26.122 script may emit
-  (`reports/compat/CMP-26122_2026-08-11_full.yaml`).
+  (`reports/compat/CMP-26122_2026-08-11_full.yaml`, read with
+  `CMP-26122_2026-08-11_full_erratum_2026-08-11.md` beside it: the
+  report's own note for this command carries a sentence that is false
+  on this build, and the report is evidence and is never edited).
 - `PHY-05` and `PHY-06` are registered for 26.121 and 26.122, not
   26.120 alone. Their pin cited a backfill owed for EARLIER builds,
   which never applied to later ones.
 
 ### Fixed
 
+- `apply_compat` is all-or-nothing across chapters. A refusal raised
+  while rewriting chapter n used to leave chapters 1..n-1 promoted on
+  disk, under a message naming one command in one file, while the
+  docstring said nothing was written.
+- Three reachable inputs escaped both the documented `QaEvidenceError`
+  and the CLI's trap as Python stacks: a mistyped report path, an
+  unparsable report, and an unparsable file anywhere in
+  `reports/compat/`. A rewritten entry that fails the command schema
+  now refuses in the same type rather than surfacing pydantic's.
 - The probe specification for `SET_MOTION_START_TIME` created a rotary
   motion, which that command refuses by design, so the abort it was
   recorded for was the probe's and not the solver's.
@@ -145,7 +157,7 @@ metres on the other seven, a factor of 3.28, which is the one silence
 worth refusing. `initialize_solver` refuses at entry on 25.000 rather
 than dying inside the binder on a keyword the caller never typed: that
 edition's grammar takes ten arguments and this helper's parameters do
-not map onto it. The refusal for a command the refusal for a command
+not map onto it. The refusal for a command
 with no evidence lists builds by reachability and marks inherited ones,
 so it no longer hides the newest build; and `pyfs-manual sweep` reports
 a second finding, and `--fail-if-absent` gates on the row-level measure

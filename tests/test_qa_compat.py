@@ -678,7 +678,7 @@ def test_an_undated_report_never_supersedes_a_dated_one(tmp_path):
 
 def test_the_corpus_index_skips_files_that_are_not_reports(tmp_path):
     """A README beside the reports must not stop a promotion."""
-    from pyflightstream.qa.compat import compat_corpus
+    from pyflightstream.qa.compat import read_compat_reports
 
     report_dir = tmp_path / "reports" / "compat"
     report_dir.mkdir(parents=True)
@@ -686,16 +686,16 @@ def test_the_corpus_index_skips_files_that_are_not_reports(tmp_path):
     write_dated_report(
         tmp_path, {"PRINT": {"outcome": "verified", "detail": "measured"}}, date="2026-08-08"
     )
-    corpus = compat_corpus(report_dir, repo_root=tmp_path)
+    corpus = read_compat_reports(report_dir, repo_root=tmp_path)
     assert list(corpus) == [("PRINT", "26.120")]
     assert corpus[("PRINT", "26.120")][0].date == "2026-08-08"
 
 
-def test_an_absent_corpus_directory_is_the_first_report_case(tmp_path):
+def test_an_absent_reports_directory_is_the_first_report_case(tmp_path):
     """The first report of a fresh checkout has nothing to be checked against."""
-    from pyflightstream.qa.compat import compat_corpus
+    from pyflightstream.qa.compat import read_compat_reports
 
-    assert compat_corpus(tmp_path / "nowhere", repo_root=tmp_path) == {}
+    assert read_compat_reports(tmp_path / "nowhere", repo_root=tmp_path) == {}
 
 
 # --------------------------------------------------------------------------
@@ -865,7 +865,7 @@ def test_a_removal_travels_the_whole_path_from_run_to_database(tmp_path):
     CommandEntry(name="PRINT", chapter="script_controls", **row["PRINT"])
 
 
-def test_an_explicit_corpus_directory_that_is_missing_is_refused(tmp_path):
+def test_an_explicit_reports_directory_that_is_missing_is_refused(tmp_path):
     """A guard that reads its own missing configuration as permission.
 
     An ABSENT default corpus is the first-report case and is tolerated.
@@ -885,7 +885,7 @@ def test_an_explicit_corpus_directory_that_is_missing_is_refused(tmp_path):
             report_path,
             repo_root=tmp_path,
             commands_dir=commands_dir,
-            corpus_dir=tmp_path / "typo",
+            reports_dir=tmp_path / "typo",
         )
 
 
@@ -987,3 +987,178 @@ def test_a_judgment_cannot_be_built_positionally():
 
     with pytest.raises(TypeError):
         Judgment("PRINT", "26.120", "verified", "2026-08-11", "reports/compat/x.yaml")
+
+
+def test_a_missing_report_path_is_refused_in_this_modules_own_type(tmp_path):
+    """The escape class, fixed once rather than at the site review found.
+
+    `apply_compat` documents QaEvidenceError and the CLI traps it. Three
+    reachable inputs escaped both as stacks that say nothing about
+    whether the database was written; a mistyped path is the likeliest.
+    """
+    from pyflightstream.qa.errors import QaEvidenceError
+
+    commands_dir = tmp_path / "commands"
+    write_chapter_fixture(commands_dir)
+    with pytest.raises(QaEvidenceError, match="cannot be read"):
+        apply_compat(
+            tmp_path / "reports" / "compat" / "CMP-26120_2026-08-11_typo.yaml",
+            repo_root=tmp_path,
+            commands_dir=commands_dir,
+        )
+
+
+def test_an_unparsable_file_in_the_reports_directory_is_refused_not_skipped(tmp_path):
+    """Skipping it would lose whatever it judged, silently.
+
+    A file that PARSES and is not a report is skipped by design, so a
+    README beside the evidence cannot stop a promotion. A file that does
+    not parse is a different thing: the supersession check would carry
+    on without whatever that report said, which is a guard reading its
+    own missing information as permission.
+    """
+    from pyflightstream.qa.errors import QaEvidenceError
+
+    commands_dir = tmp_path / "commands"
+    write_chapter_fixture(commands_dir)
+    report_path = write_dated_report(
+        tmp_path, {"PRINT": {"outcome": "verified", "detail": "measured"}}, date="2026-08-11"
+    )
+    (report_path.parent / "broken.yaml").write_text("key: [unclosed\n", encoding="utf-8")
+    with pytest.raises(QaEvidenceError, match="not parsable YAML"):
+        apply_compat(report_path, repo_root=tmp_path, commands_dir=commands_dir)
+
+
+def test_a_file_that_parses_and_is_not_a_report_is_still_skipped(tmp_path):
+    """The other half, so the refusal above cannot widen into it."""
+    from pyflightstream.qa.compat import read_compat_reports
+
+    reports = tmp_path / "reports" / "compat"
+    reports.mkdir(parents=True)
+    (reports / "notes.yaml").write_text("just: data\n", encoding="utf-8")
+    write_dated_report(
+        tmp_path, {"PRINT": {"outcome": "verified", "detail": "measured"}}, date="2026-08-11"
+    )
+    assert list(read_compat_reports(repo_root=tmp_path)) == [("PRINT", "26.120")]
+
+
+def test_a_note_carrying_a_backslash_survives_a_yaml_round_trip():
+    """The property the embed-safety test above only claimed to check.
+
+    That test asserted the note carries no double quote and collapsed
+    whitespace, and never round-tripped the rendered line. The note was
+    interpolated between two quotes with no escaping while every other
+    key went through `_flow_scalar`, so one backslash in a solver
+    message produced a chapter file that `yaml.safe_load` refuses.
+    Reachable: `_scan_errors` copies solver log lines verbatim and
+    Windows paths appear in them.
+    """
+    from pyflightstream.qa.compat import _flow_scalar, _one_line_note
+
+    detail = "the solver logged errors: cannot open " + chr(92).join(["C:", "runs", "s.txt"])
+    note = _flow_scalar(_one_line_note(detail))
+    line = f'"26.122": {{status: broken, report: "r.yaml", note: {note}}}'
+    parsed = yaml.safe_load("{" + line + "}")
+    assert parsed["26.122"]["note"] == _one_line_note(detail)
+
+
+def test_a_rewrite_that_fails_the_schema_refuses_in_this_modules_type(tmp_path):
+    """The re-raise added in round two, which nothing reached.
+
+    Its own comment names the path: a hand-written `removed` report with
+    no `detail` yields an empty note, and the model refuses a removed
+    row without one. Before the re-raise that escaped as pydantic's own
+    type, past the documented contract and past the CLI trap.
+    """
+    from pyflightstream.qa.errors import QaEvidenceError
+
+    commands_dir = _removal_chapter(tmp_path)
+    before = (commands_dir / "script_controls.yaml").read_text(encoding="utf-8")
+    report_path = write_dated_report(
+        tmp_path, {"PRINT": {"outcome": "removed", "detail": ""}}, date="2026-08-11"
+    )
+    with pytest.raises(QaEvidenceError, match="does not satisfy the command schema"):
+        apply_compat(report_path, repo_root=tmp_path, commands_dir=commands_dir)
+    assert (commands_dir / "script_controls.yaml").read_text(encoding="utf-8") == before
+
+
+def test_a_removal_is_inserted_at_its_release_position_on_a_build_with_no_row(tmp_path):
+    """The path a real removal actually takes, which nothing exercised.
+
+    Every one of the 84 promotions of 2026-08-11 was an insert, because
+    a newly registered build records no line yet. The rewrite path was
+    covered and the insert path was not, so a promotion of `removed`
+    onto a new build could have lost its note and died at validation
+    with the suite green.
+    """
+    commands_dir = _removal_chapter(tmp_path)
+    (commands_dir / "_meta.yaml").write_text(
+        'versions:\n  - canonical: "26.120"\n    alias: "26.12"\n'
+        '  - canonical: "26.122"\n    alias: "26.12"\n',
+        encoding="utf-8",
+    )
+    report_path = write_dated_report(
+        tmp_path,
+        {"PRINT": {"outcome": "removed", "detail": "the solver refused the name"}},
+        date="2026-08-11",
+        version="26.122",
+    )
+    promotions = apply_compat(report_path, repo_root=tmp_path, commands_dir=commands_dir)
+    assert promotions == [("PRINT", "removed", "script_controls.yaml")]
+
+    text = (commands_dir / "script_controls.yaml").read_text(encoding="utf-8")
+    rows = yaml.safe_load(text)["PRINT"]["versions"]
+    assert list(rows) == ["26.120", "26.122"], "the insert must land at its release position"
+    assert rows["26.122"]["status"] == "removed"
+    assert "refused the name" in rows["26.122"]["note"]
+    CommandEntry(name="PRINT", chapter="script_controls", **yaml.safe_load(text)["PRINT"])
+
+
+def test_the_args_refusal_is_the_compat_guard_and_not_the_schema_backstop(tmp_path):
+    """The guard, not the net behind it.
+
+    The model's own message carries the same phrase this test used to
+    match on, so deleting the compat guard left the test green: the
+    schema refused the write for its own reasons and the didactic
+    refusal that names the decision to make was gone. Matching a
+    sentence only the compat guard emits is what tells them apart.
+    """
+    from pyflightstream.qa.errors import QaEvidenceError
+
+    commands_dir = _removal_chapter(tmp_path)
+    report_path = write_dated_report(
+        tmp_path,
+        {"RUN_SCRIPT": {"outcome": "removed", "detail": "the solver refused the name"}},
+        date="2026-08-11",
+    )
+    with pytest.raises(QaEvidenceError, match="declares a per-version argument grammar"):
+        apply_compat(report_path, repo_root=tmp_path, commands_dir=commands_dir)
+
+
+def test_a_report_never_supersedes_itself(tmp_path):
+    """Documented on the public function, and unfalsified until now.
+
+    Redundant inside `apply_compat`, where a report's own entry agrees
+    with itself. Not redundant for a caller who re-judges from the same
+    path, which is what the exported function invites.
+    """
+    from pyflightstream.qa.compat import Judgment, contradicting_evidence, read_compat_reports
+
+    write_dated_report(
+        tmp_path, {"PRINT": {"outcome": "verified", "detail": "measured"}}, date="2026-08-11"
+    )
+    corpus = read_compat_reports(repo_root=tmp_path)
+    own = "reports/compat/CMP-26120_2026-08-11.yaml"
+    assert (
+        contradicting_evidence(
+            corpus,
+            incoming=Judgment(
+                command="PRINT",
+                fs_version="26.120",
+                outcome="broken",
+                date="2026-08-11",
+                report=own,
+            ),
+        )
+        == ()
+    )

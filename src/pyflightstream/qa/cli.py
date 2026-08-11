@@ -24,6 +24,7 @@ from pyflightstream.options import get_option
 from pyflightstream.qa.compat import (
     PROMOTABLE_OUTCOMES,
     apply_compat,
+    read_compat_report,
     write_compat_report,
 )
 from pyflightstream.qa.drift import run_drift, write_drift_report
@@ -460,24 +461,47 @@ def _cmd_apply_compat(args: argparse.Namespace) -> int:
     # contradicts a measured removal), and a traceback buries that under
     # a stack the operator did not ask for.
     try:
+        report_body = read_compat_report(args.report).get("commands", {})
         promotions = apply_compat(args.report, repo_root=args.root)
     except QaEvidenceError as error:
         print(f"nothing promoted: {error}", file=sys.stderr)
         return 2
     if not promotions:
         promotable = ", ".join(sorted(str(o) for o in PROMOTABLE_OUTCOMES))
+        # The remedy is derived from the report rather than assumed. An
+        # --identity-only run records every command "not probed in this
+        # run" and applying it is a documented step of registering a
+        # build, so the operator most likely to reach this line is one
+        # whose next step is a fuller run, not a new specification.
+        reasons = [str(body.get("detail", "")) for body in report_body.values()]
+        dominant = max(set(reasons), key=reasons.count) if reasons else ""
+        remedy = (
+            "re-run pyfs-qa probe without --identity-only, and with --fsm if the "
+            "specifications need an opened simulation"
+            if "not probed in this run" in dominant
+            else "add a probe specification for the commands you need judged, or "
+            "supply --fsm, and re-run pyfs-qa probe"
+        )
         print(
-            f"nothing promoted: the report judges no promotable outcome ({promotable}). "
-            "Every command in it is unprobed, which records why no judgment exists: no "
-            "probe specification, not in this run's subset, or an inconclusive "
-            "execution. Add a probe specification for the commands you need judged and "
-            "re-run pyfs-qa probe"
+            f"nothing promoted: the promotable outcomes are {promotable}, and this "
+            f"report records none of them. Every command in it is unprobed. Most "
+            f"common reason recorded: {dominant[:90]!r}. Next step: {remedy}"
         )
         return 0
     for name, status, chapter in promotions:
         print(f"{name}: {status} ({chapter})")
     CommandRegistry.load.cache_clear()
-    CommandRegistry.load()
+    try:
+        CommandRegistry.load()
+    except ValueError as error:
+        # The writes have landed by now, so the one thing the operator
+        # needs is which state the tree is in.
+        print(
+            f"promoted, but the database no longer loads: {error}. The chapter files "
+            "on disk carry the promotions; repair or revert them",
+            file=sys.stderr,
+        )
+        return 2
     print(f"{len(promotions)} status(es) promoted; database reloaded and valid")
     return 0
 

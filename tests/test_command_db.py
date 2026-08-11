@@ -737,9 +737,9 @@ def test_no_citation_is_contradicted_by_newer_evidence() -> None:
     correct database is a guard that gets switched off. Agreement is not
     supersession.
     """
-    from pyflightstream.qa.compat import Judgment, compat_corpus, contradicting_evidence
+    from pyflightstream.qa.compat import Judgment, contradicting_evidence, read_compat_reports
 
-    corpus = compat_corpus(REPO_ROOT / "reports" / "compat", repo_root=REPO_ROOT)
+    corpus = read_compat_reports(REPO_ROOT / "reports" / "compat", repo_root=REPO_ROOT)
     assert corpus, (
         "the committed compat corpus indexed no promotable judgment at all; this guard "
         "would pass vacuously, so the corpus reader is what to fix"

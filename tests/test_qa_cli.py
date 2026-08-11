@@ -65,3 +65,99 @@ def test_every_subcommand_taking_a_version_refuses_the_same_way(argv, capsys):
     # VERSION half of --fs-exe, so both are exercised.
     assert main(argv) == 2
     assert capsys.readouterr().err.startswith("version not resolved: ")
+
+
+def _chapter_and_report(tmp_path):
+    """A fixture tree the promotion path can actually run against."""
+    import yaml
+
+    from pyflightstream.qa import COMPAT_SCHEMA
+
+    commands = tmp_path / "commands"
+    commands.mkdir()
+    (commands / "_meta.yaml").write_text(
+        'versions:\n  - canonical: "26.120"\n    alias: "26.12"\n', encoding="utf-8"
+    )
+    (commands / "script_controls.yaml").write_text(
+        "PRINT:\n"
+        "  layout: inline\n"
+        "  phase: control\n"
+        "  args:\n"
+        "    - name: message\n"
+        "      type: str\n"
+        '  manual_ref: "SRC-003 p.281"\n'
+        "  versions:\n"
+        '    "26.120": {status: documented}\n',
+        encoding="utf-8",
+    )
+    reports = tmp_path / "reports" / "compat"
+    reports.mkdir(parents=True)
+
+    def write(date: str, outcome: str, label: str = "") -> str:
+        stem = f"CMP-26120_{date}" + (f"_{label}" if label else "")
+        path = reports / f"{stem}.yaml"
+        path.write_text(
+            yaml.safe_dump(
+                {
+                    "schema": COMPAT_SCHEMA,
+                    "fs_version": "26.120",
+                    "date": date,
+                    "commands": {"PRINT": {"outcome": outcome, "detail": "measured"}},
+                }
+            ),
+            encoding="utf-8",
+        )
+        return str(path)
+
+    return commands, write
+
+
+def test_apply_compat_refuses_a_superseded_report_without_a_traceback(tmp_path, capsys):
+    """The trap added on 2026-08-11, which had no test on any path.
+
+    The library's refusals here say which report supersedes this one and
+    which page contradicts a measured removal; a traceback buries that
+    under a stack the operator did not ask for, and says nothing about
+    whether the database was written.
+    """
+    _, write = _chapter_and_report(tmp_path)
+    older = write("2026-07-21", "broken")
+    write("2026-07-23", "verified", "reprobe")
+
+    code = main(["apply-compat", older, "--root", str(tmp_path)])
+    captured = capsys.readouterr()
+    assert code == 2
+    assert "superseded evidence" in captured.err
+    assert "Traceback" not in captured.err
+
+
+def test_apply_compat_says_what_to_do_when_nothing_is_promotable(tmp_path, capsys):
+    """The message names the promotable set and a next step, not a symptom."""
+    import yaml
+
+    from pyflightstream.qa import COMPAT_SCHEMA
+
+    reports = tmp_path / "reports" / "compat"
+    reports.mkdir(parents=True)
+    path = reports / "CMP-26120_2026-08-11_identity.yaml"
+    path.write_text(
+        yaml.safe_dump(
+            {
+                "schema": COMPAT_SCHEMA,
+                "fs_version": "26.120",
+                "date": "2026-08-11",
+                "commands": {"PRINT": {"outcome": "unprobed", "detail": "not probed in this run"}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    code = main(["apply-compat", str(path), "--root", str(tmp_path)])
+    captured = capsys.readouterr()
+    assert code == 0
+    assert "nothing promoted" in captured.out
+    for outcome in ("verified", "broken", "removed"):
+        assert outcome in captured.out
+    assert "identity-only" in captured.out, (
+        "the report records 'not probed in this run', so the remedy is a fuller run "
+        "rather than a new probe specification"
+    )

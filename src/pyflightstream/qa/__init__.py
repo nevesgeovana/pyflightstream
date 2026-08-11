@@ -19,9 +19,9 @@ from pyflightstream.qa.compat import (
     PROMOTABLE_OUTCOMES,
     Judgment,
     apply_compat,
-    compat_corpus,
     contradicting_evidence,
     read_compat_report,
+    read_compat_reports,
     write_compat_report,
 )
 from pyflightstream.qa.errors import QaEvidenceError
@@ -62,7 +62,7 @@ __all__ = [
     "QaEvidenceError",
     "Requires",
     "apply_compat",
-    "compat_corpus",
+    "read_compat_reports",
     "contradicting_evidence",
     "dump_changed",
     "dump_gained",

@@ -1006,9 +1006,13 @@ def test_a_lower_case_echo_still_matches_the_probed_command():
     """
     from pyflightstream.qa.probes import unrecognised_commands
 
-    lowered = _UNRECOGNISED_LOG_WITH_ARGUMENT.replace(
-        "SET_JET_WAKE_FILAMENTS_GRID_INDUCTION ENABLE",
-        "set_jet_wake_filaments_grid_induction enable",
+    lowered = (
+        _UNRECOGNISED_LOG_WITH_ARGUMENT.replace(
+            "SET_JET_WAKE_FILAMENTS_GRID_INDUCTION ENABLE",
+            "set_jet_wake_filaments_grid_induction enable",
+        )
+        .replace("ERROR | Syntax", "error | syntax")
+        .replace("Unrecognized command", "unrecognized command")
     )
     assert unrecognised_commands(lowered) == frozenset({"SET_JET_WAKE_FILAMENTS_GRID_INDUCTION"})
 
@@ -1108,6 +1112,14 @@ _UNQUOTED_FIELD_REFUSAL = (
     "ERROR | Syntax | SET_JET_WAKE_FILAMENTS_GRID_INDUCTION ENABLE | Unrecognized "
     "command in script 'C:/runs/script.txt' at line 5 | Check command spelling.\n"
 )
+_SCRIPTING_CHANNEL_REFUSAL = (
+    "ERROR | Scripting | 'SET_JET_WAKE_FILAMENTS_GRID_INDUCTION ENABLE' | Unrecognized "
+    "command in script 'C:/runs/script.txt' at line 5 | Check command spelling.\n"
+)
+_TRUNCATED_PHRASE_REFUSAL = (
+    "ERROR | Syntax | 'SET_JET_WAKE_FILAMENTS_GRID_INDUCTION ENABLE' | Unrecognized "
+    "argument ENABLE in script 'C:/runs/script.txt' at line 5 | Review arguments.\n"
+)
 _QUOTED_UNEXPECTED_ARGUMENT = (
     "ERROR | Syntax | 'INITIALIZE_SOLVER CREATE_BULK_SEPARATION' | Unexpected argument "
     "CREATE_BULK_SEPARATION | Review command syntax and arguments.\n"
@@ -1120,6 +1132,8 @@ _QUOTED_UNEXPECTED_ARGUMENT = (
         ("the level is not ERROR", _WARNING_LEVEL_REFUSAL),
         ("the offending field is not quoted", _UNQUOTED_FIELD_REFUSAL),
         ("the phrase is not Unrecognized command", _QUOTED_UNEXPECTED_ARGUMENT),
+        ("the channel is Scripting, not Syntax", _SCRIPTING_CHANNEL_REFUSAL),
+        ("the phrase only shares its first word", _TRUNCATED_PHRASE_REFUSAL),
     ],
 )
 def test_each_discriminator_alone_keeps_a_record_out_of_the_refusal_set(label, log):
@@ -1135,3 +1149,64 @@ def test_each_discriminator_alone_keeps_a_record_out_of_the_refusal_set(label, l
     from pyflightstream.qa.probes import unrecognised_commands
 
     assert unrecognised_commands(log) == frozenset(), label
+
+
+def test_the_argument_bearing_split_is_derived_rather_than_written_down():
+    """The figure that reached three committed artifacts in three readings.
+
+    On 2026-08-11 the size of the population a detector defect reached
+    was written as "49 of 87", then corrected in review to "71 of 109",
+    then corrected again; each reading used a different denominator and
+    none could be recomputed. The structural cause was that it was
+    prose. `scripts/measure_probe_target_lines.py` derives it and this
+    pins the derivation, so the next disagreement is about a definition
+    rather than about a count.
+
+    One coincidence is worth naming, because it is what misled a
+    reviewer into a fourth reading: the catalog holds 22 helper-generated
+    specifications AND 22 that need prelude state, and they are
+    different sets of the same size. Only the seven motion setters are
+    in both.
+    """
+    import importlib.util
+    from pathlib import Path
+
+    from pyflightstream.qa.specs import PROBE_SPECS
+
+    script = Path(__file__).resolve().parents[1] / "scripts" / "measure_probe_target_lines.py"
+    spec = importlib.util.spec_from_file_location("measure_probe_target_lines", script)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    groups = module.classify()
+    renders = len(groups["with_arguments"]) + len(groups["bare"])
+    assert len(PROBE_SPECS) == 109
+    assert renders == 87
+    assert len(groups["with_arguments"]) == 49
+    assert len(groups["needs_prelude"]) == 22
+
+
+def test_no_effect_note_states_a_finding_instead_of_the_asserted_effect():
+    """The class behind one corrected note, guarded rather than the note.
+
+    An `effect_note` is stamped verbatim into every report of every
+    build, so a cross-build failure narrative in one becomes a sentence
+    the report asserts about builds where it is false. AIR_ALTITUDE
+    carried one and the 26.122 run recorded `verified` beside the words
+    "the METERS units argument reads ignored", which its own
+    `effect: true` contradicts (see the erratum beside that report).
+    Fixing the one note leaves the class open; this closes it.
+    """
+    from pyflightstream.qa.specs import PROBE_SPECS
+
+    findings = ("instead", "reads ignored", "was not observed", "the first full sweep")
+    offenders = [
+        f"{name}: {spec.effect_note}"
+        for name, spec in PROBE_SPECS.items()
+        if any(marker in spec.effect_note for marker in findings)
+    ]
+    assert not offenders, (
+        "an effect_note states what the probe ASSERTS, never what a past run found: "
+        + "; ".join(offenders)
+    )

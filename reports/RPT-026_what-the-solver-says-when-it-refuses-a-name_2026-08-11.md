@@ -50,13 +50,23 @@ token on the strength of that. A fourth arm, emitting
 RPT-012 had recorded the same shape since 2026-07-23
 (`'CREARE_BULK_SEPARATION sep1 -1 0.5'`).
 
-The population that would have been missed, measured on the catalog
-rather than estimated: 109 probe specifications exist, and of the 87
-whose target line renders in isolation, 49 carry arguments on that
-line. The remaining 22 need prelude state before they render at all and
-were not measured this way. Two different readings of this number were
-offered during review, 49 of 87 and 71 of 109; both are wrong, and the
-denominator 87 is the renderable subset rather than the catalog.
+The population that would have been missed, DERIVED BY A COMMITTED
+SCRIPT rather than counted into a sentence: 109 probe specifications
+exist, and of the 87 whose target line renders in isolation, 49 carry
+arguments on that line. The remaining 22 need prelude state before they
+render at all, because they cite an entity nothing has created yet.
+`scripts/measure_probe_target_lines.py` computes all four figures and
+defines both terms; a tier 1 test pins its output.
+
+That script exists because this number reached three committed
+artifacts in three different readings on one day, none of them
+recomputable: 49 of 87 with the catalog implied as the denominator,
+then 71 of 109 from a reading that assumed every helper-generated
+specification puts arguments on the target line, then the split above.
+One coincidence kept the argument alive and is recorded so it stops
+doing so: the catalog holds 22 helper-generated specifications AND 22
+that need prelude state, and they are different sets of the same size,
+overlapping only in the seven motion setters.
 
 The crash log also carries stray NUL bytes, 12 in the measured run. It
 is the one log of this pipeline that the harness reads without the
@@ -83,8 +93,11 @@ the only record is `FlightStreamLog.txt`.
 `ExecutionResult.log_text` has carried that file all along and the
 probe harness never read it. Before this, an absent command reached
 `_judge` with the same signals as any other abort and was recorded
-`broken`, which keeps the command in the version view with its grammar
-and lets the emitter go on offering a line the solver rejects.
+`broken`. Both statuses refuse at build time, so the harm is not that
+the line got emitted: it is that `BrokenCommandError` tells the caller
+the solver ACCEPTS the line and would return numbers nothing marks as
+wrong, which is false for a build that does not carry the command, and
+that `allow_broken` would then emit a line the solver rejects outright.
 
 **A semantic refusal wears the same shape and means the opposite.**
 `SET_MOTION_START_TIME`, probed against the shared rotary-motion

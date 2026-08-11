@@ -663,3 +663,33 @@ def test_a_machine_promoted_removal_shows_its_run_in_the_rendered_matrix():
     )
     rendered = _format_versions_html(entry)
     assert "CMP-26120_2026-08-11_full.yaml" in rendered, rendered
+
+
+def test_only_a_removed_row_shows_its_report_in_the_version_cell():
+    """The other direction of the same fallback, which nothing held.
+
+    Reading `probe_ref or report` unconditionally would print a report
+    path in every verified cell of the compatibility matrix. The
+    restriction to `removed` is a deliberate scoping decision, and the
+    page has a separate entry-citation column for the rest.
+    """
+    from pyflightstream.commands import CommandEntry
+    from pyflightstream.reference import _format_versions_html
+
+    entry = CommandEntry(
+        name="SET_EXAMPLE",
+        chapter="fixture",
+        layout="bare",
+        phase="control",
+        args=[],
+        manual_ref="SRC-003 p.281",
+        versions={
+            "26.120": {
+                "status": "verified",
+                "report": "reports/compat/CMP-26120_2026-08-11_full.yaml",
+            }
+        },
+    )
+    rendered = _format_versions_html(entry)
+    assert "26.120: verified" in rendered
+    assert "CMP-26120_2026-08-11_full.yaml" not in rendered, rendered

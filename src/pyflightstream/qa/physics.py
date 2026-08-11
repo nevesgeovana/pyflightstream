@@ -564,6 +564,12 @@ class PhysicsCase:
     runner : callable
         Case implementation; receives the run context and returns the
         measured :class:`CaseResult`.
+    versions : tuple of str, optional
+        Canonical identifiers this case is registered for. None means
+        every registered version. The two unsteady cases were pinned to
+        26.120 alone until 2026-08-11; the pin was owed to a backfill
+        for builds EARLIER than 26.120 and never covered later ones, so
+        they now name 26.120, 26.121 and 26.122.
     """
 
     case_id: str
