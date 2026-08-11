@@ -1,10 +1,14 @@
 """Tier 1: the machine-configuration variables agree across their homes.
 
-CLAUDE.md documents five environment variables that a fresh clone must set.
-The floor below pins the three long-standing ones (`PYFS_PLAN_CHECKER`,
-`PYFS_INCIDENT_LEDGER`, `PYFS_SESSION_ROOT`); `COORD_INCIDENT_LEDGER` and
-`COORD_SHARED_LEDGER_TREE` arrived from the kit and are covered by the
-derivation rather than by the floor. The skills and hooks read them, and
+CLAUDE.md lists four environment variables that a fresh clone must set. The
+floor below pins the two long-standing ones (`PYFS_PLAN_CHECKER`,
+`PYFS_SESSION_ROOT`); `COORD_INCIDENT_LEDGER` and `COORD_SHARED_LEDGER_TREE`
+arrived from the kit and are covered by the derivation rather than by the
+floor. It was five until 2026-08-11, when the 0.2.11 incident-analyst charter
+took the last consumer of `PYFS_INCIDENT_LEDGER` away and CLAUDE.md retired
+it; that retirement is what split `_documented` from `_configured` below, and
+it has its own test rather than only a docstring.
+The skills and hooks read them, and
 nothing kept the two sides in agreement until the
 2026-07-27 session-document migration made the cost visible: a variable
 introduced in five hand-edited documents, with no mechanism to notice a sixth
@@ -89,15 +93,38 @@ def _text(path: Path) -> str:
 
 
 def _documented() -> set[str]:
-    """The variables CLAUDE.md documents, derived rather than declared.
+    """Every variable NAMED anywhere in CLAUDE.md, retired ones included.
 
     An earlier version of this module hardcoded the three names, which meant
     the "documented but read by nothing" check could not see a fourth name
     added to CLAUDE.md: the guard reproduced the drift it was built to catch.
     Deriving the set is what makes that check real, and it also keeps the
-    prose word "Three" in CLAUDE.md honest.
+    prose count in CLAUDE.md honest.
     """
     return set(VARIABLE.findall(_text(CLAUDE_MD)))
+
+
+def _configured() -> set[str]:
+    """The variables CLAUDE.md tells a fresh clone TO SET, and only those.
+
+    A strict subset of ``_documented`` and a distinct question, split apart on
+    2026-08-11 when the two collapsed into a contradiction. The 0.2.11
+    incident-analyst charter removed the last consumer of
+    ``PYFS_INCIDENT_LEDGER``, so CLAUDE.md retired it and said so in prose:
+    what it now says, in as many words, is DO NOT export this. Under a
+    whole-file derivation that retirement notice read as documentation, and
+    the "documented but read by nothing" check failed on a variable whose
+    only remaining mention exists to stop a clone setting it.
+
+    The structural distinction was already in the file rather than invented
+    here: a variable a clone must set is a BULLET HEADER in the machine
+    configuration list; everything else is prose about one. ``CLAUDE_PROJECT_DIR``
+    is the standing proof that the two are different questions, since it is
+    read by the plan skill, is documented in prose, and CLAUDE.md says
+    explicitly that it must NOT go in settings.local.json.
+    """
+    bullet = re.compile(r"^- `((?:PYFS|CLAUDE|COORD)_[A-Z0-9_]+)`", re.MULTILINE)
+    return set(bullet.findall(_text(CLAUDE_MD)))
 
 
 def test_every_variable_used_is_documented_in_claude_md() -> None:
@@ -121,31 +148,63 @@ def test_every_variable_used_is_documented_in_claude_md() -> None:
     )
 
 
-def test_every_documented_variable_is_actually_used() -> None:
-    """A documented variable nobody reads is stale configuration.
+def test_every_configured_variable_is_actually_used() -> None:
+    """A variable a clone is told to SET, that nobody reads, is stale.
 
-    A fresh clone will try to set whatever CLAUDE.md lists, so a name that
-    outlived its consumer costs a maintainer real time.
+    A fresh clone will export whatever the machine configuration list carries,
+    so a name that outlived its consumer costs a maintainer real time. Read
+    against ``_configured`` rather than ``_documented``: a retirement notice
+    naming a dead variable is the opposite of stale configuration, and the
+    2026-08-11 retirement of ``PYFS_INCIDENT_LEDGER`` is what forced the two
+    apart.
     """
     used: set[str] = set()
     for path in SKILLS + HOOKS + SHELL_TOOLS:
         used.update(VARIABLE.findall(_text(path)))
-    unused = sorted(_documented() - used)
-    assert not unused, f"documented in CLAUDE.md but read by nothing: {unused}"
+    unused = sorted(_configured() - used)
+    assert not unused, f"listed as configuration in CLAUDE.md but read by nothing: {unused}"
+
+
+def test_a_retired_variable_is_not_still_listed_as_configuration() -> None:
+    """The retirement is asserted, not just described.
+
+    Without this the split above could be satisfied by moving a live variable
+    out of the bullet list, which would hide it from the check that exists to
+    find dead configuration. ``PYFS_INCIDENT_LEDGER`` names it explicitly: it
+    must still be FINDABLE in CLAUDE.md, so a machine that already exports it
+    learns why to stop, and it must NOT be a bullet, so no clone sets it.
+    """
+    assert "PYFS_INCIDENT_LEDGER" in _documented(), (
+        "CLAUDE.md no longer mentions PYFS_INCIDENT_LEDGER at all. A machine "
+        "that still exports it from before 2026-08-11 now has no way to learn "
+        "that nothing reads it."
+    )
+    assert "PYFS_INCIDENT_LEDGER" not in _configured(), (
+        "PYFS_INCIDENT_LEDGER is listed as a variable to set again. Its last "
+        "consumer went away with the 0.2.11 incident-analyst charter; if a new "
+        "consumer arrived, the CLAUDE.md retirement paragraph is now wrong too."
+    )
 
 
 def test_the_documented_set_is_derived_and_not_empty() -> None:
     """The derivation itself must not silently degrade to an empty set.
 
     Every check above is vacuously true if CLAUDE.md stops matching, so this
-    asserts the floor: the three long-standing variables are present. The two
-    COORD_ names are deliberately not in the floor: they are kit-owned and the
-    derivation above is what covers them.
+    asserts the floor on both derivations: the two long-standing PYFS_ names
+    are present in each. The COORD_ names are deliberately not in the floor:
+    they are kit-owned and the derivation is what covers them.
+
+    ``PYFS_INCIDENT_LEDGER`` was in this floor until 2026-08-11 and is not any
+    more, which is the whole point of the test above rather than an omission
+    here.
     """
     documented = _documented()
+    configured = _configured()
     assert documented, "no variables derived from CLAUDE.md; the block moved or was renamed"
-    for expected in ("PYFS_PLAN_CHECKER", "PYFS_INCIDENT_LEDGER", "PYFS_SESSION_ROOT"):
+    assert configured, "no bullet-listed variables found; the machine configuration list moved"
+    for expected in ("PYFS_PLAN_CHECKER", "PYFS_SESSION_ROOT"):
         assert expected in documented, f"CLAUDE.md no longer documents {expected}"
+        assert expected in configured, f"CLAUDE.md no longer LISTS {expected} as configuration"
 
 
 def test_session_root_stop_rule_is_stated_wherever_the_variable_is_used() -> None:

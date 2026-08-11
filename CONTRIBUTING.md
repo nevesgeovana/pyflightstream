@@ -35,15 +35,25 @@ transitively: PyNiteFEA requires it, so the `fsi` extra brings it in
 
 Whichever you install, do not reach for an optional distribution without
 a guard. `tests/test_extras_isolation.py` refuses it, and the refusal
-names the form to use for the tree you are in. Its evidence, and the
-CI-green tag gate's, is `python scripts/prove_extras_and_ci_guards.py`,
-which re-runs the mutation battery behind both. It EDITS THE WORKING
+names the form to use for the tree you are in. Its evidence is
+`python scripts/prove_extras_isolation.py`, which re-runs the mutation
+battery behind it. It EDITS THE WORKING
 TREE and restores it, so run it on a clean checkout and read `git
 status` afterwards; a full pass takes over ten minutes, so it takes a
-label prefix (`BM`, `M2`) to run one part. That guard exists because
+label prefix (`M1`, `M2`, `N1`) to run one part. That guard exists because
 an unguarded `import pypdf` reached the v0.7.0 tag past every reviewer
 pass of that release, all of them reading in an environment that had it
 (INC-20260810-2140-shared).
+
+That incident produced a SECOND guard, the CI-green tag rule, and it is
+no longer in this repository's own hands: it lives in the shared push
+gate (`.claude/hooks/role_review_gate.py`, kit 0.2.18), and its evidence
+is `.claude/hooks/ci_state_mutations.py`, run in tier 1 by
+`tests/test_ci_state.py` with the refusal itself pinned by
+`tests/test_push_gate.py`. The battery above was named
+`prove_extras_and_ci_guards.py` and carried that half until 2026-08-11;
+both were renamed and removed in the commit that vendored the shared
+body.
 
 ## Hard invariants
 
@@ -111,7 +121,7 @@ evidence guards: it EDITS FILES UNDER `src/` one at a time, runs the
 test written for each, and restores them, so run it from a clean tree
 and check `git status` afterwards. A run killed mid-mutant is undone
 by the next one, which refuses to continue until it has. Its sibling
-`scripts/prove_extras_and_ci_guards.py` has the same hazard and both
+`scripts/prove_extras_isolation.py` has the same hazard and both
 share `scripts/_mutation_harness.py`.
 
 `scripts/measure_probe_target_lines.py` derives how many probe

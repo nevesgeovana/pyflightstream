@@ -5,8 +5,15 @@
 # bytes and break the hash, so these paths are pinned to LF and marked
 # non-text. snap.sh sets core.autocrlf false operationally for the same
 # reason; this rule is the in-repo half.
-.claude/hooks/role_review_gate.py text eol=lf
-.claude/hooks/write_attestation.py text eol=lf
+#
+# The hooks are pinned by GLOB rather than one line per file, since 2026-08-11.
+# The enumerated form was a list that had to be remembered: the 0.2.18 gate
+# arrived with `ci_state.py` and `ci_state_mutations.py` beside it, both
+# hash-pinned by the same drift test, and neither would have been covered until
+# someone thought to add two lines here. `.claude/tools/**` was already a glob
+# for that reason. Pinning the one repository-owned hook too is deliberate and
+# harmless: it is checked in as LF already.
+.claude/hooks/** text eol=lf
 .claude/agents/incident-analyst.md text eol=lf
 .claude/tools/** text eol=lf
 

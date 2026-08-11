@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
-r"""Mutation proof for the two guards that close INC-20260810-2140-shared.
+r"""Mutation proof for the extras-isolation guard, tests/test_extras_isolation.py.
+
+ONE OF THE TWO GUARDS THAT CLOSED INC-20260810-2140-shared, and this file was
+named for both until 2026-08-11. The other was the repository-owned CI-green
+tag gate, deleted with its test and this battery's BM1..BM16 in the commit that
+vendored kit 0.2.18, which carries that rule in the SHARED push gate. Its
+replacement evidence lives with the body it proves: `ci_state_mutations.py`
+beside the vendored `ci_state.py`, run in tier 1 by `tests/test_ci_state.py`,
+with the refusal at the push boundary pinned by `tests/test_push_gate.py`. The
+rename came with the deletion rather than after it, because a battery named for
+two guards that proves one asserts a property no run of it evaluates.
 
 Committed rather than kept in a scratchpad, which is this workspace's own
 practice (`.claude/tools/check_plan_kit_mutations.py` and
@@ -8,8 +18,8 @@ prove, and the kit's V and V lens once refused a promotion that shipped a
 checker without its mutations). A guard's evidence that nobody else can
 re-run is an assertion, not evidence.
 
-    python scripts/prove_extras_and_ci_guards.py            # everything
-    python scripts/prove_extras_and_ci_guards.py M1 M2 N1   # by label prefix
+    python scripts/prove_extras_isolation.py            # everything
+    python scripts/prove_extras_isolation.py M1 M2 N1   # by label prefix
 
 Exit 0 when every mutant died and every negative control survived. The
 full run takes upwards of ten minutes, because each mutant re-runs a
@@ -52,9 +62,11 @@ PYTHON = Path(sys.executable)
 #:
 #: This exists because it happened. A run of this battery hit a ten
 #: minute command timeout mid-mutant and left `.claude/settings.json`
-#: holding the mutation that UNWIRES the CI gate; had it been committed,
+#: holding the mutation that UNWIRED the CI gate; had it been committed,
 #: the guard would have shipped disabled, which is the exact failure the
-#: guard exists to prevent. A `finally` does not survive SIGKILL, and
+#: guard existed to prevent. (That mutant, BM10, went with the bridge on
+#: 2026-08-11; the recovery path it justified stays, because the hazard
+#: is the harness rather than any one mutant.) A `finally` does not survive SIGKILL, and
 #: this workspace already has an incident about a review process dying
 #: with mutations in the tree.
 #: Resolved through git rather than assumed to be `REPO / ".git"`: in a
@@ -79,7 +91,16 @@ def _git_dir() -> Path:
 BACKUP = _git_dir() / "mutation-backup"
 
 GUARD_A = "tests/test_extras_isolation.py"
-GUARD_B = "tests/test_ci_release_gate.py"
+# GUARD_B WAS `tests/test_ci_release_gate.py` AND IS GONE, with its whole
+# battery (BM1..BM16), on 2026-08-11. The repository-owned bridge hook it
+# proved was deleted in the commit that vendored kit 0.2.18, which carries the
+# CI-green tag rule in the SHARED gate. Its replacement evidence is not
+# nothing and is not here: `ci_state_mutations.py` ships beside the vendored
+# `ci_state.py` and is run by `tests/test_ci_state.py` in tier 1, and the
+# refusal at the push boundary is pinned by `tests/test_push_gate.py`. This
+# file was renamed from `prove_extras_and_ci_guards.py` in the same commit,
+# because a battery named for two guards that proves one is the stale success
+# line this project registers most.
 
 #: A backtick fence, built rather than written, so this file carries no
 #: fence of its own for the scanner it is proving to trip over.
@@ -404,115 +425,6 @@ def prove_guard_a() -> list[str]:
     return battery.failures
 
 
-def prove_guard_b() -> list[str]:
-    """Run the battery against the CI-green release gate."""
-    if WANTED and not any(prefix.startswith("BM") for prefix in WANTED):
-        SKIPPED_GUARDS.append(GUARD_B)
-        return []
-    print(f"\n{GUARD_B}")
-    code, summary = run(GUARD_B)
-    print(f"  {'CONTROL (unmutated hook)':52} {'GREEN':9}{summary}")
-    if code:
-        return ["guard B control is not green"]
-
-    battery = Battery(GUARD_B)
-    hook = REPO / ".claude" / "hooks" / "ci_release_gate.py"
-    settings = REPO / ".claude" / "settings.json"
-
-    battery.patch(
-        hook,
-        'GOOD = frozenset({"success", "neutral", "skipped"})',
-        'GOOD = frozenset({"success", "neutral", "skipped", "failure", "cancelled"})',
-        "BM1 accepted conclusions widened to failure",
-    )
-    battery.patch(
-        hook,
-        '    if bad:\n        return "red", _summarise(bad)',
-        '    if False:\n        return "red", _summarise(bad)',
-        "BM2 the red branch disabled",
-    )
-    battery.patch(
-        hook,
-        '    if not runs:\n        return "absent"',
-        '    if not runs:\n        return "green"',
-        "BM3 an empty payload reads as green",
-    )
-    battery.patch(
-        hook,
-        '    return "unreachable", last or "no answer"',
-        '    return "ok", []',
-        "BM4 unreachable downgraded to an empty ok",
-    )
-    battery.patch(
-        hook,
-        '    if pending:\n        return "pending", _summarise(pending)',
-        '    if False:\n        return "pending", _summarise(pending)',
-        "BM5 pending downgraded to green",
-    )
-    battery.patch(
-        hook,
-        '        if at and (status != "completed" or not completed or completed > at):',
-        "        if False:",
-        "BM6 the historical instant ignored",
-    )
-    battery.patch(
-        hook,
-        "            if any(marker in last for marker in _NO_SUCH_COMMIT):",
-        "            if False:",
-        "BM7 a 422 reported as unreachable",
-    )
-    battery.patch(
-        hook,
-        "        if total > len(runs):",
-        "        if False:",
-        "BM8 a truncated page read as complete",
-    )
-    battery.patch(
-        hook,
-        '        return token.strip("' + chr(92) + '"' + chr(39) + '")',
-        "        break",
-        "BM9 the named remote ignored, always origin",
-    )
-    battery.patch(
-        settings,
-        '"command": "python \\"$CLAUDE_PROJECT_DIR/.claude/hooks/ci_release_gate.py\\""',
-        '"command": "python \\"$CLAUDE_PROJECT_DIR/.claude/hooks/role_review_gate.py\\""',
-        "BM10 the hook silently unwired from settings",
-    )
-
-    battery.patch(
-        hook,
-        '        url = _git(root, "config", "--get", f"remote.{remote}.pushurl") or _git(\n'
-        '            root, "config", "--get", f"remote.{remote}.url"\n'
-        "        )",
-        '        url = _git(root, "config", "--get", f"remote.{remote}.url")',
-        "BM12 pushurl ignored, fetch url used",
-    )
-    battery.patch(
-        hook,
-        "        if is_push and not after:",
-        "        if False:",
-        "BM14 the kit fail-closed sentinel read as an allow",
-    )
-    battery.patch(
-        hook,
-        "        targets = tag_targets(after, tags)",
-        "        targets = {tag: tag for tag in tags}",
-        "BM15 a refspec resolved from its destination",
-    )
-
-    if selected("BM16 the hook file deleted entirely"):
-        original = hook.read_bytes()
-        try:
-            park(hook, original)
-            hook.unlink()
-            battery._verdict("BM16 the hook file deleted entirely", *run(GUARD_B), expect="KILLED")
-        finally:
-            hook.write_bytes(original)
-            unpark(hook)
-    return battery.failures
-
-
 def main() -> int:
     """Run both batteries and report."""
     WANTED.extend(sys.argv[1:])
@@ -524,7 +436,7 @@ def main() -> int:
         print("Re-run from a clean tree.\n")
         return 1
 
-    failures = prove_guard_a() + prove_guard_b()
+    failures = prove_guard_a()
 
     print()
     print("check `git status` before trusting this: the battery edits the working tree")

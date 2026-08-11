@@ -2,7 +2,6 @@
 name: release
 description: Cut a pyflightstream release, checking definition of done, evidence currency, SemVer bump, changelog, and tag. Public releases add the invariants audit.
 side-effects: cuts the version tag, which triggers the PyPI publish workflow (an OIDC trusted publish that reading cannot undo)
-disable-model-invocation: true
 ---
 
 # release
@@ -118,11 +117,16 @@ the changelog alone.
    silence and survived because CI turned out green; v0.7.0 did not, and
    the tag is the one step in this checklist that cannot be retracted.
 
-   It is no longer only a sentence. `.claude/hooks/ci_release_gate.py`
-   refuses a version-tag push while that commit's CI is red, pending,
-   absent or unreachable (INC-20260810-2140-shared). If it denies, the
+   It is no longer only a sentence. The push gate itself
+   (`.claude/hooks/role_review_gate.py`, kit 0.2.18) refuses a
+   version-tag push while that commit's CI is red, still running,
+   unknown or unreachable (INC-20260810-2140-shared). If it denies, the
    answer is to wait or to fix, never to work around it: it is asking
-   the question this item was always supposed to ask.
+   the question this item was always supposed to ask. A repository-owned
+   bridge hook held that rule for one day and was deleted on 2026-08-11
+   in the commit that vendored the shared body; a `[ci-config]` refusal
+   means `.claude/hooks/ci_state.py` is missing rather than that the
+   gate is broken.
 
    AND MIND THE LOOP A DENIAL PUTS YOU IN, because it crosses back into
    item 3 and nothing else says so. Fixing CI means a new commit, and a

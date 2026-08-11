@@ -2,7 +2,6 @@
 name: fts-version-update
 description: Onboard a new FlightStream version into the command database, from manual ingestion to compat report. Use when a new FlightStream version or hotfix build is released.
 side-effects: spends a licensed solver seat (tier 2 probe run) and appends a supported version to the append-only version list in commands/_meta.yaml (invariant 4: versions are only added, never dropped)
-disable-model-invocation: true
 ---
 
 # fts-version-update

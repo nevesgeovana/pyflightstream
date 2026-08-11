@@ -1,6 +1,7 @@
 ---
 name: add-command
 description: Add one FlightStream command to the database with citation, tests, and probe scaffolding. Use when automating a manual feature not yet covered.
+side-effects: writes a new entry into the committed command database under src/pyflightstream/commands/, plus emit-validation tests and regenerated goldens; every effect is a local file write that git can undo, and no status is promoted beyond documented
 ---
 
 # add-command

@@ -1,8 +1,8 @@
 ---
 name: handoff
 description: Session closure documentation. Writes the outgoing session handoff, appends the logbook row, and updates STATUS.md; can also ingest an incoming handoff or capture file.
+side-effects: writes the session handoff, appends the logbook row and rewrites STATUS.md under PYFS_SESSION_ROOT, which is a DIFFERENT repository (the coordination hub) with its own remote; unset or unreadable is a configuration error to stop on, never a skip
 argument-hint: "[out|in <file>]"
-disable-model-invocation: true
 ---
 
 Operation: `$ARGUMENTS`

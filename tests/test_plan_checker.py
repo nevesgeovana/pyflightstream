@@ -98,50 +98,60 @@ def test_a_path_that_does_not_resolve_fails_loud(tmp_path: Path) -> None:
     assert "not a directory" in (done.stdout + done.stderr)
 
 
-def test_an_empty_ledger_directory_exits_zero_and_says_it_checked_nothing(
+def test_an_empty_ledger_directory_now_refuses_instead_of_reporting_success(
     tmp_path: Path,
 ) -> None:
-    """An empty directory exits 0. This pins a WEAKNESS, not a guarantee.
+    """An empty directory exits 2 and refuses to verify. THE WEAKNESS IS FIXED.
 
-    A checker aimed at a directory that exists but holds no entries reports
-    success while validating nothing, which is the exact failure mode the
-    2026-07-27 migration made reachable: a tree can now move out from under a
-    configured path. The sister library registered the same defect
-    independently the same day.
+    THIS TEST INVERTED ON 2026-08-11 and the old contract is written out here
+    rather than deleted, because reading only the new assertion would hide what
+    was bought. Until the 0.2.3 body was replaced, a checker aimed at a
+    directory that exists but holds no entries exited 0 and reported success
+    while validating nothing: the exact failure the 2026-07-27 migration made
+    reachable, a tree moving out from under a configured path. This repository
+    pinned that weakness deliberately, said in the old docstring that the kit
+    might one day decide otherwise, and routed the decision upward. The kit did
+    decide, somewhere between 0.2.3 and 0.2.10, and vendoring 0.2.10 in PFS-11
+    is what collected it.
 
-    The test asserts the CURRENT contract so a re-vendor cannot change it
-    silently. If the kit later decides an empty ledger should exit non-zero,
-    this test is the thing that must change with it, deliberately.
+    The new contract: exit 2 (a CONFIG error, distinct from exit 1 for a real
+    ledger violation) with a message naming the directory and saying an empty
+    walk is a configuration error rather than a clean ledger.
     """
     done = _run_checker(tmp_path)
-    assert done.returncode == 0, f"stdout={done.stdout!r} stderr={done.stderr!r}"
-    assert "no entries" in (done.stdout + done.stderr), (
-        "an empty ledger must at least SAY it checked nothing; silence here "
-        "would be indistinguishable from a clean ledger"
+    assert done.returncode == 2, f"stdout={done.stdout!r} stderr={done.stderr!r}"
+    output = done.stdout + done.stderr
+    assert "CANNOT VERIFY" in output, output
+    assert "no entries" in output, output
+    assert str(tmp_path) in output, (
+        "the refusal must name the directory it walked; without it the operator "
+        "cannot tell a mistyped path from an genuinely empty tree"
     )
 
 
-def test_the_empty_directory_branch_precedes_the_exemption_read(tmp_path: Path) -> None:
-    """An empty ledger reports success even when its config is corrupt.
+def test_the_empty_directory_refusal_does_not_depend_on_a_readable_exemption_file(
+    tmp_path: Path,
+) -> None:
+    """The refusal above holds with a corrupt ``legacy_ids.txt`` on top.
 
-    Split out of the test above rather than appended to it, because it pins a
-    different fact and, appended, it would never run on a day the first
-    assertion failed.
+    Split out rather than appended, because it pins a different fact and,
+    appended, would never run on a day the first assertion failed.
 
-    The empty-directory branch is reached BEFORE the exemption list is read, so
-    a corrupt ``legacy_ids.txt`` on top of an empty ledger exits 0 while the
-    same file with one entry present exits 2. That is the 2026-07-27 migration
-    scenario (a plan tree moving out from under a configured path) with a
-    broken config on top, reported as success.
-
-    Pinned as it is rather than changed: the precedence is kit-body semantics,
-    so it is the coordination level's call and is routed there, not edited
-    here.
+    THIS ONE ALSO INVERTED. The old body reached the empty-directory branch
+    BEFORE reading the exemption list, so a corrupt config on top of an empty
+    ledger exited 0 while the same file with one entry present exited 2: the
+    migration scenario with a broken config, reported as success. What matters
+    now is that the two failure classes cannot cancel: whichever branch the
+    0.2.10 body reaches first, an empty ledger plus an unreadable exemption
+    file must not be an exit 0.
     """
     (tmp_path / "legacy_ids.txt").write_bytes(b"\xff\xfe not utf-8")
     done = _run_checker(tmp_path)
-    assert done.returncode == 0, f"stdout={done.stdout!r} stderr={done.stderr!r}"
-    assert "CONFIG ERROR" not in (done.stdout + done.stderr)
+    assert done.returncode != 0, (
+        "an empty ledger with a corrupt exemption file reports success again; "
+        f"stdout={done.stdout!r} stderr={done.stderr!r}"
+    )
+    assert done.returncode == 2, f"stdout={done.stdout!r} stderr={done.stderr!r}"
 
 
 _LEGACY_ENTRY = """\

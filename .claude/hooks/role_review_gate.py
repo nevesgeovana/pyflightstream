@@ -1,8 +1,8 @@
 # ITACA / pyflightstream shared process kit
-# kit-version: 0.2.16
+# kit-version: 0.2.18
 # artifact: role_review_gate.py
-# body-sha256: 8dd77671321f5d4f76d44ee9ae5ff5eb72288586ba20a31251039fc5e28d8f3a
-# canonical-source: itaca hardened basis, and at 0.2.8 the per-target LEDGER_ENV_BY_REPO superset is RETIRED rather than documented: author decision LEDGER-ENVVAR gives every workspace ONE variable, COORD_INCIDENT_LEDGER, and an absent one now DENIES. There is no coordination flavor left to diverge, so a vendored copy and this master differ in nothing at all. Measured cause: the derived-name fallback meant the coordination repository resolved a variable that had never existed, and unset read as does-not-apply, so the level that writes the incidents was the only one of three this gate did not stop. 0.2.16 gives _strip_heredocs a POWERSHELL branch (ITC-20260801-2245: a here-string leaves an odd quote count, shlex raises, and the fail-closed fallback denies a COMMIT whose message merely mentions push, on the word pre-push alone) and closes a fail-OPEN found by running that fix's own new fixture against the pre-fix body (INC-20260802-1450-shared: an unterminated heredoc opener dropped every remaining line and a real git push went with them, reachable in two lines with no heredoc). Both branches now strip nothing when an opener is never terminated. See coordination/DESIGN_HUB-12_kit_batch.md item 1.
+# body-sha256: acd1766cc0425036a96ec825ecf0f1e50660101d7763f97639e31dd088314ada
+# canonical-source: itaca hardened basis, and at 0.2.8 the per-target LEDGER_ENV_BY_REPO superset is RETIRED rather than documented: author decision LEDGER-ENVVAR gives every workspace ONE variable, COORD_INCIDENT_LEDGER, and an absent one now DENIES. There is no coordination flavor left to diverge, so a vendored copy and this master differ in nothing at all. Measured cause: the derived-name fallback meant the coordination repository resolved a variable that had never existed, and unset read as does-not-apply, so the level that writes the incidents was the only one of three this gate did not stop. 0.2.16 gives _strip_heredocs a POWERSHELL branch (ITC-20260801-2245: a here-string leaves an odd quote count, shlex raises, and the fail-closed fallback denies a COMMIT whose message merely mentions push, on the word pre-push alone) and closes a fail-OPEN found by running that fix's own new fixture against the pre-fix body (INC-20260802-1450-shared: an unterminated heredoc opener dropped every remaining line and a real git push went with them, reachable in two lines with no heredoc). Both branches now strip nothing when an opener is never terminated. See coordination/DESIGN_HUB-12_kit_batch.md item 1. 0.2.18 adds the CI-GREEN TAG RULE (INC-20260810-2140-shared, and INC-20260810-2350-itaca which is OPEN and blocking next door): a release-grade push is REFUSED unless the commit each version tag names has a concluded, successful CI result on the remote, with RED, RUNNING, UNKNOWN and unreachable all denying on the COORD_INCIDENT_LEDGER precedent that a guard reading its own missing information as permission is not a guard. The decision table is NOT rewritten here; ci_state.py already holds it and this gate BINDS that body at the push boundary, bounded by its own budget because a hook killed at its timeout emits no decision and no decision reads as permission. Its starting point was pyflightstream's repository-owned bridge hook, taken as a starting point and not a specification: that hook's unpaginated check-runs query is not carried over, and the same defect class in ci_state.py's own ceiling is fixed in the same promotion. Every local git call is bounded for the same reason. Guard evidence: role_review_gate_mutations.py, 16 cases and 6 mutants, including the ORIGINAL v0.7.0 push refused at both of its moments.
 # note: derived copy; canonical master at the coordination level (`ClaudeCoordinator/kit`); do not hand-edit, re-vendor on promotion.
 # END KIT PROVENANCE (body verbatim below)
 #!/usr/bin/env python3
@@ -57,6 +57,34 @@ bypass holes in v1):
   branch named ``fix/v1.2.3`` is not a release) and does NOT count tags
   that merely happen to sit at HEAD.
 
+Since kit 0.2.18 a release-grade push additionally requires that CI has
+CONCLUDED SUCCESSFULLY on the remote for the commit each version tag
+names. Red, still running, unknown and unreachable all deny. The rule and
+its reasoning sit beside the CI_STATE_* constants below; the decision
+itself is not written here at all, it is `ci_state.py`'s, bound at this
+boundary.
+
+WHAT THE CI RULE DOES NOT COVER, so its reach is not overread:
+
+- A push issued outside the agent's tool calls, or through the GitHub API
+  or web UI. That is a property of being a PreToolUse hook.
+- `push.followTags = true`, and a tag refspec in `remote.<name>.push`.
+  Both publish a tag on an ordinary branch push with no tag token on the
+  command line, so no ref reaches `_release_refs` and this arm never runs.
+  A config setting is not a flag, so the blanket-form allowlist above does
+  not see it either. Registered, not fixed: pyflightstream's
+  PLN-20260811-0430 records a first attempt at this check that carried
+  four defects in one small arm and was removed the same night, and states
+  what a correct version needs.
+- A tag that triggers a repository's release workflow but does not match
+  VERSION_TAG_TOKEN. It is not release-grade to this gate at all, which
+  is a pre-existing seam this rule inherits rather than one it opens.
+- WHICH workflows should have run. `ci_state.py` judges the runs that
+  EXIST for the SHA (with the safeguard that no run at all is UNKNOWN,
+  never green). It has no notion of an expected set unless a caller names
+  one, and this gate names none, because the expected set is a
+  repository's own fact and this body carries no repository's facts.
+
 The attestation path is duplicated in write_attestation.py:ATTESTATION
 and .gitignore; a rename must touch all three.
 """
@@ -69,6 +97,7 @@ import re
 import shlex
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 ATTESTATION = ".claude/.role_review_attestation.json"
@@ -128,6 +157,73 @@ CHECKER_NAME = "check_incidents.py"
 # the release workflow's `v*` publish trigger). Anchored to the whole
 # token, so a branch name like fix/v1.2.3-regression does not match.
 VERSION_TAG_TOKEN = re.compile(r"^(?:refs/tags/)?v\d[\w.\-]*$")
+
+# ---------------------------------------------------------------------------
+# THE CI-GREEN TAG RULE (kit 0.2.18), from INC-20260810-2140-shared.
+#
+# pyflightstream pushed the v0.7.0 tag fifteen seconds after the branch, with
+# seven of eight CI jobs still running and the suite red on five of them.
+# Nothing was published, because that repository's release workflow binds
+# publish to its gates, but a tag on a public remote cannot be retracted. This
+# gate ALLOWED it, measured against the live remote: the attestation covered
+# every commit and the ledger was clean, and CI was never asked. The
+# requirement existed as prose in a release skill and prose decayed on the
+# schedule prose decays on: the gap between the branch CI run and the tag push
+# went 14 minutes, 41 minutes, 13 seconds, 15 seconds across four releases,
+# against a CI run that takes about four and a half minutes.
+#
+# THE RULE: a release-grade push is refused unless the commit each version tag
+# names has a CONCLUDED, SUCCESSFUL CI result on the remote. RED, RUNNING,
+# UNKNOWN and a query that could not be made all DENY.
+#
+# FAILING CLOSED ON A NETWORK QUESTION IS THE LOAD-BEARING HALF, and it is the
+# same precedent LEDGER_ENV above already sets: a guard that reads its own
+# missing information as permission is not a guard. The usual objection does
+# not apply here and the difference is worth stating: the guarded action is
+# itself a push TO THAT REMOTE, so it needs the same network and the same
+# credentials this query needs. There is no state in which the push would
+# succeed and the question could not be asked.
+#
+# THE DECISION TABLE IS NOT WRITTEN HERE. `ci_state.py` is the kit's authority
+# on what CI concluded about one SHA, it already carries the four-state
+# vocabulary and the rule that UNKNOWN is never green, and this gate BINDS it
+# at the push boundary rather than re-deriving it. Two mechanisms holding one
+# rule in two vocabularies is how they drift apart, which is the whole reason
+# this kit exists.
+#
+# WHY IT IS CHECKED BEFORE THE RELEASE ATTESTATION. A red or unfinished CI run
+# is dispositive: the fix is a new commit, the tag moves onto it, and every
+# attestation has to be written again over the new range. Asking for the full
+# release panel first would spend that panel on a commit that cannot ship.
+#
+# THIS LEVEL'S OWN EXEMPTION IS NOT HERE AND IS NOT A FLAG. The coordination
+# repository has no CI by the author's decision of 2026-08-02, and that
+# entitlement is written in that repository's own handoff skill, in words,
+# for the reason recorded there: a switch inside the checker that says "this
+# level has no CI" is reachable by the libraries, where CI does exist, and
+# would silence one that is present and red. Nothing is added here either,
+# and nothing needs to be: this arm fires only on an explicit VERSION TAG, and
+# a repository that publishes no version tags never reaches it. If this level
+# ever does push one, the refusal is correct and lifting it is an author call.
+CI_STATE_NAME = "ci_state.py"
+#: Where a vendored `ci_state.py` may sit, relative to the repository root.
+#: The two libraries vendor kit bodies into DIFFERENT directories today
+#: (`.claude/hooks`, `.claude/kit`, `.claude/tools`), measured rather than
+#: assumed, so a single hard-coded path would be wrong in at least one of
+#: them. Beside this file FIRST, since that is where the pair belongs.
+CI_STATE_SEARCH = (".claude/hooks", ".claude/kit", ".claude/tools", "kit", "scripts")
+#: The whole CI question, across every tag in one push, is bounded. A
+#: PreToolUse hook killed at its harness timeout emits NO decision at all, and
+#: no decision is treated as permission, so running out of time has to be an
+#: explicit refusal rather than a silence. A consumer whose hook timeout is
+#: below this has a gate that can fail open on a slow network; that number is
+#: in each repository's settings and cannot be asserted from here.
+CI_BUDGET_SECONDS = 50.0
+CI_CALL_TIMEOUT = 40.0
+#: `ci_state.py`'s own documented exit contract. Read as a MAPPING and any
+#: value outside it is UNKNOWN, so a future state added there cannot arrive
+#: here as a silent pass.
+CI_EXIT_STATE = {0: "GREEN", 1: "RED", 3: "RUNNING", 4: "UNKNOWN", 2: "CONFIG"}
 
 
 def _decide(decision: str, reason: str) -> None:
@@ -490,13 +586,26 @@ def _find_git_push(
     return False, None, []
 
 
+#: Every local git call is bounded, added at 0.2.18 alongside the CI rule. An
+#: unbounded call can hang on a credential helper or a network filesystem, and
+#: a hook that hangs is killed by the harness WITHOUT emitting a decision,
+#: which is read as permission. A timeout here can only turn a hang into an
+#: empty result, and every caller already treats an empty result as a refusal.
+GIT_TIMEOUT_SECONDS = 15.0
+
+
 def _git(root: Path, *args: str) -> str:
     """Run git in ``root``; empty string on any failure (caller decides)."""
     try:
         return subprocess.run(
-            ["git", *args], cwd=root, capture_output=True, text=True, check=False
+            ["git", *args],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=GIT_TIMEOUT_SECONDS,
         ).stdout.strip()
-    except (OSError, ValueError):
+    except (OSError, ValueError, subprocess.SubprocessError):
         return ""
 
 
@@ -821,6 +930,111 @@ def _release_refs(args_after_push: list[str]) -> list[str]:
     return named
 
 
+def _release_targets(args_after_push: list[str]) -> dict[str, str]:
+    """Map each version tag this push publishes to the commit-ish it carries.
+
+    A refspec publishes its SOURCE side under its destination name, so
+    ``HEAD:refs/tags/v0.8.0`` puts HEAD there. Resolving the tag NAME locally
+    instead reads a different commit when one already exists under that name,
+    and nothing when it does not: a false allow and a false deny out of the
+    same line. The default is the tag's own name, which is the ordinary
+    ``origin v0.8.0`` form.
+
+    ONLY A TAG DESTINATION RENAMES A TAG. Matching the destination's basename
+    alone let ``sneaky:refs/heads/v0.7.0`` claim the target of tag ``v0.7.0``,
+    so a BRANCH named like a version tag, which release conventions produce,
+    moved the CI question onto the wrong commit.
+    """
+    def short(ref: str) -> str:
+        """The tag name without its ``refs/tags/`` prefix.
+
+        Keyed on the SHORT name for two reasons, both measured while writing
+        this. ``_release_refs`` returns each side AS WRITTEN, so
+        ``HEAD:refs/tags/v0.8.0`` yields the long spelling while a refspec's
+        destination basename is short, and the two never met: the mapping
+        below silently never applied and the long name was handed to git as a
+        commit-ish. And ``origin v0.7.0:refs/tags/v0.7.0`` names ONE tag
+        twice, which would otherwise cost two identical remote queries out of
+        one bounded budget.
+        """
+        return ref.rsplit("/", 1)[-1] if ref.startswith("refs/tags/") else ref
+
+    targets = {short(tag): short(tag) for tag in _release_refs(args_after_push)}
+    tokens = [_unquote(raw) for raw in args_after_push]
+    positional = [t for t in tokens if not t.startswith("-")]
+    for spec in positional[1:]:
+        stripped = spec.lstrip("+")
+        if ":" not in stripped:
+            continue
+        source, _, destination = stripped.partition(":")
+        if destination.startswith("refs/heads/") or not source:
+            continue
+        name = destination.rsplit("/", 1)[-1]
+        if name in targets:
+            targets[name] = source
+    return targets
+
+
+def _ci_state_body(root: Path) -> Path | None:
+    """Locate the vendored ``ci_state.py`` this repository carries, or None.
+
+    NO ENVIRONMENT VARIABLE, on the precedent ``prepush_receipt.py`` and
+    ``check_review_rounds.py`` both set: the location is derivable from the
+    repository root, and a variable would be one more thing to export before a
+    vendored gate stops denying. An absent body is a refusal, never a skip;
+    see the caller.
+    """
+    here = Path(__file__).resolve().parent / CI_STATE_NAME
+    if here.is_file():
+        return here
+    for folder in CI_STATE_SEARCH:
+        candidate = root / folder / CI_STATE_NAME
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def _ci_state(body: Path, root: Path, sha: str, budget: float) -> tuple[str, str]:
+    """Ask ``ci_state.py`` what CI concluded about one commit.
+
+    Returns ``(state, detail)`` where state is one of ``ci_state``'s own four,
+    or ``CONFIG``, or ``UNKNOWN`` for anything this gate could not turn into
+    an answer. Run as a SUBPROCESS rather than imported, for two reasons that
+    are both about this being a hook: it is bounded by a timeout that an
+    in-process call cannot be given, and it reuses the exit-status contract
+    that body publishes for callers instead of reaching into its internals.
+
+    EVERY FAILURE HERE IS UNKNOWN, and the caller denies on UNKNOWN. A
+    timeout, a missing interpreter, an exit status outside the contract: none
+    of them is evidence that anything passed.
+    """
+    try:
+        done = subprocess.run(
+            [sys.executable, str(body), "poll", "--sha", sha, "--repo", str(root)],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=max(1.0, budget),
+        )
+    except subprocess.TimeoutExpired:
+        return "UNKNOWN", (
+            f"{CI_STATE_NAME} did not answer within {budget:.0f}s. This gate "
+            "bounds itself because a hook killed by the harness emits no "
+            "decision at all, and no decision is read as permission"
+        )
+    except (OSError, ValueError, subprocess.SubprocessError) as error:
+        return "UNKNOWN", f"{CI_STATE_NAME} could not be run ({type(error).__name__}: {error})"
+    detail = (done.stdout.strip() + "\n" + done.stderr.strip()).strip()
+    state = CI_EXIT_STATE.get(done.returncode, "UNKNOWN")
+    if done.returncode not in CI_EXIT_STATE:
+        detail = (
+            f"{CI_STATE_NAME} exited {done.returncode}, which is outside its "
+            f"documented contract {sorted(CI_EXIT_STATE)}, so its answer "
+            f"cannot be read at all.\n{detail}"
+        )
+    return state, detail
+
+
 def _is_release_push(args_after_push: list[str]) -> bool:
     """Classify a push as release-grade from the refs it names.
 
@@ -1062,6 +1276,104 @@ def main() -> None:
             )
 
         if is_release:
+            # ---- THE CI-GREEN RULE ------------------------------------
+            # Before the release attestation, deliberately: see the block
+            # of constants at the top of this file for the ordering and
+            # for why every unknown here denies.
+            ci_deadline = time.monotonic() + CI_BUDGET_SECONDS
+            ci_body = _ci_state_body(root)
+            if ci_body is None:
+                _decide(
+                    "deny",
+                    f"{GATE_PREFIX} [ci-config] this is a release-grade push and "
+                    f"{CI_STATE_NAME} is not vendored anywhere this gate looks "
+                    f"({', '.join(CI_STATE_SEARCH)}), so what CI concluded about "
+                    "the tagged commit could not be asked at all.\n"
+                    f"Vendor the kit's {CI_STATE_NAME} beside this gate. This "
+                    "denial is EXPECTED for a repository that vendored kit 0.2.18's "
+                    f"gate without vendoring {CI_STATE_NAME} in the SAME commit, "
+                    "which is the order the promotion prescribes. "
+                    "If the gate itself is broken, stop and tell the author: "
+                    "turning it off to ship is an author decision, not a workaround.",
+                )
+            for tag, commitish in _release_targets(args_after_push).items():
+                remaining = ci_deadline - time.monotonic()
+                if remaining <= 1.0:
+                    _decide(
+                        "deny",
+                        f"{GATE_PREFIX} [ci-budget] ran out of the "
+                        f"{CI_BUDGET_SECONDS:.0f}s this gate allows itself before "
+                        f"reaching {tag}. Failing closed: a hook killed by the "
+                        "harness emits no decision at all, and no decision is "
+                        "treated as permission. Push one tag at a time, or find "
+                        "out what is slow.",
+                    )
+                ci_sha = _git(root, "rev-list", "-n", "1", commitish)
+                if not ci_sha:
+                    # UNREACHABLE TODAY, and kept deliberately, which is a
+                    # claim that has to be stated rather than left for a
+                    # reader to discover as dead code. `_push_scope` already
+                    # resolves the source side of every refspec with the same
+                    # command and refuses with [scope] first, so no push
+                    # arrives here with an unresolvable commit-ish. It is kept
+                    # because this arm reads a DIFFERENT map (the tag's
+                    # destination-to-source resolution) and a later change to
+                    # either could separate them, and because failing closed
+                    # on an empty sha costs nothing. No case in
+                    # `role_review_gate_mutations.py` reaches it, and that
+                    # file pins the [scope] refusal that gets there first.
+                    _decide(
+                        "deny",
+                        f"{GATE_PREFIX} [ci-tag] {commitish!r}, which this push "
+                        f"would publish as {tag}, does not resolve in this "
+                        "checkout, so there is no commit whose CI could be read. "
+                        "Check the spelling, or create the tag locally first.",
+                    )
+                ci_state, ci_detail = _ci_state(
+                    ci_body, root, ci_sha, min(CI_CALL_TIMEOUT, remaining)
+                )
+                if ci_state == "GREEN":
+                    continue
+                head_line = {
+                    "RED": f"CI FAILED on the remote for {tag} ({ci_sha[:12]})",
+                    "RUNNING": f"CI has NOT CONCLUDED for {tag} ({ci_sha[:12]})",
+                    "CONFIG": f"{CI_STATE_NAME} could not run for {tag}",
+                }.get(ci_state, f"CI could not be established for {tag} ({ci_sha[:12]})")
+                remedy = {
+                    "RED": (
+                        "Fix the failure, push the branch, wait for CI to finish, "
+                        "move the tag onto the green commit, then push the tag. "
+                        "Fixing CI means new commits, which re-arms this gate: "
+                        "re-run both attestations naming the tag before pushing it."
+                    ),
+                    "RUNNING": (
+                        "This is the state this rule exists for. A tag is public, "
+                        "cannot be retracted, and triggers the release workflow; an "
+                        "unfinished run is not a green one. Wait for it to conclude, "
+                        "then push the tag."
+                    ),
+                    "CONFIG": (
+                        f"Repair the vendored {CI_STATE_NAME} or the way this gate "
+                        "invokes it. A checker that cannot run is not a clean answer."
+                    ),
+                }.get(
+                    ci_state,
+                    "Run `gh auth status` and `gh run list --commit "
+                    f"{ci_sha}` (the FULL hash) and fix what they report, then "
+                    "retry. UNKNOWN is refused rather than assumed benign: this "
+                    "push needs the same network and credentials the query needs, "
+                    "so there is no offline case this refusal is costing you.",
+                )
+                _decide(
+                    "deny",
+                    f"{GATE_PREFIX} [ci-{ci_state.lower()}] {head_line}, so this "
+                    "release-grade push is refused.\n\n"
+                    f"{remedy}\n\n"
+                    f"{CI_STATE_NAME} said: {ci_detail}\n"
+                    "If the gate itself is broken, stop and tell the author: "
+                    "turning it off to ship is an author decision, not a workaround.",
+                )
+
             # The tags the operator must pass to the writer, so the
             # prescribed command stamps every ref being pushed rather than
             # HEAD, which a tag behind HEAD would never match. Name ALL

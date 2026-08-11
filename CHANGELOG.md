@@ -83,6 +83,41 @@ Deprecations: none.
   26.120 alone. Their pin cited a backfill owed for EARLIER builds,
   which never applied to later ones.
 
+- **Process only, no package change: the CI-green tag rule moved from a
+  repository-owned hook into the shared push gate.** Ten kit bodies were
+  re-vendored (kit 0.2.18/0.2.19/0.2.15/0.2.11/0.2.10/0.2.5, per file),
+  and `.claude/hooks/ci_release_gate.py`, its wiring in
+  `.claude/settings.json`, `tests/test_ci_release_gate.py` and that
+  hook's mutation battery were deleted in the SAME commit, never before
+  it and never after. Two new vendored files sit beside the gate,
+  `ci_state.py` and `ci_state_mutations.py`, because the 0.2.18 gate runs
+  the first as a subprocess and treats its absence as a refusal.
+  `scripts/prove_extras_and_ci_guards.py` is renamed
+  `scripts/prove_extras_isolation.py`, having lost the half it was named
+  for. Contributor-visible: the mutation battery's path and its label
+  prefixes changed (`BM*` are gone); the gate's hook timeout in
+  `.claude/settings.json` is 90 seconds rather than 30, because the
+  vendored body budgets 50 seconds of CI work and a hook the harness
+  kills emits no decision at all.
+- **Every skill now declares `side-effects:`, and none carries
+  `disable-model-invocation`.** The author retired the human-only flag at
+  kit 0.2.19 on 2026-08-11, across all skills with no exception,
+  including `release` and the three that spend a licensed solver seat.
+  Six skills that had declared nothing (`add-command`, `audit`,
+  `derive-requirements`, `handoff`, `plan`, `role-review`) now do; the
+  guard's own measurement went from `4 declaring, 6 undeclared` to
+  `10 declaring, 0 undeclared`.
+- **`PYFS_INCIDENT_LEDGER` is retired**, and a fresh clone now sets four
+  machine-configuration variables rather than five. The 0.2.11
+  incident-analyst charter reads `COORD_INCIDENT_LEDGER` like everything
+  else, so the old name had no consumer left. CLAUDE.md keeps a
+  retirement notice so a machine that already exports it learns why to
+  stop.
+- CLAUDE.md gains an `## Execution rules` section (pointers, not
+  reasoning) and a pointer to `BRF-082`, whose wording lives in
+  `.claude/skills/role-review/SKILL.md`: the adversarial pass runs BEFORE
+  a completion claim rather than as a review round after it.
+
 ### Fixed
 
 - A probe detail carrying a backslash reached the rewritten chapter

@@ -1,7 +1,7 @@
 # ITACA / pyflightstream shared process kit
-# kit-version: 0.2.4
+# kit-version: 0.2.5
 # artifact: snap.sh
-# body-sha256: 7c9573aabe398576dd00c2a8a5acf0312fa289ff497ae56681225954d843f4cd
+# body-sha256: 0835e6ae1bd43d05e213a88552bcd94a1b91ebec946f9dabb5411d7595b265d1
 # canonical-source: local-only _private snapshot tool, shared across all three workspaces plus the shared incident ledger.
 # note: derived copy; canonical master at the coordination level (`ClaudeCoordinator/kit`); do not hand-edit, re-vendor on promotion.
 # END KIT PROVENANCE (body verbatim below)
@@ -47,13 +47,29 @@ declare -A TREES=(
 
 g() { # g <repo> <git args...>
   local repo=$1; shift
+  # Refuse an unconfigured tree HERE, so log, diff and restore are covered
+  # too. Putting the check only in snapshot() left the body's skip promise
+  # wider than the code that honoured it: the other three actions reached
+  # git with an empty --work-tree and died on a git-level message about the
+  # empty string, which tells the reader nothing about what to configure.
+  if [ -z "${TREES[$repo]}" ]; then
+    echo "$repo: no tree configured, skipped" >&2
+    return 1
+  fi
   git --git-dir="$BASE/${repo}_private.git" --work-tree="${TREES[$repo]}" "$@"
 }
 
 ensure() { # create the repo on first use
   local repo=$1
+  # The WORK TREE is checked FIRST, before the already-exists shortcut.
+  # Reversed, this was the 2026-07-28 defect: the shortcut returned 0 for any
+  # repo whose git dir already existed, so an unset or missing tree never
+  # reached this test, snapshot() proceeded, and `add -A` ran with an EMPTY
+  # --work-tree. The body promised the tree was "simply skipped" and it was
+  # not. An empty tree is a skip, not a snapshot of whatever the cwd happens
+  # to be.
+  [ -n "${TREES[$repo]}" ] && [ -d "${TREES[$repo]}" ] || return 1
   [ -d "$BASE/${repo}_private.git" ] && return 0
-  [ -d "${TREES[$repo]}" ] || return 1
   git --git-dir="$BASE/${repo}_private.git" --work-tree="${TREES[$repo]}" init -q
   # Identity comes from the AMBIENT git configuration, never from this file.
   # It used to be two literals here, which put a full name and a personal
@@ -78,8 +94,15 @@ snapshot() {
   else
     local n
     n=$(g "$repo" diff --cached --name-only | wc -l | tr -d ' ')
-    g "$repo" commit -q -m "snapshot: $n file(s)" 2>/dev/null
-    echo "$repo: snapshot taken ($n file(s)) -> $(g "$repo" rev-parse --short HEAD)"
+    # The exit status is CHECKED. Swallowing it and echoing success anyway is
+    # how a tool whose whole purpose is recovery reports a snapshot it did not
+    # take, which is the failure mode that made this file necessary.
+    if g "$repo" commit -q -m "snapshot: $n file(s)" 2>/dev/null; then
+      echo "$repo: snapshot taken ($n file(s)) -> $(g "$repo" rev-parse --short HEAD)"
+    else
+      echo "$repo: SNAPSHOT FAILED, $n staged file(s) NOT committed" >&2
+      return 1
+    fi
   fi
 }
 
@@ -87,8 +110,14 @@ repo=${1:-}
 action=${2:-}
 
 if [ -z "$repo" ]; then
-  for r in "${!TREES[@]}"; do snapshot "$r"; done
-  exit 0
+  # The exit status carries the worst outcome. The loop used to discard every
+  # snapshot() return and exit 0 unconditionally, so the no-argument run, which
+  # is the documented normal usage, reported success after a failure it had
+  # just printed. Same class as the defect this file was fixed for, one layer
+  # out: the message told the truth and the status did not.
+  rc=0
+  for r in "${!TREES[@]}"; do snapshot "$r" || rc=1; done
+  exit "$rc"
 fi
 
 [ -n "${TREES[$repo]+x}" ] || { echo "unknown repo: $repo (use: ${!TREES[*]})"; exit 2; }

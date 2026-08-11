@@ -1,8 +1,8 @@
 ---
 name: plan
 description: Planning state over the plan ledger and the milestone map. Report progress, add agreed items, or propose the next work window.
+side-effects: writes and edits plan ledger items under _private/plan/, which is local-only and never committed; the ledger is validated by PYFS_PLAN_CHECKER and nothing here leaves the machine
 argument-hint: "[status|add|next]"
-disable-model-invocation: true
 ---
 
 Operation: `$ARGUMENTS`

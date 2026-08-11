@@ -1,8 +1,62 @@
 ---
 name: role-review
 description: Run the role-based reviewer passes (architect, QA, V&V, tech writer, API designer) on a work item's diff and drive every finding to fixed or registered. Use before closing any work item; the definition of done cites this skill.
+side-effects: writes the push-gate attestation at .claude/.role_review_attestation.json (local, gitignored), which is the file that unblocks a git push; it also spawns reviewer agents, one of which mutates tracked files inside an isolated worktree
 argument-hint: "[git range | staged | last-commit]"
 ---
+
+## The adversarial pass is a precondition, not a round
+
+A completion claim is not made and then reviewed. The adversarial pass runs
+BEFORE the claim, and the claim is not available until it has run.
+
+Before reporting any implementation, guard, test or script as done, run one
+hostile pass over your OWN diff, whose success condition is BREAKING the
+work rather than confirming it. At minimum:
+
+- every mutation anchor is asserted PRESENT and UNIQUE before it is applied,
+  because a mutant whose anchor drifted mutates nothing and passes vacuously
+- every new test is shown to go RED when the code it covers is sabotaged; a
+  test that stays green under sabotage is not a test
+- every regex carries the flags its case needs, and every CLI flag parse
+  matches the tool's real precedence rather than the obvious one
+- every success message names ONLY properties this run evaluated. A line
+  that asserts something the code no longer checks is the defect that is
+  hardest to see, because the line looks right
+- every arm no case reaches is PRINTED as unreached, never counted as
+  covered
+
+- name what you TRIED to break and could not, not only what broke. A pass
+  reporting nothing is unfalsifiable until a reader can see which attacks
+  were attempted; with the attempts named, a reader can tell a clean diff
+  from an incurious one
+
+Report the findings of that pass ALONGSIDE the implementation, including the
+ones you fixed. A pass that reports nothing is itself a finding, and says so
+rather than staying silent.
+
+This does not replace the gated role-review, which is independent by design
+and reviews what a session cannot review about itself. It removes the rounds
+that were spent on defects the session could have found alone.
+
+The wording above is `BRF-082`, approved by the author on 2026-08-11 and
+taken VERBATIM from the coordination level rather than restated here, because
+itaca receives the same text and two independently drafted versions of one
+rule diverge inside a month. That is the failure this coordination level was
+created from. Every clause traces to a defect this project actually shipped
+rather than to a checklist category; the traces are in the brief. Aimed at
+this repository in particular because v0.7.0 took EIGHT reviewer passes, and
+none of what the later ones found (guards carrying the defect they were
+written to prevent, six false allows in a gate that fails closed) was found
+before an earlier round had already said done.
+
+CLAUDE.md carries a three-line POINTER to this section under
+`## Execution rules`, and the split is deliberate: a precondition that only
+exists once someone remembers to invoke a skill is not a precondition, and
+restating the reasoning in both files would create the second copy this
+project forbids.
+
+## The reviewer passes
 
 Role-based review per the team-role model adopted 2026-07-23
 (PLN-025): the implementer never closes an item as its only reviewer.

@@ -7,14 +7,8 @@
           {
             "type": "command",
             "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/role_review_gate.py\"",
-            "timeout": 30,
-            "statusMessage": "Checking the role-review push gate"
-          },
-          {
-            "type": "command",
-            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/ci_release_gate.py\"",
             "timeout": 90,
-            "statusMessage": "Checking the CI release gate"
+            "statusMessage": "Checking the role-review push gate"
           }
         ]
       }

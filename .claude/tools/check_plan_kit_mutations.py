@@ -1,7 +1,7 @@
 # ITACA / pyflightstream shared process kit
-# kit-version: 0.2.3
+# kit-version: 0.2.10
 # artifact: check_plan_kit_mutations.py
-# body-sha256: 410db0d4003dcb085b87eba4af35686d490aa2974d67606ea509ba25bcf6fe8b
+# body-sha256: 19e0082627371279642723f35d7f78af0e59577eda3ff751cc658332dc8151ad
 # canonical-source: BUILT for the kit: the mutation test for check_plan_kit.py, adapted from itaca's check_plan_entries_mutations.py with a union-vocabulary control added.
 # note: derived copy; canonical master at the coordination level (`ClaudeCoordinator/kit`); do not hand-edit, re-vendor on promotion.
 # END KIT PROVENANCE (body verbatim below)
@@ -140,6 +140,48 @@ def main() -> int:
                 failures += 1
             else:
                 print(f"caught: {name}")
+
+        # THE EMPTY WALK. Kit 0.2.10 made the checker refuse a plan directory
+        # holding no entries, and this case is what keeps that refusal honest.
+        # ITC-20260730-0205: the guard shipped at 0.2.10 without it, so the
+        # companion printed "0 check(s) could not fail" while being silent about
+        # the one check it did not cover, which is the self-skipping shape the
+        # refusal itself exists to close. A companion that cannot fail the case
+        # its checker was just changed for is the founding failure repeating
+        # inside the fixture for the founding failure.
+        #
+        # It is asserted as a THREE-part claim, not a non-zero exit, because
+        # exit 1 and exit 2 mean different things here and conflating them is
+        # how a configuration error gets reported as a dirty ledger:
+        #   exit is 2 (CANNOT VERIFY), not 1 (entries read, some bad);
+        #   the message says so in words;
+        #   and it goes to stderr, so a caller reading stdout sees nothing that
+        #   could be mistaken for a clean run.
+        folder = base / "empty_walk"
+        folder.mkdir()
+        code, out = run(folder)
+        if code != 2:
+            print(f"NOT CAUGHT: an empty plan directory exited {code}, expected 2")
+            failures += 1
+        elif "CANNOT VERIFY" not in out:
+            print(f"CAUGHT BUT WRONG MESSAGE: empty plan directory\n{out}")
+            failures += 1
+        else:
+            print("caught: an empty plan directory refuses with CANNOT VERIFY")
+
+        # A README-only directory is the same emptiness wearing a file. The
+        # checker skips README.md by design, so this is the case that would
+        # survive a fix keyed on "the folder has no files" rather than on "the
+        # folder has no ENTRIES", and the two are not the same question.
+        folder = base / "readme_only"
+        folder.mkdir()
+        (folder / "README.md").write_text("# plan\n", encoding="utf-8")
+        code, out = run(folder)
+        if code != 2 or "CANNOT VERIFY" not in out:
+            print(f"NOT CAUGHT: a README-only directory exited {code}\n{out}")
+            failures += 1
+        else:
+            print("caught: a README-only directory refuses with CANNOT VERIFY")
 
         # A duplicate id needs two files, so it gets its own folder.
         folder = base / "duplicate_id"

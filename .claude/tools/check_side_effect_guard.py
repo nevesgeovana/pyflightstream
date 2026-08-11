@@ -1,46 +1,66 @@
 # ITACA / pyflightstream shared process kit
-# kit-version: 0.2.2
+# kit-version: 0.2.19
 # artifact: check_side_effect_guard.py
-# body-sha256: ba9007941dcc44887e31d70dc74be8efe409f51a249d2b79398e66c276e9810c
-# canonical-source: BUILT for the kit (S3 side-effecting-skill guard). Structural replacement for the hardcoded 3-entry side-effect allowlist the 2026-07-23 review flagged: single-source, a skill declares its own side-effects in frontmatter and the guard asserts declares-side-effects -> disable-model-invocation: true. Consolidates the twice-authored side-effect justification (skill frontmatter AND a separate test map, already drifted) onto the frontmatter as the one source.
-# note: derived copy; canonical master at the coordination level (`_private/kit`); do not hand-edit, re-vendor on promotion.
+# body-sha256: 0e8c7315dd316570e44a294faefabda7971c9c7a228e5c7ac4b48dbee7aec30e
+# canonical-source: BUILT for the kit (S3 side-effecting-skill guard). Structural replacement for the hardcoded 3-entry side-effect allowlist the 2026-07-23 review flagged: single-source, a skill declares its own side-effects in frontmatter. AT 0.2.19 THE HUMAN-ONLY IMPLICATION WAS RETIRED by the author's decision of 2026-08-11: the guard no longer requires disable-model-invocation: true, and asserts only that every skill DECLARES what it does. Her reasoning is recorded in BRF-079: the verification stages downstream carry the safety level she requires for more autonomy. The objection raised before she decided is recorded there too and she decided with it on the table.
+# note: derived copy; canonical master at the coordination level (`ClaudeCoordinator/kit`); do not hand-edit, re-vendor on promotion.
 # END KIT PROVENANCE (body verbatim below)
 #!/usr/bin/env python3
-"""S3 guard: a side-effecting skill must be human-invoked only.
+"""S3 guard: every skill must DECLARE what it changes in the world.
 
 Structural replacement for the hardcoded 3-entry allowlist the 2026-07-23
 review flagged: an allowlist "cannot fail on a new side-effecting skill"
 (the guard behind fix-now item 2), and the side-effect justification was
 authored twice (skill frontmatter AND a test map) and had already drifted.
 
-The fix is single-source. A skill declares its own side effects in its
-frontmatter, with a non-empty ``side-effects:`` field naming what it does
-that is not reversible by reading (a published tag that triggers a PyPI
-release, a licensed solver seat that spends a run, a version bump). The
-guard asserts the IMPLICATION: any skill that declares side effects must
-also declare ``disable-model-invocation: true`` so the model cannot fire
-it without the human choosing to. There is no separate list to keep in
-sync, so a new side-effecting skill that carries the marker is caught the
-moment it forgets the disable flag.
+WHAT CHANGED AT 0.2.19, and it is a policy change rather than a fix.
+
+Until 0.2.18 this guard asserted an IMPLICATION: a skill declaring
+non-empty ``side-effects:`` had to also declare
+``disable-model-invocation: true``, so the model could not fire it
+without the human choosing to. The author RETIRED that implication on
+2026-08-11, across all skills and with no exception, on the ground that
+the verification stages downstream (the push gate, the attestation, the
+incident ledger, the staged-content guard, each repository's review)
+carry the safety level she requires for more autonomy.
+
+The objection put to her before she decided is recorded in ``BRF-079``
+rather than argued again here, and the short form belongs in this body
+because a later reader will otherwise reconstruct it wrongly: for a
+skill whose effect is a local write, the downstream stages do reach it,
+because git undoes the write and the gate reviews it. For a published
+version and for a spent licensed solver seat there is no downstream
+stage, because the damage is the act. She decided with that on the
+table, and this body implements her decision rather than a compromise
+with it.
+
+WHAT THE GUARD ASSERTS NOW, and why it is not nothing. Every
+``*/SKILL.md`` must carry a ``side-effects:`` field. Naming ``none`` is a
+valid declaration and the common case; what is refused is SILENCE. That
+keeps the single-source property the 2026-07-23 review asked for, and it
+closes a hole the implication form had: under the old rule a skill that
+declared nothing was not this guard's business, so the cheapest way past
+the guard was to say nothing at all. Measured on 2026-08-11, six of
+pyflightstream's ten skills sat in exactly that hole, including two that
+write records and one that writes to the command database.
 
 Residual, stated honestly (route to the reviewer charter, not a code
-gap): the guard enforces "declares side effects -> must be human-only".
-It cannot INFER that a skill has side effects it failed to declare; that
-judgment is the API-designer / architect seat's, made when the skill is
-written or reviewed. The structural win is that the fact now lives with
-the skill and the marker cannot drift from a second copy, not that intent
-is machine-derived.
+gap): the guard cannot INFER that a declaration is TRUTHFUL, or that a
+skill declaring ``none`` really has no effects. That judgment is the
+API-designer / architect seat's, made when the skill is written or
+reviewed. The structural win is that the fact now lives with the skill,
+cannot drift from a second copy, and cannot be omitted silently.
 
 Exit codes are a taxonomy, so a caller can tell the failure classes
-apart: 0 when every side-effecting skill is human-only (a checked-count
-line is always printed, so a clean run is never mistaken for an absent
-one, and a tree with no ``*/SKILL.md`` at all is reported as its own
-distinct outcome rather than a silent pass); 1 when a real guard
-violation is found (the offending skills printed one per line); 2 for a
-CONFIG error (a missing skills directory or wrong usage), which is the
-operator pointing the guard at the wrong place, not a skill defect. No
-third-party deps; standalone so it can be a tier-1 test in either
-repository over its own ``.claude/skills`` tree.
+apart: 0 when every skill declares (a checked-count line is always
+printed, so a clean run is never mistaken for an absent one, and a tree
+with no ``*/SKILL.md`` at all is reported as its own distinct outcome
+rather than a silent pass); 1 when a real guard violation is found (the
+offending skills printed one per line); 2 for a CONFIG error (a missing
+skills directory or wrong usage), which is the operator pointing the
+guard at the wrong place, not a skill defect. No third-party deps;
+standalone so it can be a tier-1 test in either repository over its own
+``.claude/skills`` tree.
 
 Usage:
     check_side_effect_guard.py <skills-dir>   # e.g. .claude/skills
@@ -58,10 +78,10 @@ def _frontmatter(text: str) -> dict[str, str]:
     Deliberately minimal: one ``key: value`` per line, first block only,
     no nested structures. SKILL.md frontmatter is flat, and a real YAML
     dependency is exactly the kind of thing a tier-1 guard should not
-    need. A missing or malformed block yields an empty map, which the
-    caller treats as "no declared side effects" -> not this guard's
-    business (a skill with no frontmatter cannot be model-invoked in a
-    way that matters here; the loader ignores it).
+    need. A missing or malformed block yields an empty map, which under
+    the 0.2.19 rule is itself a violation: a skill that carries no
+    frontmatter declares nothing, and silence is what this guard exists
+    to refuse.
     """
     lines = text.splitlines()
     if not lines or lines[0].strip() != "---":
@@ -77,50 +97,45 @@ def _frontmatter(text: str) -> dict[str, str]:
     return fields
 
 
-def _is_true(value: str) -> bool:
-    """A frontmatter boolean, tolerant of quoting and case."""
-    return value.strip().strip("\"'").lower() == "true"
+def _declares(fields: dict[str, str]) -> bool:
+    """True when the skill carries a non-empty ``side-effects:`` value.
 
-
-def _has_side_effects(value: str) -> bool:
-    """A non-empty, non-``false`` side-effects declaration marks the skill.
-
-    Empty, absent, or an explicit ``false``/``none`` all mean "no side
-    effects to guard". Anything else (a description of what it does) is a
-    declaration that this skill changes the world.
+    ``none`` counts as a declaration, and deliberately so: the field
+    answers "what does this change", and "nothing" is an answer. Only an
+    absent field or an empty one is silence.
     """
-    cleaned = value.strip().strip("\"'").lower()
-    return bool(cleaned) and cleaned not in ("false", "none", "no", "[]", "{}")
+    if "side-effects" not in fields:
+        return False
+    return bool(fields["side-effects"].strip().strip("\"'"))
 
 
 def audit(skills_dir: Path) -> tuple[list[tuple[str, str]], int, int]:
-    """Audit a skills tree for side-effecting skills that are not human-only.
+    """Audit a skills tree for skills that declare nothing.
 
-    Returns ``(offenders, checked, side_effecting)``: ``offenders`` is
-    ``(skill-path, reason)`` for each side-effecting skill missing the
-    disable flag, ``checked`` is how many ``*/SKILL.md`` files were
-    examined, and ``side_effecting`` how many of those declared side
-    effects. The counts let the caller emit an observability line so a
-    clean tree and an EMPTY tree are not both reported as silent success.
+    Returns ``(offenders, checked, declared)``: ``offenders`` is
+    ``(skill-path, reason)`` for each skill carrying no ``side-effects:``
+    declaration, ``checked`` is how many ``*/SKILL.md`` files were
+    examined, and ``declared`` how many of those carried the field. The
+    counts let the caller emit an observability line so a clean tree and
+    an EMPTY tree are not both reported as silent success.
     """
     offenders: list[tuple[str, str]] = []
     checked = 0
-    side_effecting = 0
+    declared = 0
     for skill_md in sorted(skills_dir.glob("*/SKILL.md")):
         checked += 1
         fields = _frontmatter(skill_md.read_text(encoding="utf-8"))
-        if not _has_side_effects(fields.get("side-effects", "")):
+        if _declares(fields):
+            declared += 1
             continue
-        side_effecting += 1
-        if not _is_true(fields.get("disable-model-invocation", "")):
-            offenders.append(
-                (
-                    str(skill_md),
-                    "declares side-effects but does not set "
-                    "disable-model-invocation: true",
-                )
+        offenders.append(
+            (
+                str(skill_md),
+                "carries no side-effects declaration. State what this skill "
+                "changes, or state none",
             )
-    return offenders, checked, side_effecting
+        )
+    return offenders, checked, declared
 
 
 def main() -> int:
@@ -142,14 +157,14 @@ def main() -> int:
             file=sys.stderr,
         )
         return 2
-    offenders, checked, side_effecting = audit(root)
+    offenders, checked, declared = audit(root)
     for path, reason in offenders:
-        print(f"UNGUARDED {path}: {reason}")
+        print(f"UNDECLARED {path}: {reason}")
     # Always print what was checked, so a passing run is never
     # indistinguishable from one that examined nothing.
     print(
-        f"checked {checked} skill(s), {side_effecting} side-effecting, "
-        f"{len(offenders)} unguarded"
+        f"checked {checked} skill(s), {declared} declaring, "
+        f"{len(offenders)} undeclared"
     )
     if checked == 0:
         # A DISTINCT outcome, not silent success: an empty (or wrong but

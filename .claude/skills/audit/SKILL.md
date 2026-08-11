@@ -1,6 +1,7 @@
 ---
 name: audit
 description: Retrospective repository health audit. Sweeps committed files for staleness, checks the repo against the adopted external guides, reviews implemented code for improvement opportunities, and turns every finding into an update, a deletion, or a plan item. Run periodically and before every release.
+side-effects: writes the audit report under PYFS_SESSION_ROOT, edits or deletes the committed files its findings name, registers plan items, and its closing step commits and PUSHES; the push is the one part reading cannot undo
 argument-hint: "[docs|code|full]"
 ---
 

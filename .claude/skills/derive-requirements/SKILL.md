@@ -1,12 +1,15 @@
 ---
 name: derive-requirements
 description: Derive the SRS requirements that reality already implies but the document does not yet state, map the sister library's requirements onto this repository, and audit requirement-to-test traceability. Use when an implemented behavior has no FR or NFR behind it, when a coverage or traceability gap needs closing, when itaca ships a requirement that AD-07 says may cross the boundary, when the author asks to derive, complement, mirror, or reconcile requirements, or before a release that claims the SRS is current. Produces candidate requirements and a traceability artifact; it never finalizes a requirement, because acceptance is the author's non-delegable seat.
-# Human-invoked only (author product-owner decision, PLN-20260724-1449,
-# 2026-07-24): mechanical derivation is delegable but the author's
-# acceptance of a requirement is not, and a non-delegable seat deserves a
-# mechanism, not a prose stop. Option 2 now; the derive/promote split
-# (Option 3) is the target when the engineering is funded.
-disable-model-invocation: true
+# The human-only FLAG was retired on 2026-08-11 by the author's decision at
+# kit 0.2.19, across all skills with no exception, on her reasoning that the
+# verification stages downstream carry the safety level she requires for more
+# autonomy (BRF-079). What that flag was standing in for here, and what does
+# NOT go away with it, is the product-owner decision PLN-20260724-1449 of
+# 2026-07-24: mechanical derivation is delegable, the author's ACCEPTANCE of a
+# requirement is not. The stop is now where it always really was, in this
+# skill's own text below: it produces candidates and never finalizes one.
+side-effects: writes and edits the committed SRS under docs/srs/ and the traceability artifact; every effect is a local file write that git can undo, and requirement ACCEPTANCE stays the author's seat rather than this skill's
 argument-hint: "[implicit|itaca-map|traceability|full]"
 ---
 

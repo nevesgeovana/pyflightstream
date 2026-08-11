@@ -1,7 +1,7 @@
 # ITACA / pyflightstream shared process kit
-# kit-version: 0.2.3
+# kit-version: 0.2.10
 # artifact: check_plan_kit.py
-# body-sha256: 386ce05647b5e2fa194a0aaf50c334b6ad77c2e7eef4800bcb63ce3f36e32786
+# body-sha256: a6eca8d542e6189b6b14cde0d4eb92e3f2850f8a21b3dd26a8fc30c06829c39c
 # canonical-source: BUILT for the kit (Option C, author decision 2026-07-24): the strict guards of itaca's check_plan_entries.py merged with the UNION of both ledgers' vocabularies. Supersedes both check_plan.py and check_plan_entries.py.
 # note: derived copy; canonical master at the coordination level (`ClaudeCoordinator/kit`); do not hand-edit, re-vendor on promotion.
 # END KIT PROVENANCE (body verbatim below)
@@ -238,8 +238,27 @@ def main() -> int:
 
     entries = sorted(p for p in root.glob("*.md") if p.name != "README.md")
     if not entries:
-        print(f"no entries in {root}")
-        return 0
+        # REFUSE, do not pass. Kit 0.2.10, from ITC-20260727-1612. This branch
+        # printed "no entries" and returned 0, so a checker aimed at the wrong
+        # directory, at a tree whose plan folder had not synced, or at a path
+        # that names nothing was INDISTINGUISHABLE from a ledger with no
+        # defects. That is the self-skipping shape this kit refuses elsewhere
+        # and was tolerating here: check_incidents.py already treats an empty
+        # ledger as UNREADABLE for exactly this reason, and the two checkers
+        # disagreed about the same question for three days.
+        #
+        # Exit 2 rather than 1 on purpose. 1 is a validation failure, meaning
+        # the entries were read and some were bad. 2 is CANNOT VERIFY, and an
+        # empty walk is the second thing, not the first. A caller that treats
+        # any non-zero as "the ledger is dirty" would otherwise report a
+        # configuration error as a content error.
+        print(
+            f"CANNOT VERIFY {root}: the plan directory holds no entries; "
+            "expected at least one. An empty walk is a configuration error, "
+            "not a clean ledger. Check the path, or that the tree is synced.",
+            file=sys.stderr,
+        )
+        return 2
 
     # Read the per-repo shape-guard exemptions from the plan directory
     # under test (absent file -> no exemptions). A file that exists but is

@@ -44,6 +44,7 @@ genuinely-absent case by passing ``ledger=UNSET``.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import subprocess
@@ -54,15 +55,40 @@ from pathlib import Path
 import pytest
 
 HOOK = Path(__file__).resolve().parents[1] / ".claude" / "hooks" / "role_review_gate.py"
+#: The kit's own fake-`gh` builder, imported from the vendored companion that
+#: sits beside `ci_state.py`. Loaded by path rather than imported by name
+#: because `.claude/hooks` is not a package and must not become one.
+_CI_MUTATIONS = HOOK.parent / "ci_state_mutations.py"
+_spec = importlib.util.spec_from_file_location("_ci_state_mutations", _CI_MUTATIONS)
+assert _spec and _spec.loader, f"cannot load {_CI_MUTATIONS}"
+_ci_state_mutations = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_ci_state_mutations)
+_fake_gh = _ci_state_mutations.fake_gh
+#: `gh run list --json` answers, in the CLI's own vocabulary. GREEN is the
+#: suite's neutral state; the others are used by the release-path cases that
+#: exist to show the CI arm refusing.
+CI_GREEN = (
+    '[{"status":"completed","conclusion":"success",'
+    '"workflowName":"tests","databaseId":1,"url":"u1"}]'
+)
+CI_RUNNING = (
+    '[{"status":"in_progress","conclusion":null,"workflowName":"tests","databaseId":1,"url":"u1"}]'
+)
+CI_RED = (
+    '[{"status":"completed","conclusion":"failure",'
+    '"workflowName":"tests","databaseId":1,"url":"u1"}]'
+)
+CI_NONE = "[]"
 ATTESTATION = Path(".claude") / ".role_review_attestation.json"
 # The variable the GATE reads. Renamed from PYFS_INCIDENT_LEDGER when the
 # 0.2.16 body was vendored on 2026-08-02: kit 0.2.8 gave every workspace one
 # name under the author decision LEDGER-ENVVAR. This constant must track the
-# gate body, not the repository's other consumers: `.claude/agents/`
-# incident-analyst.md still reads PYFS_INCIDENT_LEDGER and is a different
-# artifact on a different kit row. Pointing this at the wrong name does not
-# fail loudly, it makes `hook_env` stop suppressing the real ledger and the
-# suite silently depends on one author's machine.
+# gate body, and until 2026-08-11 it had to be said that the analyst charter
+# was a DIFFERENT artifact on a different kit row still reading the old name.
+# The 0.2.11 charter closed that: nothing in this repository reads
+# PYFS_INCIDENT_LEDGER any more, and CLAUDE.md dropped it. Pointing this at the
+# wrong name still does not fail loudly, it makes `hook_env` stop suppressing
+# the real ledger and the suite silently depends on one author's machine.
 LEDGER_ENV = "COORD_INCIDENT_LEDGER"
 # Built by concatenation so this file never contains the literal command
 # it tests; the gate scans command text and would flag work on this file.
@@ -115,15 +141,55 @@ def hook_env(ledger: str | object | None = None) -> dict[str, str]:
     return env
 
 
-def judge(repo: Path, command: str, ledger: str | object | None = None) -> tuple[str, str]:
-    """Run the hook on ``command`` and return (decision, reason)."""
+def install_gh(repo: Path, payload: str = CI_GREEN, status: int = 0) -> None:
+    """Put a FAKE ``gh`` on this test's PATH, answering ``payload``.
+
+    Reused from the vendored ``ci_state_mutations.fake_gh`` rather than
+    rewritten, because the Windows half of it is not obvious and getting it
+    wrong is silent: ``CreateProcess`` resolves a bare ``gh`` by appending
+    ``.exe`` and nothing else, so a ``gh.bat`` is never found, every case reads
+    UNKNOWN because ``gh`` is simply absent, and the case that looks like it
+    passes (``gh`` exiting non-zero) passes on the not-found message instead.
+    A second implementation of that would be a second place to get it wrong.
+
+    Written INTO the repository directory, which is also the hook's cwd, and
+    that is required rather than convenient: the Windows fake is a copy of this
+    interpreter, so its script arrives as the first argument (the literal word
+    ``run`` from ``gh run list``) and is resolved against the working
+    directory. Called from ``judge`` and therefore always after the test's
+    commits, so ``add_commit``'s ``git add -A`` never stages it.
+    """
+    _fake_gh(repo, payload, status)
+
+
+def judge(
+    repo: Path,
+    command: str,
+    ledger: str | object | None = None,
+    gh: tuple[str, int] | None = None,
+) -> tuple[str, str]:
+    """Run the hook on ``command`` and return (decision, reason).
+
+    ``gh`` defaults to a GREEN fake, which is the neutral state for the same
+    reason ``ledger`` defaults to a clean stub: since the 0.2.18 body a
+    release-grade push asks the remote what CI concluded, BEFORE it asks for
+    the release attestation, and anything but GREEN denies. Without a fake, six
+    tests about attestation SCOPE denied at ``[ci-unknown]`` instead, each
+    passing its assertion on a message about something else, and the suite took
+    137 seconds talking to a network it has no business needing. Measured on
+    2026-08-11, on the run that vendored the 0.2.18 gate.
+    """
+    payload, status = gh if gh is not None else (CI_GREEN, 0)
+    install_gh(repo, payload, status)
+    env = hook_env(ledger)
+    env["PATH"] = str(repo) + os.pathsep + env.get("PATH", "")
     done = subprocess.run(
         [sys.executable, str(HOOK)],
         input=json.dumps({"tool_name": "Bash", "tool_input": {"command": command}}),
         capture_output=True,
         text=True,
         cwd=repo,
-        env=hook_env(ledger),
+        env=env,
     )
     if not done.stdout.strip():
         return "allow", ""
@@ -131,9 +197,14 @@ def judge(repo: Path, command: str, ledger: str | object | None = None) -> tuple
     return str(out["permissionDecision"]), str(out.get("permissionDecisionReason", ""))
 
 
-def decide(repo: Path, command: str, ledger: str | object | None = None) -> str:
+def decide(
+    repo: Path,
+    command: str,
+    ledger: str | object | None = None,
+    gh: tuple[str, int] | None = None,
+) -> str:
     """Run the hook on ``command`` and return its permission decision."""
-    return judge(repo, command, ledger)[0]
+    return judge(repo, command, ledger, gh)[0]
 
 
 def stub_ledger(folder: Path, exit_code: int, message: str) -> str:
@@ -978,3 +1049,118 @@ def test_the_deny_bracket_taxonomy_matches_the_remedy_class(repo: Path, tmp_path
     )
     repo_deny = json.loads(done.stdout)["hookSpecificOutput"]["permissionDecisionReason"]
     assert "role-review gate: [repo]" in repo_deny
+
+
+# ---------------------------------------------------------------------------
+# The CI-green release arm (kit 0.2.18).
+#
+# These cases exist because this repository DELETED its own bridge hook
+# (.claude/hooks/ci_release_gate.py) in the commit that vendored the 0.2.18
+# body. The deletion is only defensible if the replacement is proven HERE, on
+# this repository's own tree, rather than trusted because the kit says so. Each
+# case below drives the real hook end to end with a fake `gh` answering in the
+# CLI's own vocabulary.
+#
+# WHAT THESE DO NOT COVER, printed rather than implied: the gate has three arms
+# no case here reaches (OSError, TimeoutExpired, and CI budget exhaustion).
+# They are named in the kit's own companion as unreached and are not counted as
+# covered by anything in this file.
+# ---------------------------------------------------------------------------
+
+
+def _release_ready(repo: Path) -> str:
+    """A repository whose only remaining obstacle to a tag push is CI."""
+    head = add_commit(repo, "one")
+    git(repo, "tag", "v9.9.9")
+    attest(repo, [head])
+    attest(repo, [head], kind="release")
+    return head
+
+
+@pytest.mark.parametrize(
+    ("label", "payload", "status", "bracket"),
+    [
+        ("CI still running", CI_RUNNING, 0, "[ci-running]"),
+        ("CI failed", CI_RED, 0, "[ci-red]"),
+        ("no run at all for the sha", CI_NONE, 0, "[ci-unknown]"),
+        ("gh itself failing", "HTTP 401: Bad credentials", 1, "[ci-unknown]"),
+    ],
+)
+def test_a_release_grade_push_is_refused_unless_ci_concluded_successfully(
+    repo: Path, label: str, payload: str, status: int, bracket: str
+) -> None:
+    """Unconcluded, red, absent and unreadable CI all DENY a version tag.
+
+    This is the rule the v0.7.0 tag was published past: it went out fifteen
+    seconds after its branch, with CI still running and then red. Both
+    attestations are in place in every case here, so nothing but the CI answer
+    can be doing the refusing.
+
+    ABSENT and UNREADABLE deny on the same reasoning as the incident ledger: a
+    guard that reads its own missing information as permission is not a guard.
+    """
+    _release_ready(repo)
+    decision, reason = judge(repo, f"{PUSH} origin v9.9.9", gh=(payload, status))
+    assert decision == "deny", f"{label}: {reason}"
+    assert bracket in reason, f"{label}: {reason}"
+    assert "v9.9.9" in reason, reason
+
+
+def test_a_release_grade_push_goes_through_when_ci_is_green(repo: Path) -> None:
+    """The negative control. Without it the four refusals above prove only
+    that this gate denies release-grade pushes, which any broken gate does.
+    """
+    _release_ready(repo)
+    assert decide(repo, f"{PUSH} origin v9.9.9", gh=(CI_GREEN, 0)) == "allow"
+
+
+def test_an_ordinary_branch_push_never_asks_ci(repo: Path) -> None:
+    """The CI arm fires on a VERSION TAG and on nothing else.
+
+    A gate that asked on every push would spend a rate limit and a network
+    round trip on the ninety-nine pushes out of a hundred that publish
+    nothing. Driven with `gh` answering RED: an ordinary push must still be
+    allowed, which it can only be if the arm was never entered.
+    """
+    head = add_commit(repo, "one")
+    attest(repo, [head])
+    assert decide(repo, f"{PUSH} origin main", gh=(CI_RED, 0)) == "allow"
+
+
+def test_the_configured_hook_timeout_exceeds_the_gates_own_ci_budget() -> None:
+    """A hook the harness kills emits no decision, and no decision is an ALLOW.
+
+    Rescued from the deleted bridge test, which asserted exactly this about
+    itself, and it is the one assertion of that file that did not become
+    redundant: the kit body carries its own CI_BUDGET_SECONDS and its own
+    comment saying a consumer whose hook timeout sits below it "has a gate that
+    can fail open on a slow network", while the number that decides it lives in
+    THIS repository's settings and cannot be asserted from the kit.
+
+    Measured on arrival: the settings said 30 and the vendored 0.2.18 body
+    budgets 50, so taking the gate without touching the wiring would have
+    shipped exactly that hole.
+    """
+    settings = json.loads((HOOK.parents[1] / "settings.json").read_text(encoding="utf-8"))
+    configured = [
+        hook.get("timeout")
+        for entry in settings["hooks"]["PreToolUse"]
+        for hook in entry.get("hooks", [])
+        if "role_review_gate.py" in hook.get("command", "")
+    ]
+    assert configured and all(t is not None for t in configured), (
+        "the gate is wired with no explicit timeout, so it inherits the "
+        "harness default and this assertion cannot be made at all"
+    )
+    source = HOOK.read_text(encoding="utf-8")
+    budget = next(
+        float(line.split("=", 1)[1].strip())
+        for line in source.splitlines()
+        if line.startswith("CI_BUDGET_SECONDS")
+    )
+    for timeout in configured:
+        assert budget < float(timeout), (
+            f"the gate budgets {budget}s of CI work under a {timeout}s harness "
+            "timeout. If the harness kills it first there is no deny, only "
+            "silence, and silence is permission."
+        )

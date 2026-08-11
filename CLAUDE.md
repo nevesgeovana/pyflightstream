@@ -69,14 +69,29 @@ registered in the plan. The author keeps the non-delegable seats:
 product owner, domain expert, numerical analyst (seat definitions in
 `.claude/skills/role-review/ROLE_TEMPLATE.md`).
 
-Side-effecting skills: a skill that spends something a read cannot undo
-(publishes, tags, deploys, promotes a status, or consumes the licensed
-solver seat) declares it in a `side-effects:` frontmatter field naming
-what it spends, and sets `disable-model-invocation: true` so the model
-cannot fire it. The vendored kit guard `check_side_effect_guard.py`
-(tier 1, over `.claude/skills`) enforces the implication; it cannot infer
-an undeclared side effect, so declaring the field when you author such a
-skill is the API-designer/architect pass's check, not the guard's.
+Side-effecting skills: EVERY skill declares what it changes in the world,
+in a `side-effects:` frontmatter field. `none` is a valid answer and the
+common case; silence is what is refused. The vendored kit guard
+`check_side_effect_guard.py` (tier 1, over `.claude/skills`) enforces
+that, and it cannot infer that a declaration is TRUTHFUL or that a skill
+claiming `none` really has none, so both writing the field and judging it
+are the API-designer/architect pass's check rather than the guard's.
+
+This rule CHANGED on 2026-08-11 and the old shape is stated because a
+reader will otherwise reconstruct it wrongly. It used to be an
+implication: a skill that declared non-empty `side-effects` had also to
+set `disable-model-invocation: true`, so the model could not fire it.
+The author RETIRED that flag at kit 0.2.19, across all skills with no
+exception, including `release`, which cuts the tag that triggers the PyPI
+publish, and the two that spend a licensed solver seat. Her reasoning is
+that the verification stages downstream carry the safety level she
+requires for more autonomy; the objection was put to her before she
+decided and is recorded in the coordination level's `BRF-079`. Note what
+the change buys as well as what it costs: the implication could not fire
+on a skill that declared NOTHING, so silence was the cheapest way past
+it, and six of this repository's ten skills sat in exactly that hole,
+including two that write records and one that writes to the command
+database. All ten declare now.
 
 Mandatory push and release gate (adopted 2026-07-23, after the v0.3.0
 release ran paraphrased manual checks instead of the specialist
@@ -98,44 +113,48 @@ skill's closing step and lives in
 made after attesting re-arms the gate: an unreviewed commit never
 ships.
 
-A SECOND PreToolUse hook joined it on 2026-08-10 and a fresh clone needs
-to know, because a deny from a hook this file does not name is the
-mystery refusal the rest of this section works to prevent.
-`.claude/hooks/ci_release_gate.py` refuses a RELEASE-GRADE push while
-the commit its tag names has no concluded, successful CI result on the
-remote. Red, pending, absent and unreachable all deny, on the same
+THE SAME GATE ALSO ASKS CI, since the 0.2.18 body was vendored on
+2026-08-11. A release-grade push is refused unless the commit each
+version tag names has a concluded, successful CI result on the remote.
+Red, still running, unknown and unreachable all DENY, on the same
 reasoning as `COORD_INCIDENT_LEDGER` below: a guard that reads its own
-missing information as permission is not a guard. It leaves ordinary
-branch pushes alone. It does NOT leave a tag deletion alone, although a
-deletion publishes nothing: an allow for that case was written on
-2026-08-11 and removed the same day, because it read the whole command
-tail and so let a compound `delete && push` disable the gate entirely.
+missing information as permission is not a guard. Ordinary branch pushes
+never reach that arm and never spend a network call on it. The rule
+exists because the v0.7.0 tag was published fifteen seconds after its
+branch with CI still running and then red (INC-20260810-2140-shared).
 To move a published tag, move the LOCAL tag onto the green commit first
-and then delete the remote one, which the gate permits because by then
-the tag resolves to a commit whose CI is green. It exists because the
-v0.7.0 tag was published fifteen seconds
-after its branch with CI still running and red
-(INC-20260810-2140-shared), and the pinned gate above, measured against
-the live remote, allowed exactly that.
+and then delete the remote one; by then the tag resolves to a commit
+whose CI is green.
 
-It asks the remote through the `gh` CLI, so a fresh clone that has not
-run `gh auth login` is denied on every version-tag push with
-`[unreachable]` until it does. The deny text says so; it is written here
-too, because that is the fresh-clone trap this section spells out for
-every other variable.
+Two operational consequences, both fresh-clone traps.
 
-It is INTERIM. The rule belongs in the kit gate body, which is
-hash-pinned here and carries the identical hole in the sister library;
-this hook is deleted along with its wiring and its test in the same
-commit as the re-vendor that absorbs it
-(`PLN-20260810-2310-ci-tag-rule-belongs-to-the-kit`). A tier-1 test
-points at that deletion when the kit gate is re-vendored; read it as a
-pointer rather than as a promise, because it recognises the rule by the
-API this bridge happens to call, and the kit's own `ci_state.py` reaches
-the same question by a different route. Two hooks both run and either can deny, so the composition is
-strictly stronger than the pinned gate alone; note that this one does
-NOT refuse the blanket forms, and is safe only because the other one
-does.
+The gate RUNS `.claude/hooks/ci_state.py` as a subprocess and treats its
+ABSENCE as a refusal rather than a skip, so the two files are one
+vendoring unit: a gate taken without it denies every version-tag push
+with `[ci-config]`, and the cause reads as a gate defect. And it asks
+the remote through the `gh` CLI, so a clone that has not run
+`gh auth login` is denied on every version-tag push with `[ci-unknown]`
+until it does. The deny text says so; it is written here too, because
+this section exists to spell out exactly that class of surprise.
+
+The gate's CI work is budgeted at 50 seconds inside its own body, and
+the harness timeout that bounds it lives in `.claude/settings.json`
+(90 seconds) rather than in the kit. Those two numbers have to stay in
+that order: a hook the harness kills emits NO decision, and no decision
+is read as permission. `tests/test_push_gate.py` pins the ordering,
+because the kit cannot assert a number this repository owns.
+
+A REPOSITORY-OWNED BRIDGE HOOK held this rule from 2026-08-10 to
+2026-08-11 and is GONE. `.claude/hooks/ci_release_gate.py`, its wiring,
+its test and its mutation battery were deleted in the same commit that
+vendored the 0.2.18 gate, never before it and never after
+(`PLN-20260810-2310-ci-tag-rule-belongs-to-the-kit`, closed). Earlier
+would have left a window in which nothing asked CI anything, which is
+the hole that published the v0.7.0 tag; later would have left two guards
+answering one question with no rule for which one this repository
+believes. It is named here rather than simply removed, because a clone
+reading a handoff or a commit from that one day will find a hook this
+file no longer mentions.
 
 Structural-fix rule and the shared incident ledger (adopted
 2026-07-23): a defect in these two libraries is fixed at its STRUCTURAL
@@ -146,9 +165,9 @@ original failure when re-run. That headline is kept here so a clone
 reads the rule without leaving the repository; the full policy
 statement, including why documentation is not a guard and why a guard
 must be proven by mutation, lives in the shared ledger's own README, the
-cross-repo authority both libraries point at (located by the two ledger
-variables documented under Machine configuration below, the gate reading one
-and the analyst still reading the other; one file per incident, id from a
+cross-repo authority both libraries point at (located by
+`COORD_INCIDENT_LEDGER` under Machine configuration below, which the gate
+and the analyst now both read; one file per incident, id from a
 timestamp). The
 `incident-analyst` agent (`.claude/agents/`) drafts the record; whether
 an incident blocks is the author's call, and the push gate denies a push
@@ -160,6 +179,60 @@ token upload: a pushed `vX.Y.Z` tag triggers
 GitHub `pypi` environment. The release skill's Pause 5 is the
 authority; do not run `twine upload` by hand. Per the co-development
 decision (ITACA DD-23), this mirrors the ITACA release workflow.
+
+## Execution rules
+
+These are POINTERS, not the reasoning. Each rule's mechanism is written
+once, in the file named beside it, and restating it here would create the
+second copy this repository forbids. They live here because of what
+`BRF-079` measured on 2026-08-11: every one of these rules was already
+written down somewhere, and this file mentioned none of them. Re-measured
+here before writing this section, against the 401-line edition that
+preceded it: a search for pipe, exit status or exit code returned exactly
+one line, and it was "module top-docstrings state the pipeline role",
+which is about docstrings. A skill loads when it is invoked; this file
+loads always. The rules were not failing, they were never in the room.
+
+- **The adversarial pass is a PRECONDITION of a completion claim, not a
+  round after it.** Before reporting any implementation, guard, test or
+  script as done, run one hostile pass over your own diff whose success
+  condition is BREAKING the work, and report what it found alongside the
+  work, including what you tried to break and could not. Mechanism:
+  `.claude/skills/role-review/SKILL.md`, "The adversarial pass is a
+  precondition, not a round" (`BRF-082`, author-approved 2026-08-11).
+- **Never read an exit status through a pipe.** PowerShell 5.1 wraps a
+  native command's stderr into an ErrorRecord and sets `$?` to false even
+  on exit 0, and `git push` writes progress to stderr, so a SUCCESSFUL
+  push reads as a failure. A piped command's status is the pipeline's,
+  not the checker's. Read the status from the process, and verify a push
+  against the remote rather than against its exit code. NO MECHANISM
+  POINTER, deliberately, and this is the one rule of the six with none:
+  its canonical home is the kit's `version-control.md`, which this
+  repository does not vendor (COORD-02, open). Until it does, these four
+  sentences ARE the home rather than a summary of one, so do not trim
+  them expecting a fuller statement elsewhere.
+- **Author backslash and control-byte content with Write or Edit.**
+  Heredocs are not banned, but a heredoc carrying a backslash or a
+  non-printable byte has corrupted files here more than once, and a
+  PowerShell here-string is not a bash heredoc: the gate itself carries a
+  PowerShell branch for exactly that reason (ITC-20260801-2245).
+  Mechanism: the heredoc cases in `tests/test_push_gate.py`.
+- **One tree, one session.** Never revert, restore, checkout, stash or
+  commit a change you did not make, and never run a long suite, build or
+  mutation battery in a tree another session is working in. A test
+  failure born that way looks exactly like a real one, which is the
+  expensive part. Mechanism: `.claude/skills/role-review/SKILL.md`,
+  section 3, and `PLN-20260806-1400`.
+- **A completion claim carries fresh command output in the same
+  message.** No "done", "passing" or "ready to push" without evidence a
+  reader can see. This is the definition of done above, stated as an
+  execution rule because it is where it is broken.
+- **A guard is not proven by a suite that passes.** It is proven by
+  restoring the original defect and watching the guard deny. Twice on
+  2026-08-11 a repair was called proven by a guard that passes with the
+  defect fully restored (`INC-20260811-1511-both`). Mechanism: the
+  mutation companions beside each checker, and
+  `scripts/prove_extras_isolation.py`.
 
 ## Layout
 
@@ -226,13 +299,21 @@ folder, never scattered at the top level. Conversation with the author
 may be in Portuguese; every committed artifact is in English
 (invariant 6).
 
-Machine configuration (never a literal path in a committed file). Five
+Machine configuration (never a literal path in a committed file). Four
 environment variables locate the local, machine-specific tooling and
 state, and all live in the gitignored `.claude/settings.local.json`, so
-a fresh clone must set them. It was four until 2026-08-02, when the
-0.2.16 gate vendor split the incident ledger into the variable the GATE
-reads and the one the ANALYST still reads; the two are listed separately
-below rather than merged, because they will not stay the same for long. The rule in the first sentence is enforced
+a fresh clone must set them. The count has moved twice and both moves
+are worth a sentence, because a stale count is how a fresh clone sets
+one variable too few. It was four until 2026-08-02, when the 0.2.16 gate
+vendor split the incident ledger into the variable the GATE reads
+(`COORD_INCIDENT_LEDGER`) and the one the ANALYST still read
+(`PYFS_INCIDENT_LEDGER`), making five. It is four again since
+2026-08-11: the 0.2.11 analyst charter names `COORD_INCIDENT_LEDGER`
+too, so the old name has no consumer left anywhere in this repository
+and was removed rather than left as configuration nobody reads. Both
+halves are mechanical: `tests/test_env_contract.py` fails on a variable
+used but undocumented AND on one documented but read by nothing.
+The rule in the first sentence is enforced
 since 2026-07-28 by `tests/test_house_style.py`, which fails on an email
 address or a user-profile path in any tracked file; it was prose until a
 vendored tool published both on the public remote:
@@ -259,11 +340,12 @@ vendored tool published both on the public remote:
   It replaced `PYFS_INCIDENT_LEDGER` on 2026-08-02 when the 0.2.16 gate
   body was vendored, under the coordination-level decision
   `LEDGER-ENVVAR`: every workspace now reads ONE name, so the kit master
-  and each vendored copy differ in nothing at all. Both variables are
-  live here and they are NOT interchangeable, because the rename has not
-  reached the other consumer yet: the gate reads this one, and the
-  `incident-analyst` agent still reads `PYFS_INCIDENT_LEDGER` below. Set
-  both, to the same directory, until that agent is re-vendored.
+  and each vendored copy differ in nothing at all. For nine days the two
+  names were BOTH live here and had to be set to the same directory,
+  because the rename had not reached the `incident-analyst` charter. It
+  has, as of the 0.2.11 charter vendored on 2026-08-11, so this is now
+  the only ledger variable and the old name is read by nothing. Set this
+  one alone.
 
   And the unset behaviour INVERTED rather than tightened. It used to mean
   the incident check did not apply, which sounds like a courtesy to a
@@ -282,14 +364,14 @@ vendored tool published both on the public remote:
   has the body and not the variable denies every command until it is
   set. Recoverable in one export, but recovering is not the same as
   planning.
-- `PYFS_INCIDENT_LEDGER` names the same directory for the
-  `incident-analyst` agent, which is the only consumer it has left since
-  the gate moved to `COORD_INCIDENT_LEDGER` above. It is not read by any
-  hook, so it blocks nothing on its own: unset degrades the analyst
-  rather than a push. It survives because the agent charter is a
-  hash-pinned vendored body (`.claude/tools/incident-analyst.md`, kit row
-  still at 0.2.4 here) and cannot be corrected in this repository; it
-  goes away on that row's next re-vendor, and this bullet goes with it.
+  `PYFS_INCIDENT_LEDGER` USED TO SIT HERE and is retired, on 2026-08-11.
+  It named the same directory for the `incident-analyst` agent, whose
+  charter is a hash-pinned vendored body that could not be corrected in
+  this repository; the previous edition of this bullet said it would go
+  away on that row's next re-vendor, and that re-vendor is what PFS-11
+  did. The 0.2.11 charter reads `COORD_INCIDENT_LEDGER`. Do not export
+  the old name on a fresh clone, and if a machine already has it, it is
+  now read by nothing.
 - `PYFS_SESSION_ROOT` names the session-document home in the
   coordination hub, read by the `handoff`, `plan`, `audit` and
   `derive-requirements` skills. It must name the directory that DIRECTLY
@@ -323,21 +405,22 @@ vendored tool published both on the public remote:
   no push is blocked. Read the next paragraph before relying on that
   word: it is what the tool's comment claims, not what it does.
 
-  The 0.2.4 body is defective here and the defect is registered as
+  THE SKIP IS REAL AGAIN since 2026-08-11, and the history is kept
+  because a reader may be on a machine that ran the old body. The 0.2.4
+  body was defective here, registered as
   `PLN-20260728-1615-snap-shared-tree-false-success` against the
-  coordination level, which owns the master. `ensure()` returns early
-  when the snapshot repository already exists, before it ever tests the
-  tree, so on a machine that has snapshotted the shared tree before,
-  an unset variable does not skip: the run prints four git failures and
-  then `snapshot taken (0 file(s))`. A recovery tool reporting a
-  snapshot it did not take is the reason this is written down rather
-  than left for the next reader to discover. Until this repository
-  RE-VENDORS the `snap.sh` row, set the variable or read the output of
-  `snap.sh` rather than trusting its last line. Note what changed since
-  this paragraph was written: 0.2.5 has landed, so the fixed body
-  EXISTS and the wait is now on this clone taking it, not on the kit
-  producing it. That row is still 0.2.4 here; kit master was 0.2.17
-  when PFS-1 measured the adoption surface on 2026-08-02.
+  coordination level that owns the master: `ensure()` returned early
+  when the snapshot repository already existed, before it ever tested
+  the tree, so on a machine that had snapshotted the shared tree before,
+  an unset variable did not skip, and the run printed four git failures
+  and then `snapshot taken (0 file(s))`. A recovery tool reporting a
+  snapshot it did not take is why this was written down rather than left
+  for the next reader to discover. PFS-11 vendored the 0.2.5 body, in
+  which `ensure()` tests the work tree FIRST and only then takes the
+  already-exists shortcut, with the reversal named in its own comment.
+  The plan row is closed by taking the fix rather than by the fix
+  existing: it had existed at the kit since 0.2.5 and this clone was
+  what held it up.
 
 Two names collide across the boundary and the collision is deliberate,
 not an oversight. The session root has an `archive/` (the migrated inbox
@@ -348,7 +431,7 @@ The tier-1 guard in `tests/test_house_style.py` deliberately does NOT
 list `archive` among the migrated names, because `_private/archive/` is
 still a legitimate path here.
 
-A sixth variable, `CLAUDE_PROJECT_DIR`, appears in
+A fifth variable, `CLAUDE_PROJECT_DIR`, appears in
 `.claude/settings.json` and in the `plan` skill's validator command. It
 is NOT in the list above and must not be added to
 `.claude/settings.local.json`: the harness provides it at run time
@@ -361,16 +444,15 @@ whichever repository the current directory sits in, and since 2026-07-27
 a session routinely has two, so its failure mode is to silently validate
 a DIFFERENT repository. Loud-and-contingent beats silent-and-wrong.
 
-Summary of the five, because the unset and unreadable columns differ
+Summary of the four, because the unset and unreadable columns differ
 per variable and the difference is the trap:
 
 | Variable | Unset | Set but unreadable | Enforced by |
 |---|---|---|---|
 | `PYFS_PLAN_CHECKER` | skips validation | report, does not block a push | instruction only (the drift test guards the checker body, not this behaviour) |
 | `COORD_INCIDENT_LEDGER` | **blocks a push** | blocks a push | `role_review_gate.py`, tier-1 `test_push_gate.py` |
-| `PYFS_INCIDENT_LEDGER` | degrades the `incident-analyst` agent, blocks nothing | same | instruction only; no hook reads it since 2026-08-02 |
 | `PYFS_SESSION_ROOT` | stop, configuration error | stop, configuration error | **instruction only, see below** |
-| `COORD_SHARED_LEDGER_TREE` | shared tree skipped, and see the defect above | same skip | documented-here only; `tests/test_env_contract.py` enforces that it IS documented, not what it does |
+| `COORD_SHARED_LEDGER_TREE` | shared tree skipped | same skip | documented-here only; `tests/test_env_contract.py` enforces that it IS documented, not what it does |
 
 `COORD_INCIDENT_LEDGER` is the only row whose two columns agree, and that
 is the point of it rather than an accident of drafting: it is the one
@@ -386,7 +468,7 @@ omission visible. The load-bearing guard is the tier-1 kit drift test
 missing or drifts from the kit; the env var only points the `plan` skill
 at whichever checker is active.
 
-`PYFS_SESSION_ROOT` makes the strongest promise of the five and has the
+`PYFS_SESSION_ROOT` makes the strongest promise of the four and has the
 weakest enforcement: **no code reads it.** No hook, no test and no
 module in `src/` consults it, because its consumer is an agent following
 a skill, not a program. A session that ignores the stop rule fails
