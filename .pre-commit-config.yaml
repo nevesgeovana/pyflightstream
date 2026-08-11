@@ -47,22 +47,26 @@ repos:
     hooks:
       - id: ruff
       - id: ruff-format
-
-  - repo: local
-    hooks:
       # The one repository-owned hook under .claude/hooks/, linted by name.
       #
-      # It cannot ride the ruff hook above. `pyproject.toml` excludes
+      # It cannot ride the plain `ruff` entry above. `pyproject.toml` excludes
       # `.claude/hooks/**` so a newly vendored body is safe by default, and
       # with `force-exclude = true` that wins over anything pre-commit passes
       # in, `extend-include` included (measured 2026-08-11: ruff answered "No
       # Python files found" for this exact path). `--no-force-exclude` is the
       # only form that overrides it, so the file that IS ours gets its own
       # entry rather than the directory getting a weaker rule.
-      - id: ruff-repo-owned-hook
+      #
+      # It is a THIRD ruff entry rather than a local `language: system` hook,
+      # and that is the second attempt. The first ran `python -m ruff` under
+      # pre-commit's system interpreter, which has no ruff installed; it
+      # reported "Skipped, no files to check" on the commit that introduced it
+      # and would have gone on doing so forever. Found by running it against
+      # the file on purpose instead of trusting the green line.
+      - id: ruff
+        alias: ruff-repo-owned-hook
         name: ruff (repository-owned hook)
-        entry: python -m ruff check --no-force-exclude
-        language: system
+        args: ["--no-force-exclude"]
         files: '^\.claude/hooks/check_clean_room_trailer\.py$'
 
   # Guard: licensed or binary documents never enter Git (invariant 1).
