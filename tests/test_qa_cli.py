@@ -154,7 +154,10 @@ def test_apply_compat_says_what_to_do_when_nothing_is_promotable(tmp_path, capsy
     code = main(["apply-compat", str(path), "--root", str(tmp_path)])
     captured = capsys.readouterr()
     assert code == 0
-    assert "nothing promoted" in captured.out
+    # A DIFFERENT prefix from the refusal, which also began "nothing
+    # promoted": on a terminal the two outcomes were distinguishable
+    # only by the stream and the exit code, and a pipe loses both.
+    assert "nothing to promote" in captured.out
     for outcome in ("verified", "broken", "removed"):
         assert outcome in captured.out
     assert "identity-only" in captured.out, (

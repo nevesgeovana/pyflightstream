@@ -95,10 +95,12 @@ DEFAULT_ERROR_PATTERNS: tuple[str, ...] = (
 #: THE QUOTED FIELD IS THE WHOLE SCRIPT LINE, not the command token, and
 #: that was measured the hard way. RPT-026's first arm spliced a target
 #: with no arguments, so the two shapes were indistinguishable and this
-#: pattern was written against a bare token. The catalog holds 109
-#: specifications; of the 87 whose target line renders in isolation, 49
-#: carry arguments on that line, and for every one of them an absent
-#: command fell through to the wrong branch. The re-measurement on
+#: pattern was written against a bare token. The affected population is
+#: derived by `scripts/measure_probe_target_lines.py` rather than
+#: written down here, because this figure reached three committed
+#: artifacts in three different readings on one day; at the time of
+#: writing it was 49 of the 87 specifications whose target renders in
+#: isolation, and every one of them fell through to the wrong branch. The re-measurement on
 #: 26.122 records ``'SET_JET_WAKE_FILAMENTS_GRID_INDUCTION ENABLE'`` in
 #: this field, and the repository's own RPT-012 had recorded the same
 #: shape since 2026-07-23.

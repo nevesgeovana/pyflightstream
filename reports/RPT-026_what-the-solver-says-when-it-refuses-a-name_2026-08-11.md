@@ -53,10 +53,17 @@ RPT-012 had recorded the same shape since 2026-07-23
 The population that would have been missed, DERIVED BY A COMMITTED
 SCRIPT rather than counted into a sentence: 109 probe specifications
 exist, and of the 87 whose target line renders in isolation, 49 carry
-arguments on that line. The remaining 22 need prelude state before they
-render at all, because they cite an entity nothing has created yet.
-`scripts/measure_probe_target_lines.py` computes all four figures and
-defines both terms; a tier 1 test pins its output.
+arguments on that line.
+
+The other 22 do not render in isolation, for three DIFFERENT reasons,
+and a first version of this paragraph gave one of them for all three.
+One is out of this build's version view entirely, so it is not a probe
+candidate at all; two are refused by the emitter as broken before any
+argument is bound; nineteen cite an entity nothing has created yet.
+Read that beside the figures above: they are a joint property of the
+catalog AND the 26.122 status view, so a later promotion moves them.
+`scripts/measure_probe_target_lines.py` computes all of it, names the
+version it measured against, and a tier 1 test pins each bucket.
 
 That script exists because this number reached three committed
 artifacts in three different readings on one day, none of them

@@ -165,11 +165,13 @@ refuses it on any other status, because `verified` and `broken` must
 stay checkable against the compat yaml the harness wrote; a guard whose
 population quietly shrinks reports green either way. The version-row
 field was expected to go away when the harness learned the outcome
-(`PLN-20260809-0300`, closed 2026-08-11). It did not: the harness
-covers the measured provenance and nothing covers an edition that
-merely stopped printing a command, which is a reading and not a run.
-The field is retained for that case and for the rows written before the
-outcome existed.
+(`PLN-20260809-0300`, closed 2026-08-11). It did not, and the reason first given for that was wrong. The harness
+covers the measured provenance; the edition-stopped-printing case was
+named as a second reason for retention and the database refutes it,
+since such a row cites pages in its note and no run at all, which is
+what the model already requires of a reading. The field survives for
+one population: the removals recorded before the outcome existed. That
+population is finite and closes when those rows are re-probed.
 
 The ordered version list in `_meta.yaml` is the only version-ordering
 authority (never string or float comparison). Canonical identifiers

@@ -483,7 +483,7 @@ def _cmd_apply_compat(args: argparse.Namespace) -> int:
             "supply --fsm, and re-run pyfs-qa probe"
         )
         print(
-            f"nothing promoted: the promotable outcomes are {promotable}, and this "
+            f"nothing to promote: the promotable outcomes are {promotable}, and this "
             f"report records none of them. Every command in it is unprobed. Most "
             f"common reason recorded: {dominant[:90]!r}. Next step: {remedy}"
         )

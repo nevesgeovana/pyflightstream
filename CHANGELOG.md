@@ -7,11 +7,12 @@ FlightStream versions.
 
 ## [Unreleased]
 
-**26.122 answers for 84 commands, and the rotor morphing defect is
-fixed.** The newest build was `operational` purely by inheritance from
+**26.122 answers for 84 commands, and the vendor's build fixes the
+rotor morphing defect.** The newest build was `operational` purely by inheritance from
 26.120 with nothing measured on it; a Tier 2 run now promotes 84
-statuses and a Tier 3 run passes 30 of 30 metrics against the drift
-bands (`reports/physics/PHY-26122_2026-08-11_rotor.yaml`). Separately, the FlightStream defect RPT-007 recorded on 26.120,
+statuses and a Tier 3 run passes 30 of 30 metrics against the stored
+references, inside the WARN and FAIL bands
+(`reports/physics/PHY-26122_2026-08-11_rotor.yaml`). Separately, the FlightStream defect RPT-007 recorded on 26.120,
 where an imposed FSIDisp deformation was silently dropped for a
 boundary attached to a rotary motion definition, is measured fixed in
 26.122 and NOT fixed in 26.121 (RPT-025). Two-way rotor FSI is
@@ -20,7 +21,8 @@ imposed deformation reaches the mesh, not that the morphing is
 correct, and no coupled acceptance run has been made against a build
 where it applies.
 
-Read the Tier 3 pass with its scope. The first run covered PHY-01 and
+Read the Tier 3 pass with its scope. The first run
+(`reports/physics/PHY-26122_2026-08-11.yaml`) covered PHY-01 and
 PHY-02, both static rigid wings, which look at nothing the build was
 measured to have changed; `PHY-05` and `PHY-06` were pinned to 26.120
 for a reason that never covered later builds, and they are widened here
@@ -83,6 +85,15 @@ Deprecations: none.
 
 ### Fixed
 
+- A probe detail carrying a backslash reached the rewritten chapter
+  unescaped, because the `note` key was interpolated between two
+  literal quotes while every other key went through the module's
+  renderer. A Windows path in a solver message therefore either aborted
+  a whole promotion or, where the backslashes happened to precede valid
+  YAML escapes, wrote a silently corrupted note and reported success.
+  Shipped since v0.4.0; no committed row carries the corruption
+  (`INC-20260811-1511-both`). There is now one emitter and its escaper
+  has exactly one caller, both asserted.
 - `apply_compat` is all-or-nothing across chapters. A refusal raised
   while rewriting chapter n used to leave chapters 1..n-1 promoted on
   disk, under a message naming one command in one file, while the
@@ -105,7 +116,7 @@ Deprecations: none.
   stem for 26120 and 26121, plus the 26.122 full report), and an
   `unprobed` result cannot demote a `broken` one through the sanctioned
   write path. Lifting the refusal needs a demotion path that does not
-  exist yet.
+  exist yet (`PLN-20260811-1300`).
 
 ## [0.7.0] - 2026-08-11
 

@@ -739,10 +739,10 @@ def test_no_citation_is_contradicted_by_newer_evidence() -> None:
     """
     from pyflightstream.qa.compat import Judgment, contradicting_evidence, read_compat_reports
 
-    corpus = read_compat_reports(REPO_ROOT / "reports" / "compat", repo_root=REPO_ROOT)
-    assert corpus, (
-        "the committed compat corpus indexed no promotable judgment at all; this guard "
-        "would pass vacuously, so the corpus reader is what to fix"
+    judgments = read_compat_reports(REPO_ROOT / "reports" / "compat", repo_root=REPO_ROOT)
+    assert judgments, (
+        "the committed evidence indexed no promotable judgment at all; this guard "
+        "would pass vacuously, so the report reader is what to fix"
     )
 
     registry = CommandRegistry.load()
@@ -750,8 +750,8 @@ def test_no_citation_is_contradicted_by_newer_evidence() -> None:
     offenders = []
     checked = 0
     for name, canonical, record in population:
-        judgments = corpus.get((name, canonical), ())
-        cited = next((j for j in judgments if j.report == record.report), None)
+        for_pair = judgments.get((name, canonical), ())
+        cited = next((j for j in for_pair if j.report == record.report), None)
         if cited is None:
             # The sibling guard owns "cites a report that never probed
             # it"; duplicating its complaint here would report one
@@ -759,7 +759,7 @@ def test_no_citation_is_contradicted_by_newer_evidence() -> None:
             continue
         checked += 1
         contradicting = contradicting_evidence(
-            corpus,
+            judgments,
             incoming=Judgment(
                 command=name,
                 fs_version=canonical,
@@ -794,7 +794,7 @@ def test_no_citation_is_contradicted_by_newer_evidence() -> None:
         seen = sum(
             1
             for name, canonical, record in population
-            if record.status is status and (name, canonical) in corpus
+            if record.status is status and (name, canonical) in judgments
         )
         assert seen == expected, (
             f"the corpus indexed {seen} of the database's {expected} {status.value} "

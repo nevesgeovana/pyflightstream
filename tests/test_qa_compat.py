@@ -686,16 +686,38 @@ def test_the_corpus_index_skips_files_that_are_not_reports(tmp_path):
     write_dated_report(
         tmp_path, {"PRINT": {"outcome": "verified", "detail": "measured"}}, date="2026-08-08"
     )
-    corpus = read_compat_reports(report_dir, repo_root=tmp_path)
-    assert list(corpus) == [("PRINT", "26.120")]
-    assert corpus[("PRINT", "26.120")][0].date == "2026-08-08"
+    judgments = read_compat_reports(report_dir, repo_root=tmp_path)
+    assert list(judgments) == [("PRINT", "26.120")]
+    assert judgments[("PRINT", "26.120")][0].date == "2026-08-08"
 
 
 def test_an_absent_reports_directory_is_the_first_report_case(tmp_path):
-    """The first report of a fresh checkout has nothing to be checked against."""
+    """The DEFAULT location being absent is the first report of a fresh checkout.
+
+    A path the caller typed is the opposite case and is refused, because
+    an empty index reads as "nothing contradicts, promote it". The two
+    used to be one branch, with the refusal living in `apply_compat`;
+    the guard moved into this function when it became public, since the
+    caller it protected was one of several.
+    """
     from pyflightstream.qa.compat import read_compat_reports
 
-    assert read_compat_reports(tmp_path / "nowhere", repo_root=tmp_path) == {}
+    assert read_compat_reports(repo_root=tmp_path) == {}
+
+
+def test_a_reports_directory_the_caller_typed_is_never_read_as_empty(tmp_path):
+    """Including the one-character confusion with the singular reader."""
+    from pyflightstream.qa.compat import read_compat_reports
+    from pyflightstream.qa.errors import QaEvidenceError
+
+    with pytest.raises(QaEvidenceError, match="not a directory"):
+        read_compat_reports(tmp_path / "nowhere", repo_root=tmp_path)
+
+    report = write_dated_report(
+        tmp_path, {"PRINT": {"outcome": "verified", "detail": "measured"}}, date="2026-08-11"
+    )
+    with pytest.raises(QaEvidenceError, match="read_compat_report"):
+        read_compat_reports(report, repo_root=tmp_path)
 
 
 # --------------------------------------------------------------------------
@@ -1147,11 +1169,11 @@ def test_a_report_never_supersedes_itself(tmp_path):
     write_dated_report(
         tmp_path, {"PRINT": {"outcome": "verified", "detail": "measured"}}, date="2026-08-11"
     )
-    corpus = read_compat_reports(repo_root=tmp_path)
+    judgments = read_compat_reports(repo_root=tmp_path)
     own = "reports/compat/CMP-26120_2026-08-11.yaml"
     assert (
         contradicting_evidence(
-            corpus,
+            judgments,
             incoming=Judgment(
                 command="PRINT",
                 fs_version="26.120",
@@ -1161,4 +1183,123 @@ def test_a_report_never_supersedes_itself(tmp_path):
             ),
         )
         == ()
+    )
+
+
+#: Characters a solver detail can carry into a flow mapping. `_scan_errors`
+#: copies log lines verbatim, so this is the alphabet of the real input,
+#: not a stress test. The backslash is first because it is the one that
+#: shipped: four releases carried a note interpolated between two quotes
+#: with no escaping.
+_HOSTILE = (
+    chr(92) + "runs" + chr(92) + "new" + chr(92) + "temp.txt",
+    chr(92) + "t" + chr(92) + "n" + chr(92) + "r",
+    "quote \" and apostrophe '",
+    "braces {} and brackets [] and comma,",
+    "colon: hash # pipe | gt > amp & star * pct % at @",
+)
+
+
+@pytest.mark.parametrize("hostile", _HOSTILE)
+def test_a_promotion_survives_a_hostile_detail_through_the_whole_write_path(tmp_path, hostile):
+    """Drive `apply_compat` itself, which is the only thing that counts.
+
+    The guard this replaces round-tripped
+    `_flow_scalar(_one_line_note(detail))`, the composition the FIXED
+    code happens to use, and never called the emitter. Measured: with
+    both note interpolations reverted to their shipped form, that guard
+    passes, the whole suite passes, and the committed mutation battery
+    reports every mutant dead. A guard scored against the helper cannot
+    see a call site that skips the helper.
+
+    Two failures are in scope and the second is the worse one. An
+    unknown escape makes the chapter unparsable and aborts the
+    promotion. A detail whose backslashes happen to precede VALID YAML
+    escapes does not refuse at all: it writes, and the note silently
+    gains a tab, a newline and a carriage return.
+    """
+    commands_dir = tmp_path / "commands"
+    write_chapter_fixture(commands_dir)
+    detail = f"the solver logged errors between the probe sentinels: {hostile}"
+    report_path = write_dated_report(
+        tmp_path, {"PRINT": {"outcome": "broken", "detail": detail}}, date="2026-08-11"
+    )
+
+    apply_compat(report_path, repo_root=tmp_path, commands_dir=commands_dir)
+
+    text = (commands_dir / "script_controls.yaml").read_text(encoding="utf-8")
+    parsed = yaml.safe_load(text)
+    assert parsed["PRINT"]["versions"]["26.120"]["note"] == _one_line_note(detail), (
+        "the note came back changed, so the promotion wrote something other than what "
+        "the report says; an escape that YAML happens to understand corrupts silently"
+    )
+    CommandEntry(name="PRINT", chapter="script_controls", **parsed["PRINT"])
+
+
+def test_an_unparsable_rewrite_refuses_in_this_modules_type():
+    """The try scope, pinned without depending on the escaping being right.
+
+    Moving `yaml.safe_load` back outside its try survives the whole
+    suite otherwise, and with the note interpolation reverted the pair
+    reproduces the original defect exactly: a bare scanner error out of
+    a function documented to raise `QaEvidenceError`, past the CLI trap.
+    Measured while writing this: an unknown escape fails to scan and
+    aborts the promotion, while a backslash that happens to precede a
+    VALID escape parses and corrupts the note silently.
+    """
+    from pyflightstream.qa.compat import _validate_chapter
+    from pyflightstream.qa.errors import QaEvidenceError
+
+    bad = 'PRINT:\n  versions:\n    "26.120": {note: "a' + chr(92) + 's b"}\n'
+    with pytest.raises(QaEvidenceError, match="does not parse as YAML"):
+        _validate_chapter("script_controls.yaml", bad, ["PRINT"])
+
+
+def test_the_escaper_has_exactly_one_caller():
+    """One emitter, asserted rather than trusted.
+
+    Escaping used to be a convention any call site could reach for or
+    skip, with nothing observing which: the `note` key was interpolated
+    between two literal quotes at both rendering sites for four
+    releases. Repairing the two sites left the class open, so the sites
+    are gone: `_flow_mapping` renders every promoted value and is the
+    only caller of `_flow_scalar`.
+
+    Two earlier drafts of this guard tried to recognise a rendered row
+    by the shape of its f-string, and both flagged an error message
+    whose example text contains braces. Counting the escaper's callers
+    needs no heuristic.
+    """
+    import ast
+    import inspect
+
+    from pyflightstream.qa import compat
+
+    tree = ast.parse(inspect.getsource(compat))
+    callers = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.FunctionDef):
+            continue
+        for inner in ast.walk(node):
+            if (
+                isinstance(inner, ast.Call)
+                and getattr(inner.func, "id", "") == "_flow_scalar"
+                and node.name != "_flow_mapping"
+            ):
+                callers.append(f"{node.name} line {inner.lineno}")
+    assert not callers, (
+        "_flow_scalar is called outside _flow_mapping, so a promoted value can again "
+        "be written by a site that skips it: " + "; ".join(callers)
+    )
+
+    inside = [
+        inner
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef) and node.name == "_flow_mapping"
+        for inner in ast.walk(node)
+        if isinstance(inner, ast.Call) and getattr(inner.func, "id", "") == "_flow_scalar"
+    ]
+    assert inside, (
+        "_flow_mapping does not call _flow_scalar at all, so this guard would pass "
+        "vacuously on an emitter that escapes nothing"
     )

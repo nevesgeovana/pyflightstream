@@ -21,6 +21,7 @@ import re
 from dataclasses import dataclass
 from importlib import resources
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -148,7 +149,7 @@ def _render_markdown(run: ProbeRun, date: str, counts: dict[str, int]) -> str:
     return "\n".join(lines)
 
 
-def _load_yaml(path: Path) -> object:
+def _load_yaml(path: Path) -> Any:
     """Read and parse one YAML file, refusing in this module's own type.
 
     Fixed as a CLASS rather than at the one site review found. The
@@ -156,7 +157,7 @@ def _load_yaml(path: Path) -> object:
     and three reachable inputs escaped both: a mistyped report path
     (``FileNotFoundError``), an unparsable report (``yaml.YAMLError``,
     which is not a ``ValueError``), and any unparsable file in the
-    corpus directory. Each reached the operator as a stack that says
+    evidence directory. Each reached the operator as a stack that says
     nothing about whether the database was written.
     """
     try:
@@ -225,7 +226,7 @@ class Judgment:
     positional constructor would put the swap hazard it was created to
     remove back on the mandatory path: ``contradicting_evidence`` takes
     this record, so building one by hand is the only way to call it, and
-    a swapped pair makes the corpus lookup miss and answer "nothing
+    a swapped pair makes the index lookup miss and answer "nothing
     contradicts, promote it". ``ProbeSpec`` is keyword-only for the same
     reason.
 
@@ -249,7 +250,7 @@ class Judgment:
 
     command: str
     fs_version: str
-    outcome: str
+    outcome: ProbeOutcome
     date: str
     report: str
 
@@ -265,10 +266,12 @@ def read_compat_reports(
 
     Parameters
     ----------
-    reports_dir : str or Path
-        Directory of compat report YAML files, normally
-        ``reports/compat/``.
-    repo_root : str or Path
+    reports_dir : str or Path, optional
+        Directory of compat report YAML files; defaults to
+        ``<repo_root>/reports/compat``. An absent DEFAULT yields an
+        empty index, which is the first-report case; a path given
+        explicitly that is not a directory is refused.
+    repo_root : str or Path, optional
         Repository root; report paths are recorded relative to it, in
         POSIX form, so they compare directly against the ``report``
         field of a database row.
@@ -284,12 +287,33 @@ def read_compat_reports(
     # this function was retyping the location that function already
     # knows, so the default lived in one of the pair and was duplicated
     # by the other.
+    given = reports_dir is not None
     if reports_dir is None:
         reports_dir = Path(repo_root) / "reports" / "compat"
     reports_dir = Path(reports_dir)
     index: dict[tuple[str, str], list[Judgment]] = {}
     if not reports_dir.is_dir():
-        return {}
+        # An ABSENT DEFAULT is the first-report case and yields an empty
+        # index. A path the caller TYPED is different, and the guard
+        # belongs here rather than in apply_compat, where it used to
+        # live: this function is exported, so the caller it protected
+        # was one of several. Reading a mistyped path as an empty index
+        # answers "nothing contradicts, promote it", which is a guard
+        # reading its own missing information as permission.
+        if not given:
+            return {}
+        hint = (
+            " That is a file; read_compat_report (singular) reads one report and this "
+            "reads a directory of them."
+            if reports_dir.is_file()
+            else ""
+        )
+        raise QaEvidenceError(
+            f"reports_dir {reports_dir} is not a directory, and it was given "
+            f"explicitly.{hint} An unreadable evidence directory would disable the "
+            "supersession check rather than run it, so this is refused instead of "
+            "skipped"
+        )
     for path in sorted(reports_dir.glob("*.yaml")):
         # An unparsable file is REFUSED rather than skipped, and the
         # difference matters here: skipping means the supersession check
@@ -323,18 +347,18 @@ def read_compat_reports(
 
 
 def contradicting_evidence(
-    corpus: dict[tuple[str, str], tuple[Judgment, ...]],
+    judgments: dict[tuple[str, str], tuple[Judgment, ...]],
     *,
     incoming: Judgment,
 ) -> tuple[Judgment, ...]:
-    """Judgments in the corpus that supersede ``incoming``.
+    """Judgments in the committed evidence that supersede ``incoming``.
 
     A judgment supersedes when it is at least as recent AND records a
     DIFFERENT outcome. Both halves are deliberate.
 
     Agreement never supersedes. The plan behind this guard
     (``PLN-20260804-1500``) asked for the strictly newest report to be
-    the cited one, and measurement of the corpus refuted that as the
+    the cited one, and measurement of the committed evidence refuted it as the
     rule to enforce: four rows cite a full run while a later
     ``--identity-only`` run of the same build also judges ``PRINT``,
     because the baseline probe exercises it. Nothing is wrong with
@@ -351,7 +375,7 @@ def contradicting_evidence(
 
     Parameters
     ----------
-    corpus : dict
+    judgments : dict
         Index from :func:`read_compat_reports`.
     incoming : Judgment
         The judgment about to be written. Passed as the record rather
@@ -370,7 +394,7 @@ def contradicting_evidence(
     """
     return tuple(
         judgment
-        for judgment in corpus.get((incoming.command, incoming.fs_version), ())
+        for judgment in judgments.get((incoming.command, incoming.fs_version), ())
         if judgment.report != incoming.report
         and judgment.date >= incoming.date
         and judgment.outcome != incoming.outcome
@@ -416,7 +440,7 @@ def apply_compat(
         repository rather than on the report's own folder so that
         applying a report written to a scratch directory is still
         checked against the committed evidence. A directory that does
-        not exist yields an empty corpus, which is the first-report
+        not exist yields an empty index, which is the first-report
         case.
 
     Returns
@@ -474,28 +498,14 @@ def apply_compat(
     # written. Per-command refusal would leave the database half
     # promoted from a report the tool has already judged unfit, which
     # is a worse state than either applying it or refusing it.
-    if reports_dir is None:
-        reports_dir = Path(repo_root) / "reports" / "compat"
-    elif not Path(reports_dir).is_dir():
-        # An ABSENT default is the first-report case and yields an empty
-        # corpus. A reports_dir the caller typed is different: reading a
-        # mistyped path as "nothing supersedes this" would turn the only
-        # supersession check in the write path into a no-op, silently.
-        # That is the shape CLAUDE.md names for COORD_INCIDENT_LEDGER, a
-        # guard that reads its own missing information as permission.
-        raise QaEvidenceError(
-            f"reports_dir {reports_dir} is not a directory. It was given explicitly, and "
-            "an unreadable corpus would disable the supersession check rather than "
-            "run it, so this is refused instead of skipped; nothing was written"
-        )
-    corpus = read_compat_reports(reports_dir, repo_root=repo_root)
+    judgments = read_compat_reports(reports_dir, repo_root=repo_root)
     incoming_date = str(report.get("date") or "")
     superseded = [
         (name, body["outcome"], contradicting)
         for name, body in targets.items()
         if (
             contradicting := contradicting_evidence(
-                corpus,
+                judgments,
                 incoming=Judgment(
                     command=name,
                     fs_version=canonical,
@@ -537,7 +547,7 @@ def apply_compat(
         if chapter_path.name == "_meta.yaml":
             continue
         text = chapter_path.read_text(encoding="utf-8")
-        names = [name for name in yaml.safe_load(text) if name in pending]
+        names = [name for name in _load_yaml(chapter_path) if name in pending]
         if not names:
             continue
         for name in names:
@@ -632,7 +642,7 @@ def _release_order(commands_dir: Path) -> dict[str, int]:
     meta_path = commands_dir / "_meta.yaml"
     if not meta_path.is_file():
         return {}
-    meta = yaml.safe_load(meta_path.read_text(encoding="utf-8")) or {}
+    meta = _load_yaml(meta_path) or {}
     return {
         str(entry["canonical"]): position
         for position, entry in enumerate(meta.get("versions") or [])
@@ -754,18 +764,53 @@ def _rewritten_flow_entry(
     # is pinned by tests and by the whole database's worth of precedent. Only the
     # carried-through keys are new output, and they go after.
     owned = {"status", "report"}
-    fields = f'status: {status}, report: "{citation}"'
+    pairs: dict[str, object] = {"status": status, "report": citation}
     if status in (ProbeOutcome.BROKEN.value, ProbeOutcome.REMOVED.value):
         # A removed row REQUIRES a note (the model refuses one without),
         # because the status alone cannot say which of the three ways it
         # arrived; the probe detail says it was measured.
-        fields += f", note: {_flow_scalar(_one_line_note(str(body.get('detail', ''))))}"
+        pairs["note"] = _one_line_note(str(body.get("detail", "")))
         owned.add("note")
-    carried = ", ".join(
-        f"{key}: {_flow_scalar(value)}" for key, value in existing.items() if key not in owned
+    pairs.update({key: value for key, value in existing.items() if key not in owned})
+    return f'{indent}"{canonical}": {_flow_mapping(pairs)}'
+
+
+#: The one key whose value is written as a bare token rather than a
+#: quoted scalar. `status: documented` is the shape the whole database
+#: and every pinning test carry, and a status is a closed vocabulary, so
+#: it cannot pick up the boolean-coercion problem the quoting exists for.
+_RAW_KEYS = frozenset({"status"})
+
+
+def _flow_mapping(pairs: dict[str, object]) -> str:
+    """Render an ordered mapping as one YAML flow mapping.
+
+    THE ONE PLACE a promoted value is written, which is the point of it.
+    Escaping used to be a convention each call site could reach for or
+    not, and nothing observed whether it had: the `note` key was
+    interpolated between two literal quotes at both rendering sites for
+    four releases, so a probe detail carrying a backslash produced a
+    chapter YAML refuses, and a detail whose backslashes happened to
+    precede valid escapes wrote silently corrupted text
+    (`INC-20260811-1511-both`). Repairing the two sites left the class
+    open; there is now no site.
+
+    Parameters
+    ----------
+    pairs : dict
+        Keys in the order they are written. Values go through
+        :func:`_flow_scalar` unless the key is in :data:`_RAW_KEYS`.
+
+    Returns
+    -------
+    str
+        ``{key: value, ...}``, braces included.
+    """
+    rendered = ", ".join(
+        f"{key}: {value if key in _RAW_KEYS else _flow_scalar(value)}"
+        for key, value in pairs.items()
     )
-    rendered = f"{fields}, {carried}" if carried else fields
-    return f'{indent}"{canonical}": {{{rendered}}}'
+    return "{" + rendered + "}"
 
 
 def _flow_scalar(value: object) -> str:
@@ -831,9 +876,9 @@ def _rewrite_version_line(
         )
 
     status = body["outcome"]
-    fields = f'status: {status}, report: "{citation}"'
+    pairs: dict[str, object] = {"status": status, "report": citation}
     if status in (ProbeOutcome.BROKEN.value, ProbeOutcome.REMOVED.value):
-        fields += f", note: {_flow_scalar(_one_line_note(str(body.get('detail', ''))))}"
+        pairs["note"] = _one_line_note(str(body.get("detail", "")))
 
     recorded = [
         (index, match.group(1), match.group(2))
@@ -888,7 +933,7 @@ def _rewrite_version_line(
         ),
         recorded[-1][0] + 1,
     )
-    lines.insert(insert_at, f'{indent}"{canonical}": {{{fields}}}')
+    lines.insert(insert_at, f'{indent}"{canonical}": {_flow_mapping(pairs)}')
     return "\n".join(lines) + "\n"
 
 

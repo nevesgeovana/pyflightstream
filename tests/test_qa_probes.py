@@ -1181,10 +1181,27 @@ def test_the_argument_bearing_split_is_derived_rather_than_written_down():
 
     groups = module.classify()
     renders = len(groups["with_arguments"]) + len(groups["bare"])
-    assert len(PROBE_SPECS) == 109
-    assert renders == 87
-    assert len(groups["with_arguments"]) == 49
-    assert len(groups["needs_prelude"]) == 22
+    where = f"{script.name}, VERSION = {module.VERSION}"
+    assert len(PROBE_SPECS) == 109, (
+        f"the catalog holds {len(PROBE_SPECS)} specifications, not 109. Adding one is "
+        f"fine; update this number and the three sentences that quote it ({where})"
+    )
+    assert renders == 87, (
+        f"{renders} specifications render their target line in isolation, not 87. This "
+        f"figure depends on the STATUS VIEW as well as the catalog ({where}): a "
+        "promotion that removes a command from the view, or marks it broken, moves it"
+    )
+    assert len(groups["with_arguments"]) == 49, (
+        f"{len(groups['with_arguments'])} carry arguments on the target line, not 49. "
+        "That is the population a bare-token detector would have missed (RPT-026)"
+    )
+    # Split by CAUSE, because one bucket called "needs prelude" hid
+    # three: a command out of this build's view, one the emitter refuses
+    # as broken, and one whose target cites an entity nothing created.
+    assert len(groups["not_in_this_view"]) == 1, groups["not_in_this_view"]
+    assert len(groups["refused_as_broken"]) == 2, groups["refused_as_broken"]
+    assert len(groups["needs_prelude"]) == 19, groups["needs_prelude"]
+    assert not groups["did_not_emit_the_command"], groups["did_not_emit_the_command"]
 
 
 def test_no_effect_note_states_a_finding_instead_of_the_asserted_effect():

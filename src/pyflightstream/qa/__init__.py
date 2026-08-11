@@ -2,8 +2,12 @@
 
 Pipeline role: produces the evidence behind the command database. Tier 2
 probes (:mod:`pyflightstream.qa.probes`) execute each database command in
-a minimal script on a licensed machine and classify it as verified or
-broken (a command that runs but does nothing is broken, not verified);
+a minimal script on a licensed machine and classify it into four
+outcomes: `verified`, `broken` and `removed` are promotable evidence,
+and `unprobed` records why no judgment exists. A build whose solver
+refuses the name is `removed` rather than `broken`, because the two
+produce different refusals for a caller. A command that runs but does
+nothing is `broken`, not `verified`;
 :mod:`pyflightstream.qa.compat` writes the compat report under
 ``reports/compat/`` and promotes database statuses from it. Tier 3 is
 here as well: the physics regression matrix
@@ -62,7 +66,6 @@ __all__ = [
     "QaEvidenceError",
     "Requires",
     "apply_compat",
-    "read_compat_reports",
     "contradicting_evidence",
     "dump_changed",
     "dump_gained",
@@ -73,6 +76,7 @@ __all__ = [
     "printed_line",
     "probe_version",
     "read_compat_report",
+    "read_compat_reports",
     "region_printed",
     "unrecognised_commands",
     "write_compat_report",

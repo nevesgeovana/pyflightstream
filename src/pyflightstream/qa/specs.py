@@ -1279,9 +1279,13 @@ _MOTION_PRELUDE = _emit("CREATE_NEW_MOTION", "ROTARY")
 #: Measured on 26.122: SET_MOTION_START_TIME against the shared rotary
 #: prelude aborts the script with the solver's own refusal, "Start time
 #: cannot be set for rotary motion", and the harness recorded the
-#: command BROKEN, which would have made the emitter refuse a command
-#: that works. The refusal is about the motion type, so the probe
-#: creates the type that accepts it (RPT-026).
+#: command BROKEN. That would have added a fourth MEASURED broken
+#: beside three inherited ones; it would not have created the refusal,
+#: which the inheritance already carries. And the command is not
+#: measured to WORK: the corrected probe records it running with its
+#: effect unobservable on all four builds. The refusal is about the
+#: motion type, so the probe creates the type that accepts it
+#: (RPT-026).
 _SIXDOF_PRELUDE = _emit("CREATE_NEW_MOTION", "6DOF")
 
 

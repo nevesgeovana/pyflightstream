@@ -106,6 +106,19 @@ that reproducibility, so re-render with a different renderer and expect
 the page numbers to move. It needs the `[manual]` extra and an archive
 extractor; its own docstring carries the two commands.
 
+`scripts/prove_evidence_guards.py` is the mutation battery for the
+evidence guards: it EDITS FILES UNDER `src/` one at a time, runs the
+test written for each, and restores them, so run it from a clean tree
+and check `git status` afterwards. A run killed mid-mutant is undone
+by the next one, which refuses to continue until it has. Its sibling
+`scripts/prove_extras_and_ci_guards.py` has the same hazard and both
+share `scripts/_mutation_harness.py`.
+
+`scripts/measure_probe_target_lines.py` derives how many probe
+specifications emit an argument-bearing target line, a figure that
+reached three committed artifacts in three readings before it was
+derived; a tier 1 test pins its output.
+
 The manifest names
 paths of licensed manuals and is never committed (invariant 1);
 `pyfs-manual sweep --help` prints an example row.
