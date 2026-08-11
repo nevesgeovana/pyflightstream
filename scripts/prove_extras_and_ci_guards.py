@@ -104,7 +104,7 @@ def run(target: str) -> tuple[int, str]:
             timeout=SUITE_TIMEOUT,
         )
     except subprocess.TimeoutExpired:
-        return 1, f"TIMED OUT after {SUITE_TIMEOUT:.0f}s (counted as killed, but look)"
+        return 1, f"TIMED OUT after {SUITE_TIMEOUT:.0f}s (INCONCLUSIVE, and look at why)"
     tail = [line for line in done.stdout.splitlines() if "passed" in line or "failed" in line]
     return done.returncode, (tail[-1] if tail else "no summary")
 
@@ -135,7 +135,10 @@ def recover() -> list[str]:
         if REPO.resolve() not in target.parents:
             # A recovery tool that can write outside the tree it is
             # recovering is a worse problem than the one it solves.
-            print(f"REFUSING a backup slot that resolves outside the repository: {slot.name}")
+            # Reported AND counted, so main() refuses to continue. A
+            # poisoned slot that is merely printed persists across every
+            # later run while the tool reports a clean start.
+            restored.append(f"{slot.name} (REFUSED: resolves outside the repository)")
             continue
         parked = slot.read_bytes()
         if parked:
@@ -209,6 +212,17 @@ class Battery:
         original = path.read_bytes()
         try:
             text = original.decode("utf-8")
+            # Normalise the ANCHOR to the file's own line endings. Every
+            # anchor here is written with bare \n while these files are
+            # CRLF on a checkout with core.autocrlf, so five multi-line
+            # anchors matched nothing and reported SKIPPED. Three of the
+            # five were BM2, BM3 and BM5, the mutants that reproduce this
+            # incident, and a commit message asserted them as killed on
+            # the strength of a run taken while the files happened to be
+            # LF. `append` and `create` already did this; `patch` did not.
+            if "\r\n" in text:
+                old = old.replace("\r\n", "\n").replace("\n", "\r\n")
+                new = new.replace("\r\n", "\n").replace("\n", "\r\n")
             if text.count(old) != 1:
                 print(f"  {label:52} SKIPPED (anchor appears {text.count(old)} times)")
                 self.failures.append(f"{label} (anchor missing)")
@@ -487,7 +501,7 @@ def prove_guard_b() -> list[str]:
         "BM15 a refspec resolved from its destination",
     )
 
-    if selected("BM16"):
+    if selected("BM16 the hook file deleted entirely"):
         original = hook.read_bytes()
         try:
             park(hook, original)

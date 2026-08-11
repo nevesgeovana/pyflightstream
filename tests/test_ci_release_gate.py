@@ -442,6 +442,30 @@ def test_a_truncated_page_is_unreachable_rather_than_green(monkeypatch):
     assert "130" in str(detail)
 
 
+def test_a_non_numeric_total_count_refuses_rather_than_passing(monkeypatch):
+    """Everything else in check_runs fails closed on a malformed payload.
+
+    This arm used to fall through to "ok", so a `total_count` of `"130"`
+    disabled the truncation check that had just been added, and nothing
+    went red when the guard was reverted.
+    """
+    hook = _load_hook()
+
+    class Done:
+        returncode = 0
+        stderr = ""
+        stdout = json.dumps(
+            {
+                "total_count": "130",
+                "check_runs": [{"name": "a", "status": "completed", "conclusion": "success"}],
+            }
+        )
+
+    monkeypatch.setattr(hook.subprocess, "run", lambda *a, **k: Done())
+    state, detail = hook.check_runs("owner/repo", "abc123", hook.time.monotonic() + 30)
+    assert state == "unreachable", f"a non-numeric total_count read as complete: {detail}"
+
+
 def test_an_unanswerable_query_refuses_rather_than_allowing(monkeypatch):
     """The arm that the COORD_INCIDENT_LEDGER precedent decides."""
     hook = _load_hook()
@@ -707,9 +731,39 @@ def test_no_allow_rule_reads_the_unbounded_command_tail():
     assert allows == 4, (
         f"the hook has {allows} silent-allow call sites, not four. Each one is a place "
         "the gate stands down, and the count is pinned so a new one is a deliberate "
-        "change. The four are: a payload it cannot read, a command that is not a push, "
-        "a push naming no version tag, and the green path."
+        "change. The four are: a payload it cannot read; a command that is neither a "
+        "push nor tokenizable as one, which is the site that stands down after an "
+        "INTERNAL error and so is the one to look at hardest when this count moves; a "
+        "push that names no version tag; and the green path."
     )
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git push -d origin v0.7.0",
+        "git push --delete origin v0.7.0",
+        "git push origin :refs/tags/v0.7.0",
+        "git push -d origin v0.7.0 && git push origin v0.7.0",
+    ],
+)
+def test_a_tag_deletion_is_gated_like_any_other_release_push(command, monkeypatch, capsys):
+    """The behaviour the removal created, which nothing else asserts.
+
+    A deletion publishes nothing, so gating it is a nuisance rather than
+    a hole, and the hook says so. But it is the behaviour a contributor
+    is most likely to undo, precisely because the hook calls it a
+    nuisance, and the allow they would reach for is the one that let the
+    last command in this list disable the gate entirely.
+
+    Re-inserting that hole left the suite at eighty one passed, which is
+    why this exists.
+    """
+    hook = _load_hook()
+    out = _drive(hook, monkeypatch, command, answer=("ok", V070_RUNS), capsys=capsys)
+    assert out.strip(), f"the deletion {command!r} was allowed silently"
+    decision = json.loads(out)["hookSpecificOutput"]
+    assert decision["permissionDecision"] == "deny", command
 
 
 @pytest.mark.parametrize(
@@ -718,6 +772,13 @@ def test_no_allow_rule_reads_the_unbounded_command_tail():
         (["origin", "v0.7.0"], ["v0.7.0"], {"v0.7.0": "v0.7.0"}),
         (["origin", "HEAD:refs/tags/v0.8.0"], ["v0.8.0"], {"v0.8.0": "HEAD"}),
         (["origin", "abc123:refs/tags/v0.8.0"], ["v0.8.0"], {"v0.8.0": "abc123"}),
+        # A BRANCH destination must not claim the tag's target. Needs the
+        # bare tag present too, since a refspec alone never reaches here.
+        (
+            ["origin", "v0.7.0", "sneaky:refs/heads/v0.7.0"],
+            ["v0.7.0"],
+            {"v0.7.0": "v0.7.0"},
+        ),
     ],
 )
 def test_a_refspec_is_resolved_from_its_source_side(after, tags, expected):
@@ -805,6 +866,10 @@ def test_an_untokenizable_push_is_refused_rather_than_read_as_tagless(monkeypatc
         # among the value-taking options read the remote as `v0.7.0`.
         (["--force-with-lease", "origin", "v0.7.0"], "origin"),
         (["--force-with-lease=refs/tags/v1", "origin", "v0.7.0"], "origin"),
+        # --recurse-submodules DOES take a separate value, measured
+        # against git 2.42: `--recurse-submodules check REMOTE` consumes
+        # `check`. It was missing from the table.
+        (["--recurse-submodules", "check", "origin", "v0.7.0"], "origin"),
     ],
 )
 def test_an_option_value_is_not_mistaken_for_the_remote(after, expected):

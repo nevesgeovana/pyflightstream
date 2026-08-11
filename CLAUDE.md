@@ -106,8 +106,14 @@ the commit its tag names has no concluded, successful CI result on the
 remote. Red, pending, absent and unreachable all deny, on the same
 reasoning as `COORD_INCIDENT_LEDGER` below: a guard that reads its own
 missing information as permission is not a guard. It leaves ordinary
-branch pushes alone, and a tag DELETION alone, a deletion publishing
-nothing. It exists because the v0.7.0 tag was published fifteen seconds
+branch pushes alone. It does NOT leave a tag deletion alone, although a
+deletion publishes nothing: an allow for that case was written on
+2026-08-11 and removed the same day, because it read the whole command
+tail and so let a compound `delete && push` disable the gate entirely.
+To move a published tag, move the LOCAL tag onto the green commit first
+and then delete the remote one, which the gate permits because by then
+the tag resolves to a commit whose CI is green. It exists because the
+v0.7.0 tag was published fifteen seconds
 after its branch with CI still running and red
 (INC-20260810-2140-shared), and the pinned gate above, measured against
 the live remote, allowed exactly that.
