@@ -1489,12 +1489,25 @@ def test_the_pdf_reader_asks_for_layout_extraction(monkeypatch, tmp_path):
     A silent revert to the default would be.
 
     SKIPPED WITHOUT THE `[manual]` EXTRA, which is the only reason this
-    is not an unconditional import. It was one from 2026-08-09 until the
-    v0.7.0 tag, and every local run passed because a maintainer's
-    environment has pypdf: the job that installs the built wheel WITHOUT
-    the extra is the only place the difference shows, and it is a
-    release job, so it showed at the tag. Fourteen reviewer passes ran
-    in environments that had the extra.
+    is not an unconditional import. It WAS one, from this release's first
+    commit (00320a7, 2026-08-10) until the v0.7.0 tag, and it is the
+    defect INC-20260810-2140-shared records.
+
+    Read what that failure was NOT, because the first account of it, in
+    the commit that added this guard, got it wrong. It was not visible
+    only in a wheel environment. Every install line in every workflow
+    named the same three extras and none of them was `manual`, so the
+    four ordinary CI legs failed on it identically. What actually
+    happened is that nothing ran them in time: the release's sixteen
+    commits went out in one push and the tag followed fifteen seconds
+    later, with seven of eight jobs still running.
+
+    Two things now hold this, and neither is this skip. The class is made
+    impossible by tests/test_extras_isolation.py, which refuses an
+    unguarded import of any distribution a CI job may lack. THIS
+    assertion is executed by the `extras` job in ci.yml, the one leg that
+    installs every declared extra, because a guard that skips everywhere
+    is not weaker evidence than a red test, it is none.
     """
     pypdf = pytest.importorskip("pypdf")
 

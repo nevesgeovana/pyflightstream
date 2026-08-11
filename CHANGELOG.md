@@ -168,9 +168,12 @@ none.
 
 ### What the review changed
 
-Eight reviewer passes over three rounds read this work, and the entries
-above are what survived them. Three findings are worth a reader's
-attention because they were wrong in ways nothing mechanical could see.
+Reviewer passes over four rounds read this work, and the entries above
+are what survived them. The count is deliberately not given: it was
+written three times in this release at two different numbers and no
+scope, and an unanchored count is worse than none. Four findings are
+worth a reader's attention because they were wrong in ways nothing
+mechanical could see.
 
 The completeness claim was measured by a tool that cannot measure it.
 `pyfs-manual sweep` compares entry NAMES, so an entry carrying no row
@@ -192,6 +195,21 @@ And two curated helpers stopped serving three builds the moment their
 grammar was entered. `atmosphere` is fixed on both halves of its
 signature; the second half was found only because a reviewer
 parametrised over the builds instead of testing the one that changed.
+
+The fourth is this release's own tag, and it is recorded here because
+the fix ships inside the artifact. A tier 1 test imported the `[manual]`
+extra with no guard, so the suite failed on every CI leg and the v0.7.0
+tag was pushed anyway, fifteen seconds after the branch, while seven of
+eight jobs were still running. Nothing was published: `release.yml`
+binds publishing to its gates and they held. Release process only; no
+runtime change. The account first written into the fixing commit was
+wrong, and the correction is the useful part: the defect was NOT visible
+only in a wheel environment, it was red in the ordinary matrix too, and
+the real failure was a tag that did not wait for an answer CI was three
+minutes from giving. Both causes now carry a guard rather than a
+sentence, `tests/test_extras_isolation.py` for the import and
+`.claude/hooks/ci_release_gate.py` for the tag
+(INC-20260810-2140-shared).
 
 ### Known gaps
 

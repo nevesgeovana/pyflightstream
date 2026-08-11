@@ -14,7 +14,13 @@ then move on. References for the practices: docs/srs/standards.md.
 ## Pause point 1: state of the tree
 
 1. Definition of done (CLAUDE.md) holds across the open work.
-2. Tier 1 green in CI on the release commit's parent.
+2. Tier 1 green in CI on the release commit's parent. Note what this
+   does and does not buy, because it was read as more than it is: the
+   parent is the commit the release starts FROM, so this item cannot
+   fail for any of the code being released. It says the ground was solid
+   before the work began. The check that covers the work itself is pause
+   point 4 item 4, and at v0.7.0 this item was satisfied while that one
+   was violated.
 3. Compat and physics reports current for the flagship FlightStream
    version; anything stale is either refreshed or named in the
    release notes as a known gap.
@@ -57,20 +63,29 @@ the changelog alone.
 
 1. Build sdist and wheel from a clean checkout; inspect the contents
    once (no private material, no generated docs).
-1a. **Run tier 1 against the built wheel in a fresh environment with the
-   extras the release job installs**, which today is
-   `pip install "dist/<wheel>[dev,fsi,geom]"` in a venv that has nothing
-   else. This is not the same run as tier 1 in the development
-   checkout and it has caught what that run cannot: a maintainer's
-   environment carries every optional extra, so a test importing one
-   unconditionally passes locally forever and fails only here. At the
-   v0.7.0 tag exactly that happened, one unguarded `import pypdf` that
-   had been red in this job since the release's first commit while
-   fourteen reviewer passes and every local run stayed green. The job
-   is the guard; running it before the tag rather than after is the
-   step. Rebuild the wheel first if anything was committed since the
-   last build, or this tests the previous one.
-2. Role-review the whole release diff with the specialist agents (the
+2. **Run the release job's own checks against the built wheel, locally,
+   before the tag.** Install the wheel into a venv that has nothing else
+   in it, with the extras named by the `Install the built wheel` step of
+   `.github/workflows/release.yml` (that file is the single home of the
+   set; do not copy the list here, read it there, and install exactly
+   what it names and nothing more, because the extras that are ABSENT
+   are what this run measures). Then run, from the repository checkout
+   with that venv active and no editable install of this package in it,
+   both of the job's commands and not just the first:
+
+   ```
+   pytest
+   pytest README.md docs -W error
+   ```
+
+   The tests are not in the wheel, which is why the checkout is needed.
+   A pass is the suite green; a FAILURE or a COLLECTION ERROR here is
+   the class of defect this step exists for. It reproduces one leg of a
+   four-leg matrix, so treat it as a smoke test rather than as the job.
+
+   Rebuild the wheel first if anything was committed since the last
+   build, or this tests the previous one.
+3. Role-review the whole release diff with the specialist agents (the
    `role-review` skill, not paraphrased manual checks) and drive every
    finding to fixed or registered, then write BOTH attestations,
    naming the tag ref so the record covers the ref actually pushed (the
@@ -88,7 +103,26 @@ the changelog alone.
    pushed by naming the tag, never with `--tags`. This pause point
    exists because a past release shipped paraphrased checks instead of
    the agents.
-3. Annotated tag; push with CI green.
+4. Annotated tag, and **push it only once CI has actually reported green
+   on the commit the tag names**. Not "green last time you looked", and
+   not "green on the parent": on that commit, concluded, on the remote.
+   Push the branch, wait for the run to FINISH, read it, then move the
+   tag and push it.
+
+   This item used to be four words, and the four releases that have been
+   measured show it decaying rather than being obeyed. Gap between the
+   branch CI run and the tag push: fourteen minutes at v0.4.0, forty one
+   at v0.5.0, thirteen seconds at v0.6.0, fifteen at v0.7.0. A CI run
+   here takes about four and a half minutes, so the first two had an
+   answer to read and the last two did not. v0.6.0 shipped over the same
+   silence and survived because CI turned out green; v0.7.0 did not, and
+   the tag is the one step in this checklist that cannot be retracted.
+
+   It is no longer only a sentence. `.claude/hooks/ci_release_gate.py`
+   refuses a version-tag push while that commit's CI is red, pending,
+   absent or unreachable (INC-20260810-2140-shared). If it denies, the
+   answer is to wait or to fix, never to work around it: it is asking
+   the question this item was always supposed to ask.
 
 ## Pause point 5: public releases only
 

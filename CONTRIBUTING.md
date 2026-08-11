@@ -13,7 +13,24 @@ pytest
 ```
 
 The `fsi` and `geom` extras are part of the full Tier 1 suite (the FSI
-and geometry-gate tests import them); CI installs the same set.
+and geometry-gate tests import them); the four platform legs of CI
+install exactly this set.
+
+`manual` and `plot` are deliberately NOT in it, and the omission is load
+bearing rather than an oversight: those legs are what proves the package
+works for a reader who installed it plainly. One CI leg, `extras`,
+installs everything instead, so the assertions gated behind those two
+still execute somewhere. Locally, the command above leaves a handful of
+tests skipped; add `,manual,plot` if you are touching
+`pyflightstream.utils.manual`, the pdf reader, or a plotting example, or
+their assertions never run for you.
+
+Whichever you install, do not reach for an optional distribution without
+a guard. `tests/test_extras_isolation.py` refuses it, and the refusal
+names the form to use. That guard exists because an unguarded
+`import pypdf` reached the v0.7.0 tag past fifteen reviewer passes, all
+of them reading in an environment that had it
+(INC-20260810-2140-shared).
 
 ## Hard invariants
 

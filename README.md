@@ -240,8 +240,9 @@ pytest
 
 Tier 1 (the pytest suite) runs anywhere. Tier 2 (command validity
 probes) and Tier 3 (physics regression) require a local FlightStream
-license and are documented in CONTRIBUTING.md. The docs build with
-`properdocs build --strict`.
+license and are documented in CONTRIBUTING.md, which also says which
+extras a full run needs and why two of them are left out on purpose.
+The docs build with `properdocs build --strict`.
 
 ## License
 

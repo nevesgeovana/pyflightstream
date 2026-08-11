@@ -655,6 +655,23 @@
     leaves unverified is the import machinery of each gate, not the
     shape of its refusal.
 
+    That residual came due on 2026-08-10, and the correction belongs
+    here rather than in a commit message. The gap was wider than the
+    sentence above admits, because no environment carried every extra
+    and nothing said so: the four CI legs install three of the five, and
+    a test importing one of the other two passed on every maintainer
+    machine and failed on all four legs. It reached the v0.7.0 tag
+    (INC-20260810-2140-shared). Two things closed it.
+    `tests/test_extras_isolation.py` derives, from pyproject and the
+    workflow install lines, which distributions a CI job may lack, and
+    refuses an unguarded import of one anywhere this repository runs
+    python, the fenced blocks of the README and docs included. And the
+    `extras` job in `ci.yml` installs all five, so the gated assertions
+    execute somewhere rather than skipping everywhere. The original
+    residual still stands as written for the refusal SHAPE: no job runs
+    with an extra deliberately uninstalled, so the gates' import
+    machinery is still verified statically rather than by absence.
+
 !!! requirement "NFR-26 One term per level for the unit of work <span class='srs-pending'>pending</span>"
     *Origin: the TERM-unit-of-work acceptance, 2026-07-27, allocated an
     identifier by this consolidation.*

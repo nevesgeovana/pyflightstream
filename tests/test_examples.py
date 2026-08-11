@@ -216,9 +216,19 @@ def test_the_cleanliness_detector_can_actually_see_an_artifact():
 
     In CI both of its halves are green by construction: the docs blocks
     that would write `runs/` are executed in a later step than the tier 1
-    run, and matplotlib is not in the CI install, so the PNGs are never
-    written there either. A detector that quietly stopped detecting would
-    look exactly like a clean tree. This drives it.
+    run, and the two examples that write a PNG are run by
+    `test_each_example_runs` with `cwd=tmp_path`, so the file lands
+    beside the temporary directory and never at the root. A detector that
+    quietly stopped detecting would look exactly like a clean tree. This
+    drives it.
+
+    An earlier version of this docstring gave a different reason for the
+    PNG half: that matplotlib is not in the CI install. Measured on
+    2026-08-10, that is false. PyNiteFEA requires matplotlib
+    unconditionally, so the `fsi` extra drags it in and every leg has
+    always had it; those examples run and do write their PNGs. The
+    working directory is what keeps the tree clean, which is the reason
+    the test above already states and this one contradicted.
     """
     made = []
     try:
