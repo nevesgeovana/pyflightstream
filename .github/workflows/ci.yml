@@ -75,7 +75,11 @@ jobs:
       - name: Tier 1 with the coverage floor
         run: pytest --cov --cov-branch --cov-report=term-missing
 
-  extras:
+  test-all-extras:
+    # Named for the measurement rather than the subject: a red "extras"
+    # reads as "installing an extra is broken", when what it means is
+    # that the tier 1 suite failed with every extra present.
+    #
     # The ONLY leg that installs every declared extra, and the only place
     # the assertions gated behind one actually execute.
     #

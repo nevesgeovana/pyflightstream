@@ -65,8 +65,8 @@ the changelog alone.
    once (no private material, no generated docs).
 2. **Run the release job's own checks against the built wheel, locally,
    before the tag.** Install the wheel into a venv that has nothing else
-   in it, with the extras named by the `Install the built wheel` step of
-   `.github/workflows/release.yml` (that file is the single home of the
+   in it, with the extras named by the `Install the built wheel, not the
+   source` step of `.github/workflows/release.yml` (that file is the single home of the
    set; do not copy the list here, read it there, and install exactly
    what it names and nothing more, because the extras that are ABSENT
    are what this run measures). Then run, from the repository checkout
@@ -123,6 +123,16 @@ the changelog alone.
    absent or unreachable (INC-20260810-2140-shared). If it denies, the
    answer is to wait or to fix, never to work around it: it is asking
    the question this item was always supposed to ask.
+
+   AND MIND THE LOOP A DENIAL PUTS YOU IN, because it crosses back into
+   item 3 and nothing else says so. Fixing CI means a new commit, and a
+   commit made after attesting re-arms the role-review gate, so the
+   attestations written in item 3 no longer cover what you are pushing.
+   After the fix is green and the tag has moved onto it, go back to item
+   3, re-run the reviewer passes over the new work, and write BOTH
+   attestations again naming the tag, then return here. Satisfying this
+   gate and then being refused by the other one is the expected
+   sequence, not a sign that something is wrong.
 
 ## Pause point 5: public releases only
 

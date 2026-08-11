@@ -756,7 +756,7 @@
    "text": "A missing optional dependency raises a typed error carrying the exact pip install pyflightstream[<extra>] remedy, never a bare ImportError.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the C9 acceptance and the M6 mirror of the same subject, 2026-07-27, which the author accepted as elevating AD-05 to a tested requirement. Evidence: pyflightstream.extras.MissingExtraError and missing_extra; tests/test_extras.py, parametrized over every extra.*",
+   "evidence": "*Origin: the C9 acceptance and the M6 mirror of the same subject, 2026-07-27, which the author accepted as elevating AD-05 to a tested requirement. Evidence: pyflightstream.extras.MissingExtraError and missing_extra; tests/test_extras.py, parametrized over every extra; tests/test_extras_isolation.py and the test-all-extras job in ci.yml, added 2026-08-10 for the residual below.*",
    "verification": "test"
   },
   {

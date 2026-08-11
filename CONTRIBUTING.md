@@ -18,18 +18,24 @@ install exactly this set.
 
 `manual` and `plot` are deliberately NOT in it, and the omission is load
 bearing rather than an oversight: those legs are what proves the package
-works for a reader who installed it plainly. One CI leg, `extras`,
-installs everything instead, so the assertions gated behind those two
-still execute somewhere. Locally, the command above leaves a handful of
-tests skipped; add `,manual,plot` if you are touching
-`pyflightstream.utils.manual`, the pdf reader, or a plotting example, or
-their assertions never run for you.
+works for a reader who installed it plainly. One CI leg,
+`test-all-extras`, installs everything instead, so the assertions gated
+behind those two execute somewhere.
+
+Locally the command above skips exactly one test, the pdf reader's
+layout check; add `,manual` if you are touching
+`pyflightstream.utils.manual` or that assertion never runs for you.
+`plot` gates no assertion today and is in the all-extras leg so that the
+first one added is executed rather than skipped. Adding it changes
+nothing you can measure, because matplotlib is already installed
+transitively: PyNiteFEA requires it, so the `fsi` extra brings it in
+(measured against PyNiteFEA 3.0.0 on 2026-08-10).
 
 Whichever you install, do not reach for an optional distribution without
 a guard. `tests/test_extras_isolation.py` refuses it, and the refusal
-names the form to use. That guard exists because an unguarded
-`import pypdf` reached the v0.7.0 tag past fifteen reviewer passes, all
-of them reading in an environment that had it
+names the form to use for the tree you are in. That guard exists because
+an unguarded `import pypdf` reached the v0.7.0 tag past every reviewer
+pass of that release, all of them reading in an environment that had it
 (INC-20260810-2140-shared).
 
 ## Hard invariants

@@ -198,18 +198,27 @@ parametrised over the builds instead of testing the one that changed.
 
 The fourth is this release's own tag, and it is recorded here because
 the fix ships inside the artifact. A tier 1 test imported the `[manual]`
-extra with no guard, so the suite failed on every CI leg and the v0.7.0
-tag was pushed anyway, fifteen seconds after the branch, while seven of
+extra with no guard, so the suite failed on the four platform legs and
+on the coverage job, five of the run's eight checks, and the v0.7.0 tag
+was pushed anyway, fifteen seconds after the branch, while seven of
 eight jobs were still running. Nothing was published: `release.yml`
 binds publishing to its gates and they held. Release process only; no
-runtime change. The account first written into the fixing commit was
-wrong, and the correction is the useful part: the defect was NOT visible
-only in a wheel environment, it was red in the ordinary matrix too, and
-the real failure was a tag that did not wait for an answer CI was three
-minutes from giving. Both causes now carry a guard rather than a
-sentence, `tests/test_extras_isolation.py` for the import and
-`.claude/hooks/ci_release_gate.py` for the tag
-(INC-20260810-2140-shared).
+runtime change.
+
+The account first written into the fixing commit was wrong, and the
+correction is the useful part: the defect was NOT visible only in a
+wheel environment, it was red in the ordinary matrix too, and the real
+failure was a tag that did not wait for an answer CI was still
+computing. The first red conclusion landed a minute and a half after the
+tag, the last four minutes after it.
+
+Both causes now carry a guard rather than a sentence:
+`tests/test_extras_isolation.py` refuses an unguarded import of any
+distribution a CI job may lack, `.claude/hooks/ci_release_gate.py`
+refuses a version-tag push while that commit's CI is red, pending,
+absent or unreachable, and a third CI leg, `test-all-extras`, installs
+all five declared extras so an assertion gated behind one is executed
+somewhere rather than skipped everywhere (INC-20260810-2140-shared).
 
 ### Known gaps
 

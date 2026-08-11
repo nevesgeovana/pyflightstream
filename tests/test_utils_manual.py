@@ -1495,19 +1495,20 @@ def test_the_pdf_reader_asks_for_layout_extraction(monkeypatch, tmp_path):
 
     Read what that failure was NOT, because the first account of it, in
     the commit that added this guard, got it wrong. It was not visible
-    only in a wheel environment. Every install line in every workflow
-    named the same three extras and none of them was `manual`, so the
-    four ordinary CI legs failed on it identically. What actually
-    happened is that nothing ran them in time: the release's sixteen
-    commits went out in one push and the tag followed fifteen seconds
-    later, with seven of eight jobs still running.
+    only in a wheel environment. Every install line in all three
+    workflows named the same three extras and none of them was `manual`,
+    so the four platform legs and the coverage job failed on it
+    identically, five of the run's eight checks. What actually happened
+    is that nothing ran them in time: the release's commits went out in
+    one push and the tag followed fifteen seconds later, with seven of
+    eight jobs still running.
 
     Two things now hold this, and neither is this skip. The class is made
     impossible by tests/test_extras_isolation.py, which refuses an
     unguarded import of any distribution a CI job may lack. THIS
-    assertion is executed by the `extras` job in ci.yml, the one leg that
-    installs every declared extra, because a guard that skips everywhere
-    is not weaker evidence than a red test, it is none.
+    assertion is executed by the `test-all-extras` job in ci.yml, the one
+    leg that installs every declared extra, because a guard that skips
+    everywhere is not weaker evidence than a red test, it is none.
     """
     pypdf = pytest.importorskip("pypdf")
 

@@ -14,7 +14,9 @@ holding it to the extras that actually exist.
 from __future__ import annotations
 
 import ast
+import importlib.util
 import re
+import sys
 import tomllib
 from pathlib import Path
 
@@ -93,6 +95,33 @@ def test_a_refusal_cannot_name_an_extra_that_does_not_exist():
     assert missing_extra("geom", package="trimesh", purpose="the gate").extra == "geom"
 
 
+def test_the_converters_pypdf_accessor_refuses_in_the_shared_shape(monkeypatch):
+    """The one gated path added on 2026-08-10, asserted rather than assumed.
+
+    ``scripts/chm_to_pdf._pypdf`` mirrors ``probes.geometry._trimesh``,
+    and that one has its refusal exercised. Without this, a wrong extra
+    name in the accessor would raise ``UnknownExtraError`` instead of the
+    didactic refusal, and would ship silently, because the branch only
+    runs where pypdf is absent and no environment here is.
+    """
+    # Loaded by path rather than by putting scripts/ on sys.path: a
+    # permanently prepended directory shadows later imports for the rest
+    # of the session, which this workspace already has an incident about.
+    spec = importlib.util.spec_from_file_location(
+        "chm_to_pdf_under_test", REPO / "scripts" / "chm_to_pdf.py"
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    monkeypatch.setitem(sys.modules, "pypdf", None)
+    with pytest.raises(MissingExtraError) as caught:
+        module._pypdf()
+    assert caught.value.extra == "manual"
+    assert caught.value.package == "pypdf"
+    assert "pip install pyflightstream[manual]" in str(caught.value)
+
+
 def _remedies_in_raises(source: str) -> list[int]:
     """Line numbers of raises whose literals write an install remedy by hand.
 
@@ -131,7 +160,13 @@ def test_every_gated_path_raises_the_shared_type():
     assert _remedies_in_raises(in_prose) == [], "the scan flags documentation"
 
     offenders = []
-    for path in sorted((REPO / "src").rglob("*.py")):
+    # `scripts/` joined the scan on 2026-08-10, because the class this
+    # guard exists to prevent had a live instance there and the guard
+    # could not see it: scripts/chm_to_pdf.py typed out its own install
+    # command for the [manual] extra. A tree that gates on an extra is a
+    # tree this must reach.
+    scanned = [*sorted((REPO / "src").rglob("*.py")), *sorted((REPO / "scripts").rglob("*.py"))]
+    for path in scanned:
         if path.name == "extras.py":
             continue  # the one home of the string
         # Only the literals INSIDE a raise. A module docstring or a

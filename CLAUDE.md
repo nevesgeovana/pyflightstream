@@ -98,6 +98,30 @@ skill's closing step and lives in
 made after attesting re-arms the gate: an unreviewed commit never
 ships.
 
+A SECOND PreToolUse hook joined it on 2026-08-10 and a fresh clone needs
+to know, because a deny from a hook this file does not name is the
+mystery refusal the rest of this section works to prevent.
+`.claude/hooks/ci_release_gate.py` refuses a RELEASE-GRADE push while
+the commit its tag names has no concluded, successful CI result on the
+remote. Red, pending, absent and unreachable all deny, on the same
+reasoning as `COORD_INCIDENT_LEDGER` below: a guard that reads its own
+missing information as permission is not a guard. It leaves ordinary
+branch pushes alone. It exists because the v0.7.0 tag was published
+fifteen seconds after its branch with CI still running and red
+(INC-20260810-2140-shared), and the pinned gate above, measured against
+the live remote, allowed exactly that.
+
+It is INTERIM. The rule belongs in the kit gate body, which is
+hash-pinned here and carries the identical hole in the sister library;
+this hook is deleted along with its wiring and its test in the same
+commit as the re-vendor that absorbs it
+(`PLN-20260810-2310-ci-tag-rule-belongs-to-the-kit`, and a tier-1 test
+goes red at that moment so the deletion is not a step anyone has to
+remember). Two hooks both run and either can deny, so the composition is
+strictly stronger than the pinned gate alone; note that this one does
+NOT refuse the blanket forms, and is safe only because the other one
+does.
+
 Structural-fix rule and the shared incident ledger (adopted
 2026-07-23): a defect in these two libraries is fixed at its STRUCTURAL
 cause on its FIRST occurrence, in the session where it appears, not on

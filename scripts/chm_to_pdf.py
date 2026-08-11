@@ -223,11 +223,25 @@ def main() -> int:
     Returns
     -------
     int
-        0 on success, 2 when the arguments are missing.
+        0 on success, 2 when the arguments are missing, 1 when the
+        ``[manual]`` extra is not installed. The two failures are given
+        different codes deliberately: a caller that cannot tell a usage
+        mistake from a missing dependency cannot act on either.
     """
     if len(sys.argv) < 3:
-        print(__doc__)
-        print("usage: chm_to_pdf.py <extracted-archive-dir> <out.pdf> [chrome.exe]")
+        # To stderr, and short. Printing the whole module docstring at
+        # someone who forgot an argument buries the one line they need
+        # under four paragraphs about page geometry, and printing a
+        # failure to stdout means a redirect swallows it.
+        print(
+            "usage: chm_to_pdf.py <extracted-archive-dir> <out.pdf> [chrome.exe]\n"
+            "    pip install pyflightstream[manual]\n"
+            "    7z x -o<dir> <manual>.chm\n"
+            "    python scripts/chm_to_pdf.py <dir> <out>.pdf\n"
+            "Why the conversion is done this way: read the docstring at the top of "
+            "this file.",
+            file=sys.stderr,
+        )
         return 2
 
     # Asked here, before any work, rather than inside render() where the
@@ -237,8 +251,14 @@ def main() -> int:
     try:
         pypdf = _pypdf()
     except MissingExtraError as error:
-        print(str(error), file=sys.stderr)
-        return 2
+        # Exit 1, not 2. Exit 2 is the argparse convention this family
+        # uses for a usage error, and a caller that cannot tell "you
+        # typed it wrong" from "your environment lacks pypdf" learns
+        # nothing from the code. Prefixed with the tool's own name, so
+        # the message reads as coming from the script the user ran
+        # rather than from the library underneath it.
+        print(f"chm_to_pdf.py: {error}", file=sys.stderr)
+        return 1
 
     root = Path(sys.argv[1])
     out = Path(sys.argv[2])
