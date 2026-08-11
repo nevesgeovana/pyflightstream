@@ -35,7 +35,12 @@ transitively: PyNiteFEA requires it, so the `fsi` extra brings it in
 
 Whichever you install, do not reach for an optional distribution without
 a guard. `tests/test_extras_isolation.py` refuses it, and the refusal
-names the form to use for the tree you are in. That guard exists because
+names the form to use for the tree you are in. Its evidence, and the
+CI-green tag gate's, is `python scripts/prove_extras_and_ci_guards.py`,
+which re-runs the mutation battery behind both. It EDITS THE WORKING
+TREE and restores it, so run it on a clean checkout and read `git
+status` afterwards; a full pass takes over ten minutes, so it takes a
+label prefix (`BM`, `M2`) to run one part. That guard exists because
 an unguarded `import pypdf` reached the v0.7.0 tag past every reviewer
 pass of that release, all of them reading in an environment that had it
 (INC-20260810-2140-shared).

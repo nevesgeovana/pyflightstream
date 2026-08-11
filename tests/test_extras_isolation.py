@@ -28,9 +28,10 @@ The main assertion is negative, and a negative assertion is the shape
 that passes by measuring nothing, so companions fail it: if no install
 line is found at all, if one is found but not captured, if the derived
 set is empty, if no leg installs every extra, if the guaranteed set
-quietly widens, if the scanner stops finding a synthetic offender, if
-the import-root mapping stops resolving a renamed distribution, if the
-walk stops reaching the files it claims, if a scanned surface falls
+quietly widens, if the scan itself quietly narrows, if the scanner stops
+finding a synthetic offender, if the import-root mapping stops resolving
+a renamed distribution, if a malformed doctest stops being an error, if
+the walk stops reaching the files it claims, if a scanned surface falls
 outside every partition member, or if a scanned surface is unparseable.
 No count is given, deliberately; it moved twice while this file was
 being written. None of them is decoration: a guard of this shape already
@@ -94,8 +95,8 @@ SCAN_PARTITION = (*SCAN_ROOTS, "root", "markdown")
 #: did not: the wheel install reads
 #: `pip install "dist/${{ needs.build.outputs.wheel-name }}[dev,fsi,geom]"`
 #: and `\S` cannot cross the spaces inside the template expression. That
-#: line therefore matched nothing, so the derivation silently read six
-#: of the seven install lines, and the one it dropped belongs to the job
+#: line therefore matched nothing, so the derivation silently read seven
+#: of the eight install lines, and the one it dropped belongs to the job
 #: that tests the built wheel. `test_every_package_install_line_is_captured`
 #: below is the companion that would have caught it.
 _PACKAGE_INSTALL = re.compile(
@@ -260,8 +261,11 @@ def forbidden_import_roots() -> set[str]:
     unavailable = unavailable_distributions()
     roots = set(unavailable)
     for module, distributions in importlib.metadata.packages_distributions().items():
-        if module.startswith("_"):
-            continue  # __pycache__ and friends reach this mapping as noise
+        # By NAME, not by underscore prefix: `_yaml` is the shape of a
+        # genuine private top-level module a distribution can provide,
+        # and dropping every underscore name would drop it too.
+        if module == "__pycache__":
+            continue
         if any(name.lower() in unavailable for name in distributions):
             roots.add(module.lower())
     return roots
@@ -365,7 +369,7 @@ def unguarded_imports(source: str, forbidden: set[str]) -> list[tuple[int, str]]
     return sorted(set(found))
 
 
-def doctest_source(text: str) -> str:
+def doctest_source(text: str, label: str = "<surface>") -> str:
     """Join the statements of every doctest example found in a text.
 
     An AST scanner cannot see an import inside a docstring, because there
@@ -382,7 +386,12 @@ def doctest_source(text: str) -> str:
         file's real doctests from the scan and reports it clean, which is
         the third way this file's negative assertion can measure nothing.
     """
-    return "".join(example.source for example in doctest.DocTestParser().get_examples(text))
+    # `name=label` so the ValueError names the FILE. Without it the
+    # message says `<string>`, and it propagates out of five test
+    # functions with nothing telling the contributor where to look.
+    return "".join(
+        example.source for example in doctest.DocTestParser().get_examples(text, name=label)
+    )
 
 
 def _doctest_source_unchecked(text: str) -> str:
@@ -415,7 +424,7 @@ def python_surfaces() -> list[tuple[str, str]]:
             label = path.relative_to(REPO).as_posix()
             text = path.read_text(encoding="utf-8")
             out.append((label, text))
-            examples = doctest_source(text)
+            examples = doctest_source(text, label)
             if examples.strip():
                 out.append((f"{label}#doctests", examples))
     out.append(("conftest.py", (REPO / "conftest.py").read_text(encoding="utf-8")))
@@ -625,6 +634,27 @@ def test_the_import_root_mapping_resolves_a_renamed_distribution(monkeypatch):
         "roots against distribution names and misses every distribution whose two "
         "names differ."
     )
+
+
+def test_a_malformed_doctest_in_a_python_file_is_an_error_and_names_the_file():
+    """The raise had no test, so reverting it changed nothing.
+
+    Measured: wrapping the parse in `try/except ValueError: return ""`
+    left the suite at nineteen passed. That is the swallow this module's
+    own docstring calls the third way its negative assertion can measure
+    nothing, and it was unfalsifiable. The markdown path is separately
+    allowed to swallow, through `_doctest_source_unchecked`, because a
+    fence may legitimately hold prose.
+    """
+    malformed = 'def f():\n    """D.\n\n    >>>import pypdf\n    """\n'
+    with pytest.raises(ValueError) as caught:
+        doctest_source(malformed, "src/pyflightstream/somewhere.py")
+    assert "src/pyflightstream/somewhere.py" in str(caught.value), (
+        "the refusal does not name the file, so a contributor sees `<string>` and a "
+        f"line number with nothing to look at: {caught.value}"
+    )
+    # And the markdown path still degrades rather than raising.
+    assert _doctest_source_unchecked(malformed) == ""
 
 
 def test_the_walk_reaches_nested_files_and_markdown_blocks():

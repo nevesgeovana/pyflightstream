@@ -31,6 +31,7 @@ from __future__ import annotations
 import importlib.util
 import io
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -188,6 +189,13 @@ def test_the_bridge_expires_when_the_kit_absorbs_the_rule():
     the kit made it redundant. Two hooks asking GitHub the same question
     double the rate-limit spend at a release, and this gate turns an
     unanswered query into a refusal.
+
+    A POINTER, NOT A PROMISE, and CLAUDE.md says so too. It recognises
+    the kit's absorption by the API this bridge happens to call; the
+    kit's own `ci_state.py` reaches the same question by another route,
+    which this string check would not see. A better trigger would pin the
+    vendored body's identity rather than its content, and that is
+    registered rather than done (PLN-20260810-2310).
     """
     kit_body = KIT.read_text(encoding="utf-8")
     assert "check-runs" not in kit_body and "check_runs" not in kit_body, (
@@ -568,7 +576,6 @@ def test_every_refusal_arm_is_reached_through_main(answer, tag, monkeypatch, cap
         "ci-pending",
         "ci-red",
         "no-such-tag",
-        "config",
         "wiring",
         "gate",
     ],
@@ -587,23 +594,35 @@ def test_every_refusal_arm_label_is_still_present_in_the_body(tag):
 
 
 @pytest.mark.parametrize("tag", ["unreachable", "wiring", "gate", "ci-absent"])
-def test_the_arms_a_releaser_cannot_fix_carry_the_escalation_sentence(tag):
+def test_every_arm_a_releaser_cannot_fix_carries_the_escalation_sentence(tag):
     """A blocked operator with no stated escalation invents a workaround.
 
-    These four report a broken environment, a broken gate or a repository
-    setting, none of which the person cutting the release can resolve by
-    trying again.
+    These report a broken environment, a broken gate or a remote outside
+    this gate's scope, none of which the person cutting the release can
+    resolve by trying again.
+
+    Bounded by the NEXT `_decide(` rather than by an indentation-specific
+    literal, and checked at EVERY occurrence of the label rather than the
+    first. The earlier version did neither: its terminator matched a
+    sixteen-space close while three `[wiring]` arms close at twelve, so
+    one slice spanned five arms and was satisfied by a neighbour's
+    escalation. Deleting the sentence from the first arm would not have
+    gone red.
     """
-    hook = _load_hook()
     source = HOOK.read_text(encoding="utf-8")
-    marker = f"[{tag}]"
-    start = source.index(marker)
-    # The arm ends at the closing paren of its _decide call.
-    arm = source[start : source.index('",\n                )', start) + 4]
-    assert "_ESCALATE" in arm or hook._ESCALATE[:40] in arm, (
-        f"the {tag} refusal does not end in the escalation sentence, so a blocked "
-        "releaser is left with a diagnosis and no move"
-    )
+    # The ARM-opening pattern, not the bare label: a docstring that
+    # mentions `[gate]` in prose is not an arm, and matching it made this
+    # test fail on its first run for the right reason.
+    marker = f"{{PREFIX}} [{tag}]"
+    starts = [index for index in range(len(source)) if source.startswith(marker, index)]
+    assert starts, f"no {tag} refusal arm found; update this test with it"
+    for start in starts:
+        following = source.find("_decide(", start)
+        arm = source[start : following if following != -1 else len(source)]
+        assert "_ESCALATE" in arm, (
+            f"a {tag} refusal at offset {start} does not carry the escalation "
+            "sentence, so a blocked releaser is left with a diagnosis and no move"
+        )
 
 
 def test_the_config_key_names_the_remote_the_push_names(monkeypatch, capsys):
@@ -658,25 +677,39 @@ def test_the_push_url_wins_over_the_fetch_url(monkeypatch, capsys):
     )
 
 
-def test_deleting_a_tag_is_not_a_release_push(monkeypatch, capsys):
-    """A deletion publishes nothing, and it is this gate's own recovery path.
+def test_no_allow_rule_reads_the_unbounded_command_tail():
+    """The property that makes every rule here fail closed, pinned.
 
-    The first thing anyone does after being stopped here is remove the
-    bad tag. Gating that on CI at the commit being removed refuses the
-    fix. Whether a published ref may be deleted at all is the kit gate's
-    call, not this one's.
+    The kit tokenizer hands over every token after the FIRST `push`, with
+    shell separators stripped, so that tail can contain a second command.
+    Every rule in the hook over-reads it and therefore errs toward
+    refusing. An ALLOW rule over the same tail is a hole by construction,
+    and one was written on 2026-08-11 and removed the same night:
+    `deletes_a_ref` returned True on seeing `-d` anywhere, so
+    `git push -d origin v1 && git push origin v1`, the ordinary
+    move-a-remote-tag one-liner, disabled the gate entirely.
+
+    This asserts the absence rather than the fix, because the fix was
+    deletion. If a future allow rule is added, it must justify itself
+    against this docstring and this test must move deliberately.
     """
-    hook = _load_hook()
-    for command in (
-        "git push origin :refs/tags/v0.7.0",
-        "git push --delete origin v0.7.0",
-    ):
-        monkeypatch.setattr(
-            sys, "stdin", io.StringIO(json.dumps({"tool_input": {"command": command}}))
-        )
-        with pytest.raises(SystemExit):
-            hook.main()
-        assert capsys.readouterr().out.strip() == "", command
+    source = HOOK.read_text(encoding="utf-8")
+    assert "deletes_a_ref" not in source, (
+        "an allow rule reading the command tail is back. Every other rule here "
+        "over-reads that tail and fails closed; this one made a compound command "
+        "disable the gate. If it is genuinely needed, classify per command segment "
+        "and refuse when a second push appears."
+    )
+    # Call sites, not the definition: an indented call, which the `def`
+    # line is not. Counting the string alone counted the definition too,
+    # which this test caught on its first run.
+    allows = len(re.findall(r"^\s+_allow_silently\(\)", source, re.MULTILINE))
+    assert allows == 4, (
+        f"the hook has {allows} silent-allow call sites, not four. Each one is a place "
+        "the gate stands down, and the count is pinned so a new one is a deliberate "
+        "change. The four are: a payload it cannot read, a command that is not a push, "
+        "a push naming no version tag, and the green path."
+    )
 
 
 @pytest.mark.parametrize(
@@ -767,7 +800,11 @@ def test_an_untokenizable_push_is_refused_rather_than_read_as_tagless(monkeypatc
     [
         (["-o", "ci.skip", "origin", "v0.7.0"], "origin"),
         (["--push-option", "ci.skip", "origin", "v0.7.0"], "origin"),
-        (["--force-with-lease", "refs/tags/v1", "origin", "v0.7.0"], "origin"),
+        # --force-with-lease takes an INLINE argument and never consumes
+        # the next token, so the remote follows it directly. Listing it
+        # among the value-taking options read the remote as `v0.7.0`.
+        (["--force-with-lease", "origin", "v0.7.0"], "origin"),
+        (["--force-with-lease=refs/tags/v1", "origin", "v0.7.0"], "origin"),
     ],
 )
 def test_an_option_value_is_not_mistaken_for_the_remote(after, expected):
@@ -780,26 +817,27 @@ def test_an_option_value_is_not_mistaken_for_the_remote(after, expected):
     assert hook.push_remote(after) == expected
 
 
-def test_push_follow_tags_configuration_is_refused(monkeypatch, capsys):
-    """The one uncovered route that needs no unusual operator behaviour.
+def test_the_configuration_routes_are_stated_as_uncovered():
+    """Two routes publish a tag with no tag token, and neither is checked.
 
-    With `push.followTags = true`, `git push origin main` publishes an
-    annotated tag with no tag token on the command line. The kit gate's
-    allowlist refuses blanket FLAGS and a config setting is not a flag,
-    so neither hook could scope it.
+    `push.followTags = true` and a tag refspec in `remote.<name>.push`
+    both make an ordinary branch push publish a tag, and a config setting
+    is not a flag, so the kit gate's allowlist cannot see them either.
+
+    A check for the first was written on 2026-08-11 and removed the same
+    night: it sat after the early return so it could never fire on the
+    branch push it was written for, its remedy edited the local config
+    while its read consulted the whole cascade, and the test that was
+    supposed to cover it passed by driving a tag push instead. This
+    asserts the honest state, which is that the residual is written down
+    where the hook is read.
     """
-    hook = _load_hook()
-    out = _drive(
-        hook,
-        monkeypatch,
-        "git push origin v0.7.0",
-        answer=("ok", []),
-        capsys=capsys,
-        follow_tags="true",
+    source = HOOK.read_text(encoding="utf-8")
+    assert "push.followTags" in source and "remote.<name>.push" in source, (
+        "the hook no longer states the two configuration routes it does not cover. "
+        "If one of them was closed, replace this test with one that drives the route; "
+        "if the text was merely tidied, put it back (PLN-20260811-0430)."
     )
-    decision = json.loads(out)["hookSpecificOutput"]
-    assert decision["permissionDecision"] == "deny"
-    assert "[config]" in decision["permissionDecisionReason"]
 
 
 @pytest.mark.parametrize(

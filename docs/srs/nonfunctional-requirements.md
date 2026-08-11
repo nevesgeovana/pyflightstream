@@ -674,11 +674,16 @@
     `test-all-extras` job in `ci.yml` installs all five, so the gated
     assertions execute somewhere rather than skipping everywhere.
 
-    Two residuals survive, narrowed. The refusal SHAPE is still verified
-    statically rather than by absence: no job runs with an extra
-    deliberately uninstalled. And the scan does not reach an import made
+    Three residuals survive, narrowed. The refusal SHAPE is still
+    verified statically rather than by absence: no job runs with an extra
+    deliberately uninstalled. The scan does not reach an import made
     through a console script, an entry point, a pytest plugin, or
-    `import_module` with a computed argument.
+    `import_module` with a computed argument. And, from 2026-08-11,
+    import roots are resolved from installed metadata, so a
+    distribution's non-obvious import names join the forbidden set only
+    on a leg that HAS the distribution: the guard degrades to the bare
+    distribution name on the lean legs, which are the ones it most
+    protects, rather than to nothing.
 
 !!! requirement "NFR-26 One term per level for the unit of work <span class='srs-pending'>pending</span>"
     *Origin: the TERM-unit-of-work acceptance, 2026-07-27, allocated an

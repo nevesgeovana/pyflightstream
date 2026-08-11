@@ -222,9 +222,9 @@ executed somewhere rather than skipped everywhere
 (INC-20260810-2140-shared).
 
 One thing a reader comparing the tag to this section would otherwise
-have to infer: the `v0.7.0` tag was MOVED onto the corrected commit
+have to infer: the `v0.7.0` tag is MOVED onto the corrected commit
 before publication. The first tag of that name published nothing, and
-what shipped as 0.7.0 is this tree rather than the one that tag
+0.7.0 ships from this tree rather than from the commit that tag
 originally pointed at.
 
 ### Known gaps

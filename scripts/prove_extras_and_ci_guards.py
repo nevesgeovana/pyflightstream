@@ -45,6 +45,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 PYTHON = Path(sys.executable)
 
+
 #: Where an in-flight mutant's ORIGINAL bytes are parked, so a run that
 #: is killed can be undone by the next one. Inside `.git/`, which is
 #: never tracked and always present.
@@ -56,7 +57,26 @@ PYTHON = Path(sys.executable)
 #: guard exists to prevent. A `finally` does not survive SIGKILL, and
 #: this workspace already has an incident about a review process dying
 #: with mutations in the tree.
-BACKUP = REPO / ".git" / "mutation-backup"
+#: Resolved through git rather than assumed to be `REPO / ".git"`: in a
+#: LINKED WORKTREE `.git` is a FILE, so `mkdir` raised on the first
+#: mutant and `recover()` silently found nothing. This workspace parks
+#: reviewer agents in worktrees by standing practice, which is exactly
+#: where a battery most needs to run.
+def _git_dir() -> Path:
+    """Return the git directory of this checkout, worktree or not."""
+    done = subprocess.run(
+        ["git", "rev-parse", "--absolute-git-dir"],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=30,
+    )
+    resolved = done.stdout.strip()
+    return Path(resolved) if resolved else REPO / ".git"
+
+
+BACKUP = _git_dir() / "mutation-backup"
 
 GUARD_A = "tests/test_extras_isolation.py"
 GUARD_B = "tests/test_ci_release_gate.py"
@@ -66,15 +86,25 @@ GUARD_B = "tests/test_ci_release_gate.py"
 FENCE = chr(96) * 3
 
 
+#: A suite that hangs must not become an external kill. The recovery
+#: path exists because two runs WERE killed; this is the structural half,
+#: turning a hang into a TimeoutExpired the `finally` blocks survive.
+SUITE_TIMEOUT = 300.0
+
+
 def run(target: str) -> tuple[int, str]:
     """Run one test file and return its exit code and summary line."""
-    done = subprocess.run(
-        [str(PYTHON), "-m", "pytest", target, "-q", "--no-header", "-p", "no:cacheprovider"],
-        cwd=REPO,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    try:
+        done = subprocess.run(
+            [str(PYTHON), "-m", "pytest", target, "-q", "--no-header", "-p", "no:cacheprovider"],
+            cwd=REPO,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=SUITE_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired:
+        return 1, f"TIMED OUT after {SUITE_TIMEOUT:.0f}s (counted as killed, but look)"
     tail = [line for line in done.stdout.splitlines() if "passed" in line or "failed" in line]
     return done.returncode, (tail[-1] if tail else "no summary")
 
@@ -101,20 +131,51 @@ def recover() -> list[str]:
         return []
     restored: list[str] = []
     for slot in sorted(BACKUP.iterdir()):
-        target = REPO / slot.name.replace("%", "/")
-        target.write_bytes(slot.read_bytes())
+        target = (REPO / slot.name.replace("%", "/")).resolve()
+        if REPO.resolve() not in target.parents:
+            # A recovery tool that can write outside the tree it is
+            # recovering is a worse problem than the one it solves.
+            print(f"REFUSING a backup slot that resolves outside the repository: {slot.name}")
+            continue
+        parked = slot.read_bytes()
+        if parked:
+            target.write_bytes(parked)
+            restored.append(target.relative_to(REPO).as_posix())
+        else:
+            # An empty slot is the tombstone `create` leaves: the path
+            # did not exist before the mutation, so recovery is deletion.
+            target.unlink(missing_ok=True)
+            restored.append(f"{target.relative_to(REPO).as_posix()} (deleted)")
         slot.unlink()
-        restored.append(target.relative_to(REPO).as_posix())
     return restored
 
 
 #: Label prefixes to run, from the command line. Empty means all.
 WANTED: list[str] = []
 
+#: Every label the run offered, and every label it actually ran. The
+#: second exists because the first version of this script printed
+#: "every mutant died and every control survived" and exited 0 for a
+#: mistyped filter, having run nothing. That is the shape of the very
+#: defect both guards exist to prevent, inside the artifact that is
+#: supposed to be their evidence.
+OFFERED: list[str] = []
+RAN: list[str] = []
+
+#: Guards the filter skipped whole. Tracked because a guard that never
+#: ran contributes no labels to OFFERED, so a denominator built from
+#: OFFERED alone would read "14 of 14" for a run that touched half the
+#: battery.
+SKIPPED_GUARDS: list[str] = []
+
 
 def selected(label: str) -> bool:
     """Whether a mutant's label was asked for."""
-    return not WANTED or any(label.startswith(prefix) for prefix in WANTED)
+    OFFERED.append(label)
+    if WANTED and not any(label.startswith(prefix) for prefix in WANTED):
+        return False
+    RAN.append(label)
+    return True
 
 
 class Battery:
@@ -125,12 +186,21 @@ class Battery:
         self.failures: list[str] = []
 
     def _verdict(self, label: str, code: int, summary: str, expect: str) -> None:
-        got = "KILLED" if code else "SURVIVED"
+        # A non-zero exit is not the same as an assertion catching the
+        # mutant: pytest exits non-zero on a collection error too, so a
+        # mutant that merely breaks the file would read as KILLED and
+        # inflate the count. Require the suite to say a test FAILED.
+        if code and "failed" in summary:
+            got = "KILLED"
+        elif code:
+            got = "INCONCLUSIVE"
+        else:
+            got = "SURVIVED"
         flag = ""
         if got != expect:
             flag = f"  <-- EXPECTED {expect}"
-            self.failures.append(label)
-        print(f"  {label:52} {got:9}{summary}{flag}")
+            self.failures.append(f"{label} ({got})")
+        print(f"  {label:52} {got:13}{summary}{flag}")
 
     def patch(self, path: Path, old: str, new: str, label: str, expect: str = "KILLED") -> None:
         """Replace one unique substring, run, restore."""
@@ -167,17 +237,31 @@ class Battery:
         """Create a file that should be refused, run, delete."""
         if not selected(label):
             return
+        if path.exists():
+            # Never write over a real file. `finally` unlinks
+            # unconditionally, so a name collision would destroy it with
+            # no backup to restore from.
+            print(f"  {label:52} SKIPPED ({path.name} already exists)")
+            self.failures.append(f"{label} (target exists)")
+            return
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
+            # A tombstone: an empty slot means "this path did not exist,
+            # delete it on recovery". Without it a kill mid-create leaves
+            # an untracked file holding a deliberately unguarded import,
+            # and `recover()` has nothing to find.
+            park(path, b"")
             path.write_bytes(content.replace("\n", "\r\n").encode("utf-8"))
             self._verdict(label, *run(self.target), expect=expect)
         finally:
             path.unlink(missing_ok=True)
+            unpark(path)
 
 
 def prove_guard_a() -> list[str]:
     """Run the battery against the extras-isolation scanner."""
     if WANTED and not any(prefix.startswith(("M", "N")) for prefix in WANTED):
+        SKIPPED_GUARDS.append(GUARD_A)
         return []
     print(f"\n{GUARD_A}")
     code, summary = run(GUARD_A)
@@ -273,6 +357,22 @@ def prove_guard_a() -> list[str]:
         "M17 the install matcher unable to cross whitespace",
     )
 
+    battery.patch(
+        guard,
+        '    return "".join(\n'
+        "        example.source for example in doctest.DocTestParser()"
+        ".get_examples(text, name=label)\n"
+        "    )",
+        "    try:\n"
+        '        return "".join(\n'
+        "            example.source for example in doctest.DocTestParser()"
+        ".get_examples(text, name=label)\n"
+        "        )\n"
+        "    except ValueError:\n"
+        '        return ""',
+        "M18 doctest_source swallows a malformed doctest",
+    )
+
     # NEGATIVE CONTROLS. These must SURVIVE: refusing a legitimate idiom
     # is how a guard gets weakened rather than obeyed.
     battery.append(
@@ -293,6 +393,7 @@ def prove_guard_a() -> list[str]:
 def prove_guard_b() -> list[str]:
     """Run the battery against the CI-green release gate."""
     if WANTED and not any(prefix.startswith("BM") for prefix in WANTED):
+        SKIPPED_GUARDS.append(GUARD_B)
         return []
     print(f"\n{GUARD_B}")
     code, summary = run(GUARD_B)
@@ -348,7 +449,7 @@ def prove_guard_b() -> list[str]:
     )
     battery.patch(
         hook,
-        "        if isinstance(total, int) and total > len(runs):",
+        "        if total > len(runs):",
         "        if False:",
         "BM8 a truncated page read as complete",
     )
@@ -372,12 +473,6 @@ def prove_guard_b() -> list[str]:
         "        )",
         '        url = _git(root, "config", "--get", f"remote.{remote}.url")',
         "BM12 pushurl ignored, fetch url used",
-    )
-    battery.patch(
-        hook,
-        "        if is_push and deletes_a_ref(after):",
-        "        if False:",
-        "BM13 a tag deletion gated as a publish",
     )
     battery.patch(
         hook,
@@ -416,15 +511,34 @@ def main() -> int:
         return 1
 
     failures = prove_guard_a() + prove_guard_b()
+
     print()
+    print("check `git status` before trusting this: the battery edits the working tree")
     if failures:
-        print(f"UNEXPECTED VERDICTS ({len(failures)}):")
+        print(f"\nUNEXPECTED VERDICTS ({len(failures)}):")
         for item in failures:
             print(f"  {item}")
         print("\nA mutant that survives is a hole; a control that dies is a false positive.")
         return 1
-    print("every mutant died and every control survived")
-    print("check `git status` before trusting this: the battery edits the working tree")
+
+    # A run that selected nothing is not a clean run. Refusing here is
+    # the whole reason OFFERED and RAN exist: `--help`, or a mistyped
+    # label, used to print the success sentence having proved nothing.
+    if not RAN:
+        print(f"\nNOTHING RAN. The filter {WANTED} matched none of the {len(OFFERED)} labels:")
+        for label in OFFERED:
+            print(f"  {label}")
+        return 1
+
+    if WANTED:
+        skipped = f", and {', '.join(SKIPPED_GUARDS)} entirely" if SKIPPED_GUARDS else ""
+        print(
+            f"\nPARTIAL RUN: {len(RAN)} of the {len(OFFERED)} mutants this filter "
+            f"reached{skipped}, selected by {WANTED}."
+            "\nThe others were NOT run and this is not a proof of them."
+        )
+    else:
+        print(f"\nevery one of the {len(RAN)} mutants died and every control survived")
     return 0
 
 

@@ -32,16 +32,40 @@ refuse the blanket forms (``--tags``, ``--follow-tags``, ``--all``,
 ``--mirror``); the kit gate refuses those as unscopable and this hook is
 only safe in composition with it. It cannot see a push issued outside
 the agent's tool calls, a tag created through the GitHub API or the web
-UI, or a push made by a script it cannot tokenize. It is wired on the
-Bash and PowerShell tools, so a third command-running tool would be
-outside it. It reads the check-runs API and not the commit-status API,
-so an externally posted required status is invisible. And a tag matching
+UI, or a push it cannot recognise as a push at all (one the kit
+tokenizer flags but cannot parse IS denied). It is wired on the Bash and
+PowerShell tools, so a third command-running tool would be outside it.
+It reads the check-runs API and not the commit-status API, so an
+externally posted required status is invisible. A tag matching
 ``release.yml``'s ``v*`` trigger but not the gate's stricter version
 pattern (``vNext``, say) publishes without being release-grade to either
-hook. Those belong to the kit promotion's design note, because no
-PreToolUse hook can close them. One route that WAS closeable is closed:
-``push.followTags`` is read and refused, since a config setting is not a
-flag and the kit gate's allowlist only sees flags.
+hook.
+
+TWO CONFIGURATION ROUTES ARE OPEN AND WERE DELIBERATELY LEFT SO on
+2026-08-11. ``push.followTags = true`` and a tag refspec in
+``remote.<name>.push`` both publish a tag on an ordinary branch push,
+with no tag token for either gate to scope, and a config setting is not
+a flag so the kit gate's allowlist cannot see it either. A check for the
+first was written and REMOVED the same night: it had been placed after
+the early return, so it could not fire on the branch push it was written
+for and fired only where the tag was already scoped, its remedy edited
+the local config while its read consulted the whole cascade, and its
+test passed by driving a different command. Three defects in one arm
+argued for taking it out rather than repairing it at speed. Registered
+as PLN-20260811-0430.
+
+A TAG DELETION IS GATED, which is a nuisance rather than a hole: it
+publishes nothing, so the CI question does not apply, and the refusal
+sends a reader to move the tag first. An allow for it was written and
+also removed, for a sharper reason. It scanned every token after the
+first ``push``, and the kit tokenizer hands over the whole command tail
+with separators stripped, so ``git push -d origin v1 && git push origin
+v1``, the ordinary move-a-remote-tag one-liner, disabled the gate
+entirely. Every other rule here over-reads that tail and therefore fails
+CLOSED; an ALLOW rule over an unbounded tail is a hole by construction.
+The working sequence is to move the local tag onto the green commit
+first, then delete the remote one, which the gate permits because by
+then the tag resolves to a commit whose CI is green.
 
 FAIL CLOSED ON EVERY UNKNOWN. Red, pending, absent and unreachable all
 deny; only the operator-facing text differs. The reasoning is the one
@@ -184,8 +208,17 @@ def _git(root: Path, *args: str) -> str:
 #: the remote. `-o ci.skip origin v0.7.0` read `ci.skip` as the remote
 #: and denied with advice about `git remote -v`, which is a false deny
 #: pointing somewhere useless.
+#:
+#: `--force-with-lease` is deliberately NOT here. Its argument is
+#: optional and INLINE (`--force-with-lease=<ref>`), so it never consumes
+#: the next token; listing it made `git push --force-with-lease origin
+#: v0.7.0` read the remote as `v0.7.0`, which is the same false deny this
+#: table exists to remove.
+#: `--recurse-submodules` DOES take a separate value and was missing,
+#: measured against real git. The discriminator is required-argument
+#: versus optional-inline-argument, not how the option looks.
 _OPTIONS_WITH_VALUES = frozenset(
-    {"-o", "--push-option", "--repo", "--receive-pack", "--exec", "--force-with-lease"}
+    {"-o", "--push-option", "--repo", "--receive-pack", "--exec", "--recurse-submodules"}
 )
 
 
@@ -216,22 +249,6 @@ def push_remote(args_after_push: list[str]) -> str:
     return "origin"
 
 
-def deletes_a_ref(args_after_push: list[str]) -> bool:
-    """Whether every ref this push names is being DELETED.
-
-    A deletion publishes nothing, so the CI question does not apply to
-    it, and refusing it would block the recovery path this gate itself
-    creates: the first thing anyone does after being stopped here is
-    remove the bad tag. The refspec form is a leading colon or an empty
-    source side, and ``--delete`` names the refs positionally.
-    """
-    tokens = [token.strip("\"'") for token in args_after_push]
-    if any(token in ("--delete", "-d") for token in tokens):
-        return True
-    specs = [token for token in tokens[1:] if not token.startswith("-")]
-    return bool(specs) and all(spec.startswith(":") for spec in specs)
-
-
 def tag_targets(args_after_push: list[str], tags: list[str]) -> dict[str, str]:
     """Map each tag this push publishes to the local commit-ish it carries.
 
@@ -247,6 +264,12 @@ def tag_targets(args_after_push: list[str], tags: list[str]) -> dict[str, str]:
         if ":" not in spec:
             continue
         source, _, destination = spec.partition(":")
+        # Only a TAG destination renames a tag. Matching the basename
+        # alone let `sneaky:refs/heads/v0.7.0` claim the target of tag
+        # v0.7.0, so a branch named like a version tag, which release
+        # conventions produce, moved the gate onto the wrong commit.
+        if destination.startswith("refs/heads/"):
+            continue
         name = destination.rsplit("/", 1)[-1]
         if name in targets and source:
             targets[name] = source
@@ -321,7 +344,12 @@ def check_runs(slug: str, sha: str, deadline: float) -> tuple[str, object]:
             continue
         runs = payload.get("check_runs", [])
         total = payload.get("total_count", len(runs))
-        if isinstance(total, int) and total > len(runs):
+        if not isinstance(total, int):
+            # Everything else here fails closed on a malformed payload;
+            # this arm used to fall through to "ok", so a non-integer
+            # count silently disabled the truncation check.
+            return "unreachable", f"the remote reported a non-numeric total_count {total!r}"
+        if total > len(runs):
             # A truncated page is an unanswered question, not a green
             # one: the red job could be the one past the cut.
             return "unreachable", (
@@ -427,12 +455,6 @@ def main() -> None:
                 "cannot tell whether it names a version tag, so it refuses. Rewrite the "
                 f"command so it parses, and push the tag by name. {_ESCALATE}",
             )
-        if is_push and deletes_a_ref(after):
-            # A deletion publishes nothing, so the CI question does not
-            # apply, and denying it would block the recovery path this
-            # gate creates. Whether a published ref may be deleted at all
-            # is the kit gate's call, not this one's.
-            _allow_silently()
         tags = normalise_tags(kit._release_refs(after)) if is_push else []
     except Exception as error:  # noqa: BLE001 - the whole point is to fail closed
         if "git" in command and "push" in command:
@@ -470,22 +492,6 @@ def main() -> None:
                 f"{_ESCALATE}",
             )
         targets = tag_targets(after, tags)
-
-        # A tag refspec carried by configuration rather than by the
-        # command line. The kit gate refuses the blanket FLAGS, and a
-        # config setting is not a flag, so `git push origin main` can
-        # publish an annotated tag with no tag token for either hook to
-        # see. One bounded local call closes the one route that needs no
-        # unusual operator behaviour.
-        if _git(root, "config", "--get", "push.followTags").lower() == "true":
-            _decide(
-                "deny",
-                f"{PREFIX} [config] push.followTags is true in this repository, so an "
-                "ordinary branch push can publish an annotated tag with no tag named "
-                "on the command line, which neither this gate nor the role-review gate "
-                "can scope. Unset it (`git config --unset push.followTags`) and push "
-                "the tag by name, which is what the release checklist asks for anyway.",
-            )
 
         for tag in tags:
             if time.monotonic() >= deadline:

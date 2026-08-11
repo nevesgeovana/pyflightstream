@@ -3,7 +3,7 @@
 Version-aware, didactic Python driver for the FlightStream panel-method
 solver. MIT licensed.
 
-Status: v0.7.0 is the current release on PyPI; the changelog records what each
+Status: v0.7.0 is the release being cut; the changelog records what each
 release adds. This release registers an eighth FlightStream build the day
 after the vendor issued it, and every command any of the eight registered
 manual editions documents now has an entry, at the level the release notes
