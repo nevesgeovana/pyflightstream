@@ -298,6 +298,37 @@ def test_view_raises_for_absent_evidence_and_removed():
         registry.for_version("26.120")["NEVER_DRAFTED"]
 
 
+def test_a_machine_promoted_removal_cites_its_run_and_not_the_manual_page():
+    """The refusal must not send a reader to a page that contradicts it.
+
+    A measured removal could only cite `probe_ref` while the harness had
+    no `removed` outcome; `apply_compat` now writes the compat yaml
+    through `report` and never sets `probe_ref`. Reading only the older
+    field would have fallen back to `entry.citation`, the page of an
+    EDITION THAT DOCUMENTS THE COMMAND, printed beside a sentence saying
+    the solver refused the name. That is the exact contradiction the
+    fallback order exists to prevent, one field further along.
+    """
+    promoted = make_entry(
+        name="SONIC_VELOCITY",
+        manual_ref="SRC-003 p.281",
+        versions={
+            "26.100": {"status": "documented"},
+            "26.120": {
+                "status": "removed",
+                "note": "measured 2026-08-11: the solver refused the name",
+                "report": "reports/compat/CMP-26120_2026-08-11_full.yaml",
+            },
+        },
+    )
+    registry = CommandRegistry(commands={"SONIC_VELOCITY": promoted})
+    with pytest.raises(CommandNotInVersionError) as caught:
+        registry.for_version("26.120")["SONIC_VELOCITY"]
+    message = str(caught.value)
+    assert "CMP-26120_2026-08-11_full.yaml" in message, message
+    assert "SRC-003 p.281" not in message, message
+
+
 def test_view_contains_and_iter():
     entry = make_entry()
     registry = CommandRegistry(commands={"SET_EXAMPLE": entry})
@@ -706,7 +737,7 @@ def test_no_citation_is_contradicted_by_newer_evidence() -> None:
     correct database is a guard that gets switched off. Agreement is not
     supersession.
     """
-    from pyflightstream.qa.compat import compat_corpus, contradicting_evidence
+    from pyflightstream.qa.compat import Judgment, compat_corpus, contradicting_evidence
 
     corpus = compat_corpus(REPO_ROOT / "reports" / "compat", repo_root=REPO_ROOT)
     assert corpus, (
@@ -728,7 +759,8 @@ def test_no_citation_is_contradicted_by_newer_evidence() -> None:
             continue
         checked += 1
         contradicting = contradicting_evidence(
-            corpus, name, canonical, record.status.value, cited.date, cited.report
+            corpus,
+            Judgment(name, canonical, record.status.value, cited.date, cited.report),
         )
         if contradicting:
             offenders.append(
@@ -741,11 +773,28 @@ def test_no_citation_is_contradicted_by_newer_evidence() -> None:
             )
 
     assert not offenders, "\n  " + "\n  ".join(sorted(offenders))
-    assert checked >= 130, (
+    assert checked == len(population), (
         f"the walk reached {checked} of {len(population)} citing records against the "
-        "corpus; a database that stopped resolving would pass this guard by reaching "
-        "nothing, which is the failure mode the floor exists for"
+        "corpus. Every citing record must be indexed, since a record the corpus does "
+        "not know is a record this guard cannot compare"
     )
+    # Derived per outcome, not a single floor. Measured: a corpus reader
+    # that stopped indexing BROKEN judgments drops `checked` from 291 to
+    # 281 and leaves a bare floor of 130 green, so all ten broken records
+    # would silently stop being checked. Broken is the status a revert
+    # most damages, because the emitter refuses on it.
+    for status in (Status.VERIFIED, Status.BROKEN):
+        expected = _record_count_at_status(registry, status)
+        seen = sum(
+            1
+            for name, canonical, record in population
+            if record.status is status and (name, canonical) in corpus
+        )
+        assert seen == expected, (
+            f"the corpus indexed {seen} of the database's {expected} {status.value} "
+            "records; a reader that stopped indexing one outcome would leave this "
+            "guard green while no longer checking that outcome at all"
+        )
 
 
 def test_every_report_a_note_cites_names_the_command_it_is_attached_to() -> None:

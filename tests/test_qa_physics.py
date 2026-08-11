@@ -341,7 +341,11 @@ def test_case_table_is_one_line_per_registered_id():
     assert by_id["PHY-01"]["title"] == PHYSICS_CASES["PHY-01"].title
     assert by_id["PHY-01"]["metrics"] == len(PHYSICS_CASES["PHY-01"].metric_specs)
     assert by_id["PHY-01"]["versions"] == "all registered"
-    assert by_id["PHY-05"]["versions"] == "26.120"
+    # The rotor cases are no longer pinned to one build. Their pin cited
+    # a backfill owed for EARLIER builds, which never covered later
+    # ones, and RPT-025 ran their command content unchanged on all three
+    # of 26.120, 26.121 and 26.122.
+    assert by_id["PHY-05"]["versions"] == "26.120, 26.121, 26.122"
 
 
 def test_case_table_includes_smi_only_on_request():

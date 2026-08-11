@@ -752,14 +752,14 @@ PHYSICS_CASES: dict[str, PhysicsCase] = {
             ),
         ),
         runner=lambda context: _run_phy05(context),
-        versions=("26.120",),
+        versions=("26.120", "26.121", "26.122"),
     ),
     "PHY-06": PhysicsCase(
         case_id="PHY-06",
         title="Steady versus unsteady polar equivalence (NACA 0012, AR 8)",
         metric_specs=_phy06_metric_specs(),
         runner=lambda context: _run_phy06(context),
-        versions=("26.120",),
+        versions=("26.120", "26.121", "26.122"),
     ),
 }
 

@@ -476,11 +476,15 @@ _spec(
     build_target=_emit("AIR_ALTITUDE", 5000.0, "METERS"),
     dump_state=True,
     assert_effect=dump_gained("Density,.736", strict=True),
-    effect_note=(
-        "the settings dump reports the 5000 m standard-atmosphere density "
-        "(0.736 kg/m^3); the first full sweep observed 1.056 kg/m^3 instead, which is "
-        "the 5000 ft standard state, so the METERS units argument reads ignored"
-    ),
+    # The asserted effect ALONE. This note is stamped verbatim into
+    # every report of every build, so a cross-build failure narrative
+    # here becomes a sentence the report asserts about builds where it
+    # is false: the 26.122 run recorded this command `verified` beside
+    # the words "the METERS units argument reads ignored", which the
+    # same line's `effect: true` contradicts. Where the defect is real
+    # it belongs in the entry's own note in `boundary_conditions.yaml`,
+    # which carries it and cites the runs (`PLN-20260810-2000`).
+    effect_note=("the settings dump reports the 5000 m standard-atmosphere density (0.736 kg/m^3)"),
 )
 
 
@@ -1281,7 +1285,12 @@ _MOTION_PRELUDE = _emit("CREATE_NEW_MOTION", "ROTARY")
 _SIXDOF_PRELUDE = _emit("CREATE_NEW_MOTION", "6DOF")
 
 
-def _motion_setter(command: str, *args: object, note: str, prelude: object = None) -> None:
+def _motion_setter(
+    command: str,
+    *args: object,
+    note: str,
+    prelude: Callable[[Script, Path], None] | None = None,
+) -> None:
     _spec(
         command=command,
         build_target=_emit(command, *args),

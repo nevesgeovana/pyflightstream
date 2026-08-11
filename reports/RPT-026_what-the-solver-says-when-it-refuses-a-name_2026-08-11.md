@@ -25,10 +25,27 @@ raw.
 | a real command of this build | `SET_FREESTREAM CONSTANT` | none written | none |
 
 The refusal is a pipe-delimited record whose second field is `Syntax`,
-whose third quotes the offending token, and whose fourth begins
+whose third quotes the offending SCRIPT LINE, and whose fourth begins
 `Unrecognized command in script`, followed by the script path and the
 line number. A second record follows it on the `Scripting` channel
 naming the same line.
+
+THE THIRD FIELD IS THE WHOLE LINE, NOT THE COMMAND, and the three arms
+above could not show it: each spliced a target with no arguments, so
+the two readings coincide. The detector was written against a bare
+token on the strength of that, and 49 of the 87 probe specifications
+emit an argument-bearing target line, which would have made every
+removal among them fall through to the wrong branch. A fourth arm,
+emitting `SET_JET_WAKE_FILAMENTS_GRID_INDUCTION ENABLE`, records
+`'SET_JET_WAKE_FILAMENTS_GRID_INDUCTION ENABLE'` in that field. This
+repository's own RPT-012 had recorded the same shape since 2026-07-23
+(`'CREARE_BULK_SEPARATION sep1 -1 0.5'`), so the evidence to get this
+right was committed before the measurement was taken and the reading
+was not checked against it.
+
+The crash log also carries stray NUL bytes, 12 in the measured run. It
+is the one log of this pipeline that the harness reads without the
+scrubbing every other log gets.
 
 **The wording is identical in the first two arms.** The solver cannot
 tell a caller whether a name is absent from this build or was never a
@@ -59,13 +76,22 @@ and lets the emitter go on offering a line the solver rejects.
 prelude, aborts the script and writes a crash log reading
 `ERROR | Scripting | N/A | Start time cannot be set for rotary
 motion.` The command exists and declined this particular call. The
-harness recorded it `broken` on 26.122, which would have made the
-emitter refuse a working command for every caller on the build. The
-second field is what separates the two: `Syntax` names the token it did
-not recognise, `Scripting` carries `N/A` and a sentence about the call.
-The probe specification now creates a `6DOF` motion for that one
-setter, and the command records `unprobed` (it runs; its effect is not
-observable with the current instruments), which is honest.
+harness recorded it `broken` on 26.122. The second field is what
+separates the two: `Syntax` names the line it did not recognise,
+`Scripting` carries `N/A` and a sentence about the call. The probe
+specification now creates a `6DOF` motion for that one setter, and the
+command records `unprobed` (it runs; its effect is not observable with
+the current instruments), which is honest.
+
+STATED EXACTLY, because the first version of this paragraph claimed a
+harm that was averted and it was not. Not promoting `broken` on 26.122
+does NOT stop the refusal there: the build inherits its base release's
+records, it has no row of its own for this command, and 26.120 records
+`broken`, so the emitter refuses it on 26.122 today. What the
+correction prevented is one more measured `broken` joining three
+inherited ones. Lifting the refusal needs the three older statuses
+demoted, and an `unprobed` result cannot demote them
+(`PLN-20260811-1300`).
 
 **One command crashes the solver.** `NEW_OFF_BODY_STREAMLINE` on
 26.122 aborts with return code 3221225477, which is `0xC0000005`, an
@@ -75,14 +101,38 @@ access violation, and writes no crash log at all. It is correctly
 ## Consequence for the harness
 
 `ProbeOutcome.REMOVED` exists and is promotable. It is recognised from
-the wording above NAMING THE PROBED COMMAND, checked before the
-missing-sentinel branch and before the generic error scan, both of
-which would otherwise answer with the wrong word (`(?i)not recognized`
-is already in the default patterns and returns `broken`). When the
-crash log names a DIFFERENT command, the target never ran and the
-result is `unprobed` with the offender named, because recording it
-`removed` would delete a command from the version view on the strength
-of another command's absence.
+the LEADING TOKEN of the quoted line, when that token names the probed
+command, and it is read before every other branch: before the
+missing-sentinel branch, before the generic error scan
+(`(?i)not recognized` is already in the default patterns and returns
+`broken`), and before the halting branch, which reads the very same
+signature as SUCCESS and would have recorded a refused `STOP` as
+`verified`. When the crash log names a DIFFERENT command, the target
+never ran and the result is `unprobed` with the offender named, because
+recording it `removed` would delete a command from the version view on
+the strength of another command's absence.
+
+## What this outcome cannot do, stated because it is not symmetric with broken
+
+A `removed` row takes the command out of the version view, and the
+version view is what the harness iterates to build a run's candidate
+list. So a removal cannot be re-measured by the ordinary path: naming
+the command explicitly is refused, and `allow_broken` refuses it too.
+`broken` is recoverable by a later probe; `removed` is not.
+
+Read that beside the identical-wording finding above. A misspelled
+target in a probe specification produces the same evidence as a genuine
+withdrawal, and promoting it would remove a working command for every
+caller and close the route by which the mistake would be found. Two
+refusals in `apply_compat` stand between those cases and the database
+(a page citation of that edition, and a per-version argument grammar),
+and neither covers a row whose only manual evidence is entry-level.
+The residual is the author's accepted risk, recorded in
+`PLN-20260811-1400`.
+
+Measured consequence for this run: the report records zero removals,
+because the four commands 26.122 records as `removed` are already out
+of the version view and were never candidates.
 
 ## Reproduction
 

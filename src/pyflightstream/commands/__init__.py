@@ -20,8 +20,10 @@ report through ``probe_ref`` where no edition documents the command;
 ``removed`` says which of three things happened, since an edition
 stating a withdrawal, an edition merely going quiet, and a probe
 measuring the solver refusing the name are not the same claim; the
-measured case cites its run through ``probe_ref``, and a successor is
-recorded where one is known.
+measured case cites its run, through ``report`` when the harness
+promoted it and through ``probe_ref`` for the removals recorded before
+the harness could; and a successor is recorded where one is known. The
+single home of that rule is ``docs/srs/data-model.md``.
 
 A command whose argument grammar differs between versions declares the
 grammar of the latest documented version in ``args`` and overrides it
@@ -568,15 +570,18 @@ class VersionStatus(BaseModel):
         Repository-relative path of a committed NARRATIVE report
         (``.md``) of a solver run, admissible for ``removed`` alone and
         for no other status. The restriction is the whole point of the
-        field. ``verified`` and ``broken`` are the harness's to write and
-        stay cross-checkable against its own output, whereas the harness
-        has no ``removed`` outcome at all: a build that does not carry a
-        command records as ``broken``, which is a different claim (the
-        solver misbehaved) about a command that is present. Until the
-        harness can say it, a measured removal is a run a human wrote
-        down, and this field says so rather than dressing it as
-        machine-checked evidence. See
-        ``PLN-20260809-0300-the-harness-has-no-removed-outcome``.
+        field: ``verified`` and ``broken`` are the harness's to write
+        and stay cross-checkable against its own output, and a prose
+        citation is not checkable at all.
+
+        It is now the OLDER of two ways a measured removal cites its
+        run. The harness gained a ``removed`` outcome on 2026-08-11
+        (RPT-026), so a removal it measures is promoted by
+        ``pyfs-qa apply-compat`` and cites the compat yaml through
+        ``report`` like any other promoted status. This field survives
+        for the removals recorded before that, and for the case no run
+        can supply: an edition that merely stopped printing a command,
+        where the evidence is a reading rather than a run.
     args : tuple of ArgSpec, optional
         Per-version argument grammar override. Declared when this
         version's manual documents a different signature than the
@@ -1163,9 +1168,17 @@ class VersionView:
             # command, which is the right thing to cite for a removal read
             # off a manual and the wrong thing entirely beside a sentence
             # saying the solver refused the name: the reader goes and reads
-            # a page that says the command exists. The narrative report is
-            # the only citation this refusal can honestly carry.
-            citation = record.probe_ref or entry.citation
+            # a page that says the command exists.
+            #
+            # BOTH run-citation fields are read, and the second one is why
+            # this line was nearly wrong. `probe_ref` was the only field a
+            # measured removal could carry while the harness had no
+            # `removed` outcome to write; now that it has one,
+            # `apply_compat` writes the compat yaml through `report` and
+            # never sets `probe_ref`, so reading `probe_ref` alone would
+            # have sent every machine-promoted removal straight back to the
+            # manual page this comment exists to avoid.
+            citation = record.probe_ref or record.report or entry.citation
             raise CommandNotInVersionError(
                 f"{name} is removed in FlightStream {evidence.source} "
                 f"({reason}, {citation}).{inherited_note}"

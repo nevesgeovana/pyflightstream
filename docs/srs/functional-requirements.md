@@ -1078,9 +1078,11 @@ The allocation is recorded in the
 
     THE LEVEL IS DERIVED FROM REACHABLE EVIDENCE, WHICH INCLUDES
     INHERITED EVIDENCE, and 26.122 is the first build to make that
-    distinction matter. Amended 2026-08-10: it derives `operational` on
+    distinction matter. Amended 2026-08-10, and dated because the instance expired:
+    between 2026-08-10 and 2026-08-11 it derived `operational` on
     records inherited from its base release 26.120, with no command
-    probed on it at all. That is what declaring a build a genuine hotfix
+    probed on it at all; the first probe run on the build closed that
+    gap and the rule stands for the next registered hotfix. That is what declaring a build a genuine hotfix
     means and the derivation is not weakened by it, but a reader taking
     `operational` as a statement about measurements made on THAT BUILD
     would be wrong. Anything presenting the level to a user states what

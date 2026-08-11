@@ -233,7 +233,7 @@ resolve("26.12")           # Ambiguous: 26.120, 26.121 or 26.122?
       {\color{statusgreen}\textbf{documented}} & the manual says so \\
       {\color{statusblue}\textbf{verified}} & a probe passed on a real solver \\
       {\color{statusred}\textbf{broken}} & a probe contradicted the manual \\
-      {\color{statusred}removed} & the manual states the removal \\
+      {\color{statusred}removed} & the build does not carry it: an edition states the withdrawal, an edition stops printing it, or a probe measured the refusal \\
       \bottomrule
     \end{tabular}
     \vspace{2mm}
@@ -252,19 +252,20 @@ resolve("26.12")           # Ambiguous: 26.120, 26.121 or 26.122?
     \node[box,right=of doc] (probe) {Tier 2 probe\\(licensed machine)};
     \node[box,above right=5mm and 14mm of probe,fill=statusblue!15] (ver) {\color{statusblue}verified};
     \node[box,below right=5mm and 14mm of probe,fill=statusred!15] (bro) {\color{statusred}broken};
-    \node[box,below=10mm of doc,fill=statusred!10] (rem) {\color{statusred}removed\\(manual states it)};
+    \node[box,below=10mm of doc,fill=statusred!10] (rem) {\color{statusred}removed\\(build lacks it)};
     \draw[-{Stealth},thick,accentteal] (manual) -- (doc);
     \draw[-{Stealth},thick,accentteal] (doc) -- (probe);
     \draw[-{Stealth},thick,accentteal] (probe) -- (ver) node[pos=0.6,above,sloped,font=\tiny] {effect observed};
     \draw[-{Stealth},thick,accentorange] (probe) -- (bro) node[pos=0.6,below,sloped,font=\tiny] {mismatch recorded};
-    \draw[-{Stealth},thick,accentorange] (doc) -- (rem);
+    \draw[-{Stealth},thick,accentorange] (doc) -- (rem) node[pos=0.5,right,font=\tiny] {edition states it};
+    \draw[-{Stealth},thick,accentorange] (probe) to[bend right=25] node[pos=0.5,below,sloped,font=\tiny] {name refused} (rem);
   \end{tikzpicture}
   \end{center}
   \begin{center}
     \tiny promotion happens only through a committed compat report (pyfs-qa apply-compat)
   \end{center}
   \begin{itemize}
-    \item Statuses are data with provenance: \code{verified} and \code{broken} entries cite the report file that proved them.
+    \item Statuses are data with provenance: \code{verified}, \code{broken} and a MEASURED \code{removed} all cite the report file that proved them. A \code{removed} read off an edition cites the page instead, and its note says which of the three ways it arrived, because the three are not equally strong.
   \end{itemize}
 \end{frame}
 
@@ -800,7 +801,7 @@ helpers.solver_settings(script, velocity=v_inf,
     \item START\_SOLVER, then analysis and export as usual; the loads spreadsheet reflects the final time step.
   \end{enumerate}
   \begin{alertblock}{Pitfalls}
-    SET\_MOTION\_START\_TIME was probed on 26.120 and found to abort scripts (committed compat report, broken status): the log exported before it exists and the one after it never appears. The re-probe ran on 26.121 and it aborts there too, so this is not something the hotfix repaired: converge the steady base flow by other means. A positive start time is exactly the case both probes covered.
+    SET\_MOTION\_START\_TIME is recorded {\color{statusred}broken} on 26.101, 26.120 and 26.121, and 26.122 inherits 26.120, so the builder refuses it on four builds and you must converge the steady base flow by other means for now. But the abort was the PROBE's doing rather than the solver's, and this note says so because the status cannot yet be taken back. The family's shared probe prelude created a rotary motion, which is the one kind whose start time the solver declines to set; with a 6DOF prelude the command runs on all four builds (RPT-026 and the \code{CMP-<build>\_2026-08-11\_starttime} reports for 26.101, 26.120 and 26.121, and \code{CMP-26122\_2026-08-11\_full} for the newest). An unobservable effect is not evidence that a command works, so no sanctioned path demotes the status on it.
   \end{alertblock}
 \end{frame}
 
@@ -1041,7 +1042,7 @@ samples = parse_residual_history(log_text)
 \begin{frame}{Hotfix inheritance}
   \begin{itemize}
     \item A hotfix build inherits the evidence record of its base release until probe evidence overrides it, WHEN the registry says it does. The last canonical digit does not decide that: \code{26.101} sits at a hotfix index behind \code{26.100} and is an independent vendor release, so it inherits nothing. Each build states \code{inherits\_base} in the registry and one that states nothing is refused.
-    \item \code{26.121} is no longer the hypothetical example: it started from every \code{26.120} record, and the licensed probe on that build then contradicted one of them. AIR\_ALTITUDE is {\color{statusred}broken} on 26.120 and {\color{statusblue}verified} on 26.121. The 2026-08-08 run then probed the two earlier builds for the first time and found the defect there as well, so the hotfix is the only build the altitude form is measured to work on.
+    \item \code{26.121} is no longer the hypothetical example: it started from every \code{26.120} record, and the licensed probe on that build then contradicted one of them. AIR\_ALTITUDE is {\color{statusred}broken} on 26.120 and {\color{statusblue}verified} on 26.121. The 2026-08-08 run then probed the two earlier builds for the first time and found the defect there as well, and the 2026-08-11 run on 26.122 found the altitude form working there too (\code{CMP-26122\_2026-08-11\_full}), so the two hotfixes are the builds it is measured to work on and the three base releases are the builds it is measured to fail on.
       \item Read an inherited cell for what it is. The matrix marks every one with a \texttt{base} superscript and counts them in its \emph{Of which inherited} column, so a marked cell means the base release's evidence, with no probe on this build having run that command.
   \end{itemize}
   \begin{block}{Why the identifiers carry the hotfix digit}
@@ -1070,7 +1071,7 @@ samples = parse_residual_history(log_text)
     \item Each carries {\color{statusred}\textbf{broken}} status for the builds named, with the committed report cited, and the builder REFUSES to emit them for those builds (\code{BrokenCommandError}, FR-48): a broken command is one a probe watched fail, and unlike an absent one it produces a complete run with wrong numbers in it. If a run needs one anyway, and re-probing it is the run that does, \code{script.allow\_broken(NAME, reason=...)} emits it and records the command, the report, your justification and TWO builds: \code{version} (targeted) and \code{source\_version} (where the cited report ran).
       \item Read the last row precisely, because {\color{statusgreen}documented} does not mean never run. The 2026-07-21 sweep DID execute SWEEPER\_REF\_VELOCITY\_SAME on 26.120, without a script abort, and left it unpromoted because its effect is not observable with the current instruments. It aborts on 26.121. So this is an outcome change rather than a first measurement, and it is still not attributable to the build: three variables separate the runs (RPT-014 section 4.3).
     \item 26.122 was measured on 2026-08-11 and the run moved two of these rows. AIR\_ALTITUDE leaves the table for that build: it had inherited {\color{statusred}\textbf{broken}} from 26.120, and the probe reads the 5000\,m standard-atmosphere density correctly, so the inherited status was PESSIMISTIC and this table was about to send you away from a command that works. NEW\_OFF\_BODY\_STREAMLINE keeps its row and loses its asterisk: it is now measured on 26.122 rather than inherited, and it fails harder than the word "aborts" suggests, with an access violation.
-    \item The remaining asterisk is not an inheritance mark but a WARNING. SET\_MOTION\_START\_TIME is recorded broken on the four builds named and the builder does refuse it there, which is why the row is still printed; but the abort was the PROBE's doing, not the solver's. The shared prelude of that command family creates a rotary motion, and a rotary motion is the one kind whose start time the solver declines to set. With the prelude corrected the command runs without aborting on 26.101, 26.120, 26.121 and 26.122 (reports \code{CMP-<build>\_2026-08-11\_starttime}). The statuses cannot be taken back yet, because an unobservable effect is not evidence that a command works and no sanctioned path demotes on it. Treat this row as pending rather than as a finding.
+    \item The remaining asterisk is not an inheritance mark but a WARNING. SET\_MOTION\_START\_TIME is recorded broken on the four builds named and the builder does refuse it there, which is why the row is still printed; but the abort was the PROBE's doing, not the solver's. The shared prelude of that command family creates a rotary motion, and a rotary motion is the one kind whose start time the solver declines to set (measured in RPT-026). With the prelude corrected the command runs without aborting on 26.101, 26.120 and 26.121 (reports \code{CMP-26101\_2026-08-11\_starttime}, \code{CMP-26120\_...} and \code{CMP-26121\_...}) and on 26.122 (\code{CMP-26122\_2026-08-11\_full}, which is the full run rather than a starttime report). The statuses cannot be taken back yet, because an unobservable effect is not evidence that a command works and no sanctioned path demotes on it. Treat this row as pending rather than as a finding.
     \item (NEW\_SURFACE\_SECTION\_DISTRIBUTION was in this list until the 2026-07-23 licensed re-probe promoted it to {\color{statusblue}\textbf{verified}} on the corrected phase and grammar.)
   \end{itemize}
 \end{frame}

@@ -14,8 +14,9 @@ measurement.
   measuring that the solver accepts a command no edition documents
   (`probe_ref`). Manual facts appear only as paraphrases with the page
   number; manual text is never reproduced.
-- A command's per-version status is promoted to `verified` or `broken`
-  only by a committed probe report from a licensed machine. No status
+- A command's per-version status is promoted to `verified`, `broken`
+  or a measured `removed` only by a committed probe report from a
+  licensed machine. No status
   is ever hand-edited.
 - Documented and verified are distinct statuses because the manual and
   the solver disagree in practice; the database records both truths.

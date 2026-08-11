@@ -818,3 +818,158 @@ def test_a_removal_over_a_per_version_grammar_is_refused(tmp_path):
     with pytest.raises(QaEvidenceError, match="no grammar to emit"):
         apply_compat(report_path, repo_root=tmp_path, commands_dir=commands_dir)
     assert (commands_dir / "script_controls.yaml").read_text(encoding="utf-8") == before
+
+
+def test_the_markdown_summary_names_every_outcome(tmp_path):
+    """The human-readable half must not drop an outcome either.
+
+    The YAML summary is derived from the enum and its sibling assertion
+    says why. The Markdown Summary line was changed the same way in the
+    same commit and nothing covered it, so reverting that line left the
+    suite green while silently dropping `removed` from the rendered
+    table of every future report.
+    """
+    _, md_path = write_compat_report(make_run(), tmp_path, date="2026-07-22")
+    markdown = md_path.read_text(encoding="utf-8")
+    assert "0 removed" in markdown, markdown
+
+
+def test_a_removal_travels_the_whole_path_from_run_to_database(tmp_path):
+    """Harness result to YAML to database, for the outcome that is new.
+
+    Every other removal test hand-writes the report, so the writer and
+    the reader were only ever exercised for the two older outcomes. A
+    reader that mishandled the new member would have passed.
+    """
+    commands_dir = _removal_chapter(tmp_path)
+    run = ProbeRun(
+        version="26.120",
+        solver_identity=("FlightStream version 26.1 build #0000000",),
+        fs_exe_name="Fake.exe",
+        package_version="0.0.1.dev0",
+        results=(
+            ProbeResult(
+                "PRINT",
+                ProbeOutcome.REMOVED,
+                "the solver refused the name as an unrecognised command",
+            ),
+        ),
+    )
+    report_dir = tmp_path / "reports" / "compat"
+    yaml_path, _ = write_compat_report(run, report_dir, date="2026-08-11")
+    assert read_compat_report(yaml_path)["summary"]["removed"] == 1
+
+    promotions = apply_compat(yaml_path, repo_root=tmp_path, commands_dir=commands_dir)
+    assert promotions == [("PRINT", "removed", "script_controls.yaml")]
+    row = yaml.safe_load((commands_dir / "script_controls.yaml").read_text(encoding="utf-8"))
+    CommandEntry(name="PRINT", chapter="script_controls", **row["PRINT"])
+
+
+def test_an_explicit_corpus_directory_that_is_missing_is_refused(tmp_path):
+    """A guard that reads its own missing configuration as permission.
+
+    An ABSENT default corpus is the first-report case and is tolerated.
+    A path the caller typed is different: reading a typo as "nothing
+    supersedes this" turns the only supersession check in the sanctioned
+    write path into a no-op, with no output at all.
+    """
+    from pyflightstream.qa.errors import QaEvidenceError
+
+    commands_dir = tmp_path / "commands"
+    write_chapter_fixture(commands_dir)
+    report_path = write_dated_report(
+        tmp_path, {"PRINT": {"outcome": "verified", "detail": "measured"}}, date="2026-08-11"
+    )
+    with pytest.raises(QaEvidenceError, match="not a directory"):
+        apply_compat(
+            report_path,
+            repo_root=tmp_path,
+            commands_dir=commands_dir,
+            corpus_dir=tmp_path / "typo",
+        )
+
+
+def test_a_report_outside_the_repository_is_refused_by_name(tmp_path):
+    """The citation has to be a path a reader can follow.
+
+    This used to raise a bare ValueError out of `relative_to`, which is
+    the stdlib leaking through a public function with no statement of
+    what to do about it.
+    """
+    from pyflightstream.qa.errors import QaEvidenceError
+
+    commands_dir = tmp_path / "commands"
+    write_chapter_fixture(commands_dir)
+    outside = tmp_path.parent / f"{tmp_path.name}_outside"
+    outside.mkdir()
+    stray = outside / "CMP-26120_2026-08-11.yaml"
+    stray.write_text(
+        yaml.safe_dump(
+            {
+                "schema": COMPAT_SCHEMA,
+                "fs_version": "26.120",
+                "date": "2026-08-11",
+                "commands": {"PRINT": {"outcome": "verified", "detail": "x"}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(QaEvidenceError, match="outside"):
+        apply_compat(stray, repo_root=tmp_path, commands_dir=commands_dir)
+
+
+def test_a_refusal_in_the_second_chapter_leaves_the_first_untouched(tmp_path):
+    """Atomicity across chapters, which is where the promise was false.
+
+    The docstring says a refusal writes nothing. That held for the
+    up-front checks and not for the loop: chapters were written one at a
+    time, so a refusal raised while rewriting chapter n left chapters
+    1..n-1 already promoted on disk, under a message naming one command
+    in one file. The two removal refusals are exactly such raise sites.
+    """
+    from pyflightstream.qa.errors import QaEvidenceError
+
+    commands_dir = tmp_path / "commands"
+    commands_dir.mkdir()
+    (commands_dir / "_meta.yaml").write_text(META_FIXTURE, encoding="utf-8")
+    # Sorted glob order puts a_first before z_second, so the refusal in
+    # the second chapter comes after the first has been rewritten.
+    (commands_dir / "a_first.yaml").write_text(
+        "PRINT:\n"
+        "  layout: inline\n"
+        "  phase: control\n"
+        "  args:\n"
+        "    - name: message\n"
+        "      type: str\n"
+        '  manual_ref: "SRC-003 p.281"\n'
+        "  versions:\n"
+        '    "26.120": {status: documented}\n',
+        encoding="utf-8",
+    )
+    (commands_dir / "z_second.yaml").write_text(
+        "STOP:\n"
+        "  layout: bare\n"
+        "  phase: control\n"
+        "  args: []\n"
+        '  manual_ref: "SRC-003 p.281"\n'
+        "  versions:\n"
+        '    "26.120": {status: documented, note: "SRC-741 p.358, this edition"}\n',
+        encoding="utf-8",
+    )
+    before = (commands_dir / "a_first.yaml").read_text(encoding="utf-8")
+
+    report_path = write_dated_report(
+        tmp_path,
+        {
+            "PRINT": {"outcome": "verified", "detail": "effect observed"},
+            "STOP": {"outcome": "removed", "detail": "the solver refused the name"},
+        },
+        date="2026-08-11",
+    )
+    with pytest.raises(QaEvidenceError, match="manual defect"):
+        apply_compat(report_path, repo_root=tmp_path, commands_dir=commands_dir)
+
+    assert (commands_dir / "a_first.yaml").read_text(encoding="utf-8") == before, (
+        "the first chapter was promoted although the run was refused in the second; "
+        "a partly promoted database is worse than either applying or refusing"
+    )

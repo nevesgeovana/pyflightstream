@@ -652,10 +652,17 @@ def _row_citation_html(record: VersionStatus) -> str:
     must not: it asserts the solver refused the name, and the entry cites
     an edition that documents the command, so printing the status alone
     beside that page sends a reader to a page contradicting the status.
+
+    Both run-citation fields are read. ``probe_ref`` was the only one a
+    measured removal could carry while the harness had no ``removed``
+    outcome; a promoted one now cites the compat yaml through ``report``,
+    and reading only the older field would have quietly reintroduced the
+    contradiction this function exists to prevent.
     """
-    if not record.probe_ref:
+    citation = record.probe_ref or (record.report if record.status is Status.REMOVED else "")
+    if not citation:
         return ""
-    return f' <span class="notes">({html.escape(record.probe_ref)})</span>'
+    return f' <span class="notes">({html.escape(citation)})</span>'
 
 
 def _format_versions_html(entry: CommandEntry) -> str:

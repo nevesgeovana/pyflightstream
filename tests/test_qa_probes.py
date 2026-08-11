@@ -846,6 +846,115 @@ def test_an_abort_on_someone_elses_missing_command_is_unprobed(tmp_path):
     assert "SET_JET_WAKE_FILAMENTS_GRID_INDUCTION" in result.detail
 
 
+#: The shape the harness ACTUALLY produces, and the one RPT-026's first
+#: arm did not. 49 of the 87 probe specifications emit a target line
+#: carrying arguments; measured on 26.122, the solver quotes the whole
+#: line, so a detector keyed on a bare token missed every one of them.
+_UNRECOGNISED_LOG_WITH_ARGUMENT = (
+    "FlightStream version 26.1, build #8092026\n"
+    " \n"
+    "ERROR | Syntax | 'SET_JET_WAKE_FILAMENTS_GRID_INDUCTION ENABLE' | Unrecognized "
+    r"command in script 'C:\runs\script.txt' at line 5 | Check command spelling and syntax."
+    "\n"
+)
+
+
+def test_the_reader_takes_the_command_out_of_a_line_that_carries_arguments():
+    """The defect the QA pass found, pinned by the re-measurement.
+
+    The solver's Syntax field quotes the WHOLE SCRIPT LINE. RPT-026's
+    first arm spliced a target with no arguments, which made the two
+    shapes indistinguishable, and the detector was written against a
+    bare token. For the 49 specifications that emit arguments the
+    removal then fell through to the wrong branch, under a detail
+    asserting the offender was not the probed command when it was.
+    """
+    from pyflightstream.qa.probes import unrecognised_commands
+
+    assert unrecognised_commands(_UNRECOGNISED_LOG_WITH_ARGUMENT) == frozenset(
+        {"SET_JET_WAKE_FILAMENTS_GRID_INDUCTION"}
+    )
+
+
+def test_a_removal_is_recorded_when_the_refused_line_carries_arguments(tmp_path):
+    """The same defect at the decision, not only at the extractor."""
+    from pyflightstream.qa.probes import ProbeOutcome
+
+    result = _judge_one(
+        "SET_JET_WAKE_FILAMENTS_GRID_INDUCTION",
+        _aborted(tmp_path, _UNRECOGNISED_LOG_WITH_ARGUMENT),
+    )
+    assert result.outcome is ProbeOutcome.REMOVED
+
+
+def test_the_crash_log_is_read_through_its_stray_nul_bytes():
+    """The crash log is the one log of this pipeline nothing scrubs.
+
+    Measured on 26.122: it carries 12 NUL bytes. Every other log read
+    goes through the scrubbing in `_read_log` (RPT-001 finding 2), and
+    this one reaches the detector straight off `ExecutionResult`.
+    """
+    from pyflightstream.qa.probes import unrecognised_commands
+
+    polluted = _UNRECOGNISED_LOG_WITH_ARGUMENT.replace(" | Unrecognized", "\x00 | Unrecognized")
+    assert unrecognised_commands(polluted) == frozenset({"SET_JET_WAKE_FILAMENTS_GRID_INDUCTION"})
+
+
+def test_a_semantic_refusal_reaches_the_decision_as_broken(tmp_path):
+    """The negative control at `_judge`, where the measured case lands.
+
+    The sibling above asserts the EXTRACTOR returns nothing. Nothing
+    asserted what the judgment was, and the judgment is what writes a
+    status: reading a semantic refusal as `removed` would delete a
+    working command from the version view for every caller on the build.
+    """
+    from pyflightstream.qa.probes import ProbeOutcome
+
+    result = _judge_one("SET_MOTION_START_TIME", _aborted(tmp_path, _SEMANTIC_REFUSAL_LOG))
+    assert result.outcome is ProbeOutcome.BROKEN
+
+
+def test_a_halting_spec_does_not_read_a_refusal_as_a_successful_halt(tmp_path):
+    """The branch that bypassed the signal, pinned.
+
+    `_judge` dispatched to `_judge_halt` before the crash log was read,
+    and a halting spec reads exactly the signature an unrecognised
+    command leaves (log before present, log after absent) as SUCCESS. On
+    a build not carrying STOP the run would have recorded it verified,
+    and `apply_compat` would have promoted that.
+    """
+    from pyflightstream.qa.probes import DEFAULT_ERROR_PATTERNS, ProbeOutcome, ProbeSpec, _judge
+
+    spec = ProbeSpec(
+        command="STOP",
+        build_target=lambda script, workdir: None,
+        expects_halt=True,
+        effect_note="script processing halts",
+    )
+    log = _UNRECOGNISED_LOG_WITH_ARGUMENT.replace(
+        "SET_JET_WAKE_FILAMENTS_GRID_INDUCTION ENABLE", "STOP"
+    )
+    result = _judge(spec, _aborted(tmp_path, log), DEFAULT_ERROR_PATTERNS, "sha", 60.0)
+    assert result.outcome is ProbeOutcome.REMOVED
+
+
+def test_the_start_time_prelude_creates_a_motion_that_accepts_it():
+    """The specification fix has to be falsifiable, or it reverts silently.
+
+    The family's shared prelude creates a ROTARY motion and this is the
+    one setter a rotary motion refuses, which recorded the command
+    broken on four builds (RPT-026).
+    """
+    from pathlib import Path as _Path
+
+    from pyflightstream.qa.specs import PROBE_SPECS
+    from pyflightstream.script import Script
+
+    script = Script(version="26.122")
+    PROBE_SPECS["SET_MOTION_START_TIME"].prelude(script, _Path("."))
+    assert script.render().splitlines() == ["CREATE_NEW_MOTION 6DOF"]
+
+
 def test_an_abort_with_no_crash_log_is_still_broken(tmp_path):
     """The outcome the new branch must not swallow.
 

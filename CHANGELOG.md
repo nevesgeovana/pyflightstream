@@ -10,12 +10,21 @@ FlightStream versions.
 **26.122 answers for 84 commands, and the rotor morphing defect is
 fixed.** The newest build was `operational` purely by inheritance from
 26.120 with nothing measured on it; a Tier 2 run now promotes 84
-statuses and a Tier 3 run passes 10 of 10 metrics against the drift
+statuses and a Tier 3 run passes 30 of 30 metrics against the drift
 bands. Separately, the FlightStream defect RPT-007 recorded on 26.120,
 where an imposed FSIDisp deformation was silently dropped for a
 boundary attached to a rotary motion definition, is measured fixed in
 26.122 and NOT fixed in 26.121 (RPT-025). Two-way rotor FSI is
 unblocked.
+
+Read the Tier 3 pass with its scope. The first run covered PHY-01 and
+PHY-02, both static rigid wings, which look at nothing the build was
+measured to have changed; `PHY-05` and `PHY-06` were pinned to 26.120
+for a reason that never covered later builds, and they are widened here
+and run, which is where 20 of the 30 metrics come from. The rotor case
+reproducing its 26.120 reference is consistent with RPT-025 rather than
+independent of it: all three builds give byte-identical RIGID
+coefficients, and PHY-05 is a rigid case.
 
 ### API surface delta
 
@@ -52,12 +61,32 @@ Deprecations: none.
   `unprobed` naming the offender, where it previously recorded the
   probed command `broken`.
 
+- `AIR_ALTITUDE` is emittable on 26.122. It had inherited `broken` from
+  26.120, where the solver reads its `METERS` argument as feet, and the
+  first probe on this build reads the 5000 m standard-atmosphere
+  density correctly, so the builder no longer refuses it there. This is
+  the one caller-visible change to what a 26.122 script may emit
+  (`reports/compat/CMP-26122_2026-08-11_full.yaml`).
+- `PHY-05` and `PHY-06` are registered for 26.121 and 26.122, not
+  26.120 alone. Their pin cited a backfill owed for EARLIER builds,
+  which never applied to later ones.
+
 ### Fixed
 
 - The probe specification for `SET_MOTION_START_TIME` created a rotary
-  motion, which that command refuses by design, so 26.122 recorded it
-  `broken` and the emitter would have refused a working command for
-  every caller on the build.
+  motion, which that command refuses by design, so the abort it was
+  recorded for was the probe's and not the solver's.
+
+  NOT RESOLVED BY THAT FIX, and stated here because the guide says so
+  and this file said the opposite: the command is still recorded
+  `broken` on 26.101, 26.120 and 26.121, and 26.122 inherits 26.120, so
+  the emitter refuses it on four builds TODAY. The corrected
+  specification is measured to run on all four
+  (`reports/compat/CMP-26101_2026-08-11_starttime.yaml` and the same
+  stem for 26120 and 26121, plus the 26.122 full report), and an
+  `unprobed` result cannot demote a `broken` one through the sanctioned
+  write path. Lifting the refusal needs a demotion path that does not
+  exist yet.
 
 ## [0.7.0] - 2026-08-11
 

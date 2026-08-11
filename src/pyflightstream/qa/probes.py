@@ -2,8 +2,14 @@
 
 Pipeline role: produces the run evidence behind the command database.
 Each probe executes exactly one database command in a minimal script on
-a licensed machine and classifies it from three failure signals:
+a licensed machine and classifies it from four signals. The first is
+read before the other three, because each of those would answer its
+case with a different wrong word:
 
+0. Unrecognised command: the solver's crash log names the probed
+   command as one it does not recognise, so this build does not carry
+   it (``removed``, RPT-026). The refusal never reaches the exported
+   log, since the script aborts at the offending line.
 1. Sentinel missing: the log exported after the command never appears,
    so script processing aborted at the command.
 2. Log error patterns: error messages between the probe sentinels.
@@ -80,20 +86,30 @@ DEFAULT_ERROR_PATTERNS: tuple[str, ...] = (
 
 #: The solver's own refusal of a name it does not carry, measured on
 #: 26.122 (RPT-026). The crash log records a pipe-delimited record whose
-#: second field is ``Syntax`` and whose third quotes the offending
-#: token, and the same wording answers a real command absent from the
-#: build and a token that was never a command at all. The second field
-#: is what separates it from a SEMANTIC refusal, which reads
-#: ``Scripting`` with ``N/A`` in the token field and means the command
-#: exists and declined this call.
+#: second field is ``Syntax``, and the same wording answers a real
+#: command absent from the build and a token that was never a command
+#: at all. The second field is what separates it from a SEMANTIC
+#: refusal, which reads ``Scripting`` with ``N/A`` in the quoted field
+#: and means the command exists and declined this call.
+#:
+#: THE QUOTED FIELD IS THE WHOLE SCRIPT LINE, not the command token, and
+#: that was measured the hard way. RPT-026's first arm spliced a target
+#: with no arguments, so the two shapes were indistinguishable and this
+#: pattern was written against a bare token; 49 of the 87 probe
+#: specifications emit an argument-bearing line, and for every one of
+#: them an absent command fell through to the wrong branch. The
+#: re-measurement on 26.122 records
+#: ``'SET_JET_WAKE_FILAMENTS_GRID_INDUCTION ENABLE'`` in this field, and
+#: the repository's own RPT-012 had recorded the same shape since
+#: 2026-07-23.
 _UNRECOGNISED_COMMAND = re.compile(
-    r"ERROR\s*\|\s*Syntax\s*\|\s*'(?P<command>[^']+)'\s*\|\s*Unrecognized command",
+    r"ERROR\s*\|\s*Syntax\s*\|\s*'(?P<line>[^']+)'\s*\|\s*Unrecognized command",
     re.IGNORECASE,
 )
 
 
 def unrecognised_commands(log_text: str | None) -> frozenset[str]:
-    """Names the solver refused as unrecognised, from its crash log.
+    """Command names the solver refused as unrecognised, from its crash log.
 
     The refusal does NOT reach the exported log: the script aborts at
     the offending line, so the log after the command never appears and
@@ -109,14 +125,26 @@ def unrecognised_commands(log_text: str | None) -> frozenset[str]:
     Returns
     -------
     frozenset of str
-        Command names the solver did not recognise, upper-cased as the
-        script wrote them. Empty when the log is absent or names none.
+        The COMMAND of each refused line, upper-cased: the solver quotes
+        the whole script line, arguments included, and only its leading
+        token names the command. Empty when the log is absent or names
+        none.
+
+    Notes
+    -----
+    The crash log is the one log of this pipeline that
+    :func:`_read_log` never scrubs, and it does carry stray NUL bytes
+    (12 in the measured 26.122 run), so they are dropped here rather
+    than left to break a field separator.
     """
     if not log_text:
         return frozenset()
-    return frozenset(
-        match.group("command").strip() for match in _UNRECOGNISED_COMMAND.finditer(log_text)
-    )
+    names = set()
+    for match in _UNRECOGNISED_COMMAND.finditer(log_text.replace("\x00", "")):
+        tokens = match.group("line").split()
+        if tokens:
+            names.add(tokens[0].upper())
+    return frozenset(names)
 
 
 class ProbeOutcome(enum.StrEnum):
@@ -1370,9 +1398,21 @@ def _judge(
         "return_code": execution.return_code,
         "script_sha256": script_sha256,
     }
-    if spec.expects_halt:
+    # Read BEFORE every branch below, INCLUDING the halting one, because
+    # each of them would answer this case with a different wrong word. An
+    # unrecognised command aborts the script exactly as any other abort
+    # does, so the sentinel evidence cannot tell them apart; the generic
+    # error patterns already match "not recognized" and would return
+    # broken; and a halting spec reads the very same signature (log
+    # before present, log after absent) as SUCCESS, so a build that did
+    # not carry STOP would have recorded it verified. The signal is the
+    # solver's own wording NAMING THIS COMMAND: a prelude line the build
+    # does not carry aborts the same script and says nothing about the
+    # target.
+    refused = unrecognised_commands(execution.log_text)
+    if spec.expects_halt and not refused:
         return _judge_halt(spec, artifacts, common)
-    if execution.timed_out:
+    if execution.timed_out and not refused:
         return ProbeResult(
             outcome=ProbeOutcome.UNPROBED,
             detail=(
@@ -1381,15 +1421,6 @@ def _judge(
             ),
             **common,
         )
-    # Checked BEFORE the missing-sentinel branch and before the error
-    # scan, because both would answer this case with the wrong word. An
-    # unrecognised command aborts the script exactly as any other abort
-    # does, so the sentinel evidence cannot tell them apart, and the
-    # generic patterns already match "not recognized" and would return
-    # broken. The signal is the solver's own wording NAMING THIS
-    # COMMAND: a prelude line the build does not carry aborts the same
-    # script and says nothing about the target.
-    refused = unrecognised_commands(execution.log_text)
     if spec.command in refused:
         return ProbeResult(
             outcome=ProbeOutcome.REMOVED,
@@ -1408,8 +1439,10 @@ def _judge(
             detail=(
                 "the script aborted on a name this build does not carry ("
                 + ", ".join(sorted(refused))
-                + "), which is not the probed command; inconclusive until the probe "
-                "specification stops emitting it"
+                + "), which is not the probed command; inconclusive. That name is "
+                "emitted by this probe's specification or by the prelude tier it "
+                "requires, so stop emitting it on this build, or record its absence, "
+                "before the target can be judged"
             ),
             **common,
         )

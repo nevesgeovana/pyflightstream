@@ -5,10 +5,12 @@ evidence into database statuses. :func:`write_compat_report` writes the
 machine-readable YAML report and its rendered Markdown table under
 ``reports/compat/``, one evidence line per database command of the
 probed version. :func:`apply_compat` reads a committed report back and
-promotes ``documented`` statuses to ``verified`` or ``broken`` in the
-chapter YAML files, citing the report in each promoted entry; statuses
-are never hand-edited (CLAUDE.md invariant 3), and the schema rejects a
-``verified`` or ``broken`` entry without its report citation.
+promotes ``documented`` statuses to ``verified``, ``broken`` or
+``removed`` in the chapter YAML files, citing the report in each
+promoted entry; statuses are never hand-edited (CLAUDE.md invariant 3),
+and the schema rejects any of those three without its report citation.
+A promotion writes every chapter it touches or none of them, and an
+older report can no longer revert a status a later run already moved.
 """
 
 from __future__ import annotations
@@ -177,9 +179,15 @@ def read_compat_report(path: str | Path) -> dict:
 #: a judgment, so only these can supersede one: ``unprobed`` records why
 #: no judgment exists and must never invalidate a citation, or every
 #: identity run would unseat the full run before it.
-PROMOTABLE_OUTCOMES = frozenset(
-    {ProbeOutcome.VERIFIED.value, ProbeOutcome.BROKEN.value, ProbeOutcome.REMOVED.value}
-)
+#:
+#: DERIVED from the enum by subtracting the one non-judgment, rather
+#: than listed. A listed set makes a future outcome silently
+#: unpromotable while :class:`~pyflightstream.qa.probes.ProbeOutcome`,
+#: where a reader looks, says otherwise. The members are the enum
+#: members, not their strings, which compares identically against a
+#: report's raw values because ``ProbeOutcome`` is a ``StrEnum`` and
+#: lets a consumer get back to the enum it documents.
+PROMOTABLE_OUTCOMES = frozenset(ProbeOutcome) - {ProbeOutcome.UNPROBED}
 
 #: A per-edition manual page citation, as the database writes one. Used
 #: to recognise a row that an EDITION documents, which a measured
@@ -198,7 +206,8 @@ class Judgment:
     fs_version : str
         Canonical FlightStream identifier the report probed.
     outcome : str
-        ``verified`` or ``broken``; see :data:`PROMOTABLE_OUTCOMES`.
+        One of :data:`PROMOTABLE_OUTCOMES`: ``verified``, ``broken`` or
+        ``removed``.
     date : str
         The report's ISO date, or the empty string when it carries
         none. ISO dates order lexicographically, which is what makes
@@ -266,13 +275,9 @@ def compat_corpus(
 
 def contradicting_evidence(
     corpus: dict[tuple[str, str], tuple[Judgment, ...]],
-    command: str,
-    fs_version: str,
-    outcome: str,
-    date: str,
-    report: str,
+    incoming: Judgment,
 ) -> tuple[Judgment, ...]:
-    """Judgments that supersede ``outcome`` for one pair.
+    """Judgments in the corpus that supersede ``incoming``.
 
     A judgment supersedes when it is at least as recent AND records a
     DIFFERENT outcome. Both halves are deliberate.
@@ -298,15 +303,14 @@ def contradicting_evidence(
     ----------
     corpus : dict
         Index from :func:`compat_corpus`.
-    command, fs_version : str
-        The pair being written.
-    outcome : str
-        The outcome the incoming report records for the pair.
-    date : str
-        The incoming report's ISO date, empty when it carries none.
-    report : str
-        The incoming report's own citation, excluded from the answer so
-        a report never supersedes itself.
+    incoming : Judgment
+        The judgment about to be written. Passed as the record rather
+        than as its five fields, because five interchangeable strings in
+        a row fail SILENTLY when two are swapped: the lookup misses, the
+        answer is empty, and the caller reads that as "nothing
+        contradicts, promote it". The record cannot be mis-ordered.
+        Its ``report`` field excludes it from its own answer, so a
+        report never supersedes itself.
 
     Returns
     -------
@@ -316,8 +320,10 @@ def contradicting_evidence(
     """
     return tuple(
         judgment
-        for judgment in corpus.get((command, fs_version), ())
-        if judgment.report != report and judgment.date >= date and judgment.outcome != outcome
+        for judgment in corpus.get((incoming.command, incoming.fs_version), ())
+        if judgment.report != incoming.report
+        and judgment.date >= incoming.date
+        and judgment.outcome != incoming.outcome
     )
 
 
@@ -330,10 +336,11 @@ def apply_compat(
 ) -> list[tuple[str, str, str]]:
     """Promote database statuses from a committed compat report.
 
-    Every command the report judged ``verified`` or ``broken`` gets its
-    version line in the chapter YAML written with the new status and the
-    report cited in the ``report`` field; ``unprobed`` commands are
-    untouched. A command that already records the version is rewritten
+    Every command the report judged with one of
+    :data:`PROMOTABLE_OUTCOMES` (``verified``, ``broken`` or
+    ``removed``) gets its version line in the chapter YAML written with
+    the new status and the report cited in the ``report`` field;
+    ``unprobed`` commands are untouched. A command that already records the version is rewritten
     in place; one that does not gains the line at its release position,
     which is what the first probe run of a newly registered version
     needs. The edit is line-level on the flow-mapping version lines, so
@@ -370,17 +377,30 @@ def apply_compat(
     Raises
     ------
     QaEvidenceError
-        When the report is not a compat report, when it names an
-        unregistered version, when a judged command or its version
-        line cannot be found, when a rewritten entry fails schema
-        validation, or when a report at least as recent already
-        records a different outcome for a pair this one would write
-        (``PLN-20260804-1500``). Nothing is written in any of these
-        cases.
+        When the report is not a compat report, when it lies outside
+        ``repo_root``, when it names an unregistered version, when an
+        explicitly given ``corpus_dir`` is not a directory, when a
+        judged command or its version line cannot be found, when a
+        rewritten entry fails schema validation, when a report at least
+        as recent already records a different outcome for a pair this
+        one would write (``PLN-20260804-1500``), or when a ``removed``
+        promotion would overwrite a row carrying a page citation of that
+        edition or a per-version argument grammar, neither of which is a
+        mechanical decision (RPT-026). Nothing is written in any of
+        these cases: every chapter is rewritten and validated in memory
+        and the writes happen only once all of them have succeeded.
     """
     report = read_compat_report(report_path)
     canonical = report["fs_version"]
-    citation = Path(report_path).resolve().relative_to(Path(repo_root).resolve()).as_posix()
+    root = Path(repo_root).resolve()
+    try:
+        citation = Path(report_path).resolve().relative_to(root).as_posix()
+    except ValueError:
+        raise QaEvidenceError(
+            f"{report_path} is outside {root}, so the citation written into the "
+            "database would not be a repository-relative path and no reader could "
+            "follow it. Move the report under the repository first, or pass repo_root"
+        ) from None
     if commands_dir is None:
         commands_dir = Path(str(resources.files("pyflightstream.commands")))
     commands_dir = Path(commands_dir)
@@ -406,6 +426,18 @@ def apply_compat(
     # is a worse state than either applying it or refusing it.
     if corpus_dir is None:
         corpus_dir = Path(repo_root) / "reports" / "compat"
+    elif not Path(corpus_dir).is_dir():
+        # An ABSENT default is the first-report case and yields an empty
+        # corpus. A corpus_dir the caller typed is different: reading a
+        # mistyped path as "nothing supersedes this" would turn the only
+        # supersession check in the write path into a no-op, silently.
+        # That is the shape CLAUDE.md names for COORD_INCIDENT_LEDGER, a
+        # guard that reads its own missing information as permission.
+        raise QaEvidenceError(
+            f"corpus_dir {corpus_dir} is not a directory. It was given explicitly, and "
+            "an unreadable corpus would disable the supersession check rather than "
+            "run it, so this is refused instead of skipped; nothing was written"
+        )
     corpus = compat_corpus(corpus_dir, repo_root=repo_root)
     incoming_date = str(report.get("date") or "")
     superseded = [
@@ -413,7 +445,8 @@ def apply_compat(
         for name, body in targets.items()
         if (
             contradicting := contradicting_evidence(
-                corpus, name, canonical, body["outcome"], incoming_date, citation
+                corpus,
+                Judgment(name, canonical, body["outcome"], incoming_date, citation),
             )
         )
     ]
@@ -433,8 +466,17 @@ def apply_compat(
             "the older reading is the right one, re-probe and let a new report say so"
         )
 
+    # EVERY chapter is rewritten and validated in memory, and the writes
+    # happen only once all of them have succeeded. The docstring above
+    # promises that a refusal writes nothing, and before this loop was
+    # restructured that promise held for the up-front checks alone: a
+    # refusal raised while rewriting chapter n left chapters 1..n-1
+    # already promoted on disk, under an error message naming one
+    # command in one file. The two removal refusals and the diverged
+    # report check below are all such mid-loop raise sites.
     promotions: list[tuple[str, str, str]] = []
     pending = dict(targets)
+    rewritten: list[tuple[Path, str]] = []
     for chapter_path in sorted(commands_dir.glob("*.yaml")):
         if chapter_path.name == "_meta.yaml":
             continue
@@ -447,14 +489,16 @@ def apply_compat(
             text = _rewrite_version_line(
                 text, chapter_path.name, name, canonical, body, citation, order
             )
-        chapter_path.write_text(text, encoding="utf-8")
-        _validate_chapter(chapter_path, names)
+        _validate_chapter(chapter_path.name, text, names)
+        rewritten.append((chapter_path, text))
         promotions.extend((name, targets[name]["outcome"], chapter_path.name) for name in names)
     if pending:
         raise QaEvidenceError(
             f"report judges {', '.join(sorted(pending))} but no chapter file defines "
-            "them; the report and the database have diverged"
+            "them; the report and the database have diverged, and nothing was written"
         )
+    for chapter_path, text in rewritten:
+        chapter_path.write_text(text, encoding="utf-8")
     return promotions
 
 
@@ -792,9 +836,15 @@ def _rewrite_version_line(
     return "\n".join(lines) + "\n"
 
 
-def _validate_chapter(chapter_path: Path, names: list[str]) -> None:
-    """Re-validate the rewritten entries against the command schema."""
-    data = yaml.safe_load(chapter_path.read_text(encoding="utf-8"))
-    chapter = chapter_path.name.removesuffix(".yaml")
+def _validate_chapter(chapter_name: str, text: str, names: list[str]) -> None:
+    """Validate the rewritten entries against the command schema.
+
+    Takes the TEXT rather than the path, so a rewrite can be rejected
+    before it reaches the disk. Reading the file back would mean the
+    file had already been written, which is the partial-promotion state
+    :func:`apply_compat` promises not to leave behind.
+    """
+    data = yaml.safe_load(text)
+    chapter = chapter_name.removesuffix(".yaml")
     for name in names:
         CommandEntry(name=name, chapter=chapter, **data[name])

@@ -55,7 +55,8 @@ except CommandNotInVersionError as error:
 The worked examples in `examples/` take it from here to executed
 polars, campaign matrices, a static wing deflection, and a Campbell
 diagram. No example runs the coupled loop: it needs a licensed solver in the
-loop, and the rotary case is solver-blocked (`reports/RPT-007`). The
+loop, and the rotary case was solver-blocked on 26.120 and 26.121
+(`reports/RPT-007`), which `reports/RPT-025` measures fixed in 26.122. The
 capability status below says what the FSI subpackage does and does not
 claim.
 
@@ -81,8 +82,9 @@ that evolution.
 Every database entry carries exactly one piece of evidence: the manual
 page that documents the command, or, for the few the solver accepts and
 no manual edition describes, a committed probe report measuring that it
-does. Its status per version (documented, verified, broken) can only be
-promoted by citing a committed probe report from a licensed machine.
+does. Its status per version (documented, verified, broken, removed)
+can only be promoted by citing a committed probe report from a licensed
+machine.
 Nothing is guessed; the honest gaps are reported as such.
 
 ## What ships
@@ -140,7 +142,7 @@ table is that boundary.
 | Far-field ledgers and probe surveys | **experimental** | tier 1 on synthetic fields; the licensed far-field acceptance work is deferred, not done |
 | FSI structural beam and modal analysis | **experimental** | tier 1 against analytic beam solutions; `examples/wing_static_deflection.py`, `examples/fsi_campbell_diagram.py` |
 | FSI coupled driver (the four-phase loop) | **experimental** | tier 1 offline replay on archived WP1 fixtures only; never run against a live solver in CI |
-| Rotary two-way coupling | **not validated** | `reports/RPT-007` states two-way rotor FSI is blocked in this build; `docs/srs/roadmap.md` records it in the M6 row; no acceptance evidence exists |
+| Rotary two-way coupling | **not validated** | `reports/RPT-025` measures the solver defect of `reports/RPT-007` fixed in 26.122 and still present in 26.120 and 26.121, so the path is no longer blocked on the newest build. It stays NOT VALIDATED: that report says only that an imposed deformation reaches the mesh, not that the morphing is correct, and no coupled acceptance run has been made against a build where it applies |
 
 Experimental means the interface may change without the deprecation
 window of NFR-20, and that the evidence behind it is narrower than
@@ -172,7 +174,7 @@ the evidence rather than declared:
 | 26.101 | 26.1 | `operational` | The May 2026 build. Commands drafted from the manual with page citations, with the first harness promotions on 2026-08-08, which also carried it to the level where the minimal end-to-end workflow builds. It sits at a hotfix index and does NOT inherit from 26.100: the two are separate vendor releases under one name |
 | 26.120 | 26.12 | `operational` | Probe evidence from a licensed machine, and the minimal end-to-end workflow builds |
 | 26.121 | 26.12 | `operational` | Hotfix build 1. It inherits the 26.120 records except where a probe on this build overrode them; the compatibility matrix marks every inherited cell and counts them |
-| 26.122 | 26.12 | `operational` | Hotfix build 2, vendor build 8092026, registered 2026-08-10 the day after it was issued. Its manual documents the largest command surface of the eight editions, 372 against 364 for the one before it. READ THE LEVEL WITH ITS EVIDENCE: it reaches `operational` entirely on records inherited from 26.120, because no command has been probed on this build. What has run against it is an identity probe, which reads the banner and judges nothing |
+| 26.122 | 26.12 | `operational` | Hotfix build 2, vendor build 8092026, registered 2026-08-10 the day after it was issued. Its manual documents the largest command surface of the eight editions, 372 against 364 for the one before it. Measured on 2026-08-11: 84 commands probed on this build (83 verified, 1 broken) and the Tier 3 matrix passing 30 of 30 metrics. The rest of its record is still inherited from 26.120 and the matrix marks every inherited cell. The run refuted the inheritance once, on `AIR_ALTITUDE`, which is broken on the base releases and works here |
 
 ```python
 import pyflightstream

@@ -16,7 +16,11 @@ three.
 
 from pyflightstream.qa.compat import (
     COMPAT_SCHEMA,
+    PROMOTABLE_OUTCOMES,
+    Judgment,
     apply_compat,
+    compat_corpus,
+    contradicting_evidence,
     read_compat_report,
     write_compat_report,
 )
@@ -38,6 +42,7 @@ from pyflightstream.qa.probes import (
     printed_line,
     probe_version,
     region_printed,
+    unrecognised_commands,
 )
 from pyflightstream.qa.specs import PROBE_SPECS
 
@@ -45,6 +50,8 @@ __all__ = [
     "COMPAT_SCHEMA",
     "DEFAULT_ERROR_PATTERNS",
     "PROBE_SPECS",
+    "PROMOTABLE_OUTCOMES",
+    "Judgment",
     "ProbeArtifacts",
     "ProbeEnvironmentError",
     "ProbeOutcome",
@@ -54,6 +61,8 @@ __all__ = [
     "QaEvidenceError",
     "Requires",
     "apply_compat",
+    "compat_corpus",
+    "contradicting_evidence",
     "dump_changed",
     "dump_gained",
     "fsm_changed",
@@ -64,6 +73,7 @@ __all__ = [
     "probe_version",
     "read_compat_report",
     "region_printed",
+    "unrecognised_commands",
     "write_compat_report",
 ]
 

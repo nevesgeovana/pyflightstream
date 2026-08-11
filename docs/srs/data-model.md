@@ -129,7 +129,7 @@ Per-version statuses and their evidence rules:
 | documented | The manual says so, or a probe measured the solver accepting a command no edition documents | `manual_ref` page citation, or `probe_ref` naming a committed report |
 | verified | A probe proved it works | Committed compat report |
 | broken | A probe proved it fails | Committed compat report |
-| removed | The build does not carry the command, and the row says which of three things happened | A note, always, plus `probe_ref` naming a committed report when the note claims a MEASUREMENT |
+| removed | The build does not carry the command, and the row says which of three things happened | A note, always, plus a run citation when the note claims a MEASUREMENT: `report` naming the compat yaml when the harness promoted it, or `probe_ref` naming a narrative report for the removals recorded before the harness could measure one |
 
 `removed` is the one status with three provenances, and the row is
 required to say which because they are not equally strong. An edition
@@ -137,11 +137,25 @@ may STATE the withdrawal; an edition may simply STOP PRINTING the
 command, which is a fact about a document and not about the solver; or
 a probe may MEASURE the solver refusing the name, which is the only one
 of the three that observes the solver at all. The first two cite a
-manual page in the note. The third cites its run, and cites it through
-`probe_ref` rather than `report` because the probe harness has no
-`removed` outcome to write: a build that lacks a command records as
-`broken`, which is a claim about a command that is present. So a
-measured removal is a run a human wrote down, and the field says so.
+manual page in the note. The third cites its run.
+
+WHICH FIELD THE THIRD USES CHANGED ON 2026-08-11 and both are live. The
+probe harness had no `removed` outcome to write, so a build that lacked
+a command recorded as `broken`, a claim about a command that is
+present; a measured removal was therefore a run a human wrote down, and
+`probe_ref` said so rather than dressing prose as machine-checked
+evidence. The harness now has the outcome (RPT-026), recognised from
+the solver's own refusal of the name, so a removal it measures is
+promoted by `pyfs-qa apply-compat` and cites the compat yaml through
+`report` like every other promoted status. `probe_ref` keeps the
+earlier rows and the case no run can supply.
+
+Both fields are read wherever a measured removal is shown, and that is
+load bearing rather than defensive: the refusal message and the
+compatibility reference each fall back to the ENTRY's citation when a
+row has no run of its own, and the entry cites a page of an edition
+that documents the command. Reading only one field would print that
+page beside a sentence saying the solver refused the name.
 
 The same field name appears on an ENTRY and on a VERSION ROW and they
 are not the same admissibility. On an entry it is the alternative to
@@ -149,9 +163,13 @@ are not the same admissibility. On an entry it is the alternative to
 On a version row it is admissible for `removed` alone, and the loader
 refuses it on any other status, because `verified` and `broken` must
 stay checkable against the compat yaml the harness wrote; a guard whose
-population quietly shrinks reports green either way. Both go away when
-the harness learns the outcome
-(`PLN-20260809-0300-the-harness-has-no-removed-outcome`).
+population quietly shrinks reports green either way. The version-row
+field was expected to go away when the harness learned the outcome
+(`PLN-20260809-0300`, closed 2026-08-11). It did not: the harness
+covers the measured provenance and nothing covers an edition that
+merely stopped printing a command, which is a reading and not a run.
+The field is retained for that case and for the rows written before the
+outcome existed.
 
 The ordered version list in `_meta.yaml` is the only version-ordering
 authority (never string or float comparison). Canonical identifiers
