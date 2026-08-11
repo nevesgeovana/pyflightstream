@@ -24,7 +24,7 @@ license: MIT
 # stay, because those releases did happen and are still what a citation
 # of them should resolve to.
 version: 0.7.0
-date-released: 2026-08-10
+date-released: 2026-08-11
 repository-code: "https://github.com/nevesgeovana/pyflightstream"
 identifiers:
   - type: doi

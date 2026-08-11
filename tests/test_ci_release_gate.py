@@ -35,6 +35,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import yaml
 
 REPO = Path(__file__).resolve().parents[1]
 HOOK = REPO / ".claude" / "hooks" / "ci_release_gate.py"
@@ -253,17 +254,63 @@ def test_a_long_job_list_is_capped_so_the_instruction_stays_readable():
     """The failure list must not bury the next action.
 
     The matrix grows, and this message is read at the worst moment of a
-    release. Eight names then a count, one per line.
+    release. Derived from MAX_NAMED_JOBS rather than pinned to a number:
+    the cap moved once already, because it had been sized at exactly the
+    job count of the incident's matrix and this repository then added a
+    ninth job, so the all-red case was the one being truncated.
     """
     hook = _load_hook()
+    total = hook.MAX_NAMED_JOBS + 8
     many = [
         {"name": f"job-{index:02}", "status": "completed", "conclusion": "failure"}
-        for index in range(20)
+        for index in range(total)
     ]
     kind, why = hook.verdict(many)
     assert kind == "red"
-    assert "and 12 more" in why
+    assert f"and {total - hook.MAX_NAMED_JOBS} more" in why
     assert why.count("job-") == hook.MAX_NAMED_JOBS
+
+
+def test_the_cap_does_not_fire_when_it_would_save_nothing():
+    """Exactly MAX_NAMED_JOBS entries print in full, with no count line."""
+    hook = _load_hook()
+    many = [
+        {"name": f"job-{index:02}", "status": "completed", "conclusion": "failure"}
+        for index in range(hook.MAX_NAMED_JOBS)
+    ]
+    _, why = hook.verdict(many)
+    assert "more" not in why
+    assert why.count("job-") == hook.MAX_NAMED_JOBS
+
+
+def test_the_cap_is_above_the_check_count_of_a_branch_push():
+    """Sized so the worst case, everything red, is the one not truncated.
+
+    Counted from the workflows that a push to a branch triggers, with
+    matrix legs expanded, because a check run is a LEG and not a job.
+    The release workflow is excluded: it fires on a tag, and by then the
+    branch's own run is what this gate is reading.
+    """
+    hook = _load_hook()
+    checks = 0
+    for path in sorted((REPO / ".github" / "workflows").glob("*.y*ml")):
+        if path.name == "release.yml":
+            continue
+        document = yaml.safe_load(path.read_text(encoding="utf-8"))
+        for job in (document.get("jobs") or {}).values():
+            matrix = ((job or {}).get("strategy") or {}).get("matrix") or {}
+            legs = 1
+            for value in matrix.values():
+                if isinstance(value, list):
+                    legs *= len(value)
+            checks += legs
+    assert checks, "no jobs were counted; the workflow layout moved"
+    assert hook.MAX_NAMED_JOBS >= checks, (
+        f"a branch push produces {checks} check runs and the cap is "
+        f"{hook.MAX_NAMED_JOBS}, so a fully red commit, which is the message that "
+        "matters most, is the one that gets truncated. That is how the cap was "
+        "mis-sized the first time: at the exact job count of the incident's matrix."
+    )
 
 
 def test_the_verdict_at_the_instant_the_v070_tag_was_pushed_is_pending():
@@ -415,18 +462,45 @@ def test_an_exhausted_deadline_refuses_rather_than_retrying_past_it(monkeypatch)
     assert "out of time" in str(detail)
 
 
-def _drive(hook, monkeypatch, command, *, answer, capsys, url=None):
+def _drive(
+    hook,
+    monkeypatch,
+    command,
+    *,
+    answer,
+    capsys,
+    url="https://github.com/nevesgeovana/pyflightstream.git",
+    follow_tags="",
+    pushurl="",
+    expect_remote="origin",
+    resolved=None,
+    calls=None,
+):
     """Run main() over one command with git and the network stubbed."""
+    calls = calls if calls is not None else []
+    resolved = resolved or {}
     monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({"tool_input": {"command": command}})))
-    monkeypatch.setattr(
-        hook,
-        "_git",
-        lambda root, *args: {
-            "rev-parse": str(REPO),
-            "config": url or "https://github.com/nevesgeovana/pyflightstream.git",
-            "rev-list": "2d754a740781aaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        }[args[0]],
-    )
+
+    def fake_git(root, *args):
+        calls.append(args)
+        if args[0] == "rev-parse":
+            return str(REPO)
+        if args[0] == "rev-list":
+            return resolved.get(args[-1], "2d754a740781aaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+        if args[0] == "config":
+            key = args[-1]
+            if key == "push.followTags":
+                return follow_tags
+            if key.endswith(".pushurl"):
+                return pushurl
+            # Answer ONLY the key the caller expects. A stub that returns
+            # the same url for every key cannot tell whether the hook
+            # built the right one, which is how the previous round's
+            # false-allow fix shipped with no falsifying test.
+            return url if key == f"remote.{expect_remote}.url" else ""
+        raise AssertionError(f"unexpected git call {args}")
+
+    monkeypatch.setattr(hook, "_git", fake_git)
     monkeypatch.setattr(hook, "check_runs", lambda slug, sha, deadline: answer)
     with pytest.raises(SystemExit):
         hook.main()
@@ -487,12 +561,263 @@ def test_every_refusal_arm_is_reached_through_main(answer, tag, monkeypatch, cap
 
 @pytest.mark.parametrize(
     "tag",
-    ["unreachable", "commit-absent", "ci-absent", "ci-pending", "ci-red", "wiring", "gate"],
+    [
+        "unreachable",
+        "commit-absent",
+        "ci-absent",
+        "ci-pending",
+        "ci-red",
+        "no-such-tag",
+        "config",
+        "wiring",
+        "gate",
+    ],
 )
-def test_every_refusal_names_an_action(tag):
-    """A refusal that describes a problem and stops is how workarounds start."""
+def test_every_refusal_arm_label_is_still_present_in_the_body(tag):
+    """Narrowly what it says, after an earlier name claimed more.
+
+    It was called `test_every_refusal_names_an_action`, and a failure
+    summary then read as "this arm has no action" when it meant "this
+    label is gone". Nothing here inspects the prose; what does inspect it
+    is the pair of assertions below, which require an imperative and,
+    for the arms a releaser cannot fix, the escalation sentence.
+    """
     source = HOOK.read_text(encoding="utf-8")
     assert f"[{tag}]" in source, f"the {tag} arm has gone; update this test with it"
+
+
+@pytest.mark.parametrize("tag", ["unreachable", "wiring", "gate", "ci-absent"])
+def test_the_arms_a_releaser_cannot_fix_carry_the_escalation_sentence(tag):
+    """A blocked operator with no stated escalation invents a workaround.
+
+    These four report a broken environment, a broken gate or a repository
+    setting, none of which the person cutting the release can resolve by
+    trying again.
+    """
+    hook = _load_hook()
+    source = HOOK.read_text(encoding="utf-8")
+    marker = f"[{tag}]"
+    start = source.index(marker)
+    # The arm ends at the closing paren of its _decide call.
+    arm = source[start : source.index('",\n                )', start) + 4]
+    assert "_ESCALATE" in arm or hook._ESCALATE[:40] in arm, (
+        f"the {tag} refusal does not end in the escalation sentence, so a blocked "
+        "releaser is left with a diagnosis and no move"
+    )
+
+
+def test_the_config_key_names_the_remote_the_push_names(monkeypatch, capsys):
+    """The previous round's false-allow fix, made falsifiable.
+
+    `push_remote` was tested in isolation while the call site was not, so
+    reverting the hook to a hard-coded `remote.origin.url` broke no test.
+    The stub here answers only the expected key, so a hook that asks for
+    the wrong one gets an empty url and denies.
+    """
+    hook = _load_hook()
+    calls: list[tuple] = []
+    out = _drive(
+        hook,
+        monkeypatch,
+        "git push upstream v0.7.0",
+        answer=("ok", [{"name": "a", "status": "completed", "conclusion": "success"}]),
+        capsys=capsys,
+        expect_remote="upstream",
+        calls=calls,
+    )
+    assert out.strip() == "", (
+        "the hook did not consult remote.upstream.url; it asked for another key and "
+        f"denied on an empty url. Calls: {calls}"
+    )
+    assert any("remote.upstream.url" in str(call) for call in calls), calls
+
+
+def test_the_push_url_wins_over_the_fetch_url(monkeypatch, capsys):
+    """git pushes to pushurl when it is set, so that is the repository to ask about.
+
+    The same false allow as the remote NAME, wearing a different config
+    key: a fork configured as pushurl behind a green upstream would have
+    been judged by the upstream's CI.
+    """
+    hook = _load_hook()
+    calls: list[tuple] = []
+    out = _drive(
+        hook,
+        monkeypatch,
+        "git push origin v0.7.0",
+        answer=("ok", []),
+        capsys=capsys,
+        pushurl="https://github.com/fork-owner/fork-repo.git",
+        calls=calls,
+    )
+    decision = json.loads(out)["hookSpecificOutput"]
+    assert decision["permissionDecision"] == "deny"
+    assert "fork-owner/fork-repo" in decision["permissionDecisionReason"], (
+        "the refusal names the fetch remote, so the gate asked GitHub about the wrong "
+        f"repository: {decision['permissionDecisionReason'][:200]}"
+    )
+
+
+def test_deleting_a_tag_is_not_a_release_push(monkeypatch, capsys):
+    """A deletion publishes nothing, and it is this gate's own recovery path.
+
+    The first thing anyone does after being stopped here is remove the
+    bad tag. Gating that on CI at the commit being removed refuses the
+    fix. Whether a published ref may be deleted at all is the kit gate's
+    call, not this one's.
+    """
+    hook = _load_hook()
+    for command in (
+        "git push origin :refs/tags/v0.7.0",
+        "git push --delete origin v0.7.0",
+    ):
+        monkeypatch.setattr(
+            sys, "stdin", io.StringIO(json.dumps({"tool_input": {"command": command}}))
+        )
+        with pytest.raises(SystemExit):
+            hook.main()
+        assert capsys.readouterr().out.strip() == "", command
+
+
+@pytest.mark.parametrize(
+    ("after", "tags", "expected"),
+    [
+        (["origin", "v0.7.0"], ["v0.7.0"], {"v0.7.0": "v0.7.0"}),
+        (["origin", "HEAD:refs/tags/v0.8.0"], ["v0.8.0"], {"v0.8.0": "HEAD"}),
+        (["origin", "abc123:refs/tags/v0.8.0"], ["v0.8.0"], {"v0.8.0": "abc123"}),
+    ],
+)
+def test_a_refspec_is_resolved_from_its_source_side(after, tags, expected):
+    """`HEAD:refs/tags/v0.8.0` publishes HEAD, not whatever v0.8.0 names here.
+
+    Resolving the destination name locally reads a different commit when
+    one exists under it and none when it does not: a false allow and a
+    false deny from one line.
+    """
+    hook = _load_hook()
+    assert hook.tag_targets(after, tags) == expected
+
+
+def test_the_hook_asks_git_about_the_source_side_of_a_refspec(monkeypatch, capsys):
+    """The helper above pinned in isolation is not the same as pinning its use.
+
+    That gap is exactly how the previous round's remote fix shipped
+    unfalsifiable, so this drives main() and watches which commit-ish
+    reaches git.
+    """
+    hook = _load_hook()
+    calls: list[tuple] = []
+    _drive(
+        hook,
+        monkeypatch,
+        "git push origin HEAD:refs/tags/v0.7.0",
+        answer=("ok", [{"name": "a", "status": "completed", "conclusion": "success"}]),
+        capsys=capsys,
+        calls=calls,
+    )
+    resolutions = [call for call in calls if call[0] == "rev-list"]
+    assert resolutions, f"the hook resolved no commit at all: {calls}"
+    assert resolutions[0][-1] == "HEAD", (
+        "the hook resolved the tag NAME rather than the refspec's source, so it read "
+        f"CI at whatever that name points to locally: {resolutions}"
+    )
+
+
+@pytest.mark.parametrize(
+    "payload",
+    ["[]", '"hello"', "null", '{"tool_input": "a string"}', '{"tool_input": null}'],
+)
+def test_a_malformed_payload_does_not_crash_the_hook(payload, monkeypatch, capsys):
+    """A hook that exits non-zero without a decision is a non-blocking error.
+
+    The command then proceeds, which is a fail-OPEN in a body headlined
+    fail closed. Four payload shapes reached that path.
+    """
+    hook = _load_hook()
+    monkeypatch.setattr(sys, "stdin", io.StringIO(payload))
+    with pytest.raises(SystemExit) as caught:
+        hook.main()
+    assert caught.value.code == 0, f"{payload} exited {caught.value.code}"
+    assert capsys.readouterr().out.strip() == ""
+
+
+def test_an_untokenizable_push_is_refused_rather_than_read_as_tagless(monkeypatch, capsys):
+    """The kit's fail-closed sentinel must not be read as this gate's allow.
+
+    `_find_git_push` returns no arguments when its tokenizer fails, and
+    its own comment calls that a push it could not confirm safe. Treating
+    that as "no tags, therefore fine" turns the other gate's refusal into
+    this one's permission.
+    """
+    hook = _load_hook()
+    monkeypatch.setattr(
+        sys,
+        "stdin",
+        io.StringIO(json.dumps({"tool_input": {"command": 'git push origin v0.7.0 && echo "x'}})),
+    )
+    with pytest.raises(SystemExit):
+        hook.main()
+    out = capsys.readouterr().out
+    assert out.strip(), "an untokenizable push was allowed silently"
+    assert "[wiring]" in json.loads(out)["hookSpecificOutput"]["permissionDecisionReason"]
+
+
+@pytest.mark.parametrize(
+    ("after", "expected"),
+    [
+        (["-o", "ci.skip", "origin", "v0.7.0"], "origin"),
+        (["--push-option", "ci.skip", "origin", "v0.7.0"], "origin"),
+        (["--force-with-lease", "refs/tags/v1", "origin", "v0.7.0"], "origin"),
+    ],
+)
+def test_an_option_value_is_not_mistaken_for_the_remote(after, expected):
+    """`-o ci.skip origin v0.7.0` read `ci.skip` as the remote.
+
+    It failed closed, but with advice pointing at `git remote -v`, which
+    is a false deny sending the reader somewhere useless.
+    """
+    hook = _load_hook()
+    assert hook.push_remote(after) == expected
+
+
+def test_push_follow_tags_configuration_is_refused(monkeypatch, capsys):
+    """The one uncovered route that needs no unusual operator behaviour.
+
+    With `push.followTags = true`, `git push origin main` publishes an
+    annotated tag with no tag token on the command line. The kit gate's
+    allowlist refuses blanket FLAGS and a config setting is not a flag,
+    so neither hook could scope it.
+    """
+    hook = _load_hook()
+    out = _drive(
+        hook,
+        monkeypatch,
+        "git push origin v0.7.0",
+        answer=("ok", []),
+        capsys=capsys,
+        follow_tags="true",
+    )
+    decision = json.loads(out)["hookSpecificOutput"]
+    assert decision["permissionDecision"] == "deny"
+    assert "[config]" in decision["permissionDecisionReason"]
+
+
+@pytest.mark.parametrize(
+    ("after", "expected"),
+    [
+        (['"origin"', "v0.7.0"], "origin"),
+        (["'upstream'", "v0.7.0"], "upstream"),
+    ],
+)
+def test_a_quoted_remote_name_is_unquoted(after, expected):
+    """The kit tokenizer unquotes and this did not, so the two disagreed.
+
+    It failed closed, denying with a remote name that included its
+    quotes, but disagreeing at all defeats the reason for borrowing the
+    tokenizer in the first place.
+    """
+    hook = _load_hook()
+    assert hook.push_remote(after) == expected
 
 
 def test_a_non_github_remote_is_refused_rather_than_guessed(monkeypatch, capsys):

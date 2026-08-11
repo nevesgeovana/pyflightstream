@@ -12,8 +12,11 @@ first machine to disagree was CI.
 THE FORBIDDEN SET IS DERIVED AND NEVER WRITTEN DOWN. It is the
 distributions of the extras pyproject declares, minus everything a CI job
 is guaranteed to install: the base dependencies, and the extras that
-EVERY install line of THIS package names. Rename an extra, add one, or
-change what a workflow installs, and this file follows with no edit.
+EVERY install line of THIS package names. Rename an extra or add one and
+this file follows with no edit. Change what a workflow installs and it
+follows too, but ``EXPECTED_GUARANTEED`` is a deliberate ratchet on that
+one input and must move with it: derivation tracks drift correctly and
+tracks SEVERITY not at all.
 
 Guaranteed means the intersection, deliberately, rather than equality
 across the install lines. One leg installs everything (that is the whole
@@ -21,21 +24,36 @@ point of ``test-all-extras``) without shrinking what the other legs
 prove. Requiring the lines to AGREE would make that leg impossible;
 requiring the intersection makes it free.
 
-Five companion assertions exist because the main one is negative, and a
-negative assertion is the shape that passes by measuring nothing. They
-fail if the derived set is empty, if no leg installs every extra, if the
-guaranteed set quietly widens, if the walk stops reaching the files it
-claims, or if a scanned surface is unparseable. None of them is
-decoration: a guard of this shape already shipped in this workspace with
-a flat ``glob`` where it needed ``rglob``, was green, and covered a
-fraction of what its name claimed (INC-20260809-2230-pyflightstream).
+The main assertion is negative, and a negative assertion is the shape
+that passes by measuring nothing, so companions fail it: if no install
+line is found at all, if one is found but not captured, if the derived
+set is empty, if no leg installs every extra, if the guaranteed set
+quietly widens, if the scanner stops finding a synthetic offender, if
+the import-root mapping stops resolving a renamed distribution, if the
+walk stops reaching the files it claims, if a scanned surface falls
+outside every partition member, or if a scanned surface is unparseable.
+No count is given, deliberately; it moved twice while this file was
+being written. None of them is decoration: a guard of this shape already
+shipped in this workspace with a flat ``glob`` where it needed
+``rglob``, was green, and covered a fraction of what its name claimed
+(INC-20260809-2230-pyflightstream).
 
 WHAT THIS DOES NOT REACH, stated so the coverage is not overread.
-``.claude/`` is outside the scan: those bodies are vendored or hook-owned
-and one of them is pinned by hash, so an optional import there is
-unguarded by this test. Neither are imports reached through a console
-script, an entry point, a pytest plugin, or ``import_module`` with a
-computed argument.
+``.claude/skills``, ``.claude/agents`` and ``.claude/worktrees`` are
+outside the scan, the last deliberately, since it holds whole checkouts
+of this repository that reviewer agents park there. ``.claude/hooks``
+and ``.claude/tools`` ARE scanned, because tier 1 loads those bodies by
+path; note that several of them are hash-pinned, so a finding there
+cannot be fixed here and belongs to the kit, which is the resolution
+this file commits to rather than weakening the scan. Also unreached: an
+import made through a console script, an entry point, a pytest plugin,
+or ``import_module`` with a computed argument.
+
+And the forbidden set is not identical on every leg. Import roots are
+resolved from installed metadata, so ``mpl_toolkits`` and ``pylab`` join
+it only where matplotlib is present. The guard is therefore slightly
+weaker on the lean legs, which are the ones it most protects; the
+degradation is to the bare distribution name rather than to nothing.
 """
 
 from __future__ import annotations
@@ -44,6 +62,7 @@ import ast
 import doctest
 import importlib.metadata
 import re
+import sys
 import textwrap
 import tomllib
 from pathlib import Path
@@ -71,10 +90,22 @@ SCAN_PARTITION = (*SCAN_ROOTS, "root", "markdown")
 #: Bracket-less matters: such a line installs no extras at all, and
 #: counting it is what keeps the intersection honest. Lines installing
 #: OTHER distributions (pip, build, twine) are deliberately not matched.
+#: The dist alternative must tolerate WHITESPACE, which the first draft
+#: did not: the wheel install reads
+#: `pip install "dist/${{ needs.build.outputs.wheel-name }}[dev,fsi,geom]"`
+#: and `\S` cannot cross the spaces inside the template expression. That
+#: line therefore matched nothing, so the derivation silently read six
+#: of the seven install lines, and the one it dropped belongs to the job
+#: that tests the built wheel. `test_every_package_install_line_is_captured`
+#: below is the companion that would have caught it.
 _PACKAGE_INSTALL = re.compile(
-    r"pip install\s+(?:--?\S+\s+)*(?:-e\s+)?[\"']?(?:\.|dist/\S*?\.whl|dist/\S*?\}\})"
+    r"pip install\s+(?:--?\S+\s+)*(?:-e\s+)?[\"']?(?:\.|dist/[^\"'\[\]]*?(?:\.whl|\}\}))"
     r"(?:\[([A-Za-z0-9_,\- ]*)\])?[\"']?"
 )
+
+#: A pip install line that names THIS package in any spelling, used only
+#: by the companion assertion that the matcher above misses none of them.
+_ANY_PACKAGE_INSTALL = re.compile(r"pip install[^\n]*?(?:-e\s+\.|\s\.\[|\s\.$|dist/)")
 
 #: A fenced python block in a markdown page. Built from chr() so this
 #: file contains no fence of its own to confuse a scan of itself.
@@ -106,6 +137,18 @@ _DYNAMIC = frozenset({"import_module", "__import__"})
 #: The extras every job is expected to install. A ratchet, not a
 #: derivation; see the test that reads it.
 EXPECTED_GUARANTEED = frozenset({"dev", "fsi", "geom"})
+
+#: And a ratchet on the scan itself. SCAN_PARTITION derives from
+#: SCAN_ROOTS, so narrowing the scan narrows its own coverage assertion
+#: in step and every test stays green: dropping five of the six trees,
+#: including the one the v0.7.0 defect lived in, was measured to be
+#: silent. Widening is safe and this fires on it anyway, because a tree
+#: joining the scan is a decision worth seeing in a diff.
+#: Written out rather than derived from SCAN_ROOTS, which would make it
+#: unfalsifiable. That was the first attempt.
+EXPECTED_SCAN_ROOTS = frozenset(
+    {"src", "tests", "examples", "scripts", ".claude/hooks", ".claude/tools"}
+)
 
 
 def _distribution_of(specifier: str) -> str:
@@ -217,6 +260,8 @@ def forbidden_import_roots() -> set[str]:
     unavailable = unavailable_distributions()
     roots = set(unavailable)
     for module, distributions in importlib.metadata.packages_distributions().items():
+        if module.startswith("_"):
+            continue  # __pycache__ and friends reach this mapping as noise
         if any(name.lower() in unavailable for name in distributions):
             roots.add(module.lower())
     return roots
@@ -328,12 +373,29 @@ def doctest_source(text: str) -> str:
     those doctests on every platform leg, so they are as real a surface
     as the module around them. This lifts them out so the same scan
     applies.
+
+    Raises
+    ------
+    ValueError
+        When the text holds a malformed doctest. Deliberately propagated
+        rather than swallowed: returning an empty string there hides the
+        file's real doctests from the scan and reports it clean, which is
+        the third way this file's negative assertion can measure nothing.
+    """
+    return "".join(example.source for example in doctest.DocTestParser().get_examples(text))
+
+
+def _doctest_source_unchecked(text: str) -> str:
+    """Recovery helper for a markdown fence, where a failure is expected.
+
+    A fence may legitimately hold prose. The caller decides what to do
+    with an empty result; only the python-file path treats a malformed
+    doctest as an error.
     """
     try:
-        examples = doctest.DocTestParser().get_examples(text)
+        return doctest_source(text)
     except ValueError:
         return ""
-    return "".join(example.source for example in examples)
 
 
 def python_surfaces() -> list[tuple[str, str]]:
@@ -365,7 +427,16 @@ def python_surfaces() -> list[tuple[str, str]]:
             try:
                 ast.parse(block)
             except SyntaxError:
-                block = doctest_source(block)
+                recovered = _doctest_source_unchecked(block)
+                # Substitute ONLY when the recovery found something. An
+                # empty substitution turns an unreadable block into a
+                # scanned surface with no content, which passes both the
+                # parse check and the import scan: the same "counted as
+                # scanned and silently discarded" defect this recovery
+                # was added to fix, narrowed rather than closed. Keeping
+                # the original makes it a failure instead.
+                if recovered.strip():
+                    block = recovered
             out.append((label, block))
     return out
 
@@ -386,6 +457,33 @@ def test_the_workflows_name_at_least_one_install_of_this_package():
         "no pip install of this package was found in .github/workflows, so what CI "
         "installs could not be derived and the scan below would forbid nothing. The "
         "regex or the workflow layout moved."
+    )
+
+
+def test_every_package_install_line_is_captured():
+    """Finding SOME install lines is not the same as finding all of them.
+
+    The first version of this file asserted only that the set was
+    non-empty, which ci.yml alone satisfies, and its matcher could not
+    cross the whitespace inside `${{ ... }}`. So the release job's wheel
+    install, a real CI environment lacking pypdf and matplotlib, was
+    invisible to the derivation: narrowing its bracket would not have
+    moved the guaranteed set and nothing would have gone red. An install
+    line the derivation cannot see makes its claim false in the
+    PERMISSIVE direction, which is the direction this file exists to
+    close.
+    """
+    captured = set(workflow_install_sets())
+    missed: list[str] = []
+    for path in sorted((REPO / ".github" / "workflows").glob("*.y*ml")):
+        lines = path.read_text(encoding="utf-8").splitlines()
+        for number, line in enumerate(lines, 1):
+            label = f"{path.name}:{number}"
+            if _ANY_PACKAGE_INSTALL.search(line) and label not in captured:
+                missed.append(f"{label}: {line.strip()}")
+    assert not missed, (
+        "these lines install this package and the derivation does not see them, so "
+        "what those jobs have installed is not counted:\n  " + "\n  ".join(missed)
     )
 
 
@@ -432,14 +530,35 @@ def test_the_guaranteed_set_has_not_quietly_widened():
     here would notice. The four platform legs are deliberately lean, and
     that intent is prose in ci.yml until this assertion holds it.
     """
-    assert guaranteed_extras() == set(EXPECTED_GUARANTEED), (
-        f"the extras every job installs are now {sorted(guaranteed_extras())}, not "
-        f"{sorted(EXPECTED_GUARANTEED)}. Widening this WEAKENS every assertion below, "
-        "because a guaranteed extra's distributions leave the forbidden set. If the "
-        "change is deliberate, move EXPECTED_GUARANTEED in the same commit and say "
-        "why; if it was made to silence skips, add a job that installs more instead "
-        "of widening the lean legs, which are the probe that the package works "
-        "without optional extras."
+    current = guaranteed_extras()
+    assert current == set(EXPECTED_GUARANTEED), (
+        f"the extras EVERY pip install line under .github/workflows names are now "
+        f"{sorted(current)}, not {sorted(EXPECTED_GUARANTEED)}.\n"
+        "WIDER weakens every assertion below, because a guaranteed extra's "
+        "distributions leave the forbidden set; if that was done to silence skips, "
+        "add a job that installs more instead of widening the lean legs, which are "
+        "the probe that the package works without optional extras.\n"
+        "NARROWER strengthens the scan and is usually right, but it also means a leg "
+        "stopped installing something, so check that was intended.\n"
+        "Either way, move EXPECTED_GUARANTEED in the same commit and say why."
+    )
+
+
+def test_the_scan_has_not_quietly_narrowed():
+    """The constant whose narrowing caused INC-20260809-2230, ratcheted.
+
+    ``SCAN_PARTITION`` derives from ``SCAN_ROOTS``, so shrinking the scan
+    shrinks the coverage assertion with it and the suite stays green.
+    Measured: narrowing to ``("src",)`` alone dropped five trees,
+    including ``tests/``, where the v0.7.0 defect actually lived, and
+    nothing went red.
+    """
+    assert set(SCAN_ROOTS) == set(EXPECTED_SCAN_ROOTS), (
+        f"the scanned trees are now {sorted(SCAN_ROOTS)}, not "
+        f"{sorted(EXPECTED_SCAN_ROOTS)}.\n"
+        "NARROWER means a tree stopped being checked and every assertion below "
+        "silently stopped covering it. WIDER is usually right and is still worth "
+        "seeing in a diff. Move EXPECTED_SCAN_ROOTS in the same commit and say why."
     )
 
 
@@ -478,27 +597,33 @@ def test_the_scanner_finds_what_it_is_looking_for():
     assert unguarded_imports("import numpy\n", forbidden) == []
 
 
-def test_the_import_root_mapping_can_see_a_renamed_distribution():
+def test_the_import_root_mapping_resolves_a_renamed_distribution(monkeypatch):
     """A distribution name is not an import name, and one here is not.
 
     The ``fsi`` extra installs PyNiteFEA and the code writes
     ``import Pynite``. Comparing import roots against distribution names
-    works today only because pypdf and matplotlib coincide. This asserts
-    the mapping that makes the guard survive an extra leaving the
-    guaranteed set, against real installed metadata rather than a
-    synthetic fixture.
+    works today only because pypdf and matplotlib coincide, and would
+    stop working silently the day another extra left the guaranteed set.
+
+    Drives ``forbidden_import_roots`` itself rather than asserting that
+    the ecosystem contains some renamed distribution somewhere: an
+    earlier version did the latter and would have stayed green if this
+    module stopped consulting the metadata at all.
     """
     mapping = importlib.metadata.packages_distributions()
     assert mapping, "importlib.metadata reported no installed distributions at all"
-    renamed = [
-        (module, names)
-        for module, names in mapping.items()
-        if all(module.lower() != name.lower() for name in names)
-    ]
-    assert renamed, (
-        "no installed distribution has an import name different from its distribution "
-        "name, so this environment cannot demonstrate the mapping the guard depends "
-        "on. Check that the dev and fsi extras are installed."
+    if not any(
+        "pynitefea" in [name.lower() for name in names] for names in mapping.values()
+    ):  # pragma: no cover - only where the fsi extra is absent
+        pytest.skip("PyNiteFEA is not installed, so the rename cannot be demonstrated")
+
+    monkeypatch.setattr(sys.modules[__name__], "unavailable_distributions", lambda: {"pynitefea"})
+    roots = forbidden_import_roots()
+    assert "pynite" in roots, (
+        "forbidden_import_roots did not resolve PyNiteFEA to its import name Pynite, "
+        f"returning {sorted(roots)}. Without the mapping the scan compares import "
+        "roots against distribution names and misses every distribution whose two "
+        "names differ."
     )
 
 
@@ -577,9 +702,10 @@ def test_every_scanned_surface_parses():
 def test_no_unguarded_import_of_a_distribution_ci_may_lack(part):
     """The assertion the v0.7.0 tag paid for.
 
-    Parametrized by partition rather than by file so the suite gains six
-    cases instead of a few hundred; the message names every offending
-    file and line, so the failure is no less precise.
+    Parametrized by partition rather than by file, so the suite gains one
+    case per partition member instead of one per scanned file; the
+    message names every offending file and line, so the failure is no
+    less precise.
     """
     forbidden = forbidden_import_roots()
     offenders: list[str] = []

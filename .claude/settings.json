@@ -14,7 +14,7 @@
             "type": "command",
             "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/ci_release_gate.py\"",
             "timeout": 90,
-            "statusMessage": "Checking CI is green at the tagged commit"
+            "statusMessage": "Checking the CI release gate"
           }
         ]
       }

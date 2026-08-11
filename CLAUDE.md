@@ -106,18 +106,27 @@ the commit its tag names has no concluded, successful CI result on the
 remote. Red, pending, absent and unreachable all deny, on the same
 reasoning as `COORD_INCIDENT_LEDGER` below: a guard that reads its own
 missing information as permission is not a guard. It leaves ordinary
-branch pushes alone. It exists because the v0.7.0 tag was published
-fifteen seconds after its branch with CI still running and red
+branch pushes alone, and a tag DELETION alone, a deletion publishing
+nothing. It exists because the v0.7.0 tag was published fifteen seconds
+after its branch with CI still running and red
 (INC-20260810-2140-shared), and the pinned gate above, measured against
 the live remote, allowed exactly that.
+
+It asks the remote through the `gh` CLI, so a fresh clone that has not
+run `gh auth login` is denied on every version-tag push with
+`[unreachable]` until it does. The deny text says so; it is written here
+too, because that is the fresh-clone trap this section spells out for
+every other variable.
 
 It is INTERIM. The rule belongs in the kit gate body, which is
 hash-pinned here and carries the identical hole in the sister library;
 this hook is deleted along with its wiring and its test in the same
 commit as the re-vendor that absorbs it
-(`PLN-20260810-2310-ci-tag-rule-belongs-to-the-kit`, and a tier-1 test
-goes red at that moment so the deletion is not a step anyone has to
-remember). Two hooks both run and either can deny, so the composition is
+(`PLN-20260810-2310-ci-tag-rule-belongs-to-the-kit`). A tier-1 test
+points at that deletion when the kit gate is re-vendored; read it as a
+pointer rather than as a promise, because it recognises the rule by the
+API this bridge happens to call, and the kit's own `ci_state.py` reaches
+the same question by a different route. Two hooks both run and either can deny, so the composition is
 strictly stronger than the pinned gate alone; note that this one does
 NOT refuse the blanket forms, and is safe only because the other one
 does.

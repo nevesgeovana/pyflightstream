@@ -22,9 +22,11 @@ works for a reader who installed it plainly. One CI leg,
 `test-all-extras`, installs everything instead, so the assertions gated
 behind those two execute somewhere.
 
-Locally the command above skips exactly one test, the pdf reader's
-layout check; add `,manual` if you are touching
+Locally the command above skips exactly one test FOR A MISSING EXTRA,
+the pdf reader's layout check; add `,manual` if you are touching
 `pyflightstream.utils.manual` or that assertion never runs for you.
+Other tests skip for reasons that have nothing to do with extras, so the
+suite's skip count is larger than one and that is expected.
 `plot` gates no assertion today and is in the all-extras leg so that the
 first one added is executed rather than skipped. Adding it changes
 nothing you can measure, because matplotlib is already installed

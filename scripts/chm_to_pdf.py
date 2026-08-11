@@ -233,11 +233,18 @@ def main() -> int:
         # someone who forgot an argument buries the one line they need
         # under four paragraphs about page geometry, and printing a
         # failure to stdout means a redirect swallows it.
+        # The install command is COMPOSED, not typed out. Writing it by
+        # hand here is the duplication pyflightstream.extras exists to
+        # end, and the first version of this usage text reintroduced it
+        # three lines below the accessor whose docstring says so.
+        remedy = missing_extra("manual", package="pypdf", purpose="reading a pdf").remedy
         print(
             "usage: chm_to_pdf.py <extracted-archive-dir> <out.pdf> [chrome.exe]\n"
-            "    pip install pyflightstream[manual]\n"
-            "    7z x -o<dir> <manual>.chm\n"
-            "    python scripts/chm_to_pdf.py <dir> <out>.pdf\n"
+            "    <extracted-archive-dir>  a .chm already unpacked, for example with "
+            "`7z x -o<dir> <manual>.chm`\n"
+            "    [chrome.exe]             a Chrome or Chromium binary, which this tool "
+            f"REQUIRES; defaults to {DEFAULT_CHROME}\n"
+            f"    the [manual] extra is needed too: {remedy}\n"
             "Why the conversion is done this way: read the docstring at the top of "
             "this file.",
             file=sys.stderr,

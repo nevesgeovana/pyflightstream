@@ -7,7 +7,7 @@ FlightStream versions.
 
 ## [Unreleased]
 
-## [0.7.0] - 2026-08-10
+## [0.7.0] - 2026-08-11
 
 **Eight builds, and every command every one of them documents.** A
 FlightStream build is registered, 26.122, and every command any of the
@@ -216,9 +216,16 @@ Both causes now carry a guard rather than a sentence:
 `tests/test_extras_isolation.py` refuses an unguarded import of any
 distribution a CI job may lack, `.claude/hooks/ci_release_gate.py`
 refuses a version-tag push while that commit's CI is red, pending,
-absent or unreachable, and a third CI leg, `test-all-extras`, installs
-all five declared extras so an assertion gated behind one is executed
-somewhere rather than skipped everywhere (INC-20260810-2140-shared).
+absent or unreachable, and a third guard, the `test-all-extras` CI leg,
+installs all five declared extras so an assertion gated behind one is
+executed somewhere rather than skipped everywhere
+(INC-20260810-2140-shared).
+
+One thing a reader comparing the tag to this section would otherwise
+have to infer: the `v0.7.0` tag was MOVED onto the corrected commit
+before publication. The first tag of that name published nothing, and
+what shipped as 0.7.0 is this tree rather than the one that tag
+originally pointed at.
 
 ### Known gaps
 
