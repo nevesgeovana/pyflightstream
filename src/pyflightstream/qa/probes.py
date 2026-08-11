@@ -78,16 +78,69 @@ DEFAULT_ERROR_PATTERNS: tuple[str, ...] = (
 )
 
 
+#: The solver's own refusal of a name it does not carry, measured on
+#: 26.122 (RPT-026). The crash log records a pipe-delimited record whose
+#: second field is ``Syntax`` and whose third quotes the offending
+#: token, and the same wording answers a real command absent from the
+#: build and a token that was never a command at all. The second field
+#: is what separates it from a SEMANTIC refusal, which reads
+#: ``Scripting`` with ``N/A`` in the token field and means the command
+#: exists and declined this call.
+_UNRECOGNISED_COMMAND = re.compile(
+    r"ERROR\s*\|\s*Syntax\s*\|\s*'(?P<command>[^']+)'\s*\|\s*Unrecognized command",
+    re.IGNORECASE,
+)
+
+
+def unrecognised_commands(log_text: str | None) -> frozenset[str]:
+    """Names the solver refused as unrecognised, from its crash log.
+
+    The refusal does NOT reach the exported log: the script aborts at
+    the offending line, so the log after the command never appears and
+    the only record is ``FlightStreamLog.txt``, which
+    :class:`~pyflightstream.run.ExecutionResult` carries as ``log_text``.
+
+    Parameters
+    ----------
+    log_text : str or None
+        Content of the solver's crash log; None when it wrote none,
+        which is the normal case for a run that completed.
+
+    Returns
+    -------
+    frozenset of str
+        Command names the solver did not recognise, upper-cased as the
+        script wrote them. Empty when the log is absent or names none.
+    """
+    if not log_text:
+        return frozenset()
+    return frozenset(
+        match.group("command").strip() for match in _UNRECOGNISED_COMMAND.finditer(log_text)
+    )
+
+
 class ProbeOutcome(enum.StrEnum):
     """Judgment of one probe.
 
-    ``verified`` and ``broken`` are promotable evidence; ``unprobed``
-    records why no judgment exists (no probe specification yet, not in
-    this run's subset, or an inconclusive execution such as a timeout).
+    ``verified``, ``broken`` and ``removed`` are promotable evidence;
+    ``unprobed`` records why no judgment exists (no probe specification
+    yet, not in this run's subset, or an inconclusive execution such as
+    a timeout).
+
+    ``broken`` and ``removed`` are not interchangeable and the
+    difference is the caller's, not the record keeper's. ``broken``
+    means the build CARRIES the command and it misbehaves against its
+    documentation, so the command stays in the version view with its
+    grammar and the emitter goes on offering it. ``removed`` means the
+    build does not carry it: the command leaves the view and the caller
+    gets a refusal naming the build. That is the difference between a
+    script that fails on the solver and a script that never gets
+    written.
     """
 
     VERIFIED = "verified"
     BROKEN = "broken"
+    REMOVED = "removed"
     UNPROBED = "unprobed"
 
 
@@ -1325,6 +1378,38 @@ def _judge(
             detail=(
                 f"probe timed out after {timeout_s:g} s and the process was killed; "
                 "inconclusive, rerun with a larger timeout or probe by hand"
+            ),
+            **common,
+        )
+    # Checked BEFORE the missing-sentinel branch and before the error
+    # scan, because both would answer this case with the wrong word. An
+    # unrecognised command aborts the script exactly as any other abort
+    # does, so the sentinel evidence cannot tell them apart, and the
+    # generic patterns already match "not recognized" and would return
+    # broken. The signal is the solver's own wording NAMING THIS
+    # COMMAND: a prelude line the build does not carry aborts the same
+    # script and says nothing about the target.
+    refused = unrecognised_commands(execution.log_text)
+    if spec.command in refused:
+        return ProbeResult(
+            outcome=ProbeOutcome.REMOVED,
+            detail=(
+                "the solver refused the name as an unrecognised command, so this build "
+                "does not carry it; measured, not read off an edition's silence"
+            ),
+            **common,
+        )
+    if refused:
+        # Something else in the script is not a command of this build.
+        # The target never ran, so it is unjudged rather than broken,
+        # and naming the offender is what makes the spec fixable.
+        return ProbeResult(
+            outcome=ProbeOutcome.UNPROBED,
+            detail=(
+                "the script aborted on a name this build does not carry ("
+                + ", ".join(sorted(refused))
+                + "), which is not the probed command; inconclusive until the probe "
+                "specification stops emitting it"
             ),
             **common,
         )

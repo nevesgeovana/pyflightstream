@@ -720,3 +720,141 @@ def test_commands_none_and_commands_empty_mean_opposite_things(tmp_path):
     # rows at all: there the result tuple really is empty.
     assert nothing.results, "a build with rows should still be listed as unprobed"
     assert nothing.solver_identity == everything.solver_identity
+
+
+# --- the removed outcome (PLN-20260809-0300) ---------------------------------
+#
+# A build that does not carry a command used to record BROKEN, which is
+# a different claim: broken keeps the command in the version view with
+# its grammar, so the emitter goes on offering a line the solver
+# rejects. The wording below is MEASURED (RPT-026), not invented, and so
+# is the negative control: the solver answers a semantic refusal in the
+# same pipe-delimited shape with a different second field.
+
+_UNRECOGNISED_LOG = (
+    "FlightStream version 26.1, build #8092026\n"
+    " \n"
+    "ERROR | Syntax | 'SET_JET_WAKE_FILAMENTS_GRID_INDUCTION' | Unrecognized command in "
+    r"script 'C:\runs\script.txt' at line 5 | Check command spelling and syntax."
+    "\n"
+    " \n"
+    r"ERROR | Scripting | N/A | Error in script 'C:\runs\script.txt' at line 5: "
+    "'SET_JET_WAKE_FILAMENTS_GRID_INDUCTION' | Review command syntax and arguments.\n"
+)
+
+_SEMANTIC_REFUSAL_LOG = (
+    "FlightStream version 26.1, build #8092026\n"
+    " \n"
+    "ERROR | Scripting | N/A | Start time cannot be set for rotary motion. | Review "
+    "script input and command sequence.\n"
+    " \n"
+    r"ERROR | Scripting | N/A | Error in script 'C:\runs\script.txt' at line 10: "
+    "'SET_MOTION_START_TIME 1 0.05' | Review command syntax and arguments.\n"
+)
+
+
+def test_the_unrecognised_reader_finds_the_measured_wording():
+    from pyflightstream.qa.probes import unrecognised_commands
+
+    assert unrecognised_commands(_UNRECOGNISED_LOG) == frozenset(
+        {"SET_JET_WAKE_FILAMENTS_GRID_INDUCTION"}
+    )
+    assert unrecognised_commands(None) == frozenset()
+    assert unrecognised_commands("") == frozenset()
+
+
+def test_a_semantic_refusal_is_not_read_as_an_absent_command():
+    """The negative control, and it is real solver output rather than a fixture idea.
+
+    SET_MOTION_START_TIME against a rotary motion aborts the script and
+    writes a crash log, exactly as an absent command does. Reading that
+    as removed would drop a working command out of the version view for
+    every caller on the build. The second field is what separates them:
+    Syntax names the token it did not recognise, Scripting carries N/A
+    and a sentence about the call.
+    """
+    from pyflightstream.qa.probes import unrecognised_commands
+
+    assert unrecognised_commands(_SEMANTIC_REFUSAL_LOG) == frozenset()
+
+
+def _aborted(tmp_path, log_text: str):
+    """Artifacts of a run that aborted at the target: no log after it."""
+    from pyflightstream.qa.probes import ProbeArtifacts
+    from pyflightstream.run import ExecutionResult
+
+    return ProbeArtifacts(
+        workdir=tmp_path,
+        log_before="B_SET_JET_WAKE_FILAMENTS_GRID_INDUCTION",
+        log_after=None,
+        begin_marker="B_SET_JET_WAKE_FILAMENTS_GRID_INDUCTION",
+        end_marker="E_SET_JET_WAKE_FILAMENTS_GRID_INDUCTION",
+        execution=ExecutionResult(
+            return_code=0,
+            wall_time_s=0.9,
+            timed_out=False,
+            log_text=log_text,
+            stdout="",
+            stderr="",
+        ),
+    )
+
+
+def _judge_one(command: str, artifacts):
+    from pyflightstream.qa.probes import DEFAULT_ERROR_PATTERNS, ProbeSpec, _judge
+
+    spec = ProbeSpec(
+        command=command,
+        build_target=lambda script, workdir: None,
+        assert_effect=lambda artifacts: True,
+        effect_note="not reached: every case below aborts before the effect is read",
+    )
+    return _judge(spec, artifacts, DEFAULT_ERROR_PATTERNS, "sha", 60.0)
+
+
+def test_a_build_that_refuses_the_name_records_removed_not_broken(tmp_path):
+    """The defect this outcome exists for, pinned.
+
+    Same signals as any other abort: the log before the command exists,
+    the one after it never appeared. What distinguishes it is the
+    solver's own wording naming THIS command, which is why the crash log
+    is read at all: the refusal never reaches the exported log, because
+    the script stops at the offending line.
+    """
+    from pyflightstream.qa.probes import ProbeOutcome
+
+    result = _judge_one(
+        "SET_JET_WAKE_FILAMENTS_GRID_INDUCTION", _aborted(tmp_path, _UNRECOGNISED_LOG)
+    )
+    assert result.outcome is ProbeOutcome.REMOVED
+    assert "does not carry it" in result.detail
+
+
+def test_an_abort_on_someone_elses_missing_command_is_unprobed(tmp_path):
+    """A prelude line the build lacks aborts the same script.
+
+    The target never ran, so it is unjudged. Recording it removed would
+    delete a command from the version view on the strength of a
+    different command's absence, and recording it broken is the defect
+    this whole outcome replaces. Naming the offender is what makes the
+    probe specification fixable.
+    """
+    from pyflightstream.qa.probes import ProbeOutcome
+
+    result = _judge_one("SET_SOLVER_ITERATIONS", _aborted(tmp_path, _UNRECOGNISED_LOG))
+    assert result.outcome is ProbeOutcome.UNPROBED
+    assert "SET_JET_WAKE_FILAMENTS_GRID_INDUCTION" in result.detail
+
+
+def test_an_abort_with_no_crash_log_is_still_broken(tmp_path):
+    """The outcome the new branch must not swallow.
+
+    NEW_OFF_BODY_STREAMLINE on 26.122 aborted with return code
+    3221225477, an access violation, and wrote no crash log at all. The
+    command is carried by the build and it crashes the solver, which is
+    broken in the strongest sense.
+    """
+    from pyflightstream.qa.probes import ProbeOutcome
+
+    result = _judge_one("NEW_OFF_BODY_STREAMLINE", _aborted(tmp_path, None))
+    assert result.outcome is ProbeOutcome.BROKEN

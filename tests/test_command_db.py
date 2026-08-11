@@ -678,6 +678,76 @@ def test_every_citation_records_the_status_the_record_claims() -> None:
     )
 
 
+def test_no_citation_is_contradicted_by_newer_evidence() -> None:
+    """The fourth of the family, and the one that closes the SCOPE note above.
+
+    The sibling compares a record to the report it CITES. That is the
+    wrong question once two reports disagree, because after a revert the
+    record cites the older report and agrees with it perfectly: the
+    citation names the right build, the status equals that report's
+    outcome, and every guard in this family stays green. The question
+    this one asks is whether a LATER run has since said something else.
+
+    MEASURED, which is what makes the row real rather than theoretical.
+    ``NEW_SURFACE_SECTION_DISTRIBUTION`` at 26.120 is ``broken`` in the
+    2026-07-21 report and ``verified`` in the 2026-07-23 re-probe.
+    Handing the older report back to ``pyfs-qa apply-compat``, the only
+    write path invariant 3 sanctions, reverted the record with evidence
+    and nothing objected. A reverted status makes the emitter refuse a
+    command that works.
+
+    WHY THIS IS NOT "the citation must be the newest report", which is
+    what ``PLN-20260804-1500`` asked for. Measured on the corpus of
+    2026-08-11: 137 pairs are judged by more than one report and exactly
+    ONE of them disagrees, while four rows cite a full run that a later
+    ``--identity-only`` run of the same build also judges, because the
+    baseline probe exercises ``PRINT``. The strict rule paints those
+    four red while nothing is wrong with them, and a guard red on a
+    correct database is a guard that gets switched off. Agreement is not
+    supersession.
+    """
+    from pyflightstream.qa.compat import compat_corpus, contradicting_evidence
+
+    corpus = compat_corpus(REPO_ROOT / "reports" / "compat", repo_root=REPO_ROOT)
+    assert corpus, (
+        "the committed compat corpus indexed no promotable judgment at all; this guard "
+        "would pass vacuously, so the corpus reader is what to fix"
+    )
+
+    registry = CommandRegistry.load()
+    population = _records_with_a_citation(registry)
+    offenders = []
+    checked = 0
+    for name, canonical, record in population:
+        judgments = corpus.get((name, canonical), ())
+        cited = next((j for j in judgments if j.report == record.report), None)
+        if cited is None:
+            # The sibling guard owns "cites a report that never probed
+            # it"; duplicating its complaint here would report one
+            # defect twice and blame this walk for the other's finding.
+            continue
+        checked += 1
+        contradicting = contradicting_evidence(
+            corpus, name, canonical, record.status.value, cited.date, cited.report
+        )
+        if contradicting:
+            offenders.append(
+                f"{name} at {canonical} is recorded {record.status.value} citing "
+                f"{cited.report} ({cited.date}), and "
+                + ", ".join(f"{j.report} ({j.date}) records {j.outcome}" for j in contradicting)
+                + ". The cited report is superseded, so this row states an outcome a "
+                "later run already moved. Re-run pyfs-qa apply-compat on the newest "
+                "report, or re-probe if the older reading is the right one"
+            )
+
+    assert not offenders, "\n  " + "\n  ".join(sorted(offenders))
+    assert checked >= 130, (
+        f"the walk reached {checked} of {len(population)} citing records against the "
+        "corpus; a database that stopped resolving would pass this guard by reaching "
+        "nothing, which is the failure mode the floor exists for"
+    )
+
+
 def test_every_report_a_note_cites_names_the_command_it_is_attached_to() -> None:
     """A note may not attribute one command's evidence to another.
 

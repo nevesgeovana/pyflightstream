@@ -1271,13 +1271,22 @@ _spec(
 
 _MOTION_PRELUDE = _emit("CREATE_NEW_MOTION", "ROTARY")
 
+#: One setter of this family cannot be probed on a rotary motion.
+#: Measured on 26.122: SET_MOTION_START_TIME against the shared rotary
+#: prelude aborts the script with the solver's own refusal, "Start time
+#: cannot be set for rotary motion", and the harness recorded the
+#: command BROKEN, which would have made the emitter refuse a command
+#: that works. The refusal is about the motion type, so the probe
+#: creates the type that accepts it (RPT-026).
+_SIXDOF_PRELUDE = _emit("CREATE_NEW_MOTION", "6DOF")
 
-def _motion_setter(command: str, *args: object, note: str) -> None:
+
+def _motion_setter(command: str, *args: object, note: str, prelude: object = None) -> None:
     _spec(
         command=command,
         build_target=_emit(command, *args),
         requires=Requires.SIM,
-        prelude=_MOTION_PRELUDE,
+        prelude=_MOTION_PRELUDE if prelude is None else prelude,
         assert_effect=_unobservable,
         effect_note=note,
     )
@@ -1326,6 +1335,7 @@ _motion_setter(
     1,
     0.05,
     note="the motion start time is stored in binary form; no instrument yet",
+    prelude=_SIXDOF_PRELUDE,
 )
 _motion_setter(
     "SET_MOTION_ROTOR_AXIS",

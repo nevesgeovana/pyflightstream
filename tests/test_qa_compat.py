@@ -99,7 +99,10 @@ def test_report_pair_round_trips(tmp_path):
     assert yaml_path.name == "CMP-26120_2026-07-21.yaml"
     report = read_compat_report(yaml_path)
     assert report["fs_version"] == "26.120"
-    assert report["summary"] == {"verified": 1, "broken": 1, "unprobed": 1}
+    # One key per outcome, derived from the enum rather than listed, so
+    # a new outcome appears in every report instead of being dropped by
+    # a hardcoded triple. `removed` joined at PLN-20260809-0300.
+    assert report["summary"] == {"verified": 1, "broken": 1, "removed": 0, "unprobed": 1}
     assert report["commands"]["PRINT"]["signals"]["effect"] is True
     assert report["commands"]["PRINT"]["wall_time_s"] == 0.05
     markdown = md_path.read_text(encoding="utf-8")
@@ -538,3 +541,280 @@ def test_a_promotion_that_contradicts_a_measured_removal_is_refused(tmp_path):
     )
     with pytest.raises(QaEvidenceError, match="One of the two measurements is wrong"):
         apply_compat(report_path, repo_root=tmp_path, commands_dir=commands_dir)
+
+
+# --------------------------------------------------------------------------
+# Supersession (PLN-20260804-1500): re-applying an older report must not
+# silently revert a status a later run already moved.
+# --------------------------------------------------------------------------
+
+
+def write_dated_report(tmp_path, commands, *, date, label="", version="26.120"):
+    """Write one report carrying a date, the field supersession orders by."""
+    report_dir = tmp_path / "reports" / "compat"
+    report_dir.mkdir(parents=True, exist_ok=True)
+    stem = f"CMP-{version.replace('.', '')}_{date}" + (f"_{label}" if label else "")
+    path = report_dir / f"{stem}.yaml"
+    path.write_text(
+        yaml.safe_dump(
+            {
+                "schema": COMPAT_SCHEMA,
+                "fs_version": version,
+                "date": date,
+                "commands": commands,
+            }
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
+def test_re_applying_a_superseded_report_is_refused(tmp_path):
+    """The measured case, in fixture form, and the reason this row exists.
+
+    `NEW_SURFACE_SECTION_DISTRIBUTION` at 26.120 is broken in the
+    2026-07-21 report and verified in the 2026-07-23 re-probe. Before
+    this guard, handing the older report back to the ONLY sanctioned
+    write path reverted the record to broken, wrote a citation that
+    agreed with itself, and left the whole guard family green: the
+    citation named the right build, the status equalled that report's
+    outcome, and the note guard saw nothing. A reverted status makes the
+    emitter refuse a command that works.
+    """
+    from pyflightstream.qa.errors import QaEvidenceError
+
+    commands_dir = tmp_path / "commands"
+    write_chapter_fixture(commands_dir)
+    older = write_dated_report(
+        tmp_path, {"PRINT": {"outcome": "broken", "detail": "no effect"}}, date="2026-07-21"
+    )
+    newer = write_dated_report(
+        tmp_path, {"PRINT": {"outcome": "verified", "detail": "effect observed"}}, date="2026-07-23"
+    )
+
+    apply_compat(newer, repo_root=tmp_path, commands_dir=commands_dir)
+    text = (commands_dir / "script_controls.yaml").read_text(encoding="utf-8")
+    assert "status: verified" in text
+
+    with pytest.raises(QaEvidenceError, match="superseded evidence"):
+        apply_compat(older, repo_root=tmp_path, commands_dir=commands_dir)
+
+    assert (commands_dir / "script_controls.yaml").read_text(encoding="utf-8") == text, (
+        "the refusal must write nothing at all; a partly applied report is a worse "
+        "state than either applying it or refusing it"
+    )
+
+
+def test_a_newer_report_that_agrees_does_not_block_the_older_one(tmp_path):
+    """Agreement never supersedes, and this shape is real, not invented.
+
+    Measured on the committed corpus: four rows cite a full run while a
+    later `--identity-only` run of the same build ALSO judges PRINT,
+    because the baseline probe exercises it. The plan behind this guard
+    asked for the strictly newest report to be the cited one, which
+    would paint those four red while nothing is wrong with them. A
+    guard red on a correct database is a guard that gets switched off.
+    """
+    commands_dir = tmp_path / "commands"
+    write_chapter_fixture(commands_dir)
+    older = write_dated_report(
+        tmp_path, {"PRINT": {"outcome": "verified", "detail": "full run"}}, date="2026-08-08"
+    )
+    write_dated_report(
+        tmp_path,
+        {"PRINT": {"outcome": "verified", "detail": "baseline of the identity run"}},
+        date="2026-08-09",
+        label="identity",
+    )
+
+    promotions = apply_compat(older, repo_root=tmp_path, commands_dir=commands_dir)
+    assert promotions == [("PRINT", "verified", "script_controls.yaml")]
+
+
+def test_two_reports_of_one_day_that_disagree_are_refused(tmp_path):
+    """A tie resolved silently by file order is the failure, not the tie.
+
+    Same-date reports that AGREE are fine and the corpus has had them.
+    Two of one day that disagree carry no ordering at all, so promoting
+    either one is a coin flip wearing a citation.
+    """
+    from pyflightstream.qa.errors import QaEvidenceError
+
+    commands_dir = tmp_path / "commands"
+    write_chapter_fixture(commands_dir)
+    first = write_dated_report(
+        tmp_path, {"PRINT": {"outcome": "broken", "detail": "morning"}}, date="2026-08-08"
+    )
+    write_dated_report(
+        tmp_path,
+        {"PRINT": {"outcome": "verified", "detail": "afternoon"}},
+        date="2026-08-08",
+        label="second",
+    )
+    with pytest.raises(QaEvidenceError, match="superseded evidence"):
+        apply_compat(first, repo_root=tmp_path, commands_dir=commands_dir)
+
+
+def test_an_undated_report_never_supersedes_a_dated_one(tmp_path):
+    """A report that cannot show it is newer is treated as not newer.
+
+    Every report the harness writes carries a date, so an undated one is
+    hand made. It still gets CHECKED against the corpus; what it cannot
+    do is unseat a dated judgment by sorting ahead of it.
+    """
+    from pyflightstream.qa.errors import QaEvidenceError
+
+    commands_dir = tmp_path / "commands"
+    write_chapter_fixture(commands_dir)
+    dated = write_dated_report(
+        tmp_path, {"PRINT": {"outcome": "verified", "detail": "measured"}}, date="2026-08-08"
+    )
+    apply_compat(dated, repo_root=tmp_path, commands_dir=commands_dir)
+
+    undated = write_report(tmp_path, {"PRINT": {"outcome": "broken", "detail": "hand made"}})
+    with pytest.raises(QaEvidenceError, match="superseded evidence"):
+        apply_compat(undated, repo_root=tmp_path, commands_dir=commands_dir)
+
+
+def test_the_corpus_index_skips_files_that_are_not_reports(tmp_path):
+    """A README beside the reports must not stop a promotion."""
+    from pyflightstream.qa.compat import compat_corpus
+
+    report_dir = tmp_path / "reports" / "compat"
+    report_dir.mkdir(parents=True)
+    (report_dir / "notes.yaml").write_text("just: data\n", encoding="utf-8")
+    write_dated_report(
+        tmp_path, {"PRINT": {"outcome": "verified", "detail": "measured"}}, date="2026-08-08"
+    )
+    corpus = compat_corpus(report_dir, repo_root=tmp_path)
+    assert list(corpus) == [("PRINT", "26.120")]
+    assert corpus[("PRINT", "26.120")][0].date == "2026-08-08"
+
+
+def test_an_absent_corpus_directory_is_the_first_report_case(tmp_path):
+    """The first report of a fresh checkout has nothing to be checked against."""
+    from pyflightstream.qa.compat import compat_corpus
+
+    assert compat_corpus(tmp_path / "nowhere", repo_root=tmp_path) == {}
+
+
+# --------------------------------------------------------------------------
+# The removed outcome (PLN-20260809-0300) reaching the database.
+# --------------------------------------------------------------------------
+
+REMOVAL_FIXTURE = """\
+# Chapter: fixture for removed promotions.
+
+PRINT:
+  layout: inline
+  phase: control
+  args:
+    - name: message
+      type: str
+  manual_ref: "SRC-003 p.281"
+  versions:
+    "26.120": {status: documented}
+
+STOP:
+  layout: bare
+  phase: control
+  args: []
+  manual_ref: "SRC-003 p.281"
+  versions:
+    "26.120": {status: documented, note: "SRC-741 p.358, this edition's own grammar"}
+
+RUN_SCRIPT:
+  layout: param_lines
+  phase: control
+  args:
+    - name: script_path
+      type: path
+  manual_ref: "SRC-003 p.281"
+  versions:
+    "26.120": {status: documented, note: "carried", args: [{name: script_path, type: path}]}
+"""
+
+
+def _removal_chapter(tmp_path):
+    commands_dir = tmp_path / "commands"
+    commands_dir.mkdir()
+    (commands_dir / "script_controls.yaml").write_text(REMOVAL_FIXTURE, encoding="utf-8")
+    (commands_dir / "_meta.yaml").write_text(META_FIXTURE, encoding="utf-8")
+    return commands_dir
+
+
+def test_a_measured_removal_is_promoted_with_the_note_the_model_requires(tmp_path):
+    """Removed is promotable evidence now, and it cannot be written bare.
+
+    The model refuses a removed row without a note, because the status
+    alone cannot say which of the three ways it arrived: an edition
+    states the withdrawal, an edition stops printing the command, or a
+    probe measures the solver refusing it. The probe detail says it was
+    measured, and the report citation is what makes that checkable.
+    """
+    commands_dir = _removal_chapter(tmp_path)
+    report_path = write_dated_report(
+        tmp_path,
+        {
+            "PRINT": {
+                "outcome": "removed",
+                "detail": "the solver refused the name as an unrecognised command",
+            }
+        },
+        date="2026-08-11",
+    )
+    promotions = apply_compat(report_path, repo_root=tmp_path, commands_dir=commands_dir)
+    assert promotions == [("PRINT", "removed", "script_controls.yaml")]
+
+    row = yaml.safe_load((commands_dir / "script_controls.yaml").read_text(encoding="utf-8"))
+    promoted = row["PRINT"]["versions"]["26.120"]
+    assert promoted["status"] == "removed"
+    assert promoted["report"].endswith(".yaml")
+    assert "unrecognised command" in promoted["note"]
+    # The row must load, which is the real assertion: the model's own
+    # rules for removed are stricter than any of the ones above.
+    CommandEntry(name="PRINT", chapter="script_controls", **row["PRINT"])
+
+
+def test_a_removal_over_an_edition_that_documents_the_command_is_refused(tmp_path):
+    """The manual says yes and the solver says no, and neither is mechanical.
+
+    The solver's wording is IDENTICAL for a command the build does not
+    carry and for a token that was never a command (measured, RPT-026),
+    so a probe emitting a misspelling looks exactly like a withdrawal.
+    Against a row carrying that edition's page citation, promoting would
+    either record a manual defect or hide a spec defect, and choosing is
+    a person's call.
+    """
+    from pyflightstream.qa.errors import QaEvidenceError
+
+    commands_dir = _removal_chapter(tmp_path)
+    report_path = write_dated_report(
+        tmp_path,
+        {"STOP": {"outcome": "removed", "detail": "the solver refused the name"}},
+        date="2026-08-11",
+    )
+    with pytest.raises(QaEvidenceError, match="manual defect"):
+        apply_compat(report_path, repo_root=tmp_path, commands_dir=commands_dir)
+
+
+def test_a_removal_over_a_per_version_grammar_is_refused(tmp_path):
+    """A removed version has no grammar to emit, so the two cannot coexist.
+
+    Without this the promotion writes the row and `_validate_chapter`
+    rejects it afterwards, which leaves the chapter file MUTATED by a
+    run that then raised. Refusing before the write is the difference
+    between a refusal and a corruption.
+    """
+    from pyflightstream.qa.errors import QaEvidenceError
+
+    commands_dir = _removal_chapter(tmp_path)
+    before = (commands_dir / "script_controls.yaml").read_text(encoding="utf-8")
+    report_path = write_dated_report(
+        tmp_path,
+        {"RUN_SCRIPT": {"outcome": "removed", "detail": "the solver refused the name"}},
+        date="2026-08-11",
+    )
+    with pytest.raises(QaEvidenceError, match="no grammar to emit"):
+        apply_compat(report_path, repo_root=tmp_path, commands_dir=commands_dir)
+    assert (commands_dir / "script_controls.yaml").read_text(encoding="utf-8") == before

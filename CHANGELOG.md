@@ -7,6 +7,58 @@ FlightStream versions.
 
 ## [Unreleased]
 
+**26.122 answers for 84 commands, and the rotor morphing defect is
+fixed.** The newest build was `operational` purely by inheritance from
+26.120 with nothing measured on it; a Tier 2 run now promotes 84
+statuses and a Tier 3 run passes 10 of 10 metrics against the drift
+bands. Separately, the FlightStream defect RPT-007 recorded on 26.120,
+where an imposed FSIDisp deformation was silently dropped for a
+boundary attached to a rotary motion definition, is measured fixed in
+26.122 and NOT fixed in 26.121 (RPT-025). Two-way rotor FSI is
+unblocked.
+
+### API surface delta
+
+New public names: `pyflightstream.qa.probes.ProbeOutcome.REMOVED`,
+`pyflightstream.qa.probes.unrecognised_commands`,
+`pyflightstream.qa.compat.compat_corpus`,
+`pyflightstream.qa.compat.contradicting_evidence`,
+`pyflightstream.qa.compat.Judgment` and
+`pyflightstream.qa.compat.PROMOTABLE_OUTCOMES`. One new keyword
+argument: `corpus_dir` on `apply_compat`. Incompatible changes: none.
+Deprecations: none.
+
+### Added
+
+- `ProbeOutcome.REMOVED`, promotable like any other outcome. A build
+  that does not carry a command used to record `broken`, which is a
+  different claim: `broken` keeps the command in the version view with
+  its grammar, so the emitter went on offering a line the solver
+  rejects. The signal is the solver's own refusal naming that command,
+  measured rather than paraphrased (RPT-026), read from the crash log
+  the harness had never opened.
+- A supersession check in `apply_compat`. Re-running the sanctioned
+  write path on an older report used to revert a status a later run had
+  already moved, with a citation that agreed with itself and every
+  guard green (`PLN-20260804-1500`). A tier 1 guard asserts the same
+  invariant over the committed database.
+
+### Changed
+
+- A compat report's `summary` now carries one key per outcome, derived
+  from the enum, so `removed` appears beside the other three. Readers
+  keying on the old three names are unaffected.
+- An abort caused by a command OTHER than the probed one now records
+  `unprobed` naming the offender, where it previously recorded the
+  probed command `broken`.
+
+### Fixed
+
+- The probe specification for `SET_MOTION_START_TIME` created a rotary
+  motion, which that command refuses by design, so 26.122 recorded it
+  `broken` and the emitter would have refused a working command for
+  every caller on the build.
+
 ## [0.7.0] - 2026-08-11
 
 **Eight builds, and every command every one of them documents.** A

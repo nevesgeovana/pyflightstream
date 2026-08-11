@@ -16,6 +16,7 @@ from __future__ import annotations
 import datetime
 import json
 import re
+from dataclasses import dataclass
 from importlib import resources
 from pathlib import Path
 
@@ -131,7 +132,7 @@ def _render_markdown(run: ProbeRun, date: str, counts: dict[str, int]) -> str:
         "",
         "## Summary",
         "",
-        f"{counts['verified']} verified, {counts['broken']} broken, {counts['unprobed']} unprobed.",
+        ", ".join(f"{count} {name}" for name, count in counts.items()) + ".",
         "",
         "## Evidence per command",
         "",
@@ -172,11 +173,160 @@ def read_compat_report(path: str | Path) -> dict:
     return document
 
 
+#: Outcomes ``apply_compat`` writes into the database. Only these carry
+#: a judgment, so only these can supersede one: ``unprobed`` records why
+#: no judgment exists and must never invalidate a citation, or every
+#: identity run would unseat the full run before it.
+PROMOTABLE_OUTCOMES = frozenset(
+    {ProbeOutcome.VERIFIED.value, ProbeOutcome.BROKEN.value, ProbeOutcome.REMOVED.value}
+)
+
+#: A per-edition manual page citation, as the database writes one. Used
+#: to recognise a row that an EDITION documents, which a measured
+#: removal contradicts rather than supersedes.
+_EDITION_PAGE = re.compile(r"SRC-\d+\s+pp?\.", re.IGNORECASE)
+
+
+@dataclass(frozen=True)
+class Judgment:
+    """One report's promotable judgment of one command in one build.
+
+    Attributes
+    ----------
+    command : str
+        Database command name.
+    fs_version : str
+        Canonical FlightStream identifier the report probed.
+    outcome : str
+        ``verified`` or ``broken``; see :data:`PROMOTABLE_OUTCOMES`.
+    date : str
+        The report's ISO date, or the empty string when it carries
+        none. ISO dates order lexicographically, which is what makes
+        the comparison below a plain string comparison.
+    report : str
+        Repository-relative POSIX path of the report, the same form
+        the database cites.
+    """
+
+    command: str
+    fs_version: str
+    outcome: str
+    date: str
+    report: str
+
+
+def compat_corpus(
+    corpus_dir: str | Path, *, repo_root: str | Path = "."
+) -> dict[tuple[str, str], tuple[Judgment, ...]]:
+    """Index every promotable judgment in a directory of compat reports.
+
+    Files that do not carry the compat schema are skipped rather than
+    refused: the directory is committed evidence, not a curated input,
+    and a README beside the reports must not stop a promotion.
+
+    Parameters
+    ----------
+    corpus_dir : str or Path
+        Directory of compat report YAML files, normally
+        ``reports/compat/``.
+    repo_root : str or Path
+        Repository root; report paths are recorded relative to it, in
+        POSIX form, so they compare directly against the ``report``
+        field of a database row.
+
+    Returns
+    -------
+    dict
+        ``(command, fs_version)`` to the judgments of that pair, oldest
+        first. A pair no report judges promotably is absent.
+    """
+    corpus_dir = Path(corpus_dir)
+    root = Path(repo_root).resolve()
+    index: dict[tuple[str, str], list[Judgment]] = {}
+    if not corpus_dir.is_dir():
+        return {}
+    for path in sorted(corpus_dir.glob("*.yaml")):
+        document = yaml.safe_load(path.read_text(encoding="utf-8"))
+        if not isinstance(document, dict) or document.get("schema") != COMPAT_SCHEMA:
+            continue
+        try:
+            citation = path.resolve().relative_to(root).as_posix()
+        except ValueError:
+            citation = path.resolve().as_posix()
+        version = str(document.get("fs_version", ""))
+        date = str(document.get("date") or "")
+        for command, body in (document.get("commands") or {}).items():
+            outcome = body.get("outcome")
+            if outcome in PROMOTABLE_OUTCOMES:
+                index.setdefault((command, version), []).append(
+                    Judgment(command, version, outcome, date, citation)
+                )
+    return {key: tuple(sorted(value, key=lambda j: j.date)) for key, value in index.items()}
+
+
+def contradicting_evidence(
+    corpus: dict[tuple[str, str], tuple[Judgment, ...]],
+    command: str,
+    fs_version: str,
+    outcome: str,
+    date: str,
+    report: str,
+) -> tuple[Judgment, ...]:
+    """Judgments that supersede ``outcome`` for one pair.
+
+    A judgment supersedes when it is at least as recent AND records a
+    DIFFERENT outcome. Both halves are deliberate.
+
+    Agreement never supersedes. The plan behind this guard
+    (``PLN-20260804-1500``) asked for the strictly newest report to be
+    the cited one, and measurement of the corpus refuted that as the
+    rule to enforce: four rows cite a full run while a later
+    ``--identity-only`` run of the same build also judges ``PRINT``,
+    because the baseline probe exercises it. Nothing is wrong with
+    those four rows, and a guard red on a correct database is a guard
+    that gets switched off. What the plan actually measured, and what
+    this catches, is a report REVERTING a status another report
+    already moved.
+
+    Same-date is included because two reports of one day that disagree
+    are ambiguous, and an ambiguity resolved silently by file order is
+    the failure this whole function exists to prevent. A report with no
+    date sorts oldest and so can never supersede a dated one: a report
+    that cannot show it is newer is treated as not newer.
+
+    Parameters
+    ----------
+    corpus : dict
+        Index from :func:`compat_corpus`.
+    command, fs_version : str
+        The pair being written.
+    outcome : str
+        The outcome the incoming report records for the pair.
+    date : str
+        The incoming report's ISO date, empty when it carries none.
+    report : str
+        The incoming report's own citation, excluded from the answer so
+        a report never supersedes itself.
+
+    Returns
+    -------
+    tuple of Judgment
+        Superseding judgments, oldest first; empty when nothing
+        contradicts the incoming one.
+    """
+    return tuple(
+        judgment
+        for judgment in corpus.get((command, fs_version), ())
+        if judgment.report != report and judgment.date >= date and judgment.outcome != outcome
+    )
+
+
 def apply_compat(
     report_path: str | Path,
     *,
     repo_root: str | Path = ".",
     commands_dir: str | Path | None = None,
+    corpus_dir: str | Path | None = None,
 ) -> list[tuple[str, str, str]]:
     """Promote database statuses from a committed compat report.
 
@@ -202,6 +352,15 @@ def apply_compat(
         Chapter YAML directory; defaults to the installed
         ``pyflightstream.commands`` package data (the working tree in
         an editable install). Tests point it at a copy.
+    corpus_dir : str or Path, optional
+        Directory of committed compat reports the incoming one is
+        checked against for supersession; defaults to
+        ``<repo_root>/reports/compat``. It is anchored on the
+        repository rather than on the report's own folder so that
+        applying a report written to a scratch directory is still
+        checked against the committed evidence. A directory that does
+        not exist yields an empty corpus, which is the first-report
+        case.
 
     Returns
     -------
@@ -210,10 +369,14 @@ def apply_compat(
 
     Raises
     ------
-    ValueError
-        When the report is not a compat report, when a judged command
-        or its version line cannot be found, or when a rewritten entry
-        fails schema validation.
+    QaEvidenceError
+        When the report is not a compat report, when it names an
+        unregistered version, when a judged command or its version
+        line cannot be found, when a rewritten entry fails schema
+        validation, or when a report at least as recent already
+        records a different outcome for a pair this one would write
+        (``PLN-20260804-1500``). Nothing is written in any of these
+        cases.
     """
     report = read_compat_report(report_path)
     canonical = report["fs_version"]
@@ -234,8 +397,42 @@ def apply_compat(
     targets = {
         name: body
         for name, body in report["commands"].items()
-        if body["outcome"] in (ProbeOutcome.VERIFIED.value, ProbeOutcome.BROKEN.value)
+        if body["outcome"] in PROMOTABLE_OUTCOMES
     }
+
+    # Supersession, checked for the WHOLE report before a byte is
+    # written. Per-command refusal would leave the database half
+    # promoted from a report the tool has already judged unfit, which
+    # is a worse state than either applying it or refusing it.
+    if corpus_dir is None:
+        corpus_dir = Path(repo_root) / "reports" / "compat"
+    corpus = compat_corpus(corpus_dir, repo_root=repo_root)
+    incoming_date = str(report.get("date") or "")
+    superseded = [
+        (name, body["outcome"], contradicting)
+        for name, body in targets.items()
+        if (
+            contradicting := contradicting_evidence(
+                corpus, name, canonical, body["outcome"], incoming_date, citation
+            )
+        )
+    ]
+    if superseded:
+        detail = "; ".join(
+            f"{name} would be written {outcome} from a report dated "
+            f"{incoming_date or 'nothing'}, but "
+            + ", ".join(f"{j.report} ({j.date}) records {j.outcome}" for j in contradicting)
+            for name, outcome, contradicting in sorted(superseded)
+        )
+        raise QaEvidenceError(
+            f"{report_path} is superseded evidence for {len(superseded)} of the "
+            f"{len(targets)} commands it judges, and nothing was written. Re-applying it "
+            "would revert a status that a later run already moved, with a citation that "
+            "agrees with itself and every guard green, which is why this is refused "
+            f"rather than warned about. {detail}. Promote from the newest run, or, if "
+            "the older reading is the right one, re-probe and let a new report say so"
+        )
+
     promotions: list[tuple[str, str, str]] = []
     pending = dict(targets)
     for chapter_path in sorted(commands_dir.glob("*.yaml")):
@@ -425,13 +622,43 @@ def _rewritten_flow_entry(
             "and edit the row deliberately"
         )
 
+    if status == ProbeOutcome.REMOVED.value:
+        # The edition documents the command and the solver refuses the
+        # name. One of the two is wrong about the product and neither
+        # can be picked mechanically: the manual defect classes this
+        # repository already records include an edition printing a
+        # command the build does not carry, and so does a probe script
+        # misspelling one, and the solver's wording is IDENTICAL for a
+        # real absent command and a token that was never a command
+        # (RPT-026).
+        note = str(existing.get("note") or "")
+        if _EDITION_PAGE.search(note):
+            raise QaEvidenceError(
+                f"{chapter}: {name} records {canonical!r} with a page citation of that "
+                f"edition ({note[:80]!r}), and this run measured the solver refusing "
+                "the name. An edition documenting a command the build does not carry "
+                "is a manual defect and a probe emitting a misspelling is a spec "
+                "defect, and the solver says the same thing in both cases. Read the "
+                "page and the probe script, then edit the row deliberately"
+            )
+        if existing.get("args") is not None:
+            raise QaEvidenceError(
+                f"{chapter}: {name} declares a per-version argument grammar for "
+                f"{canonical!r}, and a removed version has no grammar to emit. "
+                "Promoting would write a row the loader refuses. Decide whether the "
+                "override or the measurement is wrong before promoting"
+            )
+
     # The keys this promotion OWNS are rendered exactly as they were
     # before this function existed, because the shape of a promoted line
     # is pinned by tests and by the whole database's worth of precedent. Only the
     # carried-through keys are new output, and they go after.
     owned = {"status", "report"}
     fields = f'status: {status}, report: "{citation}"'
-    if status == ProbeOutcome.BROKEN.value:
+    if status in (ProbeOutcome.BROKEN.value, ProbeOutcome.REMOVED.value):
+        # A removed row REQUIRES a note (the model refuses one without),
+        # because the status alone cannot say which of the three ways it
+        # arrived; the probe detail says it was measured.
         fields += f', note: "{_one_line_note(str(body.get("detail", "")))}"'
         owned.add("note")
     carried = ", ".join(
@@ -505,7 +732,7 @@ def _rewrite_version_line(
 
     status = body["outcome"]
     fields = f'status: {status}, report: "{citation}"'
-    if status == ProbeOutcome.BROKEN.value:
+    if status in (ProbeOutcome.BROKEN.value, ProbeOutcome.REMOVED.value):
         fields += f', note: "{_one_line_note(str(body.get("detail", "")))}"'
 
     recorded = [
