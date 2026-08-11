@@ -1,12 +1,23 @@
 # RPT-026: what the solver says when it refuses a name (2026-08-11)
 
 `PLN-20260809-0300` asks for a `removed` probe outcome recognised from
-"the solver's own unrecognised-command wording". The repository did not
-hold that wording. RPT-021 records the 26.121 build answering
-`SET_JET_WAKE_FILAMENTS_GRID_INDUCTION` with "an unrecognised command
-error naming the line", which is a paraphrase, and probe logs are local
-scratch. A detection pattern written from that sentence would have been
-invented.
+"the solver's own unrecognised-command wording".
+
+THE PREMISE THAT JUSTIFIED SPENDING A LICENSED SEAT WAS WRONG, and it is
+corrected here rather than left standing, because the same mistake
+shaped the detector. The search for that wording stopped at RPT-021,
+which paraphrases it ("an unrecognised command error naming the line")
+and cites no string; probe logs are local scratch, so the conclusion
+drawn was that the repository did not hold the wording at all. It did.
+`reports/RPT-012_bulk-separation-spelling_2026-07-23.md` had recorded
+it since 2026-07-23, quoted field and all, and had it been read the
+whole-line shape would have been known before the run rather than
+after it.
+
+The measurement below is still worth having: it is on the build being
+registered, it carries a control RPT-012 does not, and it settled the
+NUL question. But it is a confirmation of committed evidence, not a
+first sighting.
 
 This report is the measurement, taken on 26.122 build #8092026, plus
 three findings that came out of taking it.
@@ -33,15 +44,19 @@ naming the same line.
 THE THIRD FIELD IS THE WHOLE LINE, NOT THE COMMAND, and the three arms
 above could not show it: each spliced a target with no arguments, so
 the two readings coincide. The detector was written against a bare
-token on the strength of that, and 49 of the 87 probe specifications
-emit an argument-bearing target line, which would have made every
-removal among them fall through to the wrong branch. A fourth arm,
-emitting `SET_JET_WAKE_FILAMENTS_GRID_INDUCTION ENABLE`, records
-`'SET_JET_WAKE_FILAMENTS_GRID_INDUCTION ENABLE'` in that field. This
-repository's own RPT-012 had recorded the same shape since 2026-07-23
-(`'CREARE_BULK_SEPARATION sep1 -1 0.5'`), so the evidence to get this
-right was committed before the measurement was taken and the reading
-was not checked against it.
+token on the strength of that. A fourth arm, emitting
+`SET_JET_WAKE_FILAMENTS_GRID_INDUCTION ENABLE`, records
+`'SET_JET_WAKE_FILAMENTS_GRID_INDUCTION ENABLE'` in that field, and
+RPT-012 had recorded the same shape since 2026-07-23
+(`'CREARE_BULK_SEPARATION sep1 -1 0.5'`).
+
+The population that would have been missed, measured on the catalog
+rather than estimated: 109 probe specifications exist, and of the 87
+whose target line renders in isolation, 49 carry arguments on that
+line. The remaining 22 need prelude state before they render at all and
+were not measured this way. Two different readings of this number were
+offered during review, 49 of 87 and 71 of 109; both are wrong, and the
+denominator 87 is the renderable subset rather than the catalog.
 
 The crash log also carries stray NUL bytes, 12 in the measured run. It
 is the one log of this pipeline that the harness reads without the

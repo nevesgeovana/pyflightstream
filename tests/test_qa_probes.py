@@ -770,7 +770,7 @@ def test_a_semantic_refusal_is_not_read_as_an_absent_command():
     writes a crash log, exactly as an absent command does. Reading that
     as removed would drop a working command out of the version view for
     every caller on the build. The second field is what separates them:
-    Syntax names the token it did not recognise, Scripting carries N/A
+    Syntax quotes the line it did not recognise, Scripting carries N/A
     and a sentence about the call.
     """
     from pyflightstream.qa.probes import unrecognised_commands
@@ -847,9 +847,10 @@ def test_an_abort_on_someone_elses_missing_command_is_unprobed(tmp_path):
 
 
 #: The shape the harness ACTUALLY produces, and the one RPT-026's first
-#: arm did not. 49 of the 87 probe specifications emit a target line
-#: carrying arguments; measured on 26.122, the solver quotes the whole
-#: line, so a detector keyed on a bare token missed every one of them.
+#: arm did not. The catalog holds 109 specifications; of the 87 whose
+#: target line renders in isolation, 49 carry arguments on that line.
+#: Measured on 26.122, the solver quotes the whole line, so a detector
+#: keyed on a bare token missed every one of them.
 _UNRECOGNISED_LOG_WITH_ARGUMENT = (
     "FlightStream version 26.1, build #8092026\n"
     " \n"
@@ -865,9 +866,9 @@ def test_the_reader_takes_the_command_out_of_a_line_that_carries_arguments():
     The solver's Syntax field quotes the WHOLE SCRIPT LINE. RPT-026's
     first arm spliced a target with no arguments, which made the two
     shapes indistinguishable, and the detector was written against a
-    bare token. For the 49 specifications that emit arguments the
-    removal then fell through to the wrong branch, under a detail
-    asserting the offender was not the probed command when it was.
+    bare token. For the 49 argument-bearing specifications the removal
+    then fell through to the wrong branch, under a detail asserting the
+    offender was not the probed command when it was.
     """
     from pyflightstream.qa.probes import unrecognised_commands
 
@@ -967,3 +968,170 @@ def test_an_abort_with_no_crash_log_is_still_broken(tmp_path):
 
     result = _judge_one("NEW_OFF_BODY_STREAMLINE", _aborted(tmp_path, None))
     assert result.outcome is ProbeOutcome.BROKEN
+
+
+#: A record on the SAME channel that must NOT be read as a refusal.
+#: Committed evidence, not invented: RPT-012 recorded it on 26.101 and
+#: the command it names RAN. Three of the pattern's four discriminators
+#: (the ERROR level, the quoting of the third field, and the phrase
+#: itself) had no negative control until this fixture; widening any of
+#: them turns a successful run into an irreversible `removed`.
+_UNEXPECTED_ARGUMENT_LOG = (
+    "FlightStream version 26.1, build #5012026\n"
+    " \n"
+    "WARNING | Syntax | INITIALIZE_SOLVER | Unexpected argument "
+    "CREATE_BULK_SEPARATION | Review command syntax and arguments.\n"
+)
+
+
+def test_an_unexpected_argument_warning_is_not_a_refusal():
+    """The discriminators the semantic-refusal control does not reach.
+
+    That control is a `Scripting` record, so it only ever exercised the
+    second field. This one is `Syntax` like a real refusal, carries an
+    unquoted third field and a different phrase, and above all it is a
+    WARNING for a command that ran.
+    """
+    from pyflightstream.qa.probes import unrecognised_commands
+
+    assert unrecognised_commands(_UNEXPECTED_ARGUMENT_LOG) == frozenset()
+
+
+def test_a_lower_case_echo_still_matches_the_probed_command():
+    """`re.IGNORECASE` and the upper-casing are a matched pair.
+
+    The flag deliberately admits a mixed-case echo; without the
+    normalisation `spec.command in refused` would then miss and the
+    removal would be reported as another command's absence.
+    """
+    from pyflightstream.qa.probes import unrecognised_commands
+
+    lowered = _UNRECOGNISED_LOG_WITH_ARGUMENT.replace(
+        "SET_JET_WAKE_FILAMENTS_GRID_INDUCTION ENABLE",
+        "set_jet_wake_filaments_grid_induction enable",
+    )
+    assert unrecognised_commands(lowered) == frozenset({"SET_JET_WAKE_FILAMENTS_GRID_INDUCTION"})
+
+
+def test_a_halting_spec_whose_prelude_hits_an_absent_command_is_unprobed(tmp_path):
+    """The half of the halting guard the first test did not reach.
+
+    `_judge_halt` reads log-before-present and log-after-absent as
+    SUCCESS, which is exactly the signature an abort in the PRELUDE
+    leaves. Narrowing the guard to the target-refused case survives
+    every other test in this file, and the surviving mutant promotes
+    `verified` for a command that never ran.
+    """
+    from pyflightstream.qa.probes import DEFAULT_ERROR_PATTERNS, ProbeOutcome, ProbeSpec, _judge
+
+    spec = ProbeSpec(
+        command="STOP",
+        build_target=lambda script, workdir: None,
+        expects_halt=True,
+        effect_note="script processing halts",
+    )
+    log = _UNRECOGNISED_LOG_WITH_ARGUMENT.replace(
+        "SET_JET_WAKE_FILAMENTS_GRID_INDUCTION ENABLE", "SET_MOTION_ROTOR_RPM 1 4567.8"
+    )
+    result = _judge(spec, _aborted(tmp_path, log), DEFAULT_ERROR_PATTERNS, "sha", 60.0)
+    assert result.outcome is ProbeOutcome.UNPROBED
+    assert "SET_MOTION_ROTOR_RPM" in result.detail
+
+
+def test_a_timed_out_run_whose_log_names_the_command_still_records_removal(tmp_path):
+    """Which way the timeout guard leans, stated so it cannot drift.
+
+    A refusal aborts the script, so a process that ALSO hung is telling
+    us two things and the refusal is the specific one. The alternative
+    reading, that a timeout makes everything inconclusive, would lose a
+    genuine removal whenever the hidden solver idles; the guard leans
+    the other way deliberately.
+    """
+    from pyflightstream.qa.probes import ProbeArtifacts, ProbeOutcome
+    from pyflightstream.run import ExecutionResult
+
+    artifacts = ProbeArtifacts(
+        workdir=tmp_path,
+        log_before="B",
+        log_after=None,
+        begin_marker="B",
+        end_marker="E",
+        execution=ExecutionResult(
+            return_code=None,
+            wall_time_s=60.0,
+            timed_out=True,
+            log_text=_UNRECOGNISED_LOG_WITH_ARGUMENT,
+            stdout="",
+            stderr="",
+        ),
+    )
+    result = _judge_one("SET_JET_WAKE_FILAMENTS_GRID_INDUCTION", artifacts)
+    assert result.outcome is ProbeOutcome.REMOVED
+
+
+def test_the_shared_motion_prelude_stays_rotary_for_the_rotor_setters():
+    """The family default, not only the setter that diverged from it.
+
+    Six setters ride the shared prelude and two of them exist for
+    rotary motion alone, so flipping the shared prelude to 6DOF would
+    record those broken: the same defect this change repaired for
+    SET_MOTION_START_TIME, in the opposite direction.
+    """
+    from pathlib import Path as _Path
+
+    from pyflightstream.qa.specs import PROBE_SPECS
+    from pyflightstream.script import Script
+
+    expected = {
+        "SET_MOTION_ROTOR_RPM": "CREATE_NEW_MOTION ROTARY",
+        "SET_MOTION_ROTOR_AXIS": "CREATE_NEW_MOTION ROTARY",
+        "SET_MOTION_BOUNDARIES": "CREATE_NEW_MOTION ROTARY",
+        "SET_MOTION_START_TIME": "CREATE_NEW_MOTION 6DOF",
+    }
+    for command, line in expected.items():
+        script = Script(version="26.122")
+        PROBE_SPECS[command].prelude(script, _Path("."))
+        assert script.render().splitlines() == [line], command
+
+
+# One-axis variants of the measured record above. CONSTRUCTED, not
+# measured, and labelled so: each differs from a genuine refusal in
+# EXACTLY ONE of the pattern's discriminators, which is what makes it
+# able to kill a mutation of that discriminator alone. The measured
+# RPT-012 record differs in two at once, so it proves the conjunction
+# and no single field; that is why it let two mutants live.
+_WARNING_LEVEL_REFUSAL = (
+    "WARNING | Syntax | 'SET_JET_WAKE_FILAMENTS_GRID_INDUCTION ENABLE' | Unrecognized "
+    "command in script 'C:/runs/script.txt' at line 5 | Check command spelling.\n"
+)
+_UNQUOTED_FIELD_REFUSAL = (
+    "ERROR | Syntax | SET_JET_WAKE_FILAMENTS_GRID_INDUCTION ENABLE | Unrecognized "
+    "command in script 'C:/runs/script.txt' at line 5 | Check command spelling.\n"
+)
+_QUOTED_UNEXPECTED_ARGUMENT = (
+    "ERROR | Syntax | 'INITIALIZE_SOLVER CREATE_BULK_SEPARATION' | Unexpected argument "
+    "CREATE_BULK_SEPARATION | Review command syntax and arguments.\n"
+)
+
+
+@pytest.mark.parametrize(
+    ("label", "log"),
+    [
+        ("the level is not ERROR", _WARNING_LEVEL_REFUSAL),
+        ("the offending field is not quoted", _UNQUOTED_FIELD_REFUSAL),
+        ("the phrase is not Unrecognized command", _QUOTED_UNEXPECTED_ARGUMENT),
+    ],
+)
+def test_each_discriminator_alone_keeps_a_record_out_of_the_refusal_set(label, log):
+    """Every discriminator carries weight, one at a time.
+
+    A removal is irreversible: the command leaves the version view, so
+    it cannot be re-probed by the ordinary path. A pattern that widens
+    by one field therefore turns some class of successful run into a
+    permanent deletion, and the class differs per field. Nothing here
+    should be read as a measurement; these are minimal variants built
+    to make each field falsifiable on its own.
+    """
+    from pyflightstream.qa.probes import unrecognised_commands
+
+    assert unrecognised_commands(log) == frozenset(), label

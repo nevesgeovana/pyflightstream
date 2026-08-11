@@ -760,7 +760,13 @@ def test_no_citation_is_contradicted_by_newer_evidence() -> None:
         checked += 1
         contradicting = contradicting_evidence(
             corpus,
-            Judgment(name, canonical, record.status.value, cited.date, cited.report),
+            incoming=Judgment(
+                command=name,
+                fs_version=canonical,
+                outcome=record.status.value,
+                date=cited.date,
+                report=cited.report,
+            ),
         )
         if contradicting:
             offenders.append(
@@ -1706,8 +1712,10 @@ def test_every_narrative_citation_names_a_report_that_exists():
     # and reporting green, and a guard is not allowed to pass by having
     # nothing to check.
     assert cited, (
-        "no removed row carries a probe_ref; this guard walks nothing. When the harness "
-        "gains a removed outcome the field goes away and this goes with it, deliberately"
+        "no removed row carries a probe_ref; this guard walks nothing. THE HARNESS "
+        "GAINED THE OUTCOME ON 2026-08-11 AND THE FIELD STAYED: it holds the removals "
+        "recorded before that, a finite set. Delete this guard when that set empties "
+        "and not before, and re-read PLN-20260809-0300 first"
     )
     missing = [
         f"{name} on {version} cites {row.probe_ref}"
@@ -1791,8 +1799,10 @@ def test_no_consumer_of_a_version_row_citation_prints_the_claim_without_it():
         if record.probe_ref
     )
     assert cited, (
-        "no version row carries a probe_ref; this guard walks nothing. Delete it with "
-        "the field when the harness gains a removed outcome, do not leave it green"
+        "no version row carries a probe_ref; this guard walks nothing. The harness "
+        "gained a removed outcome on 2026-08-11 and the field stayed for the rows "
+        "written before it; delete this guard when those rows are re-probed away, and "
+        "do not leave it green"
     )
 
     rendered = "\n".join(markdown_reference_pages().values())

@@ -534,8 +534,9 @@ _STATUS_LEGEND: tuple[tuple[str, str, str], ...] = (
         "script aborted at the command, the log carried an error inside the "
         "probe's own region, or the command ran and changed nothing. A command "
         "that runs but does nothing is broken, not verified. A build that does "
-        "not carry the command at all also lands here, because the harness has "
-        "no `removed` outcome to write.",
+        "not carry the command lands in `removed` when the probe reads the "
+        "solver's refusal of the name; it still lands here when the build "
+        "refuses without writing that record, as an access violation does.",
         "REFUSED, with BrokenCommandError. Waivable per command with "
         "Script.allow_broken(name, reason=...), which needs a reason because "
         "the waiver, the report it overrides and the first line it covers are "

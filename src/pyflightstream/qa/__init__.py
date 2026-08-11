@@ -24,6 +24,7 @@ from pyflightstream.qa.compat import (
     read_compat_report,
     write_compat_report,
 )
+from pyflightstream.qa.errors import QaEvidenceError
 from pyflightstream.qa.probes import (
     DEFAULT_ERROR_PATTERNS,
     ProbeArtifacts,
@@ -76,5 +77,3 @@ __all__ = [
     "unrecognised_commands",
     "write_compat_report",
 ]
-
-from pyflightstream.qa.errors import QaEvidenceError  # noqa: E402,F401

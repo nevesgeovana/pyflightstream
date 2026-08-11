@@ -21,7 +21,11 @@ from pathlib import Path
 
 from pyflightstream.commands import CommandRegistry
 from pyflightstream.options import get_option
-from pyflightstream.qa.compat import apply_compat, write_compat_report
+from pyflightstream.qa.compat import (
+    PROMOTABLE_OUTCOMES,
+    apply_compat,
+    write_compat_report,
+)
 from pyflightstream.qa.drift import run_drift, write_drift_report
 from pyflightstream.qa.errors import QaEvidenceError
 from pyflightstream.qa.physics import (
@@ -461,9 +465,13 @@ def _cmd_apply_compat(args: argparse.Namespace) -> int:
         print(f"nothing promoted: {error}", file=sys.stderr)
         return 2
     if not promotions:
+        promotable = ", ".join(sorted(str(o) for o in PROMOTABLE_OUTCOMES))
         print(
-            "the report judges no promotable outcome (verified, broken or removed); "
-            "nothing promoted"
+            f"nothing promoted: the report judges no promotable outcome ({promotable}). "
+            "Every command in it is unprobed, which records why no judgment exists: no "
+            "probe specification, not in this run's subset, or an inconclusive "
+            "execution. Add a probe specification for the commands you need judged and "
+            "re-run pyfs-qa probe"
         )
         return 0
     for name, status, chapter in promotions:

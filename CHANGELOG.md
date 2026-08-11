@@ -11,29 +11,32 @@ FlightStream versions.
 fixed.** The newest build was `operational` purely by inheritance from
 26.120 with nothing measured on it; a Tier 2 run now promotes 84
 statuses and a Tier 3 run passes 30 of 30 metrics against the drift
-bands. Separately, the FlightStream defect RPT-007 recorded on 26.120,
+bands (`reports/physics/PHY-26122_2026-08-11_rotor.yaml`). Separately, the FlightStream defect RPT-007 recorded on 26.120,
 where an imposed FSIDisp deformation was silently dropped for a
 boundary attached to a rotary motion definition, is measured fixed in
 26.122 and NOT fixed in 26.121 (RPT-025). Two-way rotor FSI is
-unblocked.
+unblocked on 26.122 and still NOT VALIDATED: that report says an
+imposed deformation reaches the mesh, not that the morphing is
+correct, and no coupled acceptance run has been made against a build
+where it applies.
 
 Read the Tier 3 pass with its scope. The first run covered PHY-01 and
 PHY-02, both static rigid wings, which look at nothing the build was
 measured to have changed; `PHY-05` and `PHY-06` were pinned to 26.120
 for a reason that never covered later builds, and they are widened here
-and run, which is where 20 of the 30 metrics come from. The rotor case
-reproducing its 26.120 reference is consistent with RPT-025 rather than
-independent of it: all three builds give byte-identical RIGID
-coefficients, and PHY-05 is a rigid case.
+and run, which is where 20 of the 30 metrics come from. And read the pass itself
+precisely: all thirty metrics reproduce the 26.120-seeded references to
+the last stored digit, float artefacts included, which demonstrates
+ABSENCE OF DRIFT and not sensitivity to what this build changed. RPT-025
+remains the only discriminating measurement, and its own finding that
+all three builds give byte-identical rigid coefficients is why a rigid
+matrix could not have discriminated.
 
 ### API surface delta
 
-New public names: `pyflightstream.qa.probes.ProbeOutcome.REMOVED`,
-`pyflightstream.qa.probes.unrecognised_commands`,
-`pyflightstream.qa.compat.compat_corpus`,
-`pyflightstream.qa.compat.contradicting_evidence`,
-`pyflightstream.qa.compat.Judgment` and
-`pyflightstream.qa.compat.PROMOTABLE_OUTCOMES`. One new keyword
+New public names, all reachable from `pyflightstream.qa`:
+`ProbeOutcome.REMOVED`, `unrecognised_commands`, `compat_corpus`,
+`contradicting_evidence`, `Judgment` and `PROMOTABLE_OUTCOMES`. One new keyword
 argument: `corpus_dir` on `apply_compat`. Incompatible changes: none.
 Deprecations: none.
 
@@ -41,9 +44,13 @@ Deprecations: none.
 
 - `ProbeOutcome.REMOVED`, promotable like any other outcome. A build
   that does not carry a command used to record `broken`, which is a
-  different claim: `broken` keeps the command in the version view with
-  its grammar, so the emitter went on offering a line the solver
-  rejects. The signal is the solver's own refusal naming that command,
+  different claim. Both refuse at build time, so the difference is
+  WHICH refusal: `broken` keeps the command in the version view and
+  raises `BrokenCommandError`, whose message says the solver accepts
+  the line and would return numbers nothing marks as wrong, and which
+  `allow_broken` waives. Both halves are false for a build that does
+  not carry the command, and a waiver would emit a line the solver
+  rejects outright. The signal is the solver's own refusal naming that command,
   measured rather than paraphrased (RPT-026), read from the crash log
   the harness had never opened.
 - A supersession check in `apply_compat`. Re-running the sanctioned

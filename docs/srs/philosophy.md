@@ -16,8 +16,9 @@ measurement.
   number; manual text is never reproduced.
 - A command's per-version status is promoted to `verified`, `broken`
   or a measured `removed` only by a committed probe report from a
-  licensed machine. No status
-  is ever hand-edited.
+  licensed machine. No status that rests on a run is ever hand-edited;
+  the two document-derived `removed` provenances are hand-written rows
+  carrying a note and a page, and no run supports them.
 - Documented and verified are distinct statuses because the manual and
   the solver disagree in practice; the database records both truths.
 - Defaults are facts: a recorded default value carries its evidence

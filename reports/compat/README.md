@@ -6,4 +6,6 @@ removed or unprobed, with pointers to the evidence. Re-applying a
 report that a later run has contradicted is refused, so an older report
 cannot revert a status. Command database statuses are
 promoted only from these reports, never hand-edited (CLAUDE.md
-invariant 3). First report arrives at milestone M3.
+invariant 3). Reports are named `CMP-<version digits>_<date>[_label]`
+and are never overwritten; the newest promotable one per pair is what
+the database cites, and re-applying an older one is refused.

@@ -82,9 +82,10 @@ that evolution.
 Every database entry carries exactly one piece of evidence: the manual
 page that documents the command, or, for the few the solver accepts and
 no manual edition describes, a committed probe report measuring that it
-does. Its status per version (documented, verified, broken, removed)
-can only be promoted by citing a committed probe report from a licensed
-machine.
+does. Every status that rests on a RUN (verified, broken, and a
+removed the solver refused) can only be promoted by citing a committed
+probe report from a licensed machine; a removed read off an edition is
+a hand-written row carrying a note and a page.
 Nothing is guessed; the honest gaps are reported as such.
 
 ## What ships
@@ -174,7 +175,7 @@ the evidence rather than declared:
 | 26.101 | 26.1 | `operational` | The May 2026 build. Commands drafted from the manual with page citations, with the first harness promotions on 2026-08-08, which also carried it to the level where the minimal end-to-end workflow builds. It sits at a hotfix index and does NOT inherit from 26.100: the two are separate vendor releases under one name |
 | 26.120 | 26.12 | `operational` | Probe evidence from a licensed machine, and the minimal end-to-end workflow builds |
 | 26.121 | 26.12 | `operational` | Hotfix build 1. It inherits the 26.120 records except where a probe on this build overrode them; the compatibility matrix marks every inherited cell and counts them |
-| 26.122 | 26.12 | `operational` | Hotfix build 2, vendor build 8092026, registered 2026-08-10 the day after it was issued. Its manual documents the largest command surface of the eight editions, 372 against 364 for the one before it. Measured on 2026-08-11: 84 commands probed on this build (83 verified, 1 broken) and the Tier 3 matrix passing 30 of 30 metrics. The rest of its record is still inherited from 26.120 and the matrix marks every inherited cell. The run refuted the inheritance once, on `AIR_ALTITUDE`, which is broken on the base releases and works here |
+| 26.122 | 26.12 | `operational` | Hotfix build 2, vendor build 8092026, registered 2026-08-10 the day after it was issued. Its manual documents the largest command surface of the eight editions, 372 against 364 for the one before it. Measured on 2026-08-11: 84 commands probed on this build (83 verified, 1 broken) and the Tier 3 matrix passing 30 of 30 metrics (`reports/physics/PHY-26122_2026-08-11_rotor.yaml`). The rest of its record is still inherited from 26.120 and the matrix marks every inherited cell. The run refuted the inheritance once, on `AIR_ALTITUDE`, which is broken on the base releases and works here |
 
 ```python
 import pyflightstream

@@ -901,7 +901,7 @@ def test_a_report_outside_the_repository_is_refused_by_name(tmp_path):
     commands_dir = tmp_path / "commands"
     write_chapter_fixture(commands_dir)
     outside = tmp_path.parent / f"{tmp_path.name}_outside"
-    outside.mkdir()
+    outside.mkdir(exist_ok=True)
     stray = outside / "CMP-26120_2026-08-11.yaml"
     stray.write_text(
         yaml.safe_dump(
@@ -973,3 +973,17 @@ def test_a_refusal_in_the_second_chapter_leaves_the_first_untouched(tmp_path):
         "the first chapter was promoted although the run was refused in the second; "
         "a partly promoted database is worse than either applying or refusing"
     )
+
+
+def test_a_judgment_cannot_be_built_positionally():
+    """Keyword-only is the guard, not the docstring that claims it.
+
+    Five consecutive string fields: a swapped pair makes the corpus
+    lookup miss and answer "nothing contradicts, promote it". The
+    docstring says the record cannot be mis-ordered, and that sentence
+    is only true while this holds.
+    """
+    from pyflightstream.qa.compat import Judgment
+
+    with pytest.raises(TypeError):
+        Judgment("PRINT", "26.120", "verified", "2026-08-11", "reports/compat/x.yaml")

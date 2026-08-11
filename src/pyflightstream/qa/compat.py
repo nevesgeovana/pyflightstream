@@ -195,9 +195,18 @@ PROMOTABLE_OUTCOMES = frozenset(ProbeOutcome) - {ProbeOutcome.UNPROBED}
 _EDITION_PAGE = re.compile(r"SRC-\d+\s+pp?\.", re.IGNORECASE)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Judgment:
     """One report's promotable judgment of one command in one build.
+
+    Keyword-only, and that is the whole point of the type rather than a
+    style choice. The five fields are consecutive strings, so a
+    positional constructor would put the swap hazard it was created to
+    remove back on the mandatory path: ``contradicting_evidence`` takes
+    this record, so building one by hand is the only way to call it, and
+    a swapped pair makes the corpus lookup miss and answer "nothing
+    contradicts, promote it". ``ProbeSpec`` is keyword-only for the same
+    reason.
 
     Attributes
     ----------
@@ -268,13 +277,20 @@ def compat_corpus(
             outcome = body.get("outcome")
             if outcome in PROMOTABLE_OUTCOMES:
                 index.setdefault((command, version), []).append(
-                    Judgment(command, version, outcome, date, citation)
+                    Judgment(
+                        command=command,
+                        fs_version=version,
+                        outcome=outcome,
+                        date=date,
+                        report=citation,
+                    )
                 )
     return {key: tuple(sorted(value, key=lambda j: j.date)) for key, value in index.items()}
 
 
 def contradicting_evidence(
     corpus: dict[tuple[str, str], tuple[Judgment, ...]],
+    *,
     incoming: Judgment,
 ) -> tuple[Judgment, ...]:
     """Judgments in the corpus that supersede ``incoming``.
@@ -446,7 +462,13 @@ def apply_compat(
         if (
             contradicting := contradicting_evidence(
                 corpus,
-                Judgment(name, canonical, body["outcome"], incoming_date, citation),
+                incoming=Judgment(
+                    command=name,
+                    fs_version=canonical,
+                    outcome=body["outcome"],
+                    date=incoming_date,
+                    report=citation,
+                ),
             )
         )
     ]
@@ -847,4 +869,16 @@ def _validate_chapter(chapter_name: str, text: str, names: list[str]) -> None:
     data = yaml.safe_load(text)
     chapter = chapter_name.removesuffix(".yaml")
     for name in names:
-        CommandEntry(name=name, chapter=chapter, **data[name])
+        try:
+            CommandEntry(name=name, chapter=chapter, **data[name])
+        except ValueError as error:
+            # Re-raised as this module's own type, because the caller
+            # documents QaEvidenceError and the CLI traps it. A bare
+            # pydantic ValidationError escaped both and reached the
+            # operator as a stack, on a reachable path: a hand-written
+            # `removed` report with no `detail` yields an empty note,
+            # which the model refuses.
+            raise QaEvidenceError(
+                f"{chapter_name}: the rewritten {name} entry does not satisfy the "
+                f"command schema ({error}). Nothing was written"
+            ) from None

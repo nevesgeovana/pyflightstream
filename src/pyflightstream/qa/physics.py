@@ -582,8 +582,9 @@ class PhysicsCase:
 
         ``versions`` is None for cases whose commands are evidenced on
         every registered version; a tuple restricts the case to the
-        listed canonical identifiers (the unsteady cases are 26.120
-        only until the motion and unsteady chapters are backfilled).
+        listed canonical identifiers (the unsteady cases were 26.120
+        only until 2026-08-11; their pin was owed to a backfill for
+        builds EARLIER than 26.120 and never covered later ones).
         """
         return self.versions is None or canonical in self.versions
 
@@ -775,9 +776,12 @@ PHYSICS_CASES: dict[str, PhysicsCase] = {
 # the 2026-07-21 case-reproduction run proved command by command.
 # PHY-06 anchors the unsteady solver against the steady one: a time
 # march of the static PHY-01 wing must asymptote to the steady
-# solution. Both are 26.120-only until the motion, coordinate-system,
-# unsteady, and advanced-settings chapters are backfilled for earlier
-# versions.
+# solution. Both were 26.120-only until 2026-08-11, when they were
+# registered for 26.121 and 26.122 as well: the pin was owed to a
+# backfill of the motion, coordinate-system, unsteady and
+# advanced-settings chapters for builds EARLIER than 26.120, which
+# never covered later ones, and RPT-025 ran the PHY-05 command content
+# unchanged on all three.
 
 PHY05_BLADE = BladeSpec()
 PHY05_FLUID = {

@@ -135,9 +135,13 @@ class Status(enum.StrEnum):
     solver at all. Or a probe may MEASURE the solver refusing the name,
     which is the only one of the three that observes the solver. The
     note carries a manual page for the first two, and the measured case
-    additionally carries ``report``, on the same reasoning that makes
+    additionally cites its run, on the same reasoning that makes
     ``verified`` and ``broken`` require one: a claim about the solver
-    rests on a run, never on a reading.
+    rests on a run, never on a reading. WHICH FIELD carries that
+    citation is the data model's to state
+    (``docs/srs/data-model.md``), because two are live: the harness
+    writes ``report``, and ``probe_ref`` holds the removals recorded
+    before the harness had the outcome.
     """
 
     DOCUMENTED = "documented"
@@ -579,9 +583,13 @@ class VersionStatus(BaseModel):
         (RPT-026), so a removal it measures is promoted by
         ``pyfs-qa apply-compat`` and cites the compat yaml through
         ``report`` like any other promoted status. This field survives
-        for the removals recorded before that, and for the case no run
-        can supply: an edition that merely stopped printing a command,
-        where the evidence is a reading rather than a run.
+        for the removals recorded before that, and for nothing else.
+        The retention reason stated when the outcome landed named a
+        second case, an edition that merely stopped printing a command,
+        and the database refutes it: such a row cites pages in its note
+        and no run at all, which is what the model requires of a
+        reading. So the surviving population is finite and closable, and
+        the field goes away when those rows are re-probed.
     args : tuple of ArgSpec, optional
         Per-version argument grammar override. Declared when this
         version's manual documents a different signature than the

@@ -95,13 +95,13 @@ DEFAULT_ERROR_PATTERNS: tuple[str, ...] = (
 #: THE QUOTED FIELD IS THE WHOLE SCRIPT LINE, not the command token, and
 #: that was measured the hard way. RPT-026's first arm spliced a target
 #: with no arguments, so the two shapes were indistinguishable and this
-#: pattern was written against a bare token; 49 of the 87 probe
-#: specifications emit an argument-bearing line, and for every one of
-#: them an absent command fell through to the wrong branch. The
-#: re-measurement on 26.122 records
-#: ``'SET_JET_WAKE_FILAMENTS_GRID_INDUCTION ENABLE'`` in this field, and
-#: the repository's own RPT-012 had recorded the same shape since
-#: 2026-07-23.
+#: pattern was written against a bare token. The catalog holds 109
+#: specifications; of the 87 whose target line renders in isolation, 49
+#: carry arguments on that line, and for every one of them an absent
+#: command fell through to the wrong branch. The re-measurement on
+#: 26.122 records ``'SET_JET_WAKE_FILAMENTS_GRID_INDUCTION ENABLE'`` in
+#: this field, and the repository's own RPT-012 had recorded the same
+#: shape since 2026-07-23.
 _UNRECOGNISED_COMMAND = re.compile(
     r"ERROR\s*\|\s*Syntax\s*\|\s*'(?P<line>[^']+)'\s*\|\s*Unrecognized command",
     re.IGNORECASE,
@@ -132,10 +132,10 @@ def unrecognised_commands(log_text: str | None) -> frozenset[str]:
 
     Notes
     -----
-    The crash log is the one log of this pipeline that
-    :func:`_read_log` never scrubs, and it does carry stray NUL bytes
-    (12 in the measured 26.122 run), so they are dropped here rather
-    than left to break a field separator.
+    The crash log is the one log of this pipeline that reaches a reader
+    without the scrubbing every exported log gets, and it does carry
+    stray NUL bytes (12 in the measured 26.122 run), so they are dropped
+    here rather than left to break a field separator.
     """
     if not log_text:
         return frozenset()
@@ -156,14 +156,21 @@ class ProbeOutcome(enum.StrEnum):
     a timeout).
 
     ``broken`` and ``removed`` are not interchangeable and the
-    difference is the caller's, not the record keeper's. ``broken``
-    means the build CARRIES the command and it misbehaves against its
-    documentation, so the command stays in the version view with its
-    grammar and the emitter goes on offering it. ``removed`` means the
-    build does not carry it: the command leaves the view and the caller
-    gets a refusal naming the build. That is the difference between a
-    script that fails on the solver and a script that never gets
-    written.
+    difference is the caller's, not the record keeper's. Both refuse at
+    build time, so the difference is WHICH refusal and whether a waiver
+    exists.
+
+    ``broken`` means the build CARRIES the command and it misbehaves
+    against its documentation. The command stays in the version view
+    with its grammar, and the caller meets ``BrokenCommandError``, whose
+    message says the solver accepts the line and would return numbers
+    nothing marks as wrong; ``Script.allow_broken`` waives it. Both
+    halves are FALSE for a build that does not carry the command: the
+    solver rejects the line outright, and a waiver would emit it anyway.
+
+    ``removed`` means the build does not carry it. The command leaves
+    the view entirely, so the caller gets a refusal naming the build and
+    there is no waiver to reach for.
     """
 
     VERIFIED = "verified"

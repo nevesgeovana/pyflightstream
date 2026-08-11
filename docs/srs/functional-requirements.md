@@ -105,7 +105,7 @@ Milestones and session records are listed in the
     Each command carries a per-version status: `documented`,
     `verified`, `broken`, or `removed`. Documented and verified are
     distinct because the manual and the solver disagree in practice.
-    Statuses are promoted only by committed probe reports.
+    Statuses that rest on a run are promoted only by committed probe reports.
 
 !!! requirement "FR-04 Build-time version refusal <span class='srs-implemented'>implemented</span>"
     *Origin: BRF-03, PP-8. Evidence: milestone M1; refusal tests and

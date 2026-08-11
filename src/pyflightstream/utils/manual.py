@@ -1952,9 +1952,12 @@ def render_entry(
     bad = sorted({s for s in versions.values() if s != "documented"})
     if bad:
         raise ManualDraftError(
-            f"{command.name}: a manual supports the status 'documented' only, and "
-            f"{bad} were requested. verified and broken are promoted from a committed "
-            "probe report by pyfs-qa apply-compat (CLAUDE.md invariant 3)."
+            f"{command.name}: a DRAFT from a manual supports the status 'documented' "
+            f"only, and {bad} were requested. Every status the harness measures "
+            "(verified, broken, and a removed the solver refused) is promoted from a "
+            "committed probe report by pyfs-qa apply-compat (CLAUDE.md invariant 3). "
+            "A removed read off an edition instead is a hand-written row carrying a "
+            "note and a page, not a drafted one."
         )
 
     layout, why = propose_layout(command)

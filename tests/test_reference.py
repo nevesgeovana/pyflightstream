@@ -524,10 +524,12 @@ def test_a_state_that_rests_on_a_run_says_so_and_one_that_reads_a_page_says_that
     # carry. Written here rather than in the tuple so the expectation
     # cannot move with the prose it checks.
     # "does not carry the command" is NOT usable for `removed`: the
-    # `broken` row says it too, legitimately, because a build that does
-    # not carry a command lands in `broken` when the harness has no
-    # `removed` outcome to write. A phrase that two rows may honestly
-    # carry cannot tell them apart.
+    # `broken` row says it too, legitimately, because a build that
+    # refuses a command WITHOUT writing the solver's unrecognised-command
+    # record still lands in `broken` (an access violation does exactly
+    # that, measured on 26.122). The harness gained a `removed` outcome
+    # on 2026-08-11, which narrowed that overlap without closing it. A
+    # phrase that two rows may honestly carry cannot tell them apart.
     distinguishing = {
         "documented": "describes the command and its grammar",
         "verified": "observed its effect",
@@ -626,3 +628,38 @@ def test_the_build_page_counts_the_shared_release_names_it_actually_shares():
     # And the figure itself, so the two computations cannot drift into
     # agreeing on a wrong answer: the five 26.1x builds all print 26.1.
     assert _sharing_a_printed_name(versions) == 5
+
+
+def test_a_machine_promoted_removal_shows_its_run_in_the_rendered_matrix():
+    """The published half of the same fallback the refusal message uses.
+
+    `docs/srs/data-model.md` states that the refusal message AND the
+    compatibility reference each fall back to the ENTRY's citation when
+    a row has no run of its own, and that the entry cites a page of an
+    edition documenting the command. Only the refusal half was pinned;
+    mutating this one back to `probe_ref` alone survived every test in
+    this file, and the committed database cannot catch it because no
+    row carries a promoted removal yet: 89 rows are `removed`, one
+    carries `probe_ref`, none carries `report`.
+    """
+    from pyflightstream.commands import CommandEntry
+    from pyflightstream.reference import _format_versions_html
+
+    entry = CommandEntry(
+        name="SONIC_VELOCITY",
+        chapter="fixture",
+        layout="bare",
+        phase="control",
+        args=[],
+        manual_ref="SRC-003 p.281",
+        versions={
+            "26.100": {"status": "documented"},
+            "26.120": {
+                "status": "removed",
+                "note": "measured 2026-08-11: the solver refused the name",
+                "report": "reports/compat/CMP-26120_2026-08-11_full.yaml",
+            },
+        },
+    )
+    rendered = _format_versions_html(entry)
+    assert "CMP-26120_2026-08-11_full.yaml" in rendered, rendered

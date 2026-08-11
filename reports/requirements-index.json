@@ -49,7 +49,7 @@
   },
   {
    "id": "FR-03",
-   "text": "Each command carries a per-version status: documented, verified, broken, or removed. Documented and verified are distinct because the manual and the solver disagree in practice. Statuses are promoted only by committed probe reports.",
+   "text": "Each command carries a per-version status: documented, verified, broken, or removed. Documented and verified are distinct because the manual and the solver disagree in practice. Statuses that rest on a run are promoted only by committed probe reports.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: BRF-03. Evidence: milestone M1 (schema), M3 (first promotions); committed compat reports.*",
