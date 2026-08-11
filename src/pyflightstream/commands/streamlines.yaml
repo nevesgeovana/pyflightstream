@@ -36,6 +36,7 @@ NEW_OFF_BODY_STREAMLINE:
     "26.101": {status: documented, note: "SRC-725 p.367, same grammar as 26.120"}
     "26.120": {status: broken, report: "reports/compat/CMP-26120_2026-08-08_full.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing)"}
     "26.121": {status: broken, report: "reports/compat/CMP-26121_2026-08-08_full.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing)"}
+    "26.122": {status: broken, report: "reports/compat/CMP-26122_2026-08-11_full.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing)"}
 
 NEW_STREAMLINE_DISTRIBUTION:
   layout: keyword_block
@@ -64,6 +65,7 @@ NEW_STREAMLINE_DISTRIBUTION:
     "26.101": {status: documented, note: "SRC-725 p.367, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
+    "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
   notes: >
     SUBDIVISIONS is N+1 for N streamlines between the start and end
     vertices.
@@ -81,6 +83,7 @@ GENERATE_ALL_OFF_BODY_STREAMLINES:
     "26.101": {status: documented, note: "SRC-725 p.367, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
+    "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
 
 EXPORT_ALL_OFF_BODY_STREAMLINES:
   layout: param_lines
@@ -97,6 +100,7 @@ EXPORT_ALL_OFF_BODY_STREAMLINES:
     "26.101": {status: documented, note: "SRC-725 p.368, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
+    "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
 
 NEW_OFF_BODY_STREAMTUBE:
   layout: inline

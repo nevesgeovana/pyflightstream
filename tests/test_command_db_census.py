@@ -68,12 +68,22 @@ VERIFIED = {
     "26.101": 35,
     "26.120": 66,
     "26.121": 84,
-    # Zero of its own, and the level it derives is `operational` anyway,
-    # on 26.120's records reaching it by inheritance. That is what the
-    # hotfix declaration means and it is the reason this row is pinned:
-    # the first probe run against this build moves it, and a reader
-    # should be able to see that it has not happened yet.
-    "26.122": 0,
+    # It had zero of its own until 2026-08-11, deriving `operational`
+    # from 26.120's records by hotfix inheritance, and the comment here
+    # said a reader should be able to see that the first probe run had
+    # not happened yet. It has now: CMP-26122_2026-08-11_full promoted
+    # 84 statuses, 83 verified and one broken.
+    #
+    # And the run refuted the inheritance once, which is the argument
+    # for measuring a hotfix rather than deriving it. AIR_ALTITUDE is
+    # `broken` on 26.100, 26.101 and 26.120, where the solver reads its
+    # METERS argument as feet, and this build reports the 5000 m
+    # standard-atmosphere density correctly, so the inherited status was
+    # PESSIMISTIC and the user guide was about to tell a reader to avoid
+    # a command that works. The one broken row confirmed its
+    # inheritance instead: NEW_OFF_BODY_STREAMLINE was already broken on
+    # both older builds and crashes this one too (0xC0000005).
+    "26.122": 83,
 }
 
 #: 388 at v0.5.0, then +16 on 2026-08-10 for the commands only the

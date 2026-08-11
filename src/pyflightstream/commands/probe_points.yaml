@@ -26,6 +26,7 @@ NEW_PROBE_POINT:
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
+    "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
 
 NEW_PROBE_LINE:
   layout: inline
@@ -54,6 +55,7 @@ NEW_PROBE_LINE:
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
+    "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
   notes: >
     Survey line with NUMPTS probe vertices between the start and end
     coordinates.
@@ -97,6 +99,7 @@ PROBE_POINTS_IMPORT:
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
+    "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
   notes: >
     Imports a probe lattice from a CSV file whose rows are
     X,Y,Z,TYPE with TYPE 0 for surface and 1 for volume probes; the
@@ -121,6 +124,7 @@ EXPORT_PROBE_POINTS:
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
+    "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
   notes: >
     Rows follow the probe creation order, preserved from an imported
     lattice (26.120 build 7012026 round trip,
@@ -145,3 +149,4 @@ DELETE_PROBE_POINTS:
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
+    "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}

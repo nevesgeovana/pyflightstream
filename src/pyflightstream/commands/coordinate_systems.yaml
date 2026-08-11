@@ -16,6 +16,7 @@ CREATE_NEW_COORDINATE_SYSTEM:
     "26.101": {status: documented, note: "SRC-725 p.328, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
+    "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
   notes: >
     Appends a new local coordinate system; configure it afterwards
     with the SET_COORDINATE_SYSTEM commands or EDIT_COORDINATE_SYSTEM.
@@ -62,6 +63,7 @@ EDIT_COORDINATE_SYSTEM:
     "26.101": {status: documented, note: "SRC-725 p.328, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
+    "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
   notes: >
     Full edit of a local frame: origin and the three axis vectors,
     all expressed in the reference frame.
@@ -92,6 +94,7 @@ SET_COORDINATE_SYSTEM_ORIGIN:
     "26.101": {status: documented, note: "SRC-725 p.328, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
+    "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
   notes: >
     Origin position relative to the reference coordinate system.
 
@@ -123,6 +126,7 @@ SET_COORDINATE_SYSTEM_AXIS:
     "26.101": {status: documented, note: "SRC-725 p.329, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
+    "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
   notes: >
     Sets one axis direction vector of a local frame; the vector is
     normalized automatically, and NORMALIZE_FRAME TRUE renormalizes

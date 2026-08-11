@@ -129,6 +129,7 @@ SET_MOTION_COORDINATE_SYSTEM:
     "26.100": {status: documented, note: "SRC-741 p.328, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.331, same grammar as 26.120"}
     "26.120": {status: documented}
+    "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
 
 SET_MOTION_START_TIME:
   layout: inline

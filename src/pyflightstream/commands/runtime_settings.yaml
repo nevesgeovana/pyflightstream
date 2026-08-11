@@ -18,6 +18,7 @@ SOLVER_SET_AOA:
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
+    "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
   notes: >
     Angle of attack; magnitude must stay below 90 degrees.
 
@@ -37,6 +38,7 @@ SOLVER_SET_SIDESLIP:
     "26.100": {status: documented, note: "SRC-741 p.336, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
+    "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
   notes: >
     Side-slip angle; magnitude must stay below 90 degrees.
 
@@ -56,6 +58,7 @@ SOLVER_SET_VELOCITY:
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
+    "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
   notes: >
     Free-stream velocity magnitude.
 
@@ -74,6 +77,7 @@ SOLVER_SET_MACH_NUMBER:
     "26.100": {status: documented, note: "SRC-741 p.336, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
+    "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
 
 SOLVER_SET_ITERATIONS:
   layout: inline
@@ -90,6 +94,7 @@ SOLVER_SET_ITERATIONS:
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
+    "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
 
 SOLVER_SET_CONVERGENCE:
   layout: inline
@@ -106,6 +111,7 @@ SOLVER_SET_CONVERGENCE:
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
+    "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
   notes: >
     Residual threshold on surface velocity and pressure below which
     the run is declared converged (SRC-003 p.200).
@@ -126,6 +132,7 @@ SOLVER_SET_FORCED_ITERATIONS:
     "26.101": {status: documented, note: "SRC-725 p.338, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
+    "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
   notes: >
     When enabled the solver runs the full iteration count regardless
     of the convergence threshold.
@@ -146,6 +153,7 @@ SOLVER_SET_REF_VELOCITY:
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
+    "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
   notes: >
     Reference velocity for coefficient normalization. For steady runs
     it should equal the free-stream velocity; for rotary or hover
@@ -167,6 +175,7 @@ SOLVER_SET_REF_MACH_NUMBER:
     "26.100": {status: documented, note: "SRC-741 p.336, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
+    "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
 
 SOLVER_SET_REF_AREA:
   layout: inline
@@ -184,6 +193,7 @@ SOLVER_SET_REF_AREA:
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
+    "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
   notes: >
     Reference area S_ref used in Q*S_ref force normalization
     (coefficient definitions, SRC-003 p.223).
@@ -204,6 +214,7 @@ SOLVER_SET_REF_LENGTH:
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
+    "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
   notes: >
     Reference length L_ref used in Q*S_ref*L_ref moment normalization
     (coefficient definitions, SRC-003 p.223).
@@ -223,3 +234,4 @@ SET_MAX_PARALLEL_THREADS:
     "26.101": {status: documented, note: "SRC-725 p.339, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.337, same grammar as 26.120"}
     "26.120": {status: documented}
+    "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
