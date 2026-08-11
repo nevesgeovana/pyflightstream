@@ -75,6 +75,44 @@ jobs:
       - name: Tier 1 with the coverage floor
         run: pytest --cov --cov-branch --cov-report=term-missing
 
+  extras:
+    # The ONLY leg that installs every declared extra, and the only place
+    # the assertions gated behind one actually execute.
+    #
+    # It exists because of what INC-20260810-2140-shared measured. The
+    # v0.7.0 tag failed on an unguarded `import pypdf`; guarding it was
+    # right, and by itself it turned a red job into a permanent silent
+    # skip, because no job installed [manual] and so nothing ran the
+    # assertion again. A guard nothing executes is not weaker evidence
+    # than a red test, it is no evidence.
+    #
+    # The four test legs above deliberately stay at [dev,fsi,geom]. They
+    # are the probe that the package works WITHOUT the optional extras,
+    # which is what most users install, and widening them would delete
+    # that measurement to buy this one. Keeping both is the whole point
+    # of this leg being separate.
+    #
+    # tests/test_extras_isolation.py derives its forbidden set from the
+    # INTERSECTION of every install line, so this richer leg does not
+    # weaken it: pypdf and matplotlib stay forbidden for the trees the
+    # other legs run.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+        with:
+          fetch-depth: 0  # the clean-room walk, as in the test job
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: "3.12"
+      - name: Install package with every declared extra
+        run: pip install -e .[dev,fsi,geom,manual,plot]
+      - name: Tier 1 with nothing skipped for a missing extra
+        # Zero skips is NOT asserted here: some tests skip for reasons
+        # that have nothing to do with extras (a licensed solver, an
+        # absent fixture). What this leg buys is that the extra-gated
+        # ones are not among them.
+        run: pytest
+
   types:
     # One leg, like the coverage floor and for the same reason: the answer
     # is a property of the source, not of the platform. The exemption list

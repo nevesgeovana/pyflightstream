@@ -54,6 +54,43 @@ import subprocess
 import sys
 from pathlib import Path
 
+from pyflightstream.extras import MissingExtraError, missing_extra
+
+
+def _pypdf():
+    """Return the pypdf module, or refuse in the shape the package uses.
+
+    One accessor rather than an import at each of the two call sites,
+    mirroring ``pyflightstream.probes.geometry._trimesh``. Both earlier
+    forms were defects of their own: one site imported bare, which reads
+    as a base dependency and is what
+    ``tests/test_extras_isolation.py`` now refuses, and the other wrote
+    its own install command out by hand, which is the duplication
+    ``pyflightstream.extras`` exists to end (a renamed extra would have
+    left that string pointing at a command that fails).
+
+    Returns
+    -------
+    module
+        The imported ``pypdf`` module.
+
+    Raises
+    ------
+    pyflightstream.extras.MissingExtraError
+        When the ``[manual]`` extra is not installed. The message names
+        the extra and the exact install command.
+    """
+    try:
+        import pypdf  # noqa: PLC0415 - the [manual] extra, not a base dependency
+    except ImportError as error:
+        raise missing_extra(
+            "manual",
+            package="pypdf",
+            purpose="converting a compiled help archive into a citable pdf",
+        ) from error
+    return pypdf
+
+
 #: Where a Chrome or Chromium binary lives when the caller names none.
 #: Resolved in main() rather than here: read at import time it consumed
 #: whatever argv the importer happened to have, so importing this module
@@ -141,7 +178,7 @@ def render(combined: Path, out: Path, chrome: Path) -> None:
     a relative argument silently writes the pdf somewhere else and this
     reports that no file was produced.
     """
-    import pypdf  # noqa: PLC0415 - the [manual] extra, not a base dependency
+    pypdf = _pypdf()
 
     out = out.resolve()
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -193,14 +230,14 @@ def main() -> int:
         print("usage: chm_to_pdf.py <extracted-archive-dir> <out.pdf> [chrome.exe]")
         return 2
 
+    # Asked here, before any work, rather than inside render() where the
+    # module is finally used: the answer is knowable at startup, and a
+    # tool that reads an archive for a minute and then refuses on the
+    # environment has wasted the minute.
     try:
-        import pypdf  # noqa: PLC0415
-    except ModuleNotFoundError:
-        print(
-            "this tool reads and rewrites a pdf and needs pypdf, which is the "
-            "[manual] extra rather than a base dependency: "
-            "pip install pyflightstream[manual]"
-        )
+        pypdf = _pypdf()
+    except MissingExtraError as error:
+        print(str(error), file=sys.stderr)
         return 2
 
     root = Path(sys.argv[1])
