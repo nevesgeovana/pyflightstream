@@ -117,6 +117,23 @@ Deprecations: none.
   reasoning) and a pointer to `BRF-082`, whose wording lives in
   `.claude/skills/role-review/SKILL.md`: the adversarial pass runs BEFORE
   a completion claim rather than as a review round after it.
+- **Process only, no package behaviour change: the shared process kit is
+  fully vendored.** Twenty-four further artifacts arrived on 2026-08-11,
+  taking the drift manifest from 11 rows to 35, each pinned to its own
+  `body-sha256` at kit 0.2.21. Two kit artifacts are absent BY DECISION
+  and not by omission: the `release_caller.yml` and `release_gate.yml`
+  workflow templates, declined because this repository's `release.yml` is
+  a single workflow that has published v0.4.0 through v0.7.0.
+  Contributor-visible: a `version-control` skill is now available, and
+  `CLAUDE.md` gains a `## The vendored process kit` section recording
+  which checkers are wired and the reason beside every one that is not.
+- Every `subprocess.run` under `src/` and `scripts/` now passes an
+  explicit `env=`. The value is `os.environ.copy()` in each case, which
+  is exactly what an omitted `env=` gave, so no child's environment
+  changed; what changed is that the inheritance is a decision at the call
+  site. Found by the newly vendored `check_spawn_env.py`, which is wired
+  in tier 1 over those two trees; the 24 unguarded spawns under `tests/`
+  are pinned as a ratchet rather than silently excluded.
 
 ### Fixed
 

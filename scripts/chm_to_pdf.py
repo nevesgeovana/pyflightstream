@@ -49,6 +49,7 @@ from __future__ import annotations
 
 import hashlib
 import html
+import os
 import re
 import subprocess
 import sys
@@ -198,6 +199,12 @@ def render(combined: Path, out: Path, chrome: Path) -> None:
         text=True,
         timeout=900,
         check=False,
+        # Explicit, and identical to the inherited default: a headless browser
+        # needs the ambient environment to find its own profile and libraries.
+        # Ten committed citations depend on this render being reproducible, so
+        # narrowing the environment is a change to make deliberately with a
+        # re-render, not a hardening to slip in.
+        env=os.environ.copy(),
     )
     if not out.is_file():
         raise SystemExit(f"the renderer produced no file at {out}")

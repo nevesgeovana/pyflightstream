@@ -54,6 +54,7 @@ import hashlib
 import inspect
 import json
 import math
+import os
 import re
 import shutil
 import subprocess
@@ -442,6 +443,15 @@ class LocalExecutor:
                 text=True,
                 timeout=timeout_s,
                 check=False,
+                # EXPLICIT and IDENTICAL to what an omitted env= would give.
+                # This is not a behaviour change and is not meant to be one:
+                # the solver needs the ambient environment (its licence server
+                # address and its own installation variables live there), so
+                # the inheritance is correct and the point is that it is now a
+                # DECISION at this call rather than a default nobody chose.
+                # A future change that narrows it belongs here, where the
+                # solver's requirements are known, and not in a caller.
+                env=os.environ.copy(),
             )
             return_code = completed.returncode
             stdout = completed.stdout or ""
@@ -1177,6 +1187,11 @@ def package_vcs_state() -> tuple[str | None, bool | None]:
                 text=True,
                 check=False,
                 timeout=15,
+                # Explicit, and identical to the inherited default. git needs
+                # the ambient environment to find its own installation and the
+                # user's configuration, so narrowing it here would change what
+                # this function reports rather than harden it.
+                env=os.environ.copy(),
             )
         except (OSError, subprocess.SubprocessError):
             return None

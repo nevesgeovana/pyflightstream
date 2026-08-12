@@ -48,6 +48,7 @@ the run prints the reminder.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -83,6 +84,9 @@ def _git_dir() -> Path:
         text=True,
         check=False,
         timeout=30,
+        # Explicit, and identical to the inherited default: git needs the
+        # ambient environment to find its own configuration.
+        env=os.environ.copy(),
     )
     resolved = done.stdout.strip()
     return Path(resolved) if resolved else REPO / ".git"
@@ -123,6 +127,9 @@ def run(target: str) -> tuple[int, str]:
             text=True,
             check=False,
             timeout=SUITE_TIMEOUT,
+            # Explicit, and identical to the inherited default: the child is
+            # pytest and needs this interpreter's own environment.
+            env=os.environ.copy(),
         )
     except subprocess.TimeoutExpired:
         return 1, f"TIMED OUT after {SUITE_TIMEOUT:.0f}s (INCONCLUSIVE, and look at why)"

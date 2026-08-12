@@ -22,6 +22,7 @@ wrong; the shared module's docstring records which three.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -233,7 +234,17 @@ def run(test_file: str, selector: str) -> tuple[str, str]:
     if selector:
         argv += ["-k", selector]
     try:
-        done = subprocess.run(argv, cwd=REPO, capture_output=True, text=True, timeout=SUITE_TIMEOUT)
+        # env= is explicit and identical to the inherited default: the child
+        # is pytest and needs this interpreter's own environment. The point is
+        # that the inheritance is chosen here rather than defaulted.
+        done = subprocess.run(
+            argv,
+            cwd=REPO,
+            capture_output=True,
+            text=True,
+            timeout=SUITE_TIMEOUT,
+            env=os.environ.copy(),
+        )
     except subprocess.TimeoutExpired:
         return "INCONCLUSIVE", f"timed out after {SUITE_TIMEOUT:.0f}s"
     out = done.stdout + done.stderr

@@ -18,6 +18,7 @@ Nothing in ``src/`` imports this, and nothing here imports ``src``.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -40,6 +41,9 @@ def _git_dir() -> Path:
         text=True,
         check=False,
         timeout=30,
+        # Explicit, and identical to the inherited default: git needs
+        # the ambient environment to find its own configuration.
+        env=os.environ.copy(),
     )
     resolved = done.stdout.strip()
     return Path(resolved) if resolved else REPO / ".git"

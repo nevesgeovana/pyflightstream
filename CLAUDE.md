@@ -156,6 +156,52 @@ believes. It is named here rather than simply removed, because a clone
 reading a handoff or a commit from that one day will find a hook this
 file no longer mentions.
 
+## The vendored process kit
+
+The coordination level owns a shared process kit and each library carries
+a DERIVED copy of every artifact it takes, stamped with the kit version
+and a body sha256. A change is made in the kit and re-vendored, never
+hand-edited here: a hand-edit is the drift this level exists to stop.
+`tests/test_kit_drift.py` is the mechanism and is the authority on which
+rows exist; do not keep a second list anywhere.
+
+THE ADOPTION GAP IS CLOSED as of 2026-08-11, on the author's decision to
+end the divergence in one pass rather than one row per lane. Two lanes
+did it: PFS-11 took the CI arm, the policy rows and the bodies that had
+drifted; PFS-12 took everything else the same night.
+
+TWO ARTIFACTS ARE ABSENT BY DECISION AND NOT BY OMISSION, and the
+difference is the point rather than a nicety: `COORD-02` stayed open from
+2026-08-02 partly because "not adopted" and "not decided" were never
+distinguished in the record.
+
+`release_caller.yml` and `release_gate.yml`, the kit's two workflow
+templates, are OUT (author's decision, 2026-08-11). This repository's
+`.github/workflows/release.yml` is a SINGLE workflow: it has no
+`workflow_call` and calls no reusable workflow, and it has published
+v0.4.0 through v0.7.0. Adopting the kit topology means rewriting the one
+path here that is proven to work. `check_release_gate.py` IS vendored and
+is deliberately unwired for the same reason: it requires that topology,
+taking `--gate release_gate.yml` and reading `workflow_call` outputs, so
+it cannot pass here. The checker and the templates are one package, and
+taking half of it is what would be the oversight.
+
+VENDORED IS NOT WIRED, and the reason for every unwired row is recorded
+in `tests/test_kit_checkers.py` rather than left to be inferred. Wired
+today: the spawn-environment rule over `src` and `scripts`, the
+shipped-surface rule over the versioned tree, the push gate's own
+mutation companion, the plan checker, the side-effect guard and the
+CI-state pair. Unwired with a stated reason: `check_citations` (advisory
+by the author's decision, it refused 25 constructions on the sister
+library's real corpus and every one was false), `check_release_gate` (see
+above), `prepush_receipt` (needs a measurement of this repository's
+pre-push tier that does not exist yet), `check_review_rounds` and
+`check_probe_closure` (vendored ahead of their input: both operate on a
+ledger this repository does not keep, and an empty ledger reporting green
+is the failure both exist to catch), and `check_version_identity` (it
+REFUSES the current version, correctly, and fixing that changes a
+published contract).
+
 Structural-fix rule and the shared incident ledger (adopted
 2026-07-23): a defect in these two libraries is fixed at its STRUCTURAL
 cause on its FIRST occurrence, in the session where it appears, not on
