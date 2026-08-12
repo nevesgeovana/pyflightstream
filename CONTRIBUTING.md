@@ -16,6 +16,22 @@ The `fsi` and `geom` extras are part of the full Tier 1 suite (the FSI
 and geometry-gate tests import them); the four platform legs of CI
 install exactly this set.
 
+**Budget roughly ten minutes for `pytest`**, measured 2026-08-12 at 659
+seconds. Most of the growth is four vendored mutation batteries that run
+every kit guard against the body it protects, and one of them, the push
+gate's, is 244 seconds by itself: it drives sixteen cases and six mutants
+as real hook processes against real throwaway repositories. The cost is
+the fidelity. Two of those runs shell out per case, so the number moves
+with the machine.
+
+Tier 1 also runs a tree-wide forbidden-identifier scan
+(`check_shipped_surface.py` against `.claude/shipped_surface.conf`). It
+reads every tracked file, so a new file carrying an email address or a
+user-profile path reddens CI rather than being noticed at review. If it
+refuses something that is an identifier by design, the fix is an
+exemption in that config with the reason written beside it, never a
+narrowing of the scan.
+
 `manual` and `plot` are deliberately NOT in it, and the omission is load
 bearing rather than an oversight: those legs are what proves the package
 works for a reader who installed it plainly. One CI leg,
@@ -40,7 +56,10 @@ names the form to use for the tree you are in. Its evidence is
 battery behind it. It EDITS THE WORKING
 TREE and restores it, so run it on a clean checkout and read `git
 status` afterwards; a full pass takes over ten minutes, so it takes a
-label prefix (`M1`, `M2`, `N1`) to run one part. That guard exists because
+label prefix to run one part. The match is a PREFIX and not a token, so
+`M1` selects M1 and M10 through M18, eleven of the twenty mutants; `N1`
+or `M2` selects one. Passing a label that matches nothing exits 1 and
+prints every label there is, which is also how to list them. That guard exists because
 an unguarded `import pypdf` reached the v0.7.0 tag past every reviewer
 pass of that release, all of them reading in an environment that had it
 (INC-20260810-2140-shared).

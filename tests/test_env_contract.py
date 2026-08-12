@@ -71,14 +71,31 @@ HOOKS = sorted((REPO / ".claude" / "hooks").glob("*.py"))
 # undocumented machine variable for two independent reasons, the file type and
 # the prefix. A guard that reports nothing is the failure mode this repository
 # registers most, so both reasons are removed.
-SHELL_TOOLS = sorted((REPO / ".claude" / "tools").glob("*.sh"))
+#
+# WIDENED TWICE, AND THE SECOND TIME FOR THE SAME TWO REASONS AS THE FIRST.
+# The paragraph above records that kit 0.2.4 slipped COORD_SHARED_LEDGER_TREE
+# past this guard for two independent reasons, the file type and the prefix,
+# and says "both reasons are removed". Only the file type was removed, and only
+# for `.sh`. On 2026-08-11 the full vendoring brought `budget_isolation.py`,
+# which reads `KIT_BUDGET_ISOLATED` from the environment, and the guard stayed
+# green over an undocumented machine variable for BOTH original reasons again:
+# a `.py` under `tools/` was not globbed, and `KIT_` was not in the prefix
+# alternation. Found by a QA pass, not by this guard. It is now every file
+# under `.claude/tools/`, whatever the suffix.
+SHELL_TOOLS = sorted(p for p in (REPO / ".claude" / "tools").glob("*") if p.is_file())
 
 # `CLAUDE_PROJECT_DIR` is in scope alongside the PYFS_ family: the `plan`
 # skill's validator command depends on it, so a variable this guard could not
 # see would be exactly the blind spot the guard exists to remove. The scan
 # surface is `.claude/` only, never `src/`, where `PYFS_` is also a
 # FlightStream identifier prefix on a dozen unrelated names.
-VARIABLE = re.compile(r"\b(?:PYFS|CLAUDE|COORD)_[A-Z0-9_]+\b")
+#
+# `KIT_` joined the alternation on 2026-08-11 for the reason above: the kit
+# names its own variables with its own prefix, and a guard that only knows the
+# prefixes it was born with cannot see the next one. If a vendored body ever
+# introduces a fourth prefix this line is what has to move, which is why the
+# failure message on the used-but-undocumented check names this file.
+VARIABLE = re.compile(r"\b(?:PYFS|CLAUDE|COORD|KIT)_[A-Z0-9_]+\b")
 
 # The stop rule for PYFS_SESSION_ROOT. Matched on meaning rather than one
 # exact sentence, because forcing copy-paste wording is itself a defect this

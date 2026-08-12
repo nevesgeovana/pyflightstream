@@ -29,6 +29,7 @@ unreached on every run.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -57,6 +58,7 @@ def test_the_ci_state_guard_evidence_still_holds() -> None:
         [sys.executable, str(CI_STATE_MUTATIONS)],
         capture_output=True,
         text=True,
+        env=os.environ.copy(),
     )
     assert done.returncode == 0, f"ci_state guard evidence failed:\n{done.stdout}\n{done.stderr}"
     # The companion asserts each mutation anchor is PRESENT before applying it,

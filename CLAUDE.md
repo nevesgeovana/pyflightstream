@@ -83,15 +83,19 @@ implication: a skill that declared non-empty `side-effects` had also to
 set `disable-model-invocation: true`, so the model could not fire it.
 The author RETIRED that flag at kit 0.2.19, across all skills with no
 exception, including `release`, which cuts the tag that triggers the PyPI
-publish, and the two that spend a licensed solver seat. Her reasoning is
+publish, and the three that spend a licensed solver seat
+(`run-physics`, `run-validity`, `fts-version-update`). Her reasoning is
 that the verification stages downstream carry the safety level she
 requires for more autonomy; the objection was put to her before she
 decided and is recorded in the coordination level's `BRF-079`. Note what
 the change buys as well as what it costs: the implication could not fire
 on a skill that declared NOTHING, so silence was the cheapest way past
-it, and six of this repository's ten skills sat in exactly that hole,
-including two that write records and one that writes to the command
-database. All ten declare now.
+it, and six of the ten skills this repository then had sat in exactly
+that hole, including two that write records and one that writes to the
+command database. EVERY skill declares now, and the count is deliberately
+not written here: it moved from ten to eleven the same night, when the
+vendored `version-control` skill arrived. The guard prints the live
+population on every run and `tests/test_skill_invocation.py` asserts it.
 
 Mandatory push and release gate (adopted 2026-07-23, after the v0.3.0
 release ran paraphrased manual checks instead of the specialist
@@ -189,9 +193,16 @@ taking half of it is what would be the oversight.
 VENDORED IS NOT WIRED, and the reason for every unwired row is recorded
 in `tests/test_kit_checkers.py` rather than left to be inferred. Wired
 today: the spawn-environment rule over `src` and `scripts`, the
-shipped-surface rule over the versioned tree, the push gate's own
+shipped-surface rule over the versioned tree, the EXECUTION GUARD as a
+second PreToolUse hook (its own section above), the push gate's own
 mutation companion, the plan checker, the side-effect guard and the
-CI-state pair. Unwired with a stated reason: `check_citations` (advisory
+CI-state pair, each with its mutation companion run in tier 1 beside it.
+`review-policy.md` is vendored for the drift row alone and is NOT adopted
+as this repository's review policy: the `role-review` skill and the Role
+passes paragraph above are what bind here, and whether the kit's
+GATE/PUSH/RELEASE vocabulary replaces them is a coordination-level
+question that PFS-12 raised rather than answered.
+Unwired with a stated reason: `check_citations` (advisory
 by the author's decision, it refused 25 constructions on the sister
 library's real corpus and every one was false), `check_release_gate` (see
 above), `prepush_receipt` (needs a measurement of this repository's
@@ -201,6 +212,42 @@ ledger this repository does not keep, and an empty ledger reporting green
 is the failure both exist to catch), and `check_version_identity` (it
 REFUSES the current version, correctly, and fixing that changes a
 published contract).
+
+## The second PreToolUse hook: the execution guard
+
+A DENY CAN NOW COME FROM EITHER OF TWO HOOKS, and this section exists so
+the second one is never a mystery refusal. `.claude/hooks/execution_guard.py`
+(kit 0.2.22, wired 2026-08-11 at a 15 second timeout) runs on Bash and
+PowerShell beside the push gate. It refuses exactly two shapes, both
+decidable without judging intent, and it NEVER blocks a push: it guards
+against a mistake, not against an irreversible act, so a deny from it
+always has a same-session remedy.
+
+**`[piped-status]`.** A status-bearing command piped into a line filter.
+The commands are `pytest`, `mypy`, `ruff`, `git push`, and any
+`check_*.py`, `*_mutations.py` or `verify_*.py` script. The filters are
+`head`, `tail`, `wc` in bash and `Select-Object`, `Measure-Object`,
+`select`, `measure` in PowerShell. A pipeline's exit status is the LAST
+element's, so a red suite read through a filter reports green. Remedy:
+run it unpiped, or redirect to a file and read the status from the
+process. That is the first Execution rule below, and until this hook
+arrived nothing enforced it.
+
+**`[heredoc-content]`.** A heredoc whose body carries a backslash or a
+non-printable byte. Heredocs are not banned; this is the shape that has
+corrupted files here. A quoted delimiter exempts the backslash half. Remedy:
+author the content with Write or Edit.
+
+A KNOWN FALSE POSITIVE, recorded so it is not reported as a defect and
+not "fixed": a checker filename appearing as DATA rather than as an
+execution, for example an unquoted `check_foo.py` in a grep argument.
+Quoted spans and heredoc bodies are blanked before the scan; an unquoted
+filename in an argument still trips arm 1. The remedy is to quote the
+token, and it is the operator's.
+
+Unlike the gate beside it, this hook spawns nothing and reads one command
+string, so its 15 seconds bound no internal budget. The gate's 90 is the
+number with a 50 second budget under it.
 
 Structural-fix rule and the shared incident ledger (adopted
 2026-07-23): a defect in these two libraries is fixed at its STRUCTURAL
@@ -251,24 +298,32 @@ loads always. The rules were not failing, they were never in the room.
   on exit 0, and `git push` writes progress to stderr, so a SUCCESSFUL
   push reads as a failure. A piped command's status is the pipeline's,
   not the checker's. Read the status from the process, and verify a push
-  against the remote rather than against its exit code. NO MECHANISM
-  POINTER, deliberately, and this is the one rule of the six with none:
-  its canonical home is the kit's `version-control.md`, which this
-  repository does not vendor (COORD-02, open). Until it does, these four
-  sentences ARE the home rather than a summary of one, so do not trim
-  them expecting a fuller statement elsewhere.
+  against the remote rather than against its exit code. Mechanism, and it
+  is now the strongest of the six: `.claude/hooks/execution_guard.py`
+  arm 1 DENIES the shape, and `.claude/skills/version-control/SKILL.md`
+  sections 3 and 5 carry the reasoning. This bullet said the opposite
+  until 2026-08-12, that the rule had no mechanism and that the kit body
+  was unvendored; PFS-12 vendored the body and wired the hook, and the
+  sentence outlived its own night.
 - **Author backslash and control-byte content with Write or Edit.**
   Heredocs are not banned, but a heredoc carrying a backslash or a
   non-printable byte has corrupted files here more than once, and a
   PowerShell here-string is not a bash heredoc: the gate itself carries a
   PowerShell branch for exactly that reason (ITC-20260801-2245).
-  Mechanism: the heredoc cases in `tests/test_push_gate.py`.
+  Mechanism: `.claude/hooks/execution_guard.py` arm 2, which DENIES a
+  heredoc body carrying a backslash or a control byte. The heredoc cases
+  in `tests/test_push_gate.py` are a DIFFERENT question, how the gate
+  strips a heredoc before tokenizing a push, and pointing at them alone
+  sent a blocked operator to the wrong file until 2026-08-12.
 - **One tree, one session.** Never revert, restore, checkout, stash or
   commit a change you did not make, and never run a long suite, build or
   mutation battery in a tree another session is working in. A test
   failure born that way looks exactly like a real one, which is the
   expensive part. Mechanism: `.claude/skills/role-review/SKILL.md`,
-  section 3, and `PLN-20260806-1400`.
+  section 3, and `.claude/skills/version-control/SKILL.md`, which states
+  the same rule; `PLN-20260806-1400` is the incident. Both skills carry
+  it because both were written where it is broken, and the vendored one
+  is hash-pinned, so this bullet points at both rather than choosing.
 - **A completion claim carries fresh command output in the same
   message.** No "done", "passing" or "ready to push" without evidence a
   reader can see. This is the definition of done above, stated as an
@@ -476,6 +531,23 @@ folders with the same name in different homes; say which one you mean.
 The tier-1 guard in `tests/test_house_style.py` deliberately does NOT
 list `archive` among the migrated names, because `_private/archive/` is
 still a legitimate path here.
+
+A sixth name, `KIT_BUDGET_ISOLATED`, is read by the vendored
+`.claude/tools/budget_isolation.py` and is NOT a variable a clone sets. It
+is the kit's own reentrancy flag: the tool exports it into a child so a
+nested invocation can tell it is already inside an isolated budget. It is
+named here because `tests/test_env_contract.py` requires every variable a
+vendored body reads to be documented, and it is deliberately NOT a bullet
+above, because the bullets are the list a fresh clone exports. That
+distinction is the same one the retirement notice below rests on.
+
+Its arrival is worth one sentence of history. It came in with the full
+vendoring of 2026-08-11 and the env-contract guard did not see it, for
+exactly the two reasons that guard's own comment claimed it had removed in
+2026-07-28: the scan globbed only `*.sh` under `.claude/tools/` and the
+prefix alternation knew only `PYFS`, `CLAUDE` and `COORD`. A reviewer pass
+found it, not the guard. Both reasons are now removed for real, and the
+guard's comment says so with the date.
 
 A fifth variable, `CLAUDE_PROJECT_DIR`, appears in
 `.claude/settings.json` and in the `plan` skill's validator command. It

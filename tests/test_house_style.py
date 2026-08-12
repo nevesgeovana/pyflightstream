@@ -211,7 +211,21 @@ def _tracked_files() -> list[Path]:
         f"(git exited {result.returncode}: {result.stderr.strip()}). It scans what is "
         "COMMITTED, so it needs git; a skip here would report green over an unscanned tree."
     )
-    return [REPO_ROOT / name for name in result.stdout.split("\0") if name]
+    files = [REPO_ROOT / name for name in result.stdout.split("\0") if name]
+    # A FLOOR, added 2026-08-12, because "git could not run" was never the only
+    # way to scan nothing. A QA pass ran this guard with GIT_DIR pointing at a
+    # throwaway repository: git exited 0, returned a handful of paths that are
+    # not this tree's, and the test PASSED having examined none of the files it
+    # exists to examine. That is the false green the assertion above is worded
+    # against, arriving through the one door it does not watch, and GIT_DIR is
+    # set by ordinary things (`git rebase -x`, any hook, any wrapper).
+    assert len(files) > 300, (
+        f"git listed {len(files)} tracked files under {REPO_ROOT}, far below "
+        "this repository's real size. GIT_DIR or GIT_WORK_TREE is pointing git "
+        "at another tree, so this guard would report clean over a repository "
+        "nobody asked about. Unset them and re-run."
+    )
+    return files
 
 
 def test_no_personal_identifier_in_a_tracked_file():

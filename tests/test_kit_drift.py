@@ -38,7 +38,7 @@ kit's own wrinkles, documented in its ``README.md``; the middle two are this
 repository's record of one promotion and its own caveat about this test.
 
 * The manifest below is MIXED, and that is correct rather than drift: it pins
-  each file to its own body hash and body version, spanning 0.1.0 to 0.2.21.
+  each file to its own body hash and body version, spanning 0.1.0 to 0.2.22.
   Do not read any single version below as the kit's version, and do not
   "tidy" the spread: a row sits at the version of the master it was vendored
   from, and most masters have not moved since.
@@ -56,9 +56,15 @@ repository's record of one promotion and its own caveat about this test.
   2026-08-02.
 
   The counts themselves are asserted rather than narrated, by
-  ``test_the_manifest_agrees_with_the_recorded_adoption_residue`` and
+  ``test_the_manifest_agrees_with_the_recorded_adoption_residue`` (the row
+  count, against ``EXPECTED_ROWS``),
+  ``test_the_decided_out_artifacts_are_absent_and_stay_absent`` (the two
+  declined ones, against ``DECIDED_OUT``) and
   ``test_every_stamped_file_in_the_tree_has_a_manifest_row``. Prose counts in
-  this docstring went stale twice; measurements do not.
+  this docstring went stale twice; measurements do not. Note that this
+  paragraph made the same claim on 2026-08-11 while only ONE of those three
+  tests existed and neither constant did, which is why the sentence now names
+  the constants a reader can grep for.
 * ``role_review_gate.py`` sits at 0.2.18 for the CI-GREEN TAG RULE: a
   release-grade push is refused unless the commit each version tag names has a
   concluded, successful CI result on the remote, with red, running, unknown and
@@ -164,6 +170,7 @@ repository's record of one promotion and its own caveat about this test.
 from __future__ import annotations
 
 import hashlib
+import os
 import subprocess
 from pathlib import Path
 
@@ -573,6 +580,29 @@ def test_vendored_kit_canonical_source_is_unchanged(rel: str) -> None:
 #: rather than a new one.
 VENDOR_DIRS = (".claude/tools", ".claude/hooks", ".claude/agents", ".claude/skills")
 
+#: The manifest's size, pinned so a row cannot arrive or vanish as a side
+#: effect of some other change. 11 at the start of 2026-08-11, 35 at its end.
+EXPECTED_ROWS = 35
+
+#: The kit artifacts absent BY DECISION rather than by omission (the author,
+#: 2026-08-11). This repository's `.github/workflows/release.yml` is a single
+#: workflow with no `workflow_call`, it has published v0.4.0 through v0.7.0,
+#: and adopting the kit's caller-plus-reusable-gate topology means rewriting
+#: the one release path here that is proven to work. `check_release_gate.py`
+#: IS vendored and cannot pass without them, which is recorded beside it in
+#: `tests/test_kit_checkers.py`.
+DECIDED_OUT = ("release_caller.yml", "release_gate.yml")
+
+#: The DEPLOYED halves of the OQ-56 two-file shape. Each is the body of a
+#: stamped of-record with the provenance comment stripped, so neither carries
+#: a manifest row and neither is reachable by iterating MANIFEST. They are
+#: listed here because the tracked-by-git check is about exactly this class of
+#: file: a runtime artifact real in one working tree and absent from clones.
+DEPLOYED_DERIVATIONS = (
+    ".claude/agents/incident-analyst.md",
+    ".claude/skills/version-control/SKILL.md",
+)
+
 
 def _stamped_files() -> list[str]:
     """Every file in the vendor directories carrying a kit provenance stamp."""
@@ -618,6 +648,12 @@ def test_every_vendored_file_is_tracked_by_git() -> None:
     a file git does not track, so the guard was real in that working tree and
     absent from every clone and from CI. The manifest cannot see it, because a
     file present on disk satisfies every assertion above.
+
+    THE DEPLOYED DERIVATIONS ARE IN SCOPE and were not until 2026-08-12. They
+    carry no manifest row, because their stamps are stripped, so iterating
+    MANIFEST skipped exactly the two files this test was written about: a QA
+    pass removed the deployed version-control skill from the index and this
+    file stayed green at 145 passed, including the test that loads it.
     """
     listed = subprocess.run(
         ["git", "ls-files"],
@@ -625,9 +661,17 @@ def test_every_vendored_file_is_tracked_by_git() -> None:
         capture_output=True,
         text=True,
         check=True,
+        env=os.environ.copy(),
     ).stdout.splitlines()
     tracked = set(listed)
-    untracked = sorted(rel for rel in MANIFEST if rel not in tracked)
+    assert len(tracked) > 300, (
+        f"git ls-files returned {len(tracked)} paths from {REPO}, which is far "
+        "below this repository's real size. The environment is pointing git at "
+        "another tree (GIT_DIR or GIT_WORK_TREE is set), so every assertion "
+        "below would be about a repository nobody asked about."
+    )
+    in_scope = sorted(set(MANIFEST) | set(DEPLOYED_DERIVATIONS))
+    untracked = sorted(rel for rel in in_scope if rel not in tracked)
     assert not untracked, (
         f"these vendored kit files are NOT tracked by git: {untracked}. They "
         "exist in this working tree and in no clone and in no CI run. Stage "
@@ -636,18 +680,20 @@ def test_every_vendored_file_is_tracked_by_git() -> None:
 
 
 def test_the_manifest_agrees_with_the_recorded_adoption_residue() -> None:
-    """The count of rows, and what is deliberately absent, are both asserted.
+    """The row count, and what is deliberately absent, are both asserted.
 
     The docstring above used to carry the row count and the size of the
     unvendored residue as prose, and both went stale the moment a lane took a
     row. They are measured here instead, so a number in this file is a
     measurement rather than a claim someone remembered to update.
 
-    ``DECIDED_OUT`` is the part that cannot be derived: two kit artifacts are
-    absent by the author's decision of 2026-08-11 rather than by omission, and
-    the difference between those two states is what kept COORD-02 open since
-    2026-08-02. The reason lives in CLAUDE.md; the fact that it is a DECISION
-    lives here, where a future lane counting rows will trip over it.
+    THIS TEST DID NOT DO THAT UNTIL 2026-08-12, and the gap is worth recording
+    because it is the defect this repository polices hardest, found in the
+    guard written to prevent it. The docstring described a ``DECIDED_OUT``
+    constant and said "the count of rows, and what is deliberately absent, are
+    both asserted", while the body asserted only that MANIFEST and
+    CANONICAL_SOURCE agreed. No count was pinned, no absent artifact was named,
+    and the constant did not exist. Two independent reviewer passes found it.
     """
     assert len(MANIFEST) == len(CANONICAL_SOURCE), (
         f"{len(MANIFEST)} manifest rows against {len(CANONICAL_SOURCE)} "
@@ -655,6 +701,44 @@ def test_the_manifest_agrees_with_the_recorded_adoption_residue() -> None:
     )
     for rel in MANIFEST:
         assert rel in CANONICAL_SOURCE, f"{rel} has a manifest row and no fingerprint"
+    assert len(MANIFEST) == EXPECTED_ROWS, (
+        f"{len(MANIFEST)} manifest rows, pinned at {EXPECTED_ROWS}. A row was "
+        "added or removed: change this number in the same commit, so the count "
+        "moves deliberately rather than as a side effect."
+    )
+
+
+def test_the_decided_out_artifacts_are_absent_and_stay_absent() -> None:
+    """The two kit artifacts nobody forgot: they were DECLINED.
+
+    This is the assertion that cannot be derived from the manifest, because
+    the manifest records what was taken and says nothing about the difference
+    between "not adopted" and "not decided". Failing to distinguish those two
+    is what kept COORD-02 open from 2026-08-02, so the distinction gets a
+    mechanism rather than a paragraph.
+
+    If a later lane adopts the kit's caller-plus-reusable-gate release
+    topology, this test is what it has to change, deliberately, and the
+    reasoning in CLAUDE.md moves with it.
+    """
+    for name in DECIDED_OUT:
+        assert name not in {Path(rel).name for rel in MANIFEST}, (
+            f"{name} has a manifest row, but it was DECIDED OUT by the author "
+            "on 2026-08-11. Either the decision was reversed, in which case "
+            "remove it from DECIDED_OUT and say so in CLAUDE.md, or the row "
+            "was added by mistake."
+        )
+        hits = [
+            p
+            for p in REPO.rglob(name)
+            if ".venv" not in p.parts and ".claude/worktrees" not in p.as_posix()
+        ]
+        assert not hits, (
+            f"{name} exists in the tree at {[str(p) for p in hits]} and was "
+            "decided out. See CLAUDE.md: this repository's release.yml is a "
+            "single workflow with no workflow_call, and the kit topology was "
+            "declined rather than deferred."
+        )
 
 
 def test_deployed_version_control_skill_is_the_derivation_of_record() -> None:

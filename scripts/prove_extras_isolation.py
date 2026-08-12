@@ -433,7 +433,12 @@ def prove_guard_a() -> list[str]:
 
 
 def main() -> int:
-    """Run both batteries and report."""
+    """Run the battery and report.
+
+    Said in the singular since 2026-08-12. It read "run both batteries" for a
+    day after the second battery was deleted, inside the file renamed for
+    exactly that class of stale sentence.
+    """
     WANTED.extend(sys.argv[1:])
     stranded = recover()
     if stranded:

@@ -38,6 +38,7 @@ cannot be omitted silently.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -79,6 +80,7 @@ def test_the_guard_reports_the_population_it_checked() -> None:
         [sys.executable, str(GUARD), str(SKILLS)],
         capture_output=True,
         text=True,
+        env=os.environ.copy(),
     )
     assert f"checked {len(population)} skill(s)" in done.stdout, done.stdout
     assert f"{len(population)} declaring, 0 undeclared" in done.stdout, done.stdout

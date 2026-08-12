@@ -21,7 +21,17 @@
 # has to be named in the lookahead to be checked. That is the safer direction
 # to forget in: an unchecked repository file is a style miss, a reformatted
 # vendored body is a broken pin and a red suite.
-exclude: '^\.claude/(tools/|hooks/(?!check_clean_room_trailer\.py)|agents/incident-analyst\.md$)'
+#
+# THE DEPLOYED HALVES OF THE OQ-56 SHAPE ARE BOTH LISTED, since 2026-08-12.
+# `.claude/agents/incident-analyst.md` was here from the start;
+# `.claude/skills/version-control/SKILL.md` arrived with the full vendoring and
+# was not, although it is byte-compared against its stamped of-record by the
+# same drift test. A trailing-whitespace or end-of-file rewrite of the deployed
+# copy, while its of-record twin is excluded, turns that comparison red for a
+# reason nobody edited. `.gitattributes` took the pair correctly on the night;
+# this list did not, which is the third-list problem the comment above says the
+# inversion was meant to end.
+exclude: '^\.claude/(tools/|hooks/(?!check_clean_room_trailer\.py)|agents/incident-analyst\.md$|skills/version-control/SKILL\.md$)'
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0

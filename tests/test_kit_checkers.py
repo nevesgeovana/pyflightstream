@@ -48,15 +48,29 @@ silent, because an unwired checker with no reason reads as an oversight:
   reconstructions. Creating an empty one and calling the checker green is the
   failure mode both checkers exist to catch, so it was not done.
 * ``check_version_identity.py`` REFUSES this repository's current version and
-  the refusal is CORRECT: ``0.8.0.dev0`` carries devN of 0 while HEAD is
-  twelve commits past ``v0.7.0``, so the string does not identify the commit
-  it was built from. Fixing that means either deriving the version from the
-  VCS or declaring the weaker ``--devn-policy nonzero`` promise, and both
-  change a PUBLISHED contract, which the delegated night explicitly does not
-  decide. Parked and reported through the coordination channel.
+  the refusal is CORRECT: ``0.8.0.dev0`` carries a devN counter of 0 while
+  HEAD is many commits past ``v0.7.0``, so one string is shared by every tree
+  between two releases and identifies none of them. (The exact distance was
+  written here as "twelve" and removed on review: it is true only of the
+  commit that typed it, which is the same class of stale number this file
+  exists to avoid.) Fixing it means either deriving the version from the VCS
+  or declaring the weaker ``--devn-policy nonzero`` promise, and both change a
+  PUBLISHED contract, which the delegated night explicitly does not decide.
+  Parked as ``PLN-20260811-2340`` and reported through the coordination
+  channel.
 * ``budget_isolation.py``, ``detached_gate.py`` and ``review_runner.py`` are
   tools rather than checkers. There is nothing to wire until something calls
   them.
+* ``review-policy.md`` is vendored FOR THE DRIFT ROW ALONE and is NOT adopted
+  as this repository's review policy. It is a policy document, not a checker,
+  so "unwired" understates it: nothing loads it, because unlike
+  ``version-control.md`` it carries no frontmatter and was not deployed as a
+  skill. What binds here is the ``role-review`` skill and the Role passes
+  paragraph in CLAUDE.md, which do not use the kit's GATE/PUSH/RELEASE
+  vocabulary at all. Whether the kit document replaces them is a
+  coordination-level question, raised by PFS-12 and not answered by it; until
+  it is answered, two statements of review policy exist in this tree and this
+  paragraph is which one is in force.
 
 The two workflow templates, ``release_caller.yml`` and ``release_gate.yml``,
 are not vendored at all: DECIDED OUT by the author on 2026-08-11, not pending.
@@ -66,6 +80,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -74,10 +89,18 @@ REPO = Path(__file__).resolve().parents[1]
 TOOLS = REPO / ".claude" / "tools"
 HOOKS = REPO / ".claude" / "hooks"
 
-#: The unguarded spawn calls under ``tests`` on 2026-08-11, when
-#: ``check_spawn_env.py`` was first run here. A RATCHET rather than a target:
-#: see the test below for why the number is pinned instead of fixed.
-TESTS_UNGUARDED_SPAWNS = 24
+#: The unguarded spawn calls under ``tests`` that PREDATE this work. A RATCHET
+#: rather than a target: see the test below for why the number is pinned
+#: instead of fixed.
+#:
+#: IT WAS PINNED AT 24 AND THAT WAS WRONG. 24 was the head measurement, and a
+#: QA pass measured the base commit at 21: three of the twenty-four were spawns
+#: THIS diff added, in `test_ci_state.py`, `test_kit_drift.py` and
+#: `test_skill_invocation.py`, while the helper below passes `env=` with a
+#: comment about not pushing its own measurement over the pin. A ratchet set to
+#: the number you just raised it to ratchets nothing. The three were fixed and
+#: the pin is the base measurement.
+TESTS_UNGUARDED_SPAWNS = 21
 
 
 def _run(*argv: str) -> subprocess.CompletedProcess[str]:
@@ -112,6 +135,21 @@ def test_every_spawn_under_src_and_scripts_passes_an_explicit_environment() -> N
     assert done.returncode == 0, f"{done.stdout}\n{done.stderr}"
     assert "0 unguarded" in done.stdout, done.stdout
     assert "0 unverifiable" in done.stdout, done.stdout
+
+
+def test_the_spawn_env_guard_can_still_fail() -> None:
+    """The companion beside the checker, run.
+
+    Added 2026-08-12 after an architect pass found that two newly wired
+    checkers had drift-pinned mutation companions that nothing executed, while
+    every other wired kit body in this tree runs its companion in tier 1. A
+    checker whose evidence ships and is never run is the shape this project
+    keeps registering, and it had reappeared inside the commit that wired the
+    checker.
+    """
+    done = _run(str(TOOLS / "check_spawn_env_mutations.py"))
+    assert done.returncode == 0, f"{done.stdout}\n{done.stderr}"
+    assert "The guard can still fail." in done.stdout, done.stdout
 
 
 def test_the_unguarded_spawns_under_tests_do_not_grow() -> None:
@@ -168,11 +206,28 @@ def test_no_forbidden_identifier_in_the_versioned_tree() -> None:
         str(REPO),
     )
     assert done.returncode == 0, f"{done.stdout}\n{done.stderr}"
-    # The checker always prints what it READ, so a clean run cannot be
-    # confused with one that opened almost nothing. Assert the accounting
-    # rather than only the exit code.
-    assert "inventory" in done.stdout and "scanned" in done.stdout, done.stdout
     assert "no forbidden identifier found" in done.stdout, done.stdout
+
+    # THE ACCOUNTING, PARSED, not merely present. The first version of this
+    # test asserted that the words "inventory" and "scanned" appeared, which
+    # a V and V pass pointed out is satisfied by a run that opened one file
+    # and by a --tree pointed anywhere the checker accepts: both words are on
+    # a line the checker prints unconditionally. The floors below are what
+    # would actually catch a mis-pointed tree.
+    line = next(ln for ln in done.stdout.splitlines() if "inventory" in ln)
+    numbers = {key: int(value) for key, value in re.findall(r"(\w+) (\d+)", line.replace(":", " "))}
+    assert numbers["inventory"] >= 400, f"inventory of {numbers['inventory']}: {line}"
+    assert numbers["scanned"] >= 250, f"only {numbers['scanned']} files scanned: {line}"
+    assert numbers["undecodable"] == 0 and numbers["unreadable"] == 0, line
+    # Every exempted path plus the one exempted tree. Pinned so that widening
+    # the config is a deliberate edit here rather than a quiet loosening: the
+    # `reports/` exemption started as a tree covering 118 files and was
+    # narrowed to three named files on review.
+    assert numbers["exempt"] <= 40, (
+        f"{numbers['exempt']} files exempt, up from the 27 measured when this "
+        "floor was set. An exemption was widened; widen this number in the "
+        "same commit and say why in .claude/shipped_surface.conf."
+    )
 
 
 def test_the_push_gate_guard_evidence_still_holds() -> None:
@@ -254,3 +309,68 @@ def test_the_execution_guard_is_wired_and_its_evidence_holds() -> None:
 
     done = _run(str(HOOKS / "execution_guard_mutations.py"))
     assert done.returncode == 0, f"{done.stdout}\n{done.stderr}"
+
+
+def test_every_wired_hook_path_resolves_to_a_tracked_file() -> None:
+    """A hook whose path resolves to nothing is a hook that never denies.
+
+    Every wiring assertion in this repository, here and in
+    ``tests/test_push_gate.py``, tested a SUBSTRING of the command string. A QA
+    pass rewrote `.claude/hooks/` to `.claude/hookz/` in an in-memory copy of
+    the settings and every one of those predicates still returned True, while
+    the harness would have found no script to run. That matters more than a
+    missing test usually does, because by the timeout rule's own reasoning a
+    hook that emits no decision is read as PERMISSION: a typo in this file
+    silently disables the push gate.
+
+    So the path is extracted from the command, ``CLAUDE_PROJECT_DIR`` is
+    resolved to this repository the way the harness resolves it, and the file
+    must both exist and be tracked. Tracked, not merely present: a hook that
+    works here and is in no clone is the same defect one directory over.
+    """
+    settings = json.loads((REPO / ".claude" / "settings.json").read_text(encoding="utf-8"))
+    commands = [
+        hook.get("command", "")
+        for entry in settings["hooks"]["PreToolUse"]
+        for hook in entry.get("hooks", [])
+    ]
+    assert commands, "no PreToolUse hooks are wired at all"
+    tracked = set(
+        subprocess.run(
+            ["git", "ls-files"],
+            cwd=REPO,
+            capture_output=True,
+            text=True,
+            check=True,
+            env=os.environ.copy(),
+        ).stdout.splitlines()
+    )
+    for command in commands:
+        quoted = re.findall(r'"([^"]+)"', command)
+        assert quoted, f"cannot read a script path out of {command!r}"
+        for raw in quoted:
+            resolved = Path(raw.replace("$CLAUDE_PROJECT_DIR", str(REPO)))
+            assert resolved.is_file(), (
+                f"the hook command {command!r} names {resolved}, which does not "
+                "exist. The harness would find no script, the hook would emit no "
+                "decision, and no decision is read as permission."
+            )
+            rel = resolved.relative_to(REPO).as_posix()
+            assert rel in tracked, (
+                f"the wired hook {rel} is not tracked by git, so it guards this "
+                "working tree and no clone."
+            )
+
+
+def test_the_shipped_surface_guard_can_still_fail() -> None:
+    """The companion beside the checker, run. See the spawn-env one above.
+
+    It builds real archives and asserts that each of its thirty mutants is
+    denied by a detector rather than by a crash, and it carries control pairs
+    that must PASS once their detector is removed. That last property is why
+    running it matters more than for most: a battery whose cases all pass for
+    the same reason proves one thing, not thirty.
+    """
+    done = _run(str(TOOLS / "check_shipped_surface_mutations.py"))
+    assert done.returncode == 0, f"{done.stdout}\n{done.stderr}"
+    assert "none merely by crashing" in done.stdout, done.stdout

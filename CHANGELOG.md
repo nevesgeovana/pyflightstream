@@ -105,8 +105,11 @@ Deprecations: none.
   including `release` and the three that spend a licensed solver seat.
   Six skills that had declared nothing (`add-command`, `audit`,
   `derive-requirements`, `handoff`, `plan`, `role-review`) now do; the
-  guard's own measurement went from `4 declaring, 6 undeclared` to
-  `10 declaring, 0 undeclared`.
+  guard's own measurement went from `4 declaring, 6 undeclared` to zero
+  undeclared, over a population it derives at run time. The end-state
+  count is deliberately not quoted here: it was ten when this was
+  written and eleven a few hours later, when the vendored
+  `version-control` skill arrived.
 - **`PYFS_INCIDENT_LEDGER` is retired**, and a fresh clone now sets four
   machine-configuration variables rather than five. The 0.2.11
   incident-analyst charter reads `COORD_INCIDENT_LEDGER` like everything
@@ -120,13 +123,28 @@ Deprecations: none.
 - **Process only, no package behaviour change: the shared process kit is
   fully vendored.** Twenty-four further artifacts arrived on 2026-08-11,
   taking the drift manifest from 11 rows to 35, each pinned to its own
-  `body-sha256` at kit 0.2.21. Two kit artifacts are absent BY DECISION
+  `body-sha256` at mixed kit versions from 0.1.0 to 0.2.22. Two kit
+  artifacts are absent BY DECISION
   and not by omission: the `release_caller.yml` and `release_gate.yml`
   workflow templates, declined because this repository's `release.yml` is
   a single workflow that has published v0.4.0 through v0.7.0.
   Contributor-visible: a `version-control` skill is now available, and
   `CLAUDE.md` gains a `## The vendored process kit` section recording
   which checkers are wired and the reason beside every one that is not.
+- **A second PreToolUse hook now refuses two shell shapes.** The kit's
+  `execution_guard.py` (0.2.22) denies a status-bearing command (`pytest`,
+  `mypy`, `ruff`, `git push`, or a `check_*.py` / `*_mutations.py`
+  script) piped into a line filter (`head`, `tail`, `wc`,
+  `Select-Object`, `Measure-Object`, `select`, `measure`), and a heredoc
+  whose body carries a backslash or a control byte. Both denies name a
+  category (`[piped-status]`, `[heredoc-content]`) and a remedy, and
+  neither can block a push. Contributor-visible because it changes what
+  a shell command may look like; the arms, the remedies and the one
+  known false positive are in `CLAUDE.md` under `## The second PreToolUse
+  hook: the execution guard`.
+- Tier 1 now runs a tree-wide forbidden-identifier scan and four vendored
+  mutation companions, and takes roughly ten minutes rather than six. The
+  single largest term is the push gate's own companion at 244 seconds.
 - Every `subprocess.run` under `src/` and `scripts/` now passes an
   explicit `env=`. The value is `os.environ.copy()` in each case, which
   is exactly what an omitted `env=` gave, so no child's environment
