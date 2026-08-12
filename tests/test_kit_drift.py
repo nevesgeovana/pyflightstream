@@ -8,9 +8,10 @@ and re-vendored, never hand-edited here, because a hand-edit is exactly the
 drift this level exists to stop: the gate fix that once sat in one repository
 while the other kept the defect it had reported.
 
-ONE of the eleven vendored provenance headers still names the retired
-``_private/kit`` path, and after the 2026-08-11 re-vendor it is
-``check_incidents.py`` alone. Not because a hashed body forbids the
+ONE vendored provenance header still names the retired ``_private/kit`` path,
+and after the 2026-08-11 re-vendor it is ``check_incidents.py`` alone. Every
+other row was re-vendored or vendored fresh that day and carries the current
+target. Not because a hashed body forbids the
 correction: the ``note:`` line is NOT hashed (see below), so it could be
 corrected at any time. It is stale for the ordinary reason that it has not
 been re-vendored since the path moved, and this repository has chosen to let
@@ -37,23 +38,27 @@ kit's own wrinkles, documented in its ``README.md``; the middle two are this
 repository's record of one promotion and its own caveat about this test.
 
 * The manifest below is MIXED, and that is correct rather than drift: it pins
-  each file to its own body hash and body version. After the 2026-08-11
-  re-vendor (lane PFS-11) three files carry a 0.2.18 body
-  (``role_review_gate.py`` and the ``ci_state`` pair), two carry 0.2.19 (both
-  side-effect-guard files), one carries 0.2.15 (``write_attestation.py``), one
-  0.2.11 (``incident-analyst.md``), two 0.2.10 (both plan-checker files), one
-  0.2.5 (``snap.sh``), and ``check_incidents.py`` keeps its S5-era 0.1.0 body.
-  Do not read any single version below as the kit's version.
-* This repository is STILL DELIBERATELY BEHIND, and the gap is measured rather
-  than unknown. Against kit master 0.2.20 on 2026-08-11: every one of the
-  eleven rows below is at its master's current body, and the kit manifest
-  carries 37 rows in all, so 26 kit artifacts have never been vendored here at
-  all. That residue is COORD-02, an open product-owner question about which of
-  them this repository takes and in what order, and PFS-11 deliberately did not
-  answer it: the lane took the CI arm, the policy rows, and the bodies that
-  were already here and had drifted. The bullet below on what this test cannot
-  see is the reason that decision has to be written down somewhere a reader
-  will find it.
+  each file to its own body hash and body version, spanning 0.1.0 to 0.2.21.
+  Do not read any single version below as the kit's version, and do not
+  "tidy" the spread: a row sits at the version of the master it was vendored
+  from, and most masters have not moved since.
+* THE ADOPTION GAP IS CLOSED, and this file no longer carries the count.
+  PFS-11 (2026-08-11) took the CI arm, the policy rows and the drifted
+  bodies; PFS-12, the same night, took everything else on the author's
+  decision to end the divergence in one night rather than one row per lane.
+  What remains absent is TWO artifacts and it is a DECISION rather than a
+  residue: ``release_caller.yml`` and ``release_gate.yml``, declined because
+  this repository's ``release.yml`` is a single workflow with no
+  ``workflow_call``, has published v0.4.0 through v0.7.0, and rewriting the
+  one release path that is proven to work is not a night job. The reason
+  lives in CLAUDE.md. It is written as DECIDED-OUT rather than not-yet,
+  because failing to distinguish those two is what kept COORD-02 open from
+  2026-08-02.
+
+  The counts themselves are asserted rather than narrated, by
+  ``test_the_manifest_agrees_with_the_recorded_adoption_residue`` and
+  ``test_every_stamped_file_in_the_tree_has_a_manifest_row``. Prose counts in
+  this docstring went stale twice; measurements do not.
 * ``role_review_gate.py`` sits at 0.2.18 for the CI-GREEN TAG RULE: a
   release-grade push is refused unless the commit each version tag names has a
   concluded, successful CI result on the remote, with red, running, unknown and
@@ -159,6 +164,7 @@ repository's record of one promotion and its own caveat about this test.
 from __future__ import annotations
 
 import hashlib
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -248,6 +254,37 @@ MANIFEST: dict[str, tuple[str, str, str]] = {
         "67321ce237a4314a988424cff2b7bac22bc9eba6db9862806c66127c606b7bc9",
         "ClaudeCoordinator/kit",
     ),
+    # ---- PFS-12, the review process -------------------------------------
+    ".claude/tools/check_review_rounds.py": (
+        "0.2.16",
+        "b09fdec02dc0674a540bb5429c6343a8d4b7747fc286232dcb54f9b6e4508c4e",
+        "ClaudeCoordinator/kit",
+    ),
+    ".claude/tools/check_review_rounds_mutations.py": (
+        "0.2.16",
+        "9da4b72e42fa1369d5c55c114a6096336001a1f905dbea5d69f6627501d81e26",
+        "ClaudeCoordinator/kit",
+    ),
+    ".claude/tools/review-policy.md": (
+        "0.2.16",
+        "e0617a4f6f4a70de5dfe55a66e38efc2faaf1e312a4e543c7f6a21e10f1bbf6f",
+        "ClaudeCoordinator/kit",
+    ),
+    ".claude/tools/review_runner.py": (
+        "0.2.17",
+        "f906c6c92b3b504ade3e4defcfe03803925b33f66128acf35101800bfab0025c",
+        "ClaudeCoordinator/kit",
+    ),
+    ".claude/tools/detached_gate.py": (
+        "0.2.17",
+        "86ac1759c867c6a215e9ccc44779bd4e4954efa058c54b1b3e05cbc3e70831f7",
+        "ClaudeCoordinator/kit",
+    ),
+    ".claude/tools/budget_isolation.py": (
+        "0.2.17",
+        "59fb39d9fdb814455ea9a5f8009fb466e1e0fe5b02a02b37c44b4f721d2a6d96",
+        "ClaudeCoordinator/kit",
+    ),
 }
 
 # Files whose body carries a per-repo substitution and must be normalized back
@@ -277,6 +314,12 @@ CANONICAL_SOURCE: dict[str, str] = {
     ".claude/tools/check_plan_kit_mutations.py": "cbc57a022fe9debe",
     ".claude/tools/check_side_effect_guard.py": "74173c7908fd4721",
     ".claude/tools/check_side_effect_guard_mutations.py": "3b952a436a3928f8",
+    ".claude/tools/check_review_rounds.py": "4d2726dbbeed012a",
+    ".claude/tools/check_review_rounds_mutations.py": "13cb3d72e4c4040f",
+    ".claude/tools/review-policy.md": "9ffd73edbd2b6077",
+    ".claude/tools/review_runner.py": "2f120183b1211182",
+    ".claude/tools/detached_gate.py": "72e440fe428576ad",
+    ".claude/tools/budget_isolation.py": "56dd7a1ef1ee9133",
 }
 
 
@@ -401,6 +444,97 @@ def test_vendored_kit_canonical_source_is_unchanged(rel: str) -> None:
         "this table deliberately; if nothing was re-vendored, the header was "
         f"hand-edited. value={value!r}"
     )
+
+
+#: Where a vendored kit body may live in this tree. Both directories are
+#: already excluded wholesale from ruff and from the pre-commit hooks (a
+#: reformat changes the body bytes and breaks the pin), and both are pinned to
+#: LF in `.gitattributes`, so this list is the third face of one decision
+#: rather than a new one.
+VENDOR_DIRS = (".claude/tools", ".claude/hooks", ".claude/agents", ".claude/skills")
+
+
+def _stamped_files() -> list[str]:
+    """Every file in the vendor directories carrying a kit provenance stamp."""
+    found = []
+    for folder in VENDOR_DIRS:
+        for path in sorted((REPO / folder).rglob("*")):
+            if not path.is_file() or path.suffix == ".pyc":
+                continue
+            try:
+                text = path.read_text(encoding="utf-8")
+            except (UnicodeDecodeError, OSError):
+                continue
+            if "END KIT PROVENANCE" in text:
+                found.append(str(path.relative_to(REPO)).replace("\\", "/"))
+    return found
+
+
+def test_every_stamped_file_in_the_tree_has_a_manifest_row() -> None:
+    """A vendored body nobody pinned is worse than one nobody vendored.
+
+    The manifest above is hand-maintained, so until PFS-12 nothing connected
+    it to what the tree actually holds: a body could be copied in, carry its
+    stamp, be committed, and be covered by no assertion at all. Every test
+    above iterates over MANIFEST, so the file simply would not appear.
+
+    This walks the other way. It finds the population by the stamp marker,
+    which is the same thing that defines a kit body, and requires a row for
+    each. Going from 11 rows to 35 in one night is exactly when that gap would
+    have been cheapest to open.
+    """
+    unpinned = sorted(set(_stamped_files()) - set(MANIFEST))
+    assert not unpinned, (
+        f"these files carry a kit provenance stamp and no manifest row: "
+        f"{unpinned}. Add a row (version, body-sha256, note target) and a "
+        "canonical-source fingerprint, or delete the file."
+    )
+
+
+def test_every_vendored_file_is_tracked_by_git() -> None:
+    """A vendored body git does not track is a guard that exists on one machine.
+
+    Written because it happened next door on 2026-08-11: itaca wired a hook to
+    a file git does not track, so the guard was real in that working tree and
+    absent from every clone and from CI. The manifest cannot see it, because a
+    file present on disk satisfies every assertion above.
+    """
+    listed = subprocess.run(
+        ["git", "ls-files"],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.splitlines()
+    tracked = set(listed)
+    untracked = sorted(rel for rel in MANIFEST if rel not in tracked)
+    assert not untracked, (
+        f"these vendored kit files are NOT tracked by git: {untracked}. They "
+        "exist in this working tree and in no clone and in no CI run. Stage "
+        "them by path."
+    )
+
+
+def test_the_manifest_agrees_with_the_recorded_adoption_residue() -> None:
+    """The count of rows, and what is deliberately absent, are both asserted.
+
+    The docstring above used to carry the row count and the size of the
+    unvendored residue as prose, and both went stale the moment a lane took a
+    row. They are measured here instead, so a number in this file is a
+    measurement rather than a claim someone remembered to update.
+
+    ``DECIDED_OUT`` is the part that cannot be derived: two kit artifacts are
+    absent by the author's decision of 2026-08-11 rather than by omission, and
+    the difference between those two states is what kept COORD-02 open since
+    2026-08-02. The reason lives in CLAUDE.md; the fact that it is a DECISION
+    lives here, where a future lane counting rows will trip over it.
+    """
+    assert len(MANIFEST) == len(CANONICAL_SOURCE), (
+        f"{len(MANIFEST)} manifest rows against {len(CANONICAL_SOURCE)} "
+        "canonical-source fingerprints; every row needs both"
+    )
+    for rel in MANIFEST:
+        assert rel in CANONICAL_SOURCE, f"{rel} has a manifest row and no fingerprint"
 
 
 def test_runtime_incident_analyst_is_the_derivation_of_record() -> None:
