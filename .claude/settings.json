@@ -9,6 +9,12 @@
             "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/role_review_gate.py\"",
             "timeout": 90,
             "statusMessage": "Checking the role-review push gate"
+          },
+          {
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/execution_guard.py\"",
+            "timeout": 15,
+            "statusMessage": "Checking the execution guard"
           }
         ]
       }

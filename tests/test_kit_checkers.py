@@ -15,6 +15,9 @@ WHAT IS WIRED HERE, and each one is aimed at something this repository did:
   must not travel to a user's machine.
 * ``role_review_gate_mutations.py``, the guard evidence for the push gate this
   repository runs on every shell command.
+* ``execution_guard.py``, wired as a second PreToolUse hook and vendored LAST,
+  in its own commit, because it changes how a session behaves and a false
+  positive of its own must not be able to block the work that installs it.
 
 WHAT IS VENDORED AND DELIBERATELY NOT WIRED, recorded here rather than left
 silent, because an unwired checker with no reason reads as an oversight:
@@ -61,6 +64,7 @@ are not vendored at all: DECIDED OUT by the author on 2026-08-11, not pending.
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -201,3 +205,52 @@ def test_the_push_gate_guard_evidence_still_holds() -> None:
         "gained coverage (good, and this assertion should say so) or it "
         "stopped admitting the gap (not good, and nothing else would show it)."
     )
+
+
+def test_the_execution_guard_is_wired_and_its_evidence_holds() -> None:
+    """The second PreToolUse hook, and the companion that proves it can deny.
+
+    Two assertions, because either alone is misleading. A guard nobody invokes
+    is not a guard: every other check here runs a script by path, so this file
+    would pass identically with the registration deleted. And a wiring with no
+    evidence is a claim: the companion drives 41 cases and 10 mutants against
+    the real body.
+
+    WHAT IT REFUSES, so the next session recognises a deny instead of reporting
+    it as a defect. Arm 1: a status-bearing command (pytest, mypy, ruff, git
+    push, or a ``check_*.py`` / ``*_mutations.py`` script) piped into a line
+    filter, which at 0.2.22 includes the PowerShell half (``Select-Object``,
+    ``Measure-Object``, ``select``, ``measure``) and not only bash's ``head``,
+    ``tail`` and ``wc``. That half arrived because the hook's matcher has
+    always been ``Bash|PowerShell`` while the pattern was bash-only, so on this
+    repository, whose primary shell IS PowerShell, the guard could express
+    nothing it was armed for. Arm 2: a heredoc whose body carries a backslash
+    or a control byte.
+
+    THE KNOWN FALSE POSITIVE, recorded so it is not "fixed": a checker filename
+    appearing as DATA rather than as an execution, for example a grep for
+    ``check_foo.py`` in an unquoted argument. Heredoc bodies and quoted spans
+    are blanked before the scan; an unquoted filename in a grep argument still
+    trips it. The remedy is to quote the token, and that is the operator's, not
+    the guard's.
+    """
+    settings = json.loads((REPO / ".claude" / "settings.json").read_text(encoding="utf-8"))
+    wired = [
+        hook
+        for entry in settings["hooks"]["PreToolUse"]
+        for hook in entry.get("hooks", [])
+        if "execution_guard.py" in hook.get("command", "")
+    ]
+    assert wired, "no PreToolUse hook invokes execution_guard.py"
+    matchers = [
+        entry["matcher"]
+        for entry in settings["hooks"]["PreToolUse"]
+        if any("execution_guard.py" in h.get("command", "") for h in entry["hooks"])
+    ]
+    assert any("Bash" in m and "PowerShell" in m for m in matchers), (
+        f"the execution guard is wired for {matchers}, but its PowerShell arm "
+        "only exists because the matcher covers both shells"
+    )
+
+    done = _run(str(HOOKS / "execution_guard_mutations.py"))
+    assert done.returncode == 0, f"{done.stdout}\n{done.stderr}"

@@ -371,6 +371,22 @@ MANIFEST: dict[str, tuple[str, str, str]] = {
         "133ffcab519c483d598aa6ab9cb67feeb22546b4b2a85aaa0f063851646d713b",
         "ClaudeCoordinator/kit",
     ),
+    # ---- PFS-12, the execution guard, vendored and wired LAST ------------
+    # At 0.2.22 rather than the 0.2.20 the routing brief named: the kit
+    # promoted this pair twice while this lane ran, both times on defects the
+    # sister library found within an hour of the artifact being offered to it.
+    # 0.2.22 is what the kit README carried when this row was written, and the
+    # row is pinned from that README rather than from the brief.
+    ".claude/hooks/execution_guard.py": (
+        "0.2.22",
+        "2ebfc38bd69cf625971385834c05f0b189d1121ce78d324a950c568cc32ccf5b",
+        "ClaudeCoordinator/kit",
+    ),
+    ".claude/hooks/execution_guard_mutations.py": (
+        "0.2.22",
+        "d8131f93820b1d010a219969229d2e9d5749af2bcaa812753f26ea58df5e2ffb",
+        "ClaudeCoordinator/kit",
+    ),
 }
 
 # Files whose body carries a per-repo substitution and must be normalized back
@@ -422,6 +438,8 @@ CANONICAL_SOURCE: dict[str, str] = {
     ".claude/tools/check_version_identity_mutations.py": "ef94eb1b85764c79",
     ".claude/tools/check_spawn_env.py": "d01f4930a484e57a",
     ".claude/tools/check_spawn_env_mutations.py": "8a3c3587f86a819f",
+    ".claude/hooks/execution_guard.py": "f27f3298e1673544",
+    ".claude/hooks/execution_guard_mutations.py": "c7131f9a250db397",
 }
 
 
