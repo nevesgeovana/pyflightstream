@@ -135,6 +135,26 @@ MAIL_SHAPE = re.compile(
 # because putting it among the hosts is a bug that lets nothing through and
 # looks like it works.
 IMPERSONAL_MAIL_HOSTS = ("example.com", "example.org", "example.net", "localhost")
+# The RESERVED TOP-LEVEL NAMES of the same RFC, matched as a suffix because a
+# reserved TLD reserves everything under it. The comment above has claimed
+# "RFC 2606" since this guard was written and the tuple implemented four of
+# its names while omitting the other four, which is a claim wider than the
+# code; completed on 2026-08-11.
+#
+# It was found the way these things are found. PFS-12 vendored
+# `role_review_gate_mutations.py` and `prepush_receipt_mutations.py`, which
+# set a throwaway git identity in a temp repository from `gate@example.invalid`
+# and `kit@example.invalid`, and this guard called both personal identifiers.
+#
+# WHAT WAS NOT DONE, because the sister library's precedent pointed at it: the
+# vendored directories were NOT exempted wholesale. This guard exists because a
+# vendored kit body published a real name, a real address and a real
+# user-profile path on this public remote, so the vendored tree is the exact
+# place it must keep watching. Exempting it to clear two RFC-reserved
+# non-addresses would have blinded the guard where it was born. A drift-pinned
+# body still cannot be hand-edited here; the answer was to make the detector
+# right rather than to make its scope smaller.
+IMPERSONAL_MAIL_TLDS = (".invalid", ".test", ".example", ".localhost")
 IMPERSONAL_MAIL_USERS = ("noreply", "no-reply")
 # `/Users/<name>`, `\Users\<name>` and the Windows environment form. The
 # separator class covers both spellings for the reason MIGRATED_PATH gives.
@@ -159,7 +179,12 @@ def _identifier_offenses(text: str) -> list[str]:
     for match in MAIL_SHAPE.finditer(text):
         address = match.group(0)
         user, _, host = address.partition(_AT)
-        if host.lower() in IMPERSONAL_MAIL_HOSTS or user.lower() in IMPERSONAL_MAIL_USERS:
+        host = host.lower()
+        if (
+            host in IMPERSONAL_MAIL_HOSTS
+            or host.endswith(IMPERSONAL_MAIL_TLDS)
+            or user.lower() in IMPERSONAL_MAIL_USERS
+        ):
             continue
         found.append(f"an email address ({address})")
     for match in PROFILE_PATH_SHAPE.finditer(text):
@@ -247,8 +272,31 @@ def test_the_identifier_guard_fires_on_what_it_exists_to_catch():
         "user" + _AT + "example.com",
         "private-snapshot" + _AT + "localhost",
         "noreply" + _AT + "github.com",
+        # The RFC 2606 reserved TLDs, added 2026-08-11 with the branch that
+        # accepts them. Both of the first two are real literals from vendored
+        # kit bodies (role_review_gate_mutations.py and
+        # prepush_receipt_mutations.py set a throwaway git identity from them);
+        # the rest are the remaining reserved names, asserted so the tuple is
+        # exercised rather than trusted, since a name nobody tests is a name
+        # that can be dropped without anything going red.
+        "gate" + _AT + "example.invalid",
+        "kit" + _AT + "example.invalid",
+        "anyone" + _AT + "something.test",
+        "anyone" + _AT + "host.example",
+        "anyone" + _AT + "box.localhost",
     ):
         assert not _identifier_offenses(benign), f"the guard false-positives on {benign!r}"
+    # And the reserved names must be matched as a SUFFIX of the host, never as
+    # a substring anywhere in it. A domain someone really owns can contain the
+    # word, and that address is personal.
+    for personal in (
+        "someone" + _AT + "invalid-domain.com",
+        "someone" + _AT + "example.invalid.co",
+        "someone" + _AT + "test.org.uk",
+    ):
+        assert _identifier_offenses(personal), (
+            f"the reserved-TLD exemption swallowed {personal!r}, which is a real host"
+        )
 
 
 def test_no_committed_path_to_a_migrated_session_document():

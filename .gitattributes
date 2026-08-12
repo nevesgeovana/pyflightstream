@@ -16,6 +16,13 @@
 .claude/hooks/** text eol=lf
 .claude/agents/incident-analyst.md text eol=lf
 .claude/tools/** text eol=lf
+# The DEPLOYED half of the OQ-56 two-file shape. Both deployed copies are
+# byte-compared against their stamped of-record by the drift test, so a
+# checkout that rewrote line endings would fail the comparison rather than the
+# hash, which is the same defect wearing a different message. The agents line
+# above is the first of these two; this is the second, added 2026-08-11 with
+# the version-control skill.
+.claude/skills/version-control/SKILL.md text eol=lf
 
 # The goldens are byte-exact fixtures: their bytes ARE the assertion.
 # They are read with read_text, whose universal-newline translation

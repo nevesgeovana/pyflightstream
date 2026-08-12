@@ -285,6 +285,41 @@ MANIFEST: dict[str, tuple[str, str, str]] = {
         "59fb39d9fdb814455ea9a5f8009fb466e1e0fe5b02a02b37c44b4f721d2a6d96",
         "ClaudeCoordinator/kit",
     ),
+    # ---- PFS-12, the push and release boundary --------------------------
+    # Beside the gate it proves, for the same reason as the ci_state pair.
+    ".claude/hooks/role_review_gate_mutations.py": (
+        "0.2.18",
+        "fe9ecec7baed9a488a7609f9daab0465f4a35798b282435600a5720062ca791d",
+        "ClaudeCoordinator/kit",
+    ),
+    # The stamped of-record for the version-control skill. The DEPLOYED copy
+    # (.claude/skills/version-control/SKILL.md) is its body alone, guarded
+    # separately below, exactly as incident-analyst.md is.
+    ".claude/tools/version-control.md": (
+        "0.2.21",
+        "a4a219dea812abef16cfed55cac02a83d2f7d1d1525238cc9ee87bd46400ec59",
+        "ClaudeCoordinator/kit",
+    ),
+    ".claude/tools/check_release_gate.py": (
+        "0.2.15",
+        "465caa08e9ce041f3fc359b41701fffcb649ec223a194a533c8d89c8c593f6a2",
+        "ClaudeCoordinator/kit",
+    ),
+    ".claude/tools/check_release_gate_mutations.py": (
+        "0.2.15",
+        "c03575afa540d63c73a75209c8a1521950f53a6a57c0c66cc2f00a3f0f3c6d39",
+        "ClaudeCoordinator/kit",
+    ),
+    ".claude/tools/prepush_receipt.py": (
+        "0.2.16",
+        "e44bde8efa27e0bed50db5e10903871936d688c55d833f4c707f29e3ec67aa94",
+        "ClaudeCoordinator/kit",
+    ),
+    ".claude/tools/prepush_receipt_mutations.py": (
+        "0.2.16",
+        "228d9e359c55a0d14f2e890b7130d405d279a63273b5d6710b429844af58f633",
+        "ClaudeCoordinator/kit",
+    ),
 }
 
 # Files whose body carries a per-repo substitution and must be normalized back
@@ -320,6 +355,12 @@ CANONICAL_SOURCE: dict[str, str] = {
     ".claude/tools/review_runner.py": "2f120183b1211182",
     ".claude/tools/detached_gate.py": "72e440fe428576ad",
     ".claude/tools/budget_isolation.py": "56dd7a1ef1ee9133",
+    ".claude/hooks/role_review_gate_mutations.py": "3b16f9f89f978545",
+    ".claude/tools/version-control.md": "ef976e3179c033b3",
+    ".claude/tools/check_release_gate.py": "f722bba81049e5c6",
+    ".claude/tools/check_release_gate_mutations.py": "f5d3746b4228d19e",
+    ".claude/tools/prepush_receipt.py": "2172114c92b8dd5e",
+    ".claude/tools/prepush_receipt_mutations.py": "369e7dcaeb9836fa",
 }
 
 
@@ -535,6 +576,49 @@ def test_the_manifest_agrees_with_the_recorded_adoption_residue() -> None:
     )
     for rel in MANIFEST:
         assert rel in CANONICAL_SOURCE, f"{rel} has a manifest row and no fingerprint"
+
+
+def test_deployed_version_control_skill_is_the_derivation_of_record() -> None:
+    """The loaded skill is exactly the of-record body with the stamp removed.
+
+    The OQ-56 two-file shape, and this repository already runs it for
+    ``incident-analyst.md``: a loader that wants YAML frontmatter on line 1
+    cannot be handed a file whose first line is ``<!--``, so the DEPLOYED copy
+    is the body alone and the stamped copy stays as the drift test's
+    of-record. Without this check a hand-edit of the deployed skill escapes
+    every assertion above, which only ever reads the of-record.
+
+    Note what is NOT here and is here for the analyst: no per-repo
+    substitution. That charter had one (a ledger variable) and the 0.2.11 body
+    retired it; this skill never had one, so the deployed copy is the body
+    byte for byte and the body hash of the manifest row is also the hash of
+    the deployed file. Asserted rather than left implicit, so a future body
+    that DOES introduce a substitution fails here instead of silently making
+    the two files differ.
+    """
+    of_record = _read_lf(REPO / ".claude/tools/version-control.md")
+    lines, start = _split_at_marker(of_record)
+    body = "\n".join(lines[start:])
+    deployed_path = REPO / ".claude/skills/version-control/SKILL.md"
+    assert deployed_path.is_file(), (
+        "the version-control skill is vendored as an of-record and never "
+        "deployed, so nothing loads it. Materialize "
+        f"{deployed_path.relative_to(REPO)} from the stamped copy."
+    )
+    deployed = _read_lf(deployed_path)
+    assert deployed == body, (
+        "the deployed version-control skill is not the body of the stamped "
+        "of-record (.claude/tools/version-control.md). Re-materialize it by "
+        "stripping the provenance comment; do not edit either copy by hand."
+    )
+    assert deployed.splitlines()[0].strip() == "---", "deployed skill lost its frontmatter"
+    _version, want, _note = MANIFEST[".claude/tools/version-control.md"]
+    assert hashlib.sha256(deployed.encode("utf-8")).hexdigest() == want, (
+        "the deployed body no longer hashes to the manifest row, which can "
+        "only mean a per-repo substitution appeared. That is not forbidden, "
+        "but it makes the two files genuinely different and this assertion is "
+        "where that has to be acknowledged rather than discovered."
+    )
 
 
 def test_runtime_incident_analyst_is_the_derivation_of_record() -> None:
