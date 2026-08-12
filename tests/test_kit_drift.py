@@ -320,6 +320,57 @@ MANIFEST: dict[str, tuple[str, str, str]] = {
         "228d9e359c55a0d14f2e890b7130d405d279a63273b5d6710b429844af58f633",
         "ClaudeCoordinator/kit",
     ),
+    # ---- PFS-12, the evidence and shipping surface ----------------------
+    ".claude/tools/check_shipped_surface.py": (
+        "0.2.18",
+        "f5dffb534da98061352a941cf5e9ca1de907afc4b0fcf059a7fe7d0a4b33a49b",
+        "ClaudeCoordinator/kit",
+    ),
+    ".claude/tools/check_shipped_surface_mutations.py": (
+        "0.2.18",
+        "09b94846024e803116f2308a6aecccc6d70e91da021104fa459ef06c0d486daa",
+        "ClaudeCoordinator/kit",
+    ),
+    ".claude/tools/check_probe_closure.py": (
+        "0.2.7",
+        "5b4a76ea8e94d6185cd200d0f0324e6501967d1d959c94e5a0e0f31019c142a2",
+        "ClaudeCoordinator/kit",
+    ),
+    ".claude/tools/check_probe_closure_mutations.py": (
+        "0.2.7",
+        "59f3f3c120d7b834bae78b047b2e76d638952a4fb749783b78caba9214767b9c",
+        "ClaudeCoordinator/kit",
+    ),
+    ".claude/tools/check_citations.py": (
+        "0.2.17",
+        "e295e4781f0f073caa90ea4920b09b597042824ccb534008c85550910672d395",
+        "ClaudeCoordinator/kit",
+    ),
+    ".claude/tools/check_citations_mutations.py": (
+        "0.2.16",
+        "97a46d08ea2b39fe13403048f22d96f9f4189af768ac2483f037bcafbf0d32aa",
+        "ClaudeCoordinator/kit",
+    ),
+    ".claude/tools/check_version_identity.py": (
+        "0.2.6",
+        "d9fd719a92bc82cd8c81ab60888bcae4eeed320af89bced74b2602350afe68bd",
+        "ClaudeCoordinator/kit",
+    ),
+    ".claude/tools/check_version_identity_mutations.py": (
+        "0.2.6",
+        "49f0dd3c2dd3ef257761ecbac32c5c0d3f56937f5d735080040843f6aeebf58a",
+        "ClaudeCoordinator/kit",
+    ),
+    ".claude/tools/check_spawn_env.py": (
+        "0.2.16",
+        "b5db024d0e110f379bc9c019ed2ef117e14a952b95895593d81a2e394a3c7619",
+        "ClaudeCoordinator/kit",
+    ),
+    ".claude/tools/check_spawn_env_mutations.py": (
+        "0.2.16",
+        "133ffcab519c483d598aa6ab9cb67feeb22546b4b2a85aaa0f063851646d713b",
+        "ClaudeCoordinator/kit",
+    ),
 }
 
 # Files whose body carries a per-repo substitution and must be normalized back
@@ -361,6 +412,16 @@ CANONICAL_SOURCE: dict[str, str] = {
     ".claude/tools/check_release_gate_mutations.py": "f5d3746b4228d19e",
     ".claude/tools/prepush_receipt.py": "2172114c92b8dd5e",
     ".claude/tools/prepush_receipt_mutations.py": "369e7dcaeb9836fa",
+    ".claude/tools/check_shipped_surface.py": "e32a6c7d6ba0253a",
+    ".claude/tools/check_shipped_surface_mutations.py": "8c04f65a622d40a4",
+    ".claude/tools/check_probe_closure.py": "e43cd8ad8ef22bd2",
+    ".claude/tools/check_probe_closure_mutations.py": "f5395e2aaa3bae0c",
+    ".claude/tools/check_citations.py": "f0f80fe0ef080321",
+    ".claude/tools/check_citations_mutations.py": "415f9fcda69ac3c7",
+    ".claude/tools/check_version_identity.py": "610becda7f486eed",
+    ".claude/tools/check_version_identity_mutations.py": "ef94eb1b85764c79",
+    ".claude/tools/check_spawn_env.py": "d01f4930a484e57a",
+    ".claude/tools/check_spawn_env_mutations.py": "8a3c3587f86a819f",
 }
 
 
