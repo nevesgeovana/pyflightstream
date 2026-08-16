@@ -153,9 +153,25 @@ that ends early leaves no undocumented change:
 | the change touches | it also writes |
 |---|---|
 | the public surface: API, CLI, extras, behavior, deprecations | `CHANGELOG.md` Unreleased, plus every public page it invalidates, in this session (`CLAUDE.md`, "Definition of done", SRS NFR-11) |
+| the public surface with something NEW | a user-facing page that explains it, with a worked example, per the paragraph below |
 | a requirement's meaning or status | `docs/srs/` |
 | the command database | the entry's evidence fields, through `add-command` |
 | anything else worth finding later | a plan ledger item, through the `plan` skill |
+
+**CURRENCY IS NOT COVERAGE, and this repository's rule is the first one.** SRS
+NFR-11 says an existing page must not quietly stop being true. It does NOT say a
+new thing must be documented at all, and a change that adds a capability no page
+ever mentioned satisfies currency perfectly by invalidating nothing. So the
+question to ask before closing is not "did I break a page" but **"where would a
+user who does not know this exists find out that it does"**, and the answer must
+be a page, not this conversation.
+
+A public thing is documented when all three are true: a user-facing page
+explains what it is FOR, in plain language, before it explains how it is called;
+the page carries at least one WORKED EXAMPLE the reader could run; and the
+example is one that is EXECUTED somewhere, so it cannot rot into a lie. The
+repository's own tests are the cheapest source of an executed example, and a
+test lifted into a page keeps its guarantee: it fails when it stops being true.
 
 **A defect found on the way is an incident.** Fixed at its STRUCTURAL cause on
 its FIRST occurrence, in this session, carrying a guard and the evidence that
