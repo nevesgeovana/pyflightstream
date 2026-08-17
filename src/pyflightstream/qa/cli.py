@@ -24,7 +24,9 @@ from pyflightstream.options import get_option
 from pyflightstream.qa.compat import (
     PROMOTABLE_OUTCOMES,
     apply_compat,
+    compat_report_paths,
     read_compat_report,
+    refuse_existing_compat_report,
     write_compat_report,
 )
 from pyflightstream.qa.drift import run_drift, write_drift_report
@@ -313,6 +315,22 @@ def _cmd_probe(args: argparse.Namespace) -> int:
         commands = []
     elif args.commands:
         commands = [name.strip() for name in args.commands.split(",") if name.strip()]
+
+    # BEFORE the solver starts, because the refusal below is right and
+    # its position was wrong. On 2026-08-17 a full campaign on 26.123 ran
+    # to completion, 111 commands over five minutes of licensed solver,
+    # and the write then refused on a stem that already existed; the
+    # verdicts lived only in the process that was exiting, so a licence
+    # checkout was spent and discarded on a collision knowable before
+    # anything started.
+    try:
+        refuse_existing_compat_report(
+            *compat_report_paths(canonical, args.report_dir, label=args.label)
+        )
+    except FileExistsError as error:
+        print(f"nothing run: {error}", file=sys.stderr)
+        return 2
+
     try:
         run = probe_version(
             canonical,

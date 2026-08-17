@@ -33,6 +33,68 @@ from pyflightstream.run import describe_invocation
 COMPAT_SCHEMA = "pyflightstream-compat-report/1"
 
 
+def compat_report_paths(
+    version: str, out_dir: str | Path, *, date: str | None = None, label: str | None = None
+) -> tuple[Path, Path]:
+    """Return where a compat report for one run WOULD be written.
+
+    Split out of :func:`write_compat_report` so a caller can ask the
+    question BEFORE it spends a licensed solver seat, which is the whole
+    reason this function exists. The refusal on an existing report is
+    right and its POSITION was wrong: on 2026-08-17 a full probe
+    campaign on 26.123 ran to completion, 111 commands over five
+    minutes of licensed solver, and then the write refused because a
+    report of that stem already existed. The verdicts lived only in the
+    process that was exiting, so a licence checkout was spent and
+    discarded on a collision knowable before the solver started.
+
+    Parameters
+    ----------
+    version : str
+        Canonical build identifier, as :attr:`ProbeRun.version` carries.
+    out_dir : str or Path
+        Target directory, normally ``reports/compat/``.
+    date : str, optional
+        ISO date stamped into the stem; defaults to today.
+    label : str, optional
+        Stem suffix distinguishing several reports on one day.
+
+    Returns
+    -------
+    tuple of Path
+        The YAML path and the Markdown path, in that order. Neither is
+        created and the directory is not made.
+    """
+    date = date or datetime.date.today().isoformat()
+    stem = f"CMP-{version.replace('.', '')}_{date}"
+    if label:
+        stem += f"_{label}"
+    directory = Path(out_dir)
+    return directory / f"{stem}.yaml", directory / f"{stem}.md"
+
+
+def refuse_existing_compat_report(*paths: Path) -> None:
+    """Refuse to overwrite a committed report, wherever it is asked.
+
+    Evidence supersedes evidence only through a new, dated report, and a
+    caller that has not yet spent a licensed seat should be told so
+    BEFORE it does. Call it with the output of
+    :func:`compat_report_paths`.
+
+    Raises
+    ------
+    FileExistsError
+        If any named path exists.
+    """
+    for path in paths:
+        if path.exists():
+            raise FileExistsError(
+                f"{path} already exists; compat reports are evidence and are never "
+                "overwritten. Remove the stale file deliberately or pick another date, "
+                "or pass a different --label."
+            )
+
+
 def write_compat_report(
     run: ProbeRun, out_dir: str | Path, *, date: str | None = None, label: str | None = None
 ) -> tuple[Path, Path]:
@@ -68,18 +130,12 @@ def write_compat_report(
     """
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+    # Resolved HERE as well as inside compat_report_paths, and both from
+    # the same default, so the stem the file is written under and the
+    # date stamped inside it cannot disagree.
     date = date or datetime.date.today().isoformat()
-    stem = f"CMP-{run.version.replace('.', '')}_{date}"
-    if label:
-        stem += f"_{label}"
-    yaml_path = out_dir / f"{stem}.yaml"
-    md_path = out_dir / f"{stem}.md"
-    for path in (yaml_path, md_path):
-        if path.exists():
-            raise FileExistsError(
-                f"{path} already exists; compat reports are evidence and are never "
-                "overwritten. Remove the stale file deliberately or pick another date."
-            )
+    yaml_path, md_path = compat_report_paths(run.version, out_dir, date=date, label=label)
+    refuse_existing_compat_report(yaml_path, md_path)
     counts = run.outcome_counts()
     document = {
         "schema": COMPAT_SCHEMA,

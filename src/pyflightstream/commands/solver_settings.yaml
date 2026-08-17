@@ -14,7 +14,7 @@ SET_SOLVER_STEADY:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: documented, note: "SRC-751 p.346, same grammar as the 26.122 edition"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.346, same grammar as the 26.122 edition"}
 
 SET_SOLVER_UNSTEADY:
   layout: keyword_block
@@ -35,7 +35,7 @@ SET_SOLVER_UNSTEADY:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: documented, note: "SRC-751 p.346, same grammar as the 26.122 edition"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.346, same grammar as the 26.122 edition"}
   notes: >
     Physical time stepping. For rotary cases the manual recommends 8
     to 12 degrees of blade rotation per time step and at least two
@@ -58,7 +58,7 @@ SET_BOUNDARY_LAYER_TYPE:
     "26.101": {status: documented, note: "SRC-725 p.340, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: documented, note: "SRC-751 p.346, same grammar as the 26.122 edition"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.346, same grammar as the 26.122 edition"}
   default: TRANSITIONAL
   default_ref: "SRC-003 p.203"
   notes: >
@@ -83,7 +83,7 @@ SET_SOLVER_VISCOUS_COUPLING:
     "26.101": {status: documented, note: "SRC-725 p.340, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: documented, note: "SRC-751 p.346, same grammar as the 26.122 edition"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.346, same grammar as the 26.122 edition"}
   notes: >
     Couples the semi-empirical boundary layer model to the potential
     flow solution. Attached-flow viscosity only; stall capture also
@@ -108,7 +108,7 @@ SET_VISCOUS_EXCLUDED_BOUNDARIES:
     "26.120": {status: documented}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: documented, note: "SRC-751 p.346, same grammar as the 26.122 edition"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.346, same grammar as the 26.122 edition"}
   notes: >
     Excludes the listed boundaries from viscous coupling; the indices
     follow on the next line as comma-separated values. Documented

@@ -50,8 +50,8 @@ Incompatible changes: none. Deprecations: none.
 
 ### Added
 
-- **FlightStream 26.123 is registered, and it is the first build here
-  that INHERITS NOTHING.** Vendor hotfix build 3 of the 26.12 release,
+- **FlightStream 26.123 is registered, measured and `operational`, and it
+  is the first build here that INHERITS NOTHING.** Vendor hotfix build 3 of the 26.12 release,
   delivered 2026-08-16 and registered 2026-08-17. The two hotfixes
   before it descend from 26.120, on evidence rather than on the last
   digit, and the default is right for them. The author's instruction for
@@ -110,6 +110,31 @@ Incompatible changes: none. Deprecations: none.
   edition documents: those two are the vendor's silent breaks and each
   owes a judgement. 26.123 moves from `registered` to `documented` and
   `tests/goldens/absent_on_26123.txt` shrinks from 414 entries to 45.
+- **26.123 is MEASURED, and reaches `operational` on the same day it was
+  registered.** A Tier 2 probe run promotes 85 statuses, 84 verified and
+  one broken (`reports/compat/CMP-26123_2026-08-17_full-sim.yaml`). Read
+  it against 26.122's 83 and 1: one more verified, the extra being
+  `SET_INVISCID_LOADS` which was unprobed there, and nothing 26.122
+  verified is unverified here, so the newer build refuses nothing the
+  older one accepted. The single broken command is
+  `NEW_OFF_BODY_STREAMLINE`, which aborts script processing on 26.120,
+  26.121, 26.122 and now this build, each on its own evidence rather than
+  by inheritance.
+
+  284 rows stay unprobed and the two reasons are the standing debts
+  rather than this build's: 261 have no probe specification at all, and
+  23 ran without abort or logged error while no instrument can observe
+  their effect.
+- **`pyfs-qa probe` refuses an existing report BEFORE it starts the
+  solver.** The refusal itself is unchanged and correct, a compat report
+  is evidence and is never overwritten; it was asked after the run. A
+  full campaign on 26.123 executed 111 command probes over five minutes
+  of licensed solver and then the write refused on a stem that already
+  existed, so a licence checkout was spent and discarded on a collision
+  knowable from the command line. `compat_report_paths` and
+  `refuse_existing_compat_report` are split out of the writer and the
+  probe command asks them first; the identical command now refuses in
+  under a second saying `nothing run`.
 - `ProbeOutcome.REMOVED`, promotable like any other outcome. A build
   that does not carry a command used to record `broken`, which is a
   different claim. Both refuse at build time, so the difference is

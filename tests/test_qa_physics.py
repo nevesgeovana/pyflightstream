@@ -341,11 +341,14 @@ def test_case_table_is_one_line_per_registered_id():
     assert by_id["PHY-01"]["title"] == PHYSICS_CASES["PHY-01"].title
     assert by_id["PHY-01"]["metrics"] == len(PHYSICS_CASES["PHY-01"].metric_specs)
     assert by_id["PHY-01"]["versions"] == "all registered"
-    # The rotor cases are no longer pinned to one build. Their pin cited
-    # a backfill owed for EARLIER builds, which never covered later
-    # ones, and RPT-025 ran their command content unchanged on all three
-    # of 26.120, 26.121 and 26.122.
-    assert by_id["PHY-05"]["versions"] == "26.120, 26.121, 26.122"
+    # The rotor cases are pinned to a MINIMUM rather than to a list, and
+    # the table renders it as one. Their pin cited a backfill owed for
+    # EARLIER builds, which is a minimum written as an enumeration, so
+    # every arriving build fell outside it until somebody appended it:
+    # 26.121 and 26.122 on 2026-08-11, 26.123 on 2026-08-17. Rendering a
+    # list here would put the same decay on the page a reader compares
+    # their own build against.
+    assert by_id["PHY-05"]["versions"] == "26.120 and after"
 
 
 def test_case_table_includes_smi_only_on_request():
@@ -369,3 +372,86 @@ def test_cases_subcommand_prints_the_matrix(capsys):
 
     assert main(["cases", "--include-smi"]) == 0
     assert "SMI-01" in capsys.readouterr().out
+
+
+def test_the_unsteady_pin_is_a_minimum_and_not_a_list(tmp_path):
+    """An enumeration of allowed builds excludes the newest one every time.
+
+    PHY-05 and PHY-06 were pinned to a TUPLE of canonical identifiers,
+    and the pin's own reason was a backfill owed for builds EARLIER than
+    26.120. A minimum expressed as an enumeration has to be extended by
+    hand for every build that arrives, so it excludes each new one on the
+    day it is registered, and it has already happened twice: 26.121 and
+    26.122 sat outside it until somebody appended them on 2026-08-11,
+    and 26.123 sat outside it on 2026-08-17.
+
+    The pin is a MINIMUM read through the ordering authority, so no
+    arriving build can fall outside it and the intent is unchanged. Read
+    through the ordering authority and not by string comparison, because
+    release order is the registry's own list position and the identifier
+    does not encode it: 26.100 is newer than 26.000 and both precede
+    26.120, which string order gets right by luck rather than by rule.
+    """
+    from pyflightstream.qa.physics import PHYSICS_CASES
+
+    for case_id in ("PHY-05", "PHY-06"):
+        case = PHYSICS_CASES[case_id]
+        assert case.minimum_version == "26.120", (
+            f"{case_id} does not carry a minimum build; if the pin is back to an "
+            "enumeration it will exclude the next registered build silently"
+        )
+        # Every build from the minimum on, INCLUDING ones registered
+        # after this test was written, which is the whole point.
+        for canonical in ("26.120", "26.121", "26.122", "26.123"):
+            assert case.supports(canonical), f"{case_id} does not support {canonical}"
+        for canonical in ("25.000", "25.100", "26.000", "26.100", "26.101"):
+            assert not case.supports(canonical), (
+                f"{case_id} claims to support {canonical}, which precedes its minimum"
+            )
+
+
+def test_a_build_registered_later_is_inside_the_minimum_without_an_edit():
+    """The property the minimum exists for, stated over the registry.
+
+    Derived rather than named: every registered build at or after the
+    minimum's list position supports the case, whatever it is called and
+    whenever it arrived.
+    """
+    from pyflightstream.qa.physics import PHYSICS_CASES
+    from pyflightstream.versions import known_versions
+
+    order = [version.canonical for version in known_versions()]
+    for case_id in ("PHY-05", "PHY-06"):
+        case = PHYSICS_CASES[case_id]
+        floor = order.index(case.minimum_version)
+        for position, canonical in enumerate(order):
+            assert case.supports(canonical) == (position >= floor), (
+                f"{case_id}.supports({canonical}) disagrees with the release order the "
+                "ordering authority declares"
+            )
+
+
+def test_the_full_suite_refuses_rather_than_running_a_subset(tmp_path):
+    """A run that cannot deliver every case must not report success on four.
+
+    The selection used to FILTER the registry by support, so a build the
+    unsteady cases excluded ran the other four and reported success, and
+    the report said nothing about the two that never entered the loop. On
+    a build about to carry a large study that is worse than no run: it
+    produces a record saying the build was validated.
+
+    Asking for a SUBSET by name is still allowed; what is refused is
+    asking for everything and silently getting less.
+    """
+    from pyflightstream.qa.physics import PhysicsEnvironmentError, run_physics
+
+    fake_exe = tmp_path / "fs.exe"
+    fake_exe.write_text("not a solver")
+    with pytest.raises(PhysicsEnvironmentError) as caught:
+        run_physics("26.101", fs_exe=fake_exe, workroot=tmp_path / "runs")
+    message = str(caught.value)
+    assert "PHY-05" in message and "PHY-06" in message, message
+    assert "26.120" in message, "the refusal does not say what the restriction IS"
+    assert "--cases" in message, (
+        "the refusal does not tell the caller how to ask for the subset deliberately"
+    )

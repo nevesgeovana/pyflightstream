@@ -48,7 +48,7 @@ from pyflightstream.qa.geometry import BladeSpec, WingSpec, generate_blade_stl, 
 from pyflightstream.results import IncompleteOutputError, LoadsReport, parse_loads
 from pyflightstream.run import ExecutionResult, LocalExecutor, describe_invocation
 from pyflightstream.script import Script
-from pyflightstream.versions import resolve
+from pyflightstream.versions import known_versions, resolve
 
 PHYSICS_SCHEMA = "pyflightstream-physics-report/1"
 REFERENCE_SCHEMA = "pyflightstream-physics-reference/1"
@@ -564,19 +564,26 @@ class PhysicsCase:
     runner : callable
         Case implementation; receives the run context and returns the
         measured :class:`CaseResult`.
-    versions : tuple of str, optional
-        Canonical identifiers this case is registered for. None means
-        every registered version. The two unsteady cases were pinned to
-        26.120 alone until 2026-08-11; the pin was owed to a backfill
-        for builds EARLIER than 26.120 and never covered later ones, so
-        they now name 26.120, 26.121 and 26.122.
+    minimum_version : str, optional
+        Earliest canonical identifier this case's command set has
+        evidence for. None means every registered version.
+
+        A MINIMUM AND NOT AN ENUMERATION, since 2026-08-17, and the
+        difference is that an enumeration excludes the newest build every
+        time. The two unsteady cases were pinned to 26.120 alone, then to
+        a tuple naming 26.120, 26.121 and 26.122, and the pin's own
+        stated reason was a backfill owed for builds EARLIER than 26.120:
+        a minimum, written as a list. So every arriving build fell
+        outside it until somebody appended it by hand, which happened to
+        26.121 and 26.122 on 2026-08-11 and to 26.123 on 2026-08-17. The
+        intent is unchanged and the decay is gone.
     """
 
     case_id: str
     title: str
     metric_specs: tuple[MetricSpec, ...]
     runner: Callable[[_CaseContext], CaseResult]
-    versions: tuple[str, ...] | None = None
+    minimum_version: str | None = None
 
     @property
     def specs_by_name(self) -> dict[str, MetricSpec]:
@@ -586,13 +593,23 @@ class PhysicsCase:
     def supports(self, canonical: str) -> bool:
         """Whether the case's command set has evidence for ``canonical``.
 
-        ``versions`` is None for cases whose commands are evidenced on
-        every registered version; a tuple restricts the case to the
-        listed canonical identifiers (the unsteady cases were 26.120
-        only until 2026-08-11; their pin was owed to a backfill for
-        builds EARLIER than 26.120 and never covered later ones).
+        ``minimum_version`` is None for cases whose commands are
+        evidenced on every registered version; otherwise the case
+        supports that build and every build after it.
+
+        AFTER is read from the ordering authority's list position and
+        NOT from the identifier, because the identifier does not encode
+        release order: 26.100 is the February 2026 build and 26.101 the
+        May one, which string comparison happens to get right, and the
+        25 series was registered later and belongs at the FRONT, which it
+        does not.
         """
-        return self.versions is None or canonical in self.versions
+        if self.minimum_version is None:
+            return True
+        order = [version.canonical for version in known_versions()]
+        if canonical not in order or self.minimum_version not in order:
+            return False
+        return order.index(canonical) >= order.index(self.minimum_version)
 
 
 PHY06_ALPHAS_DEG = (0.0, 2.0, 4.0, 6.0)
@@ -759,14 +776,14 @@ PHYSICS_CASES: dict[str, PhysicsCase] = {
             ),
         ),
         runner=lambda context: _run_phy05(context),
-        versions=("26.120", "26.121", "26.122"),
+        minimum_version="26.120",
     ),
     "PHY-06": PhysicsCase(
         case_id="PHY-06",
         title="Steady versus unsteady polar equivalence (NACA 0012, AR 8)",
         metric_specs=_phy06_metric_specs(),
         runner=lambda context: _run_phy06(context),
-        versions=("26.120", "26.121", "26.122"),
+        minimum_version="26.120",
     ),
 }
 
@@ -1414,8 +1431,13 @@ def case_table(include_smi: bool = False) -> list[dict[str, str | int]]:
         ``case_id`` (the matrix line id), ``title``, ``metrics`` (how
         many metrics the case declares), and ``versions`` (the version
         gate: ``"all registered"`` when the case's command set has
-        evidence everywhere, else the comma-separated canonical
-        identifiers it is restricted to).
+        evidence everywhere, else the minimum build and after).
+
+        The gate USED to render as a list of canonical identifiers, and
+        it renders as a minimum now for the same reason the field became
+        one: a list here is a list somebody has to extend by hand, and a
+        reader comparing it against their own build learns nothing about
+        a build registered after the list was written.
     """
     rows: list[dict[str, str | int]] = []
     for case in registered_cases(include_smi=include_smi).values():
@@ -1425,7 +1447,9 @@ def case_table(include_smi: bool = False) -> list[dict[str, str | int]]:
                 "title": case.title,
                 "metrics": len(case.metric_specs),
                 "versions": (
-                    "all registered" if case.versions is None else ", ".join(case.versions)
+                    "all registered"
+                    if case.minimum_version is None
+                    else f"{case.minimum_version} and after"
                 ),
             }
         )
@@ -1482,9 +1506,17 @@ def run_physics(
     """
     canonical = resolve(version).canonical
     registry = registered_cases(include_smi=smi_root is not None)
-    wanted = cases or sorted(
-        case_id for case_id, case in registry.items() if case.supports(canonical)
-    )
+
+    # ASKING FOR EVERYTHING NOW MEANS EVERYTHING, and it did not. The
+    # default used to FILTER the registry by support, so a build the
+    # unsteady cases excluded ran the other four and reported success,
+    # with nothing in the report about the two that never entered the
+    # loop. On a build about to carry a large study that is worse than no
+    # run, because it produces a record saying the build was validated.
+    #
+    # Asking for a SUBSET by name is still allowed and is how a partial
+    # run is now made deliberate rather than accidental.
+    wanted = cases or sorted(registry)
     unknown = [case_id for case_id in wanted if case_id not in registry]
     if unknown:
         raise PhysicsEnvironmentError(
@@ -1493,10 +1525,16 @@ def run_physics(
         )
     unsupported = [case_id for case_id in wanted if not registry[case_id].supports(canonical)]
     if unsupported:
+        detail = "; ".join(
+            f"{case_id} needs {registry[case_id].minimum_version} or later"
+            for case_id in unsupported
+        )
         raise PhysicsEnvironmentError(
             f"case(s) {', '.join(unsupported)} have no command evidence for "
-            f"FlightStream {canonical}; they are restricted until the backfill "
-            "widens their version support (CLAUDE.md invariant 3)"
+            f"FlightStream {canonical}: {detail}. The suite REFUSES rather than "
+            "running the rest, because a run that measured some of the matrix and "
+            "reported success is a record saying the build was validated. Name the "
+            "cases you do want with --cases to run a subset deliberately"
         )
     try:
         executor = LocalExecutor(fs_exe)

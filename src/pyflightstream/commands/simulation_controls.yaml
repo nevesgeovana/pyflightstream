@@ -18,7 +18,7 @@ SET_SIMULATION_LENGTH_UNITS:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: documented, note: "SRC-751 p.288, same grammar as the 26.122 edition"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.288, same grammar as the 26.122 edition"}
   notes: >
     Selects the simulation length scale unit; geometry dimensions and
     length-typed command arguments are interpreted in this unit.

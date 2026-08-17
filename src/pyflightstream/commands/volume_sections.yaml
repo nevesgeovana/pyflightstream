@@ -43,7 +43,7 @@ CREATE_NEW_RECTANGLE_VOLUME_SECTION:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: documented, note: "SRC-751 p.372, same grammar as the 26.122 edition"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.372, same grammar as the 26.122 edition"}
   notes: >
     Rectangular flow-field section between two diagonal corners, with
     optional near-wall prism cell layers.
@@ -87,7 +87,7 @@ CREATE_NEW_CIRCLE_VOLUME_SECTION:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: documented, note: "SRC-751 p.372, same grammar as the 26.122 edition"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.372, same grammar as the 26.122 edition"}
   notes: >
     Annular flow-field section with IPTS radial and JPTS azimuth
     segments between the inner and outer radii; the natural plane for
@@ -155,7 +155,7 @@ EXPORT_VOLUME_SECTION_VTK:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: documented, note: "SRC-751 p.372, same grammar as the 26.122 edition"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.372, same grammar as the 26.122 edition"}
   notes: >
     The file path follows on the line after the section index.
 
@@ -178,7 +178,7 @@ EXPORT_VOLUME_SECTION_TECPLOT:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: documented, note: "SRC-751 p.373, same grammar as the 26.122 edition"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.373, same grammar as the 26.122 edition"}
   notes: >
     The file path follows on the line after the section index.
 
@@ -198,7 +198,7 @@ DELETE_VOLUME_SECTION:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: documented, note: "SRC-751 p.373, same grammar as the 26.122 edition"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.373, same grammar as the 26.122 edition"}
 
 DELETE_ALL_VOLUME_SECTIONS:
   layout: bare

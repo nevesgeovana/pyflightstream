@@ -36,7 +36,7 @@ CREATE_NEW_SURFACE_SECTION:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: documented, note: "SRC-751 p.370, same grammar as the 26.122 edition"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.370, same grammar as the 26.122 edition"}
   notes: >
     SURFACES takes -1 for all boundaries; otherwise the space-separated
     surface indices follow on the next line.
@@ -156,7 +156,7 @@ NEW_SURFACE_SECTION_DISTRIBUTION:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: documented, note: "SRC-751 p.370, same grammar as the 26.122 edition"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.370, same grammar as the 26.122 edition"}
   notes: >
     Creates NUM_SECTIONS sections at once; the surface indices follow
     the SURFACES line.
@@ -199,7 +199,7 @@ COMPUTE_SURFACE_SECTIONAL_LOADS:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: documented, note: "SRC-751 p.370, same grammar as the 26.122 edition"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.370, same grammar as the 26.122 edition"}
   notes: >
     Integrates the surface section properties into per-section loads.
     Call it only after the relevant sections are updated and before
@@ -221,7 +221,7 @@ EXPORT_SURFACE_SECTIONAL_LOADS:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: documented, note: "SRC-751 p.371, same grammar as the 26.122 edition"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.371, same grammar as the 26.122 edition"}
   notes: >
     Writes the sectional loads file consumed by the sectional-loads
     parser and the FSI coupling loop.
@@ -257,7 +257,7 @@ EXPORT_ALL_SURFACE_SECTIONS:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: documented, note: "SRC-751 p.371, same grammar as the 26.122 edition"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.371, same grammar as the 26.122 edition"}
 
 EXPORT_SURFACE_SECTIONS:
   layout: inline

@@ -48,7 +48,7 @@ SET_TRAILING_EDGE_TYPE:
     "26.101": {status: documented, note: "SRC-725 p.318, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: documented, note: "SRC-751 p.323, same grammar as the 26.122 edition"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.323, same grammar as the 26.122 edition"}
   notes: >
     STANDARD sheds the full net circulation (Kutta factor 1.0);
     RELAXED sheds half, approximating body carryover at non-lifting
@@ -69,7 +69,7 @@ DISABLE_WAKE_NODES_ON_TRAILING_EDGE:
     "26.100": {status: documented, note: "SRC-741 p.315, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: documented, note: "SRC-751 p.323, same grammar as the 26.122 edition"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.323, same grammar as the 26.122 edition"}
 
 AUTO_DETECT_WAKE_TERMINATION_NODES:
   layout: bare
@@ -201,7 +201,7 @@ FLUID_PROPERTIES:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: documented, note: "SRC-751 p.333, same grammar as the 26.122 edition"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.333, same grammar as the 26.122 edition"}
   notes: >
     Sets the working fluid state as KEY VALUE lines. Sonic velocity is
     derived from temperature and specific heat ratio; it is no longer
@@ -233,7 +233,7 @@ AIR_ALTITUDE:
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml",
       note: "Read that report with its erratum beside it, CMP-26122_2026-08-11_full_erratum_2026-08-11.md: the detail on this record carries the probe spec's static cross-build sentence, which is false on this build and which the record's own effect: true contradicts"}
-    "26.123": {status: documented, note: "SRC-751 p.333, same grammar as the 26.122 edition"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.333, same grammar as the 26.122 edition"}
   notes: >
     Sets the air properties from a standard-atmosphere altitude.
 

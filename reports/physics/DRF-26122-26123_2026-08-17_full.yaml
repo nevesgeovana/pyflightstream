@@ -1,0 +1,346 @@
+schema: pyflightstream-drift-report/1
+fs_version_a: '26.122'
+fs_version_b: '26.123'
+date: '2026-08-17'
+package_version: 0.8.0.dev0
+fs_exes:
+  '26.122': FlightStream_26122.exe
+  '26.123': FlightStream_26123.exe
+executor: LocalExecutor, -hidden -script (mechanism SRC-003 pp.279-280; argument spelling RPT-023)
+solver_identity:
+- Flightstream version 26.1, build 8092026
+- Flightstream version 26.1, build 8112026
+summary:
+  pass: 36
+  warn: 2
+  fail: 0
+  no_reference: 0
+cases:
+  PHY-01:
+    title: NACA wing polar (synthetic NACA 0012, AR 8)
+    error: null
+    metrics:
+      CL_a0:
+        value_a: -0.0004
+        value_b: -0.0004
+        delta: 0.0
+        warn: 0.005
+        fail: 0.02
+        kind: abs
+        verdict: pass
+      CL_a2:
+        value_a: 0.1684
+        value_b: 0.1684
+        delta: 0.0
+        warn: 0.02
+        fail: 0.05
+        kind: rel
+        verdict: pass
+      CL_a4:
+        value_a: 0.337
+        value_b: 0.337
+        delta: 0.0
+        warn: 0.02
+        fail: 0.05
+        kind: rel
+        verdict: pass
+      CL_a6:
+        value_a: 0.505
+        value_b: 0.505
+        delta: 0.0
+        warn: 0.02
+        fail: 0.05
+        kind: rel
+        verdict: pass
+      CL_slope_per_rad:
+        value_a: 4.826596466182055
+        value_b: 4.826596466182055
+        delta: 0.0
+        warn: 0.02
+        fail: 0.05
+        kind: rel
+        verdict: pass
+      CDi_a4:
+        value_a: 0.0049
+        value_b: 0.0049
+        delta: 0.0
+        warn: 0.05
+        fail: 0.15
+        kind: rel
+        verdict: pass
+  PHY-02:
+    title: Half versus full symmetry equivalence (NACA 0012, AR 8)
+    error: null
+    metrics:
+      CL_full_a4:
+        value_a: 0.337
+        value_b: 0.337
+        delta: 0.0
+        warn: 0.02
+        fail: 0.05
+        kind: rel
+        verdict: pass
+      CL_half_a4:
+        value_a: 0.3385
+        value_b: 0.3385
+        delta: 0.0
+        warn: 0.02
+        fail: 0.05
+        kind: rel
+        verdict: pass
+      delta_CL_a4:
+        value_a: 0.0015000000000000013
+        value_b: 0.0015000000000000013
+        delta: 0.0
+        warn: 0.005
+        fail: 0.02
+        kind: abs
+        verdict: pass
+      delta_CDi_a4:
+        value_a: 0.0
+        value_b: 0.0
+        delta: 0.0
+        warn: 0.0005
+        fail: 0.002
+        kind: abs
+        verdict: pass
+  PHY-05:
+    title: Rigid unsteady periodic propeller (generic BladeSpec blade)
+    error: null
+    metrics:
+      CL:
+        value_a: -0.0001012
+        value_b: -9.76e-05
+        delta: 3.5999999999999926e-06
+        warn: 0.002
+        fail: 0.01
+        kind: abs
+        verdict: pass
+      CDi:
+        value_a: -0.0451749
+        value_b: -0.0448985
+        delta: 0.0002763999999999961
+        warn: 0.01
+        fail: 0.03
+        kind: rel
+        verdict: pass
+      CDo:
+        value_a: 0.0007011
+        value_b: 0.0006381
+        delta: -6.300000000000001e-05
+        warn: 0.0005
+        fail: 0.002
+        kind: abs
+        verdict: pass
+      CMy:
+        value_a: 0.0286429
+        value_b: 0.0285226
+        delta: -0.00012030000000000027
+        warn: 0.01
+        fail: 0.03
+        kind: rel
+        verdict: pass
+  PHY-06:
+    title: Steady versus unsteady polar equivalence (NACA 0012, AR 8)
+    error: null
+    metrics:
+      delta_CL_a0:
+        value_a: 0.0004
+        value_b: 0.0004
+        delta: 0.0
+        warn: 0.005
+        fail: 0.02
+        kind: abs
+        verdict: pass
+      delta_CD_a0:
+        value_a: -0.00010000000000000026
+        value_b: -0.00010000000000000026
+        delta: 0.0
+        warn: 0.001
+        fail: 0.004
+        kind: abs
+        verdict: pass
+      delta_CMy_a0:
+        value_a: -0.0001
+        value_b: -0.0001
+        delta: 0.0
+        warn: 0.005
+        fail: 0.02
+        kind: abs
+        verdict: pass
+      delta_CL_a2:
+        value_a: 0.0012999999999999956
+        value_b: 0.0012999999999999956
+        delta: 0.0
+        warn: 0.005
+        fail: 0.02
+        kind: abs
+        verdict: pass
+      delta_CD_a2:
+        value_a: -0.00010000000000000113
+        value_b: 0.0
+        delta: 0.00010000000000000113
+        warn: 0.001
+        fail: 0.004
+        kind: abs
+        verdict: pass
+      delta_CMy_a2:
+        value_a: -0.0001999999999999988
+        value_b: -0.0001999999999999988
+        delta: 0.0
+        warn: 0.005
+        fail: 0.02
+        kind: abs
+        verdict: pass
+      delta_CL_a4:
+        value_a: 0.0021999999999999797
+        value_b: 0.0021999999999999797
+        delta: 0.0
+        warn: 0.005
+        fail: 0.02
+        kind: abs
+        verdict: pass
+      delta_CD_a4:
+        value_a: -0.0003999999999999993
+        value_b: -0.0003999999999999993
+        delta: 0.0
+        warn: 0.001
+        fail: 0.004
+        kind: abs
+        verdict: pass
+      delta_CMy_a4:
+        value_a: -0.00019999999999999185
+        value_b: -0.00019999999999999185
+        delta: 0.0
+        warn: 0.005
+        fail: 0.02
+        kind: abs
+        verdict: pass
+      delta_CL_a6:
+        value_a: 0.0030000000000000027
+        value_b: 0.0030000000000000027
+        delta: 0.0
+        warn: 0.005
+        fail: 0.02
+        kind: abs
+        verdict: pass
+      delta_CD_a6:
+        value_a: -0.0005000000000000004
+        value_b: -0.0005000000000000004
+        delta: 0.0
+        warn: 0.001
+        fail: 0.004
+        kind: abs
+        verdict: pass
+      delta_CMy_a6:
+        value_a: -0.00040000000000001146
+        value_b: -0.0002999999999999947
+        delta: 0.00010000000000001674
+        warn: 0.005
+        fail: 0.02
+        kind: abs
+        verdict: pass
+      CL_slope_steady_per_rad:
+        value_a: 4.826596466182055
+        value_b: 4.826596466182055
+        delta: 0.0
+        warn: 0.02
+        fail: 0.05
+        kind: rel
+        verdict: pass
+      CMy_slope_steady_per_rad:
+        value_a: -1.2149570045749105
+        value_b: -1.2158164412676067
+        delta: -0.0008594366926961694
+        warn: 0.02
+        fail: 0.05
+        kind: rel
+        verdict: pass
+      CL_slope_unsteady_per_rad:
+        value_a: 4.851520130270246
+        value_b: 4.851520130270246
+        delta: 0.0
+        warn: 0.02
+        fail: 0.05
+        kind: rel
+        verdict: pass
+      CMy_slope_unsteady_per_rad:
+        value_a: -1.2175353146529992
+        value_b: -1.2175353146529992
+        delta: 0.0
+        warn: 0.02
+        fail: 0.05
+        kind: rel
+        verdict: pass
+  SMI-01:
+    title: SMI isolated body (28_B, smallest corpus file)
+    error: null
+    metrics:
+      CL:
+        value_a: -0.0174
+        value_b: -0.0174
+        delta: 0.0
+        warn: 0.005
+        fail: 0.02
+        kind: abs
+        verdict: pass
+      CDi:
+        value_a: 0.003
+        value_b: 0.003
+        delta: 0.0
+        warn: 0.002
+        fail: 0.01
+        kind: abs
+        verdict: pass
+      CDo:
+        value_a: 0.1305
+        value_b: 0.1276
+        delta: -0.0029000000000000137
+        warn: 0.002
+        fail: 0.01
+        kind: abs
+        verdict: warn
+      CMy:
+        value_a: -1.7843
+        value_b: -1.7808
+        delta: 0.0035000000000000586
+        warn: 0.005
+        fail: 0.02
+        kind: abs
+        verdict: pass
+  SMI-02:
+    title: SMI full configuration (31_WBH_IH0, wing-body-tail)
+    error: null
+    metrics:
+      CL:
+        value_a: 12.1368
+        value_b: 12.1368
+        delta: 0.0
+        warn: 0.005
+        fail: 0.02
+        kind: rel
+        verdict: pass
+      CDi:
+        value_a: 0.2244
+        value_b: 0.2244
+        delta: 0.0
+        warn: 0.005
+        fail: 0.02
+        kind: rel
+        verdict: pass
+      CDo:
+        value_a: 0.4229
+        value_b: 0.4154
+        delta: -0.007500000000000007
+        warn: 0.005
+        fail: 0.02
+        kind: rel
+        verdict: warn
+      CMy:
+        value_a: -116.6897
+        value_b: -116.6921
+        delta: -0.0023999999999944066
+        warn: 0.005
+        fail: 0.02
+        kind: rel
+        verdict: pass

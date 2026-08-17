@@ -105,9 +105,12 @@ VERIFIED = {
     # inheritance instead: NEW_OFF_BODY_STREAMLINE was already broken on
     # both older builds and crashes this one too (0xC0000005).
     "26.122": 83,
-    # Nothing probed on it yet; the licensed run of 2026-08-17 is what
-    # moves this, and until it lands a zero here is the honest number.
-    "26.123": 0,
+    # Measured 2026-08-17, the first probe run on this build, and the
+    # figure to read it against is 26.122's 83: one MORE, and the one is
+    # SET_INVISCID_LOADS, which was unprobed there. Nothing 26.122
+    # verified is unverified here, so the newer build refuses nothing the
+    # older one accepted (CMP-26123_2026-08-17_full-sim).
+    "26.123": 84,
 }
 
 #: 388 at v0.5.0, then +16 on 2026-08-10 for the commands only the
