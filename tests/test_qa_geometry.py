@@ -124,3 +124,52 @@ def test_generate_blade_stl_writes_ascii(tmp_path):
     text = path.read_text(encoding="utf-8")
     assert text.startswith("solid generic_blade_naca4409")
     assert text.count("facet normal") == text.count("endfacet")
+
+
+def test_a_wing_can_be_generated_at_an_offset_without_moving_its_shape():
+    """Two components at a controlled gap need the offset IN THE MESH.
+
+    A solver command that translates a surface is a different
+    measurement: it exercises the transform as well as the thing under
+    test, and on a build whose transform commands were renamed one
+    release ago that is a second variable nobody asked for. The offset
+    belongs in the vertex array, where it is arithmetic.
+    """
+    from pyflightstream.qa.geometry import WingSpec, wing_triangles
+
+    spec = WingSpec()
+    at_origin = wing_triangles(spec)
+    lifted = wing_triangles(spec, offset_m=(0.0, 0.0, 0.5))
+
+    assert lifted.shape == at_origin.shape
+    assert np.allclose(lifted - at_origin, np.array([0.0, 0.0, 0.5])), (
+        "the offset moved something other than the position: every vertex must "
+        "shift by exactly the offset and by nothing else"
+    )
+    # The shape is untouched, which is what makes the pair comparable:
+    # every edge length is identical.
+    assert np.allclose(
+        np.linalg.norm(np.diff(lifted, axis=1), axis=2),
+        np.linalg.norm(np.diff(at_origin, axis=1), axis=2),
+    )
+
+
+def test_the_local_face_length_is_measured_from_the_mesh_and_not_assumed():
+    """The vendor's own caveat about the proximity mapping is a RATIO.
+
+    It says the mapping may fail where the gap is large relative to the
+    faces around it, so a gap measurement with no face length beside it
+    means nothing either way. This is what makes the ratio computable.
+    """
+    from pyflightstream.qa.geometry import WingSpec, mean_edge_length, wing_triangles
+
+    spec = WingSpec()
+    triangles = wing_triangles(spec)
+    length = mean_edge_length(triangles)
+    assert 0.0 < length < spec.chord_m, (
+        f"a mean edge of {length} m on a {spec.chord_m} m chord is not a face length"
+    )
+    # Refining the mesh shortens the faces, which is the property that
+    # makes this a measurement rather than a constant.
+    finer = wing_triangles(WingSpec(n_chord=spec.n_chord * 2, n_span=spec.n_span * 2))
+    assert mean_edge_length(finer) < length

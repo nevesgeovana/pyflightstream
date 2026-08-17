@@ -125,6 +125,35 @@ Incompatible changes: none. Deprecations: none.
   rather than this build's: 261 have no probe specification at all, and
   23 ran without abort or logged error while no instrument can observe
   their effect.
+- **The boundary-layer improvement the vendor described is MEASURED, and
+  the documentation of neither edition shows it**
+  (`reports/RPT-027_boundary-layer-across-a-proximity-gap_2026-08-17.md`).
+  Two copies of one wing at two gap widths expressed as a ratio of the
+  measured local face length, with `SOLVER_PROXIMAL_BOUNDARIES` on and
+  off, steady and unsteady, on both builds: sixteen cases.
+
+  At two face lengths of separation the proximity setting changes the
+  viscous drag by NOTHING, to every printed digit, on both builds and in
+  both modes, which is the vendor's own caveat behaving as stated. At a
+  quarter of a face length it changes it by three quarters. And the two
+  builds differ only where that mapping engages: 26.123's total `CDo` is
+  32 percent lower at the narrow gap, steady and unsteady agreeing to two
+  decimal places, against a few tenths of a percent at the wide gap,
+  which is the same order as ordinary build-to-build movement.
+
+  Read the limit with it: a lower viscous drag is a DIFFERENT answer, not
+  a better one, and nothing here judges which is right.
+- **`EXPORT_BL_VELOCITY_PROFILE` cannot be used in an unattended run**,
+  measured rather than inferred. It opens a modal window with a plot and
+  a Done button, and script processing stops until somebody dismisses it,
+  under `-hidden` with both streams redirected. Its entry records the
+  behaviour and its status is unchanged: that is a fact about the
+  interface rather than a refusal by the solver, and a status comes from
+  a committed probe report.
+- `qa.geometry.mean_edge_length`, and an `offset_m` argument on
+  `wing_triangles` and `generate_wing_stl`. Two components at a
+  controlled gap need the offset in the MESH: translating one with a
+  solver command would put the transform under test as well.
 - **`pyfs-qa probe` refuses an existing report BEFORE it starts the
   solver.** The refusal itself is unchanged and correct, a compat report
   is evidence and is never overwritten; it was asked after the run. A

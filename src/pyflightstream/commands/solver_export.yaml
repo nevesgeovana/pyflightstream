@@ -240,6 +240,23 @@ EXPORT_BL_VELOCITY_PROFILE:
     which for the reference frame is the simulation length units.
     Recorded as unitless floats rather than given a unit the manual
     does not state.
+
+    IT IS INTERACTIVE AND CANNOT BE USED IN AN UNATTENDED RUN, measured
+    on 26.122 on 2026-08-17 and recorded in
+    reports/RPT-027_boundary-layer-across-a-proximity-gap_2026-08-17.md.
+    The command opens a modal window carrying a plot of velocity against
+    height above the surface and a Done button, and script processing
+    STOPS there until a person dismisses it. Under -hidden, with both
+    streams redirected. A batch run reaching it waits forever, and the
+    wait is indistinguishable from a hang unless somebody is at the
+    machine.
+
+    No status is written from that. It is a fact about the interface
+    rather than a refusal by the solver, which is a different claim from
+    the one `broken` makes, and a status rests on a committed probe
+    report rather than on a hand run (invariant 3). What it does mean is
+    that a measurement wanting the boundary layer needs another
+    instrument, and RPT-027 used the integrated viscous drag instead.
   versions:
     "26.122":
       status: documented

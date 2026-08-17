@@ -28,6 +28,7 @@ __all__ = [
     "WingSpec",
     "BladeSpec",
     "naca4_contour",
+    "mean_edge_length",
     "wing_triangles",
     "blade_triangles",
     "write_stl",
@@ -136,7 +137,33 @@ def naca4_contour(naca: str, n_chord: int) -> np.ndarray:
     return np.vstack((lower[::-1], upper[1:]))
 
 
-def wing_triangles(spec: WingSpec, half: bool = False) -> np.ndarray:
+def mean_edge_length(triangles: np.ndarray) -> float:
+    """Return the mean triangle edge length of a mesh, in metres.
+
+    The local face size, which is only ever wanted as one half of a
+    RATIO. The vendor's caveat about proximity-based boundary-layer
+    mapping is that it may fail where the gap between two components is
+    large relative to the faces around it, so a gap measurement with no
+    face length beside it says nothing either way, and a negative result
+    reported without both numbers is not a result.
+
+    Parameters
+    ----------
+    triangles : numpy.ndarray
+        Shape ``(n, 3, 3)`` vertex array in metres.
+
+    Returns
+    -------
+    float
+        Mean length over all three edges of every triangle.
+    """
+    closed = np.concatenate([triangles, triangles[:, :1, :]], axis=1)
+    return float(np.linalg.norm(np.diff(closed, axis=1), axis=2).mean())
+
+
+def wing_triangles(
+    spec: WingSpec, half: bool = False, offset_m: tuple[float, float, float] = (0.0, 0.0, 0.0)
+) -> np.ndarray:
     """Mesh the wing surface into outward-oriented triangles.
 
     Parameters
@@ -147,6 +174,18 @@ def wing_triangles(spec: WingSpec, half: bool = False) -> np.ndarray:
         When True, mesh only the y >= 0 half with an open root section
         in the XZ symmetry plane (for MIRROR-symmetry runs, PHY-02);
         when False, mesh the full span with closed caps on both tips.
+    offset_m : tuple of float
+        Rigid translation applied to every vertex, in metres, as
+        ``(x, y, z)``. Defaults to no translation, so every existing
+        caller is unaffected.
+
+        IN THE MESH AND NOT THROUGH A SOLVER COMMAND, which is the point
+        of it. Two components at a controlled gap are wanted for the
+        proximity measurement, and translating one with a transform
+        command would put the transform under test as well: on a build
+        whose transform commands were renamed one release ago that is a
+        second variable nobody asked for. Here it is arithmetic on the
+        vertex array and the shape is provably untouched.
 
     Returns
     -------
@@ -175,7 +214,7 @@ def wing_triangles(spec: WingSpec, half: bool = False) -> np.ndarray:
     triangles.extend(_tip_cap(sections[-1], outward_positive_y=True))
     if not half:
         triangles.extend(_tip_cap(sections[0], outward_positive_y=False))
-    return np.array(triangles)
+    return np.array(triangles) + np.asarray(offset_m, dtype=float)
 
 
 def _tip_cap(section: np.ndarray, outward_positive_y: bool) -> list[np.ndarray]:
@@ -402,7 +441,12 @@ def generate_blade_stl(spec: BladeSpec, path: str | Path) -> Path:
     return write_stl(blade_triangles(spec), path, name=f"generic_blade_naca{spec.naca}")
 
 
-def generate_wing_stl(spec: WingSpec, path: str | Path, half: bool = False) -> Path:
+def generate_wing_stl(
+    spec: WingSpec,
+    path: str | Path,
+    half: bool = False,
+    offset_m: tuple[float, float, float] = (0.0, 0.0, 0.0),
+) -> Path:
     """Mesh ``spec`` and write it as ASCII STL in one call.
 
     Parameters
@@ -413,6 +457,9 @@ def generate_wing_stl(spec: WingSpec, path: str | Path, half: bool = False) -> P
         Destination STL file.
     half : bool
         Mesh the open-root y >= 0 half instead of the full span.
+    offset_m : tuple of float
+        Rigid translation in metres, applied to the vertices rather than
+        by a solver command; see :func:`wing_triangles`.
 
     Returns
     -------
@@ -420,4 +467,4 @@ def generate_wing_stl(spec: WingSpec, path: str | Path, half: bool = False) -> P
         The written path.
     """
     label = f"naca{spec.naca}_{'half' if half else 'full'}"
-    return write_stl(wing_triangles(spec, half=half), path, name=label)
+    return write_stl(wing_triangles(spec, half=half, offset_m=offset_m), path, name=label)
