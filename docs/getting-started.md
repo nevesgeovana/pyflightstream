@@ -47,15 +47,51 @@ the commands come from the manual and no solver has been asked,
 `verified` means a probe measured some of them on a real installation,
 and `operational` means the minimal end-to-end workflow builds.
 
-The vendor reuses a release name across builds, so `"26.12"` names
-three and `"26.1"` names two more; both are refused with every candidate
-and its vendor build number named. Pass the canonical identifier, and
-note what the growing count means for one you wrote down earlier: a
-vendor name is unambiguous only until the vendor ships the next build
-under it. The two cases are not the same relationship: 26.120, 26.121
-and 26.122 are a release and its two hotfixes, while 26.100 and 26.101 are the February and May 2026
-releases, which is why the registry states descent per build instead
-of reading it off the last digit.
+### Why a brand-new build refuses commands its predecessor runs
+
+A build can be registered before anything is known about it, and the
+package would rather refuse than guess. Where a hotfix is recorded as
+carrying its base release's evidence, a command the base records answers
+for the hotfix too, which is right for a hotfix that did not touch it.
+Where it is recorded as carrying NOTHING, every command answers absent
+until somebody reads a page of that build's own manual or runs a probe
+against it, and the emitter refuses each one as it is reached:
+
+```python
+from pyflightstream.commands import CommandNotInVersionError
+from pyflightstream.script import Script
+
+try:
+    Script(version="26.123").emit("START_SOLVER")
+except CommandNotInVersionError as error:
+    print("refused:", "no recorded evidence" in str(error))
+```
+
+```
+refused: True
+```
+
+That is a statement about EVIDENCE and not about the solver. The build
+may well run the command perfectly; nobody here has established that it
+does. The list of what is currently in that state is committed, so you
+can see the size of the gap without running anything:
+`tests/goldens/absent_on_26123.txt` carries every affected command and
+its own count in the header.
+
+If you meet this refusal and need the command today, use a build the
+package has evidence for. The support table above tells you which.
+
+The vendor reuses a release name across builds, so both `"26.12"` and
+`"26.1"` name more than one; each is refused with every candidate and
+its vendor build number named. Pass the canonical identifier, and note
+what the growing count means for one you wrote down earlier: a vendor
+name is unambiguous only until the vendor ships the next build under
+it. This page does not say how many are in either family, for exactly
+that reason; run the refusal and read its candidates. The two families
+are not the same relationship either: `26.12` is a release with its
+hotfixes, while 26.100 and 26.101 are the February and May 2026
+releases that happened to share a name, which is why the registry
+states descent per build instead of reading it off the last digit.
 
 If you are not sure which one you have, the
 [Which build do I have](builds.md) page maps the release name and build

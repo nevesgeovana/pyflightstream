@@ -11,16 +11,22 @@
 #   committed report's solver_identity, never guessed: it is what lets a
 #   run tell WHICH build actually produced its results, since the printed
 #   version line does not distinguish them within a release name.
-#   Every registered build carries one as of 2026-08-09; the field stays
-#   optional because a build is registered before it is ever run.
+#   The field is OPTIONAL because a build is registered before it is
+#   ever run, and 26.123 is the standing example: it was registered on
+#   2026-08-17 with this field unset, because the run that writes the
+#   report it is admitted from refuses an unregistered version. An
+#   earlier wording here said every registered build carried one, which
+#   was true on the day it was written and became false the next time a
+#   build was registered.
 # prints: the release name the solver STATES ABOUT ITSELF, from the same
 #   solver_identity line as the build number. It is NOT the alias and may
 #   not be derived from it, which is the whole reason it is a field: the
-#   vendor ships 26.120, 26.121 and 26.122 under the name 26.12 and all
-#   three binaries print 26.1. No tally is written here: it moved the day
-#   the third of those was registered, and the generated build page
-#   computes it. A reader holding an install has only what it prints,
-#   so anything that asks them to match on a name must offer this one.
+#   vendor ships every build of one release under one alias and every
+#   one of those binaries prints one release name, so neither string
+#   separates them. No tally is written here, and the sentence saying so
+#   used to be followed by one; the generated build page computes it.
+#   A reader holding an install has only what it prints, so anything that
+#   asks them to match on a name must offer this one.
 versions:
   # ADDED 2026-08-09, on the author's decision, and read the ordering
   # note before reading the position. These THREE (25.000, 25.100 and
@@ -200,7 +206,48 @@ versions:
     # descent. They carry their own rows below.
     inherits_base: true
 
-# Every range below was MEASURED on 2026-08-06 rather than transcribed:
+  - canonical: "26.123"
+    alias: "26.12"
+    # The third hotfix of the 26.12 release, delivered 2026-08-16 and
+    # registered here on 2026-08-17. Release order puts it last, which
+    # for once is also sort order.
+    #
+    # BUILD AND PRINTS ARE UNSET AND THAT IS DELIBERATE. They are
+    # admitted only from a committed report's solver_identity, never
+    # from a note or a download page, and the report that carries them
+    # is written by the probe run this registration is the precondition
+    # of: `pyfs-qa probe` refuses an unregistered version before it
+    # starts, so the row has to exist before the run that fills it. A
+    # throwaway identity script of 2026-08-17 read the banner as
+    # `FlightStream version 26.1, build #8112026`, which agrees with the
+    # number the delivery gave and is why the session continued; two
+    # sources agreeing is not the same as provenance, so the fields wait
+    # for the report rather than being filled from either.
+    #
+    # INHERITS NOTHING, and this is the first build in the family for
+    # which that is written. 26.121 and 26.122 both descend from 26.120,
+    # on evidence rather than on the last digit, and the default is
+    # right for them. Here the author's instruction is the opposite and
+    # the reason is a number: with descent on, a build issued the day
+    # before would answer for every command 26.120 records without one
+    # page of its own manual being read or one line being run, and the
+    # compatibility matrix would print a full column on the strength of
+    # it. Off, every command answers ABSENT until it has a row of its
+    # own, so the build claims support for what was measured or read on
+    # IT. The cost is stated where a user meets it: a script emitting a
+    # command with no 26.123 row is refused rather than emitted, and
+    # tests/goldens/absent_on_26123.txt is the enumeration of what that
+    # covers at each commit.
+    inherits_base: false
+
+# Every range below except the last was MEASURED on 2026-08-06 rather
+# than transcribed. The 26.123 row is the exception and states its own
+# provenance, which is a different kind of measurement: its ranges are
+# SRC-750's, and what was measured on 2026-08-17 is that the two
+# documents are text-identical at every page those ranges bound. The
+# original sentence read as a blanket claim and would have covered the
+# new row falsely.
+#
 # the first and last page carrying a signature heading, and the
 # contiguous run of pages the Script Index parser reads command lines
 # from. Two of the four were wrong before that, both by exactly five
@@ -309,3 +356,44 @@ manual_editions:
     sense of one entry gaining a name: the rotation command changes
     layout and loses two options in the move, so each is entered
     separately and each says what it stands next to.
+
+    IT IS STILL THE LARGEST WITH SRC-751 REGISTERED, and the arithmetic
+    is written here because the sentence above is scoped to eight and a
+    reader will otherwise assume the newest edition displaced it. SRC-751
+    deletes the TRAILING_EDGES_IMPORT block from the chapter body and
+    renames SET_OUTFLOW_TRAILING_EDGES to SET_OUTLET_TRAILING_EDGES in
+    place, so it documents one command FEWER, not more: 371 against 372,
+    counted by this package's own reader over both editions rather than
+    by hand. The count above is left at eight rather than restated as
+    nine because it is a comparison against the edition before it and
+    that comparison did not move.
+  "26.123": >
+    SRC-751: Altair FlightStream User Guide, 26.12 hotfix build 3
+    edition, 417 pages, scripting reference pp.283-383 with its Script
+    Index at pp.384-390; cited in version notes as "SRC-751 p.N".
+    Registered 2026-08-17, the day after the build was issued.
+
+    THE PAGINATION DOES NOT MOVE, and this is the first build change in
+    the family that costs no offset. Both editions are 417 pages and
+    every page outside seventeen is text-identical, measured by hashing
+    the extracted text of all 417 pages of each rather than by sampling,
+    so the set of changed pages is complete for extractable text. An
+    SRC-750 page number therefore addresses the same page here, with six
+    exceptions inside three local reflows: pp.167 to 170 of SRC-750 move
+    back one page, p.324 moves back one, and p.190 moves forward one.
+
+    TWO LIMITS OF THAT METHOD travel with every row derived from it.
+    Extraction sees TEXT, and both documents are exports carrying
+    embedded screenshots, so a change living only inside a screenshot
+    with no caption or prose beside it is invisible to it. And a command
+    absent from a newer edition has not necessarily stopped working,
+    which is RPT-024's caution applying unchanged: nothing in the
+    comparison is a probe of the binary.
+
+    ITS SCRIPT INDEX OVER-REPORTS, which is new. RPT-024 recorded the
+    index as INCOMPLETE, under-reporting the surface, which is why the
+    count is read from the chapter body. This edition deletes the
+    TRAILING_EDGES_IMPORT block from the body at p.323 and still lists
+    the command in the index at p.390, so the caution now runs in both
+    directions and the rule that survives is the same one: read the
+    body.

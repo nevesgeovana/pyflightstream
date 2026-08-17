@@ -52,6 +52,11 @@ EMITTABLE = {
     # two that the preceding hotfix has a negative record for, which
     # inheritance from the base would otherwise have overturned.
     "26.122": 375,
+    # Registered 2026-08-17 inheriting NOTHING, so it starts at zero and
+    # every rise from here is a row somebody wrote or measured on THIS
+    # build. That is the whole point of the flag: the other two hotfixes
+    # entered this table already carrying most of 26.120's surface.
+    "26.123": 0,
 }
 
 #: Rows recording `verified` per build, measured the same day. Pinned
@@ -84,6 +89,9 @@ VERIFIED = {
     # inheritance instead: NEW_OFF_BODY_STREAMLINE was already broken on
     # both older builds and crashes this one too (0xC0000005).
     "26.122": 83,
+    # Nothing probed on it yet; the licensed run of 2026-08-17 is what
+    # moves this, and until it lands a zero here is the honest number.
+    "26.123": 0,
 }
 
 #: 388 at v0.5.0, then +16 on 2026-08-10 for the commands only the
@@ -115,6 +123,37 @@ def test_the_database_holds_every_command_the_registered_editions_document():
         "line moves with it; if it FELL, a chapter file stopped loading and every "
         "per-entry guard is still green"
     )
+
+
+def test_both_census_tables_cover_every_registered_build():
+    """The tables are parametrized over their OWN keys, so a gap is silent.
+
+    Every other guard in this file walks `sorted(EMITTABLE)` or
+    `sorted(VERIFIED)`, which means a build registered without a row in
+    either table passes all of them: there is simply one fewer case. The
+    file's whole subject is a loss nothing notices, and its own coverage
+    was the one loss it could not notice.
+
+    Found by a skeptic reading this file during the 26.123 registration,
+    not by the file failing. Both tables did gain their row that day; the
+    point is that nothing would have said so.
+    """
+    registered = {version.canonical for version in known_versions()}
+    for label, table in (("EMITTABLE", EMITTABLE), ("VERIFIED", VERIFIED)):
+        missing = sorted(registered - set(table))
+        extra = sorted(set(table) - registered)
+        assert not missing, (
+            f"{label} has no row for {', '.join(missing)}, which the ordering "
+            "authority registers. Every guard here iterates this table's own keys, "
+            "so the build is not merely unpinned, it is unwalked. Add the row with "
+            "the measured number, and zero is a legitimate number for a build "
+            "registered with inheritance off"
+        )
+        assert not extra, (
+            f"{label} pins {', '.join(extra)}, which is not a registered build. "
+            "Versions are only ever added, never dropped (CLAUDE.md invariant 4), "
+            "so this is a typo in the table rather than a version that went away"
+        )
 
 
 @pytest.mark.parametrize("canonical", sorted(EMITTABLE))

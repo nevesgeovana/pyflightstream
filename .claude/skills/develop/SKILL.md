@@ -40,7 +40,9 @@ order, and stop at the first that fails.
 * **The session root.** Resolve `PYFS_SESSION_ROOT` and use its value; read
   `CLAUDE.md`, "Session protocol", for the stop rule and for why the bash form
   of the variable must never be written in a PowerShell command. Unset or
-  unreadable STOPS; it is never a skip.
+  unreadable is a configuration error to stop on, never a skip: a session that
+  believes it closed while writing its record nowhere is the failure the
+  variable exists to prevent.
 * **The ledger entry.** If the item has one under `_private/plan/`, set it
   `doing`. If it has none and it is real work, register it with the `plan`
   skill first. Work that exists only in a transcript is work nobody can find.

@@ -17,6 +17,37 @@
 # documented workflow at SRC-003 p.273 names rotors). A malformed
 # FSIDisp.txt crashes the solver (access violation) instead of
 # raising an error.
+#
+# THE 26.123 EDITION DOCUMENTS AN INTERNAL CONVERGENCE CRITERION FOR THIS
+# LOOP, AND NAMES NO COMMAND THAT SETS IT (SRC-751 p.277).
+#
+# What that page adds, in this repository's terms rather than its own:
+# the coupling loop has a stopping test of its OWN, separate from the
+# solver's flow-field convergence, and the quantity it tests is how far
+# the structural nodes moved between one coupling pass and the next,
+# reduced to a single root-mean-square figure. The loop ends when that
+# figure falls to a threshold the page attributes to the runtime
+# settings. Nothing of that kind is described in the 26.122 edition,
+# which is what makes it new documentation rather than a rewording.
+#
+# WHY IT MATTERS HERE RATHER THAN AS TRIVIA: the package drives this loop
+# from outside, so a criterion the solver applies internally decides when
+# our driver stops receiving iterations, and a user reading a converged
+# coupled run needs to know the test is not ours.
+#
+# THE GAP IS RECORDED AS A GAP because it is the part with consequences:
+# the page names the tolerance and not the command, so the script-level
+# mapping is UNVERIFIED and no entry is added here for it. The nearest
+# candidate is SOLVER_SET_CONVERGENCE, and it is NOT the same thing:
+# its own note scopes it to the surface velocity and pressure residual
+# (SRC-003 p.200). A search of this edition's scripting reference and
+# its Script Index is what would close it, and until one runs, nothing
+# in this repository claims a command sets this tolerance.
+#
+# A SECOND CLAIM IS NAMED HERE AS UNCORROBORATED rather than left in
+# correspondence: that the internal loop can drive a modal structural
+# representation with no external structural solver. That came from
+# delivery correspondence and no edition states it.
 
 EXECUTE_AEROELASTIC_ANALYSIS:
   layout: bare

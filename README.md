@@ -12,8 +12,11 @@ Status: v0.7.0 is the current release. It publishes to
 from the tag, so the concept DOI in CITATION.cff resolves to the newest
 archived version and the version DOI is recorded one commit after the
 tag that names it. CHANGELOG.md carries the release history. This release registers an eighth FlightStream build the day
-after the vendor issued it, and every command any of the eight
-registered manual editions documents now has an entry. Read that claim
+after the vendor issued it, and every command any of the eight manual
+editions registered AT THAT POINT documents has an entry. A ninth
+build, 26.123, has since been registered and deliberately inherits
+nothing, so it starts with no rows and that sentence says nothing
+about it. Read that claim
 at the level it is measured at, which the release notes do: ten
 readings across four commands are deliberately withheld where a version
 row cannot express a layout, and the coverage tool reports that second
@@ -175,7 +178,8 @@ the evidence rather than declared:
 | 26.101 | 26.1 | `operational` | The May 2026 build. Commands drafted from the manual with page citations, with the first harness promotions on 2026-08-08, which also carried it to the level where the minimal end-to-end workflow builds. It sits at a hotfix index and does NOT inherit from 26.100: the two are separate vendor releases under one name |
 | 26.120 | 26.12 | `operational` | Probe evidence from a licensed machine, and the minimal end-to-end workflow builds |
 | 26.121 | 26.12 | `operational` | Hotfix build 1. It inherits the 26.120 records except where a probe on this build overrode them; the compatibility matrix marks every inherited cell and counts them |
-| 26.122 | 26.12 | `operational` | Hotfix build 2, vendor build 8092026, registered 2026-08-10 the day after it was issued. Its manual documents the largest command surface of the eight editions, 372 against 364 for the one before it. Measured on 2026-08-11: 84 commands probed on this build (83 verified, 1 broken) and the Tier 3 matrix passing 30 of 30 metrics (`reports/physics/PHY-26122_2026-08-11_rotor.yaml`). The rest of its record is still inherited from 26.120 and the matrix marks every inherited cell. The run refuted the inheritance once, on `AIR_ALTITUDE`, which is broken on the base releases and works here |
+| 26.122 | 26.12 | `operational` | Hotfix build 2, vendor build 8092026, registered 2026-08-10 the day after it was issued. Its manual documents the largest command surface of the nine editions, 372 against 364 for the one before it and 371 for the one after, which deletes a command from its chapter body. Measured on 2026-08-11: 84 commands probed on this build (83 verified, 1 broken) and the Tier 3 matrix passing 30 of 30 metrics (`reports/physics/PHY-26122_2026-08-11_rotor.yaml`). The rest of its record is still inherited from 26.120 and the matrix marks every inherited cell. The run refuted the inheritance once, on `AIR_ALTITUDE`, which is broken on the base releases and works here |
+| 26.123 | 26.12 | `registered` | Hotfix build 3, delivered 2026-08-16 and registered 2026-08-17, the day after. It is the first build in this project that INHERITS NOTHING, by the author's decision, so it claims support only for what has been measured or read on IT rather than on 26.120. Read the level as a statement about evidence and not about the build: `registered` means no command answers for it yet, so the emitter refuses every command until a row exists, and the enumeration of what that covers is committed as `tests/goldens/absent_on_26123.txt`. Its manual is 417 pages like 26.122's and every page outside seventeen is text-identical, so a page citation transfers where the seventeen do not touch it |
 
 ```python
 import pyflightstream
@@ -197,8 +201,8 @@ does not identify a build.
 
 Canonical identifiers use the YY.XXX scheme, the last digit indexing
 vendor hotfix builds, so 26.121 is hotfix build 1 of the 26.12 release.
-The vendor ships 26.120, 26.121 and 26.122 under the one release name
-"26.12", and both 26.100 and 26.101 under "26.1", so neither name
+The vendor ships 26.120, 26.121, 26.122 and 26.123 under the one release
+name "26.12", and both 26.100 and 26.101 under "26.1", so neither name
 selects a build and each is refused with its candidates named; pass the
 canonical identifier. A vendor name is unique only until the vendor
 ships the next build under it, which is why a script should not rely on

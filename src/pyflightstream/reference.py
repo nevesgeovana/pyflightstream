@@ -88,12 +88,16 @@ CONVENTIONS: tuple[tuple[str, str], ...] = (
         "name is recorded as an alias (26.12), and ordering comes only "
         "from the registered list position, never from parsing the "
         "identifier. An alias resolves only where it names exactly one "
-        "build: the vendor reuses a release name across builds, so 26.12 "
-        "names 26.120, 26.121 and 26.122, and 26.1 names both 26.100 and "
-        "26.101, each refused with every candidate and its vendor build "
-        "number named rather than resolving to one. Reuse is not descent: "
-        "the first group is a release and its two hotfixes and the second is two "
-        "separate releases, which the registry states per build.",
+        "build: the vendor reuses a release name across builds, so both "
+        "26.12 and 26.1 name more than one, each refused with every "
+        "candidate and its vendor build number named rather than "
+        "resolving to one. The members are not written out here, and that "
+        "is deliberate: a hand-written list of them has gone stale on "
+        "every registration since, so the refusal itself is the list. "
+        "Reuse is not descent either: one of those two families is a "
+        "release with its hotfixes and the other is separate releases "
+        "that happened to share a name, which the registry states per "
+        "build rather than leaving to be read off the identifier.",
     ),
     (
         "Indices state their base",
@@ -1047,10 +1051,12 @@ def markdown_build_table() -> str:
     whole reason the page exists, and the name to print is
     :attr:`FsVersion.prints` rather than :attr:`FsVersion.alias`. Those
     two differ wherever the vendor has shipped more than one build under
-    one release name: 26.120, 26.121 and 26.122 all ship as "26.12" and
-    all three binaries print "26.1". The tally is not written here
-    because it moves with every build the vendor issues; the rendered
-    page computes it. A table
+    one release name, which is most of the 26 series: those builds ship
+    under one alias and their binaries print one release name, so
+    neither string separates them. The members are not written out
+    here, and the sentence saying so used to be followed by a list of
+    them; the rendered page computes the tally, which is the only copy
+    that cannot go stale. A table
     keyed on the alias would offer a 26.12 owner a name their solver
     never prints, they would match one of the rows that does print
     "26.1", and they would leave with the identifier of a different

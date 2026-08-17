@@ -33,7 +33,7 @@ from pyflightstream.results import parse_loads
 from pyflightstream.run import LocalExecutor
 from pyflightstream.script import CommandArgumentError, Script
 
-FS_VERSION = "26.120"  # canonical; the vendor name 26.12 names three builds
+FS_VERSION = "26.120"  # canonical; the vendor name 26.12 names several builds
 ALPHAS_DEG = [-4.0, -2.0, 0.0, 2.0, 4.0, 6.0, 8.0]
 VELOCITY_M_S = 30.0
 

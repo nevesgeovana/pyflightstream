@@ -73,10 +73,10 @@ Milestones and session records are listed in the
     ambiguous-alias tests in `tests/test_versions.py`.*
 
     The vendor reuses a release name across builds, so a display alias
-    can name more than one registered build: 26.120, 26.121 and 26.122
-    are all shipped as "26.12", and 26.100 and 26.101 are both shipped as
-    "26.1" although they are separate releases rather than a release
-    and its hotfix.
+    can name more than one registered build: 26.120, 26.121, 26.122 and
+    26.123 are all shipped as "26.12", and 26.100 and 26.101 are both
+    shipped as "26.1" although they are separate releases rather than a
+    release and its hotfix.
     Resolution refuses such a name rather than returning any of the
     builds carrying it, and the refusal names every candidate so the
     caller can choose. A canonical identifier is matched across the

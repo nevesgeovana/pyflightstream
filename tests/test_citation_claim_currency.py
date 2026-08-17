@@ -84,6 +84,16 @@ PAGES = (
     # this is the file a maintainer follows when registering a build,
     # and it is the file whose silence let ten stale citations ship.
     ".claude/skills/fts-version-update/SKILL.md",
+    # Joined 2026-08-17, on the guard's own walk, the day after the file
+    # arrived. It states the evidence rule for every work item, so it is
+    # WATCHED rather than exempted: the sibling that registers a build
+    # is watched for the same reason, and this one is read more often.
+    # Its arrival is worth one sentence, because the guard was RED at
+    # HEAD when this session opened: the commit adding the skill did not
+    # run tier 1, and the surface list is exactly the part of this file
+    # that has failed twice before. The list held; the suite was not
+    # asked.
+    ".claude/skills/develop/SKILL.md",
 )
 
 #: The claim shape: a citation OF THE MANUAL offered as an entry's

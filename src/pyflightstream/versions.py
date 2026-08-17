@@ -66,11 +66,13 @@ class AmbiguousVersionAliasError(PyflightstreamError, ValueError):
     """A vendor release name identifies more than one registered build.
 
     The vendor reuses a release name across builds, and not only across
-    the hotfixes of one release: 26.120, 26.121 and 26.122 are all
-    shipped as "26.12", and 26.100 and 26.101 are both shipped as "26.1" although
-    they are the February and May 2026 releases rather than a release
-    and its hotfix. A display alias therefore cannot select a build, and
-    returning either one would hand the caller a silently wrong solver.
+    the hotfixes of one release: the 26.1 family is the February and May
+    2026 releases sharing a name rather than a release and its hotfix.
+    Which builds sit in either family is not written here, because the
+    message this class raises enumerates them from the registry and a
+    second copy in prose has gone stale on every registration. A display
+    alias therefore cannot select a build, and returning either one would
+    hand the caller a silently wrong solver.
     The refusal names each candidate by its vendor BUILD NUMBER, which
     is what the solver prints and the only thing a reader holding two
     installs can match. The
@@ -205,18 +207,21 @@ class FsVersion:
         Vendor build number this version's solver prints in its output
         footer, without the leading ``#``; ``None`` where no committed
         report records one. It is the only thing that tells two builds
-        of one minor release apart at run time, because they print the
-        same version string: 26.120, 26.121 and 26.122 all print "26.1".
+        of one minor release apart at run time, because every build of
+        one release prints the same version string. Which builds those
+        are is not listed here: the generated build page computes it,
+        and a hand-written list has gone stale on every registration.
         Registered from committed evidence, never guessed.
     prints : str or None
         Release name this version's solver PRINTS, which is not the
         same fact as :attr:`alias` and must not be derived from it.
         The alias is the name the vendor ships the build under; this is
         the name the binary states about itself, and the two differ
-        wherever the vendor has reused a release name: 26.120, 26.121 and
-        26.122 all ship as "26.12" and all three print "26.1". No tally
-        appears here, because it moved the day the third of those was
-        registered. A reader holding an
+        wherever the vendor has reused a release name, which the 26.12
+        family is: those builds ship under one alias and print one
+        release name, so neither string separates them. No tally appears
+        here, and this sentence used to carry one anyway, which went
+        stale twice. A reader holding an
         install has only the printed name, so a table that offers them
         the alias to match on sends the 26.12 owner to a 26.1 row and
         hands them the wrong identifier, which is the exact failure the

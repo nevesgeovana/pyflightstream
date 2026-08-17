@@ -1357,7 +1357,28 @@ def test_every_cad_command_is_available_on_every_registered_build():
     # numbers, so swapping one CAD command for another on 25.000 passed
     # while the set changed underneath it; the count is what moved when
     # a row was recovered, and the names are what the claim is about.
-    named = {c: tuple(sorted(names)) for c, names in available.items() if c not in whole}
+    # A build with NO ROWS AT ALL is a third state and is separated here
+    # rather than lumped with the partial ones, because the two mean
+    # opposite things. A pre-26.100 build carries a part of the chapter
+    # because its own edition documents a part, which is a measured fact
+    # that should never change. 26.123 carries none because it was
+    # registered inheriting nothing and no row has been written for it
+    # yet, which is a transient the bulk documentation pass ends. Reading
+    # the second as the first would pin a zero that is supposed to move.
+    empty = sorted(c for c, names in available.items() if not names)
+    assert empty == ["26.123"], (
+        "the builds carrying NO CAD command at all are "
+        + (", ".join(empty) if empty else "NONE")
+        + ", where this pins 26.123. BOTH directions are expected eventually and "
+        "they mean opposite things. 26.123 LEAVING the list is the documented pass "
+        "landing: the first CAD row written for it makes this list empty, and the "
+        "fix is to delete this assertion and let the `whole` and `partial` "
+        "assertions above carry the build. A build ARRIVING is either a newly "
+        "registered one with inheritance off, which belongs here with its date, or "
+        "one that has lost every row it had"
+    )
+
+    named = {c: tuple(sorted(names)) for c, names in available.items() if c not in whole and names}
     assert named["25.000"] == named["25.100"] == named["26.000"], (
         "the three pre-26.100 builds carry different parts of the CAD chapter: "
         f"{ {c: v for c, v in named.items()} }. They are supposed to carry the same "
@@ -1381,7 +1402,7 @@ def test_every_cad_command_is_available_on_every_registered_build():
         "CAD_CREATE_INITIALIZE",
         "CONVERT_CAD_TO_MESH",
     ), f"the CAD commands the older builds carry are now {named['25.000']}"
-    partial = {c: len(names) for c, names in available.items() if c not in whole}
+    partial = {c: len(names) for c, names in available.items() if c not in whole and names}
     assert partial == {"25.000": 16, "25.100": 16, "26.000": 16}, (
         f"the pre-26.100 builds carry {partial} of the {len(members)} CAD commands; "
         "each of those counts is a measured edition surface, so a change here is "

@@ -148,6 +148,21 @@ specifications emit an argument-bearing target line, a figure that
 reached three committed artifacts in three readings before it was
 derived; a tier 1 test pins its output.
 
+`scripts/gen_absent_commands.py <build>` writes the list of commands a
+registered build cannot emit, into `tests/goldens/absent_on_<build>.txt`,
+and a tier 1 test compares every such file against the database. Run it
+in the same commit as any row you write for a build that inherits
+nothing, because the file carries counts as well as names and both move.
+26.123 is the first such build; the script takes any registered one.
+
+`scripts/prove_alias_tally_guard.py` is the mutation battery for the
+stale-tally guard. It restores, one at a time, the six committed
+sentences that enumerated the builds sharing a vendor name before
+2026-08-17, and requires the guard to deny each. Like the other
+batteries it EDITS TRACKED FILES and restores them; unlike them it
+checks a sha256 either side of every mutant, so a run that leaves the
+tree changed fails rather than being noticed later.
+
 The manifest names
 paths of licensed manuals and is never committed (invariant 1);
 `pyfs-manual sweep --help` prints an example row.

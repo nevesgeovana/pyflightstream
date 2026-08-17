@@ -17,6 +17,16 @@ Onboard a new FlightStream version end to end.
 
 ## Steps
 
+0. **Decide whether the build inherits, before writing the row.** A
+   hotfix index must state `inherits_base` and the value is a fact about
+   the two vendor builds rather than about the identifier. Read step 1
+   for the two worked cases. If the answer is FALSE, the build starts
+   with no evidence at all and the emitter refuses every command until a
+   row exists: run `python scripts/gen_absent_commands.py <build>` in the
+   same commit as the registry row, and again after every row you write
+   for it, because a tier 1 test compares the committed enumeration
+   against the database. 26.123 is the worked example.
+
 1. Register the version in `src/pyflightstream/commands/_meta.yaml`:
    append to the ordered list (release order, append only) with its alias.
    A canonical identifier whose last digit is not zero must also state

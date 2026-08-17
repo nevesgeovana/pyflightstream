@@ -27,6 +27,7 @@ What this guards, and the third one is the load-bearing one:
   was promoted, which is why this is a test and not a paragraph.
 """
 
+import importlib.util
 from pathlib import Path
 
 import pytest
@@ -36,6 +37,28 @@ from pyflightstream.reference import markdown_compatibility_matrix
 from pyflightstream.versions import UnknownVersionError, known_versions
 
 MARK = "base</sup>"
+
+REPO = Path(__file__).resolve().parents[1]
+GOLDENS = REPO / "tests" / "goldens"
+
+
+def _load_generator():
+    """Load scripts/gen_absent_commands.py by path.
+
+    By path rather than by putting ``scripts/`` on ``sys.path``: a
+    permanently prepended directory shadows later imports for the rest of
+    the session, which this workspace already has an incident about, and
+    the module name here is generic enough to shadow something real.
+    ``tests/test_extras.py`` loads ``scripts/chm_to_pdf.py`` the same way
+    and states the same reason.
+    """
+    spec = importlib.util.spec_from_file_location(
+        "gen_absent_commands_under_test", REPO / "scripts" / "gen_absent_commands.py"
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def _inherited_pairs() -> set[tuple[str, str]]:
@@ -426,3 +449,95 @@ def test_the_hotfix_that_does_inherit_still_does():
         evidence = entry.evidence_in(by_canonical["26.121"])
         assert evidence is not None, name
         assert evidence.source == "26.120" and evidence.inherited, name
+
+
+def test_the_newest_build_inherits_nothing_so_a_command_with_no_row_is_absent():
+    """26.123 claims support for what was measured or read on IT, not on 26.120.
+
+    The two hotfixes before it inherit, and the default is right for
+    them: a hotfix that does not touch a command really does carry the
+    base evidence. The author's instruction for this build is the
+    opposite, and the reason is a number rather than a preference. With
+    inheritance on, a build issued the day before would have answered
+    for every command 26.120 records without a page of its own manual
+    being read or a single line being run, and the compatibility matrix
+    would have shown a full column on the strength of it.
+
+    The control beside it (`test_the_hotfix_that_does_inherit_still_does`)
+    is what stops this being satisfied by breaking inheritance outright.
+    """
+    canonicals = [version.canonical for version in known_versions()]
+    assert "26.123" in canonicals, (
+        "26.123 is not in commands/_meta.yaml, the only ordering authority, so "
+        "nothing can be attributed to it. The registry row is what this test is "
+        "written against"
+    )
+
+    registry = CommandRegistry.load()
+    by_canonical = {version.canonical: version for version in known_versions()}
+    target = by_canonical["26.123"]
+    assert not target.inherits_base, (
+        "26.123 is registered as inheriting from 26.120. Every command with a "
+        "26.120 row would then answer for a build nothing has been measured on"
+    )
+
+    rowless = sorted(
+        name for name, entry in registry.commands.items() if "26.123" not in entry.versions
+    )
+    assert rowless, (
+        "every command now carries its own 26.123 row, so this guard asserts "
+        "nothing. Say so and delete it rather than leaving it green and empty"
+    )
+    for name in rowless:
+        assert registry.commands[name].evidence_in(target) is None, (
+            f"{name} answers for 26.123 with no 26.123 row of its own, so the "
+            "inheritance flag is not being honoured"
+        )
+
+
+def test_the_committed_enumeration_matches_what_the_emitter_refuses():
+    """The gap on an inheriting-nothing build is a list, not an impression.
+
+    A build that inherits nothing owes a row for every command, and
+    nothing fails while it does not have them: the emitter simply
+    refuses, one command at a time, wherever a caller happens to reach
+    one. So the set is committed and compared, and the file states its
+    own counts, because a reader deciding whether to run on this build
+    wants the number more than the names.
+
+    The generator is `scripts/gen_absent_commands.py` and it takes any
+    registered build, so the next build the author decides should
+    inherit nothing reuses it rather than having this copied for it.
+    This walks EVERY committed enumeration rather than naming 26.123,
+    for the same reason: a second one committed unguarded is exactly the
+    failure a guard pinned to one literal cannot see.
+    """
+    generator = _load_generator()
+    committed_files = sorted(GOLDENS.glob("absent_on_*.txt"))
+    assert committed_files, (
+        "no absent-command enumeration is committed under tests/goldens/. One is "
+        "owed by every build registered with inheritance off, and 26.123 is such a "
+        "build; regenerate with python scripts/gen_absent_commands.py 26.123"
+    )
+
+    registered = {version.canonical for version in known_versions()}
+    for path in committed_files:
+        undotted = path.stem.removeprefix("absent_on_")
+        canonical = f"{undotted[:2]}.{undotted[2:]}"
+        assert canonical in registered, (
+            f"{path.name} names {canonical}, which is not a registered build. An "
+            "enumeration outlived the build it describes, or its name is wrong"
+        )
+        committed = path.read_bytes()
+        assert b"\r" not in committed, (
+            f"{path.name} carries a carriage return. Its bytes are the comparison "
+            "and read_text would hide the difference; re-save as LF"
+        )
+        assert committed.decode("utf-8") == generator.render(canonical), (
+            f"{path.name} disagrees with the database. Two edits move it and the "
+            "message cannot tell them apart: a row written for {canonical}, which "
+            "shrinks the list and is the point of the file, and any entry added to "
+            "or removed from the database, which moves the total in the header. "
+            "Either way regenerate it in the same commit: "
+            f"python scripts/gen_absent_commands.py {canonical}"
+        )

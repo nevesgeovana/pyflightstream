@@ -44,6 +44,36 @@ Deprecations: none.
 
 ### Added
 
+- **FlightStream 26.123 is registered, and it is the first build here
+  that INHERITS NOTHING.** Vendor hotfix build 3 of the 26.12 release,
+  delivered 2026-08-16 and registered 2026-08-17. The two hotfixes
+  before it descend from 26.120, on evidence rather than on the last
+  digit, and the default is right for them. The author's instruction for
+  this one is the opposite, and the reason is a number rather than a
+  preference: with descent on, a build issued the day before would have
+  answered for the 363 commands 26.120 can EMIT without one page of its
+  own manual being read or one line being run, and the compatibility
+  matrix would have printed a full column on the strength of it.
+
+  **What that costs a caller, stated plainly because it is a refusal
+  surface.** Until a row exists for a command on 26.123, `Script.emit`
+  REFUSES it, exactly as it refuses a command a build never had. All 414
+  entries start in that state and the enumeration is committed as
+  `tests/goldens/absent_on_26123.txt`, with its own counts in its header,
+  so the gap is a number a reader can check rather than an impression.
+  Every row written from here shrinks that file, and a tier 1 test
+  compares it against what the emitter actually does. Regenerate it with
+  `python scripts/gen_absent_commands.py 26.123`.
+
+  Its support level is `registered`, which is derived and not declared:
+  no command answers for it yet. Its `build` and `prints` fields are
+  deliberately UNSET, because those two are admitted only from a
+  committed report's `solver_identity` and the run that writes one needs
+  the registry row to exist first.
+- `scripts/gen_absent_commands.py`, which writes the same enumeration for
+  any registered build. General rather than named for this one, because
+  the question arrives again with the next build the author decides
+  should inherit nothing.
 - `ProbeOutcome.REMOVED`, promotable like any other outcome. A build
   that does not carry a command used to record `broken`, which is a
   different claim. Both refuse at build time, so the difference is

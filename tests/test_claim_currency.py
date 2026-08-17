@@ -427,3 +427,179 @@ def test_the_home_of_the_constant_still_explains_the_other_spelling() -> None:
         "exemption in the guard above protects nothing; drop the exemption"
     )
     assert "RPT-023" in text, "the explanation no longer cites the measurement behind it"
+
+
+#: The prose surfaces a reader meets, which is where a hand-written
+#: tally does its damage. Test modules are deliberately OUT: they are
+#: full of version literals as fixtures and constructor arguments, and a
+#: guard that flagged those would be edited away the first week.
+_ALIAS_PROSE_GLOBS = (
+    "README.md",
+    "docs/**/*.md",
+    "guide/*.tex",
+    "src/**/*.py",
+    "src/**/*.yaml",
+    "examples/*.py",
+)
+
+#: Files whose SUBJECT is the history of these enumerations, so a
+#: superseded tally inside one is the record rather than a claim.
+_ALIAS_TALLY_HISTORY = {
+    # Release history: every entry describes the tree on the day it was
+    # written, and a rewritten changelog is a falsified record.
+    "CHANGELOG.md",
+    # The SRS revision history, whose 1.23.0 and 1.26.0 rows exist
+    # precisely to record that an enumeration moved.
+    "docs/srs/index.md",
+}
+
+
+#: Number words a tally is written with, plus bare digits. Small on
+#: purpose: a family larger than this is a different conversation.
+_COUNT_WORDS = (
+    "one",
+    "two",
+    "three",
+    "four",
+    "five",
+    "six",
+    "seven",
+    "eight",
+    "nine",
+    "ten",
+)
+_COUNTS = "|".join([*_COUNT_WORDS, r"\d+"])
+
+
+def _count_value(token: str) -> int:
+    """Read a tally token, word or digit, as a number."""
+    lowered = token.lower()
+    if lowered in _COUNT_WORDS:
+        return _COUNT_WORDS.index(lowered) + 1
+    return int(lowered)
+
+
+def _alias_families() -> dict[str, tuple[str, ...]]:
+    """Vendor names that identify more than one registered build."""
+    from pyflightstream.versions import known_versions
+
+    families: dict[str, list[str]] = {}
+    for version in known_versions():
+        families.setdefault(version.alias, []).append(version.canonical)
+    return {alias: tuple(members) for alias, members in families.items() if len(members) > 1}
+
+
+def _prose_units(text: str) -> list[str]:
+    """Split prose into units a tally could live inside.
+
+    MARKDOWN TABLE ROWS ARE DROPPED, and that is the rule this guard got
+    wrong twice before it got it right. A table of registered builds
+    holds one build per row and names the alias in a CELL, so its rows
+    trip a naive reading twice over: joined, they read as one run-on
+    passage naming several builds; separated, a row still carries its own
+    alias cell beside a reference to some other build. Neither is a tally
+    of the family, because a table cannot be one: it is a per-build
+    record and it is exactly the surface a registration already has to
+    move, since a build with no row fails a different guard.
+
+    The cost is stated rather than hidden: a genuine tally written inside
+    a table cell is invisible here.
+    """
+    units: list[str] = []
+    for block in text.split("\n\n"):
+        lines = block.splitlines()
+        if any(line.lstrip().startswith("|") for line in lines):
+            units.extend(line for line in lines if not line.lstrip().startswith("|"))
+            continue
+        units.extend(re.split(r"(?<=[.;:])\s", block))
+    return units
+
+
+def test_no_committed_page_writes_a_stale_tally_of_a_shared_vendor_name() -> None:
+    """A hand-written list of the builds sharing an alias goes stale on
+    every registration, and six of them did at once.
+
+    Registering 26.123 falsified the same enumeration in the SRS
+    requirement text, the generated conventions page, two version
+    docstrings, the ordering authority's own header, the getting-started
+    page and a shipped example, with the whole tier-1 currency suite
+    green. Two of those six said in the same sentence that no tally
+    appears there.
+
+    The rule is narrow on purpose, because the general version flags
+    correct prose: a unit that BOTH names the shared vendor name AND
+    enumerates two or more of the builds carrying it must enumerate ALL
+    of them. A sentence naming two builds for some other reason is
+    untouched, and so is one that names the family without listing it,
+    which is what the fix for those six was.
+
+    THE SECOND ARM CATCHES THE WORD FORM, and it exists because the
+    first arm did not: run as a mutation battery against the six real
+    sites, four died and two survived, and both survivors wrote the tally
+    as a COUNT rather than a list ("`\"26.12\"` names three", "the vendor
+    name 26.12 names three builds"). A guard that catches four of six
+    reads as coverage it does not have. The count is tied to a family by
+    ADJACENCY: it must follow the alias within a short window, so a
+    sentence naming two families keeps each count with its own alias.
+
+    What neither arm covers, stated rather than left to be discovered: a
+    tally inside a markdown table cell, a count separated from its alias
+    by more than the window, and any file outside the prose globs.
+    """
+    families = _alias_families()
+    assert families, (
+        "no vendor alias names more than one registered build, so this guard "
+        "asserts nothing. Say so and delete it rather than leaving it green"
+    )
+
+    walked = sorted(
+        {
+            path
+            for pattern in _ALIAS_PROSE_GLOBS
+            for path in REPO.glob(pattern)
+            if path.is_file() and path.relative_to(REPO).as_posix() not in _ALIAS_TALLY_HISTORY
+        }
+    )
+    assert len(walked) > 50, (
+        f"the prose walk reached only {len(walked)} files, so a glob has stopped "
+        "matching and this guard is reading almost nothing"
+    )
+
+    offenders = []
+    for path in walked:
+        relative = path.relative_to(REPO).as_posix()
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        for alias, members in families.items():
+            alias_pattern = re.escape(alias) + r"(?!\d)"
+            if not re.search(alias_pattern, text):
+                continue
+            for unit in _prose_units(text):
+                if not re.search(alias_pattern, unit):
+                    continue
+                flat = " ".join(unit.split())
+                named = {m for m in members if re.search(re.escape(m) + r"(?!\d)", flat)}
+                if len(named) >= 2 and named != set(members):
+                    missing = sorted(set(members) - named)
+                    offenders.append(
+                        f"{relative}: a passage naming {alias} lists "
+                        f"{', '.join(sorted(named))} and omits {', '.join(missing)}"
+                    )
+                    break
+                counted = re.search(
+                    alias_pattern + r"[^\w]{0,12}(?:\w+\s+){0,2}?names?\s+(" + _COUNTS + r")\b",
+                    flat,
+                )
+                if counted and _count_value(counted.group(1)) != len(members):
+                    offenders.append(
+                        f"{relative}: a passage says {alias} names "
+                        f"{counted.group(1)}, and it names {len(members)}"
+                    )
+                    break
+
+    assert not offenders, (
+        "these committed passages write a PARTIAL list of the builds sharing a "
+        "vendor name, which is the enumeration that goes stale on every "
+        "registration:\n  " + "\n  ".join(sorted(offenders)) + "\nName the family and "
+        "let the refusal enumerate it, which is what the six corrected on "
+        "2026-08-17 now do, or list every member"
+    )
