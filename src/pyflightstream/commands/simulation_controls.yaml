@@ -18,6 +18,7 @@ SET_SIMULATION_LENGTH_UNITS:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
+    "26.123": {status: documented, note: "SRC-751 p.288, same grammar as the 26.122 edition"}
   notes: >
     Selects the simulation length scale unit; geometry dimensions and
     length-typed command arguments are interpreted in this unit.
@@ -37,6 +38,7 @@ SET_SIGNIFICANT_DIGITS:
     "26.101": {status: documented, note: "SRC-725 p.283, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.278, same grammar as 26.120"}
     "26.120": {status: documented}
+    "26.123": {status: documented, note: "SRC-751 p.288, same grammar as the 26.122 edition"}
   notes: >
     Output precision, integer between 1 and 8; applies to the values
     the solver writes into its exports.
@@ -57,6 +59,7 @@ SET_TRAILING_EDGE_SWEEP_ANGLE:
     "26.101": {status: documented, note: "SRC-725 p.283, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.287, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.288, same grammar as the 26.122 edition"}
   notes: >
     Threshold used by trailing-edge detection: how far an edge may sweep
     away from the reference direction and still be detected. The manual
@@ -142,6 +145,7 @@ SET_VERTEX_MERGE_TOLERANCE:
     "26.101": {status: documented, note: "SRC-725 p.283, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.287, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.288, same grammar as the 26.122 edition"}
   notes: >
     Distance below which two mesh vertices are treated as one, which is
     what closes the gaps of an imported surface. The manual states only
@@ -179,3 +183,4 @@ SET_GEOMETRIC_EDGE_BLUNTNESS_ANGLE:
     "26.122":
       status: documented
       note: "SRC-750 p.288, the first edition to document it"
+    "26.123": {status: documented, note: "SRC-751 p.288, same grammar as the 26.122 edition"}

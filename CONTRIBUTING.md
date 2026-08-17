@@ -148,6 +148,18 @@ specifications emit an argument-bearing target line, a figure that
 reached three committed artifacts in three readings before it was
 derived; a tier 1 test pins its output.
 
+`pyfs-manual register --editions <manifest> --build <label>` is the
+sixth subcommand and the only one that writes into the command database.
+It carries a build's documentation forward: for every command the new
+edition describes exactly as its predecessor did, it writes a
+`documented` row citing the new edition at the page it was found on. The
+comparison is of what the editions SAY (placeholders, sample, parameter
+table), never of the page number, because a reflow repaginates without
+changing a word. Anything described DIFFERENTLY is reported and never
+written, which is the line between carrying a reading forward and
+inventing one. Dry run by default; `--write` writes, and
+`--commands-dir` points it at a copy to rehearse against first.
+
 `scripts/gen_absent_commands.py <build>` writes the list of commands a
 registered build cannot emit, into `tests/goldens/absent_on_<build>.txt`,
 and a tier 1 test compares every such file against the database. Run it

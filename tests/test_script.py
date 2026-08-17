@@ -1339,7 +1339,7 @@ def test_every_cad_command_is_available_on_every_registered_build():
         available[version.canonical] = [name for name in members if name in view]
 
     whole = sorted(c for c, names in available.items() if len(names) == len(members))
-    assert whole == ["26.100", "26.101", "26.120", "26.121", "26.122"], (
+    assert whole == ["26.100", "26.101", "26.120", "26.121", "26.122", "26.123"], (
         "the builds carrying the CAD chapter WHOLE are " + ", ".join(whole) + "; the "
         "chapter arrives at 26.100 and every build from there on documents all of it"
     )
@@ -1357,25 +1357,32 @@ def test_every_cad_command_is_available_on_every_registered_build():
     # numbers, so swapping one CAD command for another on 25.000 passed
     # while the set changed underneath it; the count is what moved when
     # a row was recovered, and the names are what the claim is about.
-    # A build with NO ROWS AT ALL is a third state and is separated here
+    # A build with NO ROWS AT ALL is a third state and is asserted here
     # rather than lumped with the partial ones, because the two mean
-    # opposite things. A pre-26.100 build carries a part of the chapter
+    # opposite things. A pre-26.100 build carries a PART of the chapter
     # because its own edition documents a part, which is a measured fact
-    # that should never change. 26.123 carries none because it was
-    # registered inheriting nothing and no row has been written for it
-    # yet, which is a transient the bulk documentation pass ends. Reading
-    # the second as the first would pin a zero that is supposed to move.
-    empty = sorted(c for c, names in available.items() if not names)
-    assert empty == ["26.123"], (
-        "the builds carrying NO CAD command at all are "
-        + (", ".join(empty) if empty else "NONE")
-        + ", where this pins 26.123. BOTH directions are expected eventually and "
-        "they mean opposite things. 26.123 LEAVING the list is the documented pass "
-        "landing: the first CAD row written for it makes this list empty, and the "
-        "fix is to delete this assertion and let the `whole` and `partial` "
-        "assertions above carry the build. A build ARRIVING is either a newly "
-        "registered one with inheritance off, which belongs here with its date, or "
-        "one that has lost every row it had"
+    # about that edition and should never change. A build carrying NONE
+    # is one registered with inheritance off before any row was written
+    # for it, which is a transient.
+    #
+    # THE ASSERTION STAYS EVEN THOUGH THE LIST IS NOW EMPTY, and the
+    # reason is that deleting it was the mistake. 26.123 was registered
+    # on 2026-08-17 carrying no CAD row, was pinned here, and gained its
+    # rows the same day; the bucket was then removed rather than emptied,
+    # and a skeptic pointed out that nothing else in this test can see a
+    # zero-row build at all. `whole` is a pinned list a new build is
+    # simply absent from, and `named` and `partial` both filter zero-row
+    # builds out before comparing. An empty literal is a real assertion:
+    # the next build registered with inheritance off appears here on the
+    # day it is registered, which is exactly when somebody should see it.
+    empty = sorted(canonical for canonical, names in available.items() if not names)
+    assert empty == [], (
+        "these registered builds carry NO CAD command at all: "
+        + ", ".join(empty)
+        + ". That is the state a build registered with inheritance off sits in until "
+        "its documented rows are written, so if one was just registered this is "
+        "expected and the fix is to write its rows. If it is a build that HAD rows, "
+        "it has lost every one of them"
     )
 
     named = {c: tuple(sorted(names)) for c, names in available.items() if c not in whole and names}
@@ -1712,6 +1719,10 @@ def test_the_renamed_selection_command_is_recorded_once_per_edition():
         "26.101",
         "26.120",
         "26.121",
+        # 26.122 is absent and reaches this command by inheritance; 26.123
+        # is present because it inherits nothing, so every row it carries
+        # was written from a reading of its own edition.
+        "26.123",
     ]
     Script(version="26.100").emit("SELECT_GEOMETRY_BY_ID", 2)
     Script(version="26.120").emit("SURFACE_SELECT_BY_ID", 2)
@@ -1759,10 +1770,17 @@ def test_the_two_surface_deletes_stop_at_the_edition_that_replaced_them():
             f"{name} reaches 26.121 by inheritance; if that stops being true the "
             "plan row has landed and this test states the old behaviour"
         )
-    # Its replacement is documented by the two editions from 26.121 on,
+    # Its replacement is documented by every edition from 26.121 on,
     # which is the whole life of the command so far. The list is pinned
     # rather than counted so that a build joining it is a decision.
-    assert sorted(registry.commands["DELETE_SURFACES"].versions) == ["26.121", "26.122"]
+    # 26.123 joined on 2026-08-17 with a row of its own rather than by
+    # inheritance, which is what a build registered inheriting nothing
+    # gives every command it documents.
+    assert sorted(registry.commands["DELETE_SURFACES"].versions) == [
+        "26.121",
+        "26.122",
+        "26.123",
+    ]
 
 
 def test_the_untyped_axis_of_the_circular_pattern_has_no_invented_value_set():
@@ -3234,13 +3252,14 @@ def test_the_advanced_settings_toggles_emit_on_the_editions_that_document_them()
 def test_the_wake_decay_constant_exists_in_the_hotfix_series_alone():
     """New in 26.121 and carried by 26.122; documented by no earlier edition.
 
-    It was one row until 2026-08-10. The second hotfix of the same
-    release documents it too, and that row is explicit rather than
-    inherited: inheritance runs from the base release, and 26.120 is the
-    edition that does not have this command.
+    It was one row until 2026-08-10 and gained a third on 2026-08-17.
+    Every one of the three is EXPLICIT rather than inherited, and that is
+    what the assertion is about: inheritance runs from the base release,
+    and 26.120 is the edition that does not have this command, so a row
+    here can only have come from reading an edition that does.
     """
     entry = CommandRegistry.load().commands["SET_WAKE_DECAY_CONSTANT"]
-    assert set(entry.versions) == {"26.121", "26.122"}
+    assert set(entry.versions) == {"26.121", "26.122", "26.123"}
     assert entry.manual_ref.startswith("SRC-740"), (
         "a command the flagship edition does not document cites the edition that does"
     )

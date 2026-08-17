@@ -429,7 +429,7 @@ script.emit("SET_SIMULATION_LENGTH_UNITS", "PARSEC")
 CommandNotInVersionError: CAD_CREATE_BOX has no recorded evidence
 for FlightStream 25.000. Recorded evidence: 26.100 (documented),
 26.101 (documented), 26.120 (documented), 26.121 (documented),
-26.122 (documented, inherited).
+26.122 (documented, inherited), 26.123 (documented).
 \end{lstlisting}
   \begin{itemize}
     \item The refusal lists exactly what is known, per version, so you can decide: switch versions, or contribute the missing evidence.
@@ -1178,6 +1178,7 @@ pyfs-manual sweep        --editions MANIFEST [--by-section]  # every registered 
 pyfs-manual surface      --editions MANIFEST [--names]     # what changed between builds
 pyfs-manual coverage     --manual ... --source SRC-741 --chapter-pages 275-369
 pyfs-manual citations    --editions MANIFEST   # exits 1 if one does not hold
+pyfs-manual register     --editions MANIFEST --build 26.123   # carries a build forward
 \end{lstlisting}
   \begin{itemize}
     \item The \code{pyfs-qa} tools (and \code{pyfs-fsi}) require a licensed machine and write dated report pairs (markdown plus YAML) under \code{reports/}; \code{pyfs-qa cases} runs nothing.

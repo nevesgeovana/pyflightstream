@@ -43,6 +43,7 @@ CREATE_NEW_RECTANGLE_VOLUME_SECTION:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
+    "26.123": {status: documented, note: "SRC-751 p.372, same grammar as the 26.122 edition"}
   notes: >
     Rectangular flow-field section between two diagonal corners, with
     optional near-wall prism cell layers.
@@ -86,6 +87,7 @@ CREATE_NEW_CIRCLE_VOLUME_SECTION:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
+    "26.123": {status: documented, note: "SRC-751 p.372, same grammar as the 26.122 edition"}
   notes: >
     Annular flow-field section with IPTS radial and JPTS azimuth
     segments between the inner and outer radii; the natural plane for
@@ -132,6 +134,7 @@ UPDATE_ALL_VOLUME_SECTIONS:
     "26.101": {status: documented, note: "SRC-725 p.366, same grammar as 26.120"}
     "26.100": {status: documented, note: "SRC-741 p.361, same grammar as 26.120"}
     "26.120": {status: documented}
+    "26.123": {status: documented, note: "SRC-751 p.372, same grammar as the 26.122 edition"}
 
 EXPORT_VOLUME_SECTION_VTK:
   layout: inline
@@ -152,6 +155,7 @@ EXPORT_VOLUME_SECTION_VTK:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
+    "26.123": {status: documented, note: "SRC-751 p.372, same grammar as the 26.122 edition"}
   notes: >
     The file path follows on the line after the section index.
 
@@ -174,6 +178,7 @@ EXPORT_VOLUME_SECTION_TECPLOT:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
+    "26.123": {status: documented, note: "SRC-751 p.373, same grammar as the 26.122 edition"}
   notes: >
     The file path follows on the line after the section index.
 
@@ -193,6 +198,7 @@ DELETE_VOLUME_SECTION:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
+    "26.123": {status: documented, note: "SRC-751 p.373, same grammar as the 26.122 edition"}
 
 DELETE_ALL_VOLUME_SECTIONS:
   layout: bare
@@ -207,6 +213,7 @@ DELETE_ALL_VOLUME_SECTIONS:
     "26.101": {status: documented, note: "SRC-725 p.366, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.370, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.373, same grammar as the 26.122 edition"}
   notes: >
     Deletes every volume section, where DELETE_VOLUME_SECTION takes one
     index. A separate command rather than a sentinel of that one.
@@ -229,6 +236,7 @@ VOLUME_SECTION_WIREFRAME:
     "26.101": {status: documented, note: "SRC-725 p.365, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.369, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.372, same grammar as the 26.122 edition"}
   notes: >
     Draws one volume section as a wireframe rather than as a filled
     contour. A display setting, but phase analysis rather than control:
@@ -258,6 +266,7 @@ EXPORT_VOLUME_SECTION_2D_VTK:
     "26.101": {status: documented, note: "SRC-725 p.366, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.370, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.373, same grammar as the 26.122 edition"}
   notes: >
     Exports one volume section as a 2D ParaView file, the path on the
     next line.

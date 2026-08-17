@@ -16,8 +16,21 @@ what the database already records, the same shape as
 What belongs here is the work of KEEPING the package current rather than
 of using it: reading a new vendor manual, comparing it against the
 command database, reporting what a new release added. That work runs on
-the maintainer's machine against licensed material in ``_private/``, and
-its output is a draft a person reviews, never a database write.
+the maintainer's machine against licensed material in ``_private/``.
+
+ITS OUTPUT WAS A DRAFT A PERSON REVIEWS AND NEVER A DATABASE WRITE, and
+that stopped being true on 2026-08-17. ``pyfs-manual register`` writes
+``documented`` version rows for the commands a new edition describes
+exactly as its predecessor did, which is the one write that carries no
+judgement: it copies nothing and asserts nothing beyond "these two
+editions say the same thing", and anything they do not it reports for a
+person to read. Everything else here is still a draft.
+
+The layer statement above is unchanged by it, and the split is why.
+:func:`~pyflightstream.utils.manual.insert_version_row` takes the text
+of a chapter file and returns the edited text; it opens nothing. The IO
+lives in :mod:`~pyflightstream.utils.cli`, which is already the entry
+point above :mod:`pyflightstream.commands`.
 
 What does NOT belong here is anything a user's run depends on. A helper
 that a script, a campaign or a parser needs is part of that layer and
@@ -32,6 +45,7 @@ from pyflightstream.utils.manual import (
     CommandEntryLike,
     Coverage,
     Edition,
+    EditionDelta,
     ManualCommand,
     RegistryLike,
     StaleCitation,
@@ -41,11 +55,14 @@ from pyflightstream.utils.manual import (
     UnreachableCommand,
     VersionRowLike,
     coverage_against,
+    documentation_delta,
     edition_surfaces,
+    insert_version_row,
     parse_script_index,
     parse_signatures,
     propose_layout,
     propose_type,
+    read_edition,
     read_edition_manifest,
     read_pdf_pages,
     render_chapter,
@@ -62,6 +79,7 @@ __all__ = [
     "TYPE_RULES",
     "Coverage",
     "Edition",
+    "EditionDelta",
     "CommandEntryLike",
     "ManualCommand",
     "RegistryLike",
@@ -72,11 +90,14 @@ __all__ = [
     "SweptCommand",
     "TypeRule",
     "coverage_against",
+    "documentation_delta",
     "edition_surfaces",
+    "insert_version_row",
     "parse_script_index",
     "parse_signatures",
     "propose_layout",
     "propose_type",
+    "read_edition",
     "read_edition_manifest",
     "read_pdf_pages",
     "render_chapter",

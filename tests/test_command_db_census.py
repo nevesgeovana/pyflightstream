@@ -52,11 +52,27 @@ EMITTABLE = {
     # two that the preceding hotfix has a negative record for, which
     # inheritance from the base would otherwise have overturned.
     "26.122": 375,
-    # Registered 2026-08-17 inheriting NOTHING, so it starts at zero and
-    # every rise from here is a row somebody wrote or measured on THIS
+    # Registered 2026-08-17 inheriting NOTHING, so it started at zero and
+    # every one of these is a row somebody wrote or measured on THIS
     # build. That is the whole point of the flag: the other two hotfixes
     # entered this table already carrying most of 26.120's surface.
-    "26.123": 0,
+    #
+    # 369 of the 371 its own edition documents, written the same day by
+    # `pyfs-manual register`, which compares WHAT THE TWO EDITIONS SAY
+    # about each command rather than which page they say it on. The two
+    # it leaves are the work of their own nodes: SET_SCENE_CONTOUR,
+    # which the edition describes differently, and
+    # SET_OUTLET_TRAILING_EDGES, which it documents and this database
+    # does not carry at all.
+    #
+    # IT WAS 368 FOR AN HOUR and the third exclusion was an artefact of
+    # the reader rather than a fact about the edition.
+    # DISABLE_WAKE_NODES_ON_TRAILING_EDGE is word for word what it was;
+    # the new edition simply breaks the page in the middle of its block,
+    # and the reader was page-local, so it compared a full record
+    # against a truncation. The reader now reads the chapter as one
+    # stream and the exclusion is gone.
+    "26.123": 369,
 }
 
 #: Rows recording `verified` per build, measured the same day. Pinned

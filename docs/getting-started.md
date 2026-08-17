@@ -62,7 +62,7 @@ from pyflightstream.commands import CommandNotInVersionError
 from pyflightstream.script import Script
 
 try:
-    Script(version="26.123").emit("START_SOLVER")
+    Script(version="26.123").emit("TRAILING_EDGES_IMPORT")
 except CommandNotInVersionError as error:
     print("refused:", "no recorded evidence" in str(error))
 ```
@@ -73,8 +73,10 @@ refused: True
 
 That is a statement about EVIDENCE and not about the solver. The build
 may well run the command perfectly; nobody here has established that it
-does. The list of what is currently in that state is committed, so you
-can see the size of the gap without running anything:
+does. The command above is one the new edition stops documenting, which is why
+it is still refused after that build's documented rows were written. The
+list of what is currently in that state is committed, so you can see the
+size of the gap without running anything:
 `tests/goldens/absent_on_26123.txt` carries every affected command and
 its own count in the header.
 

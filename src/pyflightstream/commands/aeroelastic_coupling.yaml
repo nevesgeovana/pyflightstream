@@ -58,6 +58,7 @@ EXECUTE_AEROELASTIC_ANALYSIS:
     "26.101": {status: documented, note: "SRC-725 p.374, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.378, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.382, same grammar as the 26.122 edition"}
   notes: >
     Runs the steady-state aeroelastic analysis. For unsteady coupling
     the manual instructs the regular solver execution with
@@ -80,6 +81,7 @@ ASSIGN_AEROELASTIC_SURFACES:
     "26.101": {status: documented, note: "SRC-725 p.374, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.378, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.382, same grammar as the 26.122 edition"}
   notes: >
     Mesh boundaries whose deflections the toolbox interpolates; one
     index per line after the count, -1 selects all boundaries with no
@@ -101,6 +103,7 @@ ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS:
     "26.101": {status: documented, note: "SRC-725 p.374, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.378, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.382, same grammar as the 26.122 edition"}
   notes: >
     Links user-defined coordinate systems for the aeroelastic
     interpolation, one index per line after the count.
@@ -142,6 +145,7 @@ IMPORT_AEROELASTIC_STRUCTURAL_NODES:
     "26.101": {status: documented, note: "SRC-725 p.374, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.378, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.382, same grammar as the 26.122 edition"}
   notes: >
     Imports the structural node list; the file is three comma
     separated columns X,Y,Z per node (SRC-003 p.274), interpreted in
@@ -157,6 +161,7 @@ DELETE_AEROELASTIC_STRUCTURAL_NODES:
     "26.101": {status: documented, note: "SRC-725 p.374, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.378, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.382, same grammar as the 26.122 edition"}
   notes: Deletes all imported structural nodes.
 
 SET_AEROELASTIC_WORKING_DIRECTORY:
@@ -171,6 +176,7 @@ SET_AEROELASTIC_WORKING_DIRECTORY:
     "26.101": {status: documented, note: "SRC-725 p.374, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.378, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.382, same grammar as the 26.122 edition"}
   notes: >
     Runtime folder of the coupling: FlightStream writes FSIDisp.txt
     and the loads exports there and executes the runtime command
@@ -189,6 +195,7 @@ SET_AEROELASTIC_POST_PROCESSING_SCRIPT:
     "26.101": {status: documented, note: "SRC-725 p.375, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.379, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.383, same grammar as the 26.122 edition"}
   notes: >
     FlightStream script executed between FSI iterations, before the
     external executable; the documented mechanism for exporting the
@@ -207,6 +214,7 @@ SET_AEROELASTIC_STRUCTURAL_EXECUTION_COMMAND:
     "26.101": {status: documented, note: "SRC-725 p.375, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.379, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.383, same grammar as the 26.122 edition"}
   notes: >
     Full command executed per coupling iteration in the working
     directory. The dry run observed a bare invocation: no arguments
@@ -223,6 +231,7 @@ SET_AEROELASTIC_ITERATIONS:
     "26.101": {status: documented, note: "SRC-725 p.375, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.379, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.383, same grammar as the 26.122 edition"}
   notes: >
     Two-way coupling iterations: the total count in steady mode, the
     count per time step in unsteady mode (SRC-003 p.275).
@@ -239,6 +248,7 @@ SET_AEROELASTIC_COUPLING_IN_UNSTEADY:
     "26.101": {status: documented, note: "SRC-725 p.375, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.379, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.383, same grammar as the 26.122 edition"}
   notes: >
     Toggles the FSI execution inside the unsteady solver; with ENABLE
     the coupling runs on the regular solver start.

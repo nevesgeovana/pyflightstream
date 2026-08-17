@@ -208,21 +208,31 @@ versions:
 
   - canonical: "26.123"
     alias: "26.12"
+    # reports/compat/CMP-26123_2026-08-17_identity.yaml
+    #
     # The third hotfix of the 26.12 release, delivered 2026-08-16 and
     # registered here on 2026-08-17. Release order puts it last, which
     # for once is also sort order.
     #
-    # BUILD AND PRINTS ARE UNSET AND THAT IS DELIBERATE. They are
-    # admitted only from a committed report's solver_identity, never
-    # from a note or a download page, and the report that carries them
-    # is written by the probe run this registration is the precondition
-    # of: `pyfs-qa probe` refuses an unregistered version before it
-    # starts, so the row has to exist before the run that fills it. A
-    # throwaway identity script of 2026-08-17 read the banner as
-    # `FlightStream version 26.1, build #8112026`, which agrees with the
-    # number the delivery gave and is why the session continued; two
-    # sources agreeing is not the same as provenance, so the fields wait
-    # for the report rather than being filled from either.
+    # The banner names release 26.1 at build 8112026, agreeing with the
+    # number the delivery gave. THE ORDER THOSE TWO WERE ESTABLISHED IN
+    # is worth one sentence, because it is a chicken-and-egg this file's
+    # own rule creates. The two fields are admitted only from a committed
+    # report's solver_identity, and the run that writes one refuses an
+    # unregistered version before it starts, so the row must exist first.
+    # It was registered with both unset, a throwaway script read the
+    # banner to answer the one question that would have stopped the
+    # session (does it print the number the registry expects), and the
+    # sanctioned identity run then wrote the report these two fields
+    # come from. Agreement between the delivery and a throwaway is not
+    # provenance; the report is.
+    #
+    # It is also the first build in this corpus whose report records the
+    # executable by a VERSION-NAMED name, FlightStream_26123.exe. The
+    # installer calls it Flightstream_2612.exe, as it calls three other
+    # builds, and the field records the name that was INVOKED.
+    build: "8112026"
+    prints: "26.1"
     #
     # INHERITS NOTHING, and this is the first build in the family for
     # which that is written. 26.121 and 26.122 both descend from 26.120,

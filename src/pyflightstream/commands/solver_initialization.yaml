@@ -129,6 +129,7 @@ INITIALIZE_SOLVER:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
+    "26.123": {status: documented, note: "SRC-751 p.342, same grammar as the 26.122 edition"}
   notes: >
     SURFACES takes -1 for all boundaries or a count followed by one
     line per surface with the surface index and the quad mesher toggle
@@ -178,6 +179,7 @@ SOLVER_PROXIMAL_BOUNDARIES:
         - {name: count, type: int}
         - {name: boundary_indices, type: int_list, cites: boundaries,
            separator: newline, required: false}
+    "26.123": {status: documented, note: "SRC-751 p.342, same grammar as the 26.122 edition"}
   notes: >
     Enables solver proximity checking for the listed boundaries, one
     index per line. Must be called before INITIALIZE_SOLVER
@@ -202,6 +204,7 @@ REMOVE_INITIALIZATION:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
+    "26.123": {status: documented, note: "SRC-751 p.343, same grammar as the 26.122 edition"}
 
 START_SOLVER:
   layout: bare
@@ -217,6 +220,7 @@ START_SOLVER:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
+    "26.123": {status: documented, note: "SRC-751 p.343, same grammar as the 26.122 edition"}
   notes: >
     Runs the solver with the current runtime settings; convergence is
     declared against the SOLVER_SET_CONVERGENCE threshold.
@@ -234,6 +238,7 @@ CLEAR_SOLUTION:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
+    "26.123": {status: documented, note: "SRC-751 p.343, same grammar as the 26.122 edition"}
   notes: >
     Clears the existing solution while keeping the initialization;
     used between sweep points when solution reuse is not wanted.

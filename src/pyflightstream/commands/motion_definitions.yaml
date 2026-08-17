@@ -38,6 +38,7 @@ CREATE_NEW_MOTION:
           values: [EUCLIDEAN, 6DOF, CUSTOM]
     "26.101": {status: documented, note: "SRC-725 p.331, the first edition naming the type ROTARY"}
     "26.120": {status: documented}
+    "26.123": {status: documented, note: "SRC-751 p.337, same grammar as the 26.122 edition"}
   notes: >
     Rotary motion is the blade-resolved alternative to the actuator
     disc surrogate (SRC-003 p.234); it requires the unsteady solver.
@@ -79,6 +80,7 @@ SET_MOTION_BOUNDARIES:
     "26.100": {status: documented, note: "SRC-741 p.328, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.331, same grammar as 26.120"}
     "26.120": {status: documented}
+    "26.123": {status: documented, note: "SRC-751 p.337, same grammar as the 26.122 edition"}
   notes: >
     Assigns geometry boundaries to the motion; the comma-separated
     index line follows. NUM_BOUNDARIES -1 selects all boundaries and
@@ -106,6 +108,7 @@ SET_MOTION_MOVING_FRAMES:
     "26.100": {status: documented, note: "SRC-741 p.328, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.331, same grammar as 26.120"}
     "26.120": {status: documented}
+    "26.123": {status: documented, note: "SRC-751 p.337, same grammar as the 26.122 edition"}
   notes: >
     Attaches user-defined local frames to the motion; -1 selects all
     local coordinate systems and takes no index line.
@@ -130,6 +133,7 @@ SET_MOTION_COORDINATE_SYSTEM:
     "26.101": {status: documented, note: "SRC-725 p.331, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
+    "26.123": {status: documented, note: "SRC-751 p.337, same grammar as the 26.122 edition"}
 
 SET_MOTION_START_TIME:
   layout: inline
@@ -150,6 +154,7 @@ SET_MOTION_START_TIME:
     "26.101": {status: broken, report: "reports/compat/CMP-26101_2026-08-08_full.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing)"}
     "26.120": {status: broken, report: "reports/compat/CMP-26120_2026-08-08_full.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing)"}
     "26.121": {status: broken, report: "reports/compat/CMP-26121_2026-08-08_full.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing)"}
+    "26.123": {status: documented, note: "SRC-751 p.337, same grammar as the 26.122 edition"}
   notes: >
     Start of the motion within the solver physical time; enables
     converging a steady base flow before the motion begins.
@@ -169,6 +174,7 @@ SET_MOTION_ROTOR_AXIS:
     "26.121": {status: documented, note: "SRC-740 p.336, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.332, same grammar as 26.120"}
     "26.120": {status: documented}
+    "26.123": {status: documented, note: "SRC-751 p.338, same grammar as the 26.122 edition"}
 
 SET_MOTION_ROTOR_RPM:
   layout: inline
@@ -185,6 +191,7 @@ SET_MOTION_ROTOR_RPM:
     "26.121": {status: documented, note: "SRC-740 p.336, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.332, same grammar as 26.120"}
     "26.120": {status: documented}
+    "26.123": {status: documented, note: "SRC-751 p.338, same grammar as the 26.122 edition"}
 
 SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION:
   layout: inline
@@ -216,6 +223,7 @@ SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION:
     "26.101": {status: documented, note: "SRC-725 p.332, the first edition with NUM_BLADES"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.336, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.338, same grammar as the 26.122 edition"}
   notes: >
     Stabilizes the slipstream wake of a rotor motion. NUM_BLADES is per
     PROPELLER rather than a total across the motion, which the manual
@@ -251,6 +259,7 @@ SET_MOTION_FSI_EXECUTABLE:
     "26.100": {status: documented, note: "SRC-741 p.332, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 pp.334-335, same grammar as 26.120"}
     "26.120": {status: documented}
+    "26.123": {status: documented, note: "SRC-751 p.340, same grammar as the 26.122 edition"}
   notes: >
     FSI seam (FR-23): FlightStream calls the external structural
     executable per coupling step; the executable path follows on the
@@ -282,6 +291,7 @@ SET_MOTION_FSI_STRUCTURAL_NODES:
     "26.100": {status: documented, note: "SRC-741 p.332, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.335, same grammar as 26.120"}
     "26.120": {status: documented}
+    "26.123": {status: documented, note: "SRC-751 p.341, same grammar as the 26.122 edition"}
   notes: >
     Imports the structural displacement node set; the file path
     follows on the line after the motion index. Dry run finding
@@ -307,6 +317,7 @@ DELETE_MOTION:
     "26.100": {status: documented, note: "SRC-741 p.333, same grammar as 26.120"}
     "26.101": {status: documented, note: "SRC-725 p.335, same grammar as 26.120"}
     "26.120": {status: documented}
+    "26.123": {status: documented, note: "SRC-751 p.341, same grammar as the 26.122 edition"}
 
 # --- the February 2026 kinematic family -------------------------------------
 #
@@ -484,6 +495,7 @@ SET_MOTION_MASS_PROPERTIES:
     "26.101": {status: documented, note: "SRC-725 p.332, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.336, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.338, same grammar as the 26.122 edition"}
   notes: >
     Mass and inertia tensor of a 6DOF body. MASS is in KILOGRAMS, which
     the manual states; the six inertia components are named as moments
@@ -516,6 +528,7 @@ SET_MOTION_GRAVITY:
     "26.101": {status: documented, note: "SRC-725 p.332, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.336, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.338, same grammar as the 26.122 edition"}
   notes: >
     Gravity vector for a 6DOF motion, in the REFERENCE coordinate
     system. Its neighbours SET_MOTION_6DOF_INITIAL_VELOCITY and
@@ -549,6 +562,7 @@ SET_MOTION_CUSTOM_TABLE:
     "26.101": {status: documented, note: "SRC-725 p.332, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.336, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.338, same grammar as the 26.122 edition"}
   notes: >
     Reads a motion from a table in a text file, the path on the line
     after the command.
@@ -586,6 +600,7 @@ SET_MOTION_6DOF_INITIAL_VELOCITY:
     "26.101": {status: documented, note: "SRC-725 p.333, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.337, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.339, same grammar as the 26.122 edition"}
   notes: >
     Initial velocity of a 6DOF body, in the BODY coordinate system, not
     the reference one its gravity vector uses. No unit is stated.
@@ -612,6 +627,7 @@ SET_MOTION_6DOF_INITIAL_ANGULAR_VELOCITY:
     "26.101": {status: documented, note: "SRC-725 p.333, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.337, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.339, same grammar as the 26.122 edition"}
   notes: >
     Initial angular velocity of a 6DOF body, in the body coordinate
     system. No unit is stated, and unlike SET_MOTION_ROTOR_RPM, which
@@ -637,6 +653,7 @@ SET_MOTION_6DOF_ACTIVE_VARIABLES:
     "26.101": {status: documented, note: "SRC-725 p.333, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.337, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.339, same grammar as the 26.122 edition"}
   notes: >
     Frees or locks each degree of freedom, one per line after the
     command: U, V and W are the velocity components and P, Q and R the
@@ -693,6 +710,7 @@ CREATE_NEW_6DOF_EXTERNAL_FORCE:
     "26.101": {status: documented, note: "SRC-725 p.333, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.337, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.339, same grammar as the 26.122 edition"}
   notes: >
     A force applied at a point of the body for a window of time. Both
     the application point and the force vector are in the BODY frame.
@@ -724,6 +742,7 @@ CREATE_NEW_6DOF_CUSTOM_FORCE:
     "26.101": {status: documented, note: "SRC-725 p.334, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.338, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.340, same grammar as the 26.122 edition"}
   notes: >
     A force profile read from a text file, the path on the following
     line. The two tokens use UNDERSCORES where the motion table's
@@ -767,6 +786,7 @@ CREATE_NEW_6DOF_SPRING_FORCE:
     "26.101": {status: documented, note: "SRC-725 p.334, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.338, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.340, same grammar as the 26.122 edition"}
   notes: >
     A spring attached to the body. ELEVEN arguments, and the manual's
     heading WRAPS with SPRING_RATE alone on the second line, which is
@@ -801,6 +821,7 @@ DELETE_6DOF_EXTERNAL_FORCE:
     "26.101": {status: documented, note: "SRC-725 p.334, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.338, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.340, same grammar as the 26.122 edition"}
   notes: >
     Deletes one external force from a motion by index. The manual names
     no delete for the spring or the custom force, and this entry does
@@ -825,6 +846,7 @@ SET_6DOF_MOTION_SYMMETRY_LOADS:
     "26.101": {status: documented, note: "SRC-725 p.333, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.337, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.339, same grammar as the 26.122 edition"}
   notes: >
     Includes the loads on the symmetry boundary in a 6DOF motion, which
     the page's own sample comment describes as converting the motion
@@ -859,6 +881,7 @@ EXPORT_6DOF_TRAJECTORY:
     "26.101": {status: documented, note: "SRC-725 p.334, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.338, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.340, same grammar as the 26.122 edition"}
   notes: >
     Writes a motion's trajectory tables to a file, the path on the
     following line.

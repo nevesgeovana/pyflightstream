@@ -39,6 +39,7 @@ CAD_CREATE_INITIALIZE:
     "26.101": {status: documented, note: "SRC-725 p.288, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.292, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.293, same grammar as the 26.122 edition"}
   notes: >
     Opens the CAD Create pane. Whether the commands below REQUIRE it
     first is not stated by the manual and is not asserted here; the
@@ -60,6 +61,7 @@ SET_CAD_CREATE_MERGE_TOLERANCE:
     "26.101": {status: documented, note: "SRC-725 p.288, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.292, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.293, same grammar as the 26.122 edition"}
   default: 1.0
   default_ref: "SRC-003 p.289"
   notes: >
@@ -80,6 +82,7 @@ SET_CAD_CREATE_SPLINE_SEGMENTS:
     "26.101": {status: documented, note: "SRC-725 p.288, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.292, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.293, same grammar as the 26.122 edition"}
   default: 200
   default_ref: "SRC-003 p.289"
   notes: >
@@ -101,6 +104,7 @@ SET_CAD_CREATE_SPLINE_LOFT:
     "26.101": {status: documented, note: "SRC-725 p.288, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.292, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.293, same grammar as the 26.122 edition"}
   default: C2
   default_ref: "SRC-003 p.289"
   notes: >
@@ -121,6 +125,7 @@ SET_CAD_CURVATURE_REFINEMENT:
     "26.101": {status: documented, note: "SRC-725 p.288, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.292, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.293, same grammar as the 26.122 edition"}
   default: 80
   default_ref: "SRC-003 p.289"
   notes: >
@@ -172,6 +177,7 @@ CAD_CREATE_BOX:
     "26.101": {status: documented, note: "SRC-725 p.289, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.293, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.294, same grammar as the 26.122 edition"}
   notes: >
     X, Y and Z are the FIRST CORNER VERTEX rather than the centre, and
     the three lengths run from that corner along the frame's axes
@@ -199,6 +205,7 @@ CAD_CREATE_SPHERE:
     "26.101": {status: documented, note: "SRC-725 p.289, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.293, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.294, same grammar as the 26.122 edition"}
   notes: >
     X, Y and Z are the CENTRE here, unlike the box above, which takes a
     corner. The two commands sit on one manual page and differ on this
@@ -230,6 +237,7 @@ CAD_CREATE_CYLINDER:
     "26.101": {status: documented, note: "SRC-725 p.289, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.293, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.294, same grammar as the 26.122 edition"}
   notes: >
     R1 and R2 are the radii at the two ends, so a cone is a cylinder
     with unequal radii and there is no separate cone command. The axis
@@ -260,6 +268,7 @@ CAD_CREATE_SHEET:
     "26.101": {status: documented, note: "SRC-725 p.289, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.293, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.294, same grammar as the 26.122 edition"}
   notes: >
     A flat rectangle in one plane of the frame. OFFSET moves it along
     that plane's normal and MAY BE NEGATIVE, which the manual states
@@ -298,6 +307,7 @@ CAD_CREATE_CURVE_POINT:
     "26.101": {status: documented, note: "SRC-725 p.292, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.296, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.297, same grammar as the 26.122 edition"}
   notes: >
     A curve of one vertex. It is a curve rather than a point in the
     interface's own vocabulary, which is why it is selected, reordered
@@ -328,6 +338,7 @@ CAD_CREATE_CURVE_LINE:
     "26.101": {status: documented, note: "SRC-725 p.292, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.296, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.297, same grammar as the 26.122 edition"}
   notes: >
     A straight curve between two vertices, given in order: the direction
     from the first to the second is the curve's own, which
@@ -364,6 +375,7 @@ CAD_CREATE_CURVE_ARC:
     "26.101": {status: documented, note: "SRC-725 p.292, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.296, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.297, same grammar as the 26.122 edition"}
   notes: >
     NINE coordinates in three triples, and the FIRST is the arc's
     ORIGIN rather than a vertex on it: origin, then the two vertices the
@@ -395,6 +407,7 @@ CAD_CREATE_CURVE_SELECT:
     "26.101": {status: documented, note: "SRC-725 p.293, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.297, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.298, same grammar as the 26.122 edition"}
   notes: >
     Adds one virtual curve to the selection by its 1-based creation
     index; -1 selects every existing curve (SRC-003 p.294). Selection is
@@ -416,6 +429,7 @@ CAD_CREATE_CURVE_UNSELECT:
     "26.101": {status: documented, note: "SRC-725 p.293, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.297, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.298, same grammar as the 26.122 edition"}
   notes: >
     Removes one curve from the selection; -1 removes every one
     (SRC-003 p.294).
@@ -435,6 +449,7 @@ CAD_CREATE_CURVE_REVERSE:
     "26.101": {status: documented, note: "SRC-725 p.293, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.297, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.298, same grammar as the 26.122 edition"}
   notes: >
     Flips a curve's direction; -1 flips every one (SRC-003 p.294). It
     acts on the curve rather than on the selection, so it takes an index
@@ -453,6 +468,7 @@ CAD_CREATE_CURVE_DELETE_ALL:
     "26.101": {status: documented, note: "SRC-725 p.295, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.299, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.300, same grammar as the 26.122 edition"}
   notes: >
     Deletes every virtual curve, selected or not.
 
@@ -469,6 +485,7 @@ CAD_CREATE_CURVE_DELETE_SELECTED:
     "26.101": {status: documented, note: "SRC-725 p.295, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.299, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.300, same grammar as the 26.122 edition"}
   notes: >
     Deletes the curves currently selected, which is the state
     CAD_CREATE_CURVE_SELECT builds.
@@ -486,6 +503,7 @@ CAD_CREATE_CURVE_DELETE_UNSELECTED:
     "26.101": {status: documented, note: "SRC-725 p.295, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.299, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.300, same grammar as the 26.122 edition"}
   notes: >
     Deletes everything NOT selected, which is how a script keeps a
     subset: select what it wants, then delete the rest.
@@ -525,6 +543,7 @@ CAD_CREATE_ROTATE_CURVES:
     "26.101": {status: documented, note: "SRC-725 p.294, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.298, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.299, same grammar as the 26.122 edition"}
   notes: >
     Rotates the selected virtual curves about one axis of the given
     coordinate system. Frame 1 is the reference system, which the
@@ -555,6 +574,7 @@ CAD_CREATE_TRANSLATE_CURVES:
     "26.101": {status: documented, note: "SRC-725 p.294, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.298, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.299, same grammar as the 26.122 edition"}
   notes: >
     Translation vector for the selected virtual curves. It takes NO
     frame argument, unlike the rotation and the mirror, and the manual
@@ -577,6 +597,7 @@ CAD_CREATE_SCALE_CURVES:
     "26.101": {status: documented, note: "SRC-725 p.294, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.298, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.299, same grammar as the 26.122 edition"}
   notes: >
     ONE scale value for all three axes: the command has no per-axis
     form, so a non-uniform scaling is not available here. What the
@@ -610,6 +631,7 @@ CAD_CREATE_PROJECT_CURVE:
     "26.101": {status: documented, note: "SRC-725 p.294, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.298, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.299, same grammar as the 26.122 edition"}
   notes: >
     Projects ONE virtual curve, named by index rather than taken from
     the selection, onto a plane of the given coordinate system, along a
@@ -651,6 +673,7 @@ CAD_CREATE_PROJECT_MULTI_CURVE:
     "26.101": {status: documented, note: "SRC-725 p.295, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.299, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.300, same grammar as the 26.122 edition"}
   notes: >
     THE TWO INDICES ARE NOT INTERCHANGEABLE. The FIRST curve is the one
     projected; the SECOND is a guide, used to hold the sweep angle along
@@ -679,6 +702,7 @@ CAD_CREATE_REORDER_CURVES:
     "26.101": {status: documented, note: "SRC-725 p.295, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.299, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.300, same grammar as the 26.122 edition"}
   notes: >
     Sorts the selected curves along an axis, and the token is SIGNED:
     the six values are the three axes each way round, so a leading minus
@@ -702,6 +726,7 @@ CAD_CREATE_CONNECT_CURVES:
     "26.101": {status: documented, note: "SRC-725 p.293, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.297, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.298, same grammar as the 26.122 edition"}
   notes: >
     Joins the selected virtual curves into ONE curve. The manual gives
     it a sample and no parameter table, so what it does with curves that
@@ -717,6 +742,7 @@ CAD_CREATE_SELF_MEDIAN_FROM_CURVES:
     "26.101": {status: documented, note: "SRC-725 p.293, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.297, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.298, same grammar as the 26.122 edition"}
   notes: >
     Builds the median curve of each selected virtual curve, which is
     the camber line of a closed airfoil-like curve: the manual's own
@@ -739,6 +765,7 @@ CAD_CREATE_CURVE_EXPORT_CCS:
     "26.101": {status: documented, note: "SRC-725 p.293, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.297, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.298, same grammar as the 26.122 edition"}
   notes: >
     Writes the SELECTED virtual curves to a file, the command name on
     one line and the path on the next. CCS is the vendor's
@@ -790,6 +817,7 @@ CAD_CREATE_IMPORT_CURVE_TXT:
     "26.101": {status: documented, note: "SRC-725 p.290, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.294, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.295, same grammar as the 26.122 edition"}
   notes: >
     Reads curve points from a text file. DIMENSIONS decides what the two
     arguments after it mean: under 2D the points are two-dimensional and
@@ -833,6 +861,7 @@ CAD_CREATE_IMPORT_CURVE_CCS:
     "26.101": {status: documented, note: "SRC-725 p.290, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.294, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.295, same grammar as the 26.122 edition"}
   notes: >
     Reads cross-sections from a CCS file, which the manual says may
     carry either the .CCS or the .CSV extension, so the extension does
@@ -875,6 +904,7 @@ CAD_CREATE_IMPORT_CURVE_P3D:
     "26.101": {status: documented, note: "SRC-725 p.290, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.294, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.295, same grammar as the 26.122 edition"}
   notes: >
     Reads curves from a Plot3D structured grid. SWAP_DIRECTION chooses
     which way the walk over the grid's node data proceeds when building
@@ -916,6 +946,7 @@ CAD_CREATE_CROSS_SECTION:
     "26.101": {status: documented, note: "SRC-725 p.291, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.295, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.296, same grammar as the 26.122 edition"}
   notes: >
     Slices one mesh body with a plane and writes the intersection as a
     virtual curve. OFFSET moves the plane along its own normal, in the
@@ -989,6 +1020,7 @@ CAD_CREATE_AUTO_CROSS_SECTIONS:
     "26.101": {status: documented, note: "SRC-725 p.291, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.295, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.296, same grammar as the 26.122 edition"}
   notes: >
     Sweeps a body along an axis and writes a series of cross-section
     curves. EIGHT arguments, and the signature parser reports seven: the
@@ -1036,6 +1068,7 @@ CAD_CREATE_AUTO_ANNULAR_CROSS_SECTIONS:
     "26.101": {status: documented, note: "SRC-725 p.291, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.295, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.296, same grammar as the 26.122 edition"}
   notes: >
     The annular counterpart of CAD_CREATE_AUTO_CROSS_SECTIONS, cutting
     around a body rather than along an axis, which is why it takes
@@ -1099,6 +1132,7 @@ CAD_CREATE_WING_MESH_FROM_CCS:
     "26.101": {status: documented, note: "SRC-725 p.299, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.303, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.304, same grammar as the 26.122 edition"}
   notes: >
     Lofts a wing mesh boundary from the CCS wing component, and NAME is
     the boundary name the rest of a script cites it by.
@@ -1134,6 +1168,7 @@ CAD_CREATE_FUSELAGE_MESH_FROM_CCS:
     "26.101": {status: documented, note: "SRC-725 p.301, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.305, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.306, same grammar as the 26.122 edition"}
   notes: >
     Lofts a fuselage mesh boundary from the CCS fuselage component. Here
     LOFT_TYPE_U is RADIAL and LOFT_TYPE_V is AXIAL, which is NOT what
@@ -1176,6 +1211,7 @@ CAD_CREATE_REVOLVE_MESH_FROM_CCS:
     "26.101": {status: documented, note: "SRC-725 p.304, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.308, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.309, same grammar as the 26.122 edition"}
   notes: >
     Lofts a body of revolution from the CCS revolve component. EIGHT
     arguments, and the signature parser reports seven for the same
@@ -1208,6 +1244,7 @@ CAD_CREATE_MIRROR_CURVES:
     "26.101": {status: documented, note: "SRC-725 p.294, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.298, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.299, same grammar as the 26.122 edition"}
   notes: >
     Mirrors the SELECTED virtual curves across a plane. It takes no
     curve index: which curves are mirrored comes from the selection made

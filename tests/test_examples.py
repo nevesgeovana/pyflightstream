@@ -202,11 +202,29 @@ def test_nothing_leaves_an_artifact_in_the_repository_root():
     tree at the root, which is the same class arriving from the other
     direction: the docs examples run under Sybil, with the repository as
     their working directory.
+
+    THERE IS A THIRD WAY TO GET ONE and the message used to send its
+    reader to the wrong file for it. `runs/` is also the sanctioned local
+    scratch root of the qa CLI: `pyfs-qa probe` writes `runs/probes/` by
+    default, which is the author's own tidy-up decision. So on a licensed
+    machine this guard fires after every probe run and told the operator
+    a docs code block had run in the wrong directory.
+
+    The guard is right to fire and the assertion is unchanged: the tree
+    IS dirty and a licensed session clears its scratch root when it is
+    done with it. What changed on 2026-08-17 is that the message names
+    both causes, after an attempt to excuse a pre-existing `runs/` was
+    shown to break the guard outright: the docs blocks run in a SEPARATE
+    pytest invocation from this module, so a tree they left behind is
+    always pre-existing by the time this guard is imported, and the
+    exception would have swallowed the case it was written for.
     """
     assert _root_artifacts() == [], (
-        f"the repository root holds {_root_artifacts()}; something ran an "
-        "example or a docs code block with the repository as its working "
-        "directory. Mark such a block `<!-- skip: next -->`, or pass a "
+        f"the repository root holds {_root_artifacts()}. Two causes, and they need "
+        "different fixes. A licensed run leaves `runs/`, which is the qa CLI's "
+        "sanctioned scratch root: delete it, or point --workroot elsewhere. Anything "
+        "else means an example or a docs code block ran with the repository as its "
+        "working directory: mark such a block `<!-- skip: next -->`, or pass a "
         "temporary cwd"
     )
 

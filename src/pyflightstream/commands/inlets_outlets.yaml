@@ -39,6 +39,7 @@ CREATE_NEW_INLET:
     "26.101": {status: documented, note: "SRC-725 p.324, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.328, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.330, same grammar as the 26.122 edition"}
   notes: >
     Marks one mesh boundary as an inlet with a uniform velocity along
     the surface normal of its faces. The manual states the index must be
@@ -70,6 +71,7 @@ SET_INLET_CUSTOM_PROFILE:
     "26.101": {status: documented, note: "SRC-725 p.324, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.328, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.330, same grammar as the 26.122 edition"}
   notes: >
     Replaces an inlet's uniform velocity with a profile read from a text
     file, whose path follows on the next line. Has no outlet
@@ -106,6 +108,7 @@ REMESH_INLET:
     "26.101": {status: documented, note: "SRC-725 p.324, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.328, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.330, same grammar as the 26.122 edition"}
   notes: >
     Rebuilds an inlet's faces as a radial distribution. The manual gives
     no reason for wanting one and none is asserted here; what the page
@@ -137,6 +140,7 @@ DELETE_INLET:
     "26.101": {status: documented, note: "SRC-725 p.324, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.328, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.330, same grammar as the 26.122 edition"}
   notes: >
     Unmarks one inlet. No all-form is stated and there is no
     delete-all command, so removing several takes one call each.
@@ -161,6 +165,7 @@ CREATE_NEW_OUTLET:
     "26.101": {status: documented, note: "SRC-725 pp.324-325, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 pp.328-329, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.330, same grammar as the 26.122 edition"}
   notes: >
     Marks one mesh boundary as an outlet with a uniform normal velocity.
     Always uniform: there is no outlet profile command.
@@ -190,6 +195,7 @@ REMESH_OUTLET:
     "26.101": {status: documented, note: "SRC-725 p.325, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.329, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.331, same grammar as the 26.122 edition"}
   notes: >
     The outlet counterpart of REMESH_INLET, differing only in the name
     of its first keyword.
@@ -206,6 +212,7 @@ DELETE_OUTLET:
     "26.101": {status: documented, note: "SRC-725 p.325, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.329, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.331, same grammar as the 26.122 edition"}
   notes: >
     Unmarks one outlet. Its table row is labelled INLET in all four
     editions, which is the copy that runs through this chapter; the

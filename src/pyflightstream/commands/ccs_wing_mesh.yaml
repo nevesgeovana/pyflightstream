@@ -107,6 +107,7 @@ NEW_CCS_WING_CONTROL_SURFACE:
           unit: "percent of span"
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.302, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.303, same grammar as the 26.122 edition"}
   notes: >
     Creates a gapped control surface on a CCS wing component. V0 and
     V1 are the spanwise limits, U0 and U1 the chordwise depths from
@@ -156,6 +157,7 @@ DEFAULT_CCS_WING_MESH_SETTINGS:
     "26.101": {status: documented, note: "SRC-725 p.297, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.301, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.302, same grammar as the 26.122 edition"}
   notes: >
     Resets every mesh setting of one direction to the vendor default. The
     reset is per DIRECTION and not per component, so resetting the
@@ -177,6 +179,7 @@ CCS_WING_MESH_SUBDIVISIONS:
     "26.101": {status: documented, note: "SRC-725 p.297, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.301, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.302, same grammar as the 26.122 edition"}
   notes: >
     Number of grid subdivisions along the named direction. This is the
     node count of the lofted mesh in that direction rather than a
@@ -198,6 +201,7 @@ CCS_WING_MESH_GROWTH_SCHEME:
     "26.101": {status: documented, note: "SRC-725 p.297, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.301, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.302, same grammar as the 26.122 edition"}
   notes: >
     How grid nodes cluster along the direction. DUAL-SIDED clusters
     toward both ends, SUCCESSIVE and REVERSE toward one, NONE spaces
@@ -220,6 +224,7 @@ CCS_WING_MESH_GROWTH_RATE:
     "26.101": {status: documented, note: "SRC-725 p.297, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.301, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.302, same grammar as the 26.122 edition"}
   notes: >
     Clustering rate for the scheme chosen on the same direction. The
     manual states it must be greater than zero and this database does not
@@ -241,6 +246,7 @@ CCS_WING_MESH_PERIODICITY:
     "26.101": {status: documented, note: "SRC-725 p.297, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.301, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.302, same grammar as the 26.122 edition"}
   notes: >
     Number of self-repeating periods of the clustering pattern along the
     direction. The manual states it must be greater than zero and that a
@@ -266,6 +272,7 @@ NEW_CCS_WING_REFINEMENT_ZONE:
     "26.101": {status: documented, note: "SRC-725 p.297, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.301, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.302, same grammar as the 26.122 edition"}
   notes: >
     Inserts extra spanwise nodes between two parametric limits. V0 and V1
     are spanwise parametric values between 0 and 1 with V1 greater than
@@ -284,6 +291,7 @@ DELETE_CCS_WING_REFINEMENT_ZONES:
     "26.101": {status: documented, note: "SRC-725 p.298, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.302, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.303, same grammar as the 26.122 edition"}
   notes: >
     Deletes one spanwise refinement zone by index, or every one at -1,
     which the manual states and the sample passes.
@@ -321,6 +329,7 @@ NEW_CCS_WING_MORPHING_SURFACE:
     "26.101": {status: documented, note: "SRC-725 p.298, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.302, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.303, same grammar as the 26.122 edition"}
   notes: >
     A morphing control surface, the GAPLESS alternative to
     NEW_CCS_WING_CONTROL_SURFACE above: the same seven leading arguments
@@ -357,6 +366,7 @@ NEW_CCS_WING_FLAP_COVE:
     "26.101": {status: documented, note: "SRC-725 p.298, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.302, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.303, same grammar as the 26.122 edition"}
   notes: >
     The cove is the recessed surface behind a flap. COVE_TYPE is an INDEX
     and not a word: 1 is a smoothly blended Bezier cove and 2 is
@@ -385,6 +395,7 @@ DELETE_CCS_WING_CONTROL_SURFACE:
     "26.101": {status: documented, note: "SRC-725 p.299, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.303, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.304, same grammar as the 26.122 edition"}
   notes: >
     Deletes one control surface by index, or every one at -1. As on
     DELETE_CCS_WING_REFINEMENT_ZONES above, the -1 is recorded rather
@@ -425,6 +436,7 @@ EXPORT_WING_CCS_FILE:
     "26.101": {status: documented, note: "SRC-725 p.299, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.303, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.304, same grammar as the 26.122 edition"}
   notes: >
     The same six arguments as CAD_CREATE_WING_MESH_FROM_CCS plus a
     destination path on the following line: this writes the lofted wing

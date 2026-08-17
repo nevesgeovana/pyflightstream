@@ -14,6 +14,7 @@ SET_SOLVER_STEADY:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
+    "26.123": {status: documented, note: "SRC-751 p.346, same grammar as the 26.122 edition"}
 
 SET_SOLVER_UNSTEADY:
   layout: keyword_block
@@ -34,6 +35,7 @@ SET_SOLVER_UNSTEADY:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
+    "26.123": {status: documented, note: "SRC-751 p.346, same grammar as the 26.122 edition"}
   notes: >
     Physical time stepping. For rotary cases the manual recommends 8
     to 12 degrees of blade rotation per time step and at least two
@@ -56,6 +58,7 @@ SET_BOUNDARY_LAYER_TYPE:
     "26.101": {status: documented, note: "SRC-725 p.340, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
+    "26.123": {status: documented, note: "SRC-751 p.346, same grammar as the 26.122 edition"}
   default: TRANSITIONAL
   default_ref: "SRC-003 p.203"
   notes: >
@@ -80,6 +83,7 @@ SET_SOLVER_VISCOUS_COUPLING:
     "26.101": {status: documented, note: "SRC-725 p.340, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
+    "26.123": {status: documented, note: "SRC-751 p.346, same grammar as the 26.122 edition"}
   notes: >
     Couples the semi-empirical boundary layer model to the potential
     flow solution. Attached-flow viscosity only; stall capture also
@@ -104,6 +108,7 @@ SET_VISCOUS_EXCLUDED_BOUNDARIES:
     "26.120": {status: documented}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
+    "26.123": {status: documented, note: "SRC-751 p.346, same grammar as the 26.122 edition"}
   notes: >
     Excludes the listed boundaries from viscous coupling; the indices
     follow on the next line as comma-separated values. Documented
@@ -123,6 +128,7 @@ DELETE_VISCOUS_EXCLUDED_BOUNDARIES:
     "26.101": {status: documented, note: "SRC-725 p.340"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.344"}
+    "26.123": {status: documented, note: "SRC-751 p.346, same grammar as the 26.122 edition"}
   notes: >
     Clears the viscous-exclusion list, restoring viscous coupling on
     every boundary. The helper spells the clear as an empty
@@ -216,6 +222,7 @@ CREATE_AIRFOIL_SEPARATION:
     "26.101": {status: documented, note: "SRC-725 p.340, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.344, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.346, same grammar as the 26.122 edition"}
   notes: >
     Assigns the airfoil (trailing-edge) separation model to the listed
     boundaries, with the Valarezo maximum-lift criterion enabled or
@@ -252,6 +259,7 @@ CREATE_AXIAL_VORTEX_SEPARATION:
     "26.101": {status: documented, note: "SRC-725 p.341, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.345, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.347, same grammar as the 26.122 edition"}
   notes: >
     Assigns the axial vortex separation model to a slender body. FRAME
     is the 1-based index of the coordinate system acting as the body
@@ -281,6 +289,7 @@ CREATE_CYLINDRICAL_BULK_SEPARATION:
   versions:
     "26.121": {status: documented}
     "26.122": {status: documented, note: "SRC-750 p.347, same grammar as 26.121"}
+    "26.123": {status: documented, note: "SRC-751 p.347, same grammar as the 26.122 edition"}
   notes: >
     The cylindrical bulk separation model, split out of the
     SEPARATION_TYPE argument that CREATE_BULK_SEPARATION carried on
@@ -304,6 +313,7 @@ CREATE_STRATFORD_BULK_SEPARATION:
   versions:
     "26.121": {status: documented}
     "26.122": {status: documented, note: "SRC-750 p.347, same grammar as 26.121"}
+    "26.123": {status: documented, note: "SRC-751 p.347, same grammar as the 26.122 edition"}
   notes: >
     The Stratford bulk separation model, which takes no diameter. As
     with the cylindrical command above, RPT-015 accepted it on 26.120
@@ -321,6 +331,7 @@ DELETE_SEPARATION:
     "26.101": {status: documented, note: "SRC-725 p.341, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.346, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.348, same grammar as the 26.122 edition"}
   notes: >
     Deletes one separation model by its 1-based index in the order the
     models were created; -1 deletes every one of them (SRC-003 p.342).
@@ -527,6 +538,7 @@ SET_SURFACE_ROUGHNESS:
     "26.101": {status: documented, note: "SRC-725 p.340, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.344, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.346, same grammar as the 26.122 edition"}
   notes: >
     Surface roughness height for the boundary layer model, in
     NANOMETRES, which the manual states and which is worth carrying
@@ -553,6 +565,7 @@ SET_THIN_BOUNDARIES:
     "26.101": {status: documented, note: "SRC-725 p.341, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.346, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.348, same grammar as the 26.122 edition"}
   notes: >
     Marks boundaries as thin, so the solver treats both faces of a
     surface rather than one. The indices follow on the next line,
@@ -573,6 +586,7 @@ DELETE_THIN_BOUNDARIES:
     "26.101": {status: documented, note: "SRC-725 p.342, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.346, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.348, same grammar as the 26.122 edition"}
   notes: >
     Clears the thin boundary list entirely. It takes no argument, so
     there is no way to remove one boundary from the list: a script that
@@ -589,6 +603,7 @@ SOLVER_STABILIZATION:
     "26.101": {status: documented, note: "SRC-725 p.345, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.348, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.350, same grammar as the 26.122 edition"}
   notes: >
     Maximum level of stabilization applied to the main convergence,
     dimensionless, from 0 to 1. The manual states that 0 is the same as
@@ -617,6 +632,7 @@ DISABLE_SOLVER_REF_VELOCITY:
   versions:
     "26.121": {status: documented}
     "26.122": {status: documented, note: "SRC-750 p.344, same grammar as 26.121"}
+    "26.123": {status: documented, note: "SRC-751 p.344, same grammar as the 26.122 edition"}
   notes: >
     Makes the solver reference velocity equal the free-stream velocity,
     which is what the manual's sample comment states, rather than

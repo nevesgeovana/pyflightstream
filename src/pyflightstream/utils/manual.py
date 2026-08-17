@@ -123,12 +123,16 @@ __all__ = [
     "UnreachableCommand",
     "SweptCommand",
     "TypeRule",
+    "EditionDelta",
     "coverage_against",
+    "documentation_delta",
     "edition_surfaces",
     "parse_script_index",
     "parse_signatures",
     "propose_layout",
     "propose_type",
+    "insert_version_row",
+    "read_edition",
     "read_edition_manifest",
     "read_pdf_pages",
     "render_chapter",
@@ -327,34 +331,68 @@ def parse_signatures(
         Command name to what the manual states about it. First
         definition wins, so a later cross-reference cannot overwrite the
         page a reader should cite.
+
+    Notes
+    -----
+    THE PAGES ARE READ AS ONE STREAM, and they were read one at a time
+    until 2026-08-17. That is not a tidying: a command whose block runs
+    past the foot of its page had everything below the break silently
+    dropped, so its ``sample`` and its ``parameters`` were a TRUNCATION
+    of what the manual says, presented as what the manual says.
+
+    It was found by comparing two editions of one manual, where the
+    consequence is sharp. The vendor repaginated one chapter by a page,
+    which split ``DISABLE_WAKE_NODES_ON_TRAILING_EDGE`` across a break in
+    the newer edition alone; the comparison then read a full record
+    against a truncated one and reported a documentation change the
+    vendor had not made. Worse in the other direction: with 22 commands
+    of that edition truncated, three deliberately planted grammar edits
+    below a break all compared EQUAL, so a real vendor change would have
+    been carried forward as "same grammar".
+
+    The page a command is CITED at is still the page carrying its
+    signature line, which is what a reader turns to.
+
+    A line that is nothing but its own page number is dropped while the
+    stream is built. It is the extraction's footer, and joined into the
+    stream it lands in the middle of a block and reads as content: 20
+    commands had one as the first line of their sample.
     """
     sections = sections or {}
-    found: dict[str, ManualCommand] = {}
+    lines: list[str] = []
+    page_of: list[int] = []
     for page in sorted(pages):
-        lines = [line.rstrip() for line in pages[page].splitlines()]
-        for i, line in enumerate(lines):
-            # search, not match: the pattern already requires the heading
-            # to start a line or follow whitespace, and anchoring at
-            # position zero as well would defeat the margin tolerance the
-            # pattern was widened for.
-            match = _SIGNATURE.search(line.strip())
-            if match is None:
+        for raw in pages[page].splitlines():
+            line = raw.rstrip()
+            if line.strip() == str(page):
                 continue
-            name = match.group(1)
-            if name in found:
-                continue
-            signature = match.group(2)
-            if i + 1 < len(lines) and _WRAPPED_SIGNATURE.match(lines[i + 1]):
-                signature += " " + lines[i + 1].strip()
-            placeholders = tuple(a.strip() for a in _PLACEHOLDER.findall(signature))
-            found[name] = ManualCommand(
-                name=name,
-                page=page,
-                inline_args=placeholders,
-                sample=_sample_after(lines, i, name),
-                section=sections.get(name),
-                parameters=_parameters_after(lines, i, placeholders),
-            )
+            lines.append(line)
+            page_of.append(page)
+
+    found: dict[str, ManualCommand] = {}
+    for i, line in enumerate(lines):
+        # search, not match: the pattern already requires the heading
+        # to start a line or follow whitespace, and anchoring at
+        # position zero as well would defeat the margin tolerance the
+        # pattern was widened for.
+        match = _SIGNATURE.search(line.strip())
+        if match is None:
+            continue
+        name = match.group(1)
+        if name in found:
+            continue
+        signature = match.group(2)
+        if i + 1 < len(lines) and _WRAPPED_SIGNATURE.match(lines[i + 1]):
+            signature += " " + lines[i + 1].strip()
+        placeholders = tuple(a.strip() for a in _PLACEHOLDER.findall(signature))
+        found[name] = ManualCommand(
+            name=name,
+            page=page_of[i],
+            inline_args=placeholders,
+            sample=_sample_after(lines, i, name),
+            section=sections.get(name),
+            parameters=_parameters_after(lines, i, placeholders),
+        )
     return found
 
 
@@ -388,8 +426,13 @@ def _parameters_after(
         Parameter name to its description, empty when the command
         documents no table.
     """
+    # The scan stops at the NEXT signature, so a command with no table of
+    # its own cannot borrow the following command's. Measured before the
+    # stop existed: five commands compared a neighbour's parameter table.
     opening = None
-    for j in range(start, min(start + 6, len(lines))):
+    for j in range(start + 1, min(start + 6, len(lines))):
+        if lines[j].strip().startswith("Function name:"):
+            break
         if lines[j].strip().startswith("Function parameters"):
             opening = j
             break
@@ -421,8 +464,17 @@ def _parameters_after(
 
 
 def _sample_after(lines: list[str], start: int, name: str) -> tuple[str, ...]:
-    """Lines of the sample block that follows a signature, comments dropped."""
-    for j in range(start, min(start + 40, len(lines))):
+    """Lines of the sample block that follows a signature, comments dropped.
+
+    The search for the ``Sample`` heading STOPS at the next signature,
+    which it did not until 2026-08-17. Without that, a command whose own
+    entry carries no sample scanned on into the next command and returned
+    ITS sample: measured over one edition, eleven commands did, including
+    four scene-change commands all carrying `SAVE_SCENE_AS_IMAGE`'s.
+    """
+    for j in range(start + 1, min(start + 40, len(lines))):
+        if lines[j].strip().startswith("Function name:"):
+            return ()
         if not lines[j].strip().startswith("Sample"):
             continue
         block: list[str] = []
@@ -2086,3 +2138,238 @@ def write_chapter(body: str, *, path: str | Path, write: bool = False) -> str:
         f"wrote {entries} drafted entr(ies) to {target}, with {unanswered} unanswered "
         "field(s) still to review. They are drafts: the '???' values do not load."
     )
+
+
+@dataclass(frozen=True)
+class EditionDelta:
+    """What a new edition says about one command, against its predecessor.
+
+    Produced by :func:`documentation_delta`, one per command the database
+    records, so a caller can tell the three states apart without
+    re-deriving them.
+
+    Attributes
+    ----------
+    name : str
+        Command name.
+    verdict : str
+        One of ``unchanged``, ``changed``, ``absent``. ``unchanged``
+        means both editions parse to the same record and the new one's
+        page may be cited; ``changed`` means the new edition documents
+        it DIFFERENTLY and a person owes it a reading; ``absent`` means
+        the new edition does not print it at all, which is a fact about
+        the document and never about the solver.
+    page : int or None
+        Page of the NEW edition, where it documents the command.
+    previous_page : int or None
+        Page of the predecessor, where it did.
+    differs_in : tuple of str
+        For ``changed``, which of ``args``, ``sample`` and
+        ``parameters`` moved. Empty otherwise. It names the FIELDS and
+        never their content: the parameter prose is licensed manual text
+        and is read at run time, never carried into anything written
+        (invariant 1).
+    """
+
+    name: str
+    verdict: str
+    page: int | None = None
+    previous_page: int | None = None
+    differs_in: tuple[str, ...] = ()
+
+    @property
+    def repaginated(self) -> bool:
+        """True where the command moved page without changing."""
+        return (
+            self.verdict == "unchanged"
+            and self.previous_page is not None
+            and self.page != self.previous_page
+        )
+
+
+def read_edition(edition: Edition) -> dict[str, ManualCommand]:
+    """Parse one edition's scripting reference, sections included.
+
+    Parameters
+    ----------
+    edition : Edition
+        A row of the edition manifest.
+
+    Returns
+    -------
+    dict of str to ManualCommand
+        What that edition states about each command it documents.
+    """
+    pages = read_pdf_pages(edition.manual, first=edition.chapter[0], last=edition.chapter[1])
+    sections: Mapping[str, str] = {}
+    if edition.index is not None:
+        index_pages = read_pdf_pages(edition.manual, first=edition.index[0], last=edition.index[1])
+        sections = parse_script_index(index_pages)
+    return parse_signatures(pages, sections=sections)
+
+
+def documentation_delta(
+    previous: Mapping[str, ManualCommand],
+    current: Mapping[str, ManualCommand],
+    *,
+    recorded: Iterable[str],
+) -> tuple[EditionDelta, ...]:
+    """Classify every recorded command against two parsed editions.
+
+    THE COMPARISON IS OF WHAT THE EDITION SAYS, not of where it says it,
+    and that is the whole reason this function exists. A rule keyed on
+    the page number cannot see a command that moved: a local reflow
+    repaginates a run of commands by one, and under a page rule every
+    one of them falls out of a bulk pass although most are word for word
+    what they were. Comparing the parsed records handles it and is
+    strictly stronger, since a command on an unchanged page necessarily
+    parses identically.
+
+    Parameters
+    ----------
+    previous, current : mapping of str to ManualCommand
+        Output of :func:`read_edition` for the predecessor and the new
+        edition, in that order.
+    recorded : iterable of str
+        Command names the database holds. Commands the new edition
+        documents that are not among these are not classified here; a
+        caller reports them separately, because entering a new command
+        is a different piece of work from carrying an existing one
+        forward.
+
+    Returns
+    -------
+    tuple of EditionDelta
+        One per recorded command, sorted by name.
+    """
+    deltas = []
+    for name in sorted(recorded):
+        new = current.get(name)
+        if new is None:
+            deltas.append(EditionDelta(name=name, verdict="absent"))
+            continue
+        old = previous.get(name)
+        if old is None:
+            deltas.append(
+                EditionDelta(name=name, verdict="changed", page=new.page, differs_in=("new",))
+            )
+            continue
+        differs = tuple(
+            field_name
+            for field_name, same in (
+                ("args", old.inline_args == new.inline_args),
+                ("sample", old.sample == new.sample),
+                ("parameters", dict(old.parameters) == dict(new.parameters)),
+            )
+            if not same
+        )
+        deltas.append(
+            EditionDelta(
+                name=name,
+                verdict="unchanged" if not differs else "changed",
+                page=new.page,
+                previous_page=old.page,
+                differs_in=differs,
+            )
+        )
+    return tuple(deltas)
+
+
+def insert_version_row(text: str, command: str, canonical: str, row: str) -> str:
+    """Insert one single-line version row into a chapter file's text.
+
+    AT THE END OF THE BLOCK rather than in release order, and that is
+    deliberate: the existing rows are NOT in release order in every
+    entry, so inserting by order would reorder files this has no
+    business reordering.
+
+    EVERY OTHER BYTE IS UNTOUCHED, INCLUDING THE LINE ENDINGS. The first
+    version of this function said so and did not do it: it rejoined with
+    a bare line feed, so a CRLF chapter file came back LF from end to end
+    and the diff was the whole file. One chapter file in this repository
+    is CRLF on disk, and it escaped only because the one entry it holds
+    was the one command the caller refused to write.
+
+    Parameters
+    ----------
+    text : str
+        The chapter file, whole.
+    command : str
+        Entry to edit. Its ``versions:`` block is found under it.
+    canonical : str
+        Build the row is for. Refused if the entry already has one.
+    row : str
+        The flow mapping to write, without the key or the indent, for
+        example ``{status: documented, note: "SRC-751 p.290"}``.
+
+    Returns
+    -------
+    str
+        The edited text.
+
+    Raises
+    ------
+    ManualDraftError
+        If the entry is not in this file, has no ``versions:`` block, or
+        already records that build in either shape. Refusing rather than
+        rewriting: a block-form row carries a note and possibly an
+        argument override, and writing a second key beside it makes YAML
+        keep the last and drop the first, silently.
+    """
+    newline = "\r\n" if "\r\n" in text else "\n"
+    trailing = text.endswith(("\n", "\r"))
+    lines = text.splitlines()
+    try:
+        start = next(i for i, line in enumerate(lines) if line == f"{command}:")
+    except StopIteration:
+        raise ManualDraftError(f"{command} is not an entry of this file") from None
+
+    # The entry runs to the next TOP-LEVEL KEY. A comment at column zero
+    # does not end it: comments sit at every indentation in this database,
+    # including inside a versions block, and treating one as the end of
+    # the entry hid every row below it from the duplicate scan.
+    end = next(
+        (
+            i
+            for i in range(start + 1, len(lines))
+            if lines[i] and not lines[i].startswith((" ", "#"))
+        ),
+        len(lines),
+    )
+    try:
+        versions_at = next(i for i in range(start + 1, end) if lines[i].rstrip() == "  versions:")
+    except StopIteration:
+        raise ManualDraftError(f"{command} has no versions block") from None
+
+    # The LAST NON-BLANK, NON-COMMENT line of the block, so the new row
+    # lands against the rows rather than after a trailing blank that
+    # separates entries or under a comment that explains the row above.
+    #
+    # A COMMENT DOES NOT END THE BLOCK, whatever its indentation, and
+    # that is the correction rather than a nicety. The first version
+    # stopped at the first line not indented four spaces, so a comment at
+    # column zero inside a versions block hid every row below it from the
+    # duplicate scan: the function would write a SECOND key for a build
+    # already recorded, YAML would keep the last and drop the other, and
+    # the run would exit 0. That is precisely the silent loss the refusal
+    # below exists to prevent, arriving through the scan instead.
+    last_content = versions_at
+    block_rows = []
+    for i in range(versions_at + 1, end):
+        stripped = lines[i].strip()
+        if not stripped:
+            continue
+        if stripped.startswith("#"):
+            continue
+        if not lines[i].startswith("    "):
+            break
+        last_content = i
+        block_rows.append(i)
+
+    for i in block_rows:
+        key = lines[i].strip().split(":", 1)[0].strip().strip('"').strip("'")
+        if key == canonical:
+            raise ManualDraftError(f"{command} already records {canonical}")
+
+    lines.insert(last_content + 1, f'    "{canonical}": {row}')
+    return newline.join(lines) + (newline if trailing else "")

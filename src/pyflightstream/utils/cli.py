@@ -4,7 +4,7 @@ Pipeline role: maintainer entry point, outside the run pipeline. It reads
 licensed vendor documentation from a path the caller gives and writes
 nothing unless told to.
 
-Five subcommands, and the split between them is the point.
+Six subcommands, and the split between them is the point.
 
 ``sweep`` answers "what do the registered builds document that we do not
 have", reading every edition named in a manifest and reporting the
@@ -28,6 +28,15 @@ against the edition it names. It is the only one that exits non-zero on
 a finding, because a sweep's findings are work remaining while a
 citation that does not hold is a shipped statement that is wrong.
 
+``register`` is the one that WRITES INTO THE DATABASE, and it writes one
+kind of row only: a ``documented`` version row for a command a new
+edition describes exactly as its predecessor did. It compares what the
+two editions SAY, never which page they say it on, because a local
+reflow moves a run of commands by a page without changing a word and a
+page rule drops every one of them. A command the new edition describes
+differently is reported and never written: that is a reading somebody
+owes, and inventing it is the one thing this tool must not do.
+
 ``draft`` turns either answer into entries to review, and only writes
 when ``--write`` is passed with a destination.
 
@@ -44,18 +53,24 @@ from __future__ import annotations
 import argparse
 import sys
 from collections.abc import Sequence
+from importlib import resources
+from pathlib import Path
 
 from pyflightstream.commands import CommandRegistry
 from pyflightstream.utils.errors import ManualDraftError
 from pyflightstream.utils.manual import (
+    EditionDelta,
     SurfaceChange,
     SweptCommand,
     citation_reach,
     coverage_against,
+    documentation_delta,
     edition_surfaces,
+    insert_version_row,
     parse_script_index,
     parse_signatures,
     propose_layout,
+    read_edition,
     read_edition_manifest,
     read_pdf_pages,
     render_chapter,
@@ -231,6 +246,60 @@ def _parser() -> argparse.ArgumentParser:
             "manifest does not carry is not checked and is not reported: "
             "the check is against a document, and without the document "
             "there is nothing to check"
+        ),
+    )
+
+    # register asks the fifth question: of what this build's edition
+    # documents, how much is WORD FOR WORD what its predecessor said, so
+    # a row can be written from a reading rather than copied forward.
+    reg = sub.add_parser(
+        "register",
+        help="write documented rows for a new edition, where the documentation did not change",
+        description=(
+            "Compare a new edition against the one before it, command by "
+            "command, and write a documented version row for every command "
+            "both editions describe IDENTICALLY. The comparison is of what "
+            "the edition SAYS (the signature's placeholders, the sample "
+            "block and the parameter table), never of the page number: a "
+            "local reflow moves a run of commands by a page without "
+            "changing a word, and a page rule drops every one of them. "
+            "Commands the new edition describes DIFFERENTLY are reported "
+            "and never written: those are a reading somebody owes. Dry run "
+            "by default."
+        ),
+        epilog=_MANIFEST_EXAMPLE,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    reg.add_argument(
+        "--editions",
+        required=True,
+        metavar="MANIFEST",
+        help=(
+            "YAML manifest, in RELEASE order: the row before the target is "
+            "the predecessor it is compared against"
+        ),
+    )
+    reg.add_argument(
+        "--build",
+        required=True,
+        metavar="LABEL",
+        help="manifest label of the edition to register, for example 26.123",
+    )
+    reg.add_argument(
+        "--commands-dir",
+        default=None,
+        help=(
+            "directory of chapter yaml files to edit; defaults to the "
+            "installed command package. Point it at a copy to rehearse"
+        ),
+    )
+    reg.add_argument(
+        "--write",
+        action="store_true",
+        help=(
+            "actually write the rows. Without it every row is printed and "
+            "nothing is touched, which is the default because a row is a "
+            "published claim about a build"
         ),
     )
 
@@ -528,6 +597,136 @@ def _surface_markdown(
     return lines
 
 
+def _register(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
+    """Write documented rows for the commands a new edition did not change."""
+    editions = read_edition_manifest(args.editions)
+    labels = [edition.label for edition in editions]
+    if args.build not in labels:
+        parser.error(
+            f"the manifest has no row labelled {args.build!r}; it carries " + ", ".join(labels)
+        )
+    position = labels.index(args.build)
+    if position == 0:
+        parser.error(
+            f"{args.build} is the first row of the manifest, so it has no predecessor "
+            "to compare against. This subcommand carries documentation FORWARD; a "
+            "first edition is drafted, not registered"
+        )
+    target = editions[position]
+    previous = editions[position - 1]
+
+    registry = CommandRegistry.load()
+    current = read_edition(target)
+    earlier = read_edition(previous)
+    deltas = documentation_delta(earlier, current, recorded=registry.commands)
+
+    unchanged = [d for d in deltas if d.verdict == "unchanged"]
+    changed = [d for d in deltas if d.verdict == "changed"]
+    absent = [d for d in deltas if d.verdict == "absent"]
+    undatabased = sorted(set(current) - set(registry.commands))
+
+    # THE LOSSES ARE NAMED, NOT COUNTED, and the two kinds are separated.
+    # A command the predecessor documented and this edition does not is a
+    # vendor removal or a rename and is the thing that breaks a user's
+    # script silently; a command NEITHER edition documents is ordinary
+    # and says nothing about this build. Collapsing both into one count
+    # is what hid the two changes the vendor made to this edition.
+    dropped = [d for d in absent if d.name in earlier]
+    never = [d for d in absent if d.name not in earlier]
+
+    print(f"{target.label} ({target.source}) against {previous.label} ({previous.source})")
+    print(f"  {len(current)} commands documented by {target.source}")
+    print(f"  {len(unchanged)} unchanged, so a row can be written from the reading")
+    print(f"  {len(changed)} described differently, reported and NOT written")
+    print(f"  {len(dropped)} DROPPED by this edition, which its predecessor documented")
+    print(f"  {len(never)} recorded here and printed by neither edition")
+    print(f"  {len(undatabased)} documented and not in the database")
+
+    moved = [d for d in unchanged if d.repaginated]
+    if moved:
+        print(f"\n  repaginated without changing ({len(moved)}), which a page rule would drop:")
+        for delta in moved:
+            print(f"    {delta.name}: p.{delta.previous_page} -> p.{delta.page}")
+    if changed:
+        print("\n  a reading is owed on each of these:")
+        for delta in changed:
+            where = f"p.{delta.previous_page} -> p.{delta.page}"
+            print(f"    {delta.name}: {where}  differs in {', '.join(delta.differs_in)}")
+    if dropped:
+        print("\n  dropped by this edition, so each owes a judgement of its own:")
+        for delta in dropped:
+            print(f"    {delta.name} (was {previous.source} p.{earlier[delta.name].page})")
+    if undatabased:
+        print("\n  documented by this edition and absent from the database:")
+        for name in undatabased:
+            print(f"    {name} (p.{current[name].page})")
+
+    if not args.write:
+        print(
+            f"\ndry run: {len(unchanged)} row(s) would be written, nothing touched. "
+            "Re-run with --write."
+        )
+        return 0
+
+    if args.commands_dir:
+        directory = Path(args.commands_dir)
+    else:
+        with resources.as_file(
+            resources.files("pyflightstream.commands").joinpath("_meta.yaml")
+        ) as meta:
+            # Resolved INSIDE the context manager: as_file may have
+            # materialised a temporary copy for a zipped install, and the
+            # path is only valid while the block is open.
+            directory = Path(meta).resolve().parent
+    by_chapter: dict[str, list[EditionDelta]] = {}
+    for delta in unchanged:
+        by_chapter.setdefault(registry.commands[delta.name].chapter, []).append(delta)
+
+    # EVERY EDIT IS BUILT BEFORE ANY FILE IS WRITTEN. The first version
+    # wrote each chapter inside the loop, so a refusal on a late chapter
+    # left the earlier ones on disk, the process died with a traceback,
+    # and the database was in a state no single command produced. A
+    # refusal is now reported and NOTHING is written.
+    edited: dict[Path, str] = {}
+    written = 0
+    for chapter, rows in sorted(by_chapter.items()):
+        path = directory / f"{chapter}.yaml"
+        try:
+            # DECODED FROM BYTES, so the line endings survive the round
+            # trip. read_text translates CRLF to LF before anything can
+            # preserve it, and insert_version_row's preservation then
+            # looks at a string that has none, so the whole file comes
+            # back LF. Its `newline=` keyword is NOT the fix: that is
+            # 3.13 only and raises TypeError on this tree's 3.12 against
+            # a requires-python of 3.11, which is how this correction
+            # first shipped and failed.
+            text = path.read_bytes().decode("utf-8")
+        except OSError as error:
+            parser.error(f"cannot read {path}: {error}. Nothing has been written")
+        for delta in rows:
+            note = f"{target.source} p.{delta.page}, same grammar as the {previous.label} edition"
+            try:
+                text = insert_version_row(
+                    text,
+                    delta.name,
+                    target.label,
+                    "{status: documented, note: " + f'"{note}"' + "}",
+                )
+            except ManualDraftError as error:
+                parser.error(
+                    f"{chapter}.yaml: {error}. NOTHING HAS BEEN WRITTEN: every edit is "
+                    "built in memory first, so the database is exactly as it was. Fix "
+                    "the entry and re-run"
+                )
+            written += 1
+        edited[path] = text
+
+    for path, text in edited.items():
+        path.write_bytes(text.encode("utf-8"))
+    print(f"\nwrote {written} row(s) across {len(edited)} chapter file(s) in {directory}")
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the command line and return a process exit code.
 
@@ -546,6 +745,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "surface":
         return _surface(parser, args)
 
+    if args.command == "register":
+        return _register(parser, args)
     if args.command == "citations":
         return _citations(parser, args)
 

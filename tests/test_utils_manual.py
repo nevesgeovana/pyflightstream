@@ -23,7 +23,9 @@ from pyflightstream.utils import (
     Edition,
     ManualCommand,
     coverage_against,
+    documentation_delta,
     edition_surfaces,
+    insert_version_row,
     parse_script_index,
     parse_signatures,
     propose_layout,
@@ -2067,3 +2069,200 @@ def test_the_reach_record_is_cleared_before_the_manuals_are_read():
         "caller catching the error and printing the reach would report numbers from "
         "a different measurement"
     )
+
+
+# --- the edition comparison and the row it writes --------------------------
+
+
+PAGE_ONE_OF_TWO = """Function name: FIRST_COMMAND <ALPHA>
+Function parameters:
+                   Parameter                             Value
+        ALPHA        Angle of attack in degrees
+Sample:
+FIRST_COMMAND 2.0
+Function name: SPLIT_COMMAND <BETA>
+Function parameters:
+                   Parameter                             Value
+310
+"""
+
+PAGE_TWO_OF_TWO = """        BETA         Sideslip angle in degrees
+Sample:
+SPLIT_COMMAND 1.0
+311
+"""
+
+
+def test_a_command_whose_block_crosses_a_page_break_is_read_whole():
+    """The reader was page-local until 2026-08-17, and it mattered.
+
+    A command whose parameter table and sample fall past the foot of its
+    page had both silently dropped, so what the parser returned was a
+    TRUNCATION of the manual presented as the manual. Comparing two
+    editions is where that becomes a wrong claim: one side full, the
+    other truncated, and the answer is a documentation change the vendor
+    never made.
+    """
+    parsed = parse_signatures({310: PAGE_ONE_OF_TWO, 311: PAGE_TWO_OF_TWO})
+
+    assert parsed["SPLIT_COMMAND"].page == 310, (
+        "the page a command is CITED at is the page carrying its signature, not "
+        "the page its sample happens to spill onto"
+    )
+    assert parsed["SPLIT_COMMAND"].sample == ("SPLIT_COMMAND 1.0",), (
+        "the sample below the page break was not read, so this command's record "
+        "is a truncation of what the manual says"
+    )
+    assert parsed["SPLIT_COMMAND"].parameters == {"BETA": "Sideslip angle in degrees"}, (
+        "the parameter row below the page break was not read"
+    )
+
+    # And the footer is not content. Joined into one stream a bare page
+    # number lands in the middle of a block and reads as a sample line;
+    # twenty commands of one real edition had one as their sample's first
+    # line before it was dropped.
+    assert "310" not in parsed["FIRST_COMMAND"].sample
+    assert "311" not in parsed["SPLIT_COMMAND"].sample
+
+
+NO_SAMPLE_OF_ITS_OWN = """Function name: BARE_COMMAND
+Function name: NEXT_COMMAND <GAMMA>
+Function parameters:
+                   Parameter                             Value
+        GAMMA        Something else entirely
+Sample:
+NEXT_COMMAND 3.0
+"""
+
+
+def test_a_command_with_no_sample_does_not_borrow_the_next_one_s():
+    """The scan stops at the next signature, and it did not.
+
+    Measured over one real edition before the stop existed: eleven
+    commands carried a neighbour's sample, four scene-change commands all
+    reporting `SAVE_SCENE_AS_IMAGE`'s. A borrowed sample compares equal
+    or unequal for reasons that have nothing to do with the command.
+    """
+    parsed = parse_signatures({100: NO_SAMPLE_OF_ITS_OWN})
+    assert parsed["BARE_COMMAND"].sample == (), (
+        "BARE_COMMAND documents no sample and was given the following command's"
+    )
+    assert parsed["BARE_COMMAND"].parameters == {}, (
+        "BARE_COMMAND documents no parameter table and was given the following command's"
+    )
+    assert parsed["NEXT_COMMAND"].sample == ("NEXT_COMMAND 3.0",)
+
+
+def test_documentation_delta_separates_the_three_states():
+    """Unchanged, changed and absent are three different facts.
+
+    `absent` is a statement about a DOCUMENT and never about the solver:
+    an edition that stops printing a command has not measured anything.
+    """
+    older = {
+        "KEPT": ManualCommand(name="KEPT", page=10, inline_args=("A",), sample=("KEPT 1",)),
+        "EDITED": ManualCommand(name="EDITED", page=11, inline_args=("B",), sample=("EDITED 1",)),
+        "DROPPED": ManualCommand(name="DROPPED", page=12),
+    }
+    newer = {
+        # Same record, different page: a reflow, not a change.
+        "KEPT": ManualCommand(name="KEPT", page=9, inline_args=("A",), sample=("KEPT 1",)),
+        "EDITED": ManualCommand(name="EDITED", page=11, inline_args=("B",), sample=("EDITED 1 2",)),
+    }
+    deltas = {
+        d.name: d for d in documentation_delta(older, newer, recorded=["KEPT", "EDITED", "DROPPED"])
+    }
+
+    assert deltas["KEPT"].verdict == "unchanged"
+    assert deltas["KEPT"].repaginated, (
+        "a command that moved page without changing is what a page-membership rule "
+        "would have dropped, so the caller has to be able to see it"
+    )
+    assert deltas["EDITED"].verdict == "changed"
+    assert deltas["EDITED"].differs_in == ("sample",)
+    assert not deltas["EDITED"].repaginated
+    assert deltas["DROPPED"].verdict == "absent"
+    assert deltas["DROPPED"].page is None
+
+
+CHAPTER = """FIRST:
+  layout: inline
+  versions:
+    "26.120": {status: documented}
+  notes: >
+    Something.
+
+SECOND:
+  layout: bare
+  notes: >
+    Something else.
+  versions:
+    "26.122":
+      status: documented
+      note: "SRC-750 p.1, the first edition to document it"
+"""
+
+
+def test_insert_version_row_adds_one_line_and_moves_nothing_else():
+    """Both shapes the database really holds, including the block-only one."""
+    import yaml
+
+    before = yaml.safe_load(CHAPTER)
+    for command in ("FIRST", "SECOND"):
+        after = yaml.safe_load(
+            insert_version_row(CHAPTER, command, "26.123", "{status: documented}")
+        )
+        assert after[command]["versions"]["26.123"] == {"status": "documented"}
+        assert {k: v for k, v in after[command].items() if k != "versions"} == {
+            k: v for k, v in before[command].items() if k != "versions"
+        }
+        assert {k: v for k, v in after[command]["versions"].items() if k != "26.123"} == before[
+            command
+        ]["versions"]
+        other = "SECOND" if command == "FIRST" else "FIRST"
+        assert after[other] == before[other], f"{command}'s edit moved {other}"
+
+
+def test_insert_version_row_keeps_the_file_s_line_endings():
+    """Its own docstring promised this and the first version did not do it.
+
+    Rejoining with a bare newline turns a CRLF file LF from end to end,
+    so the diff is the whole file rather than one line. One chapter file
+    in this repository is CRLF on disk.
+    """
+    crlf = CHAPTER.replace("\n", "\r\n")
+    out = insert_version_row(crlf, "FIRST", "26.123", "{status: documented}")
+    assert out.count("\r\n") == crlf.count("\r\n") + 1, (
+        "the CRLF count did not rise by exactly the one inserted line, so the "
+        "function rewrote line endings it does not own"
+    )
+    assert "\n" not in out.replace("\r\n", ""), "a lone LF survived in a CRLF file"
+
+
+def test_insert_version_row_refuses_a_build_it_already_records():
+    """In EITHER shape, and past a comment, which is where it was blind.
+
+    A comment at column zero inside a versions block used to end the
+    duplicate scan, so every row below it was invisible and the function
+    wrote a SECOND key for a build already recorded. YAML keeps the last
+    and drops the other, silently, which is the exact loss the refusal
+    exists to prevent.
+    """
+    with pytest.raises(ManualDraftError, match="already records"):
+        insert_version_row(CHAPTER, "FIRST", "26.120", "{status: documented}")
+    with pytest.raises(ManualDraftError, match="already records"):
+        insert_version_row(CHAPTER, "SECOND", "26.122", "{status: documented}")
+
+    commented = CHAPTER.replace(
+        '    "26.120": {status: documented}',
+        '# a comment at column zero, which is legal yaml\n    "26.120": {status: documented}',
+    )
+    with pytest.raises(ManualDraftError, match="already records"):
+        insert_version_row(commented, "FIRST", "26.120", "{status: documented}")
+
+
+def test_insert_version_row_refuses_what_it_cannot_find():
+    with pytest.raises(ManualDraftError, match="not an entry of this file"):
+        insert_version_row(CHAPTER, "ABSENT_COMMAND", "26.123", "{status: documented}")
+    with pytest.raises(ManualDraftError, match="no versions block"):
+        insert_version_row("LONELY:\n  layout: bare\n", "LONELY", "26.123", "{status: documented}")

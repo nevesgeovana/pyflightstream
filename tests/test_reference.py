@@ -626,8 +626,11 @@ def test_the_build_page_counts_the_shared_release_names_it_actually_shares():
     expected = sum(1 for version in versions if version.prints in shared)
     assert _sharing_a_printed_name(versions) == expected
     # And the figure itself, so the two computations cannot drift into
-    # agreeing on a wrong answer: the five 26.1x builds all print 26.1.
-    assert _sharing_a_printed_name(versions) == 5
+    # agreeing on a wrong answer: the six 26.1x builds all print 26.1.
+    # It was five until 26.123 was registered on 2026-08-17 and its
+    # identity report gave it the same printed name as the other five,
+    # which is the whole reason the printed name is a field of its own.
+    assert _sharing_a_printed_name(versions) == 6
 
 
 def test_a_machine_promoted_removal_shows_its_run_in_the_rendered_matrix():

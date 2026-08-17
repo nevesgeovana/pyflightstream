@@ -36,11 +36,17 @@ matrix could not have discriminated.
 
 ### API surface delta
 
-New public names, all reachable from `pyflightstream.qa`:
-`ProbeOutcome.REMOVED`, `unrecognised_commands`, `read_compat_reports`,
-`contradicting_evidence`, `Judgment` and `PROMOTABLE_OUTCOMES`. One new keyword
-argument: `reports_dir` on `apply_compat`. Incompatible changes: none.
-Deprecations: none.
+New public names in `pyflightstream.qa`: `ProbeOutcome.REMOVED`,
+`unrecognised_commands`, `read_compat_reports`, `contradicting_evidence`,
+`Judgment` and `PROMOTABLE_OUTCOMES`. One new keyword argument:
+`reports_dir` on `apply_compat`.
+
+New public names in `pyflightstream.utils.manual`, the maintainer reading
+layer: `EditionDelta`, `documentation_delta`, `read_edition` and
+`insert_version_row`, which are what `pyfs-manual register` is built on.
+One new command-line surface: the `register` subcommand of `pyfs-manual`.
+
+Incompatible changes: none. Deprecations: none.
 
 ### Added
 
@@ -65,15 +71,45 @@ Deprecations: none.
   compares it against what the emitter actually does. Regenerate it with
   `python scripts/gen_absent_commands.py 26.123`.
 
-  Its support level is `registered`, which is derived and not declared:
-  no command answers for it yet. Its `build` and `prints` fields are
-  deliberately UNSET, because those two are admitted only from a
-  committed report's `solver_identity` and the run that writes one needs
-  the registry row to exist first.
+  Its support level is DERIVED and not declared, and it moved twice in
+  one day for that reason: `registered` while no command answered for it,
+  then `documented` once the pass below wrote its rows. Its `build` and
+  `prints` come from `reports/compat/CMP-26123_2026-08-17_identity.yaml`,
+  and the order those were established in is the registry's own
+  chicken-and-egg: the two fields are admitted only from a committed
+  report's `solver_identity`, and the run that writes one refuses an
+  unregistered version, so the row was written with both unset and they
+  followed. That report is also the first in this corpus to record the
+  executable by a version-named name, `FlightStream_26123.exe`, rather
+  than the installer's name which four builds share.
 - `scripts/gen_absent_commands.py`, which writes the same enumeration for
   any registered build. General rather than named for this one, because
   the question arrives again with the next build the author decides
   should inherit nothing.
+- **`pyfs-manual register`, which carries a build's documentation forward
+  from a reading rather than a copy.** It compares a new edition against
+  the one before it command by command and writes a `documented` version
+  row for every command both editions describe IDENTICALLY: same
+  signature placeholders, same sample block, same parameter table. Dry
+  run by default, like `draft`.
+
+  **It compares what the edition SAYS, never which page it says it on**,
+  and that is the difference that matters. A local reflow moves a run of
+  commands back by one page without changing a word, so a rule keyed on
+  the page number drops every one of them; two of 26.123's commands are
+  in exactly that position. Commands the new edition describes
+  DIFFERENTLY are reported and never written, because those are a reading
+  somebody owes.
+
+  On 26.123 it wrote **369 of the 371 commands SRC-751 documents**. The
+  two it left are each their own work: `SET_SCENE_CONTOUR`, which the
+  edition describes differently, and `SET_OUTLET_TRAILING_EDGES`, which it
+  documents and this database does not carry. It also NAMES the two
+  commands the new edition stops documenting, `TRAILING_EDGES_IMPORT` and
+  `SET_OUTFLOW_TRAILING_EDGES`, separately from the commands neither
+  edition documents: those two are the vendor's silent breaks and each
+  owes a judgement. 26.123 moves from `registered` to `documented` and
+  `tests/goldens/absent_on_26123.txt` shrinks from 414 entries to 45.
 - `ProbeOutcome.REMOVED`, promotable like any other outcome. A build
   that does not carry a command used to record `broken`, which is a
   different claim. Both refuse at build time, so the difference is

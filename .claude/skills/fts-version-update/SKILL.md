@@ -70,8 +70,18 @@ Onboard a new FlightStream version end to end.
 4. Judge the diff: new commands, removed commands, changed signatures,
    and suspected renames. `surface` reports a rename as one loss and one
    gain and cannot tell you it is a rename.
-5. Propose database edits with page citations, status `documented`.
-6. **Re-read the citations you just wrote**, over the WHOLE manifest and
+5. **Carry forward what did not change, with
+   `pyfs-manual register --editions <manifest> --build <v>`.** It writes
+   a `documented` row for every command the new edition describes exactly
+   as its predecessor did, comparing what the editions SAY rather than
+   which page they say it on, and reports the rest. Dry run by default;
+   rehearse with `--commands-dir <copy>` before `--write`. On 26.123 it
+   carried 368 of 371 and left 3, which is the right shape: what it
+   leaves is the reading a person owes, and the step below is that
+   reading rather than the whole edition.
+6. Propose database edits with page citations, status `documented`, for
+   what step 5 reported and did not write.
+7. **Re-read the citations you just wrote**, over the WHOLE manifest and
    not only the new edition:
    `pyfs-manual citations --editions <manifest>`. It exits non-zero on a
    finding. This step exists because ten citations were found on
@@ -81,18 +91,18 @@ Onboard a new FlightStream version end to end.
    OLD manual is what caused it, which is why the check is not scoped to
    the build being registered. Read the reach line it prints too: most
    rows carry no page of their own and are not checked at all.
-7. Run `pyfs-manual sweep --editions <manifest> --fail-if-absent` once
+8. Run `pyfs-manual sweep --editions <manifest> --fail-if-absent` once
    the rows are written, and read BOTH findings it reports. The second
    one, the commands an edition documents that its build cannot emit, is
    the one the entry-level sweep cannot see.
-8. Regenerate golden scripts for the new version.
-9. On a licensed machine, run the Tier 2 probe suite
+9. Regenerate golden scripts for the new version.
+10. On a licensed machine, run the Tier 2 probe suite
    (`pyfs-qa probe --fs-version <v>`); flag every manual-versus-reality
    discrepancy prominently: documented but broken, or working but changed
    without documentation.
-10. Present a human-decision checklist for suspected renames. A rename is
+11. Present a human-decision checklist for suspected renames. A rename is
    an engineering judgment; never decide it automatically.
-11. Run Tier 1; update the docs compatibility matrix and the changelog.
+12. Run Tier 1; update the docs compatibility matrix and the changelog.
 
 ## Outputs
 

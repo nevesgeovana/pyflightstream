@@ -28,6 +28,7 @@ What this guards, and the third one is the load-bearing one:
 """
 
 import importlib.util
+import re
 from pathlib import Path
 
 import pytest
@@ -541,3 +542,74 @@ def test_the_committed_enumeration_matches_what_the_emitter_refuses():
             "Either way regenerate it in the same commit: "
             f"python scripts/gen_absent_commands.py {canonical}"
         )
+
+
+def test_the_documented_pass_wrote_rows_from_a_reading_and_not_from_a_copy():
+    """26.123's documented rows say what SRC-751 says, per command.
+
+    The bulk pass writes a row for a command whose PARSED RECORD is
+    identical between the two editions: same argument placeholders, same
+    sample block, same parameter table. That is a stronger rule than the
+    page-membership one the plan node asks for, and it subsumes it: a
+    command on an unchanged page necessarily parses identically, while
+    two commands that parse identically sit on a page that MOVED and a
+    page rule would have dropped them.
+
+    So the two halves are asserted separately, and the second is the one
+    that makes this a test of the rule rather than of a count.
+    """
+    registry = CommandRegistry.load()
+    by_canonical = {version.canonical: version for version in known_versions()}
+    target = by_canonical["26.123"]
+
+    # UNCHANGED: it answers, it says documented, and it cites the new
+    # edition rather than inheriting a page from the old one.
+    #
+    # DISABLE_WAKE_NODES_ON_TRAILING_EDGE is here deliberately and is the
+    # sharpest of the three. It is word for word what it was, and the new
+    # edition breaks the page in the MIDDLE of its block. A page-local
+    # reader compared a full record against a truncation and reported a
+    # change the vendor had not made; it was excluded from the pass for
+    # an hour on 2026-08-17 on exactly that reading, and the CHANGELOG
+    # published the falsehood before a skeptic reconstructed the block
+    # across the break and refuted it.
+    for name in (
+        "START_SOLVER",
+        "IMPORT_WAKE_EDGES_FROM_FILE",
+        "DISABLE_WAKE_NODES_ON_TRAILING_EDGE",
+    ):
+        entry = registry.commands[name]
+        evidence = entry.evidence_in(target)
+        assert evidence is not None, (
+            f"{name} answers ABSENT on 26.123. Its documentation is unchanged "
+            "between SRC-750 and SRC-751, so the documented pass owes it a row"
+        )
+        assert evidence.source == "26.123" and not evidence.inherited, (
+            f"{name}'s 26.123 answer comes from {evidence.source} rather than from a "
+            "row of its own, so inheritance is back on"
+        )
+        note = evidence.record.note or ""
+        assert "SRC-751" in note, (
+            f"{name}'s 26.123 row does not cite SRC-751. A row written from a reading "
+            "names the edition it was read in"
+        )
+        page = re.search(r"SRC-751 p\.(\d+)", note)
+        assert page is not None, (
+            f"{name}'s 26.123 note names SRC-751 without a page: {note!r}. The page is "
+            "the checkable half, and `pyfs-manual citations` re-reads it"
+        )
+        assert 283 <= int(page.group(1)) <= 383, (
+            f"{name} cites SRC-751 p.{page.group(1)}, outside that edition's scripting "
+            "reference pp.283-383. A page outside the range is a citation nobody can "
+            "follow to a command"
+        )
+
+    # CHANGED: the edition says something different about it, so the bulk
+    # pass must NOT have written it a row. Its own node owes the reading.
+    entry = registry.commands["SET_SCENE_CONTOUR"]
+    assert "26.123" not in entry.versions, (
+        "SET_SCENE_CONTOUR carries a 26.123 row, and the two editions do NOT say the "
+        "same thing about it: the newer one adds four contour values, so its sample "
+        "block and its parameter table both differ. A pass that wrote this row copied "
+        "rather than read"
+    )

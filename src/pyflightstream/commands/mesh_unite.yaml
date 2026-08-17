@@ -29,6 +29,7 @@ BOOLEAN_UNITE_PATH:
     "26.101": {status: documented, note: "SRC-725 p.315, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.319, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.320, same grammar as the 26.122 edition"}
   notes: >
     Location of the OpenVSP executable used for the unite. The manual
     states it must be called BEFORE BOOLEAN_UNITE_MESH, which is the one
@@ -84,6 +85,7 @@ BOOLEAN_UNITE_MESH:
     "26.101": {status: documented, note: "SRC-725 p.315, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.319, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.320, same grammar as the 26.122 edition"}
   notes: >
     Intersects and unites several mesh bodies into one. The count sits
     on the command line and the indices follow on the next.

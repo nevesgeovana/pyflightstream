@@ -44,6 +44,7 @@ CREATE_NEW_BASE_REGION:
     "26.101": {status: documented, note: "SRC-725 p.316, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.320, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.321, same grammar as the 26.122 edition"}
   notes: >
     Marks one mesh boundary as a base region and gives it a pressure
     model. No all-form is stated, so -1 is not accepted here;
@@ -91,6 +92,7 @@ SET_BASE_REGION_CP:
     "26.101": {status: documented, note: "SRC-725 pp.316-317, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 pp.320-321, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.321, same grammar as the 26.122 edition"}
   notes: >
     Changes the pressure model of a base region that already exists.
 
@@ -132,6 +134,7 @@ SET_BASE_REGION_BENDING_ANGLE:
     "26.101": {status: documented, note: "SRC-725 p.283, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.287, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.288, same grammar as the 26.122 edition"}
   notes: >
     Threshold on how far a surface may bend away from the aft-facing
     direction and still be detected as part of a base region, which is
@@ -165,6 +168,7 @@ AUTO_DETECT_BASE_REGIONS:
     "26.101": {status: documented, note: "SRC-725 p.316, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.320, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.321, same grammar as the 26.122 edition"}
   notes: >
     Marks every base region the detector finds over the whole geometry,
     using the bending angle above. Takes nothing, so which boundaries it
@@ -186,6 +190,7 @@ DETECT_BASE_REGIONS_BY_SURFACE:
     "26.101": {status: documented, note: "SRC-725 p.316, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.320, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.321, same grammar as the 26.122 edition"}
   notes: >
     The same detection restricted to one mesh boundary, for a geometry
     where the whole-model form marks more than intended. The manual
@@ -207,6 +212,7 @@ SET_BASE_REGION_TRAILING_EDGES:
     "26.101": {status: documented, note: "SRC-725 p.316, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.320, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.321, same grammar as the 26.122 edition"}
   notes: >
     Marks the rim of a base region as a trailing edge, which is what
     lets the wake leave the body there. The manual documents -1 for
@@ -231,6 +237,7 @@ DELETE_BASE_REGION:
     "26.101": {status: documented, note: "SRC-725 p.316, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.320, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.321, same grammar as the 26.122 edition"}
   notes: >
     Unmarks one base region. NO ALL-FORM IS STATED HERE, unlike the two
     neighbouring commands that take the same kind of index and document
@@ -252,6 +259,7 @@ SELECT_BASE_REGION_FACES:
     "26.101": {status: documented, note: "SRC-725 p.317, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.321, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.322, same grammar as the 26.122 edition"}
   notes: >
     Selects the mesh faces of a base region, or of all of them with -1,
     which the sample passes. Selection is application state rather than
@@ -280,6 +288,7 @@ REMESH_BASE_REGION:
     "26.101": {status: documented, note: "SRC-725 p.317, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.321, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.322, same grammar as the 26.122 edition"}
   notes: >
     Rebuilds a base region's faces as a radial distribution, which a
     detected base region does not have: it inherits whatever the import

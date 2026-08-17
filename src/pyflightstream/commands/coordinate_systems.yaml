@@ -17,6 +17,7 @@ CREATE_NEW_COORDINATE_SYSTEM:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
+    "26.123": {status: documented, note: "SRC-751 p.334, same grammar as the 26.122 edition"}
   notes: >
     Appends a new local coordinate system; configure it afterwards
     with the SET_COORDINATE_SYSTEM commands or EDIT_COORDINATE_SYSTEM.
@@ -64,6 +65,7 @@ EDIT_COORDINATE_SYSTEM:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
+    "26.123": {status: documented, note: "SRC-751 p.334, same grammar as the 26.122 edition"}
   notes: >
     Full edit of a local frame: origin and the three axis vectors,
     all expressed in the reference frame.
@@ -95,6 +97,7 @@ SET_COORDINATE_SYSTEM_ORIGIN:
     "26.120": {status: documented}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
+    "26.123": {status: documented, note: "SRC-751 p.334, same grammar as the 26.122 edition"}
   notes: >
     Origin position relative to the reference coordinate system.
 
@@ -127,6 +130,7 @@ SET_COORDINATE_SYSTEM_AXIS:
     "26.120": {status: documented}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
+    "26.123": {status: documented, note: "SRC-751 p.335, same grammar as the 26.122 edition"}
   notes: >
     Sets one axis direction vector of a local frame; the vector is
     normalized automatically, and NORMALIZE_FRAME TRUE renormalizes
@@ -157,6 +161,7 @@ ROTATE_COORDINATE_SYSTEM:
     "26.101": {status: documented, note: "SRC-725 p.329, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.333, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.335, same grammar as the 26.122 edition"}
   notes: >
     Rotates the local coordinate system FRAME about ROTATION_AXIS of
     ROTATION_FRAME by ANGLE degrees.
@@ -179,6 +184,7 @@ SET_COORDINATE_SYSTEM_NAME:
     "26.101": {status: documented, note: "SRC-725 p.328, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.332, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.334, same grammar as the 26.122 edition"}
   notes: >
     Renames a local coordinate system. The manual requires the index to
     be greater than 1, the reference frame having a fixed name.
@@ -199,6 +205,7 @@ NORMALIZE_COORDINATE_SYSTEM:
     "26.101": {status: documented, note: "SRC-725 p.329, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.333, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.335, same grammar as the 26.122 edition"}
   notes: >
     Rescales the axes of a coordinate system to unit length, which
     matters because SET_COORDINATE_SYSTEM_AXIS takes a direction vector
@@ -245,6 +252,7 @@ TRANSLATE_COORDINATE_SYSTEM:
     "26.101": {status: documented, note: "SRC-725 p.329, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.333, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.335, same grammar as the 26.122 edition"}
   notes: >
     Moves a local coordinate system by a vector, where
     SET_COORDINATE_SYSTEM_ORIGIN sets its position absolutely. The two
@@ -273,6 +281,7 @@ DUPLICATE_COORDINATE_SYSTEM:
     "26.101": {status: documented, note: "SRC-725 p.330, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.334, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.336, same grammar as the 26.122 edition"}
   notes: >
     Appends a copy of a local coordinate system. Nothing reports the
     index the copy takes, and no edition states how one is allocated, so
@@ -301,6 +310,7 @@ MIRROR_COORDINATE_SYSTEM:
     "26.101": {status: documented, note: "SRC-725 p.330, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.334, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.336, same grammar as the 26.122 edition"}
   notes: >
     DUPLICATES AND THEN MIRRORS, which the manual states in the FRAME
     row rather than in the command's own description: the original frame
@@ -331,6 +341,7 @@ DELETE_COORDINATE_SYSTEM:
     "26.101": {status: documented, note: "SRC-725 p.330, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.334, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.336, same grammar as the 26.122 edition"}
   notes: >
     Deletes a local coordinate system; the reference frame cannot be
     deleted and the manual requires an index greater than 1.

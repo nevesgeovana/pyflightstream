@@ -32,6 +32,7 @@ VIEW_RESIZE:
     "26.101": {status: documented, note: "SRC-725 p.354, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.358, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.361, same grammar as the 26.122 edition"}
   notes: >
     Refits the view to the contents of the scene. The one command in the
     chapter whose page states outright that it has no parameters, rather
@@ -50,6 +51,7 @@ CHANGE_SCENE_TO_CAD:
     "26.101": {status: documented, note: "SRC-725 p.354, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.358, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.361, same grammar as the 26.122 edition"}
   notes: >
     Switches the active scene to the CAD view. Scene switching is a
     display action and may appear anywhere in a script; it does not
@@ -68,6 +70,7 @@ CHANGE_SCENE_TO_GEOMETRY:
     "26.101": {status: documented, note: "SRC-725 p.354, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.358, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.361, same grammar as the 26.122 edition"}
   notes: >
     Switches the active scene to the geometry view.
 
@@ -84,6 +87,7 @@ CHANGE_SCENE_TO_SOLVER:
     "26.101": {status: documented, note: "SRC-725 p.354, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.358, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.361, same grammar as the 26.122 edition"}
   notes: >
     Switches the active scene to the solver view, which is where the
     surface contours of a converged solution are displayed.
@@ -101,6 +105,7 @@ CHANGE_SCENE_TO_PLOTS:
     "26.101": {status: documented, note: "SRC-725 p.354, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.358, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.361, same grammar as the 26.122 edition"}
   notes: >
     Switches the active scene to the plots view. This entry predates the
     rest of the chapter and carried a 26.120 row alone until 2026-08-08;
@@ -123,6 +128,7 @@ SAVE_SCENE_AS_IMAGE:
     "26.101": {status: documented, note: "SRC-725 p.354, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.358, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.361, same grammar as the 26.122 edition"}
   notes: >
     Writes the current scene to an image file, the destination on the
     line after the command and nothing on the command's own line. The
@@ -147,6 +153,7 @@ SET_SCENE_DEFAULTVIEW:
     "26.101": {status: documented, note: "SRC-725 p.354, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.358, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.361, same grammar as the 26.122 edition"}
   notes: >
     Restores the default isometric viewpoint.
 
@@ -163,6 +170,7 @@ SET_SCENE_XY_POSITIVE:
     "26.101": {status: documented, note: "SRC-725 p.354, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.358, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.361, same grammar as the 26.122 edition"}
   notes: >
     Views the XY plane from the positive side of the remaining axis.
     The six plane views are named for the plane in view and the sign of
@@ -183,6 +191,7 @@ SET_SCENE_XY_NEGATIVE:
     "26.101": {status: documented, note: "SRC-725 p.354, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.358, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.361, same grammar as the 26.122 edition"}
   notes: >
     Views the XY plane from the negative side of the remaining axis.
 
@@ -199,6 +208,7 @@ SET_SCENE_XZ_POSITIVE:
     "26.101": {status: documented, note: "SRC-725 p.354, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.358, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.361, same grammar as the 26.122 edition"}
   notes: >
     Views the XZ plane from the positive side of the remaining axis.
 
@@ -215,6 +225,7 @@ SET_SCENE_XZ_NEGATIVE:
     "26.101": {status: documented, note: "SRC-725 p.354, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.358, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.361, same grammar as the 26.122 edition"}
   notes: >
     Views the XZ plane from the negative side of the remaining axis.
 
@@ -231,6 +242,7 @@ SET_SCENE_YZ_POSITIVE:
     "26.101": {status: documented, note: "SRC-725 p.354, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.358, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.361, same grammar as the 26.122 edition"}
   notes: >
     Views the YZ plane from the positive side of the remaining axis.
 
@@ -247,5 +259,6 @@ SET_SCENE_YZ_NEGATIVE:
     "26.101": {status: documented, note: "SRC-725 p.354, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.358, same grammar as 26.120"}
+    "26.123": {status: documented, note: "SRC-751 p.361, same grammar as the 26.122 edition"}
   notes: >
     Views the YZ plane from the negative side of the remaining axis.
