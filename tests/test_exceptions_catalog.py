@@ -234,7 +234,22 @@ def test_input_artifact_id_refusal_carries_kind_and_id(tmp_path):
 # SRS FR-39 carries the three numbers and the walk's stated reach; this
 # file carries the residual itself.
 
-_BARE = {"ValueError", "RuntimeError", "TypeError", "KeyError", "LookupError", "ImportError"}
+# WIDENED A THIRD TIME ON 2026-08-17, by one name. `FileExistsError` was
+# not in this set, so the walk could not SEE the bare raises of it and
+# they were neither fixed nor ratcheted: they were invisible, which is a
+# worse state than either, because the ratchet below reads as the
+# complete residual. A review pass found one, not the guard. Every site
+# it now reaches is either catalogued or named in the ratchet with its
+# reason, which is the property this file claims about itself.
+_BARE = {
+    "ValueError",
+    "RuntimeError",
+    "TypeError",
+    "KeyError",
+    "LookupError",
+    "ImportError",
+    "FileExistsError",
+}
 
 
 #: Decorators after which a bare ``ValueError`` is the documented way to
@@ -398,10 +413,12 @@ def _exported_bare_raises() -> list[str]:
 #: cross-module caller, is on no list and does not fail today
 #: (PLN-20260804-1130).
 #:
-#: The set holds 18 entries in two tranches. The FIRST THREE raise
+#: The set holds 21 entries in three tranches. THREE raise
 #: ``TypeError`` for an argument of a type the function does not accept;
-#: the other 15 are the reachability tranche and are almost all
-#: ``ValueError``. Re-basing the TypeError three onto a catalogued class
+#: THREE raise ``FileExistsError`` and are the evidence-overwrite
+#: refusals, added on 2026-08-17 when the walk was widened to see that
+#: name at all; the other 15 are the reachability tranche and are almost
+#: all ``ValueError``. Re-basing the TypeError three onto a catalogued class
 #: is not the
 #: one-line change the ValueError sites were: ``except TypeError`` is
 #: how a caller distinguishes "I passed the wrong kind of thing" from "I
@@ -428,6 +445,19 @@ def _exported_bare_raises() -> list[str]:
 #: has the same weakness, which is an argument for emptying it rather
 #: than for re-keying it.
 _RATCHET = {
+    # THE EVIDENCE-OVERWRITE TRANCHE, measured 2026-08-17 the hour
+    # `FileExistsError` joined `_BARE`. All three are the same refusal:
+    # a committed report is evidence and is never overwritten. They keep
+    # the builtin ON PURPOSE and not from neglect, because
+    # `except FileExistsError` is what a caller writing a file already
+    # has around the call, and every one of them predates the catalogue's
+    # reach. Read the count: the review pass that prompted the widening
+    # named ONE of these, and the walk found three, which is the whole
+    # argument for widening a guard rather than fixing what a reviewer
+    # points at.
+    "pyflightstream.qa.compat.refuse_existing_compat_report -> FileExistsError (compat.py:111)",
+    "pyflightstream.qa.drift.write_drift_report -> FileExistsError (drift.py:322)",
+    "pyflightstream.qa.physics.write_physics_report -> FileExistsError (physics.py:1650)",
     # TypeError for an argument of an unaccepted type. The catalogue is
     # entirely ValueError-based, so re-basing these needs a new base and
     # a decision about what it means (PLN-20260803-2340).
@@ -452,7 +482,7 @@ _RATCHET = {
     # _SIDE_BRANCHES above it, and the edit failed the stale-exemption
     # test and the uncovered-site test at once. That is how a moved debt
     # site announces itself, and why both directions are asserted.
-    "pyflightstream.overview._module_doc -> RuntimeError (overview.py:125)",
+    "pyflightstream.overview._module_doc -> RuntimeError (overview.py:129)",
     "pyflightstream.post.writers._checked -> ValueError (writers.py:34)",
     "pyflightstream.post.writers._checked -> ValueError (writers.py:39)",
     "pyflightstream.probes.planar._unit -> ValueError (planar.py:50)",
@@ -629,11 +659,17 @@ def test_the_ratchet_comment_counts_the_ratchet():
         "the ratchet comment no longer states its counts in the shape this test "
         "reads; state them or delete this guard, but do not leave it matching nothing"
     )
+    # EVERY NAMED TRANCHE IS SUBTRACTED, not just the first. The
+    # reachability figure was computed as "everything that is not a
+    # TypeError", so the FileExistsError tranche of 2026-08-17 would have
+    # been silently counted as reachability and the comment would have
+    # read correctly while meaning something false.
     type_errors = sum(1 for entry in _RATCHET if "-> TypeError" in entry)
+    file_exists = sum(1 for entry in _RATCHET if "-> FileExistsError" in entry)
     assert int(total.group(1)) == len(_RATCHET), (
         f"the comment says {total.group(1)} entries and the set holds {len(_RATCHET)}"
     )
-    assert int(reachability.group(1)) == len(_RATCHET) - type_errors, (
+    assert int(reachability.group(1)) == len(_RATCHET) - type_errors - file_exists, (
         f"the comment says {reachability.group(1)} in the reachability tranche and the "
         f"set holds {len(_RATCHET) - type_errors} entries that are not TypeError"
     )

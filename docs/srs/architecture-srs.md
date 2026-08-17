@@ -135,7 +135,11 @@ Five console entry points, one per operational concern: `pyfs-qa`
 (evidence tiers 2 and 3), `pyfs-workspace` (workspace initialization),
 `pyfs-matrix` (run-matrix conversion and pre-flight),
 `pyfs-fsi` (the coupling-loop executable), and `pyfs-manual`
-(reading a vendor manual against the command database, maintainer
+(reading a vendor manual against the command database, and WRITING
+documented version rows back into it from that reading; maintainer
 tooling outside the run pipeline). CLIs are thin argument
 layers over the public Python API; execution paths always require the
-explicit executable.
+explicit executable. The registration transaction is
+`pyflightstream.utils.database`, not the argument parser, for that
+reason: it is the second writer into the evidence authority and it owes
+the guards the first one has.

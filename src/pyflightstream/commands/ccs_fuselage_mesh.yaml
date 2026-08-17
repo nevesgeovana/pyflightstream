@@ -41,7 +41,7 @@ DEFAULT_CCS_FUSELAGE_MESH_SETTINGS:
     "26.101": {status: documented, note: "SRC-725 p.300, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.304, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.305, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.305, unchanged from SRC-750 p.305"}
   notes: >
     Resets every mesh setting of the CCS fuselage in one parametric
     direction: subdivisions, growth scheme, growth rate and periodicity.
@@ -62,7 +62,7 @@ CCS_FUSELAGE_MESH_SUBDIVISIONS:
     "26.101": {status: documented, note: "SRC-725 p.300, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.304, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.305, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.305, unchanged from SRC-750 p.305"}
   notes: >
     Grid node count along the named direction of the lofted fuselage.
 
@@ -82,7 +82,7 @@ CCS_FUSELAGE_MESH_GROWTH_SCHEME:
     "26.101": {status: documented, note: "SRC-725 p.300, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.304, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.305, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.305, unchanged from SRC-750 p.305"}
   notes: >
     How grid nodes cluster along the direction. NONE spaces them evenly;
     SUCCESSIVE and REVERSE cluster toward one end and the other;
@@ -104,7 +104,7 @@ CCS_FUSELAGE_MESH_GROWTH_RATE:
     "26.101": {status: documented, note: "SRC-725 p.300, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.304, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.305, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.305, unchanged from SRC-750 p.305"}
   notes: >
     Ratio between the sizes of consecutive cells under the clustering
     scheme of the same direction. The manual states the value must be
@@ -127,7 +127,7 @@ CCS_FUSELAGE_MESH_PERIODICITY:
     "26.101": {status: documented, note: "SRC-725 p.300, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.304, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.305, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.305, unchanged from SRC-750 p.305"}
   notes: >
     Number of times the clustering pattern repeats along the direction,
     so a value of 2 clusters the nodes twice over the same span. The
@@ -151,7 +151,7 @@ NEW_CCS_FUSELAGE_REFINEMENT_ZONE:
     "26.101": {status: documented, note: "SRC-725 p.300, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.304, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.305, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.305, unchanged from SRC-750 p.305"}
   notes: >
     Inserts extra grid nodes over an axial parametric interval. U0 and
     U1 are parametric positions between 0 and 1 with U1 greater than U0,
@@ -171,7 +171,7 @@ DELETE_CCS_FUSELAGE_REFINEMENT_ZONES:
     "26.101": {status: documented, note: "SRC-725 p.301, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.305, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.306, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.306, unchanged from SRC-750 p.306"}
   notes: >
     Deletes one axial refinement zone by its 1-based index, or every one
     of them when passed -1. The -1 is recorded here and not declared as
@@ -202,7 +202,7 @@ NEW_CCS_FUSELAGE_RELAXED_TE:
     "26.101": {status: documented, note: "SRC-725 p.301, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.305, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.306, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.306, unchanged from SRC-750 p.306"}
   notes: >
     Marks a strip of the fuselage as a relaxed trailing edge, where the
     solver applies the Kutta condition with a relaxed formulation. U is
@@ -222,7 +222,7 @@ DELETE_CCS_FUSELAGE_RELAXED_TE:
     "26.101": {status: documented, note: "SRC-725 p.301, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.305, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.306, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.306, unchanged from SRC-750 p.306"}
   notes: >
     Deletes one relaxed trailing-edge boundary by its 1-based index, or
     every one of them when passed -1. Not declared as all_sentinel, for
@@ -258,7 +258,7 @@ EXPORT_FUSELAGE_CCS_FILE:
     "26.101": {status: documented, note: "SRC-725 p.301, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.305, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.306, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.306, unchanged from SRC-750 p.306"}
   notes: >
     Writes the lofted fuselage to a file instead of into the simulation.
     LOFT_TYPE_U is RADIAL here and LOFT_TYPE_V is AXIAL, which is not

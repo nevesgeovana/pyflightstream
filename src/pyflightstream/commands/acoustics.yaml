@@ -43,7 +43,7 @@ ACOUSTIC_SOURCES:
     "26.101": {status: documented, note: "SRC-725 p.372, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.376, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.380, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.380, unchanged from SRC-750 p.380"}
   notes: >
     Turns on the computation of acoustic sources during unsteady solver
     runs.
@@ -83,7 +83,7 @@ CREATE_NEW_ACOUSTIC_OBSERVER:
     "26.101": {status: documented, note: "SRC-725 p.372, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.376, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.380, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.380, unchanged from SRC-750 p.380"}
   notes: >
     Appends one observer point at which the signal will be computed.
     THE COORDINATES ARE IN THE REFERENCE COORDINATE SYSTEM and the
@@ -107,7 +107,7 @@ ACOUSTIC_OBSERVERS_IMPORT:
     "26.101": {status: documented, note: "SRC-725 p.372, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.376, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.380, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.380, unchanged from SRC-750 p.380"}
   notes: >
     Reads observer locations from a CSV text file whose path follows on
     the next line. The manual describes the file's own format, a count
@@ -133,7 +133,7 @@ DELETE_ACOUSTIC_OBSERVER:
     "26.101": {status: documented, note: "SRC-725 p.372, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.376, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.380, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.380, unchanged from SRC-750 p.380"}
   notes: >
     Deletes one observer by index. The manual defines the index as the
     observer's position in the application's own tree, which is a
@@ -156,7 +156,7 @@ DELETE_ALL_ACOUSTIC_OBSERVERS:
     "26.101": {status: documented, note: "SRC-725 p.372, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.376, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.380, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.380, unchanged from SRC-750 p.380"}
   notes: >
     Deletes every observer. A separate command rather than a sentinel
     value of the one above, which is why that one offers no all-form.
@@ -182,7 +182,7 @@ SET_ACOUSTIC_OBSERVER_TIME:
     "26.101": {status: documented, note: "SRC-725 pp.372-373, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 pp.376-377, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.380, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.380, unchanged from SRC-750 p.380"}
   notes: >
     Time window of the observer signal and how many steps it is sampled
     at. This is the OBSERVER's time axis and not the solver's: an
@@ -203,7 +203,7 @@ COMPUTE_ACOUSTIC_SIGNALS:
     "26.101": {status: documented, note: "SRC-725 p.373, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.377, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.381, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.381, unchanged from SRC-750 p.381"}
   notes: >
     Computes the signal at every observer, from the acoustic sources
     recorded during the unsteady run. The one command in the chapter
@@ -225,7 +225,7 @@ EXPORT_ACOUSTIC_SIGNALS:
     "26.101": {status: documented, note: "SRC-725 p.373, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.377, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.381, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.381, unchanged from SRC-750 p.381"}
   notes: >
     Writes the computed signals at every observer to one file, the path
     on the next line. There is no per-observer export.
@@ -264,7 +264,7 @@ CREATE_ACOUSTIC_SECTION:
     "26.101": {status: documented, note: "SRC-725 p.373, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.377, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.381, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.381, unchanged from SRC-750 p.381"}
   notes: >
     Builds an annular grid of observers in a plane and exports the
     signal at each of them, which is how a directivity pattern is

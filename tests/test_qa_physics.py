@@ -340,7 +340,7 @@ def test_case_table_is_one_line_per_registered_id():
     by_id = {row["case_id"]: row for row in table}
     assert by_id["PHY-01"]["title"] == PHYSICS_CASES["PHY-01"].title
     assert by_id["PHY-01"]["metrics"] == len(PHYSICS_CASES["PHY-01"].metric_specs)
-    assert by_id["PHY-01"]["versions"] == "all registered"
+    assert by_id["PHY-01"]["minimum_version"] == "all registered"
     # The rotor cases are pinned to a MINIMUM rather than to a list, and
     # the table renders it as one. Their pin cited a backfill owed for
     # EARLIER builds, which is a minimum written as an enumeration, so
@@ -348,7 +348,7 @@ def test_case_table_is_one_line_per_registered_id():
     # 26.121 and 26.122 on 2026-08-11, 26.123 on 2026-08-17. Rendering a
     # list here would put the same decay on the page a reader compares
     # their own build against.
-    assert by_id["PHY-05"]["versions"] == "26.120 and after"
+    assert by_id["PHY-05"]["minimum_version"] == "26.120 and after"
 
 
 def test_case_table_includes_smi_only_on_request():
@@ -364,7 +364,7 @@ def test_cases_subcommand_prints_the_matrix(capsys):
 
     assert main(["cases"]) == 0
     out = capsys.readouterr().out
-    assert "CASE" in out and "VERSIONS" in out
+    assert "CASE" in out and "MINIMUM VERSION" in out
     for case_id in PHYSICS_CASES:
         assert case_id in out
     assert "SMI-01" not in out
@@ -410,6 +410,53 @@ def test_the_unsteady_pin_is_a_minimum_and_not_a_list(tmp_path):
             )
 
 
+def test_the_minimum_follows_release_order_and_not_the_identifier(monkeypatch):
+    """The claim `supports` makes about itself, made falsifiable.
+
+    Its docstring says AFTER is read from the ordering authority "and
+    NOT from the identifier", and until 2026-08-17 nothing measured
+    that: replacing the whole body with `canonical >= self.minimum_version`
+    passed every test, because the registry's list order happens to
+    agree with string order today. The test that noticed said so out
+    loud and then relied on it anyway.
+
+    That agreement is a coincidence the charter warns about. Versions are
+    ordered by RELEASE order and only added, never dropped, and a build
+    obtained later can belong EARLIER in the list; two already do. So
+    the ordering is put in deliberate disagreement with string order
+    here, which is the only way this assertion can fail for the right
+    reason.
+    """
+    from pyflightstream.qa import physics
+    from pyflightstream.qa.physics import PhysicsCase
+
+    class _Fake:
+        def __init__(self, canonical):
+            self.canonical = canonical
+
+    # Release order: 26.130 shipped FIRST, then 26.120, then 26.121.
+    # String order would put 26.130 last.
+    monkeypatch.setattr(
+        physics,
+        "known_versions",
+        lambda: (_Fake("26.130"), _Fake("26.120"), _Fake("26.121")),
+    )
+    case = PhysicsCase(
+        case_id="PHY-XX",
+        title="ordering probe",
+        minimum_version="26.120",
+        metric_specs=(),
+        runner=lambda context: None,
+    )
+    assert not case.supports("26.130"), (
+        "26.130 is EARLIER in release order than the minimum, so it is not supported; "
+        "reading the identifier rather than the list position says the opposite"
+    )
+    assert case.supports("26.120")
+    assert case.supports("26.121")
+    assert not case.supports("26.999"), "a build the registry does not carry must fail closed"
+
+
 def test_a_build_registered_later_is_inside_the_minimum_without_an_edit():
     """The property the minimum exists for, stated over the registry.
 
@@ -452,6 +499,12 @@ def test_the_full_suite_refuses_rather_than_running_a_subset(tmp_path):
     message = str(caught.value)
     assert "PHY-05" in message and "PHY-06" in message, message
     assert "26.120" in message, "the refusal does not say what the restriction IS"
-    assert "--cases" in message, (
-        "the refusal does not tell the caller how to ask for the subset deliberately"
+    assert "cases=" in message and "PHY-01" in message, (
+        "the refusal does not tell the caller how to ask for the subset deliberately, "
+        "and it must name the runnable set rather than leaving them to work it out"
+    )
+    assert "--cases" not in message, (
+        "a library refusal must not name a command-line flag: this function's own "
+        "parameter is `cases`, and a Python caller cannot type a flag. The CLI owns "
+        "that translation, and tests/test_qa_cli.py pins it"
     )

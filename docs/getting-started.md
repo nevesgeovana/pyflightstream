@@ -64,12 +64,17 @@ from pyflightstream.script import Script
 try:
     Script(version="26.123").emit("TRAILING_EDGES_IMPORT")
 except CommandNotInVersionError as error:
-    print("refused:", "no recorded evidence" in str(error))
+    assert "no recorded evidence" in str(error)
+else:  # pragma: no cover - the refusal is the point of the example
+    raise AssertionError("the command was emitted, so this page is out of date")
 ```
 
-```
-refused: True
-```
+It ASSERTS rather than prints, and that is not a style preference. The
+fenced blocks on these pages are executed and their expected-output
+blocks are not compared, so a `print` inside a `try` shows only that the
+code ran. The day this command gains a row for this build, the `try`
+would succeed, nothing would be printed, and the example would stay green
+while teaching a refusal that no longer happens.
 
 That is a statement about EVIDENCE and not about the solver. The build
 may well run the command perfectly; nobody here has established that it
@@ -89,7 +94,23 @@ its vendor build number named. Pass the canonical identifier, and note
 what the growing count means for one you wrote down earlier: a vendor
 name is unambiguous only until the vendor ships the next build under
 it. This page does not say how many are in either family, for exactly
-that reason; run the refusal and read its candidates. The two families
+that reason; run the refusal and read its candidates, which this page
+does rather than only recommending:
+
+```python
+from pyflightstream.versions import AmbiguousVersionAliasError, resolve
+
+try:
+    resolve("26.12")
+except AmbiguousVersionAliasError as error:
+    assert "26.120" in str(error) and "vendor build" in str(error)
+else:  # pragma: no cover - the refusal is the point of the example
+    raise AssertionError("26.12 resolved to a single build, so this page is out of date")
+```
+
+The refusal names every candidate with the vendor build number its own
+solver prints, which is the one string a reader holding two installs can
+match. The two families
 are not the same relationship either: `26.12` is a release with its
 hotfixes, while 26.100 and 26.101 are the February and May 2026
 releases that happened to share a name, which is why the registry

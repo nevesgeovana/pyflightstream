@@ -43,6 +43,64 @@ def test_an_unregistered_version_exits_two_and_lists_the_registered_ones(capsys)
         assert canonical in error
 
 
+def test_probe_refuses_an_existing_report_before_it_starts_the_solver(
+    tmp_path, monkeypatch, capsys
+):
+    """The whole behaviour change of this commit, and it had no test.
+
+    Measured by the QA review pass on 2026-08-17: deleting the entire
+    early-refusal block left 87 tests passing. What that lets back
+    through is the incident it was written for. A full campaign on
+    26.123 ran to completion, 111 command probes over five minutes of
+    licensed solver, and the write then refused on a stem that already
+    existed; the verdicts lived only in the process that was exiting.
+    The refusal was right and its POSITION was wrong, about a collision
+    knowable from the command line.
+
+    The solver is replaced by a probe_version that RAISES if it is
+    reached, so this fails loudly rather than by a count.
+    """
+    from pyflightstream.qa import cli as cli_module
+    from pyflightstream.qa.compat import compat_report_paths
+
+    reports = tmp_path / "reports"
+    reports.mkdir()
+    # The REAL path computation, not a stand-in, so this also pins the
+    # label arm the early check depends on: if the label stopped reaching
+    # the stem, the pre-flight would inspect a name nothing collides with
+    # and the run would reach the solver and collide at write time, which
+    # is the incident again by another route.
+    existing, _ = compat_report_paths("26.123", reports, label="full-sim")
+    assert existing.name.endswith("_full-sim.yaml"), existing.name
+    existing.write_text("stub", encoding="utf-8")
+
+    def never(*args, **kwargs):
+        raise AssertionError("the solver was started, so a licensed seat was spent")
+
+    monkeypatch.setattr(cli_module, "probe_version", never)
+
+    exit_code = cli_module.main(
+        [
+            "probe",
+            "--fs-version",
+            "26.123",
+            "--fs-exe",
+            "nowhere.exe",
+            "--report-dir",
+            str(reports),
+            "--label",
+            "full-sim",
+        ]
+    )
+    error = capsys.readouterr().err
+    assert exit_code == 2
+    assert "nothing run" in error, error
+    assert "--label" in error and "--report-dir" in error, (
+        "the refusal must name the escapes THIS command line has; it used to say "
+        "'pick another date', and pyfs-qa probe has no date flag"
+    )
+
+
 def test_the_refusal_happens_before_the_executable_is_touched(capsys):
     # nowhere.exe does not exist. If the version were resolved first and
     # the executor built second, this would fail on the executable

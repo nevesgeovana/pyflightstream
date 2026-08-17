@@ -20,7 +20,7 @@ CAD_BODY_DELETE:
     "26.101": {status: documented, note: "SRC-725 p.286, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.290, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.291, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.291, unchanged from SRC-750 p.291"}
   notes: >
     Deletes one CAD body by its 1-based index; -1 deletes every one of
     them (SRC-003 p.287). The parameter table row for this index is the
@@ -43,7 +43,7 @@ CAD_BODY_MIRROR:
     "26.101": {status: documented, note: "SRC-725 p.286, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.290, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.291, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.291, unchanged from SRC-750 p.291"}
   notes: >
     Mirrors one CAD body across a plane OF THE REFERENCE COORDINATE
     SYSTEM, not of a frame the caller chooses: this command takes no
@@ -68,7 +68,7 @@ CAD_BODY_ROTATE:
     "26.101": {status: documented, note: "SRC-725 p.286, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.290, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.291, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.291, unchanged from SRC-750 p.291"}
   notes: >
     Rotates one CAD body about an axis of the reference coordinate
     system. The angle is in DEGREES, which the manual states and which
@@ -105,7 +105,7 @@ CAD_BODY_SCALE:
     "26.101": {status: documented, note: "SRC-725 p.286, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.290, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.291, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.291, unchanged from SRC-750 p.291"}
   notes: >
     Uniform scale factor, dimensionless and greater than zero
     (SRC-003 p.287). It scales the BODY, so a body scaled after its
@@ -132,7 +132,7 @@ CAD_BODY_TRANSLATE:
     "26.101": {status: documented, note: "SRC-725 p.286, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.290, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.291, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.291, unchanged from SRC-750 p.291"}
   notes: >
     Translation vector in the reference coordinate system, with its own
     UNITS argument rather than the simulation length units: this command
@@ -165,7 +165,7 @@ CAD_BODY_SELECT_BY_THRESHOLD:
     "26.101": {status: documented, note: "SRC-725 p.287, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.291, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.292, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.292, unchanged from SRC-750 p.292"}
   notes: >
     Selects or deletes the CAD faces on one side of a coordinate
     threshold. FRAME is the 1-based index of the coordinate system the
@@ -205,7 +205,7 @@ IMPORT_CAD:
     "26.101": {status: documented, note: "SRC-725 p.285, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.289, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.290, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.290, unchanged from SRC-750 p.290"}
   notes: >
     Imports a CAD file, the path on the line after the inline arguments.
     The result is a CAD body, not a mesh: CONVERT_CAD_TO_MESH is what
@@ -246,7 +246,7 @@ CONVERT_CAD_TO_MESH:
     "26.101": {status: documented, note: "SRC-725 p.285, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.289, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.290, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.290, unchanged from SRC-750 p.290"}
   notes: >
     Transfers a CAD body into the simulation's mesh, which is the step
     that makes an imported CAD file something the solver acts on, and

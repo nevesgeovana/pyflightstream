@@ -19,7 +19,12 @@ workspace init), `pyfs-matrix` (run-matrix convert and pre-flight),
 (maintainer tool: compares a vendor manual against the command
 database, reports what each build documents and what changed between
 builds, and re-reads the page citations already written to check they
-still point where they say; needs the `[manual]` extra).
+still point where they say; needs the `[manual]` extra). Two of
+`pyfs-manual`'s six subcommands WRITE, and `register` is the only thing
+in this package that edits the shipped command database from a reading:
+it carries a build's documentation forward for the commands its edition
+describes exactly as the edition before it did, and reports the rest for
+a person. Both write only with an explicit `--write`.
 
 ## The idea in one paragraph
 

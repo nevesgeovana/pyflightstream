@@ -16,7 +16,8 @@ after the vendor issued it, and every command any of the eight manual
 editions registered AT THAT POINT documents has an entry. A ninth
 build, 26.123, has since been registered and deliberately inherits
 nothing, so nothing carried over to it and every row it holds was read
-on its own edition; that sentence says nothing about it. Read that claim
+on its own edition. The eight-edition claim above is scoped to those
+eight and says nothing about this ninth build. Read that claim
 at the level it is measured at, which the release notes do: ten
 readings across four commands are deliberately withheld where a version
 row cannot express a layout, and the coverage tool reports that second

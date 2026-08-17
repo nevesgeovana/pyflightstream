@@ -49,7 +49,7 @@ SET_SCENE_COLORMAP_TYPE:
     "26.101": {status: documented, note: "SRC-725 p.355, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.359, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.362, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.362, unchanged from SRC-750 p.362"}
   notes: >
     Selects the colour ramp. The eleven names are the manual's own, in
     the order it prints them, and all four editions list the same
@@ -78,7 +78,7 @@ SET_SCENE_COLORMAP_SIZE:
     "26.101": {status: documented, note: "SRC-725 p.355, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.359, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.362, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.362, unchanged from SRC-750 p.362"}
   notes: >
     Size of the colour bar in screen pixels. THICKNESS IS THE LONG
     DIMENSION HERE, not the short one the word suggests: the manual's
@@ -106,7 +106,7 @@ SET_SCENE_COLORMAP_POSITION:
     "26.101": {status: documented, note: "SRC-725 p.355, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.359, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.362, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.362, unchanged from SRC-750 p.362"}
   notes: >
     Position of the colour bar in screen pixels. These are window
     coordinates and not a location in the model's reference frame; no
@@ -134,7 +134,7 @@ SET_SCENE_COLORMAP_SHADING:
     "26.101": {status: documented, note: "SRC-725 pp.355-356, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 pp.359-360, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.362, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.362, unchanged from SRC-750 p.362"}
   notes: >
     REVERSE flips the ramp end for end; SMOOTH draws it as a continuous
     gradient rather than as discrete bands. Both are display choices and
@@ -160,7 +160,7 @@ SET_SCENE_COLORMAP_CUSTOM_MODE:
     "26.101": {status: documented, note: "SRC-725 p.356, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.360, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.363, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.363, unchanged from SRC-750 p.363"}
   notes: >
     Switches the colour scale between automatic limits and the custom
     ones. It is the gate for SET_SCENE_COLORMAP_CUSTOM_RANGE below: the
@@ -194,7 +194,7 @@ SET_SCENE_COLORMAP_CUSTOM_RANGE:
     "26.101": {status: documented, note: "SRC-725 p.356, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.360, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.363, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.363, unchanged from SRC-750 p.363"}
   notes: >
     Limits of the custom colour range and what is done with values
     outside them. CUT_OFF_MODE selects which tail is clipped: OFF clips

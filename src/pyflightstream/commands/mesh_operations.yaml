@@ -187,7 +187,7 @@ TRANSLATE_SURFACE_IN_FRAME:
     "26.101": {status: documented, note: "SRC-725 p.308, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.312, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.313, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.313, unchanged from SRC-750 p.313"}
   notes: >
     Translates one surface by a vector in the named frame, with the
     vector's own UNITS argument rather than the simulation length units.
@@ -222,7 +222,7 @@ TRANSLATE_SURFACE_BY_FRAME:
     "26.101": {status: documented, note: "SRC-725 p.308, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.312, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.313, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.313, unchanged from SRC-750 p.313"}
   notes: >
     Moves a surface by the transform that carries FRAME1 onto FRAME2, so
     the two frames are the instruction and there is no vector. ZERO
@@ -255,7 +255,7 @@ SURFACE_SCALE:
     "26.101": {status: documented, note: "SRC-725 p.309, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.313, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.313, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.313, unchanged from SRC-750 p.313"}
   notes: >
     PER-AXIS scaling, unlike CAD_CREATE_SCALE_CURVES which takes one
     factor for all three. Each must be greater than zero, which the
@@ -289,7 +289,7 @@ SURFACE_MIRROR:
     "26.101": {status: documented, note: "SRC-725 p.310, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.314, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.315, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.315, unchanged from SRC-750 p.315"}
   notes: >
     MIRROR_PLANE IS AN INDEX AND NOT A PLANE NAME. The manual gives 1
     for YZ, 2 for XZ and 3 for XY (SRC-003 p.311), so this is the one
@@ -332,7 +332,7 @@ SURFACE_LINEAR_COPY_PASTE:
     "26.101": {status: documented, note: "SRC-725 p.310, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.314, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.315, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.315, unchanged from SRC-750 p.315"}
   notes: >
     Copies a surface along a vector, NUM_COPIES times. The translation
     vector follows UNITS here and precedes it on
@@ -376,7 +376,7 @@ SURFACE_CIRCULAR_COPY_PASTE:
     "26.101": {status: documented, note: "SRC-725 p.311, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.315, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.316, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.316, unchanged from SRC-750 p.316"}
   notes: >
     Copies a surface around an axis, and NUM_COPIES INCLUDES THE
     ORIGINAL: the manual's own worked case is a two-blade propeller from
@@ -406,7 +406,7 @@ SURFACE_SELECT_BY_ID:
     "26.101": {status: documented, note: "SRC-725 p.309, the first edition to carry this name"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.313, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.314, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.314, unchanged from SRC-750 p.314"}
   notes: >
     Selects one surface by its 1-based index, or every surface at -1.
     The February 2026 edition calls the same command
@@ -471,7 +471,7 @@ SURFACE_SELECT_BY_THRESHOLD:
     "26.101": {status: documented, note: "SRC-725 p.309, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.313, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.314, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.314, unchanged from SRC-750 p.314"}
   notes: >
     Selects mesh FACES, not surfaces, by a scalar threshold. RANGE
     decides which of MIN_VALUE and MAX_VALUE are read, so a range of
@@ -501,7 +501,7 @@ CREATE_NEW_SURFACE_FROM_SELECTION:
     "26.101": {status: documented, note: "SRC-725 p.310, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.314, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.314, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.314, unchanged from SRC-750 p.314"}
   notes: >
     Promotes the currently selected faces into a surface of their own,
     which is what makes SURFACE_SELECT_BY_THRESHOLD useful as more than
@@ -533,7 +533,7 @@ SURFACE_CUT_BY_PLANE:
     "26.101": {status: documented, note: "SRC-725 p.310, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.314, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.315, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.315, unchanged from SRC-750 p.315"}
   notes: >
     Cuts surfaces with a plane of the named frame, offset along the
     plane normal. A value of -1 on SURFACE cuts every surface, which the
@@ -565,7 +565,7 @@ SURFACE_COMBINE:
     "26.101": {status: documented, note: "SRC-725 p.311, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.315, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.316, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.316, unchanged from SRC-750 p.316"}
   notes: >
     Merges several surfaces into one. The count sits on the command line
     and the indices follow on the next, comma separated, which this page
@@ -588,7 +588,7 @@ SURFACE_AUTO_HOLE_FILL:
     "26.101": {status: documented, note: "SRC-725 p.311, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.315, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.316, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.316, unchanged from SRC-750 p.316"}
   notes: >
     Fills the holes in one surface. The manual states no -1 form here,
     unlike its neighbours, so this entry does not claim one either.
@@ -610,7 +610,7 @@ SURFACE_INVERT:
     "26.101": {status: documented, note: "SRC-725 p.309, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.313, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.314, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.314, unchanged from SRC-750 p.314"}
   notes: >
     Flips the surface normals of one surface, or of every surface at -1.
     Its argument is named Index rather than SURFACE, which is the
@@ -634,7 +634,7 @@ SURFACE_RENAME:
     "26.101": {status: documented, note: "SRC-725 p.309, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.313, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.314, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.314, unchanged from SRC-750 p.314"}
   notes: >
     Renames a surface, which is worth doing early: the name is what a
     reader of the emitted script sees, and this package's own entity
@@ -661,7 +661,7 @@ DELETE_SELECTED_FACES:
     "26.101": {status: documented, note: "SRC-725 p.311, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.315, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.316, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.316, unchanged from SRC-750 p.316"}
   notes: >
     Deletes the faces currently selected, the destructive counterpart of
     CREATE_NEW_SURFACE_FROM_SELECTION and the other reason the threshold
@@ -680,7 +680,7 @@ DELETE_DEGENERATE_FACES:
     "26.101": {status: documented, note: "SRC-725 p.312, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.316, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.317, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.317, unchanged from SRC-750 p.317"}
   notes: >
     Deletes every degenerate face in the simulation. What counts as
     degenerate is not defined on the page, and this entry does not
@@ -758,7 +758,7 @@ SELECT_MESH_NODE:
     "26.101": {status: documented, note: "SRC-725 p.312, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.316, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.317, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.317, unchanged from SRC-750 p.317"}
   notes: >
     Selects one mesh vertex by its node id, which is a different index
     space from the surface indices the rest of this chapter uses: the
@@ -789,7 +789,7 @@ TRANSFORM_SELECTED_NODES:
     "26.101": {status: documented, note: "SRC-725 p.312, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.316, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.317, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.317, unchanged from SRC-750 p.317"}
   notes: >
     Moves the selected nodes. TRANSLATION_TYPE decides what X, Y and Z
     MEAN: under ABSOLUTE they are the node's new coordinates and under
@@ -856,4 +856,4 @@ ROTATE_SURFACE:
     "26.122":
       status: documented
       note: "SRC-750 p.313, the first edition to document it"
-    "26.123": {status: documented, note: "SRC-751 p.313, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.313, unchanged from SRC-750 p.313"}

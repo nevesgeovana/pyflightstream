@@ -71,7 +71,7 @@ Onboard a new FlightStream version end to end.
    and suspected renames. `surface` reports a rename as one loss and one
    gain and cannot tell you it is a rename.
 5. **Carry forward what did not change, with
-   `pyfs-manual register --editions <manifest> --build <v>`.** It writes
+   `pyfs-manual register --editions <manifest> --fs-version <v>`.** It writes
    a `documented` row for every command the new edition describes exactly
    as its predecessor did, comparing what the editions SAY rather than
    which page they say it on, and reports the rest. Dry run by default;

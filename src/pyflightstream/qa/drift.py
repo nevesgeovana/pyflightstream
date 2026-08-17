@@ -240,8 +240,14 @@ def run_drift(
     Raises
     ------
     PhysicsEnvironmentError
-        When an executable is missing for either version or a case is
-        unknown (raised by the underlying physics runs).
+        When an executable is missing for either version, a case is
+        unknown, or the full suite cannot be delivered on one of the two
+        builds because a case has no command evidence there. The last is
+        the one that is easy to miss and it is the newest: a comparison
+        that quietly measured the cases both builds happen to support
+        would answer a different question from the one asked, so it
+        refuses and names the runnable subset. All three are raised by
+        the underlying physics runs.
     KeyError
         When ``fs_exes`` does not cover a requested version.
     """

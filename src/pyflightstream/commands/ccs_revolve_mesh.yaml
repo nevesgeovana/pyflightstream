@@ -31,7 +31,7 @@ DEFAULT_CCS_REVOLVE_MESH_SETTINGS:
     "26.101": {status: documented, note: "SRC-725 p.303, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.307, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.308, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.308, unchanged from SRC-750 p.308"}
   notes: >
     Resets every mesh setting of the CCS body of revolution in one
     parametric direction. One direction per call.
@@ -51,7 +51,7 @@ CCS_REVOLVE_MESH_SUBDIVISIONS:
     "26.101": {status: documented, note: "SRC-725 p.303, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.307, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.308, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.308, unchanged from SRC-750 p.308"}
   notes: >
     Grid node count along the named direction. In the AZIMUTH direction
     this is the node count around the revolution, so it sets how well
@@ -73,7 +73,7 @@ CCS_REVOLVE_MESH_GROWTH_SCHEME:
     "26.101": {status: documented, note: "SRC-725 p.303, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.307, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.308, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.308, unchanged from SRC-750 p.308"}
   notes: >
     How grid nodes cluster along the direction, with the same four
     schemes as the wing and fuselage chapters. The rate is set
@@ -94,7 +94,7 @@ CCS_REVOLVE_MESH_GROWTH_RATE:
     "26.101": {status: documented, note: "SRC-725 p.303, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.307, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.308, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.308, unchanged from SRC-750 p.308"}
   notes: >
     Ratio between the sizes of consecutive cells under the clustering
     scheme of the same direction. The manual states the value must be
@@ -115,7 +115,7 @@ CCS_REVOLVE_MESH_PERIODICITY:
     "26.101": {status: documented, note: "SRC-725 p.303, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.307, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.308, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.308, unchanged from SRC-750 p.308"}
   notes: >
     Number of times the clustering pattern repeats along the direction.
     The manual's row here is the fuselage's, naming solid fuselage
@@ -138,7 +138,7 @@ NEW_CCS_REVOLVE_REFINEMENT_ZONE:
     "26.101": {status: documented, note: "SRC-725 p.303, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.307, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.308, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.308, unchanged from SRC-750 p.308"}
   notes: >
     Inserts extra grid nodes over an axial parametric interval, U0 and
     U1 between 0 and 1 with U1 greater than U0. NUM_PTS is the count
@@ -156,7 +156,7 @@ DELETE_CCS_REVOLVE_REFINEMENT_ZONES:
     "26.101": {status: documented, note: "SRC-725 p.304, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.308, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.309, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.309, unchanged from SRC-750 p.309"}
   notes: >
     Deletes one axial refinement zone by its 1-based index, or every one
     of them when passed -1. Not declared as all_sentinel: refinement
@@ -179,7 +179,7 @@ NEW_CCS_REVOLVE_RELAXED_TE:
     "26.101": {status: documented, note: "SRC-725 p.304, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.308, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.309, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.309, unchanged from SRC-750 p.309"}
   notes: >
     Marks a strip of the body of revolution as a relaxed trailing edge.
     U is the radial parametric location and V0 and V1 the axial
@@ -205,7 +205,7 @@ DELETE_CCS_REVOLVE_RELAXED_TE:
     "26.101": {status: documented, note: "SRC-725 p.304, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.308, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.309, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.309, unchanged from SRC-750 p.309"}
   notes: >
     Deletes one relaxed trailing-edge boundary by its 1-based index, or
     every one of them when passed -1. Not declared as all_sentinel, for
@@ -241,7 +241,7 @@ EXPORT_REVOLVE_CCS_FILE:
     "26.101": {status: documented, note: "SRC-725 p.304, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.308, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.309, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.309, unchanged from SRC-750 p.309"}
   notes: >
     Writes the lofted body of revolution to a file instead of into the
     simulation.

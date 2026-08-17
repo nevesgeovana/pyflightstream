@@ -3,7 +3,14 @@
 Pipeline role: manufactures the NACA wing meshes the physics
 regression matrix imports (PHY-01, PHY-02; SAD Section 11), so every
 committed physics case is reproducible from code alone and no research
-geometry ever enters the repository (CLAUDE.md invariant 5). The wing
+geometry ever enters the repository (CLAUDE.md invariant 5). It also
+MEASURES a mesh, which is the half the sentence above does not cover:
+`mean_edge_length` returns the local face size, and a face size is only
+ever wanted as one half of a ratio, because the vendor's caveat about
+proximity-based boundary-layer mapping is stated relative to it. And it
+can place a mesh, through the keyword-only `translation_m`, so two
+components can be meshed at a controlled gap without a solver transform
+command entering the measurement. The wing
 is written as ASCII STL, one of the mesh formats the IMPORT command
 accepts (SRC-003 p.307).
 
@@ -138,7 +145,7 @@ def naca4_contour(naca: str, n_chord: int) -> np.ndarray:
 
 
 def mean_edge_length(triangles: np.ndarray) -> float:
-    """Return the mean triangle edge length of a mesh, in metres.
+    """Return the mean triangle edge length of a mesh, in meters.
 
     The local face size, which is only ever wanted as one half of a
     RATIO. The vendor's caveat about proximity-based boundary-layer
@@ -150,19 +157,52 @@ def mean_edge_length(triangles: np.ndarray) -> float:
     Parameters
     ----------
     triangles : numpy.ndarray
-        Shape ``(n, 3, 3)`` vertex array in metres.
+        Shape ``(n, 3, 3)`` vertex array in meters.
 
     Returns
     -------
     float
-        Mean length over all three edges of every triangle.
+        Mean length over all three edges of every triangle, the closing
+        edge from the last vertex back to the first included.
+
+    Examples
+    --------
+    The ratio is what the number is for. Mesh two copies of one wing at
+    a chosen separation and express that separation in face lengths, so
+    the gap can be compared against the vendor's stated condition rather
+    than against a length in metres that means nothing on its own:
+
+    >>> from pyflightstream.qa.geometry import (
+    ...     WingSpec,
+    ...     mean_edge_length,
+    ...     wing_triangles,
+    ... )
+    >>> spec = WingSpec()
+    >>> face = mean_edge_length(wing_triangles(spec))
+    >>> gap_m = 0.25 * face
+    >>> lower = wing_triangles(spec)
+    >>> upper = wing_triangles(spec, translation_m=(0.0, 0.0, gap_m + 0.2))
+    >>> round(gap_m / face, 2)
+    0.25
+    >>> float(upper[:, :, 2].min() - lower[:, :, 2].min()) > 0
+    True
+
+    The mesh moves and its shape does not, which is what makes the pair
+    comparable at all:
+
+    >>> import numpy as np
+    >>> bool(np.allclose(upper - lower, [0.0, 0.0, gap_m + 0.2]))
+    True
     """
     closed = np.concatenate([triangles, triangles[:, :1, :]], axis=1)
     return float(np.linalg.norm(np.diff(closed, axis=1), axis=2).mean())
 
 
 def wing_triangles(
-    spec: WingSpec, half: bool = False, offset_m: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    spec: WingSpec,
+    half: bool = False,
+    *,
+    translation_m: tuple[float, float, float] = (0.0, 0.0, 0.0),
 ) -> np.ndarray:
     """Mesh the wing surface into outward-oriented triangles.
 
@@ -174,10 +214,17 @@ def wing_triangles(
         When True, mesh only the y >= 0 half with an open root section
         in the XZ symmetry plane (for MIRROR-symmetry runs, PHY-02);
         when False, mesh the full span with closed caps on both tips.
-    offset_m : tuple of float
-        Rigid translation applied to every vertex, in metres, as
+    translation_m : tuple of float, keyword-only
+        Rigid translation applied to every vertex, in meters, as
         ``(x, y, z)``. Defaults to no translation, so every existing
         caller is unaffected.
+
+        KEYWORD-ONLY, and NOT called ``offset_m``. Positionally it
+        would sit behind ``half``, so ``wing_triangles(spec, True,
+        (0, 0, 0.5))`` would be legal and would read as nothing in
+        particular; and ``offset_m`` already means a radial station
+        along a blade elsewhere in this package, where it is a
+        scalar rather than a 3-vector.
 
         IN THE MESH AND NOT THROUGH A SOLVER COMMAND, which is the point
         of it. Two components at a controlled gap are wanted for the
@@ -214,7 +261,7 @@ def wing_triangles(
     triangles.extend(_tip_cap(sections[-1], outward_positive_y=True))
     if not half:
         triangles.extend(_tip_cap(sections[0], outward_positive_y=False))
-    return np.array(triangles) + np.asarray(offset_m, dtype=float)
+    return np.array(triangles) + np.asarray(translation_m, dtype=float)
 
 
 def _tip_cap(section: np.ndarray, outward_positive_y: bool) -> list[np.ndarray]:
@@ -445,7 +492,9 @@ def generate_wing_stl(
     spec: WingSpec,
     path: str | Path,
     half: bool = False,
-    offset_m: tuple[float, float, float] = (0.0, 0.0, 0.0),
+    *,
+    translation_m: tuple[float, float, float] = (0.0, 0.0, 0.0),
+    name: str | None = None,
 ) -> Path:
     """Mesh ``spec`` and write it as ASCII STL in one call.
 
@@ -457,14 +506,25 @@ def generate_wing_stl(
         Destination STL file.
     half : bool
         Mesh the open-root y >= 0 half instead of the full span.
-    offset_m : tuple of float
-        Rigid translation in metres, applied to the vertices rather than
+    translation_m : tuple of float, keyword-only
+        Rigid translation in meters, applied to the vertices rather than
         by a solver command; see :func:`wing_triangles`.
+    name : str, optional
+        Solid name written into the STL, defaulting to the shape's
+        own label.
+
+        IT IS A PARAMETER BECAUSE THE DEFAULT COLLIDES. The label is
+        derived from the aerofoil and the half flag alone, so two
+        translated copies of one wing, which is exactly what the
+        proximity study writes, get the SAME solid name in two files.
+        On 2026-08-17 that made the loads parser refuse all sixteen
+        exports of a licensed run, and the numbers had to be read off
+        the files by hand.
 
     Returns
     -------
     Path
         The written path.
     """
-    label = f"naca{spec.naca}_{'half' if half else 'full'}"
-    return write_stl(wing_triangles(spec, half=half, offset_m=offset_m), path, name=label)
+    label = name or f"naca{spec.naca}_{'half' if half else 'full'}"
+    return write_stl(wing_triangles(spec, half=half, translation_m=translation_m), path, name=label)

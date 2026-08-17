@@ -1,5 +1,7 @@
 """Tier 1: compat report writing, reading, and status promotion."""
 
+import re
+
 import pytest
 import yaml
 
@@ -10,6 +12,7 @@ from pyflightstream.qa import (
     ProbeResult,
     ProbeRun,
     apply_compat,
+    compat_report_paths,
     read_compat_report,
     write_compat_report,
 )
@@ -108,6 +111,59 @@ def test_report_pair_round_trips(tmp_path):
     markdown = md_path.read_text(encoding="utf-8")
     assert "| PRINT | verified | effect observed |" in markdown
     assert "did not halt \\|" in markdown
+
+
+def test_the_writer_stamps_one_date_in_the_stem_the_body_and_the_header(tmp_path):
+    """One fact written in three places, and NO test called the default path.
+
+    Every existing test of this writer passes `date=` explicitly, so the
+    branch a real run takes, the one that defaults to today, was never
+    executed by tier 1. On 2026-08-17 that branch was briefly broken
+    while the collision check was being moved ahead of the solver: the
+    defaulting moved into `compat_report_paths` and was not yet restored
+    beside it, so a licensed probe run wrote a report whose STEM carried
+    the date and whose BODY carried null, and whose Markdown header
+    rendered `(None)`. 85 database rows cite that file
+    (INC-20260817-2210-pyflightstream).
+
+    So this calls the writer with no date at all, which is what a run
+    does, and requires the three copies to agree.
+    """
+    import datetime
+
+    yaml_path, md_path = write_compat_report(make_run(), tmp_path, label="defaulted")
+    today = datetime.date.today().isoformat()
+
+    stem = re.match(r"^CMP-\d+_(\d{4}-\d{2}-\d{2})_defaulted$", yaml_path.stem)
+    assert stem, yaml_path.stem
+    assert stem.group(1) == today
+
+    document = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
+    assert document["date"] == today, (
+        "the body carries a different date from the file name, which is the shape that "
+        "reached a committed evidence file and cannot be repaired by editing it"
+    )
+    assert today in md_path.read_text(encoding="utf-8").splitlines()[0]
+
+
+def test_the_path_helper_defaults_its_date_the_same_way(tmp_path):
+    """The mirror image of the defect above, and it is not decoration.
+
+    The one-arm version of the guard above is holed: the mutation that
+    keeps the default in the WRITER and drops it from the helper leaves
+    the written report perfectly dated and corrupts the PRE-FLIGHT
+    instead. `_cmd_probe` calls this helper with no date to ask whether a
+    report already exists, so a stem of `CMP-26123_None_full-sim` matches
+    nothing, the collision check never fires, and a licensed run is spent
+    and then discarded at write time. That is the incident the pre-flight
+    was added to prevent, arriving through the guard meant to prove it.
+    """
+    import datetime
+
+    yaml_path, md_path = compat_report_paths("26.120", tmp_path, label="probe")
+    today = datetime.date.today().isoformat()
+    assert yaml_path.name == f"CMP-26120_{today}_probe.yaml"
+    assert md_path.name == f"CMP-26120_{today}_probe.md"
 
 
 def test_reports_are_never_overwritten(tmp_path):
@@ -1255,51 +1311,42 @@ def test_an_unparsable_rewrite_refuses_in_this_modules_type():
         _validate_chapter("script_controls.yaml", bad, ["PRINT"])
 
 
-def test_the_escaper_has_exactly_one_caller():
-    """One emitter, asserted rather than trusted.
+def test_this_module_defines_no_renderer_of_its_own():
+    """The escaper lives below every layer now, and this module uses it.
 
-    Escaping used to be a convention any call site could reach for or
-    skip, with nothing observing which: the `note` key was interpolated
-    between two literal quotes at both rendering sites for four
-    releases. Repairing the two sites left the class open, so the sites
-    are gone: `_flow_mapping` renders every promoted value and is the
-    only caller of `_flow_scalar`.
+    THIS GUARD USED TO BE THE ONE-CALLER GUARD and it has moved, with
+    its subject, to ``tests/test_yamlflow.py``. It is worth reading why
+    rather than only where.
 
-    Two earlier drafts of this guard tried to recognise a rendered row
-    by the shape of its f-string, and both flagged an error message
-    whose example text contains braces. Counting the escaper's callers
-    needs no heuristic.
+    The 2026-08-11 repair of ``INC-20260811-1511-both`` made this module
+    the one home of the rendering and said so in the docstring: "there
+    is now no site". That was true of this module and it was never true
+    of the package. On 2026-08-17 ``pyfs-manual register`` began writing
+    the same chapter files from ``pyflightstream.utils``, which sits
+    BELOW ``qa`` and could not import the helper, so it built the
+    mapping by concatenation and the whole class came back.
+
+    A guard scoped to one module could not see that, which is exactly
+    what happened: the old form of this test passed on the day the
+    second site was written. So what is asserted HERE is only the half
+    that is about this module, that it defines no renderer of its own,
+    and the package-wide rule is asserted where the renderer now lives.
     """
     import ast
     import inspect
 
+    from pyflightstream._yamlflow import flow_mapping, flow_scalar
     from pyflightstream.qa import compat
 
     tree = ast.parse(inspect.getsource(compat))
-    callers = []
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.FunctionDef):
-            continue
-        for inner in ast.walk(node):
-            if (
-                isinstance(inner, ast.Call)
-                and getattr(inner.func, "id", "") == "_flow_scalar"
-                and node.name != "_flow_mapping"
-            ):
-                callers.append(f"{node.name} line {inner.lineno}")
-    assert not callers, (
-        "_flow_scalar is called outside _flow_mapping, so a promoted value can again "
-        "be written by a site that skips it: " + "; ".join(callers)
-    )
-
-    inside = [
-        inner
+    defined = [
+        node.name
         for node in ast.walk(tree)
-        if isinstance(node, ast.FunctionDef) and node.name == "_flow_mapping"
-        for inner in ast.walk(node)
-        if isinstance(inner, ast.Call) and getattr(inner.func, "id", "") == "_flow_scalar"
+        if isinstance(node, ast.FunctionDef) and node.name in {"_flow_mapping", "_flow_scalar"}
     ]
-    assert inside, (
-        "_flow_mapping does not call _flow_scalar at all, so this guard would pass "
-        "vacuously on an emitter that escapes nothing"
+    assert not defined, (
+        "qa.compat defines its own flow-mapping renderer again, so the package has two "
+        "and they can disagree: " + ", ".join(defined)
     )
+    assert compat._flow_mapping is flow_mapping
+    assert compat._flow_scalar is flow_scalar

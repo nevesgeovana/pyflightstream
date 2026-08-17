@@ -248,20 +248,36 @@ def test_the_cleanliness_detector_can_actually_see_an_artifact():
     working directory is what keeps the tree clean, which is the reason
     the test above already states and this one contradicted.
     """
+    # THE WITNESS DIRECTORY IS `runs/` ITSELF AND THAT WAS WRONG TWICE
+    # OVER, on a machine that has actually run the solver. `mkdir(
+    # exist_ok=True)` followed by an unconditional `rmdir` DELETES a
+    # pre-existing `runs/` this test did not create, and where that
+    # directory holds a licensed run's raw output the `rmdir` raises
+    # `OSError: directory not empty` and names nothing useful. This
+    # session destroyed licensed probe and physics workdirs four times
+    # before noticing.
+    #
+    # So the witness is a name that cannot collide, and it is removed
+    # only if this test made it. `runs` stays in the detector's scope,
+    # which is what the assertion below actually checks.
+    witness_dir = REPO / "_guard_witness_runs"
+    assert not witness_dir.exists(), (
+        f"{witness_dir.name} exists before the test made it, so removing it would "
+        "delete something this test does not own"
+    )
     made = []
     try:
-        for name in ("_guard_witness.png",):
-            (REPO / name).write_bytes(b"")
-            made.append(REPO / name)
-        (REPO / "runs").mkdir(exist_ok=True)
-        made.append(REPO / "runs")
+        (REPO / "_guard_witness.png").write_bytes(b"")
+        made.append(REPO / "_guard_witness.png")
+        witness_dir.mkdir()
+        made.append(witness_dir)
         found = _root_artifacts()
         assert "_guard_witness.png" in found, found
-        assert "runs" in found, found
+        assert witness_dir.name in found, found
     finally:
         for path in made:
             if path.is_dir():
                 path.rmdir()
             elif path.exists():
                 path.unlink()
-    assert _root_artifacts() == []
+    assert witness_dir.name not in _root_artifacts()

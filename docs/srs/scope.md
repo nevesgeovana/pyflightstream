@@ -67,6 +67,40 @@ and are never silently dropped.
     parameter-table-versus-sample disagreement and the copied sample,
     neither of which reading one command at a time would have shown.
 
+    **PROPOSED CORRECTION, PENDING THE AUTHOR, NOT APPLIED (2026-08-17).**
+    The heading and the first sentence say this excludes NOTHING, and
+    that stopped being true on 2026-08-17 when FlightStream 26.123 was
+    registered with its edition SRC-751. That edition documents
+    `SET_OUTLET_TRAILING_EDGES`, a rename of `SET_OUTFLOW_TRAILING_EDGES`
+    made in place, and the database does not carry it. So a registered
+    edition documents a command the database lacks, which is the exact
+    state this non-requirement's reversal was written about: a caller
+    meets a refusal for a command their own manual documents.
+
+    The distinction that matters is between an EXCLUSION and a DEBT. No
+    family is excluded by decision any more, and that is what the
+    reversal settled. What exists now is one command owed an entry, from
+    an edition registered nine days after the sweep closed. The
+    difference is worth a sentence because "excludes nothing" reads as a
+    standing promise and the sweep was a dated measurement.
+
+    The sentence this lane believes it should have, offered rather than
+    applied:
+
+    > Every command a registered manual edition documents enters the
+    > database, chapter by chapter, and no family is excluded by
+    > decision. A newly registered edition may document a command not yet
+    > entered; that is a dated debt in the evidence queue and never an
+    > exclusion, and the emitter refuses such a command rather than
+    > guessing at it.
+
+    Why it is not taken here: the change alters what the non-requirement
+    PROMISES rather than correcting a fact inside it, and the heading
+    carries a dated parenthesis that would have to move with it. That is
+    hers. Until she rules, the debt is listed in the evidence queue on
+    the roadmap page, where a reader looking for what is owed will find
+    it.
+
     The wrapper chapter also cost the emitter one new capability, which
     is the kind of thing an excluded family hides: a keyword block whose
     leading argument sits on the command's own line. That is

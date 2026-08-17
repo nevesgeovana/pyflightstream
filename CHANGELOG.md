@@ -38,15 +38,52 @@ matrix could not have discriminated.
 
 New public names in `pyflightstream.qa`: `ProbeOutcome.REMOVED`,
 `unrecognised_commands`, `read_compat_reports`, `contradicting_evidence`,
-`Judgment` and `PROMOTABLE_OUTCOMES`. One new keyword argument:
-`reports_dir` on `apply_compat`.
+`Judgment`, `PROMOTABLE_OUTCOMES`, `compat_report_paths` and
+`refuse_existing_compat_report`. In `pyflightstream.qa.geometry`:
+`mean_edge_length`. One new keyword argument: `reports_dir` on
+`apply_compat`; two more on `wing_triangles` and `generate_wing_stl`,
+`translation_m` and `name`, both keyword-only.
 
 New public names in `pyflightstream.utils.manual`, the maintainer reading
-layer: `EditionDelta`, `documentation_delta`, `read_edition` and
-`insert_version_row`, which are what `pyfs-manual register` is built on.
-One new command-line surface: the `register` subcommand of `pyfs-manual`.
+layer: `EditionDelta`, `EditionVerdict`, `documentation_delta`,
+`read_edition` and `insert_version_row`, which are what `pyfs-manual
+register` is built on, plus `Reachability`, which was reachable as the
+return type of an exported function and was missing from the subpackage's
+own list. One new module, `pyflightstream.utils.database`, exporting
+`register_edition` and `Registration`: the registration transaction,
+which was written inside the argument parser and is now importable and
+testable. One new command-line surface: the `register` subcommand of
+`pyfs-manual`.
 
-Incompatible changes: none. Deprecations: none.
+**Incompatible changes: three, and two of them are quiet.**
+
+- `PhysicsCase.versions` is now `PhysicsCase.minimum_version`, and its
+  type changed from a tuple of canonical identifiers to `str | None`.
+  `PhysicsCase` is public API (`pyflightstream.qa.physics` is an affirmed
+  public module), so this is a break, and it is a LOUD one:
+  `PhysicsCase(versions=...)` is a `TypeError` and `case.versions` an
+  `AttributeError`. No shim: the deprecation regime binds from a stable
+  release and the ledger covers modules rather than fields, so a pre-1.0
+  minor may rename with this line.
+- `case_table()` now emits the key `minimum_version` where it emitted
+  `versions`. This is the quiet one and it is why the key moved rather
+  than keeping its name: the VALUE became a sentence when the field
+  became a minimum, so `if "26.123" in row["versions"]` stopped being a
+  membership test over identifiers and became a substring test over
+  English, answering False for 26.123 and True for 26.120. A missing key
+  raises; a changed meaning does not.
+- `run_physics` and `run_drift` now REFUSE a build on which any requested
+  case has no command evidence, where they used to run the supported
+  subset and report success. `pyfs-qa physics --fs-version 26.100` used
+  to run four cases and write a report; it now exits 2 and names the
+  runnable subset. Pass `cases=` (or `--cases`) to ask for a subset
+  deliberately.
+
+`wing_triangles` and `generate_wing_stl` also stopped accepting `half`
+and the new translation positionally in one call; `half` is unchanged and
+`translation_m` was never released under any other spelling.
+
+Deprecations: none.
 
 ### Added
 
@@ -125,24 +162,37 @@ Incompatible changes: none. Deprecations: none.
   rather than this build's: 261 have no probe specification at all, and
   23 ran without abort or logged error while no instrument can observe
   their effect.
-- **The boundary-layer improvement the vendor described is MEASURED, and
-  the documentation of neither edition shows it**
+- **A change in the regime the vendor described is MEASURED, and the
+  documentation of neither edition shows it**
   (`reports/RPT-027_boundary-layer-across-a-proximity-gap_2026-08-17.md`).
+  Read the wording: what was measured is the integrated viscous DRAG in
+  the configuration the vendor's caveat describes. That the mechanism is
+  the boundary-layer mapping he named is his explanation for why the drag
+  should move, and the report lists it as NOT established, because the
+  instrument that would show the mechanism itself opens a modal window.
   Two copies of one wing at two gap widths expressed as a ratio of the
   measured local face length, with `SOLVER_PROXIMAL_BOUNDARIES` on and
-  off, steady and unsteady, on both builds: sixteen cases.
+  off, steady and unsteady, on both builds: sixteen cases. The question
+  came from the vendor describing the change to the author directly, so
+  this is a measurement of something volunteered rather than a gap found
+  by audit.
 
   At two face lengths of separation the proximity setting changes the
   viscous drag by NOTHING, to every printed digit, on both builds and in
   both modes, which is the vendor's own caveat behaving as stated. At a
-  quarter of a face length it changes it by three quarters. And the two
-  builds differ only where that mapping engages: 26.123's total `CDo` is
-  32 percent lower at the narrow gap, steady and unsteady agreeing to two
-  decimal places, against a few tenths of a percent at the wide gap,
-  which is the same order as ordinary build-to-build movement.
+  quarter of a face length it changes it by 75 to 84 percent, depending
+  on the build and the mode. And the two builds differ far more where
+  that mapping engages than anywhere else measured: 26.123's total `CDo`
+  is 32 percent lower at the narrow gap, steady and unsteady agreeing to
+  two significant figures, against a few tenths of a percent at the wide
+  gap.
 
-  Read the limit with it: a lower viscous drag is a DIFFERENT answer, not
-  a better one, and nothing here judges which is right.
+  Read three limits with it. A lower viscous drag is a DIFFERENT answer,
+  not a better one, and nothing here judges which is right. Two gap
+  ratios were run, so the regime's boundary is bounded and not located.
+  And the wide-gap control is not the smallest movement between these
+  builds: the same day's drift run moved three viscous drag coefficients
+  by 1.8, 2.2 and 9.0 percent on cases with no gap in them at all.
 - **`EXPORT_BL_VELOCITY_PROFILE` cannot be used in an unattended run**,
   measured rather than inferred. It opens a modal window with a plot and
   a Done button, and script processing stops until somebody dismisses it,
@@ -150,8 +200,8 @@ Incompatible changes: none. Deprecations: none.
   behaviour and its status is unchanged: that is a fact about the
   interface rather than a refusal by the solver, and a status comes from
   a committed probe report.
-- `qa.geometry.mean_edge_length`, and an `offset_m` argument on
-  `wing_triangles` and `generate_wing_stl`. Two components at a
+- `qa.geometry.mean_edge_length`, and keyword-only `translation_m` and
+  `name` arguments on `wing_triangles` and `generate_wing_stl`. Two components at a
   controlled gap need the offset in the MESH: translating one with a
   solver command would put the transform under test as well.
 - **`pyfs-qa probe` refuses an existing report BEFORE it starts the

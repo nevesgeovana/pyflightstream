@@ -74,6 +74,7 @@ PUBLIC_MODULES = [
     "pyflightstream.testing",
     "pyflightstream.utils",
     "pyflightstream.utils.cli",
+    "pyflightstream.utils.database",
     "pyflightstream.utils.errors",
     "pyflightstream.utils.manual",
     "pyflightstream.versions",

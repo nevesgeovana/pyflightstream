@@ -410,9 +410,10 @@ text = script.render()                  # complete ASCII script
 \begin{lstlisting}
 script.emit("IMPRT", ...)
 # CommandNotInVersionError: IMPRT is not in the command database.
-# Every command any registered manual edition documents is
+# Nearly every command a registered manual edition documents is
 # recorded, so this is usually a spelling error or a command from a
-# build this install does not register.
+# build this install does not register; a small number an edition
+# documents are not entered yet.
 
 script.emit("SET_SIMULATION_LENGTH_UNITS", "PARSEC")
 # CommandArgumentError: names the argument, lists the allowed
@@ -1045,8 +1046,9 @@ samples = parse_residual_history(log_text)
 \begin{frame}{Hotfix inheritance}
   \begin{itemize}
     \item A hotfix build inherits the evidence record of its base release until probe evidence overrides it, WHEN the registry says it does. The last canonical digit does not decide that: \code{26.101} sits at a hotfix index behind \code{26.100} and is an independent vendor release, so it inherits nothing. Each build states \code{inherits\_base} in the registry and one that states nothing is refused.
-    \item \code{26.121} is no longer the hypothetical example: it started from every \code{26.120} record, and the licensed probe on that build then contradicted one of them. AIR\_ALTITUDE is {\color{statusred}broken} on 26.120 and {\color{statusblue}verified} on 26.121. The 2026-08-08 run then probed the two earlier builds for the first time and found the defect there as well, and the 2026-08-11 run on 26.122 found the altitude form working there too (\code{CMP-26122\_2026-08-11\_full}), so the two hotfixes are the builds it is measured to work on and the three base releases it has been probed on are the builds it is measured to fail on.
+    \item \code{26.121} is no longer the hypothetical example: it started from every \code{26.120} record, and the licensed probe on that build then contradicted one of them. AIR\_ALTITUDE is {\color{statusred}broken} on 26.120 and {\color{statusblue}verified} on 26.121. The 2026-08-08 run then probed the two earlier builds for the first time and found the defect there as well, and the 2026-08-11 run on 26.122 found the altitude form working there too (\code{CMP-26122\_2026-08-11\_full}), and the 2026-08-17 run on 26.123 found it working there too, so the hotfixes it has been probed on are the builds it is measured to work on and the three base releases it has been probed on are the builds it is measured to fail on. The matrix carries the list; a tally written here has gone stale on every registration.
       \item Read an inherited cell for what it is. The matrix marks every one with a \texttt{base} superscript and counts them in its \emph{Of which inherited} column, so a marked cell means the base release's evidence, with no probe on this build having run that command.
+    \item Inheritance is switched OFF in both directions at once, and only the first is obvious. A build inheriting nothing loses the base's \emph{verified} records, which is the cost everyone counts; it also loses the base's {\color{statusred}broken} ones. \code{SET\_MOTION\_START\_TIME} is broken on 26.101, 26.120 and 26.121 on those builds' own evidence, and on 26.123 it carries a \emph{documented} row from a reading with no probe, so the emitter allows it there. A command refused on four builds and emitted on the fifth is not a statement that the fifth fixed it.
   \end{itemize}
   \begin{block}{Why the identifiers carry the hotfix digit}
     Vendor hotfix builds can change solver behavior, and here the change was a silent numerical one: the same command and the same assertion, a density 43\% apart. NOT the same script, which is why this page names no cause: the probe harness moved between the two runs, so they are not a controlled comparison (RPT-014). What the hotfix digit buys is that the two builds keep separate records, so the disagreement is visible at all instead of one answer quietly standing for both.
@@ -1063,7 +1065,7 @@ samples = parse_residual_history(log_text)
     \toprule
     Finding & Builds & Practical rule \\
     \midrule
-    AIR\_ALTITUDE does not produce the altitude asked for & 26.100, 26.101, 26.120 & set the fluid state through FLUID\_PROPERTIES, or move to 26.121 or 26.122, where the same probe passes \\
+    AIR\_ALTITUDE does not produce the altitude asked for & 26.100, 26.101, 26.120 & set the fluid state through FLUID\_PROPERTIES, or move to a hotfix build where the same probe passes; the compatibility matrix names which \\
     SET\_MOTION\_START\_TIME aborts the script & 26.101, 26.120, 26.121, 26.122* & READ THE THIRD NOTE BELOW BEFORE ACTING ON THIS ROW \\
     NEW\_OFF\_BODY\_STREAMLINE aborts the script & 26.120, 26.121, 26.122, 26.123 & use probe lattices for off-body data \\
     SWEEPER\_REF\_VELOCITY\_SAME aborts the script & 26.121 & prefer one script per sweep point \\
@@ -1178,7 +1180,7 @@ pyfs-manual sweep        --editions MANIFEST [--by-section]  # every registered 
 pyfs-manual surface      --editions MANIFEST [--names]     # what changed between builds
 pyfs-manual coverage     --manual ... --source SRC-741 --chapter-pages 275-369
 pyfs-manual citations    --editions MANIFEST   # exits 1 if one does not hold
-pyfs-manual register     --editions MANIFEST --build 26.123   # carries a build forward
+pyfs-manual register  --editions MANIFEST --fs-version 26.123  # carries a build forward
 \end{lstlisting}
   \begin{itemize}
     \item The \code{pyfs-qa} tools (and \code{pyfs-fsi}) require a licensed machine and write dated report pairs (markdown plus YAML) under \code{reports/}; \code{pyfs-qa cases} runs nothing.

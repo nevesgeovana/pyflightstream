@@ -13,14 +13,24 @@ documents, or that a committed probe report measured the solver accepting
 with no script command cannot be emitted by the script builder, and
 no amount of library code changes that. Geometry preparation and
 meshing are the common case, and the picture there changed on
-2026-08-06 through 2026-08-08, when the sweep finished: EVERY command
-any registered manual edition documents is now in the database, so the
-CAD, CAD Create and Mesh Operations chapters are emittable in full, and
-the last of those is this page's own subject, everything that
-translates, rotates, scales, mirrors, copies, cuts, selects or deletes
-a surface between import and solver initialization. The mesh-wrapper
-chapter is in too, as of 2026-08-08, and SRS non-requirement NREQ-05
-now excludes nothing. What has NOT changed is the reason this page
+2026-08-06 through 2026-08-08, when the sweep finished: every command
+the eight editions registered at that date documented entered the
+database, so the CAD, CAD Create and Mesh Operations chapters are
+emittable in full, and the last of those is this page's own subject,
+everything that translates, rotates, scales, mirrors, copies, cuts,
+selects or deletes a surface between import and solver initialization.
+The mesh-wrapper chapter is in too, as of 2026-08-08.
+
+**Read the scope of that claim, because a ninth edition has arrived
+since.** It is a statement about the eight editions swept in August 2026
+and it is not a standing promise about every edition the vendor will
+ever publish. SRS non-requirement NREQ-05 excluded nothing at the close
+of that sweep; registering 26.123 on 2026-08-17 opened exactly one
+exception, `SET_OUTLET_TRAILING_EDGES`, which the SRC-751 edition
+documents and this database does not yet carry. It is a boundary-
+condition command rather than a mesh one, so this page's own subject is
+unaffected, and the debt is listed in the SRS evidence queue. What has
+NOT changed is the reason this page
 exists. A command being in the database means the script builder will
 emit and validate it; it does not mean the GUI-driven parts of geometry
 preparation have a scripted equivalent, and the pattern below is still

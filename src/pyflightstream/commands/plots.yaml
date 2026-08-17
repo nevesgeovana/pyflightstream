@@ -47,7 +47,7 @@ SET_PLOT_TYPE:
     "26.101": {status: documented, note: "SRC-725 p.360, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.364, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.367, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.367, unchanged from SRC-750 p.367"}
   notes: >
     Selects which plot the pane shows.
 
@@ -82,7 +82,7 @@ SAVE_PLOT_TO_FILE:
     "26.101": {status: documented, note: "SRC-725 p.360, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.364, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.367, same grammar as the 26.122 edition"}
+    "26.123": {status: documented, note: "SRC-751 p.367, unchanged from SRC-750 p.367"}
   notes: >
     Writes the plot currently shown to a text file, the path on the next
     line. It takes no plot type, so which plot is written depends on the

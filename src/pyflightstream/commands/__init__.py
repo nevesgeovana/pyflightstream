@@ -1109,12 +1109,21 @@ class VersionView:
         """Return the entry for ``name`` or explain why it is unavailable."""
         entry = self._registry.commands.get(name)
         if entry is None:
+            # "NEARLY every" and not "every", corrected 2026-08-17. The
+            # stronger sentence became false the moment SRC-751 was
+            # registered: that edition documents SET_OUTLET_TRAILING_EDGES
+            # and the database does not carry it, so a 26.123 user copying
+            # the name out of their own manual was told it was "usually a
+            # spelling error". That is the failure NREQ-05's reversal was
+            # written about, reinstated by a sentence nobody moved.
             raise CommandNotInVersionError(
-                f"{name} is not in the command database. Every command any "
+                f"{name} is not in the command database. Nearly every command a "
                 "registered manual edition documents is recorded, so this is "
                 "usually a spelling error or a command from a build this install "
-                "does not register. An entry rests on a manual page or on a "
-                "committed probe report; CONTRIBUTING says how to add one."
+                "does not register; a small number an edition documents are not "
+                "entered yet, and a name you read in your own manual may be one "
+                "of those. An entry rests on a manual page or on a committed "
+                "probe report; CONTRIBUTING says how to add one."
             )
         # evidence_in, not status_in: these refusals are read by a person
         # and this one asserted a fact about the requested build while

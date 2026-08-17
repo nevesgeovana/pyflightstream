@@ -12,10 +12,14 @@ documented in this build at all.
 
 That is answerable only by running the solver. This is that run.
 
-**It is answered: the change is real, it is confined to exactly the
-regime the vendor described, and it is present in both modes.** What this
-report does NOT say is that the new number is the right one; a different
-answer is not a better one, and that judgement is the author's.
+**It is answered: the change is real, it is far larger inside the regime
+the vendor described than anywhere else measured, and it is present in
+both modes.** Read "far larger" rather than "confined": two gap ratios
+were sampled, so where the regime ENDS is bounded and not located, and
+the same day's drift run moved three viscous drag coefficients on cases
+with no gap in them at all. What this report does NOT say is that the new
+number is the right one; a different answer is not a better one, and that
+judgement is the author's.
 
 ## What was measured
 
@@ -97,14 +101,17 @@ Total `CDo`, with proximity against without:
 
 At two face lengths of separation the proximity setting changes nothing
 at all, to every printed digit, on both builds and in both modes. At a
-quarter of a face length it changes the viscous drag by three quarters.
+quarter of a face length it changes the viscous drag by 75 to 84 percent,
+and the spread across those four rows is itself the result: the two
+26.123 rows sit at 82.6 and 83.7 percent against 74.8 and 76.4 on
+26.122.
 
 That is the vendor's stated condition, measured, and it is the reason the
 gap is expressed as a ratio. It also means the wide-gap cases are a
 CONTROL rather than a second data point: they are the same configuration
 with the mechanism switched off by geometry.
 
-## Result 2: the two builds differ only where the mapping engages
+## Result 2: the builds differ most, by far, where the mapping engages
 
 Total `CDo`, proximity ON:
 
@@ -116,20 +123,42 @@ Total `CDo`, proximity ON:
 | wide | unsteady | 0.0260066 | 0.0259023 | -0.40 % |
 
 Thirty-two percent where the boundary layer is mapped across the gap. A
-few tenths of a percent where it is not, which is the same order as the
-ordinary build-to-build movement the cross-version drift run of the same
-day measured on unrelated cases
+few tenths of a percent where it is not, which is at or below the level
+of ordinary build-to-build movement: of the thirty-eight metrics the
+cross-version drift run of the same day measured on unrelated cases,
+twenty-seven are byte-identical between the builds
 (`reports/physics/DRF-26122-26123_2026-08-17_full.yaml`).
 
-The steady and unsteady relative changes agree to two decimal places,
-which is what the vendor said about the modes.
+Do not read that as "the wide gap moves as much as everything else
+does". It does not, in either direction. The eleven metrics that DO move
+in that run include three viscous drag coefficients moving by 1.8, 2.2
+and 9.0 percent, on cases with no proximity gap anywhere in them, which
+is five to twenty-six times the wide-gap movement here. The builds
+therefore differ in viscous drag by MORE, relatively, on cases where this
+mapping cannot engage than in this experiment's own control. That is why
+the heading above says "most" and not "only", and it is stated here
+rather than left to the corroboration section, which is where this
+report first noticed it.
+
+The steady and unsteady relative changes agree to two significant
+figures, both rounding to -32 percent, which is what the vendor said
+about the modes. Not to two decimal places: -31.96 and -31.90 differ at
+the second decimal and at the first.
 
 ## What this establishes, and what it does not
 
-**Established.** A change exists between the two builds; it is confined
-to the configuration where proximity-based mapping across a gap is
-active; it is present in steady and unsteady alike; and it is invisible
-in the documentation of either edition.
+**Established.** A change exists between the two builds; it is far
+larger in the configuration where proximity-based mapping across a gap is
+active than anywhere else measured; it is present in steady and unsteady
+alike; and it is invisible in the documentation of either edition.
+
+**Not established: where the regime ENDS.** Two gap ratios were run, 0.25
+and 2.0 face lengths. What is measured is presence at 0.25 and absence to
+the printed digits at 2.0. Nothing between them was sampled, so the
+transition is BOUNDED and not located, and a reader should not come away
+believing this experiment found the boundary. Sixteen cases at two ratios
+is a coarse instrument by design: the question asked was whether the
+effect exists at all.
 
 **Not established, and deliberately.** Whether 0.0113 is more nearly
 correct than 0.0166 for this configuration. A lower viscous drag is a

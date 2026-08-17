@@ -16,7 +16,6 @@ older report can no longer revert a status a later run already moved.
 from __future__ import annotations
 
 import datetime
-import json
 import re
 from dataclasses import dataclass
 from importlib import resources
@@ -25,6 +24,7 @@ from typing import Any
 
 import yaml
 
+from pyflightstream._yamlflow import flow_mapping, flow_scalar
 from pyflightstream.commands import CommandEntry
 from pyflightstream.qa.errors import QaEvidenceError
 from pyflightstream.qa.probes import ProbeOutcome, ProbeRun
@@ -84,14 +84,34 @@ def refuse_existing_compat_report(*paths: Path) -> None:
     Raises
     ------
     FileExistsError
-        If any named path exists.
+        If any named path exists. The BUILTIN, deliberately, and not a
+        catalogued type: this preserves what :func:`write_compat_report`
+        has always raised, so ``except FileExistsError`` around a write
+        still catches it. That means it escapes ``except
+        QaEvidenceError``, so a caller that traps this module's own type
+        needs a second handler, and the CLI has one. It is named in
+        ``tests/test_exceptions_catalog.py``'s ratchet rather than left
+        unobserved: the FR-39 walk could not see it at all until
+        2026-08-17, because ``FileExistsError`` was not among the names
+        that walk looks for.
+
+    Notes
+    -----
+    The message names ``label``, this module's own parameter, and the
+    directory, and it deliberately does NOT name a date: the two escapes
+    a caller actually has are a different label and a different output
+    directory. It used to say "pick another date", which no
+    ``pyfs-qa probe`` user can do because that CLI has no date flag, and
+    "--label", which is a command line's spelling offered from inside a
+    library. ``_cmd_probe`` re-words it in its own vocabulary, which is
+    where a CLI's flags belong.
     """
     for path in paths:
         if path.exists():
             raise FileExistsError(
                 f"{path} already exists; compat reports are evidence and are never "
-                "overwritten. Remove the stale file deliberately or pick another date, "
-                "or pass a different --label."
+                "overwritten. Pass a different label, or write to another directory. "
+                "Removing a committed report is deliberate and is not the way past this."
             )
 
 
@@ -831,60 +851,18 @@ def _rewritten_flow_entry(
     return f'{indent}"{canonical}": {_flow_mapping(pairs)}'
 
 
-#: The one key whose value is written as a bare token rather than a
-#: quoted scalar. `status: documented` is the shape the whole database
-#: and every pinning test carry, and a status is a closed vocabulary, so
-#: it cannot pick up the boolean-coercion problem the quoting exists for.
-_RAW_KEYS = frozenset({"status"})
-
-
-def _flow_mapping(pairs: dict[str, object]) -> str:
-    """Render an ordered mapping as one YAML flow mapping.
-
-    THE ONE PLACE a promoted value is written, which is the point of it.
-    Escaping used to be a convention each call site could reach for or
-    not, and nothing observed whether it had: the `note` key was
-    interpolated between two literal quotes at both rendering sites for
-    four releases, so a probe detail carrying a backslash produced a
-    chapter YAML refuses, and a detail whose backslashes happened to
-    precede valid escapes wrote silently corrupted text
-    (`INC-20260811-1511-both`). Repairing the two sites left the class
-    open; there is now no site.
-
-    Parameters
-    ----------
-    pairs : dict
-        Keys in the order they are written. Values go through
-        :func:`_flow_scalar` unless the key is in :data:`_RAW_KEYS`.
-
-    Returns
-    -------
-    str
-        ``{key: value, ...}``, braces included.
-    """
-    rendered = ", ".join(
-        f"{key}: {value if key in _RAW_KEYS else _flow_scalar(value)}"
-        for key, value in pairs.items()
-    )
-    return "{" + rendered + "}"
-
-
-def _flow_scalar(value: object) -> str:
-    """Render one value inside a single-line YAML flow mapping.
-
-    Strings are quoted unconditionally rather than only where YAML would
-    require it. `status: documented` reads more naturally unquoted, and
-    deciding per value is how `OFF` or `NO` reaches the file as a boolean:
-    this database already lost an argument default that way, so the rule
-    here is the blunt one.
-    """
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    if isinstance(value, (int, float)) or value is None:
-        return json.dumps(value)
-    if isinstance(value, (list, dict)):
-        return json.dumps(value)
-    return json.dumps(str(value))
+#: The renderer of a promoted value, which THIS MODULE NO LONGER OWNS.
+#: It lived here from the repair of `INC-20260811-1511-both` until
+#: 2026-08-17, and its docstring closed with "there is now no site",
+#: which was true of this module and became untrue of the package the day
+#: `pyfs-manual register` began writing the same chapter files from
+#: :mod:`pyflightstream.utils`. That subpackage sits BELOW this one and
+#: cannot import from here, so it built the mapping by concatenation and
+#: the class came back. The renderer moved to
+#: :mod:`pyflightstream._yamlflow`, below every layer, where both writers
+#: can reach it. The alias is kept so this module reads as it did.
+_flow_mapping = flow_mapping
+_flow_scalar = flow_scalar
 
 
 def _rewrite_version_line(

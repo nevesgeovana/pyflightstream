@@ -504,6 +504,87 @@ def _evidence_backed_count(registry):
     )
 
 
+#: The one committed compat report whose body carries no date, exempted
+#: BY NAME and with an erratum beside it rather than by relaxing the rule.
+#:
+#: It is the report that promoted 85 statuses on 26.123, and it was
+#: written by an uncommitted intermediate state of `write_compat_report`
+#: in which the date defaulting had moved into `compat_report_paths` and
+#: not yet been restored beside it: the stem got a date and the body did
+#: not. Both committed files reproduce byte for byte from deleting that
+#: one line, which is how the cause was established rather than guessed
+#: (INC-20260817-2210-pyflightstream).
+#:
+#: WHY IT IS EXEMPTED AND NOT REPAIRED. A committed compat report states
+#: what ran on the day it was written and this lane may not edit one. The
+#: repair that remains, re-emitting the same run under a new label so the
+#: 85 rows cite a dated report, creates a SECOND committed report of one
+#: licensed run and is the author's call; the erratum beside the file
+#: states both options and the measurement behind each.
+#:
+#: A RATCHET, not a switch. The list may not grow: a second entry is a
+#: second undated report, which after the guard below cannot be written
+#: by any code path, so it would mean the guard was bypassed.
+_UNDATED_REPORT_ERRATUM = {"CMP-26123_2026-08-17_full-sim.yaml"}
+
+
+def test_every_compat_report_carries_the_date_its_own_name_claims() -> None:
+    """One fact, written in two places, and nothing compared them.
+
+    The date of a compat report lives in its FILENAME and in its BODY,
+    and until 2026-08-17 no test read the body's copy at all: a grep for
+    a `date` key across the whole suite returned nothing. The sibling
+    guard above compares the BUILD in the stem against the build in the
+    body and stops there, one field short.
+
+    What that cost is not cosmetic. `Judgment.date` reads a missing date
+    as the empty string, `contradicting_evidence` orders supersession on
+    it, and an empty date sorts oldest, so every row citing an undated
+    report is superseded by evidence OLDER than itself. The published
+    Markdown renders `(None)` on its first line.
+
+    The walk is over EVERY committed compat report and not only the cited
+    ones, because an uncited report today is a cited one after the next
+    promotion, and the reach floor below stops it passing on an empty
+    directory.
+    """
+    reports = sorted((REPO_ROOT / "reports" / "compat").glob("CMP-*.yaml"))
+    stem_date = re.compile(r"^CMP-\d+_(\d{4}-\d{2}-\d{2})(?:_.+)?$")
+    offenders = []
+    for path in reports:
+        if path.name in _UNDATED_REPORT_ERRATUM:
+            erratum = sorted(path.parent.glob(f"{path.stem}_erratum_*.md"))
+            assert erratum, (
+                f"{path.name} is exempted from the date rule and carries no erratum "
+                "beside it, so the exemption records nothing a reader can check"
+            )
+            continue
+        match = stem_date.match(path.stem)
+        if match is None:
+            offenders.append(f"{path.name}: the stem carries no ISO date")
+            continue
+        document = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        body = document.get("date")
+        stamped = match.group(1)
+        if not body:
+            offenders.append(f"{path.name}: body date is {body!r}, and the stem says {stamped}")
+            continue
+        if str(body) != stamped:
+            offenders.append(f"{path.name}: body date {body} against stem date {stamped}")
+            continue
+        markdown = path.with_suffix(".md")
+        if markdown.is_file() and stamped not in markdown.read_text(encoding="utf-8"):
+            offenders.append(f"{markdown.name}: the rendered header does not carry the date")
+    assert not offenders, (
+        "a compat report disagrees with its own name about when it was written, and a "
+        "row citing it is then superseded by older evidence: " + "; ".join(offenders)
+    )
+    assert len(reports) > 20, (
+        f"the walk reached {len(reports)} compat reports, which is too few to be the "
+        "committed population; an empty scope reads as a clean one"
+    )
+
+
 def test_every_citation_is_a_compat_report_for_its_own_build() -> None:
     """A citation must come from the sanctioned writer and name this build.
 

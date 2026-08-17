@@ -92,12 +92,13 @@ CONVENTIONS: tuple[tuple[str, str], ...] = (
         "26.12 and 26.1 name more than one, each refused with every "
         "candidate and its vendor build number named rather than "
         "resolving to one. The members are not written out here, and that "
-        "is deliberate: a hand-written list of them has gone stale on "
-        "every registration since, so the refusal itself is the list. "
-        "Reuse is not descent either: one of those two families is a "
-        "release with its hotfixes and the other is separate releases "
-        "that happened to share a name, which the registry states per "
-        "build rather than leaving to be read off the identifier.",
+        "is deliberate: a hand-written list of them went stale on the two "
+        "registrations that followed it, so the refusal itself is the "
+        "list. Reuse is not descent either, and which family is which "
+        "matters: 26.12 is a release with its hotfixes, while 26.1 is two "
+        "separate releases that happened to share a name. The registry "
+        "states descent per build rather than leaving it to be read off "
+        "the identifier.",
     ),
     (
         "Indices state their base",

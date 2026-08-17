@@ -16,6 +16,7 @@ case id, without running anything.
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from pathlib import Path
 
@@ -264,7 +265,16 @@ def main(argv: list[str] | None = None) -> int:
 
 def _cmd_cases(args: argparse.Namespace) -> int:
     rows = case_table(include_smi=args.include_smi)
-    header = {"case_id": "CASE", "title": "TITLE", "metrics": "METRICS", "versions": "VERSIONS"}
+    # The COLUMN HEADING is the renderer's choice and the KEY is the
+    # data's; they were the same word and the value stopped being a
+    # list of versions, so the key moved and the heading follows the
+    # meaning rather than the old name.
+    header = {
+        "case_id": "CASE",
+        "title": "TITLE",
+        "metrics": "METRICS",
+        "minimum_version": "MINIMUM VERSION",
+    }
     widths = {key: max(len(header[key]), *(len(str(row[key])) for row in rows)) for key in header}
     line = "  ".join(header[key].ljust(widths[key]) for key in header)
     print(line.rstrip())
@@ -328,7 +338,14 @@ def _cmd_probe(args: argparse.Namespace) -> int:
             *compat_report_paths(canonical, args.report_dir, label=args.label)
         )
     except FileExistsError as error:
-        print(f"nothing run: {error}", file=sys.stderr)
+        # RE-WORDED IN THIS CLI'S FLAGS. The library names its own
+        # parameter, which is right for a Python caller; here the reader
+        # has a command line in front of them and the two escapes have
+        # names they can type.
+        print(
+            f"nothing run: {error} From this command line those are --label and --report-dir.",
+            file=sys.stderr,
+        )
         return 2
 
     try:
@@ -359,6 +376,23 @@ def _cmd_probe(args: argparse.Namespace) -> int:
     return 0
 
 
+def _in_command_line_words(message: str) -> str:
+    """Re-word a library refusal in this CLI's own vocabulary.
+
+    The library names its OWN parameter, which is right: a message from
+    ``run_physics`` telling a Python caller to pass ``--cases`` names a
+    flag they cannot type, and this repository has already fixed that
+    class once in the other direction. Where a CLI delivers the same
+    message it owns the translation, including the fact that its own
+    flag is comma separated, which the library has no reason to know.
+    """
+    match = re.search(r"cases=\[([^\]]*)\]", message)
+    if match is None:
+        return message
+    names = [name.strip().strip("'\"") for name in match.group(1).split(",") if name.strip()]
+    return message[: match.start()] + "--cases " + ",".join(names)
+
+
 def _cmd_physics(args: argparse.Namespace) -> int:
     canonical = _resolve_or_report(args.fs_version)
     if canonical is None:
@@ -376,7 +410,7 @@ def _cmd_physics(args: argparse.Namespace) -> int:
             smi_root=args.smi_root,
         )
     except PhysicsEnvironmentError as error:
-        print(f"physics run aborted: {error}", file=sys.stderr)
+        print(f"physics run aborted: {_in_command_line_words(str(error))}", file=sys.stderr)
         return 2
     yaml_path, md_path = write_physics_report(run, args.report_dir, label=args.label)
     counts = run.verdict_counts()
@@ -442,7 +476,7 @@ def _cmd_drift(args: argparse.Namespace) -> int:
             smi_root=args.smi_root,
         )
     except PhysicsEnvironmentError as error:
-        print(f"drift run aborted: {error}", file=sys.stderr)
+        print(f"drift run aborted: {_in_command_line_words(str(error))}", file=sys.stderr)
         return 2
     yaml_path, md_path = write_drift_report(run, args.report_dir, label=args.label)
     counts = run.verdict_counts()

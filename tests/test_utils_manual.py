@@ -21,6 +21,7 @@ import pytest
 from pyflightstream.utils import (
     TYPE_RULES,
     Edition,
+    EditionVerdict,
     ManualCommand,
     coverage_against,
     documentation_delta,
@@ -207,14 +208,28 @@ def test_coverage_carries_the_detail_of_what_is_absent():
     assert detail.inline_args == ("INDEX", "UNITS", "BLADES")
 
 
-def test_the_module_imports_nothing_from_the_package():
+def test_the_module_reaches_up_to_nothing():
     """It sits at the bottom of the layer rule, so it may not reach up.
 
     Read from the source rather than from the import graph: a deferred
     import inside a function would not appear in ``sys.modules`` and is
-    exactly the shape this assertion has to catch. The one permitted
-    mention is the extras refusal, which is imported inside the pdf
-    reader precisely so the parsing half needs nothing.
+    exactly the shape this assertion has to catch.
+
+    THE LIST IS EXACT, and it earned that on 2026-08-17: it refused a
+    new import the same hour it was added, which is what sent the
+    author to state why the import is permitted instead of quietly
+    widening the module's reach. Three are allowed and each for its own
+    reason.
+
+    ``utils.errors`` is this subpackage's own exception module.
+    ``extras`` is the extras refusal, imported INSIDE the pdf reader
+    precisely so the parsing half needs nothing. ``_yamlflow`` is the
+    flow-mapping renderer, which like ``_errors`` sits BELOW every
+    layer and imports nothing from this package, so importing it is not
+    reaching up; it is reaching down, which the layer rule has never
+    forbidden. It is imported rather than duplicated because a second
+    renderer is what produced ``INC-20260811-1511-both`` and then
+    reproduced it.
     """
     import pathlib
 
@@ -227,6 +242,7 @@ def test_the_module_imports_nothing_from_the_package():
         if "import pyflightstream" in line or "from pyflightstream" in line
     ]
     assert reaching == [
+        "from pyflightstream._yamlflow import flow_mapping",
         "from pyflightstream.utils.errors import ManualDraftError",
         "from pyflightstream.extras import missing_extra",
     ], reaching
@@ -2153,36 +2169,88 @@ def test_a_command_with_no_sample_does_not_borrow_the_next_one_s():
     assert parsed["NEXT_COMMAND"].sample == ("NEXT_COMMAND 3.0",)
 
 
-def test_documentation_delta_separates_the_three_states():
-    """Unchanged, changed and absent are three different facts.
-
-    `absent` is a statement about a DOCUMENT and never about the solver:
-    an edition that stops printing a command has not measured anything.
-    """
+def _delta_fixture():
+    """Two editions covering every state a recorded command can be in."""
     older = {
         "KEPT": ManualCommand(name="KEPT", page=10, inline_args=("A",), sample=("KEPT 1",)),
         "EDITED": ManualCommand(name="EDITED", page=11, inline_args=("B",), sample=("EDITED 1",)),
+        "ARGS_ONLY": ManualCommand(name="ARGS_ONLY", page=13, inline_args=("X",)),
+        "TABLE_ONLY": ManualCommand(name="TABLE_ONLY", page=14, parameters={"P": "was"}),
         "DROPPED": ManualCommand(name="DROPPED", page=12),
     }
     newer = {
         # Same record, different page: a reflow, not a change.
         "KEPT": ManualCommand(name="KEPT", page=9, inline_args=("A",), sample=("KEPT 1",)),
         "EDITED": ManualCommand(name="EDITED", page=11, inline_args=("B",), sample=("EDITED 1 2",)),
+        "ARGS_ONLY": ManualCommand(name="ARGS_ONLY", page=13, inline_args=("X", "Y")),
+        "TABLE_ONLY": ManualCommand(name="TABLE_ONLY", page=14, parameters={"P": "is now"}),
+        "ARRIVED": ManualCommand(name="ARRIVED", page=15, inline_args=("Z",)),
     }
-    deltas = {
-        d.name: d for d in documentation_delta(older, newer, recorded=["KEPT", "EDITED", "DROPPED"])
-    }
+    names = ["KEPT", "EDITED", "ARGS_ONLY", "TABLE_ONLY", "DROPPED", "ARRIVED", "NEITHER"]
+    return {d.name: d for d in documentation_delta(older, newer, recorded=names)}
 
-    assert deltas["KEPT"].verdict == "unchanged"
+
+def test_documentation_delta_separates_the_five_states():
+    """Five states, and the last two used to share one verdict.
+
+    ``dropped`` and ``absent`` were one value until 2026-08-17 and the
+    caller recovered the difference by re-testing membership in the
+    predecessor's parse, which it could do only because it still held
+    that mapping. They are different facts: a command the predecessor
+    documented and this edition does not is the vendor breaking a user's
+    script silently, and a command NEITHER documents says nothing at all.
+    Both are statements about a DOCUMENT and never about the solver.
+
+    ``arrived`` was reported as a CHANGE with ``differs_in=("new",)`` and
+    no previous page, which rendered in the register report as the page
+    move ``p.None -> p.15`` that never happened.
+    """
+    deltas = _delta_fixture()
+
+    assert deltas["KEPT"].verdict is EditionVerdict.UNCHANGED
     assert deltas["KEPT"].repaginated, (
         "a command that moved page without changing is what a page-membership rule "
         "would have dropped, so the caller has to be able to see it"
     )
-    assert deltas["EDITED"].verdict == "changed"
-    assert deltas["EDITED"].differs_in == ("sample",)
+    assert deltas["EDITED"].verdict is EditionVerdict.CHANGED
     assert not deltas["EDITED"].repaginated
-    assert deltas["DROPPED"].verdict == "absent"
+
+    assert deltas["DROPPED"].verdict is EditionVerdict.DROPPED
     assert deltas["DROPPED"].page is None
+    assert deltas["DROPPED"].previous_page == 12, (
+        "a dropped command must carry the page it WAS on, since that is the only "
+        "citation a person can go and read to judge the removal"
+    )
+
+    assert deltas["ARRIVED"].verdict is EditionVerdict.ARRIVED
+    assert deltas["ARRIVED"].page == 15
+    assert deltas["ARRIVED"].previous_page is None
+    assert deltas["ARRIVED"].differs_in == (), (
+        "an arrival differs in nothing, it is new; reporting a field made the CLI "
+        "print a page move from None"
+    )
+
+    assert deltas["NEITHER"].verdict is EditionVerdict.ABSENT
+    assert deltas["NEITHER"].page is None
+    assert deltas["NEITHER"].previous_page is None
+
+
+def test_documentation_delta_compares_all_three_fields():
+    """Every field the comparison claims to read is measured here.
+
+    Until 2026-08-17 the fixture differed in ``sample`` alone, so a
+    comparison blind to the argument list or to the parameter table
+    passed tier 1 while writing ``documented`` rows for commands the
+    vendor had CHANGED. That is fabricated evidence, which invariant 3
+    exists to prevent, and the only thing covering the other two arms
+    was a battery that needs the licensed manuals and cannot run in CI.
+    """
+    deltas = _delta_fixture()
+    assert deltas["EDITED"].differs_in == ("sample",)
+    assert deltas["ARGS_ONLY"].differs_in == ("args",)
+    assert deltas["TABLE_ONLY"].differs_in == ("parameters",)
+    for name in ("EDITED", "ARGS_ONLY", "TABLE_ONLY"):
+        assert deltas[name].verdict is EditionVerdict.CHANGED, name
 
 
 CHAPTER = """FIRST:
@@ -2210,9 +2278,18 @@ def test_insert_version_row_adds_one_line_and_moves_nothing_else():
     before = yaml.safe_load(CHAPTER)
     for command in ("FIRST", "SECOND"):
         after = yaml.safe_load(
-            insert_version_row(CHAPTER, command, "26.123", "{status: documented}")
+            insert_version_row(
+                CHAPTER,
+                command=command,
+                canonical="26.123",
+                status="documented",
+                note="SRC-751 p.1, unchanged from SRC-750 p.1",
+            )
         )
-        assert after[command]["versions"]["26.123"] == {"status": "documented"}
+        assert after[command]["versions"]["26.123"] == {
+            "status": "documented",
+            "note": "SRC-751 p.1, unchanged from SRC-750 p.1",
+        }
         assert {k: v for k, v in after[command].items() if k != "versions"} == {
             k: v for k, v in before[command].items() if k != "versions"
         }
@@ -2231,7 +2308,9 @@ def test_insert_version_row_keeps_the_file_s_line_endings():
     in this repository is CRLF on disk.
     """
     crlf = CHAPTER.replace("\n", "\r\n")
-    out = insert_version_row(crlf, "FIRST", "26.123", "{status: documented}")
+    out = insert_version_row(
+        crlf, command="FIRST", canonical="26.123", status="documented", note="n"
+    )
     assert out.count("\r\n") == crlf.count("\r\n") + 1, (
         "the CRLF count did not rise by exactly the one inserted line, so the "
         "function rewrote line endings it does not own"
@@ -2249,20 +2328,38 @@ def test_insert_version_row_refuses_a_build_it_already_records():
     exists to prevent.
     """
     with pytest.raises(ManualDraftError, match="already records"):
-        insert_version_row(CHAPTER, "FIRST", "26.120", "{status: documented}")
+        insert_version_row(
+            CHAPTER, command="FIRST", canonical="26.120", status="documented", note="n"
+        )
     with pytest.raises(ManualDraftError, match="already records"):
-        insert_version_row(CHAPTER, "SECOND", "26.122", "{status: documented}")
+        insert_version_row(
+            CHAPTER, command="SECOND", canonical="26.122", status="documented", note="n"
+        )
 
     commented = CHAPTER.replace(
         '    "26.120": {status: documented}',
         '# a comment at column zero, which is legal yaml\n    "26.120": {status: documented}',
     )
     with pytest.raises(ManualDraftError, match="already records"):
-        insert_version_row(commented, "FIRST", "26.120", "{status: documented}")
+        insert_version_row(
+            commented, command="FIRST", canonical="26.120", status="documented", note="n"
+        )
 
 
 def test_insert_version_row_refuses_what_it_cannot_find():
     with pytest.raises(ManualDraftError, match="not an entry of this file"):
-        insert_version_row(CHAPTER, "ABSENT_COMMAND", "26.123", "{status: documented}")
+        insert_version_row(
+            CHAPTER,
+            command="ABSENT_COMMAND",
+            canonical="26.123",
+            status="documented",
+            note="n",
+        )
     with pytest.raises(ManualDraftError, match="no versions block"):
-        insert_version_row("LONELY:\n  layout: bare\n", "LONELY", "26.123", "{status: documented}")
+        insert_version_row(
+            "LONELY:\n  layout: bare\n",
+            command="LONELY",
+            canonical="26.123",
+            status="documented",
+            note="n",
+        )

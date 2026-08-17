@@ -1,5 +1,7 @@
 """Tier 1: synthetic NACA wing generator for the physics cases."""
 
+import math
+
 import numpy as np
 import pytest
 
@@ -139,7 +141,7 @@ def test_a_wing_can_be_generated_at_an_offset_without_moving_its_shape():
 
     spec = WingSpec()
     at_origin = wing_triangles(spec)
-    lifted = wing_triangles(spec, offset_m=(0.0, 0.0, 0.5))
+    lifted = wing_triangles(spec, translation_m=(0.0, 0.0, 0.5))
 
     assert lifted.shape == at_origin.shape
     assert np.allclose(lifted - at_origin, np.array([0.0, 0.0, 0.5])), (
@@ -163,6 +165,26 @@ def test_the_local_face_length_is_measured_from_the_mesh_and_not_assumed():
     """
     from pyflightstream.qa.geometry import WingSpec, mean_edge_length, wing_triangles
 
+    # THE VALUE IS PINNED ON A FIXTURE WHOSE EDGES ARE ARITHMETIC, and
+    # that is the arm this test did not have. It asserted only a range
+    # and monotonicity, so dropping the wrap-around edge, which measures
+    # 2 of every 3 edges instead of 3, passed both. This number is the
+    # DENOMINATOR of the gap ratio the whole proximity study rests on, so
+    # a systematically short face length silently rescales the result.
+    # A UNIT RIGHT TRIANGLE, and NOT a 3-4-5 one. Its edges are 1,
+    # sqrt(2) and 1; the closing edge from the last vertex back to the
+    # first is the one a naive np.diff drops, and dropping it here gives
+    # (1 + sqrt(2)) / 2 = 1.207 against the true (2 + sqrt(2)) / 3 =
+    # 1.138. On a 3-4-5 triangle those two are BOTH exactly 4, so the
+    # obvious fixture would have pinned the value and still passed under
+    # the sabotage, which is how a test can be wrong while looking
+    # stricter than the one it replaced.
+    right = np.array([[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]])
+    expected = (2.0 + math.sqrt(2.0)) / 3.0
+    assert mean_edge_length(right) == pytest.approx(expected)
+    two = np.concatenate([right, right + np.array([10.0, 0.0, 0.0])])
+    assert mean_edge_length(two) == pytest.approx(expected), "a translated copy changed the mean"
+
     spec = WingSpec()
     triangles = wing_triangles(spec)
     length = mean_edge_length(triangles)
@@ -173,3 +195,41 @@ def test_the_local_face_length_is_measured_from_the_mesh_and_not_assumed():
     # makes this a measurement rather than a constant.
     finer = wing_triangles(WingSpec(n_chord=spec.n_chord * 2, n_span=spec.n_span * 2))
     assert mean_edge_length(finer) < length
+
+
+def test_the_written_stl_carries_the_offset_and_a_name_of_its_own(tmp_path):
+    """The function the study actually calls, and the collision that cost it.
+
+    ``wing_triangles`` was tested and ``generate_wing_stl`` was not, so
+    dropping the offset in the pass-through left both components of the
+    proximity study on top of each other with the suite green. And the
+    solid NAME was derived from the aerofoil and the half flag alone, so
+    two translated copies of one wing were written under one name: on
+    2026-08-17 that made the loads parser refuse all sixteen exports of
+    a licensed run.
+    """
+    from pyflightstream.qa.geometry import WingSpec, generate_wing_stl
+
+    spec = WingSpec()
+    lower = generate_wing_stl(spec, tmp_path / "lower.stl", name="lower")
+    upper = generate_wing_stl(
+        spec, tmp_path / "upper.stl", translation_m=(0.0, 0.0, 0.5), name="upper"
+    )
+
+    def z_values(path):
+        return [
+            float(line.split()[3])
+            for line in path.read_text(encoding="utf-8").splitlines()
+            if line.strip().startswith("vertex")
+        ]
+
+    low, high = z_values(lower), z_values(upper)
+    assert len(low) == len(high)
+    assert max(low) < min(high), "the two components overlap, so the offset never arrived"
+    assert np.allclose(np.array(high) - np.array(low), 0.5)
+
+    names = {path.read_text(encoding="utf-8").splitlines()[0].split()[1] for path in (lower, upper)}
+    assert names == {"lower", "upper"}, (
+        "two components of one study wrote the same solid name, which is what made a "
+        "parser refuse every export of a licensed run"
+    )

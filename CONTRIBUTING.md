@@ -148,8 +148,9 @@ specifications emit an argument-bearing target line, a figure that
 reached three committed artifacts in three readings before it was
 derived; a tier 1 test pins its output.
 
-`pyfs-manual register --editions <manifest> --build <label>` is the
-sixth subcommand and the only one that writes into the command database.
+`pyfs-manual register --editions <manifest> --fs-version <canonical>` is
+the sixth subcommand and the only one that writes into the command
+database.
 It carries a build's documentation forward: for every command the new
 edition describes exactly as its predecessor did, it writes a
 `documented` row citing the new edition at the page it was found on. The
@@ -159,6 +160,30 @@ changing a word. Anything described DIFFERENTLY is reported and never
 written, which is the line between carrying a reading forward and
 inventing one. Dry run by default; `--write` writes, and
 `--commands-dir` points it at a copy to rehearse against first.
+
+The build must be BOTH a row of the manifest and a registered build.
+The manifest deliberately does not resolve its labels, so an
+unregistered build can be swept before it is added; writing is the one
+thing that needs the stricter rule, since a row is keyed by the
+canonical identifier. The transaction itself is
+`pyflightstream.utils.database.register_edition`, not the argument
+parser: it validates every chapter it would produce against the command
+schema before a byte reaches the disk, exactly as `apply_compat` does,
+and it is importable so it can be tested. Re-running it is a no-op that
+says so rather than a refusal.
+
+The QA geometry helpers are the maintainer-facing half of
+`pyflightstream.qa.geometry`: `mean_edge_length` measures a mesh's local
+face size, and the keyword-only `translation_m` and `name` on
+`wing_triangles` and `generate_wing_stl` place and label a second copy
+of a shape. They exist so a gap between two components can be expressed
+as a RATIO of the local face length, which is the form the vendor's
+caveat about proximity-based boundary-layer mapping is stated in. The
+worked example is in `mean_edge_length`'s own docstring and is executed
+by the docs run. Pass `name` whenever you write two copies of one shape:
+the default solid label is derived from the aerofoil alone, so two
+translated copies collide, and that made the loads parser refuse all
+sixteen exports of a licensed run on 2026-08-17.
 
 `scripts/gen_absent_commands.py <build>` writes the list of commands a
 registered build cannot emit, into `tests/goldens/absent_on_<build>.txt`,
@@ -174,6 +199,30 @@ sentences that enumerated the builds sharing a vendor name before
 batteries it EDITS TRACKED FILES and restores them; unlike them it
 checks a sha256 either side of every mutant, so a run that leaves the
 tree changed fails rather than being noticed later.
+
+**If you write one of these, do not anchor it on `git show HEAD:<path>`.**
+That battery did, and it broke the day its own fix was committed: the
+HEAD blob is the pre-fix text only while the fix is uncommitted, and
+afterwards five of its six mutants wrote the file back exactly as it
+already was, mutated nothing, and reported SURVIVED. It failed loudly,
+which is the honest direction, but it failed reading as though the guard
+had missed five real defects. Carry the pre-fix text as a LITERAL and
+assert the live anchor is present and unique before replacing it; a
+commit pin only moves the trap to the next rebase. And translate line
+endings onto the target: two files here are CRLF on disk, and a
+line-feed anchor silently matches nothing in them.
+
+Three more batteries follow that shape.
+`scripts/prove_flow_mapping_guard.py` covers the rule that a YAML flow
+mapping is rendered in exactly one place in the package, in both
+spellings a Python source can write one, plus the parameter that used to
+let a caller hand in a pre-rendered row.
+`scripts/prove_report_date_guards.py` covers the rule that a compat
+report's stem and body agree about its date, and its cross check shows
+why that guard has two arms rather than one.
+`scripts/prove_geometry_guards.py` covers the mesh face-length
+measurement and the translated STL, both of which had tests that
+survived sabotage before it was written.
 
 The manifest names
 paths of licensed manuals and is never committed (invariant 1);

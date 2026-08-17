@@ -1429,15 +1429,25 @@ def case_table(include_smi: bool = False) -> list[dict[str, str | int]]:
     list of dict
         One mapping per registered case, in registry order, keyed
         ``case_id`` (the matrix line id), ``title``, ``metrics`` (how
-        many metrics the case declares), and ``versions`` (the version
-        gate: ``"all registered"`` when the case's command set has
-        evidence everywhere, else the minimum build and after).
+        many metrics the case declares), and ``minimum_version`` (the
+        version gate: ``"all registered"`` when the case's command set
+        has evidence everywhere, else the minimum build and after).
 
-        The gate USED to render as a list of canonical identifiers, and
-        it renders as a minimum now for the same reason the field became
-        one: a list here is a list somebody has to extend by hand, and a
-        reader comparing it against their own build learns nothing about
-        a build registered after the list was written.
+        THE KEY WAS ``versions`` AND ITS VALUE WAS A LIST OF CANONICAL
+        IDENTIFIERS, and the rename is the point rather than tidiness.
+        The value became a sentence when the field behind it became a
+        minimum, and a key that keeps its name while its value stops
+        being a list is the one break in that change that a caller
+        cannot see: ``if "26.123" in row["versions"]`` was a membership
+        test over identifiers and became a SUBSTRING test over English,
+        which answers False for 26.123 and True for 26.120, silently and
+        differently per build. The missing key is the loud break, which
+        is what a break should be.
+
+        The gate renders as a minimum for the same reason the field
+        became one: a list here is a list somebody has to extend by
+        hand, and a reader comparing it against their own build learns
+        nothing about a build registered after the list was written.
     """
     rows: list[dict[str, str | int]] = []
     for case in registered_cases(include_smi=include_smi).values():
@@ -1446,7 +1456,7 @@ def case_table(include_smi: bool = False) -> list[dict[str, str | int]]:
                 "case_id": case.case_id,
                 "title": case.title,
                 "metrics": len(case.metric_specs),
-                "versions": (
+                "minimum_version": (
                     "all registered"
                     if case.minimum_version is None
                     else f"{case.minimum_version} and after"
@@ -1529,12 +1539,22 @@ def run_physics(
             f"{case_id} needs {registry[case_id].minimum_version} or later"
             for case_id in unsupported
         )
+        # THE RUNNABLE SET IS NAMED, and it is named in the spelling of
+        # THIS function's own parameter rather than of a command line.
+        # This repository has already ruled on that class in the other
+        # direction (`utils/cli.py`, where `write_chapter`'s message
+        # named the Python keyword `write=True` at a command-line user);
+        # a library message naming `--cases` is the same defect
+        # mirrored, and `run_drift` carries it to a second CLI. The CLI
+        # re-words it, which is where a CLI's own vocabulary belongs.
+        runnable = [case_id for case_id in sorted(registry) if case_id not in unsupported]
         raise PhysicsEnvironmentError(
             f"case(s) {', '.join(unsupported)} have no command evidence for "
             f"FlightStream {canonical}: {detail}. The suite REFUSES rather than "
             "running the rest, because a run that measured some of the matrix and "
-            "reported success is a record saying the build was validated. Name the "
-            "cases you do want with --cases to run a subset deliberately"
+            "reported success is a record saying the build was validated. To run a "
+            "subset deliberately, name it: "
+            f"cases={runnable!r}"
         )
     try:
         executor = LocalExecutor(fs_exe)

@@ -13,7 +13,24 @@ list, each command's page and signature, and the difference against the
 database.
 
 WHAT THIS IS NOT FOR, and the distinction is the whole design. It does
-not write database entries. Measured on 2026-08-04 against the 147
+not write database ENTRIES, and read that word precisely, because since
+2026-08-17 the module does write into chapter files: `insert_version_row`
+splices one single-line VERSION ROW into an entry that already exists,
+and `pyfs-manual register` wrote 369 of them in one pass.
+
+The line is between an entry and a row on it. An entry is grammar, and
+grammar is what the emitter validates other people's scripts against, so
+inventing one is the thing the evidence rules exist to prevent (CLAUDE.md
+invariant 3). A version row is a statement that a build's own edition
+documents an already-authored command identically to the edition before
+it, carrying the page of each. That is exactly what invariant 3 asks a
+`documented` status to rest on, a manual page, and the row is written
+only where two editions PARSE THE SAME, never where they differ; a
+command the new edition describes differently is reported and left for a
+person. The measurement below is about the DRAFTING half, which proposes
+entries and still writes nothing.
+
+Measured on 2026-08-04 against the 147
 entries the database then held, authored by hand from these same manuals
 over several weeks, it reproduced 77 percent of their argument lists.
 The other 23 percent are not parser bugs to be fixed later; they are
@@ -30,11 +47,13 @@ places where the entry encodes a JUDGEMENT the manual does not state:
   database names them ``layers`` and ``mode``, and the database is the
   better document for it.
 
-So the output is a DRAFT and a coverage report for a person to work
-from, and every proposal carries why it was proposed. A tool that wrote
-entries directly would be inventing grammar the emitter then uses to
-validate other people's scripts, which is the one thing the evidence
-rules exist to prevent (CLAUDE.md invariant 3).
+So the drafter's output is a DRAFT and a coverage report for a person
+to work from, and every proposal carries why it was proposed. A tool
+that wrote ENTRIES directly would be inventing grammar the emitter then
+uses to validate other people's scripts, which is the one thing the
+evidence rules exist to prevent (CLAUDE.md invariant 3). Carrying a
+version row forward between two editions that parse identically invents
+no grammar, which is why that one is written and this one is not.
 
 RELIABILITY, measured rather than asserted, and every number below is a
 measurement of one day against one corpus rather than a standing
@@ -99,6 +118,7 @@ carry none of its text (invariant 1).
 
 from __future__ import annotations
 
+import enum
 import re
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
@@ -107,6 +127,7 @@ from typing import Any, Protocol, runtime_checkable
 
 import yaml
 
+from pyflightstream._yamlflow import flow_mapping
 from pyflightstream.utils.errors import ManualDraftError
 
 __all__ = [
@@ -124,6 +145,7 @@ __all__ = [
     "SweptCommand",
     "TypeRule",
     "EditionDelta",
+    "EditionVerdict",
     "coverage_against",
     "documentation_delta",
     "edition_surfaces",
@@ -2042,7 +2064,7 @@ def render_entry(
     lines.append(f'  manual_ref: "{source} p.{command.page}"')
     lines.append("  versions:")
     for canonical, status in versions.items():
-        lines.append(f'    "{canonical}": {{status: {status}}}')
+        lines.append(f'    "{canonical}": {flow_mapping({"status": status})}')
     if not command.parameters:
         typing_note = (
             "The command documents no parameter table, so no argument type could be "
@@ -2140,39 +2162,84 @@ def write_chapter(body: str, *, path: str | Path, write: bool = False) -> str:
     )
 
 
-@dataclass(frozen=True)
+class EditionVerdict(enum.StrEnum):
+    """What one edition does with one command, against its predecessor.
+
+    A CLOSED VOCABULARY rather than a bare string, which is how the
+    twelve other judgement sets in this package are written
+    (:class:`~pyflightstream.qa.probes.ProbeOutcome`,
+    :class:`~pyflightstream.commands.Status` and the rest). The cost of
+    the bare string was concrete: the caller decided what to WRITE by
+    comparing against three string literals, so a typo in any of them
+    evaluated false in silence and dropped commands from the write set
+    with nothing raising.
+
+    FIVE VALUES, NOT THREE. The first version returned three and its
+    caller recovered the missing two out of band, by re-testing
+    membership in the predecessor's parse, which it could only do
+    because it still held that mapping; a second consumer could not,
+    and an arrival rendered as ``p.None -> p.290`` in an
+    engineer-facing report because it was reported as a change with no
+    previous page.
+    """
+
+    #: Both editions parse to the same record, so the new edition's page
+    #: may be cited for a row written from the reading.
+    UNCHANGED = "unchanged"
+    #: Both document it and the new one documents it DIFFERENTLY, so a
+    #: person owes it a reading before anything is written.
+    CHANGED = "changed"
+    #: The new edition documents it and the predecessor did not.
+    ARRIVED = "arrived"
+    #: The predecessor documented it and the new edition does not. This
+    #: is the vendor silently removing or renaming something, and it is
+    #: the state that breaks a user's script.
+    DROPPED = "dropped"
+    #: Neither edition documents it. A fact about the two documents and
+    #: never about the solver, and it says nothing about this build.
+    ABSENT = "absent"
+
+
+@dataclass(frozen=True, kw_only=True)
 class EditionDelta:
     """What a new edition says about one command, against its predecessor.
 
     Produced by :func:`documentation_delta`, one per command the database
-    records, so a caller can tell the three states apart without
+    records, so a caller can tell the five states apart without
     re-deriving them.
+
+    KEYWORD-ONLY, and that is about ``page`` and ``previous_page``
+    specifically, exactly as it is for :class:`Edition`'s two page
+    ranges. They are two fields of the same type sitting adjacent, so
+    positionally they are interchangeable and swapping them constructs
+    cleanly: :attr:`repaginated` still answers true, and the caller
+    writes the PREDECESSOR's page into a row citing the new edition's
+    source. That is a wrong citation in the shipped database with every
+    guard green, and nothing but the keyword separates the two.
 
     Attributes
     ----------
     name : str
         Command name.
-    verdict : str
-        One of ``unchanged``, ``changed``, ``absent``. ``unchanged``
-        means both editions parse to the same record and the new one's
-        page may be cited; ``changed`` means the new edition documents
-        it DIFFERENTLY and a person owes it a reading; ``absent`` means
-        the new edition does not print it at all, which is a fact about
-        the document and never about the solver.
+    verdict : EditionVerdict
+        Which of the five states this command is in.
     page : int or None
-        Page of the NEW edition, where it documents the command.
+        Page of the NEW edition, where it documents the command. None
+        where this edition does not document it at all.
     previous_page : int or None
-        Page of the predecessor, where it did.
+        Page of the predecessor, where it did. None where the
+        predecessor did not document it.
     differs_in : tuple of str
-        For ``changed``, which of ``args``, ``sample`` and
-        ``parameters`` moved. Empty otherwise. It names the FIELDS and
-        never their content: the parameter prose is licensed manual text
-        and is read at run time, never carried into anything written
-        (invariant 1).
+        For ``changed`` only, which of ``args``, ``sample`` and
+        ``parameters`` moved. Empty for every other verdict, an
+        arrival included: an arrival differs in nothing, it is new. It
+        names the FIELDS and never their content: the parameter prose
+        is licensed manual text and is read at run time, never carried
+        into anything written (invariant 1).
     """
 
     name: str
-    verdict: str
+    verdict: EditionVerdict
     page: int | None = None
     previous_page: int | None = None
     differs_in: tuple[str, ...] = ()
@@ -2181,29 +2248,42 @@ class EditionDelta:
     def repaginated(self) -> bool:
         """True where the command moved page without changing."""
         return (
-            self.verdict == "unchanged"
+            self.verdict is EditionVerdict.UNCHANGED
             and self.previous_page is not None
             and self.page != self.previous_page
         )
 
 
-def read_edition(edition: Edition) -> dict[str, ManualCommand]:
+def read_edition(
+    edition: Edition,
+    *,
+    reader: Callable[..., Mapping[int, str]] | None = None,
+) -> dict[str, ManualCommand]:
     """Parse one edition's scripting reference, sections included.
 
     Parameters
     ----------
     edition : Edition
         A row of the edition manifest.
+    reader : callable, optional
+        Page reader, defaulting to :func:`read_pdf_pages`. It is a
+        parameter for the same reason it is one on
+        :func:`sweep_editions` and :func:`edition_surfaces`: this
+        module keeps its parsing testable without a pdf and without the
+        ``[manual]`` extra. It was omitted when this function was
+        written, which left the one code path in this repository that
+        writes hundreds of database rows with no end-to-end test.
 
     Returns
     -------
     dict of str to ManualCommand
         What that edition states about each command it documents.
     """
-    pages = read_pdf_pages(edition.manual, first=edition.chapter[0], last=edition.chapter[1])
+    read = reader or read_pdf_pages
+    pages = read(edition.manual, first=edition.chapter[0], last=edition.chapter[1])
     sections: Mapping[str, str] = {}
     if edition.index is not None:
-        index_pages = read_pdf_pages(edition.manual, first=edition.index[0], last=edition.index[1])
+        index_pages = read(edition.manual, first=edition.index[0], last=edition.index[1])
         sections = parse_script_index(index_pages)
     return parse_signatures(pages, sections=sections)
 
@@ -2245,14 +2325,25 @@ def documentation_delta(
     deltas = []
     for name in sorted(recorded):
         new = current.get(name)
-        if new is None:
-            deltas.append(EditionDelta(name=name, verdict="absent"))
-            continue
         old = previous.get(name)
-        if old is None:
+        if new is None:
+            # DROPPED and ABSENT are separated here rather than by the
+            # caller. They used to share one verdict, and the register
+            # command recovered the difference by re-testing membership
+            # in `previous`, which it could do only because it still held
+            # that mapping. A command the predecessor documented and this
+            # edition does not is the vendor breaking a script silently;
+            # a command neither documents says nothing at all.
             deltas.append(
-                EditionDelta(name=name, verdict="changed", page=new.page, differs_in=("new",))
+                EditionDelta(
+                    name=name,
+                    verdict=(EditionVerdict.ABSENT if old is None else EditionVerdict.DROPPED),
+                    previous_page=None if old is None else old.page,
+                )
             )
+            continue
+        if old is None:
+            deltas.append(EditionDelta(name=name, verdict=EditionVerdict.ARRIVED, page=new.page))
             continue
         differs = tuple(
             field_name
@@ -2266,7 +2357,7 @@ def documentation_delta(
         deltas.append(
             EditionDelta(
                 name=name,
-                verdict="unchanged" if not differs else "changed",
+                verdict=EditionVerdict.UNCHANGED if not differs else EditionVerdict.CHANGED,
                 page=new.page,
                 previous_page=old.page,
                 differs_in=differs,
@@ -2275,8 +2366,32 @@ def documentation_delta(
     return tuple(deltas)
 
 
-def insert_version_row(text: str, command: str, canonical: str, row: str) -> str:
+def insert_version_row(
+    text: str,
+    *,
+    command: str,
+    canonical: str,
+    status: str,
+    note: str,
+) -> str:
     """Insert one single-line version row into a chapter file's text.
+
+    IT RENDERS THE ROW ITSELF and takes no pre-rendered YAML, which is
+    the correction of 2026-08-17 rather than a matter of taste. The first
+    version took the flow mapping as a string, so quoting and escaping
+    were the caller's problem and the library could not check what it had
+    been handed. Its one caller assembled that string by concatenation,
+    and the class closed by ``INC-20260811-1511-both`` came straight
+    back: measured on the day, a note carrying a backslash or a quote
+    character produced a chapter file YAML refuses, and a note carrying a
+    newline was written silently truncated. There is now no parameter
+    through which a hand-built mapping can enter, and
+    :func:`pyflightstream._yamlflow.flow_mapping` is what renders it.
+
+    KEYWORD-ONLY after the text, for the reason the neighbouring
+    :class:`Edition` is: ``command``, ``canonical``, ``status`` and
+    ``note`` are four strings, so positionally they are interchangeable
+    and a swap of the middle two constructs cleanly.
 
     AT THE END OF THE BLOCK rather than in release order, and that is
     deliberate: the existing rows are NOT in release order in every
@@ -2298,9 +2413,15 @@ def insert_version_row(text: str, command: str, canonical: str, row: str) -> str
         Entry to edit. Its ``versions:`` block is found under it.
     canonical : str
         Build the row is for. Refused if the entry already has one.
-    row : str
-        The flow mapping to write, without the key or the indent, for
-        example ``{status: documented, note: "SRC-751 p.290"}``.
+    status : str
+        Evidence status for that build, written as a bare token. This
+        function does NOT judge it: which statuses exist and which may
+        be written from a reading is the command database's rule and
+        the caller's to obey (CLAUDE.md invariant 3).
+    note : str
+        Provenance of the row, quoted and escaped on the way in. A
+        citation, for example ``"SRC-751 p.290, unchanged from SRC-750
+        p.289"``.
 
     Returns
     -------
@@ -2371,5 +2492,6 @@ def insert_version_row(text: str, command: str, canonical: str, row: str) -> str
         if key == canonical:
             raise ManualDraftError(f"{command} already records {canonical}")
 
+    row = flow_mapping({"status": status, "note": note})
     lines.insert(last_content + 1, f'    "{canonical}": {row}')
     return newline.join(lines) + (newline if trailing else "")

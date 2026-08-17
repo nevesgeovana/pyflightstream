@@ -36,7 +36,11 @@ import argparse
 from pathlib import Path
 
 from pyflightstream.commands import CommandRegistry
-from pyflightstream.versions import resolve
+from pyflightstream.versions import (
+    AmbiguousVersionAliasError,
+    UnknownVersionError,
+    resolve,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 GOLDENS = REPO_ROOT / "tests" / "goldens"
@@ -103,11 +107,36 @@ def golden_path(canonical: str) -> Path:
 
 def main() -> None:
     """Write one build's enumeration into the goldens directory."""
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("canonical", help="registered canonical build identifier")
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        # RAW, because the default formatter collapses all whitespace and
+        # re-wraps, so this module's usage line lands mid-paragraph as
+        # running prose. `pyfs-manual` uses the raw formatter at every
+        # subparser for exactly this reason.
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "canonical",
+        metavar="CANONICAL",
+        help="registered canonical build identifier, for example 26.123",
+    )
     args = parser.parse_args()
-    path = golden_path(args.canonical)
-    path.write_bytes(render(args.canonical).encode("utf-8"))
+    # THE LIBRARY'S OWN MESSAGE, DELIVERED AS A REFUSAL. This module's
+    # docstring promises that a mistyped identifier is refused with the
+    # message naming every registered build, and the message is indeed
+    # good; `main` just never let anyone read it as a refusal, because
+    # both version errors propagated and the user saw a stack trace with
+    # the sentence buried in it. `pyfs-qa` solved this once already and
+    # wrote down why: letting them propagate shows a traceback where the
+    # library's own message already says what to do. An ambiguous alias
+    # is the likelier of the two here, since the vendor name a solver
+    # PRINTS is shared by several builds.
+    try:
+        path = golden_path(args.canonical)
+        body = render(args.canonical)
+    except (UnknownVersionError, AmbiguousVersionAliasError) as error:
+        raise SystemExit(str(error)) from None
+    path.write_bytes(body.encode("utf-8"))
     print(f"wrote {path.relative_to(REPO_ROOT)}")
 
 
