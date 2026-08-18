@@ -389,7 +389,10 @@ manual_editions:
     the extracted text of all 417 pages of each rather than by sampling,
     so the set of changed pages is complete for extractable text. The
     measurement is REPRODUCIBLE by anyone holding the two manuals:
-    scripts/measure_edition_page_delta.py --from 26.122 --to 26.123
+    scripts/measure_edition_page_delta.py --editions <manifest>
+        --from 26.122 --to 26.123
+    The manifest is local and never committed (invariant 1); the
+    `pyfs-manual sweep --help` epilog prints an example row.
     prints the set, and it prints TWO sets because the answer depends on
     a method choice that had not been written down. By text content, 17
     pages differ and the list is exactly the one this note rests on. By

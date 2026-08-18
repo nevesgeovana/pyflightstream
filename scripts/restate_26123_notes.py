@@ -108,6 +108,7 @@ def main(argv: list[str] | None = None) -> int:
 
     edited: dict[Path, str] = {}
     restated = 0
+    seen = 0
     refused: list[str] = []
     for path in sorted(COMMANDS.glob("*.yaml")):
         if path.name.startswith("_"):
@@ -120,6 +121,8 @@ def main(argv: list[str] | None = None) -> int:
         for index, line in enumerate(lines):
             if line and not line.startswith((" ", "#")) and line.endswith(":"):
                 name = line[:-1]
+            if line.strip().startswith('"26.123":'):
+                seen += 1
             match = OLD.match(line)
             if match is None:
                 continue
@@ -154,11 +157,30 @@ def main(argv: list[str] | None = None) -> int:
     print(f"{target.label} ({target.source}) against {previous.label} ({previous.source})")
     print(f"  {restated} note(s) recognised and restated")
     print(f"  {len(edited)} chapter file(s) affected")
+    print(f"  {seen} row(s) for {BUILD} encountered")
     print(f"  {len(refused)} REFUSED")
     for line in refused:
         print(f"    {line}")
     if refused:
         print("\nnothing written: a note this cannot verify is not rewritten on a guess")
+        return 1
+    # A REACH FLOOR, because a partial run reported clean. The loop
+    # `continue`s on any line the anchor does not match, so only rows that
+    # matched AND then failed verification reached `refused`; a run that
+    # recognised twelve of 369 printed the same "0 REFUSED" and exited 0.
+    # Measured after the notes had already been restated: it reported
+    # "0 recognised, 0 REFUSED" and exit 0, which is the shape exactly.
+    #
+    # Exactly ONE row is expected to be unrecognised: the single `broken`
+    # one, whose note is the probe detail rather than a citation, because
+    # `apply_compat` OVERWRITES the note for broken and removed outcomes
+    # instead of carrying it through.
+    if seen and restated and restated + 1 != seen:
+        print(
+            f"\nnothing written: {seen} rows for {BUILD} exist and {restated} were "
+            "recognised. Exactly one, the broken row, is expected to be unrecognised; "
+            "any other shortfall means the anchor missed rows it should have matched."
+        )
         return 1
     if not args.write:
         print("\n[dry run] nothing written")

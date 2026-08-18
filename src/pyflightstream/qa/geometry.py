@@ -178,20 +178,29 @@ def mean_edge_length(triangles: np.ndarray) -> float:
     ...     wing_triangles,
     ... )
     >>> spec = WingSpec()
-    >>> face = mean_edge_length(wing_triangles(spec))
-    >>> gap_m = 0.25 * face
     >>> lower = wing_triangles(spec)
-    >>> upper = wing_triangles(spec, translation_m=(0.0, 0.0, gap_m + 0.2))
-    >>> round(gap_m / face, 2)
+    >>> face = mean_edge_length(lower)
+    >>> gap_m = 0.25 * face
+
+    THE TRANSLATION IS NOT THE GAP, which is the whole trap and is why
+    the thickness is measured rather than assumed. Translating by
+    ``gap_m`` puts the two copies INSIDE each other; the surfaces are a
+    section thickness apart before anything moves, so the translation
+    that opens a gap of ``gap_m`` is ``thickness + gap_m``. The first
+    version of this example translated by ``gap_m + 0.2`` and printed
+    ``0.25``, while the real separation was 0.78 face lengths.
+
+    >>> thickness = float(lower[:, :, 2].max() - lower[:, :, 2].min())
+    >>> upper = wing_triangles(spec, translation_m=(0.0, 0.0, thickness + gap_m))
+    >>> gap = float(upper[:, :, 2].min() - lower[:, :, 2].max())
+    >>> round(gap / face, 2)
     0.25
-    >>> float(upper[:, :, 2].min() - lower[:, :, 2].min()) > 0
-    True
 
     The mesh moves and its shape does not, which is what makes the pair
     comparable at all:
 
     >>> import numpy as np
-    >>> bool(np.allclose(upper - lower, [0.0, 0.0, gap_m + 0.2]))
+    >>> bool(np.allclose(upper - lower, [0.0, 0.0, thickness + gap_m]))
     True
     """
     closed = np.concatenate([triangles, triangles[:, :1, :]], axis=1)

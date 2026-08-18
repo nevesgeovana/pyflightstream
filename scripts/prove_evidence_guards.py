@@ -35,6 +35,11 @@ PROBES = "src/pyflightstream/qa/probes.py"
 REFERENCE = "src/pyflightstream/reference.py"
 SPECS = "src/pyflightstream/qa/specs.py"
 COMPAT = "src/pyflightstream/qa/compat.py"
+#: The renderer moved out of `qa/compat.py` on 2026-08-17, below every
+#: layer, because a second writer sits BELOW qa and could not reach it.
+#: Two mutants below followed it; a third followed the guard that moved
+#: with it. Anchors that stay behind mutate nothing and score anyway.
+YAMLFLOW = "src/pyflightstream/_yamlflow.py"
 
 SUITE_TIMEOUT = 600.0
 
@@ -135,20 +140,21 @@ MUTANTS = [
     ),
     (
         "the flow scalar stops escaping",
-        COMPAT,
+        YAMLFLOW,
         "    return json.dumps(str(value))",
         "    return chr(34) + str(value) + chr(34)",
-        "tests/test_qa_compat.py",
-        "hostile_detail",
+        "tests/test_yamlflow.py",
+        "round_trips",
         True,
     ),
     (
         "the emitter interpolates a value raw again",
-        COMPAT,
-        '        f"{key}: {value if key in _RAW_KEYS else _flow_scalar(value)}"',
+        YAMLFLOW,
+        '        f"{key}: {value if key in RAW_KEYS else flow_scalar(value)}"'
+        " for key, value in pairs.items()",
         '        f"{key}: " + chr(34) + str(value) + chr(34)',
-        "tests/test_qa_compat.py",
-        "hostile_detail",
+        "tests/test_yamlflow.py",
+        "round_trips",
         True,
     ),
     (
@@ -157,7 +163,7 @@ MUTANTS = [
         "    return f'{indent}\"{canonical}\": {_flow_mapping(pairs)}'",
         "    return f'{indent}\"{canonical}\": BROKEN'",
         "tests/test_qa_compat.py",
-        "escaper_has_exactly_one_caller or hostile_detail",
+        "promotes_citing_the_report",
         True,
     ),
     (

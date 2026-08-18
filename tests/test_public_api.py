@@ -59,6 +59,7 @@ PUBLIC_MODULES = [
     "pyflightstream.qa.geometry",
     "pyflightstream.qa.physics",
     "pyflightstream.qa.probes",
+    "pyflightstream.qa.reports",
     "pyflightstream.qa.specs",
     "pyflightstream.reference",
     "pyflightstream.results",

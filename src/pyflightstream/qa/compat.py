@@ -24,10 +24,11 @@ from typing import Any
 
 import yaml
 
-from pyflightstream._yamlflow import flow_mapping, flow_scalar
+from pyflightstream._yamlflow import flow_mapping
 from pyflightstream.commands import CommandEntry
 from pyflightstream.qa.errors import QaEvidenceError
 from pyflightstream.qa.probes import ProbeOutcome, ProbeRun
+from pyflightstream.qa.reports import refuse_existing_report, report_paths
 from pyflightstream.run import describe_invocation
 
 COMPAT_SCHEMA = "pyflightstream-compat-report/1"
@@ -66,11 +67,7 @@ def compat_report_paths(
         created and the directory is not made.
     """
     date = date or datetime.date.today().isoformat()
-    stem = f"CMP-{version.replace('.', '')}_{date}"
-    if label:
-        stem += f"_{label}"
-    directory = Path(out_dir)
-    return directory / f"{stem}.yaml", directory / f"{stem}.md"
+    return report_paths("CMP", version.replace(".", ""), out_dir, date=date, label=label)
 
 
 def refuse_existing_compat_report(*paths: Path) -> None:
@@ -106,13 +103,7 @@ def refuse_existing_compat_report(*paths: Path) -> None:
     library. ``_cmd_probe`` re-words it in its own vocabulary, which is
     where a CLI's flags belong.
     """
-    for path in paths:
-        if path.exists():
-            raise FileExistsError(
-                f"{path} already exists; compat reports are evidence and are never "
-                "overwritten. Pass a different label, or write to another directory. "
-                "Removing a committed report is deliberate and is not the way past this."
-            )
+    refuse_existing_report(*paths)
 
 
 def write_compat_report(
@@ -862,7 +853,6 @@ def _rewritten_flow_entry(
 #: :mod:`pyflightstream._yamlflow`, below every layer, where both writers
 #: can reach it. The alias is kept so this module reads as it did.
 _flow_mapping = flow_mapping
-_flow_scalar = flow_scalar
 
 
 def _rewrite_version_line(

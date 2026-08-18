@@ -294,7 +294,14 @@ def test_view_raises_for_absent_evidence_and_removed():
     assert registry.for_version("26.100")["SONIC_VELOCITY"] is removed
     with pytest.raises(CommandNotInVersionError, match="no recorded evidence"):
         registry.for_version("26.0")["SONIC_VELOCITY"]
-    with pytest.raises(CommandNotInVersionError, match="not in the command database"):
+    # MATCHED ON THE OPERATIVE CLAUSE, not on the substring that did not
+    # change. The sentence used to claim every command a registered
+    # edition documents is recorded, which SRC-751 falsified by
+    # documenting SET_OUTLET_TRAILING_EDGES: a 26.123 user copying that
+    # name out of their own manual was told it was "usually a spelling
+    # error". Reverting the correction left 421 tests green, because the
+    # only assertion on this message was the half that did not move.
+    with pytest.raises(CommandNotInVersionError, match="not entered yet"):
         registry.for_version("26.120")["NEVER_DRAFTED"]
 
 
@@ -528,6 +535,29 @@ def _evidence_backed_count(registry):
 _UNDATED_REPORT_ERRATUM = {"CMP-26123_2026-08-17_full-sim.yaml"}
 
 
+def test_the_undated_report_exemption_has_not_grown() -> None:
+    """A ratchet is a mechanism; the comment above the set is not one.
+
+    ``_UNDATED_REPORT_ERRATUM``'s own comment says "A RATCHET, not a
+    switch. The list may not grow", and until this test nothing enforced
+    it: adding a name cost one line, plus any file matching the erratum
+    glob. The battery beside it mutates the set to EMPTY and proves the
+    walk still sees what it exempts; it never mutated it LARGER, which is
+    the direction the comment forbids.
+
+    One entry, named, forever. A second undated report cannot be written
+    by any code path after ``INC-20260817-2210-pyflightstream``, so a
+    second entry would mean the writer-side guard was bypassed rather
+    than that another report needs excusing.
+    """
+    assert _UNDATED_REPORT_ERRATUM == {"CMP-26123_2026-08-17_full-sim.yaml"}, (
+        "the undated-report exemption changed. It is a ratchet of exactly one file, "
+        "recorded in INC-20260817-2210-pyflightstream; a second entry means a second "
+        "report was written with no date, which the writer-side guard makes impossible, "
+        "so the guard was bypassed rather than the list needing to grow"
+    )
+
+
 def test_every_compat_report_carries_the_date_its_own_name_claims() -> None:
     """One fact, written in two places, and nothing compared them.
 
@@ -572,8 +602,15 @@ def test_every_compat_report_carries_the_date_its_own_name_claims() -> None:
         if str(body) != stamped:
             offenders.append(f"{path.name}: body date {body} against stem date {stamped}")
             continue
+        # THE PAIR IS MANDATORY. `write_compat_report` writes a YAML and
+        # a Markdown together and its docstring says so, and this arm
+        # used to read a MISSING Markdown as satisfied, which is the
+        # absence-as-permission shape the charter names: the rendered
+        # half could be deleted and nothing anywhere noticed.
         markdown = path.with_suffix(".md")
-        if markdown.is_file() and stamped not in markdown.read_text(encoding="utf-8"):
+        if not markdown.is_file():
+            offenders.append(f"{markdown.name}: the rendered half of the pair is missing")
+        elif stamped not in markdown.read_text(encoding="utf-8"):
             offenders.append(f"{markdown.name}: the rendered header does not carry the date")
     assert not offenders, (
         "a compat report disagrees with its own name about when it was written, and a "

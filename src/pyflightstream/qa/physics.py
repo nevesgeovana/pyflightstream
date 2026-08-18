@@ -45,6 +45,7 @@ import pyflightstream
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.qa.errors import QaEvidenceError
 from pyflightstream.qa.geometry import BladeSpec, WingSpec, generate_blade_stl, generate_wing_stl
+from pyflightstream.qa.reports import refuse_existing_report, report_paths
 from pyflightstream.results import IncompleteOutputError, LoadsReport, parse_loads
 from pyflightstream.run import ExecutionResult, LocalExecutor, describe_invocation
 from pyflightstream.script import Script
@@ -1512,7 +1513,12 @@ def run_physics(
     Raises
     ------
     PhysicsEnvironmentError
-        When the executable is missing or a requested case is unknown.
+        When the executable is missing, a requested case is unknown, or
+        a requested case has no command evidence on this build. The
+        last is the newest and is a behaviour break: a run that
+        measured part of the matrix and reported success is a record
+        saying the build was validated, so it refuses and names the
+        runnable subset. `run_drift` documents the same refusal.
     """
     canonical = resolve(version).canonical
     registry = registered_cases(include_smi=smi_root is not None)
@@ -1531,7 +1537,11 @@ def run_physics(
     if unknown:
         raise PhysicsEnvironmentError(
             f"unknown physics case(s) {', '.join(unknown)}; registered: "
-            f"{', '.join(sorted(registry))} (SMI cases need --smi-root)"
+            # `smi_root`, this function's own parameter, not `--smi-root`.
+            # A library message naming a command-line flag names something
+            # a Python caller cannot type, which is the class corrected
+            # eleven lines below for `--cases`; the CLI translates.
+            f"{', '.join(sorted(registry))} (SMI cases need smi_root)"
         )
     unsupported = [case_id for case_id in wanted if not registry[case_id].supports(canonical)]
     if unsupported:
@@ -1640,17 +1650,10 @@ def write_physics_report(
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     date = date or datetime.date.today().isoformat()
-    stem = f"PHY-{run.version.replace('.', '')}_{date}"
-    if label:
-        stem += f"_{label}"
-    yaml_path = out_dir / f"{stem}.yaml"
-    md_path = out_dir / f"{stem}.md"
-    for path in (yaml_path, md_path):
-        if path.exists():
-            raise FileExistsError(
-                f"{path} already exists; physics reports are evidence and are never "
-                "overwritten. Pick another date or label."
-            )
+    yaml_path, md_path = report_paths(
+        "PHY", run.version.replace(".", ""), out_dir, date=date, label=label
+    )
+    refuse_existing_report(yaml_path, md_path)
     counts = run.verdict_counts()
     document = {
         "schema": PHYSICS_SCHEMA,

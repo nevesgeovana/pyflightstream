@@ -147,7 +147,7 @@ table is that boundary.
 | Far-field ledgers and probe surveys | **experimental** | tier 1 on synthetic fields; the licensed far-field acceptance work is deferred, not done |
 | FSI structural beam and modal analysis | **experimental** | tier 1 against analytic beam solutions; `examples/wing_static_deflection.py`, `examples/fsi_campbell_diagram.py` |
 | FSI coupled driver (the four-phase loop) | **experimental** | tier 1 offline replay on archived WP1 fixtures only; never run against a live solver in CI |
-| Rotary two-way coupling | **not validated** | `reports/RPT-025` measures the solver defect of `reports/RPT-007` fixed in 26.122 and still present in 26.120 and 26.121, so the path is no longer blocked on the newest build. It stays NOT VALIDATED: that report says only that an imposed deformation reaches the mesh, not that the morphing is correct, and no coupled acceptance run has been made against a build where it applies |
+| Rotary two-way coupling | **not validated** | `reports/RPT-025` measures the solver defect of `reports/RPT-007` fixed in 26.122 and still present in 26.120 and 26.121, so the path is no longer blocked on 26.122. It stays NOT VALIDATED: that report says only that an imposed deformation reaches the mesh, not that the morphing is correct, and no coupled acceptance run has been made against a build where it applies |
 
 Experimental means the interface may change without the deprecation
 window of NFR-20, and that the evidence behind it is narrower than

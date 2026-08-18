@@ -65,7 +65,12 @@ from pyflightstream.utils.manual import (
 MUTANTS = (
     (
         "DISABLE_WAKE_NODES_ON_TRAILING_EDGE",
-        "parameter description below the break",
+        # TWO MATCHES, and that is correct rather than sloppy: a
+        # neighbouring command's table on the next page carries the
+        # same parameter line, so the substitution edits both. What
+        # makes the mutant precise is not the pattern but the assertion
+        # below, which reads the verdict of the NAMED command only.
+        "parameter description, on a command whose block spans the break",
         re.compile(r"(TE_INDEX\s+Index of the trailing edge)"),
         r"\1 AND ITS MIRROR",
     ),
@@ -100,6 +105,21 @@ def _read(edition, replace=None):
     pages = read_pdf_pages(edition.manual, first=edition.chapter[0], last=edition.chapter[1])
     if replace is not None:
         pattern, repl = replace
+        # ASSERTED TO MATCH, once. `re.sub` on a non-matching pattern is
+        # a silent no-op, so a mutant whose regex drifts against a new
+        # edition's extraction leaves the parse equal to the baseline
+        # and the battery prints SURVIVED, reading as though the
+        # comparison had missed a real vendor change. That is the
+        # vacuous pass the sibling batteries were rewritten to remove
+        # this round, and this one did not get it.
+        hits = sum(len(pattern.findall(text)) for text in pages.values())
+        if not hits:
+            raise SystemExit(
+                "the mutant pattern matched NOTHING in the extracted text. A "
+                "substitution that changes nothing measures the unmutated edition "
+                "and would be scored SURVIVED, reading as though the comparison had "
+                "missed a real vendor change"
+            )
         pages = {number: pattern.sub(repl, text) for number, text in pages.items()}
     sections = {}
     if edition.index is not None:
@@ -154,7 +174,7 @@ def main() -> None:
 
     killed = 0
     for name, what, pattern, repl in MUTANTS:
-        if control[name].verdict != "unchanged":
+        if control[name].verdict is not EditionVerdict.UNCHANGED:
             raise SystemExit(
                 f"{name} is not 'unchanged' in the control, so planting a change in it "
                 "proves nothing. Pick a command the two editions agree on"

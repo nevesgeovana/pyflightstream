@@ -413,12 +413,13 @@ def _exported_bare_raises() -> list[str]:
 #: cross-module caller, is on no list and does not fail today
 #: (PLN-20260804-1130).
 #:
-#: The set holds 21 entries in three tranches. THREE raise
+#: The set holds 19 entries in three tranches. THREE raise
 #: ``TypeError`` for an argument of a type the function does not accept;
-#: THREE raise ``FileExistsError`` and are the evidence-overwrite
-#: refusals, added on 2026-08-17 when the walk was widened to see that
-#: name at all; the other 15 are the reachability tranche and are almost
-#: all ``ValueError``. Re-basing the TypeError three onto a catalogued class
+#: ONE raises ``FileExistsError`` and is the evidence-overwrite refusal,
+#: added on 2026-08-17 when the walk was widened to see that name at all
+#: and reduced from three to one the same day when the three writers were
+#: given one home; the other 15 are the reachability tranche and are
+#: almost all ``ValueError``. Re-basing the TypeError three onto a catalogued class
 #: is not the
 #: one-line change the ValueError sites were: ``except TypeError`` is
 #: how a caller distinguishes "I passed the wrong kind of thing" from "I
@@ -445,19 +446,19 @@ def _exported_bare_raises() -> list[str]:
 #: has the same weakness, which is an argument for emptying it rather
 #: than for re-keying it.
 _RATCHET = {
-    # THE EVIDENCE-OVERWRITE TRANCHE, measured 2026-08-17 the hour
-    # `FileExistsError` joined `_BARE`. All three are the same refusal:
-    # a committed report is evidence and is never overwritten. They keep
-    # the builtin ON PURPOSE and not from neglect, because
-    # `except FileExistsError` is what a caller writing a file already
-    # has around the call, and every one of them predates the catalogue's
-    # reach. Read the count: the review pass that prompted the widening
-    # named ONE of these, and the walk found three, which is the whole
+    # THE EVIDENCE-OVERWRITE ENTRY, and it was THREE for one day.
+    # `FileExistsError` joined `_BARE` on 2026-08-17 and the walk found
+    # three identical refusals, one per evidence writer; the review pass
+    # that prompted the widening had named one of them, which is the whole
     # argument for widening a guard rather than fixing what a reviewer
-    # points at.
-    "pyflightstream.qa.compat.refuse_existing_compat_report -> FileExistsError (compat.py:111)",
-    "pyflightstream.qa.drift.write_drift_report -> FileExistsError (drift.py:322)",
-    "pyflightstream.qa.physics.write_physics_report -> FileExistsError (physics.py:1650)",
+    # points at. The three then became one, because three copies of one
+    # rule is why a repair had reached only the probe path: the naming and
+    # the refusal now live in `qa/reports.py` and the writers call it.
+    #
+    # It keeps the builtin ON PURPOSE and not from neglect, because
+    # `except FileExistsError` is what a caller writing a file already has
+    # around the call, and it predates the catalogue's reach.
+    "pyflightstream.qa.reports.refuse_existing_report -> FileExistsError (reports.py:104)",
     # TypeError for an argument of an unaccepted type. The catalogue is
     # entirely ValueError-based, so re-basing these needs a new base and
     # a decision about what it means (PLN-20260803-2340).

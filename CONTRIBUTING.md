@@ -174,9 +174,9 @@ says so rather than a refusal.
 
 The QA geometry helpers are the maintainer-facing half of
 `pyflightstream.qa.geometry`: `mean_edge_length` measures a mesh's local
-face size, and the keyword-only `translation_m` and `name` on
-`wing_triangles` and `generate_wing_stl` place and label a second copy
-of a shape. They exist so a gap between two components can be expressed
+face size, and the keyword-only `translation_m` on `wing_triangles`
+and `generate_wing_stl`, and `name` on `generate_wing_stl` alone, place
+and label a second copy of a shape. They exist so a gap between two components can be expressed
 as a RATIO of the local face length, which is the form the vendor's
 caveat about proximity-based boundary-layer mapping is stated in. The
 worked example is in `mean_edge_length`'s own docstring and is executed

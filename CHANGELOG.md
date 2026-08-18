@@ -8,7 +8,7 @@ FlightStream versions.
 ## [Unreleased]
 
 **26.122 answers for 84 commands, and the vendor's build fixes the
-rotor morphing defect.** The newest build was `operational` purely by inheritance from
+rotor morphing defect.** 26.122 was `operational` purely by inheritance from
 26.120 with nothing measured on it; a Tier 2 run now promotes 84
 statuses and a Tier 3 run passes 30 of 30 metrics against the stored
 references, inside the WARN and FAIL bands
@@ -41,8 +41,9 @@ New public names in `pyflightstream.qa`: `ProbeOutcome.REMOVED`,
 `Judgment`, `PROMOTABLE_OUTCOMES`, `compat_report_paths` and
 `refuse_existing_compat_report`. In `pyflightstream.qa.geometry`:
 `mean_edge_length`. One new keyword argument: `reports_dir` on
-`apply_compat`; two more on `wing_triangles` and `generate_wing_stl`,
-`translation_m` and `name`, both keyword-only.
+`apply_compat`; `translation_m` on `wing_triangles` and
+`generate_wing_stl`, and `name` on `generate_wing_stl` alone, all
+keyword-only. `wing_triangles` returns an array and has no solid to name.
 
 New public names in `pyflightstream.utils.manual`, the maintainer reading
 layer: `EditionDelta`, `EditionVerdict`, `documentation_delta`,
@@ -55,7 +56,9 @@ which was written inside the argument parser and is now importable and
 testable. One new command-line surface: the `register` subcommand of
 `pyfs-manual`.
 
-**Incompatible changes: three, and two of them are quiet.**
+**Incompatible changes: three, and ONE of them is quiet.** The first
+breaks loudly, the second is the quiet one, and the third replaces a
+quiet success with a loud refusal.
 
 - `PhysicsCase.versions` is now `PhysicsCase.minimum_version`, and its
   type changed from a tuple of canonical identifiers to `str | None`.
@@ -133,8 +136,8 @@ Deprecations: none.
   **It compares what the edition SAYS, never which page it says it on**,
   and that is the difference that matters. A local reflow moves a run of
   commands back by one page without changing a word, so a rule keyed on
-  the page number drops every one of them; two of 26.123's commands are
-  in exactly that position. Commands the new edition describes
+  the page number drops every one of them; THREE of 26.123's commands
+  are in exactly that position, and all three carry it in their rows. Commands the new edition describes
   DIFFERENTLY are reported and never written, because those are a reading
   somebody owes.
 

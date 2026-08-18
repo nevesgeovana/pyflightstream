@@ -35,6 +35,7 @@ from pyflightstream.qa.physics import (
     registered_cases,
     run_physics,
 )
+from pyflightstream.qa.reports import refuse_existing_report, report_paths
 from pyflightstream.run import describe_invocation
 from pyflightstream.versions import resolve
 
@@ -312,17 +313,9 @@ def write_drift_report(
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     date = date or datetime.date.today().isoformat()
-    stem = f"DRF-{run.version_a.replace('.', '')}-{run.version_b.replace('.', '')}_{date}"
-    if label:
-        stem += f"_{label}"
-    yaml_path = out_dir / f"{stem}.yaml"
-    md_path = out_dir / f"{stem}.md"
-    for path in (yaml_path, md_path):
-        if path.exists():
-            raise FileExistsError(
-                f"{path} already exists; drift reports are evidence and are never "
-                "overwritten. Pick another date or label."
-            )
+    key = run.version_a.replace(".", "") + "-" + run.version_b.replace(".", "")
+    yaml_path, md_path = report_paths("DRF", key, out_dir, date=date, label=label)
+    refuse_existing_report(yaml_path, md_path)
     counts = run.verdict_counts()
     document = {
         "schema": DRIFT_SCHEMA,

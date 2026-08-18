@@ -51,6 +51,7 @@ from pyflightstream.qa.probes import (
     region_printed,
     unrecognised_commands,
 )
+from pyflightstream.qa.reports import refuse_existing_report, report_paths
 from pyflightstream.qa.specs import PROBE_SPECS
 
 __all__ = [
@@ -80,7 +81,9 @@ __all__ = [
     "probe_version",
     "read_compat_report",
     "refuse_existing_compat_report",
+    "refuse_existing_report",
     "read_compat_reports",
+    "report_paths",
     "region_printed",
     "unrecognised_commands",
     "write_compat_report",

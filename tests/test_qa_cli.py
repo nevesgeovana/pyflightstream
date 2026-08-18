@@ -43,6 +43,120 @@ def test_an_unregistered_version_exits_two_and_lists_the_registered_ones(capsys)
         assert canonical in error
 
 
+@pytest.mark.parametrize(
+    ("subcommand", "prefix", "key", "argv"),
+    [
+        ("probe", "CMP", "26123", ["probe", "--fs-version", "26.123", "--fs-exe", "nowhere.exe"]),
+        (
+            "physics",
+            "PHY",
+            "26120",
+            ["physics", "--fs-version", "26.120", "--fs-exe", "nowhere.exe"],
+        ),
+        (
+            "drift",
+            "DRF",
+            "26122-26123",
+            [
+                "drift",
+                "--fs-versions",
+                "26.122,26.123",
+                "--fs-exe",
+                "26.122=a.exe",
+                "--fs-exe",
+                "26.123=b.exe",
+            ],
+        ),
+    ],
+)
+def test_every_evidence_writer_refuses_before_it_starts_the_solver(
+    subcommand, prefix, key, argv, tmp_path, monkeypatch, capsys
+):
+    """THREE writers, one rule, and only one of them had it.
+
+    The refusal on an existing report is right and its POSITION was
+    wrong. It was hoisted for `probe` on 2026-08-17, after a full
+    campaign of 111 command probes over five minutes of licensed solver
+    ran to completion and was then discarded on a stem collision knowable
+    from the command line. `physics` and `drift` kept the defect: the
+    whole Tier 3 matrix could run and then die on an uncaught
+    FileExistsError, which is WORSE than the original, because probe at
+    least caught it and printed.
+
+    Three copies of one rule is why a repair reached one of them. The
+    rule now has one home, `qa/reports.py`, and this walks all three.
+
+    EVERY RUNNER IS POISONED, not just the one under test: reaching any
+    of them raises, so the test fails loudly rather than by a count.
+    """
+    import datetime
+
+    from pyflightstream.qa import cli as cli_module
+    from pyflightstream.qa.reports import report_paths
+
+    def never(*args, **kwargs):
+        raise AssertionError("the solver was started, so a licensed seat was spent")
+
+    for runner in ("probe_version", "run_physics", "run_drift"):
+        monkeypatch.setattr(cli_module, runner, never)
+
+    existing, _ = report_paths(
+        prefix, key, tmp_path, date=datetime.date.today().isoformat(), label="x"
+    )
+    assert existing.name.startswith(f"{prefix}-{key}_"), existing.name
+    existing.write_text("stub", encoding="utf-8")
+
+    code = cli_module.main(argv + ["--report-dir", str(tmp_path), "--label", "x"])
+    error = capsys.readouterr().err
+
+    assert code == 2, f"{subcommand} did not refuse"
+    assert "nothing run" in error, error
+    assert "--label" in error and "--report-dir" in error, (
+        "the refusal must name the escapes THIS command line has; it used to say "
+        "'pick another date', and none of these CLIs has a date flag"
+    )
+
+
+def test_the_cli_rewords_a_library_refusal_into_its_own_flags(monkeypatch, capsys):
+    """The claim `tests/test_qa_physics.py` makes about this file, made true.
+
+    That test's own message says "The CLI owns that translation, and
+    tests/test_qa_cli.py pins it". It did not: `--cases` appeared in the
+    whole test tree exactly once, as the NEGATIVE assertion on the library
+    side, so `_in_command_line_words` could be replaced with
+    `return message` and 421 tests stayed green while the operator read
+    Python list syntax at a command line.
+
+    Two properties, and the second is the one a regex over a message
+    invites losing: the datum is translated, and NOTHING AFTER IT is
+    dropped.
+    """
+    from pyflightstream.qa import cli as cli_module
+    from pyflightstream.qa.physics import PhysicsEnvironmentError
+
+    def refusing(*args, **kwargs):
+        raise PhysicsEnvironmentError(
+            "case(s) PHY-05 have no command evidence for FlightStream 26.101. "
+            "To run a subset deliberately, name it: cases=['PHY-01', 'PHY-02'] "
+            "(SMI cases need smi_root)"
+        )
+
+    monkeypatch.setattr(cli_module, "run_physics", refusing)
+    code = cli_module.main(
+        ["physics", "--fs-version", "26.101", "--fs-exe", "nowhere.exe", "--report-dir", "."]
+    )
+    error = capsys.readouterr().err
+
+    assert code == 2
+    assert "--cases PHY-01,PHY-02" in error, error
+    assert "cases=[" not in error, "the library spelling reached the operator"
+    assert "(SMI cases need --smi-root)" in error, (
+        "either a parameter name went untranslated, or the tail after the translated "
+        "datum was dropped, which is what a message[: match.start()] return does the "
+        "day the datum is not the last token"
+    )
+
+
 def test_probe_refuses_an_existing_report_before_it_starts_the_solver(
     tmp_path, monkeypatch, capsys
 ):

@@ -16,6 +16,7 @@ case id, without running anything.
 from __future__ import annotations
 
 import argparse
+import datetime
 import re
 import sys
 from pathlib import Path
@@ -25,9 +26,7 @@ from pyflightstream.options import get_option
 from pyflightstream.qa.compat import (
     PROMOTABLE_OUTCOMES,
     apply_compat,
-    compat_report_paths,
     read_compat_report,
-    refuse_existing_compat_report,
     write_compat_report,
 )
 from pyflightstream.qa.drift import run_drift, write_drift_report
@@ -40,6 +39,7 @@ from pyflightstream.qa.physics import (
     write_physics_report,
 )
 from pyflightstream.qa.probes import ProbeEnvironmentError, probe_version
+from pyflightstream.qa.reports import refuse_existing_report, report_paths
 from pyflightstream.versions import AmbiguousVersionAliasError, UnknownVersionError, resolve
 
 
@@ -326,26 +326,8 @@ def _cmd_probe(args: argparse.Namespace) -> int:
     elif args.commands:
         commands = [name.strip() for name in args.commands.split(",") if name.strip()]
 
-    # BEFORE the solver starts, because the refusal below is right and
-    # its position was wrong. On 2026-08-17 a full campaign on 26.123 ran
-    # to completion, 111 commands over five minutes of licensed solver,
-    # and the write then refused on a stem that already existed; the
-    # verdicts lived only in the process that was exiting, so a licence
-    # checkout was spent and discarded on a collision knowable before
-    # anything started.
-    try:
-        refuse_existing_compat_report(
-            *compat_report_paths(canonical, args.report_dir, label=args.label)
-        )
-    except FileExistsError as error:
-        # RE-WORDED IN THIS CLI'S FLAGS. The library names its own
-        # parameter, which is right for a Python caller; here the reader
-        # has a command line in front of them and the two escapes have
-        # names they can type.
-        print(
-            f"nothing run: {error} From this command line those are --label and --report-dir.",
-            file=sys.stderr,
-        )
+    # BEFORE the solver starts, for the reason the shared helper states.
+    if _refuse_before_the_solver("CMP", canonical.replace(".", ""), args):
         return 2
 
     try:
@@ -386,11 +368,60 @@ def _in_command_line_words(message: str) -> str:
     message it owns the translation, including the fact that its own
     flag is comma separated, which the library has no reason to know.
     """
+    # EVERY PARAMETER NAME IS TRANSLATED, not just the one that happens
+    # to appear in the message under test. `smi_root` used to be
+    # translated only when a `cases=[...]` datum was also present, because
+    # the early return above it fired first.
+    message = message.replace("smi_root", "--smi-root")
     match = re.search(r"cases=\[([^\]]*)\]", message)
     if match is None:
         return message
     names = [name.strip().strip("'\"") for name in match.group(1).split(",") if name.strip()]
-    return message[: match.start()] + "--cases " + ",".join(names)
+    # AND THE TAIL IS KEPT. The first version returned only what preceded
+    # the match, which works exactly while the datum happens to be the
+    # last token of the producer's sentence, and silently truncates the
+    # message the day it is not.
+    return message[: match.start()] + "--cases " + ",".join(names) + message[match.end() :]
+
+
+def _refuse_before_the_solver(prefix: str, key: str, args: argparse.Namespace) -> bool:
+    """Ask whether the report already exists, BEFORE anything is run.
+
+    The refusal is right and its POSITION was wrong, in all THREE evidence
+    writers. It was hoisted for `probe` on 2026-08-17, after a full
+    campaign of 111 command probes over five minutes of licensed solver
+    ran to completion and was then discarded on a stem collision knowable
+    from the command line. `physics` and `drift` kept the defect until the
+    review round of the same day: the whole Tier 3 matrix could still run
+    and then die on an uncaught FileExistsError, which is worse than the
+    original, because probe at least caught and printed.
+
+    Returns True when the caller must stop.
+
+    The date is today's, which is what each writer resolves for itself a
+    moment later. That pairing is the one INC-20260817-2210 was about, and
+    both halves of it are guarded in `tests/test_qa_compat.py`.
+    """
+    paths = report_paths(
+        prefix,
+        key,
+        args.report_dir,
+        date=datetime.date.today().isoformat(),
+        label=args.label,
+    )
+    try:
+        refuse_existing_report(*paths)
+    except FileExistsError as error:
+        # RE-WORDED IN THIS CLI'S FLAGS. The library names its own
+        # parameter, which is right for a Python caller; here the reader
+        # has a command line in front of them and the two escapes have
+        # names they can type.
+        print(
+            f"nothing run: {error} From this command line those are --label and --report-dir.",
+            file=sys.stderr,
+        )
+        return True
+    return False
 
 
 def _cmd_physics(args: argparse.Namespace) -> int:
@@ -400,6 +431,8 @@ def _cmd_physics(args: argparse.Namespace) -> int:
     cases = None
     if args.cases:
         cases = [name.strip() for name in args.cases.split(",") if name.strip()]
+    if _refuse_before_the_solver("PHY", canonical.replace(".", ""), args):
+        return 2
     try:
         run = run_physics(
             canonical,
@@ -465,6 +498,9 @@ def _cmd_drift(args: argparse.Namespace) -> int:
     cases = None
     if args.cases:
         cases = [name.strip() for name in args.cases.split(",") if name.strip()]
+    key = canonicals[0].replace(".", "") + "-" + canonicals[1].replace(".", "")
+    if _refuse_before_the_solver("DRF", key, args):
+        return 2
     try:
         run = run_drift(
             canonicals[0],

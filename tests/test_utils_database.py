@@ -202,6 +202,40 @@ def test_running_the_write_twice_is_a_no_op_that_says_so(tree):
     assert {path: path.read_bytes() for path in chapters.glob("*.yaml")} == after_first
 
 
+def test_a_vendor_alias_is_refused_even_when_it_resolves(tree):
+    """Resolving is not the same as BEING the canonical identifier.
+
+    The first version of this guard called `resolve(build)` and discarded
+    the answer, so any label that resolves UNIQUELY passed. Three vendor
+    display names do today (25.0, 25.1, 26.0), and a manifest row labelled
+    that way cleared the gate, both 400-page manuals were read, and rows
+    keyed to the ALIAS were built. Nothing was written, because the schema
+    refuses an unregistered version, but the refusal arrived as a
+    complaint about a command ENTRY rather than about the label that
+    caused it, after the whole cost had been paid.
+    """
+    chapters, registry, editions, reader = tree
+    editions[1] = Edition(
+        label="26.0", manual=editions[1].manual, chapter=(10, 20), source="SRC-751"
+    )
+    opened = []
+
+    def watching(manual, *, first, last):
+        opened.append(manual)
+        return reader(manual, first=first, last=last)
+
+    with pytest.raises(ManualDraftError, match="vendor display name for 26.000"):
+        register_edition(
+            editions,
+            "26.0",
+            commands_dir=chapters,
+            registry=registry,
+            reader=watching,
+            write=True,
+        )
+    assert opened == [], "a 400-page read happened before a refusal decidable from the manifest"
+
+
 def test_an_unregistered_build_is_refused_before_a_manual_is_opened(tree):
     """The refusal that stops 369 rows keyed to a version nothing answers for.
 

@@ -1,4 +1,26 @@
-# RPT-027: the boundary layer across a proximity gap, 26.122 against 26.123 (2026-08-17)
+# RPT-027: the boundary layer across a proximity gap, 26.122 against 26.123 (2026-08-17, amended 2026-08-17)
+
+**Amended the same day, after review.** Four sentences drawing
+conclusions were withdrawn and no measurement moved: every number in
+every table is the one first published. `reports/README.md` binds this,
+and the first version of the amendment carried the date alone, which is
+what it forbids: a reader must be able to see that the file moved
+without reading the history. So the four are named here as well as
+marked where they stood.
+
+1. Result 2's heading said the two builds "differ ONLY where the mapping
+   engages". This report's own corroboration section shows three viscous
+   drag coefficients moving on cases with no proximity gap in them, so
+   the heading now says "most, by far".
+2. The wide-gap movement was called "the same order as the ordinary
+   build-to-build movement" that the same day's drift run measured. It is
+   five to twenty-six times SMALLER than the three moving coefficients in
+   that run.
+3. The steady and unsteady changes were said to "agree to two decimal
+   places". They agree to two significant figures.
+4. The summary said the change is "confined to exactly the regime the
+   vendor described". Two gap ratios bound the regime; they do not locate
+   its boundary.
 
 The vendor described FlightStream 26.123 to the author as improving the
 boundary-layer model, specifically mapping the layer across
@@ -133,7 +155,8 @@ Do not read that as "the wide gap moves as much as everything else
 does". It does not, in either direction. The eleven metrics that DO move
 in that run include three viscous drag coefficients moving by 1.8, 2.2
 and 9.0 percent, on cases with no proximity gap anywhere in them, which
-is five to twenty-six times the wide-gap movement here. The builds
+is five to twenty-six times the STEADY wide-gap movement here, and four
+and a half to twenty-three times the unsteady one. The builds
 therefore differ in viscous drag by MORE, relatively, on cases where this
 mapping cannot engage than in this experiment's own control. That is why
 the heading above says "most" and not "only", and it is stated here
@@ -142,8 +165,12 @@ report first noticed it.
 
 The steady and unsteady relative changes agree to two significant
 figures, both rounding to -32 percent, which is what the vendor said
-about the modes. Not to two decimal places: -31.96 and -31.90 differ at
-the second decimal and at the first.
+about the modes.
+
+They do NOT agree to two decimal places, and the first version of this
+sentence said so in a way that invited two readings, so it is put
+unambiguously: -31.96 and -31.90 differ in the second decimal, and
+rounding each to one decimal separates them further, to -32.0 and -31.9.
 
 ## What this establishes, and what it does not
 
@@ -189,7 +216,7 @@ That run was designed to detect drift of any kind, not this. It agrees.
 The driver lives in the private tree, which is where the licensed
 executables and the geometry are; it writes nothing into the repository.
 Everything it needs from the package is public: `WingSpec`,
-`wing_triangles(..., offset_m=...)`, `mean_edge_length` and the script
+`wing_triangles(..., translation_m=...)`, `generate_wing_stl(..., name=...)`, `mean_edge_length` and the script
 builder. The sixteen scripts, their logs and their loads files are on the
 machine that ran them.
 

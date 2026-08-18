@@ -36,13 +36,11 @@ compared either side.
 from __future__ import annotations
 
 import hashlib
-import os
-import subprocess
 import sys
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[1]
-PYTHON = Path(sys.executable)
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _mutation_harness import REPO, verdict  # noqa: E402
 
 WRITER_TEST = (
     "tests/test_qa_compat.py::test_the_writer_stamps_one_date_in_the_stem_the_body_and_the_header"
@@ -65,11 +63,25 @@ WRITER_STALE = (
     "    yaml_path, md_path = compat_report_paths(run.version, out_dir, date=date, label=label)\n"
 )
 
+#: THE MIRROR IMAGE, RE-ANCHORED 2026-08-17 after the review round moved
+#: the stem-building out of this module into `qa/reports.py`. The anchor
+#: assertion caught the drift rather than the battery reporting on a tree
+#: it had not mutated, which is the third time that assertion earned
+#: itself in one day.
+#:
+#: The structural fix went further than this guard: `report_paths` takes
+#: `date` as a REQUIRED keyword and defaults nothing, so for `physics` and
+#: `drift` there is no longer a second resolution site and this mutation
+#: is impossible there by construction. It stays possible for `compat`,
+#: whose announced public `compat_report_paths` still defaults, and that
+#: is the surviving pair this mutant targets.
 HELPER_LIVE = (
     "    date = date or datetime.date.today().isoformat()\n"
-    "    stem = f\"CMP-{version.replace('.', '')}_{date}\"\n"
+    '    return report_paths("CMP", version.replace(".", ""), out_dir, date=date, label=label)\n'
 )
-HELPER_STALE = "    stem = f\"CMP-{version.replace('.', '')}_{date}\"\n"
+HELPER_STALE = (
+    '    return report_paths("CMP", version.replace(".", ""), out_dir, date=date, label=label)\n'
+)
 
 EXEMPTION_LIVE = '_UNDATED_REPORT_ERRATUM = {"CMP-26123_2026-08-17_full-sim.yaml"}\n'
 EXEMPTION_STALE = "_UNDATED_REPORT_ERRATUM: set[str] = set()\n"
@@ -99,18 +111,25 @@ MUTANTS = (
 )
 
 
-def _spawn(argv: list[str]) -> subprocess.CompletedProcess[bytes]:
-    """Run one child with an EXPLICIT environment, per the spawn rule."""
-    return subprocess.run(
-        argv, cwd=REPO, capture_output=True, check=False, timeout=900, env=os.environ.copy()
-    )
-
-
 def run(test: str) -> int:
-    """Run one test alone and return its status, read from the process."""
-    return _spawn(
-        [str(PYTHON), "-m", "pytest", test, "-q", "--no-header", "-p", "no:cacheprovider"]
-    ).returncode
+    """Return 1 when the guard DENIED and 0 when it passed, and nothing else.
+
+    THREE-VALUED UNDERNEATH, and that is the correction of 2026-08-17.
+    This battery read a kill off any non-zero exit status. pytest exits 1
+    on a failure, 2 on a collection or import error, 4 on a usage error
+    and 5 when the selection matched no test; three of those four are not
+    a guard denying, and all four were being counted as kills, after
+    which the battery printed "N of N mutants killed" and exited 0.
+
+    An INCONCLUSIVE result now stops the run rather than scoring, because
+    a mutant that stops the suite from importing proves nothing about the
+    guard and a selector that matches nothing proves less. The
+    classification lives in `_mutation_harness.verdict`, once.
+    """
+    outcome, tail = verdict(test)
+    if outcome == "INCONCLUSIVE":
+        raise SystemExit(f"INCONCLUSIVE on {test}: {tail}")
+    return 1 if outcome == "KILLED" else 0
 
 
 def main() -> None:

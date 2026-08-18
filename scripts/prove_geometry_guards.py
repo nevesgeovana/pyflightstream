@@ -31,13 +31,12 @@ byte and fails rather than warns if a restore is not exact.
 from __future__ import annotations
 
 import hashlib
-import os
-import subprocess
 import sys
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[1]
-PYTHON = Path(sys.executable)
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _mutation_harness import REPO, apply_mutant, verdict  # noqa: E402
+
 TARGET = REPO / "src" / "pyflightstream" / "qa" / "geometry.py"
 
 FACE_TEST = (
@@ -70,18 +69,25 @@ MUTANTS = (
 )
 
 
-def _spawn(argv: list[str]) -> subprocess.CompletedProcess[bytes]:
-    """Run one child with an EXPLICIT environment, per the spawn rule."""
-    return subprocess.run(
-        argv, cwd=REPO, capture_output=True, check=False, timeout=900, env=os.environ.copy()
-    )
-
-
 def run(test: str) -> int:
-    """Run one test alone and return its status, read from the process."""
-    return _spawn(
-        [str(PYTHON), "-m", "pytest", test, "-q", "--no-header", "-p", "no:cacheprovider"]
-    ).returncode
+    """Return 1 when the guard DENIED and 0 when it passed, and nothing else.
+
+    THREE-VALUED UNDERNEATH, and that is the correction of 2026-08-17.
+    This battery read a kill off any non-zero exit status. pytest exits 1
+    on a failure, 2 on a collection or import error, 4 on a usage error
+    and 5 when the selection matched no test; three of those four are not
+    a guard denying, and all four were being counted as kills, after
+    which the battery printed "N of N mutants killed" and exited 0.
+
+    An INCONCLUSIVE result now stops the run rather than scoring, because
+    a mutant that stops the suite from importing proves nothing about the
+    guard and a selector that matches nothing proves less. The
+    classification lives in `_mutation_harness.verdict`, once.
+    """
+    outcome, tail = verdict(test)
+    if outcome == "INCONCLUSIVE":
+        raise SystemExit(f"INCONCLUSIVE on {test}: {tail}")
+    return 1 if outcome == "KILLED" else 0
 
 
 def main() -> None:
@@ -95,14 +101,12 @@ def main() -> None:
     before = hashlib.sha256(original).hexdigest()
     killed = 0
     for label, live, stale, test in MUTANTS:
-        text = original.decode("utf-8")
-        found = text.count(live)
-        if found != 1:
-            raise SystemExit(
-                f"anchor for {label!r} appears {found} times, expected exactly 1; a mutant "
-                "that replaces nothing measures the unmutated tree and passes vacuously"
-            )
-        TARGET.write_bytes(text.replace(live, stale).encode("utf-8"))
+        # THROUGH THE HARNESS, which asserts the anchor is present and
+        # unique AND translates line endings onto the target. This was
+        # the only one of the four batteries that did neither, so it
+        # aborted on any checkout with autocrlf on: every source file
+        # there is CRLF and a line-feed anchor matches nothing.
+        TARGET.write_bytes(apply_mutant(TARGET, live, stale))
         try:
             status = run(test)
         finally:
@@ -110,8 +114,8 @@ def main() -> None:
         after = hashlib.sha256(TARGET.read_bytes()).hexdigest()
         if after != before:
             raise SystemExit(f"{TARGET} was not restored byte for byte: {before} -> {after}")
-        verdict = "KILLED" if status else "SURVIVED"
-        print(f"  {verdict:8s} {label} (exit {status})")
+        shown = "KILLED" if status else "SURVIVED"
+        print(f"  {shown:8s} {label} (exit {status})")
         killed += bool(status)
 
     if run(FACE_TEST) or run(STL_TEST):

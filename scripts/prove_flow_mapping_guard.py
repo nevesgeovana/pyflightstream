@@ -27,13 +27,11 @@ not exact fails rather than warns.
 from __future__ import annotations
 
 import hashlib
-import os
-import subprocess
 import sys
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[1]
-PYTHON = Path(sys.executable)
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _mutation_harness import REPO, verdict  # noqa: E402
 
 SCANNER = "tests/test_yamlflow.py::test_no_module_builds_a_flow_mapping_by_hand"
 SIGNATURE = "tests/test_yamlflow.py::test_insert_version_row_takes_no_pre_rendered_yaml"
@@ -100,18 +98,25 @@ MUTANTS = (
 )
 
 
-def _spawn(argv: list[str]) -> subprocess.CompletedProcess[bytes]:
-    """Run one child with an EXPLICIT environment, per the spawn rule."""
-    return subprocess.run(
-        argv, cwd=REPO, capture_output=True, check=False, timeout=900, env=os.environ.copy()
-    )
-
-
 def run(test: str) -> int:
-    """Run one test alone and return its status, read from the process."""
-    return _spawn(
-        [str(PYTHON), "-m", "pytest", test, "-q", "--no-header", "-p", "no:cacheprovider"]
-    ).returncode
+    """Return 1 when the guard DENIED and 0 when it passed, and nothing else.
+
+    THREE-VALUED UNDERNEATH, and that is the correction of 2026-08-17.
+    This battery read a kill off any non-zero exit status. pytest exits 1
+    on a failure, 2 on a collection or import error, 4 on a usage error
+    and 5 when the selection matched no test; three of those four are not
+    a guard denying, and all four were being counted as kills, after
+    which the battery printed "N of N mutants killed" and exited 0.
+
+    An INCONCLUSIVE result now stops the run rather than scoring, because
+    a mutant that stops the suite from importing proves nothing about the
+    guard and a selector that matches nothing proves less. The
+    classification lives in `_mutation_harness.verdict`, once.
+    """
+    outcome, tail = verdict(test)
+    if outcome == "INCONCLUSIVE":
+        raise SystemExit(f"INCONCLUSIVE on {test}: {tail}")
+    return 1 if outcome == "KILLED" else 0
 
 
 def main() -> None:

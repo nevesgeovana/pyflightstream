@@ -49,6 +49,7 @@ invariant is that its rows are not hand-edited.
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -238,7 +239,7 @@ def register_edition(
     # the manifest and the registry, and a 400-page read is what they
     # used to cost.
     try:
-        resolve(build)
+        known = resolve(build)
     except (UnknownVersionError, AmbiguousVersionAliasError) as error:
         raise ManualDraftError(
             f"{build} is a manifest label and is not a registered build ({error}). A "
@@ -248,6 +249,21 @@ def register_edition(
             "only ordering authority, and it currently carries "
             + ", ".join(str(known) for known in known_versions())
         ) from None
+
+    # AND IT MUST BE THE CANONICAL, not merely something that RESOLVES.
+    # `resolve` accepts a display alias that names exactly one build, and
+    # three do today (25.0, 25.1, 26.0), so a manifest row labelled that
+    # way cleared the gate, both manuals were read, and rows keyed to the
+    # ALIAS were built. The refusal then arrived from the command schema,
+    # about an unregistered version, phrased as a complaint about an
+    # entry rather than about the label that caused it.
+    if known.canonical != build:
+        raise ManualDraftError(
+            f"{build} is a vendor display name for {known.canonical}, not a canonical "
+            "identifier. A documented row is keyed by the canonical identifier, so a "
+            "row written under an alias is one the registry cannot answer for. Label "
+            f"the manifest row {known.canonical} and re-run."
+        )
 
     target = editions[position]
     previous = editions[position - 1]
@@ -350,14 +366,9 @@ def register_edition(
 
     for path, text in edited.items():
         path.write_bytes(text.encode("utf-8"))
-    return Registration(
-        target=target,
-        previous=previous,
-        deltas=deltas,
-        writable=tuple(writable),
-        already_recorded=tuple(sorted(already)),
-        undatabased=undatabased,
-        directory=commands_dir,
-        written=written,
-        chapters=tuple(edited),
-    )
+    # REPLACED, not rebuilt. The class docstring says a dry run and a
+    # write report the same object, and nothing enforced it: seven fields
+    # were repeated across two constructions, so one added to the write
+    # and not the rehearsal would make them disagree silently, in the
+    # object whose whole purpose is that they cannot.
+    return dataclasses.replace(result, written=written, chapters=tuple(edited))

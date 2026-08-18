@@ -28,9 +28,23 @@ person to read. Everything else here is still a draft.
 
 The layer statement above is unchanged by it, and the split is why.
 :func:`~pyflightstream.utils.manual.insert_version_row` takes the text
-of a chapter file and returns the edited text; it opens nothing. The IO
-lives in :mod:`~pyflightstream.utils.cli`, which is already the entry
-point above :mod:`pyflightstream.commands`.
+of a chapter file and returns the edited text; it opens nothing.
+
+THE IO LIVES IN :mod:`~pyflightstream.utils.database`, and this
+paragraph said ``cli`` until 2026-08-17, when the registration
+transaction was lifted out of the argument parser. That module reads and
+writes the chapter bytes, validates every edit against the command
+schema before any of them reaches the disk, and is the one importable
+home of a registration.
+
+SO THIS SUBPACKAGE HAS THREE POSITIONS, not the two the statement above
+enumerates: ``manual`` and ``errors`` at the bottom, and ``cli`` and
+``database`` above :mod:`pyflightstream.commands`. ``database`` is
+deliberately NOT re-exported from this module, and that is load bearing
+rather than an oversight: re-exporting it would make
+``import pyflightstream.utils`` pull :mod:`pyflightstream.commands` in,
+and cost ``manual`` the property that it can be used from any layer.
+Import it by its own name.
 
 What does NOT belong here is anything a user's run depends on. A helper
 that a script, a campaign or a parser needs is part of that layer and

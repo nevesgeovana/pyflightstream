@@ -1131,10 +1131,11 @@ def test_a_note_carrying_a_backslash_survives_a_yaml_round_trip():
     Reachable: `_scan_errors` copies solver log lines verbatim and
     Windows paths appear in them.
     """
-    from pyflightstream.qa.compat import _flow_scalar, _one_line_note
+    from pyflightstream._yamlflow import flow_scalar
+    from pyflightstream.qa.compat import _one_line_note
 
     detail = "the solver logged errors: cannot open " + chr(92).join(["C:", "runs", "s.txt"])
-    note = _flow_scalar(_one_line_note(detail))
+    note = flow_scalar(_one_line_note(detail))
     line = f'"26.122": {{status: broken, report: "r.yaml", note: {note}}}'
     parsed = yaml.safe_load("{" + line + "}")
     assert parsed["26.122"]["note"] == _one_line_note(detail)
@@ -1335,7 +1336,7 @@ def test_this_module_defines_no_renderer_of_its_own():
     import ast
     import inspect
 
-    from pyflightstream._yamlflow import flow_mapping, flow_scalar
+    from pyflightstream._yamlflow import flow_mapping
     from pyflightstream.qa import compat
 
     tree = ast.parse(inspect.getsource(compat))
@@ -1349,4 +1350,3 @@ def test_this_module_defines_no_renderer_of_its_own():
         "and they can disagree: " + ", ".join(defined)
     )
     assert compat._flow_mapping is flow_mapping
-    assert compat._flow_scalar is flow_scalar

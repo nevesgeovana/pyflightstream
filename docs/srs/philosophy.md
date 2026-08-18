@@ -77,7 +77,11 @@ not yet cited or drafted, including when the answer is nothing. A
 smaller set of honest claims is always preferred over a larger set of
 assumed ones.
 
-Since v0.5.0 that report has nothing to list, every command the
+Since v0.5.0 that report listed nothing for the editions swept in
+August 2026. Registering SRC-751 on 2026-08-17 put ONE command back on
+it, `SET_OUTLET_TRAILING_EDGES`, which is the rule working rather than
+failing: the queue names what is owed instead of the page claiming
+closure. What the sweep established is that every command the
 registered editions document being recorded. Read that as the coverage
 question closing rather than as the honesty rule relaxing: the same
 release found four commands whose grammar DIFFERS per edition and one

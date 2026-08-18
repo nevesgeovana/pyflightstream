@@ -49,10 +49,18 @@ def _page_count(path) -> int:
     """
     try:
         import pypdf
-    except ImportError:  # pragma: no cover - exercised only without the extra
+    except ImportError as error:  # pragma: no cover - only without the extra
         from pyflightstream.extras import missing_extra
 
-        raise missing_extra("manual", "pypdf") from None
+        # KEYWORD form and `from error`, both of which the first version
+        # got wrong: `missing_extra("manual", "pypdf")` is itself a
+        # TypeError, so the one user this branch exists for met an
+        # argument-arity error instead of the install line.
+        raise missing_extra(
+            "manual",
+            package="pypdf",
+            purpose="comparing two manual editions page by page",
+        ) from error
     return len(pypdf.PdfReader(path).pages)
 
 
@@ -93,9 +101,29 @@ def main(argv: list[str] | None = None) -> int:
         description=__doc__.split("\n")[0],
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--editions", required=True, metavar="MANIFEST")
-    parser.add_argument("--from", dest="earlier", required=True, metavar="LABEL")
-    parser.add_argument("--to", dest="later", required=True, metavar="LABEL")
+    parser.add_argument(
+        "--editions",
+        required=True,
+        metavar="MANIFEST",
+        help=(
+            "YAML manifest naming each edition's manual; local only, never "
+            "committed, since the manuals are licensed vendor material"
+        ),
+    )
+    parser.add_argument(
+        "--from",
+        dest="earlier",
+        required=True,
+        metavar="LABEL",
+        help="manifest label of the earlier edition, for example 26.122",
+    )
+    parser.add_argument(
+        "--to",
+        dest="later",
+        required=True,
+        metavar="LABEL",
+        help="manifest label of the later edition, for example 26.123",
+    )
     parser.add_argument(
         "--pages",
         default=None,

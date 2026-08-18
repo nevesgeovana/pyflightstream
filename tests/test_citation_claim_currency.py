@@ -360,8 +360,20 @@ def test_pages_covers_the_tracked_prose_that_describes_the_database():
     hundreds of files; it asserts that any tracked prose file mentioning
     the database's citation fields is either listed or deliberately not.
     """
+    # TRACKED **AND ABOUT TO BE**, which is the correction of 2026-08-17.
+    # `git ls-files` alone means a file this guard would refuse passes
+    # until the moment it is committed, and the commit is what changes the
+    # answer. That is not hypothetical: `src/pyflightstream/utils/database.py`
+    # was written, the suite was run in three chunks and reported green,
+    # the commit was made, and the guard went red on the file the commit
+    # had just added. The green was measured on a population that did not
+    # include it.
+    #
+    # `--others --exclude-standard` adds untracked files that are not
+    # ignored, which is exactly the set the next commit will contain. The
+    # guard now answers the same before and after.
     tracked = subprocess.run(
-        ["git", "ls-files", "*.md", "*.tex", "*.py"],
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard", "*.md", "*.tex", "*.py"],
         capture_output=True,
         text=True,
         cwd=REPO_ROOT,
@@ -395,6 +407,11 @@ DELIBERATELY_UNLISTED = {
     # The field named AS A FIELD, in error messages, schema prose and
     # drafting output, which says nothing about what every entry carries.
     "src/pyflightstream/utils/manual.py",
+    # Its sibling, and for the identical reason: `database.py` names the
+    # field AS A FIELD, in a refusal explaining that a manifest row with
+    # no citation id would write "None" as a row's provenance. It makes
+    # no claim about what every entry carries.
+    "src/pyflightstream/utils/database.py",
     "src/pyflightstream/script/__init__.py",
     "src/pyflightstream/qa/compat.py",
     "scripts/gen_docs_pages.py",

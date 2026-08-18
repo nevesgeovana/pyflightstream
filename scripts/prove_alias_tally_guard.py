@@ -298,9 +298,9 @@ def main() -> None:
     survived: list[str] = []
     for relative, spans in MUTANTS:
         original_sha, mutant_sha, status = _mutate(relative, spans)
-        verdict = "KILLED" if status else "SURVIVED"
+        shown = "KILLED" if status else "SURVIVED"
         print(
-            f"  {verdict:8s} {relative} ({len(spans)} span(s)) exit {status}  "
+            f"  {shown:8s} {relative} ({len(spans)} span(s)) exit {status}  "
             f"tree {original_sha[:12]} mutant {mutant_sha[:12]}"
         )
         killed += bool(status)
