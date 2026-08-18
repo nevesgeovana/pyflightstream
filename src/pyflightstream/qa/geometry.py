@@ -220,7 +220,7 @@ def wing_triangles(
     ----------
     spec : WingSpec
         Wing definition; see :class:`WingSpec`.
-    half : bool
+    half : bool, keyword-only
         When True, mesh only the y >= 0 half with an open root section
         in the XZ symmetry plane (for MIRROR-symmetry runs, PHY-02);
         when False, mesh the full span with closed caps on both tips.
@@ -519,12 +519,12 @@ def generate_wing_stl(
         Wing definition.
     path : str or Path
         Destination STL file.
-    half : bool
+    half : bool, keyword-only
         Mesh the open-root y >= 0 half instead of the full span.
     translation_m : tuple of float, keyword-only
         Rigid translation in meters, applied to the vertices rather than
         by a solver command; see :func:`wing_triangles`.
-    name : str, optional
+    name : str, optional, keyword-only
         Solid name written into the STL, defaulting to the shape's
         own label.
 

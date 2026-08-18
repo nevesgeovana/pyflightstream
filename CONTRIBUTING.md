@@ -57,7 +57,7 @@ battery behind it. It EDITS THE WORKING
 TREE and restores it, so run it on a clean checkout and read `git
 status` afterwards; a full pass takes over ten minutes, so it takes a
 label prefix to run one part. The match is a PREFIX and not a token, so
-`M1` selects M1 and M10 through M18, eleven of the twenty mutants; `N1`
+`M1` selects M1 and M10 through M18, ten of the twenty mutants; `N1`
 or `M2` selects one. Passing a label that matches nothing exits 1 and
 prints every label there is, which is also how to list them. That guard exists because
 an unguarded `import pypdf` reached the v0.7.0 tag past every reviewer
@@ -196,13 +196,27 @@ nothing, because the file carries counts as well as names and both move.
 
 `scripts/prove_alias_tally_guard.py` is the mutation battery for the
 stale-tally guard. It restores, one at a time, the six committed
-sentences that enumerated the builds sharing a vendor name before
-2026-08-17, and requires the guard to deny each. Like the other
-batteries it EDITS TRACKED FILES, restores them, and checks a sha256
-either side of every mutant, so a run that leaves the tree changed
-fails rather than being noticed later.
+FILES whose nine sentences enumerated the builds sharing a vendor name
+before 2026-08-17, and requires the guard to deny each. Like every battery it
+EDITS TRACKED FILES and restores them; unlike the three that only park
+and restore (`prove_extras_isolation.py`, `prove_evidence_guards.py`
+and `prove_edition_comparison.py`) it checks a sha256 either side of
+every mutant and FAILS rather than warns if a restore is not
+byte-exact, which its own docstring states.
 
-**If you write one of these, do not anchor it on `git show HEAD:<path>`.**
+`scripts/prove_published_invocation_guards.py` is the seventh, added
+2026-08-18. It restores the two published reproduction commands that
+shipped broken, a required flag omitted and a flag no parser defines,
+and requires `tests/test_documented_invocations.py` to deny each. It
+PARKS, which only `prove_evidence_guards.py` otherwise does.
+
+**If you write one of these, call `_mutation_harness.apply_mutant`.**
+It holds the two rules below and raises rather than warning, and four
+of the seven batteries predate it and re-implement them inline
+(PLN-20260818-0100). Read the two rules anyway, because they are why
+it exists.
+
+**Do not anchor a battery on `git show HEAD:<path>`.**
 That battery did, and it broke the day its own fix was committed: the
 HEAD blob is the pre-fix text only while the fix is uncommitted, and
 afterwards five of its six mutants wrote the file back exactly as it

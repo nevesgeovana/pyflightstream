@@ -15,7 +15,6 @@ older report can no longer revert a status a later run already moved.
 
 from __future__ import annotations
 
-import datetime
 import re
 from dataclasses import dataclass
 from importlib import resources
@@ -28,14 +27,22 @@ from pyflightstream._yamlflow import flow_mapping
 from pyflightstream.commands import CommandEntry
 from pyflightstream.qa.errors import QaEvidenceError
 from pyflightstream.qa.probes import ProbeOutcome, ProbeRun
-from pyflightstream.qa.reports import refuse_existing_report, report_paths
+from pyflightstream.qa.reports import (
+    refuse_existing_report,
+    report_paths,
+    resolve_report_date,
+)
 from pyflightstream.run import describe_invocation
 
 COMPAT_SCHEMA = "pyflightstream-compat-report/1"
 
 
 def compat_report_paths(
-    version: str, out_dir: str | Path, *, date: str | None = None, label: str | None = None
+    out_dir: str | Path,
+    *,
+    version: str,
+    date: str | None = None,
+    label: str | None = None,
 ) -> tuple[Path, Path]:
     """Return where a compat report for one run WOULD be written.
 
@@ -56,7 +63,10 @@ def compat_report_paths(
     out_dir : str or Path
         Target directory, normally ``reports/compat/``.
     date : str, optional
-        ISO date stamped into the stem; defaults to today.
+        ISO date stamped into the stem; defaults to today. A caller
+        that will also write the report should resolve the date once
+        and pass it here AND to :func:`write_compat_report`, so a run
+        crossing midnight cannot check one stem and write another.
     label : str, optional
         Stem suffix distinguishing several reports on one day.
 
@@ -66,8 +76,8 @@ def compat_report_paths(
         The YAML path and the Markdown path, in that order. Neither is
         created and the directory is not made.
     """
-    date = date or datetime.date.today().isoformat()
-    return report_paths(out_dir, series="CMP", builds=[version], date=date, label=label)
+    date = resolve_report_date(date)
+    return report_paths(out_dir, series="CMP", versions=[version], date=date, label=label)
 
 
 def write_compat_report(
@@ -108,8 +118,8 @@ def write_compat_report(
     # Resolved HERE as well as inside compat_report_paths, and both from
     # the same default, so the stem the file is written under and the
     # date stamped inside it cannot disagree.
-    date = date or datetime.date.today().isoformat()
-    yaml_path, md_path = compat_report_paths(run.version, out_dir, date=date, label=label)
+    date = resolve_report_date(date)
+    yaml_path, md_path = compat_report_paths(out_dir, version=run.version, date=date, label=label)
     refuse_existing_report(yaml_path, md_path)
     counts = run.outcome_counts()
     document = {

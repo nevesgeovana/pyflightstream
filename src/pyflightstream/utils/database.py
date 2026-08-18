@@ -233,9 +233,27 @@ def register_edition(
         # that the manifest carries THAT. The reader went editing a
         # manifest that was right. Resolving costs nothing and opens no
         # manual, so it is asked here.
+        # BOTH ALIAS SHAPES, not only the unique one. The first version
+        # of this branch caught `AmbiguousVersionAliasError` into a bare
+        # None and fell through to the generic message, so a reader who
+        # typed the release name off their manual's cover was told
+        # nothing about which of the four registered builds their
+        # edition is, by a tool that had just computed the list.
         try:
             resolved = resolve(build)
-        except (UnknownVersionError, AmbiguousVersionAliasError):
+        except AmbiguousVersionAliasError as ambiguous:
+            carried = [name for name in ambiguous.candidates if name in labels]
+            if carried:
+                raise ManualDraftError(
+                    f"the manifest has no row labelled {build!r}, and {build} is a "
+                    f"vendor release name shared by "
+                    f"{', '.join(ambiguous.candidates)}. The manifest carries "
+                    f"{', '.join(carried)}; re-run with the canonical identifier of "
+                    "the edition you actually read, since a documented row is keyed "
+                    "by that identifier and one edition documents one build."
+                ) from None
+            resolved = None
+        except UnknownVersionError:
             resolved = None
         if resolved is not None and resolved.canonical in labels:
             raise ManualDraftError(

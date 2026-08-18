@@ -389,8 +389,8 @@ def test_no_library_refusal_names_a_command_line_flag_alone():
     """
     offenders = []
     for site, flag, message in _library_refusals_naming_a_flag():
-        parameter = flag.lstrip("-").replace("-", "_")
-        if parameter not in message:
+        if not _names_the_parameter(flag, message):
+            parameter = flag.lstrip("-").replace("-", "_")
             offenders.append(f"{site}: names {flag} but never {parameter}")
     assert not offenders, (
         f"{len(offenders)} library raise site(s) name a command-line flag and not the "
@@ -398,3 +398,93 @@ def test_no_library_refusal_names_a_command_line_flag_alone():
         "the PARAMETER, and put the flag beside it for the reader who arrived through a "
         "CLI.\n  " + "\n  ".join(sorted(offenders))
     )
+
+
+def _names_the_parameter(flag: str, message: str) -> bool:
+    """Does ``message`` name the PARAMETER behind ``flag``, not just the flag?
+
+    THE OBVIOUS PREDICATE IS VACUOUS, which is why this is a function
+    with tests of its own rather than one line inside the walk. The
+    first version asked ``parameter in message`` where ``parameter`` is
+    ``flag.lstrip("-").replace("-", "_")``. For any flag whose body has
+    no hyphen that string is a SUBSTRING OF THE FLAG ITSELF: ``"cases"``
+    is in ``"--cases"`` and ``"fsm"`` is in ``"--fsm"``. So the predicate
+    was satisfied by the defect, and of the three raise sites the walk
+    reaches it genuinely checked exactly one, ``--smi-root``, which is
+    the site the same commit had just repaired.
+
+    Measured by the review pass that found it: rewriting
+    ``qa/probes.py``'s refusal from "pass fsm (CLI: --fsm)" to
+    "pass --fsm", which is the exact defect class, left 116 tests green.
+
+    Blanking the flags out of the message first is necessary and is not
+    sufficient, which the SECOND version of this predicate learned the
+    same hour. A parameter name is often an ordinary English word, so
+    ``--cases X (SMI cases need smi_root)`` contains "cases" in prose and
+    passed a substring test while naming the flag alone.
+
+    So the two SANCTIONED SHAPES are asked for by name, and there are
+    exactly two in this repository:
+
+    * ``smi_root (CLI: --smi-root)``, the parameter with its flag beside
+      it, which is what a message written for a Python caller and read by
+      a CLI user needs;
+    * ``cases=['PHY-01']``, the keyword form, which shows the call rather
+      than describing it.
+
+    Anything else is an offender, including prose that happens to contain
+    the word. A message wanting a third shape should add it here rather
+    than rely on a coincidence of vocabulary.
+
+    ONE PLURAL IS ADMITTED, narrowly and on purpose. Deriving the
+    parameter from the flag by de-hyphenating is a heuristic, and it
+    fails on the one place where this package's flag is singular and its
+    parameter is not: ``--recipe`` against ``recipes=`` in
+    ``cases/matrix.py``. A trailing ``s`` on the keyword form is
+    therefore accepted. That is a stated exception rather than a silent
+    loosening, and the alternative, renaming a released flag, is a
+    breaking change for a message.
+    """
+    import re
+
+    parameter = flag.lstrip("-").replace("-", "_")
+    if f"{parameter} (CLI: {flag})" in message:
+        return True
+    return re.search(rf"\b{re.escape(parameter)}s?=", message) is not None
+
+
+@pytest.mark.parametrize(
+    ("flag", "message", "expected", "why"),
+    [
+        ("--fsm", "pass fsm (CLI: --fsm)", True, "the accepted shape, parameter beside flag"),
+        ("--fsm", "pass --fsm", False, "the defect, and the vacuous predicate passed it"),
+        ("--cases", "name it: cases=['A'] or --cases A", True, "parameter present as a keyword"),
+        ("--cases", "to run a subset, pass --cases", False, "flag alone, single word"),
+        ("--smi-root", "pass smi_root (CLI: --smi-root)", True, "hyphenated flag, accepted"),
+        ("--smi-root", "pass --smi-root", False, "hyphenated flag, the original defect"),
+        (
+            "--cases",
+            "--cases ['PHY-01'] (SMI cases need smi_root)",
+            False,
+            "the English word 'cases' in prose is not the parameter, and a substring "
+            "test called this accepted",
+        ),
+        (
+            "--recipe",
+            "map it with recipes={code: 'mod:fn'} in Python, or --recipe CODE=mod:fn",
+            True,
+            "the keyword form, which is how cases/matrix.py writes it",
+        ),
+    ],
+)
+def test_the_flag_predicate_can_tell_the_defect_from_the_accepted_shape(
+    flag, message, expected, why
+):
+    """The predicate is driven by fixtures, not only by the live tree.
+
+    A guard whose only cases come from the tree goes green the day the
+    tree happens to hold nothing it can judge, and says nothing about
+    whether it COULD judge. These six cases give it a red case that does
+    not move when the source does.
+    """
+    assert _names_the_parameter(flag, message) is expected, why

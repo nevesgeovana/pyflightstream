@@ -41,7 +41,9 @@ while OVERWRITING it for ``broken``. So 84 is the number, not 85: those
 84 still carried the same misleading sentence while no longer matching a
 pattern anchored on ``status: documented``, and the broken row's note is
 the probe detail rather than a citation. The floor at the bottom of this
-file says the same thing in code, and the two used to disagree. Restating a note changes nothing
+file says the same thing in code, and the two used to disagree.
+
+Restating a note changes nothing
 about what a promoted row asserts: the status and the report it cites are
 its evidence, and the note says where the command is DOCUMENTED, which is
 the claim being corrected. The two shapes are matched separately so the

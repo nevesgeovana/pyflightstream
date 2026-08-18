@@ -102,7 +102,13 @@ def test_phy01_script_builds_validated_for_26120(tmp_path):
 
 
 def test_phy02_half_script_mirrors_and_enables_symmetry_loads(tmp_path):
-    script = build_phy02_script("26.120", True, tmp_path / "half.stl", "loads.txt", "log.txt")
+    script = build_phy02_script(
+        "26.120",
+        half=True,
+        stl_path=tmp_path / "half.stl",
+        loads_name="loads.txt",
+        log_name="log.txt",
+    )
     rendered = script.render()
     assert not script.raw_flag
     assert "SYMMETRY MIRROR" in rendered
@@ -113,7 +119,13 @@ def test_phy02_half_script_mirrors_and_enables_symmetry_loads(tmp_path):
 
 
 def test_phy02_full_script_keeps_the_baseline_shape(tmp_path):
-    script = build_phy02_script("26.120", False, tmp_path / "full.stl", "loads.txt", "log.txt")
+    script = build_phy02_script(
+        "26.120",
+        half=False,
+        stl_path=tmp_path / "full.stl",
+        loads_name="loads.txt",
+        log_name="log.txt",
+    )
     rendered = script.render()
     assert "SYMMETRY NONE" in rendered
     assert "SET_ANALYSIS_SYMMETRY_LOADS" not in rendered
@@ -228,7 +240,7 @@ def test_the_writer_lands_exactly_where_the_pre_flight_looked(tmp_path):
     run = make_run(tmp_path)
     yaml_path, md_path = write_physics_report(run, tmp_path, date="2026-07-21", label="pinned")
     assert (yaml_path, md_path) == physics_report_paths(
-        run.version, tmp_path, date="2026-07-21", label="pinned"
+        tmp_path, version=run.version, date="2026-07-21", label="pinned"
     )
 
 

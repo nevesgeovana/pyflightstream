@@ -160,7 +160,7 @@ def test_the_path_helper_defaults_its_date_the_same_way(tmp_path):
     """
     import datetime
 
-    yaml_path, md_path = compat_report_paths("26.120", tmp_path, label="probe")
+    yaml_path, md_path = compat_report_paths(tmp_path, version="26.120", label="probe")
     today = datetime.date.today().isoformat()
     assert yaml_path.name == f"CMP-26120_{today}_probe.yaml"
     assert md_path.name == f"CMP-26120_{today}_probe.md"
@@ -177,7 +177,7 @@ def test_the_writer_lands_exactly_where_the_pre_flight_looked(tmp_path):
     run = make_run()
     yaml_path, md_path = write_compat_report(run, tmp_path, date="2026-07-21", label="pinned")
     assert (yaml_path, md_path) == compat_report_paths(
-        run.version, tmp_path, date="2026-07-21", label="pinned"
+        tmp_path, version=run.version, date="2026-07-21", label="pinned"
     )
 
 
@@ -1365,3 +1365,44 @@ def test_this_module_defines_no_renderer_of_its_own():
         "and they can disagree: " + ", ".join(defined)
     )
     assert compat._flow_mapping is flow_mapping
+
+
+def test_the_primitive_refuses_an_empty_or_string_version_list(tmp_path):
+    """Two refusals in the one home, neither of which had a test.
+
+    `report_paths` is the primitive the three series helpers call, and no
+    test anywhere drove it directly: the review pass replaced its empty
+    check with `if False:` and 137 tests stayed green. Its two Examples
+    blocks are executed only in the separate doc-example step, not in
+    tier 1.
+
+    The string case is the one that matters most. `Sequence[str]` is
+    satisfied by `str`, so `versions="26.123"` is not empty and iterates
+    its CHARACTERS, giving `PHY-2-6-1-2-3_...`; a pre-flight asked that
+    way is green against a name nothing will ever write, and the licensed
+    run proceeds to a write that refuses. That is this module's own
+    failure, one input over.
+    """
+    from pyflightstream.qa import QaEvidenceError, report_paths
+
+    with pytest.raises(QaEvidenceError, match="at least one version"):
+        report_paths(tmp_path, series="PHY", versions=[], date="2026-07-21")
+
+    with pytest.raises(QaEvidenceError, match="not one string"):
+        report_paths(tmp_path, series="PHY", versions="26.123", date="2026-07-21")
+
+    # The catalogued type keeps its standard-library base, which is what
+    # lets an existing `except ValueError` catch what it always did. The
+    # docstring claims it; this checks it.
+    assert issubclass(QaEvidenceError, ValueError)
+
+
+def test_the_date_resolver_is_the_one_home_and_passes_an_explicit_date_through():
+    """`resolve_report_date` replaced six copies of one expression."""
+    import datetime
+
+    from pyflightstream.qa import resolve_report_date
+
+    assert resolve_report_date("2026-07-21") == "2026-07-21"
+    assert resolve_report_date(None) == datetime.date.today().isoformat()
+    assert resolve_report_date() == datetime.date.today().isoformat()

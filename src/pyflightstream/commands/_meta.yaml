@@ -258,9 +258,15 @@ versions:
 # original sentence read as a blanket claim and would have covered the
 # new row falsely.
 #
-# the first and last page carrying a signature heading, and the
-# contiguous run of pages the Script Index parser reads command lines
-# from. Two of the four were wrong before that, both by exactly five
+# EACH ROW'S TWO PAGE RANGES are the first and last page carrying a
+# signature heading, and the contiguous run of pages the Script Index
+# parser reads command lines from. That subject was lost on 2026-08-18
+# when the paragraph above was inserted ahead of it, leaving a
+# lowercase fragment with no verb; it is restored here rather than
+# guessed at, because the sentence it belongs to is what the four
+# numbers below MEAN.
+#
+# Two of those four numbers were wrong before that, both by exactly five
 # pages at each end, and the database had been disagreeing with them in
 # writing the whole time: 22 of its own SRC-003 citations fell outside
 # the range this file declared for SRC-003. tests/test_command_db.py now
@@ -389,7 +395,7 @@ manual_editions:
     the extracted text of all 417 pages of each rather than by sampling,
     so the set of changed pages is complete for extractable text. The
     measurement is REPRODUCIBLE by anyone holding the two manuals:
-    python scripts/measure_edition_page_delta.py --editions <manifest>
+    python scripts/measure_edition_page_delta.py --editions <manifest> \
         --from 26.122 --to 26.123
     That command prints the set, and it prints TWO sets because the
     answer depends on a method choice that had not been written down. By

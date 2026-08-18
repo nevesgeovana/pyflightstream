@@ -31,7 +31,17 @@ from pyflightstream.qa.compat import (
     read_compat_reports,
     write_compat_report,
 )
+
+# THE THREE SERIES HELPERS ARE EXPORTED TOGETHER, which they were not
+# until 2026-08-18: `compat_report_paths` was here and its two new
+# siblings were not, while the release note presents the three as one
+# family, so a reader taking that at its word met an ImportError on two
+# of three. Importing `physics` and `drift` here costs no dependency
+# this package did not already pull: `compat` reaches `run`, which
+# reaches numpy, before any of this runs.
+from pyflightstream.qa.drift import drift_report_paths
 from pyflightstream.qa.errors import QaEvidenceError
+from pyflightstream.qa.physics import physics_report_paths
 from pyflightstream.qa.probes import (
     DEFAULT_ERROR_PATTERNS,
     ProbeArtifacts,
@@ -52,15 +62,19 @@ from pyflightstream.qa.probes import (
     region_printed,
     unrecognised_commands,
 )
-from pyflightstream.qa.reports import refuse_existing_report, report_paths
+from pyflightstream.qa.reports import (
+    refuse_existing_report,
+    report_paths,
+    resolve_report_date,
+)
 from pyflightstream.qa.specs import PROBE_SPECS
 
 __all__ = [
     "COMPAT_SCHEMA",
     "DEFAULT_ERROR_PATTERNS",
+    "Judgment",
     "PROBE_SPECS",
     "PROMOTABLE_OUTCOMES",
-    "Judgment",
     "ProbeArtifacts",
     "ProbeEnvironmentError",
     "ProbeOutcome",
@@ -72,12 +86,14 @@ __all__ = [
     "apply_compat",
     "compat_report_paths",
     "contradicting_evidence",
+    "drift_report_paths",
     "dump_changed",
     "dump_gained",
+    "file_effect",
     "fsm_changed",
     "fsm_gained",
-    "file_effect",
     "generate_probe_script",
+    "physics_report_paths",
     "printed_line",
     "probe_version",
     "read_compat_report",
@@ -85,6 +101,7 @@ __all__ = [
     "refuse_existing_report",
     "region_printed",
     "report_paths",
+    "resolve_report_date",
     "unrecognised_commands",
     "write_compat_report",
 ]

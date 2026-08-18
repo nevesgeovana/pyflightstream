@@ -95,5 +95,9 @@ def test_the_writer_lands_exactly_where_the_pre_flight_looked(tmp_path):
     drift = diff_runs(physics_run("26.100", {"CL_a4": 0.337}), physics_run("26.120", {}))
     yaml_path, md_path = write_drift_report(drift, tmp_path, date="2026-07-21", label="pinned")
     assert (yaml_path, md_path) == drift_report_paths(
-        drift.version_a, drift.version_b, tmp_path, date="2026-07-21", label="pinned"
+        tmp_path,
+        version_a=drift.version_a,
+        version_b=drift.version_b,
+        date="2026-07-21",
+        label="pinned",
     )

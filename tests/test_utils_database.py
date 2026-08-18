@@ -591,3 +591,33 @@ def test_an_alias_typed_against_a_correctly_labelled_manifest_names_the_canonica
     assert "26.000" in message, message
     assert "display name" in message, message
     assert opened == [], "a manual was opened before the label was refused"
+
+
+def test_a_shared_release_name_names_the_manifest_rows_it_could_mean():
+    """The ambiguous alias, which the first version of this branch dropped.
+
+    `resolve` raises on a release name shared by several builds and the
+    error carries the candidates. The first version of the refusal caught
+    that exception into a bare `None` and fell through to "the manifest
+    has no row labelled '26.12'", so a reader who typed the release name
+    off their manual's cover learned nothing about which of the four
+    registered builds their edition documents, from a tool that had the
+    list in hand.
+    """
+    editions = [
+        Edition(label="26.120", manual=pathlib.Path("a.pdf"), chapter=(10, 20), source="SRC-750"),
+        Edition(label="26.123", manual=pathlib.Path("b.pdf"), chapter=(10, 20), source="SRC-751"),
+    ]
+    opened: list[str] = []
+
+    def never(edition):
+        opened.append(edition.label)
+        raise AssertionError("a manual was opened for a refusal decidable without one")
+
+    with pytest.raises(ManualDraftError) as refused:
+        register_edition(editions, "26.12", commands_dir=pathlib.Path("."), reader=never)
+
+    message = str(refused.value)
+    assert "26.120" in message and "26.123" in message, message
+    assert "release name" in message, message
+    assert opened == [], "a manual was opened before the label was refused"

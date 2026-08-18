@@ -38,19 +38,56 @@ guards that pairing on both sides.
 
 from __future__ import annotations
 
+import datetime
 from collections.abc import Sequence
 from pathlib import Path
 
 from pyflightstream.qa.errors import QaEvidenceError
 
-__all__ = ["refuse_existing_report", "report_paths"]
+__all__ = ["refuse_existing_report", "report_paths", "resolve_report_date"]
+
+
+def resolve_report_date(date: str | None = None) -> str:
+    """Return the ISO date a report is stamped with, defaulting to today.
+
+    Parameters
+    ----------
+    date : str, optional
+        An explicit ISO date. Returned unchanged when given, so this is
+        safe to call on a value that may already be resolved.
+
+    Returns
+    -------
+    str
+        The ISO date, ``YYYY-MM-DD``.
+
+    Notes
+    -----
+    ONE HOME FOR THE DEFAULT, which is the correction of 2026-08-18 and
+    is the same repair as the build key beside it. ``date or
+    datetime.date.today().isoformat()`` was written six times, once in
+    each series helper and once in each writer, and a rule written six
+    times is a rule that can drift in five places without anyone
+    noticing. This is not the whole of that repair: a caller who asks a
+    helper whether a report exists, spends a licensed seat, and then
+    calls a writer still resolves today TWICE across that window, and
+    across midnight the two disagree. Closing that needs the writer to
+    accept the answer the pre-flight already computed, which is a
+    signature change registered in
+    ``PLN-20260818-0300-the-preflight-answer-does-not-reach-the-writer``
+    rather than taken here. ``pyfs-qa`` is not exposed: each subcommand
+    resolves once and passes the value to both.
+    """
+    if date is not None:
+        return date
+    return datetime.date.today().isoformat()
 
 
 def report_paths(
     out_dir: str | Path,
     *,
     series: str,
-    builds: Sequence[str],
+    versions: Sequence[str],
     date: str,
     label: str | None = None,
 ) -> tuple[Path, Path]:
@@ -65,13 +102,21 @@ def report_paths(
     series : str, keyword-only
         Report series, ``"CMP"``, ``"PHY"`` or ``"DRF"``. The word is
         the one ``reports/README.md`` uses for the same idea.
-    builds : sequence of str, keyword-only
-        The canonical build identifiers the report is about, in the
+    versions : sequence of str, keyword-only
+        The canonical version identifiers the report is about, in the
         order the series states them: one for a single-build report, two
         for a comparison. The dots are stripped and the identifiers
         joined here rather than by the caller, so the writer and the
         pre-flight ask one question rather than two that happen to
         agree.
+
+        A LIST, NEVER A BARE STRING, and the refusal below is why the
+        distinction is worth a paragraph. ``versions="26.123"`` type
+        checks against ``Sequence[str]``, is not empty, and iterates its
+        CHARACTERS, producing the stem ``PHY-2-6--1-2-3_2026-08-18``.
+        That is this module's own failure, one input over: a pre-flight
+        asked that way is green against a name nothing will ever write,
+        the licensed run proceeds, and the writer refuses at the end.
     date : str, keyword-only
         ISO date, resolved by the caller. Required rather than
         defaulted; see this module's docstring.
@@ -87,10 +132,10 @@ def report_paths(
     Raises
     ------
     QaEvidenceError
-        If ``builds`` is empty. A report is about at least one build,
-        and an empty sequence would silently produce the stem
-        ``CMP-_2026-08-18``, which is a name a later reader cannot trace
-        back to a solver. The catalogued type rather than a bare
+        If ``versions`` is empty, or is a bare string. Both produce a
+        stem no later reader can trace back to a solver: the empty
+        sequence gives ``CMP-_2026-08-18`` and a string gives one
+        character per build. The catalogued type rather than a bare
         ``ValueError``, per FR-39, and it keeps ``ValueError`` as a base
         so an existing handler catches what it always did.
 
@@ -98,42 +143,74 @@ def report_paths(
     -----
     Everything after ``out_dir`` is keyword-only, and that is the
     adopted rule rather than a preference. ``series`` and the elements
-    of ``builds`` are all strings, so a positional signature makes a
+    of ``versions`` are all strings, so a positional signature makes a
     swapped pair silent: ``report_paths("26123", "CMP", ...)`` would
     produce ``26123-CMP_2026-08-18`` and complain about nothing, and the
     failure would surface much later as a citation that does not
     resolve.
 
+    This is the PRIMITIVE the three series helpers call. A caller with a
+    run in hand wants
+    :func:`pyflightstream.qa.compat.compat_report_paths`,
+    :func:`pyflightstream.qa.physics.physics_report_paths` or
+    :func:`pyflightstream.qa.drift.drift_report_paths` instead: each
+    knows its own series letter, so asking through one of them cannot
+    put the wrong letter on a stem.
+
     Examples
     --------
-    Ask before spending a licensed seat, and ask with the series' own
-    helper rather than with a literal:
+    THE PRIMITIVE, with the series named explicitly. A caller with a
+    run in hand should ask its series' helper instead, and the two
+    examples below exist to show what that helper does rather than to
+    be copied; the first version of this block introduced them with
+    the sentence "ask with the series' own helper rather than with a
+    literal" and then demonstrated the literal.
 
     >>> from pyflightstream.qa import report_paths
     >>> yaml_path, md_path = report_paths(
-    ...     "reports/physics", series="PHY", builds=["26.123"], date="2026-08-17"
+    ...     "reports/physics", series="PHY", versions=["26.123"], date="2026-08-17"
     ... )
     >>> yaml_path.name
     'PHY-26123_2026-08-17.yaml'
 
-    Two builds make a comparison stem, joined in the order given:
+    Two versions make a comparison stem, joined in the order given:
 
     >>> yaml_path, _ = report_paths(
     ...     "reports/physics",
     ...     series="DRF",
-    ...     builds=["26.122", "26.123"],
+    ...     versions=["26.122", "26.123"],
     ...     date="2026-08-17",
     ...     label="full",
     ... )
     >>> yaml_path.name
     'DRF-26122-26123_2026-08-17_full.yaml'
+
+    A bare string is refused rather than iterated:
+
+    >>> from pyflightstream.qa import QaEvidenceError
+    >>> try:
+    ...     report_paths(
+    ...         "reports/physics", series="PHY", versions="26.123", date="2026-08-17"
+    ...     )
+    ... except QaEvidenceError as refused:
+    ...     print(str(refused).split(";")[0])
+    versions is a sequence of version identifiers, not one string
     """
-    if not builds:
+    if isinstance(versions, str):
         raise QaEvidenceError(
-            "a report names at least one build; report_paths was given none, which "
-            "would produce a stem no reader can trace back to a solver."
+            f"versions is a sequence of version identifiers, not one string; "
+            f"pass ['{versions}'] rather than '{versions}'. A string is iterated "
+            "character by character, so this would have produced the stem "
+            f"{series}-{'-'.join(versions).replace('.', '')}_{date}, which no later "
+            "reader could "
+            "trace back to a solver and which the writer would never produce."
         )
-    key = "-".join(build.replace(".", "") for build in builds)
+    if not versions:
+        raise QaEvidenceError(
+            "a report names at least one version; report_paths was given none, "
+            "which would produce a stem no reader can trace back to a solver."
+        )
+    key = "-".join(version.replace(".", "") for version in versions)
     stem = f"{series}-{key}_{date}"
     if label:
         stem += f"_{label}"

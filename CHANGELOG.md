@@ -183,8 +183,8 @@ Deprecations: none.
   rather than this build's: 261 have no probe specification at all, and
   23 ran without abort or logged error while no instrument can observe
   their effect.
-- **A change in the regime the vendor described is MEASURED, and the
-  documentation of neither edition shows it**
+- **A change the vendor described directly is MEASURED, and no
+  edition's text carries it**
   (`reports/RPT-027_boundary-layer-across-a-proximity-gap_2026-08-17.md`).
   Read the wording: what was measured is the integrated viscous DRAG in
   the configuration the vendor's caveat describes. That the mechanism is
@@ -453,11 +453,29 @@ Deprecations: none.
 
 - The two Tier 3 WARNs on 26.123, both `CDo` and both on SMI cases, gain
   a committed triage (`reports/physics/TRI-26123-CDo_2026-08-18.md`).
-  Only `CDo` moved, every `CDo` in the matrix moved and all three moved
+  Eleven of the thirty-eight metrics moved, `CDo` is the only one that
+  moved OUT of band, every `CDo` in the matrix moved and all three moved
   down, and both exceedances sit below their fail bands. On the author's
   decision the references stay untouched and the warns stand; the
   repeatability rerun that would establish the solver-side cause is a
   licensed-day item and is registered rather than implied.
+
+- **A guard added the day before was vacuous, and its own predicate was
+  satisfied by the defect.** The rule "a library refusal naming
+  `--some-flag` must also name `some_flag`" derived the parameter by
+  de-hyphenating the flag, and for any flag without an internal hyphen
+  that string is a SUBSTRING OF THE FLAG: `"cases"` is in `"--cases"`.
+  Of the three raise sites it walks it genuinely checked one, the site
+  the same commit had just repaired. It now asks for the two shapes this
+  package actually uses, `parameter (CLI: --flag)` and `parameter=`, and
+  it is driven by fixtures as well as by the tree, so it has a red case
+  that does not move when the source does.
+
+- **The FR-02c rewording silently dropped a normative sentence from the
+  published requirements index.** `gen_requirements_index.py` publishes a
+  requirement's FIRST paragraph as its statement, and the rewrite opened
+  a second paragraph above the shadowing rule. The statement is one
+  paragraph again and the requirement text says why the break matters.
 
 - Two requirement texts move, both on the author's ruling of 2026-08-18.
   FR-02c stops enumerating the builds that share a vendor name, an

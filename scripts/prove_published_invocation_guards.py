@@ -71,7 +71,7 @@ MUTANTS = (
         (
             (
                 "src/pyflightstream/commands/_meta.yaml",
-                "    python scripts/measure_edition_page_delta.py --editions <manifest>\n",
+                "    python scripts/measure_edition_page_delta.py --editions <manifest> \\\n",
                 "    python scripts/measure_edition_page_delta.py\n",
             ),
         ),
@@ -93,8 +93,8 @@ MUTANTS = (
         (
             (
                 "src/pyflightstream/commands/_meta.yaml",
-                "    python scripts/measure_edition_page_delta.py --editions <manifest>\n",
-                "    scripts/measure_edition_page_delta.py --editions <manifest>\n",
+                "    python scripts/measure_edition_page_delta.py --editions <manifest> \\\n",
+                "    scripts/measure_edition_page_delta.py --editions <manifest> \\\n",
             ),
             (
                 "tests/test_documented_invocations.py",

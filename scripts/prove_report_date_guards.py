@@ -59,14 +59,21 @@ RATCHET_TEST = "tests/test_command_db.py::test_the_undated_report_exemption_has_
 COMPAT = "src/pyflightstream/qa/compat.py"
 DB_TEST = "tests/test_command_db.py"
 
-DEFAULT_LINE = "    date = date or datetime.date.today().isoformat()\n"
+#: RE-ANCHORED 2026-08-18 (second time that day). The default was written
+#: six times, once in each series helper and once in each writer, and it
+#: now lives in `qa.reports.resolve_report_date`; the two sites this
+#: battery mutates call it instead of spelling it. What the mutants do is
+#: unchanged: each removes exactly one of the two resolutions.
+DEFAULT_LINE = "    date = resolve_report_date(date)\n"
 
 WRITER_LIVE = (
-    "    date = date or datetime.date.today().isoformat()\n"
-    "    yaml_path, md_path = compat_report_paths(run.version, out_dir, date=date, label=label)\n"
+    "    date = resolve_report_date(date)\n"
+    "    yaml_path, md_path = compat_report_paths("
+    "out_dir, version=run.version, date=date, label=label)\n"
 )
 WRITER_STALE = (
-    "    yaml_path, md_path = compat_report_paths(run.version, out_dir, date=date, label=label)\n"
+    "    yaml_path, md_path = compat_report_paths("
+    "out_dir, version=run.version, date=date, label=label)\n"
 )
 
 #: THE MIRROR IMAGE, RE-ANCHORED 2026-08-17 after the review round moved
@@ -87,11 +94,11 @@ WRITER_STALE = (
 #: unmutated tree, which is the fourth time it has earned itself, and the
 #: first time it caught a change made in the same session as the battery.
 HELPER_LIVE = (
-    "    date = date or datetime.date.today().isoformat()\n"
-    '    return report_paths(out_dir, series="CMP", builds=[version], date=date, label=label)\n'
+    "    date = resolve_report_date(date)\n"
+    '    return report_paths(out_dir, series="CMP", versions=[version], date=date, label=label)\n'
 )
 HELPER_STALE = (
-    '    return report_paths(out_dir, series="CMP", builds=[version], date=date, label=label)\n'
+    '    return report_paths(out_dir, series="CMP", versions=[version], date=date, label=label)\n'
 )
 
 EXEMPTION_LIVE = '_UNDATED_REPORT_ERRATUM = {"CMP-26123_2026-08-17_full-sim.yaml"}\n'

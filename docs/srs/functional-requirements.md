@@ -75,24 +75,33 @@ Milestones and session records are listed in the
     The vendor reuses a release name across builds, so a display alias
     can name more than one registered build. Resolution refuses such a
     name rather than returning any of the builds carrying it, and the
-    refusal names every candidate so the caller can choose.
+    refusal names every candidate so the caller can choose. The
+    candidates are not enumerated in this requirement: two families
+    exist and they exist for different reasons, one release with its
+    hotfixes sharing a name and two separate releases that happen to
+    share one, and which builds sit in either is a fact about the
+    registry rather than about this requirement. A canonical identifier
+    is matched across the whole registry before any alias is considered,
+    so a build is never shadowed by an earlier entry whose alias equals
+    its canonical.
 
-    THE CANDIDATES ARE NOT ENUMERATED HERE, which is the author's
-    decision of 2026-08-18 and is a correction rather than a
-    simplification. This requirement used to list them, and the list went
-    stale twice by construction, once per registration; the same
-    enumeration was removed from six other committed homes on 2026-08-17
-    for the same reason, and leaving it in the requirement text made the
-    requirement the last stale copy. The refusal itself enumerates from
-    the registry, so the message a caller reads is correct on the day
-    they read it, and the generated build page carries the tally. Two
-    families exist for two different reasons, and THAT is the fact worth
-    stating in a requirement: one release with its hotfixes sharing a
-    name, and two separate releases that happen to share one. Which
-    builds sit in either is a fact about the registry, not about this
-    requirement. A canonical identifier is matched across the
-    whole registry before any alias is considered, so a build is never
-    shadowed by an earlier entry whose alias equals its canonical.
+    THE ENUMERATION WAS REMOVED on 2026-08-18, the author's decision,
+    and it is a correction rather than a simplification. This requirement
+    used to list the members and the list went stale twice by
+    construction, once per registration; the same enumeration was removed
+    from six other committed homes on 2026-08-17 for the same reason,
+    which left the requirement text as the last stale copy. The refusal
+    itself enumerates from the registry, so the message a caller reads is
+    correct on the day they read it, and the generated build page carries
+    the tally.
+
+    THE PARAGRAPH BREAK MATTERS HERE, which is not obvious and cost a
+    published sentence for one commit. `scripts/gen_requirements_index.py`
+    publishes a requirement's FIRST paragraph as its statement, so the
+    first version of this rewrite, which opened a second paragraph before
+    the shadowing sentence, silently dropped that sentence from
+    `reports/requirements-index.json` with the whole suite green. Anything
+    NORMATIVE belongs above the first blank line.
 
     This makes the vendor name a breaking input wherever it became
     ambiguous, which is accepted: the alternative is returning a

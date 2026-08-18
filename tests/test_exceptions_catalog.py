@@ -458,7 +458,7 @@ _RATCHET = {
     # It keeps the builtin ON PURPOSE and not from neglect, because
     # `except FileExistsError` is what a caller writing a file already has
     # around the call, and it predates the catalogue's reach.
-    "pyflightstream.qa.reports.refuse_existing_report -> FileExistsError (reports.py:179)",
+    "pyflightstream.qa.reports.refuse_existing_report -> FileExistsError (reports.py:256)",
     # TypeError for an argument of an unaccepted type. The catalogue is
     # entirely ValueError-based, so re-basing these needs a new base and
     # a decision about what it means (PLN-20260803-2340).

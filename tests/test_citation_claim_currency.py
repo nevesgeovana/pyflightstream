@@ -99,20 +99,30 @@ def prose_population(root: Path) -> list[str]:
     # assumed. The ratchet in `test_kit_checkers.py` counts the sites
     # that do not.
     environment = os.environ.copy()
-    seen = subprocess.run(
-        ["git", "ls-files", "--cached", "*.md", "*.tex", "*.py"],
-        capture_output=True,
-        text=True,
-        cwd=root,
-        env=environment,
-    ).stdout.split()
-    untracked = subprocess.run(
-        ["git", "ls-files", "--others", "--exclude-standard", "--", *SOURCE_ROOTS],
-        capture_output=True,
-        text=True,
-        cwd=root,
-        env=environment,
-    ).stdout.split()
+
+    # A FAILED CALL REFUSES, and neither call checked its status until
+    # 2026-08-18. If the `--others` call failed for any reason while
+    # `--cached` succeeded, this returned the tracked-only population
+    # in silence, which is exactly the regression the test below
+    # exists to prevent, undetected. Absence read as permission is the
+    # shape this repository has an incident about.
+    def ls_files(*argv: str) -> list[str]:
+        done = subprocess.run(
+            ["git", "ls-files", *argv],
+            capture_output=True,
+            text=True,
+            cwd=root,
+            env=environment,
+        )
+        assert done.returncode == 0, (
+            f"git ls-files {' '.join(argv)} failed with {done.returncode}, so this "
+            f"guard would have walked a population missing whatever that call "
+            f"would have listed: {done.stderr.strip()}"
+        )
+        return done.stdout.split()
+
+    seen = ls_files("--cached", "*.md", "*.tex", "*.py")
+    untracked = ls_files("--others", "--exclude-standard", "--", *SOURCE_ROOTS)
     seen += [name for name in untracked if name.endswith(_PROSE_SUFFIXES)]
     return sorted(set(seen))
 

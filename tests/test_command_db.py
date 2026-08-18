@@ -583,11 +583,17 @@ def test_every_compat_report_carries_the_date_its_own_name_claims() -> None:
     offenders = []
     for path in reports:
         if path.name in _UNDATED_REPORT_ERRATUM:
+            # COLLECTED, NOT ASSERTED HERE. An `assert` inside the walk
+            # stops at the first offender, so a second problem in the
+            # same run is never reported and the reader fixes one thing
+            # at a time across as many runs as there are defects.
             erratum = sorted(path.parent.glob(f"{path.stem}_erratum_*.md"))
-            assert erratum, (
-                f"{path.name} is exempted from the date rule and carries no erratum "
-                "beside it, so the exemption records nothing a reader can check"
-            )
+            if not erratum:
+                offenders.append(
+                    f"{path.name}: exempted from the date rule and carrying no "
+                    "erratum beside it, so the exemption records nothing a reader "
+                    "can check"
+                )
             # THE EXEMPTION IS FROM THE DATE RULE ALONE, and until
             # 2026-08-18 it was a `continue` past everything below,
             # including the pair rule. Measured by the review pass:

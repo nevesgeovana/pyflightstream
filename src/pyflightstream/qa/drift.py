@@ -21,7 +21,6 @@ guessed (SAD Section 5).
 
 from __future__ import annotations
 
-import datetime
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -35,7 +34,11 @@ from pyflightstream.qa.physics import (
     registered_cases,
     run_physics,
 )
-from pyflightstream.qa.reports import refuse_existing_report, report_paths
+from pyflightstream.qa.reports import (
+    refuse_existing_report,
+    report_paths,
+    resolve_report_date,
+)
 from pyflightstream.run import describe_invocation
 from pyflightstream.versions import resolve
 
@@ -287,10 +290,10 @@ def run_drift(
 
 
 def drift_report_paths(
-    version_a: str,
-    version_b: str,
     out_dir: str | Path,
     *,
+    version_a: str,
+    version_b: str,
     date: str | None = None,
     label: str | None = None,
 ) -> tuple[Path, Path]:
@@ -325,9 +328,9 @@ def drift_report_paths(
         The YAML path and the Markdown path, in that order. Neither is
         created and the directory is not made.
     """
-    date = date or datetime.date.today().isoformat()
+    date = resolve_report_date(date)
     return report_paths(
-        out_dir, series="DRF", builds=[version_a, version_b], date=date, label=label
+        out_dir, series="DRF", versions=[version_a, version_b], date=date, label=label
     )
 
 
@@ -358,9 +361,13 @@ def write_drift_report(
     """
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    date = date or datetime.date.today().isoformat()
+    date = resolve_report_date(date)
     yaml_path, md_path = drift_report_paths(
-        run.version_a, run.version_b, out_dir, date=date, label=label
+        out_dir,
+        version_a=run.version_a,
+        version_b=run.version_b,
+        date=date,
+        label=label,
     )
     refuse_existing_report(yaml_path, md_path)
     counts = run.verdict_counts()

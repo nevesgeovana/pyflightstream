@@ -4,7 +4,7 @@ A guard is not proven by a suite that passes. It is proven by restoring
 the original defect and watching the guard deny.
 
 Registering FlightStream 26.123 on 2026-08-17 falsified the same
-enumeration in six committed places at once, with the whole tier-1
+enumeration in seven committed places at once, with the whole tier-1
 currency suite green: the SRS requirement text, the generated
 conventions page, two docstrings in ``versions.py``, the ordering
 authority's own header, the getting-started page and a shipped example.
@@ -49,9 +49,9 @@ which is the same failure in a different costume.
 
     python scripts/prove_alias_tally_guard.py
 
-Like its sibling batteries it EDITS TRACKED FILES. Run it from a clean
-tree and check ``git status`` afterwards; unlike them it fails rather
-than warns if a restore is not byte-exact.
+Like every battery it EDITS TRACKED FILES. Run it from a clean tree and
+check ``git status`` afterwards; unlike the three that only park and
+restore it fails rather than warns if a restore is not byte-exact.
 """
 
 from __future__ import annotations

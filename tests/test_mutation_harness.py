@@ -1,11 +1,21 @@
 """Tier 1: the scorer every mutation battery trusts.
 
 Pipeline role: quality gate on the guards' own instrument.
-``scripts/_mutation_harness.py`` decides whether a mutant was KILLED, and
-whether an anchor is safe to apply, for every battery under ``scripts/``.
-Nothing under ``tests/`` referenced it until 2026-08-18, so a defect in
-either function would have mis-scored every mutation claim this
-repository makes, silently and in the reassuring direction.
+``scripts/_mutation_harness.py`` holds the scorer and the anchor check
+the batteries under ``scripts/`` are supposed to share, and nothing
+under ``tests/`` referenced it at all until 2026-08-18.
+
+ITS REACH IS A NUMBER, NOT A GUARANTEE, and the number is stated here
+because the first version of this docstring said "for every battery"
+and "every mutation claim this repository makes", which the tree
+contradicts. Measured 2026-08-18 over the seven batteries: ``verdict``
+is called by five of seven, ``apply_mutant`` by three, and
+``prove_extras_isolation.py`` uses neither. The four that re-implement
+the anchor check inline are not even behaviourally identical to it:
+``prove_evidence_guards.py`` RECORDS a missed anchor and continues,
+where ``apply_mutant`` raises. The residual is registered in
+``PLN-20260818-0100``; what this module guarantees is the two functions
+themselves, for the batteries that call them.
 
 The two functions are exactly the ones written to remove real defects:
 
@@ -151,5 +161,14 @@ def test_the_harness_imports_nothing_from_the_package():
         # Explicit, and identical to the inherited default: git needs the
         # ambient environment to find its own configuration.
         env=os.environ.copy(),
+    )
+    # `git grep` exits 1 on NO MATCH and 0 on a match, so anything else
+    # is the tool failing rather than the tree being clean. Without
+    # this the assertion below passes on a source tarball, on a bad
+    # `-C`, and anywhere `.git` is absent, reading a broken call as
+    # proof of the property.
+    assert grep.returncode in (0, 1), (
+        f"git grep failed with {grep.returncode}, so an empty result proves "
+        "nothing: {grep.stderr.strip()}"
     )
     assert not grep.stdout.strip(), f"src/ imports the mutation harness: {grep.stdout}"

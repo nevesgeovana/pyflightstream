@@ -1,6 +1,6 @@
 # Reports
 
-Four series, and they are corrected in different ways.
+Five series, and they are corrected in different ways.
 
 `RPT-nnn_<topic>_<date>.md` are NARRATIVE reports: a person writing
 down what a run showed. They are AMENDABLE, and an amendment is
@@ -22,6 +22,14 @@ machine-written report recorded, written by a person and citing the
 reports it reasons over. They are narrative in the sense above, so they
 are amendable and say so when amended, and they never change the
 measurement they discuss.
+
+AN ERRATUM IS AMENDED THE WAY A NARRATIVE REPORT IS, which was not
+written anywhere until 2026-08-18 and was being relied on before it
+was. An erratum is a person's account of a defect, not a measurement,
+so it may be corrected in place under the rule above: the title line
+records the amendment, and the body records it at the point it
+retracts something. What an erratum may never do is change the report
+it corrects.
 
 The difference is not ceremony. A narrative report is an argument and
 an argument may be corrected in place as long as it says so; a

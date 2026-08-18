@@ -132,15 +132,15 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    editions = {edition.label: edition for edition in read_edition_manifest(args.editions)}
-    for label in (args.earlier, args.later):
-        if label not in editions:
-            raise SystemExit(
-                f"the manifest has no row labelled {label!r}; it carries "
-                + ", ".join(sorted(editions))
-            )
-    earlier, later = editions[args.earlier], editions[args.later]
-
+    # THE COMMAND LINE IS JUDGED BEFORE ANY FILE IS OPENED, which is the
+    # correction of 2026-08-18 and is the same rule as the pre-flight in
+    # `pyfs-qa`: a refusal decidable from the arguments alone must not
+    # wait behind work. `--pages` used to be checked AFTER the manifest
+    # was read, so a mistyped range was reported only if the manifest
+    # happened to parse, and a reader with both mistakes was told about
+    # the wrong one. Nothing here is expensive, but this script goes on
+    # to open two 400-page licensed manuals.
+    span_requested: tuple[int, int] | None = None
     if args.pages:
         # REFUSED, NOT RAISED. `int()` on a bare partition turns
         # `--pages 273` into a ValueError traceback about an empty
@@ -151,15 +151,32 @@ def main(argv: list[str] | None = None) -> int:
         # here and says what the form is.
         first, sep, last = args.pages.partition("-")
         if not sep or not first.strip().isdigit() or not last.strip().isdigit():
-            raise SystemExit(
+            # `parser.error`, not `SystemExit`, so the status is 2. The
+            # comment above cites `_pages`, whose own docstring says it
+            # refuses this way precisely to keep the usage code at 2, and
+            # the first version of this repair exited 1, which is what
+            # this tool returns for a real measurement.
+            parser.error(
                 f"--pages takes FIRST-LAST, two page numbers joined by a hyphen, for "
                 f"example --pages 283-383; it was given {args.pages!r}"
             )
-        span_earlier = span_later = (int(first), int(last))
-        if span_earlier[0] > span_earlier[1]:
-            raise SystemExit(
+        span_requested = (int(first), int(last))
+        if span_requested[0] > span_requested[1]:
+            parser.error(
                 f"--pages {args.pages} runs backwards; the first page must not be after the last"
             )
+
+    editions = {edition.label: edition for edition in read_edition_manifest(args.editions)}
+    for label in (args.earlier, args.later):
+        if label not in editions:
+            raise SystemExit(
+                f"the manifest has no row labelled {label!r}; it carries "
+                + ", ".join(sorted(editions))
+            )
+    earlier, later = editions[args.earlier], editions[args.later]
+
+    if span_requested is not None:
+        span_earlier = span_later = span_requested
     else:
         # THE WHOLE OF EACH DOCUMENT, not the scripting reference, and
         # each to its OWN length. A vendor change outside the chapter

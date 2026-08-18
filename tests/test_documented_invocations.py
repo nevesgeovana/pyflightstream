@@ -19,10 +19,23 @@ is worse than none. The flags of each published invocation are read
 statically, and the target script's own ``add_argument`` calls are read
 statically too, so nothing is executed and no file is opened by the
 scripts under test. A published flag the parser does not define is a
-failure, and a required flag the invocation omits is a failure. What it
-does NOT check is whether the VALUES are usable: a placeholder such as
+failure, and a required flag the invocation omits is a failure.
+
+THREE LIMITS, all of them narrower than the title above.
+
+It does not check whether the VALUES are usable: a placeholder such as
 ``<manifest>`` is a placeholder, and whether the file behind it exists is
 not a property of the printed line.
+
+It recognises ``scripts/*.py`` invocations ONLY. Every published console
+script command, ``pyfs-qa probe ...``, ``pyfs-manual register ...``,
+``pytest ...``, is outside it, and those are the commands a reader is
+most likely to try. Widening it means resolving each console script to
+its parser through the entry-point table, which is worth doing and is
+registered rather than claimed here.
+
+It searches the roots below and no others, so a reproduction published
+under ``tests/`` or in an evidence directory's README is outside it.
 """
 
 from __future__ import annotations
@@ -68,8 +81,9 @@ def _published_invocations() -> list[tuple[str, str, set[str]]]:
 
     A published invocation may wrap: the version registry prints its
     command over two lines, indented. The continuation is joined when the
-    next line is indented further and starts with a flag, which is the
-    only wrapping shape in the tree.
+    next line starts with a flag once stripped, which is the only
+    wrapping shape in the tree. The indentation is NOT tested, and this
+    sentence said it was until 2026-08-18.
     """
     found: list[tuple[str, str, set[str]]] = []
     for directory, pattern in SEARCHED:
@@ -88,10 +102,30 @@ def _published_invocations() -> list[tuple[str, str, set[str]]]:
                 tail = match.group(2)
                 for following in lines[index + 1 :]:
                     stripped = following.strip()
+                    # A SEPARATOR IS NOT A FLAG. `---` opens a markdown
+                    # rule and a YAML document, and both start with two
+                    # dashes, so the first version of this loop joined
+                    # one and attributed everything after it to the
+                    # command above.
+                    if stripped.startswith("---"):
+                        break
                     if stripped.startswith("--"):
                         tail += " " + stripped
                         continue
                     break
+                # A COMMAND, NOT A SENTENCE. Prose wraps, so a line can
+                # begin with a script name and continue into ordinary
+                # English: `_meta.yaml` opens one with
+                # "scripts/chm_to_pdf.py from the extracted archive, and
+                # its page". A real invocation's tail is empty or starts
+                # with an argument, so anything whose first tail word is
+                # a bare English word is not one. That file passes today
+                # only because the script it names defines no flags; the
+                # day it grows a required one, tier 1 would go red on a
+                # sentence.
+                first_word = tail.strip().split(" ")[0] if tail.strip() else ""
+                if first_word and not first_word.startswith("-"):
+                    continue
                 found.append(
                     (
                         path.relative_to(REPO).as_posix(),

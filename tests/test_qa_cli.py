@@ -46,19 +46,19 @@ def test_an_unregistered_version_exits_two_and_lists_the_registered_ones(capsys)
 def _compat_paths(out_dir, **kwargs):
     from pyflightstream.qa.compat import compat_report_paths
 
-    return compat_report_paths("26.123", out_dir, **kwargs)
+    return compat_report_paths(out_dir, version="26.123", **kwargs)
 
 
 def _physics_paths(out_dir, **kwargs):
     from pyflightstream.qa.physics import physics_report_paths
 
-    return physics_report_paths("26.120", out_dir, **kwargs)
+    return physics_report_paths(out_dir, version="26.120", **kwargs)
 
 
 def _drift_paths(out_dir, **kwargs):
     from pyflightstream.qa.drift import drift_report_paths
 
-    return drift_report_paths("26.122", "26.123", out_dir, **kwargs)
+    return drift_report_paths(out_dir, version_a="26.122", version_b="26.123", **kwargs)
 
 
 @pytest.mark.parametrize(
@@ -167,21 +167,24 @@ class _StubRun:
 
 
 @pytest.mark.parametrize(
-    ("runner", "writer", "argv"),
+    ("runner", "writer", "helper", "argv"),
     [
         (
             "probe_version",
             "write_compat_report",
+            "compat_report_paths",
             ["probe", "--fs-version", "26.123", "--fs-exe", "nowhere.exe"],
         ),
         (
             "run_physics",
             "write_physics_report",
+            "physics_report_paths",
             ["physics", "--fs-version", "26.120", "--fs-exe", "nowhere.exe"],
         ),
         (
             "run_drift",
             "write_drift_report",
+            "drift_report_paths",
             [
                 "drift",
                 "--fs-versions",
@@ -194,7 +197,9 @@ class _StubRun:
         ),
     ],
 )
-def test_one_date_serves_the_pre_flight_and_the_write(runner, writer, argv, tmp_path, monkeypatch):
+def test_one_date_serves_the_pre_flight_and_the_write(
+    runner, writer, helper, argv, tmp_path, monkeypatch
+):
     """The stem asked about and the stem written are the same stem.
 
     Each `_cmd_*` used to resolve today's date for its pre-flight and
@@ -229,16 +234,38 @@ def test_one_date_serves_the_pre_flight_and_the_write(runner, writer, argv, tmp_
     monkeypatch.setattr(cli_module, "datetime", _FakeDatetime)
     monkeypatch.setattr(cli_module, runner, lambda *a, **k: _StubRun())
 
+    # THE WHOLE STEM, NOT JUST THE DATE, which is the correction of
+    # 2026-08-18. This test recorded the writer's kwargs and asserted
+    # `date` alone; `label` was sitting in that same dict, unread.
+    # Measured by the review pass: dropping `label=args.label` from the
+    # writer call left 175 tests green, so the pre-flight could clear
+    # `PHY-26120_<date>_x` while the writer produced `PHY-26120_<date>`,
+    # the matrix would run, and the write would then raise
+    # `FileExistsError` with the licensed seat already spent. That is the
+    # incident this whole line of work exists to prevent, one argument
+    # over, and the date was only the argument that had been looked at.
+    asked = {}
+    real_helper = getattr(cli_module, helper)
+
+    def record(out_dir, **kwargs):
+        asked["out_dir"] = out_dir
+        asked.update(kwargs)
+        return real_helper(out_dir, **kwargs)
+
+    monkeypatch.setattr(cli_module, helper, record)
+
     seen = {}
 
     def capture(run, out_dir, **kwargs):
+        seen["out_dir"] = out_dir
         seen.update(kwargs)
         return tmp_path / "stub.yaml", tmp_path / "stub.md"
 
     monkeypatch.setattr(cli_module, writer, capture)
 
-    cli_module.main(argv + ["--report-dir", str(tmp_path)])
+    cli_module.main(argv + ["--report-dir", str(tmp_path), "--label", "pinned"])
 
+    assert asked, f"{helper} was never asked, so the pre-flight did not run"
     assert "date" in seen, (
         f"{writer} was called with no date, so it resolved its own; the pre-flight "
         "then checked a stem the write need not use"
@@ -247,7 +274,13 @@ def test_one_date_serves_the_pre_flight_and_the_write(runner, writer, argv, tmp_
         f"today() was resolved {len(handed_out)} times in one run, so a run crossing "
         "midnight checks one stem and writes another"
     )
-    assert seen["date"] == handed_out[0].isoformat()
+    for field in ("out_dir", "date", "label"):
+        assert seen[field] == asked[field], (
+            f"the pre-flight asked {helper} about {field}={asked[field]!r} and "
+            f"{writer} was given {seen[field]!r}. Every argument of the stem has to "
+            "be the same on both sides, not only the date: two independent "
+            "expressions agreeing today is not one rule"
+        )
 
 
 def test_the_cli_rewords_a_library_refusal_into_its_own_flags(monkeypatch, capsys):
@@ -317,7 +350,7 @@ def test_probe_refuses_an_existing_report_before_it_starts_the_solver(
     # the stem, the pre-flight would inspect a name nothing collides with
     # and the run would reach the solver and collide at write time, which
     # is the incident again by another route.
-    existing, _ = compat_report_paths("26.123", reports, label="full-sim")
+    existing, _ = compat_report_paths(reports, version="26.123", label="full-sim")
     assert existing.name.endswith("_full-sim.yaml"), existing.name
     existing.write_text("stub", encoding="utf-8")
 

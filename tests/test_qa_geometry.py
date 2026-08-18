@@ -233,3 +233,27 @@ def test_the_written_stl_carries_the_offset_and_a_name_of_its_own(tmp_path):
         "two components of one study wrote the same solid name, which is what made a "
         "parser refuse every export of a licensed run"
     )
+
+
+def test_the_four_boolean_arguments_are_keyword_only():
+    """The fourth announced incompatible change, made falsifiable.
+
+    The CHANGELOG promises downstream callers that `half` and
+    `include_smi` became keyword-only. The commit body's own reason for
+    why the change is safe, that every caller in the tree already passed
+    them by keyword, is exactly why the suite could not see it: the
+    review pass removed the `*` from two signatures and 75 tests stayed
+    green. A promise nothing can falsify can be reverted by a merge, a
+    refactor, or a reviewer who thinks the star looks odd.
+    """
+    from pyflightstream.qa.physics import case_table, registered_cases
+
+    spec = WingSpec()
+    with pytest.raises(TypeError):
+        wing_triangles(spec, True)
+    with pytest.raises(TypeError):
+        generate_wing_stl(spec, "unused.stl", True)
+    with pytest.raises(TypeError):
+        registered_cases(True)
+    with pytest.raises(TypeError):
+        case_table(True)

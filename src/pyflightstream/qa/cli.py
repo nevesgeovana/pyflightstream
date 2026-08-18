@@ -335,7 +335,7 @@ def _cmd_probe(args: argparse.Namespace) -> int:
     # another, which is a missed refusal and therefore a licensed seat.
     date = datetime.date.today().isoformat()
     if _refuse_before_the_solver(
-        compat_report_paths(canonical, args.report_dir, date=date, label=args.label)
+        compat_report_paths(args.report_dir, version=canonical, date=date, label=args.label)
     ):
         return 2
 
@@ -439,7 +439,7 @@ def _cmd_physics(args: argparse.Namespace) -> int:
         cases = [name.strip() for name in args.cases.split(",") if name.strip()]
     date = datetime.date.today().isoformat()
     if _refuse_before_the_solver(
-        physics_report_paths(canonical, args.report_dir, date=date, label=args.label)
+        physics_report_paths(args.report_dir, version=canonical, date=date, label=args.label)
     ):
         return 2
     try:
@@ -510,7 +510,11 @@ def _cmd_drift(args: argparse.Namespace) -> int:
     date = datetime.date.today().isoformat()
     if _refuse_before_the_solver(
         drift_report_paths(
-            canonicals[0], canonicals[1], args.report_dir, date=date, label=args.label
+            args.report_dir,
+            version_a=canonicals[0],
+            version_b=canonicals[1],
+            date=date,
+            label=args.label,
         )
     ):
         return 2

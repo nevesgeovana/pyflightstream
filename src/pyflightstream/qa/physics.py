@@ -45,7 +45,11 @@ import pyflightstream
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.qa.errors import QaEvidenceError
 from pyflightstream.qa.geometry import BladeSpec, WingSpec, generate_blade_stl, generate_wing_stl
-from pyflightstream.qa.reports import refuse_existing_report, report_paths
+from pyflightstream.qa.reports import (
+    refuse_existing_report,
+    report_paths,
+    resolve_report_date,
+)
 from pyflightstream.results import IncompleteOutputError, LoadsReport, parse_loads
 from pyflightstream.run import ExecutionResult, LocalExecutor, describe_invocation
 from pyflightstream.script import Script
@@ -409,6 +413,7 @@ def build_phy01_script(
 
 def build_phy02_script(
     version: str,
+    *,
     half: bool,
     stl_path: str | Path,
     loads_name: str,
@@ -428,7 +433,7 @@ def build_phy02_script(
         Target FlightStream version, canonical identifier (26.120); a
         vendor release name works only where it names exactly one
         registered build.
-    half : bool
+    half : bool, keyword-only
         Build the mirrored open-root half model instead of the
         full-span baseline.
     stl_path : str or Path
@@ -533,7 +538,11 @@ def _run_phy02(context: _CaseContext) -> CaseResult:
         )
         loads_name = f"loads_{variant}.txt"
         script = build_phy02_script(
-            context.version, half, stl_path, loads_name, f"log_{variant}.txt"
+            context.version,
+            half=half,
+            stl_path=stl_path,
+            loads_name=loads_name,
+            log_name=f"log_{variant}.txt",
         )
         report = context.solve_point(script, f"phy02_{variant}.txt", loads_name)
         points.append(
@@ -1420,8 +1429,19 @@ def compare_metrics(
 def registered_cases(*, include_smi: bool = False) -> dict[str, PhysicsCase]:
     """Return the case registry, optionally including the SMI class.
 
-    The SMI cases join only when the caller can provide the local
-    geometry root; they never run implicitly (CLAUDE.md invariant 5).
+    Parameters
+    ----------
+    include_smi : bool, keyword-only
+        Include the SMI class, whose geometry is local and never
+        committed. The SMI cases join only when the caller can
+        provide that root; they never run implicitly (CLAUDE.md
+        invariant 5). Keyword-only since 2026-08-18: a bare ``True``
+        in a call read as nothing in particular.
+
+    Returns
+    -------
+    dict of str to PhysicsCase
+        The registry, keyed by case id, in registry order.
     """
     if include_smi:
         return {**PHYSICS_CASES, **SMI_CASES}
@@ -1439,7 +1459,7 @@ def case_table(*, include_smi: bool = False) -> list[dict[str, str | int]]:
 
     Parameters
     ----------
-    include_smi : bool
+    include_smi : bool, keyword-only
         Include the SMI class lines; like the runs themselves, they
         never appear implicitly (CLAUDE.md invariant 5).
 
@@ -1641,7 +1661,11 @@ def run_physics(
 
 
 def physics_report_paths(
-    version: str, out_dir: str | Path, *, date: str | None = None, label: str | None = None
+    out_dir: str | Path,
+    *,
+    version: str,
+    date: str | None = None,
+    label: str | None = None,
 ) -> tuple[Path, Path]:
     """Return where a physics report for one build WOULD be written.
 
@@ -1673,9 +1697,27 @@ def physics_report_paths(
     tuple of Path
         The YAML path and the Markdown path, in that order. Neither is
         created and the directory is not made.
+
+    Examples
+    --------
+    Ask before spending a licensed seat, which is the whole reason
+    this function exists:
+
+    >>> from pyflightstream.qa import physics_report_paths, refuse_existing_report
+    >>> yaml_path, md_path = physics_report_paths(
+    ...     "reports/physics", version="26.123", date="2026-08-17", label="example"
+    ... )
+    >>> yaml_path.name
+    'PHY-26123_2026-08-17_example.yaml'
+    >>> refuse_existing_report(yaml_path, md_path)
+
+    Nothing is written by either call. The label matters here: this
+    example first used ``label="full"``, which is a report this
+    repository has actually committed, so the refusal fired inside the
+    example and the doctest was red. That is the function working.
     """
-    date = date or datetime.date.today().isoformat()
-    return report_paths(out_dir, series="PHY", builds=[version], date=date, label=label)
+    date = resolve_report_date(date)
+    return report_paths(out_dir, series="PHY", versions=[version], date=date, label=label)
 
 
 def write_physics_report(
@@ -1705,8 +1747,8 @@ def write_physics_report(
     """
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    date = date or datetime.date.today().isoformat()
-    yaml_path, md_path = physics_report_paths(run.version, out_dir, date=date, label=label)
+    date = resolve_report_date(date)
+    yaml_path, md_path = physics_report_paths(out_dir, version=run.version, date=date, label=label)
     refuse_existing_report(yaml_path, md_path)
     counts = run.verdict_counts()
     document = {
