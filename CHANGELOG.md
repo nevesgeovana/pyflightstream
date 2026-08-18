@@ -276,6 +276,34 @@ Deprecations: none.
 
 ### Changed
 
+- **One owner for the checksum that decides whether two runs used the
+  same inputs** (PFS-2012.02, NFR-07). The sha256 behind that claim was
+  written in FOUR places: a chunked read in `workspace`, a second in
+  `run` differing only in its failure policy, and two inline text hashes,
+  one in `run` and one in `qa.probes`. Nothing stopped two of them
+  diverging and nothing would have noticed if they had; the manifest
+  would simply have said two identical runs were different, or two
+  different runs the same. And the run layer reached ACROSS A LAYER
+  BOUNDARY for `workspace._sha256`, an underscore-private name, rather
+  than write a fifth.
+
+  `pyflightstream._digest` is now the one home, below every layer exactly
+  as `_errors` is and for the same reason: it imports nothing from the
+  package, so every layer may use it and none imports another to get it.
+  It exports `file_sha256`, which RAISES, `optional_file_sha256`, which
+  answers `None`, and `text_sha256`. The two file functions differ only
+  in their failure policy and the policy is carried by the NAME, because
+  a caller who picks the wrong one gets either a run that dies on a
+  provenance field or a manifest that silently records nothing.
+
+  The VALUE did not move: one fixture hashes identically through the old
+  chunked read and the new owner, which matters because every committed
+  manifest records digests written by the old one. No public signature
+  moved either, and the module is private, so nothing is added to the
+  surface. A FOURTH caller the plan had not named, in the resume
+  comparison, was found by the linter when the upward import went and
+  takes the raising form.
+
 - A compat report's `summary` now carries one key per outcome, derived
   from the enum, so `removed` appears beside the other three. Readers
   keying on the old three names are unaffected.

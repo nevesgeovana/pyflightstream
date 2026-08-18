@@ -43,7 +43,6 @@ from __future__ import annotations
 
 import difflib
 import enum
-import hashlib
 import re
 import shutil
 from collections.abc import Callable, Mapping, Sequence
@@ -51,6 +50,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pyflightstream
+from pyflightstream._digest import text_sha256
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.commands import CommandNotInVersionError, CommandRegistry
 from pyflightstream.qa.errors import QaEvidenceError
@@ -1370,7 +1370,7 @@ def _run_probe(
     text = script.render()
     script_path = workdir / _SCRIPT_NAME
     script_path.write_text(text, encoding="utf-8")
-    sha = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    sha = text_sha256(text)
     limit = spec.timeout_s if spec.timeout_s is not None else timeout_s
     execution = executor.run_script(script_path, working_dir=workdir, timeout_s=limit)
     artifacts = ProbeArtifacts(

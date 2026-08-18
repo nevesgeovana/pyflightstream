@@ -50,7 +50,6 @@ ran.
 from __future__ import annotations
 
 import enum
-import hashlib
 import inspect
 import json
 import math
@@ -67,6 +66,7 @@ from pathlib import Path
 from typing import Protocol
 
 import pyflightstream
+from pyflightstream._digest import file_sha256, optional_file_sha256, text_sha256
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.cases import (
     Campaign,
@@ -95,7 +95,6 @@ from pyflightstream.workspace import (
     RunRecord,
     RunStatus,
     WorkspaceError,
-    _sha256,
     collection_name,
 )
 
@@ -962,16 +961,12 @@ def _file_digest(path: str | Path) -> str | None:
 
     None rather than a raise: a missing or unreadable solver executable
     is the executor's problem to report, and a provenance field must
-    never be the thing that fails a run.
+    never be the thing that fails a run. That policy now lives in the
+    FUNCTION that implements it, :func:`pyflightstream._digest.
+    optional_file_sha256`, rather than in a comment beside a second
+    copy of the same chunked read.
     """
-    digest = hashlib.sha256()
-    try:
-        with open(path, "rb") as handle:
-            for block in iter(lambda: handle.read(65536), b""):
-                digest.update(block)
-    except OSError:
-        return None
-    return digest.hexdigest()
+    return optional_file_sha256(path)
 
 
 def _recipe_digest(recipe: ScriptRecipe | None) -> str | None:
@@ -989,7 +984,7 @@ def _recipe_digest(recipe: ScriptRecipe | None) -> str | None:
         source = inspect.getsource(recipe)
     except (OSError, TypeError):
         return None
-    return hashlib.sha256(source.encode("utf-8")).hexdigest()
+    return text_sha256(source)
 
 
 @dataclass(frozen=True)
@@ -1895,7 +1890,7 @@ def _staged_inputs_conflict(
         # Absent sources are stage_inputs' refusal to make, with its own
         # message; anticipating it here would report the wrong cause.
         return None
-    current = _sha256(origin)
+    current = file_sha256(origin)
     name = origin.name
     for run_id in already:
         record = manifest.get(run_id)

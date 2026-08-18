@@ -41,7 +41,6 @@ deprecation entry recorded; importing it now raises ImportError.
 from __future__ import annotations
 
 import enum
-import hashlib
 import json
 import re
 import shutil
@@ -51,6 +50,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from pyflightstream._digest import file_sha256
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.workspace.inputs import (
     EXECUTABLES_FILE,
@@ -336,11 +336,17 @@ class RunRecord(BaseModel):
 
 
 def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with open(path, "rb") as handle:
-        for block in iter(lambda: handle.read(65536), b""):
-            digest.update(block)
-    return digest.hexdigest()
+    """Return the sha256 of a file, through the package's one owner.
+
+    Kept as a name because this module's own call sites read better
+    with it, and it is now three characters of delegation rather than
+    a second implementation. The definition moved to
+    :mod:`pyflightstream._digest` on 2026-08-19: NFR-07 claims two runs
+    with the same inputs are recognisably the same run, and that claim
+    rested on a digest written in three places, one of which the run
+    layer reached across a layer boundary to borrow.
+    """
+    return file_sha256(path)
 
 
 class CampaignWorkspace:
