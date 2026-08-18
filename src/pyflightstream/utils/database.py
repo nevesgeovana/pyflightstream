@@ -252,7 +252,13 @@ def register_edition(
                     "the edition you actually read, since a documented row is keyed "
                     "by that identifier and one edition documents one build."
                 ) from None
-            resolved = None
+            raise ManualDraftError(
+                f"the manifest has no row labelled {build!r}, and {build} is a "
+                f"vendor release name shared by "
+                f"{', '.join(ambiguous.candidates)}, none of which the manifest "
+                "carries either. Add the row for the edition you read, keyed by "
+                "its canonical identifier."
+            ) from None
         except UnknownVersionError:
             resolved = None
         if resolved is not None and resolved.canonical in labels:

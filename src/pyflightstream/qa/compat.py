@@ -58,11 +58,13 @@ def compat_report_paths(
 
     Parameters
     ----------
-    version : str
-        Canonical build identifier, as :attr:`ProbeRun.version` carries.
     out_dir : str or Path
         Target directory, normally ``reports/compat/``.
-    date : str, optional
+    version : str, keyword-only
+        Version identifier, as :attr:`ProbeRun.version` carries. A vendor
+        release name is resolved through the registry, and an ambiguous
+        one is refused here rather than after a seat is spent.
+    date : str, optional, keyword-only
         ISO date stamped into the stem; defaults to today. A caller
         that will also write the report should resolve the date once
         and pass it here AND to :func:`write_compat_report`, so a run

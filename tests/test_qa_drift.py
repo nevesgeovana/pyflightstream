@@ -101,3 +101,28 @@ def test_the_writer_lands_exactly_where_the_pre_flight_looked(tmp_path):
         date="2026-07-21",
         label="pinned",
     )
+
+
+def test_the_drift_helper_and_writer_default_their_date_the_same_way(tmp_path):
+    """The two-arm guard compat has, which drift did not.
+
+    Same reasoning as the physics arm beside it: the mirror-image
+    mutation corrupts the pre-flight rather than the file, so a guard
+    that passes an explicit date to both sides cannot see it.
+    """
+    import datetime
+
+    today = datetime.date.today().isoformat()
+
+    yaml_path, md_path = drift_report_paths(
+        tmp_path, version_a="26.100", version_b="26.120", label="probe"
+    )
+    assert yaml_path.name == f"DRF-26100-26120_{today}_probe.yaml"
+    assert md_path.name == f"DRF-26100-26120_{today}_probe.md"
+
+    drift = diff_runs(physics_run("26.100", {"CL_a4": 0.337}), physics_run("26.120", {}))
+    written_yaml, written_md = write_drift_report(drift, tmp_path, label="probe")
+    assert written_yaml.name == f"DRF-26100-26120_{today}_probe.yaml"
+    document = yaml.safe_load(written_yaml.read_text(encoding="utf-8"))
+    assert document["date"] == today
+    assert today in written_md.read_text(encoding="utf-8").splitlines()[0]

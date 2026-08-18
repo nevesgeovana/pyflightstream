@@ -16,7 +16,6 @@ case id, without running anything.
 from __future__ import annotations
 
 import argparse
-import datetime
 import re
 import sys
 from pathlib import Path
@@ -41,7 +40,7 @@ from pyflightstream.qa.physics import (
     write_physics_report,
 )
 from pyflightstream.qa.probes import ProbeEnvironmentError, probe_version
-from pyflightstream.qa.reports import refuse_existing_report
+from pyflightstream.qa.reports import refuse_existing_report, resolve_report_date
 from pyflightstream.versions import AmbiguousVersionAliasError, UnknownVersionError, resolve
 
 
@@ -333,7 +332,7 @@ def _cmd_probe(args: argparse.Namespace) -> int:
     # stamped by the writer below. Each writer used to resolve its own a
     # moment later, so a run started at 23:59 checked one stem and wrote
     # another, which is a missed refusal and therefore a licensed seat.
-    date = datetime.date.today().isoformat()
+    date = resolve_report_date()
     if _refuse_before_the_solver(
         compat_report_paths(args.report_dir, version=canonical, date=date, label=args.label)
     ):
@@ -437,7 +436,7 @@ def _cmd_physics(args: argparse.Namespace) -> int:
     cases = None
     if args.cases:
         cases = [name.strip() for name in args.cases.split(",") if name.strip()]
-    date = datetime.date.today().isoformat()
+    date = resolve_report_date()
     if _refuse_before_the_solver(
         physics_report_paths(args.report_dir, version=canonical, date=date, label=args.label)
     ):
@@ -507,7 +506,7 @@ def _cmd_drift(args: argparse.Namespace) -> int:
     cases = None
     if args.cases:
         cases = [name.strip() for name in args.cases.split(",") if name.strip()]
-    date = datetime.date.today().isoformat()
+    date = resolve_report_date()
     if _refuse_before_the_solver(
         drift_report_paths(
             args.report_dir,

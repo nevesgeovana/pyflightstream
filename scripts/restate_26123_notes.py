@@ -8,7 +8,8 @@ WHAT IS WRONG WITH THE NOTES AS WRITTEN. The first version of
 
     SRC-751 p.290, same grammar as the 26.122 edition
 
-and wrote 368 of them. Two defects, and the second is the one that
+and wrote 369 of them, of which 368 still carry that sentence; the
+broken row's note was overwritten by promotion. Two defects, and the second is the one that
 matters.
 
 It names a BUILD where an EDITION is meant. ``26.122`` is a build;

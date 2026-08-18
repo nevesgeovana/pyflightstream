@@ -39,6 +39,15 @@ from pyflightstream.qa.compat import (
 # of three. Importing `physics` and `drift` here costs no dependency
 # this package did not already pull: `compat` reaches `run`, which
 # reaches numpy, before any of this runs.
+#
+# WHAT THIS PACKAGE EXPORTS IS THE PRE-FLIGHT SURFACE, plus compat's
+# writer and readers, which predate the rule and stay for compatibility
+# within this cycle. `write_physics_report` and `write_drift_report` are
+# reached through their own modules. The asymmetry is deliberate and is
+# written down because it otherwise reads as meaning: the question a
+# caller asks BEFORE spending a licensed seat is the one worth putting
+# one import away, and a writer is reached from the module whose run
+# object it takes.
 from pyflightstream.qa.drift import drift_report_paths
 from pyflightstream.qa.errors import QaEvidenceError
 from pyflightstream.qa.physics import physics_report_paths

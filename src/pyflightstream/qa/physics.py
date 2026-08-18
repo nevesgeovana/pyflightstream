@@ -30,7 +30,6 @@ aggregated Total coefficients plus the sha256 of the opened file
 
 from __future__ import annotations
 
-import datetime
 import enum
 import hashlib
 from collections.abc import Callable
@@ -73,12 +72,16 @@ __all__ = [
     # element type of the two exported inventories above, so a caller
     # holding `PHYSICS_CASES["PHY-01"]` could not annotate it or build
     # one; `case_table` is the function whose key this release renames.
-    # Both were announced as public breaks while being absent from this
-    # list, which also kept them outside the FR-39 bare-raise walk in
-    # `tests/test_exceptions_catalog.py`, since that walk follows
-    # `__all__` where a module declares one.
+    # `PhysicsCase` and `case_table` were announced as public breaks
+    # while being absent from this list, which also kept them outside the
+    # FR-39 bare-raise walk in `tests/test_exceptions_catalog.py`, since
+    # that walk follows `__all__` where a module declares one.
     "PhysicsCase",
     "case_table",
+    # `registered_cases` was already here and is listed beside them
+    # because it is the third half of the same inventory surface; the
+    # comment above covered two names and sat over three until
+    # 2026-08-18.
     "registered_cases",
     "build_phy01_script",
     "build_phy02_script",
@@ -1680,11 +1683,13 @@ def physics_report_paths(
 
     Parameters
     ----------
-    version : str
-        Canonical build identifier, as :attr:`PhysicsRun.version` carries.
     out_dir : str or Path
         Target directory, normally ``reports/physics/``.
-    date : str, optional
+    version : str, keyword-only
+        Version identifier, as :attr:`PhysicsRun.version` carries. A
+        vendor release name is resolved through the registry, and an
+        ambiguous one is refused here rather than after a seat is spent.
+    date : str, optional, keyword-only
         ISO date stamped into the stem; defaults to today. A caller that
         will also write the report should resolve the date once and pass
         it here AND to :func:`write_physics_report`, so a run crossing
@@ -1955,7 +1960,7 @@ def update_reference(
         "schema": REFERENCE_SCHEMA,
         "case": case_id,
         "fs_version_basis": report["fs_version"],
-        "updated": date or datetime.date.today().isoformat(),
+        "updated": resolve_report_date(date),
         "reason": reason.strip(),
         "source_report": Path(report_path).as_posix(),
         "metrics": metrics,

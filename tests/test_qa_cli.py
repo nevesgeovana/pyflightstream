@@ -150,11 +150,21 @@ def test_every_evidence_writer_refuses_before_it_starts_the_solver(
 
 
 class _StubRun:
-    """Enough of a run for a CLI tail to print, and nothing more."""
+    """Enough of a run for a CLI tail to print, and nothing more.
 
-    version = "26.120"
-    version_a = "26.122"
-    version_b = "26.123"
+    THE VERSION IS SET PER CASE, and it was a fixed "26.120" until
+    2026-08-18. The writer derives the build half of the stem from
+    `run.version`, so a stub whose version differs from the one the argv
+    resolves to HIDES a divergence rather than exposing it: for the probe
+    row the pre-flight was asked about 26.123 while the run handed to the
+    writer carried 26.120, and the pairing test passed.
+    """
+
+    def __init__(self, version="26.120", version_a="26.122", version_b="26.123"):
+        self.version = version
+        self.version_a = version_a
+        self.version_b = version_b
+
     fs_exe_name = "nowhere.exe"
     results = ()
     solver_identity = ()
@@ -167,24 +177,27 @@ class _StubRun:
 
 
 @pytest.mark.parametrize(
-    ("runner", "writer", "helper", "argv"),
+    ("runner", "writer", "helper", "stub", "argv"),
     [
         (
             "probe_version",
             "write_compat_report",
             "compat_report_paths",
+            {"version": "26.123"},
             ["probe", "--fs-version", "26.123", "--fs-exe", "nowhere.exe"],
         ),
         (
             "run_physics",
             "write_physics_report",
             "physics_report_paths",
+            {"version": "26.120"},
             ["physics", "--fs-version", "26.120", "--fs-exe", "nowhere.exe"],
         ),
         (
             "run_drift",
             "write_drift_report",
             "drift_report_paths",
+            {"version_a": "26.122", "version_b": "26.123"},
             [
                 "drift",
                 "--fs-versions",
@@ -198,7 +211,7 @@ class _StubRun:
     ],
 )
 def test_one_date_serves_the_pre_flight_and_the_write(
-    runner, writer, helper, argv, tmp_path, monkeypatch
+    runner, writer, helper, stub, argv, tmp_path, monkeypatch
 ):
     """The stem asked about and the stem written are the same stem.
 
@@ -211,28 +224,30 @@ def test_one_date_serves_the_pre_flight_and_the_write(
     exists to protect, and the pairing is exactly the one
     `INC-20260817-2210` was about.
 
-    `datetime` is replaced in the CLI's own namespace by one that hands
-    out a DIFFERENT date on every call, so a second resolution cannot
-    coincide with the first. The date the writer receives must be the
-    date the pre-flight used.
-    """
-    import datetime as real_datetime
+    `resolve_report_date` is replaced in the CLI's own namespace by one
+    that hands out a DIFFERENT date on every call, so a second resolution
+    cannot coincide with the first. The date the writer receives must be
+    the date the pre-flight used.
 
+    THE PATCH POINT MOVED on 2026-08-18, from `datetime` to
+    `resolve_report_date`, because the CLI stopped spelling the default
+    itself and now asks the one home for it. That is the point: this test
+    can only pin "one resolution per run" by intercepting whatever the
+    subcommands actually call, so it moves when they do, and it failed
+    loudly rather than silently passing when they did.
+    """
     from pyflightstream.qa import cli as cli_module
 
     handed_out = []
 
-    class _WalkingDate:
-        @staticmethod
-        def today():
-            handed_out.append(real_datetime.date(2026, 1, 1 + len(handed_out)))
-            return handed_out[-1]
+    def walking(date=None):
+        if date is not None:
+            return date
+        handed_out.append(f"2026-01-{len(handed_out) + 1:02d}")
+        return handed_out[-1]
 
-    class _FakeDatetime:
-        date = _WalkingDate
-
-    monkeypatch.setattr(cli_module, "datetime", _FakeDatetime)
-    monkeypatch.setattr(cli_module, runner, lambda *a, **k: _StubRun())
+    monkeypatch.setattr(cli_module, "resolve_report_date", walking)
+    monkeypatch.setattr(cli_module, runner, lambda *a, **k: _StubRun(**stub))
 
     # THE WHOLE STEM, NOT JUST THE DATE, which is the correction of
     # 2026-08-18. This test recorded the writer's kwargs and asserted
@@ -259,6 +274,14 @@ def test_one_date_serves_the_pre_flight_and_the_write(
     def capture(run, out_dir, **kwargs):
         seen["out_dir"] = out_dir
         seen.update(kwargs)
+        # THE BUILD HALF OF THE STEM, taken from the run the writer was
+        # given rather than from the kwargs, because that is where the
+        # writer takes it from. It was uncompared until 2026-08-18 and
+        # the stub hid the gap: the probe row asked the pre-flight about
+        # 26.123 while the run carried 26.120, and this test passed.
+        for field in ("version", "version_a", "version_b"):
+            if hasattr(run, field):
+                seen[field] = getattr(run, field)
         return tmp_path / "stub.yaml", tmp_path / "stub.md"
 
     monkeypatch.setattr(cli_module, writer, capture)
@@ -271,10 +294,10 @@ def test_one_date_serves_the_pre_flight_and_the_write(
         "then checked a stem the write need not use"
     )
     assert len(handed_out) == 1, (
-        f"today() was resolved {len(handed_out)} times in one run, so a run crossing "
+        f"the date was resolved {len(handed_out)} times in one run, so a run crossing "
         "midnight checks one stem and writes another"
     )
-    for field in ("out_dir", "date", "label"):
+    for field in ("out_dir", "date", "label", *stub):
         assert seen[field] == asked[field], (
             f"the pre-flight asked {helper} about {field}={asked[field]!r} and "
             f"{writer} was given {seen[field]!r}. Every argument of the stem has to "

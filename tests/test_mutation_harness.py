@@ -169,6 +169,6 @@ def test_the_harness_imports_nothing_from_the_package():
     # proof of the property.
     assert grep.returncode in (0, 1), (
         f"git grep failed with {grep.returncode}, so an empty result proves "
-        "nothing: {grep.stderr.strip()}"
+        f"nothing: {grep.stderr.strip()}"
     )
     assert not grep.stdout.strip(), f"src/ imports the mutation harness: {grep.stdout}"

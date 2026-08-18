@@ -310,12 +310,14 @@ def drift_report_paths(
 
     Parameters
     ----------
-    version_a, version_b : str
-        Canonical build identifiers, as :attr:`DriftRun.version_a` and
-        :attr:`DriftRun.version_b` carry.
     out_dir : str or Path
         Target directory, normally ``reports/physics/``.
-    date : str, optional
+    version_a, version_b : str, keyword-only
+        Version identifiers, as :attr:`DriftRun.version_a` and
+        :attr:`DriftRun.version_b` carry. Keyword-only precisely because
+        they are a swappable pair: positionally, transposing them names a
+        different report and complains about nothing.
+    date : str, optional, keyword-only
         ISO date stamped into the stem; defaults to today. A caller that
         will also write the report should resolve the date once and pass
         it here AND to :func:`write_drift_report`.

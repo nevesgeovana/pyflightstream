@@ -545,3 +545,39 @@ def test_the_full_suite_refuses_rather_than_running_a_subset(tmp_path):
         "parameter is `cases`, and a Python caller cannot type a flag. The CLI owns "
         "that translation, and tests/test_qa_cli.py pins it"
     )
+
+
+def test_the_physics_helper_and_writer_default_their_date_the_same_way(tmp_path):
+    """The two-arm guard compat has, which physics did not.
+
+    `INC-20260817-2210` happened because the date default lived in the
+    writer and the helper and one of them lost it. Compat has a test on
+    each arm for that reason: the mirror-image mutation, the default kept
+    in the writer and lost from the helper, writes a perfectly dated
+    report and corrupts the PRE-FLIGHT instead, so a single-arm guard
+    passes it.
+
+    Physics and drift acquired the same two-site shape on 2026-08-18 when
+    they gained helpers of their own, and acquired NEITHER arm: their
+    pairing tests pass an explicit date to both sides, so deleting either
+    `resolve_report_date` call changes nothing they observe. A mutation
+    battery comment even asserted the mutation was "impossible there by
+    construction", which was true of `report_paths` and false of the two
+    helpers that wrap it.
+    """
+    import datetime
+
+    today = datetime.date.today().isoformat()
+
+    yaml_path, md_path = physics_report_paths(tmp_path, version="26.120", label="probe")
+    assert yaml_path.name == f"PHY-26120_{today}_probe.yaml"
+    assert md_path.name == f"PHY-26120_{today}_probe.md"
+
+    written_yaml, written_md = write_physics_report(make_run(tmp_path), tmp_path, label="probe")
+    assert written_yaml.name == f"PHY-26120_{today}_probe.yaml"
+    document = yaml.safe_load(written_yaml.read_text(encoding="utf-8"))
+    assert document["date"] == today, (
+        "the body carries a different date from the file name, which is the shape "
+        "that reached a committed evidence file and cannot be repaired by editing it"
+    )
+    assert today in written_md.read_text(encoding="utf-8").splitlines()[0]

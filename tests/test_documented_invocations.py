@@ -117,14 +117,19 @@ def _published_invocations() -> list[tuple[str, str, set[str]]]:
                 # begin with a script name and continue into ordinary
                 # English: `_meta.yaml` opens one with
                 # "scripts/chm_to_pdf.py from the extracted archive, and
-                # its page". A real invocation's tail is empty or starts
-                # with an argument, so anything whose first tail word is
-                # a bare English word is not one. That file passes today
-                # only because the script it names defines no flags; the
-                # day it grows a required one, tier 1 would go red on a
-                # sentence.
-                first_word = tail.strip().split(" ")[0] if tail.strip() else ""
-                if first_word and not first_word.startswith("-"):
+                # its page".
+                #
+                # THE FIRST VERSION OF THIS FILTER DEMANDED A FLAG and
+                # dropped five real publishers with the one prose line:
+                # a tail may legitimately open with a placeholder
+                # (`<dir>`), a bracketed optional (`[label ...]`), a
+                # comment (`# everything`), a label (`M1 M2 N1`) or a
+                # version (`26.123`). Only PROSE opens with an ordinary
+                # lowercase word, so that is what is tested, and the
+                # floor at the bottom of this file names every publisher
+                # so a filter cannot quietly shrink the population again.
+                head = tail.strip().split(" ")[0] if tail.strip() else ""
+                if head and head.isalpha() and head.islower():
                     continue
                 found.append(
                     (
@@ -217,21 +222,50 @@ def test_every_published_invocation_carries_the_flags_its_parser_requires():
     )
 
 
-def test_the_search_actually_finds_the_known_publishers():
-    """A walk that matches nothing passes every assertion above.
+#: EVERY FILE THAT PUBLISHES A COMMAND, measured 2026-08-18 and floored
+#: by name rather than by count. Three names were floored at first and
+#: all three survived a filter that silently dropped five OTHERS, so the
+#: shrink was invisible to the guard written to make it visible. A floor
+#: that names three of fourteen is a floor over the three.
+_PUBLISHERS = (
+    "scripts/chm_to_pdf.py",
+    "scripts/gen_absent_commands.py",
+    "scripts/measure_edition_page_delta.py",
+    "scripts/measure_probe_target_lines.py",
+    "scripts/prove_alias_tally_guard.py",
+    "scripts/prove_edition_comparison.py",
+    "scripts/prove_evidence_guards.py",
+    "scripts/prove_extras_isolation.py",
+    "scripts/prove_flow_mapping_guard.py",
+    "scripts/prove_geometry_guards.py",
+    "scripts/prove_published_invocation_guards.py",
+    "scripts/prove_report_date_guards.py",
+    "scripts/restate_26123_notes.py",
+    "src/pyflightstream/commands/_meta.yaml",
+)
 
-    The degenerate case is the one that matters: if the regex or the
-    searched roots drift, both tests above go green over an empty list
-    and report that every published command runs. So the population is
-    floored against the publishers known to exist, by name.
+
+def test_the_search_actually_finds_every_known_publisher():
+    """A walk that matches less than it should passes every assertion above.
+
+    The degenerate case is the one that matters: if the pattern, the
+    prose filter or the searched roots drift, both tests above go green
+    over a SHORTER list and report that every published command runs.
+
+    That is not hypothetical. The prose filter added on 2026-08-18
+    required a published tail to begin with a flag, which dropped five
+    real publishers whose tails begin with a placeholder, a bracketed
+    optional, a comment, a label or a version. The floor at the time
+    named three files, all three of which survived the filter, so the
+    17-to-11 shrink was invisible to the very guard written to catch it.
+
+    So every publisher is named. A new one raising the count is fine; one
+    disappearing is not.
     """
     sources = {source for source, _, _ in _published_invocations()}
-    for expected in (
-        "scripts/restate_26123_notes.py",
-        "scripts/measure_edition_page_delta.py",
-        "src/pyflightstream/commands/_meta.yaml",
-    ):
-        assert expected in sources, (
-            f"{expected} publishes a command line and the walk did not find it, so the "
-            "two guards above are measuring an empty set"
-        )
+    missing = sorted(set(_PUBLISHERS) - sources)
+    assert not missing, (
+        f"{len(missing)} file(s) publish a command line and the walk no longer finds "
+        "them, so the two guards above are measuring a smaller set than the tree "
+        "holds: " + ", ".join(missing)
+    )

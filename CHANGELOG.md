@@ -36,14 +36,20 @@ matrix could not have discriminated.
 
 ### API surface delta
 
-One new module, `pyflightstream.qa.reports`, exporting `report_paths`
-and `refuse_existing_report` and re-exported from `pyflightstream.qa`:
+One new module, `pyflightstream.qa.reports`, exporting `report_paths`,
+`refuse_existing_report` and `resolve_report_date`, all three re-exported
+from `pyflightstream.qa`:
 the one home of the report-naming and never-overwrite rule the three
 evidence writers share, including the build key each of them used to
 derive for itself. Each series keeps a helper of its own that calls it,
 so a writer and the pre-flight protecting it ask one question rather
 than two that agree by coincidence: `compat_report_paths`,
-`physics_report_paths` and `drift_report_paths`, the last two new.
+`physics_report_paths` and `drift_report_paths`, all three new in this
+cycle and all three re-exported from `pyflightstream.qa`. Each resolves
+its version through the registry before naming anything, so asking with
+a vendor release name cannot predict a stem the writer will not produce,
+and `resolve_report_date` refuses a date that is not `YYYY-MM-DD` rather
+than putting it in a file name.
 
 Other new public names in `pyflightstream.qa`: `ProbeOutcome.REMOVED`,
 `unrecognised_commands`, `read_compat_reports`, `contradicting_evidence`,
@@ -93,10 +99,14 @@ quiet success with a loud refusal.
   runnable subset. Pass `cases=` (or `--cases`) to ask for a subset
   deliberately.
 
-A FOURTH, and it is the cheapest one on this list: four boolean
-arguments became keyword-only. `half` on `wing_triangles` and
-`generate_wing_stl`, and `include_smi` on `registered_cases` and
-`case_table`. `wing_triangles(spec, True)` was legal and read as nothing
+A FOURTH, and it is the cheapest one on this list: FIVE boolean
+arguments became keyword-only. `half` on `wing_triangles`,
+`generate_wing_stl` and `build_phy02_script`, and `include_smi` on
+`registered_cases` and `case_table`. The count read four until the fifth
+signature was found by a review pass, in the same module as two of the
+others; a sweep that stops at the sites review named is not a class fix,
+which is this repository's own rule and is why the number is stated
+rather than the word. `wing_triangles(spec, True)` was legal and read as nothing
 in particular; so did `case_table(True)`. The debt is paid in the window
 this release already opens rather than in the next one, because paying it
 later would be a SECOND break for the same callers and for the same
@@ -454,11 +464,13 @@ Deprecations: none.
 - The two Tier 3 WARNs on 26.123, both `CDo` and both on SMI cases, gain
   a committed triage (`reports/physics/TRI-26123-CDo_2026-08-18.md`).
   Eleven of the thirty-eight metrics moved, `CDo` is the only one that
-  moved OUT of band, every `CDo` in the matrix moved and all three moved
-  down, and both exceedances sit below their fail bands. On the author's
-  decision the references stay untouched and the warns stand; the
-  repeatability rerun that would establish the solver-side cause is a
-  licensed-day item and is registered rather than implied.
+  moved OUT of band, every `CDo` METRIC moved and all three moved down,
+  and both exceedances sit below their fail bands. On the author's
+  decision the references stay untouched and the warns stand. The 26.123
+  side turns out to be REPRODUCED already, by two independent executions
+  of 2026-08-17 that agree on all thirty-eight metrics, because
+  `pyfs-qa drift` runs its own physics for each build; the rerun owed is
+  26.122's alone, and is registered rather than implied.
 
 - **A guard added the day before was vacuous, and its own predicate was
   satisfied by the defect.** The rule "a library refusal naming

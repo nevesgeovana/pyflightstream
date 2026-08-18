@@ -17,7 +17,7 @@ Tier 3 matrix and then die on an uncaught ``FileExistsError``.
 
 Three copies of one rule is why a repair could reach one of them.
 
-THE BUILD KEY IS DERIVED HERE TOO, which is the correction of 2026-08-18
+THE VERSION KEY IS DERIVED HERE TOO, which is the correction of 2026-08-18
 and is the half the first version left behind. The template lived here
 and the KEY did not, so the dot-stripping and the two-build join were
 each written twice: once in a writer to produce the name, once in the CLI
@@ -43,8 +43,16 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from pyflightstream.qa.errors import QaEvidenceError
+from pyflightstream.versions import resolve
 
 __all__ = ["refuse_existing_report", "report_paths", "resolve_report_date"]
+
+#: The report series this repository writes. `reports/README.md` is the
+#: home of the taxonomy; this is the machine-readable half of it, and a
+#: series outside it is refused rather than pasted into a file name.
+#: `RPT-` and `TRI-` are deliberately absent: both are narrative and
+#: neither is written by any code path.
+_SERIES = frozenset({"CMP", "PHY", "DRF"})
 
 
 def resolve_report_date(date: str | None = None) -> str:
@@ -65,22 +73,65 @@ def resolve_report_date(date: str | None = None) -> str:
     -----
     ONE HOME FOR THE DEFAULT, which is the correction of 2026-08-18 and
     is the same repair as the build key beside it. ``date or
-    datetime.date.today().isoformat()`` was written six times, once in
-    each series helper and once in each writer, and a rule written six
-    times is a rule that can drift in five places without anyone
-    noticing. This is not the whole of that repair: a caller who asks a
-    helper whether a report exists, spends a licensed seat, and then
-    calls a writer still resolves today TWICE across that window, and
-    across midnight the two disagree. Closing that needs the writer to
-    accept the answer the pre-flight already computed, which is a
-    signature change registered in
-    ``PLN-20260818-0300-the-preflight-answer-does-not-reach-the-writer``
-    rather than taken here. ``pyfs-qa`` is not exposed: each subcommand
-    resolves once and passes the value to both.
+    datetime.date.today().isoformat()`` was written TEN times: once in
+    each of the three series helpers, once in each of their three
+    writers, once in each of the three ``pyfs-qa`` subcommands, and once
+    in ``update_reference``. A rule written ten times is a rule that can
+    drift in nine places without anyone noticing.
+
+    The first version of this repair reached six of the ten and claimed
+    all of them, excusing the CLI with "``pyfs-qa`` is not exposed". That
+    excused nothing: whether a command line offers a date flag has
+    nothing to do with which expression computes today, and the three
+    subcommands went on spelling it themselves. All ten call this now.
+
+    WHAT IS STILL NOT CLOSED, stated because the sentence above used to
+    overclaim. A caller who asks a helper whether a report exists, spends
+    a licensed seat, and then calls a writer resolves today TWICE across
+    that window, and across midnight the two disagree. One home makes the
+    two calls agree on the RULE; it cannot make them agree on the ANSWER.
+    Closing that needs the writer to accept what the pre-flight already
+    computed, which is registered in
+    ``PLN-20260818-0300-the-preflight-answer-does-not-reach-the-writer``.
+    ``pyfs-qa`` itself is not exposed: each subcommand resolves once and
+    passes the value to both, which ``tests/test_qa_cli.py`` pins by
+    replacing this function in the CLI's namespace.
     """
-    if date is not None:
-        return date
-    return datetime.date.today().isoformat()
+    if date is None:
+        return datetime.date.today().isoformat()
+    # VALIDATED, and it was not until 2026-08-18. This function documents
+    # that it RETURNS an ISO date and returned any string unchanged, and
+    # `report_paths` interpolates the result straight into a file name.
+    # `date="17/08/2026"` therefore produced a stem carrying path
+    # separators: the pre-flight then tested a path under a directory
+    # that does not exist, answered "no collision", and the licensed run
+    # proceeded to a write that fails on a missing parent. That is this
+    # module's own failure mode arriving at solver time from information
+    # available at call time, which is the one thing it exists to stop.
+    try:
+        datetime.date.fromisoformat(date)
+    except ValueError as error:
+        raise QaEvidenceError(
+            f"a report date is written as YYYY-MM-DD and this one is {date!r} "
+            f"({error}). It goes straight into the report's file name, so a value "
+            "this function cannot parse becomes a stem no reader can find and, if "
+            "it carries a separator, a path under a directory that does not exist."
+        ) from None
+    return date
+
+
+def _canonical(version: object) -> str:
+    """Return one version's canonical identifier with its dots stripped.
+
+    Accepts whatever the sibling entry points accept, a string or an
+    :class:`~pyflightstream.versions.FsVersion`, and puts both through
+    the registry. An unregistered identifier or an ambiguous vendor alias
+    raises from :func:`~pyflightstream.versions.resolve`, which is the
+    right answer here: both are decidable with no I/O, and this function
+    is called from the pre-flight that exists to refuse before a licensed
+    seat is spent.
+    """
+    return resolve(str(version)).canonical.replace(".", "")
 
 
 def report_paths(
@@ -104,8 +155,8 @@ def report_paths(
         the one ``reports/README.md`` uses for the same idea.
     versions : sequence of str, keyword-only
         The canonical version identifiers the report is about, in the
-        order the series states them: one for a single-build report, two
-        for a comparison. The dots are stripped and the identifiers
+        order the series states them: one for a single-version report,
+        two for a comparison. The dots are stripped and the identifiers
         joined here rather than by the caller, so the writer and the
         pre-flight ask one question rather than two that happen to
         agree.
@@ -113,7 +164,8 @@ def report_paths(
         A LIST, NEVER A BARE STRING, and the refusal below is why the
         distinction is worth a paragraph. ``versions="26.123"`` type
         checks against ``Sequence[str]``, is not empty, and iterates its
-        CHARACTERS, producing the stem ``PHY-2-6--1-2-3_2026-08-18``.
+        CHARACTERS, producing the stem ``PHY-2-6--1-2-3_2026-08-18``; the
+        doubled hyphen is the dot stripping to nothing.
         That is this module's own failure, one input over: a pre-flight
         asked that way is green against a name nothing will ever write,
         the licensed run proceeds, and the writer refuses at the end.
@@ -135,7 +187,8 @@ def report_paths(
         If ``versions`` is empty, or is a bare string. Both produce a
         stem no later reader can trace back to a solver: the empty
         sequence gives ``CMP-_2026-08-18`` and a string gives one
-        character per build. The catalogued type rather than a bare
+        character per version. The word BUILD is kept only for the
+        vendor's build number, which is a different field. The catalogued type rather than a bare
         ``ValueError``, per FR-39, and it keeps ``ValueError`` as a base
         so an existing handler catches what it always did.
 
@@ -196,6 +249,13 @@ def report_paths(
     ...     print(str(refused).split(";")[0])
     versions is a sequence of version identifiers, not one string
     """
+    if series not in _SERIES:
+        raise QaEvidenceError(
+            f"{series!r} is not a report series; this repository writes "
+            f"{', '.join(sorted(_SERIES))}, and a stem carrying anything else "
+            "is a name no reader can trace back to a solver. Ask the series' own "
+            "helper rather than this primitive, and the letter cannot be wrong."
+        )
     if isinstance(versions, str):
         raise QaEvidenceError(
             f"versions is a sequence of version identifiers, not one string; "
@@ -208,9 +268,20 @@ def report_paths(
     if not versions:
         raise QaEvidenceError(
             "a report names at least one version; report_paths was given none, "
-            "which would produce a stem no reader can trace back to a solver."
+            "which would produce a stem no reader can trace back to a solver. "
+            "Pass the canonical identifier the run used, for example ['26.123']."
         )
-    key = "-".join(version.replace(".", "") for version in versions)
+    # RESOLVED, NOT TAKEN AS TYPED, which is the correction of 2026-08-18.
+    # Every writer resolves its version before naming anything, and the
+    # helpers did not, so a pre-flight asked with a vendor release name
+    # predicted a stem the writer would never produce: `version="26.0"`
+    # gave `PHY-260_<date>` against the writer's `PHY-26000_<date>`. That
+    # matters because `run_physics` and `probe_version` both invite a
+    # vendor name in their own Parameters blocks, so the caller doing it
+    # is the caller the documentation created. Resolving here also accepts
+    # an `FsVersion`, which those two entry points already take, and
+    # refuses an ambiguous alias BEFORE a seat is spent rather than after.
+    key = "-".join(_canonical(version) for version in versions)
     stem = f"{series}-{key}_{date}"
     if label:
         stem += f"_{label}"

@@ -195,26 +195,44 @@ nothing, because the file carries counts as well as names and both move.
 26.123 is the first such build; the script takes any registered one.
 
 `scripts/prove_alias_tally_guard.py` is the mutation battery for the
-stale-tally guard. It restores, one at a time, the six committed
-FILES whose nine sentences enumerated the builds sharing a vendor name
-before 2026-08-17, and requires the guard to deny each. Like every battery it
-EDITS TRACKED FILES and restores them; unlike the three that only park
-and restore (`prove_extras_isolation.py`, `prove_evidence_guards.py`
-and `prove_edition_comparison.py`) it checks a sha256 either side of
-every mutant and FAILS rather than warns if a restore is not
-byte-exact, which its own docstring states.
+stale-tally guard. It restores, one at a time, the six committed FILES
+whose nine sentences enumerated the builds sharing a vendor name before
+2026-08-17, and requires the guard to deny each.
 
-`scripts/prove_published_invocation_guards.py` is the seventh, added
-2026-08-18. It restores the two published reproduction commands that
-shipped broken, a required flag omitted and a flag no parser defines,
-and requires `tests/test_documented_invocations.py` to deny each. It
-PARKS, which only `prove_evidence_guards.py` otherwise does.
+`scripts/prove_published_invocation_guards.py`, added 2026-08-18,
+restores the two published reproduction commands that shipped broken, a
+required flag omitted and a flag no parser defines, and requires
+`tests/test_documented_invocations.py` to deny each.
+
+THE EIGHT BATTERIES AND WHAT EACH ONE DOES, as a table rather than as
+prose. Four booleans restated across five paragraphs is what produced
+four contradictions in one page on 2026-08-18: a count off by one, a
+claim that every battery edits files where one works in memory, a claim
+that one parks where three do, and a sibling count with the wrong
+denominator. Measured, not recalled; re-measure before editing a cell.
+
+| battery | edits files | parks | sha256 either side | uses the harness |
+|---|---|---|---|---|
+| `prove_alias_tally_guard.py` | yes | no | yes | yes |
+| `prove_edition_comparison.py` | no, in memory | no | no | no, needs none |
+| `prove_evidence_guards.py` | yes | yes | no | yes |
+| `prove_extras_isolation.py` | yes | yes | no | no, own copy |
+| `prove_flow_mapping_guard.py` | yes | no | yes | yes |
+| `prove_geometry_guards.py` | yes | no | yes | yes |
+| `prove_published_invocation_guards.py` | yes | yes | yes | yes |
+| `prove_report_date_guards.py` | yes | no | yes | yes |
+
+Every battery that edits files restores them; run one from a clean tree
+and check `git status` afterwards. The five that check a sha256 FAIL
+rather than warn if a restore is not byte-exact. The three that park
+survive being killed mid-mutant, because a `finally` does not; the five
+that do not are registered in `PLN-20260818-0100`.
 
 **If you write one of these, call `_mutation_harness.apply_mutant`.**
-It holds the two rules below and raises rather than warning, and four
-of the seven batteries predate it and re-implement them inline
-(PLN-20260818-0100). Read the two rules anyway, because they are why
-it exists.
+It holds the two rules below and raises rather than warning, and four of
+the eight batteries predate it and re-implement them inline
+(PLN-20260818-0100). Read the two rules anyway, because they are why it
+exists.
 
 **Do not anchor a battery on `git show HEAD:<path>`.**
 That battery did, and it broke the day its own fix was committed: the

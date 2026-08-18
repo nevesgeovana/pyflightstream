@@ -104,7 +104,7 @@ MUTANTS = (
                 '(scripts/[A-Za-z0-9_]+\\.py)(.*)$")\n',
             ),
         ),
-        "test_the_search_actually_finds_the_known_publishers",
+        "test_the_search_actually_finds_every_known_publisher",
     ),
 )
 

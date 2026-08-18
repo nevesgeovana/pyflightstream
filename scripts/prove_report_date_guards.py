@@ -57,7 +57,39 @@ ARTIFACT_TEST = (
 RATCHET_TEST = "tests/test_command_db.py::test_the_undated_report_exemption_has_not_grown"
 
 COMPAT = "src/pyflightstream/qa/compat.py"
+PHYSICS = "src/pyflightstream/qa/physics.py"
+DRIFT = "src/pyflightstream/qa/drift.py"
 DB_TEST = "tests/test_command_db.py"
+
+PHYSICS_TEST = (
+    "tests/test_qa_physics.py::test_the_physics_helper_and_writer_default_their_date_the_same_way"
+)
+DRIFT_TEST = (
+    "tests/test_qa_drift.py::test_the_drift_helper_and_writer_default_their_date_the_same_way"
+)
+
+#: THE SAME PAIR, ONE SERIES OVER, twice. Physics and drift acquired
+#: the two-site shape on 2026-08-18 and acquired neither arm of the
+#: guard compat has, because their pairing tests hand an explicit date
+#: to both sides and so cannot observe either default disappearing.
+PHYSICS_HELPER_LIVE = (
+    "    date = resolve_report_date(date)\n"
+    '    return report_paths(out_dir, series="PHY", versions=[version], date=date, label=label)\n'
+)
+PHYSICS_HELPER_STALE = (
+    '    return report_paths(out_dir, series="PHY", versions=[version], date=date, label=label)\n'
+)
+DRIFT_HELPER_LIVE = (
+    "    date = resolve_report_date(date)\n"
+    "    return report_paths(\n"
+    '        out_dir, series="DRF", versions=[version_a, version_b], date=date, label=label\n'
+    "    )\n"
+)
+DRIFT_HELPER_STALE = (
+    "    return report_paths(\n"
+    '        out_dir, series="DRF", versions=[version_a, version_b], date=date, label=label\n'
+    "    )\n"
+)
 
 #: RE-ANCHORED 2026-08-18 (second time that day). The default was written
 #: six times, once in each series helper and once in each writer, and it
@@ -82,12 +114,14 @@ WRITER_STALE = (
 #: it had not mutated, which is the third time that assertion earned
 #: itself in one day.
 #:
-#: The structural fix went further than this guard: `report_paths` takes
-#: `date` as a REQUIRED keyword and defaults nothing, so for `physics` and
-#: `drift` there is no longer a second resolution site and this mutation
-#: is impossible there by construction. It stays possible for `compat`,
-#: whose announced public `compat_report_paths` still defaults, and that
-#: is the surviving pair this mutant targets.
+#: THIS COMMENT USED TO SAY THE MUTATION WAS IMPOSSIBLE FOR PHYSICS AND
+#: DRIFT "by construction", on the ground that `report_paths` requires
+#: its date. That is true of the PRIMITIVE and false of the two helpers
+#: that wrap it: `physics_report_paths` and `drift_report_paths` each
+#: default a date, as does each writer beside them, so all three series
+#: carry the same two-site shape and all three are mutated below. The
+#: sentence was written the day physics and drift gained helpers of their
+#: own, which is the day it stopped being true.
 #: RE-ANCHORED AGAIN on 2026-08-18, when the review round moved the
 #: build key into `report_paths` and made everything after `out_dir`
 #: keyword-only. The anchor assertion refused rather than measuring an
@@ -146,6 +180,20 @@ MUTANTS = (
         EXEMPTION_GROWN,
         RATCHET_TEST,
     ),
+    (
+        "the physics helper loses its default, the mirror image one series over",
+        PHYSICS,
+        PHYSICS_HELPER_LIVE,
+        PHYSICS_HELPER_STALE,
+        PHYSICS_TEST,
+    ),
+    (
+        "the drift helper loses its default, the same shape again",
+        DRIFT,
+        DRIFT_HELPER_LIVE,
+        DRIFT_HELPER_STALE,
+        DRIFT_TEST,
+    ),
 )
 
 
@@ -172,10 +220,10 @@ def run(test: str) -> int:
 
 def main() -> None:
     """Apply each mutant in turn and report how many the guards killed."""
-    for test in (WRITER_TEST, HELPER_TEST, ARTIFACT_TEST, RATCHET_TEST):
+    for test in (WRITER_TEST, HELPER_TEST, ARTIFACT_TEST, RATCHET_TEST, PHYSICS_TEST, DRIFT_TEST):
         if run(test) != 0:
             raise SystemExit(f"{test} is red before any mutation; nothing below means anything")
-    print("control, unmutated tree: all four guards green")
+    print("control, unmutated tree: all six guards green")
 
     # THE DEFAULT APPEARS TWICE and each mutant removes exactly one of
     # them, so the anchors are the LINE PLUS ITS NEIGHBOUR. Anchoring on
@@ -243,10 +291,10 @@ def main() -> None:
         f"({'still green, so one arm is not enough' if writer_says == 0 else 'red'})"
     )
 
-    for test in (WRITER_TEST, HELPER_TEST, ARTIFACT_TEST, RATCHET_TEST):
+    for test in (WRITER_TEST, HELPER_TEST, ARTIFACT_TEST, RATCHET_TEST, PHYSICS_TEST, DRIFT_TEST):
         if run(test) != 0:
             raise SystemExit("a guard is red after the restore; the tree is not as it was")
-    print(f"control, tree restored: all four green\n\n{killed} of {len(MUTANTS)} mutants killed")
+    print(f"control, tree restored: all six green\n\n{killed} of {len(MUTANTS)} mutants killed")
     if killed != len(MUTANTS):
         sys.exit(1)
 

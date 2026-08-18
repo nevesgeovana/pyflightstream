@@ -13,8 +13,10 @@ because a battery in which everything dies is one whose selection is
 broken rather than one whose guards are strong.
 
 Parking, recovery, the git directory and the interpreter come from
-``_mutation_harness``, which five of the six sibling batteries also use; `prove_extras_isolation.py`
-carries its own copy (PLN-20260818-0100). The first
+``_mutation_harness``, which five of the seven sibling batteries also use. Two do not:
+``prove_extras_isolation.py`` carries its own copy, and
+``prove_edition_comparison.py`` mutates extracted text in memory and
+needs none (PLN-20260818-0100). CONTRIBUTING.md carries the table. The first
 version of this file re-implemented all four and got three of them
 wrong; the shared module's docstring records which three.
 

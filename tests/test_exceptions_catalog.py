@@ -360,7 +360,7 @@ def _bare_raises_in(module_name: str, filename: str, source: str, exported: set[
             ]
             if any(_is_validator(child) for child in enclosing):
                 continue
-            offenders.append(f"{module_name}.{node.name} -> {raised} ({filename}:{sub.lineno})")
+            offenders.append(f"{module_name}.{node.name} -> {raised}")
     return offenders
 
 
@@ -394,11 +394,54 @@ def _public_module_sources() -> list[tuple[str, str, str, set[str]]]:
 
 
 def _exported_bare_raises() -> list[str]:
-    """Every `raise BareStdlibError(...)` inside a public name."""
+    """Every `raise BareStdlibError(...)` inside a public name.
+
+    ONE ENTRY PER (definition, exception type), and it carried the LINE
+    NUMBER until 2026-08-18. Two things were wrong with that and the
+    ratchet's own comment already named the worse one.
+
+    It CHURNED: any edit above a raise, a comment or a docstring
+    paragraph, turned the suite red on a file whose behaviour had not
+    moved. The entry for `refuse_existing_report` moved five times on
+    2026-08-18 alone, every one a docstring edit. A maintainer who meets
+    that four times learns to update the number without reading, which
+    is the reflex a ratchet exists to prevent.
+
+    And it could EXEMPT A SITE NOBODY READ. Insertions above a function
+    shifted eight sites at v0.5.0 and the shifted set overlapped the
+    recorded one, so an entry recorded for one raise silently came to
+    name a different one.
+
+    Dropping the line reopens exactly one hole, a SECOND bare raise of
+    the same type appearing in an already-exempted definition, and
+    `_bare_raises_in` returns one entry per raise, so the count below
+    closes it: the walk's multiset is compared against the ratchet, not
+    just its set.
+    """
     offenders: list[str] = []
     for name, filename, source, exported in _public_module_sources():
         offenders += _bare_raises_in(name, filename, source, exported)
     return offenders
+
+
+def test_no_exempted_definition_grew_a_second_bare_raise_of_the_same_type() -> None:
+    """The hole dropping the line number would otherwise open.
+
+    Keying on (definition, type) means a second bare raise of the same
+    type inside an already-exempted definition would inherit the
+    exemption silently. The walk emits one entry per RAISE, so counting
+    them closes it: an exempted pair may appear exactly as many times as
+    the ratchet was measured against.
+    """
+    from collections import Counter
+
+    counted = Counter(_exported_bare_raises())
+    grown = {entry: seen for entry, seen in counted.items() if seen > _RATCHET_COUNTS.get(entry, 0)}
+    assert not grown, (
+        "an exempted definition raises the same bare type more often than the ratchet "
+        "was measured against, so a NEW offender is inheriting an existing exemption: "
+        + "; ".join(f"{entry} appears {seen} times" for entry, seen in sorted(grown.items()))
+    )
 
 
 #: The sites FR-39 does not yet cover, named one by one with the reason
@@ -413,12 +456,14 @@ def _exported_bare_raises() -> list[str]:
 #: cross-module caller, is on no list and does not fail today
 #: (PLN-20260804-1130).
 #:
-#: The set holds 19 entries in three tranches. THREE raise
-#: ``TypeError`` for an argument of a type the function does not accept;
-#: ONE raises ``FileExistsError`` and is the evidence-overwrite refusal,
-#: added on 2026-08-17 when the walk was widened to see that name at all
-#: and reduced from three to one the same day when the three writers were
-#: given one home; the other 15 are the reachability tranche and are
+#: The set holds 15 entries in three tranches, over 19 raise sites: it
+#: is keyed on (definition, exception type) since 2026-08-18, and five
+#: definitions raise the same type twice. TWO pairs raise ``TypeError``
+#: for an argument of a type the function does not accept; ONE raises
+#: ``FileExistsError`` and is the evidence-overwrite refusal, added on
+#: 2026-08-17 when the walk was widened to see that name at all and
+#: reduced from three to one the same day when the three writers were
+#: given one home; the other 12 are the reachability tranche and are
 #: almost all ``ValueError``. Re-basing the TypeError three onto a catalogued class
 #: is not the
 #: one-line change the ValueError sites were: ``except TypeError`` is
@@ -437,14 +482,20 @@ def _exported_bare_raises() -> list[str]:
 #: raises added to that same function this release, and the choice
 #: between enlarging a ratchet and emptying it is not a close one.
 #:
-#: The re-anchoring friction the comment below describes is what found
-#: it, and found something sharper on the way. Insertions above the
-#: function moved all eight sites, and the shifted set OVERLAPPED the
-#: recorded one: the entry recorded for line 455 kept matching, having
-#: silently come to name a different raise. A line-keyed ratchet can
-#: therefore exempt a site nobody ever read. Every remaining entry below
-#: has the same weakness, which is an argument for emptying it rather
-#: than for re-keying it.
+#: The re-anchoring friction found it, and found something sharper on
+#: the way. Insertions above the function moved all eight sites, and the
+#: shifted set OVERLAPPED the recorded one: the entry recorded for line
+#: 455 kept matching, having silently come to name a different raise. A
+#: line-keyed ratchet can therefore exempt a site nobody ever read.
+#:
+#: THAT WEAKNESS IS GONE as of 2026-08-18, and it was argued here as an
+#: argument for emptying the set rather than re-keying it. Re-keying is
+#: what happened, after the line number churned five times in one day on
+#: docstring edits alone, which teaches a maintainer to update a number
+#: without reading it. The key is now (definition, exception type) and
+#: the per-pair counts below carry the one property the line number was
+#: really holding. Emptying the set is still the goal; this only stops it
+#: costing a re-anchor per comment.
 _RATCHET = {
     # THE EVIDENCE-OVERWRITE ENTRY, and it was THREE for one day.
     # `FileExistsError` joined `_BARE` on 2026-08-17 and the walk found
@@ -458,35 +509,25 @@ _RATCHET = {
     # It keeps the builtin ON PURPOSE and not from neglect, because
     # `except FileExistsError` is what a caller writing a file already has
     # around the call, and it predates the catalogue's reach.
-    "pyflightstream.qa.reports.refuse_existing_report -> FileExistsError (reports.py:256)",
+    "pyflightstream.qa.reports.refuse_existing_report -> FileExistsError",
     # TypeError for an argument of an unaccepted type. The catalogue is
     # entirely ValueError-based, so re-basing these needs a new base and
     # a decision about what it means (PLN-20260803-2340).
-    "pyflightstream.results.tables.to_table -> TypeError (tables.py:161)",
-    "pyflightstream.results.tables.to_table -> TypeError (tables.py:174)",
-    "pyflightstream.script.entities.EntityRegistry -> TypeError (entities.py:282)",
+    "pyflightstream.results.tables.to_table -> TypeError",
+    "pyflightstream.script.entities.EntityRegistry -> TypeError",
     # The REACHABILITY tranche, measured 2026-08-04: a bare stdlib raise
     # inside a module-private helper that a public definition calls
     # reaches a caller exactly as an exported one does. The walk used to
     # measure where a raise is WRITTEN; FR-39 asks what the public API
     # RAISES. The author's decision: measure now, fix at v0.5, so the
     # number is the debt and it is countable (PLN-20260804-0130).
-    "pyflightstream.cases.cli._parse_recipes -> ValueError (cli.py:33)",
-    # These move whenever anything is inserted above them, and the
-    # ratchet keys on the line number, so re-anchoring is deliberate
-    # friction: a moved raise should be re-read.
-    "pyflightstream.farfield._delta_psi -> ValueError (__init__.py:152)",
-    "pyflightstream.fsi.driver._verified_layout -> ValueError (driver.py:338)",
-    "pyflightstream.fsi.loads._validate_block_boundaries -> ValueError (loads.py:397)",
-    "pyflightstream.fsi.loads._validate_block_boundaries -> ValueError (loads.py:409)",
-    # This one moved from 124 to 125 when a row was added to
-    # _SIDE_BRANCHES above it, and the edit failed the stale-exemption
-    # test and the uncovered-site test at once. That is how a moved debt
-    # site announces itself, and why both directions are asserted.
-    "pyflightstream.overview._module_doc -> RuntimeError (overview.py:129)",
-    "pyflightstream.post.writers._checked -> ValueError (writers.py:34)",
-    "pyflightstream.post.writers._checked -> ValueError (writers.py:39)",
-    "pyflightstream.probes.planar._unit -> ValueError (planar.py:50)",
+    "pyflightstream.cases.cli._parse_recipes -> ValueError",
+    "pyflightstream.farfield._delta_psi -> ValueError",
+    "pyflightstream.fsi.driver._verified_layout -> ValueError",
+    "pyflightstream.fsi.loads._validate_block_boundaries -> ValueError",
+    "pyflightstream.overview._module_doc -> RuntimeError",
+    "pyflightstream.post.writers._checked -> ValueError",
+    "pyflightstream.probes.planar._unit -> ValueError",
     # `qa.compat._rewrite_version_line` held three entries and holds none.
     # One left because the condition it reported turned out to be a real
     # evidence defect rather than a malformed line (apply-compat writing
@@ -496,12 +537,36 @@ _RATCHET = {
     # anyway: both refuse to promote a committed report's evidence, which
     # is what `QaEvidenceError` is for, and it was already imported in
     # that module for the sibling refusal three lines away.
-    "pyflightstream.results._parse_solver_flag -> ValueError (__init__.py:503)",
-    "pyflightstream.results.tables._as_record -> ValueError (tables.py:538)",
-    "pyflightstream.results.tables._check_point_printback -> ValueError (tables.py:572)",
-    "pyflightstream.results.tables._run_row -> ValueError (tables.py:486)",
-    "pyflightstream.results.tables._run_row -> ValueError (tables.py:506)",
-    "pyflightstream.results.tables._sectional_loads_frame -> ValueError (tables.py:448)",
+    "pyflightstream.results._parse_solver_flag -> ValueError",
+    "pyflightstream.results.tables._as_record -> ValueError",
+    "pyflightstream.results.tables._check_point_printback -> ValueError",
+    "pyflightstream.results.tables._run_row -> ValueError",
+    "pyflightstream.results.tables._sectional_loads_frame -> ValueError",
+}
+
+#: HOW MANY RAISES EACH EXEMPTED PAIR COVERS, measured 2026-08-18. The
+#: set above dropped the line number that day, for the two reasons
+#: `_exported_bare_raises` states, and this is what replaces the property
+#: the line number was carrying: a SECOND bare raise of the same type
+#: appearing inside an already-exempted definition would otherwise
+#: inherit the exemption in silence. Five definitions raise twice; the
+#: rest raise once. Fifteen pairs, nineteen raises.
+_RATCHET_COUNTS = {
+    "pyflightstream.qa.reports.refuse_existing_report -> FileExistsError": 1,
+    "pyflightstream.results.tables.to_table -> TypeError": 2,
+    "pyflightstream.script.entities.EntityRegistry -> TypeError": 1,
+    "pyflightstream.cases.cli._parse_recipes -> ValueError": 1,
+    "pyflightstream.farfield._delta_psi -> ValueError": 1,
+    "pyflightstream.fsi.driver._verified_layout -> ValueError": 1,
+    "pyflightstream.fsi.loads._validate_block_boundaries -> ValueError": 2,
+    "pyflightstream.overview._module_doc -> RuntimeError": 1,
+    "pyflightstream.post.writers._checked -> ValueError": 2,
+    "pyflightstream.probes.planar._unit -> ValueError": 1,
+    "pyflightstream.results._parse_solver_flag -> ValueError": 1,
+    "pyflightstream.results.tables._as_record -> ValueError": 1,
+    "pyflightstream.results.tables._check_point_printback -> ValueError": 1,
+    "pyflightstream.results.tables._run_row -> ValueError": 2,
+    "pyflightstream.results.tables._sectional_loads_frame -> ValueError": 1,
 }
 
 
@@ -550,10 +615,10 @@ def test_the_bare_raise_detector_can_find_one() -> None:
         "    raise CampaignConfigError('z')\n"
     )
     # With an __all__: only the exported name is walked.
-    assert _bare_raises_in("m", "m.py", source, {"f"}) == ["m.f -> ValueError (m.py:2)"]
+    assert _bare_raises_in("m", "m.py", source, {"f"}) == ["m.f -> ValueError"]
     # Without one: every non-underscore definition is public, and the
     # underscore-private one is still skipped.
-    assert _bare_raises_in("m", "m.py", source, set()) == ["m.f -> ValueError (m.py:2)"]
+    assert _bare_raises_in("m", "m.py", source, set()) == ["m.f -> ValueError"]
     # A catalogued class is not an offender.
     catalogued = "def h():\n    raise CampaignConfigError('z')\n"
     assert _bare_raises_in("m", "m.py", catalogued, set()) == []
@@ -570,7 +635,7 @@ def test_the_detector_skips_what_pydantic_converts() -> None:
         "        raise ValueError('reaches the caller')\n"
     )
     found = _bare_raises_in("m", "m.py", source, set())
-    assert found == ["m.M -> ValueError (m.py:6)"], (
+    assert found == ["m.M -> ValueError"], (
         f"expected only the plain method to be reported, got {found}. A validator's "
         "raise is converted into ValidationError by pydantic before any caller sees "
         "it; a plain method's is not"

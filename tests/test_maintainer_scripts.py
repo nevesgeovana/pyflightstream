@@ -48,13 +48,23 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
         ("383-283", "runs backwards", "a range whose first page is after its last"),
     ],
 )
-def test_the_page_range_flag_refuses_a_malformed_span(pages, expected, why, tmp_path):
+def test_the_page_range_flag_refuses_a_malformed_span(pages, expected, why, tmp_path, capsys):
     """A usage error says what the form is, and exits 2.
 
     `parser.error` rather than `SystemExit("...")`, because the sibling
     `pyfs-manual` refuses this shape that way precisely to keep the usage
     code at 2, and the first version of this repair exited 1, which is
     what this tool returns for a real measurement.
+
+    THE MESSAGE IS READ FROM STDERR, and the first version of this test
+    read it from `str(refused.value)`, which for a `parser.error` is the
+    string `"2"`. The message assertion was therefore always False and
+    was rescued by `or expected`, a non-empty literal in every row, so
+    the whole clause was a tautology: this test verified an exit code and
+    nothing about the wording, while its own docstring says the defect it
+    guards is a WORDING defect. That is the degenerate assertion this
+    repository has a record about, written by the person who wrote the
+    record.
     """
     import measure_edition_page_delta
 
@@ -78,8 +88,12 @@ def test_the_page_range_flag_refuses_a_malformed_span(pages, expected, why, tmp_
         f"a usage error exited {refused.value.code}; the rest of this package's "
         "command lines return 2 for one, and 1 means a real result here"
     )
-    captured = str(refused.value)
-    assert expected in captured or expected, why
+    printed = capsys.readouterr().err
+    assert expected in printed, f"{why}; the refusal printed: {printed!r}"
+    assert pages in printed, (
+        "the refusal does not echo what the reader actually typed, so they cannot "
+        f"see which of their arguments it is about: {printed!r}"
+    )
 
 
 def test_the_restatement_floor_fires_on_a_run_that_recognised_nothing():
@@ -92,8 +106,14 @@ def test_the_restatement_floor_fires_on_a_run_that_recognised_nothing():
     ``seen and restated and restated + 1 != seen`` made zero the one
     value it could not see.
 
-    This drives the predicate directly rather than the whole script,
-    because the script needs two licensed manuals to reach it.
+    THIS ASSERTS THE SOURCE, and the first version of this docstring
+    said it drove the predicate. It does not: the floor is inline in
+    `main` and the script needs two licensed manuals to reach it, so
+    what is checked is that the expression has not returned to the
+    short-circuiting form. That is an anchor, not a behavioural test,
+    and calling it one is the overclaim this repository has a record
+    about. Lifting the floor into a named predicate the script calls
+    and this test imports is registered rather than done.
     """
     import restate_26123_notes
 

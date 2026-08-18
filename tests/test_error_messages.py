@@ -450,7 +450,15 @@ def _names_the_parameter(flag: str, message: str) -> bool:
     parameter = flag.lstrip("-").replace("-", "_")
     if f"{parameter} (CLI: {flag})" in message:
         return True
-    return re.search(rf"\b{re.escape(parameter)}s?=", message) is not None
+    # THE KEYWORD ARM MUST BE AN INSTRUCTION, not a mention. The second
+    # version accepted any `parameter=` anywhere in the message, and a
+    # review sabotage got past it with "pass --fsm. The default is
+    # fsm=None.": the flag alone as the instruction and the parameter only
+    # as a remark about a default. So the keyword form has to sit inside an
+    # imperative clause, which is how both real messages already write it,
+    # "name it: cases=[...]" and "map the code with recipes={...}".
+    imperative = rf"(?:pass|name it|map (?:it|the code) with|give)[^.]*?\b{re.escape(parameter)}s?="
+    return re.search(imperative, message) is not None
 
 
 @pytest.mark.parametrize(
@@ -475,6 +483,13 @@ def _names_the_parameter(flag: str, message: str) -> bool:
             True,
             "the keyword form, which is how cases/matrix.py writes it",
         ),
+        (
+            "--fsm",
+            "pass --fsm. The default is fsm=None.",
+            False,
+            "the flag alone as the instruction and the parameter only as a remark "
+            "about a default; the second version of this predicate accepted it",
+        ),
     ],
 )
 def test_the_flag_predicate_can_tell_the_defect_from_the_accepted_shape(
@@ -484,7 +499,8 @@ def test_the_flag_predicate_can_tell_the_defect_from_the_accepted_shape(
 
     A guard whose only cases come from the tree goes green the day the
     tree happens to hold nothing it can judge, and says nothing about
-    whether it COULD judge. These six cases give it a red case that does
-    not move when the source does.
+    whether it COULD judge. These nine cases give it red cases that do not
+    move when the source does, and each is a shape some version of the
+    predicate got wrong.
     """
     assert _names_the_parameter(flag, message) is expected, why

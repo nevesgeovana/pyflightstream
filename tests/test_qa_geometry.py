@@ -235,8 +235,14 @@ def test_the_written_stl_carries_the_offset_and_a_name_of_its_own(tmp_path):
     )
 
 
-def test_the_four_boolean_arguments_are_keyword_only():
+def test_the_five_boolean_arguments_are_keyword_only():
     """The fourth announced incompatible change, made falsifiable.
+
+    FIVE SIGNATURES, NOT FOUR. `build_phy02_script` was the fifth and was
+    found by a later review pass, in the same module as two of the
+    others; the announcement, this test's own name and the count all said
+    four. A sweep that stops at the sites review named is not a class
+    fix, which is this repository's own rule.
 
     The CHANGELOG promises downstream callers that `half` and
     `include_smi` became keyword-only. The commit body's own reason for
@@ -246,14 +252,22 @@ def test_the_four_boolean_arguments_are_keyword_only():
     green. A promise nothing can falsify can be reverted by a merge, a
     refactor, or a reviewer who thinks the star looks odd.
     """
-    from pyflightstream.qa.physics import case_table, registered_cases
+    from pyflightstream.qa.physics import build_phy02_script, case_table, registered_cases
 
+    # `match=` ON EVERY ONE. A bare `pytest.raises(TypeError)` is
+    # satisfied by a TypeError from any cause, and one of these would
+    # otherwise have written `unused.stl` into the working directory if
+    # the signature accepted it, which is the case the assertion is
+    # supposed to prove impossible.
+    positional = "positional argument"
     spec = WingSpec()
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match=positional):
         wing_triangles(spec, True)
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match=positional):
         generate_wing_stl(spec, "unused.stl", True)
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match=positional):
         registered_cases(True)
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match=positional):
         case_table(True)
+    with pytest.raises(TypeError, match=positional):
+        build_phy02_script("26.120", True, "a.stl", "loads.txt", "log.txt")

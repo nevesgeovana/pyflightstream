@@ -153,9 +153,11 @@ def main(argv: list[str] | None = None) -> int:
         if not sep or not first.strip().isdigit() or not last.strip().isdigit():
             # `parser.error`, not `SystemExit`, so the status is 2. The
             # comment above cites `_pages`, whose own docstring says it
-            # refuses this way precisely to keep the usage code at 2, and
-            # the first version of this repair exited 1, which is what
-            # this tool returns for a real measurement.
+            # refuses this way precisely to keep the usage code at 2. The
+            # first version of this repair exited 1, which this tool
+            # returns only for a manifest label it cannot find; `main`
+            # returns 0 for every real measurement. Either way, 1 is not
+            # the code a wrapper reads as a usage error.
             parser.error(
                 f"--pages takes FIRST-LAST, two page numbers joined by a hyphen, for "
                 f"example --pages 283-383; it was given {args.pages!r}"

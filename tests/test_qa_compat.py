@@ -1378,7 +1378,8 @@ def test_the_primitive_refuses_an_empty_or_string_version_list(tmp_path):
 
     The string case is the one that matters most. `Sequence[str]` is
     satisfied by `str`, so `versions="26.123"` is not empty and iterates
-    its CHARACTERS, giving `PHY-2-6-1-2-3_...`; a pre-flight asked that
+    its CHARACTERS, giving `PHY-2-6--1-2-3_...`, the doubled hyphen coming
+    from the dot stripping to nothing; a pre-flight asked that
     way is green against a name nothing will ever write, and the licensed
     run proceeds to a write that refuses. That is this module's own
     failure, one input over.

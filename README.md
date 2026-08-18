@@ -203,8 +203,7 @@ does not identify a build.
 Canonical identifiers use the YY.XXX scheme, the last digit indexing
 vendor hotfix builds, so 26.121 is hotfix build 1 of the 26.12 release.
 The vendor reuses a release name across builds, so a release name may
-name more than one, and neither of the two families it has produced is
-quite like the other: one is a release with its hotfixes, the other is
+name more than one, and the families it has produced are not all alike: one is a release with its hotfixes, the other is
 two separate releases that happen to share a name. Which builds sit in
 either is a fact about the registry rather than about this page, so it
 is not written here; the refusal enumerates them from the registry and
