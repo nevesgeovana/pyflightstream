@@ -27,8 +27,8 @@ and it is not a standing promise about every edition the vendor will
 ever publish. SRS non-requirement NREQ-05 excluded nothing at the close
 of that sweep; registering 26.123 on 2026-08-17 opened exactly one
 exception, `SET_OUTLET_TRAILING_EDGES`, which the SRC-751 edition
-documents and this database does not yet carry. It is a boundary-
-condition command rather than a mesh one, so this page's own subject is
+documents and this database does not yet carry. That command belongs to
+the boundary conditions rather than to meshing, so this page's own subject is
 unaffected, and the debt is listed in the SRS evidence queue. What has
 NOT changed is the reason this page
 exists. A command being in the database means the script builder will

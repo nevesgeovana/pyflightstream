@@ -184,9 +184,10 @@ def mean_edge_length(triangles: np.ndarray) -> float:
 
     THE TRANSLATION IS NOT THE GAP, which is the whole trap and is why
     the thickness is measured rather than assumed. Translating by
-    ``gap_m`` puts the two copies INSIDE each other; the surfaces are a
-    section thickness apart before anything moves, so the translation
-    that opens a gap of ``gap_m`` is ``thickness + gap_m``. The first
+    ``gap_m`` puts the two copies INSIDE each other. The two copies start
+    COINCIDENT, so the upper copy's lower surface sits a full section
+    thickness BELOW the lower copy's upper surface, and the translation
+    that opens a gap of ``gap_m`` is therefore ``thickness + gap_m``. The first
     version of this example translated by ``gap_m + 0.2`` and printed
     ``0.25``, while the real separation was 0.78 face lengths.
 
@@ -209,8 +210,8 @@ def mean_edge_length(triangles: np.ndarray) -> float:
 
 def wing_triangles(
     spec: WingSpec,
-    half: bool = False,
     *,
+    half: bool = False,
     translation_m: tuple[float, float, float] = (0.0, 0.0, 0.0),
 ) -> np.ndarray:
     """Mesh the wing surface into outward-oriented triangles.
@@ -229,11 +230,16 @@ def wing_triangles(
         caller is unaffected.
 
         KEYWORD-ONLY, and NOT called ``offset_m``. Positionally it
-        would sit behind ``half``, so ``wing_triangles(spec, True,
-        (0, 0, 0.5))`` would be legal and would read as nothing in
-        particular; and ``offset_m`` already means a radial station
-        along a blade elsewhere in this package, where it is a
-        scalar rather than a 3-vector.
+        would have sat behind ``half``, so ``wing_triangles(spec, True,
+        (0, 0, 0.5))`` would have been legal and would have read as
+        nothing in particular. ``half`` itself became keyword-only on
+        2026-08-18 for the same reason and in the same breaking window
+        this argument opened: a bare ``True`` in a call is a fact the
+        reader has to go and look up, and paying that debt in the window
+        already open costs nothing where paying it later is a second
+        break for the same callers. And ``offset_m`` already means a
+        radial station along a blade elsewhere in this package, where it
+        is a scalar rather than a 3-vector.
 
         IN THE MESH AND NOT THROUGH A SOLVER COMMAND, which is the point
         of it. Two components at a controlled gap are wanted for the
@@ -500,8 +506,8 @@ def generate_blade_stl(spec: BladeSpec, path: str | Path) -> Path:
 def generate_wing_stl(
     spec: WingSpec,
     path: str | Path,
-    half: bool = False,
     *,
+    half: bool = False,
     translation_m: tuple[float, float, float] = (0.0, 0.0, 0.0),
     name: str | None = None,
 ) -> Path:

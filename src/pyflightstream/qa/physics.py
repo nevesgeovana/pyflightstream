@@ -65,6 +65,16 @@ __all__ = [
     "PhysicsEnvironmentError",
     "PHYSICS_CASES",
     "SMI_CASES",
+    # PUBLIC BECAUSE THE CHANGELOG BREAKS THEM. `PhysicsCase` is the
+    # element type of the two exported inventories above, so a caller
+    # holding `PHYSICS_CASES["PHY-01"]` could not annotate it or build
+    # one; `case_table` is the function whose key this release renames.
+    # Both were announced as public breaks while being absent from this
+    # list, which also kept them outside the FR-39 bare-raise walk in
+    # `tests/test_exceptions_catalog.py`, since that walk follows
+    # `__all__` where a module declares one.
+    "PhysicsCase",
+    "case_table",
     "registered_cases",
     "build_phy01_script",
     "build_phy02_script",
@@ -75,6 +85,7 @@ __all__ = [
     "load_reference",
     "update_reference",
     "run_physics",
+    "physics_report_paths",
     "write_physics_report",
 ]
 
@@ -1204,9 +1215,16 @@ def _make_smi_runner(case_id: str, fsm_name: str, title: str):
 
     def run(context: _CaseContext) -> CaseResult:
         if context.smi_root is None:
+            # `smi_root`, this function's own parameter, with the CLI's
+            # spelling BESIDE it rather than instead of it. A library
+            # refusal naming a flag alone tells a Python caller to pass
+            # something they cannot type; `run_physics` was corrected for
+            # exactly this on 2026-08-17 and this site, one screen away,
+            # kept the defect. The shape here is the one `probes.py` and
+            # `cases/matrix.py` already use.
             raise RuntimeError(
-                f"{case_id} needs the local SMI geometry root; pass --smi-root "
-                "(the files never enter Git, CLAUDE.md invariant 5)"
+                f"{case_id} needs the local SMI geometry root; pass smi_root "
+                "(CLI: --smi-root). The files never enter Git, CLAUDE.md invariant 5."
             )
         fsm_path = (Path(context.smi_root) / fsm_name).resolve()
         if not fsm_path.is_file():
@@ -1399,7 +1417,7 @@ def compare_metrics(
     }
 
 
-def registered_cases(include_smi: bool = False) -> dict[str, PhysicsCase]:
+def registered_cases(*, include_smi: bool = False) -> dict[str, PhysicsCase]:
     """Return the case registry, optionally including the SMI class.
 
     The SMI cases join only when the caller can provide the local
@@ -1410,7 +1428,7 @@ def registered_cases(include_smi: bool = False) -> dict[str, PhysicsCase]:
     return dict(PHYSICS_CASES)
 
 
-def case_table(include_smi: bool = False) -> list[dict[str, str | int]]:
+def case_table(*, include_smi: bool = False) -> list[dict[str, str | int]]:
     """Return the Tier 3 registry as a table, one line per case id.
 
     Formalizes the test-matrix policy: every physics validation is a
@@ -1622,6 +1640,44 @@ def run_physics(
 # --------------------------------------------------------------------------
 
 
+def physics_report_paths(
+    version: str, out_dir: str | Path, *, date: str | None = None, label: str | None = None
+) -> tuple[Path, Path]:
+    """Return where a physics report for one build WOULD be written.
+
+    The counterpart of :func:`pyflightstream.qa.compat.compat_report_paths`
+    for the ``PHY`` series, and it exists for the same reason: a caller
+    must be able to ask the question BEFORE it spends a licensed solver
+    seat. Compat had this helper from 2026-08-17 and physics did not, so
+    ``pyfs-qa physics`` had to rebuild the stem from the series prefix
+    and the build identifier itself. Two expressions that agree today are
+    not one rule, and the day this one changes the pre-flight inspects a
+    name nothing writes.
+
+    Parameters
+    ----------
+    version : str
+        Canonical build identifier, as :attr:`PhysicsRun.version` carries.
+    out_dir : str or Path
+        Target directory, normally ``reports/physics/``.
+    date : str, optional
+        ISO date stamped into the stem; defaults to today. A caller that
+        will also write the report should resolve the date once and pass
+        it here AND to :func:`write_physics_report`, so a run crossing
+        midnight cannot check one stem and write another.
+    label : str, optional
+        Stem suffix distinguishing several reports on one day.
+
+    Returns
+    -------
+    tuple of Path
+        The YAML path and the Markdown path, in that order. Neither is
+        created and the directory is not made.
+    """
+    date = date or datetime.date.today().isoformat()
+    return report_paths(out_dir, series="PHY", builds=[version], date=date, label=label)
+
+
 def write_physics_report(
     run: PhysicsRun, out_dir: str | Path, *, date: str | None = None, label: str | None = None
 ) -> tuple[Path, Path]:
@@ -1650,9 +1706,7 @@ def write_physics_report(
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     date = date or datetime.date.today().isoformat()
-    yaml_path, md_path = report_paths(
-        "PHY", run.version.replace(".", ""), out_dir, date=date, label=label
-    )
+    yaml_path, md_path = physics_report_paths(run.version, out_dir, date=date, label=label)
     refuse_existing_report(yaml_path, md_path)
     counts = run.verdict_counts()
     document = {

@@ -458,7 +458,7 @@ _RATCHET = {
     # It keeps the builtin ON PURPOSE and not from neglect, because
     # `except FileExistsError` is what a caller writing a file already has
     # around the call, and it predates the catalogue's reach.
-    "pyflightstream.qa.reports.refuse_existing_report -> FileExistsError (reports.py:104)",
+    "pyflightstream.qa.reports.refuse_existing_report -> FileExistsError (reports.py:179)",
     # TypeError for an argument of an unaccepted type. The catalogue is
     # entirely ValueError-based, so re-basing these needs a new base and
     # a decision about what it means (PLN-20260803-2340).
@@ -672,5 +672,7 @@ def test_the_ratchet_comment_counts_the_ratchet():
     )
     assert int(reachability.group(1)) == len(_RATCHET) - type_errors - file_exists, (
         f"the comment says {reachability.group(1)} in the reachability tranche and the "
-        f"set holds {len(_RATCHET) - type_errors} entries that are not TypeError"
+        f"set holds {len(_RATCHET) - type_errors - file_exists}. The message used to "
+        f"drop the FileExistsError tranche, so it told the maintainer to write a "
+        f"number this same assertion would then reject"
     )

@@ -140,8 +140,10 @@ evidence guards: it EDITS FILES UNDER `src/` one at a time, runs the
 test written for each, and restores them, so run it from a clean tree
 and check `git status` afterwards. A run killed mid-mutant is undone
 by the next one, which refuses to continue until it has. Its sibling
-`scripts/prove_extras_isolation.py` has the same hazard and both
-share `scripts/_mutation_harness.py`.
+`scripts/prove_extras_isolation.py` has the same hazard and parks in
+the same place, so the same next run undoes it; it carries its own
+copy of the harness rather than importing it, which is registered in
+PLN-20260818-0100 rather than fixed here.
 
 `scripts/measure_probe_target_lines.py` derives how many probe
 specifications emit an argument-bearing target line, a figure that
@@ -196,9 +198,9 @@ nothing, because the file carries counts as well as names and both move.
 stale-tally guard. It restores, one at a time, the six committed
 sentences that enumerated the builds sharing a vendor name before
 2026-08-17, and requires the guard to deny each. Like the other
-batteries it EDITS TRACKED FILES and restores them; unlike them it
-checks a sha256 either side of every mutant, so a run that leaves the
-tree changed fails rather than being noticed later.
+batteries it EDITS TRACKED FILES, restores them, and checks a sha256
+either side of every mutant, so a run that leaves the tree changed
+fails rather than being noticed later.
 
 **If you write one of these, do not anchor it on `git show HEAD:<path>`.**
 That battery did, and it broke the day its own fix was committed: the

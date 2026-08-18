@@ -47,6 +47,7 @@ __all__ = [
     "DriftRun",
     "diff_runs",
     "run_drift",
+    "drift_report_paths",
     "write_drift_report",
 ]
 
@@ -285,6 +286,51 @@ def run_drift(
     return diff_runs(run_a, run_b)
 
 
+def drift_report_paths(
+    version_a: str,
+    version_b: str,
+    out_dir: str | Path,
+    *,
+    date: str | None = None,
+    label: str | None = None,
+) -> tuple[Path, Path]:
+    """Return where a drift report for one comparison WOULD be written.
+
+    The ``DRF`` counterpart of
+    :func:`pyflightstream.qa.physics.physics_report_paths`, and the one
+    with the most to lose from a second copy: its stem joins TWO build
+    identifiers, so the CLI predicting the name had to reproduce both the
+    dot-stripping and the join order. The two builds are stated in the
+    order compared, A then B, which is the order the report's own body
+    uses; the join is not sorted, so swapping the arguments names a
+    different report rather than the same one.
+
+    Parameters
+    ----------
+    version_a, version_b : str
+        Canonical build identifiers, as :attr:`DriftRun.version_a` and
+        :attr:`DriftRun.version_b` carry.
+    out_dir : str or Path
+        Target directory, normally ``reports/physics/``.
+    date : str, optional
+        ISO date stamped into the stem; defaults to today. A caller that
+        will also write the report should resolve the date once and pass
+        it here AND to :func:`write_drift_report`.
+    label : str, optional
+        Stem suffix distinguishing several reports on one day.
+
+    Returns
+    -------
+    tuple of Path
+        The YAML path and the Markdown path, in that order. Neither is
+        created and the directory is not made.
+    """
+    date = date or datetime.date.today().isoformat()
+    return report_paths(
+        out_dir, series="DRF", builds=[version_a, version_b], date=date, label=label
+    )
+
+
 def write_drift_report(
     run: DriftRun, out_dir: str | Path, *, date: str | None = None, label: str | None = None
 ) -> tuple[Path, Path]:
@@ -313,8 +359,9 @@ def write_drift_report(
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     date = date or datetime.date.today().isoformat()
-    key = run.version_a.replace(".", "") + "-" + run.version_b.replace(".", "")
-    yaml_path, md_path = report_paths("DRF", key, out_dir, date=date, label=label)
+    yaml_path, md_path = drift_report_paths(
+        run.version_a, run.version_b, out_dir, date=date, label=label
+    )
     refuse_existing_report(yaml_path, md_path)
     counts = run.verdict_counts()
     document = {

@@ -11,8 +11,9 @@ yet restored beside it in ``write_compat_report``. A licensed probe run
 landed in that window and wrote ``date: null`` into the report that
 promoted 85 statuses, under a file name carrying the date correctly.
 
-THREE MUTANTS, and the third is the reason there are two guards rather
-than one.
+FOUR MUTANTS. The second is the reason there are two guards rather than
+one, and the fourth is the direction the exemption's own comment forbids
+and that nothing had ever mutated.
 
 1. The defect as it happened: the default lost from the writer.
 2. Its MIRROR IMAGE: the default lost from the helper instead. This one
@@ -26,6 +27,10 @@ than one.
    artifact walk report the one undated report it exempts by name. This
    proves the walk can still SEE the defect it is exempting, rather than
    having been quietly narrowed until it sees nothing.
+4. The exemption GROWN by one name. A ratchet fails by growing, not by
+   shrinking, and mutant 3 exercises only the shrinking direction; the
+   review pass grew this set onto a real report, undated it, and kept 139
+   tests green.
 
     python scripts/prove_report_date_guards.py
 
@@ -49,6 +54,7 @@ HELPER_TEST = "tests/test_qa_compat.py::test_the_path_helper_defaults_its_date_t
 ARTIFACT_TEST = (
     "tests/test_command_db.py::test_every_compat_report_carries_the_date_its_own_name_claims"
 )
+RATCHET_TEST = "tests/test_command_db.py::test_the_undated_report_exemption_has_not_grown"
 
 COMPAT = "src/pyflightstream/qa/compat.py"
 DB_TEST = "tests/test_command_db.py"
@@ -75,16 +81,34 @@ WRITER_STALE = (
 #: is impossible there by construction. It stays possible for `compat`,
 #: whose announced public `compat_report_paths` still defaults, and that
 #: is the surviving pair this mutant targets.
+#: RE-ANCHORED AGAIN on 2026-08-18, when the review round moved the
+#: build key into `report_paths` and made everything after `out_dir`
+#: keyword-only. The anchor assertion refused rather than measuring an
+#: unmutated tree, which is the fourth time it has earned itself, and the
+#: first time it caught a change made in the same session as the battery.
 HELPER_LIVE = (
     "    date = date or datetime.date.today().isoformat()\n"
-    '    return report_paths("CMP", version.replace(".", ""), out_dir, date=date, label=label)\n'
+    '    return report_paths(out_dir, series="CMP", builds=[version], date=date, label=label)\n'
 )
 HELPER_STALE = (
-    '    return report_paths("CMP", version.replace(".", ""), out_dir, date=date, label=label)\n'
+    '    return report_paths(out_dir, series="CMP", builds=[version], date=date, label=label)\n'
 )
 
 EXEMPTION_LIVE = '_UNDATED_REPORT_ERRATUM = {"CMP-26123_2026-08-17_full-sim.yaml"}\n'
 EXEMPTION_STALE = "_UNDATED_REPORT_ERRATUM: set[str] = set()\n"
+
+#: THE DIRECTION THE COMMENT ACTUALLY FORBIDS, and nothing had ever
+#: mutated it. Emptying the set proves the walk still SEES what it
+#: exempts, which is worth proving and is a different property. A ratchet
+#: fails by GROWING: one line added here, plus a file matching the
+#: erratum glob, silently excuses a second undated report, and the review
+#: pass did exactly that with 139 tests green.
+EXEMPTION_GROWN = (
+    "_UNDATED_REPORT_ERRATUM = {\n"
+    '    "CMP-26123_2026-08-17_full-sim.yaml",\n'
+    '    "CMP-26122_2026-08-11_full.yaml",\n'
+    "}\n"
+)
 
 MUTANTS = (
     (
@@ -107,6 +131,13 @@ MUTANTS = (
         EXEMPTION_LIVE,
         EXEMPTION_STALE,
         ARTIFACT_TEST,
+    ),
+    (
+        "the ratchet GROWS, which is the direction its comment forbids",
+        DB_TEST,
+        EXEMPTION_LIVE,
+        EXEMPTION_GROWN,
+        RATCHET_TEST,
     ),
 )
 
@@ -134,10 +165,10 @@ def run(test: str) -> int:
 
 def main() -> None:
     """Apply each mutant in turn and report how many the guards killed."""
-    for test in (WRITER_TEST, HELPER_TEST, ARTIFACT_TEST):
+    for test in (WRITER_TEST, HELPER_TEST, ARTIFACT_TEST, RATCHET_TEST):
         if run(test) != 0:
             raise SystemExit(f"{test} is red before any mutation; nothing below means anything")
-    print("control, unmutated tree: all three guards green")
+    print("control, unmutated tree: all four guards green")
 
     # THE DEFAULT APPEARS TWICE and each mutant removes exactly one of
     # them, so the anchors are the LINE PLUS ITS NEIGHBOUR. Anchoring on
@@ -177,23 +208,38 @@ def main() -> None:
     # have reported this class closed while the pre-flight was broken.
     path = REPO / COMPAT
     original = path.read_bytes()
+    before = hashlib.sha256(original).hexdigest()
     text = original.decode("utf-8")
     anchor = HELPER_LIVE.replace("\n", "\r\n") if "\r\n" in text else HELPER_LIVE
     replacement = HELPER_STALE.replace("\n", "\r\n") if "\r\n" in text else HELPER_STALE
+    # ASSERTED HERE TOO, and it was not until 2026-08-18. This block
+    # substituted whatever `replace` happened to do and then printed a
+    # conclusion from it, so a drifted anchor would have made the headline
+    # sentence, "one arm is not enough", derivable from a no-op. It was
+    # saved only by the loop above having asserted the same anchor on the
+    # same file a moment earlier, which is a coupling nobody wrote down
+    # and which reordering or removing mutant 2 would have broken.
+    found = text.count(anchor)
+    if found != 1:
+        raise SystemExit(f"the cross-check anchor appears {found} times in {COMPAT}, expected 1")
     path.write_bytes(text.replace(anchor, replacement).encode("utf-8"))
     try:
         writer_says = run(WRITER_TEST)
     finally:
         path.write_bytes(original)
+    # AND THE SHA IS COMPARED, which the docstring already promised of
+    # every mutant and which this fourth mutation did not do.
+    if hashlib.sha256(path.read_bytes()).hexdigest() != before:
+        raise SystemExit(f"{COMPAT} was not restored byte for byte after the cross check")
     print(
         f"\ncross check: under mutant 2 the WRITER-side guard exits {writer_says} "
         f"({'still green, so one arm is not enough' if writer_says == 0 else 'red'})"
     )
 
-    for test in (WRITER_TEST, HELPER_TEST, ARTIFACT_TEST):
+    for test in (WRITER_TEST, HELPER_TEST, ARTIFACT_TEST, RATCHET_TEST):
         if run(test) != 0:
             raise SystemExit("a guard is red after the restore; the tree is not as it was")
-    print(f"control, tree restored: all three green\n\n{killed} of {len(MUTANTS)} mutants killed")
+    print(f"control, tree restored: all four green\n\n{killed} of {len(MUTANTS)} mutants killed")
     if killed != len(MUTANTS):
         sys.exit(1)
 

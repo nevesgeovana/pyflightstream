@@ -324,3 +324,77 @@ def test_the_diagnosis_carries_every_channel_and_not_the_first_one_it_finds():
         "license feature checkout SUCCESS",
     ):
         assert expected in diagnosis, f"{expected!r} missing from {diagnosis!r}"
+
+
+# --- the class: a library refusal never names a flag ALONE -------------------
+
+
+def _library_refusals_naming_a_flag() -> list[tuple[str, str, str]]:
+    """Return every raise site under src/ whose message carries a --flag.
+
+    Yields ``(site, flag, message)``. The CLI modules are excluded by
+    name: a CLI is exactly the layer that OWNS its flags, and
+    ``pyflightstream/qa/cli.py`` translates library parameter names into
+    them deliberately.
+    """
+    import ast
+    import re
+
+    flag_pattern = re.compile(r"--[a-z][a-z0-9-]*")
+    src = Path(__file__).resolve().parents[1] / "src"
+    found: list[tuple[str, str, str]] = []
+    for module in sorted(src.rglob("*.py")):
+        if module.name.endswith("cli.py"):
+            continue
+        tree = ast.parse(module.read_text(encoding="utf-8"), filename=str(module))
+        for node in ast.walk(tree):
+            if node.__class__.__name__ != "Raise" or node.exc is None:
+                continue
+            # ONE PASS, NOT TWO. `ast.walk` already descends into a
+            # JoinedStr and visits its Constant children, so expanding
+            # the JoinedStr as well counted every f-string message twice
+            # and reported one defect as two.
+            message = " ".join(
+                piece.value
+                for piece in ast.walk(node.exc)
+                if isinstance(piece, ast.Constant) and isinstance(piece.value, str)
+            )
+            for flag in flag_pattern.findall(message):
+                site = f"{module.relative_to(src).as_posix()}:{node.lineno}"
+                found.append((site, flag, message))
+    return found
+
+
+def test_no_library_refusal_names_a_command_line_flag_alone():
+    """A message a Python caller cannot act on is a message that misleads.
+
+    `run_physics` was corrected on 2026-08-17 to name `cases` and
+    `smi_root` rather than `--cases` and `--smi-root`, and the fix was
+    made at the two sites the review named. The CLASS was not swept, and
+    one live instance sat one screen below the corrected one: an SMI case
+    runner telling a caller to "pass --smi-root", a flag that exists only
+    on a command line the library knows nothing about.
+
+    THE RULE IS MECHANICAL AND CARRIES NO EXEMPTION LIST, which is the
+    second version of this guard. The first held a set of modules allowed
+    to name a flag, and a module in that set could then name a flag alone
+    anywhere in it: restoring the original defect, in the very module the
+    defect came from, would have passed. A per-module exemption cannot
+    express a per-message rule.
+
+    So the message itself is asked: a refusal naming ``--some-flag`` must
+    also name ``some_flag``, the parameter a Python caller can actually
+    pass. That is the shape `qa/probes.py` and `cases/matrix.py` already
+    used, and it needs nobody's permission to stay true.
+    """
+    offenders = []
+    for site, flag, message in _library_refusals_naming_a_flag():
+        parameter = flag.lstrip("-").replace("-", "_")
+        if parameter not in message:
+            offenders.append(f"{site}: names {flag} but never {parameter}")
+    assert not offenders, (
+        f"{len(offenders)} library raise site(s) name a command-line flag and not the "
+        "parameter behind it. A library message is read by a Python caller first: name "
+        "the PARAMETER, and put the flag beside it for the reader who arrived through a "
+        "CLI.\n  " + "\n  ".join(sorted(offenders))
+    )

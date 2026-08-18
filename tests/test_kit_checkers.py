@@ -100,7 +100,15 @@ HOOKS = REPO / ".claude" / "hooks"
 #: comment about not pushing its own measurement over the pin. A ratchet set to
 #: the number you just raised it to ratchets nothing. The three were fixed and
 #: the pin is the base measurement.
-TESTS_UNGUARDED_SPAWNS = 21
+#:
+#: LOWERED TO 20 ON 2026-08-18, and the ratchet is what asked for it. Three
+#: new spawns were added by the round-three guards and the assertion above
+#: caught all three at once; passing `env=` on them also closed a
+#: PRE-EXISTING unguarded call in `test_citation_claim_currency.py`, which
+#: the population walk replaced on its way past. The downward arm then fired
+#: and required this line to move in the same commit, which is the half of a
+#: ratchet that keeps it from becoming a floor nobody lowers.
+TESTS_UNGUARDED_SPAWNS = 20
 
 
 def _run(*argv: str) -> subprocess.CompletedProcess[str]:

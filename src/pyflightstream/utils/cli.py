@@ -315,7 +315,7 @@ def _parser() -> argparse.ArgumentParser:
     draft = sub.choices["draft"]
     draft.add_argument(
         # --fs-version, not --version: every other tool of this package
-        # spells the FlightStream version that way (pyfs-qa, pyfs-cases),
+        # spells the FlightStream version that way (pyfs-qa, pyfs-matrix),
         # and --version is what a reader expects to print the package's
         # own version.
         "--fs-version",

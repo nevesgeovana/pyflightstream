@@ -1,6 +1,6 @@
 """Restate the 26.123 documented notes so each names two editions and two pages.
 
-    python scripts/restate_26123_notes.py --editions <manifest> --dry-run
+    python scripts/restate_26123_notes.py --editions <manifest>
     python scripts/restate_26123_notes.py --editions <manifest> --write
 
 WHAT IS WRONG WITH THE NOTES AS WRITTEN. The first version of
@@ -34,11 +34,14 @@ WHAT IT DOES NOT TOUCH. Any STATUS, any REPORT reference, and any row of
 any build but 26.123. Only the note text moves.
 
 IT DOES REACH THE PROMOTED ROWS, and the first version did not, which
-would have left the defect in 85 of the 369. The probe run of the same
-day promoted 84 rows to ``verified`` and one to ``broken``, and
-``apply_compat`` CARRIES THE NOTE THROUGH unchanged, so those rows still
-carried the same misleading sentence while no longer matching a pattern
-anchored on ``status: documented``. Restating a note changes nothing
+would have left the defect in 84 of the 369. The probe run of the same
+day promoted 85 rows, 84 to ``verified`` and one to ``broken``, and
+``apply_compat`` carries the note through unchanged for ``verified``
+while OVERWRITING it for ``broken``. So 84 is the number, not 85: those
+84 still carried the same misleading sentence while no longer matching a
+pattern anchored on ``status: documented``, and the broken row's note is
+the probe detail rather than a citation. The floor at the bottom of this
+file says the same thing in code, and the two used to disagree. Restating a note changes nothing
 about what a promoted row asserts: the status and the report it cites are
 its evidence, and the note says where the command is DOCUMENTED, which is
 the claim being corrected. The two shapes are matched separately so the
@@ -175,7 +178,12 @@ def main(argv: list[str] | None = None) -> int:
     # one, whose note is the probe detail rather than a citation, because
     # `apply_compat` OVERWRITES the note for broken and removed outcomes
     # instead of carrying it through.
-    if seen and restated and restated + 1 != seen:
+    # `restated` IS NOT TESTED FOR TRUTH HERE, and it was until
+    # 2026-08-18. `restated and ...` short-circuits at zero, which
+    # is exactly the post-restatement shape the comment above
+    # describes: 369 rows encountered, 0 recognised, exit 0. The
+    # floor could not fire on the run it was written from.
+    if seen and restated + 1 != seen:
         print(
             f"\nnothing written: {seen} rows for {BUILD} exist and {restated} were "
             "recognised. Exactly one, the broken row, is expected to be unrecognised; "

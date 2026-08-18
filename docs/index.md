@@ -9,7 +9,8 @@ after the vendor issued it, and every command any of the eight manual editions
 registered AT THAT POINT documents has an entry, at the level the release notes
 measure it. A ninth build, 26.123, has since been registered and deliberately
 inherits nothing, so nothing carried over to it and every row it holds was read
-on its own edition; that sentence says nothing about it. The release before it registered three older builds and
+on its own edition; the eight-edition claim above is about the editions
+registered at that point and says nothing about this one. The release before it registered three older builds and
 gave every registered build the vendor build number its solver prints,
 so an install can be identified rather than described. Five command-line
 tools ship with the package: `pyfs-qa`

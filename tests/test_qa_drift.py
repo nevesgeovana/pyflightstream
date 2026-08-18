@@ -3,7 +3,7 @@
 import pytest
 import yaml
 
-from pyflightstream.qa.drift import diff_runs, write_drift_report
+from pyflightstream.qa.drift import diff_runs, drift_report_paths, write_drift_report
 from pyflightstream.qa.physics import PHYSICS_CASES, CaseResult, PhysicsRun, Verdict
 
 
@@ -81,3 +81,19 @@ def test_drift_report_pair_and_no_overwrite(tmp_path):
     assert "| CL_a4 | 0.33700 | 0.33900 | +0.00200 |" in markdown
     with pytest.raises(FileExistsError, match="never"):
         write_drift_report(drift, tmp_path, date="2026-07-21")
+
+
+def test_the_writer_lands_exactly_where_the_pre_flight_looked(tmp_path):
+    """The same pairing as the physics writer, and the harder of the two.
+
+    A drift stem joins TWO build identifiers, so the CLI predicting the
+    name had to reproduce the dot-stripping AND the join order. The join
+    is not sorted: A then B, as compared. Both expressions now come from
+    `drift_report_paths`, and this asserts the writer's own answer
+    against it rather than against a literal.
+    """
+    drift = diff_runs(physics_run("26.100", {"CL_a4": 0.337}), physics_run("26.120", {}))
+    yaml_path, md_path = write_drift_report(drift, tmp_path, date="2026-07-21", label="pinned")
+    assert (yaml_path, md_path) == drift_report_paths(
+        drift.version_a, drift.version_b, tmp_path, date="2026-07-21", label="pinned"
+    )

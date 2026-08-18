@@ -166,6 +166,21 @@ def test_the_path_helper_defaults_its_date_the_same_way(tmp_path):
     assert md_path.name == f"CMP-26120_{today}_probe.md"
 
 
+def test_the_writer_lands_exactly_where_the_pre_flight_looked(tmp_path):
+    """The compat half of the pairing the other two writers now assert.
+
+    This series had its helper from 2026-08-17 and the CLI already used
+    it, so this arm was the sound one; it is written down anyway, because
+    the guard that exists in two of three places is the shape that let
+    the original defect survive a repair.
+    """
+    run = make_run()
+    yaml_path, md_path = write_compat_report(run, tmp_path, date="2026-07-21", label="pinned")
+    assert (yaml_path, md_path) == compat_report_paths(
+        run.version, tmp_path, date="2026-07-21", label="pinned"
+    )
+
+
 def test_reports_are_never_overwritten(tmp_path):
     write_compat_report(make_run(), tmp_path, date="2026-07-21")
     with pytest.raises(FileExistsError, match="never\n?.*overwritten"):

@@ -36,10 +36,21 @@ matrix could not have discriminated.
 
 ### API surface delta
 
-New public names in `pyflightstream.qa`: `ProbeOutcome.REMOVED`,
+One new module, `pyflightstream.qa.reports`, exporting `report_paths`
+and `refuse_existing_report` and re-exported from `pyflightstream.qa`:
+the one home of the report-naming and never-overwrite rule the three
+evidence writers share, including the build key each of them used to
+derive for itself. Each series keeps a helper of its own that calls it,
+so a writer and the pre-flight protecting it ask one question rather
+than two that agree by coincidence: `compat_report_paths`,
+`physics_report_paths` and `drift_report_paths`, the last two new.
+
+Other new public names in `pyflightstream.qa`: `ProbeOutcome.REMOVED`,
 `unrecognised_commands`, `read_compat_reports`, `contradicting_evidence`,
-`Judgment`, `PROMOTABLE_OUTCOMES`, `compat_report_paths` and
-`refuse_existing_compat_report`. In `pyflightstream.qa.geometry`:
+`Judgment` and `PROMOTABLE_OUTCOMES`. In `pyflightstream.qa.physics`,
+`PhysicsCase` and `case_table`, which were reachable as the element type
+of two exported inventories and as the function this release breaks, and
+were missing from the module's own list. In `pyflightstream.qa.geometry`:
 `mean_edge_length`. One new keyword argument: `reports_dir` on
 `apply_compat`; `translation_m` on `wing_triangles` and
 `generate_wing_stl`, and `name` on `generate_wing_stl` alone, all
@@ -56,7 +67,7 @@ which was written inside the argument parser and is now importable and
 testable. One new command-line surface: the `register` subcommand of
 `pyfs-manual`.
 
-**Incompatible changes: three, and ONE of them is quiet.** The first
+**Incompatible changes: four, and ONE of them is quiet.** The first
 breaks loudly, the second is the quiet one, and the third replaces a
 quiet success with a loud refusal.
 
@@ -82,9 +93,16 @@ quiet success with a loud refusal.
   runnable subset. Pass `cases=` (or `--cases`) to ask for a subset
   deliberately.
 
-`wing_triangles` and `generate_wing_stl` also stopped accepting `half`
-and the new translation positionally in one call; `half` is unchanged and
-`translation_m` was never released under any other spelling.
+A FOURTH, and it is the cheapest one on this list: four boolean
+arguments became keyword-only. `half` on `wing_triangles` and
+`generate_wing_stl`, and `include_smi` on `registered_cases` and
+`case_table`. `wing_triangles(spec, True)` was legal and read as nothing
+in particular; so did `case_table(True)`. The debt is paid in the window
+this release already opens rather than in the next one, because paying it
+later would be a SECOND break for the same callers and for the same
+functions, three of which are being broken here anyway. Every caller in
+this repository, in its tests, its scripts and its one shipped example,
+already passed these by keyword, so nothing in the tree moved.
 
 Deprecations: none.
 
@@ -147,8 +165,8 @@ Deprecations: none.
   documents and this database does not carry. It also NAMES the two
   commands the new edition stops documenting, `TRAILING_EDGES_IMPORT` and
   `SET_OUTFLOW_TRAILING_EDGES`, separately from the commands neither
-  edition documents: those two are the vendor's silent breaks and each
-  owes a judgement. 26.123 moves from `registered` to `documented` and
+  edition documents: each of those two owes a reading before anything is
+  written for it. 26.123 moves from `registered` to `documented` and
   `tests/goldens/absent_on_26123.txt` shrinks from 414 entries to 45.
 - **26.123 is MEASURED, and reaches `operational` on the same day it was
   registered.** A Tier 2 probe run promotes 85 statuses, 84 verified and
@@ -207,16 +225,22 @@ Deprecations: none.
   `name` arguments on `wing_triangles` and `generate_wing_stl`. Two components at a
   controlled gap need the offset in the MESH: translating one with a
   solver command would put the transform under test as well.
-- **`pyfs-qa probe` refuses an existing report BEFORE it starts the
-  solver.** The refusal itself is unchanged and correct, a compat report
-  is evidence and is never overwritten; it was asked after the run. A
-  full campaign on 26.123 executed 111 command probes over five minutes
-  of licensed solver and then the write refused on a stem that already
-  existed, so a licence checkout was spent and discarded on a collision
-  knowable from the command line. `compat_report_paths` and
-  `refuse_existing_compat_report` are split out of the writer and the
-  probe command asks them first; the identical command now refuses in
-  under a second saying `nothing run`.
+- **`pyfs-qa probe`, `physics` and `drift` all refuse an existing report
+  BEFORE they start the solver.** The refusal itself is unchanged and
+  correct, a report is evidence and is never overwritten; it was asked
+  after the run. A full campaign on 26.123 executed 111 command probes
+  over five minutes of licensed solver and then the write refused on a
+  stem that already existed, so a licence checkout was spent and
+  discarded on a collision knowable from the command line. The repair
+  first reached `probe` alone and the other two kept the defect, where
+  it was worse: the whole Tier 3 matrix could run and then die on an
+  uncaught `FileExistsError`, which probe at least caught and printed.
+  Three copies of one rule is why a repair could reach one of them, so
+  the rule now lives in `pyflightstream.qa.reports` and all three ask it
+  first; the identical command refuses in under a second saying
+  `nothing run`. The date is resolved once per run and handed to the
+  writer, so a matrix started before midnight cannot check one stem and
+  write another.
 - `ProbeOutcome.REMOVED`, promotable like any other outcome. A build
   that does not carry a command used to record `broken`, which is a
   different claim. Both refuse at build time, so the difference is
@@ -360,6 +384,96 @@ Deprecations: none.
   `unprobed` result cannot demote a `broken` one through the sanctioned
   write path. Lifting the refusal needs a demotion path that does not
   exist yet (`PLN-20260811-1300`).
+
+- **A compat report carried `date: null` in its body while its own file
+  name carried the date**, and 85 database rows cite it
+  (`INC-20260817-2210-pyflightstream`). The cause was a transient state
+  of the same session: the date defaulting moved into the path helper
+  while the refusal was being hoisted ahead of the solver, and the probe
+  run landed in the window before it was restored beside the writer.
+  Deleting exactly one line from the current writer reproduces both
+  committed files byte for byte, which also rules out a hand edit. Three
+  guards now hold it: the writer is called with NO date and the stem, the
+  body and the rendered header are required to agree; the path helper is
+  required to default the same way, because the mirror-image mutation
+  corrupts the pre-flight rather than the file; and every committed compat
+  report is walked and its body date required to equal the date in its
+  stem. The report itself stays as it is, on the author's decision of
+  2026-08-18, with an erratum beside it and a single named exemption in
+  the walk; `reports/compat/README.md` gained the report-level erratum
+  contract that shape needs.
+
+- **The refusal that protects a licensed seat was decorative for two of
+  the three evidence writers.** `physics` and `drift` predicted their
+  report name from a series prefix and a build key the CLI pasted
+  together itself, while each writer pasted the same thing together a few
+  hundred lines away; the two agreed by coincidence and nothing tied
+  them. Measured by sabotage: changing `write_physics_report`'s own
+  prefix from `PHY` to `PHZ` left forty-five tests green while the
+  pre-flight silently inspected a name nothing would ever write, which is
+  the incident the pre-flight exists to prevent, one field over. The
+  build key is derived in one place now, each series has a helper its
+  writer and the CLI both call, and each writer's output path is asserted
+  against that helper rather than against a literal.
+
+- **The date was resolved twice per run**, once for the pre-flight and
+  once inside the writer, so a Tier 3 matrix started at 23:59 cleared the
+  collision check against one day and wrote under the next. The failure
+  is a MISSED refusal, so its cost is the licensed seat. Each command
+  resolves it once and hands it to its writer.
+
+- **A library refusal told a Python caller to pass `--smi-root`**, a flag
+  that exists only on a command line the library knows nothing about. The
+  same class was corrected at two sites on 2026-08-17 and this one, one
+  screen below a corrected sibling, was missed. The rule is mechanical
+  now and carries no exemption list: a refusal raised outside a CLI that
+  names `--some-flag` must also name `some_flag`.
+
+- **Two mutation batteries and a reproducibility script reported success
+  they had not earned.** `prove_alias_tally_guard.py` still read a kill
+  off any non-zero exit, so pytest's collection error, usage error and
+  no-tests-selected all scored as the guard denying; since its selector
+  is a long node id, renaming the guard would have printed "6 of 6
+  mutants killed" and exited 0 while judging nothing. It takes the shared
+  three-valued verdict now and an inconclusive stops the run.
+  `restate_26123_notes.py`'s reach floor short-circuited on zero
+  recognised rows, which is exactly the post-restatement shape it was
+  written from, and its own docstring documented a `--dry-run` its parser
+  rejects.
+
+- **Two published reproduction commands exited 2 for anyone who tried
+  them**: the version registry's own command for the seventeen-page
+  edition delta omitted its required `--editions`, and the restate
+  script's docstring named a flag that does not exist. Both were found by
+  a reader trying the command. Every published `scripts/*.py` invocation
+  in the tree is now checked, statically and without executing anything,
+  against the target script's own parser.
+
+### Documentation
+
+- The two Tier 3 WARNs on 26.123, both `CDo` and both on SMI cases, gain
+  a committed triage (`reports/physics/TRI-26123-CDo_2026-08-18.md`).
+  Only `CDo` moved, every `CDo` in the matrix moved and all three moved
+  down, and both exceedances sit below their fail bands. On the author's
+  decision the references stay untouched and the warns stand; the
+  repeatability rerun that would establish the solver-side cause is a
+  licensed-day item and is registered rather than implied.
+
+- Two requirement texts move, both on the author's ruling of 2026-08-18.
+  FR-02c stops enumerating the builds that share a vendor name, an
+  enumeration that had gone stale twice by construction and was removed
+  from six other homes on 2026-08-17 for that reason. NREQ-05 stops
+  saying it excludes NOTHING, which was true of the eight editions swept
+  on 2026-08-08 and stopped being true when SRC-751 was registered
+  documenting a command the database does not carry; the corrected
+  wording separates an exclusion from a dated debt.
+
+- One count was wrong in two places and right in two others. 369 database
+  rows carry 26.123; 85 cite the probe report, 84 `verified` and one
+  `broken`; and 368 carry the restated note, because `apply_compat`
+  overwrites the note for a broken outcome instead of carrying it
+  through. The restate script said 85 in its docstring and 84 in its
+  code, twenty-six lines apart.
 
 ## [0.7.0] - 2026-08-11
 

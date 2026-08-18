@@ -33,5 +33,8 @@ date correctly. It states the same three things, with the record replaced
 by the field, and like every erratum it carries no judgment and promotes
 nothing.
 
-Whether this is the right extension of the contract is the author's, and
-is marked as owed in the erratum itself rather than settled here.
+Whether this is the right extension of the contract was the author's and
+is DECIDED, on 2026-08-18: the extension stands, and the report it was
+written for stays as it is rather than being re-emitted under a new
+label. The reasoning behind both halves, including what re-emitting would
+have cost, is in the erratum rather than repeated here.

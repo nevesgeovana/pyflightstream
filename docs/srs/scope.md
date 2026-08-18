@@ -44,11 +44,15 @@ and are never silently dropped.
     The registry starts at 26.000. Supported versions are only ever
     added going forward, never dropped (NFR-04).
 
-!!! nonrequirement "NREQ-05 No command family is excluded from the database (narrowed to nothing 2026-08-08)"
-    Every command any registered manual edition documents enters the
-    database, chapter by chapter. This non-requirement now excludes
-    NOTHING, and it is kept rather than deleted because identifiers here
-    are never reused and because the two narrowings are the record of a
+!!! nonrequirement "NREQ-05 No command family is excluded from the database (narrowed to nothing 2026-08-08, wording corrected 2026-08-18)"
+    Every command a registered manual edition documents enters the
+    database, chapter by chapter, and no family is excluded by decision.
+    A newly registered edition may document a command not yet entered;
+    that is a dated debt in the evidence queue and never an exclusion,
+    and the emitter refuses such a command rather than guessing at it.
+
+    The identifier is kept rather than deleted because identifiers here
+    are never reused, and because the two narrowings are the record of a
     scope decision reversing itself.
 
     NARROWED TO NOTHING on 2026-08-08, the author's decision, when the
@@ -67,39 +71,25 @@ and are never silently dropped.
     parameter-table-versus-sample disagreement and the copied sample,
     neither of which reading one command at a time would have shown.
 
-    **PROPOSED CORRECTION, PENDING THE AUTHOR, NOT APPLIED (2026-08-17).**
-    The heading and the first sentence say this excludes NOTHING, and
+    WHY THE WORDING MOVED ON 2026-08-18, the author's decision. The
+    heading and the first sentence used to say this excludes NOTHING, and
     that stopped being true on 2026-08-17 when FlightStream 26.123 was
     registered with its edition SRC-751. That edition documents
     `SET_OUTLET_TRAILING_EDGES`, a rename of `SET_OUTFLOW_TRAILING_EDGES`
     made in place, and the database does not carry it. So a registered
-    edition documents a command the database lacks, which is the exact
+    edition documented a command the database lacked, which is the exact
     state this non-requirement's reversal was written about: a caller
     meets a refusal for a command their own manual documents.
 
-    The distinction that matters is between an EXCLUSION and a DEBT. No
-    family is excluded by decision any more, and that is what the
-    reversal settled. What exists now is one command owed an entry, from
-    an edition registered nine days after the sweep closed. The
-    difference is worth a sentence because "excludes nothing" reads as a
-    standing promise and the sweep was a dated measurement.
+    The distinction the new wording carries is between an EXCLUSION and a
+    DEBT. No family is excluded by decision, and that is what the
+    reversal settled. What exists is one command owed an entry, from an
+    edition registered nine days after the sweep closed. "Excludes
+    nothing" read as a standing promise where the sweep was a dated
+    measurement, and the two are not the same claim.
 
-    The sentence this lane believes it should have, offered rather than
-    applied:
-
-    > Every command a registered manual edition documents enters the
-    > database, chapter by chapter, and no family is excluded by
-    > decision. A newly registered edition may document a command not yet
-    > entered; that is a dated debt in the evidence queue and never an
-    > exclusion, and the emitter refuses such a command rather than
-    > guessing at it.
-
-    Why it is not taken here: the change alters what the non-requirement
-    PROMISES rather than correcting a fact inside it, and the heading
-    carries a dated parenthesis that would have to move with it. That is
-    hers. Until she rules, the debt is listed in the evidence queue on
-    the roadmap page, where a reader looking for what is owed will find
-    it.
+    The debt itself is listed in the evidence queue on the roadmap page,
+    where a reader looking for what is owed will find it.
 
     The wrapper chapter also cost the emitter one new capability, which
     is the kind of thing an excluded family hides: a keyword block whose
@@ -108,10 +98,8 @@ and are never silently dropped.
     `WRAPPER_EDIT_LOCAL_CONTROL` is still the only command in the
     database that needs it.
 
-    The 2026-08-06 narrowing, kept for the record: the identifier is
-    kept rather than deleted because
-    identifiers here are never reused. As written until 2026-08-06 this
-    also excluded the CAD and CCS families and said individual commands
+    The 2026-08-06 narrowing, kept for the record. As written until
+    2026-08-06 this also excluded the CAD and CCS families and said individual commands
     would enter only when a workflow needed one. The CAD and CAD Create
     chapters then entered WHOLESALE, read chapter by chapter from all
     four registered manual editions rather than pulled in one at a time

@@ -50,6 +50,7 @@ holds the first of those to the tracked doc set.
 from __future__ import annotations
 
 import ast
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -57,6 +58,64 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+
+#: Where an untracked prose file is admitted into the population below.
+#: Everything `PAGES` and `DELIBERATELY_UNLISTED` can rule on lives under
+#: one of these.
+SOURCE_ROOTS = ("src", "docs", "scripts", "examples", ".claude")
+
+_PROSE_SUFFIXES = (".md", ".tex", ".py")
+
+
+def prose_population(root: Path) -> list[str]:
+    """Return the prose files this guard rules on, tracked or about to be.
+
+    TWO CALLS, NOT ONE, and the split is the whole content of this
+    function.
+
+    Everything TRACKED is in, wherever it sits. That is the population a
+    committed tree has, and it is what CI sees.
+
+    Everything UNTRACKED is in only under ``SOURCE_ROOTS``. Both halves
+    of that are corrections of real failures. Asking for tracked files
+    alone meant a file this guard would refuse passed until the moment it
+    was committed, and the commit was what changed the answer: on
+    2026-08-17 a new module was written, the suite was run in three
+    chunks and reported green, the commit was made, and the guard went
+    red on the file the commit had just added. Asking for every untracked
+    file traded that for the opposite asymmetry, and the review pass
+    measured it with a scratch note at the repository root: tier 1 goes
+    RED on a developer's machine and stays green in CI, which is the
+    worse direction, because it teaches that a red suite can be ignored.
+
+    A git pathspec is not a shell glob, incidentally, and the first
+    attempt at this scoping assumed it was: ``*`` matches ``/`` in a
+    pathspec, so ``*.md`` matches every markdown file at every depth and
+    a pattern list cannot narrow ``--others`` at all.
+    """
+    # `env=` EXPLICITLY, and identical to the inherited default: git
+    # needs the ambient environment to find its own configuration, and
+    # the kit's spawn rule is that the environment is passed rather than
+    # assumed. The ratchet in `test_kit_checkers.py` counts the sites
+    # that do not.
+    environment = os.environ.copy()
+    seen = subprocess.run(
+        ["git", "ls-files", "--cached", "*.md", "*.tex", "*.py"],
+        capture_output=True,
+        text=True,
+        cwd=root,
+        env=environment,
+    ).stdout.split()
+    untracked = subprocess.run(
+        ["git", "ls-files", "--others", "--exclude-standard", "--", *SOURCE_ROOTS],
+        capture_output=True,
+        text=True,
+        cwd=root,
+        env=environment,
+    ).stdout.split()
+    seen += [name for name in untracked if name.endswith(_PROSE_SUFFIXES)]
+    return sorted(set(seen))
+
 
 #: The shipped prose surfaces that describe the database to a reader.
 PAGES = (
@@ -369,15 +428,7 @@ def test_pages_covers_the_tracked_prose_that_describes_the_database():
     # had just added. The green was measured on a population that did not
     # include it.
     #
-    # `--others --exclude-standard` adds untracked files that are not
-    # ignored, which is exactly the set the next commit will contain. The
-    # guard now answers the same before and after.
-    tracked = subprocess.run(
-        ["git", "ls-files", "--cached", "--others", "--exclude-standard", "*.md", "*.tex", "*.py"],
-        capture_output=True,
-        text=True,
-        cwd=REPO_ROOT,
-    ).stdout.split()
+    tracked = prose_population(REPO_ROOT)
     assert tracked, "git ls-files returned nothing; this guard is walking nothing"
 
     describes = re.compile(r"manual_ref|manual page citation|manual citation")
@@ -451,4 +502,58 @@ def test_no_shipped_page_promises_a_manual_citation_on_every_entry():
         "which stopped being true when probe_ref landed: an entry rests on a "
         "manual page OR a committed probe report. Say which, or say that both "
         "are possible: " + "; ".join(offenders)
+    )
+
+
+def test_the_population_walk_sees_a_new_source_file_before_it_is_committed(tmp_path):
+    """The property the walk exists for, driven against a throwaway tree.
+
+    This guard's population changed twice and neither change was
+    asserted by anything: removing the untracked half again left the
+    whole suite green, so the repair could be undone by a formatter, a
+    merge, or a reviewer who thought it looked odd.
+
+    Three cases, in a real git repository built here:
+
+    * a TRACKED file under `src/` is in, which is the ordinary case;
+    * an UNTRACKED file under `src/` is in, which is the failure of
+      2026-08-17, where a new module was invisible until the commit that
+      added it turned the suite red;
+    * an UNTRACKED file at the ROOT is out, which is the failure the
+      first repair introduced, where a developer's scratch note made
+      tier 1 red locally and green in CI.
+    """
+    import subprocess as sp
+
+    def git(*argv):
+        sp.run(
+            ["git", *argv],
+            cwd=tmp_path,
+            check=True,
+            capture_output=True,
+            env=os.environ.copy(),
+        )
+
+    git("init", "-q")
+    git("config", "user.email", "guard@example.invalid")
+    git("config", "user.name", "guard")
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "committed.py").write_text("# manual_ref\n", encoding="utf-8")
+    git("add", "src/committed.py")
+    git("commit", "-qm", "one")
+
+    (tmp_path / "src" / "brand_new.py").write_text("# manual_ref\n", encoding="utf-8")
+    (tmp_path / "scratch_note.md").write_text("# manual_ref\n", encoding="utf-8")
+
+    population = prose_population(tmp_path)
+
+    assert "src/committed.py" in population
+    assert "src/brand_new.py" in population, (
+        "an untracked file under a source root is invisible, so this guard answers "
+        "differently before and after the commit that adds it, which is exactly how a "
+        "tier-1 green was reported on a population the commit then changed"
+    )
+    assert "scratch_note.md" not in population, (
+        "an untracked file outside the source roots is in the population, so a scratch "
+        "note in a developer's tree can turn tier 1 red locally while CI stays green"
     )

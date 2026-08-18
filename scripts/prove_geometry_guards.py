@@ -15,12 +15,21 @@ QA review pass of the same day sabotaged them and both survived:
   was tested. The function the study actually calls put both components
   of a two-body mesh on top of each other.
 
-A third mutant is here because the FIRST repair of the first one was
-itself wrong, and that is the more useful lesson: the obvious fixture is
-a 3-4-5 triangle, whose mean over three edges and mean over two are BOTH
-exactly 4, so a test pinning the value on it passes under the sabotage
-while looking stricter than the test it replaced. The mutant that proves
-the fixture is not degenerate is kept as a permanent third.
+The third mutant is the one the release note and CONTRIBUTING both single
+out: ``generate_wing_stl`` naming both components of a two-body mesh with
+one solid name, which cost sixteen exports of a licensed run before it was
+found.
+
+THE NON-DEGENERATE FIXTURE IS NOT A MUTANT HERE, and the distinction is
+worth keeping straight because an earlier edition of this docstring
+claimed it was. The FIRST repair of the first subject was itself wrong:
+the obvious fixture is a 3-4-5 triangle, whose mean over three edges and
+mean over two are BOTH exactly 4, so a test pinning the value on it
+passes under the sabotage while looking stricter than the test it
+replaced. That reasoning lives beside the fixture, in
+``tests/test_qa_geometry.py``, which states in its own comment why the
+triangle is a unit right one; the first mutant below is what makes it
+load bearing.
 
     python scripts/prove_geometry_guards.py
 

@@ -588,6 +588,18 @@ def test_every_compat_report_carries_the_date_its_own_name_claims() -> None:
                 f"{path.name} is exempted from the date rule and carries no erratum "
                 "beside it, so the exemption records nothing a reader can check"
             )
+            # THE EXEMPTION IS FROM THE DATE RULE ALONE, and until
+            # 2026-08-18 it was a `continue` past everything below,
+            # including the pair rule. Measured by the review pass:
+            # deleting this report's rendered half left 140 tests green,
+            # so the one file the whole erratum is about was the one file
+            # whose Markdown nothing guarded. An exemption that widens
+            # itself is the shape this walk exists to refuse.
+            if not path.with_suffix(".md").is_file():
+                offenders.append(
+                    f"{path.with_suffix('.md').name}: the rendered half of the pair is "
+                    "missing, and the date exemption does not reach the pair rule"
+                )
             continue
         match = stem_date.match(path.stem)
         if match is None:
@@ -700,8 +712,14 @@ def test_every_citation_is_a_compat_report_for_its_own_build() -> None:
     # stops shipping shrinks both sides in lockstep and the inequality
     # holds all the way down to one record. This constant is the only
     # assertion in tier 1 that the database is LARGE, and it is typed on
-    # purpose: 136 citations measured 2026-08-04.
-    assert len(population) >= 130, (
+    # purpose. IT IS ALSO A RATCHET, raised 2026-08-18 from 130, where it
+    # had been set against 136 citations measured 2026-08-04 and left
+    # while the tree grew to 376: a floor at 35 percent of the population
+    # would have let two thirds of the database stop resolving in silence.
+    # Raise it when the population grows; never lower it to make a run
+    # pass, because the only thing that shrinks this number is a loader
+    # or packaging failure.
+    assert len(population) >= 350, (
         f"the registry loaded only {len(population)} citing records; the database is "
         "not resolving, which is a packaging or loader failure rather than an "
         "evidence one"

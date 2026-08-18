@@ -142,8 +142,24 @@ def main(argv: list[str] | None = None) -> int:
     earlier, later = editions[args.earlier], editions[args.later]
 
     if args.pages:
-        first, _, last = args.pages.partition("-")
+        # REFUSED, NOT RAISED. `int()` on a bare partition turns
+        # `--pages 273` into a ValueError traceback about an empty
+        # string, which tells the reader nothing about the flag they
+        # mistyped. `pyfs-manual` has `_pages(parser, flag, spec)` for
+        # exactly this shape; a script cannot import it without reaching
+        # into the package it measures, so the refusal is spelled out
+        # here and says what the form is.
+        first, sep, last = args.pages.partition("-")
+        if not sep or not first.strip().isdigit() or not last.strip().isdigit():
+            raise SystemExit(
+                f"--pages takes FIRST-LAST, two page numbers joined by a hyphen, for "
+                f"example --pages 283-383; it was given {args.pages!r}"
+            )
         span_earlier = span_later = (int(first), int(last))
+        if span_earlier[0] > span_earlier[1]:
+            raise SystemExit(
+                f"--pages {args.pages} runs backwards; the first page must not be after the last"
+            )
     else:
         # THE WHOLE OF EACH DOCUMENT, not the scripting reference, and
         # each to its OWN length. A vendor change outside the chapter

@@ -14,8 +14,10 @@ here as well: the physics regression matrix
 (:mod:`pyflightstream.qa.physics`) and the version-comparison drift
 suite (:mod:`pyflightstream.qa.drift`), both run on the synthetic
 geometry of :mod:`pyflightstream.qa.geometry` so no research geometry is
-needed. The ``pyfs-qa`` CLI (:mod:`pyflightstream.qa.cli`) drives all
-three.
+needed. :mod:`pyflightstream.qa.reports` holds the report-naming and
+never-overwrite rule all three writers share, so a run is refused before
+a licensed seat is spent rather than after. The ``pyfs-qa`` CLI
+(:mod:`pyflightstream.qa.cli`) drives all three.
 """
 
 from pyflightstream.qa.compat import (
@@ -27,7 +29,6 @@ from pyflightstream.qa.compat import (
     contradicting_evidence,
     read_compat_report,
     read_compat_reports,
-    refuse_existing_compat_report,
     write_compat_report,
 )
 from pyflightstream.qa.errors import QaEvidenceError
@@ -80,11 +81,10 @@ __all__ = [
     "printed_line",
     "probe_version",
     "read_compat_report",
-    "refuse_existing_compat_report",
-    "refuse_existing_report",
     "read_compat_reports",
-    "report_paths",
+    "refuse_existing_report",
     "region_printed",
+    "report_paths",
     "unrecognised_commands",
     "write_compat_report",
 ]

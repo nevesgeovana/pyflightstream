@@ -12,10 +12,20 @@ authority's own header, the getting-started page and a shipped example.
 is what shows the guard would have caught them.
 
 Each mutant puts the stale sentences of ONE file back exactly as they
-stood before the repair, runs the guard alone, and requires a non-zero
-status. The file is then restored and its sha256 compared with the value
+stood before the repair, runs the guard alone, and requires the guard to
+DENY. The file is then restored and its sha256 compared with the value
 taken before, because a battery that leaves the tree changed is worse
 than no battery.
+
+DENY IS NOT THE SAME AS A NON-ZERO EXIT, which is what this battery read
+until 2026-08-18. pytest exits 2 on a collection error, 4 on a usage
+error and 5 when the selection matched no test, and none of those is a
+guard denying. Since the selector here is a long node id, a rename of the
+guard gave exit 5 on every mutant and this battery would have printed
+"6 of 6 mutants killed" and exited 0 while judging nothing. The
+three-valued classification is shared, in
+``_mutation_harness.verdict``, and an INCONCLUSIVE stops the run rather
+than scoring.
 
 THIS BATTERY ANCHORED ON ``git show HEAD:<path>`` UNTIL 2026-08-17 AND
 WAS BROKEN BY ITS OWN SUBJECT, which is worth stating because the shape
@@ -47,18 +57,11 @@ than warns if a restore is not byte-exact.
 from __future__ import annotations
 
 import hashlib
-import os
-import subprocess
 import sys
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[1]
-
-#: The interpreter RUNNING this, never a guessed path, for the reason
-#: `scripts/_mutation_harness.py` states: a hardcoded venv path is
-#: Windows-only and its failure arrives per mutant, after the tree is
-#: already mutated.
-PYTHON = Path(sys.executable)
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _mutation_harness import REPO, verdict  # noqa: E402
 
 TEST = (
     "tests/test_claim_currency.py::"
@@ -161,17 +164,26 @@ GETTING_STARTED_STALE = (
     "and its vendor build number named."
 )
 
-SRS_LIVE = (
-    "    can name more than one registered build: 26.120, 26.121, 26.122 and\n"
-    '    26.123 are all shipped as "26.12", and 26.100 and 26.101 are both\n'
-    '    shipped as "26.1" although they are separate releases rather than a\n'
-    "    release and its hotfix.\n"
-)
+#: RE-ANCHORED 2026-08-18, and this one is not a drift: the author ruled
+#: that FR-02c should STOP ENUMERATING, so the live text no longer names
+#: a build at all. The requirement had been the last committed home of
+#: this enumeration after the other six were swept on 2026-08-17, and it
+#: had gone stale twice by construction, once per registration.
+#:
+#: THE STALE TEXT IS THE PRE-26.123 SENTENCE, naming three builds where
+#: four share the name, and the first attempt at this re-anchoring got it
+#: wrong in a way worth recording. It restored the enumeration as it
+#: stood at `fbc647f`, which named all FOUR and was therefore CURRENT;
+#: the mutant survived, correctly, because this guard refuses a tally
+#: that has gone STALE and not the existence of a list. A mutant that
+#: restores a true sentence measures nothing, and the survival was the
+#: battery reporting on the mutant rather than on the guard.
+SRS_LIVE = "    can name more than one registered build. Resolution refuses such a\n"
 SRS_STALE = (
     "    can name more than one registered build: 26.120, 26.121 and 26.122\n"
     '    are all shipped as "26.12", and 26.100 and 26.101 are both shipped as\n'
     '    "26.1" although they are separate releases rather than a release\n'
-    "    and its hotfix.\n"
+    "    and its hotfix. Resolution refuses such a\n"
 )
 
 EXAMPLE_LIVE = 'FS_VERSION = "26.120"  # canonical; the vendor name 26.12 names several builds\n'
@@ -213,37 +225,33 @@ MUTANTS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
 )
 
 
-def _spawn(argv: list[str]) -> subprocess.CompletedProcess[bytes]:
-    """Run one child with an EXPLICIT environment.
-
-    Explicit and identical to the inherited default: pytest needs the
-    ambient environment to find its own configuration, and the
-    repository's spawn rule is that the environment is passed rather
-    than assumed.
-    """
-    return subprocess.run(
-        argv,
-        cwd=REPO,
-        capture_output=True,
-        check=False,
-        timeout=900,
-        env=os.environ.copy(),
-    )
-
-
 def sha(path: Path) -> str:
     """Return the sha256 of a file's bytes."""
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def run_guard() -> int:
-    """Run the guard alone and return its exit status, read from the process."""
-    return _spawn(
-        [str(PYTHON), "-m", "pytest", TEST, "-q", "--no-header", "-p", "no:cacheprovider"]
-    ).returncode
+def run_guard() -> tuple[str, str]:
+    """Run the guard alone and classify the outcome in THREE values.
+
+    THIS RETURNED A BARE EXIT STATUS UNTIL 2026-08-18, and the caller
+    scored ``bool(status)`` as a kill. pytest exits 1 on a failure, 2 on
+    a collection or import error, 4 on a usage error and 5 when the
+    selection matched no test; only the first is a guard denying, and the
+    other three were counted as kills. This battery's selector is a long
+    node id, so the trap was live rather than theoretical: a rename of
+    the guard gives exit 5 on every mutant, and the battery would print
+    "6 of 6 mutants killed" and exit 0. Three sibling batteries took the
+    shared classifier the day it was written and this one, whose diff
+    that day renamed the variable without changing the reading, did not.
+
+    The classification lives in ``_mutation_harness.verdict`` rather than
+    here, because a fifth copy of it is how the fourth copy came to be
+    missed.
+    """
+    return verdict(TEST)
 
 
-def _mutate(relative: str, spans: tuple[tuple[str, str], ...]) -> tuple[str, str, int]:
+def _mutate(relative: str, spans: tuple[tuple[str, str], ...]) -> tuple[str, str, str, str]:
     """Write one mutant, run the guard, restore, and check the restore."""
     path = REPO / relative
     original = path.read_bytes()
@@ -278,41 +286,50 @@ def _mutate(relative: str, spans: tuple[tuple[str, str], ...]) -> tuple[str, str
     mutant_sha = hashlib.sha256(mutated).hexdigest()
     path.write_bytes(mutated)
     try:
-        status = run_guard()
+        outcome, tail = run_guard()
     finally:
         path.write_bytes(original)
     after = sha(path)
     if after != before:
         raise SystemExit(f"{relative} was not restored byte for byte: {before} -> {after}")
-    return before, mutant_sha, status
+    return before, mutant_sha, outcome, tail
 
 
 def main() -> None:
     """Run every mutant and report how many the guard killed."""
-    baseline = run_guard()
-    print(f"control, unmutated tree: exit {baseline} (expect 0)")
-    if baseline != 0:
-        raise SystemExit("the guard is red before any mutation; nothing below means anything")
+    control, control_tail = run_guard()
+    print(f"control, unmutated tree: {control} ({control_tail})")
+    if control != "SURVIVED":
+        raise SystemExit(
+            "the guard does not pass on the unmutated tree, so nothing below means "
+            f"anything: {control} ({control_tail})"
+        )
 
     killed = 0
     survived: list[str] = []
     for relative, spans in MUTANTS:
-        original_sha, mutant_sha, status = _mutate(relative, spans)
-        shown = "KILLED" if status else "SURVIVED"
+        original_sha, mutant_sha, outcome, tail = _mutate(relative, spans)
         print(
-            f"  {shown:8s} {relative} ({len(spans)} span(s)) exit {status}  "
+            f"  {outcome:12s} {relative} ({len(spans)} span(s))  "
             f"tree {original_sha[:12]} mutant {mutant_sha[:12]}"
         )
-        killed += bool(status)
-        if not status:
+        # AN INCONCLUSIVE STOPS THE RUN RATHER THAN SCORING. It means the
+        # guard was never asked the question, so neither a kill nor a
+        # survival has been measured, and a battery that keeps going
+        # publishes a tally over mutants it did not judge.
+        if outcome == "INCONCLUSIVE":
+            raise SystemExit(f"{relative}: the guard was not asked the question: {tail}")
+        if outcome == "KILLED":
+            killed += 1
+        else:
             survived.append(relative)
 
-    final = run_guard()
-    print(f"control, tree restored: exit {final} (expect 0)")
+    final, final_tail = run_guard()
+    print(f"control, tree restored: {final} ({final_tail})")
     print(f"\n{killed} of {len(MUTANTS)} mutants killed")
     if survived:
         print("SURVIVED:", ", ".join(survived))
-    if killed != len(MUTANTS) or final != 0:
+    if killed != len(MUTANTS) or final != "SURVIVED":
         sys.exit(1)
 
 

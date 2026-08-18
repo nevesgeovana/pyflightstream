@@ -26,20 +26,22 @@ from pyflightstream.options import get_option
 from pyflightstream.qa.compat import (
     PROMOTABLE_OUTCOMES,
     apply_compat,
+    compat_report_paths,
     read_compat_report,
     write_compat_report,
 )
-from pyflightstream.qa.drift import run_drift, write_drift_report
+from pyflightstream.qa.drift import drift_report_paths, run_drift, write_drift_report
 from pyflightstream.qa.errors import QaEvidenceError
 from pyflightstream.qa.physics import (
     PhysicsEnvironmentError,
     case_table,
+    physics_report_paths,
     run_physics,
     update_reference,
     write_physics_report,
 )
 from pyflightstream.qa.probes import ProbeEnvironmentError, probe_version
-from pyflightstream.qa.reports import refuse_existing_report, report_paths
+from pyflightstream.qa.reports import refuse_existing_report
 from pyflightstream.versions import AmbiguousVersionAliasError, UnknownVersionError, resolve
 
 
@@ -327,7 +329,14 @@ def _cmd_probe(args: argparse.Namespace) -> int:
         commands = [name.strip() for name in args.commands.split(",") if name.strip()]
 
     # BEFORE the solver starts, for the reason the shared helper states.
-    if _refuse_before_the_solver("CMP", canonical.replace(".", ""), args):
+    # ONE date for the whole run: resolved here, asked about here, and
+    # stamped by the writer below. Each writer used to resolve its own a
+    # moment later, so a run started at 23:59 checked one stem and wrote
+    # another, which is a missed refusal and therefore a licensed seat.
+    date = datetime.date.today().isoformat()
+    if _refuse_before_the_solver(
+        compat_report_paths(canonical, args.report_dir, date=date, label=args.label)
+    ):
         return 2
 
     try:
@@ -342,7 +351,7 @@ def _cmd_probe(args: argparse.Namespace) -> int:
     except ProbeEnvironmentError as error:
         print(f"probe run aborted: {error}", file=sys.stderr)
         return 2
-    yaml_path, md_path = write_compat_report(run, args.report_dir, label=args.label)
+    yaml_path, md_path = write_compat_report(run, args.report_dir, date=date, label=args.label)
     counts = run.outcome_counts()
     # Iterated, not a hardcoded triple: the counts are derived from the
     # outcome enum, so a listed subset makes this line disagree with the
@@ -384,7 +393,7 @@ def _in_command_line_words(message: str) -> str:
     return message[: match.start()] + "--cases " + ",".join(names) + message[match.end() :]
 
 
-def _refuse_before_the_solver(prefix: str, key: str, args: argparse.Namespace) -> bool:
+def _refuse_before_the_solver(paths: tuple[Path, Path]) -> bool:
     """Ask whether the report already exists, BEFORE anything is run.
 
     The refusal is right and its POSITION was wrong, in all THREE evidence
@@ -398,17 +407,14 @@ def _refuse_before_the_solver(prefix: str, key: str, args: argparse.Namespace) -
 
     Returns True when the caller must stop.
 
-    The date is today's, which is what each writer resolves for itself a
-    moment later. That pairing is the one INC-20260817-2210 was about, and
-    both halves of it are guarded in `tests/test_qa_compat.py`.
+    IT NO LONGER BUILDS THE NAME, which is the correction of 2026-08-18.
+    It took a series prefix and an already-derived build key, so this
+    function and the writer it protects each spelled the stem once and
+    agreed by coincidence; sabotaging one writer's prefix left the whole
+    suite green, so the guard was decorative for two of the three series.
+    Each caller now asks the SERIES' OWN helper for the pair and hands it
+    both here and to the writer, so there is one expression and one date.
     """
-    paths = report_paths(
-        prefix,
-        key,
-        args.report_dir,
-        date=datetime.date.today().isoformat(),
-        label=args.label,
-    )
     try:
         refuse_existing_report(*paths)
     except FileExistsError as error:
@@ -431,7 +437,10 @@ def _cmd_physics(args: argparse.Namespace) -> int:
     cases = None
     if args.cases:
         cases = [name.strip() for name in args.cases.split(",") if name.strip()]
-    if _refuse_before_the_solver("PHY", canonical.replace(".", ""), args):
+    date = datetime.date.today().isoformat()
+    if _refuse_before_the_solver(
+        physics_report_paths(canonical, args.report_dir, date=date, label=args.label)
+    ):
         return 2
     try:
         run = run_physics(
@@ -445,7 +454,7 @@ def _cmd_physics(args: argparse.Namespace) -> int:
     except PhysicsEnvironmentError as error:
         print(f"physics run aborted: {_in_command_line_words(str(error))}", file=sys.stderr)
         return 2
-    yaml_path, md_path = write_physics_report(run, args.report_dir, label=args.label)
+    yaml_path, md_path = write_physics_report(run, args.report_dir, date=date, label=args.label)
     counts = run.verdict_counts()
     print(
         f"FlightStream {run.version} ({run.fs_exe_name}): "
@@ -498,8 +507,12 @@ def _cmd_drift(args: argparse.Namespace) -> int:
     cases = None
     if args.cases:
         cases = [name.strip() for name in args.cases.split(",") if name.strip()]
-    key = canonicals[0].replace(".", "") + "-" + canonicals[1].replace(".", "")
-    if _refuse_before_the_solver("DRF", key, args):
+    date = datetime.date.today().isoformat()
+    if _refuse_before_the_solver(
+        drift_report_paths(
+            canonicals[0], canonicals[1], args.report_dir, date=date, label=args.label
+        )
+    ):
         return 2
     try:
         run = run_drift(
@@ -514,7 +527,7 @@ def _cmd_drift(args: argparse.Namespace) -> int:
     except PhysicsEnvironmentError as error:
         print(f"drift run aborted: {_in_command_line_words(str(error))}", file=sys.stderr)
         return 2
-    yaml_path, md_path = write_drift_report(run, args.report_dir, label=args.label)
+    yaml_path, md_path = write_drift_report(run, args.report_dir, date=date, label=args.label)
     counts = run.verdict_counts()
     print(
         f"FlightStream {run.version_a} vs {run.version_b}: "

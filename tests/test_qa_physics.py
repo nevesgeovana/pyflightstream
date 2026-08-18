@@ -18,6 +18,7 @@ from pyflightstream.qa.physics import (
     load_reference,
     phy01_metrics,
     phy02_metrics,
+    physics_report_paths,
     registered_cases,
     run_physics,
     smi_metrics,
@@ -205,6 +206,30 @@ def test_report_pair_written_and_never_overwritten(tmp_path):
     assert "no_reference" in markdown
     with pytest.raises(FileExistsError, match="never"):
         write_physics_report(run, tmp_path, date="2026-07-21")
+
+
+def test_the_writer_lands_exactly_where_the_pre_flight_looked(tmp_path):
+    """The pairing that protects a licensed seat, asserted end to end.
+
+    `pyfs-qa physics` asks `physics_report_paths` whether a report
+    already exists BEFORE it starts the solver, and then this writer
+    produces the file. Until 2026-08-18 those were two independent
+    expressions: the CLI stripped the dots off the build and pasted the
+    prefix `PHY` itself, and this writer did the same a few hundred lines
+    away. They agreed by coincidence, and the review pass measured the
+    cost of that coincidence by changing this writer's prefix to PHZ:
+    forty-five tests stayed green while the pre-flight silently inspected
+    a name nothing would ever write, which is the incident it exists to
+    prevent, one field over.
+
+    So this asserts the writer's OWN answer against the helper the CLI
+    asks, rather than against a literal either of them could drift from.
+    """
+    run = make_run(tmp_path)
+    yaml_path, md_path = write_physics_report(run, tmp_path, date="2026-07-21", label="pinned")
+    assert (yaml_path, md_path) == physics_report_paths(
+        run.version, tmp_path, date="2026-07-21", label="pinned"
+    )
 
 
 def test_reference_seeding_requires_a_reason(tmp_path):

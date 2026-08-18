@@ -225,6 +225,25 @@ def register_edition(
     """
     labels = [edition.label for edition in editions]
     if build not in labels:
+        # THE MOST USEFUL REFUSAL FIRST, and it used to be unreachable
+        # for the input that most needs it. Membership was tested before
+        # anything resolved, so `--fs-version 26.0` against a correctly
+        # labelled manifest was told "no row labelled '26.0'", while the
+        # tool already knew, one line later, that 26.0 names 26.000 and
+        # that the manifest carries THAT. The reader went editing a
+        # manifest that was right. Resolving costs nothing and opens no
+        # manual, so it is asked here.
+        try:
+            resolved = resolve(build)
+        except (UnknownVersionError, AmbiguousVersionAliasError):
+            resolved = None
+        if resolved is not None and resolved.canonical in labels:
+            raise ManualDraftError(
+                f"the manifest has no row labelled {build!r}, but {build} is a vendor "
+                f"display name for {resolved.canonical}, which the manifest DOES carry. "
+                f"Re-run with {resolved.canonical}: a documented row is keyed by the "
+                "canonical identifier, so the label and the key are one string."
+            )
         raise ManualDraftError(
             f"the manifest has no row labelled {build!r}; it carries " + ", ".join(labels)
         )

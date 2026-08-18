@@ -561,3 +561,33 @@ def test_the_line_endings_of_a_crlf_chapter_survive(tree):
     after = alpha.read_bytes()
     assert after.count(b"\r\n") == before + 1
     assert b"\n" not in after.replace(b"\r\n", b"")
+
+
+def test_an_alias_typed_against_a_correctly_labelled_manifest_names_the_canonical():
+    """The refusal a reader can act on, reached by the reader who needs it.
+
+    `--fs-version 26.0` against a manifest labelled `26.000` used to be
+    answered "the manifest has no row labelled '26.0'", which reads as
+    "this build is not in my manifest" and sends the reader to edit a
+    manifest that is correct. The tool knew at that moment that 26.0
+    resolves to 26.000 and that the manifest carries it, and did not say
+    so: the good message lived one check further down and only fired for
+    a manifest that was itself labelled with an alias.
+    """
+    editions = [
+        Edition(label="26.000", manual=pathlib.Path("a.pdf"), chapter=(10, 20), source="SRC-747"),
+        Edition(label="26.100", manual=pathlib.Path("b.pdf"), chapter=(10, 20), source="SRC-741"),
+    ]
+    opened: list[str] = []
+
+    def never(edition):
+        opened.append(edition.label)
+        raise AssertionError("a manual was opened for a refusal decidable without one")
+
+    with pytest.raises(ManualDraftError) as refused:
+        register_edition(editions, "26.0", commands_dir=pathlib.Path("."), reader=never)
+
+    message = str(refused.value)
+    assert "26.000" in message, message
+    assert "display name" in message, message
+    assert opened == [], "a manual was opened before the label was refused"

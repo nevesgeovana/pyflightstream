@@ -43,20 +43,43 @@ def test_an_unregistered_version_exits_two_and_lists_the_registered_ones(capsys)
         assert canonical in error
 
 
+def _compat_paths(out_dir, **kwargs):
+    from pyflightstream.qa.compat import compat_report_paths
+
+    return compat_report_paths("26.123", out_dir, **kwargs)
+
+
+def _physics_paths(out_dir, **kwargs):
+    from pyflightstream.qa.physics import physics_report_paths
+
+    return physics_report_paths("26.120", out_dir, **kwargs)
+
+
+def _drift_paths(out_dir, **kwargs):
+    from pyflightstream.qa.drift import drift_report_paths
+
+    return drift_report_paths("26.122", "26.123", out_dir, **kwargs)
+
+
 @pytest.mark.parametrize(
-    ("subcommand", "prefix", "key", "argv"),
+    ("subcommand", "paths_for", "stem_prefix", "argv"),
     [
-        ("probe", "CMP", "26123", ["probe", "--fs-version", "26.123", "--fs-exe", "nowhere.exe"]),
+        (
+            "probe",
+            _compat_paths,
+            "CMP-26123_",
+            ["probe", "--fs-version", "26.123", "--fs-exe", "nowhere.exe"],
+        ),
         (
             "physics",
-            "PHY",
-            "26120",
+            _physics_paths,
+            "PHY-26120_",
             ["physics", "--fs-version", "26.120", "--fs-exe", "nowhere.exe"],
         ),
         (
             "drift",
-            "DRF",
-            "26122-26123",
+            _drift_paths,
+            "DRF-26122-26123_",
             [
                 "drift",
                 "--fs-versions",
@@ -70,7 +93,7 @@ def test_an_unregistered_version_exits_two_and_lists_the_registered_ones(capsys)
     ],
 )
 def test_every_evidence_writer_refuses_before_it_starts_the_solver(
-    subcommand, prefix, key, argv, tmp_path, monkeypatch, capsys
+    subcommand, paths_for, stem_prefix, argv, tmp_path, monkeypatch, capsys
 ):
     """THREE writers, one rule, and only one of them had it.
 
@@ -88,11 +111,19 @@ def test_every_evidence_writer_refuses_before_it_starts_the_solver(
 
     EVERY RUNNER IS POISONED, not just the one under test: reaching any
     of them raises, so the test fails loudly rather than by a count.
-    """
-    import datetime
 
+    AND THE NAME COMES FROM THE SERIES' OWN HELPER, which is the
+    correction of 2026-08-18. This test used to build the expected stem
+    from a literal prefix and a literal build key handed in by the
+    parameter list, so it asserted that the CLI agreed with the TEST. The
+    review pass measured what that permits: sabotaging
+    `write_physics_report`'s own prefix from PHY to PHZ left 45 tests
+    green, because nothing tied the name the pre-flight asks about to the
+    name the writer produces. Each case now goes through the same
+    `*_report_paths` helper the writer itself calls, and the writer side
+    of that pairing is asserted in each writer's own test module.
+    """
     from pyflightstream.qa import cli as cli_module
-    from pyflightstream.qa.reports import report_paths
 
     def never(*args, **kwargs):
         raise AssertionError("the solver was started, so a licensed seat was spent")
@@ -100,10 +131,11 @@ def test_every_evidence_writer_refuses_before_it_starts_the_solver(
     for runner in ("probe_version", "run_physics", "run_drift"):
         monkeypatch.setattr(cli_module, runner, never)
 
-    existing, _ = report_paths(
-        prefix, key, tmp_path, date=datetime.date.today().isoformat(), label="x"
-    )
-    assert existing.name.startswith(f"{prefix}-{key}_"), existing.name
+    existing, _ = paths_for(tmp_path, label="x")
+    # The helper is asked, and the shape it returns is still checked: a
+    # helper that answered a constant would otherwise make every arm of
+    # this test agree with itself.
+    assert existing.name.startswith(stem_prefix), existing.name
     existing.write_text("stub", encoding="utf-8")
 
     code = cli_module.main(argv + ["--report-dir", str(tmp_path), "--label", "x"])
@@ -115,6 +147,107 @@ def test_every_evidence_writer_refuses_before_it_starts_the_solver(
         "the refusal must name the escapes THIS command line has; it used to say "
         "'pick another date', and none of these CLIs has a date flag"
     )
+
+
+class _StubRun:
+    """Enough of a run for a CLI tail to print, and nothing more."""
+
+    version = "26.120"
+    version_a = "26.122"
+    version_b = "26.123"
+    fs_exe_name = "nowhere.exe"
+    results = ()
+    solver_identity = ()
+
+    def verdict_counts(self):
+        return {"pass": 0, "warn": 0, "fail": 0, "no_reference": 0}
+
+    def outcome_counts(self):
+        return {"verified": 0}
+
+
+@pytest.mark.parametrize(
+    ("runner", "writer", "argv"),
+    [
+        (
+            "probe_version",
+            "write_compat_report",
+            ["probe", "--fs-version", "26.123", "--fs-exe", "nowhere.exe"],
+        ),
+        (
+            "run_physics",
+            "write_physics_report",
+            ["physics", "--fs-version", "26.120", "--fs-exe", "nowhere.exe"],
+        ),
+        (
+            "run_drift",
+            "write_drift_report",
+            [
+                "drift",
+                "--fs-versions",
+                "26.122,26.123",
+                "--fs-exe",
+                "26.122=a.exe",
+                "--fs-exe",
+                "26.123=b.exe",
+            ],
+        ),
+    ],
+)
+def test_one_date_serves_the_pre_flight_and_the_write(runner, writer, argv, tmp_path, monkeypatch):
+    """The stem asked about and the stem written are the same stem.
+
+    Each `_cmd_*` used to resolve today's date for its pre-flight and
+    then call its writer with no `date=`, so the writer resolved today
+    AGAIN a moment later. Two resolutions agree on every day except the
+    one that matters: a Tier 3 matrix started at 23:59 clears the
+    collision check against day D and writes under day D+1. The failure
+    is a MISSED refusal, so its cost is the licensed seat the pre-flight
+    exists to protect, and the pairing is exactly the one
+    `INC-20260817-2210` was about.
+
+    `datetime` is replaced in the CLI's own namespace by one that hands
+    out a DIFFERENT date on every call, so a second resolution cannot
+    coincide with the first. The date the writer receives must be the
+    date the pre-flight used.
+    """
+    import datetime as real_datetime
+
+    from pyflightstream.qa import cli as cli_module
+
+    handed_out = []
+
+    class _WalkingDate:
+        @staticmethod
+        def today():
+            handed_out.append(real_datetime.date(2026, 1, 1 + len(handed_out)))
+            return handed_out[-1]
+
+    class _FakeDatetime:
+        date = _WalkingDate
+
+    monkeypatch.setattr(cli_module, "datetime", _FakeDatetime)
+    monkeypatch.setattr(cli_module, runner, lambda *a, **k: _StubRun())
+
+    seen = {}
+
+    def capture(run, out_dir, **kwargs):
+        seen.update(kwargs)
+        return tmp_path / "stub.yaml", tmp_path / "stub.md"
+
+    monkeypatch.setattr(cli_module, writer, capture)
+
+    cli_module.main(argv + ["--report-dir", str(tmp_path)])
+
+    assert "date" in seen, (
+        f"{writer} was called with no date, so it resolved its own; the pre-flight "
+        "then checked a stem the write need not use"
+    )
+    assert len(handed_out) == 1, (
+        f"today() was resolved {len(handed_out)} times in one run, so a run crossing "
+        "midnight checks one stem and writes another"
+    )
+    assert seen["date"] == handed_out[0].isoformat()
 
 
 def test_the_cli_rewords_a_library_refusal_into_its_own_flags(monkeypatch, capsys):

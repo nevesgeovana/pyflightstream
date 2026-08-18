@@ -67,43 +67,7 @@ def compat_report_paths(
         created and the directory is not made.
     """
     date = date or datetime.date.today().isoformat()
-    return report_paths("CMP", version.replace(".", ""), out_dir, date=date, label=label)
-
-
-def refuse_existing_compat_report(*paths: Path) -> None:
-    """Refuse to overwrite a committed report, wherever it is asked.
-
-    Evidence supersedes evidence only through a new, dated report, and a
-    caller that has not yet spent a licensed seat should be told so
-    BEFORE it does. Call it with the output of
-    :func:`compat_report_paths`.
-
-    Raises
-    ------
-    FileExistsError
-        If any named path exists. The BUILTIN, deliberately, and not a
-        catalogued type: this preserves what :func:`write_compat_report`
-        has always raised, so ``except FileExistsError`` around a write
-        still catches it. That means it escapes ``except
-        QaEvidenceError``, so a caller that traps this module's own type
-        needs a second handler, and the CLI has one. It is named in
-        ``tests/test_exceptions_catalog.py``'s ratchet rather than left
-        unobserved: the FR-39 walk could not see it at all until
-        2026-08-17, because ``FileExistsError`` was not among the names
-        that walk looks for.
-
-    Notes
-    -----
-    The message names ``label``, this module's own parameter, and the
-    directory, and it deliberately does NOT name a date: the two escapes
-    a caller actually has are a different label and a different output
-    directory. It used to say "pick another date", which no
-    ``pyfs-qa probe`` user can do because that CLI has no date flag, and
-    "--label", which is a command line's spelling offered from inside a
-    library. ``_cmd_probe`` re-words it in its own vocabulary, which is
-    where a CLI's flags belong.
-    """
-    refuse_existing_report(*paths)
+    return report_paths(out_dir, series="CMP", builds=[version], date=date, label=label)
 
 
 def write_compat_report(
@@ -146,7 +110,7 @@ def write_compat_report(
     # date stamped inside it cannot disagree.
     date = date or datetime.date.today().isoformat()
     yaml_path, md_path = compat_report_paths(run.version, out_dir, date=date, label=label)
-    refuse_existing_compat_report(yaml_path, md_path)
+    refuse_existing_report(yaml_path, md_path)
     counts = run.outcome_counts()
     document = {
         "schema": COMPAT_SCHEMA,
