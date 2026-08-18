@@ -102,7 +102,13 @@ quiet success with a loud refusal.
 A FOURTH, and it is the cheapest one on this list: FIVE boolean
 arguments became keyword-only. `half` on `wing_triangles`,
 `generate_wing_stl` and `build_phy02_script`, and `include_smi` on
-`registered_cases` and `case_table`. The count read four until the fifth
+`registered_cases` and `case_table`. On `build_phy02_script` THREE
+MORE parameters moved with it, `stl_path`, `loads_name` and
+`log_name`, none of them boolean: `half` sat immediately after
+`version`, so the star had to go there and swept the rest of the
+signature. It is the only one of the five with collateral, its
+sibling `build_phy01_script` still takes those three positionally,
+and every in-tree caller of both already used keywords. The count read four until the fifth
 signature was found by a review pass, in the same module as two of the
 others; a sweep that stops at the sites review named is not a class fix,
 which is this repository's own rule and is why the number is stated

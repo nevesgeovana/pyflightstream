@@ -1407,3 +1407,80 @@ def test_the_date_resolver_is_the_one_home_and_passes_an_explicit_date_through()
     assert resolve_report_date("2026-07-21") == "2026-07-21"
     assert resolve_report_date(None) == datetime.date.today().isoformat()
     assert resolve_report_date() == datetime.date.today().isoformat()
+
+
+def test_the_primitive_refuses_an_unknown_series(tmp_path):
+    """A series letter outside the three names a stem nothing can trace.
+
+    Added on 2026-08-19 because the refusal shipped the day before with
+    no test: deleting the `if` was invisible to the whole suite, which is
+    the vacuous-guard class this module was created to close.
+    """
+    from pyflightstream.qa import QaEvidenceError, report_paths
+
+    with pytest.raises(QaEvidenceError, match="not a report series"):
+        report_paths(tmp_path, series="RPT", versions=["26.123"], date="2026-07-21")
+    with pytest.raises(QaEvidenceError, match="not a report series"):
+        report_paths(tmp_path, series="phy", versions=["26.123"], date="2026-07-21")
+
+
+def test_the_primitive_resolves_a_vendor_name_to_the_stem_the_writer_will_write(tmp_path):
+    """The pre-flight and the writer must name one build, not two spellings.
+
+    Every writer resolves its version through the registry before naming
+    anything and the three helpers did not, so a caller who asked with a
+    vendor release name got a stem the writer would never produce:
+    `26.0` gave `PHY-260_<date>` against the writer's `PHY-26000_<date>`.
+    `run_physics` and `probe_version` both invite a vendor name in their
+    own Parameters blocks, so that caller is the one the documentation
+    created.
+
+    This shipped on 2026-08-18 with no test: every existing case passed an
+    already-canonical identifier, for which the resolution is the
+    identity, so reverting it was invisible.
+    """
+    from pyflightstream.qa import report_paths
+    from pyflightstream.versions import AmbiguousVersionAliasError, resolve
+
+    yaml_path, _ = report_paths(tmp_path, series="PHY", versions=["26.0"], date="2026-07-21")
+    assert yaml_path.name == "PHY-26000_2026-07-21.yaml", (
+        "a vendor release name was pasted into the stem unresolved, so the pre-flight "
+        "asks about a name the writer will never produce"
+    )
+
+    # An FsVersion, which the sibling entry points already accept.
+    yaml_path, _ = report_paths(
+        tmp_path, series="PHY", versions=[resolve("26.123")], date="2026-07-21"
+    )
+    assert yaml_path.name == "PHY-26123_2026-07-21.yaml"
+
+    # And an ambiguous alias refuses HERE, before a seat is spent, rather
+    # than resolving to one of the builds carrying it.
+    with pytest.raises(AmbiguousVersionAliasError):
+        report_paths(tmp_path, series="PHY", versions=["26.12"], date="2026-07-21")
+
+
+@pytest.mark.parametrize(
+    ("date", "why"),
+    [
+        ("17/08/2026", "separators in a stem make a path under a directory that does not exist"),
+        ("20260817", "fromisoformat accepts it on 3.11+, and it is not the spelling promised"),
+        ("2026-W33-1", "an ISO week date parses and is not YYYY-MM-DD"),
+        ("yesterday", "not a date at all"),
+    ],
+)
+def test_the_primitive_refuses_a_date_it_cannot_put_in_a_file_name(date, why, tmp_path):
+    """The date is validated where it is USED, not one layer above it.
+
+    The first version of this validation lived only in
+    `resolve_report_date`. `report_paths` is exported, its own examples
+    call it directly, and it interpolated the argument raw, so
+    `date="17/08/2026"` returned a path with separators in the stem. The
+    round trip rather than `fromisoformat` alone is what admits exactly
+    `YYYY-MM-DD`.
+    """
+    from pyflightstream.qa import QaEvidenceError, report_paths
+
+    with pytest.raises(QaEvidenceError, match="YYYY-MM-DD"):
+        report_paths(tmp_path, series="PHY", versions=["26.123"], date=date)
+    assert not list(tmp_path.iterdir()), f"{why}: something was created by asking"

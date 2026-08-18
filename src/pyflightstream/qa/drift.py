@@ -360,6 +360,21 @@ def write_drift_report(
     -------
     tuple of Path
         The YAML path and the Markdown path, in that order.
+
+    Raises
+    ------
+    FileExistsError
+        When a report with the same stem already exists.
+    QaEvidenceError
+        When the date is not spelled ``YYYY-MM-DD``. The stem carries
+        the string, so a value that cannot go in a file name is
+        refused before the write rather than after it.
+    UnknownVersionError, AmbiguousVersionAliasError
+        When the run's version is not a registered build, or is a
+        vendor release name shared by several. NEW on 2026-08-18: the
+        stem's build key is resolved through the registry now, so
+        these reach a direct Python caller where they did not before.
+        ``pyfs-qa`` resolves first and never meets them.
     """
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)

@@ -442,6 +442,27 @@ def test_no_exempted_definition_grew_a_second_bare_raise_of_the_same_type() -> N
         "was measured against, so a NEW offender is inheriting an existing exemption: "
         + "; ".join(f"{entry} appears {seen} times" for entry, seen in sorted(grown.items()))
     )
+    # AND THE COUNT IS TIGHT, not merely a ceiling. A `>` comparison alone
+    # leaves a free exemption slot: re-base one of an exempted pair's two
+    # raises onto a catalogued class and the entry still EXISTS, so the
+    # stale-entry test passes, while the count stays at 2 over one real
+    # raise and the next offender in that definition inherits the spare.
+    # That is the same "an exemption outliving its site" failure the
+    # sibling test exists for, one field over.
+    slack = {
+        entry: (recorded, counted.get(entry, 0))
+        for entry, recorded in _RATCHET_COUNTS.items()
+        if counted.get(entry, 0) < recorded
+    }
+    assert not slack, (
+        "the ratchet reserves more raises than exist, which leaves a free exemption "
+        "slot for the next offender in the same definition. That is PROGRESS: lower "
+        "the number in the same commit, so the ratchet keeps ratcheting. "
+        + "; ".join(
+            f"{entry} reserves {recorded} and raises {seen}"
+            for entry, (recorded, seen) in sorted(slack.items())
+        )
+    )
 
 
 #: The sites FR-39 does not yet cover, named one by one with the reason
@@ -457,8 +478,10 @@ def test_no_exempted_definition_grew_a_second_bare_raise_of_the_same_type() -> N
 #: (PLN-20260804-1130).
 #:
 #: The set holds 15 entries in three tranches, over 19 raise sites: it
-#: is keyed on (definition, exception type) since 2026-08-18, and five
-#: definitions raise the same type twice. TWO pairs raise ``TypeError``
+#: is keyed on (definition, exception type) since 2026-08-18, and FOUR
+#: definitions raise the same type twice: `to_table`, `_run_row`,
+#: `_checked` and `_validate_block_boundaries`. Fifteen pairs plus those
+#: four second raises is nineteen. TWO pairs raise ``TypeError``
 #: for an argument of a type the function does not accept; ONE raises
 #: ``FileExistsError`` and is the evidence-overwrite refusal, added on
 #: 2026-08-17 when the walk was widened to see that name at all and
@@ -740,4 +763,25 @@ def test_the_ratchet_comment_counts_the_ratchet():
         f"set holds {len(_RATCHET) - type_errors - file_exists}. The message used to "
         f"drop the FileExistsError tranche, so it told the maintainer to write a "
         f"number this same assertion would then reject"
+    )
+
+
+def test_the_detector_emits_one_entry_per_raise_not_one_per_pair() -> None:
+    """The multiplicity the counting guard rests on, asserted directly.
+
+    `_exported_bare_raises`'s docstring makes the load-bearing claim that
+    the walk "returns one entry per raise, so the count below closes it".
+    Every other case in this file uses a source with at most one bare
+    raise per definition and the stale-entry test compares SETS, so
+    changing `_bare_raises_in` to `return sorted(set(offenders))` would
+    collapse every count to one, empty the `grown` check forever, and
+    leave this whole file green.
+    """
+    source = (
+        "def f():\n    if a:\n        raise ValueError('first')\n    raise ValueError('second')\n"
+    )
+    found = _bare_raises_in("m", "m.py", source, {"f"})
+    assert found == ["m.f -> ValueError", "m.f -> ValueError"], (
+        "the walk collapsed two raises in one definition into one entry, so the "
+        f"per-pair counts can no longer see a second offender: {found}"
     )

@@ -11,9 +11,16 @@ yet restored beside it in ``write_compat_report``. A licensed probe run
 landed in that window and wrote ``date: null`` into the report that
 promoted 85 statuses, under a file name carrying the date correctly.
 
-FOUR MUTANTS. The second is the reason there are two guards rather than
-one, and the fourth is the direction the exemption's own comment forbids
-and that nothing had ever mutated.
+SIX MUTANTS. The second is the reason there are two guards rather than
+one; the fourth is the direction the exemption's own comment forbids and
+that nothing had ever mutated; the fifth and sixth are the same mirror
+image one series over, for physics and drift, which acquired the two-site
+shape on 2026-08-18 and acquired neither arm of the guard compat had.
+
+WHAT IS MUTATED IS THE HELPER ARM OF ALL THREE, and the WRITER arm of
+compat alone. The physics and drift writer defaults are covered by tests
+and are not mutated here, so under this repository's own rule they ship
+unproven; that residual is registered rather than hidden.
 
 1. The defect as it happened: the default lost from the writer.
 2. Its MIRROR IMAGE: the default lost from the helper instead. This one

@@ -439,10 +439,18 @@ def build_phy02_script(
     half : bool, keyword-only
         Build the mirrored open-root half model instead of the
         full-span baseline.
-    stl_path : str or Path
+    stl_path : str or Path, keyword-only
         The matching generated STL (half or full) to import (meters).
-    loads_name, log_name : str
+    loads_name, log_name : str, keyword-only
         Output file names, written into the working directory.
+
+        THESE THREE ARE KEYWORD-ONLY AS COLLATERAL, and saying so is
+        the point. Making `half` keyword-only meant putting the star
+        immediately after `version`, because `half` sat there; the
+        three parameters behind it moved with it. The sibling
+        :func:`build_phy01_script` still takes its three
+        positionally, so the two functions now differ, and a caller
+        copying one call into the other gets a `TypeError`.
 
     Returns
     -------
@@ -1749,6 +1757,21 @@ def write_physics_report(
     -------
     tuple of Path
         The YAML path and the Markdown path, in that order.
+
+    Raises
+    ------
+    FileExistsError
+        When a report with the same stem already exists.
+    QaEvidenceError
+        When the date is not spelled ``YYYY-MM-DD``. The stem carries
+        the string, so a value that cannot go in a file name is
+        refused before the write rather than after it.
+    UnknownVersionError, AmbiguousVersionAliasError
+        When the run's version is not a registered build, or is a
+        vendor release name shared by several. NEW on 2026-08-18: the
+        stem's build key is resolved through the registry now, so
+        these reach a direct Python caller where they did not before.
+        ``pyfs-qa`` resolves first and never meets them.
     """
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -1917,7 +1940,8 @@ def update_reference(
     Raises
     ------
     QaEvidenceError
-        When the reason is empty, the case is unknown, the report is
+        When the reason is empty, the date is not spelled
+        ``YYYY-MM-DD``, the case is unknown, the report is
         not a physics report, the report carries no metrics for the
         case, or a metric it carries is neither in the existing
         reference nor declared by the case. A subclass of ``ValueError``,

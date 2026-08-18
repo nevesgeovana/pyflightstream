@@ -99,24 +99,52 @@ def resolve_report_date(date: str | None = None) -> str:
     """
     if date is None:
         return datetime.date.today().isoformat()
-    # VALIDATED, and it was not until 2026-08-18. This function documents
-    # that it RETURNS an ISO date and returned any string unchanged, and
-    # `report_paths` interpolates the result straight into a file name.
-    # `date="17/08/2026"` therefore produced a stem carrying path
-    # separators: the pre-flight then tested a path under a directory
-    # that does not exist, answered "no collision", and the licensed run
-    # proceeded to a write that fails on a missing parent. That is this
-    # module's own failure mode arriving at solver time from information
-    # available at call time, which is the one thing it exists to stop.
+    return _validated_date(date)
+
+
+def _validated_date(date: str) -> str:
+    """Return ``date`` unchanged, or refuse it as a report stem.
+
+    SEPARATE FROM :func:`resolve_report_date` because the two callers
+    need different halves. The resolver DEFAULTS and validates; the
+    primitive below must validate WITHOUT defaulting, since a `date=None`
+    reaching it is a caller error rather than a request for today, and
+    the module's whole reason for requiring the argument is that a second
+    default is what wrote ``date: null`` under a dated file name.
+
+    The first version of this validation lived only in the resolver, one
+    layer ABOVE the site it protects: `report_paths` is exported and its
+    own examples call it directly, so
+    ``report_paths(d, series="PHY", versions=["26.123"], date="17/08/2026")``
+    returned ``d/PHY-26123_17/08/2026.yaml``, a stem carrying path
+    separators. The pre-flight then tested a path under a directory that
+    does not exist, answered "no collision", and the licensed run
+    proceeded to a write that fails on a missing parent.
+
+    THE ROUND TRIP IS THE TEST, not `fromisoformat` alone. On Python 3.11
+    and later that function also accepts ``20260817`` and ``2026-W33-1``,
+    neither of which carries a separator, so nothing would fail until a
+    committed stem met the tier-1 walk in ``tests/test_command_db.py``,
+    which is after the seat is spent. Comparing the parsed date's own
+    ``isoformat()`` against the input admits exactly ``YYYY-MM-DD``, which
+    is what the message promises.
+    """
     try:
-        datetime.date.fromisoformat(date)
-    except ValueError as error:
+        parsed = datetime.date.fromisoformat(date)
+    except (ValueError, TypeError) as error:
         raise QaEvidenceError(
             f"a report date is written as YYYY-MM-DD and this one is {date!r} "
             f"({error}). It goes straight into the report's file name, so a value "
             "this function cannot parse becomes a stem no reader can find and, if "
             "it carries a separator, a path under a directory that does not exist."
         ) from None
+    if parsed.isoformat() != date:
+        raise QaEvidenceError(
+            f"a report date is written as YYYY-MM-DD and this one is {date!r}, "
+            f"which parses as {parsed.isoformat()} but is not spelled that way. "
+            "The stem carries the string, not the date, so two runs on one day "
+            "would write two reports nothing can tell apart."
+        )
     return date
 
 
@@ -282,7 +310,7 @@ def report_paths(
     # an `FsVersion`, which those two entry points already take, and
     # refuses an ambiguous alias BEFORE a seat is spent rather than after.
     key = "-".join(_canonical(version) for version in versions)
-    stem = f"{series}-{key}_{date}"
+    stem = f"{series}-{key}_{_validated_date(date)}"
     if label:
         stem += f"_{label}"
     directory = Path(out_dir)

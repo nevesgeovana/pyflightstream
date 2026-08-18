@@ -251,9 +251,10 @@ Three more batteries follow that shape.
 mapping is rendered in exactly one place in the package, in both
 spellings a Python source can write one, plus the parameter that used to
 let a caller hand in a pre-rendered row.
-`scripts/prove_report_date_guards.py` covers the rule that a compat
-report's stem and body agree about its date, and its cross check shows
-why that guard has two arms rather than one.
+`scripts/prove_report_date_guards.py` covers the rule that an evidence
+report's stem and body agree about its date, in all three series since
+2026-08-18, and its cross check shows why that guard has two arms
+rather than one.
 `scripts/prove_geometry_guards.py` covers the mesh face-length
 measurement and the translated STL, both of which had tests that
 survived sabotage before it was written.
