@@ -24,7 +24,7 @@ where the excitation stays well below resonance, roughly
 n Omega / omega_n at or below 0.3. This is a documented property of
 the tool, printed in the convergence log header.
 
-## config: one JSON, one hash (`config.py`)
+## config: one JSON, one sha256 (`config.py`)
 
 `FsiConfig` is the complete per-run configuration: blade count, Omega,
 the per-station structural distributions of the blade, the twist-node
@@ -35,18 +35,33 @@ reports that the static solve would be singular, not a bare "value
 must be > 0").
 
 ```python
-from pyflightstream.fsi import FsiConfig, config_hash, load_config
+from pyflightstream.fsi import FsiConfig, config_sha256, load_config
 from pyflightstream.fsi.config import dump_config
 
 cfg = load_config("config.json")   # validates on load
-print(config_hash(cfg))            # sha256, formatting independent
+print(config_sha256(cfg))          # sha256, formatting independent
 dump_config(cfg, "config.json")    # canonical pretty print
 ```
 
-The hash is computed over the sorted, whitespace-free JSON dump, so it
-identifies the physics, not the file layout. Every convergence-log row
-carries it (FSI-R15): any point of a later parametric map is traceable
-to its exact configuration, the same discipline as the run manifest.
+The digest is computed over the sorted, whitespace-free JSON dump, so
+it identifies the physics, not the file layout. Every convergence-log
+row carries it (FSI-R15): any point of a later parametric map is
+traceable to its exact configuration, the same discipline as the run
+manifest.
+
+The function, the two exports, the `FsiState` field, the
+`check_state_matches_config` keyword and the convergence-log column
+were all named for a hash rather than for its algorithm before 0.8.0;
+they now say `sha256`, matching `RunRecord.script_sha256` and
+`outputs_sha256`. `FsiState` is the one place that still spells the
+retired name, in the alias that accepts it.
+Two consequences a resumed run meets. A `state.json` written by an
+earlier release still loads: the old key is accepted on the way in and
+the next write emits the new name alone, so the run folder migrates
+itself once. And a run resumed into an existing
+`fsi_convergence_log.csv` keeps that file's old header word, because
+the header is written only when the file is absent; the column order,
+the column count and the meaning of every column are unchanged.
 
 Units are SI throughout and encoded in the field names
 (`bending_stiffness_n_m2`, `mass_per_length_kg_per_m`). Frames: the
@@ -113,9 +128,13 @@ near (I1 - I2) / (I1 + I2) for torsion. Run
 figure.
 
 Every physics formula lives in a small function whose docstring cites
-its source, and a schema test enforces the discipline: the primary
-sources of the model are still being verified research side (TSR-014),
-so any future correction must stay a localized change.
+its source, and a schema test enforces the discipline. The reason is
+worth stating plainly rather than behind a tracking number: the primary
+sources of the model have not been independently checked against the
+formulas implemented here, so read them as transcribed from the
+coupling plan and believed correct rather than as verified against the
+papers. One function per formula is what keeps a later correction a
+localized change.
 
 ## loads: what FlightStream hands the structure (`loads.py`)
 

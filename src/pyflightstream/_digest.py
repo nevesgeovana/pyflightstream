@@ -25,13 +25,48 @@ manifest that silently records nothing, so the policy is carried by the
 NAME and stated in both docstrings rather than left to a keyword a
 reader has to look up.
 
-WHAT IS DELIBERATELY NOT HERE. ``fsi.config.config_hash`` also computes
+WHAT IS DELIBERATELY NOT HERE. ``fsi.config.config_sha256`` also computes
 a sha256, over a canonical JSON rendering of a configuration. It is not
 a file digest and not the manifest checksum this module is about, and
 folding it in would put a domain rule, what the canonical form of a
 configuration IS, inside a module whose whole purpose is to hold no
 domain rule. It is named rather than skipped so the omission does not
 read as an oversight.
+
+THE HASHING RULE ITSELF (NFR-15), stated here because this is the module
+that answers for it. Three parts, and the second is the one that was
+missing:
+
+* THE ALGORITHM is sha256, everywhere, and it is :data:`ALGORITHM`
+  rather than a sentence, so a test can spend it. Nothing in this
+  package computes a digest under another algorithm, and none picks its
+  constructor at run time: an algorithm chosen from a variable is a
+  property of the input rather than of the code, and a value written
+  into a committed manifest and cited by a publication cannot be that.
+* THE CANONICAL FORM is per digest, and that is why it is a MAPPING and
+  not a paragraph. "sha256" says nothing about whether two identical
+  runs agree; what decides that is the exact byte string fed to the
+  hash. :data:`CANONICAL_FORMS` names it for every module in this
+  package that computes one, and ``tests/test_digest.py`` fails when a
+  module hashes without declaring one. A rule written only as prose
+  cannot notice a fourth site appearing.
+* THE EXCLUSIONS, :data:`EXCLUDED_FROM_EVERY_DIGEST`, hold for all of
+  them: no wall-clock time, no elapsed time, no absolute path, nothing
+  about the machine or the user. Those are the fields that differ
+  between two runs which are otherwise the same run, so admitting one
+  would make the digest answer a question nobody asked. They are absent
+  by CONSTRUCTION rather than by filtering: every canonical form below
+  is either the raw bytes of a file or a text this package renders from
+  validated data, and none of them reads a clock, a path or an
+  environment.
+
+The boundary, stated rather than implied: the digest is reproducible for
+one canonical form, not across platforms for one CONCEPT. A file digest
+reads bytes, so a text file checked out with different line endings on
+two platforms is a different file and hashes differently. That is the
+digest being correct about the file rather than wrong about the content,
+and the choice is deliberate; where a comparison must survive that,
+:func:`text_sha256` over decoded text is the tool.
 """
 
 from __future__ import annotations
@@ -45,6 +80,56 @@ from pathlib import Path
 #: file does not depend on it, but pinning it here stops a later reader
 #: from thinking it might.
 _BLOCK = 65536
+
+#: The one hash algorithm this package computes, as a value a test can
+#: spend rather than a word in a docstring. Changing it changes every
+#: digest in every committed manifest, so it is a public break with a
+#: changelog entry, never an edit.
+ALGORITHM = "sha256"
+
+#: What is kept OUT of every digest, whatever its canonical form. These
+#: are precisely the fields that differ between two runs which are the
+#: same run, so admitting one would make the digest disagree about runs
+#: that agree. Stated as data so the rule has one home.
+EXCLUDED_FROM_EVERY_DIGEST = (
+    "wall-clock timestamps",
+    "elapsed and wall time",
+    "absolute paths, and any path at all",
+    "the machine, the user and the environment the run happened on",
+    "the order in which files were staged",
+)
+
+#: The canonical form each digest-computing module of this package feeds
+#: to :data:`ALGORITHM`, keyed by module path under ``src/pyflightstream``.
+#:
+#: This is the part of the rule that was never written down, and the
+#: reason it is a mapping is that "sha256" alone decides nothing: two
+#: runs agree exactly when the BYTE STRING handed to the hash agrees, and
+#: that is chosen at the call site. ``tests/test_digest.py`` walks the
+#: package for every ``hashlib`` call and fails on a module absent here,
+#: so a new digest cannot enter with its canonical form unstated.
+CANONICAL_FORMS = {
+    "_digest.py": (
+        "the raw bytes of a file, read in blocks and never decoded; or the "
+        "UTF-8 encoding of a string. Nothing else is read: not the path, not "
+        "the size, not any timestamp. This is the manifest checksum, the one "
+        "every input, output, staged script and solver executable is recorded "
+        "under."
+    ),
+    "fsi/config.py": (
+        "the JSON rendering of a validated FsiConfig with sorted keys and no "
+        "whitespace, UTF-8 encoded. A domain rule rather than a file digest: "
+        "it says two CONFIGURATIONS are the same physics, so it is deliberately "
+        "independent of field order and formatting, which a byte digest of "
+        "config.json would not be."
+    ),
+    "qa/physics.py": (
+        "the raw bytes of the geometry file a QA reference was measured on. It "
+        "identifies the case behind a committed reference without committing "
+        "the geometry, which invariant 5 forbids; it is not a manifest field "
+        "and never enters a run record."
+    ),
+}
 
 __all__ = ["file_sha256", "optional_file_sha256", "text_sha256"]
 

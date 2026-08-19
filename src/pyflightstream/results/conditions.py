@@ -33,12 +33,34 @@ from dataclasses import dataclass
 #: Requested axis name mapped to the report attribute that prints it,
 #: the comparison tolerance, and the unit the tolerance is in.
 #:
-#: The tolerances are print resolution, not engineering judgment: loads
-#: spreadsheets print these fields with three decimals, so half a count
-#: of the last digit is the tightest comparison that cannot fire on
-#: rounding alone. A looser tolerance would be a policy about how far
-#: from the requested point a result may drift, which is not a decision
-#: this module is entitled to make.
+#: The tolerances are print resolution, not engineering judgment: half a
+#: count of the last printed digit is the tightest comparison that cannot
+#: fire on rounding alone.
+#:
+#: WHERE THE PRINTED WIDTH WAS READ, cited rather than recalled. The
+#: committed export ``tests/fixtures/loads_steady_26.120.txt`` prints all
+#: three of these header fields with three decimals, and its own footer
+#: names FlightStream 26.120, build #7012026. Its layout mirrors a real
+#: run on that build while its values are synthetic, which is what
+#: ``tests/test_results.py`` records in its module docstring. A licensed
+#: run on the same build recorded the same width for another header
+#: quantity, the unsteady time increment, in
+#: ``reports/RPT-006_wp7-nearrigid-pilot_2026-07-21.md``; that is
+#: corroboration of the header's print format and not a second reading of
+#: these three fields.
+#:
+#: WHAT THIS DOES NOT CLAIM. One measured build is not a solver
+#: guarantee. Nothing here says a build this repository has never read an
+#: export from prints the same width, and widening the claim would take a
+#: licensed run. Beyond that one file, 5e-4 is a project-chosen threshold
+#: and claims nothing about the export. Loosening it further would be a
+#: policy about how far from the requested point a result may drift,
+#: which is not a decision this module is entitled to make; tightening it
+#: below print resolution would fire on rounding.
+#:
+#: ``tests/test_conditions.py`` reads this citation out of this file,
+#: opens the export it names and asserts the three printed widths against
+#: these tolerances, so the premise cannot rot back into a recollection.
 FIELD_BINDINGS: tuple[tuple[str, str, float, str], ...] = (
     ("alpha", "angle_of_attack_deg", 5e-4, "deg"),
     ("beta", "sideslip_deg", 5e-4, "deg"),
@@ -62,6 +84,13 @@ class ConditionCheck:
         Absolute difference, in `unit`.
     tolerance : float
         Largest deviation attributable to print rounding, in `unit`.
+        Half a count of the last printed digit, the width being read
+        from the committed export
+        ``tests/fixtures/loads_steady_26.120.txt`` (FlightStream 26.120,
+        build #7012026), which prints these fields with three decimals.
+        One measured build is not a solver guarantee: see
+        :data:`FIELD_BINDINGS` for what that citation does and does not
+        claim.
     unit : str
         Unit of the three quantities above.
     """

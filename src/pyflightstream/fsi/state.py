@@ -24,7 +24,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.fsi.errors import FsiInputError
@@ -192,9 +192,9 @@ class FsiState(BaseModel):
         Phase 4 recording of the twist distributions.
     phase4_start_step : int or None
         Step at which phase 4 recording began.
-    config_hash : str or None
-        Canonical hash of the configuration this state was CREATED
-        under, from :func:`pyflightstream.fsi.config.config_hash`.
+    config_sha256 : str or None
+        Canonical sha256 of the configuration this state was CREATED
+        under, from :func:`pyflightstream.fsi.config.config_sha256`.
 
         REV010-009. Shape compatibility is not physical identity. The
         resume check compared per-blade and per-station array shapes
@@ -209,11 +209,26 @@ class FsiState(BaseModel):
 
         None means the state predates the field and its creating
         configuration is unknown, which is different from matching.
+
+        RENAMED at 0.8.0, from ``config_hash``, so the field names the
+        algorithm that produced it as ``script_sha256`` and
+        ``outputs_sha256`` already do. A ``state.json`` written by an
+        earlier release carries the LEGACY KEY ``config_hash`` and is
+        still accepted, through the validation alias below; it is
+        accepted on the way in only, and the next write emits the new
+        name alone, so a resumed run migrates its own run folder once
+        and never carries the digest under two names. The alias is
+        needed rather than tidy: this model forbids extra keys, so
+        without it the legacy key is not ignored but REFUSED, and the
+        whole state file goes with it (OPS-2009.01.14).
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    config_hash: str | None = None
+    config_sha256: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("config_sha256", "config_hash"),
+    )
     call_count: int = Field(default=0, ge=0)
     step_count: int = Field(default=0, ge=0)
     phase: int = Field(default=1, ge=1, le=4)
@@ -242,7 +257,9 @@ def load_state(path: str | Path) -> FsiState:
     Parameters
     ----------
     path : str or Path
-        State file written by :func:`write_state_atomic`.
+        State file written by :func:`write_state_atomic`, or by any
+        earlier release: a file carrying the pre-0.8.0 digest key is
+        migrated on load by :class:`FsiState`'s validation alias.
     """
     return FsiState.model_validate_json(Path(path).read_text(encoding="utf-8"))
 
@@ -252,7 +269,7 @@ def check_state_matches_config(
     *,
     blade_count: int,
     station_count: int,
-    config_hash: str | None = None,
+    config_sha256: str | None = None,
     allow_config_change: bool = False,
 ) -> None:
     """Refuse a resumed state whose shape disagrees with the configuration.
@@ -294,11 +311,11 @@ def check_state_matches_config(
         ``blade_count`` of the configuration about to be used.
     station_count : int, keyword-only
         Number of radial stations of the configuration about to be used.
-    config_hash : str or None, keyword-only
-        Canonical hash of the configuration about to be used. When both
-        this and ``state.config_hash`` are present and differ, the
-        resume is refused: the shapes may agree while the physics does
-        not (REV010-009).
+    config_sha256 : str or None, keyword-only
+        Canonical sha256 of the configuration about to be used. When
+        both this and ``state.config_sha256`` are present and differ,
+        the resume is refused: the shapes may agree while the physics
+        does not (REV010-009).
     allow_config_change : bool, keyword-only
         Resume anyway across a configuration change. This is the
         documented restart the finding's closure asks for, and it is
@@ -363,13 +380,13 @@ def check_state_matches_config(
     # count, same station count, different physics.
     if (
         not allow_config_change
-        and config_hash is not None
-        and state.config_hash is not None
-        and state.config_hash != config_hash
+        and config_sha256 is not None
+        and state.config_sha256 is not None
+        and state.config_sha256 != config_sha256
     ):
         raise FsiInputError(
             f"the persisted state was created under configuration "
-            f"{state.config_hash[:12]} and this run uses {config_hash[:12]}. The "
+            f"{state.config_sha256[:12]} and this run uses {config_sha256[:12]}. The "
             "array shapes agree, which is why this was silent: blade and station "
             "counts survive a change of stiffness, mass, rotational speed, offsets "
             "or relaxation policy. What does not survive is the meaning of the "

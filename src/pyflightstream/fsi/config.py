@@ -378,7 +378,7 @@ def load_config(path: str | Path) -> FsiConfig:
     """
     path = Path(path)
     cfg = FsiConfig.model_validate_json(path.read_text(encoding="utf-8"))
-    logger.info("loaded FSI config %s (hash %s)", path, config_hash(cfg))
+    logger.info("loaded FSI config %s (sha256 %s)", path, config_sha256(cfg))
     return cfg
 
 
@@ -395,12 +395,28 @@ def dump_config(cfg: FsiConfig, path: str | Path) -> None:
     Path(path).write_text(cfg.model_dump_json(indent=2) + "\n", encoding="utf-8")
 
 
-def config_hash(cfg: FsiConfig) -> str:
-    """Return the canonical sha256 hash of a configuration.
+def config_sha256(cfg: FsiConfig) -> str:
+    """Return the canonical sha256 of a configuration.
 
-    The hash is computed over the JSON serialization with sorted keys
+    The digest is computed over the JSON serialization with sorted keys
     and no whitespace, so it is independent of field order and
     formatting. Every convergence-log row carries it (FSI-R15).
+
+    The name states the algorithm, as ``RunRecord.script_sha256`` and
+    ``outputs_sha256`` do: a reader meeting the value in a
+    ``state.json`` or in a convergence-log row can tell what it is
+    without opening this module, and the day the algorithm moves the
+    data can say so. Renamed at 0.8.0 off a name that said only "hash";
+    the persisted state still ACCEPTS the pre-0.8.0 key on load, and
+    :class:`pyflightstream.fsi.state.FsiState` is the one place that
+    spells it, so the retired name has exactly one home.
+
+    This is NOT the manifest checksum of
+    :mod:`pyflightstream._digest`, and the difference is the canonical
+    form rather than the algorithm: that module hashes raw file bytes
+    or a UTF-8 encoded string, where this one first renders a
+    configuration into a canonical JSON text, which is a domain rule
+    about what makes two configurations the same.
 
     Parameters
     ----------
@@ -410,7 +426,7 @@ def config_hash(cfg: FsiConfig) -> str:
     Returns
     -------
     str
-        Hex sha256 digest.
+        Lowercase hexadecimal sha256 digest.
     """
     canonical = json.dumps(cfg.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()

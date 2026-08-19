@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import ast
 import json
+import os
 import re
 from pathlib import Path
 
@@ -169,8 +170,11 @@ def test_the_marker_is_registered_so_a_typo_is_not_silent():
 # By this repository's own structural-fix rule, documentation is not a guard.
 
 
-#: The exemptions as measured on 2026-08-03, 21 of 53 modules. Removing one
-#: means deleting its override AND its line here, in the same commit.
+#: The exemptions as first measured on 2026-08-03, then 21 of 53 modules.
+#: Re-counted at 0.8.0.dev0 and the SET did not move, only its surroundings:
+#: mypy recount 2026-08-18: 275 errors in 21 of 64 modules (reports/RPT-029).
+#: Removing one means deleting its override AND its line here, in the same
+#: commit.
 MYPY_EXEMPTIONS = frozenset(
     {
         "pyflightstream.cases",
@@ -225,4 +229,218 @@ def test_the_type_check_exemption_list_only_shrinks():
         f"these modules are typed now and their entries are still listed here: "
         f"{removed}. Delete them from MYPY_EXEMPTIONS in the same commit that "
         "removes the override, so the two cannot drift"
+    )
+
+
+# --- the re-count, and the records that have to agree with it ---------------
+#
+# REPRODUCTION (OPS-2006.11.01). Before this section existed, four records
+# stated the same measurement and every one of them was three releases old:
+# pyproject's `[tool.mypy]` header comment, the MYPY_EXEMPTIONS comment above,
+# the debt table in PLN-20260803-1830 and the NFR-27 paragraph in the SRS all
+# said "223 errors in 21 of 53 modules", taken on 2026-08-03. Reading any one
+# of them told a planner the grind was 223 errors over 53 modules. Re-measured
+# on 2026-08-18 with every `ignore_errors` override off, the package reports
+# 275 errors in 21 of 64 modules. Nothing detected the drift, because nothing
+# compared a record against the tree; documentation is not a guard.
+#
+# What is guarded here, and what deliberately is not. The MODULE TOTAL is
+# re-counted from the tracked tree on every run, so a record that says 63 when
+# the package holds 64 fails. The ERROR TOTAL is not: it moves with every
+# commit and with the versions of numpy's and xarray's own stubs, so it is a
+# DATED measurement, reproducible by the command the report records, and what
+# is guarded is that no record states a different one.
+
+#: The sentence every record of the re-count carries. Parsed rather than
+#: compared verbatim, so a record may set it in its own paragraph as long as
+#: the four numbers agree.
+RECOUNT_SENTENCE = re.compile(
+    r"mypy recount (?P<date>\d{4}-\d{2}-\d{2}): "
+    r"(?P<errors>\d+) errors in (?P<dirty>\d+) of (?P<modules>\d+) modules"
+)
+
+#: Every committed home of that sentence. The plan ledger under `_private/`
+#: carries it too and is deliberately absent: it is local-only, so a test that
+#: required it would fail in CI and pass here, which is the worst of both.
+RECOUNT_RECORDS = (
+    "reports/RPT-029_mypy-exemption-recount_2026-08-18.md",
+    "pyproject.toml",
+    "tests/test_traceability.py",
+)
+
+#: The two modules OPS-2006.11.01 asserted were excused without being
+#: recorded. They are recorded, in both places, which is what makes the item's
+#: own premise false.
+CLAIMED_UNLISTED = ("pyflightstream.workspace.inputs", "pyflightstream.workspace.naming")
+
+
+def _declared_exemptions() -> set[str]:
+    """Return the module names `[tool.mypy]` exempts with `ignore_errors`."""
+    import tomllib
+
+    with open(REPO / "pyproject.toml", "rb") as handle:
+        config = tomllib.load(handle)
+    return {
+        override["module"]
+        for override in config["tool"]["mypy"].get("overrides", [])
+        if override.get("ignore_errors")
+    }
+
+
+def _recount_claims() -> dict[str, tuple[str, ...] | None]:
+    """Return {record path: the four numbers it states, or None}.
+
+    A record that does not exist and a record that exists without the
+    sentence are both reported as `None`, so a missing file surfaces as
+    an assertion rather than as an error inside the test.
+
+    EVERY occurrence in a file is read, not the first. Reading the first
+    would let a record carry a current sentence and a contradicting one
+    further down and still pass, which is the exact failure mode this
+    section exists for; a file that states the re-count twice with
+    different numbers reports `None` and is named as silent.
+    """
+    claims: dict[str, tuple[str, ...] | None] = {}
+    for name in RECOUNT_RECORDS:
+        path = REPO / name
+        if not path.is_file():
+            claims[name] = None
+            continue
+        found = {
+            match.group("date", "errors", "dirty", "modules")
+            for match in RECOUNT_SENTENCE.finditer(path.read_text(encoding="utf-8"))
+        }
+        claims[name] = found.pop() if len(found) == 1 else None
+    return claims
+
+
+def _tracked_package_modules() -> list[str]:
+    """Return the tracked `.py` files under `src/pyflightstream`.
+
+    The population is the INDEX rather than the working tree on purpose:
+    an untracked scratch file beside a module is not part of the package
+    and must not inflate the count. The residual is the mirror of that,
+    and is stated rather than hidden: a module that has been written but
+    not yet staged is invisible here until it is committed, at which
+    point this test asks for the re-count.
+    """
+    import subprocess
+
+    listing = subprocess.run(
+        ["git", "ls-files", "src/pyflightstream"],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        check=True,
+        # Explicit, and identical to the inherited default: git needs the
+        # ambient environment to find its own configuration.
+        env=os.environ.copy(),
+    ).stdout.split()
+    return [name for name in listing if name.endswith(".py")]
+
+
+def test_every_record_of_the_mypy_recount_states_the_same_measurement():
+    """Four records said 223 in 21 of 53 and the package said otherwise.
+
+    The failure this catches is not a wrong number, it is two records
+    that disagree, because a planner reads one of them and never learns
+    that another says something else.
+    """
+    claims = _recount_claims()
+    silent = sorted(name for name, claim in claims.items() if claim is None)
+    assert not silent, (
+        f"these records state no single mypy re-count: {silent}. Each must "
+        "carry the sentence 'mypy recount <date>: <n> errors in <d> of <m> "
+        "modules' exactly once, or carry it several times with the same four "
+        "numbers, so the measurement cannot drift apart unnoticed. A record "
+        "missing the sentence and a record stating it twice with different "
+        "numbers both land here"
+    )
+    distinct = sorted({claim for claim in claims.values() if claim is not None})
+    assert len(distinct) == 1, (
+        f"the records state different measurements: {claims}. One measurement "
+        "has one set of numbers; correct every record in the commit that "
+        "re-measures, never one of them"
+    )
+
+
+def test_the_recorded_module_total_is_the_one_the_package_actually_has():
+    """The 53 went stale silently because nothing re-counted the tree.
+
+    This is the guard that makes that impossible: the module total the
+    records state is compared against the tracked package on every run.
+    """
+    claims = _recount_claims()
+    stated = {claim[3] for claim in claims.values() if claim is not None}
+    assert stated, "no record states a module total; the re-count sentence is missing"
+    actual = len(_tracked_package_modules())
+    assert stated == {str(actual)}, (
+        f"the records state {sorted(stated)} modules and the tracked package "
+        f"holds {actual}. Re-run the re-count in reports/RPT-029 and correct "
+        "every record named in RECOUNT_RECORDS, plus the local plan ledger "
+        "item PLN-20260803-1830 and the NFR-27 paragraph in the SRS"
+    )
+
+
+def test_the_recorded_dirty_count_is_the_number_of_overrides_that_exist():
+    """The inventory has to be checkable against the config, not believed.
+
+    OPS-2006.11.01 was opened on the belief that the config excused more
+    modules than the records named. It does not, and this asserts the
+    equality rather than restating the conclusion.
+    """
+    declared = _declared_exemptions()
+    assert declared == set(MYPY_EXEMPTIONS), (
+        "the config's exempted set and MYPY_EXEMPTIONS differ; the ratchet "
+        "test above says which way"
+    )
+    claims = _recount_claims()
+    stated = {claim[2] for claim in claims.values() if claim is not None}
+    assert stated == {str(len(declared))}, (
+        f"the records state {sorted(stated)} unclean modules and the config "
+        f"carries {len(declared)} ignore_errors overrides. The re-count found "
+        "an error in every exempted module, so the two numbers are the same "
+        "number until an override is removed"
+    )
+
+
+def test_the_two_modules_called_unlisted_are_listed_in_both_homes():
+    """The item's own premise, asserted rather than argued.
+
+    OPS-2006.11.01 says the packaging file excuses twenty-one blocks
+    against nineteen recorded names, the workspace input and naming
+    modules being unrecorded. Both are recorded, in the config and in
+    MYPY_EXEMPTIONS, and the report says so with the lines.
+    """
+    declared = _declared_exemptions()
+    missing_from_config = sorted(set(CLAIMED_UNLISTED) - declared)
+    assert not missing_from_config, (
+        f"{missing_from_config} are not exempted in pyproject at all, which "
+        "would make RPT-029's disproof wrong"
+    )
+    missing_from_record = sorted(set(CLAIMED_UNLISTED) - set(MYPY_EXEMPTIONS))
+    assert not missing_from_record, (
+        f"{missing_from_record} are exempted in pyproject and absent from "
+        "MYPY_EXEMPTIONS, which is exactly what the item claimed and this "
+        "test denies"
+    )
+    report = REPO / RECOUNT_RECORDS[0]
+    text = report.read_text(encoding="utf-8") if report.is_file() else ""
+    unnamed = sorted(name for name in CLAIMED_UNLISTED if name not in text)
+    assert not unnamed, (
+        f"RPT-029 does not name {unnamed}, so the false claim is contradicted "
+        f"nowhere a reader can check ({RECOUNT_RECORDS[0]})"
+    )
+    # The two clauses above are satisfied by the module appearing ANYWHERE in
+    # the report, its per-module table included, so on their own they do not
+    # assert that the report draws the conclusion. This one pins the verdict.
+    # It is a mention-level check over prose and is not pretended to be more:
+    # what it makes impossible is the report losing the finding while keeping
+    # the numbers, which is how a disproof quietly stops being written down.
+    assert "nothing is unlisted" in text, (
+        f"{RECOUNT_RECORDS[0]} no longer states the verdict. The item's own "
+        "premise is that two excused modules are unrecorded; the report is "
+        "where that is written down as false, and a report that lists the "
+        "modules without saying so leaves the next reader hunting for a "
+        "discrepancy that does not exist"
     )

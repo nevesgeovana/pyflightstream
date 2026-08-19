@@ -8,22 +8,41 @@ and re-vendored, never hand-edited here, because a hand-edit is exactly the
 drift this level exists to stop: the gate fix that once sat in one repository
 while the other kept the defect it had reported.
 
-ONE vendored provenance header still names the retired ``_private/kit`` path,
-and after the 2026-08-11 re-vendor it is ``check_incidents.py`` alone. Every
-other row was re-vendored or vendored fresh that day and carries the current
-target. Not because a hashed body forbids the
-correction: the ``note:`` line is NOT hashed (see below), so it could be
-corrected at any time. It is stale for the ordinary reason that it has not
-been re-vendored since the path moved, and this repository has chosen to let
-the re-vendor carry the correction rather than to touch headers by hand. The
-ones re-vendored since corrected themselves, and they did so by a route worth
-naming, because the kit ``README.md`` still prescribes the old wording and a
-re-vendor performed to its letter would have reproduced the stale pointer: the
+NO vendored provenance header names the retired ``_private/kit`` path any
+more. ``check_incidents.py`` was the last one, restamped on 2026-08-18
+(OPS-2013.04); every other row was re-vendored or vendored fresh on
+2026-08-11 and carried the current target already.
+
+The restamp is the prescribed per-copy correction rather than a hand-edit of
+a pinned body, and the distinction is the reason this paragraph is long: the
 ``note:`` line sits ABOVE ``END KIT PROVENANCE``, so it is not hashed, and the
-kit's own rule is that a vendored copy RESTAMPS it. Writing the current path
-there is therefore the prescribed per-copy restamp with a corrected target,
-not a hand-edit of a pinned body. The last one corrects itself on its next
-re-vendor; the kit-side wording fix stays the coordination level's.
+kit's own rule is that a vendored copy RESTAMPS it. Nothing about the hashed
+body changed, and ``check_incidents.py`` still pins the 0.1.0 body it was
+vendored from. This repository had previously chosen to let the next
+re-vendor carry the correction, which is what left one pointer aimed at a
+directory retired on 2026-07-27 for three weeks; the pointer's cost is paid
+by the next editor who follows it, not by the row that carries it, so waiting
+had nobody's interest behind it.
+
+That the correction is now MEASURED rather than remembered is the other half
+of the same item, and it needs two assertions rather than one because the kit
+``README.md`` still prescribes the old wording: a re-vendor performed to its
+letter reproduces the stale pointer, and would do so while updating this
+file's manifest row in the same edit, so a test pinning the target alone
+follows the mistake into the manifest.
+``test_no_vendored_note_names_the_retired_kit_path`` forbids the retired
+value in any note whatever the manifest says, and
+``test_every_manifest_note_target_is_the_live_kit_path`` forbids pinning it
+here. The kit-side wording fix stays the coordination level's.
+
+The retired path survives in tracked files as HISTORY, and that is correct
+rather than residue: this docstring, the comment above the manifest, the
+2026-07-27 restamp precedent below, two lines in ``tests/test_house_style.py``
+and one in ``.claude/tools/check_plan_kit_mutations.py`` (which names it as
+the absolute path that checker must NOT use). Each names it as retired, or as
+forbidden, in its own sentence. Deleting them would destroy the record of why
+the path is retired, which is why the guards above read the ``note:`` FIELD
+of a stamped file and never count occurrences in a tree.
 
 This test is the mechanism. For every vendored file it splits the body at the
 ``END KIT PROVENANCE`` marker, recomputes the sha256, and asserts it equals
@@ -181,6 +200,15 @@ REPO = Path(__file__).resolve().parents[1]
 CANONICAL_LEDGER_VAR = "ITACA_INCIDENT_LEDGER"
 REPO_LEDGER_VAR = "PYFS_INCIDENT_LEDGER"
 
+#: Where the shared process kit lived until 2026-07-27, and where it has not
+#: lived since. A provenance ``note:`` naming it sends the next editor to a
+#: directory that does not exist, which is the whole cost of the field being
+#: unhashed: no body assertion can see it.
+RETIRED_KIT_PATH = "_private/kit"
+
+#: Where it lives now, and the only target a ``note:`` may name.
+LIVE_KIT_PATH = "ClaudeCoordinator/kit"
+
 # The vendored manifest, mixed body versions by design (see the module
 # docstring). Each entry is (repo-relative path, declared kit-version,
 # body-sha256, note target). The kit-version and the body-sha256 come verbatim
@@ -190,11 +218,13 @@ REPO_LEDGER_VAR = "PYFS_INCIDENT_LEDGER"
 # line sits above END KIT PROVENANCE, so it is outside the hashed body and no
 # hash can see it; it is also the one field a vendored copy is required to
 # restamp. Recording the expected target here is what makes the difference
-# between a prescribed restamp and an undetected hand-edit of the header: the
-# files above that still name the retired `_private/kit` path record that
-# fact, so their next re-vendor changes this table deliberately rather than
-# invisibly. The count lives in the module docstring and deliberately not
-# here, because carrying it twice is how it went stale the last time.
+# between a prescribed restamp and an undetected hand-edit of the header: a
+# copy whose note moves changes this table deliberately rather than
+# invisibly. Every row records `ClaudeCoordinator/kit` since 2026-08-18, and
+# that is asserted rather than eyeballed, by
+# `test_every_manifest_note_target_is_the_live_kit_path`, so a row cannot
+# quietly go back to pinning the retired directory. No count lives here: the
+# one that used to went stale the last time it was carried twice.
 MANIFEST: dict[str, tuple[str, str, str]] = {
     ".claude/hooks/role_review_gate.py": (
         "0.2.18",
@@ -234,7 +264,7 @@ MANIFEST: dict[str, tuple[str, str, str]] = {
     ".claude/tools/check_incidents.py": (
         "0.1.0",
         "f6d3430a6d0ee44b4843f7d297a3454ce40d34cd83dc182a2ef840952c5c9c0a",
-        "_private/kit",
+        "ClaudeCoordinator/kit",
     ),
     ".claude/tools/snap.sh": (
         "0.2.5",
@@ -450,6 +480,143 @@ CANONICAL_SOURCE: dict[str, str] = {
 }
 
 
+#: The PROVENANCE HEADER of each vendored copy, pinned by sha256 over every
+#: byte above the body. Added 2026-08-18 (OPS-2013.30).
+#:
+#: What it closes: until it existed, only the BODY was hashed, and the header
+#: was reached by three assertions that each read ONE field. `kit-version`,
+#: `body-sha256`, `note` and `canonical-source` are checked; anything else a
+#: header carries is not. An arbitrary extra line above the marker, a
+#: `contact:` field carrying a personal address for instance, passed every
+#: assertion in this file, in a directory whose whole reason for a personal
+#: identifier guard is that a vendored kit body once published one on this
+#: public remote.
+#:
+#: Why bytes rather than a rule about which keys or line shapes are allowed:
+#: the headers are not uniform and cannot be made uniform from here. Every
+#: file carries a colon-free title line, the Markdown stamps wrap theirs in an
+#: HTML comment, and `review-policy.md` carries two further prose paragraphs
+#: above the marker, one of which `_header_fields` already parses as a KEY
+#: several hundred characters long. A shape rule needs a carve-out per file
+#: and is still a whitelist of prose; a hash needs none and misses nothing.
+#:
+#: THE BOUNDARY, stated once so the pin and the body hash cannot disagree
+#: about a line: the header is `lines[:start]` from :func:`_split_at_marker`
+#: and the body is `lines[start:]`, so the header runs from line 1 through the
+#: END KIT PROVENANCE line, plus the bare `-->` terminator where the stamp is
+#: an HTML comment. The two regions are exact complements and
+#: :func:`test_the_header_pin_and_the_body_hash_cover_every_byte` asserts they
+#: rebuild the file, which is what makes "every byte is hashed" a measurement
+#: rather than a claim.
+#:
+#: Like the body hash, this is a pin a re-vendor updates DELIBERATELY. A
+#: promotion that legitimately restamps a header changes one line here in the
+#: same commit; nothing else can.
+HEADER_SHA256: dict[str, str] = {
+    ".claude/hooks/role_review_gate.py": (
+        "40859829f4c1639fdb81485ab5e5d8ba2a130d2af0c44f7b3360aac875c5dc94"
+    ),
+    ".claude/hooks/role_review_gate_mutations.py": (
+        "ca84becab3502e5316eae2bb19351474f1508eb601ae7d0f75132ddc466c7b90"
+    ),
+    ".claude/hooks/write_attestation.py": (
+        "e5e2f512e5c790197f409e1bb4cbdb3c52318c186546bba7928504377d084c15"
+    ),
+    ".claude/hooks/ci_state.py": "c53ec2254f9320b497838129b0cf06db42f51c7991c01681cf053c371024ef4a",
+    ".claude/hooks/ci_state_mutations.py": (
+        "7738c822e0b2699e0bb354350a4cc53d3a6d9a312ea51a5b14bb215d5f1c2088"
+    ),
+    ".claude/hooks/execution_guard.py": (
+        "34379ce6951bf5c6b4b06f35ee6124782d4376a258da2487cb2375217f959458"
+    ),
+    ".claude/hooks/execution_guard_mutations.py": (
+        "f8582e0ee9930a9526c6d3c3c18f09739c027dd61fa999d5c45b861e840c099a"
+    ),
+    ".claude/tools/incident-analyst.md": (
+        "fea2df2975d955e13793a5ef10f45ac0ab326cff4f34ac8bb9b9d0aa6b6004bb"
+    ),
+    ".claude/tools/check_incidents.py": (
+        "b1853f7688ce656469cfa31141be0ee9ffb184a732c99d5759d51f7c27fa5335"
+    ),
+    ".claude/tools/snap.sh": "ce3d7aca330d51c0e845a1defaf43088470474195d91b4a61f4fb34020a161f9",
+    ".claude/tools/check_plan_kit.py": (
+        "96c7939294a22b01fb5bcbc1b010f062c68405cdaba3a05f7d9c4c0d96cade60"
+    ),
+    ".claude/tools/check_plan_kit_mutations.py": (
+        "3d5f346769c21cbaa306d24f7b5ed789838728f3d32863d284f9a048fd9ab1b5"
+    ),
+    ".claude/tools/check_side_effect_guard.py": (
+        "4f8f08ab66036766771159ac7ea0a23bac2e989b6945118d1ac96eea4b250c81"
+    ),
+    ".claude/tools/check_side_effect_guard_mutations.py": (
+        "f3827283544f3a3867b1980bb302ecf5baf4735ad16822427bca8d9c7e9d55ae"
+    ),
+    ".claude/tools/check_review_rounds.py": (
+        "81e18c453011535ac158c1870bf520e91696383dec09c92973f18e5ee7331970"
+    ),
+    ".claude/tools/check_review_rounds_mutations.py": (
+        "b324c0f797016d299a38b698fa54d6b71776bfad38fb277e1ee345fc0f74066d"
+    ),
+    ".claude/tools/review-policy.md": (
+        "34114369eb6d33c552bca4c806953918c0dfe141ea0ee7cdcfb8eabe5af5a46f"
+    ),
+    ".claude/tools/review_runner.py": (
+        "23b3eb6cb6c67d8fd03b7ccdd1a92f5d1a20a5b619fa70a317eb30c4d4a71f36"
+    ),
+    ".claude/tools/detached_gate.py": (
+        "b7d6aa1b7186a3e487357ec08dcb1245b7557b8d8f0cebf2021da05cbda9d597"
+    ),
+    ".claude/tools/budget_isolation.py": (
+        "f3094afd945bb19f7cb66bc0c6abce75cd9e50eb24c9da84bcb7365ca528f0a2"
+    ),
+    ".claude/tools/version-control.md": (
+        "f770526011c29b43c645f2dc6e499a947b50c3fa785540c1e7b43d3a4a187f7d"
+    ),
+    ".claude/tools/check_release_gate.py": (
+        "9b53b7888c5da223983f74bffbf07041b756322f068876575867e5181b2e59d6"
+    ),
+    ".claude/tools/check_release_gate_mutations.py": (
+        "ccea6212b73663cefc9106f3b33d1ac03714dfcad182523703cb25b1cea83489"
+    ),
+    ".claude/tools/prepush_receipt.py": (
+        "1ac977075379890f6c0d04a61d43aa631cf428993c02d306da29b246af221010"
+    ),
+    ".claude/tools/prepush_receipt_mutations.py": (
+        "773277703e655207b13dcae185b6cd37b715748b6b711e6701435981cc802ad0"
+    ),
+    ".claude/tools/check_shipped_surface.py": (
+        "f696f41a1150cc9dd048a50e53ab06860bfb0f9bdd1a500f05055288ffc8d094"
+    ),
+    ".claude/tools/check_shipped_surface_mutations.py": (
+        "7c23d1a3dbab70e5330098f2ad2c89b741ca5fc338cf4b9c5f981212e8d709f6"
+    ),
+    ".claude/tools/check_probe_closure.py": (
+        "96dad3447e8264271b06c27929dd33866be7459907c8a0e2b2df6838d207a598"
+    ),
+    ".claude/tools/check_probe_closure_mutations.py": (
+        "b68373e18830a2cb1b261e0fa635cd7c883bc071d5820e5bcd84cdc8db35e449"
+    ),
+    ".claude/tools/check_citations.py": (
+        "facc45fb3459c2687db4235995e90d6f805668af99bf790b06263fbb0320eda5"
+    ),
+    ".claude/tools/check_citations_mutations.py": (
+        "0c83f77d1771831e2e733f2fd558aa8b79a2c1de6819b456b9bc7d6472f04ec9"
+    ),
+    ".claude/tools/check_version_identity.py": (
+        "27e2551ba4271f7ffd0154ca2382f06c563a64c1add38dbd900b23458c4476ed"
+    ),
+    ".claude/tools/check_version_identity_mutations.py": (
+        "ea1e99855e468f742527b96e9b3af8aa0448b73d890ec0ef0ece5403ac642e52"
+    ),
+    ".claude/tools/check_spawn_env.py": (
+        "99d65ea567c12f9943b4a61a3bf7d3085c2959a14b89d52c7fb0cc9f855b5386"
+    ),
+    ".claude/tools/check_spawn_env_mutations.py": (
+        "c94c0711f4faddadaf727957552ae4141796f471aa95d9152fb2863e6f2b1d93"
+    ),
+}
+
+
 def _read_lf(path: Path) -> str:
     """Read a file with CRLF and lone CR normalized to LF, as the kit hashes."""
     return path.read_text(encoding="utf-8").replace("\r\n", "\n").replace("\r", "\n")
@@ -483,6 +650,17 @@ def _header_fields(lines: list[str], marker_body_start: int) -> dict[str, str]:
         key, _, value = stripped.partition(":")
         fields[key.strip()] = value.strip()
     return fields
+
+
+def _header_sha256(text: str) -> str:
+    """sha256 over every byte above the body, the boundary being the one
+    :func:`_split_at_marker` gives the body.
+
+    Takes the TEXT rather than a path, so the mutation case can hash a file
+    that exists only in a temporary directory.
+    """
+    lines, start = _split_at_marker(text)
+    return hashlib.sha256("\n".join(lines[:start]).encode("utf-8")).hexdigest()
 
 
 def _body_sha256(rel: str, text: str) -> str:
@@ -543,6 +721,51 @@ def test_vendored_kit_note_points_where_the_manifest_records(rel: str) -> None:
     )
 
 
+@pytest.mark.parametrize("rel", sorted(MANIFEST))
+def test_no_vendored_note_names_the_retired_kit_path(rel: str) -> None:
+    """No provenance ``note:`` may send a reader to the retired kit directory.
+
+    The row above pins the target this repository EXPECTS, so a note is
+    checked against a value someone chose. This one is different in kind: it
+    forbids one value outright, whatever the manifest says, because the kit
+    directory named by ``RETIRED_KIT_PATH`` has not existed since 2026-07-27
+    and no correct note can name it as a master.
+
+    It is not redundant with the pinned target, and the reason is written in
+    this module's own docstring: the kit ``README.md`` still prescribes the old
+    wording, so a re-vendor performed to its letter REPRODUCES the stale
+    pointer, and it would do so while updating this file's manifest row in the
+    same edit. Pinning the target alone would follow the mistake. Forbidding
+    the retired value catches it.
+    """
+    lines, start = _split_at_marker(_read_lf(REPO / rel))
+    note = _header_fields(lines, start).get("note", "")
+    assert RETIRED_KIT_PATH not in note, (
+        f"{rel}: the provenance note points at the retired kit directory "
+        f"{RETIRED_KIT_PATH!r}, which has not existed since 2026-07-27. The "
+        f"master lives at {LIVE_KIT_PATH!r}. The `note:` line sits above END "
+        "KIT PROVENANCE and is outside the hashed body, so restamping it is "
+        f"the prescribed per-copy correction, not a hand-edit. note={note!r}"
+    )
+
+
+def test_every_manifest_note_target_is_the_live_kit_path() -> None:
+    """The pinned targets themselves are checked, not only the files.
+
+    Without this the manifest could pin the retired path for a row and the
+    per-file assertion above would pass, agreeing with a target that is wrong.
+    A row whose note target is legitimately something else is a deliberate
+    edit here; nothing may pin the retired directory.
+    """
+    stale = sorted(rel for rel, (_v, _h, target) in MANIFEST.items() if target != LIVE_KIT_PATH)
+    assert not stale, (
+        f"these manifest rows record a note target other than {LIVE_KIT_PATH!r}: "
+        f"{stale}. The kit moved on 2026-07-27; a row still pinning "
+        f"{RETIRED_KIT_PATH!r} makes the note assertion agree with a pointer "
+        "that goes nowhere."
+    )
+
+
 @pytest.mark.parametrize("rel", sorted(CANONICAL_SOURCE))
 def test_vendored_kit_canonical_source_is_unchanged(rel: str) -> None:
     """The unhashed ``canonical-source:`` line is pinned by fingerprint.
@@ -570,6 +793,143 @@ def test_vendored_kit_canonical_source_is_unchanged(rel: str) -> None:
         "is not covered by the body hash. If a re-vendor changed it, update "
         "this table deliberately; if nothing was re-vendored, the header was "
         f"hand-edited. value={value!r}"
+    )
+
+
+@pytest.mark.parametrize("rel", sorted(HEADER_SHA256))
+def test_vendored_kit_header_matches_the_header_pin(rel: str) -> None:
+    """Every byte above the body hashes to the pinned value.
+
+    The three assertions above read one header FIELD each. This one reads the
+    whole region, so a line nobody expected is a failure rather than a value
+    nothing looks at.
+    """
+    got = _header_sha256(_read_lf(REPO / rel))
+    assert got == HEADER_SHA256[rel], (
+        f"{rel}: provenance header sha256 {got} != pinned {HEADER_SHA256[rel]}. "
+        "Some byte above END KIT PROVENANCE changed: a field was edited, a "
+        "line was added, or the stamp was rewritten. If a re-vendor or a "
+        "prescribed restamp did it, update this pin in the same commit; if "
+        "nothing was re-vendored, the header was hand-edited."
+    )
+
+
+def test_every_manifest_row_has_a_header_pin() -> None:
+    """MANIFEST and HEADER_SHA256 carry the same keys.
+
+    Without this a row could arrive with a body hash and no header pin, and
+    every test above would pass while that file's header was covered by
+    nothing at all. It is the same contract
+    :func:`test_the_manifest_agrees_with_the_recorded_adoption_residue` holds
+    for CANONICAL_SOURCE.
+    """
+    missing = sorted(set(MANIFEST) - set(HEADER_SHA256))
+    assert not missing, f"these manifest rows have no header pin: {missing}"
+    extra = sorted(set(HEADER_SHA256) - set(MANIFEST))
+    assert not extra, f"these header pins name no manifest row: {extra}"
+
+
+@pytest.mark.parametrize("rel", sorted(MANIFEST))
+def test_the_header_pin_and_the_body_hash_cover_every_byte(rel: str) -> None:
+    """The two hashed regions are exact complements, so nothing is unhashed.
+
+    "Every byte is hashed" is the claim this item rests on, and a claim about
+    coverage that is never measured is how the header came to be unhashed in
+    the first place. The split is asserted here rather than trusted: the
+    header is ``lines[:start]``, the body is ``lines[start:]``, and rejoining
+    them must reproduce the file exactly.
+    """
+    text = _read_lf(REPO / rel)
+    lines, start = _split_at_marker(text)
+    assert start > 0, f"{rel}: the header region is empty"
+    assert start < len(lines), f"{rel}: the body region is empty"
+
+    # The rebuild alone would be TAUTOLOGICAL and is kept for the one thing it
+    # does catch: a split that returns lines it has altered. It is true for any
+    # boundary, which the adversarial pass on this item demonstrated by moving
+    # the boundary one line and watching it stay green, so the boundary itself
+    # is asserted below rather than assumed.
+    rebuilt = "\n".join(lines[:start]) + "\n" + "\n".join(lines[start:])
+    assert rebuilt == text, (
+        f"{rel}: the header and body regions do not rebuild the file, so the "
+        "split returned lines it had altered and neither hash is over the "
+        "bytes on disk."
+    )
+
+    # The boundary is pinned against the FIRST marker line, which is the one
+    # _split_at_marker uses. Not against every occurrence: `detached_gate.py`
+    # and `prepush_receipt.py` are kit tools that PARSE these stamps, so the
+    # string appears again in their bodies as a constant, and a rule reading
+    # "the marker never appears below the boundary" fails on both. The
+    # adversarial pass found that on the tree rather than in the abstract.
+    header, body = lines[:start], lines[start:]
+    marker = next(i for i, line in enumerate(lines) if "END KIT PROVENANCE" in line)
+    assert marker < start, (
+        f"{rel}: the marker line sits in the BODY region, so the boundary is "
+        "above it and part of the header is hashed as body"
+    )
+    trailing = [line.strip() for line in header[marker + 1 :]]
+    assert trailing in ([], ["-->"]), (
+        f"{rel}: the header region runs past the marker by more than the HTML "
+        f"comment terminator ({trailing!r}), so a body line is being hashed as "
+        "header"
+    )
+    assert body[0].strip() != "-->", (
+        f"{rel}: the body region starts with the comment terminator, so the "
+        "closing `-->` of the stamp is hashed as body and can be deleted "
+        "without either pin noticing"
+    )
+
+
+def test_an_injected_header_line_fails_the_pin_while_everything_else_passes() -> None:
+    """Mutation proof, on the exact shape this pin exists to catch.
+
+    A vendored file with one extra header line carrying a personal contact
+    address: the body is untouched, so its sha256 still matches; the four
+    field assertions still find the values they read; and ``_header_fields``
+    happily parses the injected line as a key, which is what makes it
+    invisible rather than merely unchecked. Only the header pin refuses it.
+
+    The address is assembled from fragments and never written as a literal,
+    for the reason ``tests/test_house_style.py`` gives about its own guard:
+    this file is tracked and this remote is public, so a test about a leaked
+    address must not carry one.
+    """
+    rel = ".claude/tools/check_incidents.py"
+    original = _read_lf(REPO / rel)
+    lines = original.split("\n")
+    markers = [i for i, line in enumerate(lines) if "END KIT PROVENANCE" in line]
+    assert len(markers) == 1, (
+        f"{rel}: expected exactly one END KIT PROVENANCE line to anchor the "
+        f"injection, found {len(markers)}. An anchor that is not unique makes "
+        "the mutation land somewhere nobody chose."
+    )
+    address = "someone.personal" + chr(64) + "gmail.com"
+    injected = f"# contact: {address}"
+    mutated = "\n".join(lines[: markers[0]] + [injected] + lines[markers[0] :])
+    assert injected in mutated and mutated != original, "the mutation did not apply"
+
+    version, body_hash, note_target = MANIFEST[rel]
+    assert _body_sha256(rel, mutated) == body_hash, (
+        "the injected line changed the BODY, so this case proves nothing about "
+        "the header: it would be caught by the body hash like any other edit"
+    )
+    mutated_lines, mutated_start = _split_at_marker(mutated)
+    fields = _header_fields(mutated_lines, mutated_start)
+    assert fields.get("kit-version") == version
+    assert fields.get("body-sha256") == body_hash
+    assert note_target in fields.get("note", "")
+    canonical = fields.get("canonical-source", "")
+    assert hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16] == CANONICAL_SOURCE[rel]
+    assert fields.get("contact") == address, (
+        "the injected line is not even parsed as a header field, so this "
+        "mutation is not the shape the pin exists to catch"
+    )
+
+    assert _header_sha256(mutated) != HEADER_SHA256[rel], (
+        "the header pin accepts a vendored file carrying an injected contact "
+        "line. Every other assertion in this module passed on it, which is the "
+        "unchecked surface this pin was added for."
     )
 
 

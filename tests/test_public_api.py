@@ -54,6 +54,7 @@ PUBLIC_MODULES = [
     "pyflightstream.qa",
     "pyflightstream.qa.cli",
     "pyflightstream.qa.compat",
+    "pyflightstream.qa.cost",
     "pyflightstream.qa.drift",
     "pyflightstream.qa.errors",
     "pyflightstream.qa.geometry",

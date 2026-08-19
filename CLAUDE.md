@@ -523,6 +523,34 @@ vendored tool published both on the public remote:
   existing: it had existed at the kit since 0.2.5 and this clone was
   what held it up.
 
+  THE SKIP IS REAL AND ITS STATUS IS STILL WRONG, and the two halves are
+  now measured rather than described.
+  `tests/test_snap_skip_status.py` (tier 1, 2026-08-18, OPS-2013.03) runs
+  the vendored script against a sandboxed copy whose two literal trees
+  point into a temporary directory, in a child environment with this
+  variable REMOVED, so it reads nothing of the machine and takes no real
+  snapshot. What it proves green today: an unconfigured tree is really
+  skipped on a machine that has snapshotted before, which is the 0.2.4
+  case above, and `log` refuses one on stderr with a nonzero status. What
+  it carries as a strict expected failure, because the fix is a kit
+  promotion and this body is hash-pinned: `snapshot` converts `ensure()`'s
+  refusal into `return 0` after printing the skip on STDOUT, so
+  `snap.sh shared` exits 0 having taken nothing, and the no-argument run,
+  which is the documented normal usage, exits 0 with the shared ledger
+  never taken. Strict is deliberate: on the day the promoted body is
+  vendored those three turn from expected failures into failures, so the
+  marker cannot outlive the defect quietly.
+
+  WHERE THE VARIABLE IS SET IS NOT ALWAYS THIS REPOSITORY'S BUSINESS, and
+  a clone that checks only one place will report it missing when it is
+  not. `.claude/settings.local.json` is the documented home for all four
+  variables above, but this one is read by a bash script through the
+  ordinary environment, so an operating-system user-scope export
+  satisfies it just as well and leaves that file with no row for it.
+  Check the environment as well as the file before concluding the shared
+  tree is unconfigured, and set it in `.claude/settings.local.json` if
+  neither has it.
+
 Two names collide across the boundary and the collision is deliberate,
 not an oversight. The session root has an `archive/` (the migrated inbox
 history, INB-001 onward) and this repository keeps its own
@@ -570,7 +598,7 @@ per variable and the difference is the trap:
 | `PYFS_PLAN_CHECKER` | skips validation | report, does not block a push | instruction only (the drift test guards the checker body, not this behaviour) |
 | `COORD_INCIDENT_LEDGER` | **blocks a push** | blocks a push | `role_review_gate.py`, tier-1 `test_push_gate.py` |
 | `PYFS_SESSION_ROOT` | stop, configuration error | stop, configuration error | **instruction only, see below** |
-| `COORD_SHARED_LEDGER_TREE` | shared tree skipped | same skip | documented-here only; `tests/test_env_contract.py` enforces that it IS documented, not what it does |
+| `COORD_SHARED_LEDGER_TREE` | shared tree skipped, and the run still exits 0 | same skip, same 0 | `tests/test_snap_skip_status.py` measures the skip and the status against a sandboxed copy of the script; the status half is a strict expected failure until the kit promotion lands. `tests/test_env_contract.py` enforces only that the variable IS documented |
 
 `COORD_INCIDENT_LEDGER` is the only row whose two columns agree, and that
 is the point of it rather than an accident of drafting: it is the one

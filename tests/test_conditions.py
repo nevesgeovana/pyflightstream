@@ -6,17 +6,96 @@ accepted as the evidence of this one. Every test here drives
 ``bind_conditions`` directly, through its ``bindings`` seam where the
 case needs one, so the comparison is exercised rather than a report
 constructor.
+
+THE SECOND THING THIS MODULE GUARDS, and the reproduction of the defect
+that put it here. The 5e-4 tolerances are not engineering judgment: they
+are half a count of the last digit of a THREE-DECIMAL print, so the
+number is only as good as the measurement of that width. Until
+2026-08-18 the claim was written three times, in the ``FIELD_BINDINGS``
+comment, in ``ConditionCheck.tolerance`` and in a test docstring below,
+and cited nothing in any of them::
+
+    >>> from pyflightstream.results.conditions import FIELD_BINDINGS
+    >>> [tolerance for _, _, tolerance, _ in FIELD_BINDINGS]
+    [0.0005, 0.0005, 0.0005]
+
+A reader meeting those numbers could not tell a measurement from a
+solver guarantee from a recollection, which is the first sentence a
+reviewer pulls on. The tests at the end of this module read the citation
+out of the source and open the export it names, so the premise is
+measured on every run rather than remembered.
 """
 
+import re
 from dataclasses import dataclass
+from pathlib import Path
 
 import pytest
 
+from pyflightstream.results import labeled_value
 from pyflightstream.results.conditions import (
     FIELD_BINDINGS,
     ConditionBinding,
+    ConditionCheck,
     bind_conditions,
 )
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+FIXTURES = Path(__file__).parent / "fixtures"
+CONDITIONS_SOURCE = REPO_ROOT / "src" / "pyflightstream" / "results" / "conditions.py"
+
+#: A repository-relative citation of a committed loads export.
+_CITED_EXPORT = re.compile(r"tests/fixtures/([A-Za-z0-9._+-]+\.txt)")
+
+#: Bound report attribute mapped to the label the loads export prints it
+#: under. Kept here rather than imported because the point of these
+#: tests is to read the FILE the citation names, not to trust the parser
+#: to have read it; the labels are the ones ``parse_loads`` uses.
+PRINTED_LABELS = {
+    "angle_of_attack_deg": "Angle of attack (Deg)",
+    "sideslip_deg": "Side-slip angle (Deg)",
+    "freestream_velocity_m_s": "Freestream velocity (m/s)",
+}
+
+
+def _cited_exports(text: str) -> list[str]:
+    """Return the distinct committed exports a block of prose cites."""
+    return sorted(set(_CITED_EXPORT.findall(text)))
+
+
+def _tolerance_premise() -> str:
+    """Return the comment block that declares the tolerances.
+
+    The contiguous run of ``#:`` lines immediately above the
+    ``FIELD_BINDINGS`` assignment, and nothing else. Sliced rather than
+    read from ``__doc__`` because a ``#:`` comment is not carried into
+    the runtime object, and narrowed to that block deliberately: a
+    citation that satisfies this guard from the module docstring would
+    leave the tolerance declaration itself as uncited as it was before,
+    which is the whole defect.
+    """
+    source = CONDITIONS_SOURCE.read_text(encoding="utf-8")
+    head, marker, _ = source.partition("FIELD_BINDINGS:")
+    assert marker, "conditions.py no longer declares FIELD_BINDINGS at module level"
+    block: list[str] = []
+    for line in reversed(head.splitlines()):
+        if not line.startswith("#:"):
+            break
+        block.append(line)
+    assert block, "no #: comment declares where the FIELD_BINDINGS tolerances come from"
+    return "\n".join(reversed(block))
+
+
+def _printed_decimals(token: str) -> int:
+    """Return how many digits a solver-printed fixed-point token shows.
+
+    The export prints a zero integer part as ``.000`` with no leading
+    zero, so the integer half is optional here; a pattern requiring a
+    digit before the point silently skips the side-slip row.
+    """
+    match = re.fullmatch(r"[+-]?\d*\.(\d+)", token.strip())
+    assert match, f"{token!r} is not a fixed-point number this test can measure"
+    return len(match.group(1))
 
 
 @dataclass
@@ -39,10 +118,15 @@ def test_a_matching_point_binds_with_no_mismatch():
 def test_print_rounding_is_inside_the_tolerance_and_a_real_offset_is_not():
     """The tolerance is print resolution, not an allowance for drift.
 
-    Loads spreadsheets print three decimals, so half a count of the last
+    The committed export ``tests/fixtures/loads_steady_26.120.txt``
+    prints these fields with three decimals, so half a count of the last
     digit is the tightest comparison that cannot fire on rounding alone.
     A requested value that differs by MORE than that is a different
-    point, however small the number looks.
+    point, however small the number looks. The width is measured rather
+    than recalled by
+    ``test_the_cited_export_prints_three_decimals_for_every_bound_field``
+    at the end of this module; this docstring was the third uncited copy
+    of the claim and is now the third citation of the same file.
     """
     rounding = bind_conditions({"alpha": 2.0004}, reported=FakeReport(angle_of_attack_deg=2.0))
     assert rounding.mismatch_free, "half a printed count must not be called a mismatch"
@@ -173,3 +257,112 @@ def test_the_records_carry_the_whole_decision():
         "unit": "deg",
         "within": False,
     }
+
+
+# --- The tolerance's premise, cited and then measured ---------------------
+#
+# OPS-2009.01.01. A published precision number stands on a source or it
+# stands on nothing. These four tests hold the citation and the file it
+# names together: the first two check that the two places declaring the
+# tolerance name a committed export and the build it came from, and the
+# third opens that export and measures the width the tolerance is derived
+# from, so the citation cannot rot back into a recollection.
+
+
+def test_the_precision_premise_is_cited_where_the_tolerances_are_declared():
+    """The FIELD_BINDINGS comment names the export and the build.
+
+    Red before OPS-2009.01.01: the comment asserted a three-decimal print
+    width and derived 5e-4 from it while citing nothing at all.
+    """
+    premise = _tolerance_premise()
+    cited = _cited_exports(premise)
+    assert cited == ["loads_steady_26.120.txt"], (
+        "the comment declaring FIELD_BINDINGS must name the committed export "
+        f"its three-decimal width was read from; it cites {cited}"
+    )
+    assert "7012026" in premise, (
+        "the citation must name the build the width was measured on, so a "
+        "reader can tell one measured build from a solver guarantee"
+    )
+
+
+def test_the_tolerance_attribute_carries_the_same_citation():
+    """The docstring a user actually reads carries the source too.
+
+    A reader meets ``ConditionCheck.tolerance`` through ``help()`` and the
+    API pages, never through the module's own comment, so a citation that
+    lives only in the comment is a citation that reader never sees.
+    """
+    doc = ConditionCheck.__doc__ or ""
+    assert _cited_exports(doc) == ["loads_steady_26.120.txt"], (
+        "ConditionCheck's docstring must name the export the tolerance was "
+        f"read from; it cites {_cited_exports(doc)}"
+    )
+    assert "7012026" in doc
+    assert "tolerance :" in doc, "the citation must sit on the tolerance attribute"
+
+
+def test_the_cited_export_prints_three_decimals_for_every_bound_field():
+    """The carrier: open the file the citation names and measure it.
+
+    This is the test the acceptance asks for. If the export stops printing
+    three decimals, or a binding's tolerance stops being half a count of
+    the last printed digit, the derivation is no longer true and this
+    fails rather than the comment quietly becoming wrong.
+    """
+    cited = _cited_exports(_tolerance_premise())
+    assert len(cited) == 1, (
+        f"exactly one committed export must be named as the source of the "
+        f"printed width; the comment cites {cited}"
+    )
+    (name,) = cited
+    export = FIXTURES / name
+    assert export.is_file(), f"the cited export {name} is not committed at {export}"
+    text = export.read_text(encoding="utf-8")
+    assert "7012026" in text, (
+        "the build cited beside the width must be the build this export's own "
+        "footer names, or the citation names a file it did not come from"
+    )
+    for axis, attribute, tolerance, unit in FIELD_BINDINGS:
+        printed = labeled_value(text, PRINTED_LABELS[attribute])
+        decimals = _printed_decimals(printed)
+        assert decimals == 3, (
+            f"{axis} prints {printed!r} ({decimals} decimals) in {name}; the "
+            "tolerance is derived from a three-decimal print"
+        )
+        assert tolerance == pytest.approx(0.5 * 10**-decimals), (
+            f"{axis} carries tolerance {tolerance:g} in {unit}, which is not "
+            f"half a count of the {decimals} decimals {name} prints"
+        )
+
+
+def test_every_bound_attribute_has_a_printed_label_to_measure():
+    """The control for the test above.
+
+    It iterates FIELD_BINDINGS through PRINTED_LABELS, so a row added
+    without a label would raise a KeyError rather than report the gap, and
+    a label map that lost a row would silently measure fewer fields.
+    """
+    bound = {attribute for _, attribute, _, _ in FIELD_BINDINGS}
+    assert bound <= set(PRINTED_LABELS), (
+        f"no printed label for {sorted(bound - set(PRINTED_LABELS))}; the "
+        "precision premise cannot be measured for a field this test cannot find"
+    )
+
+
+def test_the_reproduction_in_this_modules_docstring_still_runs():
+    """The reproduction above is a doctest, and nothing else collects it.
+
+    Sybil runs docstring doctests under ``src/pyflightstream`` only (see
+    the root ``conftest.py``), so an example living in a TEST module's
+    docstring is executed nowhere and rots silently. This runs it, which
+    is what makes the numbers printed in that reproduction a measurement
+    rather than a second uncited recollection of the same three values.
+    """
+    import doctest
+    import sys
+
+    outcome = doctest.testmod(sys.modules[__name__], verbose=False)
+    assert outcome.attempted, "the reproduction disappeared from the module docstring"
+    assert outcome.failed == 0, outcome

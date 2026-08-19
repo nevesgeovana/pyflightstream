@@ -22,7 +22,7 @@ from pyflightstream.fsi.config import (
     BladeProperties,
     FsiConfig,
     PhaseSchedule,
-    config_hash,
+    config_sha256,
     dump_config,
 )
 from pyflightstream.fsi.loads import SectionFamily, SectionFamilyMap
@@ -138,7 +138,7 @@ def test_phase_progression_counters_and_log(tmp_path):
     rows = [line for line in lines if line and not line.startswith("#")][1:]
     assert any("0.3" in line for line in comments)  # validity boundary stated
     assert len(rows) == 11
-    assert all(row.endswith(config_hash(cfg)) for row in rows)
+    assert all(row.endswith(config_sha256(cfg)) for row in rows)
     # State: two completed revolutions, recording bounded to two steps.
     state = load_state(tmp_path / driver.STATE_FILE)
     assert [s.revolution for s in state.revolution_history] == [1, 2]
@@ -421,12 +421,12 @@ def test_the_convergence_log_carries_the_residual_and_its_tolerance(tmp_path):
 def _states_for_stiffness(scale: float):
     from conftest import make_uniform_blade_config
 
-    from pyflightstream.fsi.config import config_hash
+    from pyflightstream.fsi.config import config_sha256
 
     cfg = FsiConfig.model_validate(
         {**make_uniform_blade_config().model_dump(), "stiffness_scale_factor": scale}
     )
-    return cfg, config_hash(cfg)
+    return cfg, config_sha256(cfg)
 
 
 def test_a_state_from_another_physical_configuration_is_refused():
@@ -437,13 +437,13 @@ def test_a_state_from_another_physical_configuration_is_refused():
     changed, changed_hash = _states_for_stiffness(999.0)
     assert original_hash != changed_hash, "the hashes must differ or the test proves nothing"
 
-    state = FsiState(config_hash=original_hash)
+    state = FsiState(config_sha256=original_hash)
     with pytest.raises(ValueError, match="was created under configuration"):
         check_state_matches_config(
             state,
             blade_count=changed.blade_count,
             station_count=len(changed.blade.station_radii_m),
-            config_hash=changed_hash,
+            config_sha256=changed_hash,
         )
 
 
@@ -454,10 +454,10 @@ def test_the_same_configuration_still_resumes():
 
     cfg, digest = _states_for_stiffness(1.0)
     check_state_matches_config(
-        FsiState(config_hash=digest),
+        FsiState(config_sha256=digest),
         blade_count=cfg.blade_count,
         station_count=len(cfg.blade.station_radii_m),
-        config_hash=digest,
+        config_sha256=digest,
     )
 
 
@@ -469,10 +469,10 @@ def test_a_config_change_can_be_carried_across_deliberately():
     _, original_hash = _states_for_stiffness(1.0)
     changed, changed_hash = _states_for_stiffness(999.0)
     check_state_matches_config(
-        FsiState(config_hash=original_hash),
+        FsiState(config_sha256=original_hash),
         blade_count=changed.blade_count,
         station_count=len(changed.blade.station_radii_m),
-        config_hash=changed_hash,
+        config_sha256=changed_hash,
         allow_config_change=True,
     )
 
@@ -484,12 +484,12 @@ def test_a_state_predating_the_field_is_not_treated_as_matching():
 
     cfg, digest = _states_for_stiffness(1.0)
     state = FsiState()
-    assert state.config_hash is None
+    assert state.config_sha256 is None
     check_state_matches_config(
         state,
         blade_count=cfg.blade_count,
         station_count=len(cfg.blade.station_radii_m),
-        config_hash=digest,
+        config_sha256=digest,
     )
 
 
@@ -500,13 +500,13 @@ def test_a_shape_mismatch_still_reports_the_shape_not_the_hash():
     from pyflightstream.fsi.state import FsiState, check_state_matches_config
 
     cfg, digest = _states_for_stiffness(1.0)
-    state = FsiState(config_hash="deadbeefdeadbeef", previous_twist_rad=[[0.0, 0.0]])
+    state = FsiState(config_sha256="deadbeefdeadbeef", previous_twist_rad=[[0.0, 0.0]])
     with pytest.raises(ValueError, match="does not describe the configured blade"):
         check_state_matches_config(
             state,
             blade_count=cfg.blade_count,
             station_count=len(cfg.blade.station_radii_m),
-            config_hash=digest,
+            config_sha256=digest,
         )
 
 

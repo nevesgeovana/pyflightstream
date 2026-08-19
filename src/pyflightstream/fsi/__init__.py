@@ -24,9 +24,9 @@ localized change.
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
-from pyflightstream.fsi.config import FsiConfig, config_hash, load_config
+from pyflightstream.fsi.config import FsiConfig, config_sha256, load_config
 
-__all__ = ["FsiConfig", "StructuralSolver", "config_hash", "load_config"]
+__all__ = ["FsiConfig", "StructuralSolver", "config_sha256", "load_config"]
 
 
 @runtime_checkable

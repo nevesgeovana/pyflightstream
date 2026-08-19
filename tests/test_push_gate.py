@@ -40,13 +40,56 @@ readable and reports clean", and ``hook_env`` supplies one: a stub
 is asked. The suite is hermetic in the sense that matters, which is that
 it never reads the author's real ledger, and it can still express the
 genuinely-absent case by passing ``ledger=UNSET``.
+
+WHY EVERY DENY HERE NAMES ITS SUB-KIND (OPS-2006.08), with the
+reproduction that bought the rule rather than an argument for it.
+
+A deny is not one outcome. The gate emits a bracketed sub-kind because
+the remedies differ: ``[review]`` means run the reviewers, ``[ledger]``
+means repair infrastructure, ``[config]`` means export one variable,
+``[gate]`` means the gate itself crashed and fell closed on an error it
+could not classify. An assertion that only reads ``== "deny"`` cannot
+tell them apart, so the specific protection can be gone while the suite
+stays green on the fail-closed path that replaced it.
+
+Measured, not supposed. A copy of the gate was sabotaged with one
+statement, ``raise RuntimeError`` as the first line of ``main``'s try
+block, so that every recognized push denied through the ``[gate]``
+fail-closed arm and NO check in the file was reached: not the scope
+resolution, not the ledger, not the attestation, not the CI arm. Against
+that mutant, 21 of the 69 cases in the pre-OPS-2006.08 edition of this
+file still passed, and 15 of those 21 are cases that exist to assert a
+refusal (the other 6 assert an allow, read the hook text, or call
+``_strip_heredocs`` directly, and pass honestly). One of the 15 passed
+on a substring collision rather than on a bracketless assertion:
+``test_a_deletion_deny_does_not_prescribe_pushing_the_ref`` looks for
+"author decision" in the reason, and the ``[gate]`` message happens to
+carry the words "an author decision, not a workaround".
+
+So ``judge`` now takes ``kind=`` and asserts it: the reason opens with
+the gate's own prefix, the bracket that FOLLOWS that prefix is read, and
+it must equal ``kind``, and it must not be ``gate`` unless ``[gate]`` is
+what the case is about. Both halves are needed. The positive half
+catches a refusal that moved to another arm; the negative half catches
+the crash-and-fail-closed regression, which no positive assertion about
+a DIFFERENT kind would catch on its own. Equality on the opening bracket
+rather than a substring search, because the collision above is what a
+substring search looks like when it fails.
+
+The taxonomy and both gate constants are READ OUT OF THE GATE BODY
+rather than mirrored here, for the reason ``LEDGER_ENV`` records below:
+a hand-copied literal that stops matching does not fail loudly, it
+quietly stops testing what it names.
 """
 
 from __future__ import annotations
 
+import ast
 import importlib.util
 import json
 import os
+import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -80,19 +123,139 @@ CI_RED = (
 )
 CI_NONE = "[]"
 ATTESTATION = Path(".claude") / ".role_review_attestation.json"
+
+
+def gate_constant(name: str, source: Path | None = None) -> str:
+    """Read a module-level string constant out of the gate body.
+
+    Parameters
+    ----------
+    name : str
+        The constant's name, assigned at module level in the hook.
+    source : Path or None, optional
+        The gate body to read. Defaults to the vendored hook. A test that
+        wants to prove this really reads rather than remembers passes a
+        mutated copy.
+
+    Returns
+    -------
+    str
+        The literal the gate assigns, evaluated with ``ast.literal_eval``
+        so no code from the hook runs.
+
+    Raises
+    ------
+    AssertionError
+        When the assignment is absent, appears more than once, or is not a
+        non-empty string. Loud is the whole point: the failure this
+        replaces was silent.
+
+    Notes
+    -----
+    Reading the file rather than importing it is deliberate. Importing the
+    gate would put ``.claude/hooks`` on ``sys.path`` and execute the whole
+    module for one string; the hook is a hash-pinned vendored row
+    (``tests/test_kit_drift.py``), so the cheapest read that cannot
+    perturb it wins.
+    """
+    lines = source.read_text(encoding="utf-8") if source else HOOK.read_text(encoding="utf-8")
+    assignments = [line for line in lines.splitlines() if line.startswith(f"{name} = ")]
+    assert len(assignments) == 1, (
+        f"expected exactly one module-level `{name} = ...` in {source or HOOK}, "
+        f"found {len(assignments)}. The gate is the authority on this value and "
+        "this file must not fall back to a literal of its own."
+    )
+    value = ast.literal_eval(assignments[0].split("=", 1)[1].strip())
+    assert isinstance(value, str) and value, f"{name} is not a non-empty string: {value!r}"
+    return value
+
+
+def pinned_kinds() -> set[str]:
+    """The deny sub-kinds some case in THIS file names as its expectation.
+
+    Returns
+    -------
+    set of str
+        Every string literal passed as ``kind=`` to ``judge`` or ``decide``,
+        plus the sub-kind of any direct ``assert_kind`` call.
+
+    Notes
+    -----
+    Read with ``ast`` rather than a regular expression because ``attest``
+    also takes a ``kind=`` keyword, in an unrelated vocabulary (which
+    attestation is being written). A text scan would count ``"release"`` as
+    pinned on the strength of an attestation that names it, which is
+    exactly the kind of accidental agreement this file is trying to stop
+    making.
+    """
+    tree = ast.parse(Path(__file__).read_text(encoding="utf-8"))
+    found: set[str] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Name):
+            continue
+        if node.func.id in {"judge", "decide"}:
+            for keyword in node.keywords:
+                if keyword.arg != "kind":
+                    continue
+                if isinstance(keyword.value, ast.Constant) and isinstance(keyword.value.value, str):
+                    found.add(keyword.value.value)
+        elif node.func.id == "assert_kind" and len(node.args) >= 3:
+            third = node.args[2]
+            if isinstance(third, ast.Constant) and isinstance(third.value, str):
+                found.add(third.value)
+    return found
+
+
 # The variable the GATE reads. Renamed from PYFS_INCIDENT_LEDGER when the
 # 0.2.16 body was vendored on 2026-08-02: kit 0.2.8 gave every workspace one
 # name under the author decision LEDGER-ENVVAR. This constant must track the
 # gate body, and until 2026-08-11 it had to be said that the analyst charter
 # was a DIFFERENT artifact on a different kit row still reading the old name.
 # The 0.2.11 charter closed that: nothing in this repository reads
-# PYFS_INCIDENT_LEDGER any more, and CLAUDE.md dropped it. Pointing this at the
-# wrong name still does not fail loudly, it makes `hook_env` stop suppressing
-# the real ledger and the suite silently depends on one author's machine.
-LEDGER_ENV = "COORD_INCIDENT_LEDGER"
+# PYFS_INCIDENT_LEDGER any more, and CLAUDE.md dropped it.
+#
+# It is DERIVED from the gate body rather than mirrored (OPS-2006.08). A
+# hand-written literal here fails in the one direction nothing reports:
+# pointed at a name the gate no longer reads, `hook_env` strips a variable
+# nobody consults, the REAL ledger reaches every hook subprocess, and the
+# suite silently starts depending on one author's machine and on whatever
+# incidents are open on it that morning. Nothing goes red at the rename;
+# the tests keep passing while testing something else.
+LEDGER_ENV = gate_constant("LEDGER_ENV")
+#: The voice every deny opens with. Derived for the same reason: the sub-kind
+#: assertions below are worth nothing if the prefix they anchor on has moved.
+GATE_PREFIX = gate_constant("GATE_PREFIX")
 # Built by concatenation so this file never contains the literal command
 # it tests; the gate scans command text and would flag work on this file.
 PUSH = "git" + " push"
+#: Sub-kinds the gate carries that NO case in this file reaches, each with the
+#: reason it is unreachable from here. Declared rather than omitted, so that a
+#: kind arriving in a future kit body is neither silently uncovered nor
+#: silently declared fine: the partition test at the end of this file fails
+#: on any kind that is in neither set.
+UNREACHED_DENY_KINDS = {
+    # Needs `ci_state.py` to be absent from every path the gate searches,
+    # which would mean deleting half of a vendoring unit this repository
+    # asserts is present (tests/test_kit_drift.py). Reachable a second way,
+    # as the CONFIG state of the interpolated site, which no fake `gh` can
+    # produce either.
+    "ci-config",
+    # Needs the gate's own 50 second CI budget to run out, which no local
+    # fake `gh` can consume. Already named as unreached in the CI section's
+    # own note below.
+    "ci-budget",
+    # The gate's own comment calls this arm UNREACHABLE TODAY and says why:
+    # `_push_scope` resolves the same commit-ish first and refuses with
+    # [scope], so no push arrives at it. Kept there deliberately; declared
+    # here for the same reason rather than quietly excluded.
+    "ci-tag",
+}
+#: The gate spells most sub-kinds out but INTERPOLATES the CI states at one
+#: site, `[ci-{state}]`, so a text scan of the gate body cannot see them. The
+#: states this file reaches are read off `CI_REFUSAL_CASES` near the end
+#: rather than repeated here, which is the same rule as `LEDGER_ENV`: one
+#: home per fact.
+GATE_INTERPOLATED_KIND_SITE = "{GATE_PREFIX} [ci-{"
 
 
 def git(repo: Path, *args: str) -> str:
@@ -162,11 +325,137 @@ def install_gh(repo: Path, payload: str = CI_GREEN, status: int = 0) -> None:
     _fake_gh(repo, payload, status)
 
 
+def run_gate(
+    repo: Path,
+    command: str,
+    ledger: str | object | None = None,
+    gh: tuple[str, int] | None = None,
+    cwd: Path | None = None,
+    hook: Path | None = None,
+) -> subprocess.CompletedProcess[str]:
+    """Invoke one gate body on ``command`` and return the finished process.
+
+    Split out of ``judge`` so the two cases that read something ``judge``
+    discards can share the invocation instead of hand-rolling it: the
+    observability line on stderr, and the mutation companion, which runs a
+    SABOTAGED copy of the gate and must not be routed through the very
+    assertions it exists to falsify.
+
+    Parameters
+    ----------
+    cwd : Path or None, optional
+        The working directory the hook runs in. Defaults to ``repo``. A
+        directory outside any repository is how the ``[repo]`` arm is
+        reached, and a ``git -C`` command is how it is NOT: the gate
+        resolves the ``-C`` target, so such a push is judged on the repo it
+        names and never reaches that arm.
+    hook : Path or None, optional
+        The gate body to run. Defaults to the vendored hook.
+    """
+    payload, status = gh if gh is not None else (CI_GREEN, 0)
+    install_gh(repo, payload, status)
+    env = hook_env(ledger)
+    env["PATH"] = str(repo) + os.pathsep + env.get("PATH", "")
+    return subprocess.run(
+        [sys.executable, str(hook or HOOK)],
+        input=json.dumps({"tool_name": "Bash", "tool_input": {"command": command}}),
+        capture_output=True,
+        text=True,
+        cwd=cwd or repo,
+        env=env,
+    )
+
+
+def outcome(done: subprocess.CompletedProcess[str]) -> tuple[str, str]:
+    """The (decision, reason) a finished hook process reports.
+
+    A silent process is an allow: the gate emits no JSON on the paths that
+    stay out of the way, and on the final all-checks-passed path, which
+    prints to stderr and deliberately does not return an ``allow``
+    permission decision.
+    """
+    if not done.stdout.strip():
+        return "allow", ""
+    out = json.loads(done.stdout)["hookSpecificOutput"]
+    return str(out["permissionDecision"]), str(out.get("permissionDecisionReason", ""))
+
+
+def assert_kind(decision: str, reason: str, kind: str | None, command: str) -> None:
+    """Check that a refusal is the one the caller named, by sub-kind.
+
+    Parameters
+    ----------
+    decision : str
+        The gate's permission decision.
+    reason : str
+        The reason text, whose first line carries the bracketed sub-kind.
+    kind : str or None
+        The sub-kind the case expects, WITHOUT brackets (``"review"``,
+        ``"ledger"``, ``"ci-red"``, ...). ``None`` means the caller is not
+        asserting a refusal at all, and only the fail-closed rule below is
+        applied.
+    command : str
+        Echoed into the failure text, because the parametrized cases differ
+        only by the command they push.
+
+    Notes
+    -----
+    Two rules, and both are needed (OPS-2006.08).
+
+    The POSITIVE rule pins the arm: a refusal that moves from ``[review]``
+    to ``[scope]`` is a different guard with a different remedy, and a
+    bracketless ``== "deny"`` reads them as the same event.
+
+    The NEGATIVE rule is the one the item exists for. ``[gate]`` is the
+    fail-closed arm the hook takes when it raises an exception it cannot
+    classify, so a regression that crashes the gate denies EVERYTHING and
+    every bracketless refusal assertion in this file passes while no check
+    in the hook has run at all. Measured against a one-line sabotage of the
+    gate body: 15 refusal cases stayed green. So ``[gate]`` is refused
+    everywhere except in the one case that is about ``[gate]`` itself.
+
+    Both rules read the sub-kind that OPENS the message and compare it for
+    equality, rather than searching the whole reason for a substring. A
+    substring test would be satisfied by a bracket appearing anywhere in a
+    long remedy paragraph, which is the shape of accidental agreement this
+    file has already been caught making once, on the words "author
+    decision".
+    """
+    if decision != "deny":
+        assert kind is None, (
+            f"expected a [{kind}] refusal for {command!r}, got {decision!r}. "
+            "A case that names a sub-kind is asserting that the gate REFUSES."
+        )
+        return
+    assert reason.startswith(GATE_PREFIX), (
+        f"a refusal of {command!r} does not open with {GATE_PREFIX!r}: {reason!r}"
+    )
+    opener = re.match(r"\[([^\]\s]+)\]", reason[len(GATE_PREFIX) :].lstrip())
+    assert opener, (
+        f"a refusal of {command!r} carries no bracketed sub-kind after the gate "
+        f"prefix, so no case here can say which check refused it: {reason!r}"
+    )
+    fired = opener.group(1)
+    if kind != "gate":
+        assert fired != "gate", (
+            f"{command!r} was refused through the FAIL-CLOSED arm, not by the "
+            "check this case is about. The gate raised before it could classify "
+            f"anything, so nothing here was actually exercised: {reason}"
+        )
+    if kind is not None:
+        assert fired == kind, (
+            f"expected the [{kind}] refusal for {command!r}, got [{fired}]: {reason}"
+        )
+
+
 def judge(
     repo: Path,
     command: str,
     ledger: str | object | None = None,
     gh: tuple[str, int] | None = None,
+    *,
+    cwd: Path | None = None,
+    kind: str | None = None,
 ) -> tuple[str, str]:
     """Run the hook on ``command`` and return (decision, reason).
 
@@ -178,23 +467,13 @@ def judge(
     passing its assertion on a message about something else, and the suite took
     137 seconds talking to a network it has no business needing. Measured on
     2026-08-11, on the run that vendored the 0.2.18 gate.
+
+    ``kind`` names the bracketed sub-kind the case expects, and is checked by
+    ``assert_kind``; ``cwd`` runs the hook somewhere other than ``repo``.
     """
-    payload, status = gh if gh is not None else (CI_GREEN, 0)
-    install_gh(repo, payload, status)
-    env = hook_env(ledger)
-    env["PATH"] = str(repo) + os.pathsep + env.get("PATH", "")
-    done = subprocess.run(
-        [sys.executable, str(HOOK)],
-        input=json.dumps({"tool_name": "Bash", "tool_input": {"command": command}}),
-        capture_output=True,
-        text=True,
-        cwd=repo,
-        env=env,
-    )
-    if not done.stdout.strip():
-        return "allow", ""
-    out = json.loads(done.stdout)["hookSpecificOutput"]
-    return str(out["permissionDecision"]), str(out.get("permissionDecisionReason", ""))
+    decision, reason = outcome(run_gate(repo, command, ledger, gh, cwd=cwd))
+    assert_kind(decision, reason, kind, command)
+    return decision, reason
 
 
 def decide(
@@ -202,9 +481,12 @@ def decide(
     command: str,
     ledger: str | object | None = None,
     gh: tuple[str, int] | None = None,
+    *,
+    cwd: Path | None = None,
+    kind: str | None = None,
 ) -> str:
     """Run the hook on ``command`` and return its permission decision."""
-    return judge(repo, command, ledger, gh)[0]
+    return judge(repo, command, ledger, gh, cwd=cwd, kind=kind)[0]
 
 
 def stub_ledger(folder: Path, exit_code: int, message: str) -> str:
@@ -278,7 +560,7 @@ def repo(tmp_path: Path) -> Path:
 def test_unattested_push_is_denied(repo: Path) -> None:
     """A new commit with no attestation never ships."""
     add_commit(repo, "one")
-    assert decide(repo, f"{PUSH} origin main") == "deny"
+    assert decide(repo, f"{PUSH} origin main", kind="review") == "deny"
 
 
 def test_attested_range_is_allowed(repo: Path) -> None:
@@ -300,7 +582,7 @@ def test_attesting_only_the_tip_is_denied(repo: Path) -> None:
     add_commit(repo, "one")
     tip = add_commit(repo, "two")
     attest(repo, [tip])
-    assert decide(repo, f"{PUSH} origin main") == "deny"
+    assert decide(repo, f"{PUSH} origin main", kind="review") == "deny"
 
 
 @pytest.mark.parametrize("spec", ["v9.9.9", "HEAD:refs/tags/v9.9.9"])
@@ -323,7 +605,7 @@ def test_tag_push_needs_the_release_attestation_when_the_branch_is_pushed(
     git(repo, "tag", "v9.9.9")
     assert git(repo, "rev-list", "HEAD", "--not", "--remotes") == ""
     # Review-attested but not release-attested: the release gate holds.
-    assert decide(repo, f"{PUSH} origin {spec}") == "deny", spec
+    assert decide(repo, f"{PUSH} origin {spec}", kind="release") == "deny", spec
     attest(repo, [head], kind="release")
     assert decide(repo, f"{PUSH} origin {spec}") == "allow", spec
 
@@ -332,7 +614,9 @@ def test_a_configured_but_unreadable_ledger_blocks(repo: Path, tmp_path: Path) -
     """A ledger that cannot be consulted must not read as all clear."""
     head = add_commit(repo, "one")
     attest(repo, [head])
-    assert decide(repo, f"{PUSH} origin main", ledger=str(tmp_path / "nowhere")) == ("deny")
+    assert decide(repo, f"{PUSH} origin main", ledger=str(tmp_path / "nowhere"), kind="ledger") == (
+        "deny"
+    )
 
 
 def test_an_unconfigured_ledger_now_denies(repo: Path) -> None:
@@ -358,7 +642,7 @@ def test_an_unconfigured_ledger_now_denies(repo: Path) -> None:
     """
     head = add_commit(repo, "one")
     attest(repo, [head])
-    decision, reason = judge(repo, f"{PUSH} origin main", ledger=UNSET)
+    decision, reason = judge(repo, f"{PUSH} origin main", ledger=UNSET, kind="config")
     assert decision == "deny"
     assert LEDGER_ENV in reason, reason
 
@@ -369,9 +653,19 @@ def test_a_trailing_command_does_not_defeat_the_gate(repo: Path) -> None:
     ``shlex(posix=False)`` leaves ``push;`` as a single token, and the
     v1 comparison against ``"push"`` missed it. That failed open on the
     most natural way to type a push followed by anything else.
+
+    The sub-kind here is [scope] and NOT [review], which is worth stating
+    because it is not what the name of this case suggests. The gate reads
+    the trailing ``echo`` as a ref, cannot resolve it, and refuses on scope
+    before it ever asks about attestation. That is still the right answer
+    (a push whose refs the gate cannot enumerate is refused), and the
+    property this case is named for holds: the push was RECOGNIZED rather
+    than passed over. Measured, and pinned so a body that started ignoring
+    everything after the separator would show up as a changed sub-kind
+    instead of an unchanged "deny".
     """
     add_commit(repo, "one")
-    assert decide(repo, f"{PUSH} origin main; echo done") == "deny"
+    assert decide(repo, f"{PUSH} origin main; echo done", kind="scope") == "deny"
 
 
 def test_a_quoted_mention_of_the_command_is_not_a_push(repo: Path) -> None:
@@ -450,6 +744,11 @@ def test_an_unterminated_heredoc_opener_does_not_swallow_a_real_push(
         "real push. An empty decision here is the fail-open, not an allow."
     )
     assert reason, f"{label}: denied with no reason text"
+    # The sub-kind is checked SECOND here, and only here, so the fail-open
+    # message above stays the first thing a failure prints: no-decision is
+    # the shape this case was written for, and a caller that reads the
+    # bracket first would report it as a missing [review] instead.
+    assert_kind(decision, reason, "review", command)
 
 
 def test_the_control_for_the_unterminated_opener_cases_denies(repo: Path) -> None:
@@ -460,7 +759,7 @@ def test_the_control_for_the_unterminated_opener_cases_denies(repo: Path) -> Non
     control that was measured alongside the red run.
     """
     add_commit(repo, "one")
-    assert decide(repo, f"{PUSH} origin main") == "deny"
+    assert decide(repo, f"{PUSH} origin main", kind="review") == "deny"
 
 
 def test_a_terminated_heredoc_does_not_hide_a_push_after_it(repo: Path) -> None:
@@ -474,7 +773,7 @@ def test_a_terminated_heredoc_does_not_hide_a_push_after_it(repo: Path) -> None:
     """
     add_commit(repo, "one")
     cmd = f"git commit -F- <<MSG\na message\nMSG\n{PUSH} origin main"
-    assert decide(repo, cmd) == "deny"
+    assert decide(repo, cmd, kind="review") == "deny"
 
 
 def test_a_dash_c_push_from_outside_the_repo_is_recognized(repo: Path, tmp_path: Path) -> None:
@@ -483,21 +782,23 @@ def test_a_dash_c_push_from_outside_the_repo_is_recognized(repo: Path, tmp_path:
     The gate resolves the repository from the -C global option, not only
     from the working directory, so a push issued from elsewhere cannot
     slip past it.
+
+    THE SUB-KIND IS THE ASSERTION HERE, and it is [review] rather than
+    [repo], which is the opposite of what the cwd suggests. That is the
+    whole content of the case: ``_find_git_push`` returns the ``-C``
+    target, the gate resolves the toplevel from THAT and not from its own
+    working directory, so the "no repository resolves" arm is never
+    reached and the push is judged on the repo it named, where one
+    unattested commit is waiting. A case that only asserted "deny" would
+    pass identically if the gate had ignored ``-C`` and refused because it
+    could not find a repository, which is the bug this test is named for
+    read backwards.
     """
     add_commit(repo, "one")
     outside = tmp_path / "outside"
     outside.mkdir()
     cmd = f"git -C {repo.as_posix()} " + "push origin main"
-    done = subprocess.run(
-        [sys.executable, str(HOOK)],
-        input=json.dumps({"tool_name": "Bash", "tool_input": {"command": cmd}}),
-        capture_output=True,
-        text=True,
-        cwd=outside,
-        env=hook_env(),
-    )
-    out = json.loads(done.stdout)["hookSpecificOutput"]
-    assert out["permissionDecision"] == "deny"
+    assert decide(repo, cmd, cwd=outside, kind="review") == "deny"
 
 
 def test_an_unbalanced_quote_naming_git_and_push_fails_closed(repo: Path) -> None:
@@ -509,7 +810,10 @@ def test_an_unbalanced_quote_naming_git_and_push_fails_closed(repo: Path) -> Non
     """
     add_commit(repo, "one")
     cmd = "git " + 'push origin "main'  # unterminated quote
-    assert decide(repo, cmd) == "deny"
+    # [review], not [scope]: the raw-text fallback recognizes the push but
+    # hands the scope resolver no parsed refs, so the gate scopes HEAD and
+    # refuses on the unattested commit. Measured, not assumed.
+    assert decide(repo, cmd, kind="review") == "deny"
 
 
 def test_a_named_branch_is_scoped_by_that_branch_not_by_head(repo: Path) -> None:
@@ -526,8 +830,8 @@ def test_a_named_branch_is_scoped_by_that_branch_not_by_head(repo: Path) -> None
     git(repo, "checkout", "-q", "main")
     attest(repo, [head])
     assert git(repo, "rev-parse", "HEAD") == head
-    assert decide(repo, f"{PUSH} origin side") == "deny"
-    assert decide(repo, f"{PUSH} origin side:main") == "deny"
+    assert decide(repo, f"{PUSH} origin side", kind="review") == "deny"
+    assert decide(repo, f"{PUSH} origin side:main", kind="review") == "deny"
 
 
 def test_a_push_the_gate_cannot_scope_is_denied(repo: Path) -> None:
@@ -543,7 +847,7 @@ def test_a_push_the_gate_cannot_scope_is_denied(repo: Path) -> None:
     attest(repo, [head])
     attest(repo, [head], kind="release")
     for form in ("--all", "--mirror", "--tags", "--follow-tags"):
-        decision, reason = judge(repo, f"{PUSH} {form} origin")
+        decision, reason = judge(repo, f"{PUSH} {form} origin", kind="scope")
         assert decision == "deny", form
         assert "cannot determine" in reason, form
 
@@ -557,9 +861,8 @@ def test_a_deletion_refspec_is_denied(repo: Path) -> None:
     """
     head = add_commit(repo, "one")
     attest(repo, [head])
-    decision, reason = judge(repo, f"{PUSH} origin :main")
+    decision, reason = judge(repo, f"{PUSH} origin :main", kind="policy")
     assert decision == "deny"
-    assert "role-review gate: [policy]" in reason
     assert "deletes a published remote ref" in reason
     assert "guesses at its own scope" not in reason
 
@@ -573,12 +876,12 @@ def test_an_open_blocking_incident_denies(repo: Path, tmp_path: Path) -> None:
     head = add_commit(repo, "one")
     attest(repo, [head])
     ledger = stub_ledger(tmp_path / "ledger", 1, "INC-1 open and blocking for")
-    decision, reason = judge(repo, f"{PUSH} origin main", ledger=ledger)
-    assert decision == "deny"
     # v0.2.0 folded the three divergent prefixes ("INCIDENT GATE:",
     # "RELEASE GATE:", "ROLE-REVIEW GATE:") into one "role-review gate:"
-    # voice with a bracketed sub-kind.
-    assert "role-review gate: [incident]" in reason
+    # voice with a bracketed sub-kind, which `kind=` now pins from the
+    # gate's own constant rather than from a literal written out here.
+    decision, reason = judge(repo, f"{PUSH} origin main", ledger=ledger, kind="incident")
+    assert decision == "deny"
     assert "INC-1 open and blocking for" in reason
     # The two failure classes have opposite remedies and must not share
     # a message: this one is a real incident, not an unreadable ledger.
@@ -607,7 +910,7 @@ def test_the_incident_query_uses_the_project_name(repo: Path, tmp_path: Path) ->
     git(repo, "commit", "-q", "-m", "pyproject")
     attest(repo, _pushed(repo))
     ledger = stub_ledger(tmp_path / "ledger", 1, "queried")
-    decision, reason = judge(repo, f"{PUSH} origin main", ledger=ledger)
+    decision, reason = judge(repo, f"{PUSH} origin main", ledger=ledger, kind="incident")
     assert decision == "deny"
     assert "queried pyflightstream" in reason, reason
 
@@ -620,9 +923,8 @@ def test_the_deny_names_the_range_to_review(repo: Path) -> None:
     """
     add_commit(repo, "one")
     tip = add_commit(repo, "two")
-    decision, reason = judge(repo, f"{PUSH} origin main")
+    decision, reason = judge(repo, f"{PUSH} origin main", kind="review")
     assert decision == "deny"
-    assert "role-review gate: [review]" in reason
     assert f"{tip} --not --remotes" in reason, reason
 
 
@@ -676,7 +978,7 @@ def test_an_abbreviated_blanket_option_is_still_refused(repo: Path, form: str) -
     head = add_commit(repo, "one")
     attest(repo, [head])
     attest(repo, [head], kind="release")
-    decision, reason = judge(repo, f"{PUSH} {form} origin main")
+    decision, reason = judge(repo, f"{PUSH} {form} origin main", kind="scope")
     assert decision == "deny", form
     assert "cannot determine" in reason, form
 
@@ -711,7 +1013,7 @@ def test_a_tag_written_as_a_refspec_is_still_release_grade(repo: Path, spec: str
     head = add_commit(repo, "one")
     attest(repo, [head])
     git(repo, "tag", "v9.9.9")
-    assert decide(repo, f"{PUSH} origin {spec}") == "deny", spec
+    assert decide(repo, f"{PUSH} origin {spec}", kind="release") == "deny", spec
     attest(repo, [head], kind="release")
     assert decide(repo, f"{PUSH} origin {spec}") == "allow", spec
 
@@ -727,12 +1029,12 @@ def test_a_configured_push_refspec_makes_a_bare_push_unscopable(repo: Path) -> N
     attest(repo, [head])
     assert decide(repo, f"{PUSH} origin") == "allow"
     git(repo, "config", "push.default", "matching")
-    decision, reason = judge(repo, f"{PUSH} origin")
+    decision, reason = judge(repo, f"{PUSH} origin", kind="scope")
     assert decision == "deny"
     assert "cannot determine" in reason
     git(repo, "config", "push.default", "simple")
     git(repo, "config", "remote.origin.push", "refs/heads/*:refs/heads/*")
-    assert decide(repo, f"{PUSH} origin") == "deny"
+    assert decide(repo, f"{PUSH} origin", kind="scope") == "deny"
 
 
 def test_a_multi_ref_push_scopes_every_ref(repo: Path) -> None:
@@ -743,7 +1045,7 @@ def test_a_multi_ref_push_scopes_every_ref(repo: Path) -> None:
     unattested = add_commit(repo, "unreviewed")
     git(repo, "checkout", "-q", "main")
     attest(repo, [head])
-    decision, reason = judge(repo, f"{PUSH} origin main side")
+    decision, reason = judge(repo, f"{PUSH} origin main side", kind="review")
     assert decision == "deny"
     assert unattested[:12] in reason
 
@@ -753,10 +1055,17 @@ def test_a_deletion_deny_does_not_prescribe_pushing_the_ref(repo: Path) -> None:
 
     Telling a user who wants to remove a remote ref to push one by name
     is unactionable, and every unscopable case shared that one sentence.
+
+    ``kind="policy"`` is load-bearing rather than decorative here, and this
+    case is the reason the negative half of ``assert_kind`` exists. Under a
+    sabotaged gate that denied everything through the fail-closed arm, this
+    test still PASSED: the ``[gate]`` message ends "turning the gate off to
+    ship is an author decision, not a workaround", so its one substring
+    assertion matched a message about something else entirely.
     """
     head = add_commit(repo, "one")
     attest(repo, [head])
-    _, reason = judge(repo, f"{PUSH} origin :main")
+    _, reason = judge(repo, f"{PUSH} origin :main", kind="policy")
     assert "author decision" in reason
     assert "Push the branch or tag by name" not in reason
 
@@ -768,7 +1077,7 @@ def test_the_deny_range_command_is_one_git_can_run(repo: Path) -> None:
     a range reconstructed from list positions.
     """
     add_commit(repo, "one")
-    _, reason = judge(repo, f"{PUSH} origin main")
+    _, reason = judge(repo, f"{PUSH} origin main", kind="review")
     assert "--not --remotes" in reason
     assert "^.." not in reason
 
@@ -778,7 +1087,7 @@ def test_an_unreadable_incident_file_gets_the_repair_remedy(repo: Path, tmp_path
     head = add_commit(repo, "one")
     attest(repo, [head])
     ledger = stub_ledger(tmp_path / "ledger", 1, "UNREADABLE header in INC-2 for")
-    decision, reason = judge(repo, f"{PUSH} origin main", ledger=ledger)
+    decision, reason = judge(repo, f"{PUSH} origin main", ledger=ledger, kind="ledger")
     assert decision == "deny"
     assert "could not be consulted" in reason
     assert "incident-analyst" not in reason
@@ -795,7 +1104,7 @@ def test_the_identity_ignores_other_tables_and_inline_comments(repo: Path, tmp_p
     git(repo, "commit", "-q", "-m", "pyproject")
     attest(repo, [*_pushed(repo), head])
     ledger = stub_ledger(tmp_path / "ledger", 1, "queried")
-    _, reason = judge(repo, f"{PUSH} origin main", ledger=ledger)
+    _, reason = judge(repo, f"{PUSH} origin main", ledger=ledger, kind="incident")
     assert "queried pyflightstream\n" in reason or "queried pyflightstream " in reason, reason
 
 
@@ -812,7 +1121,7 @@ def test_a_bare_push_resolves_the_remote_it_would_actually_use(repo: Path) -> No
     git(repo, "remote", "add", "upstream", str(repo.parent / "remote.git"))
     git(repo, "config", "branch.main.remote", "upstream")
     git(repo, "config", "remote.upstream.push", "refs/heads/*:refs/heads/*")
-    decision, reason = judge(repo, PUSH)
+    decision, reason = judge(repo, PUSH, kind="scope")
     assert decision == "deny"
     assert "cannot determine" in reason
 
@@ -826,7 +1135,7 @@ def test_the_review_deny_tells_a_non_head_push_to_pass_the_ref(repo: Path) -> No
     deny.
     """
     add_commit(repo, "one")
-    _, reason = judge(repo, f"{PUSH} origin main")
+    _, reason = judge(repo, f"{PUSH} origin main", kind="review")
     assert "write_attestation.py review" in reason
     assert "stamps HEAD by default" in reason
 
@@ -839,7 +1148,7 @@ def test_the_deny_range_covers_every_ref_it_refused(repo: Path) -> None:
     add_commit(repo, "unreviewed")
     git(repo, "checkout", "-q", "main")
     attest(repo, [head])
-    _, reason = judge(repo, f"{PUSH} origin main side")
+    _, reason = judge(repo, f"{PUSH} origin main side", kind="review")
     side = git(repo, "rev-parse", "side")
     assert side in reason
 
@@ -856,7 +1165,7 @@ def test_the_review_deny_names_the_ref_that_is_behind_head(repo: Path) -> None:
     add_commit(repo, "two")
     assert git(repo, "rev-parse", "v0.1.0") == behind
     assert git(repo, "rev-parse", "HEAD") != behind
-    _, reason = judge(repo, f"{PUSH} origin v0.1.0")
+    _, reason = judge(repo, f"{PUSH} origin v0.1.0", kind="review")
     assert "write_attestation.py review" in reason
     # Naming HEAD here is the loop: the writer would stamp HEAD, which
     # does not cover the tag, and the same denial repeats.
@@ -881,7 +1190,7 @@ def test_bare_force_is_denied_as_author_only(repo: Path, force: str) -> None:
     """
     head = add_commit(repo, "one")
     attest(repo, [head])
-    decision, reason = judge(repo, f"{PUSH} {force} origin main")
+    decision, reason = judge(repo, f"{PUSH} {force} origin main", kind="policy")
     assert decision == "deny", force
     assert "rewrites published history" in reason, reason
     assert "--force-with-lease" in reason, reason
@@ -907,7 +1216,7 @@ def test_a_shell_wrapped_push_is_detected(repo: Path) -> None:
     inner command.
     """
     add_commit(repo, "one")
-    assert decide(repo, f'bash -c "{PUSH} origin main"') == "deny"
+    assert decide(repo, f'bash -c "{PUSH} origin main"', kind="review") == "deny"
 
 
 def test_a_nested_shell_wrapped_push_is_detected(repo: Path) -> None:
@@ -916,7 +1225,7 @@ def test_a_nested_shell_wrapped_push_is_detected(repo: Path) -> None:
     """
     add_commit(repo, "one")
     cmd = 'bash -c "bash -c ' + "'" + f"{PUSH} origin main" + "'" + '"'
-    assert decide(repo, cmd) == "deny"
+    assert decide(repo, cmd, kind="review") == "deny"
 
 
 def test_the_heredoc_stripper_removes_the_body() -> None:
@@ -965,7 +1274,7 @@ def test_a_commit_only_on_another_remote_is_still_in_scope_for_origin(
     git(repo, "fetch", "-q", "other")
     # Attest only the tip; the ancestor is covered by no attestation.
     attest(repo, [tip])
-    decision, reason = judge(repo, f"{PUSH} origin main")
+    decision, reason = judge(repo, f"{PUSH} origin main", kind="review")
     assert decision == "deny"
     assert ancestor[:12] in reason, (
         "an ancestor present only on another remote must count as in-scope for a push to origin"
@@ -984,10 +1293,9 @@ def test_a_multi_tag_release_deny_names_every_tag(repo: Path) -> None:
     attest(repo, [head])  # review only, no release attestation
     git(repo, "tag", "v9.9.8")
     git(repo, "tag", "v9.9.9")
-    decision, reason = judge(repo, f"{PUSH} origin v9.9.8 v9.9.9")
+    decision, reason = judge(repo, f"{PUSH} origin v9.9.8 v9.9.9", kind="release")
     assert decision == "deny"
     assert "v9.9.8" in reason and "v9.9.9" in reason, reason
-    assert "role-review gate: [release]" in reason
 
 
 def test_the_final_allow_writes_one_observability_line(repo: Path) -> None:
@@ -999,16 +1307,11 @@ def test_the_final_allow_writes_one_observability_line(repo: Path) -> None:
     """
     head = add_commit(repo, "one")
     attest(repo, [head])
-    done = subprocess.run(
-        [sys.executable, str(HOOK)],
-        input=json.dumps({"tool_name": "Bash", "tool_input": {"command": f"{PUSH} origin main"}}),
-        capture_output=True,
-        text=True,
-        cwd=repo,
-        env=hook_env(),
-    )
+    # One of the two cases that stays off `judge`: it reads the stderr line
+    # and the empty stdout, both of which `judge` discards.
+    done = run_gate(repo, f"{PUSH} origin main")
     assert done.stdout.strip() == "", "the final allow must stay a silent permission outcome"
-    assert "role-review gate: evaluated and ALLOWED" in done.stderr, done.stderr
+    assert f"{GATE_PREFIX} evaluated and ALLOWED" in done.stderr, done.stderr
 
 
 def test_the_deny_bracket_taxonomy_matches_the_remedy_class(repo: Path, tmp_path: Path) -> None:
@@ -1020,35 +1323,29 @@ def test_the_deny_bracket_taxonomy_matches_the_remedy_class(repo: Path, tmp_path
     [scope]. A misconfigured/unreadable ledger is [ledger] (fix config/infra),
     distinct from a real open incident's [incident] (run the analyst). No
     allow/deny decision changed; only the message taxonomy.
+
+    Since OPS-2006.08 this is no longer the only case that reads a bracket:
+    every refusal in the file now names its own. What survives here, and is
+    why it is not folded away, is that the remedy classes are asserted
+    DISTINCT from ONE repository state, so a body that collapsed two of them
+    into a single message fails here even though each individual case would
+    still find its own substring somewhere.
     """
     head = add_commit(repo, "one")
     attest(repo, [head])
 
-    _, force = judge(repo, f"{PUSH} --force origin main")
-    assert "role-review gate: [policy]" in force
+    judge(repo, f"{PUSH} --force origin main", kind="policy")
+    judge(repo, f"{PUSH} origin :main", kind="policy")
+    judge(repo, f"{PUSH} --frobnicate origin main", kind="scope")
+    judge(repo, f"{PUSH} origin main", ledger=str(tmp_path / "nowhere"), kind="ledger")
 
-    _, deletion = judge(repo, f"{PUSH} origin :main")
-    assert "role-review gate: [policy]" in deletion
-
-    _, unknown = judge(repo, f"{PUSH} --frobnicate origin main")
-    assert "role-review gate: [scope]" in unknown
-
-    _, ledger = judge(repo, f"{PUSH} origin main", ledger=str(tmp_path / "nowhere"))
-    assert "role-review gate: [ledger]" in ledger
-
-    # A non-repo working directory: the "looks like a push but no repo" stop.
+    # A non-repo working directory: the "looks like a push but no repo" stop,
+    # and the ONE case in this file that reaches [repo]. The `git -C` case
+    # earlier does NOT, which is measured rather than assumed: the gate
+    # resolves the -C target and judges the repository that path names.
     outside = tmp_path / "outside"
     outside.mkdir()
-    done = subprocess.run(
-        [sys.executable, str(HOOK)],
-        input=json.dumps({"tool_name": "Bash", "tool_input": {"command": f"{PUSH} origin main"}}),
-        capture_output=True,
-        text=True,
-        cwd=outside,
-        env=hook_env(),
-    )
-    repo_deny = json.loads(done.stdout)["hookSpecificOutput"]["permissionDecisionReason"]
-    assert "role-review gate: [repo]" in repo_deny
+    judge(repo, f"{PUSH} origin main", cwd=outside, kind="repo")
 
 
 # ---------------------------------------------------------------------------
@@ -1077,17 +1374,22 @@ def _release_ready(repo: Path) -> str:
     return head
 
 
-@pytest.mark.parametrize(
-    ("label", "payload", "status", "bracket"),
-    [
-        ("CI still running", CI_RUNNING, 0, "[ci-running]"),
-        ("CI failed", CI_RED, 0, "[ci-red]"),
-        ("no run at all for the sha", CI_NONE, 0, "[ci-unknown]"),
-        ("gh itself failing", "HTTP 401: Bad credentials", 1, "[ci-unknown]"),
-    ],
-)
+#: The CI refusals, as a named table rather than an inline list, because the
+#: taxonomy-coverage test at the end of this file reads the sub-kinds off it.
+#: The gate interpolates these three into `[ci-<state>]` at a single site, so
+#: a scan of the gate body cannot enumerate them and this table is the only
+#: place that knows which ones a case here actually drives.
+CI_REFUSAL_CASES = [
+    ("CI still running", CI_RUNNING, 0, "ci-running"),
+    ("CI failed", CI_RED, 0, "ci-red"),
+    ("no run at all for the sha", CI_NONE, 0, "ci-unknown"),
+    ("gh itself failing", "HTTP 401: Bad credentials", 1, "ci-unknown"),
+]
+
+
+@pytest.mark.parametrize(("label", "payload", "status", "kind"), CI_REFUSAL_CASES)
 def test_a_release_grade_push_is_refused_unless_ci_concluded_successfully(
-    repo: Path, label: str, payload: str, status: int, bracket: str
+    repo: Path, label: str, payload: str, status: int, kind: str
 ) -> None:
     """Unconcluded, red, absent and unreadable CI all DENY a version tag.
 
@@ -1100,9 +1402,8 @@ def test_a_release_grade_push_is_refused_unless_ci_concluded_successfully(
     guard that reads its own missing information as permission is not a guard.
     """
     _release_ready(repo)
-    decision, reason = judge(repo, f"{PUSH} origin v9.9.9", gh=(payload, status))
+    decision, reason = judge(repo, f"{PUSH} origin v9.9.9", gh=(payload, status), kind=kind)
     assert decision == "deny", f"{label}: {reason}"
-    assert bracket in reason, f"{label}: {reason}"
     assert "v9.9.9" in reason, reason
 
 
@@ -1164,3 +1465,234 @@ def test_the_configured_hook_timeout_exceeds_the_gates_own_ci_budget() -> None:
             "timeout. If the harness kills it first there is no deny, only "
             "silence, and silence is permission."
         )
+
+
+# ---------------------------------------------------------------------------
+# OPS-2006.08. The two soft spots: a refusal that says only "deny", and a
+# hand-mirrored environment variable name.
+#
+# Everything above now names its sub-kind. These cases guard the mechanism
+# that makes those names worth anything: that the fail-closed arm exists and
+# is distinguishable, that the assertions actually catch a gate which took
+# it, that no sub-kind the gate can emit is left unpinned by accident, and
+# that the ledger variable is READ from the gate rather than remembered.
+# ---------------------------------------------------------------------------
+
+
+def test_the_fail_closed_arm_is_reachable_and_names_itself(repo: Path) -> None:
+    """[gate] is a real outcome, so refusing it everywhere else means something.
+
+    The negative half of ``assert_kind`` says no case may be refused through
+    ``[gate]``. That rule is worth nothing if ``[gate]`` were unreachable:
+    an assertion no input can violate proves nothing about any input.
+
+    Reached WITHOUT touching the hook, which is a hash-pinned vendored row
+    (``tests/test_kit_drift.py``). ``_repo_identity`` reads pyproject.toml
+    with ``encoding="utf-8"`` and catches only ``OSError``, so a pyproject
+    holding bytes that are not UTF-8 raises ``UnicodeDecodeError`` out of
+    it, into ``main``'s blanket ``except Exception``, which is the
+    fail-closed arm. That is also a real failure mode rather than a
+    contrivance: a file mangled by an editor writing another codepage.
+
+    The control matters as much as the case. The same push ALLOWS one line
+    earlier, so the refusal is attributable to the crash and to nothing
+    else, and the sabotage cannot be mistaken for the ordinary review stop.
+    """
+    head = add_commit(repo, "one")
+    attest(repo, [head])
+    assert decide(repo, f"{PUSH} origin main") == "allow"
+
+    (repo / "pyproject.toml").write_bytes(b'[project]\nname = "\xff\xfe not utf 8"\n')
+    decision, reason = judge(repo, f"{PUSH} origin main", kind="gate")
+    assert decision == "deny"
+    assert "UnicodeDecodeError" in reason, reason
+    # The remedy class is its own: the gate says it could not evaluate, and
+    # does not tell the reader to go and review anything.
+    assert "could not be evaluated" in reason, reason
+    assert "[review]" not in reason, reason
+
+
+def _sabotaged_gate(tmp_path: Path) -> Path:
+    """A copy of the gate that crashes before it classifies anything.
+
+    The mutation is one statement at the top of ``main``'s try block, so
+    every recognized push is refused through the fail-closed arm and NO
+    check in the body runs: not the scope resolution, not the ledger, not
+    the attestation, not the CI arm. It is the shape of the regression this
+    item exists for, applied deliberately.
+
+    The anchor is asserted PRESENT and UNIQUE before it is applied. A
+    mutation battery whose anchor silently missed reports the original body
+    as surviving, which reads as evidence and is its absence.
+
+    The whole hooks directory is copied rather than the one file, so a
+    sibling the gate looks for is where it expects it; the vendored
+    original is never written to.
+    """
+    hooks = tmp_path / "sabotaged-hooks"
+    shutil.copytree(HOOK.parent, hooks, ignore=shutil.ignore_patterns("__pycache__"))
+    mutant = hooks / HOOK.name
+    text = mutant.read_text(encoding="utf-8")
+    anchor = "    try:\n        base = Path(git_c_path) if git_c_path else Path.cwd()\n"
+    assert text.count(anchor) == 1, (
+        f"the sabotage anchor occurs {text.count(anchor)} times in {mutant}; a "
+        "battery that cannot find its anchor proves nothing about the body it "
+        "did not change"
+    )
+    crash = '        raise RuntimeError("sabotage: the deny classifier is gone")\n'
+    mutant.write_text(
+        text.replace(anchor, "    try:\n" + crash + anchor[len("    try:\n") :]),
+        encoding="utf-8",
+    )
+    assert mutant.read_text(encoding="utf-8") != text
+    return mutant
+
+
+def test_a_gate_that_crashes_is_caught_by_the_sub_kind_assertions(
+    repo: Path, tmp_path: Path
+) -> None:
+    """The mutation companion for OPS-2006.08, and its whole justification.
+
+    A guard is not proven by a suite that passes. This one is proven by
+    restoring the defect it was written against and watching it deny.
+
+    Measured against the sabotaged body on 2026-08-18, before this item:
+    21 of the file's 69 cases still passed, 15 of them cases whose entire
+    subject is that the gate REFUSES something. They passed because
+    ``== "deny"`` is true of a gate that refuses everything for the wrong
+    reason, including a gate that ran no check at all.
+
+    Both halves of ``assert_kind`` are exercised here, and the second is
+    the one that generalizes: a caller naming NO kind is still protected,
+    because ``[gate]`` is refused for every kind but ``"gate"``. That is
+    what makes the rule hold across the whole file rather than only where
+    someone remembered to name an expectation.
+    """
+    add_commit(repo, "one")
+    mutant = _sabotaged_gate(tmp_path)
+    decision, reason = outcome(run_gate(repo, f"{PUSH} origin main", hook=mutant))
+
+    # What the file used to assert, and what it still reports under sabotage.
+    assert decision == "deny"
+    assert "sabotage: the deny classifier is gone" in reason, reason
+
+    # What the file asserts now. Named kind: caught.
+    with pytest.raises(AssertionError, match="FAIL-CLOSED"):
+        assert_kind(decision, reason, "review", f"{PUSH} origin main")
+    # Unnamed kind: caught as well, so every judge call in this file is
+    # covered and not only the ones that name an expectation.
+    with pytest.raises(AssertionError, match="FAIL-CLOSED"):
+        assert_kind(decision, reason, None, f"{PUSH} origin main")
+    # And the case that is genuinely about the fail-closed arm still passes,
+    # so the rule refuses a misrouted refusal rather than the arm itself.
+    assert_kind(decision, reason, "gate", f"{PUSH} origin main")
+
+
+def test_every_deny_sub_kind_the_gate_can_emit_is_pinned_or_declared_unreached() -> None:
+    """No sub-kind arrives in a future kit body unnoticed.
+
+    The gate is vendored and re-vendored; a new refusal arm arrives with a
+    new bracket and nothing here would ask for a case covering it. So the
+    kinds are read off the gate body and partitioned: either some case in
+    this file names one, or ``UNREACHED_DENY_KINDS`` declares it
+    unreachable from here WITH the reason. A kind in neither set fails,
+    which is a request for one of the two rather than a defect claim.
+
+    Written as a partition rather than a subset check on purpose. A subset
+    check would also pass if this file stopped pinning half of them.
+    """
+    # Deliberately NOT restricted to lowercase words: a scan that only knows
+    # today's spelling would step over a new kind spelled any other way and
+    # report a complete partition, which is this test's own failure mode.
+    written = re.findall(r"\{GATE_PREFIX\} \[([^\]\n]+)\]", HOOK.read_text(encoding="utf-8"))
+    kinds_in_gate = {kind for kind in written if "{" not in kind}
+    assert len(kinds_in_gate) > 5, kinds_in_gate
+    # The sites the scan cannot resolve, because the gate builds the bracket
+    # from a variable. Asserted to be exactly one, and to be the CI one:
+    # a second would hide a whole family of sub-kinds from this partition.
+    interpolated = [kind for kind in written if "{" in kind]
+    assert len(interpolated) == 1 and interpolated[0].startswith("ci-"), (
+        f"interpolated sub-kind sites in the gate: {interpolated}. This test can "
+        "only account for the CI one it knows about"
+    )
+    assert GATE_INTERPOLATED_KIND_SITE in HOOK.read_text(encoding="utf-8")
+    pinned = pinned_kinds() | {case[3] for case in CI_REFUSAL_CASES}
+    emitted = kinds_in_gate | {case[3] for case in CI_REFUSAL_CASES}
+    unaccounted = emitted - pinned - UNREACHED_DENY_KINDS
+    assert not unaccounted, (
+        f"the gate can refuse with {sorted(unaccounted)} and nothing in this file "
+        "pins it. Add a case that drives the arm, or declare it in "
+        "UNREACHED_DENY_KINDS with the reason it cannot be reached from here."
+    )
+    stale = UNREACHED_DENY_KINDS - emitted
+    assert not stale, (
+        f"{sorted(stale)} is declared unreachable but the gate no longer emits it "
+        "at all; delete the declaration rather than carrying it"
+    )
+    covered = UNREACHED_DENY_KINDS & pinned
+    assert not covered, (
+        f"{sorted(covered)} is declared unreachable and a case reaches it; the "
+        "declaration is false and would excuse a real gap next to it"
+    )
+
+
+def test_the_ledger_variable_name_is_read_from_the_gate_and_not_remembered(
+    tmp_path: Path,
+) -> None:
+    """The second soft spot, and the one that fails silently in both directions.
+
+    ``hook_env`` strips this variable to keep the suite off the author's
+    real ledger. Mirrored by hand, a rename in the gate leaves this file
+    stripping a name nobody reads: the real ledger reaches every hook
+    subprocess, and the suite starts passing or failing on whichever
+    incidents are open on one machine that morning. Nothing goes red at the
+    rename, which is what makes it worth a guard.
+
+    The derivation is proven by MUTATION rather than by agreement: this
+    reads a renamed copy and must report the new name. Comparing the
+    derived value against a literal here would only prove that two copies
+    of today's name agree, which is the property that was already true.
+    """
+    assert LEDGER_ENV == gate_constant("LEDGER_ENV")
+    body = HOOK.read_text(encoding="utf-8")
+    # The gate must actually CONSULT the variable it names, or the rest of
+    # this is agreement about an unused string.
+    assert "os.environ.get(LEDGER_ENV" in body
+
+    renamed = tmp_path / HOOK.name
+    anchor = f'LEDGER_ENV = "{LEDGER_ENV}"\n'
+    assert body.count(anchor) == 1, f"{body.count(anchor)} assignments of LEDGER_ENV"
+    renamed.write_text(
+        body.replace(anchor, 'LEDGER_ENV = "COORD_LEDGER_RENAMED_FOR_THIS_TEST"\n'),
+        encoding="utf-8",
+    )
+    assert gate_constant("LEDGER_ENV", renamed) == "COORD_LEDGER_RENAMED_FOR_THIS_TEST", (
+        "the ledger variable name is not being read from the gate body: a rename "
+        "there would leave this file stripping a variable nothing reads"
+    )
+    assert GATE_PREFIX == gate_constant("GATE_PREFIX")
+    assert gate_constant("GATE_PREFIX", renamed) == GATE_PREFIX, (
+        "reading a mutated copy must change only what was mutated"
+    )
+
+
+def test_a_gate_constant_that_is_absent_or_doubled_fails_loudly(tmp_path: Path) -> None:
+    """The reader refuses rather than falling back to a literal.
+
+    A derivation that quietly returned a default on a missing assignment
+    would reintroduce the mirrored constant with an extra step, and it
+    would do it invisibly.
+    """
+    body = HOOK.read_text(encoding="utf-8")
+    folder = tmp_path
+    anchor = f'LEDGER_ENV = "{LEDGER_ENV}"\n'
+
+    missing = folder / "missing.py"
+    missing.write_text(body.replace(anchor, "", 1), encoding="utf-8")
+    with pytest.raises(AssertionError, match="exactly one"):
+        gate_constant("LEDGER_ENV", missing)
+
+    doubled = folder / "doubled.py"
+    doubled.write_text(body.replace(anchor, anchor + anchor, 1), encoding="utf-8")
+    with pytest.raises(AssertionError, match="exactly one"):
+        gate_constant("LEDGER_ENV", doubled)

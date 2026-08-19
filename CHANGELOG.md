@@ -36,6 +36,32 @@ matrix could not have discriminated.
 
 ### API surface delta
 
+`pyflightstream.fsi.config_hash` is RENAMED `config_sha256`, and so are its
+two package exports, the `FsiState.config_sha256` field and the
+`check_state_matches_config(config_sha256=...)` keyword (OPS-2009.01.14).
+The name now states the algorithm, matching `RunRecord.script_sha256` and
+`outputs_sha256`, so a reader meeting the value in a saved state or a
+convergence log can tell what it is without opening the code. An approved
+public break for 0.8.0 under NFR-20's pre-1.0 clause: there is no shim and
+no deprecation warning, because `_deprecations.DEPRECATED_MODULES` models
+module shims only and a function-name row there fails tier 1.
+
+`pyflightstream.qa` gains eight names, all new and none renamed or removed
+(PFS-2018.02): `BuildComparison`, `BuildKey`, `CostCell`, `CostView`,
+`PointCost`, `PointKey`, `cost_rows` and `cost_view`, from the new
+`pyflightstream.qa.cost`. The physics report schema is unchanged at
+`pyflightstream-physics-report/1`; an earlier reading of this work would
+have bumped it to `/2`, which would have made every committed
+`reports/physics/PHY-*.yaml` unreadable through `read_physics_report`, and
+`tests/test_qa_cost.py` now guards that it stays put.
+
+`scripts/gen_requirements_index.py` takes its inputs as arguments,
+`collect(srs_dir)`, `traceability(ids, tests_dir)` and
+`build(srs_dir, tests_dir)`, so a deliberately malformed page can be fed to
+it in a test (OPS-2005.09). The command line is unchanged and still writes
+`reports/requirements-index.json`. A new `MalformedRequirementPageError`
+carries every problem found rather than the first.
+
 One new module, `pyflightstream.qa.reports`, exporting `report_paths`,
 `refuse_existing_report` and `resolve_report_date`, all three re-exported
 from `pyflightstream.qa`:
@@ -123,6 +149,107 @@ already passed these by keyword, so nothing in the tree moved.
 Deprecations: none.
 
 ### Added
+
+- **`pyflightstream.qa.cost`, a wall-time cost view built from campaign
+  manifests alone** (PFS-2018.02). `cost_view()` returns a `CostView` with
+  sweep points down and solver builds across, so the same points measured
+  on two builds are read side by side; `cost_rows()` is the long form, one
+  row per recorded run, carrying `fs_build` and `fs_exe_sha256` as columns.
+
+  A COLUMN IS THE PAIR, build string and executable sha256, so two
+  executables reporting the same vendor build number stay two columns. A
+  run recorded with no `wall_time_s` is reported as absent, `None`, never
+  as zero and never as a floating-point NaN: `results.tables.run_table`
+  maps the same missing field to NaN because its substrate is a numeric
+  frame, and this reader deliberately does not, so a caller who sums a
+  column meets a `TypeError` rather than a total that is silently short.
+  `CostView.compare()` pairs only the points BOTH builds timed and names
+  the rest as unpaired, so a total is never a sum over two different sets
+  of work.
+
+  `pyfs-qa cost <campaign-root>` prints that table from a campaign's
+  `runs.json` with a legend mapping each column label back to its full
+  build and executable hash; `--compare BASELINE,CANDIDATE` prints the
+  per-point and overall ratio over the points both builds timed. It starts
+  no solver and needs no licensed machine, which is now true of four of
+  the seven `pyfs-qa` subcommands. The page a reader meets it on is
+  `docs/solver-cost.md`, whose worked example is executed by the docs
+  suite.
+
+- **`pyflightstream._digest` states this package's hashing rule as data
+  rather than as prose** (PFS-2012.10). `ALGORITHM` (sha256),
+  `EXCLUDED_FROM_EVERY_DIGEST` (wall-clock timestamps, elapsed and wall
+  time, absolute paths, the machine and environment, staging order) and
+  `CANONICAL_FORMS`, which names the exact byte string every
+  digest-computing module of the package feeds to the hash. A new tier-1
+  guard walks the package for every `hashlib` constructor call and fails
+  when a module hashes without declaring its canonical form, or when a
+  second algorithm appears. The rule was previously written nowhere, which
+  is the reason NFR-15 carries a `pending` badge; a private module gains
+  no public API, so this is an internal guarantee behind a public claim
+  rather than a new public surface. The NFR-15 sentence itself is NOT
+  edited here: it is a marked proposal awaiting the author's seat.
+
+- **The two independent reviews are transcribed into a committed report**
+  (OPS-2005.11), `reports/RPT-028_independent-review-findings_2026-08-18.md`,
+  one heading per finding carrying its statement, the severity the review
+  published for it and the files that cite it. 41 identifiers of the
+  `PYFS-nnn` and `REV010-nnn` series were cited in `src/` and `tests/` and
+  exactly ONE, `PYFS-025`, was named anywhere under `reports/`, in a
+  sentence rather than a heading. Every other citation resolved only into
+  review documents held outside this repository, and one read-only survey
+  had already concluded from that dead end that the findings could not be
+  worked. The report heads all 45 findings of both reviews rather than
+  only the cited 41, so a citation added later resolves without amending
+  it.
+
+- **`tests/test_review_citations.py`, a tier-1 walk that holds those
+  citations to the report.** Every `PYFS-nnn` and `REV010-nnn` identifier
+  appearing in a `.py` file under `src/` or `tests/` must be named in a
+  HEADING of a report under `reports/`, so a deleted report or a renamed
+  identifier turns the suite red instead of leaving the citation pointing
+  outside the repository. A mention is not a heading and a line inside a
+  code fence is not a heading, on the same reasoning as the probe-citation
+  walk that requires a cited report to name the command it backs. The walk
+  REFUSES when it collects zero identifiers, which is how this class of
+  walk otherwise dies silently: an empty collection satisfies every
+  per-identifier assertion ever written.
+
+- **A tier-1 house-style guard refuses a NEW citation of a private ledger
+  identifier** in any file the style walk reaches (OPS-2010.15). This
+  remote is public and the records those identifiers name are not: the
+  plan ledger and the design documents are local-only, and the incident
+  ledger and the coordination hub are other repositories, so a committed
+  sentence citing one sends its reader to a document that does not exist
+  for them. The guard counts occurrences per unit against a committed
+  inventory (`tests/data/private_id_inventory.py`) and fails four ways: a
+  count above its row, a unit with occurrences and no row, a count BELOW
+  its row (lower the row in the same commit), and a row over a unit now
+  clean or no longer walked. Report identifiers, SRS requirement
+  identifiers and plan node identifiers stay legal, because they resolve.
+  No identifier is checked against a ledger: the ledgers live outside this
+  repository and CI cannot reach them, so what is checked is the shape.
+
+- **`reports/RPT-029_mypy-exemption-recount_2026-08-18.md`, the
+  type-checker exemption re-count at 0.8.0.dev0** (OPS-2006.11.01). It
+  carries the per-module and per-error-code tables with every
+  `ignore_errors` override off, the reproduction command, the dependency
+  versions the count depends on, the delta against 2026-08-03, and the
+  finding that 275 errors sit on only 99 distinct source lines with six
+  lines producing 73 of them, so the grind should be sized by LINES rather
+  than by errors. The report was amended before it was ever committed,
+  by its own reproduction rule: mypy walks the filesystem, the tree moved
+  under the first measurement, and the module total is the
+  re-measurement.
+
+- **Four tier-1 tests in `tests/test_traceability.py` hold the records of
+  that re-count to each other and to the package.** The module total every
+  record states is compared against the tracked `.py` files under
+  `src/pyflightstream` on every run, the unclean count is compared against
+  the number of `ignore_errors` overrides that actually exist, and a
+  record stating the measurement twice with different numbers is reported
+  as stating none. The 53 in the old records went stale in silence because
+  no guard compared any written record against the tree.
 
 - **FlightStream 26.123 is registered, measured and `operational`, and it
   is the first build here that INHERITS NOTHING.** Vendor hotfix build 3 of the 26.12 release,
@@ -275,6 +402,86 @@ Deprecations: none.
   invariant over the committed database.
 
 ### Changed
+
+- **The FSI persisted state and its convergence log name the digest
+  `config_sha256` rather than `config_hash`** (OPS-2009.01.14). A
+  `state.json` written by an earlier release STILL LOADS: `FsiState`
+  carries `validation_alias=AliasChoices("config_sha256", "config_hash")`
+  with `populate_by_name=True`, so the legacy key is accepted on the way
+  in and only the new name is written on the way out, and a resumed run
+  migrates its own run folder on its first write.
+
+  Without that alias the rename would have been silently DESTRUCTIVE
+  rather than merely breaking, because the model forbids extra keys: the
+  old key would not have been ignored, it would have been refused, and the
+  whole state file with it.
+
+  One consequence worth planning for: a run resumed into an EXISTING
+  `fsi_convergence_log.csv` keeps that file's old header word, because the
+  header is written only when the file is absent. The column order, the
+  column count and the meaning of every column do not move. The three
+  committed `reports/fsi/*_convergence.csv` keep the old header as
+  historical evidence.
+
+- **`scripts/gen_requirements_index.py` refuses a malformed requirement
+  page instead of publishing it**, exits non-zero and writes nothing
+  (OPS-2005.09). Four shapes: a requirement box with no `srs-` badge,
+  which used to default to `implemented` and so published a requirement
+  nobody has built to an external dashboard as done and mandatory; a badge
+  token outside implemented/pending/deferred/deprecated; a repeated
+  identifier; and a `!!! requirement "` header the box pattern cannot
+  read, which produced no entry at all while its body was absorbed into
+  the previous requirement. The first three name the page and the
+  identifier; the fourth names the page and the line number. The emitted
+  payload is unchanged: the same 96 requirements, byte for byte.
+
+- **The push-gate suite says WHICH refusal fired** (OPS-2006.08). A deny is
+  not one outcome: the gate brackets a sub-kind because the remedies
+  differ, `[review]` meaning run the reviewers, `[ledger]` meaning repair
+  infrastructure, `[config]` meaning export one variable, `[gate]` meaning
+  the gate itself crashed and fell closed.
+
+  Measured rather than argued: a copy of the gate was sabotaged with one
+  statement, `raise RuntimeError` at the top of `main`'s try block, so
+  every push denied through the fail-closed arm with no check in the body
+  reached, and 21 of the file's 69 cases STILL PASSED. Fifteen of those 21
+  exist to assert a REFUSAL. One passed on a substring collision rather
+  than on a bracketless assertion: the case pinning that a deletion deny
+  does not prescribe pushing the ref looks for "author decision", and the
+  fail-closed message ends "an author decision, not a workaround".
+
+  Every refusal case now names its sub-kind, and the check reads the
+  bracket that OPENS the message and compares it for equality rather than
+  searching the reason for a substring. `[gate]` is refused everywhere
+  except in the one case that is about the fail-closed arm, so the rule
+  holds for cases that name no expectation at all. Against the same
+  sabotage the file now fails 65 of 74, and the survivors are the cases
+  that read text rather than drive the gate. The gate's message prefix and
+  the incident-ledger environment variable are READ out of the gate body
+  instead of mirrored: a rename in the kit used to leave the suite
+  stripping a variable nothing reads, which silently pointed every hook
+  subprocess at the author's real ledger with nothing going red. A new
+  partition guard fails when a sub-kind arrives in a re-vendored body that
+  no case pins and no declaration excuses. Test-only: no public name, CLI,
+  extra or behavior moves.
+
+- **The `[tool.mypy]` header comment no longer states the 2026-08-03
+  measurement as though it were current** (OPS-2006.11.01). It records the
+  first measurement as history and the re-count beside it, and it
+  separates the two kinds of number: the error total is a DATED
+  measurement that moves with the code and with numpy's, xarray's and
+  pandas' own stubs, while the module total is re-counted from the tracked
+  tree on every test run. No override was added and none was removed,
+  which is the measurement rather than restraint: the set of modules that
+  report an error with the overrides off is exactly the set the overrides
+  name.
+
+- **The `pyflightstream.versions` module docstring no longer calls itself
+  "the lowest layer"** (OPS-2005.12), which stopped being true once the
+  base-exception module was recorded below it. It now reads "the bottom of
+  the pipeline proper, above only `_errors`". This is a user-visible
+  documentation change rather than an internal comment: that sentence is
+  published verbatim on the generated architecture page.
 
 - **Four writers stopped replacing a file without saying so**
   (PFS-2011.02, FR-33c, FR-33b, FR-29). PYFS-005 records the class: one
@@ -460,6 +667,55 @@ Deprecations: none.
 
 ### Fixed
 
+- **Every byte of a vendored process-kit file is now pinned, its
+  provenance header included** (OPS-2013.30). Only the BODY was hashed
+  before, and the header was reached by three assertions that each read
+  one field, so an arbitrary extra line above the END KIT PROVENANCE
+  marker, a `contact:` field carrying a personal address for instance,
+  passed the body hash, all four field assertions and the header parser.
+  That is in exactly the directory where a vendored kit body once
+  published a personal name, address and user-profile path on this public
+  remote.
+
+  `tests/test_kit_drift.py` now carries a header sha256 pin per manifest
+  row, asserts that the two tables carry the same keys in both directions,
+  asserts that the header and body regions are exact COMPLEMENTS so the
+  coverage claim is a measurement rather than a claim, and proves the
+  refusal with a mutation: the same vendored file with one injected
+  contact line fails the header pin while its body sha256 still matches.
+  No test enumerates permitted header keys or line shapes, because the
+  headers are not uniform and a shape rule would be a whitelist of prose.
+
+- **The last vendored provenance note stops pointing at a kit directory
+  retired on 2026-07-27** (OPS-2013.04). `.claude/tools/check_incidents.py`
+  now names the live kit path, which is the prescribed per-copy restamp of
+  an unhashed header line and leaves the pinned body untouched, and
+  `tests/test_kit_drift.py` records that target. Two new guards keep it:
+  one forbids the retired path in any provenance note whatever the
+  manifest says, one forbids pinning it in the manifest. Both are needed
+  because the kit README still prescribes the OLD wording, so a re-vendor
+  performed to its letter reproduces the stale pointer while updating the
+  manifest row in the same edit.
+
+- **The user guide guard covers all six objects the guide hands the
+  reader, not three** (OPS-2005.05). `campaign` joins the objects whose
+  taught attributes are held against the real class, and any pydantic
+  model's fields count as known, which is what makes `Campaign.fs_exe`
+  visible at all since it is absent from `dir(Campaign)`. A second half
+  checks that every class name the guide names in a code span resolves in
+  one of the modules the guide's own import lines name, plus
+  `pyflightstream.exceptions` and `pyflightstream.qa.geometry`:
+  `CampaignWorkspace` and `RunRecord` are taught that way and carry no
+  dotted usage at all, so renaming `RunRecord` used to leave the whole
+  module green.
+
+- **The premise of the exemption re-count item is recorded as false rather
+  than worked around** (OPS-2006.11.01). `pyproject.toml` carries 21
+  `ignore_errors` blocks and the test module's inventory carries 21 names,
+  `pyflightstream.workspace.inputs` and `pyflightstream.workspace.naming`
+  among them in BOTH, so nothing was excused without being recorded.
+  RPT-029 cites the lines and a test asserts it.
+
 - A probe detail carrying a backslash reached the rewritten chapter
   unescaped, because the `note` key was interpolated between two
   literal quotes while every other key went through the module's
@@ -558,6 +814,103 @@ Deprecations: none.
   against the target script's own parser.
 
 ### Documentation
+
+- **`docs/solver-cost.md`, a new page explaining what a run cost and how
+  to show that a build got slower** (PFS-2018.02), with a worked example
+  the docs suite executes, so it cannot rot into a lie. It says in plain
+  words the three numbers the view refuses to invent: an untimed run is
+  absent rather than zero, a column is a build AND an executable, and a
+  comparison counts only work both builds did.
+
+- **The Role-based review row of `docs/srs/standards.md` names the two
+  mechanical refusals the project already relies on** (OPS-2005.07,
+  closing OPS-2005.23 against the same edit). The PreToolUse hook denies a
+  `git push` carrying no attestation over every commit the push makes new
+  plus each ref it sends, and the same hook denies while a blocking
+  incident is open in the shared ledger, whose one home stays the
+  machine-configuration table in `CLAUDE.md`. The row previously stopped
+  at the five reviewer charters, so the SRS published a WEAKER discipline
+  than the one this changelog had already announced.
+  `tests/test_claim_currency.py` holds the row per clause, so a gate
+  described as a reminder fails tier 1.
+
+- **The Adopted table of `docs/srs/standards.md` gains an `Enforced by`
+  column on all 14 rows** (OPS-2005.08.01), with a lead paragraph defining
+  the three answers it accepts: a repository path or a CI command, a named
+  review seat with its charter, or the literal word convention for a
+  practice nothing mechanical refuses. Five of the fourteen say so on
+  purpose. `tests/test_claim_currency.py` fails when a cell is empty, when
+  it names a repository path the tree does not hold, or when it names a CI
+  command that appears in no workflow, and it resolves the column BY LABEL
+  rather than by position.
+
+- **The published layer map records `_errors`** (OPS-2005.12,
+  OPS-2006.02.01). The generated architecture page and the SRS
+  architecture chapter now carry `pyflightstream._errors`, the
+  base-exception module, as the row below `versions`. It imports nothing
+  from the package and most of the package imports it, and it appeared in
+  none of the places the layering was stated. The page also renders that
+  module's own docstring as its own section, so a reader asking why one
+  module sits outside the pipeline gets the answer from the module rather
+  than from prose about it.
+
+  Four tier-1 guards now derive every prose restatement of the layer stack
+  from the single home of it, the layer data in `pyflightstream.overview`,
+  and fail naming the one file that disagrees: the fence in the SRS
+  architecture chapter, that chapter's side-branch paragraph, the layout
+  rule in `CLAUDE.md`, and the layer diagram in the user guide. The guards
+  write out no layer name of their own, so they are a check rather than a
+  fifth copy to drift, and the guide is covered for the first time by
+  anything at all, since it is not built by CI.
+
+- **The print-precision premise behind the operating-point tolerances
+  cites its source** (OPS-2009.01.01). `results.conditions.FIELD_BINDINGS`
+  and the `tolerance` attribute of `ConditionCheck` name the committed
+  export the three-decimal print width was read from, state that this is
+  ONE measured build rather than a solver guarantee, and say that beyond
+  that file the threshold is project-chosen and claims nothing about the
+  export. RPT-006 is cited as corroboration of the header's three-decimal
+  print for a different header quantity, not as a second reading of these
+  three fields. Five tests read the citation out of the source, open the
+  export it names and assert the printed width against each tolerance, so
+  the premise fails the suite instead of quietly becoming a recollection.
+  No tolerance value and no behaviour changed.
+
+- **The deprecation ledger's comment stops saying there is nothing to
+  track** (PFS-2021.01.01). It said an empty tuple meant the package made
+  no deprecation promises. TWO are live and neither is a module shim,
+  which is all that tuple can hold: the
+  `analysis_setup(vorticity_drag_boundaries=...)` parameter warning, and
+  the dry-run rename that the v0.5.0 notes recorded as announced and not
+  landed, and that is still unlanded. The comment now names both with the
+  line and the quoted text of each, says the tuple models module shims
+  only, and records no removal version, that being the author's call while
+  NFR-20 does not bind before 1.0.
+
+- **The FSI package no longer cites a private tracking identifier** for
+  the unverified status of the structural model's primary sources
+  (PFS-2017.01.02). `fsi/centrifugal.py` and the FSI README now say in
+  plain words that the primary sources have not been independently checked
+  against the formulas implemented here, and that the formulas should be
+  read as transcribed from the coupling plan and believed correct rather
+  than as verified against the papers. The identifier's only home was
+  another repository and no committed report carries it, so a reader
+  following it reached nothing. Every `Source:` citation is unchanged, and
+  a new tier-1 table pins the primary source each of the fourteen FSI
+  physics functions names, so a future rewording cannot quietly drop one.
+
+- **`CLAUDE.md`'s machine-configuration table no longer claims
+  documented-here-only enforcement for the shared-ledger tree variable**
+  (OPS-2013.03, OPS-2013.29). It names `tests/test_snap_skip_status.py`,
+  which measures the vendored snapshot tool against a sandboxed copy in a
+  child environment with the variable cleared: green that an unconfigured
+  tree is really skipped and that `log` refuses one on stderr with a
+  nonzero status, and a strict expected failure that `snapshot` exits 0
+  having taken nothing, pending a kit promotion. The same section now says
+  to check the process ENVIRONMENT as well as `.claude/settings.local.json`
+  before concluding the shared tree is unconfigured, because a user-scope
+  export satisfies a bash script just as well and leaves that file with no
+  row.
 
 - The two Tier 3 WARNs on 26.123, both `CDo` and both on SMI cases, gain
   a committed triage (`reports/physics/TRI-26123-CDo_2026-08-18.md`).

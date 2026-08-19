@@ -7,7 +7,7 @@ from pydantic import ValidationError
 from pyflightstream.fsi.config import (
     BladeProperties,
     FsiConfig,
-    config_hash,
+    config_sha256,
     dump_config,
     load_config,
 )
@@ -26,24 +26,24 @@ def test_round_trip_load_validate_dump(tmp_path, uniform_blade_config):
     assert path2.read_text(encoding="utf-8") == path.read_text(encoding="utf-8")
 
 
-def test_config_hash_stable_across_round_trip(tmp_path, uniform_blade_config):
+def test_config_sha256_stable_across_round_trip(tmp_path, uniform_blade_config):
     """The hash identifies the configuration, not its file formatting."""
     path = tmp_path / "config.json"
     dump_config(uniform_blade_config, path)
-    assert config_hash(load_config(path)) == config_hash(uniform_blade_config)
+    assert config_sha256(load_config(path)) == config_sha256(uniform_blade_config)
     # Reformatting the JSON (indentation, key order) keeps the hash.
     import json
 
     raw = json.loads(path.read_text(encoding="utf-8"))
     reordered = {k: raw[k] for k in sorted(raw, reverse=True)}
     path.write_text(json.dumps(reordered), encoding="utf-8")
-    assert config_hash(load_config(path)) == config_hash(uniform_blade_config)
+    assert config_sha256(load_config(path)) == config_sha256(uniform_blade_config)
 
 
-def test_config_hash_changes_with_a_value(uniform_blade_config):
+def test_config_sha256_changes_with_a_value(uniform_blade_config):
     """Any physical change must change the traceability hash (FSI-R15)."""
     faster = uniform_blade_config.model_copy(update={"omega_rad_per_s": 100.0})
-    assert config_hash(faster) != config_hash(uniform_blade_config)
+    assert config_sha256(faster) != config_sha256(uniform_blade_config)
 
 
 def test_station_count_mismatch_names_the_field():

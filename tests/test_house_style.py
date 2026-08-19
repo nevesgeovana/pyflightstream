@@ -5,12 +5,21 @@ files, per the project style. Binary and local-only content guards run in
 pre-commit and in the CI guard job.
 """
 
+import importlib.util
 import re
 import subprocess
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 
 import pytest
+
+# The hash-pinned vendored kit population and the ONE definition of where a
+# vendored body begins. Imported rather than re-derived: the private-ledger
+# ratchet at the foot of this file counts the provenance HEADER of these
+# files and not their body, and if the two modules disagreed about that line
+# the exemption would silently move (OPS-2010.15).
+from test_kit_drift import MANIFEST as KIT_MANIFEST
+from test_kit_drift import _read_lf, _split_at_marker
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SKIP_DIRS = {
@@ -805,3 +814,309 @@ def test_no_tracked_text_file_carries_a_control_byte():
         "this workflow renders as nothing: " + "; ".join(offenders) + ". Write it as "
         r"an escape (\b, \x1f) so the character is visible to a reader"
     )
+
+
+# --- Public anchors only: the private-ledger-id ratchet (OPS-2010.15) ------
+#
+# The policy is decided and until now nothing held it: a page in this
+# repository cites anchors its READER can resolve. This remote is public and
+# the records these identifiers name are not. The plan ledger and the design
+# documents are local-only under `_private/` (CLAUDE.md, "Session protocol"),
+# the incident ledger is a separate repository located by an environment
+# variable, and the coordination hub is a third. A committed sentence citing
+# one of them sends a reader to a document that does not exist for them.
+#
+# NO ID IS RESOLVED AGAINST A LEDGER, and that is the decision rather than a
+# shortcut. The ledgers live outside this repository, so continuous
+# integration cannot reach any of them; a checker that needs them would be
+# green on this machine and unrunnable everywhere else. What is checkable
+# from inside the tree is the SHAPE, and the shape is what this counts.
+#
+# THE SWEEP IS NOT THIS GUARD. Deleting the citations already committed is
+# registered separately and is a large edit across public pages. This only
+# stops the leak growing back the day after it, which is why it ships as a
+# shrink-only ratchet over a committed inventory rather than as a refusal:
+# the same shape `tests/test_exceptions_catalog.py` already uses, including
+# that precedent's load-bearing qualifier, that any unit THE WALK REACHES
+# without a row fails.
+#
+# WHAT STAYS LEGAL: report ids (`RPT-...`), SRS requirement ids and the plan
+# node ids of the coordination tree. `reports/` and `docs/srs/` are committed
+# and public, so citing them resolves.
+#
+# THE READING IS UNBOUNDED IN FRONT: a prefix, a hyphen and a digit, with no
+# word boundary before the prefix. That is deliberate, and it is what decides
+# the numbers. The word-bounded variant misses the private plan filenames of
+# the form `DESIGN_<prefix>-12_kit_batch.md`, where the prefix follows an
+# underscore, and an id at the start of a line inside a Python string
+# literal, where it follows the `n` of an escape. Those are precisely the
+# citations this exists to catch.
+#
+# Prefixes are built by concatenation, like FORBIDDEN_WORDS above and for the
+# same reason: this file is walked by its own guard, and a guard that is its
+# own only offender is no guard.
+_PRIVATE_LEDGER_PREFIXES = (
+    "IN" + "C",
+    "PL" + "N",
+    "BR" + "F",
+    "COO" + "RD",
+    "IT" + "C",
+    "O" + "Q",
+    "HU" + "B",
+)
+PRIVATE_LEDGER_ID = re.compile("(?:" + "|".join(_PRIVATE_LEDGER_PREFIXES) + ")" + "-[0-9]")
+
+#: The committed inventory of counted units. Paths and counts only: it is
+#: walked by this guard like every other tracked ``*.py``, so it must not
+#: become its own offender, and no walked path carries a refused id in its
+#: own name today (measured, empty set).
+PRIVATE_ID_INVENTORY_PATH = REPO_ROOT / "tests" / "data" / "private_id_inventory.py"
+
+
+def _recorded_private_id_counts() -> dict[str, int]:
+    """Load the committed inventory from its file.
+
+    Loaded by path rather than imported by name, so the guard does not
+    depend on ``tests/`` sitting on ``sys.path`` and does not need
+    ``tests/data`` to be a package. A missing or unreadable inventory FAILS
+    here rather than degrading to an empty mapping: an empty inventory
+    compared against a clean tree reports green, which is the false pass
+    this repository has registered most.
+    """
+    spec = importlib.util.spec_from_file_location(
+        "pyflightstream_private_id_inventory", PRIVATE_ID_INVENTORY_PATH
+    )
+    assert spec is not None and spec.loader is not None, (
+        f"the recorded inventory {PRIVATE_ID_INVENTORY_PATH} could not be loaded. "
+        "It is the ratchet's only record of what is already committed; without it "
+        "this guard has nothing to compare against and would report green."
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return dict(module.PRIVATE_ID_COUNTS)
+
+
+def _counted_region(relative: str, text: str) -> str:
+    """The region of a walked file the ratchet counts, given its LF text.
+
+    The counted unit is the whole file, EXCEPT for the hash-pinned vendored
+    kit bodies, where it is the provenance HEADER alone. That partition is
+    not a convenience: ``tests/test_kit_drift.py`` hashes only the body below
+    the ``END KIT PROVENANCE`` marker, so correcting a citation in the header
+    moves no body hash and is a legal edit here, while correcting one in the
+    body breaks the pin and must be done at the kit and re-vendored. The
+    boundary comes from that module's own ``_split_at_marker`` so the two
+    cannot disagree about which line the body starts on.
+    """
+    if relative in KIT_MANIFEST:
+        lines, body_start = _split_at_marker(text)
+        return "\n".join(lines[:body_start])
+    return text
+
+
+def _count_private_ids(relative: str, text: str) -> int:
+    """Occurrences of a private-ledger id in this unit's counted region."""
+    return len(PRIVATE_LEDGER_ID.findall(_counted_region(relative, text)))
+
+
+def _private_id_units() -> dict[str, int]:
+    """Every walked file as ``{relative posix path: counted occurrences}``.
+
+    One entry per walked file, including the files carrying none, so the
+    comparison below can tell "counts zero now" from "is no longer walked"
+    without a second traversal.
+    """
+    units: dict[str, int] = {}
+    for path in iter_style_checked_files():
+        relative = path.relative_to(REPO_ROOT).as_posix()
+        # The kit bodies are hashed over LF-normalized text, so the header
+        # split must run on the same normalization the pin uses.
+        if relative in KIT_MANIFEST:
+            text = _read_lf(path)
+        else:
+            text = path.read_text(encoding="utf-8", errors="ignore")
+        units[relative] = _count_private_ids(relative, text)
+    return units
+
+
+def _ratchet_offenses(counted: Mapping[str, int], recorded: Mapping[str, int]) -> list[str]:
+    """Compare live counts against the inventory, in all four directions.
+
+    Takes both mappings rather than reading the tree, for the reason
+    ``_container_offenders`` states above: a detector that reads the tree
+    itself leaves its mutation proof with nothing to drive.
+    """
+    offenses = []
+    for relative in sorted(set(counted) | set(recorded)):
+        found = counted.get(relative, 0)
+        was = recorded.get(relative)
+        if was is None:
+            if found:
+                offenses.append(
+                    f"{relative}: cites a private ledger id {found} time(s) and has no "
+                    "row in the inventory. Cite a public anchor instead."
+                )
+        elif found > was:
+            offenses.append(
+                f"{relative}: {found} citations, {was} recorded. A new private "
+                "ledger citation was added; cite a public anchor instead."
+            )
+        elif found == 0:
+            offenses.append(
+                f"{relative}: 0 citations and a row recording {was}. The unit is "
+                "clean or is no longer walked; delete its row so the inventory "
+                "cannot cover a future file of that name."
+            )
+        elif found < was:
+            offenses.append(
+                f"{relative}: {found} citations, {was} recorded. The sweep moved; "
+                f"lower the recorded number to {found} so the inventory tracks it."
+            )
+    return offenses
+
+
+def test_no_new_private_ledger_citation_in_a_walked_file():
+    """A walked file cites no private ledger id beyond its recorded count.
+
+    Shrink-only. The recorded number is a ceiling AND a floor: adding a
+    citation fails, and removing one fails until the inventory is lowered, so
+    the record cannot quietly stop describing the tree.
+    """
+    counted = _private_id_units()
+    # A FLOOR on the population, for the reason `_tracked_files` states: the
+    # walk is `REPO_ROOT.rglob` minus SKIP_DIRS, and a walk that yields
+    # nothing satisfies every comparison below. 430 files at delivery, of
+    # which 150 carry a citation and hold a row; the exact per-unit numbers
+    # are pinned by the inventory, so this is a collapse detector and not a
+    # second population pin.
+    assert len(counted) > 350, (
+        f"the style walk yielded {len(counted)} files, far below this "
+        "repository's real size, so this ratchet compared almost nothing. "
+        "Check REPO_ROOT and SKIP_DIRS before reading the result as clean."
+    )
+    recorded = _recorded_private_id_counts()
+    offenses = _ratchet_offenses(counted, recorded)
+    assert not offenses, (
+        f"the private-ledger-id ratchet counted {len(counted)} walked units against "
+        f"{len(recorded)} recorded rows and found:\n"
+        + "\n".join(offenses)
+        + "\n\nThis remote is public and these records are not: the plan ledger and "
+        "the design documents are local-only under _private/, and the incident "
+        "ledger and the coordination hub are other repositories. Cite something a "
+        "reader can open: a report under reports/, an SRS requirement, a commit, or "
+        "the sentence itself. If a citation was legitimately REMOVED, lower its "
+        "recorded number in tests/data/private_id_inventory.py in the same commit."
+    )
+
+
+def test_the_private_id_ratchet_counts_the_partition_it_claims():
+    """The header/body partition is live, not a branch nothing takes.
+
+    The exemption exists because a citation inside a hashed kit body cannot
+    be corrected here at all. If the marker split drifted, every kit file
+    would silently become "header equals whole file", the exempt region would
+    be empty, and the ratchet above would still pass on a clean tree. This
+    asserts the partition is doing something and that its population is not
+    empty.
+    """
+    counted = _private_id_units()
+    walked_kit = sorted(set(KIT_MANIFEST) & set(counted))
+    assert len(KIT_MANIFEST) >= 30, (
+        f"the vendored manifest holds {len(KIT_MANIFEST)} rows; the partition "
+        "this ratchet applies is keyed on it, and a collapsed manifest would "
+        "widen the counted unit to the whole file without anything going red"
+    )
+    assert len(walked_kit) >= 30, (
+        f"only {len(walked_kit)} of {len(KIT_MANIFEST)} manifest rows are inside "
+        "the style walk; the header exemption is being applied to almost nothing"
+    )
+    exempt = 0
+    for relative in walked_kit:
+        whole = len(PRIVATE_LEDGER_ID.findall(_read_lf(REPO_ROOT / relative)))
+        assert whole >= counted[relative], (
+            f"{relative}: the counted header carries {counted[relative]} ids and the "
+            f"whole file {whole}. The header cannot hold more than the file, so "
+            "_split_at_marker returned a boundary past the end of the text."
+        )
+        exempt += whole - counted[relative]
+    # 112 occurrences in 26 hashed bodies at delivery. Asserted as non-empty
+    # rather than pinned to that number, because a re-vendor legitimately
+    # moves it and the exact per-unit numbers are pinned by the inventory.
+    assert exempt > 0, (
+        "no citation at all sits inside a hashed kit body, so the header/body "
+        "partition currently exempts nothing. Either the bodies were swept (in "
+        "which case delete this partition and count the whole file) or the "
+        "END KIT PROVENANCE split has drifted and the exemption is silently "
+        "covering the whole of every kit file."
+    )
+
+
+def test_the_private_id_ratchet_fires_on_what_it_exists_to_catch():
+    """Mutation proof, per the structural-fix rule.
+
+    A guard is proven by restoring the defect and watching it deny, never by
+    a suite that passes. The defect here is a private ledger citation in a
+    public file, so one is reconstructed and put back: into synthetic text
+    for the four failure modes, and into the real text of a real walked file
+    for the counter itself.
+    """
+    cite = "PL" + "N" + "-20260818-2015-public-anchors"
+    # 1. The shape. Every prefix must fire, and the digit is required.
+    for prefix in _PRIVATE_LEDGER_PREFIXES:
+        assert PRIVATE_LEDGER_ID.search(prefix + "-1"), prefix
+        assert not PRIVATE_LEDGER_ID.search(prefix + "-name"), prefix
+        assert not PRIVATE_LEDGER_ID.search(prefix + "_01"), prefix
+    # Unbounded in front, which is the whole reason the numbers are what they
+    # are: a private plan filename embeds the prefix after an underscore.
+    assert PRIVATE_LEDGER_ID.search("coordination/DESIGN_" + "HU" + "B" + "-12_kit.md")
+    # Public anchors stay legal, or the guard would be a refusal of citation
+    # itself and would be turned off within a week.
+    for legal in ("RPT-021", "FR-48", "NFR-11", "AD-06", "DLV-007", "OPS-2010.15", "v0.8.0"):
+        assert not PRIVATE_LEDGER_ID.search(legal), f"the guard refuses the public anchor {legal}"
+    # 2. The four failure modes, each driven through the real comparator.
+    assert _ratchet_offenses({"a.md": 3}, {"a.md": 2}), "a NEW citation is not refused"
+    assert _ratchet_offenses({"a.md": 1}, {}), "an UNRECORDED unit carrying one is not refused"
+    assert _ratchet_offenses({"a.md": 1}, {"a.md": 2}), "a DROPPED count is not refused"
+    assert _ratchet_offenses({"a.md": 0}, {"a.md": 2}), "a row over a clean unit survives"
+    assert _ratchet_offenses({}, {"gone.md": 2}), "a row over an unwalked path survives"
+    # And a file carrying none, with no row, passes: the ratchet must not
+    # require a row per walked file.
+    assert _ratchet_offenses({"a.md": 0, "b.md": 2}, {"b.md": 2}) == []
+    # 3. The counter, on the REAL text of a real walked unit rather than on a
+    # string built here. Restoring one citation into it must be refused.
+    counted = _private_id_units()
+    recorded = _recorded_private_id_counts()
+    plain = sorted((set(recorded) & set(counted)) - set(KIT_MANIFEST))
+    assert plain, "the inventory records no walked ordinary file, so this proof drives nothing"
+    victim = max(plain, key=lambda name: (recorded[name], name))
+    text = (REPO_ROOT / victim).read_text(encoding="utf-8", errors="ignore")
+    before = _count_private_ids(victim, text)
+    assert before == counted[victim], f"{victim}: the counter is not reading the walked text"
+    after = _count_private_ids(victim, text + "\nsee " + cite + "\n")
+    assert after == before + 1, (
+        f"{victim}: restoring one citation moved the count from {before} to {after}"
+    )
+    # Compared against what this run MEASURED for the unit, not against its
+    # recorded row: the claim being proved is that one more citation than the
+    # tree already holds is refused, and reading the row here would make the
+    # proof fail for the unrelated reason that the row is stale.
+    assert _ratchet_offenses({victim: after}, {victim: before}), (
+        f"{victim} was given one more citation than it carries and the ratchet did not refuse it"
+    )
+    # 4. The exemption boundary, both ways, on a real manifest path so the
+    # branch is selected by the same membership test the scan uses.
+    kit = sorted(KIT_MANIFEST)[0]
+    marker = "END KIT " + "PROVENANCE"
+    in_body = "# note: kit\n# " + marker + "\nbody cites " + cite + "\n"
+    in_header = "# note: " + cite + "\n# " + marker + "\nbody\n"
+    assert _count_private_ids(kit, in_body) == 0, (
+        f"{kit}: a citation inside the HASHED body is counted, so the ratchet "
+        "asks for an edit that would break the body pin"
+    )
+    assert _count_private_ids(kit, in_header) == 1, (
+        f"{kit}: a citation in the provenance header is not counted, so the one "
+        "region a vendored file may legally be corrected in is unguarded"
+    )
+    # The same text under an ordinary path counts both, which is what proves
+    # the exemption is keyed on the manifest and not on the marker.
+    assert _count_private_ids("docs/whatever.md", in_body) == 1

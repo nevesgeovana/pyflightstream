@@ -155,20 +155,34 @@ exclude_also = [
 
 
 # --- mypy (NFR-27, from review finding PYFS-026) -------------------
-# The package had never been type checked. The first run reported 223 errors
-# in 21 of 53 modules, so a blanket adoption would have meant either 223
-# rushed annotations or a permanently red check, and both teach the reader to
-# ignore it. This is a RATCHET instead: mypy runs over the whole package, the
-# 21 modules that were not clean on 2026-08-03 are exempted BY NAME below, and
-# the other 32 must stay clean. A new module, or a newly dirty clean one,
-# fails the check; an exemption is removed as its module is typed, never
-# added. The list is the debt, written down.
+# The package had never been type checked. The first run, on 2026-08-03,
+# reported 223 errors in 21 of 53 modules, so a blanket adoption would have
+# meant either 223 rushed annotations or a permanently red check, and both
+# teach the reader to ignore it. This is a RATCHET instead: mypy runs over the
+# whole package, the 21 modules that were not clean on that date are exempted
+# BY NAME below, and every other module must stay clean. A new module, or a
+# newly dirty clean one, fails the check; an exemption is removed as its
+# module is typed, never added. The list is the debt, written down.
+#
+# RE-COUNTED at 0.8.0.dev0 (OPS-2006.11.01), because the sentence above is a
+# fact about 2026-08-03 and was being read as a fact about today. With every
+# override below turned off:
+#     mypy recount 2026-08-18: 275 errors in 21 of 64 modules
+# The package grew by ten modules and the debt by 52 errors, the exempted set
+# did not move, and no module outside it is dirty. Every one of the 21 still
+# reports at least one error, so not one of these overrides could be deleted
+# on evidence. The per-module figures, the reproduction command and the
+# dependency versions the count rests on are in reports/RPT-029. Read the two
+# numbers differently: the 275 is a DATED measurement that moves with the code
+# and with numpy's and xarray's own stubs, while the 63 is re-counted from the
+# tracked tree by tests/test_traceability.py on every run, which is what the
+# stale 53 had nothing doing for it.
 #
 # py.typed is deliberately NOT shipped. Shipping it tells every downstream
-# type checker to trust these annotations, and 223 errors say they are not yet
-# trustworthy. PEP 561 is promised nowhere in this repository, so nothing is
-# broken by the absence; it ships when the exemption list is empty
-# (PLN-20260803-1830).
+# type checker to trust these annotations, and a non-empty exemption list says
+# they are not yet trustworthy. PEP 561 is promised nowhere in this
+# repository, so nothing is broken by the absence; it ships when the exemption
+# list is empty (PLN-20260803-1830).
 [tool.mypy]
 files = ["src/pyflightstream"]
 # python_version is deliberately NOT pinned: pinning it to the 3.11 floor

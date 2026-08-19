@@ -16,7 +16,14 @@ cases              simulation and campaign definitions
 script results     validating script builder | output parsers
 commands           the evidence-backed per-version command database
 versions           canonical version identifiers and ordering
+_errors            the package base exception, imported by every layer and importing none
 ```
+
+The bottom row is not a pipeline stage. `_errors` defines one class and
+imports nothing from this package, so every layer above may import it
+without a cycle; it is the floor the stack stands on rather than a step
+in it, which is why the arrow chains that state the flow name six rows
+and this table names seven.
 
 Side branches follow the same downward-only rule: `fsi` (the
 structural side of the aeroelastic loop), `probes` and `farfield`

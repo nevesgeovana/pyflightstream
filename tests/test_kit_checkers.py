@@ -108,7 +108,14 @@ HOOKS = REPO / ".claude" / "hooks"
 #: the population walk replaced on its way past. The downward arm then fired
 #: and required this line to move in the same commit, which is the half of a
 #: ratchet that keeps it from becoming a floor nobody lowers.
-TESTS_UNGUARDED_SPAWNS = 20
+#: LOWERED AGAIN TO 19 ON 2026-08-18, by the same two arms in one run. Wave 1
+#: of the 0.8.0 lane added two unguarded spawns, in
+#: `test_requirements_index.py` and `test_traceability.py`, and the upward arm
+#: caught both. Passing `env=` on them took the count to 19 rather than back to
+#: 20, because the pin had a slack slot: it was measured at 20 on a tree that
+#: already held 19, so one new unguarded spawn could have arrived unnoticed.
+#: The downward arm is what made that visible, and this line is what closes it.
+TESTS_UNGUARDED_SPAWNS = 19
 
 
 def _run(*argv: str) -> subprocess.CompletedProcess[str]:

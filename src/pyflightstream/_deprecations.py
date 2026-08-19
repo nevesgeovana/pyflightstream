@@ -97,12 +97,44 @@ class DeprecatedModule:
         return text
 
 
-#: Every live deprecation shim of the package, one entry each. The
-#: Tier 1 deadline guard iterates this tuple; an empty tuple means the
-#: package currently makes no deprecation promises.
-#: Empty since v0.4.0, when `pyflightstream.files` and
-#: `pyflightstream.cases.matrix_legacy` were removed on the horizon their
-#: own entries recorded. The machinery stays rather than going with them:
-#: NFR-20's policy binds from 1.0, and the next shim registers here rather
-#: than rebuilding the guard.
+#: Every live MODULE shim of the package, one entry each; the Tier 1
+#: deadline guard iterates this tuple.
+#:
+#: WHAT AN EMPTY TUPLE MEANS, and it is not what this comment said until
+#: 2026-08-18. :class:`DeprecatedModule` carries a ``module`` field and
+#: nothing narrower, so the tuple models module shims only: an old import
+#: path that still resolves. It is empty since v0.4.0, when
+#: ``pyflightstream.files`` and ``pyflightstream.cases.matrix_legacy``
+#: were deleted on the horizon their own entries recorded. Empty
+#: therefore means that no module shim is live. It has never meant that
+#: the package owes a user nothing, and two live promises sit outside
+#: this tuple right now:
+#:
+#: * the parameter warning at ``script/helpers.py:1852``, which tells a
+#:   caller that ``analysis_setup(vorticity_drag_boundaries=...)`` is
+#:   deprecated, the selection having been a parameter of
+#:   ``solver_settings`` since v0.3.0, and that it will leave
+#:   ``analysis_setup`` in a future minor release. It deprecates a
+#:   PARAMETER of a function that stays, so there is no module to record;
+#: * the dry-run rename, announced as breaking and with no alias, and
+#:   recorded as NOT LANDED in the v0.5.0 section of ``CHANGELOG.md``
+#:   (heading ``## [0.5.0] - 2026-08-09``, the paragraph opening "ONE
+#:   THING THE v0.4.0 NOTES PROMISED FOR THIS RELEASE AND THIS RELEASE
+#:   DOES NOT DO", lines 1306 to 1317 as measured on 2026-08-18). That
+#:   statement is the live one; the v0.4.0 notes that first announced the
+#:   rename are superseded by it, and are where a reader otherwise lands
+#:   first. ``plan_matrix``, ``plan_campaign`` and ``pyfs-matrix plan``
+#:   are unrenamed and keep working. A rename of public names is not a
+#:   module shim either, so again there is nothing this tuple can hold.
+#:
+#: The changelog line numbers above shift whenever the Unreleased section
+#: grows; the heading and the quoted opening are the anchors to grep for,
+#: and the helpers line is anchored by the warning text quoted with it.
+#:
+#: NEITHER PROMISE CARRIES A REMOVAL VERSION, deliberately. Setting one
+#: is the author's call and NFR-20's policy does not bind before 1.0, so
+#: a date invented here would look decided. The machinery stays rather
+#: than going with the two shims it outlived, so the next module shim
+#: registers here; a promise of either shape above still has no home in
+#: this dataclass, which is how both of them went unrecorded.
 DEPRECATED_MODULES: tuple[DeprecatedModule, ...] = ()

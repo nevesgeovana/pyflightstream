@@ -9,10 +9,12 @@ FSI-R06 and FSI-R11). The frequency sweep of the Campbell diagram
 (Gate 1) also lives here.
 
 Evidence status (DLV-007 Section 2): the primary sources of the model
-(Bielawa; Houbolt and Brooks, NACA Report 1346) have not yet been
-independently verified against the plan formulas (TSR-014). Every
-formula therefore lives in a small isolated function with the source
-in the docstring, so a later correction is a localized change.
+(Bielawa; Houbolt and Brooks, NACA Report 1346) have not been
+independently checked against the formulas implemented here. Read the
+formulas as transcribed from the coupling plan and believed correct,
+not as verified against the papers they come from. Every formula
+therefore lives in a small isolated function with the source in the
+docstring, so a later correction is a localized change.
 
 All quantities are in SI in the rotating blade frame of
 :mod:`pyflightstream.fsi.config`.
@@ -122,7 +124,7 @@ def propeller_moment_distribution(
 
     Source: FSI Blade Coupling Plan rev. 2 (July 2026), propeller
     moment term after Houbolt and Brooks, NACA Report 1346 (primary
-    source verification pending, TSR-014).
+    source not independently verified).
 
     Parameters
     ----------
@@ -161,7 +163,7 @@ def propeller_moment_twist_stiffness(
 
     Source: FSI Blade Coupling Plan rev. 2 (July 2026), derivative of
     the propeller moment term after Houbolt and Brooks, NACA Report
-    1346 (primary source verification pending, TSR-014).
+    1346 (primary source not independently verified).
 
     Parameters
     ----------
@@ -423,7 +425,7 @@ def southwell_fit(
     Source: Southwell's linear frequency-rise approximation for
     rotating beams, as used in the FSI Blade Coupling Plan rev. 2
     (July 2026; after Bielawa, "Rotary Wing Structural Dynamics",
-    primary source verification pending, TSR-014).
+    primary source not independently verified).
 
     Parameters
     ----------

@@ -45,6 +45,7 @@ nav:
   - Home: index.md
   - Getting started: getting-started.md
   - Replaying a recorded run: tutorial-replay.md
+  - What a run cost: solver-cost.md
   - Architecture: architecture.md
   - SRS:
       - srs/index.md

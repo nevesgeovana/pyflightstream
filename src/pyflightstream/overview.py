@@ -54,6 +54,25 @@ _CORE_LAYERS: tuple[tuple[tuple[str, ...], str], ...] = (
     (("versions",), "canonical version identifiers and ordering"),
 )
 
+# Below the pipeline proper, and deliberately NOT one of its rows: the
+# base-exception module imports nothing from this package and most of the
+# package imports it, so it is a floor rather than a stage. Nothing flows
+# THROUGH it, which is the distinction the two shapes make. A layer TABLE
+# states the whole stack and carries this row (the diagram below and the
+# fence in docs/srs/architecture-srs.md); an arrow CHAIN states the flow
+# and does not (the CLAUDE.md layout rule, the user guide's diagram).
+_BASE_LAYERS: tuple[tuple[tuple[str, ...], str], ...] = (
+    (
+        ("_errors",),
+        "the package base exception, imported by every layer and importing none",
+    ),
+)
+
+#: The layer table: the pipeline stack, then the floor under it, top row
+#: first. This is what both rendering layers draw and what the SRS
+#: chapter is checked against (tests/test_overview.py).
+_LAYER_STACK: tuple[tuple[tuple[str, ...], str], ...] = _CORE_LAYERS + _BASE_LAYERS
+
 _SIDE_BRANCHES: tuple[tuple[str, str], ...] = (
     ("fsi", "structural executable of the aeroelastic coupling loop"),
     ("probes, farfield", "probe lattices and far-field conservation ledgers"),
@@ -70,9 +89,15 @@ _SIDE_BRANCHES: tuple[tuple[str, str], ...] = (
     ),
 )
 
-# Every subpackage the overview documents, in pipeline order: the core
-# stack bottom-up, then the side branches, then the presentation layer.
+# Every subpackage the overview documents, in pipeline order: the floor
+# under the stack, then the core stack bottom-up, then the side branches,
+# then the presentation layer.
 _SECTIONS: tuple[str, ...] = (
+    # First because it is below everything: the base exception's module
+    # is private, and the page documents it anyway, because a reader
+    # asking why one module sits outside the pipeline gets the answer
+    # from that module's own docstring and from nowhere else.
+    "_errors",
     "versions",
     "commands",
     "script",
@@ -142,14 +167,14 @@ def _layer_diagram() -> str:
     imports only modules of the rows below its own, never upward.
     """
     labels = [
-        *("  ".join(names) for names, _ in _CORE_LAYERS),
+        *("  ".join(names) for names, _ in _LAYER_STACK),
         *(name for name, _ in _SIDE_BRANCHES),
     ]
     width = max(len(label) for label in labels) + 4
     lines = []
-    for position, (names, caption) in enumerate(_CORE_LAYERS):
+    for position, (names, caption) in enumerate(_LAYER_STACK):
         lines.append(f"{'  '.join(names):<{width}}{caption}")
-        if position < len(_CORE_LAYERS) - 1:
+        if position < len(_LAYER_STACK) - 1:
             lines.append("   |")
     lines.append("")
     lines.append("side branches, same downward-only import rule:")

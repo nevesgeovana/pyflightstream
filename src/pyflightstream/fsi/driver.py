@@ -53,7 +53,7 @@ from pathlib import Path
 import numpy as np
 
 from pyflightstream.fsi import beam, centrifugal, kinematics, nodes
-from pyflightstream.fsi.config import FsiConfig, config_hash, load_config
+from pyflightstream.fsi.config import FsiConfig, config_sha256, load_config
 from pyflightstream.fsi.errors import FsiInputError
 from pyflightstream.fsi.loads import (
     ElasticAxisLoads,
@@ -94,7 +94,7 @@ _LOG_HEADER = (
     "# n Omega / omega_n stays at or below about 0.3 (DLV-007 Section 4.1)\n"
     "call,step,phase,revolutions,solver_iteration,total_normal_force_n,"
     "tip_flap_m,tip_twist_deg,inner_solves,twist_residual_rad,"
-    "twist_tolerance_rad,relaxation,config_hash\n"
+    "twist_tolerance_rad,relaxation,config_sha256\n"
 )
 
 
@@ -313,7 +313,7 @@ def _append_log(run_dir: Path, row: dict[str, object]) -> None:
         f"{row['solver_iteration']},{row['total_normal_force_n']},"
         f"{row['tip_flap_m']},{row['tip_twist_deg']},{row['inner_solves']},"
         f"{row['twist_residual_rad']},{row['twist_tolerance_rad']},"
-        f"{row['relaxation']},{row['config_hash']}\n"
+        f"{row['relaxation']},{row['config_sha256']}\n"
     )
     if not path.is_file():
         path.write_text(_LOG_HEADER + line, encoding="utf-8")
@@ -370,7 +370,7 @@ def _frozen_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> StepResult:
             "twist_residual_rad": "",
             "twist_tolerance_rad": "",
             "relaxation": "",
-            "config_hash": config_hash(cfg),
+            "config_sha256": config_sha256(cfg),
         },
     )
     write_state_atomic(state, run_dir / STATE_FILE)
@@ -451,7 +451,7 @@ def coupling_step(run_dir: str | Path) -> StepResult:
         # the same question. The hash was already computed here for a log
         # row, which is what made the omission easy to miss: the value
         # existed and simply was not consulted where it decides anything.
-        config_hash=config_hash(cfg),
+        config_sha256=config_sha256(cfg),
         # A RUN-FOLDER MARKER rather than a keyword a caller passes, because
         # there is no caller to pass it: FlightStream invokes this executable
         # bare, coupling_step takes only the directory, and pyfs-fsi exposes
@@ -462,10 +462,10 @@ def coupling_step(run_dir: str | Path) -> StepResult:
         # from a bare invocation.
         allow_config_change=(run_dir / ALLOW_CONFIG_CHANGE_FILE).is_file(),
     )
-    if state.config_hash is None:
+    if state.config_sha256 is None:
         # First contact with a state that predates the field, or one just
         # created: stamp it so the NEXT resume has an identity to compare.
-        state.config_hash = config_hash(cfg)
+        state.config_sha256 = config_sha256(cfg)
 
     if (run_dir / FROZEN_FILE).is_file():
         return _frozen_step(run_dir, cfg, state)
@@ -710,7 +710,7 @@ def coupling_step(run_dir: str | Path) -> StepResult:
             "twist_residual_rad": "" if twist_residual is None else f"{twist_residual:.6e}",
             "twist_tolerance_rad": ("" if twist_tolerance is None else f"{twist_tolerance:.1e}"),
             "relaxation": "" if relaxation is None else f"{relaxation:.3f}",
-            "config_hash": config_hash(cfg),
+            "config_sha256": config_sha256(cfg),
         },
     )
     write_state_atomic(state, run_dir / STATE_FILE)

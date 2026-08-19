@@ -34,6 +34,7 @@ from pathlib import Path
 
 import pytest
 
+from pyflightstream import _digest as digest_module
 from pyflightstream._digest import file_sha256, optional_file_sha256, text_sha256
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -96,6 +97,119 @@ def test_the_text_digest_names_its_encoding(tmp_path):
     text = "SOLVER_SET_AOA 4.0\n# a comment with an accent: á\n"
     assert text_sha256(text) == hashlib.sha256(text.encode("utf-8")).hexdigest()
     assert text_sha256(text) != hashlib.sha256(text.encode("utf-16")).hexdigest()
+
+
+def _hashlib_calls(module: Path) -> set[str]:
+    """Return the ``hashlib`` constructors a module calls, by name.
+
+    ``hashlib.sha256(...)`` yields ``"sha256"``; ``hashlib.new("md5")``
+    yields ``"new"``, which is deliberately reported rather than
+    resolved, because a constructor chosen at run time is exactly the
+    shape that makes the algorithm unstateable.
+    """
+    tree = ast.parse(module.read_text(encoding="utf-8"), filename=str(module))
+    found = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        function = node.func
+        if isinstance(function, ast.Attribute) and isinstance(function.value, ast.Name):
+            if function.value.id == "hashlib":
+                found.add(function.attr)
+    return found
+
+
+def _modules_that_compute_a_digest() -> dict[str, set[str]]:
+    """Map every module under ``src/`` that hashes to the calls it makes."""
+    measured = {}
+    for module in sorted(SRC.rglob("*.py")):
+        calls = _hashlib_calls(module)
+        if calls:
+            measured[module.relative_to(SRC).as_posix()] = calls
+    return measured
+
+
+def test_every_digest_the_package_computes_declares_its_canonical_form():
+    """NFR-15's rule, held by a registry rather than by a paragraph.
+
+    The requirement asks which ALGORITHM over which CANONICAL FORM, and
+    what stays out of it. The algorithm was already stateable by reading
+    the code; the canonical form was not, because a digest is a
+    statement about a canonical form CHOSEN AT THE CALL SITE, and each
+    site chose privately. Nothing stopped a fourth site appearing whose
+    canonical form carried a wall-clock timestamp or an absolute path,
+    and two identical runs would then have disagreed with no test
+    noticing, which is the failure NFR-07 rests on not happening.
+
+    So the rule is DATA. A module that computes a digest declares the
+    canonical form it hashes, here, beside the exclusions that hold for
+    all of them; a module that appears with no declaration fails.
+    """
+    measured = set(_modules_that_compute_a_digest())
+    declared = set(getattr(digest_module, "CANONICAL_FORMS", {}))
+
+    assert declared == measured, (
+        "the digests this package computes and the canonical forms it declares "
+        f"have diverged.\n  undeclared: {sorted(measured - declared)}\n"
+        f"  declared but gone: {sorted(declared - measured)}\n"
+        "Every sha256 computed in this package is a claim that two runs are the "
+        "same run, so each one must say what canonical form it hashes. Add the "
+        "module to CANONICAL_FORMS in src/pyflightstream/_digest.py, naming the "
+        "exact bytes it feeds the hash, or route it through this module."
+    )
+
+
+def test_the_package_names_one_algorithm_and_uses_no_other():
+    """The algorithm half, pinned where it is spent rather than described.
+
+    A digest written into a committed manifest and cited by a
+    publication cannot quietly change algorithm, and `hashlib.new` is
+    excluded outright: a constructor chosen at run time makes the
+    algorithm a property of the input rather than of the code.
+    """
+    used = set()
+    for calls in _modules_that_compute_a_digest().values():
+        used |= calls
+    algorithm = getattr(digest_module, "ALGORITHM", None)
+
+    assert used == {algorithm}, (
+        f"this package computes a digest with {sorted(used)} where the rule names "
+        f"{algorithm!r} alone. A manifest digest is cited by "
+        "publications, so a second algorithm is a public break and needs the "
+        "changelog entry that goes with one."
+    )
+
+
+def test_a_digest_is_a_statement_about_content_and_nothing_around_it(tmp_path):
+    """The exclusion clause, measured rather than promised.
+
+    Wall-clock timestamps, absolute paths and elapsed time are what make
+    two identical runs disagree, so the property is asserted directly:
+    the same bytes under two names, in two directories, with two
+    modification times, hash to one value.
+    """
+    first = tmp_path / "one" / "wing.stl"
+    second = tmp_path / "two" / "a_different_name.stl"
+    for path in (first, second):
+        path.parent.mkdir(parents=True)
+        path.write_bytes(b"solid wing\nfacet\nendsolid\n")
+
+    import os
+
+    # Two different modification times, one of them plainly not "now".
+    os.utime(first, (0, 0))
+    os.utime(second, (1_000_000_000, 1_000_000_000))
+
+    assert file_sha256(first) == file_sha256(second), (
+        "the digest of a file changed with its name, its directory or its "
+        "modification time, so two identical runs on two machines cannot agree"
+    )
+
+    third = tmp_path / "one" / "changed.stl"
+    third.write_bytes(b"solid wing\nfacet\nfacet\nendsolid\n")
+    assert file_sha256(third) != file_sha256(first), "the control: content must still count"
+
+    assert text_sha256("SOLVER_SET_AOA 4.0\n") == text_sha256("SOLVER_SET_AOA 4.0\n")
 
 
 def _imports_of(module: Path) -> list[tuple[str, str]]:

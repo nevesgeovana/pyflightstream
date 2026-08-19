@@ -603,3 +603,237 @@ def test_no_committed_page_writes_a_stale_tally_of_a_shared_vendor_name() -> Non
         "let the refusal enumerate it, which is what the six corrected on "
         "2026-08-17 now do, or list every member"
     )
+
+
+# --- the standards page states its own enforcement -------------------------
+#
+# ``docs/srs/standards.md`` is the page an outside reader uses to judge how
+# much of this project's discipline is mechanical and how much is habit. Its
+# Adopted table carried one prose column, so a row backed by a tier-1 test
+# and a row backed by nobody's memory read the same. The three guards below
+# hold the two claims that column now makes: that every adopted row names
+# what enforces it, and that the row about role-based review names the hook
+# that REFUSES a push rather than a routine somebody runs.
+#
+# SCOPE. They cannot read a cell and decide whether the named mechanism
+# really enforces the practice; that judgement is the reviewer's. What they
+# remove is the cheaper failure: a cell left empty, and a cell naming a path
+# or a CI command the repository no longer holds.
+
+STANDARDS = REPO / "docs/srs/standards.md"
+
+#: Where a CI command in the "Enforced by" column has to appear verbatim.
+#: A path is checked against the tree; a command has no such existence, so
+#: it is checked against the files that actually run it. Without this arm a
+#: command cell would be the one token kind nothing verifies.
+_CI_HOMES = (".github/workflows/ci.yml", ".pre-commit-config.yaml")
+
+#: The Adopted table's enforcement column, resolved by LABEL. A markdown
+#: table makes no promise about column ORDER, so a guard that indexes by
+#: position starts reading the reference column the day a column moves.
+_ENFORCEMENT_COLUMN = "Enforced by"
+
+#: The literal that says, deliberately, that nothing refuses a breach.
+_CONVENTION = "convention"
+
+
+def _markdown_table(text: str, heading: str) -> tuple[list[str], list[list[str]]]:
+    """Header labels and body rows of the table under ``heading``.
+
+    Parameters
+    ----------
+    text : str
+        The whole markdown page.
+    heading : str
+        The section heading line, for example ``"## Adopted"``.
+
+    Returns
+    -------
+    tuple of (list of str, list of list of str)
+        The header labels, and one list of stripped cells per body row.
+    """
+    lines = text.splitlines()
+    starts = [index for index, line in enumerate(lines) if line.strip() == heading]
+    assert len(starts) == 1, f"expected exactly one {heading!r} heading, found {len(starts)}"
+    rows: list[list[str]] = []
+    for line in lines[starts[0] + 1 :]:
+        if line.startswith("## "):
+            break
+        if line.lstrip().startswith("|"):
+            rows.append([cell.strip() for cell in line.strip().strip("|").split("|")])
+    assert len(rows) >= 3, f"the table under {heading!r} has no body rows; the parse broke"
+    separator = rows[1]
+    assert all(set(cell) <= set("-: ") and cell for cell in separator), (
+        f"the second table line under {heading!r} is not a separator row, so the "
+        "header was not where this parser expected it"
+    )
+    return rows[0], rows[2:]
+
+
+def _adopted_table() -> tuple[list[str], list[list[str]]]:
+    """The Adopted table of the standards page."""
+    return _markdown_table(STANDARDS.read_text(encoding="utf-8"), "## Adopted")
+
+
+def _enforcement_token(cell: str) -> tuple[str, str]:
+    """Classify one "Enforced by" cell into its token kind.
+
+    The kind is decided BEFORE anything is checked against the tree, which
+    is the whole reason the vocabulary is three closed shapes rather than
+    prose: read as a path, ``convention`` is a missing file and the Sybil
+    command is a missing directory.
+
+    Returns
+    -------
+    tuple of (str, str)
+        The kind (``convention``, ``seat``, ``path`` or ``command``) and the
+        token to check, empty for ``convention``.
+    """
+    if cell == _CONVENTION:
+        return _CONVENTION, ""
+    quoted = re.findall(r"`([^`]+)`", cell)
+    if len(quoted) != 1:
+        return "unreadable", cell
+    token = quoted[0]
+    if cell.startswith("seat:"):
+        return "seat", token
+    if re.search(r"\s", token):
+        return "command", token
+    return "path", token
+
+
+def test_the_enforcement_guard_reads_the_table_it_names() -> None:
+    """Non-vacuity: a broken parse would make the sweep below pass silently.
+
+    Both anchors are practices, not mechanisms, so this assertion survives
+    every change the guard below is meant to allow and fails on the one
+    thing it cannot see, which is a table it stopped finding.
+    """
+    headers, rows = _adopted_table()
+    assert len(rows) >= 14, f"the Adopted table parsed to {len(rows)} rows, which is too few"
+    practices = " ".join(row[0] for row in rows)
+    for anchor in ("SemVer 2.0.0", "Role-based review"):
+        assert anchor in practices, f"the Adopted table no longer names {anchor!r}"
+    assert _ENFORCEMENT_COLUMN in headers, (
+        f"the Adopted table has no {_ENFORCEMENT_COLUMN!r} column, so a reader cannot "
+        f"tell an enforced row from an unenforced one; the columns are {headers}"
+    )
+    column = headers.index(_ENFORCEMENT_COLUMN)
+    kinds = {_enforcement_token(row[column])[0] for row in rows}
+    assert kinds & {"path", "command"}, (
+        "no row names a repository path or a CI command, so the existence half of "
+        "the guard below checks nothing at all"
+    )
+
+
+def test_every_adopted_standard_names_what_enforces_it() -> None:
+    """Every Adopted row carries an enforcement cell, and it resolves.
+
+    A page that mixes a practice held by a tier-1 test with one held by
+    habit, in the same prose column, publishes a discipline a reader cannot
+    grade. The cell is one of three closed shapes: a repository path, a CI
+    command, a named review seat with its charter, or the literal word
+    ``convention``, which says that nothing refuses a breach and is a real
+    answer rather than an omission.
+    """
+    headers, rows = _adopted_table()
+    assert _ENFORCEMENT_COLUMN in headers, (
+        f"the Adopted table has no {_ENFORCEMENT_COLUMN!r} column: {headers}"
+    )
+    column = headers.index(_ENFORCEMENT_COLUMN)
+    ci_text = "\n".join((REPO / home).read_text(encoding="utf-8") for home in _CI_HOMES)
+
+    offenders = []
+    for row in rows:
+        practice = row[0]
+        assert len(row) == len(headers), (
+            f"the {practice!r} row has {len(row)} cells and the header has {len(headers)}"
+        )
+        cell = row[column]
+        if not cell:
+            offenders.append(f"{practice}: the enforcement cell is empty")
+            continue
+        kind, token = _enforcement_token(cell)
+        if kind == "unreadable":
+            offenders.append(
+                f"{practice}: {cell!r} is neither the word {_CONVENTION!r} nor exactly one "
+                "backticked path, command or seat charter"
+            )
+        elif kind in ("path", "seat") and not (REPO / token).exists():
+            offenders.append(f"{practice}: names {token!r}, which the repository does not hold")
+        elif kind == "command" and token not in ci_text:
+            offenders.append(
+                f"{practice}: names the command {token!r}, which appears verbatim in none of "
+                f"{', '.join(_CI_HOMES)}, so nothing runs it"
+            )
+    assert not offenders, (
+        "\n  "
+        + "\n  ".join(offenders)
+        + "\n\nEvery adopted row states how it lands AND what holds it there. A cell "
+        "naming a path or a command the tree no longer holds is the stale claim this "
+        "column exists to prevent; the word convention is how a row says, on purpose, "
+        "that nothing mechanical refuses a breach."
+    )
+
+
+def test_the_role_based_review_row_names_the_gate_that_refuses_a_push() -> None:
+    """The row says a tool refuses the push, not that a reviewer remembers.
+
+    The page described role-based review as five charters run by a skill
+    before a work item closes, which is true and stopped being complete when
+    the push gate landed: an unattested push is DENIED, and a push made
+    while a blocking incident is open in the shared ledger is denied too.
+    A public claim that understates its own mechanism is the mirror of one
+    that overstates it, and this repository's changelog had announced both
+    gates while the SRS still described a habit.
+    """
+    headers, rows = _adopted_table()
+    matching = [row for row in rows if row[0].startswith("Role-based review")]
+    assert len(matching) == 1, f"expected one Role-based review row, found {len(matching)}"
+    assert "How it lands here" in headers, f"the Adopted table columns are {headers}"
+
+    # THE PROSE CELL, not the joined row, and the difference is measured
+    # rather than stylistic: the enforcement cell of this same row names the
+    # hook too, so a guard reading the whole row passed with the hook deleted
+    # from the sentence a reader actually reads.
+    cell = matching[0][headers.index("How it lands here")]
+
+    hook = ".claude/hooks/role_review_gate.py"
+    assert (REPO / hook).is_file(), (
+        f"{hook} is not in the tree, so the row below would name a mechanism that no "
+        "longer exists; the row and the hook move together"
+    )
+    assert hook in cell, (
+        "the Role-based review row does not name the push-gate hook where it describes "
+        "the practice, so a reader of that row alone learns that a skill runs five "
+        f"charters and not that an unattested push is refused by {hook}"
+    )
+    assert ".claude/agents/" in cell, (
+        "the row no longer names the reviewer charters, which are what the gate "
+        "attests to; naming the gate is an addition to that sentence, not a swap"
+    )
+    assert "COORD_INCIDENT_LEDGER" in cell, (
+        "the incident half is stated without naming the variable that locates the "
+        "ledger, so a reader cannot follow it to the machine-configuration table "
+        "in CLAUDE.md, which is that fact's one home"
+    )
+
+    # Per CLAUSE, for the same reason. Both halves of the gate live in one
+    # sentence, so a sentence-level or row-level search let "reminds the
+    # author about the attestation" pass on the word "denies" belonging to
+    # the OTHER half. A refusal has to be stated where the mechanism is.
+    clauses = re.split(r"[.;:]\s+", cell)
+    refusal = ("denies", "refuses", "refusal", "blocks")
+    for what, marker in (("attestation half", hook), ("incident half", "incident")):
+        carrying = [clause for clause in clauses if marker.lower() in clause.lower()]
+        assert carrying, (
+            f"the row's prose does not mention the {what} of the gate at all "
+            f"(looked for {marker!r}), so a reader learns about only one of the two "
+            "refusals that stand behind role-based review here"
+        )
+        assert any(any(verb in clause.lower() for verb in refusal) for clause in carrying), (
+            f"the row names the {what} without saying, in the same clause, that it "
+            f"REFUSES the push (one of {', '.join(refusal)}). A gate described as a "
+            "reminder reads exactly like the reviewer's memory it replaced, which is "
+            "the understatement this row was corrected for"
+        )

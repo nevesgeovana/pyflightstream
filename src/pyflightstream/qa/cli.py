@@ -10,7 +10,15 @@ write path into the stored physics references and demands a reason
 string (SAD Section 11); ``pyfs-qa drift`` runs the same case set on
 two versions and diffs the aggregated coefficients (FR-27);
 ``pyfs-qa cases`` prints the Tier 3 test matrix itself, one line per
-case id, without running anything.
+case id, without running anything; ``pyfs-qa cost`` reads a campaign's
+``runs.json`` and prints what each sweep point cost in wall-clock
+seconds, one column per solver build, so a build that got slower can be
+shown (FR-19 records the field, this reads it).
+
+Three of the seven subcommands need a licensed machine (``probe``,
+``physics``, ``drift``) and four do not: ``apply-compat``,
+``update-reference``, ``cases`` and ``cost`` read committed or recorded
+evidence and start no solver.
 """
 
 from __future__ import annotations
@@ -29,6 +37,7 @@ from pyflightstream.qa.compat import (
     read_compat_report,
     write_compat_report,
 )
+from pyflightstream.qa.cost import ABSENT, NOT_RUN, CostView, PointKey, cost_view
 from pyflightstream.qa.drift import drift_report_paths, run_drift, write_drift_report
 from pyflightstream.qa.errors import QaEvidenceError
 from pyflightstream.qa.physics import (
@@ -42,6 +51,7 @@ from pyflightstream.qa.physics import (
 from pyflightstream.qa.probes import ProbeEnvironmentError, probe_version
 from pyflightstream.qa.reports import refuse_existing_report, resolve_report_date
 from pyflightstream.versions import AmbiguousVersionAliasError, UnknownVersionError, resolve
+from pyflightstream.workspace import CampaignWorkspace
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -230,6 +240,24 @@ def _build_parser() -> argparse.ArgumentParser:
         help="include the SMI local-geometry class; like the runs, it never appears implicitly",
     )
 
+    cost = subparsers.add_parser(
+        "cost",
+        help=(
+            "report wall-time cost per sim and point from a campaign manifest, one "
+            "column per solver build; reads runs.json and runs nothing"
+        ),
+    )
+    cost.add_argument(
+        "campaign",
+        help="campaign root whose runs.json is read; no solver is started",
+    )
+    cost.add_argument(
+        "--compare",
+        metavar="BASELINE,CANDIDATE",
+        help="two build column labels, baseline first, as the table's own header "
+        "spells them; only the points both builds timed are compared",
+    )
+
     update = subparsers.add_parser(
         "update-reference",
         help="update or seed one physics reference from a committed physics report",
@@ -261,7 +289,111 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_update_reference(args)
     if args.subcommand == "cases":
         return _cmd_cases(args)
+    if args.subcommand == "cost":
+        return _cmd_cost(args)
     return _cmd_apply_compat(args)
+
+
+def _cmd_cost(args: argparse.Namespace) -> int:
+    """Print the wall-time cost table of one campaign, and optionally a comparison.
+
+    Presentation lives here rather than in :mod:`pyflightstream.qa.cost`,
+    like every other subcommand of this CLI: the library answers what a
+    run cost, the command line decides how a terminal reads it.
+    """
+    workspace = CampaignWorkspace(args.campaign)
+    view = cost_view(workspace)
+    if not view.points:
+        print(
+            f"no runs recorded: {workspace.manifest_path} "
+            f"{'is empty' if workspace.manifest_path.is_file() else 'does not exist'}, "
+            "so there is no wall time to report. A campaign with no manifest is not "
+            "a campaign that cost nothing.",
+            file=sys.stderr,
+        )
+        return 2
+
+    header = {"sim_id": "SIM", "point": "POINT"}
+    header.update({build.label: build.label for build in view.builds})
+    cells = [_cost_row_text(view, point) for point in view.points]
+    widths = {key: max(len(header[key]), *(len(row[key]) for row in cells)) for key in header}
+    print("  ".join(header[key].ljust(widths[key]) for key in header).rstrip())
+    for row in cells:
+        print("  ".join(row[key].ljust(widths[key]) for key in header).rstrip())
+
+    print("")
+    for build in view.builds:
+        print(
+            f"column {build.label}: fs_build={build.fs_build} fs_exe_sha256={build.fs_exe_sha256}"
+        )
+    print(
+        f"seconds of wall-clock time around the solver process; {ABSENT} = the run is "
+        f"recorded and carries no wall time, {NOT_RUN} = that point never ran on that "
+        "build. Both are read as absent, never as zero."
+    )
+    failed = sum(
+        view.cell(point, build).failed_count for point in view.points for build in view.builds
+    )
+    if failed:
+        print(
+            f"{failed} of the recorded runs ended in a FAILED status; their time is "
+            "time to a failure, not time to an answer"
+        )
+
+    if args.compare:
+        return _print_cost_comparison(view, args.compare)
+    return 0
+
+
+def _cost_row_text(view: CostView, point: PointKey) -> dict[str, str]:
+    """Render one pivot row, keeping absence distinguishable from a zero.
+
+    The two empty cells are printed differently on purpose: a point that
+    ran and was not timed is evidence with a hole in it, and a point that
+    never ran on that build is not evidence at all. Neither is a number.
+    """
+    row: dict[str, str] = {"sim_id": point.sim_id, "point": point.label}
+    for build in view.builds:
+        cell = view.cell(point, build)
+        seconds = cell.wall_time_s
+        if seconds is None:
+            row[build.label] = ABSENT if cell.recorded else NOT_RUN
+        else:
+            row[build.label] = f"{seconds:.2f}"
+    return row
+
+
+def _print_cost_comparison(view: CostView, spec: str) -> int:
+    """Print a baseline-to-candidate comparison over the points both timed."""
+    baseline, separator, candidate = spec.partition(",")
+    if not separator or not candidate.strip():
+        print(
+            f"--compare expects BASELINE,CANDIDATE, got {spec!r}; the two names are "
+            "column labels as the table above spells them",
+            file=sys.stderr,
+        )
+        return 2
+    try:
+        comparison = view.compare(baseline.strip(), candidate.strip())
+    except ValueError as error:
+        print(f"nothing compared: {error}", file=sys.stderr)
+        return 2
+    print("")
+    for pair in comparison.paired:
+        ratio = "-" if pair.ratio is None else f"{pair.ratio:.2f}"
+        print(
+            f"{pair.point.sim_id}  {pair.point.label}  "
+            f"{pair.baseline_s:.2f} -> {pair.candidate_s:.2f}  x{ratio}"
+        )
+    for point in comparison.unpaired:
+        print(f"{point.sim_id}  {point.label}  not timed on both builds, left out")
+    total = "unknown" if comparison.ratio is None else f"{comparison.ratio:.2f}"
+    print(
+        f"{len(comparison.paired)} point(s) compared, {len(comparison.unpaired)} unpaired: "
+        f"{comparison.baseline_total_s:.2f} s -> {comparison.candidate_total_s:.2f} s, "
+        f"overall x{total} (above 1 means the candidate build is slower)"
+    )
+    return 0
 
 
 def _cmd_cases(args: argparse.Namespace) -> int:

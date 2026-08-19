@@ -54,6 +54,22 @@ accepted", as a mandatory requirement. Requirements badged
 ``deprecated`` are excluded for the same reason. A requirement badged
 ``pending`` IS published as mandatory, because it is owed; what a
 consumer cannot learn from this artifact is whether it has shipped.
+
+WHAT A MALFORMED PAGE DOES: the script refuses, names every problem it
+found, and writes nothing. Four shapes are refused, and the reason they
+are refusals rather than defaults is that each one publishes a FALSE
+statement to a reader outside this repository rather than an obviously
+broken one. A requirement box with no ``srs-`` badge used to default to
+``implemented``, so a deferred or pending requirement whose badge was
+lost in an edit reached the dashboard as done and mandatory. A badge
+token outside the four known ones travelled through unread. A repeated
+id published two entries a consumer keyed by id cannot tell apart. And a
+``!!! requirement "`` header this script's pattern cannot read produced
+no entry at all, its body being absorbed into the previous box, so a
+requirement stopped existing with every check green: that last one is
+the shape :mod:`tests.test_requirements_index` was written for and could
+not see, because it compares id sets and a lost box is missing from
+both. See :func:`collect`.
 """
 
 from __future__ import annotations
@@ -78,6 +94,31 @@ BOX = re.compile(
 
 #: The status badge, read out of the header line rather than the body.
 STATUS = re.compile(r"srs-(?P<status>\w+)")
+
+#: A requirement header line, read WITHOUT the id pattern, so a header
+#: whose id BOX cannot parse is still seen as a header rather than as
+#: prose. The gap between this and BOX is what refusal four reports.
+REQUIREMENT_HEADER = '!!! requirement "'
+
+#: The identifier alone, on a header line. Used only to tell the two
+#: causes of an unreadable header apart, so the refusal does not blame
+#: the identifier for a header whose identifier is fine.
+HEADER_ID = re.compile(r'^!!! requirement "(?P<id>[A-Za-z]+-[0-9]+[a-z]?)\b')
+
+#: The badge tokens the SRS uses. A fifth token is a typo or a status
+#: this index has no rule for, and either way the consumer is entitled
+#: to a refusal rather than to a word it cannot interpret.
+KNOWN_STATUSES = ("implemented", "pending", "deferred", "deprecated")
+
+
+class MalformedRequirementPageError(Exception):
+    """A requirement page cannot be published as written.
+
+    Raised by :func:`collect` carrying EVERY problem it found, not the
+    first: an author fixing one badge at a time would run the generator
+    once per defect, and the four shapes tend to arrive together in one
+    careless edit.
+    """
 
 
 def _plain(text: str) -> str:
@@ -133,7 +174,7 @@ def _verification(body: str, status: str) -> str:
     return "review"
 
 
-def collect() -> list[dict[str, str]]:
+def collect(srs_dir: Path) -> list[dict[str, str]]:
     """Parse the live requirement set out of the SRS.
 
     Three kinds of box are parsed and only one is published. A
@@ -145,17 +186,68 @@ def collect() -> list[dict[str, str]]:
     accepted" to a dashboard as a mandatory requirement. A requirement
     badged ``deprecated`` is dropped for the same reason, since it is
     superseded rather than owed.
+
+    Parameters
+    ----------
+    srs_dir : pathlib.Path
+        The directory of Markdown requirement pages to read. A parameter
+        rather than the module constant so a deliberately malformed page
+        can be fed to this function by a test; :func:`main` passes
+        :data:`SRS`.
+
+    Returns
+    -------
+    list of dict
+        One entry per published requirement, sorted by identifier.
+
+    Raises
+    ------
+    MalformedRequirementPageError
+        If any page carries a requirement box with no ``srs-`` badge, a
+        badge outside :data:`KNOWN_STATUSES`, an id already seen, or a
+        ``!!! requirement "`` header this module's :data:`BOX` pattern
+        cannot read. The message names every problem found, each with
+        its page and its identifier, or its LINE NUMBER where the
+        identifier is what failed to parse.
     """
     entries: list[dict[str, str]] = []
-    for page in sorted(SRS.glob("*.md")):
+    problems: list[str] = []
+    seen: dict[str, str] = {}
+    for page in sorted(srs_dir.glob("*.md")):
         text = page.read_text(encoding="utf-8")
         matches = list(BOX.finditer(text))
+        problems += _unreadable_headers(page, text, matches)
         for i, m in enumerate(matches):
             end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
             body = text[m.end() : end]
+            if m.group("kind") != "requirement":
+                continue
+            rid = m.group("id")
             badge = STATUS.search(m.group("title"))
-            status = badge.group("status") if badge else "implemented"
-            if m.group("kind") != "requirement" or status == "deprecated":
+            if badge is None:
+                problems.append(
+                    f"{page.name}: {rid} carries no srs- status badge. It is not "
+                    "defaulted to implemented, because a lost badge published a "
+                    "requirement nobody has built as done and mandatory"
+                )
+                continue
+            status = badge.group("status")
+            if status not in KNOWN_STATUSES:
+                problems.append(
+                    f"{page.name}: {rid} carries the status badge srs-{status}, which is "
+                    f"not one of {', '.join(KNOWN_STATUSES)}. Fix the badge; this index "
+                    "has no rule for publishing a status it cannot interpret"
+                )
+                continue
+            if rid in seen:
+                problems.append(
+                    f"{page.name}: {rid} repeats an identifier already declared in "
+                    f"{seen[rid]}. The consumer keys this index by identifier, so two "
+                    "boxes with one id publish two entries it cannot tell apart"
+                )
+                continue
+            seen[rid] = page.name
+            if status == "deprecated":
                 continue
             entries.append(
                 {
@@ -172,8 +264,59 @@ def collect() -> list[dict[str, str]]:
                     "verification": _verification(body, status),
                 }
             )
+    if problems:
+        raise MalformedRequirementPageError("\n".join(problems))
     entries.sort(key=_sort_key)
     return entries
+
+
+def _unreadable_headers(page: Path, text: str, matches: list[re.Match[str]]) -> list[str]:
+    """Report every requirement header :data:`BOX` failed to read.
+
+    Parameters
+    ----------
+    page : pathlib.Path
+        The page being parsed, named in the message.
+    text : str
+        The page's text.
+    matches : list of re.Match
+        The boxes :data:`BOX` did find on that page.
+
+    Returns
+    -------
+    list of str
+        One message per header line that opens a requirement box but is
+        not the start of a match, naming the page and the 1-based LINE
+        NUMBER. The line number rather than an identifier, because the
+        identifier is usually what could not be parsed. Where the
+        identifier DID parse and the rest of the header did not, the
+        message says so and names it: a refusal that blames the
+        identifier of a header whose identifier is fine sends the author
+        to the wrong half of the line.
+    """
+    parsed = {text[: m.start()].count("\n") + 1 for m in matches}
+    problems: list[str] = []
+    for number, line in enumerate(text.splitlines(), 1):
+        if not line.startswith(REQUIREMENT_HEADER) or number in parsed:
+            continue
+        readable_id = HEADER_ID.match(line)
+        if readable_id is None:
+            problems.append(
+                f"{page.name}:{number}: this line opens a requirement box, but its "
+                "identifier could not be parsed, so the box would publish nothing and "
+                "its body would be read as part of the previous requirement. An "
+                "identifier is one or more letters, a hyphen and a number, as in FR-37 "
+                "or NFR-13"
+            )
+        else:
+            problems.append(
+                f"{page.name}:{number}: the identifier {readable_id.group('id')} parses, "
+                "but the rest of the header does not: a box header is the identifier, a "
+                "space, a title, a closing quote, and a line after it. As written the "
+                "box would publish nothing and its body would be read as part of the "
+                "previous requirement"
+            )
+    return problems
 
 
 def _sort_key(entry: dict[str, str]) -> tuple[str, int, str]:
@@ -182,7 +325,7 @@ def _sort_key(entry: dict[str, str]) -> tuple[str, int, str]:
     return (prefix, int(number.group(1)), number.group(2))
 
 
-def traceability(ids: list[str]) -> dict[str, object]:
+def traceability(ids: list[str], tests_dir: Path) -> dict[str, object]:
     """Count how many requirement ids are mentioned under ``tests/``.
 
     This is a GENEROUS measurement and the payload says so in its own
@@ -203,8 +346,22 @@ def traceability(ids: list[str]) -> dict[str, object]:
     is excluded because it holds fixtures rather than tests, and two of
     the ids counted by the first version of this function came from
     there.
+
+    Parameters
+    ----------
+    ids : list of str
+        The published requirement identifiers.
+    tests_dir : pathlib.Path
+        The test tree to scan. A parameter for the same reason
+        :func:`collect` takes one; :func:`main` passes :data:`TESTS`.
+
+    Returns
+    -------
+    dict
+        ``cited_by_a_test``, ``total`` and the ``method`` sentence that
+        travels with the number.
     """
-    sources = [p for p in TESTS.rglob("*.py") if p.name != "conftest.py"]
+    sources = [p for p in tests_dir.rglob("*.py") if p.name != "conftest.py"]
     corpus = "\n".join(p.read_text(encoding="utf-8", errors="ignore") for p in sources)
     cited = {rid for rid in ids if re.search(rf"\b{re.escape(rid)}\b", corpus)}
     return {
@@ -217,19 +374,47 @@ def traceability(ids: list[str]) -> dict[str, object]:
     }
 
 
-def build() -> dict[str, object]:
-    """Assemble the published payload: the set plus its traceability."""
-    entries = collect()
+def build(srs_dir: Path, tests_dir: Path) -> dict[str, object]:
+    """Assemble the published payload: the set plus its traceability.
+
+    Parameters
+    ----------
+    srs_dir : pathlib.Path
+        The requirement pages, passed to :func:`collect`.
+    tests_dir : pathlib.Path
+        The test tree, passed to :func:`traceability`.
+
+    Returns
+    -------
+    dict
+        The whole published document.
+
+    Raises
+    ------
+    MalformedRequirementPageError
+        Propagated from :func:`collect`, BEFORE anything is written.
+    """
+    entries = collect(srs_dir)
     return {
         "source": "docs/srs",
         "generated_by": "scripts/gen_requirements_index.py",
-        "traceability": traceability([e["id"] for e in entries]),
+        "traceability": traceability([e["id"] for e in entries], tests_dir),
         "requirements": entries,
     }
 
 
 def main() -> int:
-    """Write the index, or check the committed one against the SRS."""
+    """Write the index, or check the committed one against the SRS.
+
+    Returns
+    -------
+    int
+        ``0`` on success, ``1`` when ``--check`` finds the committed
+        file stale, and ``1`` when a page is malformed, in which case
+        NOTHING is written: the refusal is raised by :func:`collect`
+        before the payload exists, so neither mode can leave a
+        half-published index behind.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--check",
@@ -237,7 +422,14 @@ def main() -> int:
         help="fail if the committed index differs from the SRS",
     )
     args = parser.parse_args()
-    data = build()
+    try:
+        data = build(SRS, TESTS)
+    except MalformedRequirementPageError as malformed:
+        print(
+            f"{SRS} cannot be published as written; nothing was written:\n{malformed}",
+            file=sys.stderr,
+        )
+        return 1
     payload = json.dumps(data, indent=1, ensure_ascii=False) + "\n"
     if args.check:
         current = OUT.read_text(encoding="utf-8") if OUT.exists() else ""

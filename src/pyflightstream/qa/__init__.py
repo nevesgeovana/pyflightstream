@@ -18,6 +18,12 @@ needed. :mod:`pyflightstream.qa.reports` holds the report-naming and
 never-overwrite rule all three writers share, so a run is refused before
 a licensed seat is spent rather than after. The ``pyfs-qa`` CLI
 (:mod:`pyflightstream.qa.cli`) drives all three.
+
+One member of this package spends no seat at all and reads no report:
+:mod:`pyflightstream.qa.cost` builds the wall-time cost view from
+campaign manifests alone, points down and solver builds across, so a
+build that got slower on the same points can be shown. FR-19 has
+recorded the field since the v0.3 line; this is what reads it.
 """
 
 from pyflightstream.qa.compat import (
@@ -48,6 +54,16 @@ from pyflightstream.qa.compat import (
 # caller asks BEFORE spending a licensed seat is the one worth putting
 # one import away, and a writer is reached from the module whose run
 # object it takes.
+from pyflightstream.qa.cost import (
+    BuildComparison,
+    BuildKey,
+    CostCell,
+    CostView,
+    PointCost,
+    PointKey,
+    cost_rows,
+    cost_view,
+)
 from pyflightstream.qa.drift import drift_report_paths
 from pyflightstream.qa.errors import QaEvidenceError
 from pyflightstream.qa.physics import physics_report_paths
@@ -81,9 +97,15 @@ from pyflightstream.qa.specs import PROBE_SPECS
 __all__ = [
     "COMPAT_SCHEMA",
     "DEFAULT_ERROR_PATTERNS",
+    "BuildComparison",
+    "BuildKey",
+    "CostCell",
+    "CostView",
     "Judgment",
     "PROBE_SPECS",
     "PROMOTABLE_OUTCOMES",
+    "PointCost",
+    "PointKey",
     "ProbeArtifacts",
     "ProbeEnvironmentError",
     "ProbeOutcome",
@@ -95,6 +117,8 @@ __all__ = [
     "apply_compat",
     "compat_report_paths",
     "contradicting_evidence",
+    "cost_rows",
+    "cost_view",
     "drift_report_paths",
     "dump_changed",
     "dump_gained",
