@@ -23,6 +23,7 @@ import pytest
 from pyflightstream import options as _options
 from pyflightstream import versions as _versions
 from pyflightstream.cases import matrix as _matrix
+from pyflightstream.cases import workflows as _workflows
 from pyflightstream.commands import CommandRegistry
 from pyflightstream.fsi.config import BladeProperties, FsiConfig
 from pyflightstream.qa import physics as _physics
@@ -118,6 +119,13 @@ def _mutable_module_state() -> list[dict]:
         # the lists: every run rebuilds the inner container from scratch
         # rather than mutating the one a snapshot captured.
         _manual.citation_reach,
+        # The workflow table, joined 2026-08-19 after a QA pass found it
+        # outside this inventory. It is a plain mutable dict on a public
+        # module and nothing mutates it today, which is exactly the state
+        # the paragraph above calls "joins consciously": a rule with no
+        # entry is documentation, and this repository does not count that
+        # as a guard.
+        _workflows.WORKFLOWS,
         # Cached mutable objects: the cache keeps returning the same
         # dict, so an in-place mutation outlives the test that made it.
         CommandRegistry.load().commands,

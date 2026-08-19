@@ -293,7 +293,11 @@ def _check_id(artifact_id: str, kind: str) -> None:
             "the REF, SET and ENTRY columns cannot resolve to another artifact's file. "
             f"Rename the library file to inputs/{directory}/{letter}{artifact_id}.toml "
             "and the matrix cell that names it in the same edit; the letter is part of "
-            "the id, not a prefix the library adds or strips.",
+            "the id, not a prefix the library adds or strips. A library written before "
+            "v0.8.0 is migrated in ONE call rather than one rename per artifact: "
+            "pyflightstream.workspace.migrate_input_ids(inputs_dir, matrices, "
+            "apply=True) renames every file and rewrites the REF, SET and ENTRY cells "
+            "of the matrices you hand it, together.",
             kind=kind,
             artifact_id=artifact_id,
         )

@@ -853,7 +853,11 @@ def to_campaign(
                 "mapping; the import-by-number system is replaced by explicit recipe "
                 "references: map the code with recipes={code: 'package.module:function'} "
                 "in Python, or --recipe CODE=package.module:function on the pyfs-matrix "
-                "command line"
+                "command line. Or map the code to a run type this package builds "
+                "itself, which needs no recipe function at all: name it in recipes "
+                "and pass recipe_registry=workflows.workflow_registry(). The command "
+                "line spells that same pair as one option, workflow (CLI: --workflow) "
+                f"CODE=NAME. Registered run types: {', '.join(workflow_names())}"
             )
         variables: dict[str, str | float | int | bool] = dict(row.variables)
         variables.update(
