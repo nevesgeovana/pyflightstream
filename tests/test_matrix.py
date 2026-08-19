@@ -408,12 +408,37 @@ def _without_the_new_cell(data: bytes, index: int) -> bytes:
     return b"".join(rebuilt)
 
 
+def _normalized(data: bytes) -> bytes:
+    """The fixture's bytes with line endings reduced to LF.
+
+    Every case that cares about line endings builds the shape it wants
+    from this, so none of them depends on how git checked the file out.
+    """
+    return data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+
+
 def _line_ending_variants(tmp_path):
-    """The CRLF fixture, an LF copy, and one with no final terminator."""
-    crlf = LEGACY_FIXTURE.read_bytes()
-    assert b"\r\n" in crlf, "the committed fixture is CRLF; this case measures nothing without it"
-    lf = crlf.replace(b"\r\n", b"\n")
+    """A CRLF copy, an LF copy, and one with no final terminator.
+
+    CONSTRUCTED from a normalized base rather than read off the
+    fixture, and that is the whole point of this function rather than a
+    detail of it. Git rewrites line endings on checkout, so the
+    committed fixture arrives CRLF on Windows and LF on Linux; reading
+    its endings made this case a measurement of the checkout. The
+    version that did fired its own non-vacuity assertion on every Linux
+    runner and kept CI red while nine local groups were green.
+
+    What is under test is that the width upgrade preserves bytes under
+    each line-ending shape, which is a property of the converter and of
+    nothing else.
+    """
+    base = _normalized(LEGACY_FIXTURE.read_bytes())
+    crlf = base.replace(b"\n", b"\r\n")
+    lf = base
     unterminated = lf.rstrip(b"\n")
+    assert b"\r\n" in crlf and b"\r" not in lf, (
+        "the two variants are not the two shapes this case exists to compare"
+    )
     for label, data in (("crlf", crlf), ("lf", lf), ("unterminated", unterminated)):
         path = tmp_path / f"{label}.fs"
         path.write_bytes(data)
@@ -519,7 +544,15 @@ def test_a_file_that_is_not_a_run_matrix_is_refused_by_the_converter(tmp_path):
 
 
 def test_a_row_of_the_wrong_width_is_refused_by_the_converter_naming_the_row(tmp_path):
-    lines = LEGACY_FIXTURE.read_bytes().split(b"\r\n")
+    """One row short of a cell, and the refusal names which row.
+
+    The split is on the NORMALIZED bytes. Splitting the fixture on
+    ``\r\n`` as read returned one element on any checkout that gave
+    LF, so this case raised IndexError on the line below rather than
+    testing the converter, on every Linux runner.
+    """
+    lines = _normalized(LEGACY_FIXTURE.read_bytes()).split(b"\n")
+    assert len(lines) > 3, f"the fixture parsed into {len(lines)} lines, which is not a matrix"
     lines[2] = lines[2].rsplit(b"|", 1)[0]
     ragged = tmp_path / "ragged.fs"
     ragged.write_bytes(b"\r\n".join(lines))

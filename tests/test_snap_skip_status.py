@@ -80,9 +80,37 @@ PENDING_PROMOTION = (
     "ensure()'s refusal into return 0 and prints the skip on stdout"
 )
 
+
+def _bash_runs() -> bool:
+    """Whether bash is present AND works.
+
+    EXISTENCE IS NOT CAPABILITY, and the difference kept CI red. On
+    GitHub's windows-latest a file named ``bash`` is on PATH: it is the
+    WSL stub, which has no distribution installed, prints a UTF-16
+    notice about installing one and exits 1. A guard asking
+    ``shutil.which("bash") is None`` sees a bash there, does not skip,
+    and every case in this module then fails with that notice as its
+    diagnosis, including the strict xfail, which XPASSes because the run
+    failed for a reason that has nothing to do with what it expects.
+    """
+    if shutil.which("bash") is None:
+        return False
+    try:
+        proof = subprocess.run(
+            ["bash", "-c", "echo bash-works"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return proof.returncode == 0 and "bash-works" in proof.stdout
+
+
 pytestmark = pytest.mark.skipif(
-    shutil.which("bash") is None,
-    reason="the vendored snapshot tool is a bash script and this machine has no bash",
+    not _bash_runs(),
+    reason="the vendored snapshot tool is a bash script and this machine has no WORKING "
+    "bash (a WSL stub with no distribution installed counts as none)",
 )
 
 
