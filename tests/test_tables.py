@@ -66,11 +66,12 @@ def test_loads_to_dataframe_is_one_row_per_surface_plus_total():
     frame = to_table(report)
     assert list(frame["surface"]) == ["Blade1", "Wing", "Tail", "Total"]
     assert list(frame.columns[:4]) == ["surface", "Cx", "Cy", "Cz"]
-    assert list(frame.columns[-4:]) == [
+    assert list(frame.columns[-5:]) == [
         "force_units",
         "moment_units",
         "data_origin",
         "reduction",
+        "reduction_window",
     ]
     total = frame[frame["surface"] == "Total"].iloc[0]
     assert total["CDi"] == pytest.approx(-0.009075)
@@ -87,6 +88,7 @@ def test_residual_history_to_dataframe_keeps_iteration_order():
         "pressure_residual",
         "data_origin",
         "reduction",
+        "reduction_window",
     ]
     assert frame["iteration"].tolist()[0] == 1
     assert frame["iteration"].tolist()[-1] == 1575
@@ -115,8 +117,9 @@ def test_sectional_loads_to_dataframe_carries_unit_suffixed_columns():
         "moment_qc_nm_per_m",
         "data_origin",
         "reduction",
+        "reduction_window",
     ]
-    assert frame.shape == (100, 9)
+    assert frame.shape == (100, 10)
     assert frame["offset_m"].iloc[0] == pytest.approx(0.2899)
     assert frame["moment_qc_nm_per_m"].iloc[0] == pytest.approx(7.696)
 
@@ -197,6 +200,7 @@ LOADS_FRAME_SCHEMA = {
     "moment_units": "what the solver printed as the moment normalisation",
     "data_origin": "raw off the run or reduced by post-processing (PFS-2014.05)",
     "reduction": "which reduction produced the numbers, none where nothing did",
+    "reduction_window": "over what window it was reduced (PFS-2014.03)",
 }
 
 #: `_probe_points_frame` (results/tables.py). Read the qualifier before
@@ -230,6 +234,7 @@ PROBE_POINTS_FRAME_SCHEMA = {
     # above about printed headers does not reach them.
     "data_origin": "raw off the run or reduced by post-processing (PFS-2014.05)",
     "reduction": "which reduction produced the numbers, none for a point sample",
+    "reduction_window": "over what window it was reduced (PFS-2014.03)",
 }
 
 #: `sweep_table` (results/tables.py): one row per manifest record. The
@@ -244,6 +249,7 @@ SWEEP_TABLE_SCHEMA = {
     "sim_id": "simulation identity of the case",
     "data_origin": "raw off the run or reduced by post-processing (PFS-2014.05)",
     "reduction": "none on a steady point, time_average on an unsteady one",
+    "reduction_window": "over what window it was reduced (PFS-2014.03)",
     "alpha": "sweep axis of this campaign, deg (see the note above)",
     "fs_version_requested": "canonical FlightStream version the campaign asked for",
     "fs_version_reported": "version the solver printed in its output footer",
@@ -345,6 +351,7 @@ RUN_ROW_SCHEMA = {
     "sim_id": "simulation identity of the case",
     "data_origin": "raw off the run or reduced by post-processing (PFS-2014.05)",
     "reduction": "none on a steady point, time_average on an unsteady one",
+    "reduction_window": "over what window it was reduced (PFS-2014.03)",
     "alpha": "sweep axis of this fixture, deg (see the docstring below)",
     "fs_version_requested": "canonical FlightStream version the campaign asked for",
     "fs_version_reported": "version the solver printed in its output footer",
@@ -405,11 +412,12 @@ def test_run_table_joins_identity_conditions_and_total_coefficients():
     frame = run_table(record, loads=loads)
     assert frame.shape[0] == 1
     row = frame.iloc[0]
-    assert list(frame.columns[:5]) == [
+    assert list(frame.columns[:6]) == [
         "run_id",
         "sim_id",
         "data_origin",
         "reduction",
+        "reduction_window",
         "alpha",
     ]
     assert row["run_id"] == "camp/sim_9001/a+02.0"
@@ -721,6 +729,7 @@ def test_write_table_refuses_a_table_that_cannot_say_what_it_is(tmp_path):
             "CL": [0.4, 0.5],
             "data_origin": ["raw", "raw"],
             "reduction": ["none", "time_average"],
+            "reduction_window": ["not_applicable", "not_printed"],
         }
     )
     assert write_table(mixed, tmp_path / "mixed.csv").is_file()
@@ -729,15 +738,51 @@ def test_write_table_refuses_a_table_that_cannot_say_what_it_is(tmp_path):
         (pd.DataFrame({"CL": [0.4]}), "no data_origin"),
         (pd.DataFrame({"CL": [0.4], "data_origin": ["raw"]}), "no reduction"),
         (
-            pd.DataFrame({"CL": [0.4], "data_origin": ["raw"], "reduction": [""]}),
+            pd.DataFrame({"CL": [0.4], "data_origin": ["raw"], "reduction": ["none"]}),
+            "no reduction_window",
+        ),
+        (
+            pd.DataFrame(
+                {
+                    "CL": [0.4],
+                    "data_origin": ["raw"],
+                    "reduction": ["none"],
+                    "reduction_window": ["forever"],
+                }
+            ),
             "does not publish",
         ),
         (
-            pd.DataFrame({"CL": [0.4], "data_origin": ["RAW"], "reduction": ["none"]}),
+            pd.DataFrame(
+                {
+                    "CL": [0.4],
+                    "data_origin": ["raw"],
+                    "reduction": [""],
+                    "reduction_window": ["not_applicable"],
+                }
+            ),
             "does not publish",
         ),
         (
-            pd.DataFrame({"CL": [0.4], "data_origin": ["reduced"], "reduction": ["none"]}),
+            pd.DataFrame(
+                {
+                    "CL": [0.4],
+                    "data_origin": ["RAW"],
+                    "reduction": ["none"],
+                    "reduction_window": ["not_applicable"],
+                }
+            ),
+            "does not publish",
+        ),
+        (
+            pd.DataFrame(
+                {
+                    "CL": [0.4],
+                    "data_origin": ["reduced"],
+                    "reduction": ["none"],
+                    "reduction_window": ["not_applicable"],
+                }
+            ),
             "name no reduction",
         ),
     ):
@@ -747,7 +792,14 @@ def test_write_table_refuses_a_table_that_cannot_say_what_it_is(tmp_path):
 
 def test_write_table_can_be_told_not_to_replace_a_file(tmp_path):
     """The default stays what this module always did; the refusal is opt-in."""
-    frame = pd.DataFrame({"CL": [0.4], "data_origin": ["raw"], "reduction": ["none"]})
+    frame = pd.DataFrame(
+        {
+            "CL": [0.4],
+            "data_origin": ["raw"],
+            "reduction": ["none"],
+            "reduction_window": ["not_applicable"],
+        }
+    )
     target = tmp_path / "polar.csv"
     write_table(frame, target)
     assert write_table(frame, target).is_file()  # overwrite=True by default

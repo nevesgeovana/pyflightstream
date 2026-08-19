@@ -83,6 +83,8 @@ from pyflightstream.results import (
     PROVENANCE_COLUMNS,
     REDUCTION_CODES,
     REDUCTION_COLUMN,
+    REDUCTION_WINDOW_CODES,
+    REDUCTION_WINDOW_COLUMN,
     IncompleteOutputError,
     LoadsReport,
     MalformedOutputError,
@@ -92,6 +94,7 @@ from pyflightstream.results import (
     UnsupportedResultTypeError,
     parse_loads,
     reduction_for_solver_mode,
+    window_for_reduction,
 )
 from pyflightstream.results.conditions import bind_conditions
 
@@ -341,6 +344,7 @@ def _refuse_a_frame_that_cannot_say_what_it_is(frame: pd.DataFrame) -> None:
     for column, published in (
         (DATA_ORIGIN_COLUMN, DATA_ORIGIN_CODES),
         (REDUCTION_COLUMN, REDUCTION_CODES),
+        (REDUCTION_WINDOW_COLUMN, REDUCTION_WINDOW_CODES),
     ):
         seen = {str(value) for value in frame[column].tolist()}
         unknown = sorted(value for value in seen if value not in published)
@@ -609,7 +613,9 @@ def sweep_table(
     return pd.DataFrame(rows)
 
 
-def _stamped(frame: pd.DataFrame, *, origin: str, reduction: str) -> pd.DataFrame:
+def _stamped(
+    frame: pd.DataFrame, *, origin: str, reduction: str, window: str | None = None
+) -> pd.DataFrame:
     """Add the two provenance columns to a whole-file table (PFS-2014.05).
 
     A single parsed result is one provenance throughout, so the columns
@@ -635,6 +641,7 @@ def _stamped(frame: pd.DataFrame, *, origin: str, reduction: str) -> pd.DataFram
     """
     frame[DATA_ORIGIN_COLUMN] = origin
     frame[REDUCTION_COLUMN] = reduction
+    frame[REDUCTION_WINDOW_COLUMN] = window_for_reduction(reduction) if window is None else window
     return frame
 
 
@@ -779,8 +786,15 @@ def _run_row(record: RunRecord, loads: LoadsReport | None) -> dict[str, object]:
     # coefficients are a direct integration and an unsteady point's are the
     # solver's own time average, under the same column names.
     row[DATA_ORIGIN_COLUMN] = "raw"
-    row[REDUCTION_COLUMN] = (
-        "unknown" if loads is None else reduction_for_solver_mode(loads.solver_mode)
+    reduction = "unknown" if loads is None else reduction_for_solver_mode(loads.solver_mode)
+    row[REDUCTION_COLUMN] = reduction
+    # AND OVER WHAT WINDOW (PFS-2014.03). A steady point averages over
+    # nothing; an unsteady point's coefficients are the solver's own time
+    # average and the spreadsheet does not print the window it used, which
+    # this column says rather than leaving blank. A row whose loads never
+    # parsed knows neither.
+    row[REDUCTION_WINDOW_COLUMN] = (
+        "not_printed" if loads is None else window_for_reduction(reduction)
     )
     reserved = set(_RUN_IDENTITY_COLUMNS + _RUN_OUTCOME_COLUMNS + PROVENANCE_COLUMNS)
     reserved.update(("frame", "force_units", "moment_units"))

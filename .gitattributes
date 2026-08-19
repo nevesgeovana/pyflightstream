@@ -34,3 +34,22 @@
 # the same reason (.pre-commit-config.yaml), after one of them rewrote
 # a golden's last byte on 2026-08-07.
 tests/goldens/** text eol=lf
+
+# The fixtures are the same argument as the goldens above, and they cost
+# two tier-1 failures on 2026-08-19 before anyone made it. A fixture read
+# as BYTES carries its line endings into the assertion, so an unpinned one
+# is CRLF on Windows and LF on Linux and the case measures the checkout.
+# Two cases did: one asserted the fixture was CRLF and fired its own
+# non-vacuity guard on every Linux runner, the other split on a CRLF that
+# was not there. Pinning them to LF makes the file on disk the same
+# everywhere, and the guard beside it (tests/test_matrix.py) is what
+# refuses a CR arriving in one.
+#
+# `-text` RATHER THAN `eol=lf`, and the difference is the fixtures' whole
+# purpose. Several of these are captured solver output, and their CRLF is
+# what the solver wrote: normalizing them would make the committed bytes
+# disagree with the run they record. `-text` tells git to convert
+# nothing in either direction, so the file on disk is the file in the
+# index on every platform, which is the property a byte-reading case
+# needs and the only one it needs.
+tests/fixtures/** -text

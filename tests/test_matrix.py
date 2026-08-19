@@ -20,6 +20,7 @@ yet fails on its ASSERTION rather than on the import.
 """
 
 import importlib
+import os
 from pathlib import Path
 
 import pytest
@@ -439,10 +440,113 @@ def _line_ending_variants(tmp_path):
     assert b"\r\n" in crlf and b"\r" not in lf, (
         "the two variants are not the two shapes this case exists to compare"
     )
+    assert unterminated != lf, (
+        "the fixture already ends without a terminator, so the third variant repeats "
+        "the second and this case measures two shapes while naming three"
+    )
     for label, data in (("crlf", crlf), ("lf", lf), ("unterminated", unterminated)):
         path = tmp_path / f"{label}.fs"
         path.write_bytes(data)
         yield label, path, data
+
+
+def test_every_committed_fixture_is_pinned_against_line_ending_conversion():
+    """The structural half of the two CRLF failures of 2026-08-19.
+
+    Both were repaired by CONSTRUCTING the line-ending variants instead
+    of reading them, which fixes two cases and not the class: the next
+    fixture arrives unpinned and the next reader reads bytes.
+
+    The first version of this guard asserted that no fixture carries a
+    carriage return, and it went red naming eleven that do. That was the
+    guard teaching its author: several of these are captured solver
+    output and their CRLF is what the solver WROTE, so normalizing them
+    would make the committed bytes disagree with the run they record.
+
+    What the pin gives, and what this asserts, is that git converts
+    nothing in either direction, so the file a case reads is the file in
+    the index on every platform. `text: unset` is how `-text` reports.
+    """
+    import subprocess
+
+    fixtures = Path(__file__).parent / "fixtures"
+    files = sorted(path for path in fixtures.rglob("*") if path.is_file())
+    assert len(files) > 10, (
+        f"the fixture walk found {len(files)} files, and a walk that finds nothing "
+        "passes this assertion for the wrong reason"
+    )
+
+    probe = subprocess.run(
+        ["git", "check-attr", "text", "--", *[str(path) for path in files]],
+        capture_output=True,
+        text=True,
+        cwd=Path(__file__).parent.parent,
+        env=os.environ.copy(),
+    )
+    assert probe.returncode == 0, f"git check-attr failed: {probe.stderr}"
+    unpinned = [
+        line.rsplit(": ", 1)[0]
+        for line in probe.stdout.splitlines()
+        if line and not line.endswith(": unset")
+    ]
+    assert not unpinned, (
+        "these fixtures are not pinned against line-ending conversion: "
+        + ", ".join(unpinned)
+        + ". Unpinned, a fixture is CRLF on Windows and LF on Linux, so a case that "
+        "reads it as bytes measures the checkout rather than the file. Two did, and "
+        "both failed on every Linux runner while nine local groups were green"
+    )
+
+
+def test_rewriting_a_code_cell_changes_no_line_ending(tmp_path):
+    """The promise `rewrite_codes` makes, asserted in bytes.
+
+    Its docstring says every other cell, separator, comment rule and line
+    ending survives unchanged, and the case above says the same in its
+    own words, and both assert through `splitlines()`, which throws the
+    terminators away. A review pass rewrote every CRLF terminator to LF
+    inside the function and watched 56 cases in this module and 213 in
+    the modules covering its caller pass over it.
+
+    The sibling `upgrade_matrix` has carried a byte comparison since it
+    was written. The asymmetry was the finding.
+    """
+    from pyflightstream.cases.matrix import rewrite_codes
+
+    # The CURRENT-layout fixture: rewrite_codes reads the sixteen-column
+    # layout and refuses the legacy one by name.
+    base = _normalized((Path(__file__).parent / "fixtures" / "matrix.fs").read_bytes())
+    for label, original in (("crlf", base.replace(b"\n", b"\r\n")), ("lf", base)):
+        source = tmp_path / f"{label}.fs"
+        source.write_bytes(original)
+        rewritten, counts = rewrite_codes(source, {"REF": {"r003": "r009"}})
+        assert counts.get("REF"), (
+            f"{label}: the rewrite changed no cell, so this case would pass over a "
+            "function that returned its input untouched"
+        )
+
+        assert rewritten.count(b"\r\n") == original.count(b"\r\n"), (
+            f"{label}: the rewrite changed the number of CRLF terminators, which its "
+            "own docstring promises survive unchanged"
+        )
+        assert rewritten.count(b"\n") == original.count(b"\n"), (
+            f"{label}: the rewrite changed the number of lines"
+        )
+        # AND the bytes outside the rewritten cells are untouched, which
+        # the two counts above do not say on their own.
+        # THE PROMISE ITSELF, in one line: undo the rename and the file is
+        # the file. Every other cell, separator, comment rule and line
+        # ending survives, which is what the docstring says and what
+        # splitlines() cannot check.
+        assert rewritten != original, f"{label}: the rewrite changed nothing at all"
+        assert rewritten.replace(b"r009", b"r003") == original, (
+            f"{label}: undoing the rename does not give the original file back, so the "
+            "rewrite changed a byte outside the code cells it was asked to edit"
+        )
+        assert rewritten.count(b"r009") == counts["REF"], (
+            f"{label}: the file carries {rewritten.count(b'r009')} rewritten codes and "
+            f"the call reported {counts['REF']}"
+        )
 
 
 def test_the_upgrade_adds_one_cell_and_changes_no_other_byte(tmp_path):

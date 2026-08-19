@@ -422,12 +422,64 @@ DATA_ORIGIN_CODES: dict[str, int] = {"raw": 0, "reduced": 1}
 #: survive its own file.
 REDUCTION_CODES: dict[str, int] = {"none": 0, "time_average": 1, "unknown": 2}
 
-#: The two column labels, named once so no writer spells them itself.
+#: Over what window a reduced row was reduced, on the same append-only
+#: rule as the two above, and for the same reason: a file written last
+#: month is read with this table and cannot be asked what it meant.
+#:
+#: TWO OF THE THREE RECORD IGNORANCE RATHER THAN A WINDOW, and that is
+#: deliberate. ``not_applicable`` is a direct integration, which averages
+#: over nothing. ``not_printed`` is an average the SOLVER took: the loads
+#: spreadsheet prints a solver mode and an iteration counter and no
+#: averaging window, so this package does not know it and says so.
+#: ``run_steps`` is a reduction this package computed itself, over the
+#: step count the same row carries.
+#:
+#: A blank cell would say all three at once and survive none of them: it
+#: reads back out of a csv as NaN.
+REDUCTION_WINDOW_CODES: dict[str, int] = {
+    "not_applicable": 0,
+    "not_printed": 1,
+    "run_steps": 2,
+}
+
+#: The three column labels, named once so no writer spells them itself.
 DATA_ORIGIN_COLUMN = "data_origin"
 REDUCTION_COLUMN = "reduction"
+REDUCTION_WINDOW_COLUMN = "reduction_window"
 
-#: Both labels together, in the order they are written.
-PROVENANCE_COLUMNS: tuple[str, str] = (DATA_ORIGIN_COLUMN, REDUCTION_COLUMN)
+#: All three together, in the order they are written.
+PROVENANCE_COLUMNS: tuple[str, str, str] = (
+    DATA_ORIGIN_COLUMN,
+    REDUCTION_COLUMN,
+    REDUCTION_WINDOW_COLUMN,
+)
+
+
+def window_for_reduction(reduction: str) -> str:
+    """Return the window token that goes with a reduction this package stamps.
+
+    Parameters
+    ----------
+    reduction : str
+        One key of :data:`REDUCTION_CODES`.
+
+    Returns
+    -------
+    str
+        One key of :data:`REDUCTION_WINDOW_CODES`.
+
+    Notes
+    -----
+    ``time_average`` maps to ``not_printed`` rather than to a window,
+    because the average is the solver's and the spreadsheet does not
+    describe it. A reduction this package computes stamps ``run_steps``
+    itself rather than coming through here.
+    """
+    if reduction == "none":
+        return "not_applicable"
+    if reduction == "time_average":
+        return "not_printed"
+    return "not_printed"
 
 
 def origin_code(token: str) -> int:
@@ -1614,6 +1666,8 @@ __all__ = [
     "PROVENANCE_COLUMNS",
     "ProbePointsReport",
     "REDUCTION_CODES",
+    "REDUCTION_WINDOW_CODES",
+    "REDUCTION_WINDOW_COLUMN",
     "REDUCTION_COLUMN",
     "ResidualSample",
     "SOLVER_MODES",
@@ -1635,6 +1689,7 @@ __all__ = [
     "parse_unsteady_plots",
     "reduction_code",
     "reduction_for_solver_mode",
+    "window_for_reduction",
     "reject_duplicate_columns",
     "reject_trailing_export",
     "require_export_parser",

@@ -101,6 +101,16 @@ def _bash_runs() -> bool:
             capture_output=True,
             text=True,
             timeout=30,
+            # EXPLICIT, and the tier-1 ratchet on unguarded spawns is what
+            # asked for it: a probe that inherits the whole environment
+            # answers a question about this machine's session rather than
+            # about bash. PATH is what finds it and SystemRoot is what
+            # Windows needs to start any process at all.
+            env={
+                key: value
+                for key, value in os.environ.items()
+                if key in {"PATH", "PATHEXT", "SystemRoot", "SYSTEMROOT", "HOME"}
+            },
         )
     except (OSError, subprocess.SubprocessError):
         return False
