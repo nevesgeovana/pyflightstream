@@ -97,6 +97,78 @@ rather than about your study: it maps a build identifier such as
 `26.120` onto the executable on this computer. It is why the matrix can
 name a build and stay portable.
 
+### What a reference artifact holds beyond the three lengths
+
+The two files above carry only the lengths the sweep table needed. A
+reference artifact also carries the moment point and, for a propelled
+configuration, a `[propeller]` block:
+
+```toml
+area_m2 = 10.0
+chord_m = 1.2
+span_m = 8.0
+
+[moment_point]
+x_m = 0.3
+y_m = 0.0
+z_m = 0.0
+
+[propeller]
+radius_m = 1.0
+n_blades = 3
+pitch_deg = 0.0
+toe_deg = 0.0
+rotation = "clockwise"
+blade_travel = "inboard_down"
+rpm_sign_installed = -1
+rpm_sign_isolated = 1
+
+[propeller.position]
+x_m = 0.0
+y_m = 0.0
+z_m = 0.0
+```
+
+`[propeller.position]` is the hub position in the simulation geometry
+frame, in m, and it defaults to the origin if you leave the table out,
+which is a default and not a measurement.
+
+THE SENSE OF ROTATION IS RECORDED TWICE ON PURPOSE, in the two
+vocabularies vendors publish it in, and the second one arrived at 0.8.0
+because the first campaign this library was checked against recorded it
+the other way.
+
+`rotation` is `clockwise` or `counterclockwise` viewed from behind the
+aircraft looking forward. `blade_travel` is `inboard_up` or
+`inboard_down` and names where the blade nearest the fuselage travels,
+which is the form a datasheet usually prints. They are separate fields
+rather than four values of one field because they are not
+interchangeable: `blade_travel` is side-independent, so the left and the
+right propeller of a symmetric pair carry the same word, and turning it
+into a viewed-from-behind sense means knowing which side this propeller
+is on. Only `rotation` is required.
+
+`rpm_sign_installed` and `rpm_sign_isolated` are each `1` or `-1` and
+record a MEASURED sign of the rotor speed, one for the installed meshes
+of the configuration and one for the isolated ones, which are frequently
+the opposite hand and so take the opposite sign for the same published
+sense of rotation. Both are optional, and leaving one out means your
+campaign has not established it, never that it is `+1`.
+
+Two warnings, and neither is a detail.
+
+Nothing in the package reads the two sign fields yet. They are recorded,
+so a recipe that emits a rotor speed reads the artifact and applies the
+sign itself; writing one changes no emitted script on its own.
+
+And a sense of rotation does not determine that sign. Getting from a
+published sense to the number a motion command takes needs the rotor
+axis, the side of the aircraft and the handedness of the mesh you
+actually loaded. That is the reason these are recorded rather than
+derived: a campaign that established its signs by measurement reproduces
+the measurement on every later run instead of re-deriving it and
+possibly re-deriving it differently.
+
 ## From a filled-in matrix to results, in one call
 
 <!-- skip: next -->

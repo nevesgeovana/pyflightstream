@@ -52,7 +52,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    ValidationInfo,
+    field_validator,
+)
 
 # InputArtifactError is DEFINED in `_errors`, below every layer, and
 # re-exported here and from `pyflightstream.workspace`, which is the name
@@ -143,42 +150,70 @@ class PropellerReference(BaseModel):
         Toe (in-plane inclination) angle of the propeller axis in deg.
     position : PointXyz
         Hub position in the simulation geometry frame, m.
-    rotation : str
-        Sense of rotation about the propeller axis, in one of TWO
-        vocabularies, because vendors publish it in both.
-        ``"clockwise"`` and ``"counterclockwise"`` are viewed from behind
-        the aircraft looking forward. ``"inboard-up"`` and
-        ``"inboard-down"`` name where the blade nearest the fuselage
-        travels, which is the form a vendor datasheet usually prints and
-        which does not depend on which side of the aircraft the
-        propeller is.
-    rpm_sign_about_x : int, optional
-        Measured sign, ``+1`` or ``-1``, applied to the rotor speed about
-        the X axis of the propeller frame for the INSTALLED meshes of
-        this configuration. Dimensionless.
-    rpm_sign_about_x_isolated : int, optional
+    rotation : {"clockwise", "counterclockwise"}
+        Sense of rotation about the propeller axis, viewed from behind
+        the aircraft looking forward. Record the convention with the
+        geometry so the sign of the swirl is never guessed.
+    blade_travel : {"inboard_up", "inboard_down"}, optional
+        The SAME physical fact in the vocabulary a vendor datasheet
+        usually prints: where the blade nearest the fuselage travels.
+
+        It is a separate field rather than two more values of
+        ``rotation`` because the two vocabularies are not
+        interchangeable. This one is side-independent, so the left and
+        the right propeller of a symmetric pair carry the same word,
+        which is exactly why it cannot be converted to the
+        viewed-from-behind sense without knowing which side this
+        propeller is on. Keeping them apart makes "which vocabulary"
+        a static fact of the field rather than something every consumer
+        re-derives from a string.
+    rpm_sign_installed : {-1, 1}, optional
+        Measured sign of the rotor speed about the propeller's rotation
+        axis, for the INSTALLED meshes of this configuration.
+        Dimensionless. The axis is the one the case emits its rotary
+        motion about and is a per-case argument, so this field states a
+        sign and never an axis.
+    rpm_sign_isolated : {-1, 1}, optional
         The same for the ISOLATED meshes, which are frequently the
         opposite hand of the installed ones and therefore take the
-        opposite sign.
+        opposite sign for the same published sense.
 
     Notes
     -----
-    THE SENSE DOES NOT DETERMINE THE SIGN, and the two sign fields exist
-    because of that rather than for convenience. Going from a published
-    sense to the number a solver command takes needs the rotor axis, the
-    side of the aircraft, and the handedness of the mesh actually loaded;
-    a mirrored mesh of the same aircraft takes the opposite sign for the
-    same published sense. A campaign that established its signs by
-    measurement records them here, so a later run reproduces the
-    measurement rather than re-deriving it from a sense.
+    NOTHING IN THIS PACKAGE READS THE TWO SIGN FIELDS YET, and that is
+    said here rather than left to be discovered. They are RECORDED, so a
+    recipe that emits a rotor speed reads the artifact and applies the
+    sign itself; setting one changes no emitted script on its own.
 
-    Both fields are optional, and their absence means the campaign has
-    not established them rather than that the sign is ``+1``.
+    THE SENSE DOES NOT DETERMINE THE SIGN OF THE ROTOR SPEED, which is
+    why those fields exist and are not derived. Going from a published
+    sense to the number a motion command takes needs the rotor axis, the
+    side of the aircraft, and the handedness of the mesh actually
+    loaded; a mirrored mesh of the same aircraft takes the opposite sign
+    for the same published sense.
 
-    The four-value ``rotation`` vocabulary and the two sign fields were
-    added at 0.8.0 (PFS-2009.02), after the shipped vocabulary was
-    checked against a real campaign for the first time and refused that
-    campaign's reference artifact on all three.
+    Read that against
+    :data:`pyflightstream.script.helpers.ROTATION_SENSE_SIGN`, which DOES
+    derive a sign from a sense and is not contradicted here: it signs the
+    AZIMUTH INCREMENT, which way round the disc the blades are numbered,
+    and that is a different quantity from the sign of the rotor speed.
+    Two different signs, one of them derivable and one of them measured.
+
+    Both sign fields are optional, and absence means the campaign has not
+    established them rather than that the sign is ``+1``. That promise is
+    what closes them to COERCION as well as to value: ``true`` and
+    ``1.0`` are refused rather than read as the integer ``1``, because a
+    boolean that becomes a measured positive sign is the package
+    deciding the physical fact this field exists to record. Without it
+    the domain was also asymmetric in a way that modelled nothing:
+    ``true`` was admitted as ``+1`` and ``false`` refused for being
+    outside the domain.
+
+    ``blade_travel`` and the two sign fields were added at 0.8.0
+    (PFS-2009.02), after the shipped vocabulary was checked against a
+    real campaign for the first time and refused that campaign's
+    reference artifact on all three. ``rotation`` itself is unchanged,
+    so an artifact written before 0.8.0 validates unaltered.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -189,9 +224,29 @@ class PropellerReference(BaseModel):
     pitch_deg: float | None = None
     toe_deg: float | None = None
     position: PointXyz = Field(default_factory=PointXyz)
-    rotation: Literal["clockwise", "counterclockwise", "inboard-up", "inboard-down"]
-    rpm_sign_about_x: Literal[-1, 1] | None = None
-    rpm_sign_about_x_isolated: Literal[-1, 1] | None = None
+    rotation: Literal["clockwise", "counterclockwise"]
+    blade_travel: Literal["inboard_up", "inboard_down"] | None = None
+    rpm_sign_installed: Literal[-1, 1] | None = None
+    rpm_sign_isolated: Literal[-1, 1] | None = None
+
+    @field_validator("rpm_sign_installed", "rpm_sign_isolated", mode="before")
+    @classmethod
+    def _sign_is_an_integer_and_not_something_that_coerces_to_one(
+        cls, value: object, info: ValidationInfo
+    ) -> object:
+        """Refuse a value that would become a sign nobody measured.
+
+        Runs BEFORE the literal domain, so a value of the right type and
+        the wrong magnitude still meets the domain's own message.
+        """
+        if value is None or type(value) is int:
+            return value
+        raise ValueError(
+            f"{info.field_name} is {value!r}, of type {type(value).__name__}, and a "
+            "measured sign is written as the integer 1 or -1. A boolean or a real "
+            "number here would be coerced to a sign this campaign never measured, "
+            "and an unmeasured sign is recorded by leaving the field out"
+        )
 
 
 class ReferenceArtifact(BaseModel):

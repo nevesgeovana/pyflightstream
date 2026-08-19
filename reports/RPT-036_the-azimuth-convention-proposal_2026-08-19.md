@@ -1,4 +1,37 @@
-# RPT-036: the azimuth convention, as a proposal (2026-08-19)
+# RPT-036: the azimuth convention, as a proposal (2026-08-19, amended 2026-08-19)
+
+> **Amended the same day, by the change that invalidated its premise.**
+>
+> This report was written stating that the propeller descriptor records
+> `clockwise` or `counterclockwise`, and part 3 below rests on that
+> two-word domain. Hours later `PFS-2009.02` checked the shipped
+> vocabulary against a real campaign's library for the first time and
+> found it refusing that campaign's own reference artifact: the sense was
+> recorded in the vocabulary a vendor datasheet prints, where the blade
+> nearest the fuselage travels, and two MEASURED signs had nowhere to
+> live at all.
+>
+> Two consequences for this report, and the second is larger than the
+> first.
+>
+> The descriptor now carries `blade_travel` beside `rotation`, so a
+> reader arriving here holding an artifact in the published vocabulary
+> finds a proposal that cannot decide their case. `rotation` itself is
+> unchanged and part 3 still describes it correctly.
+>
+> AND THE DESCRIPTOR CAN NOW CARRY THE ANSWER ITSELF. Question 3 below
+> asks whether the descriptor should carry the datum per propeller
+> rather than the library carrying one convention. Half of that is now
+> built: `rpm_sign_installed` and `rpm_sign_isolated` record a MEASURED
+> sign, which is the thing part 3 proposes to DERIVE. If the author
+> rules that a recorded sign supersedes the derivation, part 3 closes by
+> deletion rather than by decision, and this report becomes a record of
+> why rather than a proposal awaiting one.
+>
+> Note the two signs are different quantities and this amendment does
+> not conflate them: `ROTATION_SENSE_SIGN` signs the AZIMUTH INCREMENT,
+> which way round the disc blades are numbered, and the recorded fields
+> sign the ROTOR SPEED. Part 3 is about the first.
 
 A blade frame has to be placed somewhere, and placing it requires an
 answer to a question nobody in this repository is entitled to settle:
@@ -43,8 +76,13 @@ rotation without a special case anywhere.
 has its azimuth zero along +X; about X, along +Y; about Y, along +Z.
 
 **3. Positive azimuth follows the recorded sense of rotation.**
-`PropellerReference.rotation` already records `clockwise` or
-`counterclockwise`. The proposal maps `counterclockwise` to the
+`PropellerReference.rotation` records `clockwise` or `counterclockwise`,
+and since 2026-08-19 the descriptor ALSO carries `blade_travel`, the
+same fact in the vocabulary a vendor datasheet prints. This proposal is
+about `rotation` alone: `blade_travel` is side-independent, so the left
+and the right propeller of a pair carry the same word and it resolves to
+a viewed-from-behind sense only once the side is known. The proposal
+maps `counterclockwise` to the
 mathematically positive sense about the rotor axis as the frame points
 it, so blade k sits at `anchor + k * 360/N`, and `clockwise` to the
 negative one.
@@ -96,6 +134,16 @@ their evidence is unchanged by this report.
    separately?
 3. Should the descriptor carry the datum itself, per propeller, instead
    of the library carrying one convention for every rotor?
+4. ADDED 2026-08-19, and it may close part 3 entirely. The descriptor
+   now records a MEASURED rotor-speed sign per mesh family. Should a
+   recorded sign supersede any derivation from a sense, so that a
+   campaign that measured its signs is reproduced rather than
+   re-derived? If yes, part 3 is answered by deletion and the library
+   carries no convention to be wrong about.
+5. And, if a descriptor carries `blade_travel` and no `rotation`, what
+   does the library do? Today `rotation` is required and `blade_travel`
+   is optional, which is a decision this widening took by default
+   rather than by ruling.
 
 A yes to all of 1 and 2 closes this report with no code change. A no to
 either is one edit in the table above plus one test expectation.

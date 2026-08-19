@@ -216,6 +216,60 @@ def test_a_staged_geometry_or_profile_still_resolves_by_bare_stem(tmp_path):
     assert workspace.resolve_profile("thrust").name == "thrust.csv"
 
 
+# --- the two rotation vocabularies (PFS-2009.02) -----------------------------
+
+
+def test_the_sense_refusal_routes_the_vocabulary_it_cannot_accept():
+    """The reader holding the published word is sent to the right field.
+
+    ``blade_travel`` records the SAME physical fact in the vocabulary a
+    datasheet prints, so a user reaching this function with that word in
+    hand is not making a typing mistake and a message treating it as one
+    teaches nothing. It names the field that does record it, and the
+    reason this function cannot convert: the conversion needs the side of
+    the aircraft, which is not among its arguments.
+    """
+    script = Script(version="26.120")
+    with pytest.raises(CommandArgumentError) as raised:
+        helpers.blade_frames(
+            script,
+            hub_origin=(0.0, 0.0, 0.0),
+            rotor_axis="Z",
+            n_blades=3,
+            blade1_azimuth_deg=0.0,
+            rotation="inboard_down",
+        )
+
+    message = str(raised.value)
+    assert "inboard_down" in message, "the refusal does not quote what was passed"
+    assert "blade_travel" in message, (
+        "the refusal does not name the field that DOES record this vocabulary, so it "
+        "reads as a typo in a closed set rather than as a value in the wrong home"
+    )
+    assert "side of the aircraft" in message, (
+        "the refusal does not say WHY this function cannot convert the value it was "
+        "given, which is the one thing a user cannot work out from the signature"
+    )
+
+
+def test_the_sense_refusal_still_names_the_two_words_it_accepts():
+    """Routing the other vocabulary must not cost the remedy.
+
+    A message that explains the value it refused and forgets to print the
+    values it takes is longer and less useful than the one it replaced.
+    """
+    script = Script(version="26.120")
+    with pytest.raises(CommandArgumentError, match="clockwise or counterclockwise"):
+        helpers.blade_frames(
+            script,
+            hub_origin=(0.0, 0.0, 0.0),
+            rotor_axis="Z",
+            n_blades=3,
+            blade1_azimuth_deg=0.0,
+            rotation="widdershins",
+        )
+
+
 # --- run-matrix reader ------------------------------------------------------
 
 

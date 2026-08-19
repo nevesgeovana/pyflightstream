@@ -37,24 +37,51 @@ matrix could not have discriminated.
 ### API surface delta
 
 **The propeller reference admits the vocabulary a real campaign uses**
-(PFS-2009.02). `PropellerReference.rotation` accepts four senses rather
-than two: `clockwise` and `counterclockwise`, viewed from behind, and
-`inboard-up` and `inboard-down`, which name where the blade nearest the
-fuselage travels and which is the form a vendor datasheet usually
-prints. Two optional fields join it, `rpm_sign_about_x` and
-`rpm_sign_about_x_isolated`, each constrained to plus or minus one.
+(PFS-2009.02). `PropellerReference` gains THREE optional fields and
+`rotation` itself is unchanged, still `clockwise` or `counterclockwise`
+viewed from behind the aircraft.
 
-THE SENSE DOES NOT DETERMINE THE SIGN, which is why the two fields exist
-and why they are not derived. Going from a published sense to the number
-a solver command takes needs the rotor axis, the side of the aircraft
-and the handedness of the mesh actually loaded; the installed and
-isolated meshes of one aircraft are frequently opposite hands and take
-opposite signs for the same published sense. A campaign that established
-its signs by measurement records them, so a later run reproduces the
-measurement rather than re-deriving it. Absence means not established
-and must not be read as plus one.
+`blade_travel` records the SAME physical fact in the vocabulary a vendor
+datasheet usually prints, `inboard_up` or `inboard_down`, naming where
+the blade nearest the fuselage travels. It is a separate field rather
+than two more values of `rotation` because the two vocabularies are not
+interchangeable: this one is side-independent, so the left and the right
+propeller of a symmetric pair carry the same word, and converting it to
+a viewed-from-behind sense needs to know which side the propeller is on.
+Keeping them apart also keeps `rotation` a two-value `Literal`, so a
+downstream exhaustive match over it stays exhaustive.
 
-Purely widening: every artifact that validated before validates now.
+`rpm_sign_installed` and `rpm_sign_isolated` each record a measured sign,
+plus or minus one, for the installed and the isolated meshes of the
+configuration.
+
+THE SENSE DOES NOT DETERMINE THE SIGN OF THE ROTOR SPEED, which is why
+the two fields exist and why they are not derived. Going from a published
+sense to the number a motion command takes needs the rotor axis, the side
+of the aircraft and the handedness of the mesh actually loaded; the
+installed and isolated meshes of one aircraft are frequently opposite
+hands and take opposite signs for the same published sense. A campaign
+that established its signs by measurement records them, so a later run
+reproduces the measurement rather than re-deriving it. Absence means not
+established and must not be read as plus one.
+
+Read that against `script.helpers.ROTATION_SENSE_SIGN`, which DOES derive
+a sign from a sense and is not contradicted: it signs the AZIMUTH
+INCREMENT, which way round the disc the blades are numbered, and that is
+a different quantity from the sign of the rotor speed.
+
+NOTHING IN THE PACKAGE READS THE TWO SIGN FIELDS YET. They are recorded,
+so a recipe that emits a rotor speed reads the artifact and applies the
+sign itself; setting one changes no emitted script on its own.
+
+Purely additive: every artifact that validated before validates now.
+
+`script.helpers.blade_frames` refuses an unknown sense with a message
+that now ROUTES the other vocabulary rather than treating it as a typo:
+a caller passing `inboard_up` or `inboard_down` is told that this is the
+same fact in the vocabulary a datasheet prints, that `blade_travel`
+records it, and that converting it here would need the side of the
+aircraft, which is not among the function's arguments.
 
 THE CHANGE CAME FROM A MEASUREMENT RATHER THAN FROM A DESIGN REVIEW, and
 that is worth the sentence. The shipped input vocabulary had never been

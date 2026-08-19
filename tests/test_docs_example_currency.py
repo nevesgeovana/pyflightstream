@@ -177,6 +177,112 @@ def test_the_input_library_the_page_shows_is_the_one_the_test_builds(tmp_path):
         )
 
 
+def test_the_propeller_artifact_on_the_page_is_the_one_the_suite_validates():
+    """The page's block and the workspace fixture are one artifact.
+
+    ``[propeller]`` block for block, compared as PARSED VALUES rather
+    than as text, so reordering a key or restyling the TOML does not go
+    red while a changed number does.
+    """
+    import tomllib
+
+    import test_workspace
+
+    page = [
+        body
+        for info, body in _blocks(PAGE.read_text(encoding="utf-8"))
+        if info == "toml" and "[propeller]" in body
+    ]
+    assert len(page) == 1
+
+    documented = tomllib.loads(page[0])["propeller"]
+    fixture = tomllib.loads(test_workspace.REAL_CAMPAIGN_REFERENCE_TOML)["propeller"]
+    assert fixture, "the workspace fixture carries no propeller block to compare against"
+    assert documented == fixture, (
+        "the propeller artifact on the page has drifted from the one the workspace "
+        f"suite validates. Page: {documented}. Fixture: {fixture}"
+    )
+
+
+def test_the_propeller_artifact_on_the_page_validates(tmp_path):
+    """The documented artifact is refused by nothing.
+
+    This item exists BECAUSE a real campaign's reference artifact was
+    refused by the shipped model, so publishing an example of that same
+    artifact on the strength of having typed it carefully would be the
+    same defect with a smaller blast radius.
+
+    Note what it does NOT prove. There is no executed test this block is
+    lifted from, unlike the matrix and the input library above, so this
+    checks that the page's artifact is ADMISSIBLE and not that any
+    behaviour follows from it.
+    """
+    import tomllib
+
+    from pyflightstream.workspace.inputs import ReferenceArtifact
+
+    blocks = [
+        body
+        for info, body in _blocks(PAGE.read_text(encoding="utf-8"))
+        if info == "toml" and "[propeller]" in body
+    ]
+    assert len(blocks) == 1, (
+        f"the page carries {len(blocks)} propeller artifacts; this guard reads exactly "
+        "one, and zero would pass every assertion below vacuously"
+    )
+
+    artifact = ReferenceArtifact.model_validate(tomllib.loads(blocks[0]))
+    assert artifact.propeller is not None, (
+        "the documented artifact parses but carries no propeller block, so the guard "
+        "would go on passing over a page that lost the block entirely"
+    )
+
+
+def test_every_key_of_the_documented_propeller_is_a_field_of_the_model():
+    """A renamed field cannot leave the page quietly documenting the old name.
+
+    ``extra="forbid"`` means validation already refuses an unknown key,
+    so this case earns its place only for the OPPOSITE direction: it
+    names, in its failure, which key on the page the model no longer has.
+    A pydantic refusal names the same key, but as one of a list of
+    validation errors on a block a reader then has to find.
+    """
+    import tomllib
+
+    from pyflightstream.workspace.inputs import PropellerReference
+
+    blocks = [
+        body
+        for info, body in _blocks(PAGE.read_text(encoding="utf-8"))
+        if info == "toml" and "[propeller]" in body
+    ]
+    assert len(blocks) == 1
+    documented = set(tomllib.loads(blocks[0])["propeller"])
+    assert documented, "the documented propeller block is empty"
+
+    unknown = documented - set(PropellerReference.model_fields)
+    assert not unknown, (
+        f"the page documents {sorted(unknown)} under [propeller] and the model has no "
+        f"such field. Its fields are {sorted(PropellerReference.model_fields)}"
+    )
+
+
+def test_the_page_states_that_nothing_reads_the_recorded_signs():
+    """The one property of these fields a user cannot discover by trying.
+
+    A field that validates, persists and changes no emitted script is
+    indistinguishable from a field that works, right up until a campaign
+    trusts it. The docstring says so; this asserts the PAGE does too,
+    since the page is what a reader of the artifact format reads.
+    """
+    text = _normalized(PAGE.read_text(encoding="utf-8")).lower()
+    assert "nothing in the package reads the two sign fields yet" in text, (
+        "the page documents rpm_sign_installed and rpm_sign_isolated without saying "
+        "that no emitter reads them, which is the only way a reader learns it short "
+        "of running a campaign on the assumption that one does"
+    )
+
+
 def test_every_python_block_on_the_page_is_marked_skip():
     """Marked, because none of them can run without a stub solver.
 

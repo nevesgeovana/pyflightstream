@@ -2375,9 +2375,13 @@ def blade_frames(
     if rotation not in ROTATION_SENSE_SIGN:
         raise CommandArgumentError(
             f"blade_frames: rotation is {rotation!r}, and the sense of rotation is "
-            f"{' or '.join(sorted(ROTATION_SENSE_SIGN))}, the two words a propeller "
-            "descriptor records. It decides which way round the disc the blades are "
-            "numbered, so there is no safe default to guess"
+            f"{' or '.join(sorted(ROTATION_SENSE_SIGN))}, the two words the rotation "
+            "field of a propeller descriptor records. It decides which way round the "
+            "disc the blades are numbered, so there is no safe default to guess. If "
+            "you are holding inboard_up or inboard_down, that is the same fact in the "
+            "vocabulary a datasheet prints, it is recorded separately as blade_travel, "
+            "and turning it into a sense here needs the side of the aircraft this "
+            "propeller is on, which this function is never told"
         )
     if float(blade1_azimuth_deg) not in BLADE_ANCHOR_ANGLES_DEG:
         anchors = ", ".join(str(angle) for angle in BLADE_ANCHOR_ANGLES_DEG)

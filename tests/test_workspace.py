@@ -285,30 +285,40 @@ def test_reference_artifact_round_trip(tmp_path):
     assert reference.propeller.position.x_m == -0.5
 
 
-#: A reference artifact in the shape a real campaign writes one, which is
-#: the thing PFS-2009.02 asked for and the thing this repository had never
-#: checked against. Its vocabulary is not invented here: the rotation
-#: sense is the form a vendor datasheet prints, and the two signs are what
-#: a campaign records once it has established, by measurement, which way
-#: the number goes for the meshes it actually loads.
+#: A reference artifact in the shape a real campaign writes one.
+#:
+#: THE VOCABULARY IS TRANSCRIBED AND THE MAGNITUDES ARE INVENTED, and the
+#: split is deliberate rather than tidy. What these cases measure is the
+#: vocabulary: the published blade-travel word, the two measured signs,
+#: and the closed domains. The numbers measure nothing here, and a review
+#: pass pointed out that pairing "these values come from a private
+#: campaign" with the values is the shape invariant 5 exists to prevent,
+#: whether or not any single number identifies anything. So the values
+#: below are the ones docs/workspace-and-workflows.md publishes, put
+#: there by this same change rather than looked up in it, and the two
+#: are kept together on purpose: the page's block is validated against
+#: this model by tests/test_docs_example_currency.py, so a reader who
+#: finds these numbers in both places is looking at one artifact and not
+#: at a coincidence.
 REAL_CAMPAIGN_REFERENCE_TOML = """
-area_m2 = 50.0
-chord_m = 2.526
-span_m = 20.0
+area_m2 = 10.0
+chord_m = 1.2
+span_m = 8.0
 
 [moment_point]
-x_m = 0.0
+x_m = 0.3
 y_m = 0.0
 z_m = 0.0
 
 [propeller]
-radius_m = 1.8288
-n_blades = 1
+radius_m = 1.0
+n_blades = 3
 pitch_deg = 0.0
 toe_deg = 0.0
-rotation = "inboard-down"
-rpm_sign_about_x = -1
-rpm_sign_about_x_isolated = 1
+rotation = "clockwise"
+blade_travel = "inboard_down"
+rpm_sign_installed = -1
+rpm_sign_isolated = 1
 
 [propeller.position]
 x_m = 0.0
@@ -323,61 +333,200 @@ def test_the_reference_model_admits_a_real_campaigns_vocabulary(tmp_path):
     The shipped vocabulary was checked against a real campaign's library
     for the first time on 2026-08-19 and REFUSED its reference artifact
     on three counts at once: the rotation sense was published in the
-    inboard vocabulary rather than the viewed-from-behind one, and the
-    two measured rotor-speed signs had nowhere to live under
+    inboard vocabulary, which the model had no field for, and the two
+    measured rotor-speed signs had nowhere to live under
     ``extra="forbid"``.
-
-    All three are the same defect seen from three sides: the model held
-    one vocabulary for a fact that is published in two, and held no place
-    at all for the number that fact resolves to.
     """
     workspace = library(tmp_path)
     (workspace.inputs_dir / "references" / "r003.toml").write_text(
         REAL_CAMPAIGN_REFERENCE_TOML, encoding="utf-8"
     )
 
-    reference = workspace.resolve_reference("r003")
+    propeller = workspace.resolve_reference("r003").propeller
 
-    assert reference.propeller.rotation == "inboard-down"
-    assert reference.propeller.rpm_sign_about_x == -1
-    assert reference.propeller.rpm_sign_about_x_isolated == 1
-
-
-def test_the_two_rotation_vocabularies_are_both_admitted(tmp_path):
-    """Both, because a vendor publishes in one and a frame needs the other."""
-    workspace = library(tmp_path)
-    for index, sense in enumerate(("clockwise", "counterclockwise", "inboard-up", "inboard-down")):
-        body = REAL_CAMPAIGN_REFERENCE_TOML.replace('"inboard-down"', f'"{sense}"', 1)
-        (workspace.inputs_dir / "references" / f"r00{index}.toml").write_text(
-            body, encoding="utf-8"
-        )
-        assert workspace.resolve_reference(f"r00{index}").propeller.rotation == sense
+    assert propeller.blade_travel == "inboard_down"
+    assert propeller.rpm_sign_installed == -1
+    assert propeller.rpm_sign_isolated == 1
 
 
-def test_a_rotor_speed_sign_outside_plus_or_minus_one_is_refused(tmp_path):
-    """The field is a SIGN, so its domain is closed.
+def test_the_two_vocabularies_are_separate_fields_rather_than_one_union(tmp_path):
+    """The shape a review pass asked for, pinned so it cannot drift back.
 
-    An unconstrained int would let a campaign record a magnitude here and
-    have it silently multiply the rotor speed, which is the class of
-    defect a closed domain exists to make impossible.
+    Admitting both vocabularies in ``rotation`` made "which vocabulary"
+    a runtime property of a string, so every consumer had to re-derive
+    membership, and it made the one consumer in the package refuse two
+    values with a message asserting that a descriptor records two words.
+    Separate fields make it a static fact of the field.
     """
     workspace = library(tmp_path)
-    body = REAL_CAMPAIGN_REFERENCE_TOML.replace("rpm_sign_about_x = -1", "rpm_sign_about_x = -2")
-    (workspace.inputs_dir / "references" / "r009.toml").write_text(body, encoding="utf-8")
+    body = REAL_CAMPAIGN_REFERENCE_TOML.replace(
+        'rotation = "clockwise"', 'rotation = "inboard_down"'
+    )
+    (workspace.inputs_dir / "references" / "r004.toml").write_text(body, encoding="utf-8")
 
     with pytest.raises(InputArtifactError) as refused:
-        workspace.resolve_reference("r009")
+        workspace.resolve_reference("r004")
+    assert "rotation" in str(refused.value)
 
-    # The REASON, and not only the field name. Under the narrow model
-    # this value was refused too, for being an unknown key rather than
-    # for being outside the domain, so an assertion on the name alone
-    # passes over a model that has no such field at all. Measured: this
-    # case was the one of four that survived restoring the narrow model.
-    message = str(refused.value)
-    assert "rpm_sign_about_x" in message
-    assert "-1" in message, (
-        "the refusal does not name the permitted values, so it reads as an "
-        "unknown key rather than as a value outside a closed domain: " + message
+
+def test_the_sense_vocabulary_is_the_one_the_emitter_knows(tmp_path):
+    """The pin the widening was missing, and the divergence it would catch.
+
+    ``script.helpers`` sits BELOW ``workspace`` and cannot import this
+    model, so the sense vocabulary is duplicated by value. Nothing held
+    the copies together: the first version of this widening added two
+    senses here and the emitter went on refusing them with a message
+    saying a descriptor records two words, which had just stopped being
+    true.
+    """
+    from typing import get_args
+
+    from pyflightstream.script.helpers import ROTATION_SENSE_SIGN
+    from pyflightstream.workspace.inputs import PropellerReference
+
+    declared = set(get_args(PropellerReference.model_fields["rotation"].annotation))
+    assert declared, "the rotation field declares no closed domain at all"
+    assert declared == set(ROTATION_SENSE_SIGN), (
+        f"the reference model admits {sorted(declared)} as a sense of rotation and the "
+        f"emitter knows {sorted(ROTATION_SENSE_SIGN)}. They are two homes of one "
+        "vocabulary across a layer boundary, so a value the model accepts and the "
+        "emitter refuses is reachable by writing an artifact this library validated"
+    )
+
+
+SIGN_FIELDS = ("rpm_sign_installed", "rpm_sign_isolated")
+
+
+def _reference_with(tmp_path, artifact_id: str, line: str, replacing: str) -> str:
+    """Write the campaign fixture with one line replaced, and resolve it.
+
+    Returns the refusal message. The replacement is asserted to have
+    happened, because a fixture reformatting would otherwise turn every
+    case below into a happy path that never raises.
+    """
+    workspace = library(tmp_path)
+    assert REAL_CAMPAIGN_REFERENCE_TOML.count(replacing) == 1, replacing
+    body = REAL_CAMPAIGN_REFERENCE_TOML.replace(replacing, line)
+    (workspace.inputs_dir / "references" / f"{artifact_id}.toml").write_text(body, encoding="utf-8")
+    with pytest.raises(InputArtifactError) as refused:
+        workspace.resolve_reference(artifact_id)
+    return str(refused.value)
+
+
+def test_the_sign_domain_is_exactly_plus_or_minus_one():
+    """Pinned from the annotation, because a message can be satisfied by more.
+
+    The first version of the case below asserted that the refusal
+    contained ``-1``. It does under ``Literal[-1, 0, 1]`` too, whose
+    message reads "Input should be -1, 0 or 1", so a domain admitting a
+    ZERO sign passed the guard written to close the domain. A zero does
+    not reverse a rotor, it stops one.
+    """
+    from typing import get_args
+
+    from pyflightstream.workspace.inputs import PropellerReference
+
+    for field in SIGN_FIELDS:
+        annotation = PropellerReference.model_fields[field].annotation
+        # The field is `Literal[...] | None`, so get_args yields the Literal
+        # and NoneType. Drop the optional arm and unwrap the Literal; reading
+        # the outer args as the domain compares a type against numbers and
+        # fails for the wrong reason.
+        arms = [arm for arm in get_args(annotation) if arm is not type(None)]
+        assert len(arms) == 1, f"{field} is not an optional single domain: {arms}"
+        senses = get_args(arms[0])
+        assert senses == (-1, 1), (
+            f"{field} admits {senses}, and a measured sign is 1 or -1. A domain with a "
+            "zero in it stops the rotor rather than reversing it, and one with a "
+            "magnitude in it scales the rotor speed"
+        )
+
+
+@pytest.mark.parametrize("field", SIGN_FIELDS)
+@pytest.mark.parametrize("magnitude", [-2, 0, 2, 3])
+def test_a_rotor_speed_sign_outside_plus_or_minus_one_is_refused(tmp_path, field, magnitude):
+    """The field is a SIGN, so its domain is closed AT LOAD TIME.
+
+    Both fields and both directions of error, because only the installed
+    field was ever tried and only with ``-2``, which left the isolated
+    one, the half the model itself calls most likely to be the opposite
+    hand, refusal-tested by nothing.
+
+    Scoped deliberately. The model is not frozen and does not validate on
+    assignment, so this closes the domain for an artifact read off disk,
+    which is every path a campaign takes, and not for a value a caller
+    assigns afterwards. Claiming more would be claiming a guard that is
+    not there.
+    """
+    message = _reference_with(
+        tmp_path,
+        f"r{abs(magnitude)}{SIGN_FIELDS.index(field)}0",
+        f"{field} = {magnitude}",
+        f"{field} = " + ("-1" if field == "rpm_sign_installed" else "1"),
+    )
+
+    assert field in message
+    # The PERMITTED SET, exactly, and not a substring of it. A model with
+    # no such field refuses this value too, for being an unknown key, and
+    # a model admitting zero prints a message that contains "-1".
+    assert "Input should be -1 or 1" in message, (
+        "the refusal does not name the permitted set exactly, so it is satisfied by a "
+        "domain that admits a zero or by no such field at all: " + message
+    )
+
+
+@pytest.mark.parametrize("field", SIGN_FIELDS)
+@pytest.mark.parametrize(
+    ("written", "why"),
+    [
+        ("true", "a boolean becomes the integer 1 and so becomes a measured sign"),
+        ("false", "the same door, on the value that happened to be refused already"),
+        ("1.0", "a real number becomes 1 and hides that nothing was measured"),
+        ('"1"', "a quoted sign is a string, and reading it as one guesses"),
+    ],
+)
+def test_a_sign_that_only_coerces_to_one_is_refused(tmp_path, field, written, why):
+    """Absence means not established, so `true` must not mean `+1`.
+
+    Measured before this guard existed: ``true`` was ACCEPTED and became
+    ``1``, ``1.0`` was accepted and became ``1``, and ``false`` was
+    refused for being outside the domain. A model where ``true`` is a
+    measured sign and ``false`` is a domain error is not modelling
+    anything.
+    """
+    message = _reference_with(
+        tmp_path,
+        f"r5{SIGN_FIELDS.index(field)}{len(written)}",
+        f"{field} = {written}",
+        f"{field} = " + ("-1" if field == "rpm_sign_installed" else "1"),
+    )
+    assert field in message, why
+    assert "integer 1 or -1" in message, (
+        "the refusal does not say that a sign is written as an integer, which is the "
+        "whole content of the refusal: " + message
+    )
+
+
+def test_an_unknown_key_in_the_propeller_block_is_refused(tmp_path):
+    """`extra="forbid"` on this model is what the whole item rests on.
+
+    It was observed by nothing. Relaxed to the pydantic default, a typo
+    in one of two long, near-identical field names is dropped in silence
+    and reads back as ``None``, which this model documents as "the
+    campaign has not established it". That inverts the guarantee
+    `test_the_signs_are_absent_rather_than_assumed` exists to give, and
+    it is precisely the setting that refused a real campaign's two
+    measured signs and opened this item.
+    """
+    message = _reference_with(
+        tmp_path,
+        "r007",
+        "rpm_sign_isolate = 1",
+        "rpm_sign_isolated = 1",
+    )
+    assert "rpm_sign_isolate" in message, (
+        "the refusal does not name the key it did not recognise, which is the only "
+        "way a reader finds a typo in a field name: " + message
     )
 
 
@@ -393,13 +542,13 @@ def test_the_signs_are_absent_rather_than_assumed(tmp_path):
     body = "\n".join(
         line
         for line in REAL_CAMPAIGN_REFERENCE_TOML.splitlines()
-        if not line.startswith("rpm_sign_about_x")
+        if not line.startswith("rpm_sign_")
     )
     (workspace.inputs_dir / "references" / "r008.toml").write_text(body, encoding="utf-8")
 
     propeller = workspace.resolve_reference("r008").propeller
-    assert propeller.rpm_sign_about_x is None
-    assert propeller.rpm_sign_about_x_isolated is None
+    assert propeller.rpm_sign_installed is None
+    assert propeller.rpm_sign_isolated is None
 
 
 def test_reference_miss_lists_available_ids(tmp_path):
