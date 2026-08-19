@@ -21,7 +21,7 @@ from pyflightstream.qa import (
     generate_probe_script,
     probe_version,
 )
-from pyflightstream.run import ExecutionResult
+from pyflightstream.run import ExecutionResult, LocalExecutor
 
 PILOT = ["PRINT", "STOP", "RUN_SCRIPT"]
 
@@ -1227,3 +1227,56 @@ def test_no_effect_note_states_a_finding_instead_of_the_asserted_effect():
         "an effect_note states what the probe ASSERTS, never what a past run found: "
         + "; ".join(offenders)
     )
+
+
+# --- PFS-2026.17: the probe run records the digest of what it ran ----------
+
+
+class LocalFake(LocalExecutor):
+    """A real :class:`LocalExecutor` over a stand-in file.
+
+    The harness names and now hashes the executable only when the
+    executor IS a ``LocalExecutor``, so the fake solver alone cannot
+    exercise that branch: it is not one. This subclass keeps the type
+    (and therefore the identity fields) while the script is interpreted
+    by :class:`FakeFlightStream`, so no process is started.
+    """
+
+    def __init__(self, fs_exe, fake):
+        super().__init__(fs_exe)
+        self._fake = fake
+
+    def run_script(self, script_path, working_dir, timeout_s=None):
+        return self._fake.run_script(script_path, working_dir, timeout_s)
+
+
+def test_the_probe_run_records_the_digest_of_the_executable_it_ran(tmp_path):
+    """Reproduction (PFS-2026.17).
+
+    ``Flightstream_2612.exe`` is the recorded name of four registered
+    builds, so a run identified by name alone cannot say which binary
+    produced it. The run records the digest of the file it invoked.
+    """
+    import hashlib
+
+    stand_in = tmp_path / "Flightstream_2612.exe"
+    stand_in.write_bytes(b"not a solver, but a file with a digest")
+    expected = hashlib.sha256(stand_in.read_bytes()).hexdigest()
+    run = probe_version(
+        "26.120",
+        workroot=tmp_path / "probes",
+        executor=LocalFake(stand_in, FakeFlightStream()),
+        commands=PILOT,
+    )
+    assert run.fs_exe_name == "Flightstream_2612.exe"
+    assert getattr(run, "fs_exe_sha256", None) == expected, (
+        "the run names the executable and does not identify it; two builds share this "
+        "basename and only the digest separates them"
+    )
+
+
+def test_a_run_behind_a_stand_in_executor_records_no_digest(tmp_path):
+    """No path, no digest, and never a fabricated one."""
+    _, run = run_pilot(tmp_path, FakeFlightStream())
+    assert run.fs_exe_name == "fake"
+    assert getattr(run, "fs_exe_sha256", "MISSING") is None

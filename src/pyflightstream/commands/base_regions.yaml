@@ -325,7 +325,57 @@ SET_OUTFLOW_TRAILING_EDGES:
     rather than after the argument, which is a formatting slip on
     that page and not a second call form: the signature and the
     sample both carry one value.
+
+    RENAMED AFTER A DOCUMENTED LIFETIME OF EXACTLY ONE BUILD. The
+    26.123 edition prints SET_OUTLET_TRAILING_EDGES on the same page,
+    with the same single argument, the same all-form value and the same
+    sample, and this spelling appears nowhere in it. The successor is
+    a separate entry rather than an alias field on this one: an alias
+    would have to say which editions it holds for, and a per-name
+    version block is what this database already has for saying that.
+    No transitional spelling is documented, so a script written for
+    26.122 stops working on the build issued after it.
   versions:
     "26.122":
       status: documented
       note: "SRC-750 p.331, the first edition to document it"
+    "26.123":
+      status: removed
+      successor: SET_OUTLET_TRAILING_EDGES
+      note: >-
+        SRC-751 p.331 prints SET_OUTLET_TRAILING_EDGES in this
+        command's place, in the chapter body and in the Script Index
+        alike, and this spelling appears nowhere in that edition. A
+        count over the document rather than a statement about the
+        solver: no run on this build has tried either name.
+
+SET_OUTLET_TRAILING_EDGES:
+  layout: inline
+  phase: setup
+  args:
+    - name: base_region_boundary
+      type: int
+      cites: boundaries
+      all_sentinel: -1
+  manual_ref: "SRC-751 p.331"
+  notes: >
+    Marks the trailing edges of a base region as outlet edges. The
+    26.123 spelling of what the 26.122 edition calls
+    SET_OUTFLOW_TRAILING_EDGES, and nothing else about it moves: same
+    page, same single base region boundary index, same -1 for every
+    base region, same printed sample.
+
+    IT TAKES A BASE REGION AND NOT AN OUTLET, which the name invites a
+    reader to get wrong. The argument is the index of a base region
+    boundary, exactly as its predecessor's was; the outlet perimeter
+    marking documented in the same edition's user-interface chapter is
+    a different feature with no command in the scripting reference at
+    all, and the two are not linked on any page.
+
+    Its parameter table carries the same formatting slip as its
+    predecessor's, naming the row after the command rather than after
+    the argument.
+  versions:
+    "26.123":
+      status: documented
+      note: "SRC-751 p.331, the first edition to print this spelling"

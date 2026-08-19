@@ -36,6 +36,87 @@ matrix could not have discriminated.
 
 ### API surface delta
 
+**The run matrix is split across the layers it actually uses**
+(OPS-2007.01, PFS-2009.05). `pyflightstream.cases.matrix` now holds only
+the reader and the converter: `MatrixError`, `MatrixRow`, `read_matrix`,
+`to_campaign` and `convert_matrix`. `ResolvedMatrix` and `resolve_matrix`
+moved to the new `pyflightstream.workspace.matrix`, which is where the
+input library they bind against lives; `plan_matrix` and `run_matrix`
+moved to the new `pyflightstream.run.matrix`, which is where the campaign
+loop they compose lives. No shim and no re-export: import from the new
+module. Nothing about the matrix format, the flags, the records or the
+behaviour moved with them.
+
+The reader used to reach up into both layers through five imports written
+inside its function bodies plus two under `TYPE_CHECKING`, which recorded
+the dependency while hiding it from every module-level reader. The count
+is now zero at every level and a tier-1 test holds it there.
+
+**`pyfs-matrix` is the same command from a different module.** The
+console entry point is now `pyflightstream.run.cli:main`, and
+`pyflightstream.cases.cli` is REMOVED. The command name, both
+subcommands, every flag and every line of output are unchanged, so
+nothing a user writes changes; what moved is the dotted module path. A
+command line that plans a campaign composes the workspace input library
+with the campaign pre-flight, so it belongs at or above both, and it sat
+two layers below what it drove. It moved in the SAME change as the
+reader, because in between the tree carries a module-level cases-to-run
+import and no commit could be green on its own.
+
+**BREAKING: `parse_run_loads` and `sweep_table` require a constructed
+`CampaignWorkspace`** (OPS-2009.02.05). Both used to accept the campaign
+root as a path as well and build the workspace themselves, which made the
+results layer import the execution layer above it. The import was
+deferred to call time, which changed nothing about the direction and only
+hid it from a module-level reader, so the convenience is gone rather than
+blessed as an exception. Write `sweep_table(CampaignWorkspace(root))`
+instead of `sweep_table(root)`. Passing a path now raises
+`MalformedOutputError` with the import line and the corrected call in the
+message; it is a catalogued class keeping `ValueError` as its second
+base, so an existing `except ValueError` still catches. Every shipped
+example and doc page already passed a constructed workspace.
+
+**BREAKING: `post.write_vtk_points` and `post.write_tecplot_points` take
+a required keyword-only `provenance` and return `(output, record)`**
+(PFS-2012.11, FR-31), rather than a single path. New public names:
+`post.OutputProvenance`, `post.settings_records`,
+`post.writers.provenance_path`, `post.writers.PROVENANCE_SCHEMA` and
+`post.writers.PROVENANCE_SUFFIX`.
+
+**`InputArtifactError` is defined in `pyflightstream._errors`, below every
+layer** (OPS-2007.02.01). Both bases and all three attributes (`kind`,
+`artifact_id`, `available`) are unchanged, and it is still imported from
+`pyflightstream.workspace` and `pyflightstream.exceptions`, which resolve
+to the same object; nothing a user catches changes. It moved because more
+than one layer names it, and an exception type is vocabulary rather than
+behaviour: leaving it in the layer that raises it made the layers that
+catch it reach upward for the name alone.
+
+**`SimCase` gains an optional `fs_build`; `pyflightstream.run` gains
+`SolverBuild`** (PFS-2009.05), and `run_campaign` and `plan_campaign`
+take a `builds` mapping from that id to a `SolverBuild`.
+
+**New modules on the affirmed public surface:**
+`pyflightstream.post.reductions`, `pyflightstream.post.settings_table`,
+`pyflightstream.post.unsteady`, `pyflightstream.run.cli`,
+`pyflightstream.run.matrix`, `pyflightstream.workspace.matrix` and
+`pyflightstream.workspace.wake_edges`. **Removed:**
+`pyflightstream.cases.cli`.
+
+**New public names elsewhere:** `pyflightstream.results.parse_unsteady_plots`
+and `UnsteadyPlotsReport`; in `pyflightstream.qa.compat`,
+`EXECUTABLE_BASELINE_REPORT`, `read_executable_baseline`,
+`classify_executable`, `ExecutableIdentity`, `ExecutableVerdict`,
+`licence_sensitive_candidates`, `LicenceCandidate` and
+`MEASURED_STATUSES`. `ProbeRun` and `PhysicsRun` gain `fs_exe_sha256`;
+`DriftRun` gains `fs_exe_sha256s`. `COMPAT_SCHEMA` is unchanged at
+`pyflightstream-compat-report/1`.
+
+**Changed shape, not a new name:** `pyflightstream.utils.manual.citation_reach`
+returned two-slot lists and now returns mappings keyed by
+`CITATION_REACH_OUTCOMES`. A caller reading the old shape by index must
+move to the keys.
+
 `pyflightstream.fsi.config_hash` is RENAMED `config_sha256`, and so are its
 two package exports, the `FsiState.config_sha256` field and the
 `check_state_matches_config(config_sha256=...)` keyword (OPS-2009.01.14).
@@ -149,6 +230,229 @@ already passed these by keyword, so nothing in the tree moved.
 Deprecations: none.
 
 ### Added
+
+- **A campaign can send some of its cases to a different solver build**
+  (PFS-2009.05). A case naming a build is RECORDED against that build's
+  executable, its sha256 and its version, and its script is emitted under
+  that build's version, so a study across two installations no longer has
+  to lie about which one produced a point. A case naming no build runs
+  and records exactly as before. A case naming a build the mapping does
+  not carry is refused before anything is staged, rather than falling
+  back to the campaign's executable, because that fallback is the record
+  this exists to prevent. The build's version is DECLARED in
+  `SolverBuild` and never inferred from an executable path or a build id.
+
+  The run matrix still refuses a second `FS_BUILD` value: expressing a
+  per-row build through the matrix needs a rule mapping `FS_BUILD` to a
+  command-database version, which is a separate open decision.
+
+- **A tier-1 layering guard with an EMPTY permitted set** (OPS-2007.02.03).
+  Any import inside a function body that resolves to a module in a higher
+  layer now fails the suite, with no allowlist, no per-module skip and no
+  exception list, because deferring an import to call time does not
+  change its direction. Layer rows are read from
+  `pyflightstream.overview`, the single home of the stack, so the guard
+  spells no layer name of its own. It deliberately does not fire on a
+  side branch with no layer row, on a same-layer import, or on a
+  standard-library or third-party one, and each of those shapes is
+  measured rather than asserted in prose.
+
+- **Every table the results layer returns pins its complete column set**
+  (OPS-2009.01.03). The loads frame, the probe-point frame and the sweep
+  table each carry a label-to-meaning literal beside the run row's, so a
+  column added, dropped or renamed is a deliberate two-file edit. The
+  loads frame was pinned only at its first four and last two columns, the
+  sweep table only by three per-name lookups, and the probe-point frame
+  was compared against the report it was built from and therefore could
+  not fail at all. Column ORDER is still not part of the NFR-19 promise
+  and is not asserted.
+
+- **`pyflightstream.results.parse_unsteady_plots` reads the unsteady plot
+  export** (PFS-2015.02.02), the only file this package reads that
+  carries one row per TIME STEP rather than one converged state. The
+  report gives the plot names in file order, the step count and one array
+  per column, resolved by label through `series()`; the column ORDER is
+  data and not a contract. It refuses a duplicated or unnamed column, a
+  cell that is not a solver-printed number and a row narrower or wider
+  than the header, each naming the step and the column it read, and it
+  refuses a probe export outright rather than reading a table of
+  positions as a history.
+
+  READ THE GROUNDING WITH IT, because it decides what the parser can be
+  trusted for. No export of that command exists in this repository: the
+  row and column meaning is the manual's, the DELIMITER is documented
+  nowhere and is assumed to be a comma because every other table export
+  of this solver uses one, and the committed fixture is SYNTHETIC and
+  says so in its own first line. A file delimited some other way is
+  refused by the anchor rather than misread. The command's database entry
+  stays at `documented` and a real export is owed before the parser can
+  be called verified.
+
+- **`pyflightstream.post.unsteady`, the per-timestep reader and the
+  blade-passage average** the post layer's own docstring had advertised
+  since v0.5.0 without having (PFS-2015.01, FR-20).
+  `read_timestep_series` reads the frames of an animation export back as
+  one ordered series, in either of the two data filetypes that command
+  documents. It takes the order from EVIDENCE and never from a file name:
+  the caller declares that the sequence is already in solver order, or
+  each frame carries its own solution time, and it REFUSES when it has
+  neither, saying that settling the vendor's frame naming needs one
+  licensed run and a committed probe report. `blade_passage_average`
+  averages a declared window of solver steps and is the only
+  implementation of that average in the release; `passage_windows` hands
+  out the successive passages so a phase-locked reduction composes it
+  rather than duplicating it.
+
+- **`pyflightstream.post.reductions`, the writing seam** that holds the
+  rule a reduction never overwrites the file it came from and the time
+  series keeps its own dedicated file (author's rule of 2026-08-16).
+  `write_series` writes the history; `write_reduction` refuses a
+  destination equal to any file the reduction read, refuses an average
+  whose series file is missing or is not beside it, and refuses an
+  existing destination. The rule lives at the seam rather than in a
+  workflow, so a caller who bypasses the workflow cannot obtain an
+  average with no history beside it.
+
+- **Every post-processing file carries the settings that produced it**
+  (PFS-2012.11, FR-31). Every file either flow-visualization writer
+  produces is now accompanied by `<name>.provenance.json`, carrying the
+  run identity, the campaign, the FlightStream version and the COMPLETE
+  solver-flag record: all 65 flags, each with its value, its provenance
+  and its citation, with a flag nobody has established for that build
+  present and named `unknown` rather than omitted. A post-processing file
+  previously had to be joined back to `runs.json` to learn what produced
+  it, and a file that needs another file is not self-contained: delete
+  `runs.json` and the numbers survived while their meaning did not.
+
+  The record's suffix is APPENDED rather than substituted (`ring.vtk` is
+  described by `ring.vtk.provenance.json`), because two exports of one
+  survey share a stem and a stem-named record would be one file
+  describing both. The no-silent-overwrite refusal covers the record as
+  well as the data file, and neither is written when either is refused.
+
+- **`pyflightstream.post.settings_table` and the page that freezes it,
+  `docs/settings-codebook.md`** (PFS-2012.12). An OPTIONAL all-numeric
+  projection of a solver-setup snapshot, for tools that cannot read
+  strings, tidy by default and wide on request. Every column is numeric
+  and no column carries two meanings: the value columns hold values only,
+  and unknown is expressed by the provenance code with the value columns
+  empty, because a sentinel may only appear in a column whose domain the
+  library controls. A caller may ask for empty CODE cells to be filled;
+  asking to fill a value column is refused, naming the flags whose legal
+  range contains the fill. A list-valued flag contributes its length and
+  the file's own legend says the form is lossy. Every file names the
+  codebook version that wrote it, and reading a file written under
+  another one is refused rather than silently reinterpreted. It is lossy
+  by construction and never replaces the full record.
+
+- **`docs/workspace-and-workflows.md`, the page a newcomer reads**
+  (PFS-2025.21, NFR-01d). It explains what a workspace is and what the
+  path from a filled-in run matrix to results actually does, in plain
+  language before any signature, and then walks that path end to end.
+  Every artefact on it is LIFTED from the test suite rather than written
+  for the page: the matrix is a committed fixture byte for byte, and the
+  input library, the recipe, the call and the four run identifiers are
+  those of an executed test. A tier-1 guard holds the two together, so
+  the page cannot drift from the suite without the suite going red. It
+  also states plainly what is NOT built, including that there is no
+  workflow object in the package. The "Planned next" bullet on the
+  documentation home page that promised this walkthrough is retired
+  against it.
+
+- **`SET_OUTLET_TRAILING_EDGES`, the 26.123 spelling of
+  `SET_OUTFLOW_TRAILING_EDGES`** (PFS-2026.05). The newest edition
+  renames the command in the chapter body and in the Script Index alike,
+  with no transitional spelling documented, so a script written for
+  26.122 stops working on the build issued after it. The database carries
+  both names rather than one name with an alias field, and the old one
+  gains a `removed` row on 26.123 naming the successor: emitting it there
+  is refused with the successor's name and the page of the edition that
+  documents it. Nothing was probed; the row counts a document.
+
+- **QA reports identify the executable by its hash as well as by its
+  name** (PFS-2026.17). The compat, physics and drift writers put the
+  digest in the YAML beside `fs_exe` and in the rendered Executable row,
+  and write it as null rather than omitting it when no digest was
+  measured. The vendor installer gives four registered builds one file
+  name and three more another, so a report naming one could not say which
+  binary produced it. The 27 committed compat reports are untouched and
+  never back-filled: a digest nobody measured cannot be recovered from a
+  basename.
+
+- **The identity question a replacement executable answers before any
+  seat is spent** (PFS-2026.15). `classify_executable` and the baseline
+  in `reports/RPT-032_executable-identity-baseline_2026-08-19.md`, the
+  digests of the nine executables in hand, measured by hashing files with
+  no solver started. An unchanged binary transfers its evidence untouched
+  and spends nothing; an unknown one authorises the identity-only probe
+  and nothing else; a printed build number that disagrees with the
+  registry refuses with both numbers.
+
+- **`licence_sensitive_candidates`, deriving the command rows a licence
+  change could falsify for one build** (PFS-2026.16). A licence changes
+  what the solver permits, so it can only falsify evidence that came from
+  RUNNING the solver; a `documented` row rests on a manual page and is
+  not a candidate. The function proposes candidates grouped by the
+  chapter split and deliberately writes no membership: which of them a
+  licensed seat is spent re-measuring is the author's judgement.
+
+- **`tests/test_release_readiness.py`, a tier-1 guard that refuses a
+  0.8.x release while 26.123 is unevidenced** (PFS-2026.14), naming that
+  build as the release's LAST step rather than as one item among many. It
+  requires four committed artefacts to be PRESENT and asserts no
+  threshold on the number of commands absent on that build, which it
+  prints instead. The `release` skill's first pause point carries it.
+
+- **A licence-evidence card for every distribution the `[dev]` extra
+  installs** (OPS-2009.02.01, PFS-2022.01.03),
+  `reports/RPT-033_development-tool-licences_2026-08-19.md`, closing the
+  gap RPT-016 registered in its own verdict on 2026-08-03. Each card
+  names the version read, the metadata FIELD it was read from, the value
+  found, the SPDX identifier and the MIT-compatibility verdict. Nine
+  distributions publish a PEP 639 `License-Expression`; two publish none,
+  and their MIT identifiers are recorded as readings of the legacy
+  `License` field rather than flattened, because a published expression
+  and a sentence somebody read are not the same grade of evidence. Every
+  identifier is permissive and MIT-compatible (NFR-02). RPT-016 is
+  deliberately unedited: it is what the closure is checked against.
+
+  The guard that holds it, `test_every_development_tool_has_a_license_card`,
+  reads the dev list live from `pyproject.toml` and requires each
+  distribution to have a card SECTION of its own, a heading whose text
+  normalises to the distribution's name. It is deliberately NOT the
+  substring shape of the two coverage tests beside it, and the difference
+  was MEASURED rather than argued: run over `dev`, a substring sweep is
+  green today with zero cards written, because RPT-016's gap paragraph
+  enumerates the uncarded names in order to say they have no card. A
+  check satisfied by the sentence saying the work is undone reports the
+  gap closed.
+
+- **A stated weight budget for a mesh reader, and three candidates
+  measured against it** (PFS-2025.20.01),
+  `reports/RPT-034_mesh-reader-weight-budget_2026-08-19.md`. Three
+  limits, each anchored to a repository fact that PREDATES the
+  measurements: at most 5 MiB added, at most one new transitive runtime
+  distribution, and an SPDX identifier read from installed metadata that
+  is permissive and MIT-compatible. Measured in clean per-candidate
+  environments: one candidate adds five distributions and 12.26 MiB and
+  fails two limits, one adds a single distribution and 3.89 MiB and meets
+  all three, and a NumPy-only in-house reader meets the numbers and is
+  refused by the standing engineering policy instead. Coverage against
+  the solver's eleven import file types is recorded per candidate and is
+  deliberately not a limit. The card does not decide whether a reader
+  becomes a required dependency: NFR-06's table governs that, and it is
+  the author's.
+
+- **`reports/RPT-035_mesh-reader-licence_2026-08-19.md`**, the NFR-02
+  card a mesh reader would need to become a REQUIRED runtime dependency
+  rather than an optional extra. It does not replace RPT-003, which is
+  the adoption-time card for the `[geom]` extra; it measures the
+  different surface a promotion exposes, the reader's transitive closure
+  with no extras bracket. The delta a promotion adds is one distribution
+  under one permissive licence. It also records that the reader publishes
+  no PEP 639 `License-Expression`, so its identifier is a reading of the
+  legacy field, which is worth naming where a dependency reaches every
+  user with no opt-in.
 
 - **`pyflightstream.qa.cost`, a wall-time cost view built from campaign
   manifests alone** (PFS-2018.02). `cost_view()` returns a `CostView` with
@@ -402,6 +706,43 @@ Deprecations: none.
   invariant over the committed database.
 
 ### Changed
+
+- **A citation re-check records how each row it SAW ended, not only how
+  many it saw and how many it read** (OPS-2003.10.02).
+  `utils.manual.citation_reach` returns the four outcomes named by the
+  new `CITATION_REACH_OUTCOMES` (`no_note`, `no_page`, `removed`,
+  `checked`) plus `range_cited`, and `pyfs-manual citations` prints the
+  four per edition.
+
+  The four PARTITION the rows seen, which is the point: the report used
+  to print the whole difference between seen and checked as one
+  unexplained gap, and attributing all of it to one reason is the mistake
+  the counter's own comment warns about. `range_cited` is a stated subset
+  of `checked` and never an addend, and a row whose edition the manifest
+  does not list is counted in none of them, because the run has no
+  reading to check it against; those builds keep their own line.
+  Separating the outcomes corrected a published number immediately: of
+  26.120's 381 rows, 359 carry no note at all and 4 carry a note with no
+  page of its own, where one sentence had covered both.
+
+- **`pyflightstream.post`'s module docstring stops advertising what the
+  layer does not have** (PFS-2015.01, NFR-11). It had claimed the layer
+  "performs blade-passage averaging for unsteady runs" while importing
+  that name raised `ImportError`, and announced a `ResultArray` facade as
+  planned. The averaging now exists; the facade does not, and the
+  docstring says so in its own section rather than describing it as
+  forthcoming.
+
+- **One type-checker exemption is REMOVED, the first this project has
+  been able to remove on evidence.** `pyflightstream.results.tables` was
+  exempt and is now clean: deleting `_as_workspace` took the module's
+  last type error with it, measured with every override off. The
+  `[tool.mypy]` header has promised since 2026-08-03 that an exemption is
+  removed as its module is typed and never added, and this is that
+  direction happening rather than being restated. The re-count moves with
+  it: 274 errors in 20 of 70 modules, where the tree carried 275 in 21 of
+  64 the day before, and the four records that state it move together
+  because a tier-1 guard compares them.
 
 - **The FSI persisted state and its convergence log name the digest
   `config_sha256` rather than `config_hash`** (OPS-2009.01.14). A
@@ -814,6 +1155,49 @@ Deprecations: none.
   against the target script's own parser.
 
 ### Documentation
+
+- **`reports/compat/README.md` gained three sections** (PFS-2026.15,
+  PFS-2026.16, PFS-2026.17): which binary produced a report and why the
+  committed corpus can no longer answer that, what a digest does NOT
+  answer (the licence), and the identity check a replacement executable
+  goes through before it spends a seat.
+
+- **The command database's version metadata records what a licence tier
+  could falsify**, beside the version rows it is about, and records the
+  two statements the newest manual edition WITHDREW (PFS-2026.10,
+  PFS-2026.16): the claim that at higher control-surface deflection
+  angles the solver captures the tip vortices directly, printed twice in
+  the previous edition and in neither place now, and the guidance to set
+  the wake decay constant to zero for marine applications. Nothing in
+  this repository asserted either as current, which is recorded as a
+  measurement with its exclusions rather than as a reassurance.
+
+- **Two new committed reports** (PFS-2026.08, PFS-2026.15). RPT-031
+  records the search of the 26.123 scripting reference and Script Index
+  for the command that sets the aeroelastic coupling tolerance: the
+  answer is that NO such command is documented, with nine candidates
+  rejected and a reason for each, and the modal-representation claim
+  measured as absent from all nine manual editions. The chapter header
+  that asked for that search is updated to cite it, so the file no longer
+  asks for work already done. RPT-032 records the digests of the
+  executables in hand as the baseline a replacement is compared against.
+
+- **The three skills that spend a licensed solver seat carry an
+  identity-first step** for a REPLACEMENT executable of an
+  already-registered version (PFS-2026.15), a case that previously fell
+  between all three.
+
+- **`RPT-024`'s Script Index caution is amended with a DIRECTION rather
+  than a correction.** It recorded only that the index UNDER-reports; the
+  newest edition lists a command in its Script Index that its chapter
+  body no longer prints at all, which is the mirror failure. The rule
+  does not change and the body is still what is read; what changes is
+  that a disagreement between the two is not by itself evidence of which
+  one moved.
+
+- **The getting-started page gains the time-resolved history section**,
+  with an executed example, and states plainly that the file's shape is
+  documented and not yet OBSERVED.
 
 - **`docs/solver-cost.md`, a new page explaining what a run cost and how
   to show that a build got slower** (PFS-2018.02), with a worked example

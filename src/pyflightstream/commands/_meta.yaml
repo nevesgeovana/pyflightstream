@@ -27,6 +27,41 @@
 #   used to be followed by one; the generated build page computes it.
 #   A reader holding an install has only what it prints, so anything that
 #   asks them to match on a name must offer this one.
+# WHAT IS NOT A FIELD HERE, AND THE RISK IT LEAVES. A version row carries
+# no licence. Command evidence is keyed by the canonical version string
+# alone, so a relicensed binary printing the same version is the same
+# solver as far as every lookup, promotion and refusal in this package is
+# concerned. A licence tier can change what the solver PERMITS: a command
+# the new seat refuses stays marked verified on a measurement taken under
+# the old one, and no guard fires.
+#
+# Recorded here rather than left as a caveat someone has to remember. Two
+# halves, and only one of them is mechanical today.
+#
+# The mechanical half: what a licence change could falsify is DERIVED
+# rather than judged, by `pyflightstream.qa.compat.licence_sensitive_candidates`.
+# A licence changes what the solver permits, so it can only falsify a row
+# that came from RUNNING the solver; a `documented` row rests on a manual
+# page and no licence changes a page. The function returns the measured
+# rows of a build, grouped by the chapter split, each carrying the report
+# its measurement came from. On 26.123 that is 85 rows across 18
+# chapters, and on 25.000 it is none, because that build has no measured
+# row at all.
+#
+# The half that is NOT mechanical, and is deliberately left open: which
+# of those candidates a licensed seat is actually spent re-measuring is a
+# domain judgment about which capabilities a vendor plausibly gates, and
+# it belongs to the author. Nothing in this file records a membership,
+# and a subset written by anything other than her decision would be a
+# guess wearing the costume of evidence. Where a command's evidence rests
+# on a licence tier, that belongs in its own entry's notes with the
+# reason, in the same shape as any other evidence qualification.
+#
+# A digest does not answer this. `reports/RPT-032_executable-identity-baseline_2026-08-19.md`
+# identifies WHICH BYTES ran, and the same bytes under two seats can
+# behave differently, so the two questions are separate and neither
+# substitutes for the other.
+
 versions:
   # ADDED 2026-08-09, on the author's decision, and read the ordering
   # note before reading the position. These THREE (25.000, 25.100 and
@@ -84,6 +119,14 @@ versions:
     # checkouts unavailable and the EDU checkout successful. What an EDU
     # seat may refuse is not yet measured, so a validity sweep of this
     # build is not simply the 26.1 sweep pointed elsewhere.
+    #
+    # NOTHING RESTS ON THAT UNKNOWN TODAY, which is worth stating because
+    # the caveat reads heavier than it is: this build carries no measured
+    # row at all, so `licence_sensitive_candidates("25.000")` is empty and
+    # there is no verified status here for an EDU refusal to falsify. The
+    # unknown blocks a sweep from being trusted in advance; it does not
+    # sit under evidence already published. See the header note above for
+    # the general rule and for which half of it is mechanical.
   - canonical: "25.100"
     alias: "25.1"
     # reports/compat/CMP-25100_2026-08-09_identity.yaml
@@ -425,3 +468,54 @@ manual_editions:
     the command in the index at p.390, so the caution now runs in both
     directions and the rule that survives is the same one: read the
     body.
+
+    TWO STATEMENTS THE PREVIOUS EDITION MADE ARE WITHDRAWN HERE, and one
+    of them is a claim about the solver's physical validity. Recorded
+    against the pages they left, because an edition going quiet is a fact
+    about a document and this is where this repository records what an
+    edition did.
+
+    SRC-750 pp.165 and 168 both told the reader that at higher control
+    surface deflection angles the gap between split trailing edges opens
+    enough that viscous effects can no longer smear the tip vortices
+    forming at their ends, and that this is the regime where the solver
+    captures those vortices directly. SRC-751 prints neither sentence, on
+    either page, while keeping every sentence around them: the guidance
+    to mark wake termination nodes across the gap survives and the
+    statement about where the solver is valid without them does not. The
+    two editions were read page against page rather than taken from the
+    delta, and p.168 additionally drops the cross-reference to the
+    section that describes those nodes.
+
+    SRC-750 p.209 ended its description of the wake decay constant with a
+    sentence setting it to zero for marine applications. SRC-751 carries
+    the definition, the characteristic length and the turbulence
+    proportionality on the same page and not that sentence. Read the
+    subject carefully: the sentence was recorded elsewhere as guidance
+    about a CAMBER-LINE constant, which the page does not support. p.209
+    describes a camber-line representation for lifting surfaces earlier
+    on the same page, and the withdrawn sentence sits at the end of the
+    wake decay paragraphs and says "this constant", so its subject is the
+    WAKE DECAY constant. That relocates where a dependence could live:
+    SET_WAKE_DECAY_CONSTANT is the entry paraphrasing this material.
+
+    NOTHING IN THIS REPOSITORY ASSERTS EITHER STATEMENT AS CURRENT, and
+    that is a measurement rather than an assumption. Searched over
+    tracked files: "tip vort" matches nothing at all, "marine" matches
+    nothing at all, and "wake decay" matches two places, the
+    SET_WAKE_DECAY_CONSTANT entry, whose paraphrase of p.209 never
+    carried the marine sentence, and a jet-wake decay distance in the
+    script helpers, which is a different quantity. "camber" matches the
+    NACA section generator, a cambered generic section in the FSI loads
+    module and one CAD entry describing a median curve, none of them this
+    claim. "deflect" matches control-surface geometry and structural
+    deflection and no validity statement.
+
+    Two consequences worth stating rather than leaving implicit. Neither
+    prior page sits inside SRC-750's registered scripting reference, so
+    neither could be cited from a version note without the citation walk
+    reporting it as an offender, which is why this record lives here and
+    not on a version row. And a withdrawal is not a measurement: the
+    vendor deleting a claim about where the solver is valid says the
+    document no longer asserts it, not that the solver changed. Anything
+    that wants the claim back needs a probe, not a citation.

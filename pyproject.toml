@@ -51,6 +51,9 @@ fsi = ["PyNiteFEA>=3.0"]
 # MIT-compatible (NFR-02).
 manual = ["pypdf"]
 dev = [
+    # Licence evidence for every distribution in this block:
+    # reports/RPT-033_development-tool-licences_2026-08-19.md, one card
+    # section per distribution, read from installed metadata (NFR-02).
     "pytest",
     # PEP 440 version parsing for tests/test_version_identity.py
     # (REV010-015). Declared rather than relied on as pytest's transitive
@@ -89,7 +92,7 @@ dev = [
 pyfs-qa = "pyflightstream.qa.cli:main"
 pyfs-fsi = "pyflightstream.fsi.cli:main"
 pyfs-workspace = "pyflightstream.workspace.cli:main"
-pyfs-matrix = "pyflightstream.cases.cli:main"
+pyfs-matrix = "pyflightstream.run.cli:main"
 # Maintainer tool, needs the [manual] extra. Compares a vendor manual
 # against the command database; writes only with --write.
 pyfs-manual = "pyflightstream.utils.cli:main"
@@ -167,7 +170,7 @@ exclude_also = [
 # RE-COUNTED at 0.8.0.dev0 (OPS-2006.11.01), because the sentence above is a
 # fact about 2026-08-03 and was being read as a fact about today. With every
 # override below turned off:
-#     mypy recount 2026-08-18: 275 errors in 21 of 64 modules
+#     mypy recount 2026-08-19: 274 errors in 20 of 70 modules
 # The package grew by ten modules and the debt by 52 errors, the exempted set
 # did not move, and no module outside it is dirty. Every one of the 21 still
 # reports at least one error, so not one of these overrides could be deleted
@@ -248,9 +251,12 @@ ignore_errors = true
 module = "pyflightstream.qa.specs"
 ignore_errors = true
 
-[[tool.mypy.overrides]]
-module = "pyflightstream.results.tables"
-ignore_errors = true
+# REMOVED 2026-08-19: `pyflightstream.results.tables` was exempt and is
+# now clean. Deleting `_as_workspace` (OPS-2009.02.05, the DELETE branch)
+# took the module's last type error with it, measured with every override
+# off. This is the direction the header comment above promises, an
+# exemption removed as its module is typed and never added, and it is the
+# first one this project has been able to remove on evidence.
 
 [[tool.mypy.overrides]]
 module = "pyflightstream.run"

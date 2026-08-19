@@ -35,10 +35,24 @@ unit-suffixed names (``offset_m``, ``fx_n_per_m``, ...) for the
 sectional loads, matching :class:`SectionalLoadsReport`.
 
 The manifest is read only through the public API of
-:mod:`pyflightstream.workspace`, imported inside the functions that need
-it: importing the results parsing layer never pulls the execution
-layers, so the downward dependency order of the package is preserved
-at import time.
+:mod:`pyflightstream.workspace`, and this module imports that layer
+NOWHERE at runtime: :func:`parse_run_loads` and :func:`sweep_table` take
+a :class:`~pyflightstream.workspace.CampaignWorkspace` the caller has
+already constructed. The only mention of the workspace layer here is an
+annotation, under ``if TYPE_CHECKING``, which the interpreter never
+executes.
+
+That is a CHANGE, and the reason it is worth a paragraph. Both
+functions used to accept a bare root path as well, coerced by a helper
+that imported the workspace layer inside its own body. Deferring an
+import to call time hides its direction from every module-level reader
+without changing it: results sits BELOW run/workspace, so the coercion
+was the parsing layer reaching up for a constructor. AD-01 allows a
+documented exception and the alternative was to delete it; deleting it
+is what happened (OPS-2009.02.05), because a layering guard whose
+permitted set is empty cannot go green while one convenience import
+stands. Callers pass ``CampaignWorkspace(root)`` instead of ``root``,
+which is one line and is what every shipped example already did.
 """
 
 from __future__ import annotations
@@ -235,7 +249,7 @@ def run_table(record: RunRecord, *, loads: LoadsReport | None = None) -> pd.Data
 
 
 def parse_run_loads(
-    workspace: CampaignWorkspace | str | Path,
+    workspace: CampaignWorkspace,
     record: RunRecord | str,
     *,
     loads_file: str | None = None,
@@ -254,8 +268,12 @@ def parse_run_loads(
 
     Parameters
     ----------
-    workspace : CampaignWorkspace, str, or Path
-        The managed campaign workspace, or its root folder.
+    workspace : CampaignWorkspace
+        The managed campaign workspace, already constructed. A bare
+        root path is NOT accepted: taking one made this layer import
+        the layer above it to build the workspace, which is the
+        upward dependency AD-01 forbids. Pass
+        ``CampaignWorkspace(root)``.
     record : RunRecord or str
         The manifest record, or its ``run_id`` to look up in the
         manifest.
@@ -280,8 +298,11 @@ def parse_run_loads(
     FileNotFoundError
         When a recorded output is no longer on disk, for example after
         the simulation folder was archived.
+    MalformedOutputError
+        When ``workspace`` is a path rather than a constructed
+        :class:`~pyflightstream.workspace.CampaignWorkspace`.
     """
-    workspace = _as_workspace(workspace)
+    _refuse_a_bare_root(workspace, "parse_run_loads")
     record = _as_record(workspace, record)
     sim_dir = workspace.sim_dir(record.sim_id)
     if not record.outputs:
@@ -334,7 +355,7 @@ def parse_run_loads(
 
 
 def sweep_table(
-    workspace: CampaignWorkspace | str | Path,
+    workspace: CampaignWorkspace,
     *,
     loads_file: str | None = None,
 ) -> pd.DataFrame:
@@ -351,8 +372,11 @@ def sweep_table(
 
     Parameters
     ----------
-    workspace : CampaignWorkspace, str, or Path
-        The managed campaign workspace, or its root folder.
+    workspace : CampaignWorkspace
+        The managed campaign workspace, already constructed. A bare
+        root path is NOT accepted, for the reason
+        :func:`parse_run_loads` states: pass
+        ``CampaignWorkspace(root)``.
     loads_file : str, optional
         Exact loads file name per run, forwarded to
         :func:`parse_run_loads`; needed when the recipes export more
@@ -368,12 +392,22 @@ def sweep_table(
 
     Raises
     ------
-    ValueError
-        When the manifest holds no records, or when no successful run
-        yields a coefficient table (which points at a wrong
-        ``loads_file`` name).
+    MalformedOutputError
+        When the manifest holds no records, or when ``workspace`` is a
+        path rather than a constructed
+        :class:`~pyflightstream.workspace.CampaignWorkspace`.
+    LoadsNotFoundError
+        When no successful run yields a coefficient table (which points
+        at a wrong ``loads_file`` name).
+
+    Examples
+    --------
+    >>> from pyflightstream.results import sweep_table
+    >>> from pyflightstream.workspace import CampaignWorkspace
+    >>> table = sweep_table(CampaignWorkspace("campaign"))   # doctest: +SKIP
+    >>> table[["run_id", "alpha", "CL"]]                     # doctest: +SKIP
     """
-    workspace = _as_workspace(workspace)
+    _refuse_a_bare_root(workspace, "sweep_table")
     records = workspace.read_manifest()
     if not records:
         raise MalformedOutputError(
@@ -512,18 +546,52 @@ def _run_row(record: RunRecord, loads: LoadsReport | None) -> dict[str, object]:
     return row
 
 
-def _as_workspace(workspace: CampaignWorkspace | str | Path) -> CampaignWorkspace:
-    """Coerce a root path to the managed workspace of the workspace layer.
+def _refuse_a_bare_root(workspace: object, caller: str) -> None:
+    """Refuse a root path where a constructed workspace is required.
 
-    The import is deferred to the call (module docstring): tabulating
-    results must not make the parsing layer import the execution
-    layers at module import time.
+    The replacement for the coercion helper this module carried until
+    2026-08-19 (OPS-2009.02.05). That helper built a
+    :class:`~pyflightstream.workspace.CampaignWorkspace` out of a path,
+    which needed an import of the layer ABOVE this one, deferred to call
+    time so it would not show at module level. The direction was the
+    same either way, so the coercion went and the refusal took its
+    place.
+
+    Duck-typed on the two methods the callers use, not on the class, so
+    a test double or a subclass is accepted exactly as before and this
+    module still names no type it would have to import.
+
+    The refusal is a :class:`~pyflightstream.results.MalformedOutputError`
+    rather than a bare ``TypeError``: every exception a public name of
+    this package raises is a catalogued class descending from
+    ``PyflightstreamError`` and keeping its standard-library base, so
+    ``except ValueError`` around these calls still catches it.
+
+    Parameters
+    ----------
+    workspace : object
+        What the caller passed.
+    caller : str
+        Public function name, quoted back in the message so the reader
+        knows which call to fix.
+
+    Raises
+    ------
+    MalformedOutputError
+        When ``workspace`` does not offer the managed-workspace surface.
     """
     if hasattr(workspace, "read_manifest") and hasattr(workspace, "sim_dir"):
-        return workspace
-    from pyflightstream.workspace import CampaignWorkspace
-
-    return CampaignWorkspace(workspace)
+        return
+    raise MalformedOutputError(
+        f"{caller}() needs a constructed CampaignWorkspace and got "
+        f"{type(workspace).__name__}. Until v0.8.0 it also accepted the campaign "
+        "root as a path and built the workspace itself, which made the results "
+        "layer import the execution layer above it; that convenience is gone. "
+        "Write: from pyflightstream.workspace import CampaignWorkspace, then "
+        f"{caller}(CampaignWorkspace(root), ...). The workspace is what knows "
+        "where the manifest and the simulation folders are, so constructing it "
+        "once and passing it is also what lets several calls share one root."
+    )
 
 
 def _as_record(workspace: CampaignWorkspace, record: RunRecord | str) -> RunRecord:

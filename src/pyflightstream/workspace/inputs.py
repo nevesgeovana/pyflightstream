@@ -39,47 +39,20 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
-from pyflightstream._errors import PyflightstreamError
+# InputArtifactError is DEFINED in `_errors`, below every layer, and
+# re-exported here and from `pyflightstream.workspace`, which is the name
+# a user catches and the one every docstring in this module names. It
+# moved there on 2026-08-19 (OPS-2007.02.01) because the layers that bind
+# a run matrix to this library catch it too, and reaching up for the type
+# alone is what the five call-time imports of `cases/matrix.py` were.
+# Nothing about the class changed: same two bases, same three attributes,
+# same public spelling.
+from pyflightstream._errors import InputArtifactError
 
 INPUT_KINDS = ("geometries", "references", "setups", "groups", "profiles")
 EXECUTABLES_FILE = "executables.toml"
 
 _ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
-
-
-class InputArtifactError(PyflightstreamError, RuntimeError):
-    """An input artifact cannot be resolved or validated.
-
-    Raised when an id is unknown (the message lists the available ids
-    of that kind), when an artifact file does not validate against its
-    model, or when a geometry or profile id matches more than one
-    staged file. Input mistakes must surface at resolution time, before
-    any solver run consumes the artifact.
-
-    Attributes
-    ----------
-    kind : str or None
-        Artifact kind of the failed resolution (``"reference"``,
-        ``"setup"``, ...), when the refusal is a miss.
-    artifact_id : str or None
-        The id that failed to resolve, when the refusal is a miss.
-    available : tuple of str
-        Ids that would have resolved for the kind, so callers can
-        offer choices without parsing the message.
-    """
-
-    def __init__(
-        self,
-        message: str,
-        *,
-        kind: str | None = None,
-        artifact_id: str | None = None,
-        available: tuple[str, ...] = (),
-    ) -> None:
-        super().__init__(message)
-        self.kind = kind
-        self.artifact_id = artifact_id
-        self.available = available
 
 
 class PointXyz(BaseModel):

@@ -1185,10 +1185,33 @@ class RegistryLike(Protocol):
         """Return the per-version view of the database."""
 
 
-#: Rows seen and rows actually checked, per edition, from the last
+#: The four outcomes a version row can have in a citation re-check, in
+#: the order the loop decides them. They PARTITION the rows the run saw
+#: for an edition: every row reaching the tally ends in exactly one, so
+#: the four sum to the rows seen and no row is counted twice.
+#:
+#: A row the manifest does not cover is deliberately absent from this
+#: list. Such a row drops out before the tally, because the run has no
+#: reading of that edition to check it against, and folding it in here
+#: would put a number about EDITIONS NOT READ inside a per-edition
+#: total. The CLI names those builds on their own line instead.
+CITATION_REACH_OUTCOMES: tuple[str, ...] = ("no_note", "no_page", "removed", "checked")
+
+#: How each seen row ended, per edition, from the last
 #: :func:`stale_citations` run. It exists because a clean report is not
 #: a clean bill and the caller cannot tell the two apart from the
 #: findings alone.
+#:
+#: Each value holds the four :data:`CITATION_REACH_OUTCOMES` counts plus
+#: ``range_cited``. The fifth key is a SUBSET of ``checked``, not a
+#: fifth outcome: it counts the checked rows whose citation names a page
+#: span rather than a single page, and adding it to the other four would
+#: double-count every one of them.
+#:
+#: IT COUNTED TWO REASONS UNTIL 0.8.0 AND THE CHECK HAS FOUR, which is
+#: the defect this shape fixes: rows seen and rows checked were the only
+#: numbers kept, so the whole difference between them was printed as one
+#: unexplained gap and any account of it was the reader's guess.
 #:
 #: 26.120 is the build that makes the point, and its figure was written
 #: here as 18 of 381 before being measured again: it is ZERO of 381.
@@ -1197,8 +1220,13 @@ class RegistryLike(Protocol):
 #: 18 that do cite a page are every one of them `removed` rows, which
 #: this check skips by design since their citation addresses an absence.
 #: Eighteen is the number of rows SKIPPED, not checked, and the two are
-#: easy to swap when neither is printed.
-citation_reach: dict[str, list[int]] = {}
+#: easy to swap when neither is printed. With the outcomes separated the
+#: swap is not available, and the separation immediately corrected the
+#: 363: measured through the four on 2026-08-19 it is 359 rows carrying
+#: NO NOTE AT ALL and 4 carrying a note with no page of its own, beside
+#: the 18 removals. "Cite no page of their own" was one sentence for two
+#: populations, which is the same conflation one level down.
+citation_reach: dict[str, dict[str, int]] = {}
 
 
 def stale_citations(
@@ -1258,8 +1286,18 @@ def stale_citations(
     would report every honest removal record as a defect.
 
     A row whose note carries no page cannot be checked, and most rows do
-    not carry one. So can a row whose edition the manifest does not
-    list.
+    not carry one. Neither can a row whose edition the manifest does not
+    list, and that one differs in kind from the other three: the run has
+    no reading to check it against, so it is not an outcome of this
+    check at all.
+
+    Each run records how the rows it saw ended, in
+    :data:`citation_reach`, one count per outcome of
+    :data:`CITATION_REACH_OUTCOMES` per edition. Those four partition
+    the rows seen for that edition, so a caller can say WHY a row went
+    unchecked rather than inferring one reason for all of them
+    (OPS-2003.10.02). Rows of an unlisted edition appear in none of the
+    four, for the reason in the paragraph above.
 
     A note citing a page RANGE is satisfied by any page in it. Twenty-six
     shipped rows cite one, and reading only the first page of a span
@@ -1303,7 +1341,7 @@ def stale_citations(
     reach = citation_reach
     reach.clear()
     for edition in editions:
-        reach[edition.label] = [0, 0]
+        reach[edition.label] = dict.fromkeys((*CITATION_REACH_OUTCOMES, "range_cited"), 0)
     surfaces: dict[str, dict[str, ManualCommand]] = {}
     for edition in editions:
         surfaces[edition.label] = dict(
@@ -1317,18 +1355,33 @@ def stale_citations(
         for label, row in getattr(entry, "versions", {}).items():
             parsed = surfaces.get(label)
             if parsed is None:
+                # No reading of this edition, so this row has no outcome
+                # here at all and is not counted: the manifest decides
+                # which editions were read, and the CLI names the builds
+                # it left out on a line of its own.
                 continue
-            reach[label][0] += 1
+            # From here every path below ends in exactly one of the four
+            # outcomes, which is what makes them a partition of the rows
+            # seen rather than four numbers that happen to be printed
+            # together (OPS-2003.10.02).
+            counted = reach[label]
             note = getattr(row, "note", None)
             if not note:
+                counted["no_note"] += 1
                 continue
             match = _CITED_PAGE.search(note)
             if match is None:
+                counted["no_page"] += 1
                 continue
             if getattr(getattr(row, "status", None), "value", None) == "removed":
+                counted["removed"] += 1
                 continue
-            reach[label][1] += 1
+            counted["checked"] += 1
             source, first, last = match.group(1), int(match.group(2)), match.group(3)
+            if last:
+                # A SUBSET of checked and never an addend: this row has
+                # already been counted once, above.
+                counted["range_cited"] += 1
             span = range(first, (int(last) if last else first) + 1)
             command = parsed.get(name)
             expected = sources.get(label)
@@ -1534,7 +1587,7 @@ def read_pdf_pages(path: str | Path, *, first: int, last: int) -> dict[int, str]
         )
     try:
         import pypdf
-    except ImportError as error:  # pragma: no cover - exercised by the extras test
+    except ImportError as error:  # pragma: no cover - exercised only without the extra
         from pyflightstream.extras import missing_extra
 
         raise missing_extra(

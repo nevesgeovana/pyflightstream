@@ -22,16 +22,43 @@ found there (26 against 36) is registered, not silently rewritten.
 
 from __future__ import annotations
 
+import importlib.util
 import re
-import sys
-from pathlib import Path
 
 import pytest
+from conftest import REPO
 
-REPO = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPO / "scripts"))
 
-from gen_requirements_index import BOX, SRS  # noqa: E402
+def _load_generator():
+    """Load ``scripts/gen_requirements_index`` from its path.
+
+    By LOCATION rather than by name (OPS-2009.02.04). The module used
+    to arrive through ``sys.path.insert`` plus a plain import, and that
+    form asks a question this module does not want answered: it takes
+    whatever already holds the name in ``sys.modules``, and any module
+    of that name reachable on the path otherwise. Either way the
+    failure is an ImportError, or worse a silent binding to another
+    parser, where the failure this module exists to report is an SRS
+    disagreement. Loading by location consults neither, and the loaded
+    module is deliberately NOT registered in ``sys.modules``, so no
+    other test can pick it up by name either.
+    """
+    path = REPO / "scripts" / "gen_requirements_index.py"
+    assert path.is_file(), (
+        f"the requirement-index generator is not at {path}. It is the ONE parser "
+        "that produces the identifier set this module asserts the SRS prose "
+        "against, so without it every test here would compare nothing to nothing."
+    )
+    spec = importlib.util.spec_from_file_location("pyflightstream_gen_requirements_index", path)
+    assert spec is not None and spec.loader is not None, f"{path} could not be loaded as a module"
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+_GENERATOR = _load_generator()
+BOX = _GENERATOR.BOX
+SRS = _GENERATOR.SRS
 
 _ID = re.compile(r"^(?P<prefix>[A-Za-z]+)-(?P<number>\d+)(?P<letter>[a-z]?)$")
 

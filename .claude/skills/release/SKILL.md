@@ -25,7 +25,24 @@ then move on. References for the practices: docs/srs/standards.md.
    release notes as a known gap.
 4. Run the `audit` skill (full scope) and close or plan every finding.
    A release never ships over an unread audit.
-5. Deprecation deadline: no shim survives past its recorded removal
+5. **The release's LAST STEP carries its evidence.** For 0.8.x that step
+   is FlightStream 26.123, and it is last by the author's sequencing:
+   everything else planned for the release happens first, and the
+   release does not go out until that build is evidenced. The check is
+   `pytest tests/test_release_readiness.py`, run with `-s` so the absent
+   count prints. It refuses on PRESENCE of four committed artefacts, the
+   registration with its build number, the documented pass in a chapter
+   YAML, a probe report that verified something, and a physics report
+   with at least one case, and it names the step in its refusal rather
+   than reading as one item among many.
+
+   Two things it deliberately does NOT do. It asserts no threshold on
+   the 45 commands the golden records as absent on that build, because
+   at least one of them is legitimately absent and no agreed number
+   exists; the count is printed for a person to read. And it is scoped
+   to the milestone whose last step this build is, so it does not refuse
+   0.9.0 for an artefact that release never named.
+6. Deprecation deadline: no shim survives past its recorded removal
    version and every shim warning states that exact version; both are
    enforced mechanically by the tier 1 guard
    (tests/test_deprecation_deadline.py over the

@@ -60,6 +60,7 @@ import subprocess
 import tempfile
 import time
 import warnings
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 from functools import lru_cache
 from pathlib import Path
@@ -112,6 +113,7 @@ __all__ = [
     "PlanStatus",
     "PointPlan",
     "Reconstruction",
+    "SolverBuild",
     "SurfaceMeshExportError",
     "check_solver_identity",
     "describe_invocation",
@@ -281,6 +283,45 @@ class Executor(Protocol):
     ) -> ExecutionResult:
         """Run one script and return the typed outcome."""
         ...
+
+
+@dataclass(frozen=True)
+class SolverBuild:
+    """One solver installation a campaign may send some of its cases to.
+
+    A campaign declares ONE ``fs_version`` and ONE ``fs_exe``, which is
+    the right shape for the ordinary case and makes a study ACROSS two
+    solver builds unstatable: the run matrix refused a second FS_BUILD
+    value outright rather than record a falsehood, because the manifest
+    would have said every point ran on the campaign's executable. This
+    is the shape that lets a campaign say otherwise, one case at a time,
+    through :attr:`pyflightstream.cases.SimCase.fs_build` and the
+    ``builds`` mapping of :func:`run_campaign` and :func:`plan_campaign`.
+
+    Every field is stated rather than derived, and that is the point of
+    the class. Nothing here infers a command-database version from an
+    executable path or from a build id: which version a build's scripts
+    are emitted under is a declaration the caller makes, so the manifest
+    records what was asked for rather than what was guessed.
+
+    Attributes
+    ----------
+    fs_exe : pathlib.Path
+        The executable of this build, recorded in every point's
+        ``fs_exe`` and hashed into ``fs_exe_sha256``.
+    fs_version : str
+        FlightStream version the scripts of this build are emitted
+        under, canonical identifier (26.120) or a vendor release name
+        that resolves to exactly one registered build. Recorded in
+        ``fs_version_requested``.
+    executor : Executor
+        How to run this build's scripts; one per build, because an
+        executor is bound to an executable at construction.
+    """
+
+    fs_exe: Path
+    fs_version: str
+    executor: Executor
 
 
 #: Command-line argument that names the script file, one dash.
@@ -1299,6 +1340,51 @@ def check_solver_identity(
         )
 
 
+def _case_build(
+    case: SimCase,
+    builds: Mapping[str, SolverBuild] | None,
+) -> SolverBuild | None:
+    """Return the build a case names, or None for the campaign's own.
+
+    Refuses a case naming a build the caller did not supply, rather
+    than falling back to the campaign's executable. The fallback is
+    what makes a record lie: the point would run on one installation
+    and the manifest would name another, which is the exact failure the
+    run matrix's single-build refusal existed to prevent.
+
+    Parameters
+    ----------
+    case : SimCase
+        The case about to be planned or run.
+    builds : mapping of str to SolverBuild, optional
+        What the caller supplied.
+
+    Returns
+    -------
+    SolverBuild or None
+        None means the campaign's own ``fs_exe`` and ``fs_version``.
+
+    Raises
+    ------
+    ExecutorConfigurationError
+        When the case names a build the mapping does not carry.
+    """
+    if case.fs_build is None:
+        return None
+    if builds and case.fs_build in builds:
+        return builds[case.fs_build]
+    known = ", ".join(sorted(builds)) if builds else "none"
+    raise ExecutorConfigurationError(
+        f"case {case.sim_id!r} declares fs_build {case.fs_build!r} and the builds "
+        f"mapping carries {known}. Nothing ran. A case naming a build is asking to "
+        "run on a DIFFERENT installation from the campaign's, so falling back to "
+        "campaign.fs_exe would record every point against an executable it never "
+        "used. Pass builds={<id>: SolverBuild(fs_exe=..., fs_version=..., "
+        "executor=...)} covering every fs_build the campaign names, or clear the "
+        "field to run the case on the campaign's own installation."
+    )
+
+
 def run_campaign(
     campaign: Campaign,
     executor: Executor,
@@ -1308,6 +1394,7 @@ def run_campaign(
     recipes: dict[str, ScriptRecipe] | None = None,
     resume: bool = False,
     preflight: bool = True,
+    builds: Mapping[str, SolverBuild] | None = None,
 ) -> list[RunRecord]:
     """Run every point of a campaign, recording each in the manifest.
 
@@ -1341,7 +1428,7 @@ def run_campaign(
         Named recipe registry consulted before treating
         :attr:`SimCase.recipe` as a ``module:function`` reference;
         the run-matrix entry
-        (:func:`pyflightstream.cases.matrix.run_matrix`) forwards its
+        (:func:`pyflightstream.run.matrix.run_matrix`) forwards its
         recipe registry here.
     resume : bool
         With True, points whose ``run_id`` is already in the manifest
@@ -1359,6 +1446,17 @@ def run_campaign(
         :class:`~pyflightstream.workspace.WorkspaceError` before
         anything executes or is staged, because silently redoing
         recorded evidence would fork the run identity.
+    builds : mapping of str to SolverBuild, optional
+        One entry per solver installation the campaign's cases name in
+        :attr:`~pyflightstream.cases.SimCase.fs_build`. A case naming
+        none runs on ``executor``, ``campaign.fs_exe`` and
+        ``campaign.fs_version``, which is every campaign written before
+        v0.8.0 and every single-installation campaign since; a case
+        naming one runs on that build's executor and is RECORDED against
+        that build's executable, its digest and its version, so a study
+        across two builds no longer has to lie about which one produced
+        a point. A case naming a build this mapping does not carry is
+        refused before anything executes.
 
     Returns
     -------
@@ -1376,21 +1474,39 @@ def run_campaign(
         or, with ``resume`` True, when a partially recorded case's
         declared input no longer matches the hash its recorded points
         were run against.
+    ExecutorConfigurationError
+        When a case names an ``fs_build`` that ``builds`` does not
+        carry, or when the pre-flight finds the wrong build installed.
     """
-    version = resolve(campaign.fs_version)
-    canonical = version.canonical
     # The pre-flight is LAZY, fired just before the first point executes
     # rather than here. A campaign with nothing left to run must spend no
     # solver process at all: that is what a resume with nothing pending
     # means, and a test pins it. Firing it here also spent a process
     # before the duplicate-run_id refusal below, which raises without
     # executing anything.
-    pending_preflight = [preflight]
+    #
+    # ONE PRE-FLIGHT PER BUILD, not one per campaign: the check confirms
+    # which build is installed at an executable, so a second executable
+    # is a second unanswered question. Keyed by fs_build with the
+    # campaign's own installation under the empty key, so a campaign
+    # naming no build spends exactly the one process it always did.
+    preflighted: set[str] = set()
+    # EVERY case's build is resolved before the FIRST one runs. Doing it
+    # inside the loop looked equivalent and was not: the campaign would run
+    # its first cases, then refuse on a later one, leaving a half-recorded
+    # manifest for a mistake that was fully knowable before anything
+    # started. A missing build is a configuration error, not a run outcome.
+    case_builds = [_case_build(case, builds) for case in campaign.sims]
     manifest = {record.run_id: record for record in workspace.read_manifest()}
     recorded = set(manifest)
     records: list[RunRecord] = []
     failures: list[RunRecord] = []
-    for case in campaign.sims:
+    for case, build in zip(campaign.sims, case_builds, strict=True):
+        case_executor = build.executor if build is not None else executor
+        case_version = build.fs_version if build is not None else campaign.fs_version
+        case_exe = build.fs_exe if build is not None else campaign.fs_exe
+        version = resolve(case_version)
+        canonical = version.canonical
         # PYFS-004. Which points of this case still need running is decided
         # BEFORE anything is prepared, because preparation is not read-only:
         # _prepare_case stages the inputs, and staging overwrites the copy in
@@ -1430,15 +1546,16 @@ def run_campaign(
             conflict = _staged_inputs_conflict(campaign, case, workspace, manifest, already)
             if conflict is not None:
                 raise WorkspaceError(conflict)
-        if pending_preflight[0]:
-            # First point that will really run: confirm the installed build
-            # before spending the campaign on it. Scratch goes to a temp
-            # directory, not the managed workspace, whose layout is checked
-            # elsewhere and whose emptiness a no-op resume asserts.
-            pending_preflight[0] = False
+        if preflight and (case.fs_build or "") not in preflighted:
+            # First point of this BUILD that will really run: confirm the
+            # installed build before spending the campaign on it. Scratch
+            # goes to a temp directory, not the managed workspace, whose
+            # layout is checked elsewhere and whose emptiness a no-op
+            # resume asserts.
+            preflighted.add(case.fs_build or "")
             preflight_dir = Path(tempfile.mkdtemp(prefix="pyfs-preflight-"))
             try:
-                check_solver_identity(executor, version, preflight_dir)
+                check_solver_identity(case_executor, version, preflight_dir)
             finally:
                 shutil.rmtree(preflight_dir, ignore_errors=True)
         sim_dir = workspace.create_sim(case.sim_id)
@@ -1449,6 +1566,8 @@ def run_campaign(
             record = _execute_point(
                 campaign=campaign,
                 canonical=canonical,
+                fs_exe=case_exe,
+                fs_version=case_version,
                 case=case,
                 point=point,
                 run_id=run_id,
@@ -1456,7 +1575,7 @@ def run_campaign(
                 preparation_error=preparation_error,
                 inputs_sha256=inputs_sha256,
                 staged_geometry=staged_geometry,
-                executor=executor,
+                executor=case_executor,
                 workspace=workspace,
                 sim_dir=sim_dir,
                 assess=assess,
@@ -1631,6 +1750,7 @@ def plan_campaign(
     *,
     recipes: dict[str, ScriptRecipe] | None = None,
     write_plan: bool = True,
+    builds: Mapping[str, SolverBuild] | None = None,
 ) -> CampaignPlan:
     """Pre-flight a campaign: validate every point without executing any.
 
@@ -1664,17 +1784,37 @@ def plan_campaign(
         Write the JSON summary as ``plan.json`` in the campaign root
         (overwritten on each call; a convenience report, never an
         identity source). Default True.
+    builds : mapping of str to SolverBuild, optional
+        As in :func:`run_campaign`, and pre-flighting is where it earns
+        its keep: a case sent to a second build has its dry-run script
+        validated against THAT build's version, so a command the second
+        installation does not carry blocks the point here rather than
+        failing after the first one has already run. A case naming a
+        build the mapping does not carry is refused, exactly as the
+        campaign loop refuses it, so the pre-flight cannot pass a
+        configuration the run will reject.
 
     Returns
     -------
     CampaignPlan
         One :class:`PointPlan` per point; inspect ``blocked`` before
         running, or print ``summary()``.
+
+    Raises
+    ------
+    ExecutorConfigurationError
+        When a case names an ``fs_build`` that ``builds`` does not
+        carry.
     """
     canonical = resolve(campaign.fs_version).canonical
+    # Before the first folder is allocated, for the reason run_campaign
+    # states: a missing build is knowable up front, and discovering it
+    # halfway leaves a plan that describes part of a campaign.
+    case_builds = [_case_build(case, builds) for case in campaign.sims]
     recorded = {record.run_id for record in workspace.read_manifest()}
     points: list[PointPlan] = []
-    for case in campaign.sims:
+    for case, build in zip(campaign.sims, case_builds, strict=True):
+        case_version = build.fs_version if build is not None else campaign.fs_version
         workspace.create_sim(case.sim_id)
         case_error = _plan_case_error(campaign, case, workspace, recipes)
         recipe = None
@@ -1686,7 +1826,16 @@ def plan_campaign(
             )
         for point in case.sweep.points():
             points.append(
-                _plan_point(campaign, case, point, workspace, recipe, case_error, recorded)
+                _plan_point(
+                    campaign,
+                    case,
+                    point,
+                    workspace,
+                    recipe,
+                    case_error,
+                    recorded,
+                    fs_version=case_version,
+                )
             )
     plan_file = None
     if write_plan:
@@ -1739,8 +1888,16 @@ def _plan_point(
     recipe: ScriptRecipe | None,
     case_error: str | None,
     recorded: set[str],
+    *,
+    fs_version: str,
 ) -> PointPlan:
-    """Judge one point in dry run: names, script build, manifest state."""
+    """Judge one point in dry run: names, script build, manifest state.
+
+    ``fs_version`` is the version the dry-run script is built against,
+    which is the campaign's unless the case named its own build; it is
+    keyword-only and has no default, so a caller cannot silently fall
+    back to the campaign's version for a case that runs elsewhere.
+    """
     run_id = _run_id(campaign, case, point)
     base = {"run_id": run_id, "sim_id": case.sim_id, "point": dict(point)}
     if case_error is not None or recipe is None:
@@ -1756,7 +1913,7 @@ def _plan_point(
         return PointPlan(**base, script_name=None, status=PlanStatus.BLOCKED, error=str(error))
     script_name = f"{stem}.txt"
     point_case = case.model_copy(update={"point": dict(point), "outputs": outputs})
-    script = Script(version=campaign.fs_version)
+    script = Script(version=fs_version)
     try:
         recipe(point_case, script)
         script.render()
@@ -1957,6 +2114,8 @@ def _execute_point(
     *,
     campaign: Campaign,
     canonical: str,
+    fs_exe: str | Path,
+    fs_version: str,
     case: SimCase,
     point: dict[str, float],
     run_id: str,
@@ -1981,8 +2140,12 @@ def _execute_point(
         "package_dirty": package_dirty,
         "recipe": case.recipe,
         "recipe_sha256": _recipe_digest(recipe),
-        "fs_exe": str(campaign.fs_exe),
-        "fs_exe_sha256": _file_digest(campaign.fs_exe),
+        # The BUILD's executable, which is the campaign's unless the case
+        # named another. Recording campaign.fs_exe unconditionally is what
+        # made a per-case build unstatable: the record would name an
+        # executable the point never ran (PFS-2009.05).
+        "fs_exe": str(fs_exe),
+        "fs_exe_sha256": _file_digest(fs_exe),
         "inputs_sha256": inputs_sha256,
         "script_sha256": "",
         "raw_flag": False,
@@ -2004,7 +2167,9 @@ def _execute_point(
     if staged_geometry is not None:
         update["geometry"] = staged_geometry
     point_case = case.model_copy(update=update)
-    script = Script(version=campaign.fs_version)
+    # The BUILD's version, so a case sent to a second installation emits
+    # the commands that installation documents rather than the campaign's.
+    script = Script(version=fs_version)
     try:
         recipe(point_case, script)
     except Exception as error:  # recipes are user code; any failure is a build failure

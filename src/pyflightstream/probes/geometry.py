@@ -129,7 +129,25 @@ def _fine_axis(values: np.ndarray, factor: int) -> np.ndarray:
 
 
 def _surface_distance(mesh, points: np.ndarray) -> np.ndarray:
-    from trimesh.proximity import ProximityQuery
+    # Gated exactly as `_trimesh` above, and for a reason that is easy to
+    # miss: this was the ONE unguarded import of an extra-gated
+    # distribution left in the package, measured 2026-08-19. It is
+    # invisible today because every install leg in CI names the `geom`
+    # extra, so nothing ever reaches it without trimesh present. The
+    # first lean leg would have met a bare ImportError here instead of
+    # the didactic refusal every other site raises, which is the failure
+    # `GeometryEngineMissingError` exists to prevent.
+    try:
+        from trimesh.proximity import ProximityQuery
+    except ImportError as error:
+        raise GeometryEngineMissingError(
+            extra="geom",
+            package="trimesh",
+            purpose=(
+                "the distance-to-surface query behind the geometry gate's "
+                "clearance band (or run the grid without culling)"
+            ),
+        ) from error
 
     _, distance, _ = ProximityQuery(mesh).on_surface(points)
     return np.asarray(distance)

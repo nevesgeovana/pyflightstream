@@ -40,9 +40,13 @@
 # mapping is UNVERIFIED and no entry is added here for it. The nearest
 # candidate is SOLVER_SET_CONVERGENCE, and it is NOT the same thing:
 # its own note scopes it to the surface velocity and pressure residual
-# (SRC-003 p.200). A search of this edition's scripting reference and
-# its Script Index is what would close it, and until one runs, nothing
-# in this repository claims a command sets this tolerance.
+# (SRC-003 p.200). THAT SEARCH RAN on 2026-08-19 and found nothing:
+# reports/RPT-031_the-search-for-the-coupling-tolerance-command_2026-08-19.md
+# reads the whole scripting reference of the newest edition and its
+# Script Index, rejects nine candidates with a reason each, and records
+# that no command in the scripting reference sets this tolerance.
+# Nothing in this repository claims one does, and the absence is now a
+# measured absence rather than an unasked question.
 #
 # A SECOND CLAIM IS NAMED HERE AS UNCORROBORATED rather than left in
 # correspondence: that the internal loop can drive a modal structural

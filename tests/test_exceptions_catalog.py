@@ -177,6 +177,51 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
         )
 
 
+class _EmptyBodyReferenceError(Exception):
+    """The reference class body: a docstring and nothing else.
+
+    Written here rather than as a list of dunder names, because what
+    Python puts in a class namespace for an empty body is an
+    interpreter detail that moves between releases (3.13 added
+    ``__firstlineno__`` and ``__static_attributes__``). Comparing the
+    base against a class compiled in the SAME interpreter under the
+    same conditions, module level and deriving from ``Exception``,
+    makes the guard exact without pinning that detail: whatever the
+    interpreter creates for an empty body is created for both.
+    """
+
+
+def test_the_package_base_declares_nothing_but_its_docstring():
+    """The shared base holds no member, so it shadows nothing (FR-39).
+
+    The double inheritance is safe only while this is true. Every
+    catalogued class takes PyflightstreamError as its FIRST base and
+    its standard-library class as the second, so a member defined here
+    wins the MRO against the builtin: an ``__init__`` here would take
+    over argument handling, and a ``__str__`` would rewrite the text of
+    every traceback, in all of them at once and with no other test
+    noticing.
+
+    The consequence is counted rather than asserted in prose, and the
+    count is READ from the catalog: writing it as a literal would make
+    this guard's own message the next thing to go stale (OPS-2006.09).
+    """
+    leaves = sorted(set(exceptions.__all__) - {"PyflightstreamError"})
+    added = {
+        name: type(value).__name__
+        for name, value in vars(exceptions.PyflightstreamError).items()
+        if name not in vars(_EmptyBodyReferenceError)
+    }
+    assert not added, (
+        f"PyflightstreamError declares {sorted(added)} beyond its docstring, and it "
+        f"is the FIRST base of all {len(leaves)} catalogued classes, so whatever it "
+        "defines shadows the standard-library base of every one of them at once: an "
+        "__init__ takes over their argument handling and a __str__ rewrites the text "
+        f"of every traceback they print. Members found: {added}. Keep the base empty "
+        "and put the behaviour on the leaf that needs it."
+    )
+
+
 def test_the_catalog_all_matches_its_names():
     for name in exceptions.__all__:
         cls = getattr(exceptions, name)
@@ -550,7 +595,12 @@ _RATCHET = {
     # measure where a raise is WRITTEN; FR-39 asks what the public API
     # RAISES. The author's decision: measure now, fix at v0.5, so the
     # number is the debt and it is countable (PLN-20260804-0130).
-    "pyflightstream.cases.cli._parse_recipes -> ValueError",
+    # RE-KEYED 2026-08-19, not re-decided: the module moved from
+    # `cases.cli` to `run.cli` and the exemption followed the site rather
+    # than the address. The debt is unchanged and still owed: this helper
+    # should raise a catalogued class, and when it does BOTH rows below
+    # go, because the staleness guard will name them.
+    "pyflightstream.run.cli._parse_recipes -> ValueError",
     "pyflightstream.farfield._delta_psi -> ValueError",
     "pyflightstream.fsi.driver._verified_layout -> ValueError",
     "pyflightstream.fsi.loads._validate_block_boundaries -> ValueError",
@@ -584,7 +634,7 @@ _RATCHET_COUNTS = {
     "pyflightstream.qa.reports.refuse_existing_report -> FileExistsError": 1,
     "pyflightstream.results.tables.to_table -> TypeError": 2,
     "pyflightstream.script.entities.EntityRegistry -> TypeError": 1,
-    "pyflightstream.cases.cli._parse_recipes -> ValueError": 1,
+    "pyflightstream.run.cli._parse_recipes -> ValueError": 1,
     "pyflightstream.farfield._delta_psi -> ValueError": 1,
     "pyflightstream.fsi.driver._verified_layout -> ValueError": 1,
     "pyflightstream.fsi.loads._validate_block_boundaries -> ValueError": 2,

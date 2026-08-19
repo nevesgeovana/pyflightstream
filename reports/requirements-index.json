@@ -2,7 +2,7 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 31,
+  "cited_by_a_test": 36,
   "total": 96,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },

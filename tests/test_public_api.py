@@ -26,7 +26,6 @@ from pyflightstream._deprecations import DEPRECATED_MODULES
 #: to their dotted names.
 PUBLIC_MODULES = [
     "pyflightstream.cases",
-    "pyflightstream.cases.cli",
     "pyflightstream.cases.matrix",
     "pyflightstream.commands",
     "pyflightstream.exceptions",
@@ -46,6 +45,9 @@ PUBLIC_MODULES = [
     "pyflightstream.options",
     "pyflightstream.overview",
     "pyflightstream.post",
+    "pyflightstream.post.reductions",
+    "pyflightstream.post.settings_table",
+    "pyflightstream.post.unsteady",
     "pyflightstream.post.writers",
     "pyflightstream.probes",
     "pyflightstream.probes.errors",
@@ -67,6 +69,8 @@ PUBLIC_MODULES = [
     "pyflightstream.results.conditions",
     "pyflightstream.results.tables",
     "pyflightstream.run",
+    "pyflightstream.run.cli",
+    "pyflightstream.run.matrix",
     "pyflightstream.script",
     "pyflightstream.script.entities",
     "pyflightstream.script.helpers",
@@ -83,7 +87,9 @@ PUBLIC_MODULES = [
     "pyflightstream.workspace",
     "pyflightstream.workspace.cli",
     "pyflightstream.workspace.inputs",
+    "pyflightstream.workspace.matrix",
     "pyflightstream.workspace.naming",
+    "pyflightstream.workspace.wake_edges",
 ]
 
 DEPRECATED_MODULE_NAMES = {entry.module for entry in DEPRECATED_MODULES}

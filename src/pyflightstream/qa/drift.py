@@ -21,7 +21,7 @@ guessed (SAD Section 5).
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
@@ -108,6 +108,13 @@ class DriftRun:
     package_version: str
     results: tuple[DriftCaseResult, ...]
     solver_identity: tuple[str, ...] = ()
+    #: Executable digest per version, beside :attr:`fs_exe_names` and
+    #: keyed the same way. A drift report is the one place where two
+    #: executables are named at once, and the vendor installer gives
+    #: four registered builds the same file name, so the NAME map can
+    #: print one string on both rows of a comparison between two of
+    #: them. A version with no measured digest maps to ``None``.
+    fs_exe_sha256s: dict[str, str | None] = field(default_factory=dict)
 
     def verdict_counts(self) -> dict[str, int]:
         """Count metric verdicts over every case, for the summary line."""
@@ -196,6 +203,10 @@ def diff_runs(run_a: PhysicsRun, run_b: PhysicsRun) -> DriftRun:
         version_a=run_a.version,
         version_b=run_b.version,
         fs_exe_names={run_a.version: run_a.fs_exe_name, run_b.version: run_b.fs_exe_name},
+        fs_exe_sha256s={
+            run_a.version: run_a.fs_exe_sha256,
+            run_b.version: run_b.fs_exe_sha256,
+        },
         package_version=pyflightstream.__version__,
         results=tuple(results),
         solver_identity=tuple(identity),
@@ -395,6 +406,10 @@ def write_drift_report(
         "date": date,
         "package_version": run.package_version,
         "fs_exes": dict(run.fs_exe_names),
+        # Written even when a value is None, on the compat writer's
+        # reasoning: an absent key reads as an older schema, and a
+        # reader cannot tell that from a digest nobody took.
+        "fs_exe_sha256s": dict(run.fs_exe_sha256s),
         "executor": describe_invocation(),
         "solver_identity": list(run.solver_identity),
         "summary": counts,
@@ -441,9 +456,9 @@ def _render_markdown(run: DriftRun, date: str, counts: dict[str, int]) -> str:
         "| Item | Value |",
         "|---|---|",
         f"| Baseline (A) | FlightStream {a}, {run.fs_exe_names.get(a, '?')} "
-        "(local, `_private/exe/`) |",
+        f"(sha256 {run.fs_exe_sha256s.get(a) or 'not recorded'}, local, `_private/exe/`) |",
         f"| Compared (B) | FlightStream {b}, {run.fs_exe_names.get(b, '?')} "
-        "(local, `_private/exe/`) |",
+        f"(sha256 {run.fs_exe_sha256s.get(b) or 'not recorded'}, local, `_private/exe/`) |",
         f"| Executor | {describe_invocation(markdown=True)} |",
         f"| Package | pyflightstream {run.package_version} |",
         f"| Solver identity | {'; '.join(run.solver_identity) or 'none captured'} |",

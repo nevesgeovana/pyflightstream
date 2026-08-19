@@ -581,3 +581,86 @@ def test_the_physics_helper_and_writer_default_their_date_the_same_way(tmp_path)
         "that reached a committed evidence file and cannot be repaired by editing it"
     )
     assert today in written_md.read_text(encoding="utf-8").splitlines()[0]
+
+
+# --- PFS-2026.17: the executable a physics run used, by its hash -----------
+
+
+def test_the_physics_report_names_the_executable_by_hash_as_well_as_by_name(tmp_path):
+    """Reproduction (PFS-2026.17).
+
+    The physics report records ``fs_exe`` as a basename, and one
+    basename covers four registered builds, so a committed report
+    cannot say which binary produced the numbers a publication cites.
+    """
+    yaml_path, md_path = write_physics_report(make_run(tmp_path), tmp_path, date="2026-08-19")
+    document = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
+    assert "fs_exe_sha256" in document, (
+        "the physics report identifies the solver by basename alone, and four "
+        "registered builds share one basename"
+    )
+    rows = [
+        line
+        for line in md_path.read_text(encoding="utf-8").splitlines()
+        if line.startswith("| Executable |")
+    ]
+    assert len(rows) == 1, f"expected exactly one Executable row, got {rows}"
+    assert "sha256" in rows[0], rows[0]
+
+
+def test_a_physics_run_carrying_a_digest_writes_it_to_both_faces(tmp_path):
+    """The digest travels to the YAML and to the rendered table."""
+    import dataclasses
+
+    digest = "213c854a3f6569d74c760fda93b51dadef3a85a4cb724efa18f79b60fce84348"
+    run = dataclasses.replace(make_run(tmp_path), fs_exe_sha256=digest)
+    yaml_path, md_path = write_physics_report(run, tmp_path, date="2026-08-19", label="hash")
+    document = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
+    assert document["fs_exe_sha256"] == digest
+    assert digest in md_path.read_text(encoding="utf-8")
+
+
+def test_a_physics_run_without_a_digest_says_so(tmp_path):
+    yaml_path, md_path = write_physics_report(make_run(tmp_path), tmp_path, date="2026-08-19")
+    document = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
+    assert document["fs_exe_sha256"] is None
+    assert "sha256 not recorded" in md_path.read_text(encoding="utf-8")
+
+
+def test_the_physics_run_hashes_the_executable_it_was_handed(tmp_path, monkeypatch):
+    """The FILL, not only the writer, and it was missed once.
+
+    The adversarial pass over this item found that every test here built
+    a ``PhysicsRun`` by hand, so replacing the digest in
+    :func:`run_physics` with ``None`` broke nothing: the writer was
+    covered and the measurement was not. ``run_physics`` needs a
+    licensed solver, so the executor and the case registry are stood in
+    for and no process starts; what is exercised is the identity the run
+    records about itself.
+    """
+    from pyflightstream._digest import file_sha256
+    from pyflightstream.qa import physics as physics_module
+
+    stand_in = tmp_path / "Flightstream_2612.exe"
+    stand_in.write_bytes(b"not a solver, but a file with a digest")
+
+    class StandInExecutor:
+        def __init__(self, fs_exe):
+            self.fs_exe = fs_exe
+
+    def runner(context):
+        return CaseResult(case_id="PHY-01", title="stub", geometry="stub", metrics={"CL_a4": 1.0})
+
+    case = physics_module.PhysicsCase(
+        case_id="PHY-01", title="stub", metric_specs=(), runner=runner
+    )
+    monkeypatch.setattr(physics_module, "LocalExecutor", StandInExecutor)
+    monkeypatch.setattr(physics_module, "registered_cases", lambda **kwargs: {"PHY-01": case})
+    monkeypatch.setattr(physics_module, "load_reference", lambda case_id, directory: None)
+
+    run = run_physics("26.120", fs_exe=stand_in, workroot=tmp_path / "work")
+    assert run.fs_exe_name == "Flightstream_2612.exe"
+    assert run.fs_exe_sha256 == file_sha256(stand_in), (
+        "the run names the executable and does not identify it; four registered builds "
+        "share this basename"
+    )

@@ -40,11 +40,29 @@ from pyflightstream.exceptions import (
     FsiInputError,
     OutputExistsError,
 )
-from pyflightstream.post.writers import write_tecplot_points, write_vtk_points
+from pyflightstream.post.writers import (
+    OutputProvenance,
+    write_tecplot_points,
+    write_vtk_points,
+)
 from pyflightstream.script import Script, helpers
 
 POINTS = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]])
 FIELDS = {"cp": np.array([0.1, 0.2])}
+
+
+def _provenance() -> OutputProvenance:
+    """The settings record both writers require since PFS-2012.11.
+
+    Built from a real snapshot rather than a stub, so these cases keep
+    exercising the writers as a campaign calls them.
+    """
+    script = Script(version="26.120")
+    return OutputProvenance(
+        run_id="overwrite/sim_1/a+00.0",
+        campaign="overwrite",
+        setup=helpers.solver_settings(script, velocity=30.0),
+    )
 
 
 @pytest.mark.parametrize(
@@ -58,11 +76,11 @@ def test_a_field_writer_refuses_an_existing_destination(writer, suffix, tmp_path
     nothing in the record said which content survived.
     """
     destination = tmp_path / f"probes{suffix}"
-    writer(destination, POINTS, FIELDS)
+    writer(destination, POINTS, FIELDS, provenance=_provenance())
     first = destination.read_text(encoding="utf-8")
 
     with pytest.raises(OutputExistsError, match="already exists"):
-        writer(destination, POINTS, FIELDS)
+        writer(destination, POINTS, FIELDS, provenance=_provenance())
     assert destination.read_text(encoding="utf-8") == first, (
         "a refused write still changed the file"
     )
@@ -80,9 +98,9 @@ def test_a_field_writer_replaces_when_asked_deliberately(writer, suffix, tmp_pat
     legitimate reason to replace.
     """
     destination = tmp_path / f"probes{suffix}"
-    writer(destination, POINTS, FIELDS)
+    writer(destination, POINTS, FIELDS, provenance=_provenance())
     other = {"cp": np.array([0.9, 0.8])}
-    writer(destination, POINTS, other, overwrite=True)
+    writer(destination, POINTS, other, provenance=_provenance(), overwrite=True)
     assert "9.000000000e-01" in destination.read_text(encoding="utf-8")
 
 

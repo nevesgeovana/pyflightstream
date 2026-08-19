@@ -5,6 +5,7 @@ import re
 import pytest
 import yaml
 
+from pyflightstream._digest import file_sha256
 from pyflightstream.commands import CommandEntry, CommandRegistry
 from pyflightstream.qa import (
     COMPAT_SCHEMA,
@@ -16,7 +17,17 @@ from pyflightstream.qa import (
     read_compat_report,
     write_compat_report,
 )
-from pyflightstream.qa.compat import _NOTE_CUT_MARKER, _NOTE_LIMIT, _one_line_note
+from pyflightstream.qa.compat import (
+    _NOTE_CUT_MARKER,
+    _NOTE_LIMIT,
+    EXECUTABLE_BASELINE_REPORT,
+    ExecutableVerdict,
+    _one_line_note,
+    classify_executable,
+    licence_sensitive_candidates,
+    read_executable_baseline,
+)
+from pyflightstream.qa.errors import QaEvidenceError
 
 # A chapter fixture with documented statuses, independent of the live
 # database files (which carry real promotions as evidence lands).
@@ -1484,3 +1495,348 @@ def test_the_primitive_refuses_a_date_it_cannot_put_in_a_file_name(date, why, tm
     with pytest.raises(QaEvidenceError, match="YYYY-MM-DD"):
         report_paths(tmp_path, series="PHY", versions=["26.123"], date=date)
     assert not list(tmp_path.iterdir()), f"{why}: something was created by asking"
+
+
+# --- PFS-2026.17: the executable a run used, identified by its hash ---------
+
+
+def test_the_compat_report_names_the_executable_by_hash_as_well_as_by_name(tmp_path):
+    """Reproduction (PFS-2026.17).
+
+    The committed corpus records the executable by BASENAME alone, and
+    ``Flightstream_2612.exe`` is the recorded name of four different
+    binaries (26.120, 26.121, 26.122 and 26.123). Writing a report and
+    reading it back therefore cannot answer which binary produced it::
+
+        yaml_path, _ = write_compat_report(run, out_dir)
+        yaml.safe_load(yaml_path.read_text())["fs_exe"]
+
+    returns ``Flightstream_2612.exe`` for any of the four. Both faces of
+    the report must carry the digest beside the name, so the question is
+    answerable from one file.
+    """
+    yaml_path, md_path = write_compat_report(make_run(), tmp_path, date="2026-08-19")
+    document = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
+    assert "fs_exe_sha256" in document, (
+        "the report records the executable by basename alone, so it cannot say which "
+        "binary produced it; four registered builds share one basename"
+    )
+    rows = [
+        line
+        for line in md_path.read_text(encoding="utf-8").splitlines()
+        if line.startswith("| Executable |")
+    ]
+    assert len(rows) == 1, f"expected exactly one Executable row, got {rows}"
+    assert "sha256" in rows[0], (
+        "the Markdown Setup table names the executable without its digest: " + rows[0]
+    )
+
+
+def test_two_runs_of_one_basename_are_told_apart_by_the_report_alone(tmp_path):
+    """The acceptance sentence, as a measurement rather than a promise."""
+    first = ProbeRun(
+        version="26.122",
+        solver_identity=("FlightStream version 26.1 build #7012026",),
+        fs_exe_name="Flightstream_2612.exe",
+        fs_exe_sha256="75668a514d1887db2f94a97e3d57662888029e3e9e0b5e8f5611ac7082b15690",
+        package_version="0.0.1.dev0",
+        results=(),
+    )
+    second = ProbeRun(
+        version="26.123",
+        solver_identity=("FlightStream version 26.1 build #8112026",),
+        fs_exe_name="Flightstream_2612.exe",
+        fs_exe_sha256="213c854a3f6569d74c760fda93b51dadef3a85a4cb724efa18f79b60fce84348",
+        package_version="0.0.1.dev0",
+        results=(),
+    )
+    documents = []
+    for run in (first, second):
+        yaml_path, md_path = write_compat_report(run, tmp_path, date="2026-08-19")
+        documents.append(yaml.safe_load(yaml_path.read_text(encoding="utf-8")))
+        assert run.fs_exe_sha256 in md_path.read_text(encoding="utf-8")
+    assert documents[0]["fs_exe"] == documents[1]["fs_exe"]
+    assert documents[0]["fs_exe_sha256"] != documents[1]["fs_exe_sha256"]
+
+
+def test_an_unrecorded_digest_is_written_as_absent_and_never_as_a_hash(tmp_path):
+    """A run with no digest says so; it does not omit the key silently."""
+    yaml_path, md_path = write_compat_report(make_run(), tmp_path, date="2026-08-19")
+    document = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
+    assert document["fs_exe_sha256"] is None
+    assert "sha256 not recorded" in md_path.read_text(encoding="utf-8")
+
+
+def test_the_committed_compat_corpus_is_readable_and_carries_no_digest():
+    """The corpus limitation, recorded mechanically instead of in prose.
+
+    No report is back-filled: a digest nobody measured cannot be
+    invented from a basename. This walk states what the existing corpus
+    can and cannot answer, and it refuses to walk nothing.
+    """
+    from pathlib import Path
+
+    corpus = sorted((Path(__file__).resolve().parents[1] / "reports" / "compat").glob("*.yaml"))
+    assert len(corpus) >= 27, (
+        f"the walk read {len(corpus)} committed compat reports, fewer than the 27 that "
+        "existed when this floor was set; a glob that stops matching guards nothing"
+    )
+    for path in corpus:
+        document = read_compat_report(path)
+        assert document["schema"] == COMPAT_SCHEMA
+        assert document.get("fs_exe_sha256") is None, (
+            f"{path.name} carries a digest; the committed corpus predates the field and "
+            "is never back-filled"
+        )
+
+
+# --- PFS-2026.15: the question asked before a seat is spent ----------------
+
+
+def make_baseline(digest, version="26.120"):
+    return {version: {"sha256": digest, "names": "Fake.exe", "bytes": "1"}}
+
+
+def fake_executable(tmp_path, name="Flightstream_2612.exe", payload=b"bytes of a solver"):
+    path = tmp_path / name
+    path.write_bytes(payload)
+    return path, file_sha256(path)
+
+
+def test_an_unchanged_binary_transfers_its_evidence_without_a_seat(tmp_path):
+    """Reproduction (PFS-2026.15).
+
+    Evidence is keyed by the canonical version string alone, so nothing
+    in this package can tell a replaced binary from the one its evidence
+    was gathered on. The comparison that can is a digest against the
+    committed baseline, and it starts no process.
+    """
+    exe, digest = fake_executable(tmp_path)
+    answer = classify_executable(exe, version="26.120", baseline=make_baseline(digest))
+    assert answer.verdict is ExecutableVerdict.TRANSFERS
+    assert answer.spends_a_seat is False
+    assert answer.fs_exe_sha256 == digest == answer.baseline_sha256
+    assert "transfers untouched" in answer.message
+
+
+def test_an_unknown_binary_authorises_the_identity_probe_and_nothing_else(tmp_path):
+    exe, _ = fake_executable(tmp_path, payload=b"a different build entirely")
+    answer = classify_executable(exe, version="26.120", baseline=make_baseline("0" * 64))
+    assert answer.verdict is ExecutableVerdict.UNKNOWN
+    assert answer.spends_a_seat is True
+    assert "--identity-only" in answer.message
+    assert "start no campaign, probe or physics run" in answer.message
+
+
+def test_a_printed_build_that_agrees_confirms_the_transfer_naming_both_hashes(tmp_path):
+    exe, digest = fake_executable(tmp_path)
+    answer = classify_executable(
+        exe,
+        version="26.123",
+        baseline={"26.123": {"sha256": digest}},
+        printed_build="8112026",
+    )
+    assert answer.verdict is ExecutableVerdict.CONFIRMED
+    assert answer.printed_build == answer.registry_build == "8112026"
+    assert digest in answer.message and "evidence transfers" in answer.message
+
+
+def test_a_printed_build_that_disagrees_stops_licensed_work_naming_both_numbers(tmp_path):
+    exe, digest = fake_executable(tmp_path)
+    answer = classify_executable(
+        exe,
+        version="26.123",
+        baseline={"26.123": {"sha256": digest}},
+        printed_build="9992026",
+    )
+    assert answer.verdict is ExecutableVerdict.MISMATCH
+    assert "9992026" in answer.message and "8112026" in answer.message
+    assert "no further licensed work starts" in answer.message
+
+
+def test_an_unreadable_executable_is_refused_rather_than_reported_unknown(tmp_path):
+    with pytest.raises(QaEvidenceError, match="cannot be read"):
+        classify_executable(
+            tmp_path / "absent.exe", version="26.120", baseline=make_baseline("0" * 64)
+        )
+
+
+def test_the_committed_baseline_reads_and_agrees_with_the_registry():
+    """The two sides of the future comparison, checked against each other."""
+    from pathlib import Path
+
+    from pyflightstream.versions import known_versions
+
+    root = Path(__file__).resolve().parents[1]
+    baseline = read_executable_baseline(root / EXECUTABLE_BASELINE_REPORT)
+    registered = {version.canonical: version for version in known_versions()}
+    assert len(baseline) >= 9, (
+        f"the baseline records {len(baseline)} executables, fewer than the nine held when "
+        "it was written; a shrinking baseline is a lost old side of the comparison"
+    )
+    assert set(baseline) == set(registered), (
+        "these registered builds have no digest recorded: "
+        f"{sorted(set(registered) - set(baseline))}; and these digests name no registered "
+        f"build: {sorted(set(baseline) - set(registered))}"
+    )
+    for canonical, row in baseline.items():
+        assert row["names"], f"{canonical} records no executable name"
+        assert row["bytes"].isdigit(), f"{canonical} records a non-numeric size"
+
+
+def test_the_baseline_columns_are_resolved_by_label_and_not_by_position(tmp_path):
+    """A table guarantees no column order; a reader resolves by label."""
+    digest = "1" * 64
+    swapped = tmp_path / "swapped.md"
+    swapped.write_text(
+        "| Bytes | sha256 | Names | Version |\n"
+        "|---|---|---|---|\n"
+        f"| 12 | `{digest}` | Fake.exe | 26.120 |\n",
+        encoding="utf-8",
+    )
+    assert read_executable_baseline(swapped) == {
+        "26.120": {"sha256": digest, "names": "Fake.exe", "bytes": "12"}
+    }
+
+
+@pytest.mark.parametrize(
+    ("body", "match", "why"),
+    [
+        ("no table here at all\n", "carries no baseline table", "a report with no table"),
+        (
+            "| Version | sha256 |\n|---|---|\n| 26.120 | `nothashed` |\n",
+            "not a sha256",
+            "a digest somebody typed",
+        ),
+        (
+            "| Version | sha256 |\n|---|---|\n"
+            f"| 26.120 | `{'a' * 64}` |\n| 26.120 | `{'b' * 64}` |\n",
+            "two different digests",
+            "one version naming two binaries",
+        ),
+        (
+            "| Version | sha256 |\n|---|---|\n| 26.120 |\n",
+            "fewer cells than its header",
+            "a row that lost the digest column",
+        ),
+    ],
+)
+def test_an_unreadable_baseline_is_refused_and_never_read_as_empty(body, match, why, tmp_path):
+    """An empty baseline makes every binary unknown, which looks like caution."""
+    path = tmp_path / "baseline.md"
+    path.write_text(body, encoding="utf-8")
+    with pytest.raises(QaEvidenceError, match=match):
+        read_executable_baseline(path)
+
+
+def test_a_missing_baseline_file_is_refused_by_name(tmp_path):
+    with pytest.raises(QaEvidenceError, match="cannot be read"):
+        read_executable_baseline(tmp_path / "nothing.md")
+
+
+# --- PFS-2026.16: candidates for the licence-sensitive subset ---------------
+
+
+def test_only_measured_rows_are_candidates_because_only_they_can_be_falsified():
+    """A licence changes what the solver PERMITS, so it can only falsify
+    evidence that came from running the solver.
+
+    A ``documented`` row rests on a manual page and no licence changes a
+    page; a ``verified`` or ``broken`` row is a measurement taken under
+    whatever seat was checked out that day.
+    """
+    from pyflightstream.commands import Status
+    from pyflightstream.versions import resolve
+
+    registry = CommandRegistry.load()
+    version = resolve("26.123")
+    candidates = licence_sensitive_candidates("26.123", registry=registry)
+    assert candidates, "no candidate at all on a build with committed probe evidence"
+    assert {candidate.status for candidate in candidates} == {"verified"} or {
+        candidate.status for candidate in candidates
+    } <= {"verified", "broken"}
+    documented = {
+        name
+        for name, entry in registry.commands.items()
+        if (evidence := entry.evidence_in(version)) is not None
+        and evidence.record.status is Status.DOCUMENTED
+    }
+    assert documented, "no documented row read; the comparison below would be vacuous"
+    assert not documented & {candidate.command for candidate in candidates}, (
+        "a documented row is on the candidate list; it rests on a manual page and a "
+        "licence tier cannot falsify a page"
+    )
+
+
+def test_every_candidate_names_the_report_its_measurement_came_from():
+    """A candidate carries the evidence a licence change would falsify."""
+    candidates = licence_sensitive_candidates("26.123")
+    uncited = [candidate.command for candidate in candidates if not candidate.citation]
+    assert not uncited, (
+        "these measured rows cite no committed report, so what a licence change would "
+        f"falsify cannot be read: {uncited}"
+    )
+    for candidate in candidates:
+        assert candidate.chapter in candidate.reason
+        assert candidate.citation in candidate.reason
+
+
+def test_every_candidate_can_actually_be_re_measured():
+    """A candidate the probe harness cannot run is a proposal nobody can act on.
+
+    Measured rather than assumed: a verified row was produced by a probe,
+    so it has a specification, and this pins that the two populations
+    have not drifted apart.
+    """
+    from pyflightstream.qa.specs import PROBE_SPECS
+
+    candidates = licence_sensitive_candidates("26.123")
+    unrunnable = [
+        candidate.command for candidate in candidates if candidate.command not in PROBE_SPECS
+    ]
+    assert not unrunnable, (
+        "these candidates have no probe specification, so a seat spent on them would "
+        f"measure nothing: {unrunnable}"
+    )
+
+
+def test_the_candidate_list_is_ordered_by_the_chapter_split():
+    candidates = licence_sensitive_candidates("26.123")
+    keys = [(candidate.chapter, candidate.command) for candidate in candidates]
+    assert keys == sorted(keys)
+    assert len({candidate.chapter for candidate in candidates}) > 1, (
+        "every candidate in one chapter; the chapter split is what makes the list "
+        "readable as a subset proposal"
+    )
+
+
+def test_a_build_with_no_measurement_proposes_nothing():
+    """The 25 series checks out an EDU seat and has no measured row.
+
+    An empty candidate list is the right answer and not a gap: there is
+    no measurement for a licence change to falsify. What an EDU seat may
+    refuse is a different question, and it is recorded against the
+    version rather than answered here.
+    """
+    assert licence_sensitive_candidates("25.000") == ()
+
+
+def test_the_derivation_writes_no_membership(tmp_path):
+    """Candidates are derived; the subset is the author's to choose.
+
+    Guarded rather than promised: nothing under ``reports/compat`` or in
+    the command database records a licence-sensitive subset, so no
+    membership has been written by this lane.
+    """
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    committed = [
+        path
+        for path in (root / "reports" / "compat").glob("*")
+        if "licence" in path.name.lower() or "license" in path.name.lower()
+    ]
+    assert not committed, (
+        "a licence subset has been committed as evidence: which commands belong in it "
+        f"is the author's domain-expert seat, not a derivation's: {committed}"
+    )

@@ -46,6 +46,17 @@ bearing: the index is incomplete, and an index-driven reading reports a
 smaller surface for every edition, which would look like the vendor
 removing commands.
 
+AMENDED 2026-08-19, and the amendment is a DIRECTION rather than a
+correction. The index errs both ways and the other way is now on record:
+the 26.123 edition lists `TRAILING_EDGES_IMPORT` in its Script Index
+while its chapter body no longer prints the command at all, the block
+having stood in the edition before it. So for that edition an
+index-driven reading would report a command the body has dropped, which
+is the mirror of the failure above. The rule does not change and the
+body is still what is read; what changes is that a disagreement between
+the two is not by itself evidence of which one moved, and `PFS-2026.04`
+is the node that owes that reading.
+
 ## Cross-checked against the command database
 
 RE-READ 2026-08-10, and the previous version of this section is why the

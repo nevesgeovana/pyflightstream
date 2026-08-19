@@ -126,3 +126,58 @@ def test_the_drift_helper_and_writer_default_their_date_the_same_way(tmp_path):
     document = yaml.safe_load(written_yaml.read_text(encoding="utf-8"))
     assert document["date"] == today
     assert today in written_md.read_text(encoding="utf-8").splitlines()[0]
+
+
+# --- PFS-2026.17: both sides of a drift comparison, by hash ----------------
+
+
+def physics_run_with_digest(version, metrics, digest, case_id="PHY-01"):
+    import dataclasses
+
+    return dataclasses.replace(physics_run(version, metrics, case_id=case_id), fs_exe_sha256=digest)
+
+
+def test_the_drift_report_identifies_both_executables_by_hash(tmp_path):
+    """Reproduction (PFS-2026.17).
+
+    A drift report compares two builds and names both executables by
+    basename. ``Flightstream_2612.exe`` is the basename of four
+    registered builds, so a comparison between two of them prints the
+    same string on both rows of its own Setup table.
+    """
+    metrics = {"CL_a4": 0.337}
+    drift = diff_runs(physics_run("26.122", metrics), physics_run("26.123", metrics))
+    yaml_path, md_path = write_drift_report(drift, tmp_path, date="2026-08-19")
+    document = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
+    assert "fs_exe_sha256s" in document, (
+        "the drift report names two executables and identifies neither; the digest map "
+        "is what separates two builds sharing a basename"
+    )
+    assert set(document["fs_exe_sha256s"]) == {"26.122", "26.123"}
+    text = md_path.read_text(encoding="utf-8")
+    assert text.count("sha256") >= 2, "both compared rows carry a digest, or neither does"
+
+
+def test_the_drift_digests_come_from_the_two_runs_compared(tmp_path):
+    a = "75668a514d1887db2f94a97e3d57662888029e3e9e0b5e8f5611ac7082b15690"
+    b = "213c854a3f6569d74c760fda93b51dadef3a85a4cb724efa18f79b60fce84348"
+    metrics = {"CL_a4": 0.337}
+    drift = diff_runs(
+        physics_run_with_digest("26.122", metrics, a),
+        physics_run_with_digest("26.123", metrics, b),
+    )
+    assert drift.fs_exe_sha256s == {"26.122": a, "26.123": b}
+    yaml_path, md_path = write_drift_report(drift, tmp_path, date="2026-08-19", label="hashes")
+    document = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
+    assert document["fs_exe_sha256s"] == {"26.122": a, "26.123": b}
+    text = md_path.read_text(encoding="utf-8")
+    assert a in text and b in text
+
+
+def test_an_undigested_drift_pair_records_absence_rather_than_a_hash(tmp_path):
+    metrics = {"CL_a4": 0.337}
+    drift = diff_runs(physics_run("26.122", metrics), physics_run("26.123", metrics))
+    yaml_path, md_path = write_drift_report(drift, tmp_path, date="2026-08-19", label="absent")
+    document = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
+    assert document["fs_exe_sha256s"] == {"26.122": None, "26.123": None}
+    assert md_path.read_text(encoding="utf-8").count("sha256 not recorded") == 2

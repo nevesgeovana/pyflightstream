@@ -189,6 +189,55 @@ PER_VERSION_GRAMMAR: dict[str, dict[str, dict[str, tuple[str, ...]]]] = {
             )
         },
     },
+    "SET_SCENE_CONTOUR": {
+        # The only value delta in this table that GREW rather than shrank
+        # or renamed. SRC-751 p.355 appends four displacement values to
+        # the 32 the four earlier editions print, and prints them mixed
+        # case in a table whose other 32 are lower case, so the whole
+        # list is restated here: a per-version override merges argument
+        # KEYS and never merges list items, so a partial list would
+        # replace the 32 rather than extend them.
+        "26.123": {
+            "enum:variable": (
+                "none",
+                "x",
+                "y",
+                "z",
+                "face_area",
+                "face_quality",
+                "pressure_coefficient_freestream",
+                "pressure_coefficient_reference",
+                "static_pressure_ratio",
+                "mach_number",
+                "velocity_x",
+                "velocity_y",
+                "velocity_z",
+                "velocity_magnitude",
+                "onset_velocity_x",
+                "onset_velocity_y",
+                "onset_velocity_z",
+                "onset_velocity_magnitude",
+                "solver_partition",
+                "skin_friction_coefficient",
+                "attachment_lines",
+                "displacement_thickness",
+                "momentum_thickness",
+                "shape_factor",
+                "streamline_length",
+                "transition",
+                "transpiration_velocity",
+                "separation",
+                "doublet_strength",
+                "source_strength",
+                "stabilization",
+                "proximity",
+                "FSI_dx",
+                "FSI_dy",
+                "FSI_dz",
+                "FSI_displacement",
+            )
+        },
+    },
 }
 
 #: Which arguments each override leaves OPTIONAL, stated exhaustively
@@ -531,7 +580,9 @@ def test_an_override_differs_from_its_base_only_where_a_delta_table_says_so():
     # the eight fields no delta table may name; the other 18 arguments
     # name nothing the base carries and are skipped. It was 1062 before
     # `unit` became a delta form, which is one fewer compared field.
-    assert compared == 944, (
+    # 952 since 2026-08-19: the SET_SCENE_CONTOUR 26.123 override adds one
+    # argument the base also carries, times the same eight fields.
+    assert compared == 952, (
         f"{compared} field comparisons ran and the shipped database supports 944. "
         "A rise is an override gaining an argument the base also carries, a fall is "
         "one losing it or the walk losing a chapter file"

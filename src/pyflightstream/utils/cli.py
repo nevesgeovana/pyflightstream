@@ -60,6 +60,7 @@ from pyflightstream.commands import CommandRegistry
 from pyflightstream.utils.database import register_edition
 from pyflightstream.utils.errors import ManualDraftError
 from pyflightstream.utils.manual import (
+    CITATION_REACH_OUTCOMES,
     EditionVerdict,
     SurfaceChange,
     SweptCommand,
@@ -381,8 +382,14 @@ def _citations(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int
     except ManualDraftError as error:
         parser.error(str(error))
 
-    checked = sum(pair[1] for pair in citation_reach.values())
-    seen = sum(pair[0] for pair in citation_reach.values())
+    totals = {
+        outcome: sum(counts[outcome] for counts in citation_reach.values())
+        for outcome in CITATION_REACH_OUTCOMES
+    }
+    checked = totals["checked"]
+    # The four outcomes partition the rows seen, so this is a sum and
+    # not a separately kept counter that could drift from them.
+    seen = sum(totals.values())
     print(
         f"{len(editions)} edition(s) checked: {checked} of {seen} version rows carry a "
         f"citation this can re-read, and {len(stale)} of those do not hold"
@@ -397,17 +404,32 @@ def _citations(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int
     # Reach per edition, because a total hides the shape. A build whose
     # rows carry no checkable citation reads as fully checked inside a
     # total and is not checked at all; 26.120 is that build.
-    for label, (rows, able) in citation_reach.items():
+    #
+    # AND THE UNREAD ROWS ARE BROKEN OUT BY REASON (OPS-2003.10.02).
+    # Two numbers, seen and checked, printed the whole difference as one
+    # gap, and the check has four outcomes: a row carrying no note at
+    # all, a note with no page of its own, a `removed` row whose
+    # citation addresses an absence, and a row actually re-read. They
+    # are not interchangeable, and attributing all of them to the first
+    # is the mistake the counter's own comment warns about.
+    for label, counts in citation_reach.items():
+        rows = sum(counts[outcome] for outcome in CITATION_REACH_OUTCOMES)
         if rows == 0:
             note = "   <- read, and no entry carries a row for it"
-        elif able == 0:
+        elif counts["checked"] == 0:
             note = (
                 "   <- nothing checkable here: these rows rest on the entry's own "
                 "manual_ref, and any that cite a page are removed rows this skips"
             )
         else:
             note = ""
-        print(f"    {label}  {able} of {rows}{note}")
+        print(f"    {label}  {counts['checked']} of {rows}{note}")
+        print(
+            f"      unread: {counts['no_note']} carry no note, {counts['no_page']} carry "
+            f"a note with no page of their own, {counts['removed']} are removed rows "
+            f"whose citation names an absence; {counts['checked']} re-read, of which "
+            f"{counts['range_cited']} cite a page range"
+        )
 
     # And the builds the manifest did not cover, the door `surface`
     # closed last release and this subcommand had left open: without

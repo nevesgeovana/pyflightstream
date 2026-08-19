@@ -9,11 +9,14 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from conftest import REPO
 
 from pyflightstream.results import (
     SOLVER_MODES,
     AnchorNotFoundError,
+    FieldNotInExportError,
     IncompleteOutputError,
+    MalformedOutputError,
     VersionMismatchWarning,
     classify_solver_mode,
     delimited_table,
@@ -231,14 +234,30 @@ def test_every_registered_build_comes_from_a_committed_report(recwarn):
     applied to the registry: nothing about solver behaviour is recorded
     without the evidence that observed it.
     """
-    import glob
-
     import yaml
 
     from pyflightstream.versions import known_versions
 
+    # From the declared anchor, never from the working directory
+    # (OPS-2009.02.04). This walked `reports/**/*.yaml` relative to
+    # wherever pytest was invoked, so a run from any directory but the
+    # root matched no file and reported EVERY registered build as
+    # unevidenced: the strongest finding this module can make, produced
+    # by a lookup that never read a report at all.
+    reports = REPO / "reports"
+    assert reports.is_dir(), (
+        f"the committed report tree is not at {reports}. Every build number below is "
+        "checked against it, so its absence must be reported as a missing tree and "
+        "never as nine builds recorded from memory."
+    )
+    documents = sorted(reports.rglob("*.yaml"))
+    assert documents, (
+        f"{reports} holds no .yaml report. An empty tree makes every registered build "
+        "unevidenced by construction, which is a fact about the search and not about "
+        "the registry."
+    )
     observed: dict[str, set[str]] = {}
-    for path in glob.glob("reports/**/*.yaml", recursive=True):
+    for path in documents:
         with open(path, encoding="utf-8") as handle:
             document = yaml.safe_load(handle)
         if not isinstance(document, dict):
@@ -511,3 +530,147 @@ def test_a_second_export_with_different_values_is_still_refused():
     assert second != text
     with pytest.raises(ValueError, match="more than one complete export"):
         parse_loads(text + second)
+
+
+# --- PFS-2015.02.02: the unsteady plot export, the one per-timestep file ---
+#
+# READ THE FIXTURE'S OWN HEADER BEFORE READING THESE TESTS. Every other
+# fixture in this directory mirrors the structure of a real 26.120 output
+# file; `unsteady_plots_26.120.txt` mirrors the manual's SENTENCE about
+# one, because no export of UNSTEADY_SOLVER_EXPORT_PLOTS exists in this
+# repository and producing one costs a licensed solver seat. What these
+# tests establish is that the parser reads the documented shape and
+# refuses the three malformations; what they do NOT establish is that the
+# documented shape is the shape the solver writes.
+
+
+UNSTEADY_HEADER = "Time (sec), CL, CDi, CM"
+
+
+def _unsteady(rows: str, header: str = UNSTEADY_HEADER) -> str:
+    """A minimal export body: a banner with no comma, then the table."""
+    return f"UNSTEADY PLOT EXPORT\n\n{header}\n{rows}"
+
+
+def _parse_unsteady(text: str):
+    """Call the public parser, failing on its ABSENCE with a sentence.
+
+    A bare import would make this module fail to collect while the parser
+    does not exist, and a collection error is not the finding: the
+    finding is that the results layer publishes no reader for the only
+    export carrying per-timestep history.
+    """
+    from pyflightstream import results
+
+    parser = getattr(results, "parse_unsteady_plots", None)
+    assert parser is not None and "parse_unsteady_plots" in results.__all__, (
+        "pyflightstream.results publishes no parse_unsteady_plots. The unsteady "
+        "plot export is the only file in the whole pipeline that carries one row "
+        "per time step, so without it every time-resolved quantity a run produces "
+        "is unreadable by this package (PFS-2015.02.02)."
+    )
+    return parser(text)
+
+
+def test_the_unsteady_export_reads_into_per_column_time_series():
+    """The documented shape: one column per plot, one row per time step.
+
+    Columns are resolved by LABEL and never by position: the export's
+    column set is what a plot list makes it, so the order is data and
+    not a contract.
+    """
+    report = _parse_unsteady(read_fixture("unsteady_plots_26.120.txt"))
+    assert set(report.columns) == {"Time (sec)", "CL", "CDi", "CM"}
+    assert report.steps == 5
+    assert report.series("CL")[0] == pytest.approx(2.35e-3)
+    assert report.series("CL")[-1] == pytest.approx(1.75e-3)
+    assert report.series("Time (sec)")[1] == pytest.approx(0.004)
+    assert len(report.series("CM")) == report.steps
+    assert set(report.series_by_name()) == set(report.columns)
+
+
+def test_a_column_the_export_does_not_carry_is_refused_by_name():
+    report = _parse_unsteady(read_fixture("unsteady_plots_26.120.txt"))
+    with pytest.raises(FieldNotInExportError, match="CDo"):
+        report.series("CDo")
+
+
+def test_a_duplicated_plot_column_is_refused():
+    """Two plots printed under one name lose one of the two.
+
+    The same refusal the probe parser carries: the row is read into a
+    mapping, so the repeated name takes the other plot's history and
+    that plot disappears with nothing saying so.
+    """
+    text = _unsteady("0., 1., 2., 3.\n", header="Time (sec), CL, CL, CM")
+    with pytest.raises(MalformedOutputError, match="more than once"):
+        _parse_unsteady(text)
+
+
+def test_an_unparseable_cell_names_the_step_and_the_column():
+    text = _unsteady("0., 1., 2., 3.\n.004, 1., diverged, 3.\n")
+    with pytest.raises(MalformedOutputError) as caught:
+        _parse_unsteady(text)
+    message = str(caught.value)
+    assert "diverged" in message
+    assert "CDi" in message, f"the refusal does not name the column it read: {message}"
+    assert "2" in message, f"the refusal does not name the step it read: {message}"
+
+
+def test_a_short_row_is_refused_rather_than_padded():
+    """A row narrower than the header is a write that stopped (FR-17)."""
+    text = _unsteady("0., 1., 2., 3.\n.004, 1., 2.\n")
+    with pytest.raises(IncompleteOutputError) as caught:
+        _parse_unsteady(text)
+    assert "3" in str(caught.value) and "4" in str(caught.value)
+
+
+def test_a_wide_row_is_refused_as_a_changed_layout():
+    text = _unsteady("0., 1., 2., 3.\n.004, 1., 2., 3., 4.\n")
+    with pytest.raises(MalformedOutputError, match="5 values"):
+        _parse_unsteady(text)
+
+
+def test_a_header_with_no_time_step_at_all_is_refused():
+    """An empty table is not a run of zero steps; it is a truncated file."""
+    with pytest.raises(IncompleteOutputError, match="no time step"):
+        _parse_unsteady(_unsteady(""))
+
+
+def test_a_file_carrying_no_table_is_refused_by_its_anchor():
+    with pytest.raises(AnchorNotFoundError, match="header"):
+        _parse_unsteady("UNSTEADY PLOT EXPORT\n\nnothing here is a table\n")
+
+
+def test_a_probe_export_is_refused_rather_than_read_as_a_history():
+    """Measured on the committed probe fixture, not imagined.
+
+    The probe export is also a comma table of numbers under a header,
+    so it parsed cleanly here and returned twelve "time steps" that are
+    twelve positions in space. Nothing in the documented shape of the
+    unsteady export distinguishes the two, so the refusal keys on the
+    probe export's own declaration of itself.
+    """
+    with pytest.raises(MalformedOutputError, match="parse_probe_points"):
+        _parse_unsteady(read_fixture("probe_points_26.120.txt"))
+
+
+def test_a_loads_export_refuses_on_its_first_surface_name():
+    """The other real fixture, refused by the cells rather than by a label."""
+    with pytest.raises(MalformedOutputError, match="not a solver-printed number"):
+        _parse_unsteady(read_fixture("loads_steady_26.120.txt"))
+
+
+def test_the_unsteady_fixture_says_in_its_own_header_that_it_is_synthetic():
+    """The corpus means something only while its exceptions are labelled.
+
+    Every other fixture here mirrors a real solver file. This one was
+    written from the manual's paraphrase, and a reader who takes it for
+    an observation would read the delimiter, the column names and the
+    banner as evidence about FlightStream. The label is the only thing
+    stopping that, so it is asserted rather than trusted.
+    """
+    text = read_fixture("unsteady_plots_26.120.txt")
+    banner = text.split(UNSTEADY_HEADER)[0]
+    assert "SYNTHETIC" in banner
+    assert "NOT A SOLVER EXPORT" in banner

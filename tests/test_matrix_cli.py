@@ -1,10 +1,20 @@
-"""Tier 1: the pyfs-matrix command line (convert and plan, no run)."""
+"""Tier 1: the pyfs-matrix command line (convert and plan, no run).
+
+The module it lives in moved on 2026-08-19: `pyflightstream.cases.cli`
+became `pyflightstream.run.cli`, because a command line that plans a
+campaign composes the workspace input library with the campaign
+pre-flight and so belongs at or above both, not two layers below them
+(OPS-2007.01, and the lane determination of 2026-08-18). The console
+entry point is what a user writes and it did not move: `pyfs-matrix`,
+same subcommands, same flags, same output, so the FR-44 contract is
+untouched and every assertion below is unchanged.
+"""
 
 import tomllib
 from pathlib import Path
 
 from pyflightstream.cases import load_campaign
-from pyflightstream.cases.cli import main
+from pyflightstream.run.cli import main
 from pyflightstream.workspace import CampaignWorkspace
 
 FIXTURES = Path(__file__).parent / "fixtures"

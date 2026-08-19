@@ -72,7 +72,23 @@ EMITTABLE = {
     # and the reader was page-local, so it compared a full record
     # against a truncation. The reader now reads the chapter as one
     # stream and the exclusion is gone.
-    "26.123": 369,
+    #
+    # BOTH OF THE TWO IT LEFT LANDED ON 2026-08-19, so the figure is 371
+    # and is now the whole surface the edition documents. SET_SCENE_CONTOUR
+    # gained a row whose argument override restates all 36 contour
+    # values, the 32 the older editions print plus the four displacement
+    # ones this one adds; SET_OUTLET_TRAILING_EDGES arrived as an entry of
+    # its own, the 26.123 spelling of SET_OUTFLOW_TRAILING_EDGES.
+    #
+    # THE RENAME MOVES THIS FIGURE BY ONE AND NOT BY TWO, which is worth a
+    # sentence because it looks as though it should move by none or by
+    # two. The old spelling gained a 26.123 row too, status `removed`, and
+    # a removed row is evidence rather than availability: the view refused
+    # the name before the row and refuses it after, so it was never
+    # counted here. What its row changes is the REFUSAL, which now names
+    # the successor, and the absent-command enumeration, which stops
+    # listing a command the database has an answer for.
+    "26.123": 371,
 }
 
 #: Rows recording `verified` per build, measured the same day. Pinned
@@ -118,7 +134,14 @@ VERIFIED = {
 #: 26.122 edition is the first to document. The sixteen are absent from
 #: every edition after the one that drops them, so none of them raises
 #: the newest builds' counts by anything.
-ENTRIES = 414
+#:
+#: +1 on 2026-08-19: SET_OUTLET_TRAILING_EDGES, which is the 26.123
+#: spelling of a command this database already carried under its 26.122
+#: name. A rename with no transitional spelling is modelled as two keys
+#: here, so a rename RAISES this figure even though the vendor's own
+#: surface did not grow; the older name keeps its rows and gains a
+#: `removed` one naming the successor.
+ENTRIES = 415
 
 
 def _emittable(canonical: str) -> int:

@@ -50,7 +50,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pyflightstream
-from pyflightstream._digest import text_sha256
+from pyflightstream._digest import optional_file_sha256, text_sha256
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.commands import CommandNotInVersionError, CommandRegistry
 from pyflightstream.qa.errors import QaEvidenceError
@@ -469,6 +469,15 @@ class ProbeRun:
         pyflightstream version that generated the probes.
     results : tuple of ProbeResult
         One evidence line per database command of this version.
+    fs_exe_sha256 : str or None
+        Lowercase hexadecimal sha256 of the executable's bytes, or
+        ``None`` when the run went through a stand-in executor or the
+        file could not be read. The NAME does not identify the binary:
+        the vendor installer calls four registered builds
+        ``Flightstream_2612.exe`` and three more ``FlightStream.exe``,
+        so two reports can name one executable and mean two solvers.
+        The digest is what separates them, and ``None`` records that
+        nobody measured one rather than that the binary is unknown.
     """
 
     version: str
@@ -476,6 +485,7 @@ class ProbeRun:
     fs_exe_name: str
     package_version: str
     results: tuple[ProbeResult, ...]
+    fs_exe_sha256: str | None = None
 
     def outcome_counts(self) -> dict[str, int]:
         """Return how many commands landed in each outcome."""
@@ -1031,7 +1041,14 @@ def probe_version(
                 "(SAD Section 5)"
             )
         executor = LocalExecutor(fs_exe)
+    # Name AND digest, from the same branch and the same path object, so
+    # a report can never carry one without the other having been asked
+    # for. A stand-in executor has no file, and the digest of a file that
+    # does not exist is recorded as absent rather than invented.
     fs_exe_name = Path(executor.fs_exe).name if isinstance(executor, LocalExecutor) else "fake"
+    fs_exe_sha256 = (
+        optional_file_sha256(executor.fs_exe) if isinstance(executor, LocalExecutor) else None
+    )
     workroot = Path(workroot)
     workroot.mkdir(parents=True, exist_ok=True)
     fsm_path = None if fsm is None else Path(fsm).resolve()
@@ -1115,6 +1132,7 @@ def probe_version(
         fs_exe_name=fs_exe_name,
         package_version=pyflightstream.__version__,
         results=tuple(results),
+        fs_exe_sha256=fs_exe_sha256,
     )
 
 

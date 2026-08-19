@@ -252,6 +252,35 @@ table = sweep_table(workspace)
 print(table[["run_id", "alpha", "CL", "CDi"]])
 ```
 
+### Time-resolved history
+
+The loads spreadsheet and the probe export each describe one instant.
+The unsteady plot export is the only file the solver writes that carries
+a HISTORY: one column per plot, one row per time step. Read it by label
+and never by column position, because the column set is whatever plots
+the run defined.
+
+```python
+from pyflightstream.results import parse_unsteady_plots
+
+export = (
+    "Time (sec), CL, CDi\n"
+    ".000, +2.3500000E-3, -1.9800000E-4\n"
+    ".004, +2.1000000E-3, -1.4000000E-4\n"
+)
+report = parse_unsteady_plots(export)
+assert report.steps == 2
+assert report.series("CL")[-1] == 0.0021
+```
+
+READ THE STATUS OF THIS ONE BEFORE YOU RELY ON IT. The file's shape is
+DOCUMENTED and not yet OBSERVED: no export of that command exists in
+this repository, so the parser was written against the manual's
+description and its fixture is synthetic and says so in its own header.
+An emitted command is not a proven one, and a parser written against a
+description is not a parser proven against a file. The first real export
+is what turns this from documented into verified.
+
 ## Where to go next
 
 * [Replaying a recorded run](tutorial-replay.md): what the manifest

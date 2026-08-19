@@ -19,7 +19,8 @@ versions           canonical version identifiers and ordering
 _errors            the package base exception, imported by every layer and importing none
 ```
 
-The bottom row is not a pipeline stage. `_errors` defines one class and
+The bottom row is not a pipeline stage. `_errors` defines the package
+base exception and the refusals more than one layer names, and it
 imports nothing from this package, so every layer above may import it
 without a cycle; it is the floor the stack stands on rather than a step
 in it, which is why the arrow chains that state the flow name six rows

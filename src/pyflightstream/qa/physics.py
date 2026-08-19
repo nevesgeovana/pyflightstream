@@ -41,6 +41,7 @@ import numpy as np
 import yaml
 
 import pyflightstream
+from pyflightstream._digest import optional_file_sha256
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.qa.errors import QaEvidenceError
 from pyflightstream.qa.geometry import BladeSpec, WingSpec, generate_blade_stl, generate_wing_stl
@@ -285,6 +286,12 @@ class PhysicsRun:
     package_version: str
     results: tuple[CaseResult, ...]
     solver_identity: tuple[str, ...] = ()
+    #: Lowercase hexadecimal sha256 of the executable's bytes, or
+    #: ``None`` when it was not measured. The name does not identify the
+    #: binary: the vendor installer calls four registered builds
+    #: ``Flightstream_2612.exe``, so a committed report naming one can
+    #: mean any of them and a publication citing it cannot say which.
+    fs_exe_sha256: str | None = None
 
     def verdict_counts(self) -> dict[str, int]:
         """Count metric verdicts over every case, for the summary line."""
@@ -1663,6 +1670,7 @@ def run_physics(
         package_version=pyflightstream.__version__,
         results=tuple(results),
         solver_identity=tuple(identity),
+        fs_exe_sha256=optional_file_sha256(fs_exe),
     )
 
 
@@ -1785,6 +1793,9 @@ def write_physics_report(
         "date": date,
         "package_version": run.package_version,
         "fs_exe": run.fs_exe_name,
+        # Written even when it is None: see the compat writer, which
+        # carries the same field for the same reason.
+        "fs_exe_sha256": run.fs_exe_sha256,
         "executor": describe_invocation(),
         "solver_identity": list(run.solver_identity),
         "summary": counts,
@@ -1837,7 +1848,9 @@ def _render_markdown(run: PhysicsRun, date: str, counts: dict[str, int]) -> str:
         "",
         "| Item | Value |",
         "|---|---|",
-        f"| Executable | {run.fs_exe_name} (local, `_private/exe/`, never committed) |",
+        f"| Executable | {run.fs_exe_name} "
+        f"(sha256 {run.fs_exe_sha256 or 'not recorded'}, "
+        "local, `_private/exe/`, never committed) |",
         f"| Executor | {describe_invocation(markdown=True)} |",
         f"| Package | pyflightstream {run.package_version} |",
         f"| Solver identity | {'; '.join(run.solver_identity) or 'none captured'} |",

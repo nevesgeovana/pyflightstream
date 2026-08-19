@@ -15,6 +15,7 @@ tests, so nobody reads a proposal as an answer. Those four are why
 from __future__ import annotations
 
 import pathlib
+import re
 
 import pytest
 
@@ -1714,7 +1715,9 @@ def test_a_page_span_is_satisfied_by_either_page(tmp_path):
     # to `p` also produces no findings, because every span row then
     # fails to match and is skipped, and an empty tuple cannot tell a
     # span that was read from one that was never looked at.
-    assert citation_reach == {"ed": [2, 2]}
+    assert citation_reach == {
+        "ed": {"no_note": 0, "no_page": 0, "removed": 0, "checked": 2, "range_cited": 2}
+    }
 
     # And the span must still be able to FAIL, on a page outside it.
     outside = _FakeRegistry({"ON_SEVEN": _Entry({"ed": _Row(note="SRC-999 pp.4-5, this edition")})})
@@ -2073,18 +2076,163 @@ def test_the_reach_record_is_cleared_before_the_manuals_are_read():
         recorded=good,
         reader=lambda manual, *, first, last: {1: "Function name: A_COMMAND <A>\n"},
     )
-    assert citation_reach == {"ed": [1, 1]}
+    assert citation_reach == {
+        "ed": {"no_note": 0, "no_page": 0, "removed": 0, "checked": 1, "range_cited": 0}
+    }
 
     def explode(manual, *, first, last):
         raise _BoomError("pdf unreadable")
 
     with pytest.raises(_BoomError):
         stale_citations([edition], recorded=good, reader=explode)
-    assert citation_reach == {"ed": [0, 0]}, (
+    assert citation_reach == {
+        "ed": {"no_note": 0, "no_page": 0, "removed": 0, "checked": 0, "range_cited": 0}
+    }, (
         "a run whose reader raised left the previous manifest's reach in place, so a "
         "caller catching the error and printing the reach would report numbers from "
         "a different measurement"
     )
+
+
+def test_the_reach_partitions_the_rows_it_saw_into_the_four_outcomes(tmp_path):
+    """One row of each outcome, and the four account for every row seen.
+
+    The record kept two numbers, rows seen and rows checked, so the
+    whole difference between them was one gap with no reason attached
+    and the caller had to invent one. The check itself decides between
+    four: a row carrying no note, a note with no page of its own, a
+    `removed` row whose citation names an absence, and a row re-read.
+    They are asserted here to PARTITION the rows seen, exclusively and
+    exhaustively, which is the property a reader relies on when they
+    subtract one of them from a total (OPS-2003.10.02).
+
+    Two things are deliberately not addends. A row whose edition the
+    manifest does not list is in none of the four: the run has no
+    reading to check it against, so it is not an outcome of this check.
+    And a citation naming a page RANGE is a checked row counted once,
+    reported as a subset of `checked`.
+    """
+    registry = _FakeRegistry(
+        {
+            "NO_NOTE": _Entry({"ed": _Row()}),
+            "NO_PAGE": _Entry({"ed": _Row(note="verified by probe, no page")}),
+            "REMOVED": _Entry(
+                {"ed": _Row(note="SRC-999 p.1, withdrawn here", status=_Status("removed"))}
+            ),
+            "ONE_PAGE": _Entry({"ed": _Row(note="SRC-999 p.1, this edition")}),
+            "A_RANGE": _Entry({"ed": _Row(note="SRC-999 pp.1-2, this edition")}),
+            "UNLISTED": _Entry({"other": _Row(note="SRC-999 p.1, an edition not in the manifest")}),
+        }
+    )
+    read, _calls = _recording_reader(
+        {
+            "ed": {
+                1: {
+                    1: (
+                        "Function name: NO_NOTE <A>\n"
+                        "Function name: NO_PAGE <A>\n"
+                        "Function name: REMOVED <A>\n"
+                        "Function name: ONE_PAGE <A>\n"
+                        "Function name: A_RANGE <A>\n"
+                    )
+                }
+            }
+        }
+    )
+    edition = _edition(tmp_path, "ed", (1, 1), source="SRC-999")
+    assert stale_citations([edition], recorded=registry, reader=read) == ()
+
+    counts = citation_reach["ed"]
+    assert counts == {
+        "no_note": 1,
+        "no_page": 1,
+        "removed": 1,
+        "checked": 2,
+        "range_cited": 1,
+    }
+    # The partition, stated as arithmetic rather than as four literals:
+    # six rows exist, five of them are this edition's, and those five
+    # are exactly what the four outcomes add up to. The names are
+    # imported HERE rather than at module level on purpose: this test
+    # has to fail on the assertion above when the counter is the old
+    # two-slot list, and a module-level import of a name that did not
+    # exist then would make it fail on collection instead.
+    from pyflightstream.utils.manual import CITATION_REACH_OUTCOMES
+
+    seen = sum(counts[outcome] for outcome in CITATION_REACH_OUTCOMES)
+    assert seen == 5, f"the four outcomes account for {seen} rows and the run saw 5"
+    assert counts["range_cited"] <= counts["checked"], (
+        "range_cited counts checked rows whose citation names a span, so it is a "
+        "subset of checked; exceeding it means it is being counted as a fifth "
+        "outcome and every span row is then counted twice"
+    )
+    assert "other" not in citation_reach, (
+        "the unlisted edition entered the tally, so a number about editions NOBODY "
+        "READ is sitting inside a per-edition total"
+    )
+
+
+def test_the_citations_cli_prints_four_reasons_that_add_up(tmp_path, monkeypatch, capsys):
+    """Every printed per-edition line balances, on the real database.
+
+    Read against the shipped database rather than a fake, because the
+    arithmetic is the claim: if the four printed reasons did not add up
+    to the denominator beside them, the report would be attributing
+    rows to reasons that did not produce them. 26.120 is the edition
+    worth reading it on, since none of its rows is re-read and the
+    report used to leave that entire population unexplained.
+    """
+    monkeypatch.chdir(tmp_path)
+    manifest = _manifest(
+        tmp_path, '- label: "26.120"\n  source: SRC-003\n  manual: x.pdf\n  chapter: 10-10\n'
+    )
+    monkeypatch.setattr(
+        "pyflightstream.utils.manual.read_pdf_pages",
+        lambda manual, *, first, last: {10: "Function name: START_SOLVER <A>\n"},
+    )
+    cli_main(["citations", "--editions", str(manifest)])
+    out = capsys.readouterr().out
+
+    totals = re.compile(r"^\s+(?P<label>\S+)\s+(?P<checked>\d+) of (?P<rows>\d+)", re.MULTILINE)
+    reasons = re.compile(
+        r"^\s+unread: (?P<no_note>\d+) carry no note, (?P<no_page>\d+) carry a note with no "
+        r"page of their own, (?P<removed>\d+) are removed rows whose citation names an "
+        r"absence; (?P<checked>\d+) re-read, of which (?P<ranges>\d+) cite a page range",
+        re.MULTILINE,
+    )
+    lines = totals.findall(out)
+    assert lines, f"no per-edition reach line was printed at all:\n{out}"
+    broken_out = reasons.search(out)
+    assert broken_out, f"the unread rows were printed without their four reasons:\n{out}"
+    label, checked, rows = lines[0]
+    assert label == "26.120"
+    # THE DENOMINATOR IS CHECKED AGAINST THE DATABASE, not against the
+    # four numbers beside it. Measured on a mutation: deleting one of
+    # the four counters shrinks the printed total with it, so an
+    # internally consistent line stays internally consistent while a
+    # whole population of rows has vanished from the report. The row
+    # count for this edition comes from the registry instead.
+    from pyflightstream.commands import CommandRegistry
+
+    carried = sum(
+        1 for entry in CommandRegistry.load().commands.values() if "26.120" in entry.versions
+    )
+    assert int(rows) == carried, (
+        f"the report says it saw {rows} rows for 26.120 and the database carries "
+        f"{carried}; rows are being dropped before the tally or counted twice"
+    )
+    four = (
+        int(broken_out.group("no_note"))
+        + int(broken_out.group("no_page"))
+        + int(broken_out.group("removed"))
+        + int(broken_out.group("checked"))
+    )
+    assert four == int(rows), (
+        f"the four printed reasons add up to {four} while the line says {rows} rows were "
+        "seen for this edition, so some rows are attributed to no reason or to two"
+    )
+    assert int(broken_out.group("checked")) == int(checked)
+    assert int(broken_out.group("ranges")) <= int(broken_out.group("checked"))
 
 
 # --- the edition comparison and the row it writes --------------------------

@@ -15,7 +15,9 @@ older report can no longer revert a status a later run already moved.
 
 from __future__ import annotations
 
+import enum
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from importlib import resources
 from pathlib import Path
@@ -23,8 +25,9 @@ from typing import Any
 
 import yaml
 
+from pyflightstream._digest import optional_file_sha256
 from pyflightstream._yamlflow import flow_mapping
-from pyflightstream.commands import CommandEntry
+from pyflightstream.commands import CommandEntry, CommandRegistry, Status
 from pyflightstream.qa.errors import QaEvidenceError
 from pyflightstream.qa.probes import ProbeOutcome, ProbeRun
 from pyflightstream.qa.reports import (
@@ -33,6 +36,7 @@ from pyflightstream.qa.reports import (
     resolve_report_date,
 )
 from pyflightstream.run import describe_invocation
+from pyflightstream.versions import resolve
 
 COMPAT_SCHEMA = "pyflightstream-compat-report/1"
 
@@ -140,6 +144,11 @@ def write_compat_report(
         "date": date,
         "package_version": run.package_version,
         "fs_exe": run.fs_exe_name,
+        # WRITTEN EVEN WHEN IT IS None, and that is the point of it: a
+        # key that appears only when a digest was taken makes absence
+        # look like an older schema, and a reader cannot tell "nobody
+        # measured it" from "this file predates the field".
+        "fs_exe_sha256": run.fs_exe_sha256,
         "executor": describe_invocation(),
         "solver_identity": list(run.solver_identity),
         "summary": counts,
@@ -181,7 +190,9 @@ def _render_markdown(run: ProbeRun, date: str, counts: dict[str, int]) -> str:
         "",
         "| Item | Value |",
         "|---|---|",
-        f"| Executable | {run.fs_exe_name} (local, `_private/exe/`, never committed) |",
+        f"| Executable | {run.fs_exe_name} "
+        f"(sha256 {run.fs_exe_sha256 or 'not recorded'}, "
+        "local, `_private/exe/`, never committed) |",
         f"| Executor | {describe_invocation(markdown=True)} |",
         f"| Package | pyflightstream {run.package_version} |",
         f"| Solver identity lines | {'; '.join(run.solver_identity) or 'none captured'} |",
@@ -989,3 +1000,446 @@ def _validate_chapter(chapter_name: str, text: str, names: list[str]) -> None:
                 "refuses, so fix the report or the row and re-run; if the entry was "
                 "already invalid before this run, repair it first"
             ) from None
+
+
+# --------------------------------------------------------------------------
+# PFS-2026.15: one cheap question, asked before a seat is spent
+# --------------------------------------------------------------------------
+
+#: Where the digests of the executables in hand are recorded, relative to
+#: the repository root. A narrative report rather than a machine series
+#: because CMP, PHY and DRF each assert that a solver ran, and this one
+#: is measured by hashing files with the solver never started.
+EXECUTABLE_BASELINE_REPORT = "reports/RPT-032_executable-identity-baseline_2026-08-19.md"
+
+
+class ExecutableVerdict(enum.StrEnum):
+    """What a candidate executable does to the evidence already gathered."""
+
+    #: The binary is byte-for-byte the one the baseline recorded for this
+    #: version. Every row of that version's evidence transfers untouched.
+    TRANSFERS = "transfers"
+    #: The digest is not in the baseline, so nothing is known about this
+    #: binary yet. The identity-only probe is the next step and it is the
+    #: ONLY licensed work this verdict authorises.
+    UNKNOWN = "unknown"
+    #: The identity probe printed the build number the registry records,
+    #: so the evidence transfers and both digests are named.
+    CONFIRMED = "confirmed"
+    #: The identity probe printed a different build number. It is a
+    #: different registered version, and no further licensed work starts.
+    MISMATCH = "mismatch"
+
+
+@dataclass(frozen=True, kw_only=True)
+class ExecutableIdentity:
+    """The answer to "does the evidence already gathered still apply?".
+
+    Attributes
+    ----------
+    verdict : ExecutableVerdict
+        What the caller may do next.
+    version : str
+        Canonical version whose evidence is in question.
+    fs_exe_name : str
+        File name of the candidate executable (never its path).
+    fs_exe_sha256 : str
+        Lowercase hexadecimal sha256 of the candidate's bytes.
+    baseline_sha256 : str or None
+        Digest the baseline records for this version, when it records
+        one. This is the OLD side of the comparison, and it exists
+        before any replacement arrives precisely because hashing a file
+        costs no licensed seat.
+    printed_build : str or None
+        Build number the solver printed, when an identity run has
+        happened; ``None`` before one has.
+    registry_build : str or None
+        Build number the registry records for this version.
+    message : str
+        One sentence naming the physical cause and the next step, in the
+        form an operator can act on.
+    """
+
+    verdict: ExecutableVerdict
+    version: str
+    fs_exe_name: str
+    fs_exe_sha256: str
+    baseline_sha256: str | None
+    printed_build: str | None
+    registry_build: str | None
+    message: str
+
+    @property
+    def spends_a_seat(self) -> bool:
+        """Whether the next step needs the licensed machine."""
+        return self.verdict is ExecutableVerdict.UNKNOWN
+
+
+def read_executable_baseline(path: str | Path) -> dict[str, dict[str, str]]:
+    """Read the committed executable digest baseline.
+
+    The baseline is a Markdown table in
+    :data:`EXECUTABLE_BASELINE_REPORT`, and its columns are resolved by
+    LABEL. A table makes no guarantee about column order, so a reader
+    that counts positions breaks on an edit that changes nothing.
+
+    Parameters
+    ----------
+    path : str or Path
+        The report to read.
+
+    Returns
+    -------
+    dict of str to dict
+        Keyed by canonical version; each value carries ``sha256``,
+        ``names`` and ``bytes`` as read from the row.
+
+    Raises
+    ------
+    QaEvidenceError
+        When the file carries no table with the expected labels, when a
+        digest is not 64 hexadecimal characters, or when one version is
+        recorded twice with different digests. A baseline that cannot be
+        read is refused rather than treated as empty: an empty baseline
+        makes every executable UNKNOWN, which reads as caution and is
+        really a file nobody parsed.
+    """
+    path = Path(path)
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError as error:
+        raise QaEvidenceError(
+            f"the executable baseline {path} cannot be read ({error}); without it no "
+            "replacement executable can be compared against the binaries in hand"
+        ) from None
+    wanted = {"version", "sha256"}
+    baseline: dict[str, dict[str, str]] = {}
+    header: list[str] | None = None
+    for line in lines:
+        if not line.startswith("|"):
+            header = None
+            continue
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if header is None:
+            labels = [cell.lower() for cell in cells]
+            header = labels if wanted <= set(labels) else None
+            continue
+        if set(cells[0]) <= set("-: "):
+            continue
+        row = dict(zip(header, cells, strict=False))
+        # A SHORT ROW is refused rather than dropped or half-read. `zip`
+        # truncates, so a row with fewer cells than the header silently
+        # loses its last columns, and where the lost one is the digest a
+        # KeyError would leave this public function raising something
+        # outside the exception catalogue.
+        if not wanted <= set(row):
+            raise QaEvidenceError(
+                f"{path} carries a row with fewer cells than its header ({cells}); a "
+                "baseline row that loses a column is a row whose digest cannot be read"
+            )
+        version = row["version"].strip("`")
+        digest = row["sha256"].strip("`").lower()
+        if len(digest) != 64 or set(digest) - set("0123456789abcdef"):
+            raise QaEvidenceError(
+                f"{path} records {digest!r} for {version}, which is not a sha256; a "
+                "baseline digest is 64 hexadecimal characters and is measured, never typed"
+            )
+        if version in baseline and baseline[version]["sha256"] != digest:
+            raise QaEvidenceError(
+                f"{path} records two different digests for {version}; one version names one "
+                "binary here, and two rows disagreeing is the ambiguity this baseline exists "
+                "to remove"
+            )
+        baseline[version] = {
+            "sha256": digest,
+            "names": row.get("names", ""),
+            "bytes": row.get("bytes", ""),
+        }
+    if not baseline:
+        raise QaEvidenceError(
+            f"{path} carries no baseline table with {sorted(wanted)} columns; a baseline "
+            "read as empty makes every executable look unknown, which is a parse failure "
+            "wearing the costume of caution"
+        )
+    return baseline
+
+
+def classify_executable(
+    fs_exe: str | Path,
+    *,
+    version: str,
+    baseline: Mapping[str, Mapping[str, str]],
+    printed_build: str | None = None,
+) -> ExecutableIdentity:
+    """Ask a candidate executable whether the evidence in hand still applies.
+
+    This is the cheap question that decides whether a licensed seat is
+    worth spending, and it is asked BEFORE any campaign, probe or
+    physics run. Command evidence in this package is keyed by the
+    canonical version string alone: a version row carries status,
+    successor, note, report, probe reference and arguments, and no hash,
+    path or size of any binary. So a relicensed or replaced binary
+    reporting the same version is the same solver as far as every
+    lookup, promotion and refusal here is concerned, and the only thing
+    that separates them is the digest and the build number it prints.
+
+    Parameters
+    ----------
+    fs_exe : str or Path
+        The candidate executable. It is hashed; it is never started.
+    version : str, keyword-only
+        Canonical version whose evidence is in question.
+    baseline : mapping, keyword-only
+        The committed digest baseline, as
+        :func:`read_executable_baseline` returns.
+    printed_build : str, optional, keyword-only
+        Build number an identity-only probe read from the solver's own
+        banner. ``None`` before one has run, which is the state every
+        replacement arrives in.
+
+    Returns
+    -------
+    ExecutableIdentity
+        The verdict, both digests where both exist, both build numbers
+        where both exist, and the next step in words.
+
+    Raises
+    ------
+    QaEvidenceError
+        When the executable cannot be read, so no digest exists to
+        compare. A missing binary is a machine problem and this function
+        refuses rather than reporting an unknown binary that is really
+        an absent one.
+    UnknownVersionError
+        When ``version`` is not a registered build.
+
+    Examples
+    --------
+    >>> from pyflightstream.qa.compat import (           # doctest: +SKIP
+    ...     classify_executable,
+    ...     read_executable_baseline,
+    ... )
+    >>> baseline = read_executable_baseline(              # doctest: +SKIP
+    ...     "reports/RPT-032_executable-identity-baseline_2026-08-19.md"
+    ... )
+    >>> answer = classify_executable(                     # doctest: +SKIP
+    ...     "_private/exe/FlightStream_26123/FlightStream_26123.exe",
+    ...     version="26.123",
+    ...     baseline=baseline,
+    ... )
+    >>> answer.verdict, answer.spends_a_seat              # doctest: +SKIP
+    (<ExecutableVerdict.TRANSFERS: 'transfers'>, False)
+    """
+    resolved = resolve(version)
+    digest = optional_file_sha256(fs_exe)
+    if digest is None:
+        raise QaEvidenceError(
+            f"the executable {Path(fs_exe).name} cannot be read, so it has no digest to "
+            "compare against the baseline; check the install before spending a licensed seat"
+        )
+    name = Path(fs_exe).name
+    recorded = baseline.get(resolved.canonical)
+    baseline_sha256 = None if recorded is None else recorded["sha256"]
+    common = (
+        f"executable {name} sha256 {digest}; baseline for {resolved.canonical} "
+        f"{baseline_sha256 or 'not recorded'}"
+    )
+    if printed_build is None:
+        if baseline_sha256 == digest:
+            return ExecutableIdentity(
+                verdict=ExecutableVerdict.TRANSFERS,
+                version=resolved.canonical,
+                fs_exe_name=name,
+                fs_exe_sha256=digest,
+                baseline_sha256=baseline_sha256,
+                printed_build=None,
+                registry_build=resolved.build,
+                message=(
+                    f"this binary IS the one recorded for FlightStream {resolved.canonical} "
+                    f"(build {resolved.build or 'unrecorded'}), so the evidence gathered on "
+                    f"it transfers untouched and no seat is spent. {common}"
+                ),
+            )
+        return ExecutableIdentity(
+            verdict=ExecutableVerdict.UNKNOWN,
+            version=resolved.canonical,
+            fs_exe_name=name,
+            fs_exe_sha256=digest,
+            baseline_sha256=baseline_sha256,
+            printed_build=None,
+            registry_build=resolved.build,
+            message=(
+                f"this binary is not the one recorded for FlightStream {resolved.canonical}, "
+                "so nothing is known about it yet. Ask it its build number FIRST, with "
+                f"`pyfs-qa probe --fs-version {resolved.canonical} --fs-exe <path> "
+                "--identity-only`, and start no campaign, probe or physics run until that "
+                f"number is compared with the registry's. {common}"
+            ),
+        )
+    if resolved.build is not None and printed_build != resolved.build:
+        return ExecutableIdentity(
+            verdict=ExecutableVerdict.MISMATCH,
+            version=resolved.canonical,
+            fs_exe_name=name,
+            fs_exe_sha256=digest,
+            baseline_sha256=baseline_sha256,
+            printed_build=printed_build,
+            registry_build=resolved.build,
+            message=(
+                f"this binary prints build {printed_build} where the registry records "
+                f"{resolved.build} for FlightStream {resolved.canonical}: it is a DIFFERENT "
+                "build, so none of that version's evidence describes it and no further "
+                f"licensed work starts on this identifier. {common}"
+            ),
+        )
+    return ExecutableIdentity(
+        verdict=ExecutableVerdict.CONFIRMED,
+        version=resolved.canonical,
+        fs_exe_name=name,
+        fs_exe_sha256=digest,
+        baseline_sha256=baseline_sha256,
+        printed_build=printed_build,
+        registry_build=resolved.build,
+        message=(
+            f"this binary prints build {printed_build}, the number the registry records for "
+            f"FlightStream {resolved.canonical}, so the evidence transfers. {common}"
+        ),
+    )
+
+
+# --------------------------------------------------------------------------
+# PFS-2026.16: what a licence tier could falsify, derived rather than judged
+# --------------------------------------------------------------------------
+
+#: Statuses that came from RUNNING the solver. They are the only ones a
+#: licence tier can falsify: a ``documented`` row rests on a manual page,
+#: which no licence changes, while these two rest on a measurement taken
+#: under whatever seat was checked out that day.
+MEASURED_STATUSES = frozenset({Status.VERIFIED, Status.BROKEN})
+
+
+@dataclass(frozen=True, kw_only=True)
+class LicenceCandidate:
+    """One command whose evidence a licence change could falsify.
+
+    A CANDIDATE and not a member. Which commands belong in the subset a
+    licensed seat is actually spent on is a domain judgment the author
+    holds; this type is the derived input to that judgment, carrying the
+    fact that put each command on the list.
+
+    Attributes
+    ----------
+    command : str
+        Command name.
+    chapter : str
+        Stem of the chapter YAML the entry came from, which is the
+        chapter split this derivation groups by.
+    status : str
+        The measured status, ``verified`` or ``broken``.
+    citation : str or None
+        The committed report the measurement came from.
+    inherited : bool
+        True when the record was inherited from the base release rather
+        than measured on the version asked about. An inherited row is a
+        weaker candidate and says so rather than being dropped silently.
+    reason : str
+        Why this command is a candidate, in one sentence naming what
+        would be lost if a licence refused it.
+    """
+
+    command: str
+    chapter: str
+    status: str
+    citation: str | None
+    inherited: bool
+    reason: str
+
+
+def licence_sensitive_candidates(
+    version: str,
+    *,
+    registry: CommandRegistry | None = None,
+) -> tuple[LicenceCandidate, ...]:
+    """Derive the commands a licence change could falsify, for one build.
+
+    THE RISK THIS ANSWERS is not the build number. Command evidence here
+    is keyed by the canonical version string alone, so a relicensed
+    binary reporting the same version is the same solver as far as every
+    lookup, promotion and refusal in this package is concerned. A command
+    the new licence REFUSES therefore stays marked verified on a
+    measurement taken under the old one, and no guard fires.
+
+    THE DERIVATION, and it is a deduction rather than a judgment: a
+    licence changes what the solver PERMITS, so it can only falsify
+    evidence that came from running the solver. A ``documented`` row
+    rests on a manual page and is untouched; a ``verified`` or ``broken``
+    row is a measurement taken under one seat, and it is the population
+    returned here, grouped by the chapter split through
+    :attr:`LicenceCandidate.chapter`.
+
+    THE PROBE SPECIFICATIONS ARE NOT A SECOND FILTER, and the reason is
+    that they cannot disagree with the first one: a ``verified`` or
+    ``broken`` row is what a probe run WROTE, so every row here has a
+    specification the harness can run again. That coincidence is
+    asserted by a test rather than enforced here, so if the two
+    populations ever drift apart the suite says so instead of this
+    function silently dropping a candidate.
+
+    WHAT THIS FUNCTION DELIBERATELY DOES NOT DO is choose the subset. Two
+    things decide that and neither is mechanical: how many commands a
+    seat can afford, and which capabilities a vendor plausibly gates
+    behind a tier. Both are the author's domain-expert seat. This returns
+    the candidates and the reason each is one; the membership is written
+    where she writes it, and never inferred here.
+
+    Parameters
+    ----------
+    version : str
+        Version identifier whose evidence is in question.
+    registry : CommandRegistry, optional, keyword-only
+        Alternative database, used by tests.
+
+    Returns
+    -------
+    tuple of LicenceCandidate
+        Sorted by chapter and then by command, so two runs of it over
+        one database produce the same list in the same order.
+
+    Raises
+    ------
+    UnknownVersionError
+        When ``version`` is not a registered build.
+
+    Examples
+    --------
+    >>> from pyflightstream.qa.compat import licence_sensitive_candidates
+    >>> candidates = licence_sensitive_candidates("26.123")
+    >>> {candidate.status for candidate in candidates} <= {"verified", "broken"}
+    True
+    """
+    resolved = resolve(version)
+    database = registry or CommandRegistry.load()
+    candidates: list[LicenceCandidate] = []
+    for name, entry in database.commands.items():
+        evidence = entry.evidence_in(resolved)
+        if evidence is None or evidence.record.status not in MEASURED_STATUSES:
+            continue
+        status = str(evidence.record.status.value)
+        verb = "inherited from" if evidence.inherited else "measured on"
+        source = f"{verb} {evidence.source}"
+        candidates.append(
+            LicenceCandidate(
+                command=name,
+                chapter=entry.chapter,
+                status=status,
+                citation=evidence.record.report,
+                inherited=evidence.inherited,
+                reason=(
+                    f"{status} in the {entry.chapter} chapter, {source} under the licence "
+                    f"in force at the time ({evidence.record.report or 'no report cited'}); "
+                    "a seat that refuses this command would leave that status asserting a "
+                    "measurement the new licence contradicts"
+                ),
+            )
+        )
+    return tuple(sorted(candidates, key=lambda candidate: (candidate.chapter, candidate.command)))

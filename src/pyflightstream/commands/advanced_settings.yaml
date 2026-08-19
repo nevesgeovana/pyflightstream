@@ -510,6 +510,18 @@ SET_WAKE_DECAY_CONSTANT:
     Script Index files it under Advanced Settings, and it is kept here
     with the rest of the wake knobs.
 
+    WITHDRAWN IN THE NEWEST EDITION: the 26.122 edition ended this page
+    with a sentence setting the constant to zero for marine
+    applications, and the 26.123 edition carries the definition, the
+    characteristic length and the turbulence proportionality on the same
+    page and NOT that sentence. This entry never carried the marine
+    value and states none, so nothing here changes; the withdrawal is
+    recorded because a reader who met the sentence in the older edition
+    would otherwise assume the omission here was ours. It is recorded as
+    an entry note rather than as a version note because a version note
+    would cite a page of the older edition that falls outside the
+    registered scripting range and would be reported as an offender.
+
 SET_WAKE_RELAXATION:
   layout: inline
   phase: init

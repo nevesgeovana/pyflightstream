@@ -40,7 +40,7 @@ INDEX = REPO / "reports" / "requirements-index.json"
 #: The covered set may only GROW. This is the floor, raised in the same
 #: commit that marks a new requirement, exactly like the coverage floor
 #: in pyproject: the measurement is the fact and this is the promise.
-MARKED_FLOOR = 8
+MARKED_FLOOR = 10
 
 
 def _marked() -> dict[str, list[str]]:
@@ -172,7 +172,7 @@ def test_the_marker_is_registered_so_a_typo_is_not_silent():
 
 #: The exemptions as first measured on 2026-08-03, then 21 of 53 modules.
 #: Re-counted at 0.8.0.dev0 and the SET did not move, only its surroundings:
-#: mypy recount 2026-08-18: 275 errors in 21 of 64 modules (reports/RPT-029).
+#: mypy recount 2026-08-19: 274 errors in 20 of 70 modules (reports/RPT-029).
 #: Removing one means deleting its override AND its line here, in the same
 #: commit.
 MYPY_EXEMPTIONS = frozenset(
@@ -190,7 +190,11 @@ MYPY_EXEMPTIONS = frozenset(
         "pyflightstream.qa.physics",
         "pyflightstream.qa.probes",
         "pyflightstream.qa.specs",
-        "pyflightstream.results.tables",
+        # `pyflightstream.results.tables` stood here until 2026-08-19 and
+        # is REMOVED rather than commented out, because the ratchet below
+        # asserts this set equals the config's and a name kept here would
+        # be the drift it exists to catch. Deleting `_as_workspace` took
+        # the module's last type error with it.
         "pyflightstream.run",
         "pyflightstream.script",
         "pyflightstream.script.entities",
@@ -241,7 +245,7 @@ def test_the_type_check_exemption_list_only_shrinks():
 # said "223 errors in 21 of 53 modules", taken on 2026-08-03. Reading any one
 # of them told a planner the grind was 223 errors over 53 modules. Re-measured
 # on 2026-08-18 with every `ignore_errors` override off, the package reports
-# 275 errors in 21 of 64 modules. Nothing detected the drift, because nothing
+# 274 errors in 20 of 70 modules. Nothing detected the drift, because nothing
 # compared a record against the tree; documentation is not a guard.
 #
 # What is guarded here, and what deliberately is not. The MODULE TOTAL is

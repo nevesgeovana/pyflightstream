@@ -7,9 +7,25 @@ canonical internal form; ``pyfs-matrix plan`` binds the matrix codes
 to the workspace input library and pre-flights every point without
 executing anything. There is deliberately no ``run`` subcommand:
 execution stays a Python-API decision
-(:func:`pyflightstream.cases.matrix.run_matrix`) with an
+(:func:`pyflightstream.run.matrix.run_matrix`) with an
 explicit executable path, because the solver quality judgment and the
 recipe registry are code, not command-line strings.
+
+WHY IT LIVES IN THE RUN LAYER, since it used to sit under ``cases`` and
+the module path is the only thing about it that changed. A command line
+that plans a campaign is an ORCHESTRATION surface: ``plan`` composes the
+workspace input library with the campaign pre-flight, so it belongs at
+or above both, and it sat two layers below what it drove. That was
+invisible only because the imports were deferred into the function
+bodies. It moved with the matrix hoist rather than after it, because
+between the two the tree carries a module-level cases-to-run import and
+no commit can be green on its own (OPS-2007.01, and the lane's own
+determination of 2026-08-18).
+
+The console entry point is unchanged: the command is still
+``pyfs-matrix``, with the same subcommands, the same flags and the same
+output, so FR-44's contract is untouched. What moved is the dotted
+module path, which a user never writes.
 """
 
 from __future__ import annotations
@@ -17,11 +33,9 @@ from __future__ import annotations
 import argparse
 import sys
 
-from pyflightstream.cases.matrix import (
-    MatrixError,
-    convert_matrix,
-    plan_matrix,
-)
+from pyflightstream.cases.matrix import MatrixError, convert_matrix
+from pyflightstream.run.matrix import plan_matrix
+from pyflightstream.workspace import CampaignWorkspace, InputArtifactError
 
 
 def _parse_recipes(pairs: list[str]) -> dict[str, str]:
@@ -142,8 +156,6 @@ def _cmd_convert(args: argparse.Namespace, recipes: dict[str, str]) -> int:
 
 
 def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
-    from pyflightstream.workspace import CampaignWorkspace, InputArtifactError
-
     workspace = CampaignWorkspace(args.workspace)
     try:
         plan = plan_matrix(

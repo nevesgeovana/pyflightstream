@@ -340,6 +340,31 @@ SET_NEW_UNSTEADY_SOLVER_ACTION:
     run of a thousand steps runs it a thousand times, and the
     emitter validates the grammar of the line and nothing about what
     the line does.
+
+    NO EDITION SAYS WHAT THE ACTION RECEIVES, and the silence is
+    recorded so the next reader does not open the same pages again.
+    Four things a step-aware action would need were looked for: any
+    arguments appended to the script or the shell command, the working
+    directory the command is run from, whether the time-step index or
+    the physical time is reachable from inside it, and any environment
+    the solver sets. The scripting pages, SRC-750 p.353 and
+    SRC-751 p.353, describe TYPE, NAME and FILENAME and stop. The
+    user-interface pages, SRC-750 p.212 and SRC-751 p.212, are the only
+    other place the feature is described at all; they say the actions
+    run after each time step, that several may be registered, that they
+    execute in creation order and that the order cannot be changed
+    afterwards, and they say nothing about context either. The two
+    editions are word for word identical on all four pages.
+
+    The consequence is worth stating because it is what a caller hits:
+    an action that has to behave differently on different steps cannot
+    learn which step it is on from anything documented, so it needs
+    state of its own, and the correctness of that route rests on the
+    invocation count being exactly the step count, which is also
+    unstated. Settling it needs one licensed unsteady run rather than
+    another reading; the reading is
+    reports/RPT-030_what-an-unsteady-action-receives_2026-08-19.md and
+    it names the probe that would answer it.
   versions:
     "26.122":
       status: documented

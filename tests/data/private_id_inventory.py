@@ -134,7 +134,6 @@ PRIVATE_ID_COUNTS: dict[str, int] = {
     "src/pyflightstream/reference.py": 2,
     "src/pyflightstream/run/__init__.py": 6,
     "src/pyflightstream/script/__init__.py": 1,
-    "src/pyflightstream/script/entities.py": 1,
     "src/pyflightstream/script/helpers.py": 1,
     "src/pyflightstream/script/toggles.py": 1,
     "src/pyflightstream/support.py": 1,

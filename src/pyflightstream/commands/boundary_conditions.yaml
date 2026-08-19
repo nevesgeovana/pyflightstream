@@ -337,6 +337,27 @@ TRAILING_EDGES_IMPORT:
     the coordinates are read in the unit the file declares, not in the
     simulation's.
 
+    THE NEWEST EDITION CONTRADICTS ITSELF ABOUT THIS COMMAND AND NO ROW
+    IS WRITTEN FOR IT. SRC-751 p.323 is where the block used to open and
+    the whole block is gone: that page carries the surviving neighbours,
+    trailing-edge auto detection, detection by surface, the leading-edge
+    wake detection and the wake-edge import, and prints this command
+    nowhere. SRC-751 p.390, the Script Index, still lists it under the
+    same chapter heading. So the chapter body and the index disagree,
+    and this is the first recorded instance of the index OVER-reporting;
+    the caution recorded until now ran the other way, that the index
+    under-reports, which is why the surface is read from the body. The
+    rule does not change and the body is still what is read.
+
+    WHY THE ROW IS ABSENT RATHER THAN REMOVED. `removed` would be the
+    nearest of the four statuses and it says more than the evidence
+    does: no run has asked this build whether it still answers to the
+    name, and an edition dropping a page is a fact about a document. So
+    26.123 answers ABSENT, which the committed enumeration
+    tests/goldens/absent_on_26123.txt already records, and the reading
+    lives here. How this state should be encoded, given the four
+    statuses, is the author's call and is deliberately not taken here.
+
 DETECT_WAKE_TERMINATION_NODES_BY_SURFACE:
   layout: inline
   phase: setup
@@ -496,6 +517,7 @@ IMPORT_WAKE_EDGES_FROM_FILE:
       values: [STANDARD, RELAXED, JET_OUTFLOW, VORTEX_SHEDDING]
     - name: tolerance
       type: float
+      unit: "simulation length units"
   manual_ref: "SRC-750 p.324"
   notes: >
     Marks wake edges from an imported node list, matching an
@@ -510,6 +532,47 @@ IMPORT_WAKE_EDGES_FROM_FILE:
     The four types are the same four SET_TRAILING_EDGE_TYPE takes,
     so this sets for a whole imported file what that command sets
     for one edge.
+
+    IT TAKES NO PATH, IN EITHER EDITION, AND THAT IS THE PAGE AND NOT
+    A HOLE HERE. Both pages that document the command were read for
+    this question, SRC-750 p.324 and SRC-751 p.323, and each prints a
+    signature with two placeholders and a sample call with two values.
+    Neither says where the node list comes from, on its own line, as a
+    third argument, or through a prior command. The one command in
+    this chapter that does take a path is TRAILING_EDGES_IMPORT, which
+    carries it on the line after the command name, and its file format
+    block is the one printed here; whether that file is also this
+    command's input is exactly what neither edition states. Adding a
+    file argument would be this database inventing a grammar, so the
+    silence is recorded instead and the acceptance clause that asked
+    for the argument goes back to the author.
+
+    THE TOLERANCE UNIT IS DERIVED AND PRINTED NOWHERE. The page
+    describes a distance between a mesh edge mid-point and an imported
+    node coordinate; both are expressed in the simulation's own length
+    unit, so the tolerance can be in no other. Recorded on the
+    precedent of SET_VERTEX_MERGE_TOLERANCE, whose unit is stated the
+    same way and for the same reason.
+
+    ITS DEFAULT IS THE VENDOR'S OWN NUMBER, 0.0001, which the
+    parameter table states and the printed sample passes. It is
+    recorded because a default without a stated basis is a number
+    somebody later has to reverse engineer, and this one decides
+    whether an edge is marked at all: too tight and edges go unmarked,
+    too loose and the wrong edge is claimed.
+
+    ITS EVIDENCE IS WEAKER THAN WHAT IT REPLACES, and the trade is
+    deliberate. This command is documented on 26.122 and 26.123 and
+    verified on no build. The two probe runs that reached those builds
+    both NAME it and neither promotes it: each records it unprobed for
+    want of a probe specification, which is a weaker thing than not
+    having been looked at and a weaker thing again than having been
+    run. AUTO_DETECT_TRAILING_EDGES, the angle criterion it replaces
+    for a geometry whose edges are not creases, carries verified rows
+    on 26.101, 26.120 and 26.121, each with its own committed compat
+    report. The reason for the trade is physical rather than
+    evidential and it is a good one; it is written down so a later
+    reader does not take the newer default for settled practice.
   versions:
     "26.122":
       status: documented

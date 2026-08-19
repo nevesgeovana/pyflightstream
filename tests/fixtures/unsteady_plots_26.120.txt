@@ -1,0 +1,20 @@
+SYNTHETIC FIXTURE - THIS IS NOT A SOLVER EXPORT
+Written by hand on 2026-08-19 for PFS-2015.02.02 from the documented
+shape of UNSTEADY_SOLVER_EXPORT_PLOTS alone: one column per plot and one
+row per time step (paraphrase of SRC-003 p.347 as recorded in the
+database entry). No real export of this command exists anywhere in this
+repository and none was available when the parser was written.
+Read what that means before using this file as evidence. Every other
+fixture beside it mirrors the structure of a real 26.120 output; this one
+mirrors a sentence about one. It is enough to exercise the parser and it
+is NOT evidence of what FlightStream prints: the delimiter here is a
+comma because every other table export of this solver uses one and NOT
+because this file was observed. A real export is owed before this parser
+may be called verified.
+
+Time (sec), CL, CDi, CM
+.000, +2.3500000E-3, -1.9800000E-4, -1.5200000E-3
+.004, +2.1000000E-3, -1.4000000E-4, -1.4900000E-3
+.008, +1.9800000E-3, -1.1000000E-4, -1.4700000E-3
+.012, +1.8600000E-3, -9.8000000E-5, -1.4500000E-3
+.016, +1.7500000E-3, -9.6000000E-5, -1.4400000E-3

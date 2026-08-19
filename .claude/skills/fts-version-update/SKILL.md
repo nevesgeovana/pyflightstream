@@ -47,6 +47,22 @@ Onboard a new FlightStream version end to end.
    name the binary states about itself. Those two are not the same fact
    as the alias, and for 26.120 and 26.121 they differ from it.
 
+   **A REPLACEMENT BINARY FOR AN ALREADY-REGISTERED VERSION IS NOT THIS
+   CASE**, and it used to fall between this skill and the two run
+   skills. When the vendor replaces an executable for a version that is
+   already registered (a relicensed install, a reinstall, a
+   re-delivery), no row is appended and no manual is ingested: hash the
+   file and compare it against the baseline in
+   `reports/RPT-032_executable-identity-baseline_2026-08-19.md` with
+   `pyflightstream.qa.compat.classify_executable`, which starts no
+   process. A recorded digest means the same binary and the evidence
+   transfers untouched. An unknown digest authorises the identity-only
+   run above and nothing else, and its printed build number decides:
+   equal to the registry's, the evidence transfers and both digests are
+   recorded; different, and it is a DIFFERENT build, so it takes its own
+   canonical identifier through this skill from step 0 and starts from
+   no evidence at all.
+
    Read the run itself as a measurement too. It is the first evidence
    that this package can drive the build at all, and the failure it most
    plausibly hides is silent: a build given a command-line spelling it
@@ -76,9 +92,16 @@ Onboard a new FlightStream version end to end.
    as its predecessor did, comparing what the editions SAY rather than
    which page they say it on, and reports the rest. Dry run by default;
    rehearse with `--commands-dir <copy>` before `--write`. On 26.123 it
-   carried 368 of 371 and left 3, which is the right shape: what it
+   carried 369 of 371 and left 2, which is the right shape: what it
    leaves is the reading a person owes, and the step below is that
    reading rather than the whole edition.
+
+   The figure was 368 and 3 for about an hour on the day, and the third
+   exclusion was an artefact of a page-local reader comparing a full
+   record against a block the new edition breaks across a page. The
+   reader reads the chapter as one stream now; the counts pinned in
+   `tests/test_command_db_census.py` are the authority for this
+   sentence.
 6. Propose database edits with page citations, status `documented`, for
    what step 5 reported and did not write.
 7. **Re-read the citations you just wrote**, over the WHOLE manifest and

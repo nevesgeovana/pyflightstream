@@ -354,6 +354,21 @@ class SimCase(BaseModel):
     point : dict of str to float
         The current sweep point; filled by the campaign loop before
         the recipe builds, empty on the authored case.
+    fs_build : str, optional
+        Solver build this case runs on, named as a key of the ``builds``
+        mapping :func:`pyflightstream.run.run_campaign` takes. None, the
+        default, means the campaign's own ``fs_exe`` and ``fs_version``,
+        which is what every campaign written before v0.8.0 says and what
+        a single-installation campaign keeps saying.
+
+        It exists because a campaign declares ONE installation while a
+        study across two solver builds is a real question, and until
+        this field there was no way to state one at all: the run matrix
+        refused a second FS_BUILD value outright. The build id is
+        indirect on purpose. Putting the executable path here would put
+        a machine path in every stored ``campaign.toml``, and the point
+        of the id is that the same campaign file runs on a second
+        machine whose installations sit elsewhere.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -372,6 +387,7 @@ class SimCase(BaseModel):
     variables: dict[str, str | float | int | bool] = Field(default_factory=dict)
     outputs: list[str] = Field(default_factory=list)
     point: dict[str, float] = Field(default_factory=dict)
+    fs_build: str | None = None
 
 
 class Campaign(BaseModel):

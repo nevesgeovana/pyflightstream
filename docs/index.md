@@ -51,6 +51,14 @@ added, never dropped.
 * [Getting started](getting-started.md): install, pick a version, build a
   script, declare and pre-flight a campaign, read the results. Half an hour,
   and no solver until the last step.
+* [The workspace and the workflow](workspace-and-workflows.md): what a
+  workspace is and what it is for, in plain language, then the path from a
+  filled-in run matrix to results. Every artefact on it is lifted from an
+  executed test, and it states what is NOT built as plainly as what is.
+* [The numeric settings codebook](settings-codebook.md): the frozen
+  encoding of the optional all-numeric settings table, for tools that
+  cannot read strings. The page is the contract and a test holds the
+  library to it.
 * [Replaying a recorded run](tutorial-replay.md): what the manifest keeps,
   how to rebuild the exact invocation from it, how to tell whether the
   evidence still matches, and what a record cannot give you.
@@ -96,5 +104,8 @@ end to end; the LaTeX user guide (`guide/`) covers the full workflow.
 
 ## Planned next
 
-* Campaign tutorial page: the workspace input library, pre-flight,
-  and resumable sweeps as a narrated docs-site walkthrough.
+The campaign walkthrough this section used to promise SHIPPED on
+2026-08-19 as [the workspace and the workflow](workspace-and-workflows.md),
+so the bullet is retired rather than left standing beside the page that
+delivers it. What that page does not cover, it says so itself, in its own
+closing section.

@@ -606,10 +606,34 @@ def test_the_documented_pass_wrote_rows_from_a_reading_and_not_from_a_copy():
 
     # CHANGED: the edition says something different about it, so the bulk
     # pass must NOT have written it a row. Its own node owes the reading.
+    # CHANGED, so the bulk pass withheld it and its own node read it. The
+    # gate is now the other way round: the row exists, states its own
+    # 36-value grammar and cites the page it was read from. It was written
+    # on 2026-08-19 (PFS-2026.07); until then this asserted the row's
+    # ABSENCE, which is the state the bulk pass left behind. Inverted
+    # rather than deleted, because the absence and the read row are the
+    # two states this node passes through and neither may be reached by
+    # a copy.
     entry = registry.commands["SET_SCENE_CONTOUR"]
-    assert "26.123" not in entry.versions, (
-        "SET_SCENE_CONTOUR carries a 26.123 row, and the two editions do NOT say the "
-        "same thing about it: the newer one adds four contour values, so its sample "
-        "block and its parameter table both differ. A pass that wrote this row copied "
-        "rather than read"
+    row = entry.versions.get("26.123")
+    assert row is not None, (
+        "SET_SCENE_CONTOUR carries no 26.123 row. The two editions do NOT say the "
+        "same thing about it, so the bulk pass rightly withheld one; its own node "
+        "owes the reading and this is where the reading is recorded as done"
+    )
+    assert row.args is not None, (
+        "the 26.123 row states no grammar of its own, so it inherits the 32-value "
+        "base set and the four values the edition adds cannot be emitted at all. A "
+        "row without the override records that the editions agree, which is the one "
+        "thing known to be false about this command"
+    )
+    (variable,) = row.args
+    assert set(variable.values) - set(entry.args[0].values) == {
+        "FSI_dx",
+        "FSI_dy",
+        "FSI_dz",
+        "FSI_displacement",
+    }, "the 26.123 value set differs from the base set in something other than the four"
+    assert "SRC-751 p.355" in (row.note or ""), (
+        "the 26.123 row does not cite the page it was read from"
     )

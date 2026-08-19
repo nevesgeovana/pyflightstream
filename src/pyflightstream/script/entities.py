@@ -261,9 +261,15 @@ class EntityRegistry:
             If a mapping entry has an invalid label or index, or a
             label collides with one already declared.
         """
-        # Seam (PLN-023): a licensed probe of the OBJ surface-mesh
-        # export will decide whether an fsm-to-obj inspector can fill
-        # this mapping automatically; until then declaration is manual.
+        # Seam, and the licensed probe that would have decided it has
+        # already run: reports/RPT-010_obj-group-names_2026-07-23.md
+        # measured on 26.120 that the OBJ surface-mesh export writes one
+        # Wavefront object block per boundary, in creation order, named
+        # after the source mesh solid that the import carried through.
+        # Manual declaration stays the supported route because those
+        # names need not be distinct: two boundaries whose source meshes
+        # share a solid name export under the same name, so a reader of
+        # the export cannot tell which block is which boundary.
         if isinstance(declaration, Mapping):
             if not declaration:
                 return

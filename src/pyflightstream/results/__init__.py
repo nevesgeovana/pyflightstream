@@ -938,6 +938,241 @@ def parse_probe_points(text: str, requested_version=None) -> ProbePointsReport:
     )
 
 
+@dataclass(frozen=True)
+class UnsteadyPlotsReport:
+    """Parsed UNSTEADY_SOLVER_EXPORT_PLOTS output, one row per time step.
+
+    The only file this package reads that carries a HISTORY rather than
+    a converged state: the loads spreadsheet and the probe export each
+    describe one instant, and the residual log counts iterations rather
+    than physical time.
+
+    GROUNDING, and read it before trusting a column: the shape comes
+    from the command's manual paraphrase (SRC-003 p.347, one column per
+    plot and one row per time step) and from no observed export. The
+    database entry stays at ``documented`` and the committed fixture
+    says SYNTHETIC in its own header.
+
+    Attributes
+    ----------
+    columns : tuple of str
+        Plot names exactly as printed, in file order. THE ORDER IS
+        DATA, not a contract: the set of columns is whatever plots the
+        run defined, so a reader resolves a series by its label
+        through :meth:`series` and never by position.
+    values : numpy.ndarray
+        The full table, shape ``(steps, len(columns))``, in printed
+        order. Units are per column and the export declares NONE: each
+        column carries the unit of the plot it came from (a force
+        coefficient is dimensionless, a velocity plot is in the
+        simulation's own length and time units), and the time column is
+        in the unit the run's time increment is stated in, seconds in
+        every export observed for the neighbouring parsers. Nothing is
+        converted here, because there is nothing in the file to convert
+        from. No reference frame is printed either, so a column of
+        forces or velocities is in whatever frame the plot was defined
+        in.
+    """
+
+    columns: tuple[str, ...]
+    values: np.ndarray
+
+    @property
+    def steps(self) -> int:
+        """Number of time steps, which is the number of rows."""
+        return len(self.values)
+
+    def series(self, name: str) -> np.ndarray:
+        """Return one plot's history as an array over the time steps.
+
+        Parameters
+        ----------
+        name : str
+            Printed column name, for example ``"CL"``.
+
+        Returns
+        -------
+        numpy.ndarray
+            Shape ``(steps,)``, in printed order.
+
+        Raises
+        ------
+        FieldNotInExportError
+            If the export carries no column of that name.
+        """
+        try:
+            index = self.columns.index(name)
+        except ValueError as error:
+            raise FieldNotInExportError(
+                f"column {name!r} is not in this unsteady plot export; available: "
+                f"{', '.join(self.columns)}"
+            ) from error
+        return self.values[:, index]
+
+    def series_by_name(self) -> dict[str, np.ndarray]:
+        """Every column keyed by its printed name.
+
+        Returns
+        -------
+        dict of str to numpy.ndarray
+            One array of shape ``(steps,)`` per column, including the
+            time column: which column is time is a property of the plot
+            list rather than of this format, so this parser does not
+            decide it for the caller.
+        """
+        return {name: self.series(name) for name in self.columns}
+
+
+def _unsteady_cells(line: str) -> list[str]:
+    """Split one line of the export, dropping a trailing separator.
+
+    A trailing comma is how this solver's other table exports end their
+    header (the probe export's is ``X, Y, Z,``), so an empty last cell
+    is punctuation rather than a column.
+    """
+    cells = [cell.strip() for cell in line.split(",")]
+    while cells and not cells[-1]:
+        cells.pop()
+    return cells
+
+
+def parse_unsteady_plots(text: str) -> UnsteadyPlotsReport:
+    r"""Parse an unsteady plot export into per-column time series.
+
+    Anchor-based like every parser here, and the anchor is the
+    SEPARATOR: the table starts at the first line carrying a comma, so
+    a banner or a title block above it is skipped without this parser
+    counting lines. Everything below the header is a time step until a
+    dashed rule closes the table or the text ends.
+
+    WHAT IS EVIDENCE HERE AND WHAT IS NOT. The row and column meaning
+    is the manual's (SRC-003 p.347, paraphrased in the database entry
+    for ``UNSTEADY_SOLVER_EXPORT_PLOTS``: one column per plot, one row
+    per time step). The DELIMITER is not documented anywhere and no
+    export of this command has been read: a comma is assumed because
+    the loads and probe exports of the same solver use one. A file
+    delimited some other way is refused by the anchor rather than
+    misread, and a real export is owed before this parser can be called
+    verified (PFS-2015.02.02).
+
+    No version footer is required, and none is cross-checked (FR-18),
+    because whether this export prints one is exactly the sort of thing
+    a fixture would have to show.
+
+    Parameters
+    ----------
+    text : str
+        Complete export file text.
+
+    Returns
+    -------
+    UnsteadyPlotsReport
+        Column names in file order and the table as floats.
+
+    Raises
+    ------
+    AnchorNotFoundError
+        If no line carries the column separator, so there is no table.
+    MalformedOutputError
+        If the header names a column twice or leaves one unnamed, if a
+        row holds MORE values than the header names, or if a cell is
+        not a solver-printed number. Each names the step and the column
+        it read.
+    IncompleteOutputError
+        If the header is followed by no time step at all, or a row
+        holds FEWER values than the header names: both are a write that
+        stopped part way (FR-17).
+
+    Examples
+    --------
+    >>> from pyflightstream.results import parse_unsteady_plots
+    >>> text = "Time (sec), CL\n.000, +2.3500000E-3\n.004, +2.1000000E-3\n"
+    >>> report = parse_unsteady_plots(text)
+    >>> report.columns
+    ('Time (sec)', 'CL')
+    >>> report.steps
+    2
+    >>> float(report.series("CL")[-1])
+    0.0021
+    """
+    text = text.replace("\x00", "")
+    # MEASURED, not anticipated: the committed probe fixture parsed
+    # cleanly here and returned twelve "time steps" that are twelve
+    # probe POSITIONS, because that export is also a comma table of
+    # numbers under a header. A file that identifies itself as another
+    # export is refused rather than read as a history; nothing else in
+    # the format distinguishes them, which is one more reason a real
+    # export of this command is owed (PFS-2015.02.02).
+    if "Number of Probe Points:" in text:
+        raise MalformedOutputError(
+            "this file declares a probe-point count, so it is an EXPORT_PROBE_POINTS "
+            "output and its rows are positions in space rather than steps in time. "
+            "Read it with parse_probe_points; reading it here would report a spatial "
+            "table as a time history, and every row index would be misread as an instant"
+        )
+    lines = text.splitlines()
+    header_index = next((index for index, line in enumerate(lines) if "," in line), None)
+    if header_index is None:
+        raise AnchorNotFoundError(
+            "no unsteady plot table header was found: no line in this file carries the "
+            "comma separating one plot column from the next. Either the file is not an "
+            "UNSTEADY_SOLVER_EXPORT_PLOTS output, or the export writes a separator this "
+            "parser has never seen, which is possible because no real export of this "
+            "command has been read yet"
+        )
+    columns = tuple(_unsteady_cells(lines[header_index]))
+    if not all(columns):
+        raise MalformedOutputError(
+            f"the unsteady plot header {lines[header_index].strip()!r} leaves a column "
+            "unnamed, so the values under it could not be attributed to a plot"
+        )
+    reject_duplicate_columns(columns, what="unsteady plot export")
+
+    rows: list[list[float]] = []
+    for line in lines[header_index + 1 :]:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if _DASHED_LINE.match(stripped):
+            if rows:
+                break
+            continue
+        cells = _unsteady_cells(stripped)
+        step = len(rows) + 1
+        if len(cells) < len(columns):
+            raise IncompleteOutputError(
+                f"time step {step} of the unsteady plot export holds {len(cells)} values "
+                f"but the header names {len(columns)} columns; the file ends part way "
+                "through a row, so the solver stopped mid-write and the missing plots "
+                "are not zeros"
+            )
+        if len(cells) > len(columns):
+            raise MalformedOutputError(
+                f"time step {step} of the unsteady plot export holds {len(cells)} values "
+                f"but the header names {len(columns)} columns; the table layout changed, "
+                "so reading it by position would attribute a value to the wrong plot"
+            )
+        values = []
+        for column, cell in zip(columns, cells, strict=True):
+            try:
+                values.append(parse_number(cell))
+            except MalformedOutputError as error:
+                raise MalformedOutputError(
+                    f"time step {step} of the unsteady plot export holds {cell!r} in "
+                    f"column {column!r}, which is not a solver-printed number; expected "
+                    "forms like '.000', '4380000.', or '1.000E-05'"
+                ) from error
+        rows.append(values)
+    if not rows:
+        raise IncompleteOutputError(
+            f"the unsteady plot export names {len(columns)} plot column(s) and holds no "
+            "time step at all. An empty history is not a run of zero steps: this export "
+            "is written by a solver that has advanced in time, so an empty table means "
+            "the file was cut off after its header"
+        )
+    return UnsteadyPlotsReport(columns=columns, values=np.asarray(rows, dtype=float))
+
+
 # The operating-point binding is part of the public face of this layer
 # too, so it is re-exported beside the tabular names rather than being
 # reachable only as pyflightstream.results.conditions (api-designer and
@@ -977,6 +1212,7 @@ __all__ = [
     "ProbePointsReport",
     "ResidualSample",
     "SOLVER_MODES",
+    "UnsteadyPlotsReport",
     "VersionMismatchWarning",
     "bind_conditions",
     "classify_solver_mode",
@@ -988,6 +1224,7 @@ __all__ = [
     "parse_probe_points",
     "parse_residual_history",
     "parse_run_loads",
+    "parse_unsteady_plots",
     "reject_duplicate_columns",
     "reject_trailing_export",
     "run_table",

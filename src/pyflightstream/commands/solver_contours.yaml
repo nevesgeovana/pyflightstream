@@ -2,8 +2,12 @@
 #
 # COMPLETE as of 2026-08-08, entered from the four editions registered
 # THEN, in
-# one pass. The one command of the chapter, with the same 33 values in
-# all four.
+# one pass. The one command of the chapter, with the same 32 values in
+# all four. It said 33 until 2026-08-19, in this line and twice in the
+# entry's own notes, and 32 is what the list has always held: the count
+# was written by hand and never recounted. The fifth edition read here
+# adds four more, so the entry now states two counts and each names its
+# builds.
 
 SET_SCENE_CONTOUR:
   layout: inline
@@ -51,13 +55,89 @@ SET_SCENE_CONTOUR:
     "26.101": {status: documented, note: "SRC-725 pp.348-349, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 pp.352-353, same grammar as 26.120"}
+    "26.123":
+      status: documented
+      note: "SRC-751 p.355, four contour values added"
+      args:
+        - name: variable
+          type: enum
+          values:
+            - none
+            - x
+            - y
+            - z
+            - face_area
+            - face_quality
+            - pressure_coefficient_freestream
+            - pressure_coefficient_reference
+            - static_pressure_ratio
+            - mach_number
+            - velocity_x
+            - velocity_y
+            - velocity_z
+            - velocity_magnitude
+            - onset_velocity_x
+            - onset_velocity_y
+            - onset_velocity_z
+            - onset_velocity_magnitude
+            - solver_partition
+            - skin_friction_coefficient
+            - attachment_lines
+            - displacement_thickness
+            - momentum_thickness
+            - shape_factor
+            - streamline_length
+            - transition
+            - transpiration_velocity
+            - separation
+            - doublet_strength
+            - source_strength
+            - stabilization
+            - proximity
+            - FSI_dx
+            - FSI_dy
+            - FSI_dz
+            - FSI_displacement
   notes: >
     Selects the scalar field drawn on the surfaces of the solver scene.
 
     THE VALUES ARE LOWERCASE AND THAT IS NOT A TRANSCRIPTION CHOICE.
     Every other closed set in this database is uppercase, because that
-    is how the manual prints them; this page prints these 33 in lower
+    is how the manual prints them; this page prints these 32 in lower
     case, and they are recorded as printed.
+
+    THE 26.123 ADDITIONS BREAK THAT AND ARE ALSO RECORDED AS PRINTED.
+    SRC-751 p.355 appends four values spelled FSI_dx, FSI_dy, FSI_dz
+    and FSI_displacement, mixed case, to the same table whose other
+    thirty-two are lower case. So the paragraph above stops holding for
+    the command and holds only for the four editions it names; the rule
+    that produced it, record what the page prints, is what stays.
+    Matching is case-insensitive here as
+    everywhere in this database and normalises to the declared member,
+    so a caller writing fsi_dx still emits FSI_dx.
+
+    THE 26.123 ROW RESTATES THE WHOLE LIST rather than the four it
+    adds. A per-version override merges argument KEYS and never merges
+    list items, so a row naming only the additions would leave that
+    build with four values and no velocity_magnitude.
+
+    WHAT THE FOUR DRAW IS DOCUMENTED ON A DIFFERENT PAGE, and citing
+    only p.355 would leave a reader with four tokens and no statement
+    of what they mean. SRC-751 p.248 lists a group of FSI displacement
+    output parameters in the solver's own parameter list: mesh node
+    displacement in X, Y and Z, and the magnitude of that displacement.
+    Those four are what these four contour values draw, one for one.
+
+    THAT GROUP STATES NO UNIT, and the silence is the page's rather
+    than this database's. Rows a few lines above it on the same page
+    say in so many words that a contour has dimensional length units;
+    the displacement rows say nothing at all. A displacement is a
+    length and the simulation length unit is the only candidate, but
+    the page does not say so and neither does this note, on the
+    precedent of EXPORT_BL_VELOCITY_PROFILE, whose unit is left
+    unstated for the same reason. Nothing in this package reads that
+    output group: no edition gives its file format and no run has
+    produced one, so there is nothing to parse against.
 
     What a caller writes does not matter and what the SCRIPT carries
     does: enum matching is case-insensitive across this whole database
@@ -66,9 +146,10 @@ SET_SCENE_CONTOUR:
     about the case is untested; recording the page's own spelling is
     what makes the question moot for anyone using this emitter.
 
-    THE PAGE HAS NO RUNNABLE SAMPLE. Its sample line prints the
-    placeholder rather than a value, so unlike most of this manual there
-    is no example call to compare the table against. The 33 tokens are
+    THE PAGE HAS NO RUNNABLE SAMPLE, in any of the five editions read.
+    Its sample line prints the placeholder rather than a value, so
+    unlike most of this manual there is no example call to compare the
+    table against. The 32 tokens, and the 36 of the newest edition, are
     the table's alone.
 
     `none` is one of them, and it is the way to clear the contour rather

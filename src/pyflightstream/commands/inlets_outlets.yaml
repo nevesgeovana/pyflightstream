@@ -19,6 +19,39 @@
 # takes an INLET or OUTLET index, a separate 1-based sequence over the
 # boundaries already marked, which nothing reports back and which is
 # therefore exempted rather than declared.
+#
+# ONE FEATURE OF THIS CHAPTER HAS NO COMMAND, and it is recorded here
+# because there is no entry to hang it on. SRC-751 p.191 documents an
+# outlet perimeter that can be marked as an exhaust outflow: with it
+# set, the solver sheds the wake from that perimeter and accounts for
+# its interaction with the surrounding flow. It is reached from a
+# function on the outlet's node in the simulation tree, and the
+# scripting reference of that edition names no command for it, so
+# nothing here can ask for it and no entry claims otherwise. Whether the
+# solver will accept an undocumented name for it is not something a
+# reading can answer.
+#
+# SRC-751 p.190 belongs beside it: the radial-meshing heading that named
+# inlets alone now names inlets and outlets, and the section closes by
+# saying the same feature is available for an outlet. REMESH_OUTLET
+# already carries that, so this is the user-interface half catching up
+# with a command that existed, not a new capability.
+#
+# The exhaust-outflow paragraph carries a defect and it is recorded as a
+# QUESTION FOR THE VENDOR rather than paraphrased as guidance: it tells
+# the reader to right-click an INLET inside the Outlets node. Every
+# other noun in the paragraph is an outlet, and the marking is of an
+# outlet perimeter, so the likeliest reading is that the sentence was
+# copied from the inlet section above it. Nothing here rests on it. This
+# chapter already records two instances of exactly that copy, DELETE_OUTLET's
+# parameter row and CREATE_NEW_OUTLET's velocity description, so this is
+# a pattern in the source rather than a one-off reading.
+#
+# SRC-751 p.331 was read for a link to the feature and does not carry
+# one: the command that page prints, SET_OUTLET_TRAILING_EDGES, takes a
+# BASE REGION boundary index and is the renamed base-region command, not
+# the outlet-perimeter marking of p.191. It lives with the base regions
+# and no page joins the two.
 
 CREATE_NEW_INLET:
   layout: inline
@@ -172,6 +205,26 @@ CREATE_NEW_OUTLET:
 
     The table's description of VELOCITY is copied from the inlet and
     names the inlet faces, in the four editions read then. Cosmetic.
+
+    THE OUTLET THIS CREATES IS THE ONE THE NEWEST EDITION TELLS A USER
+    TO MARK AS AN EXHAUST OUTFLOW, so the reading of that feature sits
+    here as well as in the chapter header. SRC-751 p.191 documents the
+    perimeter of an outlet being markable so the solver sheds a wake
+    from it and accounts for its interaction with the surrounding flow.
+    There is no command for it in that edition's scripting reference,
+    so this entry creates the boundary and nothing here can then mark
+    it.
+
+    A QUESTION FOR THE VENDOR, NOT A PARAPHRASE OF GUIDANCE: that
+    paragraph instructs the reader to right-click an INLET inside the
+    Outlets node. Taken literally it names the wrong node's children,
+    and every other noun in the paragraph is an outlet, so the sentence
+    reads as copied from the inlet section above it. It is recorded
+    because it is the third instance of that copy in this chapter, the
+    other two being this entry's own velocity description and
+    DELETE_OUTLET's parameter row, and because a reader following it
+    literally would look in the wrong place. Nothing here rests on it
+    and it is not restated as an instruction.
 
 REMESH_OUTLET:
   layout: keyword_block

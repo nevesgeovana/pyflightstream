@@ -16,6 +16,7 @@ compare against.
 
 import contextlib
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -29,6 +30,60 @@ from pyflightstream.qa import specs as _specs
 from pyflightstream.script import entities as _entities
 from pyflightstream.script import solver_setup as _solver_setup
 from pyflightstream.utils import manual as _manual
+
+
+def _repo_root() -> Path:
+    """The repository root, resolved from THIS file and then verified.
+
+    A declared anchor, because the two ways a test used to find the
+    tree both answered a different question than the one asked
+    (OPS-2009.02.04). A working-directory-relative path answers "what
+    is below wherever pytest was invoked", so a suite run from
+    anywhere but the root matched nothing and reported the absence as
+    a finding about the repository; a ``sys.path`` insertion answers
+    "what is importable under this name", which is whatever already
+    holds the name in ``sys.modules``.
+
+    The marker is checked rather than assumed. A parent count is a
+    fact about the layout of this file, so it goes wrong silently the
+    day the file moves; a missing ``pyproject.toml`` at the resolved
+    path fails HERE, naming the path it looked at, instead of turning
+    into an empty match somewhere downstream.
+    """
+    root = Path(__file__).resolve().parents[1]
+    marker = root / "pyproject.toml"
+    assert marker.is_file(), (
+        f"the repository anchor resolved to {root}, which holds no pyproject.toml. "
+        "Every test that reads a committed file locates it from this anchor, so a "
+        "wrong root would make each of them report an empty tree as a finding "
+        "about the repository rather than as a lookup that missed."
+    )
+    return root
+
+
+#: The shared anchor. Module-level so a test that needs it at import
+#: time (a parametrization over committed files, for instance) can take
+#: it without a fixture; the ``repo_root`` fixture below is the same
+#: object for tests that prefer to ask for it.
+#:
+#: NOT YET THE ONLY ONE, and saying so here is the point: 44 test
+#: modules resolve the root from their own ``__file__`` today, and
+#: OPS-2009.02.04 converted the two whose lookups were WRONG rather
+#: than merely repeated. The other 42 are correct as written; a reader
+#: meeting this constant must not read it as a claim that they are gone.
+REPO = _repo_root()
+
+
+@pytest.fixture
+def repo_root() -> Path:
+    """The repository root, verified by its ``pyproject.toml`` marker.
+
+    Returns
+    -------
+    pathlib.Path
+        Absolute, resolved path of the repository root.
+    """
+    return REPO
 
 
 def _mutable_module_state() -> list[dict]:
@@ -56,6 +111,12 @@ def _mutable_module_state() -> list[dict]:
         # effect of `stale_citations` and read by the CLI afterwards. It
         # joined on 2026-08-10, one commit after it was created, which
         # is one commit later than the paragraph above asks for.
+        #
+        # Its VALUES became per-outcome count mappings at 0.8.0
+        # (OPS-2003.10.02), where they were two-slot lists. The shallow
+        # contract above still holds it, and for the same reason it held
+        # the lists: every run rebuilds the inner container from scratch
+        # rather than mutating the one a snapshot captured.
         _manual.citation_reach,
         # Cached mutable objects: the cache keeps returning the same
         # dict, so an in-place mutation outlives the test that made it.

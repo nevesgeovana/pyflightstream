@@ -15,13 +15,16 @@ from pathlib import Path
 
 import pytest
 
+import pyflightstream.run as run_module
 from pyflightstream.cases import Campaign, SimCase, SweepAxis
 from pyflightstream.run import (
     Assessment,
     CampaignErrors,
+    ExecutorConfigurationError,
     LoadsAssessor,
     LocalExecutor,
     PlanStatus,
+    SolverBuild,
     _recipe_digest,
     package_vcs_state,
     plan_campaign,
@@ -1750,3 +1753,385 @@ def test_reconstruction_refuses_a_row_that_predates_the_schema_field(tmp_path):
     workspace = _workspace_with_legacy_row(tmp_path)
     with pytest.raises(WorkspaceError, match="carries no manifest schema"):
         reconstruct("camp/sim_0001/a+00.0", workspace=workspace)
+
+
+# --- a campaign whose cases run on two solver builds --------------------
+
+
+def _two_build_campaign(tmp_path, *, second_recipe="steady"):
+    """A campaign of two cases, the second sent to a different build."""
+    geometry = tmp_path / "wing.fsm"
+    geometry.write_bytes(b"geometry")
+
+    def case(sim_id, fs_build, recipe):
+        return SimCase(
+            sim_id=sim_id,
+            aircraft="TestWing",
+            velocity=30.0,
+            geometry=str(geometry),
+            sweep=SweepAxis(type="alpha", values=[0.0]),
+            recipe=recipe,
+            outputs=["loads_{point}.txt"],
+            fs_build=fs_build,
+        )
+
+    return Campaign(
+        name="camp",
+        fs_version="26.120",
+        fs_exe=sys.executable,
+        sims=[case("9001", None, "steady"), case("9002", "second", second_recipe)],
+    )
+
+
+def _second_build(tmp_path):
+    """A SolverBuild whose executable is a real file with its own bytes.
+
+    A distinct file rather than a second reference to ``sys.executable``,
+    because the whole assertion is that ``fs_exe_sha256`` differs per
+    build: two names for one file hash the same, and a record that still
+    wrote the campaign's executable would pass.
+    """
+    other_exe = tmp_path / "FlightStream26121.exe"
+    other_exe.write_bytes(b"a different installation")
+    return other_exe, SolverBuild(
+        fs_exe=other_exe,
+        fs_version="26.121",
+        executor=StubSolver(WRITES_LOADS),
+    )
+
+
+def _record_identity_checks(monkeypatch, seen):
+    """Record every pre-flight the loop fires, still running the real one."""
+    real_check = run_module.check_solver_identity
+
+    def recording(executor, version, workdir, **kwargs):
+        seen.append((version.canonical, id(executor)))
+        return real_check(executor, version, workdir, **kwargs)
+
+    monkeypatch.setattr(run_module, "check_solver_identity", recording)
+
+
+def test_a_case_records_the_build_it_actually_ran_on(tmp_path):
+    """PFS-2009.05: the manifest stops naming one executable for every point.
+
+    A campaign declares ONE fs_version and ONE fs_exe, and `_execute_point`
+    wrote `str(campaign.fs_exe)` and `_file_digest(campaign.fs_exe)` into
+    every record regardless. So a study across two solver builds could not
+    be stated at all: the run matrix refused a second FS_BUILD value
+    outright, and the reason it HAD to was that recording one would have
+    published a falsehood about which installation produced each point.
+
+    THE FALSIFYING MEASUREMENT, which is the whole content of this test:
+    with those two lines restored to `campaign.fs_exe`, the two records
+    below carry the same executable and the same digest, and this fails on
+    the assertion rather than on a missing name.
+    """
+    campaign = _two_build_campaign(tmp_path)
+    other_exe, second = _second_build(tmp_path)
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    records = run_campaign(
+        campaign,
+        StubSolver(WRITES_LOADS),
+        workspace,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+        builds={"second": second},
+    )
+    by_sim = {record.sim_id: record for record in records}
+    assert set(by_sim) == {"9001", "9002"}
+
+    assert by_sim["9001"].fs_exe == str(sys.executable)
+    assert by_sim["9002"].fs_exe == str(other_exe), (
+        "the case declaring fs_build='second' was recorded against the "
+        "campaign's executable, so the manifest names an installation the "
+        "point never ran on"
+    )
+    assert by_sim["9001"].fs_exe_sha256 != by_sim["9002"].fs_exe_sha256, (
+        "both points hashed to the same executable; a per-build record that "
+        "does not move the DIGEST records the same evidence under two names"
+    )
+    assert by_sim["9002"].fs_exe_sha256 == hashlib.sha256(other_exe.read_bytes()).hexdigest()
+
+    # And the version, which is what the script was emitted under.
+    assert by_sim["9001"].fs_version_requested == "26.120"
+    assert by_sim["9002"].fs_version_requested == "26.121", (
+        "the second build's points are recorded against the campaign's "
+        "version, so a reader cannot tell which command database produced "
+        "the script"
+    )
+
+
+#: A command the database documents on 26.121 and NOT on 26.120, so a
+#: script emitting it says which version it was built against. Measured
+#: rather than assumed: the pair is asserted in the test below, so the day
+#: a 26.120 row is written for it the test fails as an unusable probe
+#: instead of passing vacuously.
+_ONLY_ON_26121 = "SET_WAKE_DECAY_CONSTANT"
+
+
+def wake_decay_recipe(case, script):
+    """The steady recipe plus one command only the newer build documents."""
+    script.emit("OPEN", case.geometry)
+    helpers.free_stream(script)
+    script.emit(_ONLY_ON_26121, 0.05)
+    helpers.initialize_solver(script)
+    helpers.solver_settings(
+        script,
+        vorticity_drag_boundaries="all",
+        aoa=case.point["alpha"],
+        velocity=case.velocity,
+        iterations=case.solver.iterations,
+        convergence=case.solver.convergence,
+    )
+    helpers.start_solver(script)
+    script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", case.outputs[0])
+    script.emit("CLOSE_FLIGHTSTREAM")
+
+
+def test_the_second_builds_script_is_emitted_under_its_own_version(tmp_path):
+    """The other half: the SCRIPT, not only the record that describes it.
+
+    A record naming 26.121 beside a script built against the campaign's
+    26.120 is worse than either alone, because the manifest then documents
+    a run that never happened that way.
+
+    Measured through the COMMAND DATABASE rather than through the script
+    text, and the difference matters: the rendered script carries no
+    version header at all, so an assertion reading "26.121 appears in the
+    file" is unsatisfiable and would have to be weakened into something
+    that proves nothing. What the version actually controls is which
+    commands may be emitted, so the second case emits one the newer build
+    documents and the older one does not. Under the campaign's version the
+    builder refuses it and the point lands FAILED_SCRIPT; under its own
+    build's version it converges.
+    """
+    from pyflightstream.commands import CommandRegistry
+
+    registry = CommandRegistry.load()
+    assert _ONLY_ON_26121 in registry.for_version("26.121"), (
+        f"{_ONLY_ON_26121} is no longer documented on 26.121, so this test "
+        "cannot tell the two versions apart; pick another command whose rows "
+        "differ between the two builds"
+    )
+    assert _ONLY_ON_26121 not in registry.for_version("26.120"), (
+        f"{_ONLY_ON_26121} is now documented on 26.120 too, so emitting it "
+        "proves nothing about which version the script was built against"
+    )
+
+    campaign = _two_build_campaign(tmp_path, second_recipe="wake_decay")
+    _, second = _second_build(tmp_path)
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    recipes = {"steady": steady_recipe, "wake_decay": wake_decay_recipe}
+    records = run_campaign(
+        campaign,
+        StubSolver(WRITES_LOADS),
+        workspace,
+        assess=converged,
+        recipes=recipes,
+        builds={"second": second},
+    )
+    by_sim = {record.sim_id: record for record in records}
+    assert by_sim["9002"].status is RunStatus.CONVERGED, (
+        f"the second case emits {_ONLY_ON_26121}, which its own build "
+        f"documents, and it was refused: {by_sim['9002'].error}. The script "
+        "was built against the campaign's version rather than the build's."
+    )
+    assert by_sim["9002"].script_path is not None
+    text = (workspace.sim_dir("9002") / by_sim["9002"].script_path).read_text(encoding="utf-8")
+    assert _ONLY_ON_26121 in text
+
+    # THE CONTROL, and without it the assertion above is satisfied by a
+    # database that documents the command everywhere. Same campaign, same
+    # recipe, a build declaring the OLDER version: the point must be
+    # refused, which is what proves the version is read from the build.
+    control_workspace = CampaignWorkspace(tmp_path / "control")
+    with pytest.raises(CampaignErrors) as caught:
+        run_campaign(
+            campaign,
+            StubSolver(WRITES_LOADS),
+            control_workspace,
+            assess=converged,
+            recipes=recipes,
+            builds={
+                "second": SolverBuild(
+                    fs_exe=second.fs_exe, fs_version="26.120", executor=second.executor
+                )
+            },
+        )
+    refused = {record.sim_id: record for record in caught.value.failures}["9002"]
+    assert refused.status is RunStatus.FAILED_SCRIPT
+    assert _ONLY_ON_26121 in (refused.error or "")
+
+
+def test_a_case_naming_an_unsupplied_build_is_refused_before_anything_runs(tmp_path):
+    """The fallback that would make the whole feature a lie, refused.
+
+    Falling back to `campaign.fs_exe` for a case naming a build the caller
+    did not supply is exactly the record this item exists to stop: the
+    point runs on one installation and the manifest names another. Refused
+    BEFORE staging and before the manifest is touched, so the campaign
+    root is left as it was found.
+    """
+    campaign = _two_build_campaign(tmp_path)
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    with pytest.raises(ExecutorConfigurationError) as caught:
+        run_campaign(
+            campaign,
+            StubSolver(WRITES_LOADS),
+            workspace,
+            assess=converged,
+            recipes={"steady": steady_recipe},
+        )
+    message = str(caught.value)
+    assert "9002" in message and "second" in message, (
+        "the refusal must name the case and the build it asked for"
+    )
+    assert "SolverBuild" in message, "the refusal must name what to pass instead"
+    # Nothing was recorded, including for the FIRST case, which needs no
+    # build at all: a configuration mistake is not a partial run.
+    assert workspace.read_manifest() == []
+
+
+def test_the_pre_flight_asks_each_build_once_on_its_own_executor(tmp_path, monkeypatch):
+    """One identity check per installation, and on the right executable.
+
+    The pre-flight answers "which build is installed at THIS executable",
+    so a second executable is a second unanswered question and a single
+    check would leave it unasked. The executor identity is asserted too:
+    a loop that asked both versions while passing the campaign's executor
+    every time would satisfy a version-only count while confirming one
+    installation twice and reporting it as two.
+    """
+    campaign = _two_build_campaign(tmp_path)
+    _, second = _second_build(tmp_path)
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    default_executor = StubSolver(WRITES_LOADS)
+
+    seen: list[tuple[str, int]] = []
+    _record_identity_checks(monkeypatch, seen)
+    run_campaign(
+        campaign,
+        default_executor,
+        workspace,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+        builds={"second": second},
+    )
+    assert sorted(version for version, _ in seen) == ["26.120", "26.121"], (
+        f"the pre-flight was asked {seen}; each distinct build is confirmed "
+        "exactly once, and a build nothing asks about is an installation "
+        "nothing checked"
+    )
+    asked = dict(seen)
+    assert asked["26.120"] == id(default_executor)
+    assert asked["26.121"] == id(second.executor), (
+        "the second build's pre-flight ran on the campaign's executor, so it "
+        "confirmed the wrong installation and reported it as the right one"
+    )
+
+
+def test_a_single_build_campaign_records_exactly_what_it_recorded_before(tmp_path, monkeypatch):
+    """The regression half, and the one that matters most.
+
+    Every campaign written before v0.8.0 names no build at all, so the
+    per-build path must be invisible to it: same executable, same digest,
+    same version, and ONE pre-flight rather than one per case. Pinned on a
+    campaign of TWO cases, because a one-case campaign cannot tell "once
+    per campaign" from "once per case", and the loop now keys the
+    pre-flight on the build rather than on a single flag.
+    """
+    geometry = tmp_path / "wing.fsm"
+    geometry.write_bytes(b"geometry")
+    cases = [
+        SimCase(
+            sim_id=sim_id,
+            aircraft="TestWing",
+            velocity=30.0,
+            geometry=str(geometry),
+            sweep=SweepAxis(type="alpha", values=[0.0]),
+            recipe="steady",
+            outputs=["loads_{point}.txt"],
+        )
+        for sim_id in ("9001", "9002")
+    ]
+    campaign = Campaign(name="camp", fs_version="26.120", fs_exe=sys.executable, sims=cases)
+    workspace = CampaignWorkspace(tmp_path / "camp")
+
+    seen: list[tuple[str, int]] = []
+    _record_identity_checks(monkeypatch, seen)
+    records = run_campaign(
+        campaign,
+        StubSolver(WRITES_LOADS),
+        workspace,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+    )
+    assert [record.sim_id for record in records] == ["9001", "9002"]
+    assert {record.fs_exe for record in records} == {str(sys.executable)}
+    assert len({record.fs_exe_sha256 for record in records}) == 1
+    assert {record.fs_version_requested for record in records} == {"26.120"}
+    assert [version for version, _ in seen] == ["26.120"], (
+        f"a campaign naming no build asked the pre-flight {seen}; it spent one "
+        "process before v0.8.0 and must spend one now"
+    )
+
+
+def test_the_plan_validates_each_case_against_its_own_build(tmp_path):
+    """Pre-flight is where a per-build campaign earns the check.
+
+    A case sent to a build whose database does not carry a command it
+    emits has to block HERE, before the first point of the FIRST build
+    spends solver time. That is the whole promise of the pre-flight and
+    it is the one a per-build campaign can lose silently: threading the
+    build into the RUN and leaving the plan on the campaign's version
+    passes a campaign the loop then refuses, after the solver has run.
+
+    Both directions, because one alone is satisfied by a constant: the
+    same case blocks under the older build and is READY under the newer.
+    """
+    campaign = _two_build_campaign(tmp_path, second_recipe="wake_decay")
+    recipes = {"steady": steady_recipe, "wake_decay": wake_decay_recipe}
+
+    def plan_for(version, root):
+        return plan_campaign(
+            campaign,
+            CampaignWorkspace(tmp_path / root),
+            recipes=recipes,
+            write_plan=False,
+            builds={
+                "second": SolverBuild(
+                    fs_exe=Path(sys.executable),
+                    fs_version=version,
+                    executor=StubSolver(WRITES_LOADS),
+                )
+            },
+        )
+
+    older = {point.sim_id: point for point in plan_for("26.120", "older").points}
+    assert older["9001"].status is PlanStatus.READY
+    assert older["9002"].status is PlanStatus.BLOCKED, (
+        "the second case was validated against the campaign's version rather "
+        "than its own build's, so a command that build does not document "
+        "would have been discovered only after the solver ran"
+    )
+    assert _ONLY_ON_26121 in (older["9002"].error or "")
+
+    newer = {point.sim_id: point for point in plan_for("26.121", "newer").points}
+    assert newer["9001"].status is PlanStatus.READY
+    assert newer["9002"].status is PlanStatus.READY, (
+        f"the second case blocks on its own build, which documents "
+        f"{_ONLY_ON_26121}: {newer['9002'].error}"
+    )
+
+
+def test_the_plan_refuses_a_case_naming_an_unsupplied_build(tmp_path):
+    """The pre-flight cannot pass a configuration the run will reject.
+
+    Otherwise the promise that a green plan means the campaign is runnable
+    is false for exactly the campaigns this feature adds, and it is false
+    in the direction that costs solver time.
+    """
+    campaign = _two_build_campaign(tmp_path)
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    with pytest.raises(ExecutorConfigurationError, match="second"):
+        plan_campaign(campaign, workspace, recipes={"steady": steady_recipe}, write_plan=False)

@@ -1675,6 +1675,13 @@ def test_every_declared_sentinel_and_length_is_reachable_from_the_database():
         # base regions are boundaries; the entry arrived with the 26.122
         # edition, which is the first to document the command.
         ("SET_OUTFLOW_TRAILING_EDGES", "base_region_boundary"),
+        # Its 26.123 spelling, and the pair is why this inventory is a
+        # set of tuples rather than a set of command names: a rename
+        # carried as two entries declares the same sentinel twice, on
+        # the same page (SRC-751 p.331), and both rows are real. Losing
+        # either would leave one of the two names refusing -1 while its
+        # own edition prints -1 in the sample.
+        ("SET_OUTLET_TRAILING_EDGES", "base_region_boundary"),
     }, (
         "every boundary index that states an all-form declares it, and no other does: "
         "absent means the page states none, so SURFACE_RENAME and SURFACE_MIRROR refuse "
@@ -2009,3 +2016,239 @@ def test_a_removed_note_still_cannot_claim_a_measurement_without_a_run():
     ):
         with pytest.raises(ValueError, match="claims a measurement and cites no run"):
             VersionStatus(status=Status.REMOVED, note=note)
+
+
+# ---------------------------------------------------------------------------
+# THE 26.123 READING PASS, and its guards are RECORD guards rather than
+# behaviour guards. A manual reading delivers a note, and what a note can
+# lose is its existence rather than its wording, so each of these asserts a
+# CARRIER: a committed report that exists and names its subject, a citation
+# that resolves to a page inside the edition it names, an entry that answers
+# or refuses on a build. None of them asserts a sentence, because a guard
+# satisfied by a phrase is satisfied by a phrase somebody pasted.
+# ---------------------------------------------------------------------------
+
+#: The narrative report of the SET_NEW_UNSTEADY_SOLVER_ACTION reading.
+ACTION_CONTEXT_REPORT = "reports/RPT-030_what-an-unsteady-action-receives_2026-08-19.md"
+
+
+def test_the_unsteady_action_records_that_no_edition_says_what_it_receives():
+    """A recorded NO is a finding, and this is what carries it.
+
+    The question is what the solver hands an action it runs after each
+    unsteady time step: an argument vector, a working directory, the
+    step index or the physical time, an environment. Both registered
+    editions were read on the two pages that describe the feature at
+    all, and neither answers. Without this record the next reader opens
+    the same two pages and reaches the same silence, which is the whole
+    cost the item exists to remove.
+
+    Asserted through the report rather than through the note's prose:
+    the note may be reworded, and what may not happen is the report
+    going away while the note still points at it.
+    """
+    entry = CommandRegistry.load().commands["SET_NEW_UNSTEADY_SOLVER_ACTION"]
+    notes = " ".join((entry.notes or "").split())
+    assert ACTION_CONTEXT_REPORT in notes, (
+        "SET_NEW_UNSTEADY_SOLVER_ACTION's notes no longer cite the reading that "
+        "answered what the registered action receives. The answer was that no "
+        "edition says, which is a finding and is only useful while it is findable"
+    )
+
+    report = REPO_ROOT / ACTION_CONTEXT_REPORT
+    assert report.is_file(), (
+        f"{ACTION_CONTEXT_REPORT} is cited by the command database and is not "
+        "committed, so the citation leaves the repository"
+    )
+    text = report.read_text(encoding="utf-8")
+    assert "SET_NEW_UNSTEADY_SOLVER_ACTION" in text, (
+        "the report does not name the command that cites it"
+    )
+    for source, pages in (("SRC-750", ("p.212", "p.353")), ("SRC-751", ("p.212", "p.353"))):
+        assert source in text, f"the report reads {source} and does not name it"
+        for page in pages:
+            assert f"{source} {page}" in text, (
+                f"the report does not cite {source} {page}. Both pages are load "
+                "bearing: the scripting page carries the signature and the user "
+                "interface page is the only place the feature is described at all, "
+                "so a reading that skipped either would not have measured the silence"
+            )
+    for question in ("argument", "working directory", "step", "environment"):
+        assert question in text.lower(), (
+            f"the report does not say what it found about {question!r}. The four "
+            "together are the question; three of them answered is not the finding"
+        )
+
+
+def test_the_trailing_edge_import_records_the_index_over_reporting_its_own_body():
+    """The newest edition contradicts itself about this command.
+
+    SRC-751 stops printing TRAILING_EDGES_IMPORT in the chapter body and
+    still lists it in the Script Index. The recorded caution until now
+    ran the other way, that the index UNDER-reports, which is why the
+    surface is read from the body; this is the first instance of the
+    index over-reporting, and reading the body still gives the right
+    answer.
+
+    NO 26.123 ROW IS WRITTEN, and that is a decision withheld rather
+    than one taken. `Status` has four members and none of them says
+    "the document stopped printing it and nothing measured the solver":
+    `removed` is the closest and the item forbids it, because absence
+    from a manual is not evidence that the solver stopped answering.
+    So the build answers ABSENT, which the committed enumeration already
+    records, and the reading lives in the entry's free text until the
+    author settles the encoding.
+    """
+    from pyflightstream.versions import resolve
+
+    registry = CommandRegistry.load()
+    entry = registry.commands["TRAILING_EDGES_IMPORT"]
+    target = resolve("26.123")
+
+    assert "26.123" not in entry.versions, (
+        "TRAILING_EDGES_IMPORT carries a 26.123 row. Which row it should carry is "
+        "an open question for the author: the chapter body stopped documenting the "
+        "command, the Script Index still lists it, and no run has asked the solver, "
+        "so `removed` would assert something no evidence supports"
+    )
+    assert entry.evidence_in(target) is None, (
+        "TRAILING_EDGES_IMPORT answers on 26.123 while no row was written for it, "
+        "so hotfix inheritance is back on for a build registered to inherit nothing"
+    )
+
+    notes = " ".join((entry.notes or "").split())
+    assert "SRC-751 p.323" in notes, (
+        "the entry does not record which page of the new edition was read and found "
+        "not to print the command. p.323 is the page the block used to open on and "
+        "the page the surviving neighbours still sit on"
+    )
+    assert "SRC-751 p.390" in notes, (
+        "the entry does not record that the Script Index still lists the command. "
+        "That half is the contradiction, and it is the direction the recorded "
+        "caution did not have"
+    )
+
+
+def test_the_outflow_rename_is_two_entries_and_the_old_name_teaches_the_new():
+    """A rename with no transitional alias, modelled as two keys.
+
+    SRC-751 prints SET_OUTLET_TRAILING_EDGES where SRC-750 printed
+    SET_OUTFLOW_TRAILING_EDGES, same argument, same sample, same page.
+    The old spelling appears nowhere in the new edition and the new
+    spelling nowhere in the old one, so a script written last week stops
+    working on a build issued this week.
+
+    The database carries both names rather than one name with an alias
+    field, and the refusal is what makes that readable: a caller on
+    26.123 reaching the old name is told the new one, and a caller on
+    26.122 reaching the new name is told it has no evidence there.
+    """
+    registry = CommandRegistry.load()
+    old, new = "SET_OUTFLOW_TRAILING_EDGES", "SET_OUTLET_TRAILING_EDGES"
+
+    # THE SUCCESSOR IS ASSERTED AS A FIELD AND AS THE SENTENCE IT
+    # PRODUCES, not as a name appearing somewhere in the message. The
+    # first draft of this guard asked only whether the new spelling was
+    # anywhere in the refusal, and deleting `successor:` from the row
+    # left it green: the row's own NOTE names the new spelling too, so
+    # the guard was reading the note back to itself while the message
+    # had gone from telling the caller what to write to telling them
+    # nothing is recorded. Found by deleting the field and watching the
+    # guard pass.
+    assert registry.commands[old].versions["26.123"].successor == new, (
+        f"{old}'s 26.123 row records no successor. Without the field the refusal "
+        "says no direct successor is recorded, whatever its note happens to mention"
+    )
+    on_123 = registry.for_version("26.123")
+    with pytest.raises(CommandNotInVersionError) as refusal:
+        on_123[old]
+    message = str(refusal.value)
+    assert f"Use {new} instead." in message, (
+        f"{old} is refused on 26.123 without telling the caller to use {new}. The "
+        "successor is the whole content of the refusal: the caller wants the line "
+        "that works"
+    )
+    assert "SRC-750 p.331" in message, (
+        "the refusal cites no page. A removal read off a manual cites the page of "
+        "the edition that DOCUMENTS the command, which is where a reader confirms "
+        "the old name was real"
+    )
+    assert on_123[new].name == new, f"{new} does not answer on the edition that prints it"
+
+    on_122 = registry.for_version("26.122")
+    assert on_122[old].name == old, f"{old} stopped answering on the edition that prints it"
+    with pytest.raises(CommandNotInVersionError):
+        on_122[new]
+
+
+def test_the_displacement_contours_arrive_with_the_output_group_they_report():
+    """The four values and the parameter group are one reading, so one record.
+
+    SRC-751 adds FSI_dx, FSI_dy, FSI_dz and FSI_displacement to the
+    scene-contour enumeration and, on a different page, a displacement
+    group in the solver output parameter list. The second is what the
+    first draws, so recording the values without the group leaves the
+    reader with four tokens and no statement of what they are.
+
+    NO UNIT IS RECORDED, and that is the page's own silence rather than
+    an omission here: neighbouring rows on that very page state
+    dimensional length units and these do not.
+    """
+    entry = CommandRegistry.load().commands["SET_SCENE_CONTOUR"]
+    notes = " ".join((entry.notes or "").split())
+    assert "SRC-751 p.248" in notes, (
+        "the scene-contour entry does not cite the page that documents the output "
+        "group its four new values draw. That page is the only statement of what a "
+        "node displacement contour is"
+    )
+    assert "SRC-751 p.355" in notes, (
+        "the entry does not cite the page the four values were read from"
+    )
+    row = entry.versions.get("26.123")
+    assert row is not None, "SET_SCENE_CONTOUR carries no 26.123 row"
+    assert row.args is not None, (
+        "the 26.123 row states no grammar of its own, so it inherits the 32-value "
+        "base set and the four values the edition adds cannot be emitted at all"
+    )
+    (variable,) = row.args
+    assert set(variable.values) - set(entry.args[0].values) == {
+        "FSI_dx",
+        "FSI_dy",
+        "FSI_dz",
+        "FSI_displacement",
+    }, "the 26.123 value set differs from the base set in something other than the four"
+
+
+def test_the_outlet_chapter_records_the_exhaust_outflow_feature_and_its_defect():
+    """A feature with no scripted route is still this database's business.
+
+    SRC-751 documents an outlet perimeter that can be marked as an
+    exhaust outflow, the solver then shedding the wake there, and no
+    command in the scripting reference is named for it. The chapter
+    header is where a reader learns that, since there is no entry to
+    hang it on.
+
+    Its text carries a defect and the defect is recorded as a QUESTION
+    rather than paraphrased as guidance: the paragraph tells the user to
+    right-click an INLET inside the Outlets node. This chapter already
+    records two instances of the same copy, so a third is a pattern
+    rather than a one-off reading.
+    """
+    from pyflightstream.reference import _chapter_headers, _citation_pages
+
+    header = _chapter_headers()["inlets_outlets"]
+    pages = _citation_pages(header).get("SRC-751", set())
+    assert {190, 191} <= pages, (
+        "the inlets and outlets chapter header cites neither the exhaust-outflow "
+        f"page nor the radial-meshing heading that now names outlets; it cites {sorted(pages)}. "
+        "A feature the scripting reference has no command for is recorded in the "
+        "header or it is recorded nowhere"
+    )
+
+    entry = CommandRegistry.load().commands["CREATE_NEW_OUTLET"]
+    notes = " ".join((entry.notes or "").split())
+    assert "SRC-751 p.191" in notes, (
+        "CREATE_NEW_OUTLET does not cite the page whose defect it is supposed to "
+        "record. The entry is where the note belongs: it is the command that makes "
+        "the outlet the paragraph then tells you to mark"
+    )

@@ -3581,14 +3581,21 @@ def test_the_scene_contour_emits_the_lower_case_spelling_its_page_prints():
     """The one lowercase closed set in the database, and it is the page's own.
 
     Every other closed set here is uppercase because that is how the
-    manual prints it; this page prints these 33 in lower case. What
+    manual prints it; this page prints these 32 in lower case. What
     reaches the script is the DECLARED spelling either way: enum
     matching is case-insensitive and normalises to the member, so a
     caller writing MACH_NUMBER still emits mach_number.
 
     Pinned because harmonising the values to uppercase is the natural
     tidying edit, and it would silently change what every one of these
-    33 tokens puts in a script.
+    32 tokens puts in a script.
+
+    The count said 33 here and in the entry's own notes until
+    2026-08-19, when the list was counted rather than copied. Nothing
+    about the guard moves with the correction, and the 26.123 edition
+    adds four values of its own that are NOT lower case, which is why
+    the sentence above is scoped to this page rather than to the
+    command.
     """
     for written in ("mach_number", "MACH_NUMBER", "Mach_Number"):
         script = Script(version="26.120")
@@ -3747,3 +3754,119 @@ def test_a_keyword_block_is_closed_by_a_blank_line():
         "reads the next command as a keyword line (RPT-019)"
     )
     assert lines[-1] == "SOLVER_SET_AOA 3.0"
+
+
+def test_the_wake_edge_import_takes_no_path_and_the_entry_says_so():
+    """The command named FROM_FILE takes no file, in either edition.
+
+    Its name, and a note describing an imported coordinate matched to a
+    mesh edge, both read as though a path went somewhere. Both editions
+    that document it print the signature with two placeholders and a
+    sample call with two values, and neither states where the node file
+    comes from. That is a fact about the page rather than a hole in this
+    record, so it is written down: a reader who does not find it here
+    goes and reads the page again.
+
+    The emitted line is compared against the manual's own printed call,
+    which is the only check available for a command no run has exercised.
+    """
+    from pyflightstream.commands import ArgType
+
+    entry = CommandRegistry.load().commands["IMPORT_WAKE_EDGES_FROM_FILE"]
+    assert [arg.name for arg in entry.args] == ["type", "tolerance"], (
+        "the wake-edge import's argument list moved. Adding a path argument is the "
+        "edit this note exists to prevent: neither edition prints one, so an emitter "
+        "writing a third value writes a line the manual does not document"
+    )
+    assert not [arg for arg in entry.args if arg.type is ArgType.PATH], (
+        "the wake-edge import declares a path argument and no edition prints one"
+    )
+
+    notes = " ".join((entry.notes or "").split())
+    for citation in ("SRC-750 p.324", "SRC-751 p.323"):
+        assert citation in notes, (
+            f"the entry does not cite {citation}. BOTH editions were read for this "
+            "question and both are silent; citing one leaves the next reader to "
+            "check the other"
+        )
+    assert "TRAILING_EDGES_IMPORT" in notes, (
+        "the entry does not name the one command in this chapter that DOES take a "
+        "path, on its own line. Naming it is what turns the silence from an "
+        "incomplete record into a finding"
+    )
+
+    script = Script(version="26.122")
+    script.emit("IMPORT_WAKE_EDGES_FROM_FILE", "VORTEX_SHEDDING", 0.0001)
+    assert script.render().strip() == "IMPORT_WAKE_EDGES_FROM_FILE VORTEX_SHEDDING 0.0001"
+
+
+def test_the_wake_edge_tolerance_carries_a_unit_and_the_vendors_own_default():
+    """A distance argument with no unit, beside a default nobody could source.
+
+    TOLERANCE decides whether an imported coordinate is matched to a
+    mesh edge at all, so it sits between a correct extraction and a
+    silently empty marking. The unit is DERIVED rather than printed:
+    the page describes a distance between a mesh edge mid-point and an
+    imported node and states no unit anywhere, and the simulation length
+    unit is the only one either quantity is expressed in.
+
+    The default is the vendor's own number and is recorded with the page
+    that prints it, so nobody has to reverse-engineer where it came from.
+    """
+    entry = CommandRegistry.load().commands["IMPORT_WAKE_EDGES_FROM_FILE"]
+    by_name = {arg.name: arg for arg in entry.args}
+    assert by_name["tolerance"].unit == "simulation length units", (
+        "the wake-edge tolerance states no unit. It is a distance, and a distance "
+        "argument with no unit is one a caller supplies in whatever unit they were "
+        "thinking in"
+    )
+    assert by_name["type"].values == ("STANDARD", "RELAXED", "JET_OUTFLOW", "VORTEX_SHEDDING")
+
+    notes = " ".join((entry.notes or "").split())
+    assert "0.0001" in notes, (
+        "the entry does not record the default value the page prints. A default "
+        "this package hands a caller has to name the page it came from, or it is a "
+        "number this package invented"
+    )
+
+
+def test_the_displacement_contours_emit_on_the_edition_that_prints_them():
+    """Four values one edition adds, refused everywhere else.
+
+    SRC-751 appends FSI_dx, FSI_dy, FSI_dz and FSI_displacement to the
+    scene-contour enumeration. A value set is per version here, so the
+    26.123 row restates the whole list: the pre-parse fill merges
+    argument KEYS and never merges list items, so a row stating only the
+    four would leave a caller with four values and no velocity_magnitude.
+
+    Refusal on an older build is the half that matters at emission time.
+    A contour token is a bare word, so a script carrying FSI_dx to a
+    build that does not know it is a script the solver reads and ignores
+    or rejects at run time, far from the line that wrote it.
+    """
+    additions = ("FSI_dx", "FSI_dy", "FSI_dz", "FSI_displacement")
+
+    emitted = []
+    for value in additions:
+        script = Script(version="26.123")
+        try:
+            script.emit("SET_SCENE_CONTOUR", value)
+        except (CommandArgumentError, CommandNotInVersionError):
+            continue
+        emitted.append(script.render().strip())
+    assert emitted == [f"SET_SCENE_CONTOUR {value}" for value in additions], (
+        "26.123 does not emit the four displacement contours its own edition prints. "
+        "Either the build carries no row for the command at all, or the row inherits "
+        "the 32-value base set"
+    )
+
+    # And the base set still emits on the build that documents the row.
+    script = Script(version="26.123")
+    script.emit("SET_SCENE_CONTOUR", "velocity_magnitude")
+    assert script.render().strip() == "SET_SCENE_CONTOUR velocity_magnitude", (
+        "the 26.123 row states the four additions and lost the 32 it was built on"
+    )
+
+    for older in ("26.000", "26.100", "26.101", "26.120", "26.121", "26.122"):
+        with pytest.raises(CommandArgumentError, match="expects one of"):
+            Script(version=older).emit("SET_SCENE_CONTOUR", "FSI_dx")

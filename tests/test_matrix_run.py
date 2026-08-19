@@ -5,6 +5,14 @@ workspace input library in tmp_path; plan_matrix pre-flights without
 executing; run_matrix executes through a StubSolver that mimics the
 solver, so the whole path matrix, library, canonical campaign form,
 pre-flight, executor, and manifest is exercised without FlightStream.
+
+The three entry points live in TWO modules and this file imports them
+from where they are, which is the point rather than an accident of
+tidying: `resolve_matrix` binds the matrix to the workspace input
+library and so belongs to `pyflightstream.workspace.matrix`, while
+`plan_matrix` and `run_matrix` compose the campaign loop and so belong
+to `pyflightstream.run.matrix` (OPS-2007.01). Only the reader and the
+converter stayed in `pyflightstream.cases.matrix`.
 """
 
 import sys
@@ -15,13 +23,11 @@ import pytest
 from pyflightstream.cases.matrix import (
     MatrixError,
     convert_matrix,
-    plan_matrix,
     read_matrix,
-    resolve_matrix,
-    run_matrix,
     to_campaign,
 )
 from pyflightstream.run import Assessment, LocalExecutor, PlanStatus
+from pyflightstream.run.matrix import plan_matrix, run_matrix
 from pyflightstream.script import helpers
 from pyflightstream.workspace import (
     CampaignWorkspace,
@@ -29,6 +35,7 @@ from pyflightstream.workspace import (
     RunStatus,
     WorkspaceError,
 )
+from pyflightstream.workspace.matrix import resolve_matrix
 
 FIXTURES = Path(__file__).parent / "fixtures"
 FIXTURE = FIXTURES / "matrix.fs"
@@ -470,7 +477,7 @@ def test_the_row_decides_the_window_when_the_caller_does_not(tmp_path, monkeypat
     the derivation, and records what LocalExecutor was actually
     constructed with.
     """
-    import pyflightstream.run as run_module
+    import pyflightstream.run.matrix as matrix_module
 
     rows = read_matrix(REGISTRY_FIXTURE)
     assert not all(row.hidden for row in rows), (
@@ -485,10 +492,13 @@ def test_the_row_decides_the_window_when_the_caller_does_not(tmp_path, monkeypat
             seen["hidden"] = hidden
             super().__init__(WRITES_LOADS)
 
-    # run.LocalExecutor, not the matrix module: matrix.py imports it
-    # inside the function, so the name it resolves at call time is the
-    # one on `run`.
-    monkeypatch.setattr(run_module, "LocalExecutor", Recording)
+    # `pyflightstream.run.matrix`, not `pyflightstream.run`: since the
+    # hoist (OPS-2007.01) the entry point imports LocalExecutor at MODULE
+    # level, so the name it resolves is the one bound in its own module
+    # and patching the source package would silently miss. Patching the
+    # wrong one is not a false pass here, because the real executor then
+    # refuses the synthetic path and the test errors loudly.
+    monkeypatch.setattr(matrix_module, "LocalExecutor", Recording)
     workspace = make_library(tmp_path, register_build=("26.120", "C:/fs26120/FlightStream.exe"))
     run_matrix(
         REGISTRY_FIXTURE,
@@ -514,17 +524,17 @@ def test_the_row_decides_the_window_when_the_caller_does_not(tmp_path, monkeypat
 
 def _recording_executor(monkeypatch, seen):
     """Patch the executor the matrix builds and record its hidden argument."""
-    import pyflightstream.run as run_module
+    import pyflightstream.run.matrix as matrix_module
 
     class Recording(StubSolver):
         def __init__(self, fs_exe, hidden=True, **kwargs):
             seen["hidden"] = hidden
             super().__init__(WRITES_LOADS)
 
-    # run.LocalExecutor, not the matrix module: matrix.py imports it
-    # inside the function, so the name it resolves at call time is the
-    # one on `run`.
-    monkeypatch.setattr(run_module, "LocalExecutor", Recording)
+    # `pyflightstream.run.matrix`, not `pyflightstream.run`: since the
+    # hoist (OPS-2007.01) the entry point imports LocalExecutor at MODULE
+    # level, so the name it resolves is the one bound in its own module.
+    monkeypatch.setattr(matrix_module, "LocalExecutor", Recording)
 
 
 def test_a_matrix_whose_rows_all_ask_for_hidden_runs_hidden(tmp_path, monkeypatch):
