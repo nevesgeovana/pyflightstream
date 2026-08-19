@@ -163,9 +163,13 @@ builds carries them, so a caller passing a parsed result is unaffected; a
 caller passing a hand-built frame is not.
 
 **The run matrix is split across the layers it actually uses**
-(OPS-2007.01, PFS-2009.05). `pyflightstream.cases.matrix` now holds only
-the reader and the converter: `MatrixError`, `MatrixRow`, `read_matrix`,
-`to_campaign` and `convert_matrix`. `ResolvedMatrix` and `resolve_matrix`
+(OPS-2007.01, PFS-2009.05). `pyflightstream.cases.matrix` now holds the
+reader and the converter and nothing that plans or runs: `MatrixError`,
+`MatrixRow`, `read_matrix`, `to_campaign`, `convert_matrix`, and the names
+the sixteenth column brought with it (`CODE_COLUMNS`,
+`DEFAULT_VERSION_OPTION`, `LEGACY_WORKFLOW`,
+`refuse_silent_rows_without_default`, `rewrite_codes`, `upgrade_matrix`,
+`workflow_types`). `ResolvedMatrix` and `resolve_matrix`
 moved to the new `pyflightstream.workspace.matrix`, which is where the
 input library they bind against lives; `plan_matrix` and `run_matrix`
 moved to the new `pyflightstream.run.matrix`, which is where the campaign
@@ -1021,7 +1025,7 @@ Deprecations: none.
   `[tool.mypy]` header has promised since 2026-08-03 that an exemption is
   removed as its module is typed and never added, and this is that
   direction happening rather than being restated. The re-count moves with
-  it: 274 errors in 20 of 70 modules, where the tree carried 275 in 21 of
+  it: mypy recount 2026-08-19: 274 errors in 20 of 71 modules, where the tree carried 275 in 21 of
   64 the day before, and the four records that state it move together
   because a tier-1 guard compares them.
 

@@ -381,6 +381,47 @@ def test_a_build_the_workflow_does_not_cover_is_refused_before_the_solver(tmp_pa
 # --- what the other two subcommands promised, unchanged ----------------------
 
 
+def test_plan_pre_flights_the_matrix_run_would_run(tmp_path, capsys):
+    """The pair, held on the release's own headline capability.
+
+    `plan` is the zero-cost rehearsal of `run`, and a rehearsal that
+    refuses what the run accepts is not one. A matrix naming a workflow
+    could be RUN and could not be PLANNED: `plan` took no `--workflow`
+    and passed no registry, so the user got either "has no recipe
+    mapping" or "is not of the form package.module:function". Both send
+    the one user who writes no Python away to write a module, which is
+    what the capability exists to avoid.
+
+    Asserted on the SAME matrix and the SAME options the run test uses,
+    so the two cannot drift into rehearsing different things.
+    """
+    workspace = make_workspace(tmp_path)
+    matrix = single_point_matrix(tmp_path)
+
+    status = main(
+        [
+            "plan",
+            str(matrix),
+            "--name",
+            "rotor",
+            "--fs-version",
+            "26.120",
+            "--workspace",
+            str(workspace.root),
+            "--workflow",
+            "010=unsteady_rotor",
+            "--workflow",
+            "003=steady",
+        ]
+    )
+    out = capsys.readouterr()
+    assert status == 0, (
+        "plan refused a matrix that run accepts, so the rehearsal is not a "
+        f"rehearsal.\nstdout:\n{out.out}\nstderr:\n{out.err}"
+    )
+    assert not workspace.read_manifest(), "plan executed something; it must execute nothing"
+
+
 def test_convert_and_plan_still_take_recipe_references(tmp_path):
     """The reversal adds a path; it removes none.
 

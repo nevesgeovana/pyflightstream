@@ -172,7 +172,7 @@ def test_the_marker_is_registered_so_a_typo_is_not_silent():
 
 #: The exemptions as first measured on 2026-08-03, then 21 of 53 modules.
 #: Re-counted at 0.8.0.dev0 and the SET did not move, only its surroundings:
-#: mypy recount 2026-08-19: 275 errors in 20 of 71 modules (reports/RPT-029).
+#: mypy recount 2026-08-19: 274 errors in 20 of 71 modules (reports/RPT-029).
 #: Removing one means deleting its override AND its line here, in the same
 #: commit.
 MYPY_EXEMPTIONS = frozenset(
@@ -245,7 +245,7 @@ def test_the_type_check_exemption_list_only_shrinks():
 # said "223 errors in 21 of 53 modules", taken on 2026-08-03. Reading any one
 # of them told a planner the grind was 223 errors over 53 modules. Re-measured
 # on 2026-08-18 with every `ignore_errors` override off, the package reports
-# 275 errors in 20 of 71 modules. Nothing detected the drift, because nothing
+# 274 errors in 20 of 71 modules. Nothing detected the drift, because nothing
 # compared a record against the tree; documentation is not a guard.
 #
 # What is guarded here, and what deliberately is not. The MODULE TOTAL is
@@ -270,6 +270,23 @@ RECOUNT_RECORDS = (
     "reports/RPT-029_mypy-exemption-recount_2026-08-18.md",
     "pyproject.toml",
     "tests/test_traceability.py",
+    # ADDED 2026-08-19, and by a review rather than by this file's author.
+    # The CHANGELOG stated the measurement too and was outside this tuple,
+    # so it drifted to a FOURTH set of numbers while the three inside
+    # agreed with each other. A record the guard cannot see is a record
+    # that will disagree, which is the whole finding this file exists on.
+    "CHANGELOG.md",
+)
+
+#: The tool's own final line, which is the OTHER way this measurement is
+#: written down. It was outside the guard's reach until 2026-08-19, and
+#: that is how the report came to hold three mutually contradictory
+#: statements while `RECOUNT_SENTENCE` saw one: the sentence form was
+#: retyped and the tool output beside it was not. Parsed rather than
+#: compared, so a report may quote either invocation.
+RECOUNT_TOOL_LINE = re.compile(
+    r"Found (?P<errors>\d+) errors in (?P<dirty>\d+) files? "
+    r"\(checked (?P<modules>\d+) source files?\)"
 )
 
 #: The two modules OPS-2006.11.01 asserted were excused without being
@@ -365,6 +382,40 @@ def test_every_record_of_the_mypy_recount_states_the_same_measurement():
         f"the records state different measurements: {claims}. One measurement "
         "has one set of numbers; correct every record in the commit that "
         "re-measures, never one of them"
+    )
+
+
+def test_the_report_agrees_with_the_tool_output_it_quotes():
+    """The hole the sentence-shaped guard above could not see.
+
+    On 2026-08-19 RPT-029 held THREE mutually contradictory statements of
+    one measurement and the test above passed over all three, because the
+    two that disagreed were not sentences: they were the tool's own final
+    line and a markdown table. The sentence had been retyped to follow a
+    module total and the run output beside it had not.
+
+    So the quoted output is parsed and compared against the sentence.
+    Retyping the sentence alone now reds, which is the property the
+    expensive remedy has and the cheap one does not.
+    """
+    report = REPO / RECOUNT_RECORDS[0]
+    text = report.read_text(encoding="utf-8")
+    quoted = {
+        match.group("errors", "dirty", "modules") for match in RECOUNT_TOOL_LINE.finditer(text)
+    }
+    assert quoted, (
+        f"{RECOUNT_RECORDS[0]} quotes no mypy final line at all, so its numbers rest "
+        "on prose alone. The reproduction section exists to be re-run; quote what it "
+        "produced"
+    )
+    claim = _recount_claims()[RECOUNT_RECORDS[0]]
+    assert claim is not None, "the report states no re-count sentence"
+    stated = (claim[1], claim[2], claim[3])
+    assert quoted == {stated}, (
+        f"the report's sentence says {stated} and the tool output it quotes says "
+        f"{sorted(quoted)}. One of the two was edited without the other, which is "
+        "how this report came to hold three different measurements at once. Re-run "
+        "the two invocations and replace both, rather than retyping the sentence"
     )
 
 

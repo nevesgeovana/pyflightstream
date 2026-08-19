@@ -32,12 +32,24 @@ SKIP_DIRS = {
     ".ruff_cache",
     "build",
     "dist",
-    # A review's isolated worktree is a full second copy of the tree,
-    # under .claude/worktrees/. Walking it doubles every check, and an
-    # abandoned one (the removal fails on Windows while a handle is
-    # open) would report offenders against a path nobody edits.
-    "worktrees",
 }
+
+#: The one directory skipped by ABSOLUTE PREFIX rather than by name.
+#:
+#: A review's isolated worktree is a full second copy of the tree, under
+#: .claude/worktrees/. Walking it doubles every check, and an abandoned
+#: one (the removal fails on Windows while a handle is open) would report
+#: offenders against a path nobody edits.
+#:
+#: IT WAS A NAME IN `SKIP_DIRS` UNTIL 2026-08-19 and that made this walk
+#: blank ITSELF. Inside a worktree every path carries the component
+#: `worktrees`, so the walk yielded ZERO files and all three guards built
+#: on it passed over anything: a QA pass proved it by writing an em dash
+#: and the forbidden employer name into README.md and watching them pass.
+#: The guards were off in exactly the environment the review process
+#: uses. A prefix cannot do that, because it is anchored at this tree's
+#: own root.
+WORKTREE_ROOT = (REPO_ROOT / ".claude" / "worktrees").resolve()
 # Built from codepoints so this file itself stays free of the characters.
 FORBIDDEN = {chr(0x2013): "en dash", chr(0x2014): "em dash"}
 # Built by concatenation so this file itself stays free of the words:
@@ -55,8 +67,44 @@ def iter_style_checked_files():
     # it rather than the moment it would have caught something.
     for pattern in ("*.md", "*.py", "*.yaml"):
         for path in REPO_ROOT.rglob(pattern):
-            if not SKIP_DIRS.intersection(part for part in path.parts):
-                yield path
+            if SKIP_DIRS.intersection(path.parts):
+                continue
+            if WORKTREE_ROOT in path.resolve().parents:
+                continue
+            yield path
+
+
+#: The walk's own floor. Three guards subtract from it and none of them
+#: asserted it had anything to subtract from, which is how a collapse to
+#: zero read as a clean tree. Measured 2026-08-19 at 470 files; the floor
+#: is set well below so ordinary work never moves it and a collapse
+#: cannot hide.
+STYLE_WALK_FLOOR = 300
+
+
+def test_the_style_walk_has_something_to_check():
+    """The guard on the three guards, and it is not hypothetical.
+
+    Until 2026-08-19 this walk yielded ZERO files inside a reviewer
+    worktree, because it skipped by path component and a worktree lives
+    under a directory of that name. Invariants 5 and 6 were unenforced
+    there and nothing said so: each of the three consumers iterates the
+    walk and asserts per file, so an empty walk satisfies all of them.
+    """
+    walked = list(iter_style_checked_files())
+    assert len(walked) >= STYLE_WALK_FLOOR, (
+        f"the style walk yielded {len(walked)} files against a floor of "
+        f"{STYLE_WALK_FLOOR}. Every guard built on it subtracts from this "
+        "population, so a collapse makes all three pass over a tree nobody "
+        f"checked. Walk root: {REPO_ROOT}"
+    )
+    # And it must reach the two surfaces the invariants are about, not
+    # merely count to the floor on one of them.
+    suffixes = {path.suffix for path in walked}
+    assert {".md", ".py", ".yaml"} <= suffixes, (
+        f"the walk reached only {sorted(suffixes)}; invariants 5 and 6 cover the "
+        "command database (yaml) and the prose (md) as well as the code"
+    )
 
 
 def test_no_em_or_en_dashes():

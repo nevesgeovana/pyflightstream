@@ -116,12 +116,12 @@
    "text": "A dedicated reader consumes the documented pipe-delimited run-matrix format: rows with RUN = 1 are active, the sweep columns define alpha, beta, or advance-ratio sweeps, and the variables column holds KEY:VALUE pairs. A column the reader does not recognize is preserved and reported rather than silently dropped.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: BRF-08. Evidence: milestone M2; the verified 15-column layout and its fixtures.*",
-   "verification": "evidence"
+   "evidence": "*Origin: BRF-08. Evidence: milestone M2; the verified 16-column layout and its fixtures, including tests/fixtures/workflow_rotor_matrix.fs. The layout gained its sixteenth column on 2026-08-19; a fifteen-column file is recognised and refused rather than misread, which is what keeps this requirement's forever promise honest.*",
+   "verification": "test"
   },
   {
    "id": "FR-11",
-   "text": "A convert command turns a run matrix into the native campaign format in one optional invocation, and a reverse conversion reproduces every field of the original matrix, verified by a round-trip (glossary) test. The matrix POL column identifies the sims one row generates: exactly one for a row that is not fanned, and the whole group for a row that is. The matrix reference codes are preserved verbatim.",
+   "text": "A convert command turns a run matrix into the native campaign format in one optional invocation, and a reverse conversion reproduces every field of the original matrix, verified by a round-trip (glossary) test. The matrix POL column maps to the native sim_id; the matrix reference codes are preserved verbatim.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: BRF-08, BRF-16. Evidence: milestone M2; TOML round-trip tests (glossary); the pyfs-matrix convert CLI (v0.3 line).*",

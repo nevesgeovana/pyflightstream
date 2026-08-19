@@ -29,7 +29,12 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from pyflightstream.exceptions import MalformedOutputError, WorkspaceError
+from pyflightstream.exceptions import (
+    IncompleteOutputError,
+    MalformedOutputError,
+    OutputExistsError,
+    WorkspaceError,
+)
 from pyflightstream.post import (
     OutputProvenance,
     blade_passage_average,
@@ -160,6 +165,48 @@ def test_the_reader_reads_vtk_frames_too(tmp_path):
 # --- the average ------------------------------------------------------------
 
 
+@pytest.mark.parametrize(
+    ("tecplot", "cut_to", "expected"),
+    [
+        # Cut after the point block: the declared count is unmet and the
+        # frame carried no field at all, and the reader returned it.
+        (False, 6, "POINTS"),
+        # Cut inside a field block: this raised a BARE IndexError out of a
+        # public function, which `except PyflightstreamError` does not
+        # catch and which the FR-39 walk does not see.
+        (False, 12, "block"),
+        # Tecplot cut mid-table: the zone's own I= was never read, so a
+        # short frame came back short.
+        (True, 4, "I="),
+    ],
+)
+def test_a_truncated_frame_is_refused_rather_than_returned_short(
+    tmp_path, tecplot, cut_to, expected
+):
+    """The worst shape this reader can produce, and it produced three.
+
+    A history one step short is worse than no history: every reduction
+    downstream averages over whatever it was handed, and the average of a
+    run that did not finish writing looks exactly like an average. All
+    three truncations below were measured returning silently, or raising
+    a bare standard-library error, before 2026-08-19.
+    """
+    folder = tmp_path / "frames"
+    written = write_frames(folder, [1.0, 2.0], tecplot=tecplot)
+    lines = written[0].read_text(encoding="utf-8").splitlines()
+    assert len(lines) > cut_to, (
+        f"the fixture is shorter than the cut, so this case truncates nothing: "
+        f"{len(lines)} line(s), cutting to {cut_to}"
+    )
+    written[0].write_text("\n".join(lines[:cut_to]) + "\n", encoding="utf-8")
+
+    with pytest.raises(IncompleteOutputError) as refused:
+        read_timestep_series(written, order="given")
+    assert expected in str(refused.value), (
+        f"the refusal does not name what it measured; got {refused.value!r}"
+    )
+
+
 def test_the_blade_passage_average_averages_the_declared_window(tmp_path):
     """A window in solver steps, inclusive at both ends.
 
@@ -204,6 +251,51 @@ def test_passage_windows_are_the_only_route_to_a_phase_locked_reduction(tmp_path
 
 
 # --- her file rule ----------------------------------------------------------
+
+
+def test_the_series_writer_refuses_an_existing_destination(tmp_path):
+    """The fourth decorative refusal, and it was the newest.
+
+    The lane found the same shape in three writers this release and then
+    wrote a fourth without a case: deleting `write_series`'s
+    `_refuse_existing` call left the whole suite green, measured by a QA
+    pass on 2026-08-19. A refusal nothing drives is a comment.
+    """
+    frames = write_frames(tmp_path / "anim", [1.0, 2.0])
+    series = read_timestep_series(frames, order="given")
+    destination = tmp_path / "anim" / "series.csv"
+    write_series(destination, series)
+    first = destination.read_text(encoding="utf-8")
+
+    with pytest.raises(OutputExistsError, match="already exists"):
+        write_series(destination, series)
+    assert destination.read_text(encoding="utf-8") == first, (
+        "a refused write still changed the file"
+    )
+
+
+def test_the_series_writer_replaces_when_asked_deliberately(tmp_path):
+    """The control, so the refusal is a guard and not a removed feature."""
+    frames = write_frames(tmp_path / "anim", [1.0, 2.0])
+    series = read_timestep_series(frames, order="given")
+    destination = tmp_path / "anim" / "series.csv"
+    write_series(destination, series)
+
+    longer = read_timestep_series(write_frames(tmp_path / "anim2", [1.0, 2.0, 3.0]), order="given")
+    write_series(destination, longer, overwrite=True)
+    # One header plus one row per STEP: the file is a history, so a
+    # frame contributes a row and its points contribute columns.
+    assert len(destination.read_text(encoding="utf-8").strip().splitlines()) == 1 + 3
+
+
+def test_the_series_writer_refuses_a_destination_it_read_from(tmp_path):
+    """Her rule again, on the series half rather than the reduction half."""
+    frames = write_frames(tmp_path / "anim", [1.0, 2.0])
+    series = read_timestep_series(frames, order="given")
+
+    with pytest.raises(WorkspaceError, match="READ from"):
+        write_series(frames[0], series, overwrite=True)
+    assert frames[0].read_text(encoding="utf-8").startswith("TITLE")
 
 
 def test_a_reduction_never_overwrites_a_file_it_read(tmp_path):

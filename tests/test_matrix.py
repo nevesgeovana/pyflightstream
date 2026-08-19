@@ -707,7 +707,7 @@ def test_a_silent_row_with_no_default_is_refused_naming_the_rows(tmp_path):
     assert "9001" not in message, (
         f"the row that names a build is not silent and must not be listed: {message}"
     )
-    assert "--default-fs-version" in message
+    assert matrix_mod.DEFAULT_VERSION_OPTION in message
     # NEVER the version registry: that message talks about registered
     # versions and names nothing the user can act on here.
     assert "not registered" not in message
@@ -722,7 +722,7 @@ def test_a_blank_default_with_no_silent_row_is_refused_naming_the_option(tmp_pat
     with pytest.raises(MatrixError) as caught:
         to_campaign(path, name="camp", fs_version="", fs_exe="fs.exe", recipes=RECIPES)
     message = str(caught.value)
-    assert "--default-fs-version" in message
+    assert matrix_mod.DEFAULT_VERSION_OPTION in message
     assert "not registered" not in message and "Known versions" not in message, (
         f"a blank default was reported by the version registry: {message}"
     )

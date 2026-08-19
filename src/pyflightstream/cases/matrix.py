@@ -406,7 +406,16 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
 #: The command-line spelling of the campaign default, named in the
 #: refusal below so the message points at the thing a user types rather
 #: than at the keyword the library takes.
-DEFAULT_VERSION_OPTION = "--default-fs-version"
+#:
+#: IT IS `--fs-version` AND NOT `--default-fs-version`, which is what
+#: this constant said until 2026-08-19. No `pyfs-*` tool defines the
+#: latter, so a user following the refusal exactly got `unrecognized
+#: arguments` from argparse. The library PARAMETER renamed to
+#: `default_fs_version` (PFS-2009.08.01) and the flag deliberately did
+#: not: `--fs-version` is a unification across `pyfs-qa` and
+#: `pyfs-manual` that the author kept, so renaming it here would have
+#: undone a decision as a side effect of a different item.
+DEFAULT_VERSION_OPTION = "--fs-version"
 
 
 def refuse_silent_rows_without_default(

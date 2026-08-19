@@ -184,6 +184,14 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     _add_common_arguments(plan)
     plan.add_argument(
+        "--workflow",
+        action="append",
+        default=[],
+        metavar="CODE=NAME",
+        help="FS_SCRIPT code to WORKFLOW type (repeatable); the same mapping `run` "
+        "takes, so a workflow matrix can be pre-flighted before a seat is spent",
+    )
+    plan.add_argument(
         "--workspace",
         default=".",
         help="managed campaign root carrying the inputs/ library (default: the current directory)",
@@ -235,7 +243,12 @@ def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     try:
         recipes = _parse_recipes(args.recipe)
-        if args.subcommand == "run":
+        if args.subcommand in ("run", "plan"):
+            # BOTH, since 2026-08-19. `plan` is the zero-cost rehearsal of
+            # `run`, and a rehearsal that refuses what the run accepts is
+            # not a rehearsal: a workflow matrix could be run and not
+            # planned, so the one user who writes no Python had no way to
+            # check a study before spending a licensed seat on it.
             recipes = _one_builder_per_code(recipes, _parse_workflows(args.workflow))
     except (ValueError, CampaignConfigError) as error:
         print(str(error), file=sys.stderr)
@@ -275,9 +288,15 @@ def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
             args.matrix,
             workspace,
             name=args.name,
-            fs_version=args.fs_version,
+            # The keyword the library takes, not the flag the user types:
+            # the parameter renamed with PFS-2009.08.01 and `--fs-version`
+            # deliberately did not. Passing the old spelling here fired a
+            # deprecation warning at a user who had typed a shell command
+            # and named a Python keyword they never wrote.
+            default_fs_version=args.fs_version,
             recipes=recipes,
             fs_exe=args.fs_exe,
+            recipe_registry=workflow_registry(),
         )
     except (MatrixError, InputArtifactError, OSError, ValueError) as error:
         print(f"matrix not planned: {error}", file=sys.stderr)

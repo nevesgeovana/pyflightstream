@@ -45,13 +45,14 @@ form of either this repository has evidence for.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
 
-from pyflightstream.results import MalformedOutputError
+from pyflightstream.results import IncompleteOutputError, MalformedOutputError
 
 __all__ = [
     "FrameAverage",
@@ -157,6 +158,7 @@ def _read_tecplot_frame(text: str) -> tuple[np.ndarray, dict[str, np.ndarray], f
     """Read one Tecplot ASCII ordered POINT zone."""
     names: list[str] = []
     solution_time: float | None = None
+    declared_points: int | None = None
     rows: list[list[float]] = []
     for line in text.splitlines():
         stripped = line.strip()
@@ -169,6 +171,12 @@ def _read_tecplot_frame(text: str) -> tuple[np.ndarray, dict[str, np.ndarray], f
             names = [token for token in stripped.split('"')[1::2]]
             continue
         if upper.startswith("ZONE"):
+            # The zone's declared point count, so a truncated table is
+            # refused rather than returned short. Anchored so the I of a
+            # longer keyword cannot match: this record carries several.
+            declared = re.search(r"(?<![A-Z])I\s*=\s*(\d+)", upper)
+            if declared is not None:
+                declared_points = int(declared.group(1))
             if "SOLUTIONTIME" in upper:
                 tail = upper.split("SOLUTIONTIME", 1)[1].lstrip(" =")
                 token = tail.split()[0].strip('"').rstrip('"')
@@ -191,6 +199,18 @@ def _read_tecplot_frame(text: str) -> tuple[np.ndarray, dict[str, np.ndarray], f
         raise MalformedOutputError(
             f"the frame declares {len(names)} variables and its rows hold {table.shape[1]} columns"
         )
+    # The zone's own I= against the rows that are THERE. The reader
+    # ignored it until 2026-08-19, so a file cut mid-table came back
+    # shorter with no refusal, and a history one step short is the worst
+    # shape here: every reduction downstream averages over whatever it
+    # was handed. Read here rather than at the ZONE branch because the
+    # row count only exists once the loop has finished.
+    if declared_points is not None and len(rows) != declared_points:
+        raise IncompleteOutputError(
+            f"the zone declares I={declared_points} and the frame carries {len(rows)} "
+            "row(s). It is truncated, and a shorter frame read as a whole one makes "
+            "every reduction over it an average of a run that did not finish writing"
+        )
     points = table[:, :3]
     fields = {name: table[:, index] for index, name in enumerate(names) if index >= 3}
     return points, fields, solution_time
@@ -206,8 +226,20 @@ def _read_vtk_frame(text: str) -> tuple[np.ndarray, dict[str, np.ndarray], float
             "the frame carries no POINTS record, so it is not VTK legacy ASCII polydata"
         ) from error
     count = int(lines[start].split()[1])
+    rows = lines[start + 1 : start + 1 + count]
+    # The declared count against the rows that are THERE. Without this the
+    # slice simply runs out and the frame comes back short, which every
+    # reduction downstream then averages over as though it were the run
+    # (measured 2026-08-19: a file cut after the point block returned two
+    # frames, an unmet point count and no fields at all, with no refusal).
+    if len(rows) != count:
+        raise IncompleteOutputError(
+            f"the frame declares POINTS {count} and carries {len(rows)}. It is "
+            "truncated, and a shorter frame read as a whole one makes every "
+            "reduction over it an average of a run that did not finish writing"
+        )
     points = np.asarray(
-        [[float(token) for token in line.split()] for line in lines[start + 1 : start + 1 + count]],
+        [[float(token) for token in line.split()] for line in rows],
         dtype=float,
     )
     fields: dict[str, np.ndarray] = {}
@@ -218,6 +250,17 @@ def _read_vtk_frame(text: str) -> tuple[np.ndarray, dict[str, np.ndarray], float
         if upper.startswith("SCALARS "):
             name = line.split()[1]
             body = index + 2  # the LOOKUP_TABLE line sits between
+            # Bounds-checked rather than indexed and hoped: an out-of-range
+            # read here raised a bare IndexError out of a public function,
+            # which `except PyflightstreamError` does not catch and which
+            # FR-39's walk does not see, so it was neither catalogued nor
+            # on the ratchet.
+            if body + count > len(lines):
+                raise IncompleteOutputError(
+                    f"the frame declares POINTS {count} and its {name!r} block ends "
+                    f"after {max(0, len(lines) - body)} value(s). It is truncated "
+                    "inside a field block"
+                )
             fields[name] = np.asarray(
                 [float(lines[i]) for i in range(body, body + count)], dtype=float
             )

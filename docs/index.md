@@ -15,7 +15,7 @@ gave every registered build the vendor build number its solver prints,
 so an install can be identified rather than described. Five command-line
 tools ship with the package: `pyfs-qa`
 (probes, physics regression, drift), `pyfs-workspace` (campaign
-workspace init), `pyfs-matrix` (run-matrix convert and pre-flight),
+workspace init), `pyfs-matrix` (run-matrix convert, pre-flight and run),
 `pyfs-fsi` (the aeroelastic coupling executable), and `pyfs-manual`
 (maintainer tool: compares a vendor manual against the command
 database, reports what each build documents and what changed between

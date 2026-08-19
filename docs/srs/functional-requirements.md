@@ -226,8 +226,12 @@ Milestones and session records are listed in the
     single home of the explicit-never-guessed rule.
 
 !!! requirement "FR-10 Run-matrix reader, forever <span class='srs-implemented'>implemented</span>"
-    *Origin: BRF-08. Evidence: milestone M2; the verified 15-column
-    layout and its fixtures.*
+    *Origin: BRF-08. Evidence: milestone M2; the verified 16-column
+    layout and its fixtures, including
+    `tests/fixtures/workflow_rotor_matrix.fs`. The layout gained its
+    sixteenth column on 2026-08-19; a fifteen-column file is recognised
+    and refused rather than misread, which is what keeps this
+    requirement's forever promise honest.*
 
     A dedicated reader consumes the documented pipe-delimited
     run-matrix format: rows with RUN = 1 are active, the sweep columns
@@ -250,21 +254,29 @@ Milestones and session records are listed in the
     format in one optional invocation, and a reverse conversion
     reproduces every field of the original matrix, verified by a
     round-trip ([glossary](index.md#glossary)) test. The matrix POL
-    column identifies the sims one row generates: exactly one for a row
-    that is not fanned, and the whole group for a row that is. The
-    matrix reference codes are preserved verbatim.
+    column maps to the native `sim_id`; the matrix reference codes are
+    preserved verbatim.
 
     Reworded 2026-07-27: "lossless" named a property without saying how
     anyone would know. The reverse conversion is what makes it
     checkable, and it is the same claim stated as a test.
 
-    Reworded again 2026-08-19 (PFS-2025.14), the author's decision. It
-    said POL maps to the native `sim_id`, one to one, which a fanned
-    rotation sweep makes false: one row becomes several sims. What FR-11
-    protects is LOSSLESSNESS and the traceability of a sim back to the
-    row that asked for it, and neither depends on the cardinality being
-    one. Stating the group is what keeps the round trip checkable now
-    that a row may generate more than one sim.
+    A WIDER FORM OF THIS SENTENCE WAS WRITTEN ON 2026-08-19 AND
+    WITHDRAWN THE SAME DAY, and it is recorded rather than reverted in
+    silence because the question it was answering is still open. It said
+    POL identifies the sims a row GENERATES, "exactly one for a row that
+    is not fanned", against the possibility that a rotation sweep turns
+    one row into one sim per blade position. A review pass measured the
+    tree: `cases.matrix` writes `sim_id=row.pol` one to one, a sweep's
+    values become POINTS inside that one sim, and the word "fanned"
+    appeared nowhere else in the repository. So the sentence described
+    behaviour the package does not have, in a term it defined nowhere,
+    which sends an engineer looking for a switch that is not there.
+
+    The one-to-one form above is what the code does today and is what
+    binds. The question returns if the matrix half of PFS-2025.14 lands:
+    the emitter that rotates about a named point exists, and the matrix
+    column that would sweep it does not.
 
 !!! requirement "FR-12 Recipes as explicit protocol <span class='srs-implemented'>implemented</span>"
     *Origin: PP-7. Evidence: milestone M2; recipe registry tests.*

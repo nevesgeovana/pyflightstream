@@ -76,6 +76,14 @@ PHRASES_THAT_WENT_STALE = (
 #: test moves with it.
 HELPER_COUNT = re.compile(r"\b([A-Za-z]+|\d+)\s+curated helpers\b")
 
+#: The OTHER two places the guide states the count, added 2026-08-19
+#: after a review found both stale while the phrase above was correct in
+#: two sites: the frame titled for the count, and the block heading over
+#: the enumerated list. A guard that reads one spelling of a fact reports
+#: on one spelling of a fact.
+HELPER_COUNT_HEADING = re.compile(r"Why helpers, and why only ([A-Za-z]+|\d+)")
+HELPER_BLOCK = re.compile(r"\\begin{block}{The ([A-Za-z]+|\d+)}\n(.*?)\\end{block}", re.S)
+
 #: A pinned interpreter transcript: the call, then everything the guide
 #: claims the library prints, up to the end of the listing.
 TRANSCRIPT = re.compile(
@@ -118,23 +126,33 @@ def guide_text() -> str:
     return GUIDE.read_text(encoding="utf-8")
 
 
-def curated_helper_count() -> int:
-    """How many helper functions the helpers module actually defines.
+def curated_helper_names() -> set[str]:
+    """The helper functions the helpers module actually defines.
 
     Counted by definition site rather than by ``dir()``: the module
     imports ``Script``, ``Mapping`` and several exception types, and
     counting those would make the guide's number wrong in the direction
     that looks right.
+
+    The NAMES rather than the count, since 2026-08-19, because the count
+    can be right while the guide's enumerated list is short: it listed
+    sixteen after the release added five, so the tour was missing exactly
+    the new capability while any count check would have agreed.
     """
     import inspect
 
-    return sum(
-        1
+    return {
+        name
         for name, value in vars(helpers).items()
         if not name.startswith("_")
         and inspect.isfunction(value)
         and value.__module__ == helpers.__name__
-    )
+    }
+
+
+def curated_helper_count() -> int:
+    """How many helper functions the helpers module actually defines."""
+    return len(curated_helper_names())
 
 
 def test_the_pattern_matches_the_sentences_that_actually_went_stale():
@@ -208,6 +226,59 @@ def test_the_guide_states_the_package_version_it_ships_with():
         f"declares {declared}. The cover is the first thing a reader sees, and the "
         "release checklist moves it in the same commit as pyproject.toml and "
         "CITATION.cff"
+    )
+
+
+def test_every_place_the_guide_states_the_helper_count_agrees_with_the_module():
+    """The two sites the phrase-shaped guard could not see.
+
+    On 2026-08-19 the guide's helpers slide still said sixteen, in the
+    frame title and in the block heading, while the two sites carrying
+    the literal phrase `N curated helpers` had been corrected the day
+    before. The guard passed, because a guard that matches one spelling
+    of a fact reports on one spelling of a fact.
+    """
+    actual = curated_helper_count()
+    text = guide_text()
+
+    heading = HELPER_COUNT_HEADING.search(text)
+    assert heading is not None, (
+        "the guide no longer titles the helpers frame with a count, so this half "
+        "of the guard has nothing to check. Restore the title or delete this half"
+    )
+    stated = WORD_NUMBERS.get(heading.group(1).lower(), None)
+    if stated is None:
+        assert heading.group(1).isdigit(), (
+            f"the frame title says {heading.group(1)!r} helpers, which this guard "
+            "cannot read as a number. Write the digit"
+        )
+        stated = int(heading.group(1))
+    assert stated == actual, (
+        f"the frame titled for the helper count says {stated} and the module "
+        f"defines {actual}. It is the first thing a reader of that section sees"
+    )
+
+
+def test_the_guide_enumerates_every_curated_helper():
+    """The count can be right while the list is short, and it was.
+
+    The slide's block listed sixteen names after the release added five,
+    so a reader counting the tour against the module would have found the
+    tour missing exactly the new capability. Comparing the LIST rather
+    than the count is what closes that.
+    """
+    block = HELPER_BLOCK.search(guide_text())
+    assert block is not None, "the guide no longer enumerates the helpers"
+    listed = {
+        name.strip().replace(chr(92) + "_", "_")
+        for name in block.group(2).replace(chr(10), " ").split(",")
+        if name.strip()
+    }
+    defined = set(curated_helper_names())
+    assert listed == defined, (
+        f"the guide lists {len(listed)} curated helpers and the module defines "
+        f"{len(defined)}.\n  listed and not defined: {sorted(listed - defined)}"
+        f"\n  defined and not listed: {sorted(defined - listed)}"
     )
 
 

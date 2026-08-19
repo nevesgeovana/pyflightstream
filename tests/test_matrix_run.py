@@ -21,6 +21,7 @@ from pathlib import Path
 import pytest
 
 from pyflightstream.cases.matrix import (
+    DEFAULT_VERSION_OPTION,
     MatrixError,
     convert_matrix,
     read_matrix,
@@ -972,7 +973,7 @@ def test_a_silent_row_with_a_blank_default_is_refused_before_anything_binds(
     assert "9003" not in message, (
         f"an inactive row runs nothing, so its empty cell asks nothing: {message}"
     )
-    assert "--default-fs-version" in message
+    assert DEFAULT_VERSION_OPTION in message
     assert "not registered" not in message
     # Nothing was executed and nothing was planned.
     assert workspace.read_manifest() == []
@@ -1002,7 +1003,7 @@ def test_a_blank_default_is_refused_by_the_option_and_never_by_the_registry(
     with pytest.raises(MatrixError) as caught:
         call(path, workspace, name="camp", recipes=RECIPES, default_fs_version="", **extra)
     message = str(caught.value)
-    assert "--default-fs-version" in message
+    assert DEFAULT_VERSION_OPTION in message
     assert "Known versions" not in message and "not registered" not in message, (
         f"the version registry answered a question about a missing option: {message}"
     )

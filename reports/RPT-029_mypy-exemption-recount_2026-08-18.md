@@ -1,4 +1,4 @@
-# RPT-029: the type-checker exemption re-count at 0.8.0.dev0 (2026-08-18, amended 2026-08-18)
+# RPT-029: the type-checker exemption re-count at 0.8.0.dev0 (2026-08-18, amended twice on 2026-08-19)
 
 > **Amended before this file was ever committed, and the amendment is the
 > report's own reproduction rule catching its own author.**
@@ -16,11 +16,37 @@
 > unclean-module count did not move: 275 errors in 21 files.** The module
 > total moved from 63 to 64, and `qa/cost.py` is clean under both
 > configurations, which is why the first two numbers survive unchanged.
-> Every figure below is the re-measurement.
+>
+> **Second amendment, 2026-08-19, and it is the FIRST one that was found
+> by a reviewer rather than by the author.** Between the first amendment
+> and this one, two more waves landed, `pyflightstream.results.tables`
+> lost its exemption on evidence, and the headline sentence was RETYPED
+> twice to follow the module total. Retyping is the cheap remedy of the
+> two this report names below, and it is legitimate for the module total
+> alone. Applied to a compound sentence that also asserts an error count
+> and a dirty count, it welded a PRE-removal error total onto POST-removal
+> module and dirty counts: the removed module carried one error, so the
+> total could not still be 275 while the dirty count fell to 20.
+>
+> The report then held three mutually contradictory statements of one
+> measurement, and its own guard could not see two of them: the guard
+> matches the sentence FORM `mypy recount <date>: <n> errors in <d> of <m>
+> modules`, and the disagreeing statements were the tool's own output
+> lines and a markdown table.
+>
+> **The expensive remedy was applied this time.** Both runs were made
+> again on the settled tree, and the headline, the reproduction outputs,
+> the per-module table, the code table, the concentration lines and the
+> delta table are all that run rather than edits to the previous one:
+>
+>     Found 274 errors in 20 files (checked 71 source files)
+>     Success: no issues found in 71 source files
+>
+> Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-08-19: 275 errors in 20 of 71 modules.**
+**mypy recount 2026-08-19: 274 errors in 20 of 71 modules.**
 
 Taken at version `0.8.0.dev0`, on the working tree at commit `5f2dcf1` plus
 the wave-1 changes of 2026-08-18, with every `ignore_errors`
@@ -64,11 +90,11 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 275 errors in 21 files (checked 64 source files)
+    Found 274 errors in 20 files (checked 71 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
-    Success: no issues found in 64 source files
+    Success: no issues found in 71 source files
 
 mypy walks the FILESYSTEM rather than the git index, so the state of the
 working tree is part of the measurement, and this report has already been
@@ -120,10 +146,10 @@ option, and the third option is what happened between 2026-08-03 and today.
 ## The debt, per module
 
     errors   lines   module
-       109      19   pyflightstream.run
+       108      18   pyflightstream.run
         79      13   pyflightstream.qa.probes
         22       9   pyflightstream.script.solver_setup
-        16      15   pyflightstream.script.helpers
+        17      16   pyflightstream.script.helpers
         13      13   pyflightstream.script
          8       2   pyflightstream.qa.specs
          6       6   pyflightstream.probes.planar
@@ -138,17 +164,22 @@ option, and the third option is what happened between 2026-08-03 and today.
          1       1   pyflightstream.post.writers
          1       1   pyflightstream.qa.cli
          1       1   pyflightstream.qa.physics
-         1       1   pyflightstream.results.tables
          1       1   pyflightstream.script.entities
          1       1   pyflightstream.workspace.naming
        ---     ---
-       275      99   21 modules of 64
+       274      98   20 modules of 71
+
+`pyflightstream.results.tables` stood in this table on 2026-08-18 with one
+error and is absent from it now. That is the row the exemption removal rests
+on, and it is left out rather than shown at zero: a module with no error is
+not debt, and a table of the debt that lists it would need a reader to know
+which zeros mean clean and which mean unmeasured.
 
 By error code:
 
-    234  arg-type
-     10  return-value
-      9  assignment
+    235  arg-type
+      9  return-value
+      8  assignment
       6  misc
       5  operator
       5  union-attr
@@ -157,12 +188,18 @@ By error code:
       1  dict-item
       1  var-annotated
 
+The code column is read from the bracketed code that ENDS each line and not
+from the first bracket on it. That is worth one sentence because reading the
+first bracket is wrong in a way that looks right: a message about `list[str]`
+offers `[str]` before it offers its real code, and a tally built that way
+reported four codes this checker does not emit.
+
 ## The second column is the one to plan with
 
 The 2026-08-03 table had one column, and the plan built on it says two modules
 carry 73 percent of the debt and sizes the small modules at an afternoon each.
 The error count is a poor size estimate here, and the re-count shows why
-rather than asserting it: **275 errors sit on 99 distinct source lines.**
+rather than asserting it: **274 errors sit on 98 distinct source lines.**
 
 While reading that table a second defect in it surfaced, small and worth one
 sentence because it is the same class: its prose says "the eleven with one or
@@ -174,15 +211,15 @@ The concentration is extreme at the top. Six lines produce 73 of the errors,
 better than a quarter of the whole count, because each is a call site that
 mypy reports once per argument it cannot match:
 
-    13  src/pyflightstream/script/solver_setup.py:886
-    12  src/pyflightstream/run/__init__.py:1997
-    12  src/pyflightstream/run/__init__.py:2002
-    12  src/pyflightstream/run/__init__.py:2012
-    12  src/pyflightstream/run/__init__.py:2050
-    12  src/pyflightstream/run/__init__.py:2076
+    13  src/pyflightstream/script/solver_setup.py:898
+    12  src/pyflightstream/run/__init__.py:2347
+    12  src/pyflightstream/run/__init__.py:2352
+    12  src/pyflightstream/run/__init__.py:2364
+    12  src/pyflightstream/run/__init__.py:2402
+    12  src/pyflightstream/run/__init__.py:2428
 
-`run` reads as 109 errors and is 19 lines, 5.7 errors per line.
-`script.helpers` reads as 16 and is 15, so it is nearly one error per line and
+`run` reads as 108 errors and is 18 lines, 6.0 errors per line.
+`script.helpers` reads as 17 and is 16, so it is nearly one error per line and
 is genuinely more scattered work than its rank suggests. Sizing the grind by
 errors overstates `run` and `qa.probes` and understates everything shaped like
 `script.helpers` and `script`, which have the widest spread relative to their
@@ -195,19 +232,26 @@ not try to.
 
 ## What moved since 2026-08-03
 
-| | 2026-08-03 | 2026-08-18 | delta |
+| | 2026-08-03 | 2026-08-19 | delta |
 |---|---|---|---|
-| modules in the package | 53 | 64 | +11 |
-| modules exempted | 21 | 21 | none |
-| modules held clean | 32 | 42 | +10 |
-| errors with the overrides off | 223 | 275 | +52 |
+| modules in the package | 53 | 71 | +18 |
+| modules exempted | 21 | 20 | -1 |
+| modules held clean | 32 | 51 | +19 |
+| errors with the overrides off | 223 | 274 | +51 |
 
-Read the middle two rows together. Ten modules were added over three releases
-and every one of them is clean, which is the ratchet doing exactly what it was
-built to do: new code is type checked from the day it lands. The debt grew by
-52 errors entirely INSIDE the modules that were already excused, where nothing
-is watching. Both halves of that are worth knowing before anyone plans the
-grind, and neither was visible from the old table.
+Read the middle two rows together. Eighteen modules were added over three
+releases and every one of them is clean, which is the ratchet doing exactly
+what it was built to do: new code is type checked from the day it lands. The
+debt grew by 51 errors entirely INSIDE the modules that were already excused,
+where nothing is watching. Both halves of that are worth knowing before anyone
+plans the grind, and neither was visible from the old table.
+
+THE EXEMPTED COLUMN MOVED DOWN FOR THE FIRST TIME, which the 2026-08-18
+edition of this table could not show because it had not happened yet.
+`pyflightstream.results.tables` was excused on 2026-08-03 and is clean on
+2026-08-19: deleting `_as_workspace` took its last error with it. That is one
+override removed on evidence, and it is the direction the `[tool.mypy]` header
+has promised since the ratchet was written.
 
 ## The item's own premise does not survive reading, and this is where it is written down
 
