@@ -981,7 +981,13 @@ the base could not offer while it bundled several.
     are recorded, not derived" now states the split between the derived
     azimuth-increment sign and the measured rotor-speed sign, and names
     RPT-036 for what is still open. The badge did not move, because the
-    STATING half is what it claims and that half is now true.*
+    STATING half is what it claims and that half is now true FOR THE
+    ROTOR SIGN. The other two the requirement names are not in
+    `CONVENTIONS`: the positive axis directions are stated per surface
+    in the data model, and the moment reference point is stated on the
+    artifact that carries it. Whether those belong in `CONVENTIONS` too
+    is open, and this paragraph names them rather than letting the
+    amendment imply the whole half moved.*
 
     The package states the reference-frame and sign conventions for
     reported forces, moments, and rotor quantities, naming the positive

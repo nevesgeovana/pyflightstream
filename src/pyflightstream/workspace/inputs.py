@@ -47,10 +47,10 @@ from __future__ import annotations
 
 import re
 import tomllib
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, get_args
 
 from pydantic import (
     BaseModel,
@@ -72,7 +72,7 @@ from pydantic import (
 # same public spelling.
 from pyflightstream._errors import InputArtifactError
 
-# DOWNWARD, and the one import in this module that leaves the workspace
+# DOWNWARD, and the two imports in this module that leave the workspace
 # layer: `cases` sits below `workspace` in the house order, and the
 # migration at the foot of this file has to rewrite the REF, SET and
 # ENTRY cells of a run matrix in the same call that renames the library
@@ -170,9 +170,14 @@ class PropellerReference(BaseModel):
 
         Written with an underscore, and a datasheet that prints
         ``inboard-up``, ``Inboard Up`` or ``INBOARD_UP`` is accepted:
-        case, hyphens and spaces are folded before the domain is
-        checked, because this is the one field in the model whose value
-        is transcribed off paper.
+        case, hyphens and whitespace are folded before the domain is
+        checked. ``rotation`` is folded the same way, for the same
+        reason, since both are transcribed off the same page.
+
+        IT DOES NOT APPLY TO A CENTRELINE PROPELLER. A nose-mounted
+        tractor has no blade nearer the fuselage than any other, so the
+        field has no answer for that configuration and is left out;
+        ``rotation`` alone describes it.
 
         It is a separate field rather than two more values of
         ``rotation`` because the two vocabularies are not
@@ -280,29 +285,69 @@ class PropellerReference(BaseModel):
     rpm_sign_installed: Literal[-1, 1] | None = None
     rpm_sign_isolated: Literal[-1, 1] | None = None
 
-    @field_validator("blade_travel", mode="before")
+    @field_validator("rotation", "blade_travel", mode="before")
     @classmethod
-    def _blade_travel_is_read_the_way_a_datasheet_prints_it(
+    def _the_vocabulary_is_read_the_way_a_datasheet_prints_it(
         cls, value: object, info: ValidationInfo
     ) -> object:
-        """Fold case, hyphens and spaces before the domain is checked.
+        """Fold case, hyphens and whitespace before the domain is checked.
 
-        This is the one field whose value is transcribed off paper, and
-        a datasheet prints it in whatever style its publisher chose. A
-        refusal of ``inboard-up`` that names only the accepted spelling
-        teaches the reader nothing they did not already believe they had
-        written.
+        BOTH vocabularies, not one. The first version folded
+        ``blade_travel`` alone, on the ground that its value is
+        transcribed off paper, and left ``rotation`` refusing
+        ``Clockwise`` and ``counter-clockwise`` with pydantic's bare
+        literal error. They record the same fact, off the same
+        datasheet, and ``rotation`` is the REQUIRED one, so the strict
+        field was the one a reader meets first. It is also the field
+        this model's own missing-value refusal tells them to add.
+
+        Runs of whitespace collapse rather than a single space,
+        because a value pasted out of a PDF arrives with two.
         """
         if not isinstance(value, str):
             return value
-        folded = value.strip().lower().replace("-", "_").replace(" ", "_")
-        if folded in {"inboard_up", "inboard_down"}:
-            return folded
+
+        def squash(word: str) -> str:
+            """Lower case with every separator removed.
+
+            Comparing SQUASHED forms on both sides is what lets one rule
+            serve two vocabularies whose own spelling differs. Folding
+            separators to an underscore, which is what this did first,
+            reads ``Inboard Up`` correctly and turns ``Counter-Clockwise``
+            into ``counter_clockwise``, a word no domain here contains:
+            one vocabulary joins its parts with an underscore and the
+            other with nothing at all.
+            """
+            return "".join(character for character in word.lower() if character.isalnum())
+
+        # THE DOMAIN IS READ OFF THE FIELD, not restated here. Written as a
+        # literal set this validator was a second declaration of one
+        # vocabulary, exactly what the rotation sense was corrected for one
+        # commit earlier: widening the annotation then changed nothing and
+        # broke nothing, so the two could drift apart in silence.
+        # TWO ANNOTATION SHAPES, flattened here rather than assumed. This
+        # field is `Literal[...]` and `blade_travel` is `Literal[...] | None`,
+        # so the optional arm nests the words one level deeper. Written for
+        # the optional shape alone, this produced an EMPTY permitted set for
+        # `rotation` and a refusal reading "this field takes ." with nothing
+        # after it, which the first run printed.
+        permitted = set()
+        for arm in get_args(cls.model_fields[info.field_name].annotation):
+            permitted.update(get_args(arm) or ({arm} if isinstance(arm, str) else ()))
+        canonical = {squash(word): word for word in permitted}
+        if squash(value) in canonical:
+            return canonical[squash(value)]
+        # The EXAMPLE is built from this field's own domain. Written with
+        # a fixed pair of examples, the message showed one spelling from
+        # each vocabulary, so a blade_travel refusal offered the word
+        # "clockwise" to a reader who had just been told the field does
+        # not take it.
+        sample = sorted(permitted)[0]
         raise ValueError(
-            f"{info.field_name} is {value!r}, and the blade travel of a propeller is "
-            "inboard_up or inboard_down, naming where the blade nearest the fuselage "
-            "travels. Case, hyphens and spaces are folded, so inboard-up and "
-            "Inboard Up are read; anything else is refused rather than guessed"
+            f"{info.field_name} is {value!r}, and this field takes "
+            f"{' or '.join(sorted(permitted))}. Case, hyphens and whitespace are "
+            f"folded, so {sample.replace('_', '-').title()} is read as written; "
+            "anything else is refused rather than guessed"
         )
 
     @model_validator(mode="before")
@@ -318,8 +363,21 @@ class PropellerReference(BaseModel):
         they met was pydantic's ``Field required``, which names no cause
         and no remedy, while the message that routes them lives one
         layer down in a function they may never call.
+
+        ONE TRADE-OFF, ACCEPTED RATHER THAN OVERLOOKED. Raising here
+        aborts the whole model validation, so an artifact whose
+        propeller block is wrong in more than one way at once reports
+        this cause alone, where pydantic would have reported every
+        cause. A reader who fixes the named one and meets a second
+        refusal on the next load learns less. It is accepted because the
+        alternative loses the message entirely for the case this exists
+        to serve.
+
+        A MAPPING RATHER THAN A DICT, deliberately: the TOML loader
+        yields a dict, and a programmatic caller handing in any other
+        mapping fell straight through to the refusal this replaces.
         """
-        if not isinstance(data, dict) or "rotation" in data:
+        if not isinstance(data, Mapping) or "rotation" in data:
             return data
         if "blade_travel" in data:
             raise ValueError(
@@ -328,8 +386,14 @@ class PropellerReference(BaseModel):
                 "between them: blade_travel is side-independent, so the left and the "
                 "right propeller of a pair carry the same word, and turning it into a "
                 "sense viewed from behind needs the side of the aircraft, which no "
-                "field of this artifact records. Add rotation, clockwise or "
-                "counterclockwise, alongside the blade_travel you have"
+                "field of this artifact records. You know the side, so the conversion "
+                "is yours to make and it is mechanical: standing behind the aircraft "
+                "looking forward, the inboard blade of a RIGHT-side propeller sits at "
+                "the 9 o'clock position of its disc, and travelling up from there is "
+                "travelling towards 12, which is clockwise. So inboard_up on the right "
+                "side is clockwise, inboard_down on the right side is counterclockwise, "
+                "and a left-side propeller is the mirror of both. Add the rotation you "
+                "get from that, alongside the blade_travel you have"
             )
         raise ValueError(
             "the propeller records no rotation. The sense of rotation is clockwise or "

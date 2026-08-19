@@ -28,6 +28,36 @@ from pyflightstream.reference import CONVENTIONS, conventions_markdown, render_h
 # --- the conventions section renders in both layers -------------------------
 
 
+def test_the_rotor_sign_convention_is_published():
+    """FR-42 claims the package names the rotor-rotation sign.
+
+    It claimed that from 2026-07-27 while `CONVENTIONS` carried no rotor
+    entry at all, and a reviewer pass found that rather than a guard.
+    Adding the entry without this case leaves the same hole: delete it
+    again and the badge stays green and the suite stays green.
+
+    What is pinned is the DISTINCTION the entry exists to publish, not
+    its prose. A rotor entry that dropped either half would be a
+    convention that no longer says which sign is derived and which is
+    measured, which is the confusion the whole release round was spent
+    on.
+    """
+    entry = next((body for title, body in CONVENTIONS if "Rotor sign" in title), "")
+    assert entry, (
+        "CONVENTIONS carries no rotor-sign entry, and FR-42 is badged implemented on "
+        "the claim that the package names the rotor-rotation sign"
+    )
+    lowered = entry.lower()
+    for token, why in (
+        ("azimuth increment", "the derived quantity is not named"),
+        ("rotor speed", "the measured quantity is not named"),
+        ("rotation_sense_sign", "the home of the derivation is not named"),
+        ("rpm_sign_installed", "the fields that record the measurement are not named"),
+        ("rpt-036", "what is still open is not addressed to the report that holds it"),
+    ):
+        assert token in lowered, f"the rotor-sign convention is published and {why}"
+
+
 def test_conventions_have_titles_and_prose():
     assert len(CONVENTIONS) >= 8
     for title, text in CONVENTIONS:

@@ -909,6 +909,35 @@ def test_the_sense_is_required_of_a_caller_as_well_as_of_an_artifact():
     assert script.render() == "\n", "a refused call emitted script lines"
 
 
+def _load_scopes(module_path, name: str) -> set[str]:
+    """Names of the scopes that LOAD ``name`` in ``module_path``.
+
+    ``"<module>"`` for a load at module level, which is the case the
+    earlier function-enumerating version of this guard could not see.
+    Class bodies, lambdas and comprehensions report the nearest named
+    scope that encloses them, which is enough to answer the only
+    question asked here: is there more than one place.
+    """
+    import ast
+
+    tree = ast.parse(module_path.read_text(encoding="utf-8"))
+    scopes: set[str] = set()
+
+    def walk(node, scope: str) -> None:
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, ast.Name) and child.id == name:
+                if isinstance(child.ctx, ast.Load):
+                    scopes.add(scope)
+                continue
+            inner = (
+                child.name if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef) else scope
+            )
+            walk(child, inner)
+
+    walk(tree, "<module>")
+    return scopes
+
+
 def test_the_azimuth_datum_has_exactly_one_reader_in_the_package():
     """One table, one reader, asserted rather than inspected.
 
@@ -953,21 +982,26 @@ def test_the_azimuth_datum_has_exactly_one_reader_in_the_package():
     )
     assert inside, "nothing reads the table at all, so this guard is measuring nothing"
 
-    source = home.read_text(encoding="utf-8")
-    tree = ast.parse(source)
-    functions = [
-        node.name
-        for node in ast.walk(tree)
-        if isinstance(node, ast.FunctionDef)
-        and any(
-            isinstance(inner, ast.Name) and inner.id == "AZIMUTH_BASIS" for inner in ast.walk(node)
+    # THE SCOPE OF EVERY LOAD, not the list of functions containing one.
+    # Enumerating `ast.FunctionDef` nodes was the first version, and a
+    # review pass measured what it misses: a module-level
+    # `_Z = AZIMUTH_BASIS["Z"]` read by a second helper sits in no
+    # function, so `functions` stays unchanged and the guard passes over
+    # exactly the second decision it exists to refuse. Lambdas, async
+    # functions and class bodies escape the same way.
+    for name, expected in (
+        ("AZIMUTH_BASIS", {"azimuth_basis"}),
+        ("ROTATION_SENSE_SIGN", {"blade_frames"}),
+    ):
+        scopes = _load_scopes(home, name)
+        assert scopes, f"nothing reads {name}, so this half is measuring nothing"
+        assert scopes == expected, (
+            f"{name} is read from {sorted(scopes)} and RPT-036 rests on its only reader "
+            f"being {sorted(expected)}. A second reader is a second place the same "
+            "convention is decided, whether or not it agrees today. A scope of "
+            "'<module>' means a module-level alias, which is the shape that used to "
+            "walk past this guard"
         )
-    ]
-    assert functions == ["azimuth_basis"], (
-        f"the table is read by {functions} inside its own module, and RPT-036 names "
-        "azimuth_basis as its only reader. A second reader is a second place the datum "
-        "is decided, whether or not it agrees today"
-    )
 
 
 def test_the_rotation_sense_decides_which_way_the_blades_are_numbered():

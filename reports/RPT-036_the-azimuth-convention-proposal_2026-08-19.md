@@ -173,7 +173,10 @@ their evidence is unchanged by this report.
    is optional, which is a decision this widening took by default
    rather than by ruling.
 
-A yes to all of 1 and 2 closes this report with no code change. A no to
+A yes to 1 and 2 settles the datum and the in-plane pair with no code
+change; questions 3, 4 and 5 are separate rulings and this report stays
+open until they are made. The sentence that follows was written when
+there were two questions and is about those two. A no to
 either is one edit in the table above plus one test expectation.
 
 ## Status

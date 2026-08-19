@@ -101,8 +101,9 @@ name a build and stay portable.
 
 The two files above carry only the lengths the sweep table needed. A
 reference artifact also carries the moment point and, for a propelled
-configuration, a `[propeller]` block. A fuller artifact than either of
-the two above, shown whole:
+configuration, a `[propeller]` block. This is `inputs/references/r003.toml`
+in full, the same artifact the listing above summarises by its three
+lengths:
 
 ```toml
 area_m2 = 10.0
@@ -140,14 +141,16 @@ because the first campaign this library was checked against recorded it
 the other way.
 
 `rotation` is `clockwise` or `counterclockwise` viewed from behind the
-aircraft looking forward. `blade_travel` is `inboard_up` or
-`inboard_down` and names where the blade nearest the fuselage travels,
+aircraft looking forward. Both it and `blade_travel` fold case, hyphens
+and whitespace, so a datasheet's `Counter-Clockwise` and `Inboard Up`
+are read as written. `blade_travel` is `inboard_up` or `inboard_down`
+and names where the blade nearest the fuselage travels,
 in the aircraft body frame with the aircraft upright; it describes the
 blade at its inboard azimuth and not the disc as a whole. That is the
 form the datasheet of the one campaign this library has been checked
 against printed, and it is common enough that the field exists; how
-common is not something this repository has measured. Case, hyphens and
-spaces are folded, so `inboard-up` and `Inboard Up` are read as written.
+common is not something this repository has measured. A centreline propeller has no
+inboard blade and leaves the field out.
 
 They are separate fields rather than four values of one field because
 they are not interchangeable: `blade_travel` is side-independent, so the
@@ -200,10 +203,36 @@ resolved matrix it closes over:
 
 <!-- skip: next -->
 ```python
-resolved = resolve_matrix("matrix_registry.fs", workspace, fs_version="26.120")
-propeller = resolved.references["r003"].propeller
-rpm = propeller.rpm_sign_installed * 2400.0   # your recipe knows which mesh it staged
+from pyflightstream.workspace.matrix import resolve_matrix
+
+resolved = resolve_matrix(
+    "matrix_registry.fs",
+    workspace,
+    name="matrix",
+    fs_version="26.120",
+    recipes={"003": "steady"},
+)
+
+
+def recipe(case, script):
+    # The ROW's code, not a literal: a case carries the codes of the row
+    # it came from, so this reads the artifact that row named.
+    reference = resolved.references[case.variables["matrix_ref"]]
+    propeller = reference.propeller
+    if propeller is None or propeller.rpm_sign_installed is None:
+        raise ValueError(
+            f"{case.sim_id}: this recipe emits a rotor speed and the reference "
+            "artifact records no measured sign for the installed meshes. Absence "
+            "means the campaign has not established it, so there is nothing to "
+            "assume here"
+        )
+    rpm = propeller.rpm_sign_installed * 2400.0   # your recipe knows which mesh it staged
 ```
+
+The two guards on the way to `rpm` are the point rather than ceremony.
+`propeller` is `None` for any reference artifact that describes no
+propeller, and a sign left out means your campaign has not established
+it, which is not the same as `+1`.
 
 Which of the two signs applies is your recipe's knowledge and not the
 artifact's: nothing in the library records which geometries are the

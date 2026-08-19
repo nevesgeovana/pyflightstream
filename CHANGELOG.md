@@ -213,10 +213,15 @@ a new `TypedDict` mirroring the script-layer record field for field.
 `require_loads`.
 
 **In `pyflightstream.script`:** `helpers.blade_frames`,
-`helpers.AZIMUTH_BASIS`, `helpers.rotate_surfaces`,
+`helpers.AZIMUTH_BASIS`, `helpers.RotationSense`,
+`helpers.ROTATION_SENSE_SIGN`, `helpers.rotate_surfaces`,
 `helpers.unsteady_action`, `helpers.mark_wake_edges`,
 `UnsteadyActionUse`, `Script.unsteady_actions`, `Script.pending_actions`
-and `Script.registry`. In `pyflightstream.workspace.wake_edges`,
+and `Script.registry`. `RotationSense` is the SINGLE HOME of the sense
+vocabulary: `workspace.inputs.PropellerReference.rotation` imports it
+rather than restating the two words, which is a downward import the
+layer rule permits, and a test refuses a second declaration.
+In `pyflightstream.workspace.wake_edges`,
 `write_node_file` and `node_file_units`.
 
 **In `pyflightstream.cases`:** `DerivedFrom`, `Campaign.derived_from`,

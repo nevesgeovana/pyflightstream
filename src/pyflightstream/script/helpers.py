@@ -2202,13 +2202,6 @@ AZIMUTH_BASIS: dict[str, tuple[tuple[float, float, float], tuple[float, float, f
 #: convenience.
 BLADE_ANCHOR_ANGLES_DEG: tuple[float, ...] = (0.0, 90.0, 180.0, 270.0)
 
-#: How a propeller's recorded sense of rotation signs the azimuth
-#: increment. Counterclockwise about the rotor axis is the
-#: mathematically positive sense, so blade k sits at anchor plus k times
-#: 360/N; clockwise numbers the blades the other way round the disc.
-#: Which of the two a descriptor's own word means, given that the
-#: descriptor states its sense as seen from behind, is the same open
-#: question the datum is: see RPT-036.
 #: The sense of rotation a propeller descriptor records, viewed from
 #: behind the aircraft looking forward. Declared HERE, in the layer that
 #: consumes it, and imported downward by
@@ -2219,6 +2212,13 @@ BLADE_ANCHOR_ANGLES_DEG: tuple[float, ...] = (0.0, 90.0, 180.0, 270.0)
 #: home for one day.
 RotationSense = Literal["clockwise", "counterclockwise"]
 
+#: How a propeller's recorded sense of rotation signs the azimuth
+#: increment. Counterclockwise about the rotor axis is the
+#: mathematically positive sense, so blade k sits at anchor plus k times
+#: 360/N; clockwise numbers the blades the other way round the disc.
+#: Which of the two a descriptor's own word means, given that the
+#: descriptor states its sense as seen from behind, is the same open
+#: question the datum is: see RPT-036.
 ROTATION_SENSE_SIGN: dict[RotationSense, float] = {
     "counterclockwise": 1.0,
     "clockwise": -1.0,
@@ -2324,11 +2324,13 @@ def blade_frames(
         which way round the disc the blades are numbered and nothing
         else.
 
-        REQUIRED, and it carried a default until 0.8.0. The default was
-        removed rather than kept because the refusal below says there is
-        no safe default to guess and the signature was making one: a
-        wrong sense renumbers the blades, raises nothing, and every
-        phase-locked reduction keyed to blade index inherits it.
+        REQUIRED, with no default. It carried one on the branch that
+        added this function and never in a release, so no caller is
+        migrating: the default was removed before shipping because the
+        refusal below says there is no safe default to guess and the
+        signature was making one. A wrong sense renumbers the blades,
+        raises nothing, and every phase-locked reduction keyed to blade
+        index inherits it.
     names : sequence of str, optional
         Display names of the created frames, one per blade; ``Blade1`` to
         ``BladeN`` by default.

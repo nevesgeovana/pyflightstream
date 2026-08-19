@@ -53,8 +53,10 @@ code { font-family: ui-monospace, monospace; }
 #: The naming and nomenclature conventions of the package, one
 #: (title, text) pair per rule. This tuple is the single home of the
 #: conventions: ``help()`` renders it as a section, the docs site page
-#: is meant to be generated from :func:`conventions_markdown` (wiring
-#: the generator is with the docs build, not this module), and the
+#: ``conventions.md`` IS generated from :func:`conventions_markdown` by
+#: ``scripts/gen_docs_pages.py`` (this comment said the wiring was
+#: still owed until 2026-08-19, when a reviewer pass read the script),
+#: and the
 #: tier 1 adherence audit (``tests/test_conventions.py``) enforces the
 #: mechanical rules against the code.
 CONVENTIONS: tuple[tuple[str, str], ...] = (
@@ -125,19 +127,26 @@ CONVENTIONS: tuple[tuple[str, str], ...] = (
         "Rotor signs are recorded, not derived",
         "Two different signs meet at a rotor and the package keeps them "
         "apart. The AZIMUTH INCREMENT, which way round the disc the "
-        "blades are numbered, is DERIVED from the recorded sense of "
-        "rotation through script.helpers.ROTATION_SENSE_SIGN, where "
-        "counterclockwise about the rotor axis is the positive sense. "
-        "The ROTOR SPEED sign is MEASURED and recorded per mesh family "
-        "on a propeller reference (rpm_sign_installed, "
-        "rpm_sign_isolated), because getting it from a published sense "
-        "needs the rotor axis, the side of the aircraft and the "
-        "handedness of the mesh actually loaded. Absence of a recorded "
-        "sign means the campaign has not established it, never +1, and "
-        "nothing in the package reads those fields today. Which "
+        "blades are numbered, is DERIVED, by "
+        "script.helpers.ROTATION_SENSE_SIGN, from the sense a caller "
+        "passes to blade_frames, where counterclockwise about the rotor "
+        "axis is taken as the positive sense. The ROTOR SPEED sign is "
+        "MEASURED and recorded per mesh family on a propeller reference "
+        "(rpm_sign_installed, rpm_sign_isolated), because getting it "
+        "from a published sense needs the rotor axis, the side of the "
+        "aircraft and the handedness of the mesh actually loaded. "
+        "Absence of a recorded sign means the campaign has not "
+        "established it, never +1. NOTHING IN THE PACKAGE READS ANY "
+        "FIELD OF THE PROPELLER BLOCK TODAY, the signs and the sense "
+        "alike: a recipe reads the artifact and passes what it needs, "
+        "so the two halves above meet in a caller and never inside the "
+        "library. Three things are open rather than settled here and "
+        "are recorded in RPT-036: where azimuth zero sits, which "
         "viewed-from-behind sense a datasheet's inboard vocabulary "
-        "means, and where azimuth zero sits, are open questions "
-        "recorded in RPT-036 rather than settled here.",
+        "means, and whether a descriptor's counterclockwise, which is "
+        "stated as seen from behind, is the positive sense about the "
+        "rotor axis as passed. That last one is the report's own "
+        "weakest link and it is what the taken-as above stands on.",
     ),
     (
         "Refusals teach",

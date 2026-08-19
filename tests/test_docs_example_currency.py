@@ -196,8 +196,14 @@ def test_the_propeller_artifact_on_the_page_is_the_one_the_suite_validates():
     assert len(page) == 1
 
     documented = tomllib.loads(page[0])["propeller"]
-    fixture = tomllib.loads(test_workspace.PROPELLER_REFERENCE_TOML)["propeller"]
-    assert fixture, "the workspace fixture carries no propeller block to compare against"
+    parsed = tomllib.loads(test_workspace.PROPELLER_REFERENCE_TOML)
+    # BEFORE the subscript, not after it. Written the other way round, a
+    # fixture that lost its propeller block raised a bare KeyError and the
+    # sentence explaining what that means never ran.
+    assert "propeller" in parsed, (
+        "the workspace fixture carries no propeller block to compare the page against"
+    )
+    fixture = parsed["propeller"]
     assert documented == fixture, (
         "the propeller artifact on the page has drifted from the one the workspace "
         f"suite validates. Page: {documented}. Fixture: {fixture}"
@@ -264,6 +270,49 @@ def test_every_key_of_the_documented_propeller_is_a_field_of_the_model():
     assert not unknown, (
         f"the page documents {sorted(unknown)} under [propeller] and the model has no "
         f"such field. Its fields are {sorted(PropellerReference.model_fields)}"
+    )
+
+
+def test_every_field_of_the_propeller_model_is_documented_on_the_page():
+    """The direction that was checked by nothing.
+
+    The case above checks page is a subset of model, which catches a
+    stale key. This checks the reverse, which catches the shape this
+    whole item exists because of: a field shipped and documented
+    nowhere. A model field added without a home on the page is either an
+    omission or a deliberate one with a reason, and the allow-list is
+    where the reason goes.
+    """
+    import tomllib
+
+    from pyflightstream.workspace.inputs import PropellerReference
+
+    #: Fields the page deliberately does not show, each with its reason.
+    undocumented = {
+        "hub_radius_m": "the root cutout, which the page's example propeller does not "
+        "have; it is documented in the model docstring and adding it to the example "
+        "would show a value the rest of the example does not use",
+    }
+
+    blocks = [
+        body
+        for info, body in _blocks(PAGE.read_text(encoding="utf-8"))
+        if info == "toml" and "[propeller]" in body
+    ]
+    assert len(blocks) == 1
+    parsed = tomllib.loads(blocks[0])["propeller"]
+    documented = set(parsed) | {"position"}
+
+    missing = set(PropellerReference.model_fields) - documented - set(undocumented)
+    assert not missing, (
+        f"the propeller model carries {sorted(missing)} and the page shows no such key. "
+        "Either the example gains it, or it joins the allow-list in this test with the "
+        "reason it is deliberately not shown"
+    )
+    stale = set(undocumented) - set(PropellerReference.model_fields)
+    assert not stale, (
+        f"the allow-list excuses {sorted(stale)}, which the model no longer has, so the "
+        "list is now excusing nothing and would hide the next real omission"
     )
 
 

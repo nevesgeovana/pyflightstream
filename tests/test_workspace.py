@@ -369,7 +369,12 @@ def test_the_two_vocabularies_are_separate_fields_rather_than_one_union(tmp_path
 
     with pytest.raises(InputArtifactError) as refused:
         workspace.resolve_reference("r004")
-    assert "rotation" in str(refused.value)
+    message = str(refused.value)
+    assert "rotation" in message
+    # The PERMITTED SET, not the field name. "rotation" appears in an
+    # unknown-key refusal too, so the name alone would survive the field
+    # being renamed out from under this case.
+    assert "this field takes clockwise or counterclockwise" in message, message
 
 
 def test_the_sense_vocabulary_has_one_home_and_this_model_imports_it(tmp_path):
@@ -420,6 +425,35 @@ def test_the_sense_vocabulary_has_one_home_and_this_model_imports_it(tmp_path):
         f"{sorted(ROTATION_SENSE_SIGN)}"
     )
     assert PropellerReference.model_fields["rotation"].annotation is RotationSense
+
+    # WHERE THE NAME COMES FROM, which is the half the two assertions
+    # above cannot see. Both are satisfied by a module that declares its
+    # own `RotationSense = Literal[...]` and drops the import: the AST
+    # unparses the same, and `typing` interns the literal so the identity
+    # holds. That mutant survived until a review pass restored it.
+    imported_from = {
+        node.module
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom)
+        for alias in node.names
+        if alias.name == "RotationSense"
+    }
+    assert imported_from == {"pyflightstream.script.helpers"}, (
+        "PropellerReference's module does not import RotationSense from the layer that "
+        f"declares it; it binds the name from {imported_from or 'nowhere'}"
+    )
+    assigned = [
+        node.lineno
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Assign)
+        and any(
+            isinstance(target, ast.Name) and target.id == "RotationSense" for target in node.targets
+        )
+    ]
+    assert not assigned, (
+        f"the module assigns RotationSense at line(s) {assigned}, so the vocabulary has "
+        "a second home again and the import above is decoration"
+    )
     assert set(get_args(RotationSense)) == set(ROTATION_SENSE_SIGN), (
         "the emitter's sense-to-sign table and the alias beside it have diverged, which "
         "no import can prevent because one is a type and the other a dict"
@@ -470,6 +504,20 @@ def test_the_emitter_refusal_quotes_the_model_it_cannot_import(tmp_path):
 SIGN_FIELDS = ("rpm_sign_installed", "rpm_sign_isolated")
 
 
+def _artifact_id(field: str, parameter: object) -> str:
+    """An id that names its case, and that two cases cannot share.
+
+    The first version built ids from `abs(magnitude)` and `len(written)`,
+    which discards the sign and collides "1.0" with a quoted "1". Nothing
+    tested the wrong thing, because `tmp_path` is per-invocation, and that
+    is the trap: hoisting `library(tmp_path)` to a module-scoped fixture,
+    which is the natural cost optimisation here, would have two cases
+    overwrite each other's artifact and the survivor test the other's
+    content while passing.
+    """
+    return "r" + re.sub(r"\W", "", f"{field}{parameter}").lower()
+
+
 def _reference_with(tmp_path, artifact_id: str, line: str, replacing: str) -> str:
     """Write the campaign fixture with one line replaced, and resolve it.
 
@@ -508,10 +556,21 @@ def test_the_sign_domain_is_exactly_plus_or_minus_one():
         arms = [arm for arm in get_args(annotation) if arm is not type(None)]
         assert len(arms) == 1, f"{field} is not an optional single domain: {arms}"
         senses = get_args(arms[0])
-        assert senses == (-1, 1), (
-            f"{field} admits {senses}, and a measured sign is 1 or -1. A domain with a "
-            "zero in it stops the rotor rather than reversing it, and one with a "
-            "magnitude in it scales the rotor speed"
+
+        # TYPES AND MEMBERSHIP, never a tuple of numbers. `senses == (-1, 1)`
+        # is what this asserted until a review pass measured it: Python widens
+        # numeric equality, so `(-1, 1.0) == (-1, 1)` is True and a domain
+        # admitting the FLOAT one passed the guard written to close the domain.
+        # Under it the artifact's integer 1 is stored as 1.0 while the refusal
+        # beside it promises a Python int. Order is dropped for the same
+        # reason it was never meant to matter: `Literal[1, -1]` is the same
+        # domain and reversing the literal is not a defect.
+        typed = sorted((type(value).__name__, value) for value in senses)
+        assert typed == [("int", -1), ("int", 1)], (
+            f"{field} admits {typed}, and a measured sign is the integer 1 or -1. A "
+            "domain with a zero in it stops the rotor rather than reversing it, one "
+            "with a magnitude in it scales the rotor speed, and one with a float or a "
+            "bool in it stores something the refusal says it will not"
         )
 
 
@@ -533,7 +592,7 @@ def test_a_rotor_speed_sign_outside_plus_or_minus_one_is_refused(tmp_path, field
     """
     message = _reference_with(
         tmp_path,
-        f"r{abs(magnitude)}{SIGN_FIELDS.index(field)}0",
+        _artifact_id(field, magnitude),
         f"{field} = {magnitude}",
         f"{field} = " + ("-1" if field == "rpm_sign_installed" else "1"),
     )
@@ -542,9 +601,14 @@ def test_a_rotor_speed_sign_outside_plus_or_minus_one_is_refused(tmp_path, field
     # The PERMITTED SET, exactly, and not a substring of it. A model with
     # no such field refuses this value too, for being an unknown key, and
     # a model admitting zero prints a message that contains "-1".
-    assert "Input should be -1 or 1" in message, (
+    # ANCHORED AT BOTH ENDS. "Input should be -1 or 1" is a PREFIX of
+    # "Input should be -1 or 1.0", which pydantic renders for a domain that
+    # admits the float, so the open-ended form passed the very mutant this
+    # assertion exists to kill. The bracket is what pydantic writes next.
+    assert "Input should be -1 or 1 [" in message, (
         "the refusal does not name the permitted set exactly, so it is satisfied by a "
-        "domain that admits a zero or by no such field at all: " + message
+        "wider domain whose message merely starts the same way, by a domain that "
+        "admits a zero, or by no such field at all: " + message
     )
 
 
@@ -569,7 +633,7 @@ def test_a_sign_that_only_coerces_to_one_is_refused(tmp_path, field, written, wh
     """
     message = _reference_with(
         tmp_path,
-        f"r5{SIGN_FIELDS.index(field)}{len(written)}",
+        _artifact_id(field, written),
         f"{field} = {written}",
         f"{field} = " + ("-1" if field == "rpm_sign_installed" else "1"),
     )
@@ -620,6 +684,109 @@ def test_the_signs_are_absent_rather_than_assumed(tmp_path):
     propeller = workspace.resolve_reference("r008").propeller
     assert propeller.rpm_sign_installed is None
     assert propeller.rpm_sign_isolated is None
+
+
+def test_a_datasheet_spelling_of_the_required_sense_is_read(tmp_path):
+    """The strict field was the required one, which a reader meets first.
+
+    Folding was added for `blade_travel`, on the ground that its value is
+    transcribed off a datasheet. `rotation` records the same fact off the
+    same page, is REQUIRED, and refused `Counter-Clockwise` with
+    pydantic's bare literal error. The model's own missing-value refusal
+    ends by telling the reader to add `rotation`, so following it with a
+    capital C met a second refusal naming no cause.
+
+    Note what the folding is NOT: `counter-clockwise` folds to
+    `counterclockwise` and `inboard-up` to `inboard_up`, two different
+    join rules, because the comparison drops separators on both sides
+    rather than folding them to one character.
+    """
+    workspace = library(tmp_path)
+    for index, written in enumerate(("Counter-Clockwise", "COUNTER CLOCKWISE", "counterClockwise")):
+        body = PROPELLER_REFERENCE_TOML.replace('rotation = "clockwise"', f'rotation = "{written}"')
+        artifact_id = f"r67{index}"
+        (workspace.inputs_dir / "references" / f"{artifact_id}.toml").write_text(
+            body, encoding="utf-8"
+        )
+        propeller = workspace.resolve_reference(artifact_id).propeller
+        assert propeller is not None
+        assert propeller.rotation == "counterclockwise", (
+            f"{written!r} is a spelling a datasheet prints for the required field, and "
+            "it was refused rather than read"
+        )
+
+
+def test_the_blade_travel_domain_has_one_declaration(tmp_path):
+    """The field and its folding validator cannot drift apart.
+
+    The validator restated the two words as a literal set, so widening
+    the annotation changed no behaviour and reddened no test: two
+    declarations of one vocabulary inside one model, which is the fault
+    corrected for the rotation sense one commit earlier. The validator
+    now reads the domain off the field, and this is what refuses a
+    return to the second copy.
+    """
+    from typing import get_args
+
+    from pyflightstream.workspace.inputs import PropellerReference
+
+    annotation = PropellerReference.model_fields["blade_travel"].annotation
+    domain = {word for arm in get_args(annotation) for word in get_args(arm)}
+    assert domain == {"inboard_up", "inboard_down"}, (
+        f"blade_travel admits {sorted(domain)}. It names where the blade nearest the "
+        "fuselage travels, so its domain is the two published words and nothing else"
+    )
+
+    # The REFUSAL is what proves the validator reads that domain rather
+    # than a copy of it: a word outside the annotation must be refused,
+    # and the refusal must name the annotation's own words.
+    workspace = library(tmp_path)
+    body = PROPELLER_REFERENCE_TOML.replace(
+        'blade_travel = "inboard_down"', 'blade_travel = "outboard_up"'
+    )
+    (workspace.inputs_dir / "references" / "r650.toml").write_text(body, encoding="utf-8")
+    with pytest.raises(InputArtifactError) as refused:
+        workspace.resolve_reference("r650")
+    message = str(refused.value)
+    for word in domain:
+        assert word in message, (
+            f"the refusal does not name {word!r}, which the field admits, so the "
+            "validator is quoting a copy of the domain rather than reading it"
+        )
+    # AND NOTHING ELSE. Per-word membership alone is satisfied by a
+    # validator holding a superset of both vocabularies, which is exactly
+    # the second declaration this case exists to refuse.
+    for foreign in ("clockwise", "counterclockwise"):
+        assert foreign not in message.split("this field takes")[-1], (
+            f"the blade_travel refusal offers {foreign!r}, which belongs to the other "
+            "vocabulary, so the validator is reading a set wider than the field's own"
+        )
+
+
+def test_the_blade_travel_is_absent_rather_than_assumed(tmp_path):
+    """Absence means not recorded, and must not read as inboard_up.
+
+    The two sign fields have this case and the third new field of the
+    same commit did not, which is how a mutant giving `blade_travel` a
+    DEFAULT survived the whole suite. A default here is the package
+    deciding which way a blade travels on a propeller nobody described.
+    """
+    workspace = library(tmp_path)
+    body = "\n".join(
+        line
+        for line in PROPELLER_REFERENCE_TOML.splitlines()
+        if not line.startswith("blade_travel")
+    )
+    assert "blade_travel" not in body, "the line the case removes is still in the fixture"
+    (workspace.inputs_dir / "references" / "r660.toml").write_text(body, encoding="utf-8")
+
+    propeller = workspace.resolve_reference("r660").propeller
+    assert propeller is not None
+    assert propeller.blade_travel is None, (
+        "an artifact that records no blade travel reads back "
+        f"{propeller.blade_travel!r}, so the package has decided a physical fact it "
+        "was never told"
+    )
 
 
 def test_a_datasheet_spelling_of_the_blade_travel_is_read(tmp_path):
@@ -768,11 +935,33 @@ def test_no_module_outside_the_model_reads_the_propeller_block():
             continue
         scanned += 1
         tree = ast.parse(module.read_text(encoding="utf-8"))
+        where_module = module.relative_to(package).as_posix()
         for node in ast.walk(tree):
+            # `lineno` is computed per BRANCH rather than up here, because
+            # ast.walk yields the Module node too and that one has no line.
+            # THREE SHAPES, because the first version watched one. A
+            # review pass measured that `getattr(propeller, "rpm_sign_
+            # installed")` and `dumped["propeller"]["rpm_sign_installed"]`
+            # both walked past a guard whose docstring claimed the absence
+            # was asserted across the package.
             if isinstance(node, ast.Attribute) and node.attr in watched:
+                offenders.append(f"{where_module}:{node.lineno} reads .{node.attr}")
+            elif (
+                isinstance(node, ast.Subscript)
+                and isinstance(node.slice, ast.Constant)
+                and node.slice.value in watched
+            ):
+                offenders.append(f"{where_module}:{node.lineno} subscripts [{node.slice.value!r}]")
+            elif (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id in {"getattr", "setattr", "hasattr"}
+                and len(node.args) >= 2
+                and isinstance(node.args[1], ast.Constant)
+                and node.args[1].value in watched
+            ):
                 offenders.append(
-                    f"{module.relative_to(package).as_posix()} reads .{node.attr} "
-                    f"at line {node.lineno}"
+                    f"{where_module}:{node.lineno} {node.func.id}s {node.args[1].value!r}"
                 )
     assert scanned > 50, (
         f"the scan reached only {scanned} modules, and an empty scan passes this "
