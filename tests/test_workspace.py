@@ -285,6 +285,123 @@ def test_reference_artifact_round_trip(tmp_path):
     assert reference.propeller.position.x_m == -0.5
 
 
+#: A reference artifact in the shape a real campaign writes one, which is
+#: the thing PFS-2009.02 asked for and the thing this repository had never
+#: checked against. Its vocabulary is not invented here: the rotation
+#: sense is the form a vendor datasheet prints, and the two signs are what
+#: a campaign records once it has established, by measurement, which way
+#: the number goes for the meshes it actually loads.
+REAL_CAMPAIGN_REFERENCE_TOML = """
+area_m2 = 50.0
+chord_m = 2.526
+span_m = 20.0
+
+[moment_point]
+x_m = 0.0
+y_m = 0.0
+z_m = 0.0
+
+[propeller]
+radius_m = 1.8288
+n_blades = 1
+pitch_deg = 0.0
+toe_deg = 0.0
+rotation = "inboard-down"
+rpm_sign_about_x = -1
+rpm_sign_about_x_isolated = 1
+
+[propeller.position]
+x_m = 0.0
+y_m = 0.0
+z_m = 0.0
+"""
+
+
+def test_the_reference_model_admits_a_real_campaigns_vocabulary(tmp_path):
+    """PFS-2009.02, measured rather than asserted.
+
+    The shipped vocabulary was checked against a real campaign's library
+    for the first time on 2026-08-19 and REFUSED its reference artifact
+    on three counts at once: the rotation sense was published in the
+    inboard vocabulary rather than the viewed-from-behind one, and the
+    two measured rotor-speed signs had nowhere to live under
+    ``extra="forbid"``.
+
+    All three are the same defect seen from three sides: the model held
+    one vocabulary for a fact that is published in two, and held no place
+    at all for the number that fact resolves to.
+    """
+    workspace = library(tmp_path)
+    (workspace.inputs_dir / "references" / "r003.toml").write_text(
+        REAL_CAMPAIGN_REFERENCE_TOML, encoding="utf-8"
+    )
+
+    reference = workspace.resolve_reference("r003")
+
+    assert reference.propeller.rotation == "inboard-down"
+    assert reference.propeller.rpm_sign_about_x == -1
+    assert reference.propeller.rpm_sign_about_x_isolated == 1
+
+
+def test_the_two_rotation_vocabularies_are_both_admitted(tmp_path):
+    """Both, because a vendor publishes in one and a frame needs the other."""
+    workspace = library(tmp_path)
+    for index, sense in enumerate(("clockwise", "counterclockwise", "inboard-up", "inboard-down")):
+        body = REAL_CAMPAIGN_REFERENCE_TOML.replace('"inboard-down"', f'"{sense}"', 1)
+        (workspace.inputs_dir / "references" / f"r00{index}.toml").write_text(
+            body, encoding="utf-8"
+        )
+        assert workspace.resolve_reference(f"r00{index}").propeller.rotation == sense
+
+
+def test_a_rotor_speed_sign_outside_plus_or_minus_one_is_refused(tmp_path):
+    """The field is a SIGN, so its domain is closed.
+
+    An unconstrained int would let a campaign record a magnitude here and
+    have it silently multiply the rotor speed, which is the class of
+    defect a closed domain exists to make impossible.
+    """
+    workspace = library(tmp_path)
+    body = REAL_CAMPAIGN_REFERENCE_TOML.replace("rpm_sign_about_x = -1", "rpm_sign_about_x = -2")
+    (workspace.inputs_dir / "references" / "r009.toml").write_text(body, encoding="utf-8")
+
+    with pytest.raises(InputArtifactError) as refused:
+        workspace.resolve_reference("r009")
+
+    # The REASON, and not only the field name. Under the narrow model
+    # this value was refused too, for being an unknown key rather than
+    # for being outside the domain, so an assertion on the name alone
+    # passes over a model that has no such field at all. Measured: this
+    # case was the one of four that survived restoring the narrow model.
+    message = str(refused.value)
+    assert "rpm_sign_about_x" in message
+    assert "-1" in message, (
+        "the refusal does not name the permitted values, so it reads as an "
+        "unknown key rather than as a value outside a closed domain: " + message
+    )
+
+
+def test_the_signs_are_absent_rather_than_assumed(tmp_path):
+    """Absence means not established, and must not read as +1.
+
+    A campaign that has not measured which way its rotor turns for the
+    meshes it loads records nothing, and the model says nothing. Reading
+    that as the positive sense would be the package deciding a physical
+    fact it was never told.
+    """
+    workspace = library(tmp_path)
+    body = "\n".join(
+        line
+        for line in REAL_CAMPAIGN_REFERENCE_TOML.splitlines()
+        if not line.startswith("rpm_sign_about_x")
+    )
+    (workspace.inputs_dir / "references" / "r008.toml").write_text(body, encoding="utf-8")
+
+    propeller = workspace.resolve_reference("r008").propeller
+    assert propeller.rpm_sign_about_x is None
+    assert propeller.rpm_sign_about_x_isolated is None
+
+
 def test_reference_miss_lists_available_ids(tmp_path):
     workspace = library(tmp_path)
     (workspace.inputs_dir / "references" / "rwing_v2.toml").write_text(

@@ -36,6 +36,36 @@ matrix could not have discriminated.
 
 ### API surface delta
 
+**The propeller reference admits the vocabulary a real campaign uses**
+(PFS-2009.02). `PropellerReference.rotation` accepts four senses rather
+than two: `clockwise` and `counterclockwise`, viewed from behind, and
+`inboard-up` and `inboard-down`, which name where the blade nearest the
+fuselage travels and which is the form a vendor datasheet usually
+prints. Two optional fields join it, `rpm_sign_about_x` and
+`rpm_sign_about_x_isolated`, each constrained to plus or minus one.
+
+THE SENSE DOES NOT DETERMINE THE SIGN, which is why the two fields exist
+and why they are not derived. Going from a published sense to the number
+a solver command takes needs the rotor axis, the side of the aircraft
+and the handedness of the mesh actually loaded; the installed and
+isolated meshes of one aircraft are frequently opposite hands and take
+opposite signs for the same published sense. A campaign that established
+its signs by measurement records them, so a later run reproduces the
+measurement rather than re-deriving it. Absence means not established
+and must not be read as plus one.
+
+Purely widening: every artifact that validated before validates now.
+
+THE CHANGE CAME FROM A MEASUREMENT RATHER THAN FROM A DESIGN REVIEW, and
+that is worth the sentence. The shipped input vocabulary had never been
+checked against a real campaign's library; checked for the first time on
+2026-08-19, it REFUSED that campaign's own reference artifact, on all
+three counts at once. The same walk also showed why this release's
+kind-letter break is right: that library's references and setups folders
+each held a `003.toml` and its matrix named `003` in both columns, so a
+number mistyped between REF and SET resolved to another artifact's file
+with no signal at all.
+
 **BREAKING, manifest schema.** `workspace.MANIFEST_SCHEMA` moves from
 `pyfs-manifest/1` to `pyfs-manifest/2`, because
 `script.BrokenCommandUse.source_version` stopped being optional and the

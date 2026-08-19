@@ -144,10 +144,41 @@ class PropellerReference(BaseModel):
     position : PointXyz
         Hub position in the simulation geometry frame, m.
     rotation : str
-        Sense of rotation about the propeller axis, ``"clockwise"`` or
-        ``"counterclockwise"``, viewed from behind the aircraft looking
-        forward; record the convention with the geometry so the sign of
-        the swirl is never guessed.
+        Sense of rotation about the propeller axis, in one of TWO
+        vocabularies, because vendors publish it in both.
+        ``"clockwise"`` and ``"counterclockwise"`` are viewed from behind
+        the aircraft looking forward. ``"inboard-up"`` and
+        ``"inboard-down"`` name where the blade nearest the fuselage
+        travels, which is the form a vendor datasheet usually prints and
+        which does not depend on which side of the aircraft the
+        propeller is.
+    rpm_sign_about_x : int, optional
+        Measured sign, ``+1`` or ``-1``, applied to the rotor speed about
+        the X axis of the propeller frame for the INSTALLED meshes of
+        this configuration. Dimensionless.
+    rpm_sign_about_x_isolated : int, optional
+        The same for the ISOLATED meshes, which are frequently the
+        opposite hand of the installed ones and therefore take the
+        opposite sign.
+
+    Notes
+    -----
+    THE SENSE DOES NOT DETERMINE THE SIGN, and the two sign fields exist
+    because of that rather than for convenience. Going from a published
+    sense to the number a solver command takes needs the rotor axis, the
+    side of the aircraft, and the handedness of the mesh actually loaded;
+    a mirrored mesh of the same aircraft takes the opposite sign for the
+    same published sense. A campaign that established its signs by
+    measurement records them here, so a later run reproduces the
+    measurement rather than re-deriving it from a sense.
+
+    Both fields are optional, and their absence means the campaign has
+    not established them rather than that the sign is ``+1``.
+
+    The four-value ``rotation`` vocabulary and the two sign fields were
+    added at 0.8.0 (PFS-2009.02), after the shipped vocabulary was
+    checked against a real campaign for the first time and refused that
+    campaign's reference artifact on all three.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -158,7 +189,9 @@ class PropellerReference(BaseModel):
     pitch_deg: float | None = None
     toe_deg: float | None = None
     position: PointXyz = Field(default_factory=PointXyz)
-    rotation: Literal["clockwise", "counterclockwise"]
+    rotation: Literal["clockwise", "counterclockwise", "inboard-up", "inboard-down"]
+    rpm_sign_about_x: Literal[-1, 1] | None = None
+    rpm_sign_about_x_isolated: Literal[-1, 1] | None = None
 
 
 class ReferenceArtifact(BaseModel):
