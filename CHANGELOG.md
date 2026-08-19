@@ -42,8 +42,10 @@ matrix could not have discriminated.
 viewed from behind the aircraft.
 
 `blade_travel` records the SAME physical fact in the vocabulary a vendor
-datasheet usually prints, `inboard_up` or `inboard_down`, naming where
-the blade nearest the fuselage travels. It is a separate field rather
+datasheet prints, `inboard_up` or `inboard_down`, naming where the blade
+nearest the fuselage travels in the aircraft body frame. Case, hyphens
+and spaces are folded, so a datasheet's `inboard-up` is read as written;
+it is the one field in the model whose value is transcribed off paper. It is a separate field rather
 than two more values of `rotation` because the two vocabularies are not
 interchangeable: this one is side-independent, so the left and the right
 propeller of a symmetric pair carry the same word, and converting it to
@@ -53,14 +55,17 @@ downstream exhaustive match over it stays exhaustive.
 
 `rpm_sign_installed` and `rpm_sign_isolated` each record a measured sign,
 plus or minus one, for the installed and the isolated meshes of the
-configuration.
+configuration. Both are closed to coercion as well as to value, so `true`
+and `1.0` are refused rather than read as `1`, and the model validates on
+assignment, so the domain holds after loading and not only at it.
 
 THE SENSE DOES NOT DETERMINE THE SIGN OF THE ROTOR SPEED, which is why
 the two fields exist and why they are not derived. Going from a published
 sense to the number a motion command takes needs the rotor axis, the side
 of the aircraft and the handedness of the mesh actually loaded; the
-installed and isolated meshes of one aircraft are frequently opposite
-hands and take opposite signs for the same published sense. A campaign
+installed and isolated meshes of one aircraft may be opposite hands and
+then take opposite signs for the same published sense, which the one
+campaign this vocabulary has been checked against was. A campaign
 that established its signs by measurement records them, so a later run
 reproduces the measurement rather than re-deriving it. Absence means not
 established and must not be read as plus one.
@@ -70,11 +75,20 @@ a sign from a sense and is not contradicted: it signs the AZIMUTH
 INCREMENT, which way round the disc the blades are numbered, and that is
 a different quantity from the sign of the rotor speed.
 
-NOTHING IN THE PACKAGE READS THE TWO SIGN FIELDS YET. They are recorded,
-so a recipe that emits a rotor speed reads the artifact and applies the
-sign itself; setting one changes no emitted script on its own.
+NOTHING IN THE PACKAGE READS THE PROPELLER BLOCK, the signs included and
+`rotation`, `blade_travel`, `radius_m`, `n_blades` and `position` too.
+The block is recorded, and setting any of it changes no emitted script on
+its own. The artifact also does not reach a recipe: `resolve_matrix`
+narrows it to the reference area and length the case carries, so a recipe
+that wants a sign reads it from the workspace or the resolved matrix it
+closes over, and `case.reference.propeller` does not exist. That absence
+is now guarded by a test rather than only stated
+(`test_no_module_outside_the_model_reads_the_propeller_block`).
 
-Purely additive: every artifact that validated before validates now.
+Purely additive to the propeller block: its content validates unchanged.
+The FILE still needs the kind letter this release introduced, so a
+pre-0.8.0 library is migrated with `migrate_input_ids` before any of it
+resolves.
 
 `script.helpers.blade_frames` refuses an unknown sense with a message
 that now ROUTES the other vocabulary rather than treating it as a typo:

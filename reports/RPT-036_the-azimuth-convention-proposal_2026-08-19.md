@@ -19,19 +19,32 @@
 > finds a proposal that cannot decide their case. `rotation` itself is
 > unchanged and part 3 still describes it correctly.
 >
-> AND THE DESCRIPTOR CAN NOW CARRY THE ANSWER ITSELF. Question 3 below
-> asks whether the descriptor should carry the datum per propeller
-> rather than the library carrying one convention. Half of that is now
-> built: `rpm_sign_installed` and `rpm_sign_isolated` record a MEASURED
-> sign, which is the thing part 3 proposes to DERIVE. If the author
-> rules that a recorded sign supersedes the derivation, part 3 closes by
-> deletion rather than by decision, and this report becomes a record of
-> why rather than a proposal awaiting one.
+> AND THE DESCRIPTOR NOW CARRIES A MEASUREMENT OF A NEIGHBOURING
+> QUANTITY, which is a weaker statement than the one this paragraph
+> made until a review pass read it against itself.
 >
-> Note the two signs are different quantities and this amendment does
-> not conflate them: `ROTATION_SENSE_SIGN` signs the AZIMUTH INCREMENT,
-> which way round the disc blades are numbered, and the recorded fields
-> sign the ROTOR SPEED. Part 3 is about the first.
+> What it said: that the recorded signs are "the thing part 3 proposes
+> to DERIVE", that half of question 3 is now built, and that a ruling
+> could close part 3 by deletion. Then, four paragraphs on, that the two
+> are different quantities and that the amendment does not conflate
+> them. Both were published at once, which is the exact fault the same
+> day's work corrected in the model docstring, the CHANGELOG and the
+> plan item. Corrected here rather than defended:
+>
+> `rpm_sign_installed` and `rpm_sign_isolated` sign the ROTOR SPEED.
+> `ROTATION_SENSE_SIGN` signs the AZIMUTH INCREMENT, which way round
+> the disc the blades are numbered. Part 3 is about the second, so a
+> recorded rotor-speed sign does not supersede it and cannot close it
+> by deletion. What it does is nearer and worth the ruling anyway: a
+> measured sign about the emitted rotor axis fixes the physical
+> direction of rotation, and the azimuth increment follows from that
+> IF blades are numbered with the rotation, which is a separate
+> convention this report has not settled either.
+>
+> And nothing about the DATUM is built. Question 3 asks whether the
+> descriptor should carry the azimuth zero per propeller;
+> `AZIMUTH_BASIS` is still one library-wide table and no new field
+> carries a datum.
 
 A blade frame has to be placed somewhere, and placing it requires an
 answer to a question nobody in this repository is entitled to settle:
@@ -108,9 +121,17 @@ one edit rather than a search:
 
 `tests/test_script_helpers.py::test_the_azimuth_datum_is_one_named_table_and_changing_it_is_one_edit`
 substitutes a different datum for the Z axis and asserts that the
-emitted radial direction follows it. That test is the mechanism behind
-the sentence "changing it is one edit": it fails if a second decision
-about azimuth zero appears anywhere else in the emitter.
+emitted radial direction follows it. STATED EXACTLY, because this
+paragraph claimed more until a review pass measured it: that case proves
+the Z path of `blade_frames` READS the table. It would not notice a
+second datum decision in another helper, or in the X or Y path, which is
+what "changing it is one edit" needs.
+
+The claim is true today and the mechanism is now the one that carries
+it: `test_the_azimuth_datum_has_exactly_one_reader_in_the_package`
+asserts that no module outside `azimuth_basis()` reads `AZIMUTH_BASIS`,
+by parsing rather than by grepping, and fails with the reader that
+appeared.
 
 ## What is NOT proposed here
 
@@ -134,12 +155,19 @@ their evidence is unchanged by this report.
    separately?
 3. Should the descriptor carry the datum itself, per propeller, instead
    of the library carrying one convention for every rotor?
-4. ADDED 2026-08-19, and it may close part 3 entirely. The descriptor
-   now records a MEASURED rotor-speed sign per mesh family. Should a
-   recorded sign supersede any derivation from a sense, so that a
-   campaign that measured its signs is reproduced rather than
-   re-derived? If yes, part 3 is answered by deletion and the library
-   carries no convention to be wrong about.
+4. ADDED 2026-08-19, and CORRECTED the same day, because the first
+   wording asked whether a recorded rotor-speed sign should supersede
+   the azimuth-increment derivation, which conflates the two
+   quantities this report exists to keep apart. As it should have been
+   asked: the descriptor now records a MEASURED rotor-speed sign per
+   mesh family, which fixes the physical direction of rotation about
+   the emitted axis. Should the azimuth increment be REACHED from that
+   measurement, rather than derived from the published sense, for a
+   descriptor that carries one? Answering yes needs a second
+   convention stated as well, that blades are numbered with the
+   rotation rather than against it, and it would leave
+   `ROTATION_SENSE_SIGN` as the fallback for descriptors that record
+   no measurement.
 5. And, if a descriptor carries `blade_travel` and no `rotation`, what
    does the library do? Today `rotation` is required and `blade_travel`
    is optional, which is a decision this widening took by default

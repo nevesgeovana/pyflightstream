@@ -101,7 +101,8 @@ name a build and stay portable.
 
 The two files above carry only the lengths the sweep table needed. A
 reference artifact also carries the moment point and, for a propelled
-configuration, a `[propeller]` block:
+configuration, a `[propeller]` block. A fuller artifact than either of
+the two above, shown whole:
 
 ```toml
 area_m2 = 10.0
@@ -141,25 +142,72 @@ the other way.
 `rotation` is `clockwise` or `counterclockwise` viewed from behind the
 aircraft looking forward. `blade_travel` is `inboard_up` or
 `inboard_down` and names where the blade nearest the fuselage travels,
-which is the form a datasheet usually prints. They are separate fields
-rather than four values of one field because they are not
-interchangeable: `blade_travel` is side-independent, so the left and the
-right propeller of a symmetric pair carry the same word, and turning it
-into a viewed-from-behind sense means knowing which side this propeller
-is on. Only `rotation` is required.
+in the aircraft body frame with the aircraft upright; it describes the
+blade at its inboard azimuth and not the disc as a whole. That is the
+form the datasheet of the one campaign this library has been checked
+against printed, and it is common enough that the field exists; how
+common is not something this repository has measured. Case, hyphens and
+spaces are folded, so `inboard-up` and `Inboard Up` are read as written.
+
+They are separate fields rather than four values of one field because
+they are not interchangeable: `blade_travel` is side-independent, so the
+left and the right propeller of a symmetric pair carry the same word,
+and turning it into a viewed-from-behind sense means knowing which side
+this propeller is on.
+
+Only `rotation` is required, and an artifact carrying `blade_travel`
+alone is refused with that reason rather than with a bare missing-field
+error. WORKING OUT THE ONE FROM THE OTHER IS MECHANICAL ONCE YOU KNOW
+THE SIDE, and the library cannot do it for you because no field records
+the side. Stand behind the aircraft looking forward: a right-side
+propeller has its inboard blade toward the centreline, at the 9 o'clock
+position of its own disc, and a blade there travelling up is moving
+9 to 12, which is clockwise. So `inboard_up` on a right-side propeller
+is `clockwise`, `inboard_down` there is `counterclockwise`, and a
+left-side propeller is the mirror of both. Follow the derivation rather
+than the conclusion: it is two sentences, and getting it backwards is
+the failure this whole section exists to prevent.
 
 `rpm_sign_installed` and `rpm_sign_isolated` are each `1` or `-1` and
 record a MEASURED sign of the rotor speed, one for the installed meshes
-of the configuration and one for the isolated ones, which are frequently
-the opposite hand and so take the opposite sign for the same published
+of the configuration and one for the isolated ones, which may be the
+opposite hand and then take the opposite sign for the same published
 sense of rotation. Both are optional, and leaving one out means your
-campaign has not established it, never that it is `+1`.
+campaign has not established it, never that it is `+1`. A configuration
+with no isolated meshes at all leaves the same silence: not measured and
+not applicable are deliberately not distinguished.
+
+Both are also closed to coercion, not only to value: `true` and `1.0`
+are refused rather than read as `1`, because a sign that was never
+measured must not arrive by conversion. And the domain is checked on
+assignment as well as on load, so `propeller.rpm_sign_installed = 0`
+after reading the artifact is refused too.
 
 Two warnings, and neither is a detail.
 
-Nothing in the package reads the two sign fields yet. They are recorded,
-so a recipe that emits a rotor speed reads the artifact and applies the
-sign itself; writing one changes no emitted script on its own.
+Nothing in the package reads the propeller block. Not the signs, and not
+`rotation`, `blade_travel`, `radius_m`, `n_blades` or `position` either:
+the whole block is recorded, and writing any of it changes no emitted
+script on its own.
+
+AND THE ARTIFACT DOES NOT REACH A RECIPE, which is worth knowing before
+you write one. `resolve_matrix` narrows this artifact to the reference
+area and length the case needs, and a recipe is called with the case and
+the script, so `case.reference.propeller` does not exist. The full
+artifact survives in the resolved matrix, keyed by the REF code of the
+row, so a recipe that wants a sign reads it from the workspace or the
+resolved matrix it closes over:
+
+<!-- skip: next -->
+```python
+resolved = resolve_matrix("matrix_registry.fs", workspace, fs_version="26.120")
+propeller = resolved.references["r003"].propeller
+rpm = propeller.rpm_sign_installed * 2400.0   # your recipe knows which mesh it staged
+```
+
+Which of the two signs applies is your recipe's knowledge and not the
+artifact's: nothing in the library records which geometries are the
+installed meshes and which the isolated ones.
 
 And a sense of rotation does not determine that sign. Getting from a
 published sense to the number a motion command takes needs the rotor

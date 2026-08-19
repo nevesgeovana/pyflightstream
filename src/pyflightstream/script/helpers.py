@@ -2209,7 +2209,20 @@ BLADE_ANCHOR_ANGLES_DEG: tuple[float, ...] = (0.0, 90.0, 180.0, 270.0)
 #: Which of the two a descriptor's own word means, given that the
 #: descriptor states its sense as seen from behind, is the same open
 #: question the datum is: see RPT-036.
-ROTATION_SENSE_SIGN: dict[str, float] = {"counterclockwise": 1.0, "clockwise": -1.0}
+#: The sense of rotation a propeller descriptor records, viewed from
+#: behind the aircraft looking forward. Declared HERE, in the layer that
+#: consumes it, and imported downward by
+#: :class:`pyflightstream.workspace.inputs.PropellerReference` rather
+#: than restated there: the layer rule permits the higher layer to
+#: import the lower one, so a second declaration held together by a test
+#: would be a second home for one vocabulary. This alias was that second
+#: home for one day.
+RotationSense = Literal["clockwise", "counterclockwise"]
+
+ROTATION_SENSE_SIGN: dict[RotationSense, float] = {
+    "counterclockwise": 1.0,
+    "clockwise": -1.0,
+}
 
 #: Decimal places the emitted axis components are rounded to. A cosine of
 #: 90 degrees is 6.1e-17 in binary floating point, and a script line
@@ -2269,7 +2282,7 @@ def blade_frames(
     rotor_axis: str,
     n_blades: int,
     blade1_azimuth_deg: float,
-    rotation: str = "counterclockwise",
+    rotation: RotationSense,
     names: Sequence[str] | None = None,
     labels: Sequence[str] | None = None,
 ) -> list[int]:
@@ -2304,11 +2317,18 @@ def blade_frames(
         Azimuth of the first blade, in deg, measured from the datum of
         :func:`azimuth_basis` and positive towards the quadrature vector.
         One of :data:`BLADE_ANCHOR_ANGLES_DEG`.
-    rotation : str
-        Sense of rotation, ``"counterclockwise"`` or ``"clockwise"``, the
-        vocabulary a propeller descriptor records. It signs the azimuth
-        increment, so it decides which way round the disc the blades are
-        numbered and nothing else.
+    rotation : {"clockwise", "counterclockwise"}
+        Sense of rotation, viewed from behind the aircraft looking
+        forward, the vocabulary a propeller descriptor records in its
+        ``rotation`` field. It signs the azimuth increment, so it decides
+        which way round the disc the blades are numbered and nothing
+        else.
+
+        REQUIRED, and it carried a default until 0.8.0. The default was
+        removed rather than kept because the refusal below says there is
+        no safe default to guess and the signature was making one: a
+        wrong sense renumbers the blades, raises nothing, and every
+        phase-locked reduction keyed to blade index inherits it.
     names : sequence of str, optional
         Display names of the created frames, one per blade; ``Blade1`` to
         ``BladeN`` by default.
@@ -2358,6 +2378,7 @@ def blade_frames(
     ...     rotor_axis="Z",
     ...     n_blades=3,
     ...     blade1_azimuth_deg=90.0,
+    ...     rotation="counterclockwise",
     ... )
     >>> frames
     [2, 3, 4]

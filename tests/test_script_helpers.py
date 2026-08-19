@@ -794,6 +794,7 @@ def test_blade_frames_places_n_frames_at_360_over_n_and_binds_them():
         rotor_axis="Z",
         n_blades=3,
         blade1_azimuth_deg=90.0,
+        rotation="counterclockwise",
     )
     assert indices == [2, 3, 4], "the created frames must be cited by creation order"
 
@@ -835,6 +836,7 @@ def test_a_first_blade_off_the_four_anchor_angles_is_refused_with_its_angle():
             rotor_axis="Z",
             n_blades=3,
             blade1_azimuth_deg=37.0,
+            rotation="counterclockwise",
         )
     message = str(raised.value)
     assert "37.0" in message
@@ -857,7 +859,12 @@ def test_the_azimuth_datum_is_one_named_table_and_changing_it_is_one_edit(monkey
 
     script = Script(version="26.120")
     helpers.blade_frames(
-        script, hub_origin=(0.0, 0.0, 0.0), rotor_axis="Z", n_blades=1, blade1_azimuth_deg=0.0
+        script,
+        hub_origin=(0.0, 0.0, 0.0),
+        rotor_axis="Z",
+        n_blades=1,
+        blade1_azimuth_deg=0.0,
+        rotation="counterclockwise",
     )
     assert _axis(_frame_blocks(script.render())[0], "X") == pytest.approx([1.0, 0.0, 0.0])
 
@@ -865,9 +872,102 @@ def test_the_azimuth_datum_is_one_named_table_and_changing_it_is_one_edit(monkey
     monkeypatch.setitem(helpers.AZIMUTH_BASIS, "Z", ((0.0, 1.0, 0.0), (-1.0, 0.0, 0.0)))
     moved = Script(version="26.120")
     helpers.blade_frames(
-        moved, hub_origin=(0.0, 0.0, 0.0), rotor_axis="Z", n_blades=1, blade1_azimuth_deg=0.0
+        moved,
+        hub_origin=(0.0, 0.0, 0.0),
+        rotor_axis="Z",
+        n_blades=1,
+        blade1_azimuth_deg=0.0,
+        rotation="counterclockwise",
     )
     assert _axis(_frame_blocks(moved.render())[0], "X") == pytest.approx([0.0, 1.0, 0.0])
+
+
+def test_the_sense_is_required_of_a_caller_as_well_as_of_an_artifact():
+    """The refusal says there is no safe default; the signature had one.
+
+    Omitting `rotation` selected the positive azimuth increment
+    silently, on the one quantity RPT-036 identifies as producing
+    plausible numbers when it is wrong: the wrong sense renumbers the
+    blades, raises nothing, and every phase-locked reduction keyed to
+    blade index inherits it. Three review seats found the contradiction
+    independently.
+
+    The model one layer up makes the same field required, so this is
+    also the two homes of one fact agreeing on whether it may be
+    guessed.
+    """
+    script = Script(version="26.120")
+    with pytest.raises(TypeError) as refused:
+        helpers.blade_frames(
+            script,
+            hub_origin=(0.0, 0.0, 0.0),
+            rotor_axis="Z",
+            n_blades=3,
+            blade1_azimuth_deg=0.0,
+        )
+    assert "rotation" in str(refused.value)
+    assert script.render() == "\n", "a refused call emitted script lines"
+
+
+def test_the_azimuth_datum_has_exactly_one_reader_in_the_package():
+    """One table, one reader, asserted rather than inspected.
+
+    RPT-036 rests on the azimuth zero being decided in one place, and
+    the case above proves only that ``blade_frames``' Z path reads the
+    table: a second datum decision in another helper, or in the X or Y
+    path, leaves it green. This is the sentence's real mechanism.
+
+    Parsed, not grepped, so the table's own definition and any mention
+    of it in a docstring or a refusal are not counted as readers.
+    """
+    import ast
+    from pathlib import Path
+
+    import pyflightstream
+
+    package = Path(pyflightstream.__file__).parent
+    home = package / "script" / "helpers.py"
+
+    readers: list[str] = []
+    scanned = 0
+    for module in package.rglob("*.py"):
+        scanned += 1
+        tree = ast.parse(module.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            named = (
+                isinstance(node, ast.Name)
+                and node.id == "AZIMUTH_BASIS"
+                and isinstance(node.ctx, ast.Load)
+            ) or (isinstance(node, ast.Attribute) and node.attr == "AZIMUTH_BASIS")
+            if named:
+                readers.append(f"{module.relative_to(package).as_posix()}:{node.lineno}")
+    assert scanned > 50, f"the scan reached only {scanned} modules"
+
+    inside = [where for where in readers if where.startswith("script/helpers.py")]
+    outside = [where for where in readers if not where.startswith("script/helpers.py")]
+    assert not outside, (
+        "the azimuth datum table is read outside the module that owns it, at "
+        + ", ".join(outside)
+        + ". RPT-036 rests on the datum being one edit, which stops being true the "
+        "moment a second module decides anything from this table"
+    )
+    assert inside, "nothing reads the table at all, so this guard is measuring nothing"
+
+    source = home.read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    functions = [
+        node.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef)
+        and any(
+            isinstance(inner, ast.Name) and inner.id == "AZIMUTH_BASIS" for inner in ast.walk(node)
+        )
+    ]
+    assert functions == ["azimuth_basis"], (
+        f"the table is read by {functions} inside its own module, and RPT-036 names "
+        "azimuth_basis as its only reader. A second reader is a second place the datum "
+        "is decided, whether or not it agrees today"
+    )
 
 
 def test_the_rotation_sense_decides_which_way_the_blades_are_numbered():
@@ -920,6 +1020,7 @@ def test_blade_frames_refuses_what_it_cannot_place(kwargs, fragment):
         "rotor_axis": "Z",
         "n_blades": 3,
         "blade1_azimuth_deg": 0.0,
+        "rotation": "counterclockwise",
     }
     call.update(kwargs)
     with pytest.raises(CommandArgumentError) as raised:

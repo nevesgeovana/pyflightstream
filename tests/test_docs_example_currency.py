@@ -196,7 +196,7 @@ def test_the_propeller_artifact_on_the_page_is_the_one_the_suite_validates():
     assert len(page) == 1
 
     documented = tomllib.loads(page[0])["propeller"]
-    fixture = tomllib.loads(test_workspace.REAL_CAMPAIGN_REFERENCE_TOML)["propeller"]
+    fixture = tomllib.loads(test_workspace.PROPELLER_REFERENCE_TOML)["propeller"]
     assert fixture, "the workspace fixture carries no propeller block to compare against"
     assert documented == fixture, (
         "the propeller artifact on the page has drifted from the one the workspace "
@@ -267,19 +267,32 @@ def test_every_key_of_the_documented_propeller_is_a_field_of_the_model():
     )
 
 
-def test_the_page_states_that_nothing_reads_the_recorded_signs():
-    """The one property of these fields a user cannot discover by trying.
+def test_the_page_states_the_two_things_a_reader_cannot_discover_by_trying():
+    """A recorded field and an unreachable artifact, both said out loud.
 
     A field that validates, persists and changes no emitted script is
     indistinguishable from a field that works, right up until a campaign
-    trusts it. The docstring says so; this asserts the PAGE does too,
-    since the page is what a reader of the artifact format reads.
+    trusts it. And the artifact carrying it never reaches a recipe, so a
+    reader following the obvious route writes `case.reference.propeller`
+    and meets an AttributeError at script-build time.
+
+    THIS CASE IS NOT THE GUARD ON EITHER PROPERTY, and says so rather
+    than being read as one: it asserts that the SENTENCES are on the
+    page. The property itself is measured by
+    `test_no_module_outside_the_model_reads_the_propeller_block` in
+    tests/test_workspace.py, which fails with the module that started
+    reading the block. This case fails when the page stops saying what
+    that one measures.
     """
     text = _normalized(PAGE.read_text(encoding="utf-8")).lower()
-    assert "nothing in the package reads the two sign fields yet" in text, (
-        "the page documents rpm_sign_installed and rpm_sign_isolated without saying "
-        "that no emitter reads them, which is the only way a reader learns it short "
-        "of running a campaign on the assumption that one does"
+    assert "nothing in the package reads the propeller block" in text, (
+        "the page documents the propeller block without saying that no emitter reads "
+        "it, which is the only way a reader learns it short of running a campaign on "
+        "the assumption that one does"
+    )
+    assert "case.reference.propeller` does not exist" in text, (
+        "the page does not tell a recipe author that the artifact never reaches them, "
+        "so the documented way to use these fields is one they cannot follow"
     )
 
 

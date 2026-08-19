@@ -59,6 +59,7 @@ from pydantic import (
     ValidationError,
     ValidationInfo,
     field_validator,
+    model_validator,
 )
 
 # InputArtifactError is DEFINED in `_errors`, below every layer, and
@@ -80,6 +81,7 @@ from pyflightstream._errors import InputArtifactError
 # would put a second reader of the pipe-delimited layout in the package
 # (PFS-2009.03).
 from pyflightstream.cases.matrix import CODE_COLUMNS, rewrite_codes
+from pyflightstream.script.helpers import RotationSense
 
 INPUT_KINDS = ("geometries", "references", "setups", "groups", "profiles")
 EXECUTABLES_FILE = "executables.toml"
@@ -150,13 +152,27 @@ class PropellerReference(BaseModel):
         Toe (in-plane inclination) angle of the propeller axis in deg.
     position : PointXyz
         Hub position in the simulation geometry frame, m.
-    rotation : {"clockwise", "counterclockwise"}
+    rotation : RotationSense
         Sense of rotation about the propeller axis, viewed from behind
-        the aircraft looking forward. Record the convention with the
-        geometry so the sign of the swirl is never guessed.
+        the aircraft looking forward, ``"clockwise"`` or
+        ``"counterclockwise"``. Record the convention with the geometry
+        so the sign of the swirl is never guessed.
+
+        The domain is not declared here. It is
+        :data:`pyflightstream.script.helpers.RotationSense`, imported
+        from the layer that consumes it, so the vocabulary has one home
+        rather than two homes held together by a test.
     blade_travel : {"inboard_up", "inboard_down"}, optional
         The SAME physical fact in the vocabulary a vendor datasheet
-        usually prints: where the blade nearest the fuselage travels.
+        prints: where the blade nearest the fuselage travels, stated in
+        the aircraft body frame with the aircraft upright. It describes
+        the blade at its inboard azimuth, not the disc as a whole.
+
+        Written with an underscore, and a datasheet that prints
+        ``inboard-up``, ``Inboard Up`` or ``INBOARD_UP`` is accepted:
+        case, hyphens and spaces are folded before the domain is
+        checked, because this is the one field in the model whose value
+        is transcribed off paper.
 
         It is a separate field rather than two more values of
         ``rotation`` because the two vocabularies are not
@@ -174,16 +190,34 @@ class PropellerReference(BaseModel):
         motion about and is a per-case argument, so this field states a
         sign and never an axis.
     rpm_sign_isolated : {-1, 1}, optional
-        The same for the ISOLATED meshes, which are frequently the
-        opposite hand of the installed ones and therefore take the
-        opposite sign for the same published sense.
+        The same for the ISOLATED meshes, which may be the opposite hand
+        of the installed ones and then take the opposite sign for the
+        same published sense. The one campaign this model has been
+        checked against was such a case, which is why the pair exists;
+        how common it is across campaigns is not something this
+        repository has measured.
 
     Notes
     -----
-    NOTHING IN THIS PACKAGE READS THE TWO SIGN FIELDS YET, and that is
-    said here rather than left to be discovered. They are RECORDED, so a
-    recipe that emits a rotor speed reads the artifact and applies the
-    sign itself; setting one changes no emitted script on its own.
+    NOTHING IN THIS PACKAGE READS THE PROPELLER BLOCK, and that is said
+    here rather than left to be discovered. Not the signs, and not
+    ``rotation``, ``blade_travel``, ``radius_m``, ``n_blades`` or
+    ``position`` either: the whole block is RECORDED, and setting any of
+    it changes no emitted script on its own.
+
+    AND THE ARTIFACT DOES NOT REACH A RECIPE, which is the part that
+    would otherwise be discovered the expensive way.
+    :func:`pyflightstream.workspace.matrix.resolve_matrix` narrows this
+    artifact to a :class:`pyflightstream.cases.ReferenceData` of area and
+    length for the case, and a recipe is called with the case and the
+    script. The full artifact survives only in ``ResolvedMatrix``
+    ``.references``, keyed by the matrix REF code, so a recipe that wants
+    a sign reads it from the workspace or the resolved matrix it closes
+    over, and ``case.reference.propeller`` does not exist.
+
+    Which of the two signs applies is likewise the recipe's knowledge and
+    not the artifact's: nothing in the library records which geometries
+    are the installed meshes and which the isolated ones.
 
     THE SENSE DOES NOT DETERMINE THE SIGN OF THE ROTOR SPEED, which is
     why those fields exist and are not derived. Going from a published
@@ -200,7 +234,24 @@ class PropellerReference(BaseModel):
     Two different signs, one of them derivable and one of them measured.
 
     Both sign fields are optional, and absence means the campaign has not
-    established them rather than that the sign is ``+1``. That promise is
+    established them rather than that the sign is ``+1``. NOT ESTABLISHED
+    AND NOT APPLICABLE ARE THE SAME SILENCE, deliberately: a
+    configuration with no isolated meshes leaves ``rpm_sign_isolated``
+    out exactly as a campaign that never measured it does, and the model
+    does not distinguish them. Distinguishing them would be a third
+    value rather than a second field, and it is not built.
+
+    The closed domain is also what makes assignment checked rather than
+    merely loading checked: this model sets ``validate_assignment``, so
+    ``propeller.rpm_sign_installed = 0`` is refused after loading and not
+    only at it. It is not frozen, because a campaign may legitimately
+    record a sign it measured after reading the artifact.
+
+    One asymmetry worth a sentence, because it reads as an oversight
+    otherwise: ``n_blades`` accepts the string ``"3"`` by pydantic's
+    ordinary coercion while a sign field refuses ``1.0``. The strictness
+    is deliberate and local to the signs, whose whole content is one bit
+    that must have been measured. That promise is
     what closes them to COERCION as well as to value: ``true`` and
     ``1.0`` are refused rather than read as the integer ``1``, because a
     boolean that becomes a measured positive sign is the package
@@ -216,7 +267,7 @@ class PropellerReference(BaseModel):
     so an artifact written before 0.8.0 validates unaltered.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
     radius_m: float = Field(gt=0.0)
     hub_radius_m: float | None = Field(default=None, ge=0.0)
@@ -224,10 +275,68 @@ class PropellerReference(BaseModel):
     pitch_deg: float | None = None
     toe_deg: float | None = None
     position: PointXyz = Field(default_factory=PointXyz)
-    rotation: Literal["clockwise", "counterclockwise"]
+    rotation: RotationSense
     blade_travel: Literal["inboard_up", "inboard_down"] | None = None
     rpm_sign_installed: Literal[-1, 1] | None = None
     rpm_sign_isolated: Literal[-1, 1] | None = None
+
+    @field_validator("blade_travel", mode="before")
+    @classmethod
+    def _blade_travel_is_read_the_way_a_datasheet_prints_it(
+        cls, value: object, info: ValidationInfo
+    ) -> object:
+        """Fold case, hyphens and spaces before the domain is checked.
+
+        This is the one field whose value is transcribed off paper, and
+        a datasheet prints it in whatever style its publisher chose. A
+        refusal of ``inboard-up`` that names only the accepted spelling
+        teaches the reader nothing they did not already believe they had
+        written.
+        """
+        if not isinstance(value, str):
+            return value
+        folded = value.strip().lower().replace("-", "_").replace(" ", "_")
+        if folded in {"inboard_up", "inboard_down"}:
+            return folded
+        raise ValueError(
+            f"{info.field_name} is {value!r}, and the blade travel of a propeller is "
+            "inboard_up or inboard_down, naming where the blade nearest the fuselage "
+            "travels. Case, hyphens and spaces are folded, so inboard-up and "
+            "Inboard Up are read; anything else is refused rather than guessed"
+        )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _the_sense_is_required_and_the_other_vocabulary_is_not_a_substitute(
+        cls, data: object
+    ) -> object:
+        """Refuse a propeller with no ``rotation`` in words, not in codes.
+
+        The campaign this model was widened for records the sense in the
+        INBOARD vocabulary, so a reader who fills in ``blade_travel``
+        and stops is the expected case rather than a careless one. What
+        they met was pydantic's ``Field required``, which names no cause
+        and no remedy, while the message that routes them lives one
+        layer down in a function they may never call.
+        """
+        if not isinstance(data, dict) or "rotation" in data:
+            return data
+        if "blade_travel" in data:
+            raise ValueError(
+                "the propeller records blade_travel and no rotation. They are the same "
+                "physical fact in two vocabularies and the package cannot convert "
+                "between them: blade_travel is side-independent, so the left and the "
+                "right propeller of a pair carry the same word, and turning it into a "
+                "sense viewed from behind needs the side of the aircraft, which no "
+                "field of this artifact records. Add rotation, clockwise or "
+                "counterclockwise, alongside the blade_travel you have"
+            )
+        raise ValueError(
+            "the propeller records no rotation. The sense of rotation is clockwise or "
+            "counterclockwise viewed from behind the aircraft looking forward, and it "
+            "decides the sign of the swirl and which way round the disc the blades are "
+            "numbered, so there is no safe default to guess"
+        )
 
     @field_validator("rpm_sign_installed", "rpm_sign_isolated", mode="before")
     @classmethod
@@ -243,9 +352,10 @@ class PropellerReference(BaseModel):
             return value
         raise ValueError(
             f"{info.field_name} is {value!r}, of type {type(value).__name__}, and a "
-            "measured sign is written as the integer 1 or -1. A boolean or a real "
-            "number here would be coerced to a sign this campaign never measured, "
-            "and an unmeasured sign is recorded by leaving the field out"
+            "measured sign is written as a Python int, 1 or -1. A bool, a float or "
+            "a number from an array library would be coerced to a sign this campaign "
+            f"never measured, so convert the {type(value).__name__} to an int if it "
+            "really is one. An unmeasured sign is recorded by leaving the field out"
         )
 
 

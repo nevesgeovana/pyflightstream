@@ -113,7 +113,31 @@ CONVENTIONS: tuple[tuple[str, str], ...] = (
         "Workspace input artifacts are selected by id, and an id is the "
         "file name stem inside the library (letters, digits, dot, "
         "underscore, hyphen); it is never a path, and naming templates "
-        "are output-only (the manifest stays the identity authority).",
+        "are output-only (the manifest stays the identity authority). "
+        "Since 0.8.0 a reference, setup or group id also DECLARES ITS "
+        "KIND with a leading letter (r, s, e), so a number mistyped "
+        "between two columns of a run matrix is refused instead of "
+        "resolving to another artifact's file; geometries and profiles "
+        "still resolve by bare stem. A library written before that is "
+        "migrated by migrate_input_ids.",
+    ),
+    (
+        "Rotor signs are recorded, not derived",
+        "Two different signs meet at a rotor and the package keeps them "
+        "apart. The AZIMUTH INCREMENT, which way round the disc the "
+        "blades are numbered, is DERIVED from the recorded sense of "
+        "rotation through script.helpers.ROTATION_SENSE_SIGN, where "
+        "counterclockwise about the rotor axis is the positive sense. "
+        "The ROTOR SPEED sign is MEASURED and recorded per mesh family "
+        "on a propeller reference (rpm_sign_installed, "
+        "rpm_sign_isolated), because getting it from a published sense "
+        "needs the rotor axis, the side of the aircraft and the "
+        "handedness of the mesh actually loaded. Absence of a recorded "
+        "sign means the campaign has not established it, never +1, and "
+        "nothing in the package reads those fields today. Which "
+        "viewed-from-behind sense a datasheet's inboard vocabulary "
+        "means, and where azimuth zero sits, are open questions "
+        "recorded in RPT-036 rather than settled here.",
     ),
     (
         "Refusals teach",

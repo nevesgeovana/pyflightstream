@@ -974,6 +974,15 @@ the base could not offer while it bundled several.
     them is asserted by no test, and saying so here is the alternative
     to a badge that implies one.*
 
+    *Amended 2026-08-19. The rotor half of this requirement was badged
+    implemented while `CONVENTIONS` carried no rotor entry at all: the
+    sign a reader was told is published was published nowhere, and a
+    reviewer pass found it rather than a guard. The entry "Rotor signs
+    are recorded, not derived" now states the split between the derived
+    azimuth-increment sign and the measured rotor-speed sign, and names
+    RPT-036 for what is still open. The badge did not move, because the
+    STATING half is what it claims and that half is now true.*
+
     The package states the reference-frame and sign conventions for
     reported forces, moments, and rotor quantities, naming the positive
     axis directions, the moment reference point, and the rotor-rotation
