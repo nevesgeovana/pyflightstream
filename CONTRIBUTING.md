@@ -306,7 +306,7 @@ in the root README and `docs/` are run in CI so a stale example fails.
 Run them locally the same way CI does (warnings promoted to errors):
 
 ```
-pytest src/pyflightstream README.md docs -W error
+pytest src/pyflightstream README.md docs -W error::pyflightstream._errors.PyflightstreamWarning
 ```
 
 The plain `pytest` above (Tier 1) does not collect these, so run this

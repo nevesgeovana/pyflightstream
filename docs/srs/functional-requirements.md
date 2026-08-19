@@ -250,12 +250,21 @@ Milestones and session records are listed in the
     format in one optional invocation, and a reverse conversion
     reproduces every field of the original matrix, verified by a
     round-trip ([glossary](index.md#glossary)) test. The matrix POL
-    column maps to the native `sim_id`; the matrix reference codes are
-    preserved verbatim.
+    column identifies the sims one row generates: exactly one for a row
+    that is not fanned, and the whole group for a row that is. The
+    matrix reference codes are preserved verbatim.
 
     Reworded 2026-07-27: "lossless" named a property without saying how
     anyone would know. The reverse conversion is what makes it
     checkable, and it is the same claim stated as a test.
+
+    Reworded again 2026-08-19 (PFS-2025.14), the author's decision. It
+    said POL maps to the native `sim_id`, one to one, which a fanned
+    rotation sweep makes false: one row becomes several sims. What FR-11
+    protects is LOSSLESSNESS and the traceability of a sim back to the
+    row that asked for it, and neither depends on the cardinality being
+    one. Stating the group is what keeps the round trip checkable now
+    that a row may generate more than one sim.
 
 !!! requirement "FR-12 Recipes as explicit protocol <span class='srs-implemented'>implemented</span>"
     *Origin: PP-7. Evidence: milestone M2; recipe registry tests.*
@@ -682,12 +691,31 @@ the base could not offer while it bundled several.
 
 !!! requirement "FR-33c Colliding output names are blocked before the run <span class='srs-implemented'>implemented</span>"
     *Origin: Phase 4 split of FR-33, accepted 2026-07-27, giving the
-    incident guard its own identifier. Evidence: incident
-    INC-20260723-2113; `tests/test_run_campaign.py`.*
+    incident guard its own identifier. Widened 2026-08-19
+    (OPS-2005.10.03, PFS-2011.02), the author's decision. Evidence:
+    incident INC-20260723-2113; `tests/test_run_campaign.py`;
+    `tests/test_silent_overwrites.py`.*
 
-    A case whose sweep points would render the same output name is
-    blocked before it runs, because every point of the case executes in
-    one simulation folder.
+    A write that would destroy a record without saying so is refused
+    before it happens, and there are three shapes of it. A case whose
+    sweep points would render the same output name is blocked before it
+    runs, because every point of the case executes in one simulation
+    folder. A writer handed a destination that already exists refuses
+    rather than replacing it, and `overwrite=True` is the only way
+    through. A run folder that already holds a previous run's history
+    with no state beside it is refused rather than appended to.
+
+    The three were one requirement's worth of behaviour written as one,
+    because they are one class: a record destroyed while the record says
+    nothing happened. THE SIGNAL DIFFERS PER SHAPE and the requirement
+    says so rather than implying a single mechanism: a file write can
+    ask whether the destination exists, a command that asks the SOLVER
+    to write cannot, and a log that appends by design is identified by
+    the pair it forms with the state file beside it.
+
+    Widened because the code made all three refusals while this sentence
+    described one, which reads as the package refusing less than it
+    does.
 
 ### New identifiers from the batch
 

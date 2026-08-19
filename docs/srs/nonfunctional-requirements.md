@@ -326,20 +326,34 @@
     suffixes. No artifact-side check for geometry exists in either
     repository today.
 
-!!! requirement "NFR-15 Manifest hash canonicalization <span class='srs-pending'>pending</span>"
+!!! requirement "NFR-15 Manifest hash canonicalization <span class='srs-implemented'>implemented</span>"
     *Origin: Phase 4 review, accepted 2026-07-27, absorbing the M3b
-    state-hash mirror.*
+    state-hash mirror. Statement rewritten 2026-08-19 (PFS-2012.10),
+    the author's decision. Evidence: `pyflightstream._digest`, which
+    carries `ALGORITHM`, `EXCLUDED_FROM_EVERY_DIGEST` and
+    `CANONICAL_FORMS` as data; `tests/test_digest.py`, including the
+    walk that fails a module hashing without declaring its canonical
+    form.*
 
-    The manifest input and script hashes are computed with a named
-    algorithm over a canonical serialization that excludes wall-clock
-    timestamps, absolute paths, and wall time, so two runs with
-    identical inputs produce identical hashes. The determinism this
-    promises is bounded to one platform and one set of library
-    versions, and that boundary is stated rather than implied.
+    Every digest this package writes is sha256, and the canonical form
+    it is taken over is stated per kind rather than implied. A FILE
+    digest (a staged input, a collected output, the written script, the
+    solver executable) is taken over the file's raw bytes. A TEXT digest
+    (the rendered script text, the recipe source) is taken over the
+    UTF-8 encoding of that text. No wall-clock timestamp, elapsed time,
+    absolute path, machine name or staging order enters any of them, so
+    two runs with identical inputs produce identical digests.
 
-    Pending because the hashes exist and the canonicalization rule is
-    not written down, which means nothing stops a volatile field
-    entering one.
+    The two kinds are distinguished because they answer different
+    questions and a file checked out with different line endings is a
+    different file while the same text is the same text. The
+    determinism this promises is bounded to one platform and one set of
+    library versions, and that boundary is stated rather than implied.
+
+    Implemented rather than pending since the rule is data in
+    `_digest` rather than prose about it, which is what makes a
+    volatile field entering a digest a tier-1 failure rather than a
+    thing nobody would notice.
 
 !!! requirement "NFR-16 Test-coverage floor <span class='srs-implemented'>implemented</span>"
     *Origin: Phase 4 review, accepted 2026-07-27, absorbing the M5

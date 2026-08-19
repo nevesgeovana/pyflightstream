@@ -129,6 +129,7 @@ def _modules_that_compute_a_digest() -> dict[str, set[str]]:
     return measured
 
 
+@pytest.mark.requirement("NFR-15")
 def test_every_digest_the_package_computes_declares_its_canonical_form():
     """NFR-15's rule, held by a registry rather than by a paragraph.
 
@@ -159,6 +160,7 @@ def test_every_digest_the_package_computes_declares_its_canonical_form():
     )
 
 
+@pytest.mark.requirement("NFR-15")
 def test_the_package_names_one_algorithm_and_uses_no_other():
     """The algorithm half, pinned where it is spent rather than described.
 
@@ -180,6 +182,7 @@ def test_the_package_names_one_algorithm_and_uses_no_other():
     )
 
 
+@pytest.mark.requirement("NFR-15")
 def test_a_digest_is_a_statement_about_content_and_nothing_around_it(tmp_path):
     """The exclusion clause, measured rather than promised.
 

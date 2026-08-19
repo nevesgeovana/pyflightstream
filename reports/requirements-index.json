@@ -121,7 +121,7 @@
   },
   {
    "id": "FR-11",
-   "text": "A convert command turns a run matrix into the native campaign format in one optional invocation, and a reverse conversion reproduces every field of the original matrix, verified by a round-trip (glossary) test. The matrix POL column maps to the native sim_id; the matrix reference codes are preserved verbatim.",
+   "text": "A convert command turns a run matrix into the native campaign format in one optional invocation, and a reverse conversion reproduces every field of the original matrix, verified by a round-trip (glossary) test. The matrix POL column identifies the sims one row generates: exactly one for a row that is not fanned, and the whole group for a row that is. The matrix reference codes are preserved verbatim.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: BRF-08, BRF-16. Evidence: milestone M2; TOML round-trip tests (glossary); the pyfs-matrix convert CLI (v0.3 line).*",
@@ -393,10 +393,10 @@
   },
   {
    "id": "FR-33c",
-   "text": "A case whose sweep points would render the same output name is blocked before it runs, because every point of the case executes in one simulation folder.",
+   "text": "A write that would destroy a record without saying so is refused before it happens, and there are three shapes of it. A case whose sweep points would render the same output name is blocked before it runs, because every point of the case executes in one simulation folder. A writer handed a destination that already exists refuses rather than replacing it, and overwrite=True is the only way through. A run folder that already holds a previous run's history with no state beside it is refused rather than appended to.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: Phase 4 split of FR-33, accepted 2026-07-27, giving the incident guard its own identifier. Evidence: incident INC-20260723-2113; tests/test_run_campaign.py.*",
+   "evidence": "*Origin: Phase 4 split of FR-33, accepted 2026-07-27, giving the incident guard its own identifier. Widened 2026-08-19 (OPS-2005.10.03, PFS-2011.02), the author's decision. Evidence: incident INC-20260723-2113; tests/test_run_campaign.py; tests/test_silent_overwrites.py.*",
    "verification": "test"
   },
   {
@@ -673,11 +673,11 @@
   },
   {
    "id": "NFR-15",
-   "text": "The manifest input and script hashes are computed with a named algorithm over a canonical serialization that excludes wall-clock timestamps, absolute paths, and wall time, so two runs with identical inputs produce identical hashes. The determinism this promises is bounded to one platform and one set of library versions, and that boundary is stated rather than implied.",
+   "text": "Every digest this package writes is sha256, and the canonical form it is taken over is stated per kind rather than implied. A FILE digest (a staged input, a collected output, the written script, the solver executable) is taken over the file's raw bytes. A TEXT digest (the rendered script text, the recipe source) is taken over the UTF-8 encoding of that text. No wall-clock timestamp, elapsed time, absolute path, machine name or staging order enters any of them, so two runs with identical inputs produce identical digests.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: Phase 4 review, accepted 2026-07-27, absorbing the M3b state-hash mirror.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: Phase 4 review, accepted 2026-07-27, absorbing the M3b state-hash mirror. Statement rewritten 2026-08-19 (PFS-2012.10), the author's decision. Evidence: pyflightstream._digest, which carries ALGORITHM, EXCLUDED_FROM_EVERY_DIGEST and CANONICAL_FORMS as data; tests/test_digest.py, including the walk that fails a module hashing without declaring its canonical form.*",
+   "verification": "test"
   },
   {
    "id": "NFR-16",

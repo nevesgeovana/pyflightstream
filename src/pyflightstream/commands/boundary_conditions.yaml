@@ -389,8 +389,17 @@ TRAILING_EDGES_IMPORT:
     name, and an edition dropping a page is a fact about a document. So
     26.123 answers ABSENT, which the committed enumeration
     tests/goldens/absent_on_26123.txt already records, and the reading
-    lives here. How this state should be encoded, given the four
-    statuses, is the author's call and is deliberately not taken here.
+    lives here.
+
+    THAT ENCODING IS NOW DECIDED rather than pending (the author,
+    2026-08-19, PFS-2026.04): no version row, plus this note and the
+    committed enumeration, and NO fifth member of the status set. A
+    fifth member would be more expressive and would touch every consumer
+    of the status, the census tables and the derived support levels
+    included, for one command; and the state it would name, a page the
+    vendor dropped, is a fact about a DOCUMENT rather than about the
+    solver, which the four statuses are all about. The absence carries
+    that distinction correctly and this paragraph carries the reason.
 
 DETECT_WAKE_TERMINATION_NODES_BY_SURFACE:
   layout: inline
