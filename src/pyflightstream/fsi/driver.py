@@ -404,10 +404,39 @@ def coupling_step(run_dir: str | Path) -> StepResult:
     -------
     StepResult
         Summary of the executed call.
+
+    Raises
+    ------
+    FsiInputError
+        If the folder holds a convergence log with no ``state.json``
+        beside it. That pair means a NEW run is reusing a folder a
+        previous run left behind, and the log APPENDS by design, so the
+        new run's rows would be written under the old run's history with
+        nothing separating them (PFS-2011.02).
+
+        The signal is deliberately the ABSENCE of the state file rather
+        than the presence of the log: within one run the log is present
+        on every call after the first, and refusing that would refuse the
+        normal case.
     """
     run_dir = Path(run_dir)
     cfg = load_config(run_dir / CONFIG_FILE)
     state_path = run_dir / STATE_FILE
+    # PFS-2011.02. `_append_log` appends by design, so the log alone
+    # cannot say whether this is the second call of one run or the first
+    # call of a second run. `state.json` can: it is written atomically at
+    # the end of every call and removed by nothing, so a log without it
+    # is a previous run's history in a folder being reused.
+    log_path = run_dir / LOG_FILE
+    if not state_path.is_file() and log_path.is_file():
+        raise FsiInputError(
+            f"{log_path} exists and {state_path.name} does not, so this folder holds "
+            "a previous run's convergence history and no state to resume from. The "
+            "log APPENDS, so continuing would write this run's rows under the other "
+            "run's, with nothing in the file separating them. Use a fresh working "
+            f"directory, or move {log_path.name} aside if the previous history is "
+            "wanted."
+        )
     state = load_state(state_path) if state_path.is_file() else initial_state()
     # PYFS-012: a resumed state must describe the configured blade. Checked
     # here, at the single point where a persisted state meets its config,

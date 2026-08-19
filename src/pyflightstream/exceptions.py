@@ -72,6 +72,7 @@ from pyflightstream.fsi.errors import FsiInputError
 from pyflightstream.fsi.loads import UnitsError
 from pyflightstream.fsi.state import StaleLoadsError, TwistIterationError
 from pyflightstream.options import OptionError
+from pyflightstream.post.writers import OutputExistsError
 from pyflightstream.probes.errors import (
     ProbeGeometryError,
 )
@@ -135,6 +136,7 @@ __all__ = [
     "NamingTemplateError",
     "OpenMeshError",
     "OptionError",
+    "OutputExistsError",
     "PhysicsEnvironmentError",
     "ProbeEnvironmentError",
     "ProbeGeometryError",

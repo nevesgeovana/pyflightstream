@@ -21,7 +21,37 @@ from pathlib import Path
 import numpy as np
 import xarray as xr
 
-__all__ = ["write_vtk_points", "write_tecplot_points", "dataset_to_points"]
+from pyflightstream._errors import PyflightstreamError
+
+__all__ = [
+    "OutputExistsError",
+    "write_vtk_points",
+    "write_tecplot_points",
+    "dataset_to_points",
+]
+
+
+class OutputExistsError(PyflightstreamError, FileExistsError):
+    """A flow-visualization file would be overwritten (PFS-2011.02).
+
+    Both writers ended in an unconditional ``write_text``, so a second
+    call with the same destination replaced the first silently. That is
+    the same class as the campaign defect PYFS-005 records: one point of
+    a run overwrote another's output while the record listed both
+    complete, which cost licensed solver time and could have published a
+    report from one point counted twice.
+
+    ``overwrite=True`` is the only way through and each writer's
+    docstring says so.
+
+    It keeps ``FileExistsError`` as its second base for the reason FR-39
+    gives for every catalogued class: an existing ``except
+    FileExistsError`` around a write catches exactly what it caught
+    before, and it is the handler a caller writing a file already has.
+    The evidence writers under ``qa`` raise the BUILTIN for the same
+    situation, deliberately, because that predates the catalogue's reach;
+    a new raise site takes the catalogued type.
+    """
 
 
 def _fmt(value: float) -> str:
@@ -50,6 +80,7 @@ def write_vtk_points(
     fields: Mapping[str, np.ndarray] | None = None,
     *,
     title: str = "pyflightstream probe data",
+    overwrite: bool = False,
 ) -> Path:
     """Write probe data as a VTK legacy ASCII polydata file.
 
@@ -64,11 +95,26 @@ def write_vtk_points(
         written in the mapping's order.
     title : str
         VTK header title line.
+    overwrite : bool, keyword-only
+        Replace an existing destination. Default False, and the default
+        is the point: this writer ended in an unconditional
+        ``write_text``, so a second call with the same path replaced the
+        first silently.
 
     Returns
     -------
     pathlib.Path
         The written file.
+
+    Raises
+    ------
+    OutputExistsError
+        If the destination exists and ``overwrite`` is False. It keeps
+        ``FileExistsError`` as a base, so an existing handler around the
+        call catches what it always did.
+    ValueError
+        If ``points`` is not ``(n, 3)``, or a field's shape does not
+        match the probe count.
     """
     points, checked = _checked(points, fields)
     n = len(points)
@@ -93,6 +139,14 @@ def write_vtk_points(
                 lines.append(f"VECTORS {name} float")
                 lines += [" ".join(_fmt(c) for c in row) for row in array]
     destination = Path(path)
+    if destination.exists() and not overwrite:
+        raise OutputExistsError(
+            f"{destination} already exists. This writer replaced it silently until "
+            "2026-08-19, which is the shape PYFS-005 records: one point of a run "
+            "overwrote another's output while the run record listed both complete. "
+            "Pass overwrite=True to replace it deliberately, or write under a name "
+            "that carries the point."
+        )
     destination.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return destination
 
@@ -104,6 +158,7 @@ def write_tecplot_points(
     *,
     title: str = "pyflightstream probe data",
     zone: str = "probes",
+    overwrite: bool = False,
 ) -> Path:
     """Write probe data as a Tecplot ASCII ordered POINT zone.
 
@@ -123,11 +178,24 @@ def write_tecplot_points(
         TITLE record.
     zone : str
         Zone name.
+    overwrite : bool, keyword-only
+        Replace an existing destination. Default False, for the same
+        reason as its sibling: this writer also ended in an
+        unconditional ``write_text``, so a second call with the same
+        path replaced the first silently.
 
     Returns
     -------
     pathlib.Path
         The written file.
+
+    Raises
+    ------
+    OutputExistsError
+        If the destination exists and ``overwrite`` is False.
+    ValueError
+        If ``points`` is not ``(n, 3)``, or a field's shape does not
+        match the probe count.
     """
     points, checked = _checked(points, fields)
     columns: list[tuple[str, np.ndarray]] = [
@@ -149,6 +217,14 @@ def write_tecplot_points(
     table = np.column_stack([values for _, values in columns])
     lines += [" ".join(_fmt(value) for value in row) for row in table]
     destination = Path(path)
+    if destination.exists() and not overwrite:
+        raise OutputExistsError(
+            f"{destination} already exists. This writer replaced it silently until "
+            "2026-08-19, which is the shape PYFS-005 records: one point of a run "
+            "overwrote another's output while the run record listed both complete. "
+            "Pass overwrite=True to replace it deliberately, or write under a name "
+            "that carries the point."
+        )
     destination.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return destination
 

@@ -276,6 +276,70 @@ Deprecations: none.
 
 ### Changed
 
+- **Four writers stopped replacing a file without saying so**
+  (PFS-2011.02, FR-33c, FR-33b, FR-29). PYFS-005 records the class: one
+  point of a campaign overwrote another's output while the run record
+  listed both complete, which cost licensed solver time and could have
+  published a report from one point counted twice. The guard written
+  afterwards covered the surface where it was found; three others took a
+  caller-chosen path with no case and no manifest to key on.
+
+  EACH SURFACE REFUSES DIFFERENTLY, because the signal is different in
+  each, and that is the whole content of the change rather than an
+  inconsistency. `post.writers.write_vtk_points` and
+  `write_tecplot_points` ended in a plain file write, so the signal is
+  that the destination exists; both gain `overwrite=False` and raise the
+  new `OutputExistsError`. `script.helpers.export_probes` asks the SOLVER
+  to write, so nothing exists yet at script-build time and the signal is
+  that this script already asked for that path; the register lives on the
+  `Script` because the collision is between two CALLS and only the script
+  sees both, and the refusal names BOTH call sites, since one naming only
+  the second sends the reader to the line they do not need to change.
+  `fsi.driver.coupling_step` APPENDS by design, so neither the log's
+  presence nor its absence is the signal: it is the PAIR, a convergence
+  log with no `state.json` beside it, which is a previous run's history
+  in a folder being reused.
+
+  `OutputExistsError` is new in `pyflightstream.exceptions` and keeps
+  `FileExistsError` as its second base, so an existing handler around a
+  write catches what it always did. The evidence writers under `qa` keep
+  raising the builtin for the same situation, deliberately: that predates
+  the catalogue's reach, and a new raise site takes the catalogued type.
+
+  `script.helpers.export_results` is a fourth writer of the same shape
+  and is deliberately NOT covered: the item names three surfaces, and
+  widening a guard beyond them would put a decision nobody made into the
+  tree.
+
+- **`collect_outputs` refuses a source that escapes the run** (PFS-2011.01
+  and PFS-2011.03, FR-28 and FR-29, one piece of work). Collection MOVES,
+  and the method moved any path it was handed: naming
+  `sims/sim_OTHER/raw/loads.txt` as an output took another run's
+  collected evidence into this simulation's `raw/`, and both manifests
+  then named a file only one of them had.
+
+  The rule is on RESOLVED paths and never on the declared string, which
+  is why it is not the check in `naming.py`: that one refuses any
+  ABSOLUTE path, and every production caller here passes absolute paths,
+  so reusing it would have refused the normal case. A produced path that
+  resolves INSIDE the campaign root must resolve inside this
+  simulation's own folder and not under one of its four managed
+  subdirectories; the refusal names the ROLE of the folder it landed in,
+  and names the simulation a file belongs to when it belongs to one.
+
+  Two acceptances are deliberate and are stated in the docstring rather
+  than left to be discovered. A source OUTSIDE the campaign root still
+  collects: that is the ordinary case, since the solver's working
+  directory is not managed by this class. And an unmanaged subfolder of
+  the simulation, `sim/out/`, still collects, because nothing here owns
+  it and moving a file out of it destroys no record. A blunt "under the
+  simulation" rule would have refused that one.
+
+  The check runs before the collision pre-scan and therefore before any
+  move, so a refusal leaves every source exactly where it was. The
+  summary line now says collection MOVES, which a reader has had to infer
+  from the collision message until now.
+
 - **One owner for the checksum that decides whether two runs used the
   same inputs** (PFS-2012.02, NFR-07). The sha256 behind that claim was
   written in FOUR places: a chunked read in `workspace`, a second in

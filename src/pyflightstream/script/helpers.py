@@ -2052,10 +2052,39 @@ def export_probes(script: Script, path: str, *, update: Toggle = True) -> None:
         Emit UPDATE_PROBE_POINTS first, so the export reflects the
         current solution; the manual instructs refreshing before
         exporting (SRC-003 p.362).
+
+    Raises
+    ------
+    CommandArgumentError
+        If this script has already exported to ``path``. The solver
+        writes one file per path, so two exports to one path meant the
+        second silently replaced the first; the script rendered two
+        identical lines and nothing anywhere recorded that only one
+        survived (PFS-2011.02).
+
+        The message names BOTH call sites, because one naming only the
+        second sends the reader to the wrong line: the one they need to
+        change is usually the earlier one.
+
+    Notes
+    -----
+    The register lives on the :class:`~pyflightstream.script.Script`
+    rather than here, because the collision is between two CALLS and
+    only the script sees both.
     """
+    already = script._exported_paths.get(path)
+    if already is not None:
+        raise CommandArgumentError(
+            f"this script already exports to {path!r}, from {already}. The solver "
+            "writes one file per path, so the second export would silently replace "
+            f"the first and the script would carry two identical lines. Give "
+            f"export_probes a path of its own, for example one carrying the point "
+            "or the survey name."
+        )
     if _read("export_probes", "update", update):
         script.emit("UPDATE_PROBE_POINTS")
     script.emit("EXPORT_PROBE_POINTS", path)
+    script._exported_paths[path] = "export_probes"
 
 
 def coordinate_frame(

@@ -576,6 +576,80 @@ class CampaignWorkspace:
         target.write_text(text, encoding="utf-8")
         return target, _sha256(target)
 
+    #: What each managed subdirectory of a simulation folder IS, so a
+    #: refusal can name the role rather than only the folder. A reader
+    #: who is told "raw/" has to know what raw/ holds; a reader who is
+    #: told "this simulation's own collected outputs" does not.
+    _SUBDIR_ROLES = {
+        "inputs": "this simulation's staged input artifacts",
+        "scripts": "this simulation's generated solver scripts",
+        "raw": "this simulation's own collected outputs",
+        "parsed": "this simulation's parsed results",
+    }
+
+    def _output_trespass(self, sim: Path, origin: Path) -> str | None:
+        """Say why one declared output may not be collected, or None.
+
+        The question is asked of the RESOLVED path, because the harm is
+        about where a file physically is and not about how it was
+        spelled. ``sims/sim_A/../sim_B/raw/loads.txt`` is another run's
+        evidence however it is written.
+
+        Three answers, in the order a reader meets them:
+
+        * OUTSIDE this campaign root: collect it. That is the ordinary
+          case and the one every current caller uses, since the solver's
+          working directory is not managed here.
+        * inside the root but outside this simulation's folder: refuse,
+          naming the simulation it actually belongs to when it is one.
+        * inside this simulation's folder but under one of the four
+          managed subdirectories: refuse, naming the role of that
+          subdirectory.
+
+        An unmanaged subfolder of the simulation, ``sim/out/x.txt``, is
+        accepted: nothing in this class owns it, so moving a file out of
+        it destroys no record.
+        """
+        try:
+            resolved = origin.resolve()
+            root = self.root.resolve()
+            simulation = sim.resolve()
+        except OSError:
+            # A path this process cannot resolve is a problem for the
+            # move to report with its own diagnosis, not for a
+            # containment check to guess at.
+            return None
+
+        if not resolved.is_relative_to(root):
+            return None
+
+        if not resolved.is_relative_to(simulation):
+            owner = ""
+            sims = root / "sims"
+            if resolved.is_relative_to(sims):
+                other = resolved.relative_to(sims).parts[0]
+                owner = f", which belongs to {other}"
+            return (
+                f"cannot collect {origin}: it resolves inside this campaign root but "
+                f"outside {sim.name}{owner}. Collection MOVES the file, so this would "
+                "take evidence that another part of the campaign records as its own, "
+                "and two manifests would then name a file only one of them has. "
+                "Declare outputs the solver wrote in its own working directory."
+            )
+
+        relative = resolved.relative_to(simulation)
+        first = relative.parts[0] if relative.parts else ""
+        role = self._SUBDIR_ROLES.get(first)
+        if role is not None:
+            return (
+                f"cannot collect {origin}: it resolves inside {sim.name}/{first}, which "
+                f"holds {role} and is managed by this class. Collection MOVES the file, "
+                "so this would take a record out of the layout that owns it. Declare "
+                "outputs the solver wrote in its own working directory, or in an "
+                "unmanaged subfolder of the simulation."
+            )
+        return None
+
     def collect_outputs(self, sim_id: str, produced: Sequence[str | Path]) -> list[str]:
         """Move declared solver outputs into ``raw/``.
 
@@ -584,8 +658,11 @@ class CampaignWorkspace:
         sim_id : str
             Target simulation.
         produced : sequence of str or Path
-            Output files the run declared it would produce, wherever
-            the script wrote them.
+            Output files the run declared it would produce. Anywhere
+            OUTSIDE this campaign root, which is where a solver working
+            directory normally sits; inside the root, only in this
+            simulation's own folder and not in one of its four managed
+            subdirectories. See Raises.
 
         Returns
         -------
@@ -599,6 +676,25 @@ class CampaignWorkspace:
             If a declared output does not exist; the campaign loop
             turns this into FAILED_INCOMPLETE_OUTPUT, never into a
             silently shorter output set.
+
+            If a declared output RESOLVES INSIDE this campaign root but
+            outside this simulation's own folder, or inside one of that
+            folder's four managed subdirectories. Collection MOVES, so
+            without this a run could take another run's collected
+            evidence: naming ``sims/sim_OTHER/raw/loads.txt`` as an
+            output moved it into this simulation's ``raw/``, and both
+            manifests then named a file only one of them had.
+
+            A source resolving OUTSIDE the root is still accepted, and
+            that is deliberate rather than an oversight: it is the
+            ordinary case, since the solver's working directory is not
+            managed by this class.
+
+        Notes
+        -----
+        Collection MOVES rather than copies. Every refusal here exists
+        because of that and a reader has had to infer it from the
+        collision message until now.
         """
         sim = self.create_sim(sim_id)
         missing = [str(path) for path in produced if not Path(path).is_file()]
@@ -608,6 +704,20 @@ class CampaignWorkspace:
                 "declared output marks the point FAILED_INCOMPLETE_OUTPUT; outputs are "
                 "never silently dropped."
             )
+        # PFS-2011.01 and PFS-2011.03, which are one piece of work. The
+        # rule is on RESOLVED paths and never on the declared string,
+        # which is what separates it from `_check_output_containment` in
+        # `naming.py`: that one refuses any ABSOLUTE path, and every
+        # production caller here passes absolute paths, so reusing it
+        # would refuse the normal case. What is uncovered is a DIRECT
+        # caller of this method.
+        #
+        # Detected before the collision pre-scan and therefore before any
+        # move, so a refusal leaves every source exactly where it was.
+        for path in produced:
+            trespass = self._output_trespass(sim, Path(path))
+            if trespass is not None:
+                raise WorkspaceError(trespass)
         # PYFS-005, the collision half. Collection MOVES, so two declared
         # outputs whose base names agree used to land on one file in raw/:
         # both moves ran, only the second content survived, and the manifest

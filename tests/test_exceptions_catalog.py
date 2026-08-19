@@ -142,6 +142,12 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
         "NamingTemplateError": ValueError,
         "OpenMeshError": ValueError,
         "OptionError": KeyError,
+        # The one catalogued class whose standard-library base is not
+        # ValueError, RuntimeError, LookupError, KeyError or ImportError.
+        # `except FileExistsError` is the handler a caller writing a file
+        # already has around the call, and PFS-2011.02 added the refusal
+        # to two writers that had none.
+        "OutputExistsError": FileExistsError,
         "ProbeGeometryError": ValueError,
         "QaEvidenceError": ValueError,
         "PhysicsEnvironmentError": RuntimeError,

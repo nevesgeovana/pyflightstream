@@ -639,3 +639,106 @@ def test_output_digests_hash_what_collection_produced(tmp_path):
     digests = workspace.output_digests("9001", collected)
     assert sorted(digests) == collected
     assert digests["raw/loads.txt"] == hashlib.sha256(b"LOADS").hexdigest()
+
+
+# --- collect_outputs containment (PFS-2011.01 and PFS-2011.03) ---------------
+#
+# One piece of work, and each node says so in its own purpose. The rule is
+# on RESOLVED paths, so it is not the string check in `naming.py`: that one
+# refuses any ABSOLUTE path, and every production caller here passes
+# absolute paths.
+
+
+def _prepared(tmp_path, sim_id="A"):
+    """A workspace with one simulation and a produced file to collect."""
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    sim = workspace.create_sim(sim_id)
+    return workspace, sim
+
+
+def test_collect_refuses_a_source_inside_a_managed_subdirectory(tmp_path):
+    """Moving out of `raw/` takes a record out of the layout that owns it."""
+    workspace, sim = _prepared(tmp_path)
+    source = sim / "raw" / "already_collected.txt"
+    source.write_text("evidence", encoding="utf-8")
+
+    with pytest.raises(WorkspaceError, match="own collected outputs"):
+        workspace.collect_outputs("A", [source])
+    assert source.is_file(), "a refusal must leave every source exactly where it was"
+
+
+def test_collect_refuses_a_source_inside_the_root_but_outside_the_simulation(tmp_path):
+    """The campaign's own input library is not a solver working directory."""
+    workspace, _ = _prepared(tmp_path)
+    source = workspace.inputs_dir / "wing.stl"
+    source.parent.mkdir(parents=True, exist_ok=True)
+    source.write_text("solid wing", encoding="utf-8")
+
+    with pytest.raises(WorkspaceError, match="outside sim_A"):
+        workspace.collect_outputs("A", [source])
+    assert source.is_file()
+
+
+def test_collect_refuses_another_simulations_collected_evidence(tmp_path):
+    """The case this item exists for, and the one to measure first.
+
+    Today this MOVED another simulation's collected output into this
+    simulation's `raw/`, and both manifests then named a file only one of
+    them had. The refusal names the simulation the file belongs to,
+    because a reader who is told only "outside sim_A" still has to go
+    looking.
+    """
+    workspace, _ = _prepared(tmp_path)
+    other = workspace.create_sim("OTHER")
+    source = other / "raw" / "loads.txt"
+    source.write_text("another run's numbers", encoding="utf-8")
+
+    with pytest.raises(WorkspaceError, match="belongs to sim_OTHER"):
+        workspace.collect_outputs("A", [source])
+    assert source.is_file(), "the other run's evidence was moved by a refused call"
+
+
+def test_collect_refuses_a_path_that_climbs_back_in(tmp_path):
+    """The rule is on the RESOLVED path, not on how it was spelled.
+
+    `sims/sim_A/../sim_OTHER/raw/loads.txt` is another run's evidence
+    however it is written, and a check on the declared string would let
+    it through.
+    """
+    workspace, sim = _prepared(tmp_path)
+    other = workspace.create_sim("OTHER")
+    (other / "raw" / "loads.txt").write_text("another run's numbers", encoding="utf-8")
+    climbing = sim / ".." / "sim_OTHER" / "raw" / "loads.txt"
+
+    with pytest.raises(WorkspaceError, match="belongs to sim_OTHER"):
+        workspace.collect_outputs("A", [climbing])
+    assert (other / "raw" / "loads.txt").is_file()
+
+
+def test_collect_still_takes_an_unmanaged_subfolder_of_the_simulation(tmp_path):
+    """The control, and it is why the rule is not "under the simulation".
+
+    Nothing in this class owns `sim/out/`, so moving a file out of it
+    destroys no record. A blunt rule would have refused this.
+    """
+    workspace, sim = _prepared(tmp_path)
+    unmanaged = sim / "out"
+    unmanaged.mkdir()
+    source = unmanaged / "loads.txt"
+    source.write_text("numbers", encoding="utf-8")
+
+    assert workspace.collect_outputs("A", [source]) == ["raw/loads.txt"]
+    assert (sim / "raw" / "loads.txt").is_file()
+    assert not source.exists(), "collection MOVES, so the source is gone"
+
+
+def test_collect_still_takes_a_source_outside_the_campaign_root(tmp_path):
+    """The ordinary case: the solver's working directory is not managed."""
+    workspace, sim = _prepared(tmp_path)
+    outside = tmp_path / "solver_workdir"
+    outside.mkdir()
+    source = outside / "loads.txt"
+    source.write_text("numbers", encoding="utf-8")
+
+    assert workspace.collect_outputs("A", [source]) == ["raw/loads.txt"]
+    assert (sim / "raw" / "loads.txt").is_file()

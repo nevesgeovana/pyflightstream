@@ -580,6 +580,17 @@ class Script:
         # resolved 1-based boundary indices, never labels.
         self._pending_vorticity: list[int] | Literal["all"] | None = None
         self._vorticity_selection: list[int] | Literal["all"] | None = None
+        # WHAT THIS SCRIPT HAS ALREADY ASKED THE SOLVER TO EXPORT, keyed
+        # by the path as it was rendered, valued by the helper that asked
+        # (PFS-2011.02). A script is a sequence of instructions and kept
+        # no register of its own writes, so emitting two exports to one
+        # path rendered two identical lines and the solver wrote one
+        # file: the second silently replaced the first, and nothing in
+        # the script, the record or the manifest said so.
+        #
+        # The register is on the SCRIPT and not on the helper because the
+        # collision is between two calls, and only the script sees both.
+        self._exported_paths: dict[str, str] = {}
 
     @property
     def num_local_frames(self) -> int:
