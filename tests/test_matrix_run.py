@@ -898,3 +898,130 @@ def test_the_two_spellings_disagreeing_is_refused_rather_than_resolved(tmp_path)
             fs_version="26.121",
             recipes=RECIPES,
         )
+
+
+# --- PFS-2009.08.03: refused above the binding, with and without fs_exe -----
+#
+# `_resolve_build` returns Path(override) BEFORE it ever builds the set of
+# FS_BUILD values, so a check placed at that set is skipped exactly when
+# the explicit override is passed. The acceptance says "with and without
+# fs_exe", which is why this refusal sits above the binding step instead.
+
+PFS20090803_ROWS = (
+    "9001 | TestWing | ROW_ONE | 3.10 | 0.0890 | AL | 0.0 | r003 | s002 | e001 "
+    "| 003 |          | 0 | 1 | OUTPUTS: loads_{point}.txt",
+    "9002 | TestWing | ROW_TWO | 3.10 | 0.0890 | AL | 2.0 | r003 | s002 | e001 "
+    "| 003 |   26.120 | 0 | 1 | OUTPUTS: loads_{point}.txt",
+    "9003 | TestWing | ROW_OFF | 3.10 | 0.0890 | AL | 4.0 | r003 | s002 | e001 "
+    "| 003 |          | 0 | 0 | OUTPUTS: loads_{point}.txt",
+)
+
+
+def _pfs20090803_matrix(tmp_path):
+    """One silent active row, one active row naming a build, one row off."""
+    path = write_matrix(tmp_path / "pfs20090803_run.fs", list(PFS20090803_ROWS))
+    everything = read_matrix(path, active_only=False)
+    assert [row.row_number for row in everything] == [1, 2, 3]
+    assert [row.fs_build for row in everything] == ["", "26.120", ""], (
+        "the fixture must hold exactly one silent ACTIVE row, one active row "
+        "naming a build, and one silent row that is switched off"
+    )
+    assert [row.run for row in everything] == [1, 1, 0]
+    return path
+
+
+def _never_bound(monkeypatch):
+    """Make the binding step explode, so reaching it is a visible failure."""
+    import pyflightstream.run.matrix as run_matrix_module
+
+    def exploding(*args, **kwargs):
+        raise AssertionError(
+            "resolve_matrix was reached: the matrix was bound, a Campaign was "
+            "built and the executable was resolved before the refusal fired"
+        )
+
+    monkeypatch.setattr(run_matrix_module, "resolve_matrix", exploding)
+
+
+@pytest.mark.parametrize("fs_exe", [None, "C:/fs/FlightStream.exe"])
+@pytest.mark.parametrize("entry", ["plan", "run"])
+def test_a_silent_row_with_a_blank_default_is_refused_before_anything_binds(
+    tmp_path, monkeypatch, entry, fs_exe
+):
+    path = _pfs20090803_matrix(tmp_path)
+    workspace = make_library(tmp_path)
+    _never_bound(monkeypatch)
+    call = plan_matrix if entry == "plan" else run_matrix
+    extra = {} if entry == "plan" else {"assess": converged}
+
+    with pytest.raises(MatrixError) as caught:
+        call(
+            path,
+            workspace,
+            name="camp",
+            recipes=RECIPES,
+            default_fs_version="   ",
+            fs_exe=fs_exe,
+            **extra,
+        )
+    message = str(caught.value)
+    assert "row 1 (POL 9001)" in message, (
+        f"the silent active row must be named by number and POL: {message}"
+    )
+    assert "9002" not in message, f"the row that names a build is not silent: {message}"
+    assert "9003" not in message, (
+        f"an inactive row runs nothing, so its empty cell asks nothing: {message}"
+    )
+    assert "--default-fs-version" in message
+    assert "not registered" not in message
+    # Nothing was executed and nothing was planned.
+    assert workspace.read_manifest() == []
+    assert not (workspace.root / "plan.json").exists()
+
+
+@pytest.mark.parametrize("entry", ["plan", "run"])
+def test_a_blank_default_is_refused_by_the_option_and_never_by_the_registry(
+    tmp_path, monkeypatch, entry
+):
+    """No row is silent, so the default answers for nothing; still refused."""
+    path = write_matrix(
+        tmp_path / "pfs20090803_named.fs",
+        [
+            "9001 | TestWing | ROW_ONE | 3.10 | 0.0890 | AL | 0.0 | r003 | s002 | e001 "
+            "| 003 |   26.120 | 0 | 1 | OUTPUTS: loads_{point}.txt",
+        ],
+    )
+    assert all(row.fs_build for row in read_matrix(path)), (
+        "this arm needs a matrix in which no active row is silent"
+    )
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FlightStream.exe"))
+    _never_bound(monkeypatch)
+    call = plan_matrix if entry == "plan" else run_matrix
+    extra = {} if entry == "plan" else {"assess": converged}
+
+    with pytest.raises(MatrixError) as caught:
+        call(path, workspace, name="camp", recipes=RECIPES, default_fs_version="", **extra)
+    message = str(caught.value)
+    assert "--default-fs-version" in message
+    assert "Known versions" not in message and "not registered" not in message, (
+        f"the version registry answered a question about a missing option: {message}"
+    )
+    assert "POL" not in message, f"no row is silent, so none may be named: {message}"
+
+
+def test_a_given_default_still_binds_a_matrix_with_a_silent_row(tmp_path):
+    """The control, and it must run the real binding rather than a stub."""
+    path = _pfs20090803_matrix(tmp_path)
+    workspace = make_library(tmp_path)
+    plan = plan_matrix(
+        path,
+        workspace,
+        name="camp",
+        recipes=RECIPES,
+        default_fs_version="26.120",
+        fs_exe="C:/fs/FlightStream.exe",
+        recipe_registry={"steady": matrix_recipe},
+        write_plan=False,
+    )
+    assert {entry.sim_id for entry in plan.points} == {"9001", "9002"}
+    assert not plan.blocked, plan.summary()

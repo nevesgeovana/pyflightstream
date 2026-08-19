@@ -66,12 +66,15 @@ from pyflightstream._errors import PyflightstreamError
 from pyflightstream.workspace.inputs import (
     EXECUTABLES_FILE,
     INPUT_KINDS,
+    KIND_LETTERS,
     GroupsArtifact,
+    IdMigration,
     InputArtifactError,
     PointXyz,
     PropellerReference,
     ReferenceArtifact,
     SetupArtifact,
+    migrate_input_ids,
     resolve_executable,
     resolve_geometry,
     resolve_group,
@@ -84,12 +87,15 @@ from pyflightstream.workspace.naming import NamingTemplate, NamingTemplateError
 __all__ = [
     "EXECUTABLES_FILE",
     "INPUT_KINDS",
+    "KIND_LETTERS",
+    "KNOWN_MANIFEST_SCHEMAS",
     "MANIFEST_SCHEMA",
     "REFERENCE_POINTS_FILE",
     "STEM_REGISTERED_KINDS",
     "BrokenCommandRecord",
     "CampaignWorkspace",
     "GroupsArtifact",
+    "IdMigration",
     "InputArtifactError",
     "NamingTemplate",
     "NamingTemplateError",
@@ -105,6 +111,7 @@ __all__ = [
     "check_unique_stems",
     "collection_name",
     "expand_group",
+    "migrate_input_ids",
 ]
 
 #: Layout identifier of a manifest record. Bumped when a field is
@@ -113,7 +120,25 @@ __all__ = [
 #: must refuse when the value is one it has never seen. Recorded on
 #: every row rather than once per file, because a manifest accumulates
 #: rows across package versions (PYFS-015).
-MANIFEST_SCHEMA = "pyfs-manifest/1"
+#:
+#: IT MOVED TO "2" ON 2026-08-19 (PFS-2012.03) and the reason is exactly
+#: the rule above rather than an exception to it. ``source_version`` of a
+#: ``broken_commands`` entry stopped being optional, so the ABSENCE of
+#: that key changed meaning: under "1" it meant "written before the field
+#: existed", and under "2" there is no row that may lack it. Two fields
+#: were ADDED in the same release, ``fs_version_source`` and
+#: ``velocity_requested_m_s``, and neither of them moved this constant,
+#: which is the half of the rule that is easy to lose.
+MANIFEST_SCHEMA = "pyfs-manifest/2"
+
+#: Every stamp this version can still READ, newest last. The bump above
+#: is a change of what may be WRITTEN, and a reader that refused every
+#: older stamp would make a bump equivalent to deleting the manifests
+#: that came before it: nothing in this package migrates a manifest, so
+#: there would be no route back. A stamp outside this tuple is refused,
+#: which is the "must refuse when the value is one it has never seen"
+#: half, and that includes a stamp from a LATER version.
+KNOWN_MANIFEST_SCHEMAS = ("pyfs-manifest/1", "pyfs-manifest/2")
 
 
 def collection_name(declared: str | Path) -> str:
@@ -243,6 +268,32 @@ class RunRecord(BaseModel):
         and cross-checked against the requested one (FR-18).
     fs_build : str, optional
         Build string reported by the solver, when available.
+    fs_version_source : str or None
+        Where the build this point ran on came from: ``"row"`` when the
+        case named its own :attr:`~pyflightstream.cases.SimCase.fs_build`
+        and ``"campaign_default"`` when it inherited the campaign's
+        (PFS-2009.08.02). ``fs_exe`` and ``fs_version_requested`` say
+        WHICH build; this says WHICH OF THE TWO SOURCES chose it, which
+        the record could not state at all while a campaign declared one
+        installation and a case could name another.
+
+        None means the row PREDATES the field and is not a claim that the
+        build was inherited, exactly as ``manifest_schema`` may be None.
+        Adding it did NOT move :data:`MANIFEST_SCHEMA`: that constant's
+        own rule bumps for a removal or a change of meaning, never for an
+        addition.
+    velocity_requested_m_s : float or None
+        Free-stream velocity in m/s the case ASKED for, as
+        :attr:`~pyflightstream.cases.SimCase.velocity` declared it
+        (OPS-2009.01.13). Recorded because two places compare requested
+        conditions against the conditions a solver export prints back,
+        and only one of them could see this axis, so the two could reach
+        opposite verdicts about one run.
+
+        None means the run did not request a velocity, which includes
+        every row written before the field existed, and is NOT zero: a
+        binding treats an unrequested axis as unasked rather than as
+        agreed, and zero would be a request the export could contradict.
     package_version : str
         pyflightstream version that produced the run. Read from the
         installed distribution's metadata, which is a static string, so
@@ -328,6 +379,11 @@ class RunRecord(BaseModel):
         point: a run that leaned on a command known not to work is
         distinguishable from one that did not, forever, without
         re-reading the script.
+
+        ``source_version`` is REQUIRED since ``pyfs-manifest/2``
+        (PFS-2012.03). :meth:`read_manifest` refuses an entry that lacks
+        it, naming this manifest and the stamp the row carries, rather
+        than reading the field as empty.
     solver_setup : dict, optional
         Serialized solver-setup snapshot
         (:class:`pyflightstream.script.solver_setup.SolverSetup`) of
@@ -358,6 +414,8 @@ class RunRecord(BaseModel):
     fs_version_requested: str
     fs_version_reported: str | None = None
     fs_build: str | None = None
+    fs_version_source: str | None = None
+    velocity_requested_m_s: float | None = None
     package_version: str
     package_commit: str | None = None
     package_dirty: bool | None = None
@@ -1311,8 +1369,55 @@ class CampaignWorkspace:
         The typed view fills defaults for fields a row does not carry;
         use :meth:`read_raw_manifest` when the question is what the row
         actually asserts rather than how this version reads it.
+
+        Raises
+        ------
+        WorkspaceError
+            When a ``broken_commands`` entry carries no
+            ``source_version``, naming the manifest and the stamp the
+            row was written under (PFS-2012.03).
         """
-        return [RunRecord.model_validate(entry) for entry in self.read_raw_manifest()]
+        records = [RunRecord.model_validate(entry) for entry in self.read_raw_manifest()]
+        for record in records:
+            self._check_waivers_name_their_source(record)
+        return records
+
+    def _check_waivers_name_their_source(self, record: RunRecord) -> None:
+        """Refuse a waiver row that does not say which build it rests on.
+
+        ``BrokenCommandUse.source_version`` names the build whose record
+        says the command is broken, which is the build the cited probe
+        report was run on. It stopped being optional at
+        :data:`MANIFEST_SCHEMA` ``pyfs-manifest/2`` (PFS-2012.03), so no
+        row this version writes can lack it.
+
+        The refusal is HERE rather than in the model because the entries
+        are read back as :class:`BrokenCommandRecord`, a ``total=False``
+        typed mapping, and its totality is the compatibility half that
+        lets a row written before a key existed read back at all. Making
+        the key required there would refuse the row with a schema error
+        naming neither the file nor the stamp; the evidence a reader
+        needs is which manifest, and under which layout, made the claim.
+
+        Loading it with the field empty is the one outcome refused: a
+        waiver that does not say which build's record it leaned on is a
+        provenance row asserting nothing, and it would be indistinguishable
+        from one whose source happened to equal the script's own version.
+        """
+        for entry in record.broken_commands:
+            if entry.get("source_version"):
+                continue
+            stamp = record.manifest_schema or "no stamp at all"
+            raise WorkspaceError(
+                f"the manifest {self.manifest_path} records run {record.run_id!r} "
+                f"waiving the broken command {entry.get('command', '<unnamed>')!r} "
+                "with no source_version, so the row does not say which build's "
+                "record says the command is broken, and the cited report cannot be "
+                f"tied to a build. That row was written under {stamp}, and "
+                f"source_version has been required since {MANIFEST_SCHEMA}. Read the "
+                "manifest with the pyflightstream version that wrote it, or migrate "
+                "the row deliberately by naming the build the report was run on."
+            )
 
     def append_record(self, record: RunRecord) -> None:
         """Append one record to the manifest, atomically.

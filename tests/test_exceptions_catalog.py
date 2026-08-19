@@ -142,8 +142,10 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
         "NamingTemplateError": ValueError,
         "OpenMeshError": ValueError,
         "OptionError": KeyError,
-        # The one catalogued class whose standard-library base is not
-        # ValueError, RuntimeError, LookupError, KeyError or ImportError.
+        # ONE OF TWO catalogued classes whose standard-library base is
+        # not ValueError, RuntimeError, LookupError, KeyError or
+        # ImportError; `UnsupportedResultTypeError` below is the other,
+        # and it is why this comment no longer says "the one".
         # `except FileExistsError` is the handler a caller writing a file
         # already has around the call, and PFS-2011.02 added the refusal
         # to two writers that had none.
@@ -161,12 +163,30 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
         "TwistIterationError": RuntimeError,
         "UnitsError": ValueError,
         "UnknownVersionError": ValueError,
+        # The EIGHTH distinct standard-library base in this table and the
+        # first TypeError one (OPS-2009.01.08). `except TypeError` is how a
+        # caller separates "wrong KIND of thing" from "bad VALUE", which
+        # every ValueError-based class here means, so re-basing the
+        # to_table refusals needed a class that keeps it.
+        "UnsupportedResultTypeError": TypeError,
+        # The second TypeError row, and the last of the three raises
+        # OPS-2009.01.08 re-based. Same reasoning: a declaration that is
+        # neither a count nor a mapping is the wrong KIND of argument.
+        "ScriptDeclarationTypeError": TypeError,
         # RuntimeError rather than ValueError, and the choice is the
         # lane's default awaiting the author's ruling: this refuses
         # about the ENVIRONMENT, the build the workflow is asked for,
         # rather than about an argument the caller got wrong.
         "WorkflowCoverageError": RuntimeError,
         "UnknownExtraError": ValueError,
+        # The two categories OPS-2006.02.02 added, and they carry the
+        # same promise as every error above: UserWarning stays in the MRO
+        # of both, so an existing -W error::UserWarning or
+        # pytest.warns(UserWarning) selects exactly what it selected. The
+        # deprecation one keeps DeprecationWarning as well, which is what
+        # makes a caller filtering deprecations still see it.
+        "PyflightstreamWarning": UserWarning,
+        "PyflightstreamDeprecationWarning": DeprecationWarning,
         "VersionMismatchWarning": UserWarning,
         "WorkspaceError": RuntimeError,
     }
@@ -561,24 +581,38 @@ def test_no_exempted_definition_grew_a_second_bare_raise_of_the_same_type() -> N
 #: cross-module caller, is on no list and does not fail today
 #: (PLN-20260804-1130).
 #:
-#: The set holds 15 entries in three tranches, over 19 raise sites: it
-#: is keyed on (definition, exception type) since 2026-08-18, and FOUR
-#: definitions raise the same type twice: `to_table`, `_run_row`,
-#: `_checked` and `_validate_block_boundaries`. Fifteen pairs plus those
-#: four second raises is nineteen. TWO pairs raise ``TypeError``
-#: for an argument of a type the function does not accept; ONE raises
+#: The set holds 13 entries in two tranches, over 16 raise sites: it
+#: is keyed on (definition, exception type) since 2026-08-18, and THREE
+#: definitions raise the same type twice: `_run_row`, `_checked` and
+#: `_validate_block_boundaries`. Thirteen pairs plus those three second
+#: raises is sixteen. NO pair raises ``TypeError`` any more; ONE raises
 #: ``FileExistsError`` and is the evidence-overwrite refusal, added on
 #: 2026-08-17 when the walk was widened to see that name at all and
 #: reduced from three to one the same day when the three writers were
 #: given one home; the other 12 are the reachability tranche and are
-#: almost all ``ValueError``. Re-basing the TypeError three onto a catalogued class
-#: is not the
-#: one-line change the ValueError sites were: ``except TypeError`` is
-#: how a caller distinguishes "I passed the wrong kind of thing" from "I
-#: passed a bad value", and the catalogued classes this package has are
-#: all ``ValueError``-based, so the fix needs a new base and a decision
-#: about what it means. Deferred rather than rushed the night before a
-#: tag (PLN-20260803-2340).
+#: almost all ``ValueError``.
+#:
+#: THE TYPEERROR TRANCHE WAS THREE RAISES AND IS NONE
+#: (OPS-2009.01.08, 2026-08-19), which is the first tranche this
+#: ratchet has emptied rather than shrunk. The
+#: argument for deferring it (PLN-20260803-2340) was that ``except
+#: TypeError`` is how a caller distinguishes "I passed the wrong kind of
+#: thing" from "I passed a bad value", and that every catalogued class
+#: this package had was ``ValueError``-based, so re-basing needed a new
+#: standard-library base and a decision about what it meant. The
+#: decision stopped being open on 2026-08-17, when ``OutputExistsError``
+#: took ``FileExistsError`` and made the base table's shape a precedent
+#: rather than new ground. ``UnsupportedResultTypeError``
+#: (``pyflightstream.results``, first base ``PyflightstreamError``,
+#: second base ``TypeError``) now carries both ``to_table`` raises, so
+#: an existing ``except TypeError`` catches exactly what it caught
+#: before and ``except PyflightstreamError`` catches it too.
+#: ``script.entities.EntityRegistry`` was the last one and took
+#: ``ScriptDeclarationTypeError``, beside ``ScriptLabelError`` on the
+#: same two bases. It landed one wave after the other two, because the
+#: file belonged to another agent's partition and not because it was a
+#: harder problem; the ratchet went on naming the site that still
+#: raised bare in the meantime, which is what a ratchet is for.
 #:
 #: It held 29 at v0.4.0. Eleven left. Eight were the whole
 #: ``_check_layout_rules`` tranche, re-based onto ``CommandDatabaseError``
@@ -617,11 +651,11 @@ _RATCHET = {
     # `except FileExistsError` is what a caller writing a file already has
     # around the call, and it predates the catalogue's reach.
     "pyflightstream.qa.reports.refuse_existing_report -> FileExistsError",
-    # TypeError for an argument of an unaccepted type. The catalogue is
-    # entirely ValueError-based, so re-basing these needs a new base and
-    # a decision about what it means (PLN-20260803-2340).
-    "pyflightstream.results.tables.to_table -> TypeError",
-    "pyflightstream.script.entities.EntityRegistry -> TypeError",
+    # TypeError for an argument of an unaccepted type, and the LAST one:
+    # `results.tables.to_table` left this set on 2026-08-19 for
+    # `UnsupportedResultTypeError`, which keeps TypeError as its second
+    # base. This site wants the same change and it is one file away
+    # (OPS-2009.01.08).
     # The REACHABILITY tranche, measured 2026-08-04: a bare stdlib raise
     # inside a module-private helper that a public definition calls
     # reaches a caller exactly as an exported one does. The walk used to
@@ -661,12 +695,11 @@ _RATCHET = {
 #: `_exported_bare_raises` states, and this is what replaces the property
 #: the line number was carrying: a SECOND bare raise of the same type
 #: appearing inside an already-exempted definition would otherwise
-#: inherit the exemption in silence. Five definitions raise twice; the
-#: rest raise once. Fifteen pairs, nineteen raises.
+#: inherit the exemption in silence. Three definitions raise twice; the
+#: rest raise once. Fourteen pairs, seventeen raises, re-measured
+#: 2026-08-19 when `to_table` left the set and took two raises with it.
 _RATCHET_COUNTS = {
     "pyflightstream.qa.reports.refuse_existing_report -> FileExistsError": 1,
-    "pyflightstream.results.tables.to_table -> TypeError": 2,
-    "pyflightstream.script.entities.EntityRegistry -> TypeError": 1,
     "pyflightstream.run.cli._parse_recipes -> ValueError": 1,
     "pyflightstream.farfield._delta_psi -> ValueError": 1,
     "pyflightstream.fsi.driver._verified_layout -> ValueError": 1,

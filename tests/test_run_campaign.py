@@ -2482,3 +2482,185 @@ def test_a_single_installation_campaign_still_reports_its_one_group(tmp_path):
     plan = plan_campaign(campaign, workspace, recipes={"steady": steady_recipe})
     assert getattr(plan, "build_groups", None) == {"": ["9001"]}
     assert "1 solver installation" in plan.summary()
+
+
+# --- PFS-2009.08.02: the record says where each row's build came from -------
+#
+# `fs_exe` and `fs_version_requested` say WHICH build a point ran on and
+# have since PYFS-015. Neither says whether that build was chosen FOR THE
+# ROW or inherited from the campaign default, and with two sources for one
+# fact a reader of a finished run cannot tell them apart.
+
+
+@pytest.mark.requirement("NFR-07")
+def test_the_record_says_whether_the_build_came_from_the_row_or_the_default(tmp_path):
+    """Both values, in one campaign, so neither is a constant that happens to fit."""
+    campaign = _two_build_campaign(tmp_path)
+    other_exe, second = _second_build(tmp_path)
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    records = run_campaign(
+        campaign,
+        StubSolver(WRITES_LOADS),
+        workspace,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+        builds={"second": second},
+    )
+    by_sim = {record.sim_id: record for record in records}
+    assert set(by_sim) == {"9001", "9002"}, (
+        "the campaign that carries both answers did not run both cases, so a "
+        "single-valued field would satisfy the assertions below"
+    )
+    assert by_sim["9001"].fs_version_source == run_module.FS_VERSION_FROM_DEFAULT
+    assert by_sim["9002"].fs_version_source == run_module.FS_VERSION_FROM_ROW
+    # THE REPRODUCTION HALF: what the record says about the source has to
+    # agree with the executable it names, or the new field is decoration.
+    assert by_sim["9001"].fs_exe == sys.executable
+    assert by_sim["9002"].fs_exe == str(other_exe)
+    assert by_sim["9002"].fs_version_requested == "26.121"
+    assert by_sim["9001"].fs_version_requested == "26.120"
+    # And it survives the manifest, which is where a later reader meets it.
+    stored = {record.sim_id: record for record in workspace.read_manifest()}
+    assert stored["9002"].fs_version_source == run_module.FS_VERSION_FROM_ROW
+    assert stored["9001"].fs_version_source == run_module.FS_VERSION_FROM_DEFAULT
+
+
+def test_a_failed_point_still_says_where_its_build_came_from(tmp_path):
+    """The base dict, not the success path: a failure is a record too."""
+    campaign = make_campaign(tmp_path, recipe="broken", alphas=(0.0,))
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    with pytest.raises(CampaignErrors) as caught:
+        run_campaign(
+            campaign,
+            StubSolver(WRITES_LOADS),
+            workspace,
+            assess=converged,
+            recipes={"broken": broken_recipe},
+        )
+    (failure,) = caught.value.failures
+    assert failure.status is RunStatus.FAILED_SCRIPT
+    assert failure.fs_version_source == run_module.FS_VERSION_FROM_DEFAULT
+
+
+def test_a_row_written_before_the_build_source_existed_reads_as_unrecorded(tmp_path):
+    """None is a third state and is not `campaign_default`."""
+    workspace = _workspace_with_legacy_row(tmp_path)
+    (record,) = workspace.read_manifest()
+    assert record.fs_version_source is None, (
+        "a row that predates the field must not claim the build was inherited; "
+        "absent and campaign_default are different facts about the evidence"
+    )
+
+
+# --- OPS-2009.01.13: the record carries the requested free-stream velocity ---
+#
+# Two places compare requested conditions against the conditions the solver
+# printed back, and only one of them could see the velocity axis, so the
+# two could reach opposite verdicts about one run.
+
+
+@pytest.mark.requirement("FR-18")
+def test_the_record_carries_the_velocity_the_case_requested(tmp_path):
+    campaign = make_campaign(tmp_path, alphas=(0.0,))
+    assert campaign.sims[0].velocity == 30.0, (
+        "the fixture stopped declaring a velocity, so this test would pass on a "
+        "field that is always None"
+    )
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    records = run_campaign(
+        campaign,
+        StubSolver(WRITES_LOADS),
+        workspace,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+    )
+    assert records[0].velocity_requested_m_s == 30.0
+    (stored,) = workspace.read_manifest()
+    assert stored.velocity_requested_m_s == 30.0
+
+
+def test_a_failed_point_still_records_the_velocity_it_requested(tmp_path):
+    """The four early returns build their record from the base dict alone."""
+    campaign = make_campaign(tmp_path, recipe="broken", alphas=(0.0,))
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    with pytest.raises(CampaignErrors) as caught:
+        run_campaign(
+            campaign,
+            StubSolver(WRITES_LOADS),
+            workspace,
+            assess=converged,
+            recipes={"broken": broken_recipe},
+        )
+    (failure,) = caught.value.failures
+    assert failure.status is RunStatus.FAILED_SCRIPT
+    assert failure.velocity_requested_m_s == 30.0, (
+        "the failed point is exactly the one a reader compares against a "
+        "neighbour, and it lost the axis"
+    )
+
+
+def test_a_case_that_requested_no_velocity_records_none_and_never_zero(tmp_path):
+    """Not requested and requested-as-zero are different claims."""
+    geometry = tmp_path / "wing.fsm"
+    geometry.write_bytes(b"geometry")
+    case = SimCase(
+        sim_id="9001",
+        aircraft="TestWing",
+        geometry=str(geometry),
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        recipe="steady",
+        outputs=["loads_{point}.txt"],
+    )
+    assert case.velocity is None
+    campaign = Campaign(name="camp", fs_version="26.120", fs_exe=sys.executable, sims=[case])
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    run_campaign(
+        campaign,
+        StubSolver(WRITES_LOADS),
+        workspace,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+    )
+    (stored,) = workspace.read_manifest()
+    assert stored.velocity_requested_m_s is None, (
+        "a case that asked for no velocity must record None; zero would be a "
+        "request a loads export could be judged to contradict"
+    )
+
+
+# --- PFS-2012.03: a waiver record keeps its origin --------------------------
+
+
+def test_a_row_under_the_previous_manifest_stamp_still_reconstructs(tmp_path):
+    """The bump must not strand every manifest written before it.
+
+    Nothing in this package migrates a manifest, so a reader that refused
+    every older stamp would make the bump equivalent to deleting them.
+    """
+    assert "pyfs-manifest/1" in run_module.KNOWN_MANIFEST_SCHEMAS
+    assert MANIFEST_SCHEMA != "pyfs-manifest/1", (
+        "this test is about reading the PREVIOUS stamp; the constant did not move"
+    )
+    campaign = make_campaign(tmp_path, alphas=(0.0,))
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    run_campaign(
+        campaign,
+        StubSolver(WRITES_LOADS),
+        workspace,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+    )
+    rows = workspace.read_raw_manifest()
+    assert len(rows) == 1
+    rows[0]["manifest_schema"] = "pyfs-manifest/1"
+    workspace.manifest_path.write_text(json.dumps(rows, indent=2), encoding="utf-8")
+
+    rebuilt = reconstruct(rows[0]["run_id"], workspace=workspace)
+    assert rebuilt.argv and rebuilt.script_text
+
+    # THE CONTROL: a stamp outside the known set still denies, so this is
+    # not "reconstruction stopped checking".
+    rows[0]["manifest_schema"] = "pyfs-manifest/99"
+    workspace.manifest_path.write_text(json.dumps(rows, indent=2), encoding="utf-8")
+    with pytest.raises(WorkspaceError, match="pyfs-manifest/99"):
+        reconstruct(rows[0]["run_id"], workspace=workspace)

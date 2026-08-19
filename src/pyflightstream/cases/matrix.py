@@ -61,7 +61,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
-from pyflightstream._errors import PyflightstreamError
+from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
 from pyflightstream.cases import Campaign, SimCase, SweepAxis
 
 # SAME LAYER, so this is a sideways import and not an upward one: both
@@ -73,11 +73,15 @@ from pyflightstream.cases import Campaign, SimCase, SweepAxis
 from pyflightstream.cases.workflows import workflow_names
 
 __all__ = [
+    "CODE_COLUMNS",
+    "DEFAULT_VERSION_OPTION",
     "LEGACY_WORKFLOW",
     "MatrixError",
     "MatrixRow",
     "convert_matrix",
     "read_matrix",
+    "refuse_silent_rows_without_default",
+    "rewrite_codes",
     "to_campaign",
     "upgrade_matrix",
     "workflow_types",
@@ -148,6 +152,13 @@ class MatrixRow:
 
     Attributes
     ----------
+    row_number : int
+        Position of the row among the DATA rows of the file, 1-based.
+        It counts CONTENT rows after blank lines and the dashed rule
+        have been dropped, so it is not a physical line number, and it
+        is assigned BEFORE the RUN filter: the number a refusal prints
+        names the same row whether or not the row is active, which is
+        what makes it usable for finding the cell to edit.
     pol : str
         Polar identifier (POL column); maps to the native ``sim_id``.
     aircraft, description : str
@@ -173,6 +184,7 @@ class MatrixRow:
         The KEY:VALUE variables, values kept as strings.
     """
 
+    row_number: int
     pol: str
     aircraft: str
     description: str
@@ -362,6 +374,10 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
             )
         record = dict(zip(_COLUMNS, cells, strict=True))
         row = MatrixRow(
+            # From the enumerate above, so it is assigned before the RUN
+            # filter below and an inactive row does not shift the numbers
+            # of the rows after it (PFS-2009.08.03).
+            row_number=row_number,
             pol=record["POL"],
             aircraft=record["AIRCRAFT"],
             description=record["DESCRIPTION"],
@@ -385,6 +401,79 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
         if row.run == 1 or not active_only:
             rows.append(row)
     return rows
+
+
+#: The command-line spelling of the campaign default, named in the
+#: refusal below so the message points at the thing a user types rather
+#: than at the keyword the library takes.
+DEFAULT_VERSION_OPTION = "--default-fs-version"
+
+
+def refuse_silent_rows_without_default(
+    rows: list[MatrixRow],
+    default: str | None,
+    path: str | Path,
+) -> None:
+    """Refuse a matrix that names no build anywhere, naming the rows.
+
+    A row whose ``FS_BUILD`` cell strips to empty is SILENT: it asks for
+    no build at all and falls back to the campaign default. When that
+    default is empty too, nothing in the run names a FlightStream build,
+    and picking one, by any rule, would be the package deciding what the
+    study runs on. That is the one case that must not proceed on a guess
+    (FR-10, PFS-2009.08.03).
+
+    Called before anything is resolved, so a refusal costs no executable
+    lookup, no :class:`~pyflightstream.cases.Campaign` and no executor.
+    Placed here rather than at the build selection because the explicit
+    ``fs_exe`` override returns before the build set is ever built, so a
+    check there is skipped exactly when the override is passed, and the
+    acceptance is "with and without ``fs_exe``".
+
+    Parameters
+    ----------
+    rows : list of MatrixRow
+        The rows to judge. Callers pass the ACTIVE rows: an inactive row
+        runs nothing, so its empty cell asks nothing of anybody.
+    default : str or None
+        The campaign default version, as given. None and a string that
+        strips to empty are the same absence here.
+    path : str or Path
+        Matrix location, for the message.
+
+    Raises
+    ------
+    MatrixError
+        When the default is absent, whether or not any row is silent.
+        The two cases produce different text: with silent rows it names
+        every one of them by row number and POL, and without them it
+        names the option alone, so a blank default is never reported by
+        the version registry as an unregistered version.
+    """
+    if default is not None and default.strip():
+        return
+    silent = [row for row in rows if not row.fs_build.strip()]
+    if silent:
+        named = ", ".join(f"row {row.row_number} (POL {row.pol})" for row in silent)
+        raise MatrixError(
+            f"{len(silent)} active row(s) of {path} name no build in the FS_BUILD "
+            f"column and no campaign default was given: {named}. Nothing names a "
+            "FlightStream build for those rows, and choosing one here would make "
+            "this package decide what the study runs on. Give the default with "
+            f"{DEFAULT_VERSION_OPTION} <version> (default_fs_version=... in "
+            "Python), or fill each row's FS_BUILD cell with the build it runs on. "
+            "The row numbers count the file's data rows, 1-based, ignoring blank "
+            "lines and the dashed rule, and they do not change when a row's RUN "
+            "flag does."
+        )
+    raise MatrixError(
+        f"no campaign default version was given for {path}. Every active row names "
+        "its own build, so the default answers for nothing today, but it is what a "
+        "row added tomorrow with an empty FS_BUILD cell would fall back to, and the "
+        "scripts are emitted against a version rather than against an executable. "
+        f"Pass {DEFAULT_VERSION_OPTION} <version> (default_fs_version=... in "
+        "Python)."
+    )
 
 
 def _peel_terminator(line: bytes) -> tuple[bytes, bytes]:
@@ -447,6 +536,137 @@ def _upgraded_bytes(data: bytes, source: str) -> bytes:
     if not header_seen:
         raise MatrixError(f"{source} holds no matrix content: no line carries a cell separator")
     return b"".join(rebuilt)
+
+
+#: The columns whose cells carry an input-library id, in file order.
+#: These are the three the kind-letter rule renames (PFS-2009.03); every
+#: other column names something that is not a library artifact.
+CODE_COLUMNS = ("REF", "SET", "ENTRY")
+
+
+def _retag_cell(cell: bytes, mapping: Mapping[str, str]) -> tuple[bytes, str | None]:
+    """Return one rewritten cell and the old id it carried, or None.
+
+    Padding is preserved where it can be: the leading run of spaces is
+    kept as it is, and a longer id eats trailing spaces down to one, so
+    a matrix whose columns line up still lines up afterwards. Where
+    there is not enough padding the cell simply grows, which is a wider
+    column rather than a wrong one.
+    """
+    old = cell.strip().decode("utf-8", "replace")
+    new = mapping.get(old)
+    if new is None:
+        return cell, None
+    leading = cell[: len(cell) - len(cell.lstrip(b" "))]
+    trailing = cell[len(cell.rstrip(b" ")) :]
+    grew = len(new) - len(old)
+    if grew > 0 and len(trailing) > 1:
+        trailing = trailing[: max(1, len(trailing) - grew)]
+    return leading + new.encode("utf-8") + trailing, old
+
+
+def rewrite_codes(
+    path: str | Path,
+    mapping: Mapping[str, Mapping[str, str]],
+    *,
+    in_place: bool = False,
+) -> tuple[bytes, dict[str, int]]:
+    """Rewrite the REF, SET and ENTRY cells of a matrix, byte for byte.
+
+    Every other cell, separator, comment rule and line ending survives
+    unchanged, and EVERY data row is rewritten, active or not: a row
+    whose RUN flag is 0 today is a row somebody flips to 1 tomorrow, and
+    leaving its cell behind is exactly the half-resolving state the
+    kind-letter rule exists to end (PFS-2009.03).
+
+    Works on BYTES rather than through :func:`read_matrix`, for the same
+    reason :func:`upgrade_matrix` does: the reader replaces undecodable
+    bytes, drops the dashed rule and strips every cell, so a converter
+    built on it hands back a file the user cannot diff against the one
+    they had.
+
+    Parameters
+    ----------
+    path : str or Path
+        The matrix to rewrite. Read as bytes and not decoded.
+    mapping : mapping of str to mapping of str to str
+        Per column, old id to new id; the keys are
+        :data:`CODE_COLUMNS`. A column absent from the mapping, or a
+        cell whose id the column's mapping does not carry, is left
+        exactly as it is.
+    in_place : bool
+        Write the rewritten bytes back over ``path``. Keyword-only and
+        False by default, so nothing is rewritten unless it is asked
+        for.
+
+    Returns
+    -------
+    tuple of bytes and dict
+        The rewritten file, and how many cells changed per column. The
+        count is what lets a caller refuse a migration that silently
+        matched nothing.
+
+    Raises
+    ------
+    MatrixError
+        The header does not name the verified layout, a data row holds
+        the wrong number of cells, or no line carries a cell separator.
+
+    Examples
+    --------
+    >>> from pyflightstream.cases.matrix import rewrite_codes
+    >>> text, counts = rewrite_codes(       # doctest: +SKIP
+    ...     "matrix.fs", {"REF": {"003": "r003"}}, in_place=True
+    ... )
+    """
+    unknown = sorted(set(mapping) - set(CODE_COLUMNS))
+    if unknown:
+        raise MatrixError(
+            f"column(s) {', '.join(unknown)} carry no input-library id; the columns "
+            f"this rewrite touches are {', '.join(CODE_COLUMNS)}."
+        )
+    source = str(path)
+    data = Path(path).read_bytes()
+    indices = {name: _COLUMNS.index(name) for name in CODE_COLUMNS if name in mapping}
+    counts = {name: 0 for name in indices}
+    rebuilt: list[bytes] = []
+    header_seen = False
+    row_number = 0
+    for line in data.splitlines(keepends=True):
+        body, terminator = _peel_terminator(line)
+        if b"|" not in body:
+            rebuilt.append(line)
+            continue
+        parts = body.split(b"|")
+        if not header_seen:
+            header_seen = True
+            names = tuple(cell.strip().decode("utf-8", "replace") for cell in parts)
+            if names != _COLUMNS:
+                raise MatrixError(
+                    f"{source} is not a run matrix at the verified layout: its header "
+                    f"names {', '.join(names)} and the layout this rewrite reads names "
+                    f"{', '.join(_COLUMNS)}. Upgrade it first if it predates a column."
+                )
+            rebuilt.append(line)
+            continue
+        row_number += 1
+        if len(parts) != len(_COLUMNS):
+            raise MatrixError(
+                f"data row {row_number} of {source} holds {len(parts)} cells against "
+                f"the {len(_COLUMNS)} verified columns, so this rewrite cannot say "
+                "which cell carries which id; repair the row first."
+            )
+        for name, index in indices.items():
+            parts[index], changed = _retag_cell(parts[index], mapping[name])
+            if changed is not None:
+                counts[name] += 1
+        rebuilt.append(b"|".join(parts) + terminator)
+    if not header_seen:
+        raise MatrixError(f"{source} holds no matrix content: no line carries a cell separator")
+    rewritten = b"".join(rebuilt)
+    if in_place:
+        Path(path).write_bytes(rewritten)
+    return rewritten, counts
 
 
 def upgrade_matrix(path: str | Path, *, in_place: bool = False) -> bytes:
@@ -611,8 +831,13 @@ def to_campaign(
         ``matrix_fs_script``, ``matrix_fs_build``, ``matrix_hidden``,
         ``matrix_workflow``) so the conversion is lossless (FR-11).
     """
+    rows = read_matrix(path)
+    # Read once and judged before anything is built, so the refusal below
+    # happens with no Campaign in existence (PFS-2009.08.03). Hoisted out
+    # of the loop header for that reason alone; the iteration is unchanged.
+    refuse_silent_rows_without_default(rows, fs_version, path)
     sims = []
-    for row in read_matrix(path):
+    for row in rows:
         if row.script_code not in recipes:
             raise MatrixError(
                 f"FS_SCRIPT code {row.script_code!r} of POL {row.pol} has no recipe "
@@ -705,7 +930,7 @@ def convert_matrix(
             "outputs = [...], naming the files the recipe exports. Running a case that "
             "declares none collects nothing and records the point "
             "FAILED_INCOMPLETE_OUTPUT after the solver has already spent its time.",
-            UserWarning,
+            PyflightstreamWarning,
             stacklevel=2,
         )
     lines = [

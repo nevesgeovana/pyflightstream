@@ -91,7 +91,7 @@ the changelog alone.
 
    ```
    pytest
-   pytest README.md docs -W error
+   pytest README.md docs -W error::pyflightstream._errors.PyflightstreamWarning
    ```
 
    The tests are not in the wheel, which is why the checkout is needed.

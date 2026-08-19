@@ -802,8 +802,15 @@ def test_a_manifest_row_written_before_the_annotation_still_reads_back(tmp_path)
         "first_line": "SET_SOLVER_UNSTEADY 1",
         "a_key_a_later_version_added": 3,
     }
+    # The second entry carries ONE key, which is what makes this a
+    # fewer-keys case. It used to be `{}`, and that stopped being a legal
+    # row on 2026-08-19: `source_version` became required and a row
+    # lacking it is refused on read (PFS-2012.03). The key kept here is
+    # that one, so the entry is still the sparsest row the schema allows
+    # and the totality property is still measured.
+    sparse = {"source_version": "26.000"}
     row = json.loads(make_record(broken_commands=[waived]).model_dump_json())
-    row["broken_commands"] = [waived, {}]
+    row["broken_commands"] = [waived, sparse]
     workspace.manifest_path.write_text(json.dumps([row]), encoding="utf-8")
 
     (record,) = workspace.read_manifest()
@@ -811,7 +818,7 @@ def test_a_manifest_row_written_before_the_annotation_still_reads_back(tmp_path)
         "reading a manifest row must not drop a key the row actually carries; "
         "the typed view is a view, never an edit of the evidence"
     )
-    assert record.broken_commands[1] == {}
+    assert record.broken_commands[1] == sparse
 
 
 # --- OPS-2005.08.05: an ambiguous stem is refused when the library opens ----
@@ -1097,3 +1104,275 @@ def test_opening_a_root_that_was_never_initialised_finds_no_ambiguity(tmp_path):
     """
     workspace = CampaignWorkspace.open(tmp_path / "not_a_campaign_yet")
     assert workspace.root == tmp_path / "not_a_campaign_yet"
+
+
+# --- PFS-2012.03: a waiver row on disk must name the build it rests on ------
+#
+# The row shape is a total=False typed mapping, which is the compatibility
+# half that lets a row written before a key existed read back at all. So
+# the requiredness cannot fall out of the model: the refusal is explicit,
+# and it names the manifest and the stamp because those are the evidence a
+# reader needs about a claim they did not write.
+
+WAIVER_ROW = {
+    "command": "AIR_ALTITUDE",
+    "version": "26.121",
+    "source_version": "26.120",
+    "report": "reports/compat/CMP-26120_2026-08-08_full.yaml",
+    "note": "the probe observed no effect",
+    "reason": "re-probing the units defect",
+    "first_line": "AIR_ALTITUDE 0.0 METERS",
+}
+
+
+def _manifest_with_waiver(tmp_path, waiver, *, stamp):
+    """Write a one-row manifest carrying one broken-command entry."""
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    workspace.root.mkdir(parents=True)
+    row = json.loads(make_record(manifest_schema=stamp).model_dump_json())
+    row["broken_commands"] = [waiver]
+    workspace.manifest_path.write_text(json.dumps([row]), encoding="utf-8")
+    return workspace
+
+
+def test_a_waiver_row_with_no_source_version_is_refused_on_read(tmp_path):
+    """Named: the manifest path, the stamp the row carries, and the field."""
+    incomplete = {key: value for key, value in WAIVER_ROW.items() if key != "source_version"}
+    assert "source_version" not in incomplete and len(incomplete) == len(WAIVER_ROW) - 1, (
+        "the fixture must drop exactly the key under test"
+    )
+    workspace = _manifest_with_waiver(tmp_path, incomplete, stamp="pyfs-manifest/1")
+
+    with pytest.raises(WorkspaceError) as caught:
+        workspace.read_manifest()
+    message = str(caught.value)
+    assert str(workspace.manifest_path) in message, (
+        f"the refusal must name the manifest a reader has to go and look at: {message}"
+    )
+    assert "pyfs-manifest/1" in message, (
+        f"the refusal must name the stamp the row was written under: {message}"
+    )
+    assert "source_version" in message and "AIR_ALTITUDE" in message
+
+
+def test_an_empty_source_version_is_refused_as_firmly_as_a_missing_one(tmp_path):
+    """The empty string is the other way to say nothing."""
+    workspace = _manifest_with_waiver(tmp_path, {**WAIVER_ROW, "source_version": ""}, stamp=None)
+    with pytest.raises(WorkspaceError, match="source_version"):
+        workspace.read_manifest()
+
+
+def test_a_complete_waiver_row_reads_back_untouched(tmp_path):
+    """The control: the refusal is about the missing key, not about waivers."""
+    workspace = _manifest_with_waiver(tmp_path, WAIVER_ROW, stamp="pyfs-manifest/1")
+    (record,) = workspace.read_manifest()
+    assert record.broken_commands == [WAIVER_ROW], (
+        "reading a complete row must not edit it; the typed view is a view"
+    )
+
+
+def test_a_manifest_with_no_waiver_at_all_still_reads_under_the_old_stamp(tmp_path):
+    """The bump must not make an ordinary historical manifest unreadable.
+
+    Every run that waived nothing carries an empty ``broken_commands``,
+    which is the overwhelming majority of them, and none of those rows is
+    touched by the key becoming required.
+    """
+    from pyflightstream.workspace import KNOWN_MANIFEST_SCHEMAS, MANIFEST_SCHEMA
+
+    assert "pyfs-manifest/1" in KNOWN_MANIFEST_SCHEMAS
+    assert MANIFEST_SCHEMA == "pyfs-manifest/2"
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    workspace.root.mkdir(parents=True)
+    row = json.loads(make_record(manifest_schema="pyfs-manifest/1").model_dump_json())
+    workspace.manifest_path.write_text(json.dumps([row]), encoding="utf-8")
+    (record,) = workspace.read_manifest()
+    assert record.manifest_schema == "pyfs-manifest/1"
+    assert record.broken_commands == []
+
+
+# --- PFS-2009.03: the corpus migration, both halves in one call -------------
+#
+# The kind letter landed with PFS-2009.01, which made every library file
+# and every matrix cell written before v0.8.0 unreachable. Renaming the
+# files without rewriting the cells, or the other way round, leaves a
+# corpus that half-resolves, and half of it silently: that is the whole
+# reason the two halves are one call and refuse together.
+
+PFS200903_MATRIX_ROW = (
+    "9001 | TestWing | STEADY | 3.10 | 0.0890 | AL | 0.0 | 003  | 002  | 001    "
+    "| 003       | MANUAL   |    0   |  1  | LEGACY   | OUTPUTS: loads_{point}.txt"
+)
+
+
+def _pre_letter_workspace(tmp_path):
+    """A library and a matrix as they stood before the kind letter."""
+    from pyflightstream.cases.matrix import _COLUMNS
+
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    bodies = {
+        "references": ("003", "area_m2 = 10.0\nchord_m = 1.2\nspan_m = 8.0\n"),
+        "setups": ("002", "iterations = 800\nconvergence = 1e-6\n"),
+        "groups": ("001", 'wing = ["wing_left"]\n'),
+    }
+    for subdir, (stem, body) in bodies.items():
+        (workspace.inputs_dir / subdir / f"{stem}.toml").write_text(body, encoding="utf-8")
+    matrix = tmp_path / "pfs200903_matrix.fs"
+    header = " | ".join(_COLUMNS)
+    matrix.write_text("\n".join([header, PFS200903_MATRIX_ROW]) + "\n", encoding="utf-8")
+    return workspace, matrix
+
+
+def test_the_migration_renames_the_files_and_rewrites_the_cells_in_one_call(tmp_path):
+    from pyflightstream.cases.matrix import read_matrix
+    from pyflightstream.workspace import migrate_input_ids
+
+    workspace, matrix = _pre_letter_workspace(tmp_path)
+    # BEFORE: three unreachable files and a matrix naming all three.
+    before = read_matrix(matrix)
+    assert [(row.ref_code, row.set_code, row.entry_code) for row in before] == [
+        ("003", "002", "001")
+    ], "the fixture matrix does not spell the pre-letter codes"
+    for kind, code in (("reference", "003"), ("setup", "002"), ("group", "001")):
+        with pytest.raises(InputArtifactError, match="does not declare its kind"):
+            getattr(workspace, f"resolve_{kind}")(code)
+
+    plan = migrate_input_ids(workspace.inputs_dir, [matrix], apply=True)
+
+    assert plan.applied is True
+    assert not plan.is_empty
+    assert sorted((old.name, new.name) for old, new in plan.renames) == [
+        ("001.toml", "e001.toml"),
+        ("002.toml", "s002.toml"),
+        ("003.toml", "r003.toml"),
+    ], f"the rename plan is not the three coded kinds: {plan.renames}"
+    assert plan.cells == {str(matrix): {"REF": 1, "SET": 1, "ENTRY": 1}}, (
+        f"the matrix cells did not all move: {plan.cells}"
+    )
+    # AFTER: the library resolves and the matrix names what it resolves.
+    after = read_matrix(matrix)
+    assert [(row.ref_code, row.set_code, row.entry_code) for row in after] == [
+        ("r003", "s002", "e001")
+    ]
+    assert workspace.resolve_reference("r003").area_m2 == 10.0
+    assert workspace.resolve_setup("s002").settings["iterations"] == 800
+    assert workspace.resolve_group("e001").groups == {"wing": ["wing_left"]}
+    # No bare file is left behind: a file no id can reach teaches the next
+    # reader that the old spelling still resolves.
+    for subdir, stem in (("references", "003"), ("setups", "002"), ("groups", "001")):
+        assert not (workspace.inputs_dir / subdir / f"{stem}.toml").exists()
+
+
+def test_the_migration_keeps_every_other_byte_of_the_matrix(tmp_path):
+    """Including the column padding, which a longer id eats rather than shifts."""
+    from pyflightstream.workspace import migrate_input_ids
+
+    workspace, matrix = _pre_letter_workspace(tmp_path)
+    before = matrix.read_bytes()
+    migrate_input_ids(workspace.inputs_dir, [matrix], apply=True)
+    after = matrix.read_bytes()
+    assert after != before
+    assert len(after.splitlines()) == len(before.splitlines())
+    assert after.count(b"|") == before.count(b"|")
+    # The three cells grew by one character each and ate one pad space
+    # each, so every cell keeps the width it had and the row does too.
+    body_before = before.splitlines()[1].split(b"|")
+    body_after = after.splitlines()[1].split(b"|")
+    assert len(body_after) == len(body_before) == 16
+    differing = [
+        index
+        for index, (old, new) in enumerate(zip(body_before, body_after, strict=True))
+        if old != new
+    ]
+    assert differing == [7, 8, 9], f"cells outside REF, SET and ENTRY moved: indices {differing}"
+    for index, expected in zip(differing, (b"r003", b"s002", b"e001"), strict=True):
+        assert body_after[index].strip() == expected
+        assert len(body_after[index]) == len(body_before[index]), (
+            f"cell {index} changed width: {body_before[index]!r} -> {body_after[index]!r}"
+        )
+
+
+def test_the_dry_run_writes_nothing_at_all(tmp_path):
+    from pyflightstream.workspace import migrate_input_ids
+
+    workspace, matrix = _pre_letter_workspace(tmp_path)
+    before = matrix.read_bytes()
+    plan = migrate_input_ids(workspace.inputs_dir, [matrix])
+    assert plan.applied is False
+    assert len(plan.renames) == 3
+    assert plan.cells == {str(matrix): {"REF": 1, "SET": 1, "ENTRY": 1}}
+    assert matrix.read_bytes() == before
+    assert (workspace.inputs_dir / "references" / "003.toml").is_file()
+    assert not (workspace.inputs_dir / "references" / "r003.toml").exists()
+
+
+def test_the_migration_refuses_before_writing_when_a_rename_would_collide(tmp_path):
+    """The safety property: a refused migration is a no-op, not a half-done one."""
+    from pyflightstream.workspace import migrate_input_ids
+
+    workspace, matrix = _pre_letter_workspace(tmp_path)
+    # A library holding both 003.toml and r003.toml: two files answering to
+    # one id the moment the letter is added.
+    (workspace.inputs_dir / "references" / "r003.toml").write_text(
+        "area_m2 = 99.0\nchord_m = 9.9\nspan_m = 9.9\n", encoding="utf-8"
+    )
+    matrix_before = matrix.read_bytes()
+
+    with pytest.raises(InputArtifactError) as caught:
+        migrate_input_ids(workspace.inputs_dir, [matrix], apply=True)
+    message = str(caught.value)
+    assert "003.toml" in message and "r003.toml" in message
+
+    assert matrix.read_bytes() == matrix_before, "the matrix was rewritten anyway"
+    assert (workspace.inputs_dir / "references" / "003.toml").is_file()
+    # AND the two kinds that would NOT have collided are untouched, which is
+    # what makes this all-or-nothing rather than best-effort.
+    assert (workspace.inputs_dir / "setups" / "002.toml").is_file()
+    assert not (workspace.inputs_dir / "setups" / "s002.toml").exists()
+    assert (workspace.inputs_dir / "groups" / "001.toml").is_file()
+
+
+def test_the_migration_refuses_a_matrix_it_cannot_find_and_renames_nothing(tmp_path):
+    from pyflightstream.workspace import migrate_input_ids
+
+    workspace, matrix = _pre_letter_workspace(tmp_path)
+    absent = tmp_path / "pfs200903_absent.fs"
+    with pytest.raises(InputArtifactError, match="do not exist"):
+        migrate_input_ids(workspace.inputs_dir, [matrix, absent], apply=True)
+    assert (workspace.inputs_dir / "references" / "003.toml").is_file()
+    assert b"| 003  |" in matrix.read_bytes()
+
+
+def test_migrating_an_already_lettered_library_moves_nothing(tmp_path):
+    """Idempotent: running it twice is not an error and is not a second rename."""
+    from pyflightstream.workspace import migrate_input_ids
+
+    workspace, matrix = _pre_letter_workspace(tmp_path)
+    migrate_input_ids(workspace.inputs_dir, [matrix], apply=True)
+    settled = matrix.read_bytes()
+
+    again = migrate_input_ids(workspace.inputs_dir, [matrix], apply=True)
+    assert again.renames == ()
+    # The matrix appears with zeros rather than being dropped: "looked at
+    # and nothing matched" is a different report from "never read".
+    assert again.cells == {str(matrix): {"REF": 0, "SET": 0, "ENTRY": 0}}
+    assert again.is_empty
+    assert matrix.read_bytes() == settled
+
+
+def test_the_migration_leaves_the_uncoded_kinds_alone(tmp_path):
+    """Geometries and profiles are file stems the user chose; no letter rule."""
+    from pyflightstream.workspace import migrate_input_ids
+
+    workspace, _ = _pre_letter_workspace(tmp_path)
+    mesh = workspace.inputs_dir / "geometries" / "wing_v2.fsm"
+    mesh.write_bytes(b"geometry")
+    profile = workspace.inputs_dir / "profiles" / "thrust.toml"
+    profile.write_text("values = [1.0]\n", encoding="utf-8")
+
+    plan = migrate_input_ids(workspace.inputs_dir, apply=True)
+    moved = {old.name for old, _ in plan.renames}
+    assert moved == {"003.toml", "002.toml", "001.toml"}, (
+        f"the migration reached outside the three coded kinds: {moved}"
+    )
+    assert mesh.is_file() and profile.is_file()

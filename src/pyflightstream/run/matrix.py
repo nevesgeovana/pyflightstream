@@ -26,8 +26,13 @@ import warnings
 from collections.abc import Mapping
 from pathlib import Path
 
+from pyflightstream._errors import PyflightstreamDeprecationWarning
 from pyflightstream.cases import ScriptRecipe
-from pyflightstream.cases.matrix import MatrixError, read_matrix
+from pyflightstream.cases.matrix import (
+    MatrixError,
+    read_matrix,
+    refuse_silent_rows_without_default,
+)
 from pyflightstream.run import (
     CampaignPlan,
     Executor,
@@ -94,7 +99,7 @@ def _default_version(
             "whose FS_BUILD column names no build fall back to, so it is a DEFAULT "
             "rather than the version the matrix runs under; a row that names a build "
             "is authoritative. The pyfs-matrix command line keeps --fs-version.",
-            DeprecationWarning,
+            PyflightstreamDeprecationWarning,
             stacklevel=3,
         )
         return fs_version
@@ -105,6 +110,26 @@ def _default_version(
             "build. The matrix carries no version column, so it is explicit input."
         )
     return default_fs_version
+
+
+def _refuse_a_run_that_names_no_build(path: str | Path, default: str) -> None:
+    """Refuse, before anything is bound, a run with no build named anywhere.
+
+    Both entry points call this BETWEEN resolving the default and calling
+    :func:`~pyflightstream.workspace.matrix.resolve_matrix`, which is the
+    only position that satisfies the whole acceptance: resolution builds
+    the :class:`~pyflightstream.cases.Campaign` and selects the
+    executable, and the executor is built after that, so a check inside
+    or below it cannot promise that none of the three exists
+    (PFS-2009.08.03).
+
+    The rows are read here rather than borrowed from the resolution
+    below, which costs one extra parse of a small text file and buys the
+    ordering. :func:`~pyflightstream.cases.matrix.to_campaign` carries
+    the same call, so a caller that converts a matrix without planning it
+    meets the same refusal.
+    """
+    refuse_silent_rows_without_default(read_matrix(path), default, path)
 
 
 def plan_matrix(
@@ -156,6 +181,18 @@ def plan_matrix(
         One status per matrix point; inspect ``blocked`` before
         running, or print ``summary()``.
 
+    Raises
+    ------
+    pyflightstream.cases.matrix.MatrixError
+        Layout or build-selection problems, no default version given
+        under either spelling, or a default that strips to empty. The
+        last names every active row whose FS_BUILD cell strips to empty
+        too, by row number and POL, and is raised before the matrix is
+        bound, so no campaign is built and no executable is resolved
+        (PFS-2009.08.03).
+    pyflightstream.workspace.InputArtifactError
+        A REF, SET or ENTRY code the input library cannot resolve.
+
     Examples
     --------
     >>> from pyflightstream.run.matrix import plan_matrix
@@ -170,6 +207,7 @@ def plan_matrix(
     >>> print(plan.summary())               # doctest: +SKIP
     """
     default = _default_version(default_fs_version, fs_version, caller="plan_matrix")
+    _refuse_a_run_that_names_no_build(path, default)
     resolved = resolve_matrix(
         path, workspace, name=name, fs_version=default, recipes=recipes, fs_exe=fs_exe
     )
@@ -250,8 +288,12 @@ def run_matrix(
     ------
     pyflightstream.cases.matrix.MatrixError
         Layout or build-selection problems, a blocked pre-flight (the
-        message carries the plan summary; nothing was executed), or no
-        default version given under either spelling.
+        message carries the plan summary; nothing was executed), no
+        default version given under either spelling, or a default that
+        strips to empty. The last names every active row whose FS_BUILD
+        cell strips to empty too, by row number and POL, and is raised
+        before the matrix is bound: no campaign is built, no executable
+        is resolved and no executor is constructed (PFS-2009.08.03).
     pyflightstream.run.ExecutorConfigurationError
         When the identity pre-flight finds the wrong build installed;
         raised before any point executes.
@@ -273,6 +315,7 @@ def run_matrix(
     ... )
     """
     default = _default_version(default_fs_version, fs_version, caller="run_matrix")
+    _refuse_a_run_that_names_no_build(path, default)
     resolved = resolve_matrix(
         path, workspace, name=name, fs_version=default, recipes=recipes, fs_exe=fs_exe
     )

@@ -60,7 +60,8 @@ from pyflightstream.cases.workflows import (
     workflow_names,
     workflow_registry,
 )
-from pyflightstream.results.tables import LoadsNotFoundError, sweep_table
+from pyflightstream.results import MalformedOutputError
+from pyflightstream.results.tables import LoadsNotFoundError, sweep_table, write_table
 from pyflightstream.run import CampaignErrors, LoadsAssessor
 from pyflightstream.run.matrix import plan_matrix, run_matrix
 from pyflightstream.workspace import CampaignWorkspace, InputArtifactError
@@ -312,26 +313,44 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
             recipe_registry=workflow_registry(),
             resume=args.resume,
         )
+    except CampaignErrors as error:
+        # SEPARATED FROM THE OTHERS on purpose. Every arm below this one
+        # is a refusal BEFORE the campaign ran, and leaves nothing to
+        # tabulate. CampaignErrors is raised AFTER the loop, by a run
+        # that executed and had failing points, and those points have
+        # records. Catching it with the rest returned 2 without writing
+        # anything, so a sweep with one failed point left no table at
+        # all, which is the acceptance of PFS-2014.03 exactly inverted.
+        print(f"matrix run with failures: {error}", file=sys.stderr)
+        status = 2
     except (
         MatrixError,
         InputArtifactError,
         CampaignConfigError,
         WorkflowCoverageError,
-        CampaignErrors,
         OSError,
         ValueError,
     ) as error:
         print(f"matrix not run: {error}", file=sys.stderr)
         return 2
+    else:
+        status = 0
 
     target = args.sweep_csv or str(workspace.root / "sweep.csv")
     try:
-        sweep_table(workspace).to_csv(target, index=False)
-    except (LoadsNotFoundError, OSError, ValueError) as error:
+        # `require_loads=False` is the keyword written for exactly this
+        # condition: a sweep in which no run yielded coefficients still
+        # has identity rows, and printing "sweep table not written" over
+        # them discards work the campaign already did. `write_table` is
+        # the one write path of the tabular layer and refuses a frame
+        # that cannot say what produced its numbers; `to_csv` bypassed
+        # that and was correct only by coincidence.
+        write_table(sweep_table(workspace, require_loads=False), target)
+    except (LoadsNotFoundError, MalformedOutputError, OSError, ValueError) as error:
         print(f"runs completed, sweep table not written: {error}", file=sys.stderr)
         return 2
     print(f"sweep table: {target}")
-    return 0
+    return status
 
 
 if __name__ == "__main__":

@@ -3952,3 +3952,70 @@ def test_a_script_exposes_the_database_it_validates_against():
     silent = registry_without("SOLVER_MINIMUM_CP")
     assert Script(version="26.120", registry=silent).registry is silent
     assert Script(version="26.120").registry is CommandRegistry.load()
+
+
+# --- PFS-2012.03: a waiver record cannot be built without its origin --------
+#
+# `source_version` names the build whose database record says the command
+# is broken, which is the build the cited probe report was run on. It was
+# `str | None = None`, and the default was the only route to an empty one:
+# the single construction site has always passed the evidence's own source.
+
+
+def test_a_waiver_record_refuses_to_exist_without_its_source_version():
+    """The field the acceptance names, refused by name."""
+    from pyflightstream.script import BrokenCommandUse
+
+    with pytest.raises(ValidationError) as caught:
+        BrokenCommandUse(
+            command="AIR_ALTITUDE",
+            version="26.120",
+            report="reports/compat/CMP-26120_2026-08-08_full.yaml",
+            reason="re-probing the units defect",
+        )
+    message = str(caught.value)
+    assert "source_version" in message, (
+        "the refusal must name the missing field; a waiver that does not say "
+        f"which build's record it leaned on asserts nothing. Got: {message}"
+    )
+    # The CONTROL, without which the assertion above is satisfied by a model
+    # that refuses everything: the same call WITH the field is accepted.
+    complete = BrokenCommandUse(
+        command="AIR_ALTITUDE",
+        version="26.120",
+        source_version="26.120",
+        report="reports/compat/CMP-26120_2026-08-08_full.yaml",
+        reason="re-probing the units defect",
+    )
+    assert complete.source_version == "26.120"
+
+
+def test_none_is_no_longer_a_value_the_waiver_record_accepts():
+    """Explicitly passing None is the other route to an empty field."""
+    from pyflightstream.script import BrokenCommandUse
+
+    with pytest.raises(ValidationError, match="source_version"):
+        BrokenCommandUse(
+            command="AIR_ALTITUDE",
+            version="26.120",
+            source_version=None,
+            report="reports/compat/CMP-26120_2026-08-08_full.yaml",
+            reason="re-probing the units defect",
+        )
+
+
+def test_the_live_waiver_path_still_records_a_source_version():
+    """The construction site the field's requiredness rests on.
+
+    The claim behind the change is that no live path ever wrote None. If
+    that is wrong, this test is where it shows, because `allow_broken`
+    plus one emission is the only way a `BrokenCommandUse` is built.
+    """
+    script = Script(version="26.120")
+    script.allow_broken("AIR_ALTITUDE", reason="re-probing the units defect")
+    script.emit("AIR_ALTITUDE", 0.0, "METERS")
+    (use,) = script.broken_commands
+    assert use.source_version, (
+        "the one live construction site produced a waiver with no source_version, "
+        "so making the field required breaks a path the change assumed was dead"
+    )

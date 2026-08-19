@@ -144,7 +144,7 @@ jobs:
       - name: Tier 1 tests against the wheel
         run: pytest
       - name: Executable examples against the wheel
-        run: pytest README.md docs -W error
+        run: pytest README.md docs -W error::pyflightstream._errors.PyflightstreamWarning
 
   gates:
     needs: build

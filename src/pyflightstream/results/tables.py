@@ -75,7 +75,7 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
-from pyflightstream._errors import PyflightstreamError
+from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
 from pyflightstream.extras import missing_extra
 from pyflightstream.results import (
     DATA_ORIGIN_CODES,
@@ -88,6 +88,8 @@ from pyflightstream.results import (
     MalformedOutputError,
     ProbePointsReport,
     ResidualSample,
+    UnsteadyPlotsReport,
+    UnsupportedResultTypeError,
     parse_loads,
     reduction_for_solver_mode,
 )
@@ -159,6 +161,11 @@ def to_table(result: object) -> pd.DataFrame:
     - :class:`ProbePointsReport` (:func:`parse_probe_points`): the
       printed columns, starting with X, Y, Z in simulation length
       units in the analysis reference frame.
+    - :class:`UnsteadyPlotsReport` (:func:`parse_unsteady_plots`): one
+      row per time step and one column per plot, under the plot names
+      exactly as printed. Units are per column and the export declares
+      none, so nothing is converted here; the time column is in the
+      unit the run's time increment is stated in.
     - ``SectionalLoadsReport`` (:mod:`pyflightstream.fsi.loads`,
       optional ``[fsi]`` extra): unit-suffixed columns ``offset_m``,
       ``chord_m``, ``x_qc_m``, ``z_qc_m`` [m], ``fx_n_per_m``,
@@ -187,6 +194,8 @@ def to_table(result: object) -> pd.DataFrame:
         return _loads_frame(result)
     if isinstance(result, ProbePointsReport):
         return _probe_points_frame(result)
+    if isinstance(result, UnsteadyPlotsReport):
+        return _unsteady_plots_frame(result)
     if isinstance(result, (list, tuple)):
         if result and all(isinstance(sample, ResidualSample) for sample in result):
             return _residual_history_frame(list(result))
@@ -197,7 +206,7 @@ def to_table(result: object) -> pd.DataFrame:
                 "so an empty list points at filtering upstream of this call"
             )
     if isinstance(result, pd.DataFrame):
-        raise TypeError(
+        raise UnsupportedResultTypeError(
             "the result is already a pandas DataFrame; call its .to_csv method "
             "directly instead of tabulating it again"
         )
@@ -210,11 +219,12 @@ def to_table(result: object) -> pd.DataFrame:
             package="pyflightstream.fsi.loads",
             purpose=("tabulating an object that looks like a SectionalLoadsReport"),
         )
-    raise TypeError(
+    raise UnsupportedResultTypeError(
         f"to_table cannot tabulate {type(result).__name__}; supported parsed "
         "results are LoadsReport (parse_loads), a list of ResidualSample "
-        "(parse_residual_history), ProbePointsReport (parse_probe_points), and "
-        "SectionalLoadsReport (pyflightstream.fsi.loads, optional [fsi] extra)"
+        "(parse_residual_history), ProbePointsReport (parse_probe_points), "
+        "UnsteadyPlotsReport (parse_unsteady_plots), and SectionalLoadsReport "
+        "(pyflightstream.fsi.loads, optional [fsi] extra)"
     )
 
 
@@ -595,7 +605,7 @@ def sweep_table(
             )
             if require_loads:
                 raise LoadsNotFoundError(complaint)
-            warnings.warn(complaint, stacklevel=2)
+            warnings.warn(complaint, PyflightstreamWarning, stacklevel=2)
     return pd.DataFrame(rows)
 
 
@@ -671,6 +681,44 @@ def _probe_points_frame(report: ProbePointsReport) -> pd.DataFrame:
     # A probe export is a point sample, so nothing was averaged to make it
     # (see the residual history above for why that is ``none`` and not
     # ``unknown``).
+    return _stamped(
+        pd.DataFrame(report.values, columns=list(report.columns)),
+        origin="raw",
+        reduction="none",
+    )
+
+
+def _unsteady_plots_frame(report: UnsteadyPlotsReport) -> pd.DataFrame:
+    """Tabulate the unsteady plot export, one row per time step.
+
+    THE COLUMN LABELS ARE THE SOLVER'S, and the plot names are the
+    user's own: whichever plots the run defined are what this export
+    prints, so the labels come through verbatim and their ORDER is data
+    rather than a contract (read a series by its label, never by its
+    position).
+
+    ``reduction`` is ``none`` and that is physical rather than
+    bookkeeping. This file IS the per-time-step history, so no window
+    was averaged to produce a row; a time average taken OF it would be
+    ``time_average``, and the unsteady loads spreadsheet, which the
+    solver averages itself, already is.
+
+    Raises
+    ------
+    MalformedOutputError
+        When a plot is named like one of the provenance columns.
+        Stamping would overwrite a column of physical numbers with a
+        constant token and leave a frame that still writes and still
+        looks right.
+    """
+    collisions = sorted(set(report.columns) & set(PROVENANCE_COLUMNS))
+    if collisions:
+        raise MalformedOutputError(
+            f"this unsteady plot export names a plot {collisions}, which collides with "
+            f"the provenance column(s) every table here carries ({', '.join(PROVENANCE_COLUMNS)}). "
+            "Stamping the provenance would replace that column of numbers with a "
+            "constant token; rename the plot in the run that defines it"
+        )
     return _stamped(
         pd.DataFrame(report.values, columns=list(report.columns)),
         origin="raw",
@@ -856,7 +904,15 @@ def _check_point_printback(record: RunRecord, report: LoadsReport, name: str) ->
     # shared bind_conditions, called by the assessor before the status is
     # decided and by this reader afterwards, so the two can never disagree
     # about what counts as the same point.
-    binding = bind_conditions(record.point, reported=report)
+    # The REQUESTED velocity joins the axes the reader weighs, so the
+    # reader and the assessor compare the same set (OPS-2009.01.13).
+    # `setdefault` and not assignment: the point's own value wins over
+    # the case default, which is the precedence the run layer applies,
+    # and a plain assignment would reverse it silently.
+    requested = dict(record.point)
+    if record.velocity_requested_m_s is not None:
+        requested.setdefault("velocity", record.velocity_requested_m_s)
+    binding = bind_conditions(requested, reported=report)
     if binding.mismatches:
         raise ValueError(
             f"the loads spreadsheet {name!r} of run {record.run_id!r} is evidence "

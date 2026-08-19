@@ -27,6 +27,15 @@ a taste for grouping:
   today; it is re-exported by :mod:`pyflightstream.workspace`, which is
   where its docstring sends a user and where it has always been caught.
 
+A THIRD KIND arrived with :class:`PyflightstreamWarning`
+(OPS-2006.02.02), and its reason is neither of those two. A warning
+category is named on a command line, in ``-W error::module.Class``, and
+that filter is parsed by IMPORTING ``module`` before anything else in
+the process runs. A category whose home imports half the package makes
+every such command pay for the import and fail on the FILTER rather
+than on a warning when the home cannot be imported at all. This module
+imports nothing, which is exactly what a warnings filter wants to name.
+
 Neither kind changes the name a user catches. Adding a class here is a
 deliberate decision about layering, never a convenience.
 """
@@ -130,3 +139,77 @@ class InputArtifactError(PyflightstreamError, RuntimeError):
         self.kind = kind
         self.artifact_id = artifact_id
         self.available = available
+
+
+class PyflightstreamWarning(UserWarning):
+    """The category that says a warning came from THIS package.
+
+    It exists for one job: the executable-examples run promotes warnings
+    to errors so a stale example fails CI, and promoting every warning
+    means a dependency's next release turns that build red for something
+    nobody here can fix. Naming one category scopes the promotion to
+    what this repository is responsible for.
+
+    ``UserWarning`` is kept as the base, so ``-W error::UserWarning``,
+    ``simplefilter("ignore", UserWarning)`` and every other selection a
+    caller already had keep catching what they caught. The addition is
+    widening, exactly as :class:`PyflightstreamError` was.
+
+    NOT a subclass of :class:`PyflightstreamError`, and the split is the
+    same one that requirement FR-39 draws: the base is for every
+    catalogued EXCEPTION, and a warning is delivered through
+    :mod:`warnings` and selected by category rather than raised and
+    caught. Calling it an ``Error`` would misname it for the reader of a
+    traceback.
+
+    TWO THINGS ARE STILL OWED and are stated rather than implied, because
+    a warnings filter that stops matching does it silently. The category
+    is not yet re-exported by :mod:`pyflightstream.exceptions`, so it is
+    imported from here for now; and the package's own warning sites still
+    raise the categories they always did, held one by one in the ratchet
+    ``UNPROMOTED_WARNING_CATEGORIES`` in ``tests/test_examples.py``.
+    Until that ratchet is empty, narrowing a ``-W error`` command onto
+    this category would stop catching them, so the two halves land
+    together, which is what OPS-2006.02.02 is for.
+
+    Examples
+    --------
+    >>> import warnings
+    >>> from pyflightstream._errors import PyflightstreamWarning
+    >>> with warnings.catch_warnings(record=True) as caught:
+    ...     warnings.simplefilter("always")
+    ...     warnings.warn("the campaign declares no outputs", PyflightstreamWarning)
+    >>> caught[0].category.__name__
+    'PyflightstreamWarning'
+    >>> issubclass(PyflightstreamWarning, UserWarning)
+    True
+    """
+
+
+class PyflightstreamDeprecationWarning(PyflightstreamWarning, DeprecationWarning):
+    """A part of this package's own interface is going away.
+
+    Both bases are load-bearing and neither is decoration. Through
+    :class:`PyflightstreamWarning`, one ``-W error`` filter promotes it
+    with the rest of this package's warnings, which a plain
+    ``DeprecationWarning`` could not be without promoting every
+    dependency's deprecations too. Through ``DeprecationWarning``, the
+    interpreter's own default of hiding deprecations outside
+    ``__main__`` still applies, so an ordinary user of a released
+    version is not shouted at by a rename that does not affect them yet.
+
+    Use it where this package deprecates one of its OWN arguments,
+    names or behaviours. An upstream deprecation this package merely
+    passes on is not ours and keeps its own category.
+
+    Examples
+    --------
+    >>> from pyflightstream._errors import (
+    ...     PyflightstreamDeprecationWarning,
+    ...     PyflightstreamWarning,
+    ... )
+    >>> issubclass(PyflightstreamDeprecationWarning, PyflightstreamWarning)
+    True
+    >>> issubclass(PyflightstreamDeprecationWarning, DeprecationWarning)
+    True
+    """

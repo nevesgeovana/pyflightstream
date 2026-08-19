@@ -40,7 +40,7 @@ INDEX = REPO / "reports" / "requirements-index.json"
 #: The covered set may only GROW. This is the floor, raised in the same
 #: commit that marks a new requirement, exactly like the coverage floor
 #: in pyproject: the measurement is the fact and this is the promise.
-MARKED_FLOOR = 10
+MARKED_FLOOR = 12
 
 
 def _marked() -> dict[str, list[str]]:

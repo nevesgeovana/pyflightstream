@@ -51,6 +51,23 @@ class ScriptReferenceError(PyflightstreamError, ValueError):
     """
 
 
+class ScriptDeclarationTypeError(PyflightstreamError, TypeError):
+    """An entity declaration is neither a count nor a label mapping.
+
+    The last of the three bare standard-library raises on the public
+    path (OPS-2009.01.08). It refuses the WRONG KIND of argument rather
+    than a bad value, which is why ``TypeError`` is kept as its second
+    base: that is how a caller separates "you handed me the wrong sort
+    of thing" from every ValueError-based refusal beside it, and an
+    existing ``except TypeError`` around a declaration catches exactly
+    what it caught before.
+
+    Raised by :meth:`EntityRegistry.declare` when a declaration is
+    neither a positive integer total nor a mapping of labels to 1-based
+    indices.
+    """
+
+
 class ScriptLabelError(PyflightstreamError, ValueError):
     """A label registration collides with a label already recorded.
 
@@ -285,7 +302,7 @@ class EntityRegistry:
             self._boundary_total = max(self._boundary_total or 0, max(declaration.values()))
             return
         if isinstance(declaration, bool) or not isinstance(declaration, int):
-            raise TypeError(
+            raise ScriptDeclarationTypeError(
                 f"boundaries takes a total count or a label-to-index mapping, got "
                 f"{declaration!r}; the count enables range checks, the mapping also "
                 "enables citation by label"

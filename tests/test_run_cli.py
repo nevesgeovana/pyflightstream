@@ -38,7 +38,8 @@ import pytest
 
 from pyflightstream.cases import matrix as matrix_module
 from pyflightstream.cases.workflows import workflow_names
-from pyflightstream.run import LocalExecutor
+from pyflightstream.run import CampaignErrors, LocalExecutor
+from pyflightstream.run import cli as cli_module
 from pyflightstream.run.cli import main
 from pyflightstream.workspace import CampaignWorkspace
 
@@ -175,6 +176,64 @@ def test_run_executes_the_matrix_and_writes_the_sweep_table(tmp_path, capsys):
         "rotor/sim_7001/a+00.0",
         "rotor/sim_7002/a+00.0",
     }
+
+
+def test_a_campaign_with_a_failing_point_still_leaves_its_table(tmp_path, monkeypatch):
+    """The half of PFS-2014.03 the first pass inverted.
+
+    A run that executes and has failing points raises `CampaignErrors`
+    AFTER the loop, so its points have records. Catching that with the
+    refusals that fire BEFORE the campaign ran returned 2 without writing
+    anything, and a sweep with one failed point left no table at all,
+    which is this item's acceptance exactly inverted.
+
+    The exit status still says the run had failures. What changes is that
+    the evidence of the points that did run survives it, which is the
+    whole reason the file is written from records rather than from a
+    successful return.
+    """
+    workspace = make_workspace(tmp_path)
+    matrix = single_point_matrix(tmp_path)
+    target = tmp_path / "sweep.csv"
+
+    # The failure is INJECTED rather than provoked, and that is a choice
+    # worth stating. Every cheap way of making the stub solver fail on
+    # this platform refuses BEFORE the loop, at resolution or at process
+    # start, which is a different arm of the same try. This arm is the
+    # one where the campaign ran, appended its records, and raised
+    # afterwards, so the test puts the campaign in exactly that state
+    # instead of hoping a broken executable lands there.
+    real_run_matrix = cli_module.run_matrix
+
+    def run_then_fail(*args, **kwargs):
+        real_run_matrix(*args, **kwargs)
+        # The real shape: CampaignErrors carries the RECORDS of the failed
+        # points, which is what makes it an after-the-loop failure rather
+        # than a refusal. Building it from the manifest the run just wrote
+        # keeps the injected failure honest about that.
+        raise CampaignErrors(workspace.read_manifest()[:1])
+
+    monkeypatch.setattr(cli_module, "run_matrix", run_then_fail)
+    status = main(run_args(workspace, matrix, "--sweep-csv", str(target)))
+
+    records = workspace.read_manifest()
+    assert records, (
+        "the injected failure fired before any record was written, so this case is "
+        "not exercising the after-the-loop arm it was written for"
+    )
+    assert status == 2, "a campaign with failing points must still report a failure"
+    assert target.is_file(), (
+        "the campaign ran and recorded points, and left no sweep table. The "
+        "after-the-loop failure arm is being caught with the refusals that fire "
+        "before anything ran, so the evidence of the points that did run is "
+        "discarded with the exit status"
+    )
+    header = target.read_text(encoding="utf-8").splitlines()[0].split(",")
+    for column in ("run_id", "sim_id", "data_origin", "reduction"):
+        assert column in header, (
+            f"the table written past a failure has no {column} column; got {header}. "
+            "It must go through the one write path like any other table"
+        )
 
 
 def test_the_default_sweep_table_lands_in_the_workspace_root(tmp_path, capsys):

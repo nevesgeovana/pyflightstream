@@ -623,3 +623,249 @@ def test_the_rotation_keys_are_read_whatever_their_case(tmp_path):
     )
     with pytest.raises(MatrixError, match="angle_deg"):
         read_matrix(bad)
+
+
+# --- PFS-2009.08.03: row_number, and the row that names no build ------------
+
+
+def test_every_row_carries_its_1_based_data_row_number():
+    """Assigned before the RUN filter, so an inactive row does not shift it."""
+    everything = read_matrix(FIXTURE, active_only=False)
+    assert len(everything) == 8, (
+        "the fixture stopped holding eight data rows, so the numbering below "
+        "would be checked against a population it no longer has"
+    )
+    assert [row.row_number for row in everything] == [1, 2, 3, 4, 5, 6, 7, 8]
+    # POL 9003 and 9007 are the two RUN = 0 rows, at positions 3 and 7. The
+    # active view must keep the ORIGINAL numbers rather than renumber.
+    active = read_matrix(FIXTURE)
+    assert [row.pol for row in active if row.run == 1]
+    assert [row.row_number for row in active] == [1, 2, 4, 5, 6, 8], (
+        "the numbers were reassigned after the RUN filter, so a refusal would "
+        "send a user to the wrong line of their file"
+    )
+    assert [row.pol for row in active] == ["9001", "9002", "9004", "9005", "9006", "9008"]
+
+
+def test_the_number_counts_content_rows_and_not_physical_lines():
+    """Blank lines and the dashed rule carry no cell and are not counted."""
+    lines = FIXTURE.read_text(encoding="utf-8").splitlines()
+    assert any(set(line.strip()) <= {"-"} for line in lines if line.strip()), (
+        "the fixture no longer carries a dashed rule, so this distinction is "
+        "not being measured at all"
+    )
+    first = read_matrix(FIXTURE, active_only=False)[0]
+    assert first.row_number == 1, (
+        "the first data row is 1 even though the dashed rule sits above it"
+    )
+
+
+def _silent_matrix(tmp_path, builds):
+    """Write a matrix whose FS_BUILD cells are exactly ``builds``."""
+    header = " | ".join(matrix_mod._COLUMNS)
+    rows = [
+        " | ".join(
+            [
+                f"900{index}",
+                "TestWing",
+                "ROW",
+                "3.10",
+                "0.0890",
+                "AL",
+                "0.0",
+                "r003",
+                "s002",
+                "e001",
+                "003",
+                build,
+                "0",
+                "1",
+                "LEGACY",
+                "OUTPUTS: loads_{point}.txt",
+            ]
+        )
+        for index, build in enumerate(builds, start=1)
+    ]
+    path = tmp_path / "pfs20090803_matrix.fs"
+    path.write_text("\n".join([header, *rows]) + "\n", encoding="utf-8")
+    return path
+
+
+def test_a_silent_row_with_no_default_is_refused_naming_the_rows(tmp_path):
+    """Every silent row, by number and POL, and the option that fixes it."""
+    path = _silent_matrix(tmp_path, ["26.120", "  ", ""])
+    rows = read_matrix(path)
+    assert [row.fs_build for row in rows] == ["26.120", "", ""], (
+        "the fixture must hold one row that names a build and two that do not"
+    )
+    with pytest.raises(MatrixError) as caught:
+        to_campaign(path, name="camp", fs_version="  ", fs_exe="fs.exe", recipes=RECIPES)
+    message = str(caught.value)
+    assert "row 2 (POL 9002)" in message and "row 3 (POL 9003)" in message, (
+        f"every silent row must be named by number and POL: {message}"
+    )
+    assert "9001" not in message, (
+        f"the row that names a build is not silent and must not be listed: {message}"
+    )
+    assert "--default-fs-version" in message
+    # NEVER the version registry: that message talks about registered
+    # versions and names nothing the user can act on here.
+    assert "not registered" not in message
+
+
+def test_a_blank_default_with_no_silent_row_is_refused_naming_the_option(tmp_path):
+    """The other arm, which would otherwise die in the version registry."""
+    path = _silent_matrix(tmp_path, ["26.120", "26.120"])
+    assert all(row.fs_build for row in read_matrix(path)), (
+        "this arm needs a matrix in which NO row is silent"
+    )
+    with pytest.raises(MatrixError) as caught:
+        to_campaign(path, name="camp", fs_version="", fs_exe="fs.exe", recipes=RECIPES)
+    message = str(caught.value)
+    assert "--default-fs-version" in message
+    assert "not registered" not in message and "Known versions" not in message, (
+        f"a blank default was reported by the version registry: {message}"
+    )
+    assert "POL" not in message, f"no row is silent, so the refusal must not name one: {message}"
+
+
+def test_a_default_that_is_given_lets_a_silent_row_through(tmp_path):
+    """The control: the refusal is about the ABSENT default, not the blank cell.
+
+    A silent row with a default is the ordinary case and is exactly what
+    the default exists for; refusing it would break every matrix that
+    leaves FS_BUILD empty.
+    """
+    path = _silent_matrix(tmp_path, ["", ""])
+    campaign = to_campaign(path, name="camp", fs_version="26.120", fs_exe="fs.exe", recipes=RECIPES)
+    assert [sim.sim_id for sim in campaign.sims] == ["9001", "9002"]
+    assert campaign.fs_version == "26.120"
+
+
+# --- PFS-2009.03: rewriting the id cells, byte for byte ---------------------
+
+
+def test_rewrite_codes_changes_only_the_named_cells(tmp_path):
+    """Every other byte, separator, rule and line ending survives."""
+    from pyflightstream.cases.matrix import rewrite_codes
+
+    target = tmp_path / "pfs200903_rewrite.fs"
+    target.write_bytes(FIXTURE.read_bytes())
+    before = target.read_bytes()
+    assert b"| r003 |" in before and b"| s003 |" in before, (
+        "the fixture no longer spells the ids this rewrite is asked to change"
+    )
+
+    text, counts = rewrite_codes(target, {"REF": {"r003": "x003"}}, in_place=False)
+    assert counts == {"REF": 7}, (
+        f"the REF column carries seven r003 cells across the eight data rows; "
+        f"the rewrite reported {counts}"
+    )
+    assert target.read_bytes() == before, "in_place=False wrote to the file"
+    # Exactly the changed cells differ, and the line count does not move.
+    assert text.count(b"x003") == 7
+    assert len(text.splitlines()) == len(before.splitlines())
+    changed = [
+        (old, new)
+        for old, new in zip(before.splitlines(), text.splitlines(), strict=True)
+        if old != new
+    ]
+    assert len(changed) == 7
+    for old, new in changed:
+        assert old.replace(b"r003", b"x003") == new, (
+            "a byte outside the REF cell moved: "
+            f"{old.decode('utf-8', 'replace')} -> {new.decode('utf-8', 'replace')}"
+        )
+
+
+def test_rewrite_codes_touches_the_inactive_rows_too(tmp_path):
+    """A RUN = 0 row is a row somebody switches on tomorrow."""
+    from pyflightstream.cases.matrix import rewrite_codes
+
+    target = tmp_path / "pfs200903_inactive.fs"
+    target.write_bytes(FIXTURE.read_bytes())
+    parked = [row for row in read_matrix(target, active_only=False) if row.run == 0]
+    assert [row.pol for row in parked] == ["9003", "9007"], (
+        "the fixture no longer carries an inactive row, so this is unmeasured"
+    )
+    rewrite_codes(target, {"ENTRY": {"e001": "e900"}}, in_place=True)
+    after = {row.pol: row.entry_code for row in read_matrix(target, active_only=False)}
+    assert after["9003"] == "e900" and after["9007"] == "e900"
+    assert set(after.values()) == {"e900"}
+
+
+def test_rewrite_codes_refuses_a_column_that_carries_no_library_id(tmp_path):
+    from pyflightstream.cases.matrix import rewrite_codes
+
+    target = tmp_path / "pfs200903_bad_column.fs"
+    target.write_bytes(FIXTURE.read_bytes())
+    with pytest.raises(MatrixError, match="FS_BUILD"):
+        rewrite_codes(target, {"FS_BUILD": {"MANUAL": "26.120"}})
+
+
+def test_rewrite_codes_refuses_a_file_at_the_previous_layout(tmp_path):
+    """A fifteen-column file is not silently rewritten at the wrong index."""
+    from pyflightstream.cases.matrix import rewrite_codes
+
+    target = tmp_path / "pfs200903_legacy.fs"
+    target.write_bytes(LEGACY_FIXTURE.read_bytes())
+    with pytest.raises(MatrixError, match="verified layout"):
+        rewrite_codes(target, {"REF": {"r003": "x003"}})
+
+
+def test_rewrite_codes_refuses_a_row_holding_the_wrong_number_of_cells(tmp_path):
+    """The arm no fixture reaches by accident, reached on purpose."""
+    from pyflightstream.cases.matrix import rewrite_codes
+
+    target = tmp_path / "pfs200903_short_row.fs"
+    lines = FIXTURE.read_text(encoding="utf-8").splitlines()
+    lines[2] = lines[2].rsplit("|", 1)[0]
+    target.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    with pytest.raises(MatrixError, match="data row 1 of"):
+        rewrite_codes(target, {"REF": {"r003": "x003"}})
+
+
+def test_rewrite_codes_refuses_a_file_carrying_no_cell_separator(tmp_path):
+    from pyflightstream.cases.matrix import rewrite_codes
+
+    target = tmp_path / "pfs200903_no_cells.fs"
+    target.write_text("not a matrix at all\n\n", encoding="utf-8")
+    with pytest.raises(MatrixError, match="no line carries a cell separator"):
+        rewrite_codes(target, {"REF": {"r003": "x003"}})
+
+
+def test_a_cell_with_no_padding_to_spare_grows_rather_than_losing_a_character(tmp_path):
+    """The third arm of the padding rule: a wider column beats a wrong id."""
+    from pyflightstream.cases.matrix import _COLUMNS, rewrite_codes
+
+    target = tmp_path / "pfs200903_tight.fs"
+    header = "|".join(_COLUMNS)
+    row = "|".join(
+        [
+            "9001",
+            "TestWing",
+            "ROW",
+            "3.10",
+            "0.0890",
+            "AL",
+            "0.0",
+            "003",
+            "s002",
+            "e001",
+            "003",
+            "MANUAL",
+            "0",
+            "1",
+            "LEGACY",
+            "OUTPUTS: loads.txt",
+        ]
+    )
+    target.write_text(header + "\n" + row + "\n", encoding="utf-8")
+    text, counts = rewrite_codes(target, {"REF": {"003": "r003"}})
+    assert counts == {"REF": 1}
+    body = text.splitlines()[1].split(b"|")
+    assert body[7] == b"r003", (
+        "a cell with no pad space to give up must GROW; truncating it would "
+        f"invent an id: {body[7]!r}"
+    )
+    assert len(body) == len(_COLUMNS)

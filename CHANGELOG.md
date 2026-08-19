@@ -36,6 +36,67 @@ matrix could not have discriminated.
 
 ### API surface delta
 
+**BREAKING, manifest schema.** `workspace.MANIFEST_SCHEMA` moves from
+`pyfs-manifest/1` to `pyfs-manifest/2`, because
+`script.BrokenCommandUse.source_version` stopped being optional and the
+ABSENCE of that key therefore changed meaning.
+`workspace.KNOWN_MANIFEST_SCHEMAS` is new and lists every stamp this
+version can still READ, so a manifest written under the earlier schema
+keeps loading rather than being refused for having been written before
+the rule existed.
+
+**BREAKING, waiver records** (PFS-2012.03).
+`script.BrokenCommandUse.source_version` is REQUIRED. It names the build
+whose database record says the command is broken, which is the build the
+cited probe report was run on; the optional form allowed a waiver that
+cites a report without saying which build it rests on, and a waiver whose
+evidence cannot be located is a waiver nobody can check.
+
+**BREAKING, run matrix** (PFS-2009.08.03). A matrix with an active row
+whose `FS_BUILD` cell strips to empty, run or planned with a campaign
+default that also strips to empty, raises `MatrixError` naming every such
+row by row number and POL, and naming the option that supplies the
+default. It is refused BEFORE the matrix is bound, so no campaign is
+built, no executable is resolved and no executor is constructed.
+
+**BREAKING, input-library ids** carry a kind letter, and the migration is
+now a call rather than a rename by hand:
+`workspace.migrate_input_ids(inputs_dir, matrices, apply=False)` renames
+every artifact to its lettered form AND rewrites the `REF`, `SET` and
+`ENTRY` cells of every matrix it is given, in the same call. A rename
+that would land on an existing file, and a matrix that does not exist,
+are refused before anything moves. `cases.matrix.rewrite_codes` is the
+byte-for-byte rewriter under it and `cases.matrix.CODE_COLUMNS` names the
+three columns that carry a library id (PFS-2009.03).
+
+**BREAKING, and it is the one to read if you script `pyfs-matrix`:**
+`parse_run_loads` and `sweep_table` already required a constructed
+workspace as of this cycle; `run.cli`'s `run` subcommand now writes its
+sweep table through `results.tables.write_table` rather than
+`DataFrame.to_csv`, so a frame that cannot say what produced its numbers
+is refused rather than written (PFS-2014.03).
+
+**New catalogued exceptions:** `results.UnsupportedResultTypeError` and
+`script.entities.ScriptDeclarationTypeError`, both keeping `TypeError` as
+their second base (OPS-2009.01.08).
+
+**New catalogued warning categories:** `PyflightstreamWarning` and
+`PyflightstreamDeprecationWarning`, in the shared-vocabulary module below
+every layer. The first keeps `UserWarning` as its base and the second
+keeps `DeprecationWarning` as a second base, so every filter and every
+`except` a caller already wrote selects exactly what it selected. The
+catalogue covers exceptions AND warnings, and both join it.
+
+**New record fields:** `RunRecord.fs_version_source`, which says whether
+a point's solver build was chosen FOR THE ROW or inherited from the
+campaign default (`None` on a record that predates the field), and
+`RunRecord.velocity_requested_m_s`, the free-stream velocity in m/s the
+case asked for, where `None` means none was requested and is not zero.
+
+**New elsewhere:** `cases.matrix.MatrixRow.row_number`, the row's 1-based
+position among the file's DATA rows, assigned before the activity filter;
+`results.to_table` now tabulates an unsteady plot report.
+
 **BREAKING, and it is the release's headline: the verified run-matrix
 layout is SIXTEEN columns** (PFS-2025.12.01). `WORKFLOW` joins the
 pipe-delimited format between `RUN` and `VAR_NAMES_VALUES` and names the
@@ -295,6 +356,34 @@ already passed these by keyword, so nothing in the tree moved.
 Deprecations: none.
 
 ### Added
+
+- **An explicit classification of every export command, with the debt
+  named one file at a time** (PFS-2014.02). `results.EXPORT_CONVERSIONS`
+  says which exports read and tabulate, which formats are deliberately
+  outside the default conversion set, which carry the export phase and
+  write no file at all, and which are debt; `require_export_parser`
+  refuses each missing one BY NAME rather than in the aggregate.
+
+  READ THE COUNT WITH IT, because the acceptance sentence is not yet
+  true and this release does not claim it is. Four of the eleven
+  default-set exports read and tabulate. Seven have no parser, and each
+  needs one real export from a licensed run to pin its columns against;
+  fabricating a fixture for a format nobody has seen is what the parser
+  that DID land this cycle marks as synthetic in its own first line.
+
+- **A Tier 1 guard binding the examples run's promotion to the categories
+  the package actually raises.** It derives the six command homes from
+  the tracked tree rather than listing them, asserts they all spell the
+  SAME filter, drives a warning of each kind through a real pytest under
+  both the shipped filter and the narrowed one, and refuses a narrowed
+  filter while any warning site still names a foreign category. The
+  ordering rule is enforced rather than described.
+
+- **`results.to_table` refuses an unsteady plot export whose plot name
+  collides with a provenance column.** Plot names are the user's own, so
+  stamping the provenance over one would have replaced a column of
+  physical numbers with a constant token and left a table that still
+  writes and still looks right.
 
 - **A workflow: a run type the package builds by itself** (PFS-2025.02),
   named by the run matrix's `WORKFLOW` column and resolved by TABLE
@@ -1199,6 +1288,63 @@ Deprecations: none.
   are pinned as a ratchet rather than silently excluded.
 
 ### Fixed
+
+- **The FR-39 TypeError tranche is EMPTY, not merely smaller**
+  (OPS-2009.01.08). Three raise sites on the public path raised a bare
+  `TypeError`, so `except PyflightstreamError` caught none of them: two
+  in `results.to_table` and one in the entity registry. All three now
+  raise a catalogued class keeping `TypeError` as its second base, and
+  both ratchet rows came out in the same edit that re-based their raises.
+  It is the first tranche this ratchet has emptied rather than shrunk,
+  and the ratchet's own header now counts 13 entries over 16 raises
+  rather than 15 over 19.
+
+  The decision that had deferred it stopped being open on 2026-08-17,
+  when the first non-ValueError base entered the table and made its shape
+  a precedent rather than new ground.
+
+- **The examples run promotes only THIS package's warnings**
+  (OPS-2006.02.02), and the two halves landed in one change because
+  either alone is worse than neither. Eleven `warnings.warn` sites are
+  retagged onto the package's own categories, the ratchet that recorded
+  them is empty, and the six command homes are narrowed from a bare
+  `-W error` to the package category. Narrowing first would have stopped
+  catching ours; retagging first would have left a dependency's
+  deprecation still able to redden the build.
+
+  `VersionMismatchWarning` settled four of the eleven sites at once by
+  being re-parented, keeping `UserWarning` in its MRO. A strict expected
+  failure stood in the suite saying it would turn into a failure on the
+  day the narrowing landed; it did, and it is gone.
+
+  WORTH KNOWING BEFORE YOU COPY THE FILTER: `python -W
+  error::pyflightstream...` does not work and fails SILENTLY. The
+  interpreter parses its own `-W` before this package is importable,
+  prints `Invalid -W option ignored` and promotes nothing at all.
+  `pytest -W` parses later and does work, which is why every promotion
+  home here is a pytest command line and why the category lives in a
+  module that imports nothing.
+
+- **A campaign with a failing point left no sweep table at all**
+  (PFS-2014.03). The command line caught the after-the-loop failure with
+  the refusals that fire BEFORE the campaign ran and returned without
+  writing, so every point that did run lost its evidence with the exit
+  status. The two are separate arms now: a run that executed and had
+  failures still writes its table and still reports the failure. It also
+  passes `require_loads=False`, the keyword written for exactly the
+  condition it was printing "sweep table not written" over.
+
+- **The reader weighed fewer axes than the assessor** (OPS-2009.01.13).
+  The table reader compared only the point's own axes, so a requested
+  free-stream velocity the assessor checks was invisible to it. The
+  requested velocity now joins the axes, with `setdefault` and not
+  assignment, because the point's own value wins over the case default
+  and a plain assignment would have reversed that precedence silently.
+
+- **An example run's warnings are read off stderr rather than promoted.**
+  The run checked the exit status only, so an example that started
+  warning kept exiting 0 and the reader met the warning before anyone
+  here did.
 
 - **The solver-setup provenance snapshot read the PACKAGED command
   database rather than the one its script was built with** (PFS-2012.05),

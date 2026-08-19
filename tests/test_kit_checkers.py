@@ -115,7 +115,12 @@ HOOKS = REPO / ".claude" / "hooks"
 #: 20, because the pin had a slack slot: it was measured at 20 on a tree that
 #: already held 19, so one new unguarded spawn could have arrived unnoticed.
 #: The downward arm is what made that visible, and this line is what closes it.
-TESTS_UNGUARDED_SPAWNS = 19
+#: LOWERED AGAIN TO 16 ON 2026-08-19. The examples module gained three
+#: spawns with OPS-2006.02.02 and the upward arm caught all three;
+#: passing env= on them, and on the three that module already had, took
+#: the count from 22 to 16 rather than back to 19. Six call sites closed
+#: in one edit, which is the largest step this ratchet has taken down.
+TESTS_UNGUARDED_SPAWNS = 16
 
 
 def _run(*argv: str) -> subprocess.CompletedProcess[str]:

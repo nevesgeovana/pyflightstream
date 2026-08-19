@@ -281,20 +281,37 @@ class BrokenCommandUse(BaseModel):
     version : str
         Canonical identifier of the build the script was written for,
         which is what it has always held. Unchanged deliberately: it
-        travels inside ``RunRecord.broken_commands``, every row is
-        stamped ``pyfs-manifest/1``, and that identifier's own rule is
-        that it bumps when a field CHANGES MEANING. Redefining this one
-        would have made a reader of an existing manifest read two
-        meanings under one key with nothing to tell them apart, which
-        is the defect this release is named for, on the one surface
-        that cannot be regenerated.
-    source_version : str or None
+        travels inside ``RunRecord.broken_commands``, every row carries a
+        manifest stamp, and that identifier's own rule is that it bumps
+        when a field CHANGES MEANING. Redefining this one would have made
+        a reader of an existing manifest read two meanings under one key
+        with nothing to tell them apart, which is the defect this release
+        is named for, on the one surface that cannot be regenerated.
+
+        The stamp itself is no longer a single value and this sentence
+        used to name one: it said "every row is stamped
+        ``pyfs-manifest/1``", which stopped being true on 2026-08-19 when
+        ``source_version`` below became required and the stamp moved to
+        ``pyfs-manifest/2`` (PFS-2012.03). What did NOT change is this
+        field, which is the point of the paragraph.
+    source_version : str
         Canonical identifier of the version whose record is broken,
         which differs from ``version`` when a hotfix build inherits its
         base release's record. That is the build the cited ``report``
-        was run on. **None means the row PREDATES this field** and is
-        not a claim that the two agreed; the distinction matters for
-        the same reason ``RunRecord.manifest_schema`` carries it.
+        was run on.
+
+        **Required since 2026-08-19** (PFS-2012.03, manifest schema
+        ``pyfs-manifest/2``). It was ``str | None`` with a None default,
+        and the default was the only route to an empty one: the single
+        construction site has always passed the evidence's own source,
+        which the command database types as a plain ``str``. So the
+        optionality described no live path and only left room for a
+        waiver record that cites a report without saying which build the
+        report was run on, which is a provenance row asserting nothing.
+        A row that predates the field is refused on read by
+        :meth:`pyflightstream.workspace.CampaignWorkspace.read_manifest`,
+        naming the manifest and the stamp it was written under, rather
+        than loading with the field empty.
     report : str
         Repository-relative path of the committed probe report that
         recorded the breakage. Never optional: ``broken`` cannot exist
@@ -319,7 +336,7 @@ class BrokenCommandUse(BaseModel):
 
     command: str
     version: str
-    source_version: str | None = None
+    source_version: str
     report: str
     note: str | None = None
     reason: str

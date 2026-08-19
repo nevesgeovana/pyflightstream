@@ -55,6 +55,10 @@ from typing import Literal
 
 from pydantic import BaseModel, ValidationError
 
+from pyflightstream._errors import (
+    PyflightstreamDeprecationWarning,
+    PyflightstreamWarning,
+)
 from pyflightstream.commands import CommandNotInVersionError
 from pyflightstream.script import (
     CommandArgumentError,
@@ -1864,7 +1868,7 @@ def analysis_setup(
             "induced-drag boundary selection is a parameter of solver_settings "
             "since v0.3.0 and will leave analysis_setup in a future minor "
             f"release{replaced}",
-            DeprecationWarning,
+            PyflightstreamDeprecationWarning,
             stacklevel=2,
         )
     # symmetry_loads first: it is an init-phase setting consumed by the
@@ -1966,6 +1970,7 @@ def export_results(
             warnings.warn(
                 "the CP export variable is flagged for depreciation; prefer "
                 "CP_REFERENCE or CP_FREESTREAM (SRC-003 p.352)",
+                PyflightstreamWarning,
                 stacklevel=2,
             )
         script.emit(

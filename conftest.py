@@ -15,7 +15,7 @@ plain ``pytest`` collects nothing here (asserted by
 suite is pointed at the source and docs, which the CI "Executable
 examples" step does with warnings promoted to errors::
 
-    pytest src/pyflightstream README.md docs -W error
+    pytest src/pyflightstream README.md docs -W error::pyflightstream._errors.PyflightstreamWarning
 
 The active skiplist below keeps the deprecation shims out. They hold no
 examples of their own (they re-export their replacement); the doctest

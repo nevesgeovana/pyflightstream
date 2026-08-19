@@ -53,7 +53,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from pyflightstream._errors import PyflightstreamError
+from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
 from pyflightstream.versions import FsVersion, known_versions, resolve
 
 _DASHED_LINE = re.compile(r"^-{4,}$")
@@ -112,7 +112,25 @@ class IncompleteOutputError(PyflightstreamError, ValueError):
     """
 
 
-class VersionMismatchWarning(UserWarning):
+class UnsupportedResultTypeError(PyflightstreamError, TypeError):
+    """:func:`~pyflightstream.results.to_table` was handed a kind it cannot tabulate.
+
+    ``TypeError`` as the second base, and it is the whole point of the
+    class rather than a compatibility courtesy: ``except TypeError`` is
+    how a caller distinguishes "I passed the wrong KIND of thing" from
+    "I passed a bad VALUE", which is what every ``ValueError``-based
+    refusal in this package means. A handler that already catches
+    ``TypeError`` around the call catches exactly what it caught before
+    and ``except PyflightstreamError`` now catches it too (FR-39,
+    OPS-2009.01.08).
+
+    Raised for a result of a type no parser here produces, and for a
+    :class:`pandas.DataFrame`, which is a table already and is refused
+    rather than tabulated twice.
+    """
+
+
+class VersionMismatchWarning(PyflightstreamWarning):
     """The version printed in an output disagrees with the requested one.
 
     Warned, not raised: the run evidence is still recorded, with the
@@ -1600,6 +1618,7 @@ __all__ = [
     "ResidualSample",
     "SOLVER_MODES",
     "UnsteadyPlotsReport",
+    "UnsupportedResultTypeError",
     "VersionMismatchWarning",
     "bind_conditions",
     "classify_solver_mode",

@@ -47,6 +47,8 @@ from __future__ import annotations
 
 import re
 import tomllib
+from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
@@ -61,6 +63,16 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 # Nothing about the class changed: same two bases, same three attributes,
 # same public spelling.
 from pyflightstream._errors import InputArtifactError
+
+# DOWNWARD, and the one import in this module that leaves the workspace
+# layer: `cases` sits below `workspace` in the house order, and the
+# migration at the foot of this file has to rewrite the REF, SET and
+# ENTRY cells of a run matrix in the same call that renames the library
+# files. The matrix FORMAT is the cases layer's to own, so the cell
+# rewrite is asked of it rather than reimplemented here, which is what
+# would put a second reader of the pipe-delimited layout in the package
+# (PFS-2009.03).
+from pyflightstream.cases.matrix import CODE_COLUMNS, rewrite_codes
 
 INPUT_KINDS = ("geometries", "references", "setups", "groups", "profiles")
 EXECUTABLES_FILE = "executables.toml"
@@ -86,6 +98,12 @@ KIND_LETTERS = {"reference": "r", "setup": "s", "group": "e"}
 
 #: The library folder each coded kind lives in, for the refusal below.
 _KIND_DIRECTORIES = {"reference": "references", "setup": "setups", "group": "groups"}
+
+#: The matrix column that carries each coded kind's id. It is the pair
+#: the migration walks: rename the file in the kind's folder AND rewrite
+#: the cell of the column that names it, in the same call, because doing
+#: one without the other is what half-resolves (PFS-2009.03).
+KIND_COLUMNS = {"reference": "REF", "setup": "SET", "group": "ENTRY"}
 
 
 class PointXyz(BaseModel):
@@ -561,3 +579,167 @@ def resolve_executable(inputs_dir: Path, build_id: str, override: str | Path | N
             f'"{build_id}" = "C:/path/to/FlightStream.exe"'
         )
     return Path(entry)
+
+
+@dataclass(frozen=True)
+class IdMigration:
+    """What a kind-letter migration renamed and rewrote, or would.
+
+    Attributes
+    ----------
+    renames : tuple of (Path, Path)
+        Library files to rename, source then destination, sorted by
+        source. Empty for a library already migrated, which is a
+        legitimate outcome and not an error.
+    cells : dict of str to dict of str to int
+        Per matrix (as given, stringified) and per column, how many
+        cells the rewrite changed. A matrix that names no migrated id
+        appears with zeros rather than being dropped, so a caller can
+        tell "this matrix was looked at and nothing matched" from "this
+        matrix was never read".
+    applied : bool
+        Whether the plan was carried out. False is the dry run.
+    """
+
+    renames: tuple[tuple[Path, Path], ...]
+    cells: dict[str, dict[str, int]]
+    applied: bool
+
+    @property
+    def is_empty(self) -> bool:
+        """True when nothing would move: no rename and no changed cell."""
+        return not self.renames and not any(
+            count for columns in self.cells.values() for count in columns.values()
+        )
+
+
+def _rename_plan(inputs_dir: Path) -> tuple[list[tuple[Path, Path]], dict[str, dict[str, str]]]:
+    """Plan the renames of one library, and the cell mapping they imply.
+
+    A file whose stem already begins with its kind's letter is left
+    alone; it is already an id of the new form. Matching is
+    case-insensitive for the same reason :func:`_check_id` is: the id is
+    a file stem and two spellings name one file on a case-insensitive
+    file system.
+    """
+    renames: list[tuple[Path, Path]] = []
+    mapping: dict[str, dict[str, str]] = {column: {} for column in CODE_COLUMNS}
+    for kind, letter in KIND_LETTERS.items():
+        directory = inputs_dir / _KIND_DIRECTORIES[kind]
+        if not directory.is_dir():
+            continue
+        for path in sorted(directory.iterdir()):
+            if not path.is_file() or path.suffix != ".toml":
+                continue
+            old = path.stem
+            if old[:1].lower() == letter:
+                continue
+            new = f"{letter}{old}"
+            renames.append((path, path.with_name(f"{new}{path.suffix}")))
+            mapping[KIND_COLUMNS[kind]][old] = new
+    return renames, mapping
+
+
+def migrate_input_ids(
+    inputs_dir: str | Path,
+    matrices: Sequence[str | Path] = (),
+    *,
+    apply: bool = False,
+) -> IdMigration:
+    r"""Give every coded library id its kind letter, and move the matrices with it.
+
+    A reference, setup or group id declares its kind with a leading
+    letter since v0.8.0 (:data:`KIND_LETTERS`, PFS-2009.01), so a library
+    written before that break holds files no id can reach and matrices
+    whose REF, SET and ENTRY cells name ids the library refuses. This
+    performs BOTH halves of the repair IN ONE CALL, which is the whole
+    safety property: renaming the files without rewriting the cells, or
+    the other way round, leaves a corpus that half-resolves, and half of
+    it silently.
+
+    Nothing is written until every step is known to be possible. A
+    rename onto an existing file, a matrix that is missing, and a matrix
+    at any other layout are all refused with the library and the
+    matrices untouched, so a refused migration is a no-op rather than a
+    half-done one.
+
+    Parameters
+    ----------
+    inputs_dir : str or Path
+        The workspace ``inputs/`` directory
+        (:attr:`~pyflightstream.workspace.CampaignWorkspace.inputs_dir`).
+    matrices : sequence of str or Path
+        Every run matrix whose cells name ids of this library. It
+        defaults to none, and passing none is a real choice rather than
+        an oversight: a library with no matrix beside it still migrates,
+        and this signature makes the omission visible in the call.
+    apply : bool
+        Carry the plan out. Keyword-only and False by default, so the
+        call that finds out what would happen cannot be the call that
+        does it.
+
+    Returns
+    -------
+    IdMigration
+        The renames and the per-column cell counts, with ``applied``
+        saying whether they happened.
+
+    Raises
+    ------
+    InputArtifactError
+        A rename would land on a file that already exists, or a named
+        matrix does not exist. Both are refused before anything is
+        written.
+    pyflightstream.cases.matrix.MatrixError
+        A named matrix does not read at the verified layout. Also
+        refused before anything is written.
+
+    Examples
+    --------
+    >>> from pyflightstream.workspace import CampaignWorkspace, migrate_input_ids
+    >>> workspace = CampaignWorkspace("campaign")            # doctest: +SKIP
+    >>> plan = migrate_input_ids(                            # doctest: +SKIP
+    ...     workspace.inputs_dir, ["matrix.fs"]
+    ... )
+    >>> [(old.name, new.name) for old, new in plan.renames]  # doctest: +SKIP
+    [('003.toml', 'r003.toml')]
+    >>> migrate_input_ids(                                   # doctest: +SKIP
+    ...     workspace.inputs_dir, ["matrix.fs"], apply=True
+    ... ).applied
+    True
+    """
+    inputs = Path(inputs_dir)
+    renames, mapping = _rename_plan(inputs)
+    collisions = [(old, new) for old, new in renames if new.exists()]
+    if collisions:
+        listing = "; ".join(f"{old.name} -> {new.name} in {new.parent}" for old, new in collisions)
+        raise InputArtifactError(
+            f"{len(collisions)} rename(s) would land on a file that already exists: "
+            f"{listing}. Nothing was renamed and no matrix was rewritten. Both files "
+            "answer to one id once the letter is added, so the migration cannot say "
+            "which artifact a matrix cell means; open the pair, decide which one the "
+            "campaign uses, and give the other a distinct id first."
+        )
+    missing = [str(path) for path in matrices if not Path(path).is_file()]
+    if missing:
+        raise InputArtifactError(
+            f"matrix file(s) {', '.join(missing)} do not exist, so their REF, SET and "
+            "ENTRY cells cannot be rewritten. Nothing was renamed: renaming the "
+            "library while a matrix that names it stays behind is exactly the "
+            "half-resolving state this migration exists to prevent."
+        )
+    # DRY FIRST, every matrix, before a single byte moves. rewrite_codes
+    # refuses a wrong layout or a malformed row, and finding that out
+    # after the library has been renamed would leave the corpus split.
+    rewritten: dict[str, bytes] = {}
+    cells: dict[str, dict[str, int]] = {}
+    for path in matrices:
+        text, counts = rewrite_codes(path, mapping)
+        rewritten[str(path)] = text
+        cells[str(path)] = counts
+    if apply:
+        for old, new in renames:
+            old.rename(new)
+        for name, text in rewritten.items():
+            Path(name).write_bytes(text)
+    return IdMigration(renames=tuple(renames), cells=cells, applied=apply)

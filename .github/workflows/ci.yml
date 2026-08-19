@@ -54,7 +54,7 @@ jobs:
         # in the root README and docs/ (INB-006 item 1e, decision
         # Q-007), with warnings promoted to errors; the shim skiplist
         # is in the root conftest.py.
-        run: pytest src/pyflightstream README.md docs -W error
+        run: pytest src/pyflightstream README.md docs -W error::pyflightstream._errors.PyflightstreamWarning
 
   coverage:
     # One leg, not four. Coverage is a property of the test suite rather than

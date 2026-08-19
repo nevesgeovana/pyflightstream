@@ -148,7 +148,7 @@ PRIVATE_ID_COUNTS: dict[str, int] = {
     "tests/test_env_contract.py": 1,
     "tests/test_error_messages.py": 2,
     "tests/test_evidence_provenance.py": 3,
-    "tests/test_exceptions_catalog.py": 5,
+    "tests/test_exceptions_catalog.py": 4,
     "tests/test_extras_isolation.py": 6,
     "tests/test_guide_api_names.py": 1,
     "tests/test_guide_currency.py": 2,

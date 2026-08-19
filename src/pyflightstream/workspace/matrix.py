@@ -33,6 +33,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
+from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases import Campaign, ReferenceData, SimCase, SolverSettings
 from pyflightstream.cases.matrix import MatrixError, MatrixRow, read_matrix, to_campaign
 from pyflightstream.workspace import (
@@ -113,7 +114,7 @@ def _resolve_build(
                 f"{path} name. Those rows will be recorded against the campaign's "
                 "declared version, not the build they asked for. Run the matrix once "
                 "per build, or drop the override where no row is MANUAL.",
-                UserWarning,
+                PyflightstreamWarning,
                 stacklevel=3,
             )
         return Path(override)
@@ -176,6 +177,7 @@ def _solver_from_setup(setup: SetupArtifact, set_code: str) -> SolverSettings:
             f"setup preset {set_code!r}: key(s) {', '.join(unmatched)} do not map to "
             "the case solver settings yet and were left to the preset artifact "
             "verbatim; the formal solver-setup model will consume the full table",
+            PyflightstreamWarning,
             stacklevel=2,
         )
     try:

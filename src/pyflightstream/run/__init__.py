@@ -90,6 +90,7 @@ from pyflightstream.results.conditions import ConditionBinding, bind_conditions
 from pyflightstream.script import Script
 from pyflightstream.versions import FsVersion, resolve
 from pyflightstream.workspace import (
+    KNOWN_MANIFEST_SCHEMAS,
     MANIFEST_SCHEMA,
     CampaignWorkspace,
     NamingTemplateError,
@@ -100,6 +101,8 @@ from pyflightstream.workspace import (
 )
 
 __all__ = [
+    "FS_VERSION_FROM_DEFAULT",
+    "FS_VERSION_FROM_ROW",
     "SCRIPT_ARGUMENT",
     "Assessment",
     "CampaignErrors",
@@ -125,6 +128,19 @@ __all__ = [
 ]
 
 _LOG_NAME = "FlightStreamLog.txt"
+
+#: The two values :attr:`~pyflightstream.workspace.RunRecord.fs_version_source`
+#: takes, spelled once here rather than at the branch that chooses between
+#: them and again at every assertion about a record (PFS-2009.08.02).
+#:
+#: ``row`` means the case named its own
+#: :attr:`~pyflightstream.cases.SimCase.fs_build`, which in a run matrix is
+#: the row's FS_BUILD cell. ``campaign_default`` means it inherited the
+#: campaign's single declared installation. Neither is a default the record
+#: may be missing: a row written before the field carries None, and None is
+#: a third state meaning the question was never recorded.
+FS_VERSION_FROM_ROW = "row"
+FS_VERSION_FROM_DEFAULT = "campaign_default"
 
 
 class ExecutorConfigurationError(PyflightstreamError, ValueError):
@@ -1157,13 +1173,21 @@ def reconstruct(run: RunRecord | str, *, workspace: CampaignWorkspace) -> Recons
             "it with the pyflightstream version that wrote it, or migrate the "
             "manifest deliberately."
         )
-    if record.manifest_schema != MANIFEST_SCHEMA:
+    if record.manifest_schema not in KNOWN_MANIFEST_SCHEMAS:
+        # The set, not the current constant. Reconstruction asks which
+        # fields the row has, and every stamp in the set describes a layout
+        # THIS version can still read, so refusing an older one would make
+        # a schema bump equivalent to deleting the manifests written before
+        # it: nothing here migrates a manifest, so there is no route back
+        # (PFS-2012.03). A stamp outside the set, older or newer, still
+        # denies, which is the half the constant's own comment demands.
         raise WorkspaceError(
             f"run {record.run_id!r} was written under manifest schema "
             f"{record.manifest_schema!r} and this version knows "
-            f"{MANIFEST_SCHEMA!r}. Which fields exist, and what they mean, is "
-            "what the schema names; guessing would reconstruct a run that never "
-            "happened. Use the pyflightstream version that wrote the manifest."
+            f"{', '.join(KNOWN_MANIFEST_SCHEMAS)}. Which fields exist, and what "
+            "they mean, is what the schema names; guessing would reconstruct a run "
+            "that never happened. Use the pyflightstream version that wrote the "
+            "manifest."
         )
     sim = workspace.sim_dir(record.sim_id)
     if not record.script_path:
@@ -1681,6 +1705,10 @@ def run_campaign(
         case_executor = build.executor if build is not None else executor
         case_version = build.fs_version if build is not None else campaign.fs_version
         case_exe = build.fs_exe if build is not None else campaign.fs_exe
+        # Read off the SAME condition the three lines above read, so the
+        # record cannot say one thing while the point runs on another
+        # (PFS-2009.08.02).
+        case_version_source = FS_VERSION_FROM_ROW if build is not None else FS_VERSION_FROM_DEFAULT
         canonical = resolve(case_version).canonical
         sim_dir = workspace.create_sim(case.sim_id)
         recipe, preparation_error, inputs_sha256, staged_geometry = _prepare_case(
@@ -1692,6 +1720,7 @@ def run_campaign(
                 canonical=canonical,
                 fs_exe=case_exe,
                 fs_version=case_version,
+                fs_version_source=case_version_source,
                 case=case,
                 point=point,
                 run_id=run_id,
@@ -2261,6 +2290,7 @@ def _execute_point(
     canonical: str,
     fs_exe: str | Path,
     fs_version: str,
+    fs_version_source: str,
     case: SimCase,
     point: dict[str, float],
     run_id: str,
@@ -2291,6 +2321,18 @@ def _execute_point(
         # executable the point never ran (PFS-2009.05).
         "fs_exe": str(fs_exe),
         "fs_exe_sha256": _file_digest(fs_exe),
+        # WHICH of the two sources chose that build, beside WHICH build it
+        # was. The pair above reproduces the run; without this a reader of
+        # a finished record cannot tell a build chosen FOR THIS ROW from
+        # one inherited from the campaign, and the two are different facts
+        # about how the study was configured (PFS-2009.08.02).
+        "fs_version_source": fs_version_source,
+        # The velocity the case ASKED for, in the base dict rather than in
+        # the success path: four early returns below build the record from
+        # `base` alone, so a field written later would be absent from
+        # exactly the failed points a reader most wants to compare
+        # (OPS-2009.01.13).
+        "velocity_requested_m_s": case.velocity,
         "inputs_sha256": inputs_sha256,
         "script_sha256": "",
         "raw_flag": False,

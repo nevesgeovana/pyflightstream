@@ -55,7 +55,11 @@ the message alone would force parsing: see
 
 from __future__ import annotations
 
-from pyflightstream._errors import PyflightstreamError
+from pyflightstream._errors import (
+    PyflightstreamDeprecationWarning,
+    PyflightstreamError,
+    PyflightstreamWarning,
+)
 from pyflightstream.cases import (
     CampaignConfigError,
 )
@@ -88,6 +92,7 @@ from pyflightstream.results import (
     FieldNotInExportError,
     IncompleteOutputError,
     MalformedOutputError,
+    UnsupportedResultTypeError,
     VersionMismatchWarning,
 )
 from pyflightstream.results.tables import AmbiguousLoadsError, LoadsNotFoundError
@@ -104,6 +109,7 @@ from pyflightstream.script import (
     ScriptOrderError,
     ScriptReferenceError,
 )
+from pyflightstream.script.entities import ScriptDeclarationTypeError
 from pyflightstream.utils.errors import ManualDraftError
 from pyflightstream.versions import AmbiguousVersionAliasError, UnknownVersionError
 from pyflightstream.workspace import (
@@ -141,8 +147,11 @@ __all__ = [
     "PhysicsEnvironmentError",
     "ProbeEnvironmentError",
     "ProbeGeometryError",
+    "PyflightstreamDeprecationWarning",
     "PyflightstreamError",
+    "PyflightstreamWarning",
     "QaEvidenceError",
+    "ScriptDeclarationTypeError",
     "ScriptLabelError",
     "ScriptLineBreakError",
     "ScriptOrderError",
@@ -153,6 +162,7 @@ __all__ = [
     "UnitsError",
     "UnknownExtraError",
     "UnknownVersionError",
+    "UnsupportedResultTypeError",
     "VersionMismatchWarning",
     "WorkflowCoverageError",
     "WorkspaceError",

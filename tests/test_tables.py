@@ -809,3 +809,182 @@ def test_sweep_table_can_return_the_rows_it_has_when_no_run_yielded_loads(tmp_pa
 
     with pytest.raises(MalformedOutputError, match="no manifest records"):
         sweep_table(CampaignWorkspace(tmp_path / "empty"), require_loads=False)
+
+
+# --- PFS-2014.02: a parser is only half of a conversion -------------------
+#
+# The acceptance's first sentence asks for a parser AND a tabular
+# conversion for every export in the DEFAULT set. `EXPORT_CONVERSIONS`
+# records the parser and nothing recorded the other half, so
+# `parse_unsteady_plots` shipped in wave one of this lane with no
+# `to_table` branch behind it: FR-32 ("every parser result converts to a
+# tidy table and to csv") was false for that export while reading
+# implemented, and the classification called it `parsed`.
+#
+# The walk below is over the classification rather than over a list
+# written here, so a fifth `parsed` verdict fails until it has both
+# halves. What is written here is the FIXTURE per export, and it is
+# required rather than optional: an export whose fixture is missing would
+# otherwise be skipped, and a walk that skips is a walk that reports green
+# over the thing it was built to measure.
+
+#: One committed export per ``parsed`` verdict of
+#: :data:`~pyflightstream.results.EXPORT_CONVERSIONS`.
+PARSED_EXPORT_FIXTURES = {
+    "EXPORT_SOLVER_ANALYSIS_SPREADSHEET": "loads_steady_26.120.txt",
+    "EXPORT_PROBE_POINTS": "probe_points_26.120.txt",
+    "UNSTEADY_SOLVER_EXPORT_PLOTS": "unsteady_plots_26.120.txt",
+    "EXPORT_SURFACE_SECTIONAL_LOADS": "fsi/FS_SurfaceSection_Loads_call0002.txt",
+}
+
+
+@pytest.mark.requirement("FR-32")
+def test_every_parsed_export_converts_to_a_tidy_table(tmp_path):
+    """Every export classified ``parsed`` reads AND tabulates (PFS-2014.02).
+
+    Both halves in one walk, because they fail independently: a parser
+    can land without a :func:`to_table` branch (which is exactly what
+    happened to the unsteady plot export) and a dispatch branch can rot
+    without the parser noticing.
+
+    The population is asserted before the verdict, twice over: the
+    classification must name at least the four exports it named when
+    this guard was written, and every one of them must have been walked.
+    A walk that resolves nothing satisfies "no failures" perfectly.
+    """
+    import importlib
+
+    from pyflightstream.results import EXPORT_CONVERSIONS, EXPORT_PARSED
+
+    parsed = sorted(
+        command for command, entry in EXPORT_CONVERSIONS.items() if entry.verdict == EXPORT_PARSED
+    )
+    assert len(parsed) >= 4, (
+        f"the classification names {len(parsed)} parsed export(s); four had parsers "
+        "when this guard was written and a verdict is only ever added"
+    )
+    assert set(parsed) <= set(PARSED_EXPORT_FIXTURES), (
+        "a parsed export has no committed fixture here, so this walk would skip it: "
+        f"{sorted(set(parsed) - set(PARSED_EXPORT_FIXTURES))}. Commit one export of "
+        "that command and name it, or the guard measures the exports it already knew"
+    )
+
+    walked: list[str] = []
+    failures: list[str] = []
+    for command in parsed:
+        entry = EXPORT_CONVERSIONS[command]
+        assert entry.parser, f"{command} is classified parsed and names no parser"
+        module_name, _, attribute = entry.parser.rpartition(".")
+        parser = getattr(importlib.import_module(module_name), attribute)
+        report = parser(read_fixture(PARSED_EXPORT_FIXTURES[command]))
+        walked.append(command)
+        try:
+            frame = to_table(report)
+        except Exception as error:  # noqa: BLE001 - the verdict is the message
+            failures.append(f"{command}: to_table raised {type(error).__name__}: {error}")
+            continue
+        if frame.empty:
+            failures.append(f"{command}: to_table returned an empty table")
+            continue
+        missing = [name for name in PROVENANCE_COLUMNS if name not in frame.columns]
+        if missing:
+            failures.append(f"{command}: the table carries no {missing} column")
+            continue
+        write_table(frame, tmp_path / f"{command.lower()}.csv")
+
+    assert walked == parsed, (
+        f"the walk covered {walked} of {parsed}; a parsed export that is never "
+        "converted here is a default-set export nobody measured"
+    )
+    assert not failures, (
+        "an export classified `parsed` cannot be turned into a tidy table, so it has "
+        "a parser and no conversion and FR-32 is false for it:\n  " + "\n  ".join(failures)
+    )
+
+
+def test_the_unsteady_plot_export_tabulates_under_its_printed_labels():
+    """One row per time step, one column per plot, plus the provenance.
+
+    THE COLUMN LABELS ARE THE SOLVER'S and the order is data rather than
+    a contract (her convention of 2026-08-17): the set of plots is
+    whatever the run defined, so this pins the label SET and the row
+    count, never a position. What this package promises about the frame
+    is the two provenance columns and that nothing else is added.
+
+    ``reduction`` is ``none`` and not ``time_average``, and the
+    difference is physical rather than bookkeeping: this export is the
+    per-time-step history itself, so no window was averaged to produce a
+    row. A time average OF this history would be ``time_average``.
+    """
+    from pyflightstream.results import parse_unsteady_plots
+
+    report = parse_unsteady_plots(read_fixture("unsteady_plots_26.120.txt"))
+    frame = to_table(report)
+    assert set(frame.columns) == set(report.columns) | set(PROVENANCE_COLUMNS)
+    assert len(frame.columns) == len(report.columns) + len(PROVENANCE_COLUMNS), (
+        "a plot column collided with a provenance column and one of them was lost"
+    )
+    assert len(frame) == report.steps == 5
+    assert frame["CL"].iloc[0] == pytest.approx(2.35e-3)
+    assert frame["Time (sec)"].tolist() == pytest.approx([0.0, 0.004, 0.008, 0.012, 0.016])
+    assert set(frame["data_origin"]) == {"raw"}
+    assert set(frame["reduction"]) == {"none"}
+
+
+def test_a_plot_named_like_a_provenance_column_is_refused_not_overwritten():
+    """The one way this export can silently lose a column of numbers.
+
+    Plot names are the user's own, so nothing stops a run defining a plot
+    called ``reduction``. Stamping the provenance would then overwrite a
+    column of physical numbers with a constant token, and the frame would
+    still write, still carry both provenance columns and still look
+    right. Refused by name instead.
+    """
+    from pyflightstream.results import UnsteadyPlotsReport
+
+    report = UnsteadyPlotsReport(
+        columns=("Time (sec)", "reduction"),
+        values=np.array([[0.0, 1.0], [0.004, 2.0]]),
+    )
+    with pytest.raises(MalformedOutputError, match="reduction"):
+        to_table(report)
+
+
+# --- OPS-2009.01.08: the refusal a caller can catch by class -------------
+
+
+@pytest.mark.requirement("FR-39")
+def test_to_table_refuses_an_unsupported_result_through_the_catalog():
+    """`except TypeError` still catches it and `except PyflightstreamError` now does.
+
+    Written against the CATALOG rather than against the new class name,
+    so it fails on the assertion and not on an import: on the base
+    `to_table` raises the bare builtin, which is a `TypeError` that is
+    not a `PyflightstreamError` and whose name is in no catalog.
+
+    Both arms of the refusal are exercised, because they are two raises
+    in one definition and the FR-39 ratchet counts them separately.
+    """
+    from pyflightstream import exceptions
+    from pyflightstream._errors import PyflightstreamError
+
+    checked = 0
+    for result in (object(), pd.DataFrame({"CL": [0.4]})):
+        try:
+            to_table(result)
+        except TypeError as error:
+            caught: TypeError = error
+        else:  # pragma: no cover - a silent success would be a worse defect
+            pytest.fail(f"to_table({type(result).__name__}) returned instead of refusing")
+        checked += 1
+        assert isinstance(caught, PyflightstreamError), (
+            f"to_table raised a bare {type(caught).__name__} for "
+            f"{type(result).__name__}, so `except PyflightstreamError` misses it and "
+            "FR-39's first clause is false here. Raise a catalogued class keeping "
+            "TypeError as its second base"
+        )
+        assert type(caught).__name__ in exceptions.__all__, (
+            f"{type(caught).__name__} is not in pyflightstream.exceptions.__all__, so "
+            "a caller cannot import the class it is told to catch"
+        )
+    assert checked == 2, f"only {checked} refusal arm(s) were exercised, expected 2"
