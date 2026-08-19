@@ -5,11 +5,30 @@ of the file-managed modality from a terminal. ``pyfs-matrix convert``
 emits the native ``campaign.toml`` equivalent of a matrix (FR-11), the
 canonical internal form; ``pyfs-matrix plan`` binds the matrix codes
 to the workspace input library and pre-flights every point without
-executing anything. There is deliberately no ``run`` subcommand:
-execution stays a Python-API decision
-(:func:`pyflightstream.run.matrix.run_matrix`) with an
-explicit executable path, because the solver quality judgment and the
-recipe registry are code, not command-line strings.
+executing anything; ``pyfs-matrix run`` takes the same matrix all the
+way to manifest records and a sweep table.
+
+WHY THERE IS A ``run`` SUBCOMMAND NOW, since this file used to say
+there deliberately was not, and a reader who finds only the new
+sentence will reconstruct the old reasoning wrongly. The refusal said
+that execution stays a Python-API decision because the solver quality
+judgment and the recipe registry are code, not command-line strings.
+Both halves of that survive here rather than being overturned: the
+assessor is HARD-WIRED to
+:class:`pyflightstream.run.LoadsAssessor` and no flag selects another
+one, and there is NO recipe-registry option, so no function reaches
+this tool from a shell. What changed is that a run no longer needs
+either of them to be supplied: ``--workflow CODE=NAME`` names a run
+type from this package's OWN table
+(:mod:`pyflightstream.cases.workflows`), which is code, and a study
+built out of those types needs no Python at all (PFS-2025.09). The
+reversal is the author's decision; the reasoning it replaces is kept
+above so the change reads as a decision rather than as drift.
+
+``--recipe CODE=REFERENCE`` still points at a function of your own on
+``convert`` and ``plan``, and on ``run`` too; what it may not do is
+name the same code a ``--workflow`` names, which is refused before
+anything is read.
 
 WHY IT LIVES IN THE RUN LAYER, since it used to sit under ``cases`` and
 the module path is the only thing about it that changed. A command line
@@ -33,8 +52,17 @@ from __future__ import annotations
 import argparse
 import sys
 
+from pyflightstream.cases import CampaignConfigError
 from pyflightstream.cases.matrix import MatrixError, convert_matrix
-from pyflightstream.run.matrix import plan_matrix
+from pyflightstream.cases.workflows import (
+    WorkflowCoverageError,
+    resolve_workflow,
+    workflow_names,
+    workflow_registry,
+)
+from pyflightstream.results.tables import LoadsNotFoundError, sweep_table
+from pyflightstream.run import CampaignErrors, LoadsAssessor
+from pyflightstream.run.matrix import plan_matrix, run_matrix
 from pyflightstream.workspace import CampaignWorkspace, InputArtifactError
 
 
@@ -50,6 +78,52 @@ def _parse_recipes(pairs: list[str]) -> dict[str, str]:
             )
         recipes[code.strip()] = reference.strip()
     return recipes
+
+
+def _parse_workflows(pairs: list[str]) -> dict[str, str]:
+    """Turn repeated ``CODE=NAME`` options into the mapping.
+
+    Each name is resolved against the workflow table HERE, so a typo is
+    refused before a file is opened rather than per point.
+    """
+    workflows: dict[str, str] = {}
+    for item in pairs:
+        code, separator, name = item.partition("=")
+        if not separator or not code.strip() or not name.strip():
+            # CampaignConfigError rather than a bare ValueError: FR-39 says
+            # a refusal raised from an exported public name is catalogued,
+            # and this one keeps ValueError as its standard-library base, so
+            # `except ValueError` around main() catches exactly what it did.
+            raise CampaignConfigError(
+                f"--workflow expects CODE=NAME (the FS_SCRIPT code and the run type it "
+                f"maps to), got {item!r}; the registered types are "
+                f"{', '.join(workflow_names())}"
+            )
+        resolve_workflow(name.strip())
+        workflows[code.strip()] = name.strip()
+    return workflows
+
+
+def _one_builder_per_code(recipes: dict[str, str], workflows: dict[str, str]) -> dict[str, str]:
+    """Merge the two mappings, refusing a code that names both.
+
+    The command-line face of PFS-2025.02's rule: one case builds its
+    script one way. A code given both would leave which one runs to the
+    order the merge happens to take.
+    """
+    both = sorted(set(recipes) & set(workflows))
+    if both:
+        listed = "; ".join(
+            f"code {code}: the workflow {workflows[code]!r} and the recipe {recipes[code]!r}"
+            for code in both
+        )
+        raise CampaignConfigError(
+            f"the FS_SCRIPT code(s) {', '.join(both)} were given BOTH a --workflow and a "
+            f"--recipe ({listed}). One code builds its script one way: a workflow is a "
+            "run type this package builds and a recipe is a function you wrote. Drop "
+            "one of the two options for each code."
+        )
+    return {**recipes, **workflows}
 
 
 def _add_common_arguments(parser: argparse.ArgumentParser) -> None:
@@ -118,6 +192,40 @@ def _build_parser() -> argparse.ArgumentParser:
         help="explicit executable override; mandatory for MANUAL rows, otherwise the "
         "FS_BUILD column resolves through inputs/executables.toml",
     )
+
+    run = subparsers.add_parser(
+        "run",
+        help="run every active point of the matrix and write the sweep table",
+    )
+    _add_common_arguments(run)
+    run.add_argument(
+        "--workflow",
+        action="append",
+        default=[],
+        metavar="CODE=NAME",
+        help="FS_SCRIPT code to WORKFLOW type (repeatable); a run type this package "
+        f"builds itself, so no Python is written. Registered: {', '.join(workflow_names())}",
+    )
+    run.add_argument(
+        "--workspace",
+        default=".",
+        help="managed campaign root carrying the inputs/ library (default: the current directory)",
+    )
+    run.add_argument(
+        "--fs-exe",
+        help="explicit executable override; mandatory for MANUAL rows, otherwise the "
+        "FS_BUILD column resolves through inputs/executables.toml",
+    )
+    run.add_argument(
+        "--resume",
+        action="store_true",
+        help="skip points already in the manifest, so a grown matrix runs only its new "
+        "points; without it an already-recorded point refuses before anything executes",
+    )
+    run.add_argument(
+        "--sweep-csv",
+        help="write the campaign sweep table here (default: sweep.csv in the workspace root)",
+    )
     return parser
 
 
@@ -126,11 +234,15 @@ def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     try:
         recipes = _parse_recipes(args.recipe)
-    except ValueError as error:
+        if args.subcommand == "run":
+            recipes = _one_builder_per_code(recipes, _parse_workflows(args.workflow))
+    except (ValueError, CampaignConfigError) as error:
         print(str(error), file=sys.stderr)
         return 2
     if args.subcommand == "convert":
         return _cmd_convert(args, recipes)
+    if args.subcommand == "run":
+        return _cmd_run(args, recipes)
     return _cmd_plan(args, recipes)
 
 
@@ -173,6 +285,53 @@ def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
     if plan.plan_file is not None:
         print(f"plan: {plan.plan_file}")
     return 1 if plan.blocked else 0
+
+
+def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
+    """Run every active point, then write the sweep table.
+
+    The assessor is hard-wired and the recipe registry is this
+    package's own workflow table; neither reaches this function from
+    the command line, which is what keeps the author's recorded
+    reasoning intact while the subcommand exists (see the module
+    docstring).
+    """
+    workspace = CampaignWorkspace(args.workspace)
+    try:
+        run_matrix(
+            args.matrix,
+            workspace,
+            name=args.name,
+            # The command line's own flag is still --fs-version, and the
+            # keyword it feeds is the DEFAULT a row whose FS_BUILD names
+            # no build falls back to; a row that names a build wins.
+            default_fs_version=args.fs_version,
+            recipes=recipes,
+            assess=LoadsAssessor(),
+            fs_exe=args.fs_exe,
+            recipe_registry=workflow_registry(),
+            resume=args.resume,
+        )
+    except (
+        MatrixError,
+        InputArtifactError,
+        CampaignConfigError,
+        WorkflowCoverageError,
+        CampaignErrors,
+        OSError,
+        ValueError,
+    ) as error:
+        print(f"matrix not run: {error}", file=sys.stderr)
+        return 2
+
+    target = args.sweep_csv or str(workspace.root / "sweep.csv")
+    try:
+        sweep_table(workspace).to_csv(target, index=False)
+    except (LoadsNotFoundError, OSError, ValueError) as error:
+        print(f"runs completed, sweep table not written: {error}", file=sys.stderr)
+        return 2
+    print(f"sweep table: {target}")
+    return 0
 
 
 if __name__ == "__main__":

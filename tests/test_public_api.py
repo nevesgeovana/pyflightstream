@@ -27,6 +27,7 @@ from pyflightstream._deprecations import DEPRECATED_MODULES
 PUBLIC_MODULES = [
     "pyflightstream.cases",
     "pyflightstream.cases.matrix",
+    "pyflightstream.cases.workflows",
     "pyflightstream.commands",
     "pyflightstream.exceptions",
     "pyflightstream.extras",

@@ -10,16 +10,29 @@ research workflow. Artifacts are TOML, never executable code:
 they are validated by pydantic models at load time and fail with a
 didactic message naming the file and the available ids.
 
+AN ID OF A CODED KIND DECLARES THAT KIND, since 2026-08-19
+(PFS-2009.01, PFS-2009.03, a BREAK carried by v0.8.0). A reference id
+begins with ``r``, a setup id with ``s``, a group id with ``e``, so
+``r003``, ``s003`` and ``e003`` are three ids rather than one number
+meaning three files. Before that, the three folders each held a
+``003.toml`` and a number mistyped between the REF, SET and ENTRY
+columns of a run matrix resolved to another artifact with no signal at
+all. Geometries and profiles keep bare stems, because their ids are the
+names of files the user staged and a letter rule there would refuse a
+mesh for being called what it is called.
+
 The library tree, created by ``CampaignWorkspace.init``:
 
 - ``inputs/references/<id>.toml``: reference data for coefficient
   normalization and propeller description (SI units in the field
-  names: m, m^2, deg).
+  names: m, m^2, deg). The id begins with ``r``.
 - ``inputs/setups/<id>.toml``: a named solver-setup preset, a free
   key-value table for now; the loader keeps the raw table verbatim so
-  a later formal solver-setup model can consume it unchanged.
+  a later formal solver-setup model can consume it unchanged. The id
+  begins with ``s``.
 - ``inputs/groups/<id>.toml``: named boundary groups, mapping a group
-  name to a list of boundary labels or indices, stored verbatim.
+  name to a list of boundary labels or indices, stored verbatim. The id
+  begins with ``e``, after the ENTRY column that carries it.
 - ``inputs/geometries/``: staged geometry files of any extension,
   registered by file name; the id is the stem.
 - ``inputs/profiles/``: input profile files (for example actuator
@@ -53,6 +66,26 @@ INPUT_KINDS = ("geometries", "references", "setups", "groups", "profiles")
 EXECUTABLES_FILE = "executables.toml"
 
 _ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+
+#: The letter a coded artifact id begins with, so the id DECLARES its
+#: kind and a mistyped number cannot resolve to another artifact's file.
+#:
+#: Only the three CODED kinds are here, and their absence from the other
+#: two is the rule rather than an omission. A reference, a setup and a
+#: group are addressed by ids the author writes in the REF, SET and ENTRY
+#: cells of a run matrix, so a bare ``003`` names three different files
+#: in three folders and a typo between them is silent. A geometry or a
+#: profile is addressed by the STEM OF A FILE THE USER STAGED, so a
+#: letter rule there would refuse a mesh for being called what it is
+#: called.
+#:
+#: ``e`` for groups, not ``g``: the matrix column that carries a group id
+#: is ENTRY, which is the word the author's own files use, and the letter
+#: follows the column a user types rather than the model's class name.
+KIND_LETTERS = {"reference": "r", "setup": "s", "group": "e"}
+
+#: The library folder each coded kind lives in, for the refusal below.
+_KIND_DIRECTORIES = {"reference": "references", "setup": "setups", "group": "groups"}
 
 
 class PointXyz(BaseModel):
@@ -214,12 +247,35 @@ def available_ids(directory: Path, suffix: str | None = ".toml") -> list[str]:
 
 
 def _check_id(artifact_id: str, kind: str) -> None:
-    """Refuse ids that could not have come from a library file name."""
+    """Refuse ids that could not have come from a library file name.
+
+    Two rules, and the second applies to the coded kinds alone. An id is
+    a file name stem, and a reference, setup or group id also DECLARES
+    its kind with a leading letter (:data:`KIND_LETTERS`), so a number
+    mistyped between the REF, SET and ENTRY cells of a run matrix is
+    refused instead of resolving to another artifact's file.
+    """
     if not _ID_PATTERN.match(artifact_id):
         raise InputArtifactError(
             f"{kind} id {artifact_id!r} is not a valid artifact id: ids are file "
             "name stems (letters, digits, dot, underscore, hyphen). The id selects "
             "a file inside the library; it is never a path.",
+            kind=kind,
+            artifact_id=artifact_id,
+        )
+    letter = KIND_LETTERS.get(kind)
+    # Case-insensitive on purpose: the id is a file stem, and the two
+    # spellings name the same file on a case-insensitive file system, so
+    # refusing one of them would refuse a file that resolves.
+    if letter is not None and artifact_id[:1].lower() != letter:
+        directory = _KIND_DIRECTORIES[kind]
+        raise InputArtifactError(
+            f"{kind} id {artifact_id!r} does not declare its kind: a {kind} id begins "
+            f"with {letter!r} (for example {letter}003), so a number mistyped between "
+            "the REF, SET and ENTRY columns cannot resolve to another artifact's file. "
+            f"Rename the library file to inputs/{directory}/{letter}{artifact_id}.toml "
+            "and the matrix cell that names it in the same edit; the letter is part of "
+            "the id, not a prefix the library adds or strips.",
             kind=kind,
             artifact_id=artifact_id,
         )

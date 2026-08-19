@@ -161,6 +161,11 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
         "TwistIterationError": RuntimeError,
         "UnitsError": ValueError,
         "UnknownVersionError": ValueError,
+        # RuntimeError rather than ValueError, and the choice is the
+        # lane's default awaiting the author's ruling: this refuses
+        # about the ENVIRONMENT, the build the workflow is asked for,
+        # rather than about an argument the caller got wrong.
+        "WorkflowCoverageError": RuntimeError,
         "UnknownExtraError": ValueError,
         "VersionMismatchWarning": UserWarning,
         "WorkspaceError": RuntimeError,
@@ -246,13 +251,41 @@ def test_unknown_version_error_carries_version_and_known():
 
 
 def test_input_artifact_miss_carries_kind_id_and_available(tmp_path):
+    """A NOT-FOUND refusal carries all three attributes.
+
+    The ids gained a leading kind letter in 0.8.0 (PFS-2009.01), so this
+    fixture's ids did too. That is not cosmetic: without the letter the
+    call is refused for its SHAPE and never reaches the miss, which is
+    the refusal this case is about, and the assertion below would have
+    been measuring the wrong branch while still failing for a reason
+    that looked right.
+    """
     workspace = CampaignWorkspace.init(tmp_path / "camp")
-    (workspace.inputs_dir / "references" / "wing_v2.toml").write_text("", encoding="utf-8")
+    (workspace.inputs_dir / "references" / "rwing_v2.toml").write_text("", encoding="utf-8")
     with pytest.raises(InputArtifactError) as caught:
-        workspace.resolve_reference("wing_v9")
+        workspace.resolve_reference("rwing_v9")
     assert caught.value.kind == "reference"
-    assert caught.value.artifact_id == "wing_v9"
-    assert caught.value.available == ("wing_v2",)
+    assert caught.value.artifact_id == "rwing_v9"
+    assert caught.value.available == ("rwing_v2",)
+
+
+def test_the_shape_refusal_says_nothing_about_what_is_available(tmp_path):
+    """The other branch, asserted so the empty tuple is a fact and not a bug.
+
+    `available` is populated on a NOT-FOUND refusal and is empty on a
+    shape refusal, because a shape refusal is about the id the caller
+    wrote rather than about the library's contents. A caller reading the
+    attribute has to be able to tell those apart, so both are pinned
+    here rather than one.
+    """
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    (workspace.inputs_dir / "references" / "rwing_v2.toml").write_text("", encoding="utf-8")
+    with pytest.raises(InputArtifactError) as caught:
+        workspace.resolve_reference("wing_v2")
+    assert caught.value.kind == "reference"
+    assert caught.value.artifact_id == "wing_v2"
+    assert caught.value.available == ()
+    assert "does not declare its kind" in str(caught.value)
 
 
 def test_input_artifact_id_refusal_carries_kind_and_id(tmp_path):

@@ -585,16 +585,41 @@ def _bind_case_conditions(case: SimCase | None, report: LoadsReport) -> Conditio
     -------
     ConditionBinding
         Every comparable field with its deviation and decision.
+
+    Notes
+    -----
+    WHICH SUPPLIED VELOCITY WINS, stated here because this is the one
+    function that applies the rule and it was previously written nowhere
+    (OPS-2009.01.04). Free-stream velocity can arrive from two places at
+    once and the order is:
+
+    1. ``case.point["velocity"]``, the value of THIS point, wins;
+    2. :attr:`~pyflightstream.cases.SimCase.velocity`, the case default,
+       fills in when the point supplies none;
+    3. neither: nothing is requested, which is not the same as zero, and
+       the binding records the axis as unasked rather than as agreed.
+
+    ``setdefault`` is what encodes 1 over 2. A plain assignment reads
+    identically at the call site and reverses the order, and nothing
+    else in the package would notice: the campaign would run at one
+    speed and the record would claim another.
+
+    TWO SUPPLY POINTS ARE DELIBERATELY OUTSIDE THIS RULE. A sweep cannot
+    emit a velocity at all today: :meth:`SweepAxis.points` yields alpha,
+    beta and advance_ratio only, so step 1 is reachable only by a caller
+    that fills ``point`` itself, and a test pins that reading rather
+    than presenting the branch as campaign-reachable. And
+    :attr:`~pyflightstream.cases.ReferenceData.velocity` is the
+    COEFFICIENT reference velocity, read by no library code and passed
+    to the solver only by a user recipe through
+    :func:`pyflightstream.script.helpers.solver_settings`; the library
+    holds no precedence over it and states none.
     """
     if case is None:
         return ConditionBinding()
     requested: dict[str, float] = {
         axis: value for axis, value in case.point.items() if value is not None
     }
-    # The free-stream velocity is a case attribute rather than a sweep
-    # axis unless the campaign sweeps it, in which case `point` already
-    # carries it and must win: it is the value of THIS point, while the
-    # attribute is the case default.
     if case.velocity is not None:
         requested.setdefault("velocity", case.velocity)
     return bind_conditions(requested, reported=report)
@@ -1385,6 +1410,112 @@ def _case_build(
     )
 
 
+def _build_groups(campaign: Campaign) -> dict[str, list[str]]:
+    """Group a campaign's cases by the installation each one runs on.
+
+    The key is :attr:`~pyflightstream.cases.SimCase.fs_build`, verbatim
+    and in first-appearance order, with the EMPTY STRING standing for
+    the campaign's own installation. The empty key is the same one the
+    campaign loop already uses internally to key its pre-flight, so the
+    grouping a reader sees and the grouping the loop spends are one
+    thing rather than two that can disagree.
+
+    Parameters
+    ----------
+    campaign : Campaign
+        What is about to be planned or run.
+
+    Returns
+    -------
+    dict of str to list of str
+        Build id to the ``sim_id`` values naming it, in the order the
+        campaign declares them.
+    """
+    groups: dict[str, list[str]] = {}
+    for case in campaign.sims:
+        groups.setdefault(case.fs_build or "", []).append(case.sim_id)
+    return groups
+
+
+def _build_label(key: str) -> str:
+    """Name one grouping key the way a message should say it."""
+    return f"build {key!r}" if key else "the campaign's own installation"
+
+
+def _check_scheduled_builds(
+    campaign: Campaign,
+    executor: Executor,
+    scheduled: list[tuple[SimCase, SolverBuild | None]],
+) -> None:
+    """Confirm every installation that still has work, before any of it runs.
+
+    ONE CHECK PER BUILD, and ALL OF THEM before the first point of ANY
+    build executes. The check used to fire at the first point of each
+    build in turn, which is one process per installation and correct
+    about cost, but it meant a campaign whose SECOND build is
+    misconfigured ran every point of the first one and refused
+    afterwards. Those licensed seats are gone by the time the message
+    arrives, and saving them is the whole reason a pre-flight exists
+    (PFS-2009.09.02).
+
+    THE LAZINESS IS KEPT, which is the constraint that makes this
+    subtle. Only builds with points still PENDING are asked, so a resume
+    with nothing left to do still launches no solver process at all, and
+    a build all of whose points are recorded is not probed either. The
+    naive fix, probing every declared build up front, closes one spend
+    by opening another in exactly the case that spends nothing today.
+
+    Parameters
+    ----------
+    campaign : Campaign
+        The campaign being run; its own version answers for cases
+        naming no build.
+    executor : Executor
+        The campaign's own executor, likewise.
+    scheduled : list of (SimCase, SolverBuild or None)
+        The cases that have at least one point left to run, paired with
+        the build each resolved to.
+
+    Raises
+    ------
+    ExecutorConfigurationError
+        When any installation reports a build other than the one the
+        campaign asked for. ONE refusal naming every failing build and
+        the cases that asked for it, rather than the first one found.
+    """
+    groups: dict[str, tuple[Executor, str, list[str]]] = {}
+    for case, build in scheduled:
+        key = case.fs_build or ""
+        if key not in groups:
+            groups[key] = (
+                build.executor if build is not None else executor,
+                build.fs_version if build is not None else campaign.fs_version,
+                [],
+            )
+        groups[key][2].append(case.sim_id)
+    failures: list[str] = []
+    for key, (case_executor, case_version, sims) in groups.items():
+        workdir = Path(tempfile.mkdtemp(prefix="pyfs-preflight-"))
+        try:
+            check_solver_identity(case_executor, resolve(case_version), workdir)
+        except ExecutorConfigurationError as error:
+            failures.append(
+                f"  {_build_label(key)}, asked for by case(s) {', '.join(sims)}: {error}"
+            )
+        finally:
+            shutil.rmtree(workdir, ignore_errors=True)
+    if failures:
+        raise ExecutorConfigurationError(
+            f"the identity pre-flight refused {len(failures)} of {len(groups)} solver "
+            "installation(s) this campaign still has work for. NOTHING ran and no "
+            "point was recorded:\n" + "\n".join(failures) + "\nEvery installation with "
+            "work left is confirmed before the first point of ANY of them executes, so "
+            "a misconfigured build cannot spend the licensed seats of a healthy one "
+            "first. Fix the executable each case above points at, or drop those cases "
+            "from this run."
+        )
+
+
 def run_campaign(
     campaign: Campaign,
     executor: Executor,
@@ -1476,21 +1607,13 @@ def run_campaign(
         were run against.
     ExecutorConfigurationError
         When a case names an ``fs_build`` that ``builds`` does not
-        carry, or when the pre-flight finds the wrong build installed.
+        carry; or when the identity pre-flight finds the wrong build
+        installed at any installation the campaign still has work for.
+        The second is raised ONCE, naming every failing installation and
+        the cases that asked for it, before the first point of ANY of
+        them executes, so a misconfigured build cannot spend the
+        licensed seats of a healthy one first (PFS-2009.09.02).
     """
-    # The pre-flight is LAZY, fired just before the first point executes
-    # rather than here. A campaign with nothing left to run must spend no
-    # solver process at all: that is what a resume with nothing pending
-    # means, and a test pins it. Firing it here also spent a process
-    # before the duplicate-run_id refusal below, which raises without
-    # executing anything.
-    #
-    # ONE PRE-FLIGHT PER BUILD, not one per campaign: the check confirms
-    # which build is installed at an executable, so a second executable
-    # is a second unanswered question. Keyed by fs_build with the
-    # campaign's own installation under the empty key, so a campaign
-    # naming no build spends exactly the one process it always did.
-    preflighted: set[str] = set()
     # EVERY case's build is resolved before the FIRST one runs. Doing it
     # inside the loop looked equivalent and was not: the campaign would run
     # its first cases, then refuse on a later one, leaving a half-recorded
@@ -1501,12 +1624,12 @@ def run_campaign(
     recorded = set(manifest)
     records: list[RunRecord] = []
     failures: list[RunRecord] = []
+    # PASS ONE decides what is left to run, for every case, and touches
+    # nothing. The whole schedule is knowable from the campaign and the
+    # manifest, so every refusal that rests on it belongs here rather than
+    # halfway through a run that has already spent seats (PFS-2009.09.02).
+    scheduled: list[tuple[SimCase, SolverBuild | None, list[tuple[dict[str, float], str]]]] = []
     for case, build in zip(campaign.sims, case_builds, strict=True):
-        case_executor = build.executor if build is not None else executor
-        case_version = build.fs_version if build is not None else campaign.fs_version
-        case_exe = build.fs_exe if build is not None else campaign.fs_exe
-        version = resolve(case_version)
-        canonical = version.canonical
         # PYFS-004. Which points of this case still need running is decided
         # BEFORE anything is prepared, because preparation is not read-only:
         # _prepare_case stages the inputs, and staging overwrites the copy in
@@ -1546,18 +1669,19 @@ def run_campaign(
             conflict = _staged_inputs_conflict(campaign, case, workspace, manifest, already)
             if conflict is not None:
                 raise WorkspaceError(conflict)
-        if preflight and (case.fs_build or "") not in preflighted:
-            # First point of this BUILD that will really run: confirm the
-            # installed build before spending the campaign on it. Scratch
-            # goes to a temp directory, not the managed workspace, whose
-            # layout is checked elsewhere and whose emptiness a no-op
-            # resume asserts.
-            preflighted.add(case.fs_build or "")
-            preflight_dir = Path(tempfile.mkdtemp(prefix="pyfs-preflight-"))
-            try:
-                check_solver_identity(case_executor, version, preflight_dir)
-            finally:
-                shutil.rmtree(preflight_dir, ignore_errors=True)
+        scheduled.append((case, build, pending))
+    # PASS TWO asks every installation that still has work which build it
+    # is, once each, and refuses the whole campaign if any of them answers
+    # wrongly. It is still LAZY: a schedule with nothing in it asks
+    # nothing, so a resume with no pending point launches no process.
+    if preflight and scheduled:
+        _check_scheduled_builds(campaign, executor, [(case, build) for case, build, _ in scheduled])
+    # PASS THREE is the only one that stages, executes or records.
+    for case, build, pending in scheduled:
+        case_executor = build.executor if build is not None else executor
+        case_version = build.fs_version if build is not None else campaign.fs_version
+        case_exe = build.fs_exe if build is not None else campaign.fs_exe
+        canonical = resolve(case_version).canonical
         sim_dir = workspace.create_sim(case.sim_id)
         recipe, preparation_error, inputs_sha256, staged_geometry = _prepare_case(
             campaign, case, workspace, recipes
@@ -1697,12 +1821,20 @@ class CampaignPlan:
     plan_file : Path or None
         Where the JSON summary was written (``plan.json`` in the
         campaign root), or None when writing was disabled.
+    build_groups : dict of str to list of str
+        Which cases run on which solver installation, keyed by
+        :attr:`~pyflightstream.cases.SimCase.fs_build` with the empty
+        string standing for the campaign's own. Reported here because
+        how many installations a study actually spans is usually a
+        surprise, and the pre-flight is the one place it can be learned
+        without spending a licensed seat (PFS-2009.09.01).
     """
 
     campaign: str
     fs_version: str
     points: list[PointPlan] = field(default_factory=list)
     plan_file: Path | None = None
+    build_groups: dict[str, list[str]] = field(default_factory=dict)
 
     @property
     def blocked(self) -> list[PointPlan]:
@@ -1726,6 +1858,13 @@ class CampaignPlan:
             f"{len(self.ready)} ready, {len(self.blocked)} blocked, "
             f"{len(self.already_recorded)} already recorded"
         ]
+        # The grouping comes FIRST, before any per-point line, because it
+        # is the thing an operator has to decide on before starting: one
+        # line per installation, whatever the row count.
+        if self.build_groups:
+            lines.append(f"  {len(self.build_groups)} solver installation(s):")
+            for key, sims in self.build_groups.items():
+                lines.append(f"    {_build_label(key)}: {len(sims)} case(s) ({', '.join(sims)})")
         for entry in self.blocked:
             lines.append(f"  {entry.run_id}: {entry.error}")
         # A point that waives a broken command, or uses the raw escape
@@ -1837,6 +1976,7 @@ def plan_campaign(
                     fs_version=case_version,
                 )
             )
+    groups = _build_groups(campaign)
     plan_file = None
     if write_plan:
         plan_file = workspace.root / "plan.json"
@@ -1844,12 +1984,17 @@ def plan_campaign(
             "campaign": campaign.name,
             "fs_version": canonical,
             "package_version": pyflightstream.__version__,
+            "build_groups": groups,
             "points": [{**asdict(entry), "status": str(entry.status)} for entry in points],
         }
         workspace.root.mkdir(parents=True, exist_ok=True)
         plan_file.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     return CampaignPlan(
-        campaign=campaign.name, fs_version=canonical, points=points, plan_file=plan_file
+        campaign=campaign.name,
+        fs_version=canonical,
+        points=points,
+        plan_file=plan_file,
+        build_groups=groups,
     )
 
 

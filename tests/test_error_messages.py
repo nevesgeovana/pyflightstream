@@ -128,21 +128,92 @@ def test_missing_artifact_in_an_empty_library_offers_the_init_remedy(tmp_path):
     workspace = CampaignWorkspace.init(tmp_path / "camp")
     with pytest.raises(
         InputArtifactError,
-        match=r"no reference artifact with id 'wing_v9'.*holds no reference artifacts "
+        match=r"no reference artifact with id 'rwing_v9'.*holds no reference artifacts "
         r"yet.*pyfs-workspace init",
     ):
-        workspace.resolve_reference("wing_v9")
+        workspace.resolve_reference("rwing_v9")
 
 
 def test_missing_artifact_lists_what_the_library_holds(tmp_path):
     """The miss message enumerates the ids that would have worked."""
     workspace = CampaignWorkspace.init(tmp_path / "camp")
-    (workspace.inputs_dir / "references" / "wing_v2.toml").write_text("", encoding="utf-8")
+    (workspace.inputs_dir / "references" / "rwing_v2.toml").write_text("", encoding="utf-8")
     with pytest.raises(
         InputArtifactError,
-        match=r"no reference artifact with id 'wing_v9'; available reference ids: wing_v2",
+        match=r"no reference artifact with id 'rwing_v9'; available reference ids: rwing_v2",
     ):
-        workspace.resolve_reference("wing_v9")
+        workspace.resolve_reference("rwing_v9")
+
+
+# --- the input id declares its kind (PFS-2009.01, PFS-2009.03) --------------
+#
+# A reference file and a solver preset could both be called 9001 in
+# different folders, so a mistyped number resolved to another artefact's
+# file with no signal at all. The id now carries a letter naming its kind,
+# and the refusal has to teach the letter rather than only refuse.
+
+
+REFERENCE_BODY = "area_m2 = 10.0\nchord_m = 1.2\nspan_m = 8.0\n"
+
+
+def test_an_unlettered_reference_id_names_the_kind_its_letter_and_the_id(tmp_path):
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    (workspace.inputs_dir / "references" / "r003.toml").write_text(REFERENCE_BODY, encoding="utf-8")
+    with pytest.raises(
+        InputArtifactError,
+        match=r"reference id '003' does not declare its kind: a reference id begins "
+        r"with 'r'.*for example r003",
+    ):
+        workspace.resolve_reference("003")
+    # and the lettered id resolves, so the rule is a rename and not a wall
+    assert workspace.resolve_reference("r003").area_m2 == 10.0
+
+
+def test_an_unlettered_setup_id_names_the_setup_letter(tmp_path):
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    (workspace.inputs_dir / "setups" / "s002.toml").write_text(
+        "iterations = 800\n", encoding="utf-8"
+    )
+    with pytest.raises(
+        InputArtifactError,
+        match=r"setup id '002' does not declare its kind: a setup id begins with 's'",
+    ):
+        workspace.resolve_setup("002")
+    assert workspace.resolve_setup("s002").settings["iterations"] == 800
+
+
+def test_an_unlettered_group_id_names_the_entry_letter(tmp_path):
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    (workspace.inputs_dir / "groups" / "e001.toml").write_text(
+        'wing = ["wing_left"]\n', encoding="utf-8"
+    )
+    with pytest.raises(
+        InputArtifactError,
+        match=r"group id '001' does not declare its kind: a group id begins with 'e'",
+    ):
+        workspace.resolve_group("001")
+    assert workspace.resolve_group("e001").groups["wing"] == ["wing_left"]
+
+
+def test_the_kind_letter_is_read_in_either_case(tmp_path):
+    """An id is a file stem, and two casings name one file on Windows.
+
+    Refusing the upper-case spelling would refuse an id that resolves,
+    which is a rule arguing with the file system rather than with the
+    author.
+    """
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    (workspace.inputs_dir / "references" / "R003.toml").write_text(REFERENCE_BODY, encoding="utf-8")
+    assert workspace.resolve_reference("R003").area_m2 == 10.0
+
+
+def test_a_staged_geometry_or_profile_still_resolves_by_bare_stem(tmp_path):
+    """Their ids are the stems of files the user staged, so no letter is owed."""
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    (workspace.inputs_dir / "geometries" / "wing_clean.fsm").write_bytes(b"mesh")
+    (workspace.inputs_dir / "profiles" / "thrust.csv").write_bytes(b"r,T\n")
+    assert workspace.resolve_geometry("wing_clean").name == "wing_clean.fsm"
+    assert workspace.resolve_profile("thrust").name == "thrust.csv"
 
 
 # --- run-matrix reader ------------------------------------------------------
@@ -168,7 +239,7 @@ def test_foreign_header_names_the_verified_layout(tmp_path):
     bad.write_text("POL | ANGLE\n9001 | 4.0\n", encoding="utf-8")
     with pytest.raises(
         MatrixError,
-        match=r"header does not match the verified 15-column layout; expected ",
+        match=r"header does not match the verified 16-column layout; expected ",
     ):
         read_matrix(bad)
 

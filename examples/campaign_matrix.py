@@ -34,20 +34,30 @@ workdir = Path(tempfile.mkdtemp(prefix="pyfs_campaign_"))
 # The run matrix is a pipe-delimited table, one row per simulation:
 # aircraft, Reynolds and Mach, the sweep type and values, the
 # reference/setup/entry/script codes that resolve against the input
-# library, and a free `VAR_NAMES_VALUES` cell. `read_matrix` parses it
-# into typed rows; by default only the rows with `RUN = 1` come back.
+# library, the `WORKFLOW` type, and a free `VAR_NAMES_VALUES` cell.
+# `read_matrix` parses it into typed rows; by default only the rows with
+# `RUN = 1` come back.
+#
+# Two things in the header are newer than the format itself. `WORKFLOW`
+# names which workflow builds the row's script, in a column of its own
+# so the type never competes with the free `KEY:VALUE` case data;
+# `LEGACY` is the workflow every row written before the column existed
+# asks for, and `upgrade_matrix` adds the cell to such a file without
+# touching another byte. And the `REF`, `SET` and `ENTRY` codes carry a
+# letter naming their kind (`r`, `s`, `e`), so a number mistyped between
+# the three columns cannot resolve to another artifact's file.
 
 # %%
 _HEADER = (
     "POL|AIRCRAFT|DESCRIPTION|RE|MACH|SWEEP_TYPE|SWEEP_VALUES|REF|SET"
-    "|ENTRY|FS_SCRIPT|FS_BUILD|HIDDEN|RUN|VAR_NAMES_VALUES"
+    "|ENTRY|FS_SCRIPT|FS_BUILD|HIDDEN|RUN|WORKFLOW|VAR_NAMES_VALUES"
 )
 _ROW_1 = (
-    "9001|TestWing|POLAR|4.38|0.1441|AL|0.0,2.0,4.0|003|003|001|003|MANUAL|0|1"
+    "9001|TestWing|POLAR|4.38|0.1441|AL|0.0,2.0,4.0|r003|s003|e001|003|MANUAL|0|1|LEGACY"
     "|FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt"
 )
 _ROW_2 = (
-    "9002|TestWing|PARKED|3.10|0.0890|AL|0.0|003|002|001|003|MANUAL|0|0"
+    "9002|TestWing|PARKED|3.10|0.0890|AL|0.0|r003|s002|e001|003|MANUAL|0|0|LEGACY"
     "|FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt"
 )
 MATRIX = "\n".join([_HEADER, "-" * len(_HEADER), _ROW_1, _ROW_2]) + "\n"

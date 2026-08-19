@@ -109,11 +109,13 @@ def test_a_malformed_recipe_option_is_refused(capsys):
 def make_planned_workspace(tmp_path):
     workspace = CampaignWorkspace.init(tmp_path / "camp")
     inputs = workspace.inputs_dir
-    (inputs / "references" / "003.toml").write_text(
+    # The ids carry their kind letter since 2026-08-19 (PFS-2009.01):
+    # r for a reference, s for a setup, e for the ENTRY column's groups.
+    (inputs / "references" / "r003.toml").write_text(
         "area_m2 = 10.0\nchord_m = 1.2\nspan_m = 8.0\n", encoding="utf-8"
     )
-    (inputs / "setups" / "002.toml").write_text("iterations = 800\n", encoding="utf-8")
-    (inputs / "groups" / "001.toml").write_text('wing = ["wing_left"]\n', encoding="utf-8")
+    (inputs / "setups" / "s002.toml").write_text("iterations = 800\n", encoding="utf-8")
+    (inputs / "groups" / "e001.toml").write_text('wing = ["wing_left"]\n', encoding="utf-8")
     with open(inputs / "executables.toml", "a", encoding="utf-8") as handle:
         handle.write('"26.120" = "C:/fs26120/FlightStream.exe"\n')
     return workspace
@@ -161,4 +163,4 @@ def test_plan_surfaces_a_library_miss_didactically(tmp_path, capsys):
     assert main(plan_args(workspace, "matrix_cli_recipes:build")) == 2
     err = capsys.readouterr().err
     assert "matrix not planned" in err
-    assert "inputs/references/003.toml" in err
+    assert "inputs/references/r003.toml" in err

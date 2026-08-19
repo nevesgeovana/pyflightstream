@@ -26,6 +26,21 @@ parser, :func:`parse_run_loads` for one run's coefficients, and
 :func:`run_table`/:func:`sweep_table` for one run or a whole sweep
 read from the manifest (the manifest, an execution-layer artifact, is
 imported lazily so the layer rule is not violated at module load).
+
+Two vocabularies live here beside the parsers, both because every layer
+above needs them and none of them may own them.
+
+:data:`DATA_ORIGIN_CODES` and :data:`REDUCTION_CODES` are the published
+answer to "did these numbers come off the run or out of a reduction"
+(PFS-2014.05). The tables carry the tokens as columns and the
+numeric-only writers carry the integers; the code sets are append only,
+because a file written last month is read with this table and cannot be
+asked what it meant.
+
+:data:`EXPORT_CONVERSIONS` classifies every ``phase: export`` command of
+the database as parsed, excluded, not-an-export or owed (PFS-2014.02),
+and the tier 1 suite compares its keys against the live census, so a new
+export command fails until somebody says which of the four it is.
 """
 
 from __future__ import annotations
@@ -350,6 +365,365 @@ def classify_solver_mode(printed: str) -> str | None:
     """
     candidate = printed.strip().lower()
     return candidate if candidate in SOLVER_MODES else None
+
+
+# --- provenance vocabulary: raw off the run, or out of a reduction ---------
+#
+# PFS-2014.05, her requirement of 2026-08-16. A sweep table carries one row
+# per point, and in a mixed campaign a steady point's row holds a direct
+# integration while an unsteady point's row holds a time average. Same
+# column, two different quantities, and a reader who cannot tell them apart
+# reads a method difference as physics.
+#
+# The vocabulary lives HERE rather than in the table module because it is
+# published in every result file the package writes, tabular or not: the
+# tables carry the tokens as columns and the numeric-only writers carry the
+# integer codes. Both live above this layer, so one home below them is the
+# only place neither has to copy.
+#
+# THE TOKENS AND THEIR CODES ARE THE AUTHOR'S CALL and are built here under
+# the lane's default, which she has not yet ruled on; the vocabulary is a
+# proposal until she does, and NFR-19 is where its status is tracked. Two
+# origin tokens, three reduction
+# tokens; a row with no loads report says ``unknown`` rather than ``none``,
+# because ``none`` would assert a direct integration that never happened; and
+# an unsteady solver export counts as ``raw``, because the solver did the
+# averaging and the reduction token is what names it.
+
+#: What produced the numbers in a row or a file, and the integer each token
+#: is published as in the numeric-only formats. APPEND ONLY: a published
+#: integer never changes meaning, because a file written last month is read
+#: with this table and cannot be asked what it meant.
+DATA_ORIGIN_CODES: dict[str, int] = {"raw": 0, "reduced": 1}
+
+#: Which reduction produced them, on the same append-only rule.
+#: ``none`` is a direct integration the solver printed, ``time_average`` is
+#: an average over a window, and ``unknown`` is a row whose mode was never
+#: printed at all. ``unknown`` is deliberately a WORD and not an empty cell:
+#: an empty cell reads back out of a csv as NaN, so the identifier would not
+#: survive its own file.
+REDUCTION_CODES: dict[str, int] = {"none": 0, "time_average": 1, "unknown": 2}
+
+#: The two column labels, named once so no writer spells them itself.
+DATA_ORIGIN_COLUMN = "data_origin"
+REDUCTION_COLUMN = "reduction"
+
+#: Both labels together, in the order they are written.
+PROVENANCE_COLUMNS: tuple[str, str] = (DATA_ORIGIN_COLUMN, REDUCTION_COLUMN)
+
+
+def origin_code(token: str) -> int:
+    """Return the published integer of one ``data_origin`` token.
+
+    Parameters
+    ----------
+    token : str
+        One key of :data:`DATA_ORIGIN_CODES`.
+
+    Returns
+    -------
+    int
+        The integer the numeric-only formats carry.
+
+    Raises
+    ------
+    MalformedOutputError
+        When the token is not one this package publishes. Refused rather
+        than passed through, because an unrecognised token written into a
+        file is an identifier that identifies nothing.
+    """
+    try:
+        return DATA_ORIGIN_CODES[token]
+    except KeyError:
+        raise MalformedOutputError(
+            f"{token!r} is not a data origin this package publishes; the tokens are "
+            f"{', '.join(sorted(DATA_ORIGIN_CODES))}. 'raw' means the numbers came off "
+            "the run as the solver printed them, 'reduced' that post-processing "
+            "produced them"
+        ) from None
+
+
+def reduction_code(token: str) -> int:
+    """Return the published integer of one ``reduction`` token.
+
+    Parameters
+    ----------
+    token : str
+        One key of :data:`REDUCTION_CODES`.
+
+    Returns
+    -------
+    int
+        The integer the numeric-only formats carry.
+
+    Raises
+    ------
+    MalformedOutputError
+        When the token is not one this package publishes.
+    """
+    try:
+        return REDUCTION_CODES[token]
+    except KeyError:
+        raise MalformedOutputError(
+            f"{token!r} is not a reduction this package publishes; the tokens are "
+            f"{', '.join(sorted(REDUCTION_CODES))}. 'none' is a direct integration, "
+            "'time_average' an average over a window, and 'unknown' a row whose solver "
+            "mode was never printed"
+        ) from None
+
+
+def reduction_for_solver_mode(printed: str | None) -> str:
+    """Name the reduction behind a row, from the solver mode it printed.
+
+    The single place the mapping is decided, so the sweep table, the
+    per-parser tables and the numeric-only writers cannot disagree about
+    what an unsteady export's coefficients are.
+
+    Parameters
+    ----------
+    printed : str or None
+        The value printed after ``Solver mode:``, as parsed, or None when
+        the row carries no loads report at all (a failed point).
+
+    Returns
+    -------
+    str
+        One key of :data:`REDUCTION_CODES`. A steady export is ``none``,
+        an unsteady one ``time_average``, and anything else ``unknown``:
+        a mode this package has never seen is a mode whose reduction it
+        cannot name, and guessing ``none`` would assert a direct
+        integration that never happened.
+    """
+    if printed is None:
+        return "unknown"
+    mode = classify_solver_mode(printed)
+    if mode == "steady":
+        return "none"
+    if mode == "unsteady":
+        return "time_average"
+    return "unknown"
+
+
+# --- which solver exports this package can read ----------------------------
+#
+# PFS-2014.02, her scoping of 2026-08-16. The census of ``phase: export``
+# commands CANNOT be the default set: two of the eighteen entries export
+# nothing at all (they set the VTK variable list and delete a profile), so
+# the classification has to be explicit data rather than a filter.
+#
+# The keys are compared against the live command database by
+# ``tests/test_results.py``, so an export command added to any yaml fails
+# the suite until it is classified here.
+
+#: The export has a parser and a tabular conversion in this package.
+EXPORT_PARSED = "parsed"
+
+#: A structured format deliberately outside the default set (her scoping of
+#: 2026-08-16): Tecplot, VTK and Nastran files are read by their own tools,
+#: and flattening one to a table loses the structure that made it worth
+#: exporting. Converted only when the user names it in the optional
+#: variables.
+EXPORT_EXCLUDED = "excluded"
+
+#: The command carries ``phase: export`` and writes no data file of its own.
+EXPORT_NOT_AN_EXPORT = "not_an_export"
+
+#: In the default set, and this package cannot read it yet. The debt, named
+#: one command at a time, because a count nobody can enumerate is not a debt.
+EXPORT_OWED = "owed"
+
+#: Every verdict an entry of :data:`EXPORT_CONVERSIONS` may carry.
+EXPORT_VERDICTS: tuple[str, ...] = (
+    EXPORT_PARSED,
+    EXPORT_EXCLUDED,
+    EXPORT_NOT_AN_EXPORT,
+    EXPORT_OWED,
+)
+
+
+@dataclass(frozen=True)
+class ExportConversion:
+    """How one ``phase: export`` command's output is read, if at all.
+
+    Attributes
+    ----------
+    verdict : str
+        One of :data:`EXPORT_VERDICTS`.
+    parser : str or None
+        Dotted path of the callable that reads the file, for a
+        ``parsed`` verdict; None otherwise. A dotted STRING rather than
+        the callable itself, because the sectional-loads parser ships
+        with the optional ``[fsi]`` extra and naming it here must not
+        make this module require it.
+    format : str or None
+        The structured format an ``excluded`` entry writes (``tecplot``,
+        ``vtk`` or ``nastran``), named so the refusal can say which tool
+        already reads it; None otherwise.
+    note : str
+        Why this entry has the verdict it has, in one sentence.
+    """
+
+    verdict: str
+    parser: str | None
+    format: str | None
+    note: str
+
+
+#: Every ``phase: export`` command of the database, classified. Measured
+#: against the live census on 2026-08-19: eighteen entries, four parsed,
+#: five excluded, two that export nothing, seven owed.
+EXPORT_CONVERSIONS: dict[str, ExportConversion] = {
+    "EXPORT_SOLVER_ANALYSIS_SPREADSHEET": ExportConversion(
+        EXPORT_PARSED,
+        "pyflightstream.results.parse_loads",
+        None,
+        "the coefficient table every campaign point exports",
+    ),
+    "EXPORT_PROBE_POINTS": ExportConversion(
+        EXPORT_PARSED,
+        "pyflightstream.results.parse_probe_points",
+        None,
+        "the probe survey, read under its printed column names",
+    ),
+    "UNSTEADY_SOLVER_EXPORT_PLOTS": ExportConversion(
+        EXPORT_PARSED,
+        "pyflightstream.results.parse_unsteady_plots",
+        None,
+        "one row per time step; the entry is documented, not verified",
+    ),
+    "EXPORT_SURFACE_SECTIONAL_LOADS": ExportConversion(
+        EXPORT_PARSED,
+        "pyflightstream.fsi.loads.parse_sectional_loads",
+        None,
+        "spanwise load densities; ships with the optional [fsi] extra",
+    ),
+    "EXPORT_SOLVER_ANALYSIS_TECPLOT": ExportConversion(
+        EXPORT_EXCLUDED, None, "tecplot", "read by Tecplot itself"
+    ),
+    "EXPORT_VOLUME_SECTION_TECPLOT": ExportConversion(
+        EXPORT_EXCLUDED, None, "tecplot", "read by Tecplot itself"
+    ),
+    "EXPORT_SOLVER_ANALYSIS_VTK": ExportConversion(
+        EXPORT_EXCLUDED, None, "vtk", "read by ParaView and every VTK reader"
+    ),
+    "EXPORT_VOLUME_SECTION_VTK": ExportConversion(
+        EXPORT_EXCLUDED, None, "vtk", "read by ParaView and every VTK reader"
+    ),
+    "EXPORT_SOLVER_ANALYSIS_PLOAD_BDF": ExportConversion(
+        EXPORT_EXCLUDED, None, "nastran", "a Nastran bulk-data deck, read by the solver it feeds"
+    ),
+    "SET_VTK_EXPORT_VARIABLES": ExportConversion(
+        EXPORT_NOT_AN_EXPORT, None, None, "chooses the variables a later VTK export writes"
+    ),
+    "DELETE_BL_VELOCITY_PROFILE": ExportConversion(
+        EXPORT_NOT_AN_EXPORT, None, None, "deletes a profile; it writes no file"
+    ),
+    "EXPORT_SOLVER_ANALYSIS_CSV": ExportConversion(
+        EXPORT_OWED, None, None, "a csv whose columns nobody here has pinned yet"
+    ),
+    "EXPORT_SOLVER_ANALYSIS_FORCE_DISTRIBUTIONS": ExportConversion(
+        EXPORT_OWED, None, None, "force distributions, no observed export captured"
+    ),
+    "EXPORT_BL_VELOCITY_PROFILE": ExportConversion(
+        EXPORT_OWED, None, None, "boundary-layer velocity profile, no observed export captured"
+    ),
+    "EXPORT_ALL_OFF_BODY_STREAMLINES": ExportConversion(
+        EXPORT_OWED, None, None, "off-body streamlines, no observed export captured"
+    ),
+    "EXPORT_SURFACE_SECTIONS": ExportConversion(
+        EXPORT_OWED, None, None, "the section geometry, no observed export captured"
+    ),
+    "EXPORT_ALL_SURFACE_SECTIONS": ExportConversion(
+        EXPORT_OWED, None, None, "every section's geometry, no observed export captured"
+    ),
+    "SWEEPER_EXPORT_SPREADSHEET": ExportConversion(
+        EXPORT_OWED, None, None, "the sweeper's own spreadsheet, no observed export captured"
+    ),
+}
+
+
+def export_conversion(command: str) -> ExportConversion:
+    """Return how one export command's output is read, refusing an unknown.
+
+    Parameters
+    ----------
+    command : str
+        Command name as the database spells it, for example
+        ``"EXPORT_PROBE_POINTS"``.
+
+    Returns
+    -------
+    ExportConversion
+        The classification.
+
+    Raises
+    ------
+    FieldNotInExportError
+        When the name is not a classified export command.
+
+    Examples
+    --------
+    >>> from pyflightstream.results import export_conversion
+    >>> export_conversion("EXPORT_PROBE_POINTS").parser
+    'pyflightstream.results.parse_probe_points'
+    """
+    try:
+        return EXPORT_CONVERSIONS[command]
+    except KeyError:
+        raise FieldNotInExportError(
+            f"{command!r} is not a classified export command of this package; the "
+            "classification covers every phase: export entry of the command database "
+            "and is compared against it by the tier 1 suite"
+        ) from None
+
+
+def require_export_parser(command: str) -> str:
+    """Return the parser of one export command, or refuse naming the format.
+
+    The refusal is the point of this function: a conversion that is not
+    available must SAY so, naming the format and the reason, rather than
+    being skipped and leaving a caller with a shorter set of tables than
+    it asked for.
+
+    Parameters
+    ----------
+    command : str
+        Command name as the database spells it.
+
+    Returns
+    -------
+    str
+        Dotted path of the parser callable.
+
+    Raises
+    ------
+    FieldNotInExportError
+        When the name is not a classified export command.
+    MalformedOutputError
+        When the command has no converter: an excluded structured format,
+        a command that exports nothing, or one whose parser is still
+        owed. The message names which of the three it is.
+    """
+    entry = export_conversion(command)
+    if entry.parser is not None:
+        return entry.parser
+    if entry.verdict == EXPORT_EXCLUDED:
+        raise MalformedOutputError(
+            f"{command} writes a {entry.format} file, which is outside the default "
+            f"conversion set on purpose ({entry.note}): flattening it to a table loses "
+            "the structure that made it worth exporting. Name it in the optional "
+            "variables to convert it anyway"
+        )
+    if entry.verdict == EXPORT_NOT_AN_EXPORT:
+        raise MalformedOutputError(
+            f"{command} carries phase: export and writes no data file of its own "
+            f"({entry.note}), so there is nothing to convert"
+        )
+    raise MalformedOutputError(
+        f"{command} is in the default conversion set and this package cannot read it "
+        f"yet ({entry.note}); PFS-2014.02 owes the parser, and it needs one real "
+        "export from a licensed run to pin the columns against"
+    )
 
 
 def delimited_table(text: str, header_anchor: str, delimiter: str | None = ",") -> list[list[str]]:
@@ -1196,6 +1570,7 @@ from pyflightstream.results.tables import (  # noqa: E402
     sweep_table,
     to_csv,
     to_table,
+    write_table,
 )
 
 __all__ = [
@@ -1203,13 +1578,25 @@ __all__ = [
     "AnchorNotFoundError",
     "ConditionBinding",
     "ConditionCheck",
+    "DATA_ORIGIN_CODES",
+    "DATA_ORIGIN_COLUMN",
+    "EXPORT_CONVERSIONS",
+    "EXPORT_EXCLUDED",
+    "EXPORT_NOT_AN_EXPORT",
+    "EXPORT_OWED",
+    "EXPORT_PARSED",
+    "EXPORT_VERDICTS",
+    "ExportConversion",
     "FIELD_BINDINGS",
     "FieldNotInExportError",
     "IncompleteOutputError",
     "LoadsNotFoundError",
     "LoadsReport",
     "MalformedOutputError",
+    "PROVENANCE_COLUMNS",
     "ProbePointsReport",
+    "REDUCTION_CODES",
+    "REDUCTION_COLUMN",
     "ResidualSample",
     "SOLVER_MODES",
     "UnsteadyPlotsReport",
@@ -1217,7 +1604,9 @@ __all__ = [
     "bind_conditions",
     "classify_solver_mode",
     "delimited_table",
+    "export_conversion",
     "labeled_value",
+    "origin_code",
     "parse_count",
     "parse_loads",
     "parse_number",
@@ -1225,10 +1614,14 @@ __all__ = [
     "parse_residual_history",
     "parse_run_loads",
     "parse_unsteady_plots",
+    "reduction_code",
+    "reduction_for_solver_mode",
     "reject_duplicate_columns",
     "reject_trailing_export",
+    "require_export_parser",
     "run_table",
     "sweep_table",
     "to_csv",
     "to_table",
+    "write_table",
 ]

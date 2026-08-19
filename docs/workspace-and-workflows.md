@@ -24,13 +24,19 @@ terminated, how long it took and which files it produced. Nothing is
 inferred from a folder name afterwards, because a folder can be renamed
 and a record cannot be renamed into agreement with itself.
 
-The word **workflow** on this page means something narrow and worth
-being exact about, because it is used loosely elsewhere. It is the path
-from a filled-in run matrix to results on disk: read the matrix, resolve
-each row against the input library, build one script per point, run
-them, collect the outputs, write the record. There is no workflow
-object in the package, and the section at the bottom of this page says
-what else is not built. What follows is what ships today.
+A **workflow** is a run TYPE the package already knows how to build. A
+row says `unsteady_rotor` and the package writes the whole script for
+it: no Python, no function of yours, nothing between the file and the
+result. That is the difference between a workflow and a recipe, and it
+is worth being exact about because the two look similar from a
+distance. A recipe is a function YOU write and name by reference; the
+package imports it. A workflow is looked up in this package's own
+table, and there is deliberately no way to put your function in that
+table, because a type this package builds is a type it can also refuse
+before it runs.
+
+The section at the bottom of this page says what is still not built.
+What follows is what ships today.
 
 ## What a run matrix is
 
@@ -43,10 +49,10 @@ solver preset and the boundary group it should be resolved against.
 This is the matrix the test suite runs, byte for byte:
 
 ```text title="matrix_registry.fs"
-POL  | AIRCRAFT  | DESCRIPTION            | RE      | MACH    | SWEEP_TYPE  | SWEEP_VALUES   | REF | SET | ENTRY | FS_SCRIPT | FS_BUILD | HIDDEN | RUN | VAR_NAMES_VALUES
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-8001 | TestWing  | REGISTRY_ALPHA         |  3.10   | 0.0890  | AL          | 0.0,2.0        | 003 | 002 | 001   | 003       | 26.120   |    0   |  1  | FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt
-8002 | TestWing  | REGISTRY_BETA          |  3.10   | 0.0890  | BE          | -3.0,3.0       | 003 | 002 | 001   | 003       | 26.120   |    1   |  1  | FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt
+POL  | AIRCRAFT  | DESCRIPTION            | RE      | MACH    | SWEEP_TYPE  | SWEEP_VALUES   | REF  | SET  | ENTRY  | FS_SCRIPT | FS_BUILD | HIDDEN | RUN | WORKFLOW | VAR_NAMES_VALUES
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+8001 | TestWing  | REGISTRY_ALPHA         |  3.10   | 0.0890  | AL          | 0.0,2.0        | r003 | s002 | e001   | 003       | 26.120   |    0   |  1  | LEGACY   | FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt
+8002 | TestWing  | REGISTRY_BETA          |  3.10   | 0.0890  | BE          | -3.0,3.0       | r003 | s002 | e001   | 003       | 26.120   |    1   |  1  | LEGACY   | FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt
 ```
 
 Read one row across. `POL` is the point of interest, and it becomes the
@@ -55,8 +61,10 @@ what varies: `AL 0.0,2.0` is an angle-of-attack sweep at zero and two
 degrees, so this one row is two runs. `REF`, `SET` and `ENTRY` are the
 three identifiers that reach into the input library. `FS_BUILD` names
 the FlightStream build the row wants, and `FS_SCRIPT` names the recipe
-that builds its script. `RUN` is the switch that says whether the row
-takes part at all.
+that builds its script. `WORKFLOW` names the run type; `LEGACY` means
+"none, use the recipe", which is what every matrix written before v0.8.0
+means and what these two rows say. `RUN` is the switch that says whether
+the row takes part at all.
 
 Four runs come out of those two rows. Nothing in the matrix says where
 anything is written, and that is deliberate: naming is the workspace's
@@ -69,19 +77,20 @@ folder. This is the library the suite stages for the example below:
 
 ```text
 inputs/
-  references/003.toml     area_m2 = 10.0, chord_m = 1.2, span_m = 8.0
-  references/004.toml     area_m2 = 12.0, chord_m = 1.5, span_m = 9.0
-  setups/002.toml         iterations = 800, convergence = 1e-6
-  setups/003.toml         iterations = 400, wake_layers = 4
-  groups/001.toml         wing = ["wing_left", "wing_right"], body = [1]
+  references/r003.toml    area_m2 = 10.0, chord_m = 1.2, span_m = 8.0
+  references/r004.toml    area_m2 = 12.0, chord_m = 1.5, span_m = 9.0
+  setups/s002.toml        iterations = 800, convergence = 1e-6
+  setups/s003.toml        iterations = 400, wake_layers = 4
+  groups/e001.toml        wing = ["wing_left", "wing_right"], body = [1]
   executables.toml        which executable each build identifier means
 ```
 
-`REF 003` therefore means "the reference quantities in
-`inputs/references/003.toml`", and both rows of the matrix above use
-the same one. An identifier that is not staged is refused before
-anything runs, and the refusal names the identifier, the kind and what
-is available.
+`REF r003` therefore means "the reference quantities in
+`inputs/references/r003.toml`", and both rows of the matrix above use
+the same one. The identifier is yours to choose; the matrix and the
+file name simply have to agree. An identifier that is not staged is
+refused before anything runs, and the refusal names the identifier, the
+kind and what is available.
 
 `inputs/executables.toml` is the one file that is about your machine
 rather than about your study: it maps a build identifier such as
@@ -92,7 +101,7 @@ name a build and stay portable.
 
 <!-- skip: next -->
 ```python
-from pyflightstream.cases.matrix import run_matrix
+from pyflightstream.run.matrix import run_matrix
 
 records = run_matrix(
     "matrix_registry.fs",
@@ -135,7 +144,7 @@ def matrix_recipe(case, script):
 ```
 
 Note `case.solver.iterations`. Nothing in the recipe read
-`inputs/setups/002.toml`: the matrix said `SET 002` and the resolved
+`inputs/setups/s002.toml`: the matrix said `SET s002` and the resolved
 case arrived carrying 800 iterations and a convergence of 1e-6. The same
 holds for `case.outputs[0]`, which is the workspace's rendered output
 name for this point, not a literal the recipe chose. A recipe that
@@ -158,14 +167,125 @@ Two rows of a matrix, four runs, four records. Each carries its
 terminal status, and there is no fifth state: a point that did not
 finish says so rather than being missing.
 
+## Writing no Python at all: the workflow
+
+Everything above needs a recipe, and a recipe is Python. A **workflow**
+is the way out of that. Name a run type in the `WORKFLOW` column and the
+package builds the whole script itself, from the row and from what the
+row's identifiers resolved to.
+
+Two types ship today.
+
+`steady` is one point of a polar: a uniform free stream, the solver
+settings the row's `SET` identifier resolved to, one solve, one loads
+export.
+
+`unsteady_rotor` is a blade-resolved rotor run: a rotor coordinate
+system at the hub the row declares, one rotary motion turning at the
+row's `RPM` about the row's `ROTOR_AXIS`, and a physical time loop. The
+values it needs come off the row and nowhere else, and a row missing one
+of them is refused before anything runs, naming the row and the cell.
+
+This is the matrix the suite runs for those two types, byte for byte:
+
+```text title="workflow_rotor_matrix.fs"
+POL  | AIRCRAFT  | DESCRIPTION            | RE      | MACH    | SWEEP_TYPE  | SWEEP_VALUES   | REF  | SET  | ENTRY  | FS_SCRIPT | FS_BUILD | HIDDEN | RUN | WORKFLOW       | VAR_NAMES_VALUES
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+7001 | RotorRig  | ROTOR_UNSTEADY         |  1.20   | 0.0800  | AL          | 0.0            | r003 | s002 | e001   | 010       | 26.120   |    1   |  1  | unsteady_rotor | OUTPUTS: loads_{point}.txt / VELOCITY: 30.0 / RPM: 1200 / ROTOR_AXIS: X / BLADES: 4 / DELTA_TIME: 0.0001 / TIME_ITERATIONS: 720 / WINDOW_DEGREES: 90
+7002 | RotorRig  | STEADY_REFERENCE       |  1.20   | 0.0800  | AL          | 0.0,2.0        | r003 | s002 | e001   | 003       | 26.120   |    1   |  1  | steady         | OUTPUTS: loads_{point}.txt / VELOCITY: 30.0
+```
+
+From the terminal, that whole study is one command:
+
+```text
+pyfs-matrix run workflow_rotor_matrix.fs \
+    --name rotor --fs-version 26.120 --workspace . \
+    --workflow 010=unsteady_rotor --workflow 003=steady \
+    --sweep-csv sweep.csv
+```
+
+No Python is written, no notebook is opened, and nothing sits between
+the file and the result. The sweep table lands as `sweep.csv`, in the
+workspace root when you do not say where.
+
+One limitation applies to that command TODAY and it is worth knowing
+before you meet it. `run` judges each finished point with the standard
+assessor, which reads the loads spreadsheet the point exported. Every
+point of one row writes into the same simulation folder, so from the
+SECOND point of a swept row onward the assessor finds two files that
+both read as loads tables and refuses rather than guessing between
+them. A row with one sweep value runs; a row with several does not yet.
+Running such a row from Python, with an assessor of your own, is
+unaffected.
+
+### The window, said once
+
+`WINDOW_DEGREES: 90` is the span the expensive exports apply over,
+counted BACKWARDS from the end of the run: the last quarter turn of the
+rotor, which is where the settled physics is. You may write
+`WINDOW_STEPS` or `WINDOW_REVOLUTIONS` instead and the package converts,
+recording both the form you wrote and the one it computed, so a later
+reader can see which was which. A window longer than the run is refused
+naming both numbers.
+
+The same window is the AVERAGING window of the reductions below. There
+is one window, not two, because two windows you have to keep consistent
+is a defect waiting to happen.
+
+### The build is an input
+
+A workflow declares the commands it always emits, and the builds it
+covers are DERIVED from the command database rather than written down.
+`unsteady_rotor` covers 26.101 and later, because the earlier builds'
+databases carry no `SET_MOTION_ROTOR_AXIS` and no
+`SET_MOTION_ROTOR_RPM`: those builds configure a rotor by flagging an
+existing motion instead, which is a different vocabulary and not a
+substitution this package will make for you. Asked for a build outside
+its range, the workflow refuses before it emits its first line, and the
+refusal names the build you gave, the builds it covers, and the commands
+that decided it.
+
+Because the range is derived, a build registered tomorrow joins it the
+moment its evidence lands, and nobody has to remember to widen a list.
+
+### The four reductions of an unsteady case
+
+An unsteady rotor case asks for four things and gets four files: the
+**raw series**, the **time average** over the window above, the
+**phase-locked** average (the same average, once per blade passage) and
+the **per-blade split**. The raw series is written first and ships
+beside all three; it is never replaced by them, so an average always has
+its history next to it.
+
+`reduction_plan(case)` is what says WHICH windows those are, off the
+row: one revolution is `60 / (RPM * DELTA_TIME)` solver steps and one
+blade passage is that divided by `BLADES`. The averaging itself is
+`pyflightstream.post.unsteady.blade_passage_average`, the one
+implementation of that average in the package, and writing one is
+`pyflightstream.post.reductions`, which refuses to write a reduction
+over a file it read.
+
+What does NOT ship yet is the step that runs those four automatically
+after a campaign. The composition is executed in the suite, so the path
+is proven; wiring it into the run is the next item, and the reason it is
+not here is the layer order rather than an oversight (post-processing
+sits above execution, so the runner cannot call it).
+
 ## Where this example comes from
 
 Every artefact on this page is lifted from the test suite rather than
-written for the page. The matrix is `tests/fixtures/matrix_registry.fs`
-byte for byte; the input library, the recipe and the call are those of
+written for the page. The first matrix is
+`tests/fixtures/matrix_registry.fs` byte for byte; the input library,
+the recipe and the call are those of
 `test_run_matrix_executes_and_records_every_point` in
 `tests/test_matrix_run.py`, and the four run identifiers above are the
 ones that test asserts.
+
+The workflow matrix is `tests/fixtures/workflow_rotor_matrix.fs` byte
+for byte, and the test that runs it is
+`test_the_committed_matrix_drives_the_workflow_with_no_python_recipe` in
+`tests/test_workflows.py`, which builds every row of it and asserts that
+no `module:function` reference appears anywhere in the call.
 
 That is the point of doing it this way. An example written for a page is
 true the day it is written and quietly false afterwards; an example
@@ -183,15 +303,25 @@ build. The guarantee is carried by the lift, not by the block.
 Said plainly, because a page that documents an unbuilt capability is
 worse than no page at all.
 
-- **There is no workflow object.** No class, no registry, no
-  `Workflow(...)` you can construct or name. What ships is the matrix,
-  the recipe, and `run_matrix`. If you read the word workflow elsewhere
-  in this project's planning, it means the path described above and not
-  a thing you can import.
-- **There is no unsteady or rotor workflow.** The per-timestep reader
-  and the blade-passage average exist in `pyflightstream.post`, and
-  nothing wires them to a campaign: you call them yourself on the files
-  a run produced.
+- **You cannot add a workflow of your own.** The table is this
+  package's, and there is deliberately no way to register into it: a
+  type this package builds is a type it can also refuse before it runs,
+  and that guarantee is exactly what a user-supplied entry would remove.
+  Your own physics goes in a recipe, which is what recipes are for.
+- **Nothing runs the four reductions for you after a campaign.** The
+  reader, the average, the writing seam and the plan that says which
+  windows all ship, and the composition is executed in the suite. What
+  does not exist is the step that fires it at the end of a run.
+- **No unsteady rotor case has been run on a licensed solver yet.** The
+  rotor workflow is proven to build a script every registered build's
+  command database accepts, which is not the same fact as a solver
+  accepting it. Read `unsteady_rotor` as evidenced against the database
+  and not against a run.
+- **`pyfs-matrix run` cannot judge a swept row yet.** Stated above where
+  the command is, and repeated here because this is the list people
+  read: the standard assessor sees every point of a row in one folder
+  and refuses from the second point onward. One sweep value per row
+  runs today.
 - **A campaign declares ONE FlightStream build.** The matrix has an
   `FS_BUILD` column per row, and a matrix whose active rows name two
   different builds is refused today. Comparing two builds means two
@@ -199,8 +329,6 @@ worse than no page at all.
 - **There is no result-array facade.** No interpolation along a named
   axis, no re-parameterisation, no trim extraction. FR-20 carries that
   promise and is `pending`.
-- **The command-line tool does not run anything.** `pyfs-matrix` can
-  convert a matrix and pre-flight it; executing is a Python call.
 
 Where a capability above matters to you, the roadmap and the SRS
 requirement statuses are where its state is tracked, and the changelog

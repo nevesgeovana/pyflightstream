@@ -36,6 +36,71 @@ matrix could not have discriminated.
 
 ### API surface delta
 
+**BREAKING, and it is the release's headline: the verified run-matrix
+layout is SIXTEEN columns** (PFS-2025.12.01). `WORKFLOW` joins the
+pipe-delimited format between `RUN` and `VAR_NAMES_VALUES` and names the
+workflow type that builds the row's script. It is a column of its own
+rather than a pair inside `VAR_NAMES_VALUES`, because that cell is where
+free case data lives and a type competing with it would be
+indistinguishable from a user's own key.
+
+A FIFTEEN-column file is RECOGNISED rather than merely rejected
+(PFS-2025.12.02): the reader names it as a matrix written before v0.8.0
+and names the call that fixes it, and nothing parses after that.
+`pyflightstream.cases.matrix.upgrade_matrix(path, in_place=True)` adds
+the column and leaves every other byte alone (PFS-2025.12.03). The
+refusal messages count the width from the column list rather than
+writing the number, so the next column cannot leave a stale figure in a
+message.
+
+**BREAKING: a workspace input id declares its kind** (PFS-2009.01,
+PFS-2009.03). A reference, setup or group id now begins with a letter
+(`r`, `s`, `e`), so a number mistyped between the `REF`, `SET` and
+`ENTRY` cells of a run matrix is refused instead of resolving to another
+artifact's file. The refusal names the id, the letter, the file to rename
+and the matrix cell to change in the same edit. An existing library needs
+its files renamed; the letter is part of the id, not a prefix the library
+adds or strips.
+
+**New module `pyflightstream.cases.workflows`** (PFS-2025.02), with
+`WORKFLOWS`, `workflow_names`, and `WorkflowCoverageError` in the
+exception catalog, deriving from `PyflightstreamError` and keeping
+`RuntimeError` as its standard-library base.
+
+**New public names in `pyflightstream.workspace`:**
+`CampaignWorkspace.open`, `check_unique_stems`, `STEM_REGISTERED_KINDS`,
+`expand_group`, `CampaignWorkspace.expand_group`, `reference_points`,
+`reference_point`, `ReferencePoints` and `check_reference_point_names`.
+`RunRecord.broken_commands` is annotated `list[BrokenCommandRecord]`,
+a new `TypedDict` mirroring the script-layer record field for field.
+
+**In `pyflightstream.results`:** `write_table`, `DATA_ORIGIN_CODES`,
+`REDUCTION_CODES`, `origin_code`, `reduction_code`,
+`reduction_for_solver_mode`, `EXPORT_CONVERSIONS`, `ExportConversion`,
+`export_conversion` and `require_export_parser`; `sweep_table` gains
+`require_loads`.
+
+**In `pyflightstream.script`:** `helpers.blade_frames`,
+`helpers.AZIMUTH_BASIS`, `helpers.rotate_surfaces`,
+`helpers.unsteady_action`, `helpers.mark_wake_edges`,
+`UnsteadyActionUse`, `Script.unsteady_actions`, `Script.pending_actions`
+and `Script.registry`. In `pyflightstream.workspace.wake_edges`,
+`write_node_file` and `node_file_units`.
+
+**In `pyflightstream.cases`:** `DerivedFrom`, `Campaign.derived_from`,
+`Campaign.is_derived`, `derived_body_sha256`, `stamp_derived_campaign`,
+`ExportWindow`, `export_window`, `ReductionPlan` and `reduction_plan`.
+
+**`pyfs-matrix run`, a third subcommand** (PFS-2025.09), taking a matrix
+all the way to manifest records and a sweep table. `--workflow CODE=NAME`
+maps an FS_SCRIPT code onto a run type, `--sweep-csv` names the table,
+and `--resume`, `--workspace` and `--fs-exe` behave as on `plan`.
+
+**`results.tables.to_csv` refuses a table carrying no `data_origin` and
+`reduction`**, raising `MalformedOutputError`. Every table this package
+builds carries them, so a caller passing a parsed result is unaffected; a
+caller passing a hand-built frame is not.
+
 **The run matrix is split across the layers it actually uses**
 (OPS-2007.01, PFS-2009.05). `pyflightstream.cases.matrix` now holds only
 the reader and the converter: `MatrixError`, `MatrixRow`, `read_matrix`,
@@ -230,6 +295,133 @@ already passed these by keyword, so nothing in the tree moved.
 Deprecations: none.
 
 ### Added
+
+- **A workflow: a run type the package builds by itself** (PFS-2025.02),
+  named by the run matrix's `WORKFLOW` column and resolved by TABLE
+  LOOKUP, never by import. Two types ship: `steady`, one point of a
+  polar, and `unsteady_rotor`, a rotor coordinate system, one rotary
+  motion at the row's RPM about the row's axis, and a physical time
+  loop. The matrix reader asks the registry for the accepted set at call
+  time rather than keeping a second list, so a type cannot exist in one
+  place and not the other.
+
+  **A workflow declares the commands it always emits and DERIVES the
+  solver builds it covers from the command database** (PFS-2025.18).
+  Asked for a build outside that range it refuses BEFORE emitting its
+  first line, naming the build received, the covered builds in release
+  order, and the commands whose absence excludes it. It refuses about
+  the ENVIRONMENT rather than about an argument, which is why its
+  standard-library base is `RuntimeError`; that choice is the lane's
+  default and is a public contract callers catch on, so it is a marked
+  proposal until the author rules.
+
+- **`pyfs-matrix run` takes a matrix from trigger to reductions**
+  (PFS-2025.09). **IT REVERSES A DECISION RECORDED IN THE TOOL ITSELF**,
+  whose docstring said there was deliberately no run subcommand, because
+  the solver-quality judgment and the recipe registry are code and not
+  command-line strings. The lane built it under that reading and does not
+  own it: the reversal is the author's to confirm.
+
+- **The window the expensive exports and the unsteady reductions apply
+  over, counted BACKWARDS from the end of the run** (PFS-2025.08). State
+  it in degrees of rotor rotation, in solver steps or in revolutions; the
+  record carries the form you wrote beside every form it derived, so a
+  later reader can tell which was which. An angular window with no rotor
+  speed or no time step is refused naming what is missing rather than
+  assuming a default.
+
+  `reduction_plan` says which windows the four reductions of one unsteady
+  rotor case are taken over (PFS-2025.06): the export window for the time
+  average, one blade passage for the phase-locked average, and one window
+  per blade of the last revolution for the per-blade split. The raw
+  series is FIRST in the list and is never replaced by a reduction.
+
+- **One motion-following coordinate system per rotor blade**
+  (PFS-2025.04), placed arithmetically at 360/N from a first blade that
+  must lie on a quadrant, each with its x axis radial and its z axis
+  along the rotor axis. THE AZIMUTH DATUM IS A NAMED TABLE rather than
+  arithmetic scattered through the emitter, because it is the one
+  convention on this release whose wrong value produces plausible numbers
+  rather than a failure: a wrong datum rotates every blade frame and
+  every phase-locked reduction keyed to blade index. The table is the
+  lane's proposal and the author's to rule on; changing it is one edit
+  and not a search.
+
+- **`rotate_surfaces` rotates existing mesh surfaces about an axis of a
+  named coordinate system** (PFS-2025.14), choosing between the two
+  spellings from the script's own build, because the capability changed
+  name and grammar at 26.122. Selecting a component turns all N blades in
+  one call.
+
+- **`unsteady_action` registers an action the solver runs after each
+  unsteady time step** (PFS-2025.07), so sections come out mid-run rather
+  than by stopping and restarting. The record it returns carries the
+  command's recorded evidence status on that build and whether it was
+  inherited, so a caller can tell a measured capability from an inherited
+  one without leaving the call.
+
+- **`mark_wake_edges` marks wake edges from an imported node list**
+  instead of by the angle criterion (PFS-2025.13), and refuses on a build
+  that does not document the import, naming the build, the route and the
+  angle criterion it will NOT substitute unasked.
+  `wake_edges.write_node_file` writes the list the import reads, from an
+  `(n, 3)` array plus a declared length unit, refusing an empty list, a
+  wrong shape, a non-finite coordinate, an unrecognised unit token and an
+  existing destination (PFS-2025.16.02). Whether the solver ACCEPTS the
+  layout is open until a committed probe report says so.
+
+- **A campaign file the package generated says so in the file**
+  (PFS-2009.07.01). A generated `campaign.toml` carries a table naming
+  the matrix it came from, the moment it was written and two digests, so
+  a copy carried out of its folder still says where it came from.
+  Running an EDITED derived campaign is refused naming the matrix
+  (PFS-2009.07.02); with no matrix, an authored campaign is the source
+  and is treated as one (PFS-2009.07.03), which is what keeps the
+  refusal from catching every hand-written campaign in existence.
+
+- **The pre-flight groups the matrix by build and checks each build
+  once** (PFS-2009.09.01), and a row whose build fails identity stops the
+  campaign BEFORE a seat is spent (PFS-2009.09.02). It composes the
+  identity machinery that landed the day before rather than writing a
+  second one.
+
+- **Named reference points, declared once** (PFS-2025.15). `ARP` is the
+  airframe reference point and the engine one is `ERP`, or `ERP1` through
+  `ERPn` with more than one propulsor; a name outside the convention is
+  refused. A named boundary group expands to `{name}1` through `{name}N`
+  over its members' 1-based positions in declared order (PFS-2025.03), so
+  a blade group resolves identically on every re-resolution.
+
+- **An input library in which two files answer to one id is refused when
+  the library OPENS** (OPS-2005.08.05), naming the stem and the full path
+  of every file carrying it, rather than lazily at the resolution that
+  happens to hit it. `CampaignWorkspace.open` is the validating
+  constructor and `check_unique_stems` is the same rule as a callable.
+
+- **Every table the results layer builds carries `data_origin` and
+  `reduction`** (PFS-2014.05), so a reader can tell a direct integration
+  from a time average with the one file in hand. `data_origin` is `raw`
+  for anything read off a solver export and `reduced` for anything
+  post-processing produced; `reduction` is `none`, `time_average` or
+  `unknown`. THE VOCABULARY IS THE AUTHOR'S CALL and this is the lane's
+  default: a failed row with no loads report says `unknown` rather than
+  `none`, because `none` would assert a direct integration that never
+  happened. The published integer codes are APPEND ONLY: a published
+  integer never changes meaning, because a file written last month is
+  read with today's table.
+
+- **An explicit classification of every export command the database
+  carries** (PFS-2014.02): four are parsed today, five are formats
+  deliberately outside the default conversion set, two carry the export
+  phase and write no file at all, and seven are named debt. The debt is
+  ENUMERATED rather than described, so the acceptance's own sentence can
+  be checked against it.
+
+- **`sweep_table(..., require_loads=False)`** returns the identity rows it
+  has already assembled, with a warning, where it used to raise because
+  no run yielded a coefficient table (PFS-2014.03). The default is
+  unchanged. It exists so a campaign whose points all failed can still
+  leave a table a colleague can open.
 
 - **A campaign can send some of its cases to a different solver build**
   (PFS-2009.05). A case naming a build is RECORDED against that build's
@@ -1008,6 +1200,33 @@ Deprecations: none.
 
 ### Fixed
 
+- **The solver-setup provenance snapshot read the PACKAGED command
+  database rather than the one its script was built with** (PFS-2012.05),
+  so a run manifest could carry an availability, a default or an evidence
+  sentence from a database no line of the script was ever checked
+  against. `build_setup` now takes the registry and the settings helper
+  passes the script's own, and `Script.registry` exposes it so a caller
+  can ask the same question the script answered.
+
+- **A fixture library staged six files no id could ever reach.** The
+  builder behind the workspace walkthrough wrote both the bare
+  three-digit codes and the new letter-prefixed ones, so the bare files
+  sat on disk unreachable under the id rule that landed with them. Found
+  by the page-currency guard over that builder rather than by any test of
+  the library, and only because that guard asserts its collection is
+  non-empty BEFORE it compares: its first version matched a literal path
+  spelling out of the source text, and the rewrite to a loop left it
+  matching nothing while every artefact was still staged. It now RUNS the
+  builder and reads what lands on disk, so it survives any rewriting of
+  how the paths are spelled, which is the only thing that ever broke it.
+
+- **A refusal that used to name what is available named nothing.** The
+  structured `available` attribute is populated on a not-found refusal
+  and empty on a refusal about the id's own shape, which is about what
+  the caller wrote rather than about what the library holds. Both
+  branches are now pinned and the class docstring states the difference,
+  because an empty tuple would otherwise be read as an empty library.
+
 - **Every byte of a vendored process-kit file is now pinned, its
   provenance header included** (OPS-2013.30). Only the BODY was hashed
   before, and the header was reached by three assertions that each read
@@ -1155,6 +1374,32 @@ Deprecations: none.
   against the target script's own parser.
 
 ### Documentation
+
+- **`docs/workspace-and-workflows.md` no longer says there is no workflow
+  object, because there is one** (PFS-2025.10, PFS-2025.21). The page
+  explains what a workflow IS before it shows a signature, carries the
+  committed workflow matrix byte for byte, shows the one-line terminal
+  command, and states the assessor's swept-row limitation plainly. Its
+  "what does not exist yet" section was rewritten so nothing on it is
+  false. The page was written the day before the capability landed and
+  would have become a lie in one commit; a tier-1 guard is what made that
+  impossible rather than merely unlikely.
+
+- **The user guide's curated-helper count is a digit rather than a
+  word.** The set passed twenty when the rotor emitters landed, and the
+  guard that holds the guide to the module reads one word at a time, so a
+  two-word number could never be read through it. The guard's own message
+  named the remedy and the guide takes it; the word table deliberately
+  stops at twenty and says why.
+
+- **A trailing-edge parameter's fifth field is recorded where a reader
+  would look for it** (PFS-2026.06). The newest edition gives the relaxed
+  trailing-edge component parameter an integer shedding direction, axial
+  by default and azimuthal otherwise. No scripting command on any
+  registered build takes that direction and this package writes no
+  component file, so nothing emits it, and no status, manual reference or
+  version row moved. It is recorded so a reader meeting the parameter in
+  the manual does not conclude the omission here was ours.
 
 - **`reports/compat/README.md` gained three sections** (PFS-2026.15,
   PFS-2026.16, PFS-2026.17): which binary produced a report and why the

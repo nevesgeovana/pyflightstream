@@ -15,17 +15,23 @@ import pytest
 import pyflightstream
 from pyflightstream.fsi.loads import parse_sectional_loads
 from pyflightstream.results import (
+    DATA_ORIGIN_CODES,
+    PROVENANCE_COLUMNS,
+    REDUCTION_CODES,
     AmbiguousLoadsError,
     LoadsNotFoundError,
     MalformedOutputError,
+    origin_code,
     parse_loads,
     parse_probe_points,
     parse_residual_history,
     parse_run_loads,
+    reduction_code,
     run_table,
     sweep_table,
     to_csv,
     to_table,
+    write_table,
 )
 from pyflightstream.results import tables as tables_module
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
@@ -60,7 +66,12 @@ def test_loads_to_dataframe_is_one_row_per_surface_plus_total():
     frame = to_table(report)
     assert list(frame["surface"]) == ["Blade1", "Wing", "Tail", "Total"]
     assert list(frame.columns[:4]) == ["surface", "Cx", "Cy", "Cz"]
-    assert list(frame.columns[-2:]) == ["force_units", "moment_units"]
+    assert list(frame.columns[-4:]) == [
+        "force_units",
+        "moment_units",
+        "data_origin",
+        "reduction",
+    ]
     total = frame[frame["surface"] == "Total"].iloc[0]
     assert total["CDi"] == pytest.approx(-0.009075)
     assert set(frame["force_units"]) == {"Coefficients"}
@@ -70,7 +81,13 @@ def test_loads_to_dataframe_is_one_row_per_surface_plus_total():
 def test_residual_history_to_dataframe_keeps_iteration_order():
     history = parse_residual_history(read_fixture("log_residuals_26.120.txt"))
     frame = to_table(history)
-    assert list(frame.columns) == ["iteration", "velocity_residual", "pressure_residual"]
+    assert list(frame.columns) == [
+        "iteration",
+        "velocity_residual",
+        "pressure_residual",
+        "data_origin",
+        "reduction",
+    ]
     assert frame["iteration"].tolist()[0] == 1
     assert frame["iteration"].tolist()[-1] == 1575
     assert frame["velocity_residual"].iloc[-1] == pytest.approx(9.6e-8)
@@ -79,10 +96,10 @@ def test_residual_history_to_dataframe_keeps_iteration_order():
 def test_probe_points_to_dataframe_uses_the_printed_columns():
     report = parse_probe_points(read_fixture("probe_points_26.120.txt"))
     frame = to_table(report)
-    assert list(frame.columns) == list(report.columns)
-    assert frame.shape == (12, len(report.columns))
+    assert list(frame.columns) == [*report.columns, *PROVENANCE_COLUMNS]
+    assert frame.shape == (12, len(report.columns) + len(PROVENANCE_COLUMNS))
     assert frame["X"].iloc[0] == pytest.approx(-0.5)
-    assert np.allclose(frame.to_numpy(), report.values)
+    assert np.allclose(frame[list(report.columns)].to_numpy(), report.values)
 
 
 def test_sectional_loads_to_dataframe_carries_unit_suffixed_columns():
@@ -96,8 +113,10 @@ def test_sectional_loads_to_dataframe_carries_unit_suffixed_columns():
         "fx_n_per_m",
         "fz_n_per_m",
         "moment_qc_nm_per_m",
+        "data_origin",
+        "reduction",
     ]
-    assert frame.shape == (100, 7)
+    assert frame.shape == (100, 9)
     assert frame["offset_m"].iloc[0] == pytest.approx(0.2899)
     assert frame["moment_qc_nm_per_m"].iloc[0] == pytest.approx(7.696)
 
@@ -145,15 +164,18 @@ def test_to_dataframe_refuses_unknown_inputs_didactically():
 # literals are inline because those tests read the values right beside the
 # names; recorded here so a reader does not conclude they were forgotten.
 #
-# WHY THESE ARE MAPPINGS AND NOT LISTS, while `RUN_ROW_SCHEMA` is a list.
-# NFR-19 covers the column NAMES and their units and explicitly NOT their
-# order, so what a downstream reader resolves is a LABEL. A literal that
-# is a label-to-meaning mapping states exactly the promise, and states the
-# unit beside the name where a bare list leaves it to a docstring
-# somewhere else. `RUN_ROW_SCHEMA` keeps its ordered form and its own
-# comment explaining that order is asserted as a prompt rather than as a
-# promise; re-shaping it belongs to the item that owns it, not to this
-# one.
+# WHY THESE ARE MAPPINGS AND NOT LISTS. NFR-19 covers the column NAMES and
+# their units and explicitly NOT their order, so what a downstream reader
+# resolves is a LABEL. A literal that is a label-to-meaning mapping states
+# exactly the promise, and states the unit beside the name where a bare list
+# leaves it to a docstring somewhere else.
+#
+# `RUN_ROW_SCHEMA` was the one exception, an ordered list compared with
+# `==`, and this paragraph used to say re-shaping it belonged to the item
+# that owned it. PFS-2014.05 was that item: adding a column is not a
+# breaking change under the author's convention of 2026-08-17, and the
+# ordered form made the addition fail an assertion whose own message told
+# the reader to check the changelog. All four are mappings now.
 #
 # NONE OF THESE IS DERIVED from the code under test. A derived expectation
 # moves with the code and proves nothing: it would go green on exactly the
@@ -173,6 +195,8 @@ LOADS_FRAME_SCHEMA = {
     "CMz": "moment coefficient about z, units in moment_units",
     "force_units": "what the solver printed as the force normalisation",
     "moment_units": "what the solver printed as the moment normalisation",
+    "data_origin": "raw off the run or reduced by post-processing (PFS-2014.05)",
+    "reduction": "which reduction produced the numbers, none where nothing did",
 }
 
 #: `_probe_points_frame` (results/tables.py). Read the qualifier before
@@ -201,6 +225,11 @@ PROBE_POINTS_FRAME_SCHEMA = {
     "thickness": "boundary-layer thickness",
     "CF": "skin friction coefficient, dimensionless",
     "Transition": "laminar-to-turbulent transition flag",
+    # NOT the solver's: these two are this package's own promise, added to
+    # every table it writes by PFS-2014.05, which is why the qualifier
+    # above about printed headers does not reach them.
+    "data_origin": "raw off the run or reduced by post-processing (PFS-2014.05)",
+    "reduction": "which reduction produced the numbers, none for a point sample",
 }
 
 #: `sweep_table` (results/tables.py): one row per manifest record. The
@@ -213,6 +242,8 @@ PROBE_POINTS_FRAME_SCHEMA = {
 SWEEP_TABLE_SCHEMA = {
     "run_id": "manifest run identity, campaign/sim/point",
     "sim_id": "simulation identity of the case",
+    "data_origin": "raw off the run or reduced by post-processing (PFS-2014.05)",
+    "reduction": "none on a steady point, time_average on an unsteady one",
     "alpha": "sweep axis of this campaign, deg (see the note above)",
     "fs_version_requested": "canonical FlightStream version the campaign asked for",
     "fs_version_reported": "version the solver printed in its output footer",
@@ -300,35 +331,42 @@ def test_probe_points_frame_exposes_its_complete_column_schema():
 #: makes any schema change a deliberate two-file edit, which is what
 #: "announced" has to mean mechanically.
 #:
-#: Order is NOT part of the promise (NFR-19 says so explicitly). It is
-#: asserted here anyway because a list comparison is the readable form, and a
-#: pure reorder failing this test is the intended prompt to check the
-#: changelog, not a defect claim.
-RUN_ROW_SCHEMA = [
-    "run_id",
-    "sim_id",
-    "alpha",
-    "fs_version_requested",
-    "fs_version_reported",
-    "fs_build",
-    "package_version",
-    "status",
-    "iterations",
-    "residual",
-    "wall_time_s",
-    "frame",
-    "force_units",
-    "moment_units",
-    "Cx",
-    "Cy",
-    "Cz",
-    "CL",
-    "CDi",
-    "CDo",
-    "CMx",
-    "CMy",
-    "CMz",
-]
+#: IT WAS AN ORDERED LIST COMPARED WITH `==` until 2026-08-19, and that
+#: contradicted the author's own convention of 2026-08-17: an output has no
+#: fixed column order, a reader resolves a column by its LABEL, and adding a
+#: column is therefore not a breaking change. The ordered form made this
+#: assertion fail on the addition PFS-2014.05 announced in the changelog,
+#: which is the false alarm the convention exists to prevent, and it was the
+#: only one of the four schema literals in this file still shaped that way.
+#: It is a label-to-meaning mapping now, like its three siblings, with the
+#: duplicate check the set comparison cannot make by itself.
+RUN_ROW_SCHEMA = {
+    "run_id": "manifest run identity, campaign/sim/point",
+    "sim_id": "simulation identity of the case",
+    "data_origin": "raw off the run or reduced by post-processing (PFS-2014.05)",
+    "reduction": "none on a steady point, time_average on an unsteady one",
+    "alpha": "sweep axis of this fixture, deg (see the docstring below)",
+    "fs_version_requested": "canonical FlightStream version the campaign asked for",
+    "fs_version_reported": "version the solver printed in its output footer",
+    "fs_build": "build number the solver printed",
+    "package_version": "pyflightstream version that ran the point",
+    "status": "terminal RunStatus of the point",
+    "iterations": "solver iterations reached, NaN when unknown",
+    "residual": "final solver residual, dimensionless, NaN when unknown",
+    "wall_time_s": "elapsed wall time in s, NaN when unrecorded",
+    "frame": "reference frame the coefficients are printed in",
+    "force_units": "what the solver printed as the force normalisation",
+    "moment_units": "what the solver printed as the moment normalisation",
+    "Cx": "Total force coefficient along x",
+    "Cy": "Total force coefficient along y",
+    "Cz": "Total force coefficient along z",
+    "CL": "Total lift coefficient",
+    "CDi": "Total induced drag coefficient",
+    "CDo": "Total profile drag coefficient",
+    "CMx": "Total moment coefficient about x",
+    "CMy": "Total moment coefficient about y",
+    "CMz": "Total moment coefficient about z",
+}
 
 
 def test_run_table_exposes_the_documented_column_schema():
@@ -337,15 +375,25 @@ def test_run_table_exposes_the_documented_column_schema():
     `alpha` is the sweep-axis column of this fixture; a case swept on another
     axis carries that axis's name instead, which is why the sweep axis sits
     between the identity block and the version block rather than at the end.
+
+    The LABELS are the promise and their order is not (NFR-19 says so, and
+    the author restated it on 2026-08-17), so the comparison is on the set
+    with a length check beside it: the set alone cannot see a label emitted
+    twice.
     """
     loads = parse_loads(read_fixture("loads_steady_26.120.txt"))
     record = make_record(
         iterations=312, residual=3.2e-6, wall_time_s=41.5, outputs=["raw/loads.txt"]
     )
-    assert list(run_table(record, loads=loads).columns) == RUN_ROW_SCHEMA, (
+    columns = list(run_table(record, loads=loads).columns)
+    assert set(columns) == set(RUN_ROW_SCHEMA), (
         "the run-row column schema changed. SRS NFR-19 makes these names a "
         "public contract: announce the change in the changelog's API surface "
-        "delta and update this list in the same commit."
+        "delta and update this literal in the same commit."
+    )
+    assert len(columns) == len(RUN_ROW_SCHEMA), (
+        f"the run row repeats a column label ({columns}); the set comparison "
+        "above cannot see a duplicate"
     )
 
 
@@ -357,7 +405,13 @@ def test_run_table_joins_identity_conditions_and_total_coefficients():
     frame = run_table(record, loads=loads)
     assert frame.shape[0] == 1
     row = frame.iloc[0]
-    assert list(frame.columns[:3]) == ["run_id", "sim_id", "alpha"]
+    assert list(frame.columns[:5]) == [
+        "run_id",
+        "sim_id",
+        "data_origin",
+        "reduction",
+        "alpha",
+    ]
     assert row["run_id"] == "camp/sim_9001/a+02.0"
     assert row["alpha"] == 2.0
     assert row["fs_version_requested"] == "26.120"
@@ -574,3 +628,184 @@ def test_parse_run_loads_names_a_missing_file_on_disk(tmp_path):
     record = make_record(outputs=["raw/gone.txt"])
     with pytest.raises(FileNotFoundError, match="archived or"):
         parse_run_loads(workspace, record)
+
+
+# --- PFS-2014.05: every row says what produced its numbers ----------------
+#
+# Her requirement of 2026-08-16, and the sweep is the case she named. One
+# table, two provenances per row: a steady point's coefficients are a direct
+# integration, an unsteady point's are the solver's own time average, and
+# both are printed under CL and CDi. A reader who cannot tell them apart
+# compares them and reads a method difference as physics.
+#
+# THE VOCABULARY IS THE AUTHOR'S CALL and these tests pin the lane default
+# rather than her ruling, which is still owed: two origin tokens, three
+# reduction tokens, a failed row saying `unknown` rather than `none`, and an
+# unsteady solver export counting as `raw` because the solver did the
+# averaging and the reduction token is what names it.
+
+
+@pytest.mark.requirement("NFR-19")
+def test_a_mixed_sweep_traces_every_row_without_another_file(tmp_path):
+    """The falsifying test of PFS-2014.05, read back off the written file.
+
+    Asserted against the csv rather than against the DataFrame, because
+    the acceptance is about a FILE: the identifier has to survive being
+    written and read back, which is exactly what an empty cell would not
+    do (it returns as NaN).
+
+    The fixture campaign is already mixed: a converged steady point, an
+    iteration-limited unsteady point, and a failed point with no loads
+    export at all.
+    """
+    frame = sweep_table(build_sweep_workspace(tmp_path))
+    written = write_table(frame, tmp_path / "sweep.csv")
+    back = pd.read_csv(written)
+    traced = list(zip(back["data_origin"], back["reduction"], strict=True))
+    assert traced == [("raw", "none"), ("raw", "time_average"), ("raw", "unknown")], (
+        "a mixed sweep must let every row be traced to raw or reduced with no "
+        f"other file open; the written csv says {traced}"
+    )
+    assert back["status"].tolist() == [
+        "CONVERGED",
+        "COMPLETED_MAX_ITER",
+        "FAILED_EXECUTION",
+    ]
+    # And the identifier is genuinely PER ROW here: a header field could not
+    # have carried these three answers.
+    assert back["reduction"].nunique() == 3
+
+
+def test_every_written_table_says_what_produced_its_numbers(tmp_path):
+    """The four single-result tables, not only the sweep.
+
+    The acceptance is "every file the package writes", and a constant
+    column on a single-provenance file is what makes the promise total:
+    "this one happens to be uniform, so it needs no column" is how a file
+    ends up needing a second file.
+    """
+    cases = {
+        "loads_steady": (parse_loads(read_fixture("loads_steady_26.120.txt")), "none"),
+        "loads_unsteady": (
+            parse_loads(read_fixture("loads_unsteady_26.120.txt")),
+            "time_average",
+        ),
+        "probes": (parse_probe_points(read_fixture("probe_points_26.120.txt")), "none"),
+        "residuals": (parse_residual_history(read_fixture("log_residuals_26.120.txt")), "none"),
+        # The committed sectional fixture prints `Solver mode: Unsteady`,
+        # so its reduction is read off the file rather than assumed: this
+        # is the one non-sweep table whose token is not a constant of the
+        # kind of file it is.
+        "sectional": (
+            parse_sectional_loads(read_fixture("fsi/FS_SurfaceSection_Loads_call0002.txt")),
+            "time_average",
+        ),
+    }
+    for name, (result, expected_reduction) in cases.items():
+        back = pd.read_csv(to_csv(result, tmp_path / f"{name}.csv"))
+        assert set(back["data_origin"]) == {"raw"}, f"{name} lost its data_origin"
+        assert set(back["reduction"]) == {expected_reduction}, (
+            f"{name} says reduction {set(back['reduction'])}, expected {expected_reduction!r}"
+        )
+
+
+def test_write_table_refuses_a_table_that_cannot_say_what_it_is(tmp_path):
+    """Absence is refused; MULTIPLICITY is not, and that is the whole design.
+
+    An earlier plan refused a frame holding more than one distinct
+    (data_origin, reduction) pair, which would have refused the mixed
+    sweep this item exists to make writable.
+    """
+    mixed = pd.DataFrame(
+        {
+            "CL": [0.4, 0.5],
+            "data_origin": ["raw", "raw"],
+            "reduction": ["none", "time_average"],
+        }
+    )
+    assert write_table(mixed, tmp_path / "mixed.csv").is_file()
+
+    for frame, expected in (
+        (pd.DataFrame({"CL": [0.4]}), "no data_origin"),
+        (pd.DataFrame({"CL": [0.4], "data_origin": ["raw"]}), "no reduction"),
+        (
+            pd.DataFrame({"CL": [0.4], "data_origin": ["raw"], "reduction": [""]}),
+            "does not publish",
+        ),
+        (
+            pd.DataFrame({"CL": [0.4], "data_origin": ["RAW"], "reduction": ["none"]}),
+            "does not publish",
+        ),
+        (
+            pd.DataFrame({"CL": [0.4], "data_origin": ["reduced"], "reduction": ["none"]}),
+            "name no reduction",
+        ),
+    ):
+        with pytest.raises(MalformedOutputError, match=expected):
+            write_table(frame, tmp_path / "refused.csv")
+
+
+def test_write_table_can_be_told_not_to_replace_a_file(tmp_path):
+    """The default stays what this module always did; the refusal is opt-in."""
+    frame = pd.DataFrame({"CL": [0.4], "data_origin": ["raw"], "reduction": ["none"]})
+    target = tmp_path / "polar.csv"
+    write_table(frame, target)
+    assert write_table(frame, target).is_file()  # overwrite=True by default
+    with pytest.raises(MalformedOutputError, match="already exists"):
+        write_table(frame, target, overwrite=False)
+
+
+def test_the_published_codes_are_integers_and_append_only():
+    """The numeric-only form carries codes, and a code never moves.
+
+    Pinned as literals rather than read off the mapping: a test that
+    reads the value it is checking cannot fail, and what this guards is
+    precisely that a published integer keeps its meaning for a file
+    written before the change.
+    """
+    assert DATA_ORIGIN_CODES == {"raw": 0, "reduced": 1}
+    assert REDUCTION_CODES == {"none": 0, "time_average": 1, "unknown": 2}
+    assert (origin_code("raw"), origin_code("reduced")) == (0, 1)
+    assert reduction_code("time_average") == 1
+    for call, token in ((origin_code, "time_average"), (reduction_code, "raw")):
+        with pytest.raises(MalformedOutputError, match="does not publish|is not a"):
+            call(token)
+
+
+# --- PFS-2014.03: a sweep that yielded nothing still leaves a table -------
+
+
+def test_sweep_table_can_return_the_rows_it_has_when_no_run_yielded_loads(tmp_path):
+    """The half of PFS-2014.03 that lives in this layer.
+
+    `run_campaign` is to write the sweep csv before it raises
+    `CampaignErrors`, so a campaign with failed points still leaves a
+    file a colleague can open. That is impossible while `sweep_table`
+    raises on the same condition: catching the refusal leaves nothing to
+    write, since the rows are assembled inside the call.
+
+    The empty-manifest refusal is deliberately NOT relaxed by the
+    keyword: `run_campaign` appends one record per executed point, so an
+    empty manifest cannot reach this call and a table with no rows says
+    nothing about anything.
+    """
+    workspace = build_sweep_workspace(tmp_path)
+    with pytest.raises(LoadsNotFoundError):
+        sweep_table(workspace, loads_file="polar.txt")
+
+    with pytest.warns(UserWarning, match="successful runs yielded a coefficient"):
+        frame = sweep_table(workspace, loads_file="polar.txt", require_loads=False)
+    assert frame.shape[0] == 3, "the rows already assembled must come back"
+    assert "CL" not in frame.columns, "no run yielded coefficients, so there is no CL"
+    assert frame["run_id"].tolist() == [
+        "camp/sim_9001/a+02.0",
+        "camp/sim_9001/a+00.0",
+        "camp/sim_9001/a+04.0",
+    ]
+    # And it is still a writable table: the provenance columns are what
+    # `run_campaign` will hand to `write_table`.
+    assert set(frame["reduction"]) == {"unknown"}
+    assert write_table(frame, tmp_path / "sweep.csv").is_file()
+
+    with pytest.raises(MalformedOutputError, match="no manifest records"):
+        sweep_table(CampaignWorkspace(tmp_path / "empty"), require_loads=False)

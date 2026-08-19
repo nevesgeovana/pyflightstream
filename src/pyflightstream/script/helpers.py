@@ -47,14 +47,21 @@ first analysis or export helper call) flushes it.
 
 from __future__ import annotations
 
+import math
+import re
 import warnings
 from collections.abc import Mapping, Sequence
 from typing import Literal
 
 from pydantic import BaseModel, ValidationError
 
-from pyflightstream.commands import CommandNotInVersionError, CommandRegistry
-from pyflightstream.script import CommandArgumentError, Script
+from pyflightstream.commands import CommandNotInVersionError
+from pyflightstream.script import (
+    CommandArgumentError,
+    Script,
+    ScriptReferenceError,
+    UnsteadyActionUse,
+)
 from pyflightstream.script.solver_setup import (
     LIBRARY_MINIMUM_CP,
     SEPARATION_MODELS,
@@ -1411,7 +1418,7 @@ def solver_settings(
     minimum_cp_default_emitted = False
     if minimum_cp is not None:
         script.emit("SOLVER_MINIMUM_CP", minimum_cp)
-    elif "SOLVER_MINIMUM_CP" in CommandRegistry.load().for_version(script.version):
+    elif "SOLVER_MINIMUM_CP" in script._view:
         script.emit("SOLVER_MINIMUM_CP", LIBRARY_MINIMUM_CP)
         minimum_cp_default_emitted = True
     if reynolds_averaged_drag is not None:
@@ -1546,6 +1553,9 @@ def solver_settings(
         version=script.version.canonical,
         passed=passed,
         minimum_cp_default_emitted=minimum_cp_default_emitted,
+        # The script's own database, never the packaged one: the snapshot
+        # is a record of THIS script (PFS-2012.05).
+        registry=script.registry,
     )
     script.solver_setup = setup
     return setup
@@ -2156,3 +2166,700 @@ def coordinate_frame(
         vector_z_z=z_axis[2],
     )
     return frame_index
+
+
+#: THE AZIMUTH DATUM, as one named table (PFS-2025.04).
+#:
+#: Per rotor axis, the two in-plane unit vectors that fix where azimuth
+#: zero points and which way azimuth grows: the DATUM first, the
+#: QUADRATURE second. They are cyclic, X to (Y, Z), Y to (Z, X) and Z to
+#: (X, Y), so the datum crossed with the quadrature is the rotor axis
+#: itself for all three, and every blade frame comes out right-handed
+#: with its third axis along the rotation.
+#:
+#: IT IS A PROPOSAL AND NOT A DECISION. Which in-plane direction is
+#: azimuth zero is the domain expert's call, recorded as a proposal in
+#: reports/RPT-036_the-azimuth-convention-proposal_2026-08-19.md; a wrong
+#: datum rotates every blade frame and every phase-locked reduction keyed
+#: to blade index, and produces plausible numbers rather than a failure.
+#: This table exists so that settling it is ONE edit here rather than a
+#: search: nothing else in the library decides where azimuth zero is.
+AZIMUTH_BASIS: dict[str, tuple[tuple[float, float, float], tuple[float, float, float]]] = {
+    "X": ((0.0, 1.0, 0.0), (0.0, 0.0, 1.0)),
+    "Y": ((0.0, 0.0, 1.0), (1.0, 0.0, 0.0)),
+    "Z": ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0)),
+}
+
+#: The four angles a first blade is allowed to sit at, in deg. The
+#: placement of the other blades is arithmetic, 360/N from this one, so
+#: the anchor is the one measured quantity in it, and restricting it to
+#: the quadrants is the author's instruction rather than a numerical
+#: convenience.
+BLADE_ANCHOR_ANGLES_DEG: tuple[float, ...] = (0.0, 90.0, 180.0, 270.0)
+
+#: How a propeller's recorded sense of rotation signs the azimuth
+#: increment. Counterclockwise about the rotor axis is the
+#: mathematically positive sense, so blade k sits at anchor plus k times
+#: 360/N; clockwise numbers the blades the other way round the disc.
+#: Which of the two a descriptor's own word means, given that the
+#: descriptor states its sense as seen from behind, is the same open
+#: question the datum is: see RPT-036.
+ROTATION_SENSE_SIGN: dict[str, float] = {"counterclockwise": 1.0, "clockwise": -1.0}
+
+#: Decimal places the emitted axis components are rounded to. A cosine of
+#: 90 degrees is 6.1e-17 in binary floating point, and a script line
+#: carrying that number is a script line a reader cannot check by eye.
+_AXIS_DECIMALS = 12
+
+
+def _clean(value: float) -> float:
+    """Round one axis component and normalise a negative zero away."""
+    return round(value, _AXIS_DECIMALS) + 0.0
+
+
+def azimuth_basis(rotor_axis: str) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+    """Return the in-plane datum and quadrature vectors of a rotor axis.
+
+    The single reader of :data:`AZIMUTH_BASIS`, so the convention has one
+    home and changing it is one edit.
+
+    Parameters
+    ----------
+    rotor_axis : str
+        Rotation axis of the rotor in the reference frame: ``X``, ``Y``
+        or ``Z`` (any case).
+
+    Returns
+    -------
+    tuple of tuple of float
+        The unit vector azimuth zero points along, then the unit vector
+        90 degrees of positive azimuth from it.
+
+    Raises
+    ------
+    CommandArgumentError
+        If the axis is not one of the three, naming what was passed.
+
+    Examples
+    --------
+    >>> from pyflightstream.script.helpers import azimuth_basis
+    >>> azimuth_basis("Z")
+    ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0))
+    """
+    key = rotor_axis.upper() if isinstance(rotor_axis, str) else rotor_axis
+    try:
+        return AZIMUTH_BASIS[key]
+    except (KeyError, TypeError) as error:
+        raise CommandArgumentError(
+            f"blade_frames: rotor_axis is {rotor_axis!r}, and a rotor axis is one of "
+            f"{', '.join(sorted(AZIMUTH_BASIS))}. The axis is what fixes the plane the "
+            "blades are placed in, so there is no default to fall back on"
+        ) from error
+
+
+def blade_frames(
+    script: Script,
+    *,
+    hub_origin: Sequence[float],
+    rotor_axis: str,
+    n_blades: int,
+    blade1_azimuth_deg: float,
+    rotation: str = "counterclockwise",
+    names: Sequence[str] | None = None,
+    labels: Sequence[str] | None = None,
+) -> list[int]:
+    """Create one motion-following coordinate system per blade.
+
+    Places ``n_blades`` local frames 360/N apart around the rotor disc,
+    anchored on the first blade, each with its x axis along that blade's
+    radial direction and its z axis along the rotor axis, so an azimuthal
+    reduction afterwards has a frame per blade to reduce in. The returned
+    indices are what :func:`rotary_motion` is handed as ``moving_frames``,
+    which is what binds the frames to the motion and makes them follow it.
+
+    THE PLACEMENT IS ARITHMETIC AND NOT GEOMETRY. Nothing here reads a
+    mesh and nothing computes a centroid: N blades sit 360/N apart, and
+    the only measured quantity is the first blade's azimuth, which must
+    be one of :data:`BLADE_ANCHOR_ANGLES_DEG`.
+
+    Parameters
+    ----------
+    script : Script
+        Script under construction.
+    hub_origin : sequence of float
+        Hub position in the reference frame, in simulation length units.
+        Every blade frame shares it: the frames differ in orientation and
+        not in origin, because they rotate about the same hub.
+    rotor_axis : str
+        Rotation axis in the reference frame, ``X``, ``Y`` or ``Z``. It
+        selects the in-plane pair of :data:`AZIMUTH_BASIS`.
+    n_blades : int
+        Blade count, at least 1.
+    blade1_azimuth_deg : float
+        Azimuth of the first blade, in deg, measured from the datum of
+        :func:`azimuth_basis` and positive towards the quadrature vector.
+        One of :data:`BLADE_ANCHOR_ANGLES_DEG`.
+    rotation : str
+        Sense of rotation, ``"counterclockwise"`` or ``"clockwise"``, the
+        vocabulary a propeller descriptor records. It signs the azimuth
+        increment, so it decides which way round the disc the blades are
+        numbered and nothing else.
+    names : sequence of str, optional
+        Display names of the created frames, one per blade; ``Blade1`` to
+        ``BladeN`` by default.
+    labels : sequence of str, optional
+        Labels registered in the script's entity registry, one per blade,
+        so later commands can cite a blade frame by name. A frame label
+        and a boundary label are different entity kinds and cannot
+        collide.
+
+    Returns
+    -------
+    list of int
+        The created frame indices, in blade order, ready to pass to
+        :func:`rotary_motion` as ``moving_frames``.
+
+    Raises
+    ------
+    CommandArgumentError
+        If the blade count is below one, the rotor axis is not one of the
+        three, the rotation sense is not one of the two, the first
+        blade's azimuth is not one of the four anchors (the measured
+        angle is named), or a ``names`` or ``labels`` sequence has a
+        different length from the blade count. Every one of these fires
+        before anything is emitted, so a refused call leaves the script
+        untouched.
+
+    Notes
+    -----
+    The azimuth datum this places blades against is a PROPOSAL awaiting
+    the domain expert's decision (RPT-036). A wrong datum rotates every
+    blade frame together, and every phase-locked reduction keyed to blade
+    index with them, and it produces plausible numbers rather than an
+    error, which is why it is written down where the placement is made.
+
+    Deleting a coordinate system renumbers the frames above it downward
+    (RPT-021 section 3), and this helper creates N of them per rotor. Do
+    not delete a frame between this call and the citations of the indices
+    it returned.
+
+    Examples
+    --------
+    >>> from pyflightstream.script import Script, helpers
+    >>> script = Script(version="26.120")
+    >>> frames = helpers.blade_frames(
+    ...     script,
+    ...     hub_origin=(1.2, 0.0, 0.0),
+    ...     rotor_axis="Z",
+    ...     n_blades=3,
+    ...     blade1_azimuth_deg=90.0,
+    ... )
+    >>> frames
+    [2, 3, 4]
+    >>> motion = helpers.rotary_motion(
+    ...     script, frame=frames[0], axis="Z", rpm=2400.0, moving_frames=frames
+    ... )
+    """
+    datum, quadrature = azimuth_basis(rotor_axis)
+    if not isinstance(n_blades, int) or isinstance(n_blades, bool) or n_blades < 1:
+        raise CommandArgumentError(
+            f"blade_frames: n_blades is {n_blades!r}, and a rotor with {n_blades} blades "
+            "has no blade to anchor the placement on. Pass the blade count of the "
+            "propeller, which is at least 1"
+        )
+    if rotation not in ROTATION_SENSE_SIGN:
+        raise CommandArgumentError(
+            f"blade_frames: rotation is {rotation!r}, and the sense of rotation is "
+            f"{' or '.join(sorted(ROTATION_SENSE_SIGN))}, the two words a propeller "
+            "descriptor records. It decides which way round the disc the blades are "
+            "numbered, so there is no safe default to guess"
+        )
+    if float(blade1_azimuth_deg) not in BLADE_ANCHOR_ANGLES_DEG:
+        anchors = ", ".join(str(angle) for angle in BLADE_ANCHOR_ANGLES_DEG)
+        raise CommandArgumentError(
+            f"blade_frames: the first blade was measured at {float(blade1_azimuth_deg)} "
+            f"deg, and this placement anchors on one of {anchors} deg. The other blades "
+            "are placed arithmetically at 360/N from that one, so an anchor off the "
+            "quadrants would put every blade somewhere the convention cannot name. "
+            "Rotate the mesh onto a quadrant, or record the propeller with the blade "
+            "the mesh actually starts at"
+        )
+    if names is not None and len(names) != n_blades:
+        raise CommandArgumentError(
+            f"blade_frames: names carries {len(names)} name(s) for {n_blades} blades. "
+            f"One display name per blade, or leave it out for Blade1 to Blade{n_blades}"
+        )
+    if labels is not None and len(labels) != n_blades:
+        raise CommandArgumentError(
+            f"blade_frames: labels carries {len(labels)} label(s) for {n_blades} blades. "
+            "One registry label per blade, or leave it out to cite the frames by the "
+            "indices this returns"
+        )
+
+    sign = ROTATION_SENSE_SIGN[rotation]
+    spacing = 360.0 / n_blades
+    created: list[int] = []
+    for blade in range(n_blades):
+        azimuth = math.radians(float(blade1_azimuth_deg) + sign * blade * spacing)
+        cosine, sine = math.cos(azimuth), math.sin(azimuth)
+        pair = list(zip(datum, quadrature, strict=True))
+        radial = tuple(_clean(cosine * d + sine * q) for d, q in pair)
+        tangential = tuple(_clean(-sine * d + cosine * q) for d, q in pair)
+        created.append(
+            coordinate_frame(
+                script,
+                name=names[blade] if names is not None else f"Blade{blade + 1}",
+                origin=hub_origin,
+                # x radial, y tangential towards growing azimuth; z is
+                # left to the cross product, which is then the rotor axis
+                # exactly because the basis pair is cyclic.
+                x_axis=radial,
+                y_axis=tangential,
+                label=labels[blade] if labels is not None else None,
+            )
+        )
+    return created
+
+
+#: The mesh rotation, in the two names it goes by, newest first.
+#:
+#: THE ORDER CARRIES NOTHING TODAY, and saying so is the correction the
+#: adversarial pass forced: this comment claimed the order was the search
+#: order, and reversing the tuple broke no test, because EXACTLY ONE of
+#: the two resolves on every registered build. That is the load-bearing
+#: property, and it is what
+#: `test_exactly_one_rotation_command_resolves_on_every_registered_build`
+#: measures. The order would start mattering the day a build documented
+#: both, which is why the loop takes the first that resolves rather than
+#: asserting there is only one.
+#:
+#: They are NOT one command renamed, which the database records as its
+#: own reading: SURFACE_ROTATE is a keyword block of eight arguments and
+#: ROTATE_SURFACE is a payload-lines command of six, with no equivalent
+#: of SPLIT_VERTICES or ADAPTIVE_MESH.
+ROTATION_COMMANDS: tuple[str, ...] = ("ROTATE_SURFACE", "SURFACE_ROTATE")
+
+#: Trailing index of a boundary label, which is what a component name is
+#: the label without. ``Blade_1``, ``Blade 2`` and ``Blade3`` all carry
+#: the component ``blade``.
+_COMPONENT_INDEX = re.compile(r"[\s_.-]*\d+$")
+
+
+def _component_of(label: str) -> str:
+    """Return the component a boundary label belongs to, case-folded."""
+    return _COMPONENT_INDEX.sub("", label).casefold()
+
+
+def _rotation_command(script: Script) -> str:
+    """Return the mesh-rotation command this script's build documents."""
+    for name in ROTATION_COMMANDS:
+        try:
+            script._view[name]
+        except CommandNotInVersionError:
+            continue
+        return name
+    raise CommandArgumentError(
+        f"rotate_surfaces: FlightStream {script.version.canonical} documents neither "
+        f"{ROTATION_COMMANDS[0]} nor {ROTATION_COMMANDS[1]}, so this build has no "
+        "recorded way to rotate an existing mesh. The capability is one command on "
+        "every build up to 26.121 and the other from 26.122; a build carrying neither "
+        "has no row for either command in this database rather than no capability"
+    )
+
+
+def rotate_surfaces(
+    script: Script,
+    *,
+    frame: int | str,
+    axis: str,
+    angle_deg: float,
+    component: str | None = None,
+    boundaries: Sequence[int | str] | Literal["all"] = "all",
+    detach: Toggle = False,
+    split_vertices: Toggle = False,
+    adaptive_mesh: Toggle = False,
+) -> None:
+    """Rotate existing mesh surfaces about an axis of a named frame.
+
+    THIS ACTS ON THE MESH AND NOT ON THE GEOMETRY, which is what decides
+    which command family is meant: the surface transforms, never the
+    CAD-body or curve ones. The rotation is about an axis of the named
+    coordinate system, so the system's origin is the point it turns
+    about.
+
+    The command is chosen from the script's own build, because the
+    capability changed name at 26.122 and the two grammars are not
+    interchangeable (:data:`ROTATION_COMMANDS`).
+
+    Parameters
+    ----------
+    script : Script
+        Script under construction.
+    frame : int or str
+        Coordinate system the rotation is about, by 1-based index or by
+        creation label. Its origin is the point rotated about and its
+        ``axis`` is the axis rotated around. An unknown label is refused
+        by the emitter, naming the labels the script knows.
+    axis : str
+        Axis of ``frame``: ``X``, ``Y`` or ``Z``. The older command also
+        documents the numeric spellings; this helper passes the token
+        through, so a numeric one is refused by the emitter on the build
+        whose grammar does not carry it.
+    angle_deg : float
+        Rotation angle in deg, about ``axis``, in the sense the solver
+        applies for that command.
+    component : str, optional
+        Rotate every declared boundary whose label belongs to this
+        component, which is the label with its trailing index removed
+        and matched without regard to case. ``"Blade"`` therefore selects
+        all N blades, which is the way a rotor incidence change is
+        expressed. Mutually exclusive with ``boundaries``.
+    boundaries : sequence of int or str, or ``"all"``
+        Explicit selection, by 1-based index or declared boundary label;
+        ``"all"`` is the -1 form and selects every surface.
+    detach : bool or 'ENABLE' or 'DISABLE'
+        Emitted as DETACH_NORMAL_TO_AXIS on the older command and as
+        DETACH_VERTICES on the newer one. WHETHER THOSE ARE ONE OPTION
+        RENAMED IS UNMEASURED: it is read from their position on the
+        manual page and no probe has asked, which the command database
+        records for the pair. Left off by default for that reason.
+    split_vertices, adaptive_mesh : bool or 'ENABLE' or 'DISABLE'
+        Options of the older command only. Asking for either on a build
+        that documents the newer one is refused rather than dropped: a
+        silently discarded mesh option produces a different mesh, on a
+        build the helper chose rather than the caller.
+
+    Raises
+    ------
+    CommandArgumentError
+        If both ``component`` and an explicit ``boundaries`` selection
+        are given, if a dropped option is asked for on the build that
+        does not carry it, or if the build documents neither command.
+    ScriptReferenceError
+        If ``component`` matches no declared boundary label (the message
+        names the component and every label declared), or if a cited
+        frame or boundary label is unknown.
+
+    Notes
+    -----
+    Component matching reads the boundary inventory declared with
+    :meth:`~pyflightstream.script.Script.declare_existing`, because the
+    boundary names live in the geometry file and the builder cannot know
+    them otherwise. A script that declared no inventory has no component
+    to expand and is told so.
+
+    Examples
+    --------
+    >>> from pyflightstream.script import Script, helpers
+    >>> script = Script(version="26.123")
+    >>> script.declare_existing(frames=1, boundaries={"Blade_1": 1, "Blade_2": 2})
+    >>> helpers.rotate_surfaces(script, frame=1, axis="Z", angle_deg=2.5, component="Blade")
+    >>> print(script.render().strip())
+    ROTATE_SURFACE 1 Z 2.5 2 DISABLE
+    1,2
+    """
+    command = _rotation_command(script)
+    detach_on = _read("rotate_surfaces", "detach", detach)
+    split_on = _read("rotate_surfaces", "split_vertices", split_vertices)
+    adaptive_on = _read("rotate_surfaces", "adaptive_mesh", adaptive_mesh)
+
+    _reject_bare_label("rotate_surfaces", "boundaries", boundaries, allows_all=True)
+    if component is not None and boundaries != "all":
+        raise CommandArgumentError(
+            f"rotate_surfaces: component={component!r} and an explicit boundaries "
+            "selection were both given, and they are two answers to one question. "
+            "Name the component, or list the boundaries, not both"
+        )
+
+    if command == "ROTATE_SURFACE":
+        for argument, requested in (
+            ("split_vertices", split_on),
+            ("adaptive_mesh", adaptive_on),
+        ):
+            if requested:
+                raise CommandArgumentError(
+                    f"rotate_surfaces: {argument} was asked for, and "
+                    f"{command}, which is what FlightStream "
+                    f"{script.version.canonical} documents, has no equivalent of it. "
+                    "The option belongs to SURFACE_ROTATE, which that build stops "
+                    "printing. Emitting the rotation without it would give you a "
+                    "different mesh under an argument the call still carried, so it is "
+                    "refused instead. Run this rotation on a build up to 26.121, or "
+                    "drop the option deliberately"
+                )
+
+    if component is not None:
+        declared = script.entities.labels("boundaries")
+        wanted = component.casefold()
+        selection: list[int | str] = [
+            index for label, index in sorted(declared.items()) if _component_of(label) == wanted
+        ]
+        if not selection:
+            known = ", ".join(f"{label!r}" for label in sorted(declared)) or "none"
+            raise ScriptReferenceError(
+                f"rotate_surfaces: component {component!r} matches no declared boundary "
+                f"label; declared labels are {known}. A component is a label with its "
+                "trailing index removed, so 'Blade' selects Blade_1 and Blade2 alike. "
+                "Declare the geometry's boundary names with declare_existing("
+                "boundaries={...}) before rotating by component"
+            )
+    elif boundaries == "all":
+        selection = []
+    else:
+        selection = list(boundaries)
+        _reject_empty_selection("rotate_surfaces", "boundaries", list(selection))
+
+    count = -1 if (component is None and boundaries == "all") else len(selection)
+    arguments: dict[str, object] = {
+        "frame": frame,
+        "axis": axis,
+        "angle": angle_deg,
+        "surfaces": count,
+    }
+    if count != -1:
+        arguments["surface_indices"] = selection
+    if command == "ROTATE_SURFACE":
+        arguments["detach_vertices"] = _toggle(detach_on)
+    else:
+        arguments["split_vertices"] = _toggle(split_on)
+        arguments["adaptive_mesh"] = _toggle(adaptive_on)
+        arguments["detach_normal_to_axis"] = _toggle(detach_on)
+    script.emit(command, **arguments)
+
+
+#: The action registration, and the two kinds it takes.
+UNSTEADY_ACTION_COMMAND = "SET_NEW_UNSTEADY_SOLVER_ACTION"
+UNSTEADY_ACTION_KINDS = ("SCRIPT", "COMMAND_LINE")
+
+
+def unsteady_action(
+    script: Script,
+    *,
+    name: str,
+    kind: str,
+    filename: str,
+    action_script: str | None = None,
+) -> UnsteadyActionUse:
+    """Register an action the solver runs after each unsteady time step.
+
+    This is what lets a section export come out mid-run instead of by
+    stopping the solver and restarting it: the solver executes the
+    registered action after each time step, in the order the actions
+    were created.
+
+    THE EVIDENCE IS STATED ONCE, HERE. The command is documented on the
+    two newest builds and probed on none, so the returned record carries
+    the status the database holds for this script's build and whether it
+    was inherited. A build that does not document the command at all is
+    refused by the emitter, naming the command and the build, rather
+    than the workflow degrading into a run whose sections never appear.
+
+    Parameters
+    ----------
+    script : Script
+        Script under construction.
+    name : str
+        Name of the action, unique within this script. The solver
+        accepts several actions and runs them in creation order, so the
+        name is how a reader tells two apart.
+    kind : str
+        ``SCRIPT`` to run a FlightStream script, ``COMMAND_LINE`` to run
+        a shell command.
+    filename : str
+        The path the registration line names, passed through unchanged.
+        NOTHING IN EITHER MANUAL EDITION SAYS WHICH DIRECTORY THE SOLVER
+        RUNS AN ACTION FROM (RPT-030), so this helper neither resolves
+        nor rewrites it, and a caller choosing between a relative and an
+        absolute path is choosing under that silence.
+    action_script : str, optional
+        Text of the child FlightStream script, parked on the script for
+        the run layer to write at ``filename``. Only for ``SCRIPT``
+        actions: a shell action names a command, and there is no child
+        script for this library to write.
+
+    Returns
+    -------
+    UnsteadyActionUse
+        The record of the registration, also appended to
+        :attr:`~pyflightstream.script.Script.unsteady_actions`.
+
+    Raises
+    ------
+    CommandArgumentError
+        If ``kind`` is not one of the two, if the name repeats one
+        already registered on this script, if two actions would write
+        one filename (the second would silently replace the first), or
+        if a shell action is given a child script.
+    CommandNotInVersionError
+        If the build does not document the command. Raised by the
+        emitter, so the message carries the recorded evidence of every
+        build that does.
+
+    Notes
+    -----
+    WHAT THE ACTION RECEIVES IS UNSTATED, on all four of the things a
+    step-aware action would need: arguments, working directory, step
+    index or physical time, and environment (RPT-030). An action that
+    has to behave differently on different steps therefore needs state
+    of its own, and the correctness of that route rests on the
+    invocation count being exactly the step count, which is unstated
+    too. Nothing here works around that; the silence is named so a
+    caller does not design against a guarantee that was never made.
+
+    Examples
+    --------
+    >>> from pyflightstream.script import Script, helpers
+    >>> script = Script(version="26.123")
+    >>> record = helpers.unsteady_action(
+    ...     script,
+    ...     name="sections",
+    ...     kind="SCRIPT",
+    ...     filename="actions/sections.txt",
+    ...     action_script="EXPORT_SOLVER_ANALYSIS_SPREADSHEET",
+    ... )
+    >>> record.evidence
+    'documented'
+    >>> sorted(script.pending_action_scripts)
+    ['actions/sections.txt']
+    """
+    if kind not in UNSTEADY_ACTION_KINDS:
+        raise CommandArgumentError(
+            f"unsteady_action: kind is {kind!r}, and an action is one of "
+            f"{' or '.join(UNSTEADY_ACTION_KINDS)}: a FlightStream script the solver "
+            "runs, or a shell command it runs. The two are not interchangeable, so "
+            "there is no default"
+        )
+    if kind == "COMMAND_LINE" and action_script is not None:
+        raise CommandArgumentError(
+            "unsteady_action: a COMMAND_LINE action names a shell command and has no "
+            "child FlightStream script, so action_script has nowhere to be written. "
+            "Register the action with kind='SCRIPT' to have this library write the "
+            "child script, or write the command's own file yourself"
+        )
+    if name in script._unsteady_actions:
+        raise CommandArgumentError(
+            f"unsteady_action: this script already registers an action named {name!r}. "
+            "The solver runs registered actions in creation order and the order cannot "
+            "be changed afterwards, so the name is the only handle a reader has on "
+            "which action is which; give the second one a name of its own"
+        )
+    already = script._pending_action_scripts.get(filename)
+    if already is not None and action_script is not None:
+        raise CommandArgumentError(
+            f"unsteady_action: this script already writes an action script to "
+            f"{filename!r}. One path is one file, so the second would silently replace "
+            "the first and both registration lines would point at whichever text won. "
+            "Give this action a filename of its own"
+        )
+
+    entry = script.registry.commands.get(UNSTEADY_ACTION_COMMAND)
+    evidence = entry.evidence_in(script.version) if entry is not None else None
+    record = UnsteadyActionUse(
+        name=name,
+        kind=kind,
+        filename=filename,
+        evidence=str(evidence.record.status) if evidence is not None else None,
+        inherited=evidence.inherited if evidence is not None else False,
+    )
+
+    # Emit BEFORE recording: a build that does not carry the command must
+    # leave the script with no action registered and nothing parked, so
+    # the refusal is not half applied.
+    script.emit(UNSTEADY_ACTION_COMMAND, kind, name, filename)
+    script._unsteady_actions[name] = record
+    if action_script is not None:
+        script._pending_action_scripts[filename] = action_script
+    return record
+
+
+#: Marking wake edges from an imported node list, and the angle
+#: criterion it replaces. Named as a pair because the whole point of the
+#: refusal below is that one is never silently substituted for the other.
+WAKE_EDGE_IMPORT_ROUTE = "IMPORT_WAKE_EDGES_FROM_FILE"
+WAKE_EDGE_ANGLE_ROUTE = "AUTO_DETECT_TRAILING_EDGES"
+
+
+def mark_wake_edges(script: Script, *, edge_type: str, tolerance: float) -> str:
+    """Mark wake edges from an imported node list, not by angle.
+
+    Emits the import route INSTEAD of the angle criterion, which is what
+    the route is for: auto detection marks an edge because the surface
+    creases there, and a strongly twisted blade has a trailing edge that
+    is not a crease. Both passes over one geometry would mark twice, so
+    this replaces rather than runs beside.
+
+    Parameters
+    ----------
+    script : Script
+        Script under construction.
+    edge_type : str
+        Edge type applied to every edge the import matches: the same
+        four values SET_TRAILING_EDGE_TYPE takes, so this sets for a
+        whole imported file what that command sets for one edge.
+    tolerance : float
+        Maximum distance between a mesh edge mid-point and an imported
+        node coordinate for the two to count as the same edge, in the
+        simulation's own length units.
+
+    Returns
+    -------
+    str
+        The command emitted, for a run record that has to name the route
+        it took.
+
+    Raises
+    ------
+    CommandNotInVersionError
+        If the build does not document the import route. The message
+        names the build, the route, and the angle criterion this library
+        will NOT substitute unasked: a campaign that silently fell back
+        would mark a twisted blade by an angle criterion and report
+        nothing about it.
+
+    Notes
+    -----
+    NEITHER ARGUMENT HAS A DEFAULT HERE, deliberately. The vendor's own
+    defaults live one layer up, on
+    :class:`~pyflightstream.workspace.wake_edges.WakeEdgeImport`,
+    together with the refusals a grammatically perfect call still needs:
+    an empty node list and a tolerance of zero are both well formed and
+    both mark nothing. A second copy of either the defaults or the
+    refusals here is the drift this split exists to prevent.
+
+    THIS HELPER TAKES NO PATH, because the command takes none. Both
+    editions that document it print a signature and a sample call with
+    two values and neither says where the node list comes from. Adding a
+    path argument would be this library inventing a grammar, so the
+    silence is left visible; settling it is PFS-2025.16.01's reading.
+
+    The route is DOCUMENTED and probed on no build, while the angle
+    criterion it replaces carries verified rows on three. The trade is
+    deliberate and the reason is physical;
+    :func:`~pyflightstream.workspace.wake_edges.evidence_notice` renders
+    the sentence that says so for a given build.
+
+    Examples
+    --------
+    >>> from pyflightstream.script import Script, helpers
+    >>> script = Script(version="26.123")
+    >>> helpers.mark_wake_edges(script, edge_type="VORTEX_SHEDDING", tolerance=0.0001)
+    'IMPORT_WAKE_EDGES_FROM_FILE'
+    >>> print(script.render().strip())
+    IMPORT_WAKE_EDGES_FROM_FILE VORTEX_SHEDDING 0.0001
+    """
+    try:
+        script._view[WAKE_EDGE_IMPORT_ROUTE]
+    except CommandNotInVersionError as error:
+        raise CommandNotInVersionError(
+            f"mark_wake_edges: FlightStream {script.version.canonical} does not carry "
+            f"{WAKE_EDGE_IMPORT_ROUTE}, the route this campaign marks its trailing "
+            f"edges by, and this library will not fall back to {WAKE_EDGE_ANGLE_ROUTE} "
+            "for you. That route marks an edge where the surface creases, which is "
+            "the criterion an imported node list exists to replace on a blade whose "
+            "trailing edge is not a crease, so substituting it would change the "
+            f"physics in silence. Run this case on a build that documents "
+            f"{WAKE_EDGE_IMPORT_ROUTE}, or ask for the angle criterion deliberately. "
+            f"The database says: {error}"
+        ) from error
+    script.emit(WAKE_EDGE_IMPORT_ROUTE, edge_type, tolerance)
+    return WAKE_EDGE_IMPORT_ROUTE

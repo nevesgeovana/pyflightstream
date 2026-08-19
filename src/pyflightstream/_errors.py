@@ -110,7 +110,12 @@ class InputArtifactError(PyflightstreamError, RuntimeError):
         The id that failed to resolve, when the refusal is a miss.
     available : tuple of str
         Ids that would have resolved for the kind, so callers can
-        offer choices without parsing the message.
+        offer choices without parsing the message. It is populated on a
+        NOT-FOUND refusal and is EMPTY on a refusal about the id's own
+        shape, which is about what the caller wrote rather than about
+        what the library holds. The distinction is stated because an
+        empty tuple would otherwise be read as an empty library;
+        ``tests/test_exceptions_catalog.py`` pins both branches.
     """
 
     def __init__(

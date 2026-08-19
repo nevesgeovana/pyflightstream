@@ -778,6 +778,7 @@ def build_setup(
     version: str,
     passed: Mapping[str, object],
     minimum_cp_default_emitted: bool,
+    registry: CommandRegistry | None = None,
 ) -> SolverSetup:
     """Build the snapshot of one solver_settings call.
 
@@ -805,6 +806,17 @@ def build_setup(
         Whether the helper emitted the library minimum-Cp default (it
         does whenever ``minimum_cp`` was not passed and the command
         exists in the version).
+    registry : CommandRegistry, optional
+        Database every availability, default and evidence field of the
+        snapshot is read from; the packaged one when omitted. The caller
+        passes the database its Script was built with
+        (:attr:`pyflightstream.script.Script.registry`), because the
+        snapshot describes THAT script: this function used to load the
+        packaged database unconditionally, so a script emitted against
+        another one got a provenance record whose per-version facts came
+        from a database no line of it was validated against
+        (PFS-2012.05). Omitting the argument is unchanged behaviour and
+        is why it is optional rather than required.
 
     Returns
     -------
@@ -817,7 +829,7 @@ def build_setup(
         If a command of the three families has no snapshot flag; the
         model must never silently lag the command database.
     """
-    registry = CommandRegistry.load()
+    registry = registry or CommandRegistry.load()
     view = registry.for_version(version)
     flags: dict[str, FlagRecord] = {}
     for name, entry in registry.commands.items():

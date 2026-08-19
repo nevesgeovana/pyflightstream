@@ -20,7 +20,7 @@
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-08-19: 274 errors in 20 of 70 modules.**
+**mypy recount 2026-08-19: 275 errors in 20 of 71 modules.**
 
 Taken at version `0.8.0.dev0`, on the working tree at commit `5f2dcf1` plus
 the wave-1 changes of 2026-08-18, with every `ignore_errors`

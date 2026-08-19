@@ -141,14 +141,33 @@ def test_the_run_identifiers_on_the_page_are_the_ones_the_test_asserts():
     )
 
 
-def test_the_input_library_the_page_shows_is_the_one_the_test_builds():
-    """Every artefact the page names is one `make_library` really writes."""
-    source = SOURCE_TEST.read_text(encoding="utf-8")
-    body = source.split("def make_library(", 1)[1].split("\ndef ", 1)[0]
-    staged = re.findall(r'inputs / "(\w+)" / "([\w.]+)"', body)
+def test_the_input_library_the_page_shows_is_the_one_the_test_builds(tmp_path):
+    """Every artefact the page names is one `make_library` really writes.
+
+    IT RUNS THE BUILDER rather than reading its source, and the change of
+    method is the finding. The first version matched the literal
+    ``inputs / "references" / "R001.toml"`` spelling out of the source
+    text. On 2026-08-19 the ids gained a kind letter and `make_library`
+    became a loop writing ``inputs / subdir / f"{code}.toml"``, so the
+    pattern matched NOTHING while every artefact was still staged; the
+    guard's own non-empty assertion is what refused, which is why it is
+    written before the comparison rather than after it.
+
+    Running it measures what lands on disk, so the guard survives any
+    rewriting of how the paths are spelled, which is the only thing that
+    ever broke it.
+    """
+    from test_matrix_run import make_library
+
+    workspace = make_library(tmp_path)
+    staged = sorted(
+        (path.parent.name, path.name)
+        for path in workspace.inputs_dir.rglob("*")
+        if path.is_file() and path.parent != workspace.inputs_dir
+    )
     assert len(staged) >= 5, (
-        f"the walk over make_library found only {staged}; a guard that collects nothing "
-        "passes for the wrong reason, so the count is asserted before the comparison"
+        f"make_library staged only {staged}; a guard that collects nothing passes for "
+        "the wrong reason, so the count is asserted before the comparison"
     )
     text = PAGE.read_text(encoding="utf-8")
     for folder, name in staged:

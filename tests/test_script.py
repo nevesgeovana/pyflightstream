@@ -3870,3 +3870,85 @@ def test_the_displacement_contours_emit_on_the_edition_that_prints_them():
     for older in ("26.000", "26.100", "26.101", "26.120", "26.121", "26.122"):
         with pytest.raises(CommandArgumentError, match="expects one of"):
             Script(version=older).emit("SET_SCENE_CONTOUR", "FSI_dx")
+
+
+# --- PFS-2012.05: the snapshot describes the script's own database -----------
+
+
+def test_the_snapshot_reads_the_database_the_script_was_built_with():
+    """The provenance record must describe THIS script, not the default.
+
+    Reproduction, the shortest call that exhibited the defect: a Script
+    built with a database that carries no evidence at all for
+    SET_VORTICITY_DRAG_BOUNDARIES still produced a snapshot claiming the
+    documented solver default for it, because ``build_setup`` loaded the
+    packaged database itself and never saw the one the emitter honoured.
+    The snapshot rides the run manifest a publication cites, so the
+    manifest asserted a per-version fact read out of a database the run
+    never used.
+    """
+    from tests._no_evidence import registry_without
+
+    from pyflightstream.script import helpers
+    from pyflightstream.script.solver_setup import VORTICITY_COMMAND
+
+    silent = registry_without(VORTICITY_COMMAND)
+    script = Script(version="26.120", registry=silent)
+    setup = helpers.solver_settings(script, aoa=3.0)
+
+    record = setup.flags[VORTICITY_COMMAND]
+    assert record.provenance == "unknown", (
+        "the snapshot claims a per-version fact about "
+        f"{VORTICITY_COMMAND} that the database this script was built with does not "
+        "carry, so build_setup read the packaged database instead of the script's"
+    )
+    assert record.value is None and record.evidence is None and not record.emitted
+
+
+def test_the_minimum_cp_default_asks_the_script_and_not_the_packaged_database():
+    """A database omitting SOLVER_MINIMUM_CP records the flag absent.
+
+    The library minimum-Cp default is emitted only where the command
+    exists, and the availability question was asked of
+    ``CommandRegistry.load()`` while a Script with its own database was
+    in hand. The two answers can differ, and when they do the helper
+    emits a line the script's own build does not carry.
+    """
+    from tests._no_evidence import registry_without
+
+    from pyflightstream.commands import CommandNotInVersionError
+    from pyflightstream.script import helpers
+
+    silent = registry_without("SOLVER_MINIMUM_CP")
+    script = Script(version="26.120", registry=silent)
+    try:
+        setup = helpers.solver_settings(script, aoa=3.0)
+    except CommandNotInVersionError as error:  # pragma: no cover - the defect
+        # Not an incidental error: this IS the defect, and stating it as
+        # a failure rather than letting the exception escape keeps the
+        # measurement on the behaviour instead of on a traceback.
+        pytest.fail(
+            "solver_settings asked the packaged database whether SOLVER_MINIMUM_CP "
+            "exists and emitted the library default, on a script whose own database "
+            f"does not carry the command: {error}"
+        )
+
+    assert "SOLVER_MINIMUM_CP" not in script.render()
+    assert setup.flags["SOLVER_MINIMUM_CP"].provenance == "unknown", (
+        "a database omitting SOLVER_MINIMUM_CP must record the flag as absent rather "
+        "than as the library default"
+    )
+
+
+def test_a_script_exposes_the_database_it_validates_against():
+    """The registry is reachable, so no caller has to reach for load().
+
+    Public because the snapshot builder and any later provenance reader
+    need the database the script actually used; a private attribute
+    would be reached through anyway.
+    """
+    from tests._no_evidence import registry_without
+
+    silent = registry_without("SOLVER_MINIMUM_CP")
+    assert Script(version="26.120", registry=silent).registry is silent
+    assert Script(version="26.120").registry is CommandRegistry.load()

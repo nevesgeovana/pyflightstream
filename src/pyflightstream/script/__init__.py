@@ -91,6 +91,7 @@ __all__ = [
     "ScriptLineBreakError",
     "ScriptOrderError",
     "ScriptReferenceError",
+    "UnsteadyActionUse",
 ]
 
 _ORDERED_PHASES = (
@@ -325,6 +326,53 @@ class BrokenCommandUse(BaseModel):
     first_line: str = ""
 
 
+class UnsteadyActionUse(BaseModel):
+    """One action the solver runs after each unsteady time step.
+
+    Provenance, like :class:`BrokenCommandUse`: the script collects one
+    per registered action so the run record can say what ran beside the
+    solver, under which name, and on what evidence.
+
+    THE EVIDENCE FIELD IS THE POINT. SET_NEW_UNSTEADY_SOLVER_ACTION is
+    documented on the two newest builds and PROBED ON NONE, so a
+    workflow resting on it rests on a page rather than on a run. The
+    status is read from the command database at the moment the action is
+    registered and carried here, so it is stated once, at build time,
+    instead of being assumed by every reader downstream.
+
+    Attributes
+    ----------
+    name : str
+        Action name as registered, unique within one script.
+    kind : str
+        ``SCRIPT`` for a FlightStream script, ``COMMAND_LINE`` for a
+        shell command.
+    filename : str
+        The path the registration line names, exactly as passed. WHAT IT
+        IS RELATIVE TO IS UNSTATED BY BOTH EDITIONS: no manual page says
+        which working directory the solver runs an action from
+        (RPT-030), so this library records the caller's own string and
+        claims nothing about how the solver resolves it.
+    evidence : str or None
+        Recorded status of the command on the script's build
+        (``documented``, ``verified``, ``broken``), or None where the
+        database holds no record for it.
+    inherited : bool
+        Whether that status was recorded for this build or inherited
+        from its base release. An inherited status is an assumption, and
+        a record that cannot show the difference presents one as a
+        measurement.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    name: str
+    kind: str
+    filename: str
+    evidence: str | None = None
+    inherited: bool = False
+
+
 class ScriptLineBreakError(CommandArgumentError):
     """A value would have become more than one line of the script.
 
@@ -548,10 +596,20 @@ class Script:
         :func:`pyflightstream.script.helpers.solver_settings` and
         serialized into the run manifest; None until a settings call
         builds it.
+    registry : CommandRegistry
+        The command database this script validates against, the one
+        passed at construction or the packaged one. Read-only, and
+        public for one reason: everything that records a per-version
+        fact ABOUT this script has to read the same database the script
+        used. The provenance snapshot did not, and asked the packaged
+        database instead (PFS-2012.05), so a manifest could carry an
+        availability, a default and an evidence sentence from a database
+        no line of the script was checked against.
     """
 
     def __init__(self, version: str | FsVersion, registry: CommandRegistry | None = None):
-        view = (registry or CommandRegistry.load()).for_version(version)
+        self._registry = registry or CommandRegistry.load()
+        view = self._registry.for_version(version)
         self._view = view
         self.version: FsVersion = view.version
         self.raw_flag = False
@@ -591,6 +649,63 @@ class Script:
         # The register is on the SCRIPT and not on the helper because the
         # collision is between two calls, and only the script sees both.
         self._exported_paths: dict[str, str] = {}
+        # UNSTEADY SOLVER ACTIONS, in creation order, and the child
+        # scripts they name (PFS-2025.07). The solver runs the actions in
+        # the order they were created and the order cannot be changed
+        # afterwards, so a dict keyed by name preserves the only control
+        # the caller has over it. The child text is parked here rather
+        # than written: the script layer is text-only, and the file lands
+        # through the run layer's own writer, so nothing below the run
+        # layer touches a path.
+        self._unsteady_actions: dict[str, UnsteadyActionUse] = {}
+        self._pending_action_scripts: dict[str, str] = {}
+
+    @property
+    def unsteady_actions(self) -> tuple[UnsteadyActionUse, ...]:
+        """Actions registered on this script, in creation order.
+
+        Returns
+        -------
+        tuple of UnsteadyActionUse
+            One record per registered action, carrying the evidence the
+            command rests on for this build.
+        """
+        return tuple(self._unsteady_actions.values())
+
+    @property
+    def pending_action_scripts(self) -> dict[str, str]:
+        """Child action scripts waiting to be written, by their filename.
+
+        Returns
+        -------
+        dict of str to str
+            A copy, keyed by the path the registration line names and
+            valued by the text of the child script. The run layer writes
+            these beside the script it renders; the script layer neither
+            opens nor resolves a path.
+        """
+        return dict(self._pending_action_scripts)
+
+    @property
+    def registry(self) -> CommandRegistry:
+        """Command database this script validates and is recorded against.
+
+        Returns
+        -------
+        CommandRegistry
+            The registry passed at construction, or the packaged one.
+
+        Notes
+        -----
+        Exposed so that a record ABOUT this script reads the database
+        the script itself used. Reaching for
+        :meth:`~pyflightstream.commands.CommandRegistry.load` while a
+        Script is in hand is the defect this property exists to remove:
+        the two answers agree for the packaged database and differ for
+        every other one, and the case where they differ is exactly the
+        case a provenance record is for.
+        """
+        return self._registry
 
     @property
     def num_local_frames(self) -> int:

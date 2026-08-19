@@ -1,9 +1,11 @@
 """Tier 1: curated helper layer, cross references, and helper goldens."""
 
+import math
 from pathlib import Path
 
 import pytest
 
+from pyflightstream.commands import CommandNotInVersionError
 from pyflightstream.script import (
     BrokenCommandError,
     CommandArgumentError,
@@ -750,3 +752,452 @@ def test_the_solver_initializer_says_it_cannot_serve_the_oldest_build():
     script.declare_existing(boundaries=2)
     helpers.initialize_solver(script)
     assert "INITIALIZE_SOLVER" in script.render()
+
+
+# --- PFS-2025.04: one motion-following frame per blade -----------------------
+
+
+def _frame_blocks(text):
+    """Return one dict per EDIT_COORDINATE_SYSTEM block in a script."""
+    blocks = []
+    current = None
+    for line in text.splitlines():
+        if line.strip() == "EDIT_COORDINATE_SYSTEM":
+            current = {}
+            blocks.append(current)
+            continue
+        if current is None or not line.strip():
+            continue
+        key, _, value = line.strip().partition(" ")
+        if key in {"CREATE_NEW_COORDINATE_SYSTEM", "SET_MOTION_BOUNDARIES"}:
+            current = None
+            continue
+        current[key] = value
+    return blocks
+
+
+def _axis(block, letter):
+    return [float(block[f"VECTOR_{letter}_{c}"]) for c in "XYZ"]
+
+
+def test_blade_frames_places_n_frames_at_360_over_n_and_binds_them():
+    """N blades, N frames, 360/N apart, anchored on the first blade.
+
+    The placement is arithmetic and not geometry: nothing reads the mesh
+    and nothing computes a centroid. The anchor is the angle the user
+    measured for Blade1, and the other N-1 follow from the blade count.
+    """
+    script = Script(version="26.120")
+    indices = helpers.blade_frames(
+        script,
+        hub_origin=(1.2, 0.0, 0.3),
+        rotor_axis="Z",
+        n_blades=3,
+        blade1_azimuth_deg=90.0,
+    )
+    assert indices == [2, 3, 4], "the created frames must be cited by creation order"
+
+    blocks = _frame_blocks(script.render())
+    assert len(blocks) == 3
+    assert [block["NAME"] for block in blocks] == ["Blade1", "Blade2", "Blade3"]
+
+    # x is radial, at 90, 210 and 330 degrees of azimuth about +Z, with
+    # azimuth zero along +X (the cyclic datum for a Z rotor axis).
+    expected = [(90.0, 210.0, 330.0)[i] for i in range(3)]
+    for block, azimuth_deg in zip(blocks, expected, strict=True):
+        radians = math.radians(azimuth_deg)
+        assert _axis(block, "X") == pytest.approx(
+            [math.cos(radians), math.sin(radians), 0.0], abs=1e-9
+        )
+        # z closes the right-handed triad and IS the rotor axis, which is
+        # what makes the frame follow the motion about it.
+        assert _axis(block, "Z") == pytest.approx([0.0, 0.0, 1.0], abs=1e-9)
+        assert [float(block[f"ORIGIN_{c}"]) for c in "XYZ"] == [1.2, 0.0, 0.3]
+
+    # The frames are what the motion is told to carry.
+    helpers.rotary_motion(script, frame=indices[0], axis="Z", rpm=2400.0, moving_frames=indices)
+    assert "SET_MOTION_MOVING_FRAMES 1 3\n2,3,4" in script.render()
+
+
+def test_a_first_blade_off_the_four_anchor_angles_is_refused_with_its_angle():
+    """The measured angle is named, and nothing is emitted.
+
+    A blade at 37 degrees is a configuration this placement cannot serve,
+    and the refusal has to name the number that was measured: a message
+    naming only the four accepted angles sends the reader looking for a
+    value it never printed.
+    """
+    script = Script(version="26.120")
+    with pytest.raises(CommandArgumentError) as raised:
+        helpers.blade_frames(
+            script,
+            hub_origin=(0.0, 0.0, 0.0),
+            rotor_axis="Z",
+            n_blades=3,
+            blade1_azimuth_deg=37.0,
+        )
+    message = str(raised.value)
+    assert "37.0" in message
+    for anchor in ("0", "90", "180", "270"):
+        assert anchor in message
+    assert script.render() == "\n", "the refusal must leave the script untouched"
+
+
+def test_the_azimuth_datum_is_one_named_table_and_changing_it_is_one_edit(monkeypatch):
+    """The convention is a NAMED object, not a rule spread through code.
+
+    The datum is the author's call and the lane built under a proposal
+    (RPT-036). What the code owes that decision is a single place to
+    apply it, so this test changes the table and watches every emitted
+    frame follow.
+    """
+    assert helpers.AZIMUTH_BASIS["X"] == ((0.0, 1.0, 0.0), (0.0, 0.0, 1.0))
+    assert helpers.AZIMUTH_BASIS["Y"] == ((0.0, 0.0, 1.0), (1.0, 0.0, 0.0))
+    assert helpers.AZIMUTH_BASIS["Z"] == ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0))
+
+    script = Script(version="26.120")
+    helpers.blade_frames(
+        script, hub_origin=(0.0, 0.0, 0.0), rotor_axis="Z", n_blades=1, blade1_azimuth_deg=0.0
+    )
+    assert _axis(_frame_blocks(script.render())[0], "X") == pytest.approx([1.0, 0.0, 0.0])
+
+    # Azimuth zero moved to +Y, and the emitted radial direction with it.
+    monkeypatch.setitem(helpers.AZIMUTH_BASIS, "Z", ((0.0, 1.0, 0.0), (-1.0, 0.0, 0.0)))
+    moved = Script(version="26.120")
+    helpers.blade_frames(
+        moved, hub_origin=(0.0, 0.0, 0.0), rotor_axis="Z", n_blades=1, blade1_azimuth_deg=0.0
+    )
+    assert _axis(_frame_blocks(moved.render())[0], "X") == pytest.approx([0.0, 1.0, 0.0])
+
+
+def test_the_rotation_sense_decides_which_way_the_blades_are_numbered():
+    """Blade2 follows Blade1 in the sense the propeller record states.
+
+    Counterclockwise about the rotor axis is the mathematically positive
+    sense, so the azimuths increase; clockwise numbers them the other
+    way. Which of the two a propeller descriptor's own word means is the
+    author's call (RPT-036); what is tested here is that the two words
+    produce mirror-image placements rather than the same one.
+    """
+    forward = Script(version="26.120")
+    helpers.blade_frames(
+        forward,
+        hub_origin=(0.0, 0.0, 0.0),
+        rotor_axis="Z",
+        n_blades=4,
+        blade1_azimuth_deg=0.0,
+        rotation="counterclockwise",
+    )
+    reverse = Script(version="26.120")
+    helpers.blade_frames(
+        reverse,
+        hub_origin=(0.0, 0.0, 0.0),
+        rotor_axis="Z",
+        n_blades=4,
+        blade1_azimuth_deg=0.0,
+        rotation="clockwise",
+    )
+    second_forward = _axis(_frame_blocks(forward.render())[1], "X")
+    second_reverse = _axis(_frame_blocks(reverse.render())[1], "X")
+    assert second_forward == pytest.approx([0.0, 1.0, 0.0], abs=1e-9)
+    assert second_reverse == pytest.approx([0.0, -1.0, 0.0], abs=1e-9)
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "fragment"),
+    [
+        ({"n_blades": 0}, "0 blades"),
+        ({"rotor_axis": "W"}, "'W'"),
+        ({"rotation": "widdershins"}, "'widdershins'"),
+        ({"names": ["only_one"]}, "1 name"),
+    ],
+)
+def test_blade_frames_refuses_what_it_cannot_place(kwargs, fragment):
+    """Every refusal names the value it got, and emits nothing."""
+    script = Script(version="26.120")
+    call = {
+        "hub_origin": (0.0, 0.0, 0.0),
+        "rotor_axis": "Z",
+        "n_blades": 3,
+        "blade1_azimuth_deg": 0.0,
+    }
+    call.update(kwargs)
+    with pytest.raises(CommandArgumentError) as raised:
+        helpers.blade_frames(script, **call)
+    assert fragment in str(raised.value)
+    assert script.render() == "\n"
+
+
+# --- PFS-2025.14: rotating the existing mesh about a named frame -------------
+
+
+def _rotor_script(canonical):
+    script = Script(version=canonical)
+    script.declare_existing(frames=1, boundaries={"Blade_1": 1, "Blade_2": 2, "Fuselage": 3})
+    return script
+
+
+def test_rotate_surfaces_emits_the_command_the_build_documents():
+    """One capability, two command names, and never both.
+
+    SURFACE_ROTATE is a keyword block of eight arguments and is removed
+    at 26.122; ROTATE_SURFACE is the payload-lines command of six that
+    replaces it. Exactly one of the two resolves on every registered
+    build, so the helper picks rather than the caller.
+    """
+    older = _rotor_script("26.120")
+    helpers.rotate_surfaces(older, frame=1, axis="X", angle_deg=5.0)
+    text = older.render()
+    assert "SURFACE_ROTATE" in text and "ROTATE_SURFACE" not in text
+    assert "ANGLE 5.0" in text and "SURFACES -1" in text
+
+    newer = _rotor_script("26.123")
+    helpers.rotate_surfaces(newer, frame=1, axis="X", angle_deg=5.0)
+    assert newer.render().strip() == "ROTATE_SURFACE 1 X 5.0 -1 DISABLE"
+
+
+def test_rotate_surfaces_turns_one_component_into_every_blade_that_carries_it():
+    """Writing Blade means all N of them, which is the whole ask.
+
+    The blades are declared boundaries whose labels differ only in a
+    trailing index, so the component is the label with that index taken
+    off, matched without regard to case.
+    """
+    script = _rotor_script("26.123")
+    helpers.rotate_surfaces(script, frame=1, axis="Z", angle_deg=-3.5, component="blade")
+    assert script.render().strip() == "ROTATE_SURFACE 1 Z -3.5 2 DISABLE\n1,2", (
+        "the two blades must be selected and the fuselage left alone"
+    )
+
+
+def test_rotate_surfaces_names_the_component_it_could_not_find():
+    """An unknown component is refused naming it and the labels declared."""
+    script = _rotor_script("26.123")
+    with pytest.raises(ScriptReferenceError) as raised:
+        helpers.rotate_surfaces(script, frame=1, axis="Z", angle_deg=1.0, component="Vane")
+    message = str(raised.value)
+    assert "'Vane'" in message
+    assert "Blade_1" in message and "Fuselage" in message
+    assert script.render() == "\n", "a refused selection must emit nothing"
+
+
+def test_the_two_options_the_newer_command_dropped_are_refused_and_not_dropped():
+    """A port that loses an option loses it loudly.
+
+    SPLIT_VERTICES and ADAPTIVE_MESH have no equivalent on
+    ROTATE_SURFACE. Emitting the newer command with those arguments
+    quietly discarded would give the caller a mesh operation that did
+    something else, on a build chosen for them by the helper.
+    """
+    script = _rotor_script("26.123")
+    with pytest.raises(CommandArgumentError) as raised:
+        helpers.rotate_surfaces(script, frame=1, axis="Z", angle_deg=1.0, split_vertices=True)
+    message = str(raised.value)
+    assert "split_vertices" in message
+    assert "ROTATE_SURFACE" in message and "26.123" in message
+    assert script.render() == "\n"
+
+    # The same call is fine on the build whose command takes the option.
+    older = _rotor_script("26.120")
+    helpers.rotate_surfaces(older, frame=1, axis="Z", angle_deg=1.0, split_vertices=True)
+    assert "SPLIT_VERTICES ENABLE" in older.render()
+
+
+def test_rotate_surfaces_refuses_a_component_and_a_boundary_list_at_once():
+    """Two selections is a question with no answer, so it is refused."""
+    script = _rotor_script("26.123")
+    with pytest.raises(CommandArgumentError, match="component"):
+        helpers.rotate_surfaces(
+            script, frame=1, axis="Z", angle_deg=1.0, component="Blade", boundaries=[1]
+        )
+    assert script.render() == "\n"
+
+
+# --- PFS-2025.07: an action that exports without pausing the solver ----------
+
+
+def test_the_unsteady_action_registers_and_states_the_evidence_it_rests_on():
+    """The action is registered, and its evidence is stated once.
+
+    The command is DOCUMENTED and unprobed, on 26.122 and 26.123 alone.
+    A workflow that leans on it has to say so where a reader meets the
+    run rather than leave the status to be looked up, so the helper
+    records the status the build carries at the moment it emits.
+    """
+    script = Script(version="26.122")
+    helpers.unsteady_action(
+        script,
+        name="sections",
+        kind="SCRIPT",
+        filename="actions/sections.txt",
+        action_script="EXPORT_SOLVER_ANALYSIS_SPREADSHEET\nout/step.txt\n",
+    )
+    assert script.render().strip() == (
+        "SET_NEW_UNSTEADY_SOLVER_ACTION SCRIPT sections\nactions/sections.txt"
+    )
+
+    (recorded,) = script.unsteady_actions
+    assert recorded.name == "sections"
+    assert recorded.kind == "SCRIPT"
+    assert recorded.filename == "actions/sections.txt"
+    assert recorded.evidence == "documented", (
+        "the run record must carry the status the database holds for this build, "
+        "not the assumption that a documented command works"
+    )
+    assert recorded.inherited is False
+
+    # The child script travels with the parent, keyed by the path the
+    # registration line names, so the run layer writes it where the
+    # solver will look.
+    assert script.pending_action_scripts == {
+        "actions/sections.txt": "EXPORT_SOLVER_ANALYSIS_SPREADSHEET\nout/step.txt\n"
+    }
+
+
+def test_the_unsteady_action_refuses_on_a_build_that_does_not_carry_it():
+    """No silent degradation onto a build without the command.
+
+    The command is first documented by the 26.122 edition. On anything
+    older the workflow must stop, naming the command and the build,
+    rather than run a case whose sections never come out.
+    """
+    script = Script(version="26.120")
+    with pytest.raises(CommandNotInVersionError) as raised:
+        helpers.unsteady_action(
+            script, name="sections", kind="SCRIPT", filename="actions/sections.txt"
+        )
+    message = str(raised.value)
+    assert "SET_NEW_UNSTEADY_SOLVER_ACTION" in message
+    assert "26.120" in message
+    assert script.unsteady_actions == ()
+    assert script.pending_action_scripts == {}
+
+
+def test_two_actions_may_be_registered_and_a_repeated_name_may_not():
+    """Several actions run in creation order; two of one name do not.
+
+    The solver runs registered actions in the order they were created
+    and the order cannot be changed afterwards, so the creation order is
+    the whole of the caller's control over it and a repeated name is a
+    citation nobody can resolve.
+    """
+    script = Script(version="26.123")
+    helpers.unsteady_action(script, name="surface", kind="SCRIPT", filename="a/surface.txt")
+    helpers.unsteady_action(script, name="volume", kind="SCRIPT", filename="a/volume.txt")
+    assert [action.name for action in script.unsteady_actions] == ["surface", "volume"]
+
+    with pytest.raises(CommandArgumentError) as raised:
+        helpers.unsteady_action(script, name="surface", kind="SCRIPT", filename="a/again.txt")
+    assert "'surface'" in str(raised.value)
+    assert len(script.unsteady_actions) == 2
+
+
+def test_two_actions_writing_one_file_are_refused_before_the_second_replaces_it():
+    """One path, one file: the second write would silently win."""
+    script = Script(version="26.123")
+    helpers.unsteady_action(
+        script, name="first", kind="SCRIPT", filename="a/step.txt", action_script="A\n"
+    )
+    with pytest.raises(CommandArgumentError) as raised:
+        helpers.unsteady_action(
+            script, name="second", kind="SCRIPT", filename="a/step.txt", action_script="B\n"
+        )
+    assert "a/step.txt" in str(raised.value)
+    assert script.pending_action_scripts == {"a/step.txt": "A\n"}
+
+
+def test_a_shell_action_carries_no_child_script_and_says_why():
+    """COMMAND_LINE runs a shell command; there is no file to write."""
+    script = Script(version="26.123")
+    with pytest.raises(CommandArgumentError, match="COMMAND_LINE"):
+        helpers.unsteady_action(
+            script,
+            name="wrapper",
+            kind="COMMAND_LINE",
+            filename="wrap.bat",
+            action_script="echo\n",
+        )
+    helpers.unsteady_action(script, name="wrapper", kind="COMMAND_LINE", filename="wrap.bat")
+    assert script.render().strip() == (
+        "SET_NEW_UNSTEADY_SOLVER_ACTION COMMAND_LINE wrapper\nwrap.bat"
+    )
+    assert script.pending_action_scripts == {}
+
+
+# --- PFS-2025.13: marking the trailing edge from the mesh, not by angle ------
+
+
+@pytest.mark.parametrize("canonical", ["26.122", "26.123"])
+def test_marking_from_an_imported_node_list_replaces_the_angle_criterion(canonical):
+    """The imported route is emitted, and the angle route is not.
+
+    Replacing rather than running beside: two marking passes over one
+    geometry would mark by angle first and then again from the file, and
+    a blade whose trailing edge is not a geometric crease is exactly the
+    case the angle pass gets wrong.
+    """
+    script = Script(version=canonical)
+    route = helpers.mark_wake_edges(script, edge_type="VORTEX_SHEDDING", tolerance=0.0001)
+    assert route == "IMPORT_WAKE_EDGES_FROM_FILE"
+    text = script.render()
+    assert text.strip() == "IMPORT_WAKE_EDGES_FROM_FILE VORTEX_SHEDDING 0.0001"
+    assert "AUTO_DETECT_TRAILING_EDGES" not in text
+
+
+@pytest.mark.parametrize("canonical", ["26.120", "26.121"])
+def test_a_build_without_the_import_route_is_told_so_and_not_marked_by_angle(canonical):
+    """No silent fallback to the criterion this route exists to replace.
+
+    The refusal fires before anything is emitted and names three things:
+    the build, the route it cannot carry, and the angle criterion this
+    library will not substitute for it without being asked.
+    """
+    script = Script(version=canonical)
+    with pytest.raises(CommandNotInVersionError) as raised:
+        helpers.mark_wake_edges(script, edge_type="VORTEX_SHEDDING", tolerance=0.0001)
+    message = str(raised.value)
+    assert canonical in message
+    assert "IMPORT_WAKE_EDGES_FROM_FILE" in message
+    assert "AUTO_DETECT_TRAILING_EDGES" in message
+    assert script.render() == "\n", "a refused route must leave the script untouched"
+
+
+def test_the_marking_helper_takes_no_path_because_the_command_takes_none():
+    """The grammar is two arguments, and this helper invents no third.
+
+    Neither edition that documents the command says where the node list
+    comes from: not on its own line, not as a third argument, and not
+    through a prior command. A path parameter here would be this library
+    inventing a grammar, so the signature carries none and the silence
+    stays visible.
+    """
+    import inspect
+
+    parameters = inspect.signature(helpers.mark_wake_edges).parameters
+    assert "path" not in parameters and "file" not in parameters
+    assert set(parameters) == {"script", "edge_type", "tolerance"}
+
+
+def test_exactly_one_rotation_command_resolves_on_every_registered_build():
+    """The property the helper's choice actually rests on.
+
+    Found by the adversarial pass: reversing ROTATION_COMMANDS broke
+    nothing, because the order is irrelevant while exactly one of the two
+    resolves per build. The order was not the thing to test; THIS is. If
+    a build ever documents both, or neither, the helper is choosing
+    rather than resolving and this turns red where the choice is made
+    rather than in a script somebody reads next year.
+    """
+    from pyflightstream.commands import CommandRegistry
+    from pyflightstream.versions import known_versions
+
+    registry = CommandRegistry.load()
+    for version in known_versions():
+        view = registry.for_version(version)
+        resolving = [name for name in helpers.ROTATION_COMMANDS if name in view]
+        assert len(resolving) == 1, (
+            f"FlightStream {version.canonical} resolves {resolving} of "
+            f"{list(helpers.ROTATION_COMMANDS)}; the helper picks the first that "
+            "resolves, which is a choice rather than a resolution as soon as the "
+            "count is not one"
+        )

@@ -44,11 +44,22 @@ import enum
 import json
 import re
 import shutil
+import sys
+import tomllib
 import zipfile
 from collections.abc import Sequence
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, Field
+if sys.version_info >= (3, 12):
+    from typing import TypedDict
+else:  # pragma: no cover - the 3.11 leg of the support range
+    # pydantic cannot build a schema from `typing.TypedDict` below 3.12,
+    # and the floor of this package is 3.11, so the runtime import has to
+    # branch. `typing_extensions` is pydantic's own hard dependency, so it
+    # is present wherever this package is.
+    from typing_extensions import TypedDict
+
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import PyflightstreamError
@@ -74,6 +85,9 @@ __all__ = [
     "EXECUTABLES_FILE",
     "INPUT_KINDS",
     "MANIFEST_SCHEMA",
+    "REFERENCE_POINTS_FILE",
+    "STEM_REGISTERED_KINDS",
+    "BrokenCommandRecord",
     "CampaignWorkspace",
     "GroupsArtifact",
     "InputArtifactError",
@@ -82,11 +96,15 @@ __all__ = [
     "PointXyz",
     "PropellerReference",
     "ReferenceArtifact",
+    "ReferencePoints",
     "RunRecord",
     "RunStatus",
     "SetupArtifact",
     "WorkspaceError",
+    "check_reference_point_names",
+    "check_unique_stems",
     "collection_name",
+    "expand_group",
 ]
 
 #: Layout identifier of a manifest record. Bumped when a field is
@@ -169,6 +187,38 @@ class RunStatus(enum.StrEnum):
     FAILED_SCRIPT = "FAILED_SCRIPT"
     FAILED_INCOMPLETE_OUTPUT = "FAILED_INCOMPLETE_OUTPUT"
     FAILED_DIVERGED = "FAILED_DIVERGED"
+
+
+class BrokenCommandRecord(TypedDict, total=False):
+    """One serialized :class:`~pyflightstream.script.BrokenCommandUse`.
+
+    The JSON shape of a ``broken_commands`` entry of the manifest,
+    declared here rather than imported so the workspace layer keeps its
+    manifest schema and the script layer keeps the model. The model is
+    the single home of what each field MEANS: read
+    :class:`~pyflightstream.script.BrokenCommandUse` for that, including
+    why two of these are versions and are not interchangeable.
+
+    Every key is optional (``total=False``) and no member type is
+    narrower than the model's, which is the compatibility half: a
+    manifest row written before a key existed still reads back, exactly
+    as :attr:`RunRecord.manifest_schema` may be None. Unknown keys are
+    KEPT rather than dropped, so reading a manifest a later version
+    wrote never quietly edits the evidence.
+    """
+
+    command: str
+    version: str
+    source_version: str | None
+    report: str
+    note: str | None
+    reason: str
+    first_line: str
+
+
+# Set after the class body because mypy refuses any statement inside a
+# TypedDict definition that is not a field declaration.
+BrokenCommandRecord.__pydantic_config__ = ConfigDict(extra="allow")  # type: ignore[attr-defined]
 
 
 class RunRecord(BaseModel):
@@ -265,7 +315,7 @@ class RunRecord(BaseModel):
         a record could name evidence that had since been edited,
         truncated or replaced with nothing to compare against
         (PYFS-006).
-    broken_commands : list of dict
+    broken_commands : list of BrokenCommandRecord
         Serialized
         :class:`~pyflightstream.script.BrokenCommandUse` entries, one
         per command the script emitted under an ``allow_broken`` waiver
@@ -324,7 +374,7 @@ class RunRecord(BaseModel):
     inputs_sha256: dict[str, str] = Field(default_factory=dict)
     raw_flag: bool
     outputs_sha256: dict[str, str] = Field(default_factory=dict)
-    broken_commands: list[dict] = Field(default_factory=list)
+    broken_commands: list[BrokenCommandRecord] = Field(default_factory=list)
     conditions: list[dict] | None = None
     solver_setup: dict | None = None
     status: RunStatus
@@ -347,6 +397,259 @@ def _sha256(path: Path) -> str:
     layer reached across a layer boundary to borrow.
     """
     return file_sha256(path)
+
+
+#: The library kinds whose id is a file-name STEM with any extension,
+#: which is what makes an ambiguity possible: two files sharing a stem
+#: are two files answering to one id.
+#:
+#: It is these two and not the five of ``INPUT_KINDS`` because the other
+#: three build their path directly as ``<id>.toml``
+#: (:func:`~pyflightstream.workspace.inputs.resolve_reference` and its
+#: two siblings), so their per-kind uniqueness is enforced by the file
+#: system and cannot be broken. ``references/003.yaml`` beside
+#: ``references/003.toml`` is not a competing id; it is a file the
+#: library provably never opens, and refusing it would be code refusing
+#: something no requirement promised (FR-33a, OPS-2005.08.05).
+STEM_REGISTERED_KINDS = ("geometries", "profiles")
+
+#: Optional workspace-level declaration of the named reference points,
+#: ``inputs/reference_points.toml``. A top-level registry beside
+#: ``executables.toml`` rather than a kind of its own: the points are
+#: properties of the campaign's geometry, written once, not one artifact
+#: per id.
+REFERENCE_POINTS_FILE = "reference_points.toml"
+
+#: ``ERP`` alone, or ``ERP`` with a propulsor number.
+_ERP_PATTERN = re.compile(r"^ERP([0-9]*)$")
+
+#: The airframe reference point. Singular by construction.
+_AIRFRAME_POINT = "ARP"
+
+
+def check_unique_stems(inputs_dir: str | Path) -> None:
+    """Refuse a library in which two files answer to one id.
+
+    Geometries and profiles register by file-name stem with any
+    extension (:data:`STEM_REGISTERED_KINDS`), so ``wing_v2.fsm`` beside
+    ``wing_v2.stl`` leaves the id ``wing_v2`` ambiguous. Until this
+    check existed the ambiguity was found lazily, by the resolver, for
+    the one id a caller happened to ask for, and only once a campaign
+    was already being built.
+
+    The check is per directory: ids are namespaced per kind, so the same
+    stem under ``references/`` and ``setups/`` is two different ids and
+    both are legal. That idiom is used by real run matrices.
+
+    Parameters
+    ----------
+    inputs_dir : str or Path
+        The workspace ``inputs/`` directory. A directory that does not
+        exist holds no ambiguity and is not an error here.
+
+    Raises
+    ------
+    InputArtifactError
+        If any stem is carried by more than one file, naming the stem
+        and the full path of every file carrying it.
+
+    Examples
+    --------
+    >>> from pyflightstream.workspace import check_unique_stems
+    >>> check_unique_stems("campaign/inputs")     # doctest: +SKIP
+    """
+    root = Path(inputs_dir)
+    offenders: list[str] = []
+    first_kind: str | None = None
+    first_stem: str | None = None
+    for kind in STEM_REGISTERED_KINDS:
+        directory = root / kind
+        if not directory.is_dir():
+            continue
+        carriers: dict[str, list[Path]] = {}
+        for path in sorted(directory.iterdir()):
+            if path.is_file():
+                carriers.setdefault(path.stem, []).append(path)
+        for stem, paths in carriers.items():
+            if len(paths) < 2:
+                continue
+            if first_stem is None:
+                first_kind, first_stem = kind, stem
+            listing = ", ".join(str(path) for path in paths)
+            offenders.append(f"{kind}/{stem} is carried by {len(paths)} files ({listing})")
+    if not offenders:
+        return
+    raise InputArtifactError(
+        f"the input library {root} holds an ambiguous artifact id: {'; '.join(offenders)}. "
+        "The id is the file name stem and must be unique within the library, so rename "
+        "or remove the extras. A geometry or profile id selects a file by its stem, so "
+        "two files carrying one stem let a campaign be built on the geometry nobody "
+        "meant to use.",
+        kind=first_kind,
+        artifact_id=first_stem,
+    )
+
+
+def expand_group(artifact: GroupsArtifact, name: str, artifact_id: str) -> dict[str, int]:
+    """Expand one named boundary group into its per-member names.
+
+    ``Blade`` with three members becomes ``Blade1``, ``Blade2`` and
+    ``Blade3``, numbered 1-based in the members' declared order and
+    mapped to the boundary index each member names. The workspace
+    descriptor is the AUTHORITY for that expansion: it is read from the
+    inputs a study ships with, so re-resolving it later gives the same
+    names in the same order rather than whatever an inspection of the
+    mesh concluded that day (PFS-2025.03).
+
+    Parameters
+    ----------
+    artifact : GroupsArtifact
+        The loaded groups descriptor.
+    name : str
+        Group to expand, which is also the stem of the generated names.
+    artifact_id : str
+        Id the descriptor was loaded under. It is a parameter because
+        :class:`~pyflightstream.workspace.inputs.GroupsArtifact` carries
+        no id of its own, and a refusal that cannot name the file the
+        user must edit is not didactic.
+
+    Returns
+    -------
+    dict of str to int
+        ``{name}1`` to ``{name}N`` mapped to the members' boundary
+        indices, in declared order.
+
+    Raises
+    ------
+    InputArtifactError
+        If the descriptor declares no group of that name (the message
+        lists the ones it does declare), or if a member is a boundary
+        LABEL rather than an index. A label carries no index, so it
+        cannot number a per-member entity; resolve labels to indices in
+        the descriptor, or expand a group whose members are indices.
+
+    Examples
+    --------
+    >>> from pyflightstream.workspace import GroupsArtifact, expand_group
+    >>> artifact = GroupsArtifact(groups={"Blade": [3, 5, 7]})
+    >>> expand_group(artifact, "Blade", "prop")
+    {'Blade1': 3, 'Blade2': 5, 'Blade3': 7}
+    """
+    members = artifact.groups.get(name)
+    if members is None:
+        declared = ", ".join(sorted(artifact.groups)) or "none"
+        raise InputArtifactError(
+            f"the group artifact {artifact_id!r} declares no group named {name!r}; it "
+            f"declares: {declared}. The workspace descriptor is the authority for what "
+            f"{name} expands to, so add the group there rather than letting the "
+            "expansion be inferred from the mesh.",
+            kind="group",
+            artifact_id=artifact_id,
+            available=tuple(sorted(artifact.groups)),
+        )
+    expanded: dict[str, int] = {}
+    for position, member in enumerate(members, start=1):
+        if not isinstance(member, int) or isinstance(member, bool):
+            raise InputArtifactError(
+                f"group {name!r} of the group artifact {artifact_id!r} cannot be "
+                f"expanded per member: member {position} is {member!r}, a boundary "
+                "label rather than a 1-based boundary index. Numbering a per-member "
+                "entity needs the index, so declare the group with indices, or expand "
+                "a group that already carries them.",
+                kind="group",
+                artifact_id=artifact_id,
+            )
+        expanded[f"{name}{position}"] = member
+    return expanded
+
+
+class ReferencePoints(BaseModel):
+    """The named reference points one campaign declares.
+
+    Loaded from ``inputs/reference_points.toml``, one TOML table per
+    point name, each holding the coordinates of a
+    :class:`~pyflightstream.workspace.inputs.PointXyz` in the simulation
+    geometry reference frame (m).
+
+    The names are a convention, not free text: ``ARP`` is the airframe
+    reference point, and the engine reference point is ``ERP`` with one
+    propulsor or ``ERP1`` through ``ERPn`` with more.
+    :func:`check_reference_point_names` is what enforces that.
+
+    Attributes
+    ----------
+    points : dict of str to PointXyz
+        Declared points, keyed by name, in declaration order.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    points: dict[str, PointXyz]
+
+
+def check_reference_point_names(names: Sequence[str]) -> None:
+    """Refuse a set of point names that is not the standard convention.
+
+    The convention carries information a free-text name would not: how
+    many propulsors the campaign describes. ``ERP`` alone says one;
+    ``ERP1`` through ``ERPn`` say n, which is why a gap is refused
+    rather than tolerated.
+
+    Parameters
+    ----------
+    names : sequence of str
+        The declared point names, in declaration order.
+
+    Raises
+    ------
+    InputArtifactError
+        If a name is outside the convention, if the singular and the
+        numbered engine names both appear, or if the numbered ones do
+        not run from 1 without a gap. Each refusal names the offending
+        name and the remedy.
+    """
+    numbered: list[int] = []
+    singular = False
+    for name in names:
+        if name == _AIRFRAME_POINT:
+            continue
+        match = _ERP_PATTERN.match(name)
+        if match is None:
+            raise InputArtifactError(
+                f"reference point {name!r} is not one of the standard names; declare "
+                f"{_AIRFRAME_POINT} for the airframe reference point and ERP for the "
+                "engine one, or ERP1 through ERPn with more than one propulsor. The "
+                "names are the convention that says how many propulsors the campaign "
+                "describes, so a free name would leave that unreadable."
+            )
+        if match.group(1) == "":
+            singular = True
+        else:
+            numbered.append(int(match.group(1)))
+    if singular and numbered:
+        listing = ", ".join(f"ERP{index}" for index in sorted(numbered))
+        raise InputArtifactError(
+            f"reference points declare both the singular ERP and the numbered "
+            f"{listing}; the singular name means the campaign has exactly one "
+            "propulsor, so the two together leave the propulsor count unreadable. "
+            "Number every engine point, or declare only ERP."
+        )
+    if not numbered:
+        return
+    if 0 in numbered:
+        raise InputArtifactError(
+            "reference point 'ERP0' numbers a propulsor from zero; engine points are "
+            "numbered from 1, as ERP1 through ERPn, because n is the propulsor count."
+        )
+    expected = set(range(1, max(numbered) + 1))
+    missing = sorted(expected - set(numbered))
+    if missing:
+        listing = ", ".join(f"ERP{index}" for index in missing)
+        raise InputArtifactError(
+            f"reference points ERP1 through ERP{max(numbered)} are declared with a gap: "
+            f"{listing} is missing. The numbered engine points run from 1 without a gap, "
+            "because n is the propulsor count; declare the missing point or renumber."
+        )
 
 
 class CampaignWorkspace:
@@ -399,6 +702,17 @@ class CampaignWorkspace:
         -------
         CampaignWorkspace
             The workspace over the created tree.
+
+        Raises
+        ------
+        InputArtifactError
+            If the library already holds two files answering to one
+            geometry or profile id. The creation contract is untouched:
+            every folder and the registry template are written first, and
+            only the RETURN becomes a refusal, so re-running init on a
+            campaign that has grown an ambiguity still completes the tree
+            and then says what is wrong with it
+            (:func:`check_unique_stems`).
         """
         workspace = cls(root, naming=naming)
         for kind in INPUT_KINDS:
@@ -408,6 +722,45 @@ class CampaignWorkspace:
         registry = workspace.inputs_dir / EXECUTABLES_FILE
         if not registry.exists():
             registry.write_text(_EXECUTABLES_TEMPLATE, encoding="utf-8")
+        check_unique_stems(workspace.inputs_dir)
+        return workspace
+
+    @classmethod
+    def open(cls, root: str | Path, naming: NamingTemplate | None = None) -> CampaignWorkspace:
+        """Open an existing campaign root, checking what it already holds.
+
+        The validating constructor. ``CampaignWorkspace(root)`` stays
+        free of I/O so a campaign can be described cheaply and away from
+        the files; this one asks the questions that are worth asking once,
+        when the library opens, rather than when a single id happens to
+        resolve.
+
+        Parameters
+        ----------
+        root : str or Path
+            Existing campaign root.
+        naming : NamingTemplate, optional
+            Naming template of the returned workspace.
+
+        Returns
+        -------
+        CampaignWorkspace
+            The workspace over that root.
+
+        Raises
+        ------
+        InputArtifactError
+            If two files under ``inputs/geometries/`` or
+            ``inputs/profiles/`` answer to one id
+            (:func:`check_unique_stems`).
+
+        Examples
+        --------
+        >>> from pyflightstream.workspace import CampaignWorkspace
+        >>> workspace = CampaignWorkspace.open("campaign")   # doctest: +SKIP
+        """
+        workspace = cls(root, naming=naming)
+        check_unique_stems(workspace.inputs_dir)
         return workspace
 
     @property
@@ -445,6 +798,133 @@ class CampaignWorkspace:
         members are boundary labels or indices, stored verbatim.
         """
         return resolve_group(self.inputs_dir, artifact_id)
+
+    def expand_group(self, artifact_id: str, name: str) -> dict[str, int]:
+        """Expand one named boundary group into its per-member names.
+
+        The group ``Blade`` of the descriptor becomes ``Blade1`` through
+        ``BladeN`` over the members' 1-based positions. See
+        :func:`expand_group`, which this loads the artifact for.
+
+        Parameters
+        ----------
+        artifact_id : str
+            File name stem under ``inputs/groups/``.
+        name : str
+            Group to expand, and the stem of the generated names.
+
+        Returns
+        -------
+        dict of str to int
+            ``{name}1`` to ``{name}N`` mapped to boundary indices.
+
+        Raises
+        ------
+        InputArtifactError
+            Unknown artifact id, unknown group name, or a group whose
+            members are boundary labels rather than indices.
+        """
+        return expand_group(self.resolve_group(artifact_id), name, artifact_id)
+
+    def reference_points(self) -> dict[str, PointXyz]:
+        """Read the named reference points this campaign declares.
+
+        The points live in ``inputs/reference_points.toml``, one TOML
+        table per name, and the user writes them once: ``ARP`` for the
+        airframe reference point, ``ERP`` for the engine one with a
+        single propulsor, ``ERP1`` through ``ERPn`` with more. Nothing
+        emitted to the solver takes a pivot, so a named point becomes a
+        local coordinate system at those coordinates, which is why the
+        declaration is the authority and not a downstream guess
+        (PFS-2025.15).
+
+        Returns
+        -------
+        dict of str to PointXyz
+            Declared points keyed by name, in declaration order. Empty
+            when the campaign declares no points, which is the ordinary
+            case for a study that needs none.
+
+        Raises
+        ------
+        InputArtifactError
+            If the file is not valid TOML, does not validate as
+            coordinates, or declares names outside the convention
+            (:func:`check_reference_point_names`).
+
+        Examples
+        --------
+        >>> from pyflightstream.workspace import CampaignWorkspace
+        >>> workspace = CampaignWorkspace("campaign")
+        >>> workspace.reference_points()                     # doctest: +SKIP
+        {'ARP': PointXyz(x_m=1.5, y_m=0.0, z_m=0.25)}
+        """
+        path = self.inputs_dir / REFERENCE_POINTS_FILE
+        if not path.is_file():
+            return {}
+        try:
+            # `path.open` rather than the builtin, which the classmethod
+            # `open` above does not shadow but does make ambiguous to read.
+            with path.open("rb") as handle:
+                table = tomllib.load(handle)
+        except tomllib.TOMLDecodeError as error:
+            raise InputArtifactError(
+                f"the reference points file {path} is not valid TOML: {error}. It "
+                "declares one table per named point, each holding the coordinates of "
+                "that point in the simulation geometry frame (m)."
+            ) from error
+        try:
+            declared = ReferencePoints.model_validate({"points": table})
+        except ValidationError as error:
+            raise InputArtifactError(
+                f"the reference points file {path} does not validate: {error}. Each "
+                "table holds x_m, y_m and z_m, the coordinates of that point in the "
+                "simulation geometry frame."
+            ) from error
+        check_reference_point_names(list(declared.points))
+        return declared.points
+
+    def reference_point(self, name: str) -> PointXyz:
+        """Resolve one named reference point by name.
+
+        Parameters
+        ----------
+        name : str
+            Point name, for example ``"ARP"`` or ``"ERP2"``.
+
+        Returns
+        -------
+        PointXyz
+            Its coordinates in the simulation geometry frame, m.
+
+        Raises
+        ------
+        InputArtifactError
+            If the campaign declares no reference points at all, or
+            declares none by that name; the message lists the ones it
+            does declare, because a point the workspace never defined
+            cannot be turned into a coordinate system.
+        """
+        points = self.reference_points()
+        if not points:
+            raise InputArtifactError(
+                f"this campaign declares no reference points, so {name!r} cannot be "
+                f"resolved; declare it in {self.inputs_dir / REFERENCE_POINTS_FILE} as a "
+                "table holding x_m, y_m and z_m. The workspace declaration is the "
+                "authority for where a named point is.",
+                artifact_id=name,
+            )
+        if name not in points:
+            listing = ", ".join(points)
+            raise InputArtifactError(
+                f"this campaign declares no reference point named {name!r}; it declares: "
+                f"{listing}. Add it to "
+                f"{self.inputs_dir / REFERENCE_POINTS_FILE}, or cite one of the declared "
+                "names.",
+                artifact_id=name,
+                available=tuple(points),
+            )
+        return points[name]
 
     def resolve_geometry(self, artifact_id: str) -> Path:
         """Resolve the staged geometry file one id (file stem) names.

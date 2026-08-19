@@ -674,3 +674,506 @@ def test_the_unsteady_fixture_says_in_its_own_header_that_it_is_synthetic():
     banner = text.split(UNSTEADY_HEADER)[0]
     assert "SYNTHETIC" in banner
     assert "NOT A SOLVER EXPORT" in banner
+
+
+# --- PFS-2014.02: every solver export is classified ------------------------
+#
+# Her requirement of 2026-08-16, with her scoping the same day. The default
+# conversion set excludes the Tecplot, VTK and Nastran exports, whose own
+# tools already read them; everything else a solver run writes should be
+# readable without leaving the package.
+#
+# THE CENSUS CANNOT BE THE DEFAULT SET, which is why the classification is
+# explicit data. Two of the eighteen `phase: export` entries export nothing
+# at all: SET_VTK_EXPORT_VARIABLES chooses what a later export writes, and
+# DELETE_BL_VELOCITY_PROFILE deletes a profile. A filter over the phase would
+# have owed parsers for both.
+
+
+def _export_census() -> set[str]:
+    """Every `phase: export` command name in the live database.
+
+    Read from the registry rather than from the yaml text, so the census
+    is whatever the package itself resolves and a new file under
+    `commands/` needs no second list here.
+    """
+    from pyflightstream.commands import CommandRegistry, Phase
+
+    registry = CommandRegistry.load()
+    return {name for name, entry in registry.commands.items() if entry.phase == Phase.EXPORT}
+
+
+def test_every_export_command_is_classified():
+    """A new export command fails the suite until somebody classifies it.
+
+    The equality is two-sided on purpose. A key with no census entry is
+    a classification for a command that no longer exists, which is the
+    same failure as an unclassified command one field over: it makes the
+    table look complete while covering something else.
+    """
+    from pyflightstream.results import EXPORT_CONVERSIONS
+
+    census = _export_census()
+    assert set(EXPORT_CONVERSIONS) == census, (
+        "the export classification and the phase: export census disagree.\n  "
+        f"classified and not in the census: {sorted(set(EXPORT_CONVERSIONS) - census)}\n  "
+        f"in the census and unclassified: {sorted(census - set(EXPORT_CONVERSIONS))}\n"
+        "Every export command needs a verdict (parsed, excluded, not_an_export "
+        "or owed) before this package can claim to know what it can read."
+    )
+    # Non-vacuity: an empty registry would satisfy the equality against an
+    # empty table and report green over nothing at all.
+    assert len(census) >= 18, (
+        f"the census resolved only {len(census)} export command(s); the database "
+        "held eighteen when this guard was written and commands are only added"
+    )
+
+
+def test_every_parsed_verdict_names_an_importable_callable():
+    """A verdict of `parsed` is a claim, and this is what checks it.
+
+    The parser is recorded as a dotted STRING so that naming the
+    sectional-loads parser does not make the results layer require the
+    optional [fsi] extra. A string is exactly what can rot, so it is
+    resolved here.
+    """
+    import importlib
+
+    from pyflightstream.results import EXPORT_CONVERSIONS, EXPORT_PARSED
+
+    resolved = 0
+    for command, entry in sorted(EXPORT_CONVERSIONS.items()):
+        if entry.verdict != EXPORT_PARSED:
+            assert entry.parser is None, (
+                f"{command} is classified {entry.verdict!r} and still names a parser"
+            )
+            continue
+        assert entry.parser, f"{command} is classified parsed and names no parser"
+        module_name, _, attribute = entry.parser.rpartition(".")
+        module = importlib.import_module(module_name)
+        assert callable(getattr(module, attribute, None)), (
+            f"{command} names {entry.parser!r}, which is not a callable of "
+            f"{module_name}; the classification claims this package can read the "
+            "export and the claim has to resolve"
+        )
+        resolved += 1
+    assert resolved >= 4, (
+        f"only {resolved} parsed verdict(s) were resolved; four exports have "
+        "parsers today and this walk is what proves the claim rather than "
+        "repeating it"
+    )
+
+
+def test_the_excluded_set_is_exactly_the_three_structured_formats():
+    """Her scoping, pinned: tecplot, vtk and nastran, and nothing else.
+
+    An entry quietly moved to `excluded` is how the default set shrinks
+    without anyone deciding to shrink it, and `excluded` is the one
+    verdict that owes nobody any work.
+    """
+    from pyflightstream.results import EXPORT_CONVERSIONS, EXPORT_EXCLUDED
+
+    excluded = {
+        command: entry.format
+        for command, entry in EXPORT_CONVERSIONS.items()
+        if entry.verdict == EXPORT_EXCLUDED
+    }
+    assert set(excluded.values()) == {"tecplot", "vtk", "nastran"}
+    assert excluded == {
+        "EXPORT_SOLVER_ANALYSIS_TECPLOT": "tecplot",
+        "EXPORT_VOLUME_SECTION_TECPLOT": "tecplot",
+        "EXPORT_SOLVER_ANALYSIS_VTK": "vtk",
+        "EXPORT_VOLUME_SECTION_VTK": "vtk",
+        "EXPORT_SOLVER_ANALYSIS_PLOAD_BDF": "nastran",
+    }, (
+        "the excluded set moved. It is the author's scoping of 2026-08-16 and "
+        "not an implementation convenience: a format leaving the default set "
+        "is a decision, announced in the changelog"
+    )
+
+
+def test_asking_for_a_conversion_that_does_not_exist_names_the_format():
+    """Refused naming the format, never silently skipped.
+
+    Three different absences, three different sentences, because "this
+    package cannot convert it" and "nothing was ever exported" are
+    different facts and a caller acts on them differently.
+    """
+    from pyflightstream.results import (
+        EXPORT_CONVERSIONS,
+        EXPORT_OWED,
+        FieldNotInExportError,
+        require_export_parser,
+    )
+
+    assert require_export_parser("EXPORT_PROBE_POINTS") == (
+        "pyflightstream.results.parse_probe_points"
+    )
+    with pytest.raises(MalformedOutputError, match="vtk file"):
+        require_export_parser("EXPORT_SOLVER_ANALYSIS_VTK")
+    with pytest.raises(MalformedOutputError, match="writes no data file"):
+        require_export_parser("SET_VTK_EXPORT_VARIABLES")
+    owed = sorted(
+        command for command, entry in EXPORT_CONVERSIONS.items() if entry.verdict == EXPORT_OWED
+    )
+    assert owed, "the owed tranche is empty; delete this arm or restore the debt"
+    with pytest.raises(MalformedOutputError, match="cannot read it yet"):
+        require_export_parser(owed[0])
+    with pytest.raises(FieldNotInExportError, match="not a classified export"):
+        require_export_parser("EXPORT_NOTHING_AT_ALL")
+
+
+# --- PFS-2014.04: the conversion path is NumPy, and this proves it ---------
+#
+# Her standing rule, restated for this batch on 2026-08-16: all of these
+# operations are pure NumPy, with scipy only where a specific need requires
+# it. THE REASON IS NOT PERFORMANCE. A file conversion is the last place a
+# user should meet an install problem, and every table library in the world
+# would do this job, which is exactly why the boundary needs a mechanism
+# rather than a habit.
+#
+# The proof is STRUCTURAL, over the sources and the call graph, because a
+# test that merely calls the functions proves nothing: it stays green with a
+# convenience dependency added beside the work it does.
+#
+# THE GUARD LIVES HERE rather than in tests/test_conventions.py, whose
+# `_imported_module_names` it reuses, because six agents were editing this
+# tree the day it was written and that module belonged to another one. It is
+# a conventions guard by nature and moving it there is a one-import edit.
+
+_GOVERNED_ROOTS = ("pyflightstream.results", "pyflightstream.post")
+
+#: The one third-party package this path may reach for without a record.
+_ALWAYS_ALLOWED = frozenset({"numpy"})
+
+#: A scipy import is admitted only on a module that states, in one line
+#: beside it, which specific need requires it. The marker is a comment, so
+#: the justification cannot be satisfied by a docstring somewhere else.
+_SCIPY_MARKER = "AD-06 scipy:"
+
+#: THE AD-06 RESIDUALS, one recorded (module, package) pair each. This is a
+#: ratchet in the shape `MYPY_EXEMPTIONS` uses (tests/test_traceability.py):
+#: the table IS the debt, an unrecorded arrival fails, and an entry that
+#: outlives its import fails too, because an exemption for an import nobody
+#: makes is a free slot for the next one.
+#:
+#: MEASURED 2026-08-19 AND THE COUNT IS THREE, not the two this item's own
+#: plan named. `pydantic` arrived in `post/writers.py` with the layer hoist
+#: of commit 2c5179e, for `OutputProvenance`, one day before this guard was
+#: written; the plan was authored against the tree as it stood before it.
+#: Recorded rather than refused, because refusing it would delete a model
+#: this release just shipped, and named rather than folded into the always
+#: allowed set, because the point of the boundary is that each crossing is
+#: somebody's decision.
+_AD06_RESIDUALS = {
+    ("pyflightstream.results.tables", "pandas"): (
+        "the tabular substrate itself (SRS AD-06); the module's own docstring "
+        "says the tables rest on pandas and that downstream code depends on the "
+        "column schema rather than on the library holding the values"
+    ),
+    ("pyflightstream.post.writers", "xarray"): (
+        "the labeled physical-field substrate (SRS AD-06); the writers take a "
+        "Dataset of sampled fields and flatten it to points"
+    ),
+    ("pyflightstream.post.writers", "pydantic"): (
+        "OutputProvenance is a validated model, and validation is a generic need "
+        "the engineering policy sends to a public library; every layer of this "
+        "package already carries pydantic for the same reason"
+    ),
+}
+
+#: MODULES THAT ARE NOT REACHABLE FROM THEIR OWN PACKAGE ROOT, which the
+#: reachability arm below otherwise refuses outright. One entry, and it is
+#: the arm working rather than failing: `post/settings_table.py` is a public
+#: module with its own tests, and `post/__init__.py` names it in prose only,
+#: so `import pyflightstream.post` does not bring it in. Fixing it is one
+#: line in a file this session did not own; the fix is in the handover, and
+#: the entry goes stale and fails the moment it lands.
+_UNREACHABLE_FROM_ITS_PACKAGE_ROOT = {
+    "pyflightstream.post.settings_table": (
+        "post/__init__.py mentions it in its docstring and imports nothing from "
+        "it; the re-export is owed and this entry goes stale the moment it lands"
+    ),
+}
+
+
+def _package_src() -> Path:
+    """The installed package directory the guards below walk."""
+    import pyflightstream
+
+    return Path(pyflightstream.__file__).parent
+
+
+def _module_file(dotted: str) -> Path | None:
+    """The source file of one dotted name, or None when it names no module.
+
+    `_imported_module_names` deliberately records both readings of a
+    `from X import y`, so half of what it returns names an OBJECT rather
+    than a module. Resolving against the tree is what tells them apart,
+    and it does so without importing anything.
+    """
+    if not dotted.startswith("pyflightstream"):
+        return None
+    parts = dotted.split(".")[1:]
+    base = _package_src().joinpath(*parts) if parts else _package_src()
+    if base.is_dir() and (base / "__init__.py").is_file():
+        return base / "__init__.py"
+    plain = base.with_suffix(".py")
+    return plain if plain.is_file() else None
+
+
+def _internal_import_closure(roots) -> set[str]:
+    """Every module of this package reachable by import from `roots`.
+
+    Derived rather than listed: a hand-kept list is a second home for a
+    fact the source already states, and it would go stale on the first
+    module either package gains.
+    """
+    from test_conventions import _imported_module_names
+
+    seen: set[str] = set()
+    pending = list(roots)
+    while pending:
+        name = pending.pop()
+        if name in seen:
+            continue
+        path = _module_file(name)
+        if path is None:
+            continue
+        seen.add(name)
+        package = name if path.name == "__init__.py" else name.rsplit(".", 1)[0]
+        source = path.read_text(encoding="utf-8")
+        for imported in _imported_module_names(source, package):
+            if imported.startswith("pyflightstream") and imported not in seen:
+                pending.append(imported)
+    return seen
+
+
+def _modules_under_governed_directories() -> dict[str, Path]:
+    """Every .py under results/ and post/, as dotted name to file.
+
+    The governed set is the DIRECTORIES rather than the closure, so a
+    module that is not reachable is still held to the dependency rule
+    while the reachability arm reports it separately. Taking the closure
+    alone would have let `post/settings_table.py` import anything it
+    liked, unseen by both arms at once.
+    """
+    found: dict[str, Path] = {}
+    src = _package_src()
+    for root in _GOVERNED_ROOTS:
+        directory = src.joinpath(*root.split(".")[1:])
+        for path in sorted(directory.rglob("*.py")):
+            parts = list(path.relative_to(src).parts)
+            if parts[-1] == "__init__.py":
+                parts = parts[:-1]
+            else:
+                parts[-1] = parts[-1][: -len(".py")]
+            found["pyflightstream." + ".".join(parts)] = path
+    return found
+
+
+def _third_party_top_level(module_name: str, source: str) -> set[str]:
+    """Top-level names this source imports from outside this package.
+
+    Function-body imports included, because deferring an import to call
+    time changes nothing about what has to be installed and is exactly
+    how a dependency hides from a module-level reader.
+    """
+    import sys
+
+    from test_conventions import _imported_module_names
+
+    path = _module_file(module_name)
+    if path is not None and path.name == "__init__.py":
+        package = module_name
+    else:
+        package = module_name.rsplit(".", 1)[0]
+    tops = set()
+    for imported in _imported_module_names(source, package):
+        top = imported.split(".")[0]
+        if not top or top == "pyflightstream" or top in sys.stdlib_module_names:
+            continue
+        tops.add(top)
+    return tops
+
+
+def _unrecorded_third_party(module_name: str, source: str) -> set[str]:
+    """The dependency policy of PFS-2014.04, as a pure function.
+
+    Separated from the walk so the guard and its proof run the SAME
+    decision: a proof over a synthetic tree that re-implements the rule
+    is a proof of the re-implementation.
+    """
+    offenders = set()
+    for top in _third_party_top_level(module_name, source):
+        if top in _ALWAYS_ALLOWED:
+            continue
+        if (module_name, top) in _AD06_RESIDUALS:
+            continue
+        if top == "scipy" and _SCIPY_MARKER in source:
+            continue
+        offenders.add(top)
+    return offenders
+
+
+def test_no_module_under_results_or_post_reaches_for_an_unrecorded_dependency():
+    """The conversion and reduction path is NumPy, proved over the sources.
+
+    The canary is here rather than only in the policy test beside it,
+    and the adversarial pass is why: replacing `_unrecorded_third_party`
+    with `lambda *a: set()` left THIS test green over eight real modules,
+    since a guard that reports no offender cannot tell "none" from "not
+    looking". The module floor below counts subjects and cannot see it.
+    """
+    assert _unrecorded_third_party("pyflightstream.results.conditions", "import polars\n") == {
+        "polars"
+    }, "the policy decision this guard rests on reports nothing at all"
+    governed = _modules_under_governed_directories()
+    offenders = {
+        name: sorted(found)
+        for name, path in sorted(governed.items())
+        if (found := _unrecorded_third_party(name, path.read_text(encoding="utf-8")))
+    }
+    assert not offenders, (
+        f"these modules under {' and '.join(_GOVERNED_ROOTS)} import a third-party "
+        f"package this path does not admit: {offenders}. The rule is numpy, plus "
+        "scipy where one line beside the import states the specific need, plus the "
+        "AD-06 substrate residuals recorded in _AD06_RESIDUALS. A file conversion "
+        "is the last place a user should meet an install problem."
+    )
+    assert len(governed) >= 8, (
+        f"only {len(governed)} module(s) were governed; eight .py files sat under "
+        "those two directories when this was written, so a smaller number means "
+        "the walk stopped seeing them rather than that the rule is satisfied"
+    )
+
+
+def test_the_ad06_residual_ratchet_holds_only_imports_that_still_exist():
+    """A residual entry that outlives its import is a free slot.
+
+    The failure it prevents is precise: delete the pandas import from
+    results/tables.py and the entry stays, so the next module to import
+    pandas under that name inherits an exemption nobody granted.
+    """
+    governed = _modules_under_governed_directories()
+    stale = {}
+    for module_name, top in sorted(_AD06_RESIDUALS):
+        path = governed.get(module_name)
+        if path is None:
+            stale[(module_name, top)] = "the module is gone"
+        elif top not in _third_party_top_level(module_name, path.read_text(encoding="utf-8")):
+            stale[(module_name, top)] = "the import is gone"
+    assert not stale, (
+        f"the AD-06 residual ratchet records {sorted(stale)}, which the walk no "
+        "longer sees. Delete the entry in the same commit that removes the "
+        "import: the whole value of the list is that it only shrinks"
+    )
+
+
+def test_every_module_under_results_and_post_is_reachable_from_its_package_root():
+    """A module cannot hide from the dependency rule by being unimportable.
+
+    Reachability is asserted separately from the rule itself, so an
+    unreachable module fails by NAME rather than by silently sitting
+    outside a closure nobody re-measured.
+    """
+    closure = _internal_import_closure(_GOVERNED_ROOTS)
+    unreachable = sorted(
+        name
+        for name in _modules_under_governed_directories()
+        if name not in closure and name not in _UNREACHABLE_FROM_ITS_PACKAGE_ROOT
+    )
+    assert not unreachable, (
+        f"these modules are not reachable by import from {list(_GOVERNED_ROOTS)}: "
+        f"{unreachable}. Re-export them from their package __init__, or record the "
+        "reason in _UNREACHABLE_FROM_ITS_PACKAGE_ROOT with the row that closes it"
+    )
+
+
+def test_the_unreachability_ratchet_holds_only_modules_that_are_still_hidden():
+    """The companion that makes the exception above a debt rather than a hole."""
+    closure = _internal_import_closure(_GOVERNED_ROOTS)
+    governed = _modules_under_governed_directories()
+    stale = sorted(
+        name
+        for name in _UNREACHABLE_FROM_ITS_PACKAGE_ROOT
+        if name in closure or name not in governed
+    )
+    assert not stale, (
+        f"{stale} are recorded as unreachable and are reachable now (or gone). "
+        "Delete the entry in the same commit that re-exports the module"
+    )
+
+
+def test_the_dependency_policy_admits_and_refuses_the_right_imports():
+    """The decision itself, over synthetic sources, arm by arm.
+
+    Every arm is exercised here INCLUDING the ones no real module
+    reaches, which is the point: the scipy branch admits nothing in this
+    tree today, so without this test it would be an untested rule
+    published as a guarantee.
+    """
+    numpy_only = "import numpy as np\nfrom pathlib import Path\n"
+    assert _unrecorded_third_party("pyflightstream.results.conditions", numpy_only) == set()
+
+    # A recorded residual is admitted for ITS module and for no other.
+    pandas_source = "import pandas as pd\n"
+    assert _unrecorded_third_party("pyflightstream.results.tables", pandas_source) == set()
+    assert _unrecorded_third_party("pyflightstream.results.conditions", pandas_source) == {"pandas"}
+    xarray_source = "import xarray as xr\n"
+    assert _unrecorded_third_party("pyflightstream.post.writers", xarray_source) == set()
+    assert _unrecorded_third_party("pyflightstream.post.unsteady", xarray_source) == {"xarray"}
+
+    # A fourth residual is refused wherever it lands.
+    assert _unrecorded_third_party("pyflightstream.results.tables", "import polars\n") == {"polars"}
+
+    # scipy, with and without its one-line justification.
+    plain_scipy = "from scipy import integrate\n"
+    assert _unrecorded_third_party("pyflightstream.post.reductions", plain_scipy) == {"scipy"}
+    justified = (
+        "# AD-06 scipy: the quadrature this reduction needs has no numpy form\n" + plain_scipy
+    )
+    assert _unrecorded_third_party("pyflightstream.post.reductions", justified) == set()
+
+    # An import deferred into a function body is seen exactly the same.
+    deferred = "def f():\n    import pandas as pd\n    return pd\n"
+    assert _unrecorded_third_party("pyflightstream.post.reductions", deferred) == {"pandas"}
+
+    # Internal and standard-library imports are not third party at all.
+    internal = (
+        "from __future__ import annotations\n"
+        "import json\n"
+        "from pyflightstream.results import parse_loads\n"
+        "from pyflightstream import versions\n"
+    )
+    assert _unrecorded_third_party("pyflightstream.post.writers", internal) == set()
+
+
+def test_the_import_closure_is_not_vacuous_and_follows_a_chain():
+    """Floors on the walk, so a broken traversal is not a green verdict.
+
+    Named modules rather than a count: a count reds on any unrelated edit
+    one layer down, which teaches a maintainer to adjust a number without
+    reading it.
+    """
+    closure = _internal_import_closure(_GOVERNED_ROOTS)
+    for name in (
+        "pyflightstream.results",
+        "pyflightstream.results.tables",
+        "pyflightstream.results.conditions",
+        "pyflightstream.post",
+        "pyflightstream.post.writers",
+        "pyflightstream.post.reductions",
+        "pyflightstream.post.unsteady",
+    ):
+        assert name in closure, f"{name} fell out of the closure; the walk is broken"
+    # Depth: neither of these is imported by a package root, so seeing them
+    # proves the walk followed an edge rather than listing its seeds.
+    assert "pyflightstream.extras" in closure, (
+        "reached only through results.tables, so its absence means the walk never left the roots"
+    )
+    assert "pyflightstream.script.solver_setup" in closure, (
+        "reached only through post.writers, on the other root"
+    )
+    # And it stops at this package: a third-party name is never a module here.
+    assert all(name.startswith("pyflightstream") for name in closure)

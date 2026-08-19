@@ -37,7 +37,9 @@ default in its own table (SRC-750 p.324, SRC-751 p.323).
 from __future__ import annotations
 
 import math
+from pathlib import Path
 
+import numpy
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from pyflightstream.commands import CommandRegistry, Status
@@ -46,12 +48,15 @@ from pyflightstream.workspace.inputs import InputArtifactError, PointXyz
 __all__ = [
     "DEFAULT_EDGE_TYPE",
     "DEFAULT_TOLERANCE",
+    "LENGTH_UNIT_COMMAND",
     "TRAILING_EDGE_DETECTION_COMMAND",
     "WAKE_EDGE_IMPORT_COMMAND",
     "WakeEdgeImport",
     "edge_types",
     "evidence_notice",
+    "node_file_units",
     "tolerance_unit",
+    "write_node_file",
 ]
 
 #: The command this module's inputs are assembled for.
@@ -290,3 +295,184 @@ class WakeEdgeImport(BaseModel):
             The paragraph :func:`evidence_notice` renders.
         """
         return evidence_notice(canonical)
+
+
+#: The command whose enumeration is the simulation's length-unit
+#: vocabulary. The node file declares its own unit and the solver reads
+#: the coordinates in the unit the FILE names, so the token has to come
+#: from the solver's vocabulary and not from this package's taste.
+LENGTH_UNIT_COMMAND = "SET_SIMULATION_LENGTH_UNITS"
+
+
+def node_file_units() -> tuple[str, ...]:
+    """Return the length-unit tokens the command database records.
+
+    Read from the record on every call, for the same reason
+    :func:`edge_types` is: a constant here would be a second copy that
+    cannot follow a build.
+
+    Returns
+    -------
+    tuple of str
+        The declared values of the simulation length unit, in the order
+        the manual page prints them.
+
+    Examples
+    --------
+    >>> from pyflightstream.workspace.wake_edges import node_file_units
+    >>> "METER" in node_file_units()
+    True
+    """
+    entry = CommandRegistry.load().commands[LENGTH_UNIT_COMMAND]
+    for arg in entry.args:
+        if arg.name == "units":
+            return tuple(arg.values or ())
+    return ()
+
+
+def write_node_file(
+    path: str | Path,
+    nodes: object,
+    *,
+    unit: str,
+    overwrite: bool = False,
+) -> Path:
+    """Write the node list a wake-edge import reads, from an extraction.
+
+    The seam between a third-party mesh reader and a solver input
+    format: the extraction happens outside, with a mesh library, and
+    this turns the coordinates it produced into the file the solver
+    imports.
+
+    THE LAYOUT IS PARAPHRASED, NOT VALIDATED, AND THE CLAIM THAT THE
+    SOLVER ACCEPTS IT IS OPEN. What is written is the layout the manual
+    describes for the node list a trailing-edge import reads
+    (SRC-003 p.319, paraphrased): a vertex count, a unit token, then one
+    comma-separated row per vertex carrying an id and three coordinates.
+    :data:`WAKE_EDGE_IMPORT_COMMAND`, which is the command this campaign
+    marks its edges with, TAKES NO PATH ARGUMENT IN EITHER EDITION THAT
+    DOCUMENTS IT, and neither edition says where its node list comes
+    from, so whether it reads this same file is unstated rather than
+    known. Settling that is the manual reading PFS-2025.16.01 exists
+    for, and the claim that the solver accepts what is written here
+    stays open until a committed probe report says so. Nothing in this
+    function is evidence about the solver.
+
+    Parameters
+    ----------
+    path : str or pathlib.Path
+        Destination file.
+    nodes : array_like
+        Node coordinates, shape (n, 3), in the unit named by ``unit``.
+        Any nested sequence numpy can read is accepted, so a caller need
+        not convert an extraction first.
+    unit : str
+        Length unit the coordinates are written in, one of
+        :func:`node_file_units`. IT IS DECLARED IN THE FILE and the
+        solver reads the coordinates in it rather than in the
+        simulation's own unit, which is why a token outside the
+        vocabulary is refused rather than passed through.
+    overwrite : bool
+        Replace an existing destination. False refuses instead, because
+        one path is one file and a second write would silently win.
+
+    Returns
+    -------
+    pathlib.Path
+        The file written.
+
+    Raises
+    ------
+    InputArtifactError
+        If the node list is empty, is not (n, 3), carries a coordinate
+        that is not a finite number, names a unit outside the recorded
+        vocabulary, or would replace an existing file without
+        ``overwrite``. Every one of these fires before the file is
+        opened, so a refused call leaves no partial file behind.
+
+    Notes
+    -----
+    The existing-destination refusal is an
+    :class:`~pyflightstream.workspace.InputArtifactError` rather than the
+    ``OutputExistsError`` the flow-visualization writers raise, because
+    that class lives in the post layer and this one sits below it;
+    importing it here would point upward. The rule it enforces is the
+    same rule.
+
+    Examples
+    --------
+    >>> import numpy
+    >>> from pyflightstream.workspace.wake_edges import write_node_file
+    >>> written = write_node_file(
+    ...     tmp_path / "wake_edges.csv",
+    ...     numpy.array([[0.0, 0.5, 0.25], [1.5, -0.5, 0.25]]),
+    ...     unit="METER",
+    ... )  # doctest: +SKIP
+    """
+    destination = Path(path)
+    try:
+        array = numpy.asarray(nodes, dtype=float)
+    except (TypeError, ValueError) as error:
+        # Found by the adversarial pass: a string, a ragged list or an
+        # object array reached numpy and left a bare ValueError on a
+        # public name, which is the one exception shape this repository
+        # refuses (FR-39). The cause is named rather than re-worded.
+        raise InputArtifactError(
+            "the node list could not be read as an array of coordinates: "
+            f"{error}. It is an (n, 3) array of numbers, or any nested sequence "
+            "numpy can read as one; a ragged list of rows and a list of strings are "
+            "the two that usually arrive here",
+            kind="wake_edges",
+        ) from error
+    if array.ndim != 2 or array.shape[1] != 3:
+        raise InputArtifactError(
+            f"the node list has shape {tuple(array.shape)}, and a node file carries one "
+            "row of three coordinates per node, so the array is (n, 3). An (n, 2) array "
+            "is usually a planar extraction that lost its third component, and a "
+            "one-dimensional one is usually a flattened list",
+            kind="wake_edges",
+        )
+    if array.shape[0] == 0:
+        raise InputArtifactError(
+            f"the node list carries {array.shape[0]} node coordinates, and the imported "
+            "list is what names the edges to mark. With none the solver marks nothing "
+            "and reports nothing, so the run completes with no wake where the wake was "
+            "the point",
+            kind="wake_edges",
+        )
+    finite = numpy.isfinite(array)
+    if not finite.all():
+        row = int(numpy.argmax(~finite.all(axis=1))) + 1
+        raise InputArtifactError(
+            f"the node list carries a coordinate that is not a finite number, first at "
+            f"row {row} of {array.shape[0]}. It would be written into the file as a "
+            "word, and the solver would read that word as a coordinate. A NaN here is "
+            "usually an extraction that produced no intersection for one node",
+            kind="wake_edges",
+        )
+    declared = node_file_units()
+    if unit not in declared:
+        raise InputArtifactError(
+            f"the node file was given the length unit {unit!r}, which the command "
+            f"database does not record for {LENGTH_UNIT_COMMAND}. The file DECLARES its "
+            "own unit and the solver reads the coordinates in it rather than in the "
+            f"simulation's, so an unrecognised token leaves the coordinates with no "
+            f"scale. The recorded units are: {', '.join(declared)}",
+            kind="wake_edges",
+        )
+    if destination.exists() and not overwrite:
+        raise InputArtifactError(
+            f"{destination} already exists. Pass overwrite=True to replace it "
+            "deliberately, or write under a name that carries the geometry: one path is "
+            "one file, so a second node list written here would silently win and both "
+            "scripts citing it would import whichever ran last",
+            kind="wake_edges",
+        )
+
+    lines = [str(array.shape[0]), unit]
+    lines += [
+        ",".join([str(index + 1), repr(float(x)), repr(float(y)), repr(float(z))])
+        for index, (x, y, z) in enumerate(array)
+    ]
+    destination.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
+    return destination

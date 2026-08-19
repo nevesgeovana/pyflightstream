@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import tomllib
 from collections.abc import Callable, Iterator
+from datetime import UTC, datetime
 from importlib import import_module
 from inspect import Parameter, signature
 from pathlib import Path
@@ -32,10 +33,12 @@ from pydantic import (
     BeforeValidator,
     ConfigDict,
     Field,
+    PrivateAttr,
     field_validator,
     model_validator,
 )
 
+from pyflightstream._digest import file_sha256, text_sha256
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.script import Script
 from pyflightstream.script.toggles import resolve_toggle
@@ -44,6 +47,7 @@ from pyflightstream.versions import resolve
 __all__ = [
     "Campaign",
     "CampaignConfigError",
+    "DerivedFrom",
     "ReferenceData",
     "ScriptRecipe",
     "SimCase",
@@ -51,9 +55,11 @@ __all__ = [
     "SolverToggle",
     "SweepAxis",
     "check_recipe",
+    "derived_body_sha256",
     "load_campaign",
     "point_tag",
     "resolve_recipe",
+    "stamp_derived_campaign",
 ]
 
 _TAG_PREFIXES = (("alpha", "a"), ("beta", "b"), ("advance_ratio", "j"))
@@ -390,6 +396,180 @@ class SimCase(BaseModel):
     fs_build: str | None = None
 
 
+#: Key of the marker's own digest, the one line the canonical form
+#: below drops. It is a bare TOML key, never a quoted one: every case
+#: variable is emitted quoted (``"content_sha256" = ...``), so a case
+#: variable spelled the same way cannot be mistaken for the marker and
+#: cannot hide an edit made anywhere else in the file.
+_CONTENT_DIGEST_KEY = "content_sha256"
+
+
+class DerivedFrom(BaseModel):
+    """Where a generated ``campaign.toml`` came from, recorded in itself.
+
+    A campaign the package wrote is otherwise byte-indistinguishable
+    from one a user authored, and will be edited by someone who believes
+    it is input. This marker is what makes the rule enforceable rather
+    than conventional, and it lives IN the file rather than beside it
+    because a file gets copied out of its folder.
+
+    Attributes
+    ----------
+    matrix : str
+        The run-matrix path exactly as it was given to the conversion.
+        Relative paths resolve against the campaign file's own folder
+        when the marker is checked.
+    matrix_sha256 : str
+        sha256 of the matrix file's bytes at the moment of conversion,
+        so a matrix edited afterwards makes the campaign stale.
+    generated_at : str
+        When the campaign was written, UTC, ISO 8601, ending in ``Z``.
+        Presentation only: nothing in the package compares it.
+    content_sha256 : str
+        sha256 of this campaign's own canonical body
+        (:func:`derived_body_sha256`), so an edit to ANY other line of
+        the file is refused at load. The digest is a tamper check over
+        the file text, not a same-inputs digest: it deliberately covers
+        the executable path and the generation moment, because editing
+        either is exactly what it exists to catch.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    matrix: str
+    matrix_sha256: str
+    generated_at: str
+    content_sha256: str
+
+
+def derived_body_sha256(text: str) -> str:
+    r"""Return the digest of a campaign text's canonical body.
+
+    The canonical form is stated here because the digest is compared
+    against a value written into a file on another day, possibly on
+    another platform:
+
+    * the line carrying the marker's own digest is DROPPED, so the
+      digest can be written into the very text it describes;
+    * the text is split with ``splitlines()``, which drops the line
+      TERMINATOR, so a file written through ``open(..., "w")`` on
+      Windows, where every newline becomes CRLF on disk, still matches
+      the digest taken before it was written;
+    * every line is then right-stripped and trailing blank lines go, so
+      trailing whitespace, which no reader can see and several editors
+      add or remove on save, is not a reason to refuse a campaign;
+    * the surviving lines join on ``\n`` and hash as UTF-8.
+
+    The two middle rules are stated apart because they are different
+    rules with different causes, and a mutation run on 2026-08-19 showed
+    the second doing none of the work the first does: with the strip
+    removed, a CRLF file still matched.
+
+    Parameters
+    ----------
+    text : str
+        The whole decoded ``campaign.toml`` text.
+
+    Returns
+    -------
+    str
+        Lowercase hexadecimal sha256, through
+        :func:`pyflightstream._digest.text_sha256`, which is the single
+        owner of the algorithm.
+
+    Examples
+    --------
+    >>> derived_body_sha256("[campaign]\nname = 'a'\n") == derived_body_sha256(
+    ...     "[campaign]\r\nname = 'a'\r\n\r\n"
+    ... )
+    True
+    """
+    lines = [
+        line.rstrip()
+        for line in text.splitlines()
+        if not line.strip().startswith(_CONTENT_DIGEST_KEY)
+    ]
+    while lines and not lines[-1]:
+        lines.pop()
+    return text_sha256("\n".join(lines))
+
+
+def stamp_derived_campaign(
+    text: str,
+    matrix: str | Path,
+    *,
+    generated_at: str | None = None,
+) -> str:
+    """Mark a generated ``campaign.toml`` text as derived from a matrix.
+
+    The ``[campaign.derived_from]`` table is inserted immediately after
+    the ``[campaign]`` scalars, which is where TOML requires a sub-table
+    of a table to go, and the content digest is computed over everything
+    else, so the returned text describes itself.
+
+    Parameters
+    ----------
+    text : str
+        The campaign text as generated, for example by
+        :func:`pyflightstream.cases.matrix.convert_matrix`.
+    matrix : str or Path
+        The matrix the text was converted from. It is read here, to be
+        hashed, and recorded verbatim as the marker's ``matrix``.
+    generated_at : str, optional
+        Override for the recorded moment; the default is now, in UTC,
+        ISO 8601 to the second. Present so a caller that needs a
+        byte-reproducible output can ask for one.
+
+    Returns
+    -------
+    str
+        The same campaign text with the marker table in it.
+
+    Examples
+    --------
+    >>> from pathlib import Path
+    >>> stamped = stamp_derived_campaign(   # doctest: +SKIP
+    ...     convert_matrix("matrix.fs", name="wing", fs_version="26.120",
+    ...                    fs_exe="FlightStream.exe", recipes={"003": "r:build"}),
+    ...     "matrix.fs",
+    ... )
+    >>> Path("campaign.toml").write_text(stamped, encoding="utf-8")  # doctest: +SKIP
+    """
+    moment = generated_at or datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
+    table = [
+        "[campaign.derived_from]",
+        f'matrix = "{matrix}"',
+        f'matrix_sha256 = "{file_sha256(matrix)}"',
+        f'generated_at = "{moment}"',
+    ]
+    lines = text.splitlines()
+    insert_at = len(lines)
+    for index, line in enumerate(lines):
+        if line.strip() == "[campaign]":
+            for after in range(index + 1, len(lines)):
+                if lines[after].lstrip().startswith("["):
+                    insert_at = after
+                    break
+            break
+    else:
+        raise CampaignConfigError(
+            "the text to stamp has no [campaign] table, so there is nowhere to "
+            "record where it was derived from; stamp the output of a campaign "
+            "generator, not an arbitrary file"
+        )
+    head = lines[:insert_at]
+    while head and not head[-1].strip():
+        head.pop()
+    tail = lines[insert_at:]
+    # The digest is taken over the text WITHOUT its own line, which is
+    # exactly what `derived_body_sha256` drops, so the value written here
+    # is the value a reader recomputes from the finished file.
+    unstamped = head + [""] + table + [""] + tail
+    digest = derived_body_sha256("\n".join(unstamped))
+    stamped = head + [""] + table + [f'{_CONTENT_DIGEST_KEY} = "{digest}"', ""] + tail
+    return "\n".join(stamped).rstrip("\n") + "\n"
+
+
 class Campaign(BaseModel):
     """A named group of cases bound to one FlightStream installation.
 
@@ -409,6 +589,19 @@ class Campaign(BaseModel):
         campaign file can be authored away from the licensed machine.
     sims : list of SimCase
         The cases of the campaign.
+    derived_from : DerivedFrom, optional
+        Present only on a campaign the package GENERATED, naming the
+        matrix it came from and digesting both files. None means nobody
+        generated this campaign, which is the ordinary case and is not a
+        lesser one: an authored campaign is the source of its study and
+        the package says nothing about it.
+
+    Notes
+    -----
+    :attr:`source_path` is knowledge rather than a field. It is set only
+    by :func:`load_campaign`, so a campaign file cannot declare a source
+    it did not come from, and the ``campaign.toml`` surface is untouched
+    by it.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -417,6 +610,38 @@ class Campaign(BaseModel):
     fs_version: str
     fs_exe: str
     sims: list[SimCase]
+    derived_from: DerivedFrom | None = None
+
+    #: The file this campaign was loaded from, or None for one built in
+    #: Python. Private so it cannot be set from a file; read through
+    #: :attr:`source_path`.
+    _source_path: str | None = PrivateAttr(default=None)
+
+    @property
+    def source_path(self) -> str | None:
+        """The campaign file this was loaded from, or None.
+
+        Returns
+        -------
+        str or None
+            The path :func:`load_campaign` was given, as given. None
+            means the campaign was built in Python and no file is its
+            source.
+        """
+        return self._source_path
+
+    @property
+    def is_derived(self) -> bool:
+        """Whether the package generated this campaign from a matrix.
+
+        Returns
+        -------
+        bool
+            True when the file carries the ``[campaign.derived_from]``
+            marker. False means it is an authored campaign, which is the
+            source of its own study; ask this rather than sniffing keys.
+        """
+        return self.derived_from is not None
 
     @field_validator("fs_version")
     @classmethod
@@ -455,12 +680,62 @@ class Campaign(BaseModel):
         return self
 
 
+def _refuse_an_edited_derived_campaign(campaign: Campaign, path: str | Path, text: str) -> None:
+    """Refuse a generated campaign whose file no longer matches its digests.
+
+    Nothing is re-derived here, and that is the whole design. Rebuilding
+    the campaign from the matrix would be seeded from the file under
+    test: ``name``, ``fs_version``, ``fs_exe`` and each case's ``recipe``
+    are handed TO the conversion rather than read from the matrix, so a
+    re-derivation would find them equal by construction and an edited
+    ``fs_exe``, which is what a user on a second machine actually edits,
+    would load in silence. Comparing the file against digests taken when
+    it was written covers every field the same way.
+
+    Two comparisons, and the second is deliberately skippable. The
+    content digest always applies. The matrix digest applies only where
+    the recorded matrix is readable, because the marker exists to
+    survive the campaign being copied out of its folder, and a refusal
+    on an absent matrix would make the marker the reason a perfectly
+    good campaign stops loading.
+    """
+    marker = campaign.derived_from
+    if marker is None:  # pragma: no cover - callers check first
+        return
+    remedy = (
+        f"{path} was GENERATED from {marker.matrix} and has been edited since. Edit "
+        f"{marker.matrix} instead and convert it again (pyfs-matrix convert), so the "
+        "matrix and the campaign cannot disagree about what the study is. To take "
+        "ownership of this file instead, delete its [campaign.derived_from] table: "
+        "it then loads as an authored campaign, which is a supported source."
+    )
+    if derived_body_sha256(text) != marker.content_sha256:
+        raise CampaignConfigError(remedy)
+    matrix_path = Path(marker.matrix)
+    if not matrix_path.is_absolute():
+        matrix_path = Path(path).parent / matrix_path
+    if matrix_path.is_file() and file_sha256(matrix_path) != marker.matrix_sha256:
+        raise CampaignConfigError(
+            f"{path} was generated from {marker.matrix}, and that matrix has changed "
+            "since; the campaign no longer describes the study the matrix states. "
+            "Convert the matrix again (pyfs-matrix convert) rather than running a "
+            "campaign whose source has moved on."
+        )
+
+
 def load_campaign(path: str | Path) -> Campaign:
     """Load and validate a ``campaign.toml`` file.
 
     The file holds one ``[campaign]`` table (name, fs_version,
     fs_exe) and one ``[[sim]]`` array entry per case, as in SAD
     Section 5.
+
+    A file the package GENERATED carries a ``[campaign.derived_from]``
+    table naming its matrix, and is refused here when it has been edited
+    since; a file a user authored carries no such table, loads exactly as
+    it always did, and is recorded as the source of its own study. The
+    refusal fires only on the marker's presence, which is what keeps
+    every hand-written campaign in existence loading.
 
     Parameters
     ----------
@@ -472,8 +747,25 @@ def load_campaign(path: str | Path) -> Campaign:
     Campaign
         Validated campaign; version aliases are checked against the
         registered versions immediately, so a typo fails at load
-        time, not at the first point.
+        time, not at the first point. Its :attr:`Campaign.source_path`
+        is this file and :attr:`Campaign.is_derived` says which kind it
+        is.
+
+    Raises
+    ------
+    CampaignConfigError
+        No ``[campaign]`` table; or a generated campaign that has been
+        edited, or whose matrix has changed since the conversion.
+
+    Examples
+    --------
+    >>> campaign = load_campaign("campaign.toml")   # doctest: +SKIP
+    >>> campaign.is_derived                         # doctest: +SKIP
+    False
+    >>> campaign.source_path                        # doctest: +SKIP
+    'campaign.toml'
     """
+    text = Path(path).read_text(encoding="utf-8")
     with open(path, "rb") as handle:
         data = tomllib.load(handle)
     if "campaign" not in data:
@@ -481,7 +773,11 @@ def load_campaign(path: str | Path) -> Campaign:
             f"{path} has no [campaign] table; campaign.toml needs [campaign] with "
             "name, fs_version, and fs_exe, plus one [[sim]] entry per case"
         )
-    return Campaign(**data["campaign"], sims=data.get("sim", []))
+    campaign = Campaign(**data["campaign"], sims=data.get("sim", []))
+    campaign._source_path = str(path)
+    if campaign.derived_from is not None:
+        _refuse_an_edited_derived_campaign(campaign, path, text)
+    return campaign
 
 
 def resolve_recipe(reference: str) -> Callable[[SimCase, Script], None]:

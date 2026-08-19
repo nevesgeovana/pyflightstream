@@ -60,6 +60,7 @@ from pyflightstream.cases import (
     CampaignConfigError,
 )
 from pyflightstream.cases.matrix import MatrixError
+from pyflightstream.cases.workflows import WorkflowCoverageError
 from pyflightstream.commands import CommandDatabaseError, CommandNotInVersionError
 from pyflightstream.extras import (
     MissingExtraError,
@@ -153,5 +154,6 @@ __all__ = [
     "UnknownExtraError",
     "UnknownVersionError",
     "VersionMismatchWarning",
+    "WorkflowCoverageError",
     "WorkspaceError",
 ]

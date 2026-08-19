@@ -273,10 +273,10 @@ def library(tmp_path) -> CampaignWorkspace:
 
 def test_reference_artifact_round_trip(tmp_path):
     workspace = library(tmp_path)
-    (workspace.inputs_dir / "references" / "wing_v2.toml").write_text(
+    (workspace.inputs_dir / "references" / "rwing_v2.toml").write_text(
         REFERENCE_TOML, encoding="utf-8"
     )
-    reference = workspace.resolve_reference("wing_v2")
+    reference = workspace.resolve_reference("rwing_v2")
     assert reference.area_m2 == 8.0
     assert reference.moment_point.x_m == 0.25
     assert reference.moment_point.y_m == 0.0
@@ -287,34 +287,34 @@ def test_reference_artifact_round_trip(tmp_path):
 
 def test_reference_miss_lists_available_ids(tmp_path):
     workspace = library(tmp_path)
-    (workspace.inputs_dir / "references" / "wing_v2.toml").write_text(
+    (workspace.inputs_dir / "references" / "rwing_v2.toml").write_text(
         REFERENCE_TOML, encoding="utf-8"
     )
-    with pytest.raises(InputArtifactError, match="available reference ids: wing_v2"):
-        workspace.resolve_reference("wing_v3")
+    with pytest.raises(InputArtifactError, match="available reference ids: rwing_v2"):
+        workspace.resolve_reference("rwing_v3")
 
 
 def test_reference_validation_error_names_the_file(tmp_path):
     workspace = library(tmp_path)
     bad = REFERENCE_TOML.replace("area_m2 = 8.0", "area_m2 = -8.0")
-    (workspace.inputs_dir / "references" / "broken.toml").write_text(bad, encoding="utf-8")
-    with pytest.raises(InputArtifactError, match=r"broken\.toml does not validate"):
-        workspace.resolve_reference("broken")
+    (workspace.inputs_dir / "references" / "rbroken.toml").write_text(bad, encoding="utf-8")
+    with pytest.raises(InputArtifactError, match=r"rbroken\.toml does not validate"):
+        workspace.resolve_reference("rbroken")
 
 
 def test_empty_library_miss_is_didactic(tmp_path):
     workspace = library(tmp_path)
     with pytest.raises(InputArtifactError, match="no reference artifacts yet"):
-        workspace.resolve_reference("anything")
+        workspace.resolve_reference("ranything")
 
 
 def test_setup_preset_keeps_the_raw_table_verbatim(tmp_path):
     workspace = library(tmp_path)
-    (workspace.inputs_dir / "setups" / "cruise.toml").write_text(
+    (workspace.inputs_dir / "setups" / "scruise.toml").write_text(
         "iterations = 800\nsolver_minimum_cp = -100\n[advanced]\nwake_layers = 4\n",
         encoding="utf-8",
     )
-    setup = workspace.resolve_setup("cruise")
+    setup = workspace.resolve_setup("scruise")
     assert setup.settings == {
         "iterations": 800,
         "solver_minimum_cp": -100,
@@ -324,19 +324,19 @@ def test_setup_preset_keeps_the_raw_table_verbatim(tmp_path):
 
 def test_groups_map_names_to_labels_or_indices(tmp_path):
     workspace = library(tmp_path)
-    (workspace.inputs_dir / "groups" / "aircraft.toml").write_text(
+    (workspace.inputs_dir / "groups" / "eaircraft.toml").write_text(
         'wing = ["wing_left", "wing_right"]\ntail = [3, 4]\n', encoding="utf-8"
     )
-    groups = workspace.resolve_group("aircraft")
+    groups = workspace.resolve_group("eaircraft")
     assert groups.groups["wing"] == ["wing_left", "wing_right"]
     assert groups.groups["tail"] == [3, 4]
 
 
 def test_empty_group_is_refused(tmp_path):
     workspace = library(tmp_path)
-    (workspace.inputs_dir / "groups" / "bad.toml").write_text("wing = []\n", encoding="utf-8")
+    (workspace.inputs_dir / "groups" / "ebad.toml").write_text("wing = []\n", encoding="utf-8")
     with pytest.raises(InputArtifactError, match="no members"):
-        workspace.resolve_group("bad")
+        workspace.resolve_group("ebad")
 
 
 def test_geometry_and_profile_resolve_by_file_stem(tmp_path):
@@ -742,3 +742,358 @@ def test_collect_still_takes_a_source_outside_the_campaign_root(tmp_path):
 
     assert workspace.collect_outputs("A", [source]) == ["raw/loads.txt"]
     assert (sim / "raw" / "loads.txt").is_file()
+
+
+# --- OPS-2009.02.03: broken_commands says what shape its entries are --------
+#
+# The field carried `list[dict]`, which a checker reads as
+# `dict[Any, Any]`: the docstring already said the entries are serialized
+# `script.BrokenCommandUse`, and nothing mechanical agreed with it.
+
+
+def test_broken_commands_declares_the_record_shape_field_for_field():
+    """The member type names the same fields BrokenCommandUse declares."""
+    from typing import get_args, get_type_hints
+
+    from pyflightstream.script import BrokenCommandUse
+
+    annotation = RunRecord.model_fields["broken_commands"].annotation
+    (member,) = get_args(annotation)
+    assert member is not dict, (
+        "RunRecord.broken_commands is still list[dict], which a type checker "
+        "reads as dict[Any, Any]; the docstring says the entries are serialized "
+        "script.BrokenCommandUse and the annotation must say so too (OPS-2009.02.03)"
+    )
+    assert set(get_type_hints(member)) == set(BrokenCommandUse.model_fields), (
+        "the record type and BrokenCommandUse have drifted apart; the model is the "
+        "single home of the field meanings, so the record type mirrors its field "
+        "names exactly"
+    )
+
+
+def test_every_broken_command_key_is_optional_so_an_older_row_reads_back():
+    """Totality is the compatibility half: a row may carry fewer keys."""
+    from typing import get_args
+
+    (member,) = get_args(RunRecord.model_fields["broken_commands"].annotation)
+    assert getattr(member, "__required_keys__", None) == frozenset(), (
+        "a required key would refuse a manifest row written before that key "
+        "existed; the record type is total=False for the same reason "
+        "RunRecord.manifest_schema may be None"
+    )
+
+
+def test_a_manifest_row_written_before_the_annotation_still_reads_back(tmp_path):
+    """The read-back guard: no key of an existing row is refused or dropped.
+
+    Green before OPS-2009.02.03 and green after, deliberately. The
+    annotation change is a typing change, so the day it starts losing a
+    key of a historical row is the day this fails.
+    """
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    workspace.root.mkdir(parents=True)
+    waived = {
+        "command": "SET_SOLVER_UNSTEADY",
+        "version": "26.120",
+        "source_version": "26.000",
+        "report": "reports/probe/RPT-001.md",
+        "note": "the probe observed no effect",
+        "reason": "the study needs it and the waiver is recorded",
+        "first_line": "SET_SOLVER_UNSTEADY 1",
+        "a_key_a_later_version_added": 3,
+    }
+    row = json.loads(make_record(broken_commands=[waived]).model_dump_json())
+    row["broken_commands"] = [waived, {}]
+    workspace.manifest_path.write_text(json.dumps([row]), encoding="utf-8")
+
+    (record,) = workspace.read_manifest()
+    assert record.broken_commands[0] == waived, (
+        "reading a manifest row must not drop a key the row actually carries; "
+        "the typed view is a view, never an edit of the evidence"
+    )
+    assert record.broken_commands[1] == {}
+
+
+# --- OPS-2005.08.05: an ambiguous stem is refused when the library opens ----
+#
+# geometries/ and profiles/ register an id by file-name STEM with any
+# extension, so two files sharing a stem are two files answering to one
+# id. Until now that was found lazily, by `_resolve_file`, for the one id
+# a caller happened to ask for, after a campaign was already being built.
+#
+# The three TOML kinds build their path directly (`<id>.toml`), so their
+# per-kind uniqueness is filesystem-enforced and no rule is written for
+# them; ids are namespaced per kind, so the same stem under references/
+# and setups/ is two different ids and both are legal.
+
+
+def _duplicate(workspace, kind: str, stem: str, suffixes: tuple[str, ...]) -> list[Path]:
+    written = []
+    for suffix in suffixes:
+        path = workspace.inputs_dir / kind / f"{stem}{suffix}"
+        path.write_text(f"content of {path.name}", encoding="utf-8")
+        written.append(path)
+    return written
+
+
+def test_init_refuses_two_geometries_sharing_a_stem(tmp_path):
+    """The ambiguity is refused when the library opens, not when the id resolves."""
+    root = tmp_path / "camp"
+    workspace = CampaignWorkspace.init(root)
+    paths = _duplicate(workspace, "geometries", "wing_v2", (".fsm", ".stl"))
+
+    with pytest.raises(InputArtifactError, match="must be unique") as refusal:
+        CampaignWorkspace.init(root)
+    message = str(refusal.value)
+    assert "wing_v2" in message
+    for path in paths:
+        assert str(path) in message, "the refusal names the full path of every file"
+
+
+def test_open_refuses_the_library_init_refuses(tmp_path):
+    """Opening an existing campaign asks the same question init asks."""
+    root = tmp_path / "camp"
+    workspace = CampaignWorkspace.init(root)
+    _duplicate(workspace, "geometries", "wing_v2", (".fsm", ".stl"))
+
+    with pytest.raises(InputArtifactError, match="must be unique"):
+        CampaignWorkspace.open(root)
+
+
+def test_a_duplicate_profile_stem_is_refused_the_same_way(tmp_path):
+    """Profiles register by stem too, so they carry the same ambiguity."""
+    root = tmp_path / "camp"
+    workspace = CampaignWorkspace.init(root)
+    _duplicate(workspace, "profiles", "thrust", (".csv", ".txt"))
+
+    with pytest.raises(InputArtifactError, match="must be unique") as refusal:
+        CampaignWorkspace.open(root)
+    assert "thrust" in str(refusal.value)
+
+
+def test_the_same_stem_under_two_kinds_is_two_ids_and_stays_legal(tmp_path):
+    """Ids are namespaced per kind, so one stem in two folders is two ids.
+
+    Both halves are covered: the coded kinds, whose ids now declare their
+    kind with a leading letter, and the two STEM_REGISTERED_KINDS, where
+    ``geometries/003.fsm`` beside ``profiles/003.csv`` is exactly the
+    cross-directory case this rule must NOT refuse.
+    """
+    root = tmp_path / "camp"
+    workspace = CampaignWorkspace.init(root)
+    (workspace.inputs_dir / "references" / "r003.toml").write_text(REFERENCE_TOML, encoding="utf-8")
+    (workspace.inputs_dir / "setups" / "s003.toml").write_text("solver = 1\n", encoding="utf-8")
+    (workspace.inputs_dir / "groups" / "e003.toml").write_text("wing = [1]\n", encoding="utf-8")
+    (workspace.inputs_dir / "geometries" / "003.fsm").write_text("mesh", encoding="utf-8")
+    (workspace.inputs_dir / "profiles" / "003.csv").write_text("r,T\n", encoding="utf-8")
+
+    assert CampaignWorkspace.init(root).root == root
+    opened = CampaignWorkspace.open(root)
+    assert opened.resolve_geometry("003").name == "003.fsm"
+    assert opened.resolve_profile("003").name == "003.csv"
+
+
+def test_a_file_no_resolver_ever_reads_is_not_refused(tmp_path):
+    """The scope of the rule is what the library can actually read.
+
+    ``resolve_reference`` builds ``references/<id>.toml`` directly, so
+    ``references/r003.yaml`` is not a competing id; it is a file the
+    library provably never opens. Refusing it would be code refusing
+    something no requirement promised.
+    """
+    root = tmp_path / "camp"
+    workspace = CampaignWorkspace.init(root)
+    (workspace.inputs_dir / "references" / "r003.toml").write_text(REFERENCE_TOML, encoding="utf-8")
+    (workspace.inputs_dir / "references" / "r003.yaml").write_text("area_m2: 8\n", encoding="utf-8")
+
+    assert CampaignWorkspace.open(root).resolve_reference("r003").area_m2 == 8.0
+
+
+def test_open_carries_the_naming_template_it_was_given(tmp_path):
+    """open is a constructor, so it takes the same template init takes."""
+    root = tmp_path / "camp"
+    CampaignWorkspace.init(root)
+    template = NamingTemplate(archive_name="{campaign}_{sim}")
+    assert CampaignWorkspace.open(root, naming=template).naming is template
+
+
+# --- PFS-2025.03: Blade expands to Blade1 through BladeN --------------------
+
+
+GROUPS_TOML = """\
+Blade = [7, 3, 5]
+wing = ["wing_left", "wing_right"]
+"""
+
+
+def _groups_library(tmp_path) -> CampaignWorkspace:
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    (workspace.inputs_dir / "groups" / "eprop.toml").write_text(GROUPS_TOML, encoding="utf-8")
+    return workspace
+
+
+def test_expanding_a_group_numbers_its_members_from_one(tmp_path):
+    """Blade with three members is Blade1, Blade2, Blade3, in DECLARED order.
+
+    The members are deliberately not in ascending order, so a sort
+    slipped into the expansion is measured rather than invisible.
+    """
+    workspace = _groups_library(tmp_path)
+    assert workspace.expand_group("eprop", "Blade") == {"Blade1": 7, "Blade2": 3, "Blade3": 5}
+
+
+def test_expanding_the_same_group_twice_gives_the_same_names(tmp_path):
+    """A study is reproducible from its inputs: re-resolution is identical."""
+    workspace = _groups_library(tmp_path)
+    first = workspace.expand_group("eprop", "Blade")
+    second = workspace.expand_group("eprop", "Blade")
+    assert first == second
+    assert list(first) == list(second), "the order is the members' order, not a set's"
+
+
+def test_expanding_an_undeclared_group_names_the_artifact_and_its_groups(tmp_path):
+    """The refusal teaches what the descriptor actually declares."""
+    workspace = _groups_library(tmp_path)
+    with pytest.raises(InputArtifactError) as refusal:
+        workspace.expand_group("eprop", "Rotor")
+    message = str(refusal.value)
+    assert "Rotor" in message
+    assert "eprop" in message
+    assert "Blade" in message and "wing" in message
+
+
+def test_expanding_a_group_of_labels_is_refused_naming_the_member(tmp_path):
+    """A label carries no index, so it cannot number a per-member entity."""
+    workspace = _groups_library(tmp_path)
+    with pytest.raises(InputArtifactError) as refusal:
+        workspace.expand_group("eprop", "wing")
+    message = str(refusal.value)
+    assert "wing_left" in message
+    assert "index" in message
+
+
+def test_the_module_level_expansion_takes_the_artifact_and_its_id():
+    """The artifact carries no id of its own, so the caller passes it."""
+    from pyflightstream.workspace import GroupsArtifact, expand_group
+
+    artifact = GroupsArtifact(groups={"Blade": [3, 5, 7]})
+    assert expand_group(artifact, "Blade", "eprop") == {"Blade1": 3, "Blade2": 5, "Blade3": 7}
+
+
+# --- PFS-2025.15: ARP and ERP are named points the user writes once ---------
+
+
+def test_declared_reference_points_resolve_by_name(tmp_path):
+    """The workspace descriptor is the authority for where a point is."""
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    (workspace.inputs_dir / "reference_points.toml").write_text(
+        "[ARP]\nx_m = 1.5\nz_m = 0.25\n\n[ERP1]\nx_m = -0.5\n\n[ERP2]\nx_m = -0.5\ny_m = 2.0\n",
+        encoding="utf-8",
+    )
+    points = workspace.reference_points()
+    assert list(points) == ["ARP", "ERP1", "ERP2"]
+    assert workspace.reference_point("ARP").x_m == 1.5
+    assert workspace.reference_point("ERP2").y_m == 2.0
+
+
+def test_one_propulsor_may_declare_its_point_as_erp(tmp_path):
+    """Singular with one propulsor, numbered with more: the standard names."""
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    (workspace.inputs_dir / "reference_points.toml").write_text(
+        "[ARP]\nx_m = 0.0\n\n[ERP]\nx_m = -1.0\n", encoding="utf-8"
+    )
+    assert workspace.reference_point("ERP").x_m == -1.0
+
+
+def test_numbered_engine_points_may_not_skip_a_number(tmp_path):
+    """ERP1 through ERPn with no gap, so n is the propulsor count."""
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    (workspace.inputs_dir / "reference_points.toml").write_text(
+        "[ERP1]\nx_m = 0.0\n\n[ERP3]\nx_m = 1.0\n", encoding="utf-8"
+    )
+    with pytest.raises(InputArtifactError, match="ERP2"):
+        workspace.reference_points()
+
+
+def test_a_point_name_outside_the_convention_is_refused(tmp_path):
+    """The names are the convention, not free text."""
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    (workspace.inputs_dir / "reference_points.toml").write_text(
+        "[NOSE]\nx_m = 0.0\n", encoding="utf-8"
+    )
+    with pytest.raises(InputArtifactError, match="NOSE"):
+        workspace.reference_points()
+
+
+def test_the_singular_and_the_numbered_engine_name_cannot_both_appear(tmp_path):
+    """ERP beside ERP1 leaves the propulsor count unreadable."""
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    (workspace.inputs_dir / "reference_points.toml").write_text(
+        "[ERP]\nx_m = 0.0\n\n[ERP1]\nx_m = 1.0\n", encoding="utf-8"
+    )
+    with pytest.raises(InputArtifactError, match="ERP1"):
+        workspace.reference_points()
+
+
+def test_an_undeclared_point_name_is_refused_naming_what_is_declared(tmp_path):
+    """A reference to a name the workspace does not define is refused."""
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    (workspace.inputs_dir / "reference_points.toml").write_text(
+        "[ARP]\nx_m = 1.5\n", encoding="utf-8"
+    )
+    with pytest.raises(InputArtifactError) as refusal:
+        workspace.reference_point("ERP1")
+    message = str(refusal.value)
+    assert "ERP1" in message
+    assert "ARP" in message
+
+
+def test_a_library_that_declares_no_points_says_so_rather_than_guessing(tmp_path):
+    """No file means no declared point, and asking for one is still refused."""
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    assert workspace.reference_points() == {}
+    with pytest.raises(InputArtifactError, match="declares no reference points"):
+        workspace.reference_point("ARP")
+
+
+def test_engine_points_are_numbered_from_one_and_not_from_zero(tmp_path):
+    """The arm that a gap check alone would let through.
+
+    ERP0 alone leaves no gap to find (the numbered set is exactly its own
+    maximum), so without its own refusal a campaign could number its
+    propulsors from zero and n would stop being the propulsor count.
+    """
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    (workspace.inputs_dir / "reference_points.toml").write_text(
+        "[ERP0]\nx_m = 0.0\n", encoding="utf-8"
+    )
+    with pytest.raises(InputArtifactError, match="numbered from 1"):
+        workspace.reference_points()
+
+
+def test_a_reference_points_file_that_is_not_toml_names_the_file(tmp_path):
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    path = workspace.inputs_dir / "reference_points.toml"
+    path.write_text("[ARP\nx_m = 1.0\n", encoding="utf-8")
+    with pytest.raises(InputArtifactError, match="is not valid TOML"):
+        workspace.reference_points()
+
+
+def test_a_point_without_coordinates_of_a_point_is_refused(tmp_path):
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    (workspace.inputs_dir / "reference_points.toml").write_text(
+        '[ARP]\nx_m = "forward"\n', encoding="utf-8"
+    )
+    with pytest.raises(InputArtifactError, match="does not validate"):
+        workspace.reference_points()
+
+
+def test_opening_a_root_that_was_never_initialised_finds_no_ambiguity(tmp_path):
+    """The missing-directory arm: nothing to read holds nothing ambiguous.
+
+    ``open`` is a validating constructor, not an existence check, and the
+    two are deliberately different: a campaign can be described before
+    its tree is built.
+    """
+    workspace = CampaignWorkspace.open(tmp_path / "not_a_campaign_yet")
+    assert workspace.root == tmp_path / "not_a_campaign_yet"

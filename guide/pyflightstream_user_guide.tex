@@ -93,7 +93,7 @@
   \small
   \begin{description}
     \item[Part I] Why the library exists, how to install it, and the mental model: versions, the evidence-backed command database, and the layered architecture.
-    \item[Part II] Hands on: your first validated script in ten minutes, and the tour of the sixteen curated helpers.
+    \item[Part II] Hands on: your first validated script in ten minutes, and the tour of the 21 curated helpers.
     \item[Part III] The recipes: a literal step by step for every supported simulation type, from a single steady point to batch campaigns.
     \item[Part IV] Reading results, living with versions, the real solver pitfalls (all evidence backed), and where the quality assurance confidence comes from.
   \end{description}
@@ -345,7 +345,7 @@ resolve("26.12")           # Ambiguous: 26.120, 26.121, 26.122 or 26.123?
     \midrule
     versions & canonical identifiers, ordering, aliases & \code{FsVersion}, \code{resolve}, \code{known\_versions} \\
     commands & per-version grammar and evidence & \code{CommandRegistry}, \code{CommandEntry} \\
-    script & validating emission, phase order, layouts, helpers & \code{Script}, 16 curated helpers \\
+    script & validating emission, phase order, layouts, helpers & \code{Script}, 21 curated helpers \\
     results & parsing solver output into typed reports & \code{parse\_loads}, \code{parse\_residual\_history} \\
     cases & what to run: SIM model, sweeps, recipes & \code{Campaign}, \code{SimCase}, \code{SweepAxis} \\
     workspace & managed run workspace and manifest & \code{CampaignWorkspace}, \code{RunRecord} \\

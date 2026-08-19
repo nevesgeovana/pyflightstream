@@ -6,10 +6,10 @@ interface of the file-managed modality (v0.3 decision): reading a
 matrix and running it is one call,
 :func:`pyflightstream.run.matrix.run_matrix`, with the native
 ``campaign.toml`` model staying the canonical internal form, so
-nothing changes for campaign.toml users. The verified 15-column layout
-is read as is: POL, AIRCRAFT, DESCRIPTION, RE, MACH, SWEEP_TYPE,
+nothing changes for campaign.toml users. The verified layout is read as
+is: POL, AIRCRAFT, DESCRIPTION, RE, MACH, SWEEP_TYPE,
 SWEEP_VALUES, REF, SET, ENTRY, FS_SCRIPT, FS_BUILD, HIDDEN, RUN,
-VAR_NAMES_VALUES. Rows with RUN = 1 are active. SWEEP_TYPE names its
+WORKFLOW, VAR_NAMES_VALUES. Rows with RUN = 1 are active. SWEEP_TYPE names its
 axes separated by ``/`` (verified codes: ``AL`` for alpha, ``BE`` for
 beta) and SWEEP_VALUES carries one comma-separated value list per
 axis, also ``/``-separated; the matrix workflow varies one axis while
@@ -40,6 +40,16 @@ binding, and :func:`pyflightstream.run.matrix.plan_matrix` and
 execution. Nothing about the format, the flags or the records moved
 with them, and the ``pyfs-matrix`` command line kept its name.
 
+THE LAYOUT GREW BY ONE COLUMN on 2026-08-19 and that is a BREAK, taken
+deliberately for 0.8.0 (PFS-2025.01, PFS-2025.12). ``WORKFLOW`` names
+the workflow type a row asks for. It is a column of its own rather than
+a pair inside ``VAR_NAMES_VALUES``, because that cell is where the free
+CASE DATA lives and a type competing with it would be indistinguishable
+from a user's own key. A file written at the preceding width is not
+merely unparsable: :func:`read_matrix` RECOGNISES it and refuses it
+naming :func:`upgrade_matrix`, which inserts the one cell and leaves
+every other byte of the file alone.
+
 What is left here imports nothing above the cases layer, at any level,
 which is what :mod:`tests.test_conventions` now holds it to.
 """
@@ -54,14 +64,30 @@ from pathlib import Path
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.cases import Campaign, SimCase, SweepAxis
 
+# SAME LAYER, so this is a sideways import and not an upward one: both
+# modules are `pyflightstream.cases`, and the layer rule
+# (`tests.test_conventions`) is about direction. The reader asks the
+# registry which types exist rather than keeping a second list, because a
+# second list is how a value gets refused for naming a workflow that was
+# registered last week.
+from pyflightstream.cases.workflows import workflow_names
+
 __all__ = [
+    "LEGACY_WORKFLOW",
     "MatrixError",
     "MatrixRow",
     "convert_matrix",
     "read_matrix",
     "to_campaign",
+    "upgrade_matrix",
+    "workflow_types",
 ]
 
+#: The verified layout, in file order. ``WORKFLOW`` sits at index 14, in
+#: front of ``VAR_NAMES_VALUES`` rather than after it, and the position
+#: is stated rather than appended: ``VAR_NAMES_VALUES`` is the only cell
+#: whose content is free and whose width is not fixed by the format, so
+#: it stays last and every fixed-width column stays in front of it.
 _COLUMNS = (
     "POL",
     "AIRCRAFT",
@@ -77,9 +103,34 @@ _COLUMNS = (
     "FS_BUILD",
     "HIDDEN",
     "RUN",
+    "WORKFLOW",
     "VAR_NAMES_VALUES",
 )
+
+#: The width that preceded ``WORKFLOW``, frozen so a file written under
+#: it is RECOGNISED and refused with the command that fixes it instead of
+#: meeting the generic "this is not a run matrix" message. It is only
+#: ever COMPARED: no row is ever read through it, so the reader keeps its
+#: single-grammar property and gains no tolerant second path.
+_LEGACY_COLUMNS_15 = tuple(name for name in _COLUMNS if name != "WORKFLOW")
+
+#: The workflow every row written before the column existed asks for:
+#: the established matrix behaviour, whose builder is the user's own
+#: recipe. It is deliberately NOT a registered workflow; it means "no
+#: workflow", which is what keeps every matrix written before v0.8.0
+#: running exactly as it always ran. Spelled here as well as in
+#: :mod:`pyflightstream.cases.workflows` because the two modules meet
+#: only through the file format, and neither owns the other's constant.
+LEGACY_WORKFLOW = "LEGACY"
+
 _SWEEP_CODES = {"AL": "alpha", "BE": "beta"}
+
+#: The two rotation keys of ``VAR_NAMES_VALUES`` this reader knows about:
+#: one fixed offset, one geometric sweep. Their spelling belongs to
+#: PFS-2025.14, so both are matched CASE-INSENSITIVELY and neither is
+#: interpreted here beyond counting the values a sweep asks for.
+_ROTATION_OFFSET_KEY = "angle_deg"
+_ROTATION_SWEEP_KEY = "angle_sweep_deg"
 
 
 class MatrixError(PyflightstreamError, ValueError):
@@ -115,6 +166,9 @@ class MatrixRow:
         HIDDEN column, the windowless-run flag.
     run : int
         Activity flag; rows with 1 are active.
+    workflow : str
+        WORKFLOW column, the workflow type the row asks for; one of
+        :data:`WORKFLOW_TYPES`, checked when the row is read.
     variables : dict
         The KEY:VALUE variables, values kept as strings.
     """
@@ -132,6 +186,7 @@ class MatrixRow:
     fs_build: str
     hidden: bool
     run: int
+    workflow: str
     variables: dict[str, str]
 
 
@@ -187,6 +242,80 @@ def _parse_variables(cell: str) -> dict[str, str]:
     return variables
 
 
+def workflow_types() -> tuple[str, ...]:
+    """Every value a ``WORKFLOW`` cell may name.
+
+    :data:`LEGACY_WORKFLOW` first, then the registered workflow names in
+    the order :func:`pyflightstream.cases.workflows.workflow_names`
+    gives them. It is READ from the registry at call time rather than
+    frozen here, so a workflow registered tomorrow is accepted by this
+    reader the same day and no second list can disagree with the table.
+
+    Returns
+    -------
+    tuple of str
+        The accepted values, in the order the refusal lists them.
+
+    Examples
+    --------
+    >>> from pyflightstream.cases.matrix import workflow_types
+    >>> workflow_types()[0]
+    'LEGACY'
+    """
+    return (LEGACY_WORKFLOW, *workflow_names())
+
+
+def _check_workflow(value: str, pol: str) -> str:
+    """Refuse a WORKFLOW cell naming no registered workflow type."""
+    known = workflow_types()
+    if value not in known:
+        raise MatrixError(
+            f"WORKFLOW value {value!r} of POL {pol} names no known workflow type; the "
+            f"registered types are {', '.join(known)}. The column names WHICH "
+            "workflow builds the row's script, so an unrecognised value would run the "
+            f"wrong one silently; a row that wants the established behaviour, built by "
+            f"the recipe its FS_SCRIPT code names, writes {LEGACY_WORKFLOW}."
+        )
+    return value
+
+
+def _rotation_values(variables: dict[str, str], key: str) -> list[str] | None:
+    """Return the comma-separated values of one rotation key, or None.
+
+    The key is matched case-insensitively: its spelling is PFS-2025.14's
+    to settle, and a refusal that fires only for one casing is a refusal
+    a user gets past by shouting.
+    """
+    for name, value in variables.items():
+        if name.strip().lower() == key:
+            return [token.strip() for token in value.split(",") if token.strip()]
+    return None
+
+
+def _check_one_sweep_per_row(pol: str, sweep: SweepAxis, variables: dict[str, str]) -> None:
+    """Refuse a row asking for an aerodynamic AND a geometric sweep.
+
+    The two multiply: a three-point alpha sweep beside a three-angle
+    rotation sweep is nine runs the row never asked for, and neither
+    axis names the other in the point identifier. The refusal names the
+    fixed-offset form, because the user asking for both almost always
+    wants one rotation held fixed across an alpha sweep, which is what
+    ``angle_deg`` already does.
+    """
+    rotation = _rotation_values(variables, _ROTATION_SWEEP_KEY)
+    if rotation is None or len(rotation) < 2 or len(sweep.values) < 2:
+        return
+    raise MatrixError(
+        f"POL {pol} asks for two sweeps at once: the SWEEP_TYPE {sweep.type} sweep of "
+        f"{len(sweep.values)} points and the geometric sweep "
+        f"{_ROTATION_SWEEP_KEY}: {','.join(rotation)} of {len(rotation)} angles. The "
+        "two would multiply into a grid this row does not name and whose points cannot "
+        "be told apart. A rotation held FIXED across an aerodynamic sweep is written "
+        f"{_ROTATION_OFFSET_KEY}: <angle>, one value; a sweep OF the rotation is a row "
+        "of its own with a single-point SWEEP_VALUES."
+    )
+
+
 def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow]:
     """Read a pipe-delimited ``matrix.fs`` run matrix.
 
@@ -209,10 +338,19 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
     if not content:
         raise MatrixError(f"{path} holds no matrix content")
     header = tuple(cell.strip() for cell in content[0].split("|"))
+    if header == _LEGACY_COLUMNS_15:
+        raise MatrixError(
+            f"{path} carries the {len(_LEGACY_COLUMNS_15)}-column layout that preceded "
+            f"the WORKFLOW column, so it is a run matrix written before v0.8.0 rather "
+            "than a file this reader cannot recognise. Upgrade it with "
+            "pyflightstream.cases.matrix.upgrade_matrix(path, in_place=True), which "
+            f"inserts one {LEGACY_WORKFLOW!r} cell per row and leaves every other "
+            "byte, separator and line ending of the file exactly as it is."
+        )
     if header != _COLUMNS:
         raise MatrixError(
-            f"{path} header does not match the verified 15-column layout; expected "
-            f"{', '.join(_COLUMNS)} and found {', '.join(header)}"
+            f"{path} header does not match the verified {len(_COLUMNS)}-column layout; "
+            f"expected {', '.join(_COLUMNS)} and found {', '.join(header)}"
         )
     rows: list[MatrixRow] = []
     for row_number, line in enumerate(content[1:], start=1):
@@ -220,7 +358,7 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
         if len(cells) != len(_COLUMNS):
             raise MatrixError(
                 f"data row {row_number} of {path} holds {len(cells)} cells against "
-                f"the 15 verified columns: {line.strip()[:60]}..."
+                f"the {len(_COLUMNS)} verified columns: {line.strip()[:60]}..."
             )
         record = dict(zip(_COLUMNS, cells, strict=True))
         row = MatrixRow(
@@ -237,11 +375,123 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
             fs_build=record["FS_BUILD"],
             hidden=record["HIDDEN"] == "1",
             run=int(record["RUN"]),
+            workflow=_check_workflow(record["WORKFLOW"], record["POL"]),
             variables=_parse_variables(record["VAR_NAMES_VALUES"]),
         )
+        # Every row is checked, active or not: the sweep codes and the
+        # variable grammar already are, and a refusal a user only meets
+        # after flipping RUN to 1 is a refusal that waited.
+        _check_one_sweep_per_row(row.pol, row.sweep, row.variables)
         if row.run == 1 or not active_only:
             rows.append(row)
     return rows
+
+
+def _peel_terminator(line: bytes) -> tuple[bytes, bytes]:
+    """Split one line into its body and its line terminator."""
+    for terminator in (b"\r\n", b"\n", b"\r"):
+        if line.endswith(terminator):
+            return line[: -len(terminator)], terminator
+    return line, b""
+
+
+def _upgraded_bytes(data: bytes, source: str) -> bytes:
+    """Insert the WORKFLOW cell into a fifteen-column matrix, byte-wise.
+
+    Works on BYTES and never through :func:`read_matrix`, which replaces
+    undecodable bytes, drops the dashed rule and strips every cell: a
+    converter built on it would hand back a file the user cannot diff
+    against the one they had.
+    """
+    index = _COLUMNS.index("WORKFLOW")
+    last = index == len(_COLUMNS) - 1
+    rebuilt: list[bytes] = []
+    header_seen = False
+    row_number = 0
+    for line in data.splitlines(keepends=True):
+        body, terminator = _peel_terminator(line)
+        if b"|" not in body:
+            # The dashed rule, and any blank line. Neither carries a cell,
+            # so neither is touched.
+            rebuilt.append(line)
+            continue
+        parts = body.split(b"|")
+        if not header_seen:
+            header_seen = True
+            names = tuple(cell.strip().decode("utf-8", "replace") for cell in parts)
+            if names == _COLUMNS:
+                return data
+            if names != _LEGACY_COLUMNS_15:
+                raise MatrixError(
+                    f"{source} is not a run matrix at the layout this converter "
+                    f"upgrades: its header names {', '.join(names)}, and the "
+                    f"{len(_LEGACY_COLUMNS_15)}-column layout that gains the WORKFLOW "
+                    f"column names {', '.join(_LEGACY_COLUMNS_15)}."
+                )
+            cell = _COLUMNS[index].encode("utf-8")
+        else:
+            row_number += 1
+            if len(parts) != len(_LEGACY_COLUMNS_15):
+                raise MatrixError(
+                    f"data row {row_number} of {source} holds {len(parts)} cells "
+                    f"against the {len(_LEGACY_COLUMNS_15)} columns of the layout "
+                    "being upgraded, so this converter cannot say which cell the "
+                    "WORKFLOW value would sit beside; repair the row first."
+                )
+            cell = LEGACY_WORKFLOW.encode("utf-8")
+        # One leading space always, one trailing space unless the new cell
+        # is last: a trailing space at end of line is what the repository's
+        # own pre-commit hook strips out from under a committed fixture.
+        parts.insert(index, b" " + cell + (b"" if last else b" "))
+        rebuilt.append(b"|".join(parts) + terminator)
+    if not header_seen:
+        raise MatrixError(f"{source} holds no matrix content: no line carries a cell separator")
+    return b"".join(rebuilt)
+
+
+def upgrade_matrix(path: str | Path, *, in_place: bool = False) -> bytes:
+    """Add the WORKFLOW column to a matrix written before it existed.
+
+    Every other cell, separator, comment rule and line ending survives
+    byte for byte, so the diff a user reviews holds exactly one changed
+    thing per line. The value written into each data row is
+    :data:`LEGACY_WORKFLOW`, which names the behaviour those rows already
+    have; the header receives the column LABEL, so the result is a file
+    :func:`read_matrix` accepts rather than one that merely has the right
+    number of cells.
+
+    Parameters
+    ----------
+    path : str or Path
+        The matrix to upgrade. It is read as bytes and is not decoded.
+    in_place : bool
+        Write the upgraded bytes back over ``path``. Keyword-only, and
+        False by default, so nothing is rewritten unless it is asked
+        for; a caller wanting a different destination writes the
+        returned bytes there.
+
+    Returns
+    -------
+    bytes
+        The upgraded file content. A matrix already carrying the column
+        is returned unchanged, so running this twice is safe.
+
+    Raises
+    ------
+    MatrixError
+        The header names neither layout, a data row holds the wrong
+        number of cells, or no line carries a cell separator.
+
+    Examples
+    --------
+    >>> from pyflightstream.cases.matrix import upgrade_matrix
+    >>> upgrade_matrix("matrix.fs", in_place=True)  # doctest: +SKIP
+    """
+    target = Path(path)
+    upgraded = _upgraded_bytes(target.read_bytes(), str(target))
+    if in_place:
+        target.write_bytes(upgraded)
+    return upgraded
 
 
 #: Matrix variable naming the files a row's recipe exports, several
@@ -358,8 +608,8 @@ def to_campaign(
     Campaign
         Native campaign; the matrix codes survive in each case's
         variables (``matrix_ref``, ``matrix_set``, ``matrix_entry``,
-        ``matrix_fs_script``, ``matrix_fs_build``, ``matrix_hidden``)
-        so the conversion is lossless (FR-11).
+        ``matrix_fs_script``, ``matrix_fs_build``, ``matrix_hidden``,
+        ``matrix_workflow``) so the conversion is lossless (FR-11).
     """
     sims = []
     for row in read_matrix(path):
@@ -379,6 +629,16 @@ def to_campaign(
             matrix_fs_script=row.script_code,
             matrix_fs_build=row.fs_build,
             matrix_hidden=row.hidden,
+            # THE WORKFLOW BELONGS ON THE CASE, as a declared field beside
+            # `recipe`, and it is carried here instead because `SimCase` is
+            # `extra="forbid"` and adding the field is an edit to
+            # `cases/__init__.py`, which this change does not own
+            # (PFS-2025.01). The reserved `matrix_` namespace is written by
+            # this converter and never by a user's VAR_NAMES_VALUES cell, so
+            # the value cannot be shadowed by case data, and the conversion
+            # stays lossless (FR-11) meanwhile. When the declared field
+            # lands, pass `workflow=row.workflow` and drop this key.
+            matrix_workflow=row.workflow,
         )
         sims.append(
             SimCase(

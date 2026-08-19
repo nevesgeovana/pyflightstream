@@ -107,6 +107,10 @@ WORD_NUMBERS = {
     "nineteen": 19,
     "twenty": 20,
 }
+# The table stops at twenty on purpose. The pattern captures ONE word, so
+# a two-word number can never be read through it, and the guard's own
+# message names the remedy: write the digit. The guide does, from
+# 2026-08-19, when the curated set passed twenty.
 
 
 def guide_text() -> str:

@@ -25,6 +25,7 @@ from pyflightstream.cases.matrix import (
     convert_matrix,
     read_matrix,
     to_campaign,
+    upgrade_matrix,
 )
 from pyflightstream.run import Assessment, LocalExecutor, PlanStatus
 from pyflightstream.run.matrix import plan_matrix, run_matrix
@@ -95,24 +96,80 @@ def converged(case, execution, sim_dir):
     return Assessment(status=RunStatus.CONVERGED, iterations=120, residual=3.2e-6)
 
 
+#: Artifact bodies by the THREE-DIGIT TAIL of the code that names them.
+#:
+#: The fixtures spell their REF, SET and ENTRY codes with a kind letter
+#: (``r003``, ``s002``, ``e001``) while a matrix written inline by a test
+#: still spells them bare (``003``), and both are legitimate ids: the
+#: input library resolves whatever the column says. Keying by the tail is
+#: what lets one library cover both, so a fixture that changes its
+#: spelling does not silently take the whole module red.
+REFERENCE_BODIES = {
+    "003": "area_m2 = 10.0\nchord_m = 1.2\nspan_m = 8.0\n",
+    "004": "area_m2 = 12.0\nchord_m = 1.5\nspan_m = 9.0\n",
+}
+SETUP_BODIES = {
+    "002": "iterations = 800\nconvergence = 1e-6\n",
+    "003": "iterations = 400\nwake_layers = 4\n",
+}
+GROUP_BODIES = {"001": 'wing = ["wing_left", "wing_right"]\nbody = [1]\n'}
+
+
+def fixture_codes(path=FIXTURE):
+    """Return the REF, SET and ENTRY codes one fixture actually spells.
+
+    Read from the file rather than written here, so the assertions below
+    name the codes the matrix names and cannot drift from it.
+    """
+    rows = read_matrix(path, active_only=False)
+    return {
+        "ref": [row.ref_code for row in rows],
+        "set": [row.set_code for row in rows],
+        "entry": [row.entry_code for row in rows],
+    }
+
+
+def code_for(pol, kind, path=FIXTURE):
+    """Return the `kind` code the row with this POL names."""
+    for row in read_matrix(path, active_only=False):
+        if row.pol == pol:
+            return {"ref": row.ref_code, "set": row.set_code, "entry": row.entry_code}[kind]
+    raise AssertionError(f"POL {pol} is not in {path}")
+
+
 def make_library(tmp_path, *, register_build=None):
     """Build a synthetic workspace input library covering the fixtures."""
     workspace = CampaignWorkspace.init(tmp_path / "camp")
     inputs = workspace.inputs_dir
-    reference = "area_m2 = 10.0\nchord_m = 1.2\nspan_m = 8.0\n"
-    (inputs / "references" / "003.toml").write_text(reference, encoding="utf-8")
-    (inputs / "references" / "004.toml").write_text(
-        "area_m2 = 12.0\nchord_m = 1.5\nspan_m = 9.0\n", encoding="utf-8"
-    )
-    (inputs / "setups" / "002.toml").write_text(
-        "iterations = 800\nconvergence = 1e-6\n", encoding="utf-8"
-    )
-    (inputs / "setups" / "003.toml").write_text(
-        "iterations = 400\nwake_layers = 4\n", encoding="utf-8"
-    )
-    (inputs / "groups" / "001.toml").write_text(
-        'wing = ["wing_left", "wing_right"]\nbody = [1]\n', encoding="utf-8"
-    )
+    spelled = {"references": set(), "setups": set(), "groups": set()}
+    for path in (FIXTURE, REGISTRY_FIXTURE):
+        codes = fixture_codes(path)
+        spelled["references"] |= set(codes["ref"])
+        spelled["setups"] |= set(codes["set"])
+        spelled["groups"] |= set(codes["entry"])
+    # The body tables are keyed by the bare three-digit code, which is
+    # what the codes were before 0.8.0. Every id the library can resolve
+    # now DECLARES its kind with a leading letter (PFS-2009.01), so the
+    # letter is added here rather than staging both spellings: a bare
+    # file is one no id can reach, and leaving it on disk would teach a
+    # later reader that the old spelling still resolves. Measured
+    # 2026-08-19: it staged six such files, found by the currency guard
+    # over this builder rather than by any test of the library itself.
+    for tail in REFERENCE_BODIES:
+        spelled["references"].add(f"r{tail}")
+    for tail in SETUP_BODIES:
+        spelled["setups"].add(f"s{tail}")
+    for tail in GROUP_BODIES:
+        spelled["groups"].add(f"e{tail}")
+    for subdir, bodies in (
+        ("references", REFERENCE_BODIES),
+        ("setups", SETUP_BODIES),
+        ("groups", GROUP_BODIES),
+    ):
+        for code in sorted(spelled[subdir]):
+            body = bodies.get(code[-3:])
+            if body is not None:
+                (inputs / subdir / f"{code}.toml").write_text(body, encoding="utf-8")
     if register_build is not None:
         build_id, exe_path = register_build
         with open(inputs / "executables.toml", "a", encoding="utf-8") as handle:
@@ -121,7 +178,16 @@ def make_library(tmp_path, *, register_build=None):
 
 
 def write_matrix(path, rows):
+    """Write an inline matrix in the pre-v0.8.0 shape, then upgrade it.
+
+    HEADER is the fifteen-column layout, which the reader now refuses
+    with a didactic pointer at ``upgrade_matrix``. Going through that
+    migration rather than hand-writing the WORKFLOW cell keeps these
+    rows readable AND exercises the one path a user with an existing
+    matrix takes.
+    """
     path.write_text("\n".join([HEADER, *rows]) + "\n", encoding="utf-8")
+    upgrade_matrix(path, in_place=True)
     return path
 
 
@@ -151,13 +217,17 @@ def test_resolve_matrix_applies_reference_and_setup_to_the_cases(tmp_path):
     assert by_sim["9002"].solver.convergence == 1e-6
     # POL 9006: the distinct REF 004.
     assert by_sim["9006"].reference.area == 12.0
-    # The historical codes survive in the variables (lossless).
-    assert by_sim["9001"].variables["matrix_ref"] == "003"
-    assert by_sim["9001"].variables["matrix_set"] == "003"
+    # The historical codes survive in the variables (lossless), whatever
+    # the matrix spells them as.
+    assert by_sim["9001"].variables["matrix_ref"] == code_for("9001", "ref")
+    assert by_sim["9001"].variables["matrix_set"] == code_for("9001", "set")
     # ENTRY groups come back verbatim for the script and post layers.
-    assert resolved.groups["001"].groups == {"wing": ["wing_left", "wing_right"], "body": [1]}
+    assert resolved.groups[code_for("9001", "entry")].groups == {
+        "wing": ["wing_left", "wing_right"],
+        "body": [1],
+    }
     # The unmapped preset key stays verbatim in the artifact.
-    assert resolved.setups["003"].settings["wake_layers"] == 4
+    assert resolved.setups[code_for("9001", "set")].settings["wake_layers"] == 4
 
 
 def test_registry_build_resolves_the_executable(tmp_path):
@@ -176,8 +246,9 @@ def test_registry_build_resolves_the_executable(tmp_path):
 @pytest.mark.filterwarnings("ignore:setup preset")
 def test_missing_reference_names_the_row_the_id_and_the_folder(tmp_path):
     workspace = make_library(tmp_path)
-    (workspace.inputs_dir / "references" / "004.toml").unlink()
-    with pytest.raises(InputArtifactError, match=r"POL 9006.*inputs/references/004\.toml"):
+    code = code_for("9006", "ref")
+    (workspace.inputs_dir / "references" / f"{code}.toml").unlink()
+    with pytest.raises(InputArtifactError, match=rf"POL 9006.*inputs/references/{code}\.toml"):
         resolve_matrix(
             FIXTURE,
             workspace,
@@ -191,8 +262,9 @@ def test_missing_reference_names_the_row_the_id_and_the_folder(tmp_path):
 @pytest.mark.filterwarnings("ignore:setup preset")
 def test_missing_setup_and_group_are_didactic_too(tmp_path):
     workspace = make_library(tmp_path)
-    (workspace.inputs_dir / "setups" / "003.toml").unlink()
-    with pytest.raises(InputArtifactError, match=r"SET column.*inputs/setups/003\.toml"):
+    setup_code = code_for("9001", "set")
+    (workspace.inputs_dir / "setups" / f"{setup_code}.toml").unlink()
+    with pytest.raises(InputArtifactError, match=rf"SET column.*inputs/setups/{setup_code}\.toml"):
         resolve_matrix(
             FIXTURE,
             workspace,
@@ -202,8 +274,10 @@ def test_missing_setup_and_group_are_didactic_too(tmp_path):
             fs_exe="C:/fs/FlightStream.exe",
         )
     workspace = make_library(tmp_path / "second")
-    (workspace.inputs_dir / "groups" / "001.toml").unlink()
-    with pytest.raises(InputArtifactError, match=r"ENTRY column.*inputs/groups/001\.toml"):
+    group_code = code_for("9001", "entry")
+    (workspace.inputs_dir / "groups" / f"{group_code}.toml").unlink()
+    entry_miss = rf"ENTRY column.*inputs/groups/{group_code}\.toml"
+    with pytest.raises(InputArtifactError, match=entry_miss):
         resolve_matrix(
             FIXTURE,
             workspace,
@@ -245,9 +319,8 @@ def test_mixed_builds_are_refused(tmp_path):
 @pytest.mark.filterwarnings("ignore:setup preset")
 def test_bad_setup_value_is_refused_didactically(tmp_path):
     workspace = make_library(tmp_path)
-    (workspace.inputs_dir / "setups" / "002.toml").write_text(
-        'iterations = "many"\n', encoding="utf-8"
-    )
+    broken = f"{code_for('9002', 'set')}.toml"
+    (workspace.inputs_dir / "setups" / broken).write_text('iterations = "many"\n', encoding="utf-8")
     with pytest.raises(InputArtifactError, match="does not fit the case solver settings"):
         resolve_matrix(
             FIXTURE,
@@ -269,7 +342,7 @@ def test_plan_matrix_preflights_every_point_without_executing(tmp_path):
         REGISTRY_FIXTURE,
         workspace,
         name="matrix",
-        fs_version="26.120",
+        default_fs_version="26.120",
         recipes=RECIPES,
         recipe_registry={"steady": matrix_recipe},
     )
@@ -295,7 +368,7 @@ def test_run_matrix_executes_and_records_every_point(tmp_path):
         REGISTRY_FIXTURE,
         workspace,
         name="matrix",
-        fs_version="26.120",
+        default_fs_version="26.120",
         recipes=RECIPES,
         assess=converged,
         executor=StubSolver(WRITES_LOADS),
@@ -318,7 +391,7 @@ def test_run_matrix_honors_resume_and_refuses_a_silent_rerun(tmp_path):
     workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
     keywords = dict(
         name="matrix",
-        fs_version="26.120",
+        default_fs_version="26.120",
         recipes=RECIPES,
         assess=converged,
         recipe_registry={"steady": matrix_recipe},
@@ -340,7 +413,7 @@ def test_run_matrix_refuses_a_blocked_preflight_before_any_execution(tmp_path):
             REGISTRY_FIXTURE,
             workspace,
             name="matrix",
-            fs_version="26.120",
+            default_fs_version="26.120",
             recipes={"003": "no.such.module:build"},
             assess=converged,
             executor=StubSolver(WRITES_LOADS),
@@ -447,7 +520,7 @@ def test_the_end_to_end_run_actually_collects_the_declared_file(tmp_path):
         REGISTRY_FIXTURE,
         workspace,
         name="collect",
-        fs_version="26.120",
+        default_fs_version="26.120",
         recipes=RECIPES,
         assess=converged,
         executor=StubSolver(WRITES_LOADS),
@@ -504,7 +577,7 @@ def test_the_row_decides_the_window_when_the_caller_does_not(tmp_path, monkeypat
         REGISTRY_FIXTURE,
         workspace,
         name="window",
-        fs_version="26.120",
+        default_fs_version="26.120",
         recipes=RECIPES,
         assess=converged,
         recipe_registry={"steady": matrix_recipe},
@@ -561,7 +634,7 @@ def test_a_matrix_whose_rows_all_ask_for_hidden_runs_hidden(tmp_path, monkeypatc
         matrix,
         workspace,
         name="allhidden",
-        fs_version="26.120",
+        default_fs_version="26.120",
         recipes=RECIPES,
         assess=converged,
         recipe_registry={"steady": matrix_recipe},
@@ -600,7 +673,7 @@ def test_one_visible_row_makes_the_campaign_visible_wherever_it_sits(tmp_path, m
         matrix,
         workspace,
         name="visiblesecond",
-        fs_version="26.120",
+        default_fs_version="26.120",
         recipes=RECIPES,
         assess=converged,
         recipe_registry={"steady": matrix_recipe},
@@ -629,7 +702,7 @@ def test_an_explicit_hidden_argument_overrules_the_column(tmp_path, monkeypatch)
         REGISTRY_FIXTURE,
         workspace,
         name="callerwins",
-        fs_version="26.120",
+        default_fs_version="26.120",
         recipes=RECIPES,
         assess=converged,
         recipe_registry={"steady": matrix_recipe},
@@ -662,7 +735,7 @@ def test_an_explicit_hidden_false_also_overrules_the_column(tmp_path, monkeypatc
         matrix,
         workspace,
         name="callerwinsfalse",
-        fs_version="26.120",
+        default_fs_version="26.120",
         recipes=RECIPES,
         assess=converged,
         recipe_registry={"steady": matrix_recipe},
@@ -722,4 +795,106 @@ def test_no_warning_when_the_override_overrules_nothing(tmp_path):
             fs_version="26.120",
             recipes=RECIPES,
             fs_exe="C:/elsewhere/FlightStream.exe",
+        )
+
+
+# --- the version argument is a DEFAULT, and its name says so ---------------
+
+
+def test_the_matrix_entry_points_call_the_version_argument_a_default():
+    """PFS-2009.08.01: the rename is the load-bearing half.
+
+    A parameter called ``fs_version`` sitting beside a per-row FS_BUILD
+    column reads as an OVERRIDE of that column, and nobody reads a
+    docstring to check a name they think they understand. The argument
+    answers only for rows that name no build, so it is a default.
+    """
+    import inspect
+
+    for entry in (plan_matrix, run_matrix):
+        parameters = inspect.signature(entry).parameters
+        assert "default_fs_version" in parameters, (
+            f"{entry.__name__}() still calls the argument fs_version alone, which "
+            "reads as an override of the FS_BUILD column rather than as the "
+            "fallback for rows that name no build"
+        )
+
+
+def test_the_default_version_reaches_the_plan_under_its_new_name(tmp_path):
+    """The behaviour half: the new keyword is not just accepted, it is used."""
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs26120/FlightStream.exe"))
+    plan = plan_matrix(
+        REGISTRY_FIXTURE,
+        workspace,
+        name="matrix",
+        default_fs_version="26.120",
+        recipes=RECIPES,
+        recipe_registry={"steady": matrix_recipe},
+        write_plan=False,
+    )
+    assert plan.fs_version == "26.120"
+    assert [point.status for point in plan.points] == [PlanStatus.READY] * 4
+
+
+def test_the_former_spelling_still_works_and_says_it_is_the_former_one(tmp_path):
+    """Callers of these two entry points exist outside this package.
+
+    The command line keeps ``--fs-version`` by the author's decision of
+    2026-08-03, which unified the flag across every CLI here, so only the
+    PYTHON keyword moves and the old one keeps working until a release
+    removes it.
+    """
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs26120/FlightStream.exe"))
+    with pytest.warns(DeprecationWarning, match="default_fs_version"):
+        plan = plan_matrix(
+            REGISTRY_FIXTURE,
+            workspace,
+            name="matrix",
+            fs_version="26.120",
+            recipes=RECIPES,
+            recipe_registry={"steady": matrix_recipe},
+            write_plan=False,
+        )
+    assert plan.fs_version == "26.120"
+
+
+def test_naming_the_version_neither_way_is_refused_didactically(tmp_path):
+    """Omitting it used to be a bare TypeError from the call machinery."""
+    workspace = make_library(tmp_path)
+    with pytest.raises(MatrixError, match="default_fs_version"):
+        plan_matrix(REGISTRY_FIXTURE, workspace, name="matrix", recipes=RECIPES)
+
+
+def test_the_two_spellings_agreeing_is_accepted_with_the_notice(tmp_path):
+    """The arm between the other two: both names, one value.
+
+    Left untested it would be counted as covered by the disagreement
+    case, which takes the other branch and never reaches it.
+    """
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs26120/FlightStream.exe"))
+    with pytest.warns(DeprecationWarning, match="default_fs_version"):
+        plan = plan_matrix(
+            REGISTRY_FIXTURE,
+            workspace,
+            name="matrix",
+            default_fs_version="26.120",
+            fs_version="26.120",
+            recipes=RECIPES,
+            recipe_registry={"steady": matrix_recipe},
+            write_plan=False,
+        )
+    assert plan.fs_version == "26.120"
+
+
+def test_the_two_spellings_disagreeing_is_refused_rather_than_resolved(tmp_path):
+    """Two names for one argument, given two values, is not a thing to guess at."""
+    workspace = make_library(tmp_path)
+    with pytest.raises(MatrixError, match="two names for one argument"):
+        plan_matrix(
+            REGISTRY_FIXTURE,
+            workspace,
+            name="matrix",
+            default_fs_version="26.120",
+            fs_version="26.121",
+            recipes=RECIPES,
         )

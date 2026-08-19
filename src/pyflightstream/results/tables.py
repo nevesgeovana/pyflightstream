@@ -23,8 +23,19 @@ Three steps of one ladder:
    loads spreadsheet from the managed workspace through the record's
    collected outputs.
 3. :func:`sweep_table` reads a whole campaign manifest and returns the
-   tidy sweep table, one row per run; ``DataFrame.to_csv`` then writes
+   tidy sweep table, one row per run; :func:`write_table` then writes
    the final csv.
+
+EVERY TABLE SAYS WHAT PRODUCED ITS NUMBERS (PFS-2014.05, her
+requirement of 2026-08-16). Each frame these functions build carries
+``data_origin`` and ``reduction``, and :func:`write_table` refuses to
+write one that does not. They are constant columns for a single parsed
+result and genuinely PER ROW in the sweep table, which is the one file
+here that mixes provenances: a steady point's coefficients are a direct
+integration and an unsteady point's are the solver's own time average,
+printed under the same names. The vocabulary and its integer codes live
+in :mod:`pyflightstream.results`, one layer below the writers that
+publish them.
 
 Column names carry units the way the source dataclasses document them:
 printed coefficient names (Cx .. CMz) with the ``force_units`` /
@@ -58,6 +69,7 @@ which is one line and is what every shipped example already did.
 from __future__ import annotations
 
 import math
+import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -66,12 +78,18 @@ import pandas as pd
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.extras import missing_extra
 from pyflightstream.results import (
+    DATA_ORIGIN_CODES,
+    DATA_ORIGIN_COLUMN,
+    PROVENANCE_COLUMNS,
+    REDUCTION_CODES,
+    REDUCTION_COLUMN,
     IncompleteOutputError,
     LoadsReport,
     MalformedOutputError,
     ProbePointsReport,
     ResidualSample,
     parse_loads,
+    reduction_for_solver_mode,
 )
 from pyflightstream.results.conditions import bind_conditions
 
@@ -147,6 +165,13 @@ def to_table(result: object) -> pd.DataFrame:
       ``fz_n_per_m`` [N/m], ``moment_qc_nm_per_m`` [N m / m], in the
       cut-plane axes the FSI parser documents.
 
+    Every one of them also carries the two provenance columns
+    (PFS-2014.05): ``data_origin``, ``raw`` for anything read off a
+    solver export, and ``reduction``, which is ``none`` where nothing
+    was averaged, ``time_average`` where the unsteady solver averaged
+    over its window, and ``unknown`` where the file printed no solver
+    mode to decide it by.
+
     Parameters
     ----------
     result : object
@@ -156,7 +181,7 @@ def to_table(result: object) -> pd.DataFrame:
     -------
     pandas.DataFrame
         Tidy table, one observation per row; write it with
-        :func:`to_csv` or ``DataFrame.to_csv``.
+        :func:`to_csv` or :func:`write_table`.
     """
     if isinstance(result, LoadsReport):
         return _loads_frame(result)
@@ -193,12 +218,79 @@ def to_table(result: object) -> pd.DataFrame:
     )
 
 
+def write_table(frame: pd.DataFrame, path: str | Path, *, overwrite: bool = True) -> Path:
+    """Write one table as a csv, refusing a file that cannot say what it is.
+
+    THE ONE WRITE PATH of this module (PFS-2014.05). Every file this
+    package writes has to state whether its numbers came off the run or
+    out of a reduction, and the identifier is carried PER ROW, because
+    the sweep table mixes a steady point's direct integration with an
+    unsteady point's time average under the same column names. A reader
+    who cannot tell those apart compares them and reads a method
+    difference as physics.
+
+    The refusal is on ABSENCE, never on multiplicity: a frame holding
+    several distinct ``(data_origin, reduction)`` pairs is exactly the
+    mixed sweep this exists to make readable, so it is written. What is
+    refused is a frame that cannot answer the question at all, or one
+    whose answer contradicts itself.
+
+    Parameters
+    ----------
+    frame : pandas.DataFrame
+        The table to write, carrying ``data_origin`` and ``reduction``
+        columns whose values are keys of
+        :data:`~pyflightstream.results.DATA_ORIGIN_CODES` and
+        :data:`~pyflightstream.results.REDUCTION_CODES`.
+    path : str or Path
+        Target csv file; its parent folder must exist.
+    overwrite : bool, optional
+        Whether an existing file may be replaced. True by default, which
+        is what this module has always done; the non-overwrite policy of
+        the flow-visualization writers is a separate decision and this
+        function does not smuggle it in.
+
+    Returns
+    -------
+    Path
+        The written file.
+
+    Raises
+    ------
+    MalformedOutputError
+        When either provenance column is absent, when a cell is empty or
+        is not a published token, or when a row says its numbers are
+        ``reduced`` and names no reduction.
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> from pyflightstream.results import write_table
+    >>> frame = pd.DataFrame(
+    ...     {"CL": [0.4], "data_origin": ["raw"], "reduction": ["none"]}
+    ... )
+    >>> written = write_table(frame, "polar.csv")   # doctest: +SKIP
+    """
+    _refuse_a_frame_that_cannot_say_what_it_is(frame)
+    target = Path(path)
+    if target.exists() and not overwrite:
+        raise MalformedOutputError(
+            f"{target} already exists and overwrite=False; write under a name that "
+            "carries the point, or pass overwrite=True to replace it deliberately"
+        )
+    frame.to_csv(target, index=False)
+    return target
+
+
 def to_csv(result: object, path: str | Path) -> Path:
     """Write one parsed FlightStream result as a csv file.
 
     The tidy table of :func:`to_table` is written without the
     positional index, so the csv holds exactly the documented columns
-    in their documented units.
+    in their documented units, plus the ``data_origin`` and
+    ``reduction`` columns every file this package writes carries
+    (PFS-2014.05). It routes through :func:`write_table`, so a table
+    that cannot say what produced its numbers is refused here too.
 
     Parameters
     ----------
@@ -212,16 +304,60 @@ def to_csv(result: object, path: str | Path) -> Path:
     Path
         The written file.
     """
-    target = Path(path)
-    to_table(result).to_csv(target, index=False)
-    return target
+    return write_table(to_table(result), path)
+
+
+def _refuse_a_frame_that_cannot_say_what_it_is(frame: pd.DataFrame) -> None:
+    """Refuse a table whose rows cannot be traced to raw or reduced.
+
+    Parameters
+    ----------
+    frame : pandas.DataFrame
+        The table about to be written.
+
+    Raises
+    ------
+    MalformedOutputError
+        With the column or the offending values named.
+    """
+    missing = [name for name in PROVENANCE_COLUMNS if name not in frame.columns]
+    if missing:
+        raise MalformedOutputError(
+            f"this table carries no {' and no '.join(missing)} column, so a reader "
+            "cannot tell whether a row's numbers came off the run or out of a "
+            "reduction without opening another file. Build it through to_table, "
+            "run_table or sweep_table, which stamp both columns"
+        )
+    for column, published in (
+        (DATA_ORIGIN_COLUMN, DATA_ORIGIN_CODES),
+        (REDUCTION_COLUMN, REDUCTION_CODES),
+    ):
+        seen = {str(value) for value in frame[column].tolist()}
+        unknown = sorted(value for value in seen if value not in published)
+        if unknown:
+            raise MalformedOutputError(
+                f"the {column} column holds {unknown}, which this package does not "
+                f"publish; the tokens are {', '.join(sorted(published))}. An empty "
+                "cell is refused for the same reason: it reads back out of a csv as "
+                "NaN, so the identifier would not survive its own file"
+            )
+    contradictory = frame[
+        (frame[DATA_ORIGIN_COLUMN] == "reduced") & (frame[REDUCTION_COLUMN] == "none")
+    ]
+    if not contradictory.empty:
+        raise MalformedOutputError(
+            f"{len(contradictory)} row(s) say their numbers are reduced and name no "
+            "reduction, which is a contradiction rather than a default: name the "
+            "reduction that produced them, or say the numbers are raw"
+        )
 
 
 def run_table(record: RunRecord, *, loads: LoadsReport | None = None) -> pd.DataFrame:
     """Join one manifest record with its parsed loads into one wide row.
 
     The row carries the run identity and conditions from the manifest
-    (``run_id``, ``sim_id``, the sweep point axes in their sweep units:
+    (``run_id``, ``sim_id``, the ``data_origin`` and ``reduction`` pair
+    of PFS-2014.05, the sweep point axes in their sweep units:
     alpha and beta in deg, advance_ratio dimensionless), the recorded
     versions and outcome (``fs_version_requested``,
     ``fs_version_reported``, ``fs_build``, ``package_version``,
@@ -358,6 +494,7 @@ def sweep_table(
     workspace: CampaignWorkspace,
     *,
     loads_file: str | None = None,
+    require_loads: bool = True,
 ) -> pd.DataFrame:
     """Assemble the tidy table of a whole campaign sweep.
 
@@ -381,6 +518,16 @@ def sweep_table(
         Exact loads file name per run, forwarded to
         :func:`parse_run_loads`; needed when the recipes export more
         than one file that parses as a loads spreadsheet.
+    require_loads : bool, optional
+        Whether a sweep in which NO run yielded coefficients is an
+        error. True by default, which is the historical behaviour and
+        the right answer for a caller asking for a polar. Pass False
+        where the table is being written as the record of what ran
+        (PFS-2014.03): a campaign whose every point failed still has to
+        leave a file a colleague can open, and raising here would leave
+        nothing to write. The condition is warned about instead, and
+        the identity rows are returned; per-record misses are already
+        tolerated either way, as NaN coefficient rows.
 
     Returns
     -------
@@ -388,7 +535,10 @@ def sweep_table(
         The sweep table; sweep point axes are in their sweep units
         (alpha and beta in deg, advance_ratio dimensionless) and the
         coefficient columns follow each run's printed units, exposed
-        in the ``force_units`` / ``moment_units`` columns.
+        in the ``force_units`` / ``moment_units`` columns. Every row
+        also carries ``data_origin`` and ``reduction`` (PFS-2014.05),
+        which is what lets a mixed steady and unsteady sweep be read
+        without opening another file.
 
     Raises
     ------
@@ -398,7 +548,12 @@ def sweep_table(
         :class:`~pyflightstream.workspace.CampaignWorkspace`.
     LoadsNotFoundError
         When no successful run yields a coefficient table (which points
-        at a wrong ``loads_file`` name).
+        at a wrong ``loads_file`` name) and ``require_loads`` is True.
+
+    Warns
+    -----
+    UserWarning
+        In the same condition when ``require_loads`` is False.
 
     Examples
     --------
@@ -432,13 +587,45 @@ def sweep_table(
                 if loads_file is not None
                 else "no collected output parses as a loads spreadsheet"
             )
-            raise LoadsNotFoundError(
+            complaint = (
                 f"none of the {len(successful)} successful runs yielded a coefficient "
                 f"table: {hint}. Check the exported file name against the recorded "
                 f"outputs, for example {records[0].outputs!r} for run "
                 f"{records[0].run_id!r}."
             )
+            if require_loads:
+                raise LoadsNotFoundError(complaint)
+            warnings.warn(complaint, stacklevel=2)
     return pd.DataFrame(rows)
+
+
+def _stamped(frame: pd.DataFrame, *, origin: str, reduction: str) -> pd.DataFrame:
+    """Add the two provenance columns to a whole-file table (PFS-2014.05).
+
+    A single parsed result is one provenance throughout, so the columns
+    are constant here and per row only where a file MIXES the two, which
+    is the sweep table. They are written on the frame all the same: a
+    reader must be able to answer the question with the one file in hand,
+    and "this one is constant so it needs no column" is exactly how a
+    file ends up needing another file.
+
+    Parameters
+    ----------
+    frame : pandas.DataFrame
+        The tidy table, already built.
+    origin : str
+        One key of :data:`~pyflightstream.results.DATA_ORIGIN_CODES`.
+    reduction : str
+        One key of :data:`~pyflightstream.results.REDUCTION_CODES`.
+
+    Returns
+    -------
+    pandas.DataFrame
+        The same table with the two columns appended.
+    """
+    frame[DATA_ORIGIN_COLUMN] = origin
+    frame[REDUCTION_COLUMN] = reduction
+    return frame
 
 
 def _loads_frame(report: LoadsReport) -> pd.DataFrame:
@@ -450,23 +637,45 @@ def _loads_frame(report: LoadsReport) -> pd.DataFrame:
         row["force_units"] = report.force_units
         row["moment_units"] = report.moment_units
         rows.append(row)
-    return pd.DataFrame(rows)
+    # The solver did the averaging on an unsteady export, so the numbers
+    # are still raw off the run and it is the reduction token that names
+    # what they are.
+    return _stamped(
+        pd.DataFrame(rows),
+        origin="raw",
+        reduction=reduction_for_solver_mode(report.solver_mode),
+    )
 
 
 def _residual_history_frame(history: list[ResidualSample]) -> pd.DataFrame:
     """Tabulate the residual history in iteration order, dimensionless."""
-    return pd.DataFrame(
-        {
-            "iteration": [sample.iteration for sample in history],
-            "velocity_residual": [sample.velocity_residual for sample in history],
-            "pressure_residual": [sample.pressure_residual for sample in history],
-        }
+    # ``none`` rather than ``unknown``, and the difference is not cosmetic.
+    # A residual history is a per-iteration reading, so no reduction is
+    # applicable to it at all, whereas an unread solver mode on a
+    # COEFFICIENT row leaves open whether the number was averaged.
+    return _stamped(
+        pd.DataFrame(
+            {
+                "iteration": [sample.iteration for sample in history],
+                "velocity_residual": [sample.velocity_residual for sample in history],
+                "pressure_residual": [sample.pressure_residual for sample in history],
+            }
+        ),
+        origin="raw",
+        reduction="none",
     )
 
 
 def _probe_points_frame(report: ProbePointsReport) -> pd.DataFrame:
     """Tabulate the probe table under its printed names, rows in probe order."""
-    return pd.DataFrame(report.values, columns=list(report.columns))
+    # A probe export is a point sample, so nothing was averaged to make it
+    # (see the residual history above for why that is ``none`` and not
+    # ``unknown``).
+    return _stamped(
+        pd.DataFrame(report.values, columns=list(report.columns)),
+        origin="raw",
+        reduction="none",
+    )
 
 
 def _sectional_loads_frame(report: object) -> pd.DataFrame:
@@ -485,7 +694,11 @@ def _sectional_loads_frame(report: object) -> pd.DataFrame:
             "is only valid for the layout the FSI parser asserts"
         )
     columns = [_SECTIONAL_COLUMN_UNITS[name] for name in printed]
-    return pd.DataFrame(report.values, columns=columns)  # type: ignore[attr-defined]
+    return _stamped(
+        pd.DataFrame(report.values, columns=columns),  # type: ignore[attr-defined]
+        origin="raw",
+        reduction=reduction_for_solver_mode(getattr(report, "solver_mode", None)),
+    )
 
 
 def _sectional_loads_type() -> type | None:
@@ -513,7 +726,15 @@ def _looks_like_sectional(result: object) -> bool:
 def _run_row(record: RunRecord, loads: LoadsReport | None) -> dict[str, object]:
     """Build the wide row of one run: manifest identity plus coefficients."""
     row: dict[str, object] = {"run_id": record.run_id, "sim_id": record.sim_id}
-    reserved = set(_RUN_IDENTITY_COLUMNS + _RUN_OUTCOME_COLUMNS)
+    # PER ROW, straight after the identity, because this is the one table
+    # this package writes that MIXES provenances: a steady point's
+    # coefficients are a direct integration and an unsteady point's are the
+    # solver's own time average, under the same column names.
+    row[DATA_ORIGIN_COLUMN] = "raw"
+    row[REDUCTION_COLUMN] = (
+        "unknown" if loads is None else reduction_for_solver_mode(loads.solver_mode)
+    )
+    reserved = set(_RUN_IDENTITY_COLUMNS + _RUN_OUTCOME_COLUMNS + PROVENANCE_COLUMNS)
     reserved.update(("frame", "force_units", "moment_units"))
     for axis, value in record.point.items():
         if axis in reserved:

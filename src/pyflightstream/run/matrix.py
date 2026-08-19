@@ -22,6 +22,7 @@ one way, from here into the campaign loop.
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -44,16 +45,79 @@ __all__ = [
 ]
 
 
+def _default_version(
+    default_fs_version: str | None,
+    fs_version: str | None,
+    *,
+    caller: str,
+) -> str:
+    """Resolve the campaign default from the new keyword or the old one.
+
+    The argument answers for rows whose FS_BUILD column names no build.
+    Calling it ``fs_version`` beside a per-row build column reads as an
+    OVERRIDE of that column, and nobody reads a docstring to check a
+    name they think they understand, so the parameter is
+    ``default_fs_version`` (PFS-2009.08.01). The old spelling still
+    works and says so once, because callers of these two entry points
+    exist outside this package.
+
+    Parameters
+    ----------
+    default_fs_version : str or None
+        The new keyword, as passed.
+    fs_version : str or None
+        The retired keyword, as passed.
+    caller : str, keyword-only
+        Name of the entry point, so the message names the call the user
+        actually made.
+
+    Returns
+    -------
+    str
+        The version rows that name no build fall back to.
+
+    Raises
+    ------
+    pyflightstream.cases.matrix.MatrixError
+        Neither keyword given, or the two given and disagreeing.
+    """
+    if fs_version is not None:
+        if default_fs_version is not None and default_fs_version != fs_version:
+            raise MatrixError(
+                f"{caller}() was given default_fs_version={default_fs_version!r} and "
+                f"fs_version={fs_version!r}, which are two names for one argument and "
+                "disagree; pass default_fs_version alone."
+            )
+        warnings.warn(
+            f"{caller}(fs_version=...) is the former name of default_fs_version and "
+            "will be removed in a future release. The argument is the version rows "
+            "whose FS_BUILD column names no build fall back to, so it is a DEFAULT "
+            "rather than the version the matrix runs under; a row that names a build "
+            "is authoritative. The pyfs-matrix command line keeps --fs-version.",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+        return fs_version
+    if default_fs_version is None:
+        raise MatrixError(
+            f"{caller}() needs default_fs_version=..., the FlightStream version to "
+            "emit scripts under for matrix rows whose FS_BUILD column names no "
+            "build. The matrix carries no version column, so it is explicit input."
+        )
+    return default_fs_version
+
+
 def plan_matrix(
     path: str | Path,
     workspace: CampaignWorkspace,
     *,
     name: str,
-    fs_version: str,
     recipes: Mapping[str, str],
+    default_fs_version: str | None = None,
     fs_exe: str | Path | None = None,
     recipe_registry: dict[str, ScriptRecipe] | None = None,
     write_plan: bool = True,
+    fs_version: str | None = None,
 ) -> CampaignPlan:
     """Pre-flight a run matrix without executing anything.
 
@@ -67,8 +131,17 @@ def plan_matrix(
 
     Parameters
     ----------
-    path, workspace, name, fs_version, recipes, fs_exe
+    path, workspace, name, recipes, fs_exe
         As in :func:`pyflightstream.workspace.matrix.resolve_matrix`.
+    default_fs_version : str
+        FlightStream version for rows whose FS_BUILD column names no
+        build; a DEFAULT rather than an override, which is what the
+        name says (PFS-2009.08.01). Required in practice: it defaults
+        to None only so the former spelling below can still be given.
+    fs_version : str, optional
+        The former name of ``default_fs_version``. Still accepted, with
+        a DeprecationWarning; the ``pyfs-matrix`` command line keeps
+        ``--fs-version``.
     recipe_registry : dict of str to ScriptRecipe, optional
         Named recipe registry (name to callable) consulted before
         treating a recipe reference as ``module:function``, forwarded
@@ -91,13 +164,14 @@ def plan_matrix(
     ...     "matrix.fs",
     ...     CampaignWorkspace("campaign"),
     ...     name="wing_steady",
-    ...     fs_version="26.120",
+    ...     default_fs_version="26.120",
     ...     recipes={"003": "recipes.steady_polar:build"},
     ... )
     >>> print(plan.summary())               # doctest: +SKIP
     """
+    default = _default_version(default_fs_version, fs_version, caller="plan_matrix")
     resolved = resolve_matrix(
-        path, workspace, name=name, fs_version=fs_version, recipes=recipes, fs_exe=fs_exe
+        path, workspace, name=name, fs_version=default, recipes=recipes, fs_exe=fs_exe
     )
     return plan_campaign(
         resolved.campaign, workspace, recipes=recipe_registry, write_plan=write_plan
@@ -109,14 +183,15 @@ def run_matrix(
     workspace: CampaignWorkspace,
     *,
     name: str,
-    fs_version: str,
     recipes: Mapping[str, str],
     assess: OutcomeAssessor,
+    default_fs_version: str | None = None,
     fs_exe: str | Path | None = None,
     executor: Executor | None = None,
     recipe_registry: dict[str, ScriptRecipe] | None = None,
     resume: bool = False,
     hidden: bool | None = None,
+    fs_version: str | None = None,
 ) -> list[RunRecord]:
     """Read a run matrix and run it: the one-call first-class entry.
 
@@ -130,11 +205,17 @@ def run_matrix(
 
     Parameters
     ----------
-    path, workspace, name, fs_version, recipes, fs_exe
+    path, workspace, name, recipes, fs_exe
         As in :func:`pyflightstream.workspace.matrix.resolve_matrix`;
         the executable comes from the FS_BUILD column through the build
         registry, or from the explicit ``fs_exe`` override (mandatory
         for MANUAL rows).
+    default_fs_version : str
+        FlightStream version for rows whose FS_BUILD column names no
+        build; a DEFAULT rather than an override (PFS-2009.08.01).
+    fs_version : str, optional
+        The former name of ``default_fs_version``, still accepted with
+        a DeprecationWarning.
     assess : pyflightstream.run.OutcomeAssessor
         Solver-quality judgment, for example
         :class:`pyflightstream.run.LoadsAssessor`; required because
@@ -168,8 +249,12 @@ def run_matrix(
     Raises
     ------
     pyflightstream.cases.matrix.MatrixError
-        Layout or build-selection problems, or a blocked pre-flight
-        (the message carries the plan summary; nothing was executed).
+        Layout or build-selection problems, a blocked pre-flight (the
+        message carries the plan summary; nothing was executed), or no
+        default version given under either spelling.
+    pyflightstream.run.ExecutorConfigurationError
+        When the identity pre-flight finds the wrong build installed;
+        raised before any point executes.
     pyflightstream.run.CampaignErrors
         After the loop, when at least one executed point failed.
 
@@ -182,13 +267,14 @@ def run_matrix(
     ...     "matrix.fs",
     ...     CampaignWorkspace("campaign"),
     ...     name="wing_steady",
-    ...     fs_version="26.120",
+    ...     default_fs_version="26.120",
     ...     recipes={"003": "recipes.steady_polar:build"},
     ...     assess=LoadsAssessor(),
     ... )
     """
+    default = _default_version(default_fs_version, fs_version, caller="run_matrix")
     resolved = resolve_matrix(
-        path, workspace, name=name, fs_version=fs_version, recipes=recipes, fs_exe=fs_exe
+        path, workspace, name=name, fs_version=default, recipes=recipes, fs_exe=fs_exe
     )
     plan = plan_campaign(resolved.campaign, workspace, recipes=recipe_registry)
     if plan.blocked:

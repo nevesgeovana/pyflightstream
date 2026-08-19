@@ -2135,3 +2135,350 @@ def test_the_plan_refuses_a_case_naming_an_unsupplied_build(tmp_path):
     workspace = CampaignWorkspace(tmp_path / "camp")
     with pytest.raises(ExecutorConfigurationError, match="second"):
         plan_campaign(campaign, workspace, recipes={"steady": steady_recipe}, write_plan=False)
+
+
+# --- which supplied velocity wins (OPS-2009.01.04) --------------------------
+
+
+class _PrintedConditions:
+    """The three fields ``bind_conditions`` reads, without a parsed export.
+
+    ``bind_conditions`` is duck typed on purpose (its own docstring says
+    so), so the precedence is measured without a loads fixture and
+    without asserting anything about the parser.
+    """
+
+    def __init__(self, *, alpha, velocity):
+        self.angle_of_attack_deg = alpha
+        self.sideslip_deg = None
+        self.freestream_velocity_m_s = velocity
+
+
+def _velocity_check(case, *, printed_velocity):
+    """Bind one case against an export printing ``printed_velocity``."""
+    binding = run_module._bind_case_conditions(
+        case, _PrintedConditions(alpha=0.0, velocity=printed_velocity)
+    )
+    return {check.axis: check for check in binding.checks}["velocity"]
+
+
+def _velocity_case(**overrides):
+    fields = dict(
+        sim_id="9001",
+        aircraft="TestWing",
+        velocity=30.0,
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        recipe="steady",
+        outputs=["loads_{point}.txt"],
+        point={"alpha": 0.0},
+    )
+    fields.update(overrides)
+    return SimCase(**fields)
+
+
+def test_the_point_velocity_wins_over_the_case_velocity():
+    """The precedence, pinned where a refactor can reverse it in silence.
+
+    The point is the value of THIS point and the case attribute is the
+    case default, so the point wins. ``setdefault`` is what says that,
+    and a plain assignment reads identically at the call site while
+    recording a request the campaign never made: the binding would claim
+    30 m/s was asked for when 12 was.
+    """
+    case = _velocity_case(point={"alpha": 0.0, "velocity": 12.0})
+    check = _velocity_check(case, printed_velocity=12.0)
+    assert check.requested == 12.0, (
+        "the case attribute overwrote the point's own velocity, so the recorded "
+        "request is not the request"
+    )
+    assert check.within
+
+
+def test_the_case_velocity_fills_in_when_the_point_supplies_none():
+    """The other direction, without which the test above passes on a constant."""
+    check = _velocity_check(_velocity_case(), printed_velocity=30.0)
+    assert check.requested == 30.0
+    assert check.within
+
+
+def test_a_case_supplying_no_velocity_at_all_requests_none():
+    """Absent is not zero: nothing was asked, so nothing is compared."""
+    binding = run_module._bind_case_conditions(
+        _velocity_case(velocity=None), _PrintedConditions(alpha=0.0, velocity=30.0)
+    )
+    assert [check.axis for check in binding.checks] == ["alpha"]
+
+
+def test_no_sweep_can_supply_a_velocity_so_the_point_branch_is_off_the_campaign_path():
+    """The finding, measured rather than described (OPS-2009.01.04).
+
+    The precedence above is REAL but UNREACHABLE through a campaign
+    today: no sweep axis emits a velocity, so ``case.point`` carries one
+    only when a caller puts it there, which is what the two tests above
+    do. Pinned as a measurement so that the day a velocity sweep is added
+    this fails and a reader learns the precedence has become
+    campaign-reachable, instead of the branch quietly counting as
+    covered.
+    """
+    axes = set()
+    for sweep in (
+        SweepAxis(type="alpha", values=[0.0]),
+        SweepAxis(type="beta", values=[0.0]),
+        SweepAxis(type="advance_ratio", values=[1.0]),
+        SweepAxis(type="alpha_beta", values=[(0.0, 0.0)]),
+    ):
+        for point in sweep.points():
+            axes |= set(point)
+    assert "velocity" not in axes, (
+        "a sweep can now emit a velocity, so the point-versus-case precedence is "
+        "reachable from a campaign file; the two tests above stop being the only "
+        "place it is exercised"
+    )
+
+
+# --- the pre-flight refuses before a licensed run begins (PFS-2009.09) ------
+
+
+def _identity_stub(build):
+    """A stub solver that reports ``build`` when asked for its identity.
+
+    Writes the declared outputs like every other stub here, and answers
+    the pre-flight's EXPORT_LOG with a log naming one build number, which
+    is what ``check_solver_identity`` reads.
+    """
+    return (
+        "import pathlib, sys; "
+        "lines = pathlib.Path(sys.argv[1]).read_text().splitlines(); "
+        "[pathlib.Path(lines[i + 1]).write_text('LOADS') "
+        "for i, line in enumerate(lines) if line == 'EXPORT_SOLVER_ANALYSIS_SPREADSHEET']; "
+        f"[pathlib.Path(lines[i + 1]).write_text('FlightStream build #{build}') "
+        "for i, line in enumerate(lines) if line == 'EXPORT_LOG']"
+    )
+
+
+class _CountingSolver(StubSolver):
+    """A stub that records every script it is handed."""
+
+    def __init__(self, code):
+        super().__init__(code)
+        self.scripts: list[str] = []
+
+    def _argv(self, script_path: Path):
+        self.scripts.append(Path(script_path).name)
+        return super()._argv(script_path)
+
+
+def _registered_build(version):
+    from pyflightstream.versions import resolve as resolve_version
+
+    return resolve_version(version).build
+
+
+def test_a_row_whose_build_fails_identity_stops_the_campaign_before_any_point_runs(tmp_path):
+    """PFS-2009.09.02: the refusal comes before the first licensed run.
+
+    The pre-flight is per build and it fired at the first point OF THAT
+    BUILD, so a campaign whose SECOND build is misconfigured ran every
+    point of the first one and refused afterwards. Those seats are
+    already gone when the message arrives, which is the whole thing a
+    pre-flight exists to prevent.
+
+    THE FALSIFYING MEASUREMENT is the manifest: with the check left at
+    the per-case seam, the first case executes and records before the
+    second build is ever asked, so ``read_manifest()`` holds one record
+    and this fails on the assertion rather than on a missing name.
+    """
+    campaign = _two_build_campaign(tmp_path)
+    other_exe, _ = _second_build(tmp_path)
+    good = _CountingSolver(_identity_stub(_registered_build("26.120")))
+    bad = _CountingSolver(_identity_stub("8092026"))
+    second = SolverBuild(fs_exe=other_exe, fs_version="26.121", executor=bad)
+    workspace = CampaignWorkspace(tmp_path / "camp")
+
+    with pytest.raises(ExecutorConfigurationError) as caught:
+        run_campaign(
+            campaign,
+            good,
+            workspace,
+            assess=converged,
+            recipes={"steady": steady_recipe},
+            builds={"second": second},
+        )
+
+    assert workspace.read_manifest() == [], (
+        "points of the healthy build were executed and recorded before the "
+        "second build's identity was ever asked, so the licensed seats this "
+        "refusal exists to save were already spent when it arrived"
+    )
+    assert good.scripts == ["preflight.txt"], (
+        f"the campaign's own executor ran {good.scripts}; nothing but the "
+        "identity pre-flight may run before every build has answered"
+    )
+    message = str(caught.value)
+    assert "second" in message, "the refusal does not name the build that failed"
+    assert "9002" in message, (
+        "the refusal does not name the row that asked for the failing build, so "
+        "the user has a wall rather than something actionable"
+    )
+    assert "8092026" in message and "26.121" in message
+
+
+def test_a_healthy_second_build_still_runs_every_point(tmp_path):
+    """The control: the refusal above must not be reachable by refusing all."""
+    campaign = _two_build_campaign(tmp_path)
+    other_exe, _ = _second_build(tmp_path)
+    good = _CountingSolver(_identity_stub(_registered_build("26.120")))
+    also_good = _CountingSolver(_identity_stub(_registered_build("26.121")))
+    second = SolverBuild(fs_exe=other_exe, fs_version="26.121", executor=also_good)
+    workspace = CampaignWorkspace(tmp_path / "camp")
+
+    records = run_campaign(
+        campaign,
+        good,
+        workspace,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+        builds={"second": second},
+    )
+    assert [record.sim_id for record in records] == ["9001", "9002"]
+    assert [record.status for record in records] == [RunStatus.CONVERGED] * 2
+
+
+def test_a_resume_with_nothing_pending_still_launches_no_solver_process(tmp_path):
+    """The invariant the earlier refusal must not trade away.
+
+    Moving the identity check ahead of the loop is the obvious way to
+    close the double spend and it breaks this: a fully recorded campaign
+    re-run with resume=True has nothing to do and must spend NOTHING. The
+    check therefore stays at the pending seam and only widens to cover
+    every build that still has work.
+    """
+    campaign = _two_build_campaign(tmp_path)
+    other_exe, _ = _second_build(tmp_path)
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    run_campaign(
+        campaign,
+        _CountingSolver(_identity_stub(_registered_build("26.120"))),
+        workspace,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+        builds={
+            "second": SolverBuild(
+                fs_exe=other_exe,
+                fs_version="26.121",
+                executor=_CountingSolver(_identity_stub(_registered_build("26.121"))),
+            )
+        },
+    )
+
+    fresh = _CountingSolver(_identity_stub(_registered_build("26.120")))
+    fresh_second = _CountingSolver(_identity_stub("8092026"))
+    records = run_campaign(
+        campaign,
+        fresh,
+        workspace,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+        builds={
+            "second": SolverBuild(fs_exe=other_exe, fs_version="26.121", executor=fresh_second)
+        },
+        resume=True,
+    )
+    assert records == []
+    assert fresh.scripts == [] and fresh_second.scripts == [], (
+        f"a resume with nothing pending launched {fresh.scripts + fresh_second.scripts}; "
+        "a campaign with nothing left to run must spend no solver process, and a "
+        "build whose points are all recorded is not even asked its identity"
+    )
+
+
+def _many_rows_per_build(tmp_path, *, per_build=3):
+    """A campaign of ``per_build`` cases on each of two builds."""
+    geometry = tmp_path / "wing.fsm"
+    geometry.write_bytes(b"geometry")
+    cases = []
+    for index in range(per_build):
+        for prefix, build in (("90", None), ("91", "second")):
+            cases.append(
+                SimCase(
+                    sim_id=f"{prefix}{index:02d}",
+                    aircraft="TestWing",
+                    velocity=30.0,
+                    geometry=str(geometry),
+                    sweep=SweepAxis(type="alpha", values=[0.0]),
+                    recipe="steady",
+                    outputs=["loads_{point}.txt"],
+                    fs_build=build,
+                )
+            )
+    return Campaign(name="camp", fs_version="26.120", fs_exe=sys.executable, sims=cases)
+
+
+def test_the_pre_flight_checks_each_build_once_whatever_the_row_count(tmp_path, monkeypatch):
+    """PFS-2009.09.01: N identity checks for N builds, not one per row.
+
+    Grouping is what turns a per-row cost into a per-build cost while
+    keeping per-row coverage, and a one-case-per-build campaign cannot
+    tell the two apart: three cases per build is the smallest shape that
+    can.
+    """
+    campaign = _many_rows_per_build(tmp_path)
+    _, second = _second_build(tmp_path)
+    workspace = CampaignWorkspace(tmp_path / "camp")
+
+    seen: list[tuple[str, int]] = []
+    _record_identity_checks(monkeypatch, seen)
+    run_campaign(
+        campaign,
+        StubSolver(WRITES_LOADS),
+        workspace,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+        builds={"second": second},
+    )
+    assert len(campaign.sims) == 6
+    assert sorted(version for version, _ in seen) == ["26.120", "26.121"], (
+        f"six rows across two builds asked the pre-flight {len(seen)} times ({seen}); "
+        "the cost is per BUILD, because the question is which build is installed "
+        "at an executable and a row does not change the answer"
+    )
+
+
+def test_the_plan_reports_the_build_grouping_before_anything_runs(tmp_path):
+    """The grouping is an artefact the operator wants BEFORE the campaign.
+
+    How many solver installations a study actually spans is usually a
+    surprise, and the pre-flight is the one place it can be learned for
+    free: ``plan_campaign`` spends no solver process at all.
+    """
+    campaign = _many_rows_per_build(tmp_path, per_build=2)
+    _, second = _second_build(tmp_path)
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    plan = plan_campaign(
+        campaign,
+        workspace,
+        recipes={"steady": steady_recipe},
+        builds={"second": second},
+    )
+
+    groups = getattr(plan, "build_groups", None)
+    assert groups == {"": ["9000", "9001"], "second": ["9100", "9101"]}, (
+        "the plan cannot say which cases run on which installation, so the one "
+        "free chance to report the grouping is not taken"
+    )
+    text = plan.summary()
+    assert "2 solver installation" in text, (
+        f"the plan summary does not report the grouping:\n{text}"
+    )
+    assert "second" in text and "9100" in text
+    payload = json.loads(plan.plan_file.read_text(encoding="utf-8"))
+    assert payload["build_groups"] == {"": ["9000", "9001"], "second": ["9100", "9101"]}
+
+
+def test_a_single_installation_campaign_still_reports_its_one_group(tmp_path):
+    """The ordinary campaign, which is every campaign written before v0.8.0."""
+    campaign = make_campaign(tmp_path)
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    plan = plan_campaign(campaign, workspace, recipes={"steady": steady_recipe})
+    assert getattr(plan, "build_groups", None) == {"": ["9001"]}
+    assert "1 solver installation" in plan.summary()

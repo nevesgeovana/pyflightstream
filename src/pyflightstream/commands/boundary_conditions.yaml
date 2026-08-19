@@ -54,6 +54,40 @@ SET_TRAILING_EDGE_TYPE:
     RELAXED sheds half, approximating body carryover at non-lifting
     trailing edges such as wing-fuselage junctions (SRC-003 p.164).
 
+    THE RELAXED TRAILING EDGE IS ALSO SPECIFIED OUTSIDE THE SCRIPT, AND
+    THE NEWEST EDITION ADDS A FIELD THERE. Paraphrasing SRC-751 p.85:
+    relaxed-Kutta trailing edges can also be declared as a COMPONENT
+    parameter, written where a component is defined rather than in a
+    script, taking semicolon-separated fields; that edition gives it a
+    fifth field where it had four, an integer direction of the relaxed
+    wake shedding parameter line, 0 for the axial direction and the
+    default, 1 for the azimuth direction. The first four fields are
+    unchanged, a chordwise or radial location and two spanwise or axial
+    bounds, so the four-field form stays valid and the change is
+    additive. SRC-750 p.85 prints the four-field form, so this is a
+    26.123 addition. The azimuth value is new control over the direction
+    the relaxed wake sheds, which is what makes it a rotor fact and not
+    a compatibility footnote.
+
+    NO SCRIPTING COMMAND ON ANY REGISTERED BUILD TAKES THAT DIRECTION,
+    and this paragraph exists so a reader does not go looking for a
+    fourth argument here or for a new command elsewhere. This command
+    takes two arguments on every build, an edge index and a type;
+    IMPORT_WAKE_EDGES_FROM_FILE takes the same type vocabulary for a
+    whole imported file; neither carries a direction. The direction is a
+    field of the component specification, and this package writes no
+    component file, so nothing here emits it. Whether the package should
+    gain a writer for that specification is the product owner's call and
+    is deliberately not taken here (PFS-2026.06).
+
+    THE CITATION SITS IN THESE FREE-TEXT NOTES ON PURPOSE. Page 85 lies
+    outside the registered scripting-reference range, which is where an
+    evidence citation must point, so a manual_ref or a per-version note
+    carrying it would be wrong twice: wrong about where the fact is, and
+    wrong about what kind of fact it is. No status, no manual_ref and no
+    version row moved for this reading, because nothing in it is a claim
+    about the solver.
+
 DISABLE_WAKE_NODES_ON_TRAILING_EDGE:
   layout: inline
   phase: setup
