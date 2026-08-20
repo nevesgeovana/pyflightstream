@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import ast
 import builtins
+import functools
 import importlib
 import os
 import re
@@ -154,22 +155,49 @@ def test_each_example_runs(name, tmp_path):
     narrowed filter and this subprocess cannot. Stderr needs no flag at
     all: :class:`PyflightstreamWarning` is a ``UserWarning``, which the
     default filters print.
+
+    TWO THINGS ABOUT THAT LAST SENTENCE WERE TOO SMALL, and both are
+    holes rather than imprecisions, because both let a warning of ours
+    pass this assertion unseen.
+
+    The name checked was the ROOT of the hierarchy, as a substring of
+    stderr, and the package raises subclasses whose names do not contain
+    it: ``VersionMismatchWarning`` and ``PyflightstreamDeprecationWarning``
+    are both promoted by the six homes' filter and neither would have
+    matched here. The set is now DERIVED from the same walk the ratchet
+    below uses, so a category the package starts raising joins it without
+    an edit.
+
+    And ``PyflightstreamDeprecationWarning`` is a ``DeprecationWarning``
+    as well as a ``UserWarning``. The interpreter's default filters are
+    consulted in order and ``ignore::DeprecationWarning`` stands ahead of
+    anything that would print a ``UserWarning``, so one raised inside the
+    package (rather than in ``__main__``) is SUPPRESSED and reaches no
+    channel at all. ``PYTHONWARNINGS`` is set in the child for exactly
+    that: it names a standard-library category, so unlike ``-W`` above it
+    parses at interpreter start. It also unsuppresses a dependency's
+    deprecations, which costs nothing here, because what is asserted is
+    the absence of OUR class names and not the absence of output.
     """
+    environment = os.environ.copy()
+    environment["PYTHONWARNINGS"] = "default::DeprecationWarning"
     result = subprocess.run(
         [sys.executable, str(EXAMPLES / name)],
         capture_output=True,
         text=True,
         cwd=tmp_path,
         timeout=300,
-        env=os.environ.copy(),
+        env=environment,
     )
     assert result.returncode == 0, (
         f"examples/{name} exited {result.returncode}. It is the first code a new "
         f"user runs.\nstdout:\n{result.stdout[-2000:]}\nstderr:\n{result.stderr[-2000:]}"
     )
-    assert PACKAGE_WARNING_NAME not in result.stderr, (
-        f"examples/{name} raised a {PACKAGE_WARNING_NAME} while running. The example "
-        "is what a reader copies, so a warning it provokes is either a defect in the "
+    raised = sorted(category for category in _package_warning_names() if category in result.stderr)
+    assert not raised, (
+        f"examples/{name} raised {raised} while running, and every one of them is a "
+        f"{PACKAGE_WARNING_NAME} the examples run promotes to an error. The example is "
+        "what a reader copies, so a warning it provokes is either a defect in the "
         f"example or a warning that should not fire here.\nstderr:\n{result.stderr[-2000:]}"
     )
 
@@ -338,10 +366,22 @@ def test_the_cleanliness_detector_can_actually_see_an_artifact():
 #: six homes is a ``pytest`` command line, and pytest parses its ``-W`` after
 #: the run has begun, where the import succeeds.
 #:
-#: ``pyflightstream._errors`` rather than ``pyflightstream.exceptions`` for
-#: now, only because the catalogue re-export is owed (OPS-2006.02.02);
-#: both routes were driven under pytest and both work, so this constant is
-#: the one line that moves when the catalogue line lands.
+#: ``pyflightstream._errors`` rather than ``pyflightstream.exceptions``, and
+#: THE REASON CHANGED on 2026-08-19 while the string did not, which is the
+#: kind of stale premise this repository counts as a defect. It used to be
+#: that the catalogue re-export was owed. It is not owed any more:
+#: ``pyflightstream.exceptions.PyflightstreamWarning`` exists and is the
+#: SAME CLASS OBJECT, re-exported, so both spellings promote exactly the
+#: same warnings and nothing about the behaviour of the six homes depends
+#: on which is written.
+#:
+#: What is owed is the public SPELLING, and it is owed as ONE edit rather
+#: than as six: a reader of ``CONTRIBUTING.md`` copies a command line
+#: naming a private module. It is not made here because two of the seven
+#: commands live in ``docs/srs/standards.md``, which this lane may not
+#: edit, and ``test_every_promotion_home_spells_the_same_filter`` below
+#: refuses a half-landed narrowing on purpose. The move is one line in each
+#: of six files plus this constant, in a single commit.
 PACKAGE_WARNING_PATH = "pyflightstream._errors.PyflightstreamWarning"
 PACKAGE_WARNING_FILTER = f"error::{PACKAGE_WARNING_PATH}"
 PACKAGE_WARNING_HOME, PACKAGE_WARNING_NAME = PACKAGE_WARNING_PATH.rsplit(".", 1)
@@ -366,6 +406,57 @@ PROMOTION_HOMES = frozenset(
 #: that row is one edit and two commands. The count is asserted because the
 #: population of anything walked is asserted before it is compared.
 PROMOTION_COMMANDS = 7
+
+#: The sentence a promotion home used to carry beside its command, and the
+#: reason it is a defect rather than a shorthand: the run promotes ONE
+#: category now, so "warnings promoted to errors" tells a reader that an
+#: upstream ``DeprecationWarning`` will red the build. That reader either
+#: pins a dependency nobody needed to pin, or, having met the claim once
+#: and found it false, stops believing the rest of the paragraph.
+#:
+#: Matched as a phrase and not as the two words "warnings" and "errors",
+#: because ``docs/srs/standards.md`` carries a legitimate "Docs warnings as
+#: errors" row about ``properdocs build --strict``, which is a different
+#: mechanism with a different scope and is correct as written. The word
+#: "promoted" is what separates them and it is required.
+#:
+#: A FEW WORDS ARE ALLOWED BETWEEN THE TWO, which the first version of this
+#: pattern did not allow and which an adversarial pass over it found: it
+#: matched the exact sentence the four homes happened to carry, so "warnings
+#: ARE promoted to errors" walked straight past a guard written to catch
+#: precisely that claim. A guard a one-word paraphrase evades is a guard
+#: that measures the wording it was copied from rather than the claim.
+#:
+#: The gap is bounded, and the direction is what bounds it: the pattern
+#: requires "warning" BEFORE "promoted", so the corrected sentences, which
+#: all say a CATEGORY is promoted and go on to name what is not, do not
+#: match however they are reworded.
+#:
+#: THE LEADING ``\b`` IS LOAD-BEARING and was missing from the widened
+#: pattern for one run, which is worth the sentence because of WHICH way it
+#: failed. Every promotion home carries a command line ending in
+#: ``PyflightstreamWarning``, and the corrected prose follows within a few
+#: words of it, so without the boundary the pattern read the tail of the
+#: class name as the word "Warning" and reported the corrected home as
+#: still claiming a blanket promotion. A guard that reddens on the fix it
+#: demands is worse than no guard: it gets satisfied by reverting.
+BLANKET_PROMOTION_PHRASE = re.compile(
+    r"\bwarnings?\s+(?:\w+\s+){0,3}promoted\s+to\s+(?:an?\s+)?errors?", re.IGNORECASE
+)
+
+#: Promotion homes whose blanket sentence is STILL there, as a ratchet in
+#: the same shape as ``UNPROMOTED_WARNING_CATEGORIES`` below and for the
+#: same reason: an entry says "owed", which is a different claim from
+#: "nobody is checking".
+#:
+#: One entry, and it is a scope boundary rather than an oversight.
+#: ``docs/srs/standards.md`` is a shared file this lane may not edit; the
+#: corrected row is handed back as text and lands by another hand. When it
+#: does, the second assertion in
+#: ``test_no_promotion_home_claims_a_blanket_promotion`` reds until this
+#: entry is deleted, which is the point of a ratchet: it cannot outlive the
+#: thing it excuses.
+BLANKET_PROMOTION_RATCHET: frozenset[str] = frozenset({"docs/srs/standards.md"})
 
 #: What ``warnings.warn`` means when it is given no category at all.
 DEFAULT_CATEGORY = "*default*"
@@ -526,6 +617,34 @@ def _resolve_category(relative: str, category: str) -> type:
     return resolved
 
 
+@functools.cache
+def _package_warning_classes() -> tuple[type, ...]:
+    """Every warning class the package raises that the narrowed filter promotes.
+
+    DERIVED from the ``warnings.warn`` walk rather than enumerated, for
+    the reason ``_root_artifacts`` gives at the top of this module: a list
+    of the categories somebody has already met can only ever catch a
+    category somebody has already met. The root is included whether or not
+    a site raises it directly, because it is what the filter names.
+
+    Returns
+    -------
+    tuple of type
+        The classes, ordered by name so a failure message is stable.
+    """
+    found = {PyflightstreamWarning}
+    for relative, _, category in _warn_sites():
+        resolved = _resolve_category(relative, category)
+        if issubclass(resolved, PyflightstreamWarning):
+            found.add(resolved)
+    return tuple(sorted(found, key=lambda cls: cls.__name__))
+
+
+def _package_warning_names() -> frozenset[str]:
+    """The class names of :func:`_package_warning_classes`, for a stderr scan."""
+    return frozenset(cls.__name__ for cls in _package_warning_classes())
+
+
 def _run_pytest_with(filters: tuple[str, ...], module: Path) -> subprocess.CompletedProcess[str]:
     """Run one throwaway test module under exactly ``filters``.
 
@@ -613,6 +732,27 @@ def test_every_promotion_home_spells_the_same_filter():
         f"the six homes spell {len(distinct)} different filters: {distinct}. Narrow "
         "all of them or none of them"
     )
+    # AND IT IS THE FILTER THIS MODULE NAMES. Sameness alone is satisfied
+    # by six homes agreeing on `-W error`, which is the blanket promotion
+    # this item exists to end, and it would also let PACKAGE_WARNING_PATH
+    # drift into a decorative constant that nothing reads. Pinning it makes
+    # that constant load-bearing: the public-spelling move described beside
+    # it has to change the homes and the constant together or fail here.
+    #
+    # This assertion replaced a whole test rather than being added beside
+    # one. `test_the_filter_the_narrowing_will_use_answers_both_kinds` drove
+    # PACKAGE_WARNING_FILTER through a real pytest on a warning of each
+    # kind, and said of itself that "on the day the homes are narrowed the
+    # spec under test and the spec they carry become the same string". That
+    # day was 2026-08-19. Once the two strings are held equal HERE, the two
+    # tests below drive exactly the spec it drove, and keeping it would have
+    # spent two more pytest subprocesses to measure the same fact twice.
+    assert distinct == [(PACKAGE_WARNING_FILTER,)], (
+        f"the promotion homes carry {distinct} and this module is written about "
+        f"{PACKAGE_WARNING_FILTER}. ONE filter, promoting exactly ONE category: a "
+        "second -W on the same command line, or a different spelling, means the two "
+        "tests below are measuring a filter nobody runs"
+    )
 
 
 def test_the_promotion_leaves_an_upstream_deprecation_alone(tmp_path):
@@ -664,37 +804,77 @@ def test_the_promotion_still_catches_a_warning_this_package_raised(tmp_path):
     )
 
 
-def test_the_filter_the_narrowing_will_use_answers_both_kinds(tmp_path):
-    """The target spec, driven on a warning of each kind. Green today.
+def test_no_promotion_home_claims_a_blanket_promotion():
+    """The prose beside each command says what the command actually does.
 
-    The two tests above measure the filter the six homes CARRY; this one
-    measures the filter they will carry, so the narrowing is a known
-    quantity before it is written into a shipped command line rather
-    than after. It is the whole of the item's promise in one assertion
-    pair: an upstream deprecation survives, and one of ours does not.
+    The narrowing landed in the six command lines and left four English
+    sentences behind saying the run promotes warnings, full stop. A
+    contributor reads the sentence, not the ``-W`` spec, so the sentence
+    is what tells them an upstream ``DeprecationWarning`` will red the
+    build; it will not, and the first time somebody acts on that they
+    either pin a dependency for nothing or learn to discount the
+    paragraph around it.
 
-    It cannot go stale quietly. If the category stops existing, or stops
-    being promotable through a ``-W`` spec, or the spec's spelling
-    changes, this reds; and on the day the homes are narrowed the spec
-    under test and the spec they carry become the same string.
+    Documentation is not a guard in this repository, so the correction is
+    not left as prose that a later edit can quietly undo.
     """
-    target = (PACKAGE_WARNING_FILTER,)
+    homes = _promotion_commands()
+    assert homes, "no promotion home found at all, so this guard checks nothing"
+    blanket = {
+        name
+        for name in homes
+        if BLANKET_PROMOTION_PHRASE.search((REPO / name).read_text(encoding="utf-8"))
+    }
+    unwatched = blanket - BLANKET_PROMOTION_RATCHET
+    assert not unwatched, (
+        f"{sorted(unwatched)} spell a narrowed `-W` filter and still say the examples "
+        "run promotes warnings to errors. It promotes ONE category, "
+        f"{PACKAGE_WARNING_NAME} and its subclasses; say so, or add the file to "
+        "BLANKET_PROMOTION_RATCHET with the reason it cannot be corrected here"
+    )
+    settled = BLANKET_PROMOTION_RATCHET - blanket
+    assert not settled, (
+        f"{sorted(settled)} no longer claim a blanket promotion and this ratchet still "
+        "holds them, so it is overstating what is owed; delete each entry in the commit "
+        "that corrects its sentence"
+    )
 
-    upstream = _run_pytest_with(
-        target, _warning_module(tmp_path, "target_up", UPSTREAM_WARNING_MODULE)
-    )
-    assert upstream.returncode == 0, (
-        f"under {PACKAGE_WARNING_FILTER} a dependency's DeprecationWarning still fails "
-        f"the run, so the narrowing buys nothing.\n{upstream.stdout[-2000:]}"
-    )
 
-    ours = _run_pytest_with(
-        target, _warning_module(tmp_path, "target_ours", PACKAGE_WARNING_MODULE)
+def test_the_blanket_sentence_scan_can_see_what_it_looks_for():
+    """The mutation companion of the scan above.
+
+    It is a negative assertion over files that pass today, so it would
+    look identical if the pattern had stopped matching. Both halves are
+    driven: the phrase in the shapes the four homes wrote it in, and the
+    ``properdocs`` row that must NOT match, since a guard that reddened on
+    the docs-strict sentence would be corrected by making the SRS say
+    something false.
+    """
+    # The shapes the four homes actually wrote it in.
+    assert BLANKET_PROMOTION_PHRASE.search("with warnings promoted to errors; the shim")
+    assert BLANKET_PROMOTION_PHRASE.search("does (warnings\npromoted to errors):")
+    assert BLANKET_PROMOTION_PHRASE.search("in CI with Warnings Promoted To Errors")
+    # And the paraphrases, which are the same claim and used to walk past.
+    assert BLANKET_PROMOTION_PHRASE.search("warnings are promoted to errors")
+    assert BLANKET_PROMOTION_PHRASE.search("every warning is promoted to an error")
+    assert BLANKET_PROMOTION_PHRASE.search("warnings will then be promoted to errors")
+    # What must NOT match, and each for its own reason. The properdocs row
+    # is a different mechanism and is correct as written; the corrected
+    # sentence names a category rather than warnings, which is the whole
+    # distinction this item is about; and "promoted" alone is not a claim
+    # about warnings at all.
+    assert not BLANKET_PROMOTION_PHRASE.search("Docs warnings as errors")
+    assert not BLANKET_PROMOTION_PHRASE.search("promoted to errors")
+    assert not BLANKET_PROMOTION_PHRASE.search(
+        "One category is promoted to an error, not every warning"
     )
-    assert ours.returncode != 0 and PACKAGE_WARNING_NAME in ours.stdout + ours.stderr, (
-        f"under {PACKAGE_WARNING_FILTER} a warning THIS package raised does not fail "
-        "the run. A narrowing that stops catching ours is worse than the blanket it "
-        f"replaced.\n{(ours.stdout + ours.stderr)[-2000:]}"
+    # And the false positive that cost a run: the class name at the end of
+    # every home's command line ends in the word this pattern looks for.
+    # Written out as the two lines really sit in conftest.py, because a
+    # shortened stand-in would not reproduce it.
+    assert not BLANKET_PROMOTION_PHRASE.search(
+        "pytest src docs -W error::pyflightstream._errors.PyflightstreamWarning\n"
+        "\nONE category is promoted to an error there, not every warning"
     )
 
 
@@ -729,6 +909,67 @@ def test_an_example_that_warns_in_our_voice_is_visible_on_stderr(tmp_path):
         "a warning this package raised left no trace on stderr, so the assertion in "
         "test_each_example_runs is watching a channel nothing arrives on"
     )
+
+
+def test_the_stderr_scan_sees_every_category_and_not_only_the_hierarchy_root(tmp_path):
+    """The companion for the two holes the stderr check had (OPS-2006.02.02).
+
+    ``test_each_example_runs`` used to look for one substring, the name of
+    the hierarchy root, and the package raises two categories whose names
+    do not contain it. It also ran with the interpreter's default filters,
+    under which a ``PyflightstreamDeprecationWarning`` raised anywhere but
+    ``__main__`` is suppressed by ``ignore::DeprecationWarning`` before any
+    ``UserWarning`` rule is reached, so it arrived on no channel at all.
+
+    Both are driven here, on every category the package actually raises,
+    each warned from a MODULE rather than from the script, because warning
+    from the script is the one place where the second hole does not open.
+    """
+    classes = _package_warning_classes()
+    subclasses = [cls for cls in classes if cls is not PyflightstreamWarning]
+    assert subclasses, (
+        "the package raises no subclass of PyflightstreamWarning, so this companion "
+        "would pass having checked only the root, which is the state it exists to "
+        "catch. Either the walk stopped resolving categories or the hierarchy is flat"
+    )
+
+    environment = os.environ.copy()
+    environment["PYTHONWARNINGS"] = "default::DeprecationWarning"
+    for cls in classes:
+        library = tmp_path / f"ops200602_lib_{cls.__name__}.py"
+        library.write_text(
+            "import warnings\n"
+            f"from {cls.__module__} import {cls.__name__}\n"
+            "\n\n"
+            "def provoke():\n"
+            # stacklevel=1 DELIBERATELY, and it is the whole point of the
+            # module: a warning attributed to __main__ is shown by the
+            # default filters, so raising it at the caller would measure
+            # the one case in which the suppression hole does not open.
+            f"    warnings.warn('raised from a module', {cls.__name__}, stacklevel=1)\n",
+            encoding="utf-8",
+        )
+        script = tmp_path / f"ops200602_call_{cls.__name__}.py"
+        script.write_text(
+            f"import ops200602_lib_{cls.__name__} as library\n\nlibrary.provoke()\n",
+            encoding="utf-8",
+        )
+        result = subprocess.run(
+            [sys.executable, str(script)],
+            capture_output=True,
+            text=True,
+            cwd=tmp_path,
+            timeout=300,
+            env=environment,
+        )
+        assert result.returncode == 0, result.stderr[-2000:]
+        hits = sorted(name for name in _package_warning_names() if name in result.stderr)
+        assert cls.__name__ in hits, (
+            f"{cls.__name__} is promoted to an error by the six homes' filter and an "
+            f"example provoking it from a module leaves stderr saying {hits}, so "
+            "test_each_example_runs would call that example clean. Full stderr:\n"
+            f"{result.stderr[-2000:]}"
+        )
 
 
 def test_every_warning_this_package_raises_is_promoted_or_ratcheted():

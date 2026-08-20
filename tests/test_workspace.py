@@ -1853,6 +1853,81 @@ def test_an_empty_source_version_is_refused_as_firmly_as_a_missing_one(tmp_path)
         workspace.read_manifest()
 
 
+def test_a_blank_source_version_is_refused_on_read_too(tmp_path):
+    """A single space is truthy, so a truthiness test reads it as a build.
+
+    The hostile pass found this against the writer and the reader
+    together: a row whose source_version is one space named no build and
+    was loaded without complaint.
+    """
+    workspace = _manifest_with_waiver(tmp_path, {**WAIVER_ROW, "source_version": " "}, stamp=None)
+    with pytest.raises(WorkspaceError) as caught:
+        workspace.read_manifest()
+    message = str(caught.value)
+    assert "source_version" in message and repr(" ") in message, (
+        f"the refusal must show the value the row carries: {message}"
+    )
+
+
+# The layout written before 2026-08-04 is the ONLY one this package ever
+# wrote without `source_version`, and it is not empty handed: `version`
+# held the record's source build and `requested_version` held the build
+# the script targeted. So the refusal has two audiences, and telling the
+# one holding the answer to go and find it is the misdirection these two
+# tests pin.
+
+PRE_RENAME_ROW = {
+    "command": "AIR_ALTITUDE",
+    "version": "26.120",
+    "requested_version": "26.121",
+    "inherited": True,
+    "report": "reports/compat/CMP-26120_2026-08-08_full.yaml",
+    "reason": "re-probing the units defect",
+    "first_line": "AIR_ALTITUDE 0.0 METERS",
+}
+
+
+def test_a_pre_rename_waiver_row_is_told_the_build_is_already_in_it(tmp_path):
+    """The row predates the rename, so the refusal names the mapping."""
+    assert "source_version" not in PRE_RENAME_ROW, "the fixture must be the old layout"
+    workspace = _manifest_with_waiver(tmp_path, PRE_RENAME_ROW, stamp="pyfs-manifest/1")
+
+    with pytest.raises(WorkspaceError) as caught:
+        workspace.read_manifest()
+    message = str(caught.value)
+    assert "requested_version" in message, (
+        f"the refusal must name the key that identifies the old layout: {message}"
+    )
+    assert "2026-08-04" in message, (
+        f"the refusal must date the layout, so a reader can place their row: {message}"
+    )
+    assert "version that wrote it" not in message, (
+        "this row does not need another version of the package: the build is in it. "
+        f"Sending its owner away is the misdirection under test. Got: {message}"
+    )
+
+
+def test_a_row_without_the_old_key_is_still_told_where_to_look(tmp_path):
+    """The control: the mapping sentence must not reach a row it does not fit.
+
+    A row that never carried ``requested_version`` has no relabelling
+    available, and telling its owner that the build is already in it
+    would be false.
+    """
+    unsourced = {key: value for key, value in WAIVER_ROW.items() if key != "source_version"}
+    workspace = _manifest_with_waiver(tmp_path, unsourced, stamp="pyfs-manifest/1")
+
+    with pytest.raises(WorkspaceError) as caught:
+        workspace.read_manifest()
+    message = str(caught.value)
+    assert "requested_version" not in message and "2026-08-04" not in message, (
+        f"the old-layout sentence reached a row that is not in the old layout: {message}"
+    )
+    assert "version that wrote it" in message, (
+        f"a row with nothing to relabel must still be told what to do: {message}"
+    )
+
+
 def test_a_complete_waiver_row_reads_back_untouched(tmp_path):
     """The control: the refusal is about the missing key, not about waivers."""
     workspace = _manifest_with_waiver(tmp_path, WAIVER_ROW, stamp="pyfs-manifest/1")
@@ -1880,6 +1955,155 @@ def test_a_manifest_with_no_waiver_at_all_still_reads_under_the_old_stamp(tmp_pa
     (record,) = workspace.read_manifest()
     assert record.manifest_schema == "pyfs-manifest/1"
     assert record.broken_commands == []
+
+
+# --- PFS-2012.03: and the WRITER may not produce the row the reader refuses --
+#
+# The section above is the read half and was the whole of it, which left
+# the acceptance clause "every manifest this release writes carries
+# source_version on every broken_commands row and a bumped manifest schema
+# stamp" resting on one caller's good manners. Measured on 2026-08-19,
+# before the writer guard existed: `append_record` accepted a record whose
+# waiver row lacked the key, wrote it stamped `pyfs-manifest/2`, and
+# `read_manifest` then refused the file it had just written, advising the
+# reader to use "the pyflightstream version that wrote it" (this one) with
+# nothing in the package able to migrate it. That reproduction is what
+# these tests hold shut.
+
+
+def _record_waiving(**overrides):
+    """A record carrying one complete waiver row, stamped current."""
+    from pyflightstream.workspace import MANIFEST_SCHEMA
+
+    body = dict(manifest_schema=MANIFEST_SCHEMA, broken_commands=[dict(WAIVER_ROW)])
+    body.update(overrides)
+    return make_record(**body)
+
+
+def test_the_writer_refuses_a_waiver_row_with_no_source_version(tmp_path):
+    """The acceptance clause, enforced where the row is produced."""
+    unsourced = {key: value for key, value in WAIVER_ROW.items() if key != "source_version"}
+    assert "source_version" not in unsourced and len(unsourced) == len(WAIVER_ROW) - 1, (
+        "the fixture must drop exactly the key under test"
+    )
+    workspace = CampaignWorkspace(tmp_path / "camp")
+
+    with pytest.raises(WorkspaceError) as caught:
+        workspace.append_record(_record_waiving(broken_commands=[unsourced]))
+    message = str(caught.value)
+    assert "source_version" in message and "AIR_ALTITUDE" in message
+    assert str(workspace.manifest_path) in message, (
+        f"the refusal must name the manifest the row was headed for: {message}"
+    )
+    assert "camp/sim_9001/a+02.0" in message, (
+        f"the refusal must name the run whose record was refused: {message}"
+    )
+
+
+def test_a_refused_append_writes_nothing_at_all(tmp_path):
+    """The message says "Nothing was written"; this is that sentence, measured.
+
+    A guard that refused AFTER the atomic replace would leave exactly the
+    unreadable manifest it exists to prevent, and every assertion above
+    would still pass.
+    """
+    unsourced = {key: value for key, value in WAIVER_ROW.items() if key != "source_version"}
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    workspace.append_record(_record_waiving())
+    before = workspace.manifest_path.read_bytes()
+
+    with pytest.raises(WorkspaceError):
+        workspace.append_record(
+            _record_waiving(run_id="camp/sim_9001/a+04.0", broken_commands=[unsourced])
+        )
+    assert workspace.manifest_path.read_bytes() == before, (
+        "the refused append edited the manifest; the refusal must precede every write"
+    )
+    assert not list(workspace.root.glob("*.tmp")), "a temporary file survived the refusal"
+
+
+def test_the_writer_refuses_an_empty_source_version_exactly_as_the_reader_does(tmp_path):
+    """Writer and reader must agree on what counts as empty.
+
+    If the writer admitted a value the reader refuses, the hole would be
+    back one string at a time.
+    """
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    hollow = {**WAIVER_ROW, "source_version": ""}
+    with pytest.raises(WorkspaceError, match="source_version"):
+        workspace.append_record(_record_waiving(broken_commands=[hollow]))
+
+
+def test_the_writer_refuses_a_blank_source_version(tmp_path):
+    """The model refuses " " now, and the manifest row is not the model.
+
+    ``RunRecord.broken_commands`` entries are a ``total=False`` typed
+    mapping, so a hand-built row never passes through
+    ``BrokenCommandUse`` and inherits none of its constraints. The writer
+    therefore needs the blank test of its own, and this is it.
+    """
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    for blank in (" ", "\t"):
+        with pytest.raises(WorkspaceError) as caught:
+            workspace.append_record(
+                _record_waiving(broken_commands=[{**WAIVER_ROW, "source_version": blank}])
+            )
+        message = str(caught.value)
+        assert "source_version" in message
+        assert repr(blank) in message, (
+            "the refusal must show the value the row carries, or an operator "
+            f"reading 'no source_version' will look for a key that is there: {message}"
+        )
+    assert not workspace.manifest_path.exists()
+
+
+def test_the_writer_refuses_a_waiver_row_under_the_superseded_stamp(tmp_path):
+    """The stamp half of the same clause, named in the refusal."""
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    with pytest.raises(WorkspaceError) as caught:
+        workspace.append_record(_record_waiving(manifest_schema="pyfs-manifest/1"))
+    message = str(caught.value)
+    assert "pyfs-manifest/1" in message and "pyfs-manifest/2" in message, (
+        f"the refusal must name the stamp offered and the stamp required: {message}"
+    )
+    assert not workspace.manifest_path.exists()
+
+
+def test_the_writer_refuses_an_unstamped_waiver_row_and_says_it_is_unstamped(tmp_path):
+    """None is the other way to carry the wrong stamp, and reads differently."""
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    with pytest.raises(WorkspaceError, match="no stamp at all"):
+        workspace.append_record(_record_waiving(manifest_schema=None))
+
+
+def test_a_complete_waiver_row_is_written_and_reads_back_unchanged(tmp_path):
+    """The control, without which refusing every waiver would pass the four above.
+
+    It also closes the loop the defect opened: what the writer accepts,
+    the reader of the same release accepts.
+    """
+    from pyflightstream.workspace import MANIFEST_SCHEMA
+
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    workspace.append_record(_record_waiving())
+    (record,) = workspace.read_manifest()
+    assert record.broken_commands == [WAIVER_ROW]
+    assert record.manifest_schema == MANIFEST_SCHEMA
+
+
+def test_a_record_waiving_nothing_may_still_be_appended_unstamped(tmp_path):
+    """The residual, measured rather than described.
+
+    The stamp arm is scoped to records that carry a waiver.
+    ``manifest_schema`` is optional so a row that never carried it stays
+    honest about that (REV010-014), and several callers append without
+    one. This test is here so that scope is a decision with a witness: the
+    day someone widens the arm to every record, this fails and says so.
+    """
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    workspace.append_record(make_record())
+    (record,) = workspace.read_manifest()
+    assert record.manifest_schema is None and record.broken_commands == []
 
 
 # --- PFS-2009.03: the corpus migration, both halves in one call -------------

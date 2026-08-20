@@ -11,12 +11,20 @@ import hashlib
 import inspect
 import json
 import sys
+import warnings
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
 import pyflightstream.run as run_module
 from pyflightstream.cases import Campaign, SimCase, SweepAxis
+from pyflightstream.exceptions import PyflightstreamWarning
+from pyflightstream.results import (
+    DATA_ORIGIN_CODES,
+    REDUCTION_CODES,
+    REDUCTION_WINDOW_CODES,
+)
 from pyflightstream.run import (
     Assessment,
     CampaignErrors,
@@ -2664,3 +2672,322 @@ def test_a_row_under_the_previous_manifest_stamp_still_reconstructs(tmp_path):
     workspace.manifest_path.write_text(json.dumps(rows, indent=2), encoding="utf-8")
     with pytest.raises(WorkspaceError, match="pyfs-manifest/99"):
         reconstruct(rows[0]["run_id"], workspace=workspace)
+
+
+# --- PFS-2014.03: the sweep leaves its csv unasked ---------------------------
+#
+# Half one of the item shipped in the tabular layer: every row of a sweep
+# table says whether its numbers are a raw integration or a reduction and
+# over what window, and `sweep_table(require_loads=False)` exists so a
+# campaign whose every point failed still yields a frame. What these
+# cases pin is the half that was missing: NOBODY ASKS. Only
+# `pyfs-matrix run` wrote a table, so a campaign driven from Python left
+# its numbers inside the manifest and the raw exports and a colleague
+# opening the workspace found no table at all.
+
+
+def writes_fixture_per_sim(steady_fixture: str, unsteady_fixture: str) -> str:
+    """Stub solver writing a different fixture for sim_9001 and sim_9002.
+
+    The declared export name carries the point, so the stub reads the
+    target out of the built script exactly as WRITES_LOADS does; what it
+    adds is that the two simulations of one campaign export DIFFERENT
+    solver modes, which is the mixed table the acceptance is about.
+    """
+    steady = FIXTURES / steady_fixture
+    unsteady = FIXTURES / unsteady_fixture
+    return (
+        "import pathlib, sys; "
+        "script = pathlib.Path(sys.argv[1]); "
+        f"fixture = r'{steady}' if 'sim_9001' in script.as_posix() else r'{unsteady}'; "
+        "text = pathlib.Path(fixture).read_text(); "
+        "lines = script.read_text().splitlines(); "
+        "[pathlib.Path(lines[i + 1]).write_text(text) "
+        "for i, line in enumerate(lines) if line == 'EXPORT_SOLVER_ANALYSIS_SPREADSHEET']"
+    )
+
+
+def mixed_campaign(tmp_path):
+    """One campaign with a steady point and an unsteady point.
+
+    The requested conditions are the ones the two fixtures PRINT (alpha
+    2 deg at 30 m/s, and alpha 0 deg at 49.036 m/s): the tabular reader
+    refuses an export whose printed operating point contradicts the
+    record, so a campaign that means to be read has to ask for what its
+    evidence shows.
+    """
+    geometry = tmp_path / "wing.fsm"
+    geometry.write_bytes(b"geometry")
+    steady = SimCase(
+        sim_id="9001",
+        aircraft="TestWing",
+        velocity=30.0,
+        geometry=str(geometry),
+        sweep=SweepAxis(type="alpha", values=[2.0]),
+        recipe="steady",
+        outputs=["loads_{point}.txt"],
+    )
+    unsteady = SimCase(
+        sim_id="9002",
+        aircraft="TestProp",
+        velocity=49.036,
+        geometry=str(geometry),
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        recipe="steady",
+        outputs=["loads_{point}.txt"],
+    )
+    return Campaign(
+        name="camp", fs_version="26.120", fs_exe=sys.executable, sims=[steady, unsteady]
+    )
+
+
+def sweep_csv(tmp_path):
+    """Where the campaign is expected to have left its table."""
+    return tmp_path / "camp" / "post" / run_module.SWEEP_TABLE_NAME
+
+
+def test_a_completed_sweep_leaves_its_csv_beside_its_runs_unasked(tmp_path):
+    """Nobody names a path, and the table is there afterwards.
+
+    The call below passes no target, no writer and no post-processing
+    step: the acceptance is that the file exists all the same, under the
+    campaign's own post/ folder, with one line per point carrying the
+    integrated forces.
+    """
+    campaign = mixed_campaign(tmp_path)
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    records = run_campaign(
+        campaign,
+        StubSolver(writes_fixture_per_sim("loads_steady_26.120.txt", "loads_unsteady_26.120.txt")),
+        workspace,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+    )
+    assert len(records) == 2
+
+    target = sweep_csv(tmp_path)
+    assert target.is_file(), (
+        f"a completed campaign left no {run_module.SWEEP_TABLE_NAME} under post/; the "
+        "numbers exist only inside the manifest and the raw exports, which is the "
+        "state PFS-2014.03 exists to end"
+    )
+    table = pd.read_csv(target)
+    assert list(table["run_id"]) == ["camp/sim_9001/a+02.0", "camp/sim_9002/a+00.0"], (
+        "the table must carry one line per point, in manifest order"
+    )
+    # The integrated forces, read back off the two fixtures' Total rows.
+    assert table["CL"].tolist() == pytest.approx([0.4308, 0.00166])
+    assert table["CDi"].tolist() == pytest.approx([0.0089, -0.009075])
+
+
+def test_every_line_says_which_of_the_two_produced_its_numbers(tmp_path):
+    """No row is ambiguous about raw integration versus reduction.
+
+    The steady point's coefficients are a direct integration over
+    nothing; the unsteady point's are the solver's own time average, and
+    the spreadsheet prints no window for it, which the row SAYS rather
+    than leaving blank. Both land under the same coefficient column
+    names in one file, so a reader without these three columns compares
+    them and reads a method difference as physics.
+    """
+    campaign = mixed_campaign(tmp_path)
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    run_campaign(
+        campaign,
+        StubSolver(writes_fixture_per_sim("loads_steady_26.120.txt", "loads_unsteady_26.120.txt")),
+        workspace,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+    )
+    table = pd.read_csv(sweep_csv(tmp_path))
+    steady, unsteady = table.iloc[0], table.iloc[1]
+    assert (steady["data_origin"], steady["reduction"], steady["reduction_window"]) == (
+        "raw",
+        "none",
+        "not_applicable",
+    )
+    assert (unsteady["data_origin"], unsteady["reduction"], unsteady["reduction_window"]) == (
+        "raw",
+        "time_average",
+        "not_printed",
+    ), (
+        "an unsteady line must carry the reduction and say the export printed no "
+        "window; blank would read as 'averaged over nothing'"
+    )
+    # Vocabulary, not spelling: every cell is a published token, so a
+    # future value cannot arrive as free text this file cannot be read by.
+    for column, published in (
+        ("data_origin", DATA_ORIGIN_CODES),
+        ("reduction", REDUCTION_CODES),
+        ("reduction_window", REDUCTION_WINDOW_CODES),
+    ):
+        assert set(table[column]) <= set(published), (
+            f"the {column} column of the written table holds a token outside {sorted(published)}"
+        )
+
+
+def test_a_campaign_whose_every_point_failed_still_leaves_its_table(tmp_path):
+    """The write happens BEFORE the raise, or the file is lost.
+
+    CampaignErrors is raised by a campaign that RAN and had failing
+    points, and those points are recorded. The same defect was found one
+    layer up in `pyfs-matrix run`, where the writer sat under an except
+    arm that returned first, so a sweep with one failed point left no
+    table at all.
+    """
+    campaign = make_campaign(tmp_path, alphas=(0.0, 2.0))
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    with pytest.raises(CampaignErrors, match="2 campaign point"):
+        run_campaign(
+            campaign,
+            StubSolver(WRITES_NOTHING),
+            workspace,
+            assess=converged,
+            recipes={"steady": steady_recipe},
+        )
+    table = pd.read_csv(sweep_csv(tmp_path))
+    assert list(table["run_id"]) == ["camp/sim_9001/a+00.0", "camp/sim_9001/a+02.0"]
+    assert set(table["status"]) == {"FAILED_INCOMPLETE_OUTPUT"}
+    # Nothing was measured, so nothing is claimed about a reduction.
+    assert set(table["reduction"]) == {"unknown"}
+    assert set(table["reduction_window"]) == {"unknown"}
+    assert "CL" not in table.columns
+
+
+def test_a_sweep_whose_exports_do_not_read_as_loads_still_leaves_its_rows(tmp_path):
+    """What ``require_loads=False`` actually buys, measured.
+
+    Written after a mutant SURVIVED. Flipping the keyword back to True
+    changed nothing in the all-points-failed case above, and the reason
+    is worth keeping: the tabular layer only refuses when there ARE
+    successful runs and none of them yields coefficients, so a campaign
+    with no successful run never reaches that refusal. The condition the
+    keyword really covers is this one, points recorded as successful
+    whose exports the reader cannot parse, and it is the common shape of
+    a mis-declared export name. The identity rows are what tell the
+    operator which point to look at, so raising there would withhold the
+    evidence exactly when it is needed.
+    """
+    campaign = make_campaign(tmp_path, alphas=(0.0, 2.0))
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    with pytest.warns(PyflightstreamWarning, match="none of the 2 successful runs"):
+        run_campaign(
+            campaign,
+            StubSolver(WRITES_LOADS),  # writes a file that is not a loads spreadsheet
+            workspace,
+            assess=converged,
+            recipes={"steady": steady_recipe},
+        )
+    table = pd.read_csv(sweep_csv(tmp_path))
+    assert list(table["run_id"]) == ["camp/sim_9001/a+00.0", "camp/sim_9001/a+02.0"]
+    assert set(table["status"]) == {"CONVERGED"}
+    assert "CL" not in table.columns
+
+
+def test_a_campaign_that_recorded_nothing_leaves_no_table_and_no_warning(tmp_path):
+    """An empty manifest has no table to leave and nothing to complain about.
+
+    The resume path can schedule no work at all; warning there would put
+    a complaint on every re-run that found its work already done, and
+    writing there would mean a file with no rows.
+    """
+    geometry = tmp_path / "wing.fsm"
+    geometry.write_bytes(b"geometry")
+    campaign = Campaign(name="camp", fs_version="26.120", fs_exe=sys.executable, sims=[])
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert (
+            run_campaign(
+                campaign,
+                StubSolver(WRITES_LOADS),
+                workspace,
+                assess=converged,
+                recipes={"steady": steady_recipe},
+            )
+            == []
+        )
+    assert not sweep_csv(tmp_path).exists()
+
+
+def test_the_table_is_rebuilt_from_the_whole_manifest_on_a_resume(tmp_path):
+    """One file describes the campaign, not the call that wrote it.
+
+    This is why the name says campaign and why overwriting is right: the
+    content is derived from an append-only manifest, so a rewrite can
+    only add points. A per-call file would leave fragments nobody can
+    join, and refusing the overwrite would freeze the table at the first
+    call.
+    """
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    run_campaign(
+        make_campaign(tmp_path, alphas=(0.0,)),
+        StubSolver(WRITES_LOADS),
+        workspace,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+    )
+    assert list(pd.read_csv(sweep_csv(tmp_path))["run_id"]) == ["camp/sim_9001/a+00.0"]
+    run_campaign(
+        make_campaign(tmp_path, alphas=(0.0, 2.0)),
+        StubSolver(WRITES_LOADS),
+        workspace,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+        resume=True,
+    )
+    assert list(pd.read_csv(sweep_csv(tmp_path))["run_id"]) == [
+        "camp/sim_9001/a+00.0",
+        "camp/sim_9001/a+02.0",
+    ], "the rewritten table dropped the point an earlier call recorded"
+
+
+def test_a_failed_write_costs_the_campaign_nothing_but_says_so(tmp_path):
+    """A real OSError from the write, and the records still come back.
+
+    post/ is occupied by a FILE, so creating the folder fails the way a
+    read-only tree or a full disk would. The campaign's own outcome is
+    what the operator paid solver time for; a csv that could not be
+    written must not take it away, and must not be silent either.
+    """
+    (tmp_path / "camp").mkdir()
+    (tmp_path / "camp" / "post").write_text("not a folder", encoding="utf-8")
+    campaign = make_campaign(tmp_path, alphas=(0.0,))
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    with pytest.warns(PyflightstreamWarning, match="sweep table was NOT written"):
+        records = run_campaign(
+            campaign,
+            StubSolver(WRITES_LOADS),
+            workspace,
+            assess=converged,
+            recipes={"steady": steady_recipe},
+        )
+    assert [record.run_id for record in records] == ["camp/sim_9001/a+00.0"]
+    assert len(workspace.read_manifest()) == 1
+
+
+def test_an_unforeseen_write_error_does_not_swallow_the_campaign_failures(tmp_path, monkeypatch):
+    """The except clause is total ON PURPOSE, and this is why.
+
+    A RuntimeError out of the writer is exactly the class a narrow
+    except would let through, and letting it through would replace
+    CampaignErrors, the one object naming which points failed, with a
+    report about a csv.
+    """
+
+    def explodes(frame, path, **kwargs):
+        raise RuntimeError("the writer broke in a way nobody predicted")
+
+    monkeypatch.setattr(run_module, "write_table", explodes)
+    campaign = make_campaign(tmp_path, alphas=(0.0,))
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    with pytest.warns(PyflightstreamWarning, match="RuntimeError"):
+        with pytest.raises(CampaignErrors, match="1 campaign point"):
+            run_campaign(
+                campaign,
+                StubSolver(WRITES_NOTHING),
+                workspace,
+                assess=converged,
+                recipes={"steady": steady_recipe},
+            )
+    assert workspace.read_manifest()[0].status is RunStatus.FAILED_INCOMPLETE_OUTPUT

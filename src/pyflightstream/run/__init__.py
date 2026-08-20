@@ -19,6 +19,15 @@ recorded in the manifest; the manifest's append-only duplicate
 rejection is what makes the skip safe, and with ``resume=False`` a
 duplicate point raises before anything executes.
 
+Every campaign that records a point also LEAVES ITS TABLE: at the end
+of the loop, and before any failure is raised, :func:`run_campaign`
+writes the sweep csv into the workspace's ``post/`` folder under
+:data:`SWEEP_TABLE_NAME`, one line per point with the integrated
+forces and with each line stating whether it is a raw integration or a
+reduction and over what window (PFS-2014.03). Nobody has to ask for
+it, and a campaign whose points all failed still leaves the file,
+because the identity rows are the record of what was attempted.
+
 The local mechanism is the documented command-line script execution:
 ``FlightStream.exe -script <file>``, with the
 ``-hidden`` flag for windowless batch runs. ONE dash on the script
@@ -68,7 +77,7 @@ from typing import Protocol
 
 import pyflightstream
 from pyflightstream._digest import file_sha256, optional_file_sha256, text_sha256
-from pyflightstream._errors import PyflightstreamError
+from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
 from pyflightstream.cases import (
     Campaign,
     ScriptRecipe,
@@ -87,6 +96,7 @@ from pyflightstream.results import (
     parse_residual_history,
 )
 from pyflightstream.results.conditions import ConditionBinding, bind_conditions
+from pyflightstream.results.tables import sweep_table, write_table
 from pyflightstream.script import Script
 from pyflightstream.versions import FsVersion, resolve
 from pyflightstream.workspace import (
@@ -104,6 +114,7 @@ __all__ = [
     "FS_VERSION_FROM_DEFAULT",
     "FS_VERSION_FROM_ROW",
     "SCRIPT_ARGUMENT",
+    "SWEEP_TABLE_NAME",
     "Assessment",
     "CampaignErrors",
     "CampaignPlan",
@@ -1540,6 +1551,104 @@ def _check_scheduled_builds(
         )
 
 
+#: Name of the sweep csv :func:`run_campaign` leaves under the
+#: workspace's ``post/`` folder at the end of every campaign, spelled
+#: once here rather than at the write and again at every assertion
+#: about it (PFS-2014.03).
+#:
+#: WHY THIS NAME, since the item asks the choice to be justified rather
+#: than merely made. Three things had to be true of it.
+#:
+#: It says WHOSE table it is. The file covers the whole CAMPAIGN, one
+#: line per recorded point, because :func:`~pyflightstream.results.
+#: tables.sweep_table` reads the manifest and not the records of the
+#: call that happened to write it. So a resumed campaign rewrites one
+#: file that describes everything recorded so far, rather than leaving a
+#: per-call fragment nobody can join. A timestamped or per-call name
+#: would accumulate files of which none is "the" table.
+#:
+#: It says what is INSIDE: a sweep table, the tabular layer's own word
+#: for one row per point, which is what a reader opens it expecting.
+#:
+#: And it does not collide with ``sweep.csv``, the default target of
+#: ``pyfs-matrix run --sweep-csv``, which the operator names and which
+#: lands in the campaign ROOT. The two files would hold the same table,
+#: so a collision would corrupt nothing; what it would cost is a reader
+#: who cannot tell which file the tool maintains and which one a
+#: colleague put there.
+SWEEP_TABLE_NAME = "campaign_sweep.csv"
+
+
+def _leave_sweep_table(workspace: CampaignWorkspace) -> str | None:
+    """Write the campaign's sweep table under ``post/``, never raising.
+
+    PFS-2014.03. A completed sweep leaves its csv WITHOUT ANYONE ASKING
+    FOR IT: until this existed, only ``pyfs-matrix run`` wrote one, so a
+    campaign driven from Python left every number it produced inside the
+    manifest and the raw exports, and a colleague opening the workspace
+    found no table at all.
+
+    ``require_loads=False`` is the keyword written for exactly this
+    call: a campaign whose every point failed still has identity rows,
+    and raising there would leave nothing to write in the one case the
+    file is most wanted. :func:`~pyflightstream.results.tables.
+    write_table` is the tabular layer's single write path and refuses a
+    frame that cannot say what produced its numbers, so each row states
+    whether it is a raw integration or a reduction and over what window.
+
+    Overwriting is deliberate and is not the silent-overwrite class
+    (PFS-2011.02): every value in this file is derived from the
+    manifest, which is append-only, so rewriting it after a resume adds
+    the new points and can destroy nothing. The flow-visualization
+    writers refuse an existing destination because their content is NOT
+    reconstructable; this content is.
+
+    Parameters
+    ----------
+    workspace : CampaignWorkspace
+        The managed campaign root whose manifest is tabulated and under
+        whose ``post/`` folder the file lands.
+
+    Returns
+    -------
+    str or None
+        None when the table was written. Otherwise the sentence saying
+        why it was not, for the caller to warn with.
+
+    Notes
+    -----
+    WHY THIS CATCHES ``Exception`` AND RETURNS INSTEAD OF RAISING. The
+    table is a side product written after all the expensive work is
+    done: the solver seats are spent, every point is in the manifest,
+    and the caller is owed either its records or the
+    :class:`CampaignErrors` naming the points that failed. Letting a
+    write error out of here would replace that outcome with a report
+    about a csv, which is the worse of the two failures by a long way,
+    and would do it precisely on the failing campaigns whose table this
+    item exists to leave. The narrow ``except`` clause the
+    ``pyfs-matrix`` writer uses is right THERE, where the write is the
+    last thing the process does; here an unforeseen error (a manifest
+    row the tabular layer cannot widen, a pandas type error) would cost
+    the campaign's own result, so the clause is deliberately total.
+    ``BaseException`` is NOT caught: a ``KeyboardInterrupt`` means the
+    operator asked for the process to stop.
+    """
+    target = Path(workspace.root) / "post" / SWEEP_TABLE_NAME
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        write_table(sweep_table(workspace, require_loads=False), target)
+    except Exception as error:
+        return (
+            f"the campaign ran and its sweep table was NOT written to {target}: "
+            f"{type(error).__name__}: {error}. No run outcome is affected and nothing "
+            f"is lost: every point is recorded in {workspace.manifest_path}. Fix the "
+            "cause (an unwritable post/ folder, a full disk, or a manifest row the "
+            "tabular layer cannot widen) and rebuild the file with "
+            "pyflightstream.results.sweep_table(CampaignWorkspace(root))."
+        )
+    return None
+
+
 def run_campaign(
     campaign: Campaign,
     executor: Executor,
@@ -1562,6 +1671,25 @@ def run_campaign(
     FAILED_DIVERGED). Exactly one record per point is appended to the
     manifest; an unexpected internal error crashes the loop loudly
     instead of masquerading as a solver status.
+
+    Afterwards, and WITHOUT ANYONE ASKING FOR IT, the campaign's sweep
+    table is written to ``post/`` under :data:`SWEEP_TABLE_NAME`: one
+    line per recorded point, carrying the integrated forces, and each
+    line saying whether its numbers are a raw integration or a reduction
+    and over what window, so a steady point and an unsteady point's time
+    average are never read as one method (PFS-2014.03, PFS-2014.05). It
+    is written BEFORE :class:`CampaignErrors` is raised, so a campaign
+    with failing points still leaves the table; the failed points are
+    the identity rows whose coefficient columns are empty. A campaign
+    that recorded nothing at all leaves no file, having nothing to
+    tabulate.
+
+    The table is a side product and never costs the campaign its own
+    outcome: a write that fails is reported as a
+    :class:`~pyflightstream.exceptions.PyflightstreamWarning` naming the
+    cause and the rebuild call, and the records (or the
+    :class:`CampaignErrors`) are returned exactly as they would have
+    been (:func:`_leave_sweep_table`).
 
     Parameters
     ----------
@@ -1637,6 +1765,12 @@ def run_campaign(
         the cases that asked for it, before the first point of ANY of
         them executes, so a misconfigured build cannot spend the
         licensed seats of a healthy one first (PFS-2009.09.02).
+
+    Warns
+    -----
+    PyflightstreamWarning
+        When the automatic sweep table could not be written. The runs
+        themselves are unaffected and the manifest is complete.
     """
     # EVERY case's build is resolved before the FIRST one runs. Doing it
     # inside the loop looked equivalent and was not: the campaign would run
@@ -1738,6 +1872,27 @@ def run_campaign(
             records.append(record)
             if record.status.startswith("FAILED"):
                 failures.append(record)
+    # BEFORE THE RAISE, and that is the whole placement (PFS-2014.03).
+    # `CampaignErrors` is raised by a campaign that RAN and had failing
+    # points, and those points have records; writing the table after it
+    # would mean a sweep with one failed point leaves no table at all,
+    # which is this item's acceptance exactly inverted. The same defect
+    # was found and fixed one layer up, in `pyfs-matrix run`, where the
+    # writer sat under an `except` arm that returned first.
+    #
+    # `recorded` is the manifest's run ids, so an empty one means nothing
+    # anywhere has ever been recorded here: there is no table to leave and
+    # no problem to report, and complaining would put a warning on every
+    # resume that found its work already done.
+    if recorded:
+        problem = _leave_sweep_table(workspace)
+        if problem is not None:
+            # The one residual, stated rather than hidden: under
+            # `-W error` this warning is promoted to an exception and
+            # propagates in place of the outcome below. That promotion is
+            # the caller's explicit request, and the manifest is complete
+            # either way; silence would not be.
+            warnings.warn(problem, PyflightstreamWarning, stacklevel=2)
     if failures:
         raise CampaignErrors(failures)
     return records

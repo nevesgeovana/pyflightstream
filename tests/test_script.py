@@ -4004,6 +4004,77 @@ def test_none_is_no_longer_a_value_the_waiver_record_accepts():
         )
 
 
+def test_the_empty_string_is_no_longer_a_value_the_waiver_record_accepts():
+    """Requiredness alone still admits ``""``, and the reader refuses it.
+
+    ``CampaignWorkspace.read_manifest`` treats an empty ``source_version``
+    exactly as it treats a missing one. So a model that accepted the empty
+    string would let a waiver be built, written, and then refused by the
+    reader of the same release, which is the shape PFS-2012.03 exists to
+    remove. The refusal must still name the field, because that is what
+    tells a caller which of the seven it got wrong.
+    """
+    from pyflightstream.script import BrokenCommandUse
+
+    with pytest.raises(ValidationError) as caught:
+        BrokenCommandUse(
+            command="AIR_ALTITUDE",
+            version="26.120",
+            source_version="",
+            report="reports/compat/CMP-26120_2026-08-08_full.yaml",
+            reason="re-probing the units defect",
+        )
+    assert "source_version" in str(caught.value), (
+        f"the refusal must name the empty field: {caught.value}"
+    )
+    # The CONTROL: a one-character source is accepted, so the constraint
+    # is emptiness and not some new rule about what a version may look
+    # like. The version vocabulary is the versions layer's to police.
+    assert (
+        BrokenCommandUse(
+            command="AIR_ALTITUDE",
+            version="26.120",
+            source_version="x",
+            report="reports/compat/CMP-26120_2026-08-08_full.yaml",
+            reason="re-probing the units defect",
+        ).source_version
+        == "x"
+    )
+
+
+def test_a_blank_source_version_is_refused_as_firmly_as_an_empty_one():
+    """The hostile pass's finding against ``min_length=1`` alone.
+
+    ``" "`` is truthy and one character long, so requiredness and a
+    minimum length both accept it, and it names a build exactly as well
+    as ``""`` does. It was accepted by the model, by the manifest writer
+    and by the manifest reader until this test existed.
+    """
+    from pyflightstream.script import BrokenCommandUse
+
+    for blank in (" ", "\t", "\n", "   "):
+        with pytest.raises(ValidationError, match="source_version"):
+            BrokenCommandUse(
+                command="AIR_ALTITUDE",
+                version="26.120",
+                source_version=blank,
+                report="reports/compat/CMP-26120_2026-08-08_full.yaml",
+                reason="re-probing the units defect",
+            )
+    # The CONTROL: surrounding whitespace is not the offence, and the
+    # value is stored as given. A stored identifier is evidence, and a
+    # model that quietly rewrote it to make it pass would be editing the
+    # evidence rather than judging it.
+    padded = BrokenCommandUse(
+        command="AIR_ALTITUDE",
+        version="26.120",
+        source_version=" 26.120 ",
+        report="reports/compat/CMP-26120_2026-08-08_full.yaml",
+        reason="re-probing the units defect",
+    )
+    assert padded.source_version == " 26.120 ", "the model rewrote the evidence it was given"
+
+
 def test_the_live_waiver_path_still_records_a_source_version():
     """The construction site the field's requiredness rests on.
 

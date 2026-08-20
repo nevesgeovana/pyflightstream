@@ -241,3 +241,69 @@ def test_the_record_honours_the_no_silent_overwrite_rule(writer, suffix, tmp_pat
         "the data file was written although the pair was refused, so the refusal left "
         "half a pair behind"
     )
+
+
+# --- the refusal itself: what it names, and the one way through -------------
+
+
+@pytest.mark.parametrize(("writer", "suffix"), WRITERS)
+def test_the_refusal_names_the_file_it_would_have_replaced(writer, suffix, tmp_path):
+    """A refusal that does not name the file leaves the caller guessing.
+
+    A survey writes many files into one folder, so "already exists" alone
+    tells the reader that something collided and not which point of the
+    campaign it was. Both halves of the pair are checked, because either
+    can be the one that exists: the data file names itself, and the
+    record names the record.
+    """
+    from pyflightstream.exceptions import OutputExistsError
+
+    destination = tmp_path / f"probes{suffix}"
+    _written, record = writer(destination, POINTS, FIELDS, provenance=make_provenance())
+
+    with pytest.raises(OutputExistsError) as refused:
+        writer(destination, POINTS, FIELDS, provenance=make_provenance())
+    assert str(destination) in str(refused.value), (
+        "the refusal does not name the file it would have replaced"
+    )
+
+    destination.unlink()  # only the record survives, so only it can refuse
+    with pytest.raises(OutputExistsError) as record_refused:
+        writer(destination, POINTS, FIELDS, provenance=make_provenance())
+    assert str(record) in str(record_refused.value), (
+        "the refusal names the data file when it is the RECORD that exists, so the "
+        "reader looks for a collision on a path that is free"
+    )
+
+
+@pytest.mark.parametrize(("writer", "suffix"), WRITERS)
+def test_overwrite_true_is_the_way_through_and_replaces_the_whole_pair(writer, suffix, tmp_path):
+    """The deliberate replacement covers the record, not just the data.
+
+    A refusal with no way past it is a removed feature: re-running a
+    survey into the same folder is legitimate. But the way through has to
+    move BOTH files. Replacing the numbers and keeping the old record is
+    the inverse of the case above and is worse than either half alone:
+    the file would then be described, in writing, by the settings of a
+    run that did not produce it.
+    """
+    destination = tmp_path / f"probes{suffix}"
+    writer(destination, POINTS, FIELDS, provenance=make_provenance("matrix/sim_8001/a+00.0"))
+
+    replacement = {"cp": np.array([0.25, 0.75]), "vel": FIELDS["vel"]}
+    _written, record = writer(
+        destination,
+        POINTS,
+        replacement,
+        provenance=make_provenance("matrix/sim_8002/a+04.0"),
+        overwrite=True,
+    )
+
+    assert "2.500000000e-01" in destination.read_text(encoding="utf-8"), (
+        "overwrite=True did not replace the numbers"
+    )
+    payload = json.loads(record.read_text(encoding="utf-8"))
+    assert payload["run_id"] == "matrix/sim_8002/a+04.0", (
+        "overwrite=True replaced the data and kept the previous record, so the file "
+        "is now described by the settings of a run that did not produce it"
+    )

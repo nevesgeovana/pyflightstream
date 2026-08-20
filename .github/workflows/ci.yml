@@ -52,8 +52,14 @@ jobs:
       - name: Executable examples
         # Sybil runs the docstring doctests and the python code blocks
         # in the root README and docs/ (INB-006 item 1e, decision
-        # Q-007), with warnings promoted to errors; the shim skiplist
-        # is in the root conftest.py.
+        # Q-007); the shim skiplist is in the root conftest.py.
+        #
+        # ONE category is promoted to an error, not every warning
+        # (OPS-2006.02.02): PyflightstreamWarning and its subclasses,
+        # which is everything this package raises in its own voice. A
+        # dependency's DeprecationWarning is left alone, because nobody
+        # here can fix an upstream deprecation and a step that reddens
+        # for a reason nobody can fix stops being believed.
         run: pytest src/pyflightstream README.md docs -W error::pyflightstream._errors.PyflightstreamWarning
 
   coverage:

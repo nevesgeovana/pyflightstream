@@ -142,10 +142,18 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
         "NamingTemplateError": ValueError,
         "OpenMeshError": ValueError,
         "OptionError": KeyError,
-        # ONE OF TWO catalogued classes whose standard-library base is
-        # not ValueError, RuntimeError, LookupError, KeyError or
-        # ImportError; `UnsupportedResultTypeError` below is the other,
-        # and it is why this comment no longer says "the one".
+        # ONE OF THREE error rows whose standard-library base is not
+        # ValueError, RuntimeError, LookupError, KeyError or ImportError.
+        # `UnsupportedResultTypeError` and `ScriptDeclarationTypeError`
+        # below are the other two. This comment has now read "the one"
+        # and "one of two" in turn, each time going stale in the commit
+        # that added the next such class and each time unread by
+        # anything, so the population is pinned BY NAME in
+        # `test_the_unusual_standard_library_bases_are_the_ones_counted`
+        # rather than counted here by hand.
+        # Warnings are excluded from that count on purpose: their bases
+        # sit outside the five as well, and folding them in would make
+        # the number say nothing about the rows this comment is beside.
         # `except FileExistsError` is the handler a caller writing a file
         # already has around the call, and PFS-2011.02 added the refusal
         # to two writers that had none.
@@ -163,15 +171,26 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
         "TwistIterationError": RuntimeError,
         "UnitsError": ValueError,
         "UnknownVersionError": ValueError,
-        # The EIGHTH distinct standard-library base in this table and the
-        # first TypeError one (OPS-2009.01.08). `except TypeError` is how a
-        # caller separates "wrong KIND of thing" from "bad VALUE", which
-        # every ValueError-based class here means, so re-basing the
-        # to_table refusals needed a class that keeps it.
+        # The FIRST TypeError row in this table (OPS-2009.01.08).
+        # `except TypeError` is how a caller separates "wrong KIND of
+        # thing" from "bad VALUE", which every ValueError-based class
+        # here means, so re-basing the to_table refusals needed a class
+        # that keeps it.
+        # It also carried an ordinal, "the EIGHTH distinct
+        # standard-library base in this table", until 2026-08-19. It was
+        # wrong by one, TypeError being the seventh, and nothing read it;
+        # a hand-counted ordinal with no reader is the failure the
+        # ratchet comment below is guarded against, so it is deleted
+        # rather than corrected.
         "UnsupportedResultTypeError": TypeError,
         # The second TypeError row, and the last of the three raises
-        # OPS-2009.01.08 re-based. Same reasoning: a declaration that is
-        # neither a count nor a mapping is the wrong KIND of argument.
+        # OPS-2009.01.08 re-based; with it the ratchet's TypeError
+        # tranche is EMPTY rather than smaller, which is the property
+        # `test_no_exported_public_name_raises_a_bare_stdlib_error`
+        # enforces from here on: a new bare TypeError inside a public
+        # name now fails outright, with no exemption to inherit. Same
+        # reasoning as the row above: a declaration that is neither a
+        # count nor a mapping is the wrong KIND of argument.
         "ScriptDeclarationTypeError": TypeError,
         # RuntimeError rather than ValueError, and the choice is the
         # lane's default awaiting the author's ruling: this refuses
@@ -200,6 +219,55 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
             f"{name} no longer derives from {builtin.__name__}; that silently "
             "breaks every caller catching the builtin"
         )
+
+
+#: The five standard-library bases nearly every catalogued error takes.
+#: Named here rather than inline so the guard below and the comments in
+#: the table above quote one list.
+_COMMON_BASES = (ValueError, RuntimeError, LookupError, KeyError, ImportError)
+
+#: The catalogued ERRORS whose standard-library base is outside those
+#: five, pinned by name. Warnings are excluded on purpose: theirs are
+#: outside the five as well, and counting them would make the number say
+#: nothing about the rows the comments are beside.
+_UNUSUAL_BASE_CLASSES = (
+    "OutputExistsError",
+    "ScriptDeclarationTypeError",
+    "UnsupportedResultTypeError",
+)
+
+
+@pytest.mark.requirement("FR-39")
+def test_the_unusual_standard_library_bases_are_the_ones_counted() -> None:
+    """The population the base table's comments count, pinned by name.
+
+    Those comments have said "the one", then "one of two", and now "one
+    of three": each edition went stale in the commit that added the next
+    unusual base, and no test could see it, because every guard in this
+    file asserts a property of the whole table rather than of that
+    subset. Three editions of a hand-count is enough
+    (OPS-2009.01.08).
+
+    Pinned by NAME and not by count on purpose. A count fails when a
+    class arrives, which is what is wanted, but a name tells the reader
+    which comment to re-read, and a swap that removed one unusual base
+    while adding another would leave a count untouched.
+    """
+    unusual = sorted(
+        name
+        for name in exceptions.__all__
+        if name != "PyflightstreamError"
+        and isinstance(getattr(exceptions, name), type)
+        and not issubclass(getattr(exceptions, name), Warning)
+        and not issubclass(getattr(exceptions, name), _COMMON_BASES)
+    )
+    assert unusual == sorted(_UNUSUAL_BASE_CLASSES), (
+        f"the catalogued errors whose standard-library base is outside "
+        f"{[base.__name__ for base in _COMMON_BASES]} are now {unusual}, and this "
+        f"guard was measured against {sorted(_UNUSUAL_BASE_CLASSES)}. Move the list, "
+        "AND re-read the comments beside those rows in the base table above: they "
+        "count this population in prose and have gone stale twice already."
+    )
 
 
 class _EmptyBodyReferenceError(Exception):
@@ -651,11 +719,13 @@ _RATCHET = {
     # `except FileExistsError` is what a caller writing a file already has
     # around the call, and it predates the catalogue's reach.
     "pyflightstream.qa.reports.refuse_existing_report -> FileExistsError",
-    # TypeError for an argument of an unaccepted type, and the LAST one:
-    # `results.tables.to_table` left this set on 2026-08-19 for
-    # `UnsupportedResultTypeError`, which keeps TypeError as its second
-    # base. This site wants the same change and it is one file away
-    # (OPS-2009.01.08).
+    # NOTHING SITS HERE ANY MORE. The TypeError tranche stood between
+    # this line and the next one until 2026-08-19, its last entry being
+    # `script.entities.EntityRegistry -> TypeError`; the header above
+    # narrates where the three raises went. The comment that described
+    # it outlived its entry by one wave and said the remaining site was
+    # "one file away", which was true when written and an instruction to
+    # do work already done by the time it was read.
     # The REACHABILITY tranche, measured 2026-08-04: a bare stdlib raise
     # inside a module-private helper that a public definition calls
     # reaches a caller exactly as an exported one does. The walk used to
@@ -696,8 +766,17 @@ _RATCHET = {
 #: the line number was carrying: a SECOND bare raise of the same type
 #: appearing inside an already-exempted definition would otherwise
 #: inherit the exemption in silence. Three definitions raise twice; the
-#: rest raise once. Fourteen pairs, seventeen raises, re-measured
-#: 2026-08-19 when `to_table` left the set and took two raises with it.
+#: rest raise once: 13 pairs, 16 raises, re-measured 2026-08-19 as the
+#: TypeError tranche emptied, `to_table` leaving with two raises and
+#: `EntityRegistry` with one.
+#:
+#: BOTH NUMBERS ARE READ, since 2026-08-19 and not before. This comment
+#: spent a day saying fourteen and seventeen, which was the count after
+#: `to_table` left and before `EntityRegistry` did, and nothing noticed:
+#: `test_the_ratchet_comment_counts_the_ratchet` checked the header above
+#: the set and stopped there, so the field one line down was exactly the
+#: stale prose that test exists to prevent. It now checks this pair too,
+#: which is why they are written as digits rather than as words.
 _RATCHET_COUNTS = {
     "pyflightstream.qa.reports.refuse_existing_report -> FileExistsError": 1,
     "pyflightstream.run.cli._parse_recipes -> ValueError": 1,
@@ -861,6 +940,15 @@ def test_the_ratchet_comment_counts_the_ratchet():
 
     The set is the single home and the comment is checked against it,
     rather than the two being maintained side by side.
+
+    BOTH COMMENTS ARE READ since 2026-08-19. This guard covered the
+    header above ``_RATCHET`` and stopped there, so the docstring above
+    ``_RATCHET_COUNTS`` one field down was unread prose of exactly the
+    kind it exists to catch, and it spent a day stating fourteen pairs
+    and seventeen raises over a set of thirteen and sixteen: the count
+    after ``to_table`` left the TypeError tranche and before
+    ``EntityRegistry`` did (OPS-2009.01.08). A guard that reads one of
+    two adjacent hand-written counts teaches a reader to trust both.
     """
     source = Path(__file__).read_text(encoding="utf-8")
     header = source.split("_RATCHET = {")[0]
@@ -885,6 +973,28 @@ def test_the_ratchet_comment_counts_the_ratchet():
         f"set holds {len(_RATCHET) - type_errors - file_exists}. The message used to "
         f"drop the FileExistsError tranche, so it told the maintainer to write a "
         f"number this same assertion would then reject"
+    )
+
+    # AND THE SECOND COMMENT, one field down. `_RATCHET_COUNTS` carries a
+    # hand-written pair of totals of its own, and nothing read them until
+    # 2026-08-19. The slice is everything between the two assignments, so
+    # this test's own messages, which necessarily print the same words,
+    # can never be what the regex matches.
+    counts_header = source.split("_RATCHET_COUNTS = {")[0].split("_RATCHET = {")[1]
+    pairs = re.search(r"(\d+) pairs, (\d+) raises", counts_header)
+    assert pairs, (
+        "the _RATCHET_COUNTS comment no longer states its counts in the shape this "
+        "test reads ('N pairs, M raises', in digits); state them or delete this half "
+        "of the guard, but do not leave it matching nothing"
+    )
+    assert int(pairs.group(1)) == len(_RATCHET_COUNTS), (
+        f"the counts comment says {pairs.group(1)} pairs and the mapping holds "
+        f"{len(_RATCHET_COUNTS)}"
+    )
+    assert int(pairs.group(2)) == sum(_RATCHET_COUNTS.values()), (
+        f"the counts comment says {pairs.group(2)} raises and the mapping reserves "
+        f"{sum(_RATCHET_COUNTS.values())}. The raise total is the number that moves "
+        "when a tranche empties, which is exactly when nobody re-reads the comment"
     )
 
 

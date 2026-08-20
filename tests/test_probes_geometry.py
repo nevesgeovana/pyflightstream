@@ -1,4 +1,20 @@
-"""Tier 1: geometry gate of the probe planner (culling, band refinement)."""
+"""Tier 1: geometry gate of the probe planner, and its export register.
+
+Pipeline role: quality gate on the two things the probe planner decides
+before any solver sees it. The GEOMETRY half (culling, band refinement,
+standoff, row order) is the older one. The EXPORT half is PFS-2011.02:
+the solver writes one file per exported path, so a script that emits two
+exports to one path produced two identical lines and one surviving file,
+with nothing in the script, the record or the manifest saying which of
+the two surveys the file holds. That is the class PYFS-005 records.
+
+The refusal lives on the script's register rather than on the file
+system, because at script-build time nothing exists to test: the file is
+written later, by the solver, on another machine. It has to name BOTH
+call sites, and this module holds the cases that reach it through
+:func:`pyflightstream.probes.emit_probe_export`, the entry point a probe
+planner actually calls.
+"""
 
 import sys
 from pathlib import Path
@@ -6,12 +22,14 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from pyflightstream.exceptions import CommandArgumentError
 from pyflightstream.probes import (
     AxisSpec,
     FrameDefinition,
     PlanarProbeGrid,
     PlannedProbes,
     RefinementBand,
+    emit_probe_export,
 )
 from pyflightstream.probes.geometry import (
     GeometryEngineMissingError,
@@ -19,6 +37,7 @@ from pyflightstream.probes.geometry import (
     apply_geometry_gate,
     load_surface_mesh,
 )
+from pyflightstream.script import Script, helpers
 
 CUBE = Path(__file__).parent / "fixtures" / "cube.obj"
 
@@ -152,3 +171,86 @@ def test_verify_positions_enforces_the_row_order_contract():
     shuffled = np.random.default_rng(0).permutation(exported)
     with pytest.raises(ValueError, match="row order contract is broken"):
         planned.verify_positions(shuffled)
+
+
+# --- the export register: two calls, one path (PFS-2011.02) ----------------
+
+
+def test_the_probe_planner_refuses_one_export_path_twice():
+    """Two exports to one path meant the second silently replaced the first.
+
+    Nothing existed to test at script-build time, which is why this
+    surface needed a register rather than a file check: the script
+    rendered two identical lines and the collision happened later, inside
+    the solver, with nothing recording that only one file survived.
+    """
+    script = Script(version="26.120")
+    emit_probe_export(script, "survey.csv")
+
+    with pytest.raises(CommandArgumentError) as refused:
+        emit_probe_export(script, "survey.csv", update=False)
+
+    assert "survey.csv" in str(refused.value), "the refusal does not name the colliding path"
+    assert script.render().count("EXPORT_PROBE_POINTS") == 1, (
+        "the refused call still emitted its export line, so the script would carry the "
+        "collision it was refused for"
+    )
+
+
+def test_the_refusal_names_the_entry_point_the_earlier_call_used():
+    """Both call sites, and the earlier one by the name it was written as.
+
+    ``helpers.export_probes`` stamps the register with its own name, so a
+    collision between two calls made through ``emit_probe_export`` used
+    to report a function the caller's code never mentions. A refusal
+    naming a call site that does not exist is worse than one naming none:
+    it sends the reader to look for a line that is not there.
+    """
+    script = Script(version="26.120")
+    emit_probe_export(script, "survey.csv")
+
+    with pytest.raises(CommandArgumentError) as refused:
+        emit_probe_export(script, "survey.csv", update=False)
+
+    assert "from emit_probe_export" in str(refused.value), (
+        "the refusal names an entry point the caller did not use; the earlier call "
+        "site must be named as it was written"
+    )
+
+
+def test_the_two_entry_points_share_one_register():
+    """The register is on the SCRIPT, so mixing entry points still collides.
+
+    A planner that emits through this layer and a hand-written line that
+    calls the helper directly are two call sites of one script, and the
+    solver still writes one file for the path they share.
+    """
+    script = Script(version="26.120")
+    emit_probe_export(script, "survey.csv")
+
+    with pytest.raises(CommandArgumentError, match="already exports"):
+        helpers.export_probes(script, "survey.csv", update=False)
+
+    other = Script(version="26.120")
+    helpers.export_probes(other, "survey.csv")
+    with pytest.raises(CommandArgumentError) as refused:
+        emit_probe_export(other, "survey.csv", update=False)
+    assert "from export_probes" in str(refused.value), (
+        "the helper's own call site stopped being named once this layer re-stamped "
+        "the register; the earlier site is whichever entry point wrote it"
+    )
+
+
+def test_two_different_export_paths_still_emit_twice():
+    """The control: distinct paths are the ordinary survey.
+
+    The second call passes ``update=False`` because UPDATE_PROBE_POINTS
+    is an ANALYSIS-phase command and EXPORT_PROBE_POINTS an EXPORT-phase
+    one, so refreshing again after an export runs the script backwards
+    and the phase order refuses it. Refresh once, export several times is
+    the real shape of the usage this control protects.
+    """
+    script = Script(version="26.120")
+    emit_probe_export(script, "survey_upstream.csv")
+    emit_probe_export(script, "survey_wake.csv", update=False)
+    assert script.render().count("EXPORT_PROBE_POINTS") == 2

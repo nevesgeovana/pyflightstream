@@ -56,7 +56,7 @@ import os
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.commands import (
@@ -312,6 +312,29 @@ class BrokenCommandUse(BaseModel):
         :meth:`pyflightstream.workspace.CampaignWorkspace.read_manifest`,
         naming the manifest and the stamp it was written under, rather
         than loading with the field empty.
+
+        THE EMPTY STRING IS REFUSED TOO, by ``min_length=1``, and that is
+        not decoration. Requiredness alone still admits ``""``, and the
+        manifest reader treats an empty ``source_version`` exactly as it
+        treats a missing one, so without this the model would ACCEPT a
+        value its own reader refuses: the row would be written, and the
+        manifest it landed in would be unreadable by the release that
+        wrote it. The constraint is on this field alone rather than on
+        every ``str`` here because this is the one whose emptiness the
+        reader is known to refuse; widening it is a separate decision
+        with its own evidence.
+
+        AND SO IS THE BLANK STRING, by the ``pattern`` beside it, which
+        is the hostile pass's finding against the line above rather than
+        a second thought: ``min_length=1`` accepts ``" "``, and a waiver
+        naming a build of one space satisfies every check while saying
+        exactly as much as the empty one it replaced. The pattern demands
+        one non-whitespace character and nothing more. It deliberately
+        does NOT strip the value: a stored identifier is evidence, and
+        silently rewriting evidence to make it pass is the failure mode
+        this field exists to prevent. What a version identifier may
+        otherwise look like belongs to :mod:`pyflightstream.versions`,
+        not here.
     report : str
         Repository-relative path of the committed probe report that
         recorded the breakage. Never optional: ``broken`` cannot exist
@@ -336,7 +359,7 @@ class BrokenCommandUse(BaseModel):
 
     command: str
     version: str
-    source_version: str
+    source_version: str = Field(min_length=1, pattern=r"\S")
     report: str
     note: str | None = None
     reason: str

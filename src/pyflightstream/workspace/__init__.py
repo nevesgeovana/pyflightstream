@@ -1405,19 +1405,129 @@ class CampaignWorkspace:
         from one whose source happened to equal the script's own version.
         """
         for entry in record.broken_commands:
-            if entry.get("source_version"):
+            # Blank, not merely empty: " " is truthy and names no build,
+            # so a row carrying it would pass a truthiness test while
+            # asserting exactly what the missing key asserts. The value is
+            # never stripped, only judged: a stored identifier is evidence
+            # and this method does not edit evidence.
+            if (entry.get("source_version") or "").strip():
                 continue
             stamp = record.manifest_schema or "no stamp at all"
+            # A row carrying requested_version is from the layout written
+            # before 2026-08-04, the only one this package ever wrote
+            # without source_version, and it is not the empty-handed case
+            # the rest of this message assumes: the build is IN the row,
+            # under a key that has since been renamed. Sending its owner
+            # away to find what they already have is why this branch
+            # exists rather than one message for every row.
+            if "requested_version" in entry:
+                relabel = (
+                    " This row carries requested_version, which only the layout "
+                    "written before 2026-08-04 had, so the build is already in it "
+                    "and nothing has to be recovered: there, version held the "
+                    "record's source build and requested_version held the build the "
+                    "script targeted, which are this layout's source_version and "
+                    "version in that order."
+                )
+            else:
+                relabel = (
+                    " Read the manifest with the pyflightstream version that wrote "
+                    "it, or migrate the row deliberately by naming the build the "
+                    "report was run on."
+                )
             raise WorkspaceError(
                 f"the manifest {self.manifest_path} records run {record.run_id!r} "
                 f"waiving the broken command {entry.get('command', '<unnamed>')!r} "
-                "with no source_version, so the row does not say which build's "
+                f"whose source_version is {entry.get('source_version')!r}, which names "
+                "no build, so the row does not say which build's "
                 "record says the command is broken, and the cited report cannot be "
                 f"tied to a build. That row was written under {stamp}, and "
-                f"source_version has been required since {MANIFEST_SCHEMA}. Read the "
-                "manifest with the pyflightstream version that wrote it, or migrate "
-                "the row deliberately by naming the build the report was run on."
+                f"source_version has been required since {MANIFEST_SCHEMA}."
+                f"{relabel}"
             )
+
+    def _refuse_a_waiver_this_version_may_not_write(self, record: RunRecord) -> None:
+        """Refuse, before any write, a waiver row this version may not write.
+
+        The read guard above is the LATE half and cannot be the only
+        one. Measured on 2026-08-19, before this method existed:
+        :meth:`append_record` accepted a record whose ``broken_commands``
+        entry carried no ``source_version``, wrote it stamped
+        ``pyfs-manifest/2``, and :meth:`read_manifest` then refused the
+        file it had just written. Nothing in this package migrates a
+        manifest, so that manifest had no route back, and the refusal
+        text advised reading it "with the pyflightstream version that
+        wrote it", which was this one. A writer that manufactures
+        evidence its own reader rejects is the defect; refusing the
+        record is the fix, and it costs a caller nothing, because the
+        row was never readable.
+
+        Two arms, both scoped to records that actually carry a waiver.
+
+        The FIELD arm is the acceptance clause: every ``broken_commands``
+        row written carries a ``source_version`` that names a build,
+        which rules out the missing key, the empty string and the blank
+        one alike. The test is the reader's, deliberately the same
+        expression, because a writer that admitted a value the reader
+        refuses would restore the hole one string at a time.
+
+        The STAMP arm is the other half of the same clause. A waiver row
+        is exactly the row whose meaning :data:`MANIFEST_SCHEMA` moved,
+        so writing one under ``pyfs-manifest/1`` or under no stamp at all
+        labels new-layout evidence with the layout in which the key was
+        optional. That label is what a later reader consults to decide
+        whether an absent key means "predates the field"; a row written
+        today under the old stamp makes that inference wrong for the
+        whole file.
+
+        WHAT THIS DOES NOT GUARD, stated because the scope is narrower
+        than the sentence "every manifest this release writes is
+        stamped" would be: a record carrying NO waiver may still be
+        appended unstamped, and several callers do exactly that.
+        :attr:`RunRecord.manifest_schema` is optional so that a row which
+        never carried it stays honest about that (REV010-014), and the
+        run layer stamps every record it builds, which
+        ``tests/test_run_campaign.py`` measures separately. Requiring a
+        stamp on every append is a wider public break than this item
+        carries evidence for.
+
+        Parameters
+        ----------
+        record : RunRecord
+            The record about to be appended. Not modified: a record this
+            method would have to repair is one it refuses instead.
+        """
+        for entry in record.broken_commands:
+            # The reader's expression, deliberately identical, including
+            # the blank case: a writer that admitted a value its reader
+            # refuses is the whole defect, and " " is that value.
+            if not (entry.get("source_version") or "").strip():
+                raise WorkspaceError(
+                    f"refusing to write run {record.run_id!r} into the manifest "
+                    f"{self.manifest_path}: it waives the broken command "
+                    f"{entry.get('command', '<unnamed>')!r} whose source_version is "
+                    f"{entry.get('source_version')!r}, which names no build, so "
+                    "the row would not say which build's record says the command is "
+                    "broken, and the cited report could not be tied to a build. "
+                    f"source_version has been required since {MANIFEST_SCHEMA}, and "
+                    "reading this manifest back would refuse the row this call is "
+                    "about to add, with nothing in the package able to migrate it. "
+                    "Nothing was written. Name the build the report was run on, which "
+                    "is what Script.allow_broken records for you."
+                )
+            if record.manifest_schema != MANIFEST_SCHEMA:
+                stamp = record.manifest_schema or "no stamp at all"
+                raise WorkspaceError(
+                    f"refusing to write run {record.run_id!r} into the manifest "
+                    f"{self.manifest_path}: it waives the broken command "
+                    f"{entry.get('command', '<unnamed>')!r} under {stamp}, and a waiver "
+                    f"row is the row {MANIFEST_SCHEMA} exists for. Under the older "
+                    "layout source_version was optional, so a row written today under "
+                    "that stamp tells a later reader that an absent key means the "
+                    "writer predated the field. Nothing was written. Stamp the record "
+                    f"with the current schema ({MANIFEST_SCHEMA}), which is what the "
+                    "run layer does for every record it builds."
+                )
 
     def append_record(self, record: RunRecord) -> None:
         """Append one record to the manifest, atomically.
@@ -1433,7 +1543,19 @@ class CampaignWorkspace:
         defaulted fields and a manifest_schema it had never carried.
         Historical evidence is not this method's to edit; migrating a
         manifest is a separate, deliberate, auditable act.
+
+        Raises
+        ------
+        WorkspaceError
+            If the ``run_id`` is already in the manifest, or if the
+            record carries a waiver row that this version may not write:
+            one whose ``source_version`` names no build, or one under any
+            stamp but :data:`MANIFEST_SCHEMA`. Refused before anything is
+            written, because the row would be one
+            :meth:`read_manifest` refuses and nothing here migrates a
+            manifest (PFS-2012.03).
         """
+        self._refuse_a_waiver_this_version_may_not_write(record)
         raw = self.read_raw_manifest()
         if any(entry.get("run_id") == record.run_id for entry in raw):
             raise WorkspaceError(

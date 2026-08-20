@@ -473,8 +473,38 @@ def emit_probe_export(script: Script, path: str | Path, *, update: Toggle = True
     update : bool or 'ENABLE' or 'DISABLE'
         Whether to refresh probe values first; disable only when an
         update was already emitted.
+
+    Raises
+    ------
+    CommandArgumentError
+        If this script already exports to ``path``. The solver writes one
+        file per path, so two exports to one path meant the second
+        silently replaced the first while the script carried two
+        identical lines and nothing recorded that only one file survived
+        (PFS-2011.02). The refusal names BOTH call sites: the earlier one
+        by the entry point it used, and this one by raising here.
+
+    Notes
+    -----
+    The register of exported paths lives on the
+    :class:`~pyflightstream.script.Script`, because the collision is
+    between two CALLS and only the script sees both. This function is a
+    second entry point onto that register and re-stamps it with its own
+    name, for the reason under the call below.
     """
     helpers.export_probes(script, str(path), update=update)
+    # PFS-2011.02. `helpers.export_probes` registers the path under the
+    # name of the helper, so a collision between two calls made THROUGH
+    # THIS function told the reader "from export_probes", a function
+    # their code never calls. A refusal that names a call site the caller
+    # did not write is worse than one that names none: it sends them to
+    # look for a line that is not there. This is the only one of the two
+    # entry points that knows which was used, so the register is stamped
+    # with the truthful site here. The remedy sentence of the refusal is
+    # built inside `script.helpers` and still names the helper; moving
+    # that into a caller-supplied site name is a change to `script`, not
+    # to this layer, and is reported rather than made here.
+    script._exported_paths[str(path)] = "emit_probe_export"
 
 
 from pyflightstream.probes.errors import ProbeGeometryError  # noqa: E402,F401

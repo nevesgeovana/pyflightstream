@@ -17,6 +17,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from pyflightstream.exceptions import FsiInputError
 from pyflightstream.fsi import centrifugal, driver, kinematics, nodes
 from pyflightstream.fsi.config import (
     BladeProperties,
@@ -677,3 +678,81 @@ def test_the_marker_file_carries_the_config_change_decision(tmp_path):
     write_loads(tmp_path, 540)
     result = driver.coupling_step(tmp_path)
     assert result.call == 4
+
+
+# --- a run folder another run left behind (PFS-2011.02) ---------------------
+
+
+def _log_rows(run_dir: Path) -> list[str]:
+    """The data rows of the convergence log, without header or comments."""
+    lines = (run_dir / driver.LOG_FILE).read_text(encoding="utf-8").splitlines()
+    return [line for line in lines if line and not line.startswith("#")][1:]
+
+
+def test_a_reused_run_folder_is_refused_and_the_refusal_names_the_log(tmp_path):
+    """A convergence log with no state beside it is another run's history.
+
+    The log APPENDS by design, so its presence alone cannot say whether
+    this is the second call of one run or the first call of a second run.
+    ``state.json`` can: it is written atomically at the end of every call
+    and removed by nothing, so a log without it is a folder a previous
+    run left behind. Continuing would write this run's rows under the
+    other run's with nothing in the file separating them, which is the
+    PYFS-005 shape: a record that reads complete and describes two runs.
+    """
+    stage_run(tmp_path)
+    write_loads(tmp_path, 100)
+    stale = "iteration,phase,residual\n1,1,5.0e-01\n2,2,2.5e-01\n"
+    (tmp_path / driver.LOG_FILE).write_text(stale, encoding="utf-8")
+    assert not (tmp_path / driver.STATE_FILE).is_file()
+
+    with pytest.raises(FsiInputError) as refused:
+        driver.coupling_step(tmp_path)
+
+    message = str(refused.value)
+    assert str(tmp_path / driver.LOG_FILE) in message, (
+        "the refusal does not name the log it found, so the operator cannot tell "
+        "which folder holds the other run's history"
+    )
+    assert driver.STATE_FILE in message, (
+        "the refusal names the log but not the file whose ABSENCE is the signal, so "
+        "the reader cannot tell why an appending log was refused this time"
+    )
+
+    assert (tmp_path / driver.LOG_FILE).read_text(encoding="utf-8") == stale, (
+        "the refused call still appended to the other run's log"
+    )
+    assert not (tmp_path / driver.DISPLACEMENT_FILE).is_file(), (
+        "the refused call still wrote FSIDisp.txt, so the solver would read "
+        "displacements from a call the driver declared it would not make"
+    )
+    assert not (tmp_path / driver.STATE_FILE).is_file(), (
+        "the refused call created the state file whose absence was the signal, so a "
+        "second attempt would be allowed through"
+    )
+
+
+def test_a_call_with_state_beside_the_log_still_appends_its_row(tmp_path):
+    """The control, and it is why the signal is the PAIR rather than the log.
+
+    Within one run the log exists on every call after the first. A guard
+    on the log alone would refuse the ordinary case, which is how a guard
+    against silent damage becomes a removed feature; the over-strict
+    variant was written and measured before this one was kept.
+    """
+    stage_run(tmp_path)
+    write_loads(tmp_path, 100)
+    driver.coupling_step(tmp_path)
+    assert (tmp_path / driver.LOG_FILE).is_file()
+    assert (tmp_path / driver.STATE_FILE).is_file()
+    before = _log_rows(tmp_path)
+
+    write_loads(tmp_path, 140)
+    result = driver.coupling_step(tmp_path)
+
+    after = _log_rows(tmp_path)
+    assert result.call == 2
+    assert after[: len(before)] == before, "the second call rewrote the first call's rows"
+    assert len(after) == len(before) + 1, (
+        f"the second call did not append exactly one row: {len(before)} then {len(after)}"
+    )

@@ -303,7 +303,12 @@ matrix without running anything, and the committed reports live under
 
 Executable examples: the docstring doctests and the python code blocks
 in the root README and `docs/` are run in CI so a stale example fails.
-Run them locally the same way CI does (warnings promoted to errors):
+Run them locally the same way CI does. One category is promoted to an
+error, not every warning: `PyflightstreamWarning` and its subclasses,
+which is everything this package raises in its own voice. A dependency's
+`DeprecationWarning` is left alone, because nobody here can fix an
+upstream deprecation and a build that reddens for a reason nobody can fix
+stops being believed.
 
 ```
 pytest src/pyflightstream README.md docs -W error::pyflightstream._errors.PyflightstreamWarning

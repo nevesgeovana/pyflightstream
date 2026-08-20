@@ -13,16 +13,27 @@ Three scoped Sybil instances (docstrings under ``src``, markdown under
 plain ``pytest`` collects nothing here (asserted by
 ``tests/test_examples_isolation.py``). The examples run only when the
 suite is pointed at the source and docs, which the CI "Executable
-examples" step does with warnings promoted to errors::
+examples" step runs as::
 
     pytest src/pyflightstream README.md docs -W error::pyflightstream._errors.PyflightstreamWarning
 
-The active skiplist below keeps the deprecation shims out. They hold no
-examples of their own (they re-export their replacement); the doctest
-parser reads source text without importing, so the exclusion is a
-precaution rather than a current need, kept active so a future doctest
-added under a shim that imports it cannot drag its DeprecationWarning
-into the warnings-as-errors run.
+ONE category is promoted to an error there, not every warning
+(OPS-2006.02.02): ``PyflightstreamWarning`` and its subclasses, which is
+everything this package raises in its own voice. A dependency's
+``DeprecationWarning`` is left alone, because nobody here can fix an
+upstream deprecation and a step that reddens for a reason nobody can fix
+stops being believed.
+
+The skiplist below is EMPTY and kept as a named absence: it held the two
+deprecation shims, which v0.4.0 removed. A future shim needs it again,
+because a doctest added under one would provoke that shim's
+``PyflightstreamDeprecationWarning``, which the filter above does
+promote. That class and not a bare ``DeprecationWarning``, which is what
+this paragraph and the comment beside the skiplist both said until
+2026-08-19: the narrowed filter no longer promotes the standard
+category, so a skiplist justified by it would have been justified by
+nothing. A shim warning in this package's own voice is what keeps the
+exclusion earning its place.
 
 Sybil is a dev-only dependency; if it is not installed (a plain
 checkout without the ``dev`` extra), this module registers no collector
@@ -48,7 +59,11 @@ if _SYBIL:
         # The skiplist held the two deprecation shims and is empty since
         # v0.4.0 removed them (Q-007). Kept as a named absence rather than
         # deleted: the next shim needs the same exclusion, because a doctest
-        # under one would drag its DeprecationWarning into the -W error run.
+        # under one would provoke its PyflightstreamDeprecationWarning, and
+        # that IS promoted by the step's -W filter. This comment said "its
+        # DeprecationWarning ... the -W error run" until 2026-08-19, which
+        # named a category the narrowed filter leaves alone and a command
+        # line nothing runs (OPS-2006.02.02).
         excludes=[],
     )
 
