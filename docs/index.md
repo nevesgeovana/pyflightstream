@@ -62,6 +62,8 @@ added, never dropped.
 * [Replaying a recorded run](tutorial-replay.md): what the manifest keeps,
   how to rebuild the exact invocation from it, how to tell whether the
   evidence still matches, and what a record cannot give you.
+* [What a run cost](solver-cost.md): what a completed campaign spent, read
+  from the records it already keeps rather than from a stopwatch.
 * [Command reference](reference/index.md): generated from the database at
   every docs build, one page per manual chapter, with per-version evidence
   for every command. `pyflightstream.help()` renders the same database

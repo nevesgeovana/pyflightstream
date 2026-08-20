@@ -25,8 +25,9 @@ artefacts rather than a judgment about them:
   does not satisfy it;
 * a PHYSICS report is committed with at least one case.
 
-WHAT IT DELIBERATELY DOES NOT ASSERT. The documented pass leaves 45
-commands absent on this build (``tests/goldens/absent_on_26123.txt``),
+WHAT IT DELIBERATELY DOES NOT ASSERT. The documented pass leaves some
+commands absent on this build, counted in the header of
+``tests/goldens/absent_on_26123.txt`` and not repeated here,
 and at least one of them is legitimately absent, so no threshold on that
 number can be derived mechanically. The count is REPORTED by
 :func:`absent_command_count` and gates nothing: a number nobody agreed
@@ -220,7 +221,8 @@ def test_the_release_does_not_ship_while_the_last_step_is_unevidenced():
 def test_the_absent_count_is_reported_and_gates_nothing():
     """The number is printed and no threshold is asserted on it.
 
-    The golden still lists 45 commands absent on this build and at least
+    The golden still lists the commands absent on this build, counted in
+    its own header rather than here, and at least
     one of them is legitimately absent, so any threshold would be a
     number nobody agreed. Run this file with ``-s`` to read the line; it
     is also printed by pytest whenever anything in this module fails.

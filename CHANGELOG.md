@@ -1092,10 +1092,18 @@ costs the reader the whole warning window the shim exists to buy.
   guard walks the package for every `hashlib` constructor call and fails
   when a module hashes without declaring its canonical form, or when a
   second algorithm appears. The rule was previously written nowhere, which
-  is the reason NFR-15 carries a `pending` badge; a private module gains
+  is why NFR-15 CARRIED a `pending` badge; a private module gains
   no public API, so this is an internal guarantee behind a public claim
-  rather than a new public surface. The NFR-15 sentence itself is NOT
-  edited here: it is a marked proposal awaiting the author's seat.
+  rather than a new public surface.
+
+  THE AUTHOR'S SEAT RULED INSIDE THIS CYCLE and this bullet published the
+  pre-ruling state until 2026-08-20. It said the NFR-15 sentence was a
+  marked proposal awaiting her, and that NFR-15 therefore carried a
+  `pending` badge. She rewrote the statement on 2026-08-19 and the
+  requirement is `implemented`, citing `_digest` and
+  `tests/test_digest.py`, on the ground that the rule is DATA in that
+  module rather than prose about it. A reader following this bullet to
+  NFR-15 was being sent for the opposite of what they would find.
 
 - **The two independent reviews are transcribed into a committed report**
   (OPS-2005.11), `reports/RPT-028_independent-review-findings_2026-08-18.md`,
@@ -1217,7 +1225,10 @@ costs the reader the whole warning window the shim exists to buy.
   `SET_OUTFLOW_TRAILING_EDGES`, separately from the commands neither
   edition documents: each of those two owes a reading before anything is
   written for it. 26.123 moves from `registered` to `documented` and
-  `tests/goldens/absent_on_26123.txt` shrinks from 414 entries to 45.
+  `tests/goldens/absent_on_26123.txt` shrinks from 414 entries to the
+  count its own header states. The digit is not repeated here: it was
+  written as 45 and the golden says 43, which a release audit found on
+  2026-08-20 in the third of five places that stated it.
 - **26.123 is MEASURED, and reaches `operational` on the same day it was
   registered.** A Tier 2 probe run promotes 85 statuses, 84 verified and
   one broken (`reports/compat/CMP-26123_2026-08-17_full-sim.yaml`). Read
@@ -2027,8 +2038,21 @@ costs the reader the whole warning window the shim exists to buy.
   which measures the vendored snapshot tool against a sandboxed copy in a
   child environment with the variable cleared: green that an unconfigured
   tree is really skipped and that `log` refuses one on stderr with a
-  nonzero status, and a strict expected failure that `snapshot` exits 0
-  having taken nothing, pending a kit promotion. The same section now says
+  nonzero status, and, until the kit promotion landed later in this same
+  cycle, a strict expected failure that `snapshot` exited 0 having taken
+  nothing.
+
+  THE PROMOTION LANDED, so all three arms are ordinary passing cases now:
+  the 0.2.25 kit body was vendored on 2026-08-20, and vendoring it turned
+  the three strict markers into XPASS in one run, which is what the
+  strictness was for. **A BEHAVIOUR CHANGE TRAVELS WITH IT and it is not
+  only a bug fix**: on a machine that has never set
+  `COORD_SHARED_LEDGER_TREE`, the no-argument `snap.sh` now exits 1 every
+  time, because a skipped tree reaches the aggregate status instead of
+  being swallowed. Nothing in either repository reads that status, so
+  nothing breaks; the alternative was a recovery tool reporting a snapshot
+  of the shared incident ledger it had not taken. Set the variable, or
+  call `snap.sh pyflightstream` by name. The same section now says
   to check the process ENVIRONMENT as well as `.claude/settings.local.json`
   before concluding the shared tree is unconfigured, because a user-scope
   export satisfies a bash script just as well and leaves that file with no

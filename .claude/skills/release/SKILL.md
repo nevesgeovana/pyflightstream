@@ -37,7 +37,9 @@ then move on. References for the practices: docs/srs/standards.md.
    than reading as one item among many.
 
    Two things it deliberately does NOT do. It asserts no threshold on
-   the 45 commands the golden records as absent on that build, because
+   the commands the golden records as absent on that build (it states
+   its own count; do not repeat the digit here, it went stale twice),
+   because
    at least one of them is legitimately absent and no agreed number
    exists; the count is printed for a person to read. And it is scoped
    to the milestone whose last step this build is, so it does not refuse

@@ -1173,18 +1173,22 @@ pyfs-qa physics          --fs-version ... --fs-exe ...   # Tier 3 matrix
 pyfs-qa drift            --fs-versions 26.101,26.120 --fs-exe 26.101=A.exe --fs-exe 26.120=B.exe
 pyfs-qa cases                                         # print Tier 3 matrix
 pyfs-qa update-reference --case ... --reason "..."    # guarded write
+pyfs-qa cost             --workspace DIR              # what a run cost
 pyfs-workspace init      DIR                          # scaffold a workspace
 pyfs-matrix convert      matrix.fs -o campaign.toml   # run matrix to campaign
+pyfs-matrix plan         matrix.fs                    # pre-flight, no solver
+pyfs-matrix run          matrix.fs --fs-exe ...       # RUNS the solver
 pyfs-fsi                 (aeroelastic coupling executable)
 pyfs-manual sweep        --editions MANIFEST [--by-section]  # every registered edition
 pyfs-manual surface      --editions MANIFEST [--names]     # what changed between builds
 pyfs-manual coverage     --manual ... --source SRC-741 --chapter-pages 275-369
 pyfs-manual citations    --editions MANIFEST   # exits 1 if one does not hold
 pyfs-manual register  --editions MANIFEST --fs-version 26.123  # carries a build forward
+pyfs-manual draft     --editions MANIFEST --fs-version 26.123  # propose rows for review
 \end{lstlisting}
   \begin{itemize}
     \item The \code{pyfs-qa} tools (and \code{pyfs-fsi}) require a licensed machine and write dated report pairs (markdown plus YAML) under \code{reports/}; \code{pyfs-qa cases} runs nothing.
-    \item \code{pyfs-workspace} and \code{pyfs-matrix} run anywhere: they scaffold the workspace tree and turn a run matrix into a campaign.
+    \item \code{pyfs-workspace}, and \code{pyfs-matrix convert} and \code{plan}, run anywhere: they scaffold the workspace tree, turn a run matrix into a campaign, and pre-flight one without a solver. \code{pyfs-matrix run} STARTS THE SOLVER and needs a licensed machine like the \code{pyfs-qa} tools.
     \item As a user you consume the licensed results through the matrix; you only run the licensed tools when contributing evidence.
   \end{itemize}
 \end{frame}
