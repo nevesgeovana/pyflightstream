@@ -1,7 +1,7 @@
 # ITACA / pyflightstream shared process kit
-# kit-version: 0.2.5
+# kit-version: 0.2.25
 # artifact: snap.sh
-# body-sha256: 0835e6ae1bd43d05e213a88552bcd94a1b91ebec946f9dabb5411d7595b265d1
+# body-sha256: b2d466bf48e897a7b5decd57f511b20db4796c501af485b3627a1271ce4c1dd7
 # canonical-source: local-only _private snapshot tool, shared across all three workspaces plus the shared incident ledger.
 # note: derived copy; canonical master at the coordination level (`ClaudeCoordinator/kit`); do not hand-edit, re-vendor on promotion.
 # END KIT PROVENANCE (body verbatim below)
@@ -87,7 +87,15 @@ ensure() { # create the repo on first use
 
 snapshot() {
   local repo=$1
-  ensure "$repo" || { echo "$repo: no _private tree, skipped"; return 0; }
+  # The refusal is a REFUSAL, on stderr and in the status. Until 0.2.25 this
+  # printed on stdout and returned 0, so `snap.sh shared` on a machine with no
+  # COORD_SHARED_LEDGER_TREE exited 0 having snapshotted nothing, and the
+  # no-argument run, the documented normal usage, did the same. That is the
+  # exact class this file was fixed for twice already, one layer further out:
+  # the message told the truth and the status did not. A caller that wants an
+  # unconfigured tree to be harmless reads the message; a caller that scripts
+  # this tool reads the status, and it must not be told a snapshot happened.
+  ensure "$repo" || { echo "$repo: no _private tree, skipped" >&2; return 1; }
   g "$repo" add -A
   if g "$repo" diff --cached --quiet; then
     echo "$repo: nothing changed"

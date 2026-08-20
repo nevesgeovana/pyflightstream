@@ -267,8 +267,8 @@ MANIFEST: dict[str, tuple[str, str, str]] = {
         "ClaudeCoordinator/kit",
     ),
     ".claude/tools/snap.sh": (
-        "0.2.5",
-        "0835e6ae1bd43d05e213a88552bcd94a1b91ebec946f9dabb5411d7595b265d1",
+        "0.2.25",
+        "b2d466bf48e897a7b5decd57f511b20db4796c501af485b3627a1271ce4c1dd7",
         "ClaudeCoordinator/kit",
     ),
     ".claude/tools/check_plan_kit.py": (
@@ -538,7 +538,7 @@ HEADER_SHA256: dict[str, str] = {
     ".claude/tools/check_incidents.py": (
         "b1853f7688ce656469cfa31141be0ee9ffb184a732c99d5759d51f7c27fa5335"
     ),
-    ".claude/tools/snap.sh": "ce3d7aca330d51c0e845a1defaf43088470474195d91b4a61f4fb34020a161f9",
+    ".claude/tools/snap.sh": "f66487925cd2d087a0ef8b2093235af74367932d14bb0ca21f6356115eddfa8d",
     ".claude/tools/check_plan_kit.py": (
         "96c7939294a22b01fb5bcbc1b010f062c68405cdaba3a05f7d9c4c0d96cade60"
     ),

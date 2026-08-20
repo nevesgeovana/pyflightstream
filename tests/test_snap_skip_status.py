@@ -4,36 +4,41 @@ Reproduction, which is what this module exists for (OPS-2013.03)::
 
     $ unset COORD_SHARED_LEDGER_TREE
     $ bash .claude/tools/snap.sh shared
-    shared: no _private tree, skipped
+    shared: no _private tree, skipped        # on stderr
     $ echo $?
-    0
+    1
 
 The skip itself is CORRECT and is the 0.2.5 body's own promise: an
 unconfigured tree is skipped rather than snapshotted against an empty work
-tree. The status is not. ``snapshot()`` calls ``ensure()``, which refuses an
-unconfigured tree with ``return 1``, and then converts that refusal into
-``return 0`` after printing the skip; the no-argument loop collects
-``snapshot "$r" || rc=1`` and so exits 0 with the shared incident ledger, the
-tree both push gates consult, never taken. The message tells the truth and the
-status does not, which is one layer out from the defect this file was fixed
-for in 2026-07-28 (``PLN-20260728-1615-snap-shared-tree-false-success``,
-closed by taking the 0.2.5 body) and the same class as the loop fix already in
-it.
+tree. The STATUS was not, until the 0.2.25 body. ``snapshot()`` calls
+``ensure()``, which refuses an unconfigured tree with ``return 1``; the 0.2.5
+body converted that refusal into ``return 0`` after printing the skip on
+stdout, and the no-argument loop collects ``snapshot "$r" || rc=1``, so the
+documented normal usage exited 0 with the shared incident ledger, the tree
+both push gates consult, never taken. The message told the truth and the
+status did not, which is one layer out from the defect this file was fixed for
+in 2026-07-28 (``PLN-20260728-1615-snap-shared-tree-false-success``, closed by
+taking the 0.2.5 body) and the same class as the loop fix already in it.
+
+THE PROMOTION LANDED on 2026-08-20 and this module is the reason it could:
+the kit body was promoted to 0.2.25 at the coordination level and re-vendored
+here, and the three cases below stopped being expected failures in the same
+commit. They are ordinary passing cases now, and the reproduction above shows
+what the fixed body does. Nothing about them was relaxed to make that happen;
+the strict markers XPASSed against the new body first, which is what the
+strictness was for.
 
 The other three actions do NOT have the defect, and the contrast is measured
 below rather than described: ``log``, ``diff`` and ``restore`` go through
 ``g()``, which refuses on stderr with a nonzero status, and the script's exit
 status is that refusal.
 
-WHAT IS AND IS NOT ENFORCED HERE, because this is the half of the item that
-could land. ``.claude/tools/snap.sh`` is a hash-pinned vendored kit body
-(``tests/test_kit_drift.py``): a change to it is promoted at the coordination
-kit and re-vendored, never hand-edited here, so the two assertions that
-require the fixed body carry ``xfail(strict=True)`` and name the promotion
-they wait for. Strict is the point: the day the promoted body is vendored they
-turn from expected failures into failures, so the marker cannot outlive the
-defect quietly. Everything else here passes on the body as vendored today and
-guards behaviour that is already right.
+WHAT IS ENFORCED HERE. ``.claude/tools/snap.sh`` is a hash-pinned vendored kit
+body (``tests/test_kit_drift.py``): a change to it is promoted at the
+coordination kit and re-vendored, never hand-edited here. That is why this
+module could measure the defect before it could fix it, and it is why the
+three cases below carried ``xfail(strict=True)`` naming the promotion until
+the promotion arrived.
 
 The runs are made against a SANDBOXED COPY of the vendored script, with the
 two literal work trees and the snapshot base rewritten to a temporary
@@ -73,12 +78,6 @@ REWRITTEN_ASSIGNMENTS = ("BASE", "[pyflightstream]", "[itaca]")
 #: re-vendor that renames the variable fails here rather than making every
 #: assertion below vacuously true about a tree nothing reads.
 SHARED_TREE_LINE = '[shared]="${COORD_SHARED_LEDGER_TREE:-}"'
-
-PENDING_PROMOTION = (
-    "the fix is a kit promotion at the coordination level and a re-vendor of "
-    "this hash-pinned body (OPS-2013.03); the vendored 0.2.5 body converts "
-    "ensure()'s refusal into return 0 and prints the skip on stdout"
-)
 
 
 def _bash_runs() -> bool:
@@ -347,7 +346,6 @@ def test_log_refuses_an_unconfigured_tree_on_stderr_with_a_nonzero_status(
     )
 
 
-@pytest.mark.xfail(strict=True, reason=PENDING_PROMOTION)
 def test_a_skipped_snapshot_exits_nonzero(sandbox: tuple[Path, dict[str, str]]) -> None:
     """The status carries the refusal instead of reporting success.
 
@@ -373,7 +371,6 @@ def test_a_skipped_snapshot_exits_nonzero(sandbox: tuple[Path, dict[str, str]]) 
     )
 
 
-@pytest.mark.xfail(strict=True, reason=PENDING_PROMOTION)
 def test_the_skip_is_printed_on_stderr(sandbox: tuple[Path, dict[str, str]]) -> None:
     """The skip goes where a refusal goes, as ``g()``'s already does."""
     script, env = sandbox
@@ -383,7 +380,6 @@ def test_the_skip_is_printed_on_stderr(sandbox: tuple[Path, dict[str, str]]) -> 
     )
 
 
-@pytest.mark.xfail(strict=True, reason=PENDING_PROMOTION)
 def test_the_no_argument_run_carries_the_refusal(sandbox: tuple[Path, dict[str, str]]) -> None:
     """The documented normal usage is the one that hides the skip.
 
