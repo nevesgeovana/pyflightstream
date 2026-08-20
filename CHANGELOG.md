@@ -7,6 +7,8 @@ FlightStream versions.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-08-20
+
 **26.122 answers for 84 commands, and the vendor's build fixes the
 rotor morphing defect.** 26.122 was `operational` purely by inheritance from
 26.120 with nothing measured on it; a Tier 2 run now promotes 84
@@ -6104,7 +6106,8 @@ the repository seeding and this tag (milestones M0 through M5).
 * 26.000: registered, no recorded evidence yet (honest empty column;
   backfill planned for v0.2+).
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.8.0
 [0.7.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.7.0
 [0.6.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.6.0
 [0.5.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.5.0

@@ -3,14 +3,13 @@
 Version-aware, didactic Python driver for the FlightStream panel-method
 solver. MIT licensed.
 
-Status: v0.7.0 is the current release; the changelog records what each
-release adds. This release registers an eighth FlightStream build the day
-after the vendor issued it, and every command any of the eight manual editions
-registered AT THAT POINT documents has an entry, at the level the release notes
-measure it. A ninth build, 26.123, has since been registered and deliberately
-inherits nothing, so nothing carried over to it and every row it holds was read
-on its own edition; the eight-edition claim above is about the editions
-registered at that point and says nothing about this one. The release before it registered three older builds and
+Status: v0.8.0 is the current release; the changelog records what each
+release adds and what each one asks you to do. This release registers a ninth
+FlightStream build, 26.123, which deliberately INHERITS NOTHING, so every row
+it holds was read on its own edition rather than carried over from 26.120. The
+eight-edition sweep of the release before it is scoped to those eight and says
+nothing about this one; read both at the level the release notes measure them
+at. The release before it registered three older builds and
 gave every registered build the vendor build number its solver prints,
 so an install can be identified rather than described. Five command-line
 tools ship with the package: `pyfs-qa`

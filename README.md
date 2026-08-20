@@ -7,25 +7,42 @@
 Version-aware, didactic Python driver for the FlightStream panel-method
 solver. Successor of the author's legacy research scripts. MIT licensed.
 
-Status: v0.7.0 is the current release. It publishes to
+Status: v0.8.0 is the current release. It publishes to
 [PyPI](https://pypi.org/project/pyflightstream/) and archives on Zenodo
 from the tag, so the concept DOI in CITATION.cff resolves to the newest
 archived version and the version DOI is recorded one commit after the
-tag that names it. CHANGELOG.md carries the release history. This release registers an eighth FlightStream build the day
-after the vendor issued it, and every command any of the eight manual
-editions registered AT THAT POINT documents has an entry. A ninth
-build, 26.123, has since been registered and deliberately inherits
-nothing, so nothing carried over to it and every row it holds was read
-on its own edition. The eight-edition claim above is scoped to those
-eight and says nothing about this ninth build. Read that claim
-at the level it is measured at, which the release notes do: ten
-readings across four commands are deliberately withheld where a version
-row cannot express a layout, and the coverage tool reports that second
-measure beside the first rather than leaving it to prose.
+tag that names it. CHANGELOG.md carries the release history.
 
-The release before it registered three older builds and gave every
-registered build the vendor build number its solver prints, so an
-install can be identified rather than described.
+**What changes for you, and what you must do.** Four breaks need an
+action, and each names the call that fixes it where it refuses. A run
+matrix gains a sixteenth column and a fifteen-column file is recognised
+rather than merely rejected: `cases.matrix.upgrade_matrix(path,
+in_place=True)` adds it and leaves every other byte alone. A workspace
+input id now declares its kind with a leading letter, so a number
+mistyped between the `REF`, `SET` and `ENTRY` cells is refused instead
+of resolving to another artifact's file: `workspace.migrate_input_ids`
+renames the files and rewrites the cells in one call. A manifest's
+broken-command rows carry the build they were read from. And the FSI
+state's digest field is renamed, though a `state.json` written by an
+earlier release still loads.
+
+Two things arrive that a default install did not have. `trimesh` becomes
+a runtime dependency, one distribution and 3.89 MiB, because extracting
+a blade's trailing edge is on the default path of a rotor campaign and
+gating it behind an extra would make this library promise what a plain
+`pip install` cannot do. And ten of the eleven exports in the default
+set now read as tables, up from four; the eleventh is not an omission,
+it is a solver command that opens a modal window and waits for a person.
+
+On evidence: this release registers a ninth FlightStream build, 26.123,
+which deliberately INHERITS NOTHING, so every row it holds was read on
+its own edition rather than carried over. The eight-edition sweep of the
+release before it is scoped to those eight and says nothing about this
+one. Read both claims at the level they are measured at, which the
+release notes do: ten readings across four commands are deliberately
+withheld where a version row cannot express a layout, and the coverage
+tool reports that second measure beside the first rather than leaving it
+to prose.
 
 ```
 pip install pyflightstream

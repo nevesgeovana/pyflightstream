@@ -63,8 +63,36 @@ The version-bearing files move together, in one commit:
    (`cffconvert --validate` when available, else the schema by eye).
 3. The user guide title version in `guide/pyflightstream_user_guide.tex`,
    together with its content refresh for the release (helper and
-   command counts, import paths, CLI list).
-4. `pytest tests/test_metadata_currency.py` passes after the bump.
+   command counts, import paths, CLI list). The 0.8.0 audit found the
+   title moved and the CLI list not, so refresh the list against
+   `[project.scripts]` and each module's subparsers rather than by
+   reading it.
+4. **THE THREE PAGES THAT ANNOUNCE THE CURRENT RELEASE**, added
+   2026-08-20 after an audit found two of them a version behind with the
+   tag an hour away. This item exists because they were outside the
+   procedure that cuts the release, which is why it was not a
+   one-off:
+   * `README.md`'s status line. It is also the PyPI long description, so
+     a stale one is the part a tag cannot retract.
+     `tests/test_claim_currency.py` guards this one, anchored on the
+     changelog's newest RELEASED heading rather than on `pyproject.toml`,
+     so it turns red the moment step 5 promotes the section.
+   * `docs/index.md`'s status line. NOTHING guards this one. It is the
+     second home of a fact neither copy generates, and until they
+     converge it is the one that goes stale silently.
+   * `docs/srs/roadmap.md`'s Delivered table. Every prior release has a
+     row written in the release that cut it; the SRS declares itself the
+     living record of what shipped, so a missing row leaves the release
+     invisible in it.
+5. `pytest tests/test_metadata_currency.py tests/test_claim_currency.py
+   tests/test_version_identity.py` passes after the bump. Expect two
+   REFUSALS on the way and treat both as the guard working: an editable
+   install still stamping the development version, whose remedy is
+   `python -m pip install -e . --no-deps` and which is named in the
+   message; and a final version coexisting with a non-empty Unreleased
+   section, which means step 5 of pause point 3 has not run yet. The
+   Unreleased heading must remain with NOTHING under it, not with a
+   placeholder sentence: a placeholder reads as unreleased behaviour.
 
 ## Pause point 3: changelog promotion
 

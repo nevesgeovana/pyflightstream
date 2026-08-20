@@ -11,22 +11,23 @@ license: MIT
 # because a development tree has no release date; it once stated the
 # v0.3.0 date beside version 0.4.0.dev0, so a citation generated from
 # that tree asserted a release date for an artifact that was never
-# released (REV010-015). This is a DEVELOPMENT tree: the version
-# carries .dev0 and no date-released stands beside it, which is the pair
-# the guard in tests/test_metadata_currency.py enforces in both
-# directions. The release commit sets the two together and this sentence
-# flips with them; it is written as a statement about the tree rather
-# than as a rule so that it cannot quietly stop describing the file it
-# heads. It did stop once, on 2026-08-11, when the version moved to
-# .dev0 and this paragraph still said RELEASE: the guard reads the two
-# fields and cannot read prose, which is the residual the wording was
-# chosen to make visible rather than to remove.
+# released (REV010-015). This is a RELEASE tree: the version carries no
+# .dev0 and a date-released stands beside it, which is the pair the
+# guard in tests/test_metadata_currency.py enforces in both directions.
+# The next development commit sets the two together the other way and
+# this sentence flips with them; it is written as a statement about the
+# tree rather than as a rule so that it cannot quietly stop describing
+# the file it heads. It did stop once, on 2026-08-11, when the version
+# moved to .dev0 and this paragraph still said RELEASE: the guard reads
+# the two fields and cannot read prose, which is the residual the
+# wording was chosen to make visible rather than to remove.
 # The archive DOIs below are one per release, newest first, with the
 # concept DOI last. A version DOI is minted from the GitHub release, so
 # it is always recorded one commit AFTER the tag it names. Older ones
 # stay, because those releases did happen and are still what a citation
 # of them should resolve to.
-version: 0.8.0.dev0
+version: 0.8.0
+date-released: 2026-08-20
 repository-code: "https://github.com/nevesgeovana/pyflightstream"
 identifiers:
   - type: doi
