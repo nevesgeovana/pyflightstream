@@ -101,19 +101,22 @@ def _bash_runs() -> bool:
             capture_output=True,
             text=True,
             timeout=30,
-            # EXPLICIT, and the tier-1 ratchet on unguarded spawns is what
-            # asked for it: a probe that inherits the whole environment
-            # answers a question about this machine's session rather than
-            # about bash. PATH is what finds it and SystemRoot is what
-            # Windows needs to start any process at all.
-            env={
-                key: value
-                for key, value in os.environ.items()
-                if key in {"PATH", "PATHEXT", "SystemRoot", "SYSTEMROOT", "HOME"}
-            },
+            # THE ENVIRONMENT THE REAL RUNS USE, which is what this probe
+            # exists to decide about. The first version passed a minimal
+            # five-variable env, so it established that bash works under
+            # conditions no case in this module runs under: `_run` below
+            # passes `os.environ.copy()` plus the git identity. The tier-1
+            # ratchet asks that a spawn NAME its environment, not that it
+            # minimise it.
+            env=os.environ.copy(),
         )
-    except (OSError, subprocess.SubprocessError):
+    except OSError:
         return False
+    # A TIMEOUT IS NOT AN ANSWER, so it is not caught. `TimeoutExpired` is
+    # a `SubprocessError`, and catching that whole family turned a loaded
+    # runner's thirty-second hiccup into "this machine has no bash", which
+    # skips the module, which silences the three strict xfails whose whole
+    # purpose is to go red the day the kit body is promoted.
     return proof.returncode == 0 and "bash-works" in proof.stdout
 
 
@@ -346,9 +349,23 @@ def test_log_refuses_an_unconfigured_tree_on_stderr_with_a_nonzero_status(
 
 @pytest.mark.xfail(strict=True, reason=PENDING_PROMOTION)
 def test_a_skipped_snapshot_exits_nonzero(sandbox: tuple[Path, dict[str, str]]) -> None:
-    """The status carries the refusal instead of reporting success."""
+    """The status carries the refusal instead of reporting success.
+
+    THE PRECONDITION IS THE POINT, and this case had none until a review
+    pass measured what that costs. Asserting only a nonzero status makes
+    the marker fire on ANY nonzero cause: on a runner where bash could
+    not open the script at all, this XPASSed while its two content
+    anchored siblings correctly stayed xfail. A strict xfail that flips
+    on an unrelated failure reports the kit promotion arriving when
+    nothing arrived.
+    """
     script, env = sandbox
     result = _run(script, env, "shared")
+    assert "skipped" in (result.stdout + result.stderr).lower(), (
+        "the run produced no skip message at all, so its status says nothing about "
+        f"the behaviour this case measures. stdout={result.stdout!r} "
+        f"stderr={result.stderr!r}"
+    )
     assert result.returncode != 0, (
         "`snap.sh shared` exited 0 having taken no snapshot of the ledger both "
         "push gates consult. A recovery tool whose status says success after "

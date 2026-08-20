@@ -175,9 +175,12 @@ def to_table(result: object) -> pd.DataFrame:
       ``fz_n_per_m`` [N/m], ``moment_qc_nm_per_m`` [N m / m], in the
       cut-plane axes the FSI parser documents.
 
-    Every one of them also carries the two provenance columns
-    (PFS-2014.05): ``data_origin``, ``raw`` for anything read off a
-    solver export, and ``reduction``, which is ``none`` where nothing
+    Every one of them also carries the three provenance columns
+    (PFS-2014.05, PFS-2014.03): ``data_origin``, ``raw`` for anything
+    read off a solver export; ``reduction_window``, ``not_applicable``
+    where nothing was averaged, ``not_printed`` where the solver averaged
+    and printed no window, and ``unknown`` where the mode itself never
+    printed; and ``reduction``, which is ``none`` where nothing
     was averaged, ``time_average`` where the unsteady solver averaged
     over its window, and ``unknown`` where the file printed no solver
     mode to decide it by.
@@ -251,10 +254,13 @@ def write_table(frame: pd.DataFrame, path: str | Path, *, overwrite: bool = True
     Parameters
     ----------
     frame : pandas.DataFrame
-        The table to write, carrying ``data_origin`` and ``reduction``
-        columns whose values are keys of
-        :data:`~pyflightstream.results.DATA_ORIGIN_CODES` and
-        :data:`~pyflightstream.results.REDUCTION_CODES`.
+        The table to write, carrying the three
+        :data:`~pyflightstream.results.PROVENANCE_COLUMNS`:
+        ``data_origin``, ``reduction`` and ``reduction_window``, whose
+        values are keys of
+        :data:`~pyflightstream.results.DATA_ORIGIN_CODES`,
+        :data:`~pyflightstream.results.REDUCTION_CODES` and
+        :data:`~pyflightstream.results.REDUCTION_WINDOW_CODES`.
     path : str or Path
         Target csv file; its parent folder must exist.
     overwrite : bool, optional
@@ -280,7 +286,12 @@ def write_table(frame: pd.DataFrame, path: str | Path, *, overwrite: bool = True
     >>> import pandas as pd
     >>> from pyflightstream.results import write_table
     >>> frame = pd.DataFrame(
-    ...     {"CL": [0.4], "data_origin": ["raw"], "reduction": ["none"]}
+    ...     {
+    ...         "CL": [0.4],
+    ...         "data_origin": ["raw"],
+    ...         "reduction": ["none"],
+    ...         "reduction_window": ["not_applicable"],
+    ...     }
     ... )
     >>> written = write_table(frame, "polar.csv")   # doctest: +SKIP
     """
@@ -337,9 +348,10 @@ def _refuse_a_frame_that_cannot_say_what_it_is(frame: pd.DataFrame) -> None:
     if missing:
         raise MalformedOutputError(
             f"this table carries no {' and no '.join(missing)} column, so a reader "
-            "cannot tell whether a row's numbers came off the run or out of a "
-            "reduction without opening another file. Build it through to_table, "
-            "run_table or sweep_table, which stamp both columns"
+            "cannot tell what produced a row's numbers without opening another file: "
+            "data_origin and reduction say whether they came off the run or out of a "
+            "reduction, and reduction_window says over what window. Build it through "
+            "to_table, run_table or sweep_table, which stamp all three"
         )
     for column, published in (
         (DATA_ORIGIN_COLUMN, DATA_ORIGIN_CODES),
@@ -364,6 +376,37 @@ def _refuse_a_frame_that_cannot_say_what_it_is(frame: pd.DataFrame) -> None:
             "reduction, which is a contradiction rather than a default: name the "
             "reduction that produced them, or say the numbers are raw"
         )
+
+    # THE THIRD COLUMN GETS THE SAME TREATMENT, which it did not have when
+    # it arrived: it was validated for membership and joined to nothing, so
+    # a row could say it was time-averaged over a window that averages over
+    # nothing. A pair that contradicts itself is worse than a missing cell,
+    # because it reads as two facts rather than as one absence.
+    for reduction, window, why in (
+        ("none", "not_printed", "nothing was averaged, so no window went unprinted"),
+        ("none", "unknown", "nothing was averaged, so the window is not in question"),
+        (
+            "time_average",
+            "not_applicable",
+            "an average was taken, so a window applies by definition",
+        ),
+        (
+            "unknown",
+            "not_applicable",
+            "the reduction is unknown, so the window cannot be ruled out",
+        ),
+        ("unknown", "not_printed", "the reduction is unknown, so no solver average is claimable"),
+    ):
+        pairs = frame[
+            (frame[REDUCTION_COLUMN] == reduction) & (frame[REDUCTION_WINDOW_COLUMN] == window)
+        ]
+        if not pairs.empty:
+            raise MalformedOutputError(
+                f"{len(pairs)} row(s) pair reduction {reduction!r} with reduction_window "
+                f"{window!r}, which contradicts itself: {why}. The pairs this package "
+                "writes are none with not_applicable, time_average with not_printed, and "
+                "unknown with unknown"
+            )
 
 
 def run_table(record: RunRecord, *, loads: LoadsReport | None = None) -> pd.DataFrame:
@@ -613,10 +656,10 @@ def sweep_table(
     return pd.DataFrame(rows)
 
 
-def _stamped(
-    frame: pd.DataFrame, *, origin: str, reduction: str, window: str | None = None
-) -> pd.DataFrame:
-    """Add the two provenance columns to a whole-file table (PFS-2014.05).
+def _stamped(frame: pd.DataFrame, *, origin: str, reduction: str) -> pd.DataFrame:
+    """Add the three provenance columns to a whole-file table.
+
+    PFS-2014.05 for the first two and PFS-2014.03 for the window.
 
     A single parsed result is one provenance throughout, so the columns
     are constant here and per row only where a file MIXES the two, which
@@ -637,11 +680,11 @@ def _stamped(
     Returns
     -------
     pandas.DataFrame
-        The same table with the two columns appended.
+        The same table with the three columns appended.
     """
     frame[DATA_ORIGIN_COLUMN] = origin
     frame[REDUCTION_COLUMN] = reduction
-    frame[REDUCTION_WINDOW_COLUMN] = window_for_reduction(reduction) if window is None else window
+    frame[REDUCTION_WINDOW_COLUMN] = window_for_reduction(reduction)
     return frame
 
 
@@ -792,10 +835,11 @@ def _run_row(record: RunRecord, loads: LoadsReport | None) -> dict[str, object]:
     # nothing; an unsteady point's coefficients are the solver's own time
     # average and the spreadsheet does not print the window it used, which
     # this column says rather than leaving blank. A row whose loads never
-    # parsed knows neither.
-    row[REDUCTION_WINDOW_COLUMN] = (
-        "not_printed" if loads is None else window_for_reduction(reduction)
-    )
+    # parsed reduces to `unknown` and takes the window of the same name:
+    # this line used to hard-code `not_printed` for that branch, which
+    # asserted a solver average on the one row class where nothing at all
+    # was measured.
+    row[REDUCTION_WINDOW_COLUMN] = window_for_reduction(reduction)
     reserved = set(_RUN_IDENTITY_COLUMNS + _RUN_OUTCOME_COLUMNS + PROVENANCE_COLUMNS)
     reserved.update(("frame", "force_units", "moment_units"))
     for axis, value in record.point.items():

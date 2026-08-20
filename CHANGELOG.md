@@ -207,10 +207,11 @@ exception catalog, deriving from `PyflightstreamError` and keeping
 a new `TypedDict` mirroring the script-layer record field for field.
 
 **In `pyflightstream.results`:** `write_table`, `DATA_ORIGIN_CODES`,
-`REDUCTION_CODES`, `origin_code`, `reduction_code`,
-`reduction_for_solver_mode`, `EXPORT_CONVERSIONS`, `ExportConversion`,
+`REDUCTION_CODES`, `REDUCTION_WINDOW_CODES`, `REDUCTION_WINDOW_COLUMN`,
+`origin_code`, `reduction_code`, `reduction_for_solver_mode`,
+`window_for_reduction`, `EXPORT_CONVERSIONS`, `ExportConversion`,
 `export_conversion` and `require_export_parser`; `sweep_table` gains
-`require_loads`.
+`require_loads`; `PROVENANCE_COLUMNS` widens from two labels to three.
 
 **In `pyflightstream.script`:** `helpers.blade_frames`,
 `helpers.AZIMUTH_BASIS`, `helpers.RotationSense`,
@@ -233,8 +234,8 @@ all the way to manifest records and a sweep table. `--workflow CODE=NAME`
 maps an FS_SCRIPT code onto a run type, `--sweep-csv` names the table,
 and `--resume`, `--workspace` and `--fs-exe` behave as on `plan`.
 
-**`results.tables.to_csv` refuses a table carrying no `data_origin` and
-`reduction`**, raising `MalformedOutputError`. Every table this package
+**`results.tables.to_csv` refuses a table carrying no `data_origin`,
+`reduction` or `reduction_window`**, raising `MalformedOutputError`. Every table this package
 builds carries them, so a caller passing a parsed result is unaffected; a
 caller passing a hand-built frame is not.
 
@@ -567,12 +568,21 @@ Deprecations: none.
   happens to hit it. `CampaignWorkspace.open` is the validating
   constructor and `check_unique_stems` is the same rule as a callable.
 
-- **Every table the results layer builds carries `data_origin` and
-  `reduction`** (PFS-2014.05), so a reader can tell a direct integration
-  from a time average with the one file in hand. `data_origin` is `raw`
-  for anything read off a solver export and `reduced` for anything
-  post-processing produced; `reduction` is `none`, `time_average` or
-  `unknown`. THE VOCABULARY IS THE AUTHOR'S CALL and this is the lane's
+- **Every table the results layer builds carries `data_origin`,
+  `reduction` and `reduction_window`** (PFS-2014.05, and the window at
+  PFS-2014.03), so a reader can tell a direct integration from a time
+  average, AND over what window, with the one file in hand. `data_origin`
+  is `raw` for anything read off a solver export and `reduced` for
+  anything post-processing produced; `reduction` is `none`,
+  `time_average` or `unknown`; `reduction_window` is `not_applicable`
+  where nothing was averaged, `not_printed` where the solver averaged and
+  its spreadsheet printed no window, and `unknown` where the solver mode
+  itself never printed, so whether anything was averaged is unknown too.
+  `results` gains `REDUCTION_WINDOW_CODES`, `REDUCTION_WINDOW_COLUMN` and
+  `window_for_reduction` as public names, and `PROVENANCE_COLUMNS` widens
+  from two labels to three: a consumer that UNPACKED the pair breaks on
+  the widening, which is why it is announced here rather than noticed
+  later. THE VOCABULARY IS THE AUTHOR'S CALL and this is the lane's
   default: a failed row with no loads report says `unknown` rather than
   `none`, because `none` would assert a direct integration that never
   happened. The published integer codes are APPEND ONLY: a published

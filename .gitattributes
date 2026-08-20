@@ -41,15 +41,23 @@ tests/goldens/** text eol=lf
 # is CRLF on Windows and LF on Linux and the case measures the checkout.
 # Two cases did: one asserted the fixture was CRLF and fired its own
 # non-vacuity guard on every Linux runner, the other split on a CRLF that
-# was not there. Pinning them to LF makes the file on disk the same
-# everywhere, and the guard beside it (tests/test_matrix.py) is what
-# refuses a CR arriving in one.
+# was not there.
 #
-# `-text` RATHER THAN `eol=lf`, and the difference is the fixtures' whole
-# purpose. Several of these are captured solver output, and their CRLF is
-# what the solver wrote: normalizing them would make the committed bytes
-# disagree with the run they record. `-text` tells git to convert
-# nothing in either direction, so the file on disk is the file in the
-# index on every platform, which is the property a byte-reading case
-# needs and the only one it needs.
-tests/fixtures/** -text
+# THE FIRST VERSION OF THIS RULE WAS `-text`, ON A PREMISE THAT MEASURED
+# FALSE, and the correction is kept here because the premise is the
+# tempting one. It said several fixtures are captured solver output whose
+# CRLF is what the solver wrote, so normalizing them would make the
+# committed bytes disagree with the run they record. The measurement that
+# settles it is `git ls-files --eol tests/fixtures`: every fixture is
+# `i/lf`. The index has held LF all along, this machine's
+# `core.autocrlf=true` is what puts a CR in the working tree, and the
+# solver's CRLF, if it ever existed, was normalized away at the original
+# `git add` years before any of this. Nothing was being preserved.
+#
+# `eol=lf` rather than `-text` for the reason that survives the
+# correction: both write LF on checkout, and only this one keeps a CRLF
+# OUT OF THE INDEX. Under `-text` a later `git add` of a working copy
+# that had drifted to CRLF would commit the CR verbatim, changing eleven
+# evidence files in a commit about something else. The guard beside it
+# (tests/test_matrix.py) asserts the pin, not the absence of a CR.
+tests/fixtures/** text eol=lf

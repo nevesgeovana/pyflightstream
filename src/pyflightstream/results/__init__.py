@@ -426,20 +426,28 @@ REDUCTION_CODES: dict[str, int] = {"none": 0, "time_average": 1, "unknown": 2}
 #: rule as the two above, and for the same reason: a file written last
 #: month is read with this table and cannot be asked what it meant.
 #:
-#: TWO OF THE THREE RECORD IGNORANCE RATHER THAN A WINDOW, and that is
-#: deliberate. ``not_applicable`` is a direct integration, which averages
-#: over nothing. ``not_printed`` is an average the SOLVER took: the loads
-#: spreadsheet prints a solver mode and an iteration counter and no
-#: averaging window, so this package does not know it and says so.
-#: ``run_steps`` is a reduction this package computed itself, over the
-#: step count the same row carries.
+#: ALL THREE RECORD SOMETHING THE PACKAGE KNOWS, and two of them record
+#: ignorance rather than a window. ``not_applicable`` is a direct
+#: integration, which averages over nothing. ``not_printed`` is an
+#: average the SOLVER took: the loads spreadsheet prints a solver mode
+#: and an iteration counter and no averaging window, so this package does
+#: not know the window and says so. ``unknown`` is a row whose mode was
+#: never printed at all, so whether anything was averaged is itself
+#: unknown; it exists because mapping that row to ``not_printed`` would
+#: assert an average that may never have happened, which is the same
+#: false assertion :data:`REDUCTION_CODES` refuses for ``none``.
+#:
+#: A TOKEN FOR A WINDOW THIS PACKAGE COMPUTED IS NOT PUBLISHED YET, and
+#: deliberately: nothing in the package writes one. This table is append
+#: only, so a token added later is cheap and a token whose meaning has to
+#: change is impossible, which is the wrong way round to guess.
 #:
 #: A blank cell would say all three at once and survive none of them: it
 #: reads back out of a csv as NaN.
 REDUCTION_WINDOW_CODES: dict[str, int] = {
     "not_applicable": 0,
     "not_printed": 1,
-    "run_steps": 2,
+    "unknown": 2,
 }
 
 #: The three column labels, named once so no writer spells them itself.
@@ -447,8 +455,10 @@ DATA_ORIGIN_COLUMN = "data_origin"
 REDUCTION_COLUMN = "reduction"
 REDUCTION_WINDOW_COLUMN = "reduction_window"
 
-#: All three together, in the order they are written.
-PROVENANCE_COLUMNS: tuple[str, str, str] = (
+#: All three together, in the order they are written. The ARITY is data
+#: rather than a promise: it went from two to three at 0.8.0, and a
+#: consumer that unpacked the pair broke silently on the widening.
+PROVENANCE_COLUMNS: tuple[str, ...] = (
     DATA_ORIGIN_COLUMN,
     REDUCTION_COLUMN,
     REDUCTION_WINDOW_COLUMN,
@@ -468,18 +478,43 @@ def window_for_reduction(reduction: str) -> str:
     str
         One key of :data:`REDUCTION_WINDOW_CODES`.
 
+    Raises
+    ------
+    MalformedOutputError
+        When ``reduction`` is not a published token. A default here would
+        stamp a window on a reduction nobody has thought about, which is
+        the failure this mapping exists to prevent. The type is the
+        catalogued one its two siblings raise: a public name of this
+        package raises no bare stdlib error, which the FR-39 ratchet
+        caught on this function's first run.
+
     Notes
     -----
     ``time_average`` maps to ``not_printed`` rather than to a window,
     because the average is the solver's and the spreadsheet does not
-    describe it. A reduction this package computes stamps ``run_steps``
-    itself rather than coming through here.
+    describe it. ``unknown`` maps to ``unknown``: a row whose solver mode
+    never printed cannot be said to have been averaged at all.
+
+    A DICT RATHER THAN A CHAIN OF IFS, so an unhandled token is a refusal
+    rather than a default. The chain it replaced ended in a fallback
+    returning ``not_printed``, which made the ``time_average`` branch
+    above it behaviourally dead and stamped a solver average on rows that
+    may have had none.
     """
-    if reduction == "none":
-        return "not_applicable"
-    if reduction == "time_average":
-        return "not_printed"
-    return "not_printed"
+    windows = {
+        "none": "not_applicable",
+        "time_average": "not_printed",
+        "unknown": "unknown",
+    }
+    try:
+        return windows[reduction]
+    except KeyError:
+        raise MalformedOutputError(
+            f"{reduction!r} is not a published reduction, so this package has no window "
+            f"token for it. The reductions are {', '.join(sorted(REDUCTION_CODES))}; a "
+            "new one arrives with its window rather than defaulting to a window that "
+            "asserts an average nobody performed"
+        ) from None
 
 
 def origin_code(token: str) -> int:

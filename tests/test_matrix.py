@@ -418,7 +418,7 @@ def _normalized(data: bytes) -> bytes:
     return data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
 
 
-def _line_ending_variants(tmp_path):
+def _line_ending_variants(tmp_path, fixture: str | None = None):
     """A CRLF copy, an LF copy, and one with no final terminator.
 
     CONSTRUCTED from a normalized base rather than read off the
@@ -433,7 +433,10 @@ def _line_ending_variants(tmp_path):
     each line-ending shape, which is a property of the converter and of
     nothing else.
     """
-    base = _normalized(LEGACY_FIXTURE.read_bytes())
+    source_file = (
+        LEGACY_FIXTURE if fixture is None else Path(__file__).parent / "fixtures" / fixture
+    )
+    base = _normalized(source_file.read_bytes())
     crlf = base.replace(b"\n", b"\r\n")
     lf = base
     unterminated = lf.rstrip(b"\n")
@@ -457,15 +460,19 @@ def test_every_committed_fixture_is_pinned_against_line_ending_conversion():
     of reading them, which fixes two cases and not the class: the next
     fixture arrives unpinned and the next reader reads bytes.
 
-    The first version of this guard asserted that no fixture carries a
-    carriage return, and it went red naming eleven that do. That was the
-    guard teaching its author: several of these are captured solver
-    output and their CRLF is what the solver WROTE, so normalizing them
-    would make the committed bytes disagree with the run they record.
+    Two earlier versions of this guard were wrong and both are recorded,
+    because each was the tempting answer. The first asserted that no
+    fixture carries a carriage return and went red naming eleven that
+    do. The second concluded from that red that the CRLF was captured
+    solver output worth preserving, and pinned `-text` to preserve it.
+    The measurement neither version took is `git ls-files --eol`: every
+    fixture is `i/lf` in the INDEX, so nothing was being preserved and
+    the CR was this machine's `core.autocrlf` writing it at checkout.
 
-    What the pin gives, and what this asserts, is that git converts
-    nothing in either direction, so the file a case reads is the file in
-    the index on every platform. `text: unset` is how `-text` reports.
+    What the pin gives, and what this asserts, is that the index holds LF
+    and the checkout writes LF, so the file a case reads is the same file
+    on every platform. Measured rather than assumed:
+    `git ls-files --eol tests/fixtures` reports `i/lf` for all seventeen.
     """
     import subprocess
 
@@ -477,18 +484,29 @@ def test_every_committed_fixture_is_pinned_against_line_ending_conversion():
     )
 
     probe = subprocess.run(
-        ["git", "check-attr", "text", "--", *[str(path) for path in files]],
+        ["git", "check-attr", "text", "eol", "--", *[str(path) for path in files]],
         capture_output=True,
         text=True,
         cwd=Path(__file__).parent.parent,
         env=os.environ.copy(),
     )
     assert probe.returncode == 0, f"git check-attr failed: {probe.stderr}"
-    unpinned = [
-        line.rsplit(": ", 1)[0]
-        for line in probe.stdout.splitlines()
-        if line and not line.endswith(": unset")
-    ]
+    # BOTH attributes: `text: set` is what normalizes on the way IN, so a
+    # CRLF cannot enter the index, and `eol: lf` is what writes LF on the
+    # way out. The first version of this guard read `text` alone and
+    # accepted `unset`, which is the `-text` rule it was written against
+    # before a review pass measured that premise false.
+    pinned: dict[str, set[str]] = {}
+    for line in probe.stdout.splitlines():
+        if not line:
+            continue
+        path_part, attribute, value = line.rsplit(": ", 2)
+        pinned.setdefault(path_part, set()).add(f"{attribute}={value}")
+    unpinned = sorted(
+        path_part
+        for path_part, attributes in pinned.items()
+        if not {"text=set", "eol=lf"} <= attributes
+    )
     assert not unpinned, (
         "these fixtures are not pinned against line-ending conversion: "
         + ", ".join(unpinned)
@@ -513,12 +531,13 @@ def test_rewriting_a_code_cell_changes_no_line_ending(tmp_path):
     """
     from pyflightstream.cases.matrix import rewrite_codes
 
-    # The CURRENT-layout fixture: rewrite_codes reads the sixteen-column
-    # layout and refuses the legacy one by name.
-    base = _normalized((Path(__file__).parent / "fixtures" / "matrix.fs").read_bytes())
-    for label, original in (("crlf", base.replace(b"\n", b"\r\n")), ("lf", base)):
-        source = tmp_path / f"{label}.fs"
-        source.write_bytes(original)
+    # DRIVEN FROM THE SHARED HELPER, so this case gets the same three
+    # shapes the sibling gets, including the one without a final
+    # terminator. Built by hand it covered two, and a review pass measured
+    # what the third would have caught: a rewrite that APPENDS a
+    # terminator to a file that had none survives here and dies in the
+    # sibling, which is driven from the helper.
+    for label, source, original in _line_ending_variants(tmp_path, "matrix.fs"):
         rewritten, counts = rewrite_codes(source, {"REF": {"r003": "r009"}})
         assert counts.get("REF"), (
             f"{label}: the rewrite changed no cell, so this case would pass over a "
@@ -547,6 +566,48 @@ def test_rewriting_a_code_cell_changes_no_line_ending(tmp_path):
             f"{label}: the file carries {rewritten.count(b'r009')} rewritten codes and "
             f"the call reported {counts['REF']}"
         )
+
+
+def test_rewriting_a_code_cell_leaves_the_same_id_alone_outside_its_column(tmp_path):
+    """Over-application of the rename is invisible to an inverse replace.
+
+    `rewritten.replace(new, old) == original` undoes the corruption along
+    with the rename, so a mutant applying the mapping to EVERY column
+    passes it while corrupting cells and reporting zero rewrites. What
+    sees it is a row whose non-code column carries the same bare id, and
+    the committed fixture never has one, so this builds it.
+
+    The clause under test is the rewrite's own: the code columns are the
+    named ones and every other cell survives unchanged.
+    """
+    from pyflightstream.cases.matrix import rewrite_codes
+
+    base = _normalized((Path(__file__).parent / "fixtures" / "matrix.fs").read_bytes())
+    lines = base.split(b"\n")
+    # The DESCRIPTION cell of the first data row carries the id the REF
+    # column carries, so a rewrite that ignores its column edits it too.
+    header, first = lines[0], lines[2]
+    assert b"DESCRIPTION" in header, "the fixture header is not the layout this case reads"
+    cells = first.split(b"|")
+    description = 2
+    # EXACTLY the bare id, padded to the original width. `_retag_cell`
+    # rewrites a cell whose whole stripped content is the id, so a
+    # description carrying the id among other words does not exercise the
+    # over-application at all; the first version of this case did that and
+    # the mutant walked through it.
+    cells[description] = b" r003" + b" " * (len(cells[description]) - 5)
+    lines[2] = b"|".join(cells)
+    source = tmp_path / "collide.fs"
+    source.write_bytes(b"\n".join(lines))
+
+    rewritten, counts = rewrite_codes(source, {"REF": {"r003": "r009"}})
+    assert counts["REF"], "the rewrite changed no code cell, so this case measures nothing"
+
+    rewritten_description = rewritten.split(b"\n")[2].split(b"|")[description]
+    assert rewritten_description == cells[description], (
+        "the rewrite edited the DESCRIPTION cell, which is not a code column: it "
+        f"reads {rewritten_description!r} where the source had {cells[description]!r}"
+    )
 
 
 def test_the_upgrade_adds_one_cell_and_changes_no_other_byte(tmp_path):

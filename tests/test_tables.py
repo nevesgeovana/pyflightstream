@@ -18,6 +18,7 @@ from pyflightstream.results import (
     DATA_ORIGIN_CODES,
     PROVENANCE_COLUMNS,
     REDUCTION_CODES,
+    REDUCTION_WINDOW_CODES,
     AmbiguousLoadsError,
     LoadsNotFoundError,
     MalformedOutputError,
@@ -817,11 +818,51 @@ def test_the_published_codes_are_integers_and_append_only():
     """
     assert DATA_ORIGIN_CODES == {"raw": 0, "reduced": 1}
     assert REDUCTION_CODES == {"none": 0, "time_average": 1, "unknown": 2}
+    # The third table had no pin at all when it was added, which a review
+    # pass caught: it claimed the append-only rule of its two siblings in
+    # its own comment and nothing held it to it.
+    assert REDUCTION_WINDOW_CODES == {"not_applicable": 0, "not_printed": 1, "unknown": 2}
     assert (origin_code("raw"), origin_code("reduced")) == (0, 1)
     assert reduction_code("time_average") == 1
     for call, token in ((origin_code, "time_average"), (reduction_code, "raw")):
         with pytest.raises(MalformedOutputError, match="does not publish|is not a"):
             call(token)
+
+
+def test_a_row_with_no_loads_report_claims_no_window(tmp_path):
+    """The one row class where nothing at all was measured.
+
+    Its window used to be hard-coded `not_printed`, whose published
+    meaning is an average the SOLVER took. A failed row has no loads
+    spreadsheet, so that stamped a solver average on the one row where
+    nothing was measured, which is the same false assertion
+    `reduction` refuses for `none`.
+
+    Nothing pinned it: the failed-row case above asserts identity and
+    outcome and neither provenance cell.
+    """
+    record = make_record(status=RunStatus.FAILED_EXECUTION, error="timed out")
+    row = run_table(record).iloc[0]
+    assert row["reduction"] == "unknown"
+    assert row["reduction_window"] == "unknown", (
+        "a row with no loads report claims a window, so it asserts an average that "
+        "may never have happened"
+    )
+
+
+def test_the_window_mapping_refuses_a_reduction_it_does_not_publish():
+    """A default here would stamp a window on an unconsidered reduction.
+
+    The mapping was a chain of ifs ending in a fallback, so a misspelled
+    reduction came back as `not_printed`, an average the solver took.
+    """
+    from pyflightstream.results import window_for_reduction
+
+    assert window_for_reduction("none") == "not_applicable"
+    assert window_for_reduction("time_average") == "not_printed"
+    assert window_for_reduction("unknown") == "unknown"
+    with pytest.raises(MalformedOutputError, match="not a published reduction"):
+        window_for_reduction("time_avarage")
 
 
 # --- PFS-2014.03: a sweep that yielded nothing still leaves a table -------
