@@ -1805,6 +1805,38 @@ def test_an_unregistered_build_a_cell_names_is_not_reported_as_the_default(tmp_p
     )
 
 
+def test_the_refusal_names_the_build_the_file_names_first(tmp_path):
+    """MUTANT: `dict.fromkeys(effective)` reduced to `sorted(set(effective))`.
+
+    The comment at that site states the intent outright: the registry is
+    read in the order the FILE names the builds, so a refusal names the
+    first one a reader would look at rather than the alphabetically
+    smallest. A QA pass on 2026-08-20 measured that nothing observed it:
+    the mutant survived all 433 cases of this module, because every other
+    multi-build case happens to name its builds in alphabetical order.
+
+    So this case names them in REVERSE alphabetical order and asserts
+    which one the message reaches for. Both are unregistered, so either
+    could legitimately be refused; what is pinned is WHICH, and that is
+    the whole content of the design choice.
+    """
+    workspace = make_library(tmp_path)
+    register(workspace, "26.120", "C:/fs26120/FlightStream.exe")
+    first = NAMED_ROW.replace("26.120", "26.123")
+    second = NAMED_ROW.replace("26.120", "26.121")
+    path = write_matrix(tmp_path / "reverse_order.fs", [first, second])
+
+    with pytest.raises(InputArtifactError) as caught:
+        resolve_matrix(path, workspace, name="prov", fs_version="26.120", recipes=RECIPES)
+
+    message = str(caught.value)
+    assert "'26.123'" in message, (
+        "the refusal did not name the build the FILE names first; under "
+        "alphabetical ordering it would name 26.121, which is the row a reader "
+        f"looks at second. Message: {message}"
+    )
+
+
 def test_a_manual_row_beside_a_registered_one_still_needs_the_override(tmp_path):
     """MANUAL is refused wherever it sits, not only in the first row.
 

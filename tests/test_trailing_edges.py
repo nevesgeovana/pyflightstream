@@ -49,6 +49,10 @@ from pyflightstream.workspace import (
     write_trailing_edge_node_file,
 )
 from pyflightstream.workspace.inputs import InputArtifactError
+from pyflightstream.workspace.trailing_edges import (
+    DEFAULT_SECTIONS,
+    MINIMUM_SECTION_VERTICES,
+)
 
 #: Chordwise stations of the aerofoil outline, leading edge to trailing
 #: edge. Both ends are single points, so the section closes on a sharp
@@ -165,6 +169,166 @@ def _matches(nodes, candidates, tolerance: float = 1.0e-9) -> list[bool]:
     return [
         bool((numpy.linalg.norm(candidates - node, axis=1) < tolerance).any()) for node in nodes
     ]
+
+
+def _loose_mesh(vertices):
+    """Wrap a bare vertex array as a mesh, with faces that only connect it.
+
+    The refusal fixtures below are POINT CLOUDS: what each one measures is
+    a property of the vertices (a whole annulus about the axis, a
+    duplicated band, a section holding two of them), and the extraction
+    reads vertices and nothing else. The faces exist because a mesh
+    carries some, not because the criterion consults them, so they are a
+    fan over consecutive indices rather than a surface anyone should read
+    meaning into. ``process=False`` for the reason the blade builder
+    gives: the constructor otherwise merges duplicate vertices, which
+    would silently repair the very fixture that exists to carry them.
+    """
+    vertices = numpy.asarray(vertices, dtype=float)
+    faces = numpy.asarray([(i, i + 1, i + 2) for i in range(len(vertices) - 2)], dtype=int)
+    return trimesh.Trimesh(vertices=vertices, faces=faces, process=False)
+
+
+#: Spanwise stations of the ANCHOR blade, and the local twist at each, in
+#: degrees. This fixture exists for one claim and is shaped around it: the
+#: global aft sense is decided on the section whose chord is MOST nearly
+#: tangential, and the docstring of `_orient` says that deciding it
+#: elsewhere "is where a wrong answer flips one node of the edge and
+#: nothing says so".
+#:
+#: The alignment of a section is its chord direction dotted with its own
+#: tangential direction, which for this fixture is ``-cos(twist)``: it is
+#: -1 where the chord lies in the rotor plane and 0 where the chord is
+#: axial. The twists below put the ROOT just past 90 degrees, so its
+#: alignment is small and POSITIVE, and the tip at 0, so its alignment is
+#: 1 and NEGATIVE. Most-aligned and least-aligned therefore disagree
+#: about the sign, and the whole node list follows whichever one is
+#: consulted: the trailing edge from the tip, the LEADING edge from the
+#: root.
+#:
+#: 92 rather than 90 is deliberate and is the fixture's other job. At
+#: exactly 90 the root alignment is zero, the module refuses on the
+#: tangential floor, and a wrong anchor would announce itself. At 92 the
+#: root alignment is 0.035, comfortably above that floor, so a wrong
+#: anchor is SILENT, which is the failure being measured rather than a
+#: convenient one. `test_the_global_sign_is_decided_on_the_most_tangential_section`
+#: asserts that property of these numbers before it uses them, so
+#: changing them shows up as a red control rather than as a quietly
+#: vacuous test.
+#:
+#: Neighbouring twists step by no more than 12 degrees, well under the
+#: right angle at which the consistency walk in `_orient` would flip a
+#: section against its neighbour. The sweep is zero here, unlike the
+#: blade above: this fixture measures the SIGN decision, and a swept
+#: fixture would put the answer at the mercy of the section binning too.
+_ANCHOR_TWISTS_DEG = (92.0, 80.0, 60.0, 40.0, 20.0, 0.0)
+_ANCHOR_RADII = (1.0, 1.2, 1.4, 1.6, 1.8, 2.0)
+
+
+def _anchor_blade(chord: float = 0.30, thickness: float = 0.12):
+    """Build the unswept blade whose root chord is just past axial.
+
+    One station per entry of ``_ANCHOR_TWISTS_DEG``, all at azimuth zero
+    about the +z rotor axis, each carrying the same aerofoil outline as
+    the main fixture. The radii are equally spaced and the stations are
+    far enough apart that cutting the span into ``len(_ANCHOR_RADII)``
+    sections gives one station per section, which is what makes the
+    alignment of section ``i`` the ``-cos`` of twist ``i``.
+
+    Returns
+    -------
+    tuple
+        The vertex array, the face array, and the leading- and
+        trailing-edge vertex coordinates the criterion must find.
+    """
+    vertices: list[tuple[float, float, float]] = []
+    leading: list[tuple[float, float, float]] = []
+    trailing: list[tuple[float, float, float]] = []
+    per_station = 2 * len(_CHORD_STATIONS) - 2
+    radial = numpy.array([1.0, 0.0, 0.0])
+    tangential = numpy.array([0.0, 1.0, 0.0])
+    for radius, twist_deg in zip(_ANCHOR_RADII, _ANCHOR_TWISTS_DEG, strict=True):
+        twist = math.radians(twist_deg)
+        chordwise = -math.cos(twist) * tangential + math.sin(twist) * numpy.array([0.0, 0.0, 1.0])
+        normal = numpy.cross(radial, chordwise)
+        base = radius * radial
+
+        def _outline(station: float, side: float, base=base, chordwise=chordwise, normal=normal):
+            spine = base + (station - _QUARTER) * chord * chordwise
+            half = 0.5 * thickness * chord * math.sin(math.pi * station)
+            return tuple(spine + side * half * normal)
+
+        loop = [_outline(_CHORD_STATIONS[0], 0.0)]
+        loop += [_outline(station, +1.0) for station in _CHORD_STATIONS[1:-1]]
+        loop.append(_outline(_CHORD_STATIONS[-1], 0.0))
+        loop += [_outline(station, -1.0) for station in reversed(_CHORD_STATIONS[1:-1])]
+        assert len(loop) == per_station
+        leading.append(loop[0])
+        trailing.append(loop[len(_CHORD_STATIONS) - 1])
+        vertices.extend(loop)
+
+    faces: list[tuple[int, int, int]] = []
+    for index in range(len(_ANCHOR_RADII) - 1):
+        here = index * per_station
+        there = (index + 1) * per_station
+        for position in range(per_station):
+            following = (position + 1) % per_station
+            faces.append((here + position, there + position, there + following))
+            faces.append((here + position, there + following, here + following))
+    return (
+        numpy.asarray(vertices, dtype=float),
+        numpy.asarray(faces, dtype=int),
+        numpy.asarray(leading, dtype=float),
+        numpy.asarray(trailing, dtype=float),
+    )
+
+
+def _axial_chord_blade(chord: float = 1.0, thickness: float = 0.12):
+    """Build a blade whose chord is PARALLEL to the rotor axis everywhere.
+
+    The same aerofoil outline as the other fixtures, but laid out with
+    its chord along +z and its thickness along +y at every station, all
+    at azimuth zero about the +z axis. Every section therefore has a
+    chord direction exactly along the axis, whose component along the
+    tangential direction ``axis x radial`` is zero, and there is no end
+    of the chord that the rotor frame calls aft.
+
+    It is a real surface with a real spanwise extent, not a degenerate
+    one: each of the four stations carries the full outline, so every
+    other refusal in the module is cleared before the tangential floor is
+    reached. That is the point of it. A cloud that also had too few
+    vertices per section, or no radial direction, would refuse earlier
+    and measure the wrong guard.
+
+    Returns
+    -------
+    tuple
+        The vertex array and the face array.
+    """
+    vertices: list[tuple[float, float, float]] = []
+    per_station = 2 * len(_CHORD_STATIONS) - 2
+    for radius in (1.0, 1.2, 1.4, 1.6):
+
+        def _outline(station: float, side: float, radius=radius):
+            half = 0.5 * thickness * chord * math.sin(math.pi * station)
+            return (radius, side * half, (station - _QUARTER) * chord)
+
+        loop = [_outline(_CHORD_STATIONS[0], 0.0)]
+        loop += [_outline(station, +1.0) for station in _CHORD_STATIONS[1:-1]]
+        loop.append(_outline(_CHORD_STATIONS[-1], 0.0))
+        loop += [_outline(station, -1.0) for station in reversed(_CHORD_STATIONS[1:-1])]
+        assert len(loop) == per_station
+        vertices.extend(loop)
+
+    faces: list[tuple[int, int, int]] = []
+    for index in range(3):
+        here = index * per_station
+        there = (index + 1) * per_station
+        for position in range(per_station):
+            following = (position + 1) % per_station
+            faces.append((here + position, there + position, there + following))
+            faces.append((here + position, there + following, here + following))
+    return numpy.asarray(vertices, dtype=float), numpy.asarray(faces, dtype=int)
 
 
 # --- the acceptance clauses -------------------------------------------------
@@ -377,6 +541,89 @@ def test_reversing_the_axis_reverses_which_end_of_the_chord_is_aft(tmp_path):
     )
 
 
+def test_the_global_sign_is_decided_on_the_most_tangential_section(tmp_path):
+    """`_orient` anchors on argmax of |alignment|, and argmin is not the same.
+
+    DENIES the mutant ``anchor = int(numpy.argmin(numpy.abs(alignments)))``
+    in ``_orient``, which survived every other case in this file.
+
+    The docstring of ``_orient`` makes a design claim: the one remaining
+    global sign is settled on the section whose chord is most nearly
+    TANGENTIAL, "where the answer is least ambiguous", and settling it on
+    a strongly twisted root section instead "is where a wrong answer
+    flips one node of the edge and nothing says so". Every other fixture
+    here has all sections agreeing about the sign, so which section
+    answers is unobservable and the claim is untested.
+
+    This blade makes the two answers disagree. Its root chord is just
+    past axial (92 degrees of twist) so its alignment is small and
+    positive; its tip chord lies in the rotor plane so its alignment is
+    -1. Anchoring on the most aligned section keeps the family pointing
+    aft; anchoring on the least aligned one flips all six chords and
+    returns the LEADING edge, silently and with no refusal, which is
+    exactly the failure the design note claims to have removed. Both
+    halves are asserted, because "these are trailing-edge vertices" alone
+    would also pass on a blade whose two ends happen to coincide.
+    """
+    # The fixture's own property, asserted before it is relied on: the
+    # most- and least-aligned sections must disagree about the SIGN, and
+    # the least aligned must still clear the tangential floor, so a wrong
+    # anchor gives a wrong answer rather than a refusal.
+    alignments = [-math.cos(math.radians(twist)) for twist in _ANCHOR_TWISTS_DEG]
+    most = int(numpy.argmax(numpy.abs(alignments)))
+    least = int(numpy.argmin(numpy.abs(alignments)))
+    assert alignments[most] < 0.0 < alignments[least], (
+        "the most- and least-aligned sections of this fixture agree about the sign, "
+        f"so the anchor is unobservable again: {alignments}"
+    )
+    assert abs(alignments[least]) > 1.0e-3, (
+        "the least-aligned section is below the module's tangential floor, so a "
+        "wrong anchor would REFUSE rather than answer, and this case would stop "
+        f"measuring a silent failure: {alignments}"
+    )
+
+    vertices, faces, leading, trailing = _anchor_blade()
+    mesh = trimesh.Trimesh(vertices=vertices, faces=faces, process=False)
+    path = tmp_path / "anchor.obj"
+    mesh.export(path)
+    edge = extract_trailing_edge(
+        path, axis=(0.0, 0.0, 1.0), hub=(0.0, 0.0, 0.0), sections=len(_ANCHOR_RADII)
+    )
+    assert edge.nodes.shape == (len(_ANCHOR_RADII), 3), (
+        "the span was not cut one station per section, so the alignment of section i "
+        f"is no longer the -cos of twist i and the control above is about nothing: "
+        f"{edge.nodes.shape}"
+    )
+    found = _matches(edge.nodes, trailing, tolerance=1.0e-6)
+    assert all(found), (
+        f"{found.count(False)} of {len(_ANCHOR_RADII)} nodes are not trailing-edge "
+        f"vertices, so the global sign was taken from the wrong section:\n{edge.nodes}"
+    )
+    wrong = _matches(edge.nodes, leading, tolerance=1.0e-6)
+    assert not any(wrong), (
+        f"{wrong.count(True)} of the extracted nodes are LEADING-edge vertices of "
+        f"this blade:\n{edge.nodes}"
+    )
+
+
+def test_the_documented_default_and_minimum_are_the_documented_numbers(tmp_path):
+    """DENIES ``DEFAULT_SECTIONS = 7`` and ``MINIMUM_SECTION_VERTICES = 1``.
+
+    Both are public names with a paragraph of reasoning behind them, and
+    both were free to change without a test noticing. The default is
+    pinned twice over, as the constant AND as the number of nodes a call
+    that does not ask for a count comes back with, because the constant
+    alone would not catch a signature that stopped defaulting to it.
+    """
+    assert DEFAULT_SECTIONS == 20
+    assert MINIMUM_SECTION_VERTICES == 3
+    path, _, trailing = _blade_file(tmp_path)
+    edge = extract_trailing_edge(path, axis=(0.0, 0.0, 1.0), hub=(0.0, 0.0, 0.0))
+    assert edge.nodes.shape == (DEFAULT_SECTIONS, 3)
+    assert edge.sections == DEFAULT_SECTIONS
+    assert all(_matches(edge.nodes, trailing, tolerance=1.0e-6))
+
+
 def test_a_loaded_mesh_and_its_file_give_the_same_edge(tmp_path):
     """The reader is a convenience of the entry point, not of the criterion."""
     path, _, _ = _blade_file(tmp_path)
@@ -482,10 +729,173 @@ def test_fewer_than_two_sections_name_no_edge_and_are_refused(tmp_path, sections
 
 
 def test_sections_finer_than_the_mesh_resolves_are_refused(tmp_path):
-    """A silent answer here would be a node list shorter than it claims."""
+    """A silent answer here would be a node list shorter than it claims.
+
+    WHAT THIS CASE ACTUALLY REACHES, measured rather than assumed on
+    2026-08-20: 200 sections over a 6-station blade leaves 182 of them
+    holding NOTHING, and the first section that refuses holds zero
+    vertices. So it exercises the EMPTY section and says nothing about
+    the threshold: it passes unchanged with ``MINIMUM_SECTION_VERTICES``
+    lowered to one. The 1-or-2-vertex case that the constant's own
+    docstring exists to justify is
+    `test_a_section_holding_two_vertices_is_too_few_to_read_a_chord_from`
+    below; this one is kept because a coarse mesh asked for far too many
+    sections is the way a user really arrives here, and both shapes are
+    worth having.
+    """
     path, _, _ = _blade_file(tmp_path, stations=6)
     with pytest.raises(InputArtifactError, match="finer than the mesh"):
         extract_trailing_edge(path, axis=(0.0, 0.0, 1.0), hub=(0.0, 0.0, 0.0), sections=200)
+
+
+def test_a_section_holding_two_vertices_is_too_few_to_read_a_chord_from():
+    """DENIES ``selected.size < 1`` and ``MINIMUM_SECTION_VERTICES = 1``.
+
+    Two points define a line but not a section, which is the whole
+    argument for the constant being three, and nothing measured it: the
+    only case that reached this refusal did so with sections holding
+    ZERO vertices, where any threshold at all refuses.
+
+    The cloud below is built so that the inboard section holds exactly
+    two vertices and the outboard one holds three. With the threshold at
+    three the extraction refuses and names the count; with it at one, the
+    two-vertex section has enough extent to yield a chord direction and
+    the call SUCCEEDS, returning a two-node edge read off a section that
+    cannot disagree with itself. The refusal's own text is matched,
+    including the number, so lowering the constant is a red test rather
+    than a quieter message.
+    """
+    cloud = [
+        (1.0, -0.1, 0.0),
+        (1.0, 0.1, 0.0),
+        (2.0, -0.1, 0.0),
+        (2.0, 0.0, 0.0),
+        (2.0, 0.1, 0.0),
+    ]
+    with pytest.raises(InputArtifactError, match="holds 2 vertices") as caught:
+        extract_trailing_edge(
+            _loose_mesh(cloud), axis=(0.0, 0.0, 1.0), hub=(0.0, 0.0, 0.0), sections=2
+        )
+    assert "needs at least 3" in str(caught.value), (
+        "the refusal no longer names three as the number a section needs, which is "
+        f"the claim MINIMUM_SECTION_VERTICES makes: {caught.value}"
+    )
+    assert caught.value.kind == "trailing_edges"
+
+
+def test_a_full_annulus_about_the_axis_has_no_radial_direction_and_is_refused():
+    """DENIES ``if False:`` in place of the ``length == 0.0`` refusal.
+
+    A section whose vertices sit evenly all the way round the axis has a
+    mean radial vector of exactly zero, so it has no radial direction of
+    its own and no tangential direction either. That is a full disc or a
+    complete rotor rather than one blade, and the module says so.
+
+    Nothing reached it. With the refusal removed the mean radial is
+    divided by zero, the chord direction is computed from a NaN radial,
+    and the call ends in ``numpy.linalg.LinAlgError: Eigenvalues did not
+    converge`` out of a public function of this package (measured
+    2026-08-20, with the refusal replaced by ``if False:``): a bare
+    third-party error naming neither the mesh nor the cause, which is
+    exactly the shape FR-39 forbids.
+    """
+    rings = []
+    for radius in (1.0, 2.0):
+        rings += [
+            (radius, 0.0, 0.0),
+            (0.0, radius, 0.0),
+            (-radius, 0.0, 0.0),
+            (0.0, -radius, 0.0),
+        ]
+    with pytest.raises(InputArtifactError, match="spread evenly around the rotor axis") as caught:
+        extract_trailing_edge(
+            _loose_mesh(rings), axis=(0.0, 0.0, 1.0), hub=(0.0, 0.0, 0.0), sections=2
+        )
+    assert "one blade at a time" in str(caught.value), (
+        f"the refusal no longer says what to do about it: {caught.value}"
+    )
+    assert caught.value.kind == "trailing_edges"
+
+
+def test_a_duplicated_vertex_band_has_no_chord_direction_and_is_refused():
+    """DENIES ``if False:`` in place of the ``chord is None`` refusal.
+
+    A band of vertices at one point is what a degenerate or duplicated
+    spanwise station looks like in a mesh, and once the spanwise
+    component is projected out the section has no extent left to read a
+    chord direction from. `_chord_direction` returns None for it, and
+    only the refusal turns that None into a sentence.
+
+    Nothing reached it. With the refusal removed the None is carried into
+    `_orient` and matrix-multiplied by a real chord, and the user is told
+    ``matmul: Input operand 1 does not have enough dimensions`` (measured
+    2026-08-20, with the refusal replaced by ``if False:``): a bare
+    ValueError about operand dimensions, naming neither the mesh nor the
+    cause, which is the shape FR-39 forbids. ``process=False`` in
+    `_loose_mesh` is load-bearing here: the mesh constructor would
+    otherwise merge the duplicated band away.
+    """
+    cloud = [
+        (1.0, 0.0, 0.0),
+        (1.0, 0.0, 0.0),
+        (1.0, 0.0, 0.0),
+        (2.0, -0.1, 0.0),
+        (2.0, 0.0, 0.1),
+        (2.0, 0.1, 0.0),
+    ]
+    with pytest.raises(InputArtifactError, match="all its vertices at one point") as caught:
+        extract_trailing_edge(
+            _loose_mesh(cloud), axis=(0.0, 0.0, 1.0), hub=(0.0, 0.0, 0.0), sections=2
+        )
+    assert "duplicated band of vertices" in str(caught.value), (
+        f"the refusal no longer names the usual cause: {caught.value}"
+    )
+    assert caught.value.kind == "trailing_edges"
+
+
+def test_a_chord_parallel_to_the_axis_at_every_station_is_refused(tmp_path):
+    """DENIES ``if False:`` in place of the tangential-alignment floor.
+
+    THE FLOOR IS THE ONLY THING BETWEEN A REVERSED EDGE AND A WRITTEN
+    NODE FILE. Aft is the end of the chord AGAINST ``axis x radial``, so
+    a blade whose chord is parallel to the axis at every station gives
+    that product nothing to read: the two ends of every chord are
+    equally aft and the sign of the answer is whatever the eigen solver
+    happened to hand back. With the floor removed the extraction returns
+    a node list anyway, and half the time it is the LEADING edge, with
+    nothing said.
+
+    The fixture is a genuine surface with four stations, a real chord and
+    a real thickness, so every earlier refusal in the module is cleared
+    and the floor is the guard actually under test. Both the extraction
+    and the whole write route are exercised, because the route is where a
+    silently reversed edge would reach a file.
+    """
+    vertices, faces = _axial_chord_blade()
+    mesh = trimesh.Trimesh(vertices=vertices, faces=faces, process=False)
+    with pytest.raises(InputArtifactError, match="readable component along") as caught:
+        extract_trailing_edge(mesh, axis=(0.0, 0.0, 1.0), hub=(0.0, 0.0, 0.0), sections=2)
+    message = str(caught.value)
+    assert "aft" in message and "axis x radial" in message, (
+        f"the refusal no longer names where the aft sense comes from: {message}"
+    )
+    assert caught.value.kind == "trailing_edges"
+
+    path = tmp_path / "axial.obj"
+    mesh.export(path)
+    destination = tmp_path / "wake_edges.csv"
+    with pytest.raises(InputArtifactError, match="readable component along"):
+        write_trailing_edge_node_file(
+            path,
+            destination,
+            axis=(0.0, 0.0, 1.0),
+            hub=(0.0, 0.0, 0.0),
+            unit="METER",
+            sections=2,
+        )
+    assert not destination.exists(), (
+        "an edge whose aft sense could not be read was written to a node file anyway"
+    )
 
 
 def test_a_mesh_with_no_spanwise_extent_about_the_axis_is_refused(tmp_path):

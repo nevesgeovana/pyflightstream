@@ -2022,13 +2022,25 @@ def test_every_new_parser_reads_the_line_ending_the_solver_actually_writes():
     absorbs a trailing carriage return on its own, so a numeric column
     survives two independent mechanisms failing.
 
-    What this case DOES deny is a mutant on the column HEADER, which is
-    compared as text and never passes through a numeric conversion:
-    dropping the `.strip()` where the pinned columns are read makes the
-    CRLF file name its last column `Czv\r` and the LF file name it
-    `Czv`, and this case fails naming the field. That is the honest
-    scope of the guard, and it is written here so a reader does not
-    mistake it for a tight coupling to `splitlines()`.
+    THIS CASE DENIES NO SINGLE-SITE MUTANT UNIQUELY, and saying so is the
+    whole value of the paragraph. An earlier version claimed it denied a
+    mutant on the column HEADER, dropping the `.strip()` where the pinned
+    columns are read, and said the CRLF file would then name its last
+    column with a trailing carriage return. A QA pass measured that and
+    it is false twice: `_table_region` returns a stripped line and
+    `splitlines()` has already consumed the terminator, so the header
+    string is byte-identical under both endings; and the mutant does fail
+    here, but on the FIRST parse, on leading spaces, with a
+    `MalformedOutputError` before any comparison of the two endings runs.
+    Thirty-five cases kill that mutant and this is merely the
+    thirty-fifth.
+
+    So what is it for. It is a cheap net for a future parser that
+    compares a NON-NUMERIC cell, where `float()` would not be there to
+    absorb the carriage return, and it is a place where the
+    over-determination above is written down. It is NOT evidence that any
+    one of those three mechanisms is load-bearing, and a reader deleting
+    one of the thirty-four real cases must not count this one as cover.
     """
     cases = (
         ("force_distributions_26.123.txt", parse_force_distributions),

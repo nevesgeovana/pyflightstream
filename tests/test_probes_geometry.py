@@ -168,6 +168,8 @@ def test_a_missing_spatial_index_names_the_extra_at_the_query(monkeypatch):
     mesh = load_surface_mesh(CUBE)
     points = np.array([[0.0, 0.0, 0.0], [5.0, 5.0, 5.0]])
 
+    reached = []
+    unreached = []
     for call, what in (
         (lambda: geometry._inside(mesh, points), "containment"),
         (lambda: geometry._surface_distance(mesh, points), "distance"),
@@ -182,18 +184,28 @@ def test_a_missing_spatial_index_names_the_extra_at_the_query(monkeypatch):
                 f"the {what} refusal dropped the original ImportError, so a "
                 "failure that is NOT a missing distribution is undiagnosable"
             )
+            reached.append(what)
         else:
-            # NOT a silent pass. trimesh imports its index defensively and
-            # substitutes a placeholder that re-raises on USE, so which of
-            # the two calls actually reaches the index depends on the
-            # installed trimesh. Saying so is the honest report; asserting
-            # a raise that this trimesh does not make would be a case that
-            # measures the library rather than this package.
-            print(
-                f"NOT REACHED: the {what} query answered with the index "
-                "blanked, so this installation of trimesh does not import it "
-                "on that path and this half of the case measured nothing"
-            )
+            # trimesh imports its index defensively and substitutes a
+            # placeholder that re-raises on USE, so which of the two calls
+            # actually reaches the index depends on the installed trimesh.
+            # Asserting a raise this trimesh does not make would measure the
+            # library rather than this package.
+            unreached.append(what)
+
+    # AN UNREACHED ARM IS COLLECTED, NEVER PRINTED. The first version of this
+    # loop printed "NOT REACHED" and called that "not a silent pass"; pytest
+    # captures and DISCARDS a passing test's stdout, so it was exactly a
+    # silent pass, and a QA pass on 2026-08-20 said so. Both arms going quiet
+    # is the state that would leave this case measuring nothing at all, and it
+    # is now a failure rather than a line nobody sees.
+    assert reached, (
+        "NEITHER the containment query nor the distance query reached the "
+        f"spatial index with rtree and scipy blanked (unreached: {unreached}). "
+        "This case then asserts nothing about the `[geom]` refusal it exists "
+        "for. The likely cause is a trimesh whose import shape changed, so "
+        "re-aim the blanking rather than deleting the case."
+    )
 
 
 def test_planned_probes_serialization_round_trip():
