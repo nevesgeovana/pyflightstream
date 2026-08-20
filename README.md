@@ -65,7 +65,9 @@ capability status below says what the FSI subpackage does and does not
 claim.
 
 Optional extras: `[fsi]` (aeroelastic coupling, PyNiteFEA), `[geom]`
-(probe-survey geometry gating, trimesh/rtree/scipy), `[plot]`
+(the SPATIAL INDEX behind probe-survey geometry gating, rtree and scipy;
+the mesh reader itself, trimesh, left this extra and is a runtime
+dependency since v0.8.0), `[plot]`
 (matplotlib for the plotting examples), and `[manual]` (pypdf), which
 is maintainer tooling rather than a user feature: it backs `pyfs-manual`
 and nothing in a run imports it.

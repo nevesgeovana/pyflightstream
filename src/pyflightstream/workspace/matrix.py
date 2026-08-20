@@ -50,6 +50,13 @@ from pyflightstream.workspace import (
     SetupArtifact,
 )
 
+# SIDEWAYS, to the module of this layer that owns the build registry.
+# `CampaignWorkspace.resolve_executable` is the path half alone and a
+# matrix row now needs the version its build declares beside it, so the
+# registry is read once through the function that returns both
+# (PFS-2009.05).
+from pyflightstream.workspace.inputs import RegisteredBuild, resolve_build
+
 __all__ = [
     "ResolvedMatrix",
     "resolve_matrix",
@@ -79,9 +86,35 @@ class ResolvedMatrix:
         are boundary labels or indices, verbatim, for the script layer
         and the post-processing aggregation.
     fs_exe : Path
-        The executable selected through the FS_BUILD column (registry
-        mode) or the explicit override; existence is checked by the
-        executor at construction, not here.
+        The executable the CAMPAIGN ITSELF binds to, which is the one
+        answering for rows whose FS_BUILD cell names no build;
+        existence is checked by the executor at construction, not here.
+
+        Its meaning is unchanged by the multi-build support added at
+        PFS-2009.05, deliberately, because everything downstream reads
+        it as the campaign's own installation. Where several builds are
+        in play, ``builds`` below is what says which executable each
+        row's own build is; where only one is, the two agree and this
+        field is that one.
+
+        Where no active row names a build, the campaign default answers
+        for every row and this is its executable. Where EVERY active row
+        names one, no row runs on the campaign's own installation at
+        all, and this field takes the first active row's build rather
+        than the default's, so it still names an installation this
+        matrix really uses instead of one that would merely have to be
+        registered.
+    builds : dict of str to RegisteredBuild
+        The registry entry of each build id an active row NAMES, keyed
+        by that id: its executable and the version it declares, or None
+        where it declares none. Empty under the explicit ``fs_exe``
+        override, which overrules the column, and empty for a matrix
+        whose every active row is silent, because neither names a
+        build.
+
+        A build id appears here whether or not it is also the campaign
+        default: what puts it here is a row naming it, which is the same
+        condition that puts a non-None entry in ``row_builds``.
     row_builds : tuple of (str or None)
         Where each case's build came from, one entry per case of
         ``campaign.sims`` and in the same order: the build id the ROW's
@@ -110,6 +143,7 @@ class ResolvedMatrix:
     setups: dict[str, SetupArtifact] = field(default_factory=dict)
     groups: dict[str, GroupsArtifact] = field(default_factory=dict)
     fs_exe: Path = Path()
+    builds: dict[str, RegisteredBuild] = field(default_factory=dict)
     row_builds: tuple[str | None, ...] = ()
 
 
@@ -122,28 +156,107 @@ def _name_rows(rows: list[MatrixRow], wanted: tuple[str | None, ...], build: str
     )
 
 
+def _registered_build(
+    workspace: CampaignWorkspace,
+    build: str,
+    rows: list[MatrixRow],
+    named: tuple[str | None, ...],
+    path: str | Path,
+    default: str,
+) -> RegisteredBuild:
+    """Read one build's registry entry, naming how the build id arrived.
+
+    Parameters
+    ----------
+    workspace : CampaignWorkspace
+        The managed campaign root carrying the build registry.
+    build : str
+        The build id to resolve.
+    rows : list of MatrixRow
+        The ACTIVE rows, in file order, for the row numbers of the
+        message.
+    named : tuple of (str or None)
+        Per row the build id the ROW named, None where it named none.
+    path : str or Path
+        Matrix location, for the message.
+    default : str
+        The campaign default version, already stripped.
+
+    Returns
+    -------
+    RegisteredBuild
+        The executable and the version the registry declares, or None
+        for a build declaring none.
+
+    Raises
+    ------
+    pyflightstream.workspace.InputArtifactError
+        The registry cannot resolve the build id, or resolves it to a
+        malformed entry.
+    """
+    try:
+        return resolve_build(workspace.inputs_dir, build)
+    except InputArtifactError as error:
+        # Which of the two ways the id arrived is named, because the
+        # remedies differ: a build a ROW asked for is registered or
+        # corrected in the cell, while one the DEFAULT supplied is a
+        # version that answers for rows naming no build at all, and
+        # editing an FS_BUILD cell would not touch it.
+        if build == default and any(entry is None for entry in named):
+            source = (
+                f"the campaign default version {build!r} is the build the row(s) of "
+                f"{path} that name no build fall back to ({_name_rows(rows, named, None)}"
+                "), and the workspace build registry cannot resolve it"
+            )
+        else:
+            source = (
+                f"the FS_BUILD column of {path} names build {build!r}, which the "
+                "workspace build registry cannot resolve"
+            )
+        raise InputArtifactError(
+            f"{source}; register it in inputs/executables.toml, or pass the explicit "
+            f"fs_exe override. {error}"
+        ) from error
+
+
 def _resolve_build(
     rows: list[MatrixRow],
     workspace: CampaignWorkspace,
     override: str | Path | None,
     path: str | Path,
     default: str,
-) -> tuple[Path, tuple[str | None, ...]]:
-    """Select the executable, and say which rows chose it themselves.
+) -> tuple[Path, dict[str, RegisteredBuild], tuple[str | None, ...]]:
+    """Select the executables, and say which rows chose one themselves.
 
     The explicit override always wins (it is the only way to run the
-    MANUAL mode); registry mode requires the active rows to
-    agree on a single build id, because a campaign binds to exactly
-    one FlightStream installation.
+    MANUAL mode). In registry mode EVERY build the active rows name is
+    resolved, one entry per build id, and the row that named it carries
+    its own installation into the run.
+
+    THE ACTIVE ROWS USED TO HAVE TO AGREE on a single build id, because
+    a campaign declared one ``fs_exe`` and one ``fs_version`` and a
+    second FS_BUILD value would have been recorded as a falsehood: every
+    point named the campaign's executable whatever it ran on. That is no
+    longer the shape underneath. A case names its build
+    (:attr:`pyflightstream.cases.SimCase.fs_build`), the campaign loop
+    takes a ``builds`` mapping of
+    :class:`pyflightstream.run.SolverBuild`, and each point is recorded
+    against the installation it really ran on, so the refusal was
+    protecting a record that can now be told the truth (PFS-2009.05).
+
+    Every OTHER refusal is unchanged and none of them is what that one
+    was: MANUAL still needs the explicit override, an override still
+    warns that it overrules a row's cell, an unregistered id is still
+    refused with the remedy that matches how it arrived, and a silent
+    row with no campaign default is still refused above this function.
 
     A row whose FS_BUILD cell strips to empty NAMES NO BUILD and falls
     back to the campaign default, which is the promise
     :func:`~pyflightstream.cases.matrix.refuse_silent_rows_without_default`
     has always made in its own refusal text and which nothing kept: the
     empty cell was carried into the build set verbatim, so a matrix of
-    silent rows asked the registry for the build id ``''`` and a matrix
-    mixing a silent row with a named one was refused for naming two
-    builds, one of which was the empty string (PFS-2009.08.02).
+    silent rows asked the registry for the build id ``''``
+    (PFS-2009.08.02).
 
     Parameters
     ----------
@@ -162,9 +275,18 @@ def _resolve_build(
 
     Returns
     -------
-    tuple of Path and tuple of (str or None)
-        The executable, and per row the build id the ROW named, with
-        None where the campaign default answered instead.
+    tuple of Path, dict of str to RegisteredBuild, and tuple of (str or None)
+        The campaign's own executable
+        (:attr:`ResolvedMatrix.fs_exe`), the registry entry of each
+        build id a row named, and per row the build id the ROW named
+        with None where the campaign default answered instead.
+
+    Raises
+    ------
+    pyflightstream.cases.matrix.MatrixError
+        FS_BUILD is MANUAL and no explicit override was given.
+    pyflightstream.workspace.InputArtifactError
+        A build id the workspace registry cannot resolve.
     """
     named = tuple(row.fs_build.strip() or None for row in rows)
     if override is not None:
@@ -194,53 +316,34 @@ def _resolve_build(
         # the caller named runs every point, which is what the warning
         # above promises will be recorded, so the provenance reported here
         # has to agree with it rather than with the overruled cells.
-        return Path(override), tuple(None for _ in named)
-    effective = tuple(build if build is not None else default.strip() for build in named)
-    builds = sorted(set(effective))
-    if len(builds) > 1:
-        inherited = _name_rows(rows, named, None)
-        detail = (
-            f" The campaign default {default.strip()} answers for the row(s) whose "
-            f"FS_BUILD cell names no build: {inherited}."
-            if inherited
-            else ""
-        )
-        raise MatrixError(
-            f"the active rows of {path} run on {len(builds)} FS_BUILD values "
-            f"({', '.join(builds)}), but a campaign binds to exactly one FlightStream "
-            f"installation.{detail} Run the matrix once per build, or pass the explicit "
-            "fs_exe override to force a single executable"
-        )
-    build = builds[0]
-    if build.upper() == "MANUAL":
+        return Path(override), {}, tuple(None for _ in named)
+    fallback = default.strip()
+    effective = tuple(build if build is not None else fallback for build in named)
+    # EVERY effective build is asked, not only the one a single-build
+    # matrix used to collapse to: MANUAL names no executable whichever row
+    # asks for it, and refusing it here keeps the message the one a caller
+    # already knows.
+    if any(build.upper() == "MANUAL" for build in effective):
         raise MatrixError(
             "FS_BUILD is MANUAL, the explicit-path mode: pass fs_exe=... "
             "(the explicit override path). MANUAL never reads the build registry, "
             "and the executable is never guessed"
         )
-    try:
-        return workspace.resolve_executable(build), named
-    except InputArtifactError as error:
-        # Which of the two ways the id arrived is named, because the
-        # remedies differ: a build a ROW asked for is registered or
-        # corrected in the cell, while one the DEFAULT supplied is a
-        # version that answers for rows naming no build at all, and
-        # editing an FS_BUILD cell would not touch it.
-        if any(entry is None for entry in named):
-            source = (
-                f"the campaign default version {build!r} is the build the row(s) of "
-                f"{path} that name no build fall back to ({_name_rows(rows, named, None)}"
-                "), and the workspace build registry cannot resolve it"
-            )
-        else:
-            source = (
-                f"the FS_BUILD column of {path} names build {build!r}, which the "
-                "workspace build registry cannot resolve"
-            )
-        raise InputArtifactError(
-            f"{source}; register it in inputs/executables.toml, or pass the explicit "
-            f"fs_exe override. {error}"
-        ) from error
+    # `dict.fromkeys` rather than `set`, so the registry is read in the
+    # order the file names the builds and a refusal names the first one a
+    # reader would look at rather than the alphabetically smallest.
+    resolved = {
+        build: _registered_build(workspace, build, rows, named, path, fallback)
+        for build in dict.fromkeys(effective)
+    }
+    # The campaign's own installation is the one answering for a row that
+    # names no build. Where every row names one, no row runs on it, and
+    # taking the default's executable would make an unrelated registry
+    # entry a precondition of a run that never touches it; the first
+    # active row's build is an installation this matrix really uses.
+    campaign_build = fallback if any(entry is None for entry in named) else effective[0]
+    builds = {build: resolved[build] for build in dict.fromkeys(named) if build is not None}
+    return resolved[campaign_build].fs_exe, builds, named
 
 
 def _resolve_code(workspace: CampaignWorkspace, kind: str, code: str, pol: str):
@@ -327,10 +430,19 @@ def resolve_matrix(
 
         It is also the build id a row whose FS_BUILD cell names nothing
         falls back to, which is the one sense in which it answers for an
-        executable: the scripts of every point are emitted under this
-        version whatever the FS_BUILD column says, because a build id is
-        a key of the workspace registry and never a declaration of which
-        command database a build carries.
+        executable.
+
+        It is a DEFAULT rather than the version every point runs under.
+        A build id is a key of the workspace registry and never a
+        declaration of which command database a build carries, so the
+        FS_BUILD cell alone still cannot change the version; what can is
+        the registry ENTRY that build id names, which may declare one
+        (:func:`pyflightstream.workspace.inputs.resolve_build`). A row
+        whose build declares a version is emitted under that version and
+        every other row under this one. Nothing here overrules THIS
+        argument for a row that names no build: the caller declared it
+        directly, and a registry entry does not overrule a declaration
+        the caller made in the call.
     recipes : mapping of str to str
         FS_SCRIPT code to recipe reference, as in
         :func:`pyflightstream.cases.matrix.to_campaign`.
@@ -342,19 +454,22 @@ def resolve_matrix(
     -------
     ResolvedMatrix
         The campaign with resolved artifacts applied, the artifacts
-        themselves keyed by their codes, the selected executable, and
-        per row whether that executable came from the row's own
-        FS_BUILD cell or from the campaign default
-        (:attr:`ResolvedMatrix.row_builds`).
+        themselves keyed by their codes, the campaign's own executable,
+        the registry entry of every build a row names
+        (:attr:`ResolvedMatrix.builds`), and per row whether the
+        installation came from the row's own FS_BUILD cell or from the
+        campaign default (:attr:`ResolvedMatrix.row_builds`).
 
     Raises
     ------
     pyflightstream.cases.matrix.MatrixError
-        Layout deviations, no active row, two FS_BUILD values, MANUAL
-        mode without the explicit override, or a row naming no build
-        with a campaign default that strips to empty. The last is
-        raised before the build is selected, so no executable is looked
-        up (PFS-2009.08.03).
+        Layout deviations, no active row, MANUAL mode without the
+        explicit override, or a row naming no build with a campaign
+        default that strips to empty. The last is raised before the
+        build is selected, so no executable is looked up
+        (PFS-2009.08.03). Two FS_BUILD values USED TO BE REFUSED here
+        and no longer are: each row runs on the installation it names
+        (PFS-2009.05).
     pyflightstream.workspace.InputArtifactError
         A code the library cannot resolve, or a preset that does not
         fit the case solver settings.
@@ -385,7 +500,7 @@ def resolve_matrix(
     # function; this call is what covers a caller who binds a matrix
     # directly.
     refuse_silent_rows_without_default(rows, fs_version, path)
-    exe, row_builds = _resolve_build(
+    exe, builds, row_builds = _resolve_build(
         rows, workspace, override=fs_exe, path=path, default=fs_version
     )
     campaign = to_campaign(path, name=name, fs_version=fs_version, fs_exe=str(exe), recipes=recipes)
@@ -418,5 +533,6 @@ def resolve_matrix(
         setups=setups,
         groups=groups,
         fs_exe=exe,
+        builds=builds,
         row_builds=row_builds,
     )

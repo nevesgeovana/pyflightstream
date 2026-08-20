@@ -709,12 +709,12 @@ the base could not offer while it bundled several.
     `tests/test_silent_overwrites.py`.*
 
     A write that would destroy a record without saying so is refused
-    before it happens, and there are three shapes of it. A case whose
-    sweep points would render the same output name is blocked before it
-    runs, because every point of the case executes in one simulation
-    folder. A writer handed a destination that already exists refuses
-    rather than replacing it, and `overwrite=True` is the only way
-    through. A run folder that already holds a previous run's history
+    before it happens, and this requirement carries three shapes of it. A
+    case whose sweep points would render the same output name is blocked
+    before it runs, because every point of the case executes in one
+    simulation folder. A writer handed a destination that already exists
+    refuses rather than replacing it, and `overwrite=True` is the only
+    way through. A run folder that already holds a previous run's history
     with no state beside it is refused rather than appended to.
 
     The three were one requirement's worth of behaviour written as one,
@@ -728,6 +728,125 @@ the base could not offer while it bundled several.
     Widened because the code made all three refusals while this sentence
     described one, which reads as the package refusing less than it
     does.
+
+    THE CLASS IS WIDER THAN THIS REQUIREMENT and the boundary is drawn
+    here rather than left to a reader, because a refusal covered by two
+    requirements is as unreadable as one covered by none. The three
+    shapes above are the ones a CASE or a WRITER produces. The shapes a
+    declared NAME produces, where the workspace renders that name or
+    collects or stages a file it did not itself write, are FR-33d, FR-33e
+    and FR-33f,
+    and every refusal named in those four boxes belongs to exactly one of
+    them. The one a reader is most likely to file twice: collection
+    landing on a name already held in `raw/` is FR-33e and not the writer
+    shape above, because it MOVES a file rather than writing one and
+    takes no `overwrite` argument, so the way through is a per-point name
+    or an archived simulation.
+
+    ONE REFUSAL OF THE CLASS IS COVERED BY NONE OF THE FOUR, and the gap
+    is published rather than left to be found. `collect_outputs` also
+    refuses a declared output that RESOLVES inside the campaign root but
+    outside this simulation's own folder, or under one of that folder's
+    four managed subdirectories (PFS-2011.01 and PFS-2011.03, announced
+    in `CHANGELOG.md` against FR-28 and FR-29, neither of which states
+    it). That rule is about where a collected file may come FROM
+    rather than about what it is named, it is decided on the resolved
+    path rather than on the declared string, and whether it is widened
+    into FR-29 or given an identifier beside these is an acceptance
+    decision rather than a consequence of this split.
+
+!!! requirement "FR-33d A declared output name is a name, not a route <span class='srs-implemented'>implemented</span>"
+    *Origin: OPS-2005.10.03, accepted 2026-08-20, giving the containment
+    half of review finding PYFS-005 the identifier it had never had.
+    Evidence: `_check_output_containment` in
+    `pyflightstream.workspace.naming`, raising `NamingTemplateError`,
+    reached from `NamingTemplate.render_output`;
+    `tests/test_error_messages.py::test_an_escaping_output_name_says_that_collection_moves`;
+    the behavioural cases in `tests/test_workspace.py`.*
+
+    A declared output name that is empty, that is absolute, or that
+    climbs out of the simulation folder with `..` is refused when the
+    name is rendered, before any run can collect it. A subdirectory is
+    not an escape and stays legal, because a solver export may
+    legitimately land in one. The name is checked as declared and again
+    after rendering, so a placeholder value cannot reintroduce an escape
+    the template itself did not contain.
+
+    The refusal is `NamingTemplateError` and NOT `WorkspaceError`, and
+    that is a fact about the public surface rather than an implementation
+    detail. The refusal comes from the naming template, so a caller
+    already handling naming errors around `render_output` catches this
+    one where it is raised, and a caller keying on `WorkspaceError`
+    alone does not see it at all. Both derive from
+    `PyflightstreamError`, which is what FR-39 asks of every refusal this
+    package makes.
+
+    Why containment is a naming rule and not a path rule. Collection
+    MOVES a declared output into `raw/` rather than copying it, so a name
+    that resolves outside the run does not read a file the run does not
+    own, it takes it, and the manifest then records it as evidence the
+    run produced. Deciding that on the declared string rather than on a
+    resolved path is deliberate: the refusal then reads the same on every
+    platform and does not depend on what happens to exist on disk at the
+    moment the name is rendered.
+
+!!! requirement "FR-33e A collected name never lands on a record <span class='srs-implemented'>implemented</span>"
+    *Origin: OPS-2005.10.03, accepted 2026-08-20, giving the collection
+    half of review finding PYFS-005 the identifier it had never had.
+    Evidence: `CampaignWorkspace.collect_outputs` in
+    `pyflightstream.workspace`, raising `WorkspaceError`;
+    `tests/test_error_messages.py::test_two_outputs_collecting_to_one_name_offer_the_placeholder_remedy`;
+    the behavioural cases in `tests/test_workspace.py`.*
+
+    Two declared outputs of one collection whose base names agree are
+    refused, and so is a declared output whose base name is already held
+    in `raw/` from an earlier point or run. Neither refusal has an
+    overwrite argument, deliberately, because the record either would
+    replace is a run's evidence rather than a product a caller can choose
+    to regenerate; the remedies are a per-point output name and an
+    archived simulation, and both refusals name them.
+
+    One rule in two shapes, because collection MOVES each output into
+    `raw/` under its base name and both shapes end in one file where the
+    manifest records two: the first would overwrite within a single call
+    and the manifest would carry one name twice, the second would destroy
+    evidence a previous point or run already collected.
+
+    THE TWO SHAPES DIFFER IN WHEN THEY ARE DECIDED, and the requirement
+    says so because the difference is visible to a caller. The first is a
+    pre-scan over the whole call, so a refusal leaves every source exactly
+    where it was. The second is asked of each destination immediately
+    before that file is moved, so a call whose third output lands on a
+    held name refuses with the first two already collected. That is
+    measured rather than assumed (three outputs, the third colliding: two
+    arrive in `raw/` and the refusal names the third). It is stated as a
+    property rather than a defect because no record is destroyed either
+    way, which is what this requirement guarantees; making the second
+    shape a pre-scan too would be a behaviour change and is an acceptance
+    decision, not a consequence of publishing the sentence.
+
+!!! requirement "FR-33f Two staged inputs may not share a base name <span class='srs-implemented'>implemented</span>"
+    *Origin: OPS-2005.10.03, accepted 2026-08-20, giving the staging half
+    of review finding PYFS-005 the identifier it had never had.
+    Evidence: `CampaignWorkspace.stage_inputs` in
+    `pyflightstream.workspace`, raising `WorkspaceError`;
+    `tests/test_error_messages.py::test_two_inputs_sharing_a_base_name_name_both_sources`;
+    the behavioural cases in `tests/test_workspace.py`.*
+
+    Two declared inputs whose base names agree are refused before any
+    file is staged, and the refusal names both sources. Two references
+    written as the SAME path are not a collision and stage as one input;
+    two different spellings of one file are refused like any other pair,
+    because the rule is decided on the declared path rather than on what
+    it resolves to.
+
+    Staging copies each source into `inputs/` under its base name, so
+    without this the second copy won and the returned digest map carried
+    ONE entry for what the case declared as two inputs. The manifest then
+    recorded a single hash for two inputs and the run claimed to be
+    reproducible from a file that was never staged at all, which is the
+    same harm as an overwritten output arriving through the input side
+    (NFR-07 is what the digest map exists for).
 
 ### New identifiers from the batch
 

@@ -4,12 +4,17 @@ import pytest
 from pydantic import ValidationError
 
 from pyflightstream.cases import (
+    ROTATION_OFFSET_KEY,
+    ROTATION_SWEEP_KEY,
     Campaign,
+    CampaignConfigError,
     ReferenceData,
     SimCase,
     SolverSettings,
     SweepAxis,
+    geometric_sweep_values,
     load_campaign,
+    multiplied_sweep,
     point_tag,
     resolve_recipe,
 )
@@ -325,3 +330,149 @@ def test_the_bounds_still_admit_an_ordinary_case():
     assert reference.area == 1.5
     # velocity stays optional, which the sweep relies on.
     assert ReferenceData(area=1.5, length=0.4).velocity is None
+
+
+# --- one sweep per case (PFS-2025.17, PFS-2025.17.02) -----------------------
+#
+# The DECISION: a geometric sweep does not multiply with the aerodynamic
+# one. The limit is enforced at BOTH declaration moments, and this block
+# covers the native one: constructing a SimCase, and loading the
+# campaign.toml that holds it. The run matrix half lives in
+# tests/test_matrix.py, and the two are held to one owner there.
+
+
+def _case(**overrides):
+    """A minimal SimCase, so each test below varies exactly one thing."""
+    fields = {
+        "sim_id": "9001",
+        "aircraft": "TestWing",
+        "sweep": SweepAxis(type="alpha", values=[0.0, 2.0, 4.0]),
+        "recipe": "recipes.steady:build",
+    }
+    fields.update(overrides)
+    return SimCase(**fields)
+
+
+def test_a_geometric_sweep_beside_an_aerodynamic_one_is_refused_at_declaration():
+    """The hole PFS-2025.17.02 closes: the matrix refused this, the model did not.
+
+    A campaign.toml is a declaration door of its own. Before this
+    validator a hand-written [[sim]] carrying angle_sweep_deg beside a
+    multi-point sweep loaded clean, so the limit the matrix reader states
+    could be walked past by writing the campaign directly, and the user
+    met the consequence at run time instead.
+    """
+    with pytest.raises(ValidationError) as caught:
+        _case(variables={ROTATION_SWEEP_KEY: "0.0,5.0,10.0"})
+    message = str(caught.value)
+    assert "9001" in message, "the refusal does not name the case"
+    assert "alpha" in message
+    assert "0.0,5.0,10.0" in message, "the refusal does not quote what was declared"
+    assert "9 runs" in message, "the refusal does not say how large the grid would be"
+    assert ROTATION_OFFSET_KEY in message, "the refusal names no remedy, so it only says no"
+    assert "sim_id" in message, "the refusal does not name the one-case-per-geometry form"
+
+
+def test_the_refusal_reaches_a_campaign_file_as_it_loads(tmp_path):
+    """Loading is the declaration moment for a user who writes no Python."""
+    path = tmp_path / "campaign.toml"
+    path.write_text(
+        CAMPAIGN_TOML + f'{ROTATION_SWEEP_KEY} = "0.0,5.0"\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(ValidationError, match="asks for two sweeps at once"):
+        load_campaign(path)
+
+
+def test_a_fixed_offset_beside_a_sweep_is_the_accepted_form():
+    """The remedy the refusal names has to actually work."""
+    case = _case(variables={ROTATION_OFFSET_KEY: 5.0})
+    assert case.variables[ROTATION_OFFSET_KEY] == 5.0
+
+
+def test_one_angle_in_the_sweep_variable_is_still_one_sweep():
+    case = _case(variables={ROTATION_SWEEP_KEY: "7.5"})
+    assert case.variables[ROTATION_SWEEP_KEY] == "7.5"
+
+
+def test_a_geometry_sweep_on_a_single_point_case_is_the_other_accepted_form():
+    """A sweep OF the geometry: one aerodynamic point, several angles.
+
+    This is the shape the refusal steers a user towards, one case per
+    geometry, so it must not itself be refused.
+    """
+    case = _case(
+        sweep=SweepAxis(type="alpha", values=[2.0]),
+        variables={ROTATION_SWEEP_KEY: "0.0,5.0,10.0"},
+    )
+    assert case.sweep.values == [2.0]
+
+
+def test_the_limit_does_not_depend_on_how_the_key_is_spelled():
+    """A limit that fires only for one casing is one a user gets past by shouting."""
+    with pytest.raises(ValidationError, match="asks for two sweeps at once"):
+        _case(variables={ROTATION_SWEEP_KEY.upper(): "0.0,5.0"})
+
+
+def test_a_second_casing_of_the_key_cannot_hide_behind_the_first():
+    """The adversarial pass found this: two casings are two mapping entries.
+
+    A first-match rule let a one-angle `angle_sweep_deg` stand in front of
+    a three-angle `ANGLE_SWEEP_DEG`, and the whole declaration went past
+    the limit reading as a single fixed rotation. Every matching key is
+    pooled instead.
+    """
+    with pytest.raises(ValidationError, match="asks for two sweeps at once"):
+        _case(
+            variables={
+                ROTATION_SWEEP_KEY: "5.0",
+                ROTATION_SWEEP_KEY.upper(): "0.0,5.0,10.0",
+            }
+        )
+    # And two keys each naming one angle is the same ambiguity, so it meets
+    # the same refusal rather than a coin toss between them.
+    with pytest.raises(ValidationError, match="asks for two sweeps at once"):
+        _case(
+            variables={
+                ROTATION_SWEEP_KEY: "5.0",
+                ROTATION_SWEEP_KEY.title(): "7.5",
+            }
+        )
+
+
+def test_no_tag_axis_is_geometric():
+    """The premise the whole decision rests on, asserted rather than assumed.
+
+    If a geometric axis ever joins point_tag, multiplication becomes
+    representable and this decision is worth reopening. Until then a
+    crossed grid is N runs wearing one name, and that is why the limit is
+    a refusal rather than a warning.
+    """
+    assert point_tag({"alpha": 2.0, "beta": 0.0}) == "a+02.0_b+00.0"
+    with pytest.raises(CampaignConfigError, match="no known axis"):
+        point_tag({ROTATION_OFFSET_KEY: 5.0})
+
+
+def test_multiplied_sweep_reports_only_the_multiplying_shape():
+    """The owner itself, at its four corners."""
+    swept = SweepAxis(type="alpha", values=[0.0, 2.0])
+    single = SweepAxis(type="alpha", values=[0.0])
+    assert multiplied_sweep(swept, {ROTATION_SWEEP_KEY: "0.0,5.0"}) == ["0.0", "5.0"]
+    assert multiplied_sweep(swept, {ROTATION_SWEEP_KEY: "5.0"}) == []
+    assert multiplied_sweep(single, {ROTATION_SWEEP_KEY: "0.0,5.0"}) == []
+    assert multiplied_sweep(swept, {ROTATION_OFFSET_KEY: "5.0"}) == []
+
+
+def test_geometric_sweep_values_reads_what_a_case_variable_can_hold():
+    """A case variable is one scalar or one string, never a list."""
+    assert geometric_sweep_values({ROTATION_SWEEP_KEY: "0.0, 5.0 ,10.0"}) == [
+        "0.0",
+        "5.0",
+        "10.0",
+    ]
+    assert geometric_sweep_values({ROTATION_SWEEP_KEY: 7.5}) == ["7.5"]
+    assert geometric_sweep_values({ROTATION_SWEEP_KEY: " , "}) == []
+    assert geometric_sweep_values({"CONFIG": "NSX"}) == []
+    assert geometric_sweep_values(
+        {ROTATION_SWEEP_KEY: "5.0", ROTATION_SWEEP_KEY.upper(): "7.5"}
+    ) == ["5.0", "7.5"], "a second casing of the key is dropped instead of pooled"

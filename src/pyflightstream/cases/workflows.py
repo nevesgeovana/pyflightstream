@@ -48,7 +48,7 @@ from dataclasses import dataclass
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.cases import CampaignConfigError, ScriptRecipe, SimCase
 from pyflightstream.commands import CommandRegistry
-from pyflightstream.script import Script, helpers
+from pyflightstream.script import CommandArgumentError, Script, helpers
 from pyflightstream.versions import FsVersion, known_versions, resolve
 
 __all__ = [
@@ -57,6 +57,7 @@ __all__ = [
     "MOVING_BOUNDARIES_VARIABLE",
     "ROTOR_AXIS_VARIABLE",
     "ROTOR_ORIGIN_VARIABLE",
+    "ROTOR_SHEDDING_VARIABLE",
     "RPM_VARIABLE",
     "TIME_ITERATIONS_VARIABLE",
     "VELOCITY_VARIABLE",
@@ -77,6 +78,8 @@ __all__ = [
     "reduction_plan",
     "require_coverage",
     "resolve_workflow",
+    "rotor_relaxed_trailing_edges",
+    "rotor_shedding_direction",
     "select_workflow",
     "workflow_names",
     "workflow_registry",
@@ -107,6 +110,11 @@ VELOCITY_VARIABLE = "VELOCITY"
 RPM_VARIABLE = "RPM"
 ROTOR_AXIS_VARIABLE = "ROTOR_AXIS"
 ROTOR_ORIGIN_VARIABLE = "ROTOR_ORIGIN"
+#: The direction a rotor case's relaxed trailing edges shed their wake:
+#: AXIAL (0) or AZIMUTH (1), the second being what 26.123 adds and what a
+#: rotor case wants (SRC-751 p.85). Absent means the row asks for nothing
+#: and every specification stays exactly as it was written.
+ROTOR_SHEDDING_VARIABLE = "ROTOR_SHEDDING"
 BLADES_VARIABLE = "BLADES"
 MOVING_BOUNDARIES_VARIABLE = "MOVING_BOUNDARIES"
 DELTA_TIME_VARIABLE = "DELTA_TIME"
@@ -500,7 +508,10 @@ def emit_rotor_motion(
         (``RPM``), the rotor axis within ``frame`` (``ROTOR_AXIS``, one
         of X, Y, Z) and optionally the moving boundaries
         (``MOVING_BOUNDARIES``, comma-separated 1-based indices or
-        labels; absent means every boundary).
+        labels; absent means every boundary). It may also declare the
+        direction its relaxed trailing edges shed their wake in
+        (``ROTOR_SHEDDING``); see :func:`rotor_shedding_direction` for
+        why this function READS that key and emits nothing for it.
     script : Script
         Script under construction. Nothing is emitted into it until
         every value has been read and converted, so a refusal leaves it
@@ -519,9 +530,10 @@ def emit_rotor_motion(
     Raises
     ------
     CampaignConfigError
-        If the row declares no rotor speed or no rotor axis, or declares
-        one that is not a number. The message names the case (whose
-        ``sim_id`` IS the matrix POL) and the KEY.
+        If the row declares no rotor speed or no rotor axis, declares
+        one that is not a number, or declares a ``ROTOR_SHEDDING``
+        direction that is neither of the two. The message names the case
+        (whose ``sim_id`` IS the matrix POL) and the KEY.
     """
     rpm = _required_float(case, RPM_VARIABLE, quantity="rotor speed", unit="rev/min")
     axis = _variable(case, ROTOR_AXIS_VARIABLE)
@@ -541,6 +553,14 @@ def emit_rotor_motion(
                 f"{declared!r}, which names no boundary at all. Leave the key out to "
                 "move every boundary, or list the ones that move."
             )
+    # READ AND NOT EMITTED, deliberately: the shedding direction is a
+    # component-file field and no command carries it, so this call cannot
+    # act on it. It is read HERE because this is the function a rotor row
+    # goes through, and a row declaring ROTOR_SHEDDING: diagonal that
+    # built a perfectly good script would be told nothing at all. The
+    # refusal lands before the first emission, like every other read
+    # above it.
+    rotor_shedding_direction(case)
     return helpers.rotary_motion(
         script,
         frame=frame,
@@ -557,6 +577,168 @@ def _boundary(token: str) -> int | str:
         return int(text)
     except ValueError:
         return text
+
+
+# --- PFS-2026.06: the azimuthal shedding option, off the same row -------------
+
+
+def rotor_shedding_direction(case: SimCase) -> str | None:
+    """Return the relaxed-wake shedding direction this rotor row asks for.
+
+    The direction is a field of the relaxed trailing-edge COMPONENT
+    specification and not a scripting argument (SRC-751 p.85), so no
+    workflow emits it. What a row CAN do is state it, and this is where
+    that statement is read and checked; :func:`rotor_relaxed_trailing_edges`
+    is where it is applied to the specifications a component definition
+    carries.
+
+    Parameters
+    ----------
+    case : SimCase
+        The case; ``ROTOR_SHEDDING`` in its variables carries ``AXIAL``
+        or ``0`` for the axial direction, which is the default, and
+        ``AZIMUTH`` or ``1`` for the azimuth direction, which 26.123
+        adds and which is the one a rotor case is likely to want.
+
+    Returns
+    -------
+    str or None
+        ``"AXIAL"``, ``"AZIMUTH"``, or None where the row does not
+        declare the key. None is the statement "this row asks nothing",
+        and it is distinct from ``"AXIAL"``: a row asking for nothing
+        leaves a four-field specification at four fields, while a row
+        asking for the axial direction states it on every specification
+        that already states one.
+
+    Raises
+    ------
+    CampaignConfigError
+        If the row declares a direction that is neither. The message
+        names the case, the KEY, the value written and both accepted
+        directions, on this module's own rule that a matrix value is
+        refused by the cell the author typed rather than by the
+        command.
+
+    Examples
+    --------
+    >>> from pyflightstream.cases import SimCase, SweepAxis
+    >>> from pyflightstream.cases.workflows import rotor_shedding_direction
+    >>> case = SimCase(
+    ...     sim_id="7001",
+    ...     aircraft="RotorRig",
+    ...     sweep=SweepAxis(type="alpha", values=[0.0]),
+    ...     recipe="unsteady_rotor",
+    ...     variables={"ROTOR_SHEDDING": "azimuth"},
+    ... )
+    >>> rotor_shedding_direction(case)
+    'AZIMUTH'
+    """
+    text = _variable(case, ROTOR_SHEDDING_VARIABLE)
+    if text is None:
+        return None
+    try:
+        return helpers.resolve_shedding_direction(text, context=f"case {case.sim_id!r}")
+    except CommandArgumentError as error:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} declares {ROTOR_SHEDDING_VARIABLE} as {text!r}, and "
+            "the direction a relaxed trailing edge sheds its wake in is AXIAL (0), the "
+            "default, or AZIMUTH (1), which is the rotor option 26.123 adds. Matrix "
+            "variables arrive as text, so the refusal happens here rather than at the "
+            f"specification, whose message would not name your row. The library says: "
+            f"{error}"
+        ) from error
+
+
+def rotor_relaxed_trailing_edges(case: SimCase, specifications: Sequence[str]) -> list[str]:
+    """Restate a rotor case's relaxed trailing edges in the row's direction.
+
+    THIS IS THE ROUTE TO THE AZIMUTHAL OPTION from a rotor case: a row
+    writes ``ROTOR_SHEDDING: AZIMUTH`` and the specifications its
+    component definition carries come back with the fifth field set. The
+    library writes no component file, so the rendered text is returned
+    for the caller to write where their geometry keeps it.
+
+    Parameters
+    ----------
+    case : SimCase
+        The case, whose ``ROTOR_SHEDDING`` variable carries the
+        direction; see :func:`rotor_shedding_direction`.
+    specifications : sequence of str
+        The relaxed trailing-edge specifications as the component
+        definition carries them, four fields or five.
+
+    Returns
+    -------
+    list of str
+        One rendered specification per input, in the same order. A
+        four-field specification comes back with four fields where the
+        row asks for nothing or for the axial direction, because those
+        are what it already means; it gains the fifth field only where
+        the row asks for the azimuth direction.
+
+    Raises
+    ------
+    CampaignConfigError
+        If the row's direction is neither of the two, if a specification
+        cannot be read, or if ``specifications`` is a single string or
+        something that cannot be iterated. Every message names the case,
+        and the unreadable-specification one names which of how many: a
+        component definition carries one per trailing edge, so "one of
+        them is malformed" is not an answer a reader can act on.
+
+    Examples
+    --------
+    >>> from pyflightstream.cases import SimCase, SweepAxis
+    >>> from pyflightstream.cases.workflows import rotor_relaxed_trailing_edges
+    >>> case = SimCase(
+    ...     sim_id="7001",
+    ...     aircraft="RotorRig",
+    ...     sweep=SweepAxis(type="alpha", values=[0.0]),
+    ...     recipe="unsteady_rotor",
+    ...     variables={"ROTOR_SHEDDING": "AZIMUTH"},
+    ... )
+    >>> rotor_relaxed_trailing_edges(case, ["0.5;0.1;0.9;1"])
+    ['0.5;0.1;0.9;1;1']
+    """
+    # A bare string is a SEQUENCE of characters, so one specification
+    # passed without its list would be read as thirteen unreadable ones
+    # and refused by position; and an iterator has no length at all,
+    # which would leave a bare TypeError out of a public name. Both are
+    # named here rather than discovered downstream.
+    if isinstance(specifications, str):
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: rotor_relaxed_trailing_edges takes a SEQUENCE of "
+            f"relaxed trailing-edge specifications and was given the single string "
+            f"{specifications!r}, which would be read one character at a time. A "
+            f"component definition carries as many as it has trailing edges, so one "
+            f"goes in a list, for example [{specifications!r}]"
+        )
+    try:
+        listed = list(specifications)
+    except TypeError as error:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: rotor_relaxed_trailing_edges takes a sequence of "
+            f"relaxed trailing-edge specifications and was given "
+            f"{type(specifications).__name__} {specifications!r}, which cannot be "
+            f"iterated. The library says: {error}"
+        ) from error
+    direction = rotor_shedding_direction(case)
+    total = len(listed)
+    rendered: list[str] = []
+    for position, text in enumerate(listed, start=1):
+        try:
+            edge = helpers.parse_relaxed_trailing_edge(text)
+        except CommandArgumentError as error:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r} carries a relaxed trailing-edge specification "
+                f"this package cannot read, number {position} of {total}. A "
+                "specification is a semicolon-separated field list written where the "
+                f"component is defined, not a script line. The library says: {error}"
+            ) from error
+        if direction is not None:
+            edge = edge.with_shedding(direction)
+        rendered.append(edge.render())
+    return rendered
 
 
 # --- PFS-2025.08: the degrees-backwards window --------------------------------

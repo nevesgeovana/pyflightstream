@@ -260,6 +260,14 @@ def _check_placeholders(template: str, known: tuple[str, ...], role: str) -> Non
 def _check_output_containment(name: str) -> None:
     """Refuse a declared output name that leaves the simulation folder.
 
+    Implements FR-33d, which is the requirement this refusal is published
+    under and the one place the exception TYPE is part of the promise:
+    what is raised here is :class:`NamingTemplateError` and not
+    ``WorkspaceError``, because the refusal comes from the naming
+    template, so a caller keying on the workspace error alone never sees
+    it. The sibling refusals are FR-33e for collection and FR-33f for
+    staging, and they do raise ``WorkspaceError``.
+
     An output name is a name, not a route. It may carry subdirectories,
     because a solver export can legitimately land in a subfolder, but it may
     not be absolute, may not start from a drive or share, and may not climb

@@ -1074,19 +1074,37 @@ def test_sweep_table_can_return_the_rows_it_has_when_no_run_yielded_loads(tmp_pa
 # implemented, and the classification called it `parsed`.
 #
 # The walk below is over the classification rather than over a list
-# written here, so a fifth `parsed` verdict fails until it has both
+# written here, so a new `parsed` verdict fails until it has both
 # halves. What is written here is the FIXTURE per export, and it is
 # required rather than optional: an export whose fixture is missing would
 # otherwise be skipped, and a walk that skips is a walk that reports green
 # over the thing it was built to measure.
 
 #: One committed export per ``parsed`` verdict of
-#: :data:`~pyflightstream.results.EXPORT_CONVERSIONS`.
+#: :data:`~pyflightstream.results.EXPORT_CONVERSIONS`. Six rows arrived with
+#: PFS-2014.02 on 2026-08-20, each a real capture off a licensed 26.123 run.
+#:
+#: ONE ROW NAMES ANOTHER COMMAND'S CAPTURE and the substitution is deliberate.
+#: ``EXPORT_SURFACE_SECTIONS`` has its own committed export,
+#: ``surface_sections_26.120.txt``, and that capture cut a plane laid on a
+#: panel boundary, so it declares ``Edges=0`` and holds no row: a real,
+#: complete file that tabulates to an empty frame, which this walk reads as a
+#: failed conversion and is right to. The two commands write one identical
+#: format (the parser is literally the same callable), so the row points at
+#: the all-sections capture, which has rows; the zero-edge file is exercised
+#: by name in `test_a_section_that_cut_no_edge_still_tabulates_with_its_columns`
+#: rather than being left unread.
 PARSED_EXPORT_FIXTURES = {
     "EXPORT_SOLVER_ANALYSIS_SPREADSHEET": "loads_steady_26.120.txt",
     "EXPORT_PROBE_POINTS": "probe_points_26.120.txt",
     "UNSTEADY_SOLVER_EXPORT_PLOTS": "unsteady_plots_26.120.txt",
     "EXPORT_SURFACE_SECTIONAL_LOADS": "fsi/FS_SurfaceSection_Loads_call0002.txt",
+    "EXPORT_SOLVER_ANALYSIS_CSV": "solver_analysis_26.123.csv",
+    "EXPORT_SOLVER_ANALYSIS_FORCE_DISTRIBUTIONS": "force_distributions_26.123.txt",
+    "EXPORT_ALL_OFF_BODY_STREAMLINES": "off_body_streamlines_26.123.txt",
+    "EXPORT_ALL_SURFACE_SECTIONS": "all_surface_sections_26.123.txt",
+    "EXPORT_SURFACE_SECTIONS": "all_surface_sections_26.123.txt",
+    "SWEEPER_EXPORT_SPREADSHEET": "sweeper_spreadsheet_26.123.txt",
 }
 
 
@@ -1111,9 +1129,10 @@ def test_every_parsed_export_converts_to_a_tidy_table(tmp_path):
     parsed = sorted(
         command for command, entry in EXPORT_CONVERSIONS.items() if entry.verdict == EXPORT_PARSED
     )
-    assert len(parsed) >= 4, (
-        f"the classification names {len(parsed)} parsed export(s); four had parsers "
-        "when this guard was written and a verdict is only ever added"
+    assert len(parsed) >= 10, (
+        f"the classification names {len(parsed)} parsed export(s); ten have parsers "
+        "as of PFS-2014.02 (2026-08-20, up from the four this guard was written "
+        "against) and a verdict is only ever added"
     )
     assert set(parsed) <= set(PARSED_EXPORT_FIXTURES), (
         "a parsed export has no committed fixture here, so this walk would skip it: "
@@ -1240,3 +1259,295 @@ def test_to_table_refuses_an_unsupported_result_through_the_catalog():
             "a caller cannot import the class it is told to catch"
         )
     assert checked == 2, f"only {checked} refusal arm(s) were exercised, expected 2"
+
+
+# --- PFS-2014.02: a tabular conversion for every default-set export --------
+#
+# Five new kinds, all read off real 26.123 and 26.120 captures. THE COLUMNS
+# ARE PINNED HERE AS WELL AS AT PARSE TIME and the two pins catch different
+# things: the parser's refuses a FILE whose header has moved, this one
+# refuses a REPORT whose columns have moved, which is what a caller building
+# one by hand can do. The exact column list of each table is asserted below
+# rather than sampled, because "a build that reorders them fails rather than
+# shifting a column of numbers" is the acceptance itself.
+
+PROVENANCE = list(PROVENANCE_COLUMNS)
+
+
+def _parsed(name):
+    """Parse one committed export fixture with the parser that reads it."""
+    from pyflightstream.results import (
+        parse_force_distributions,
+        parse_off_body_streamlines,
+        parse_solver_analysis_csv,
+        parse_surface_sections,
+        parse_sweep_spreadsheet,
+    )
+
+    readers = {
+        "force_distributions_26.123.txt": parse_force_distributions,
+        "force_distributions_26.120.txt": parse_force_distributions,
+        "off_body_streamlines_26.123.txt": parse_off_body_streamlines,
+        "all_surface_sections_26.123.txt": parse_surface_sections,
+        "surface_sections_26.120.txt": parse_surface_sections,
+        "sweeper_spreadsheet_26.123.txt": parse_sweep_spreadsheet,
+        "solver_analysis_26.123.csv": parse_solver_analysis_csv,
+    }
+    return readers[name](read_fixture(name))
+
+
+def test_the_force_distribution_table_pins_its_columns():
+    """One row per panel, Boundary kept as an integer index."""
+    frame = to_table(_parsed("force_distributions_26.123.txt"))
+    assert list(frame.columns) == [
+        "Boundary",
+        "X",
+        "Y",
+        "Z",
+        "Cx",
+        "Cy",
+        "Cz",
+        "Cxv",
+        "Cyv",
+        "Czv",
+        "force_units",
+        "moment_units",
+        *PROVENANCE,
+    ]
+    assert len(frame) == 96
+    assert frame["Boundary"].dtype.kind == "i", (
+        "a boundary index that reads back out of a csv as 1.0 is a label pretending "
+        "to be a measurement"
+    )
+    assert frame["X"].iloc[0] == pytest.approx(0.9665063514165755)
+    assert frame["Cz"].iloc[0] == pytest.approx(-0.6270321115917074e-03)
+    assert set(frame["force_units"]) == {"Coefficients"}
+    assert set(frame["data_origin"]) == {"raw"}
+    assert set(frame["reduction"]) == {"none"}
+    assert set(frame["reduction_window"]) == {"not_applicable"}
+
+
+def test_the_streamline_table_keys_every_row_by_its_streamline():
+    """One long table, and the key is what stops two curves reading as one.
+
+    Without it a reader joins the last point of streamline 1 to the first of
+    streamline 2 and gets a plausible-looking curve no flow ever followed.
+    """
+    frame = to_table(_parsed("off_body_streamlines_26.123.txt"))
+    assert list(frame.columns) == [
+        "streamline",
+        "X",
+        "Y",
+        "Z",
+        "Mach",
+        "Cp_ref",
+        "vx",
+        "vy",
+        "vz",
+        "vtot",
+        "Cp",
+        *PROVENANCE,
+    ]
+    assert len(frame) == 90
+    assert frame["streamline"].value_counts().to_dict() == {1: 30, 2: 30, 3: 30}
+    assert list(frame["streamline"].unique()) == [1, 2, 3]
+    first = frame[frame["streamline"] == 1]
+    assert first["X"].iloc[0] == pytest.approx(2.0)
+    assert first["vtot"].iloc[0] == pytest.approx(0.2990135e02)
+    assert set(frame["data_origin"]) == {"raw"}
+    assert set(frame["reduction"]) == {"none"}
+
+
+def test_the_surface_section_table_keys_every_row_by_its_section():
+    """Same shape and same reason as the streamline table."""
+    frame = to_table(_parsed("all_surface_sections_26.123.txt"))
+    assert list(frame.columns) == [
+        "section",
+        "Section_direction_value",
+        "X",
+        "Y",
+        "Z",
+        "nx",
+        "ny",
+        "nz",
+        "L",
+        "Cp",
+        "Mach",
+        "vx",
+        "vy",
+        "vz",
+        "vtot",
+        "Cp_ref",
+        "Theta",
+        "CF",
+        "Delta*",
+        "Delta",
+        "H",
+        *PROVENANCE,
+    ]
+    assert len(frame) == 12
+    assert set(frame["section"]) == {1}
+    assert frame["Cp"].iloc[0] == pytest.approx(-0.5171173e-01)
+    assert frame["H"].iloc[0] == pytest.approx(0.1447456e01)
+    assert set(frame["reduction_window"]) == {"not_applicable"}
+
+
+def test_a_section_that_cut_no_edge_still_tabulates_with_its_columns():
+    """The degenerate 26.120 capture: no rows, and every column still named.
+
+    A table that loses its schema when it loses its rows cannot be
+    concatenated with one that has them, which is what a caller sweeping a
+    campaign does first.
+    """
+    frame = to_table(_parsed("surface_sections_26.120.txt"))
+    assert len(frame) == 0
+    assert list(frame.columns)[:2] == ["section", "Section_direction_value"]
+    assert list(frame.columns)[-3:] == PROVENANCE
+
+
+def test_the_sweep_table_is_the_polar_the_solver_assembled():
+    """Distinct from `sweep_table`, which this package assembles itself."""
+    frame = to_table(_parsed("sweeper_spreadsheet_26.123.txt"))
+    assert list(frame.columns) == [
+        "AOA (deg)",
+        "Beta (deg)",
+        "Velocity (m/sec)",
+        "Cx",
+        "Cy",
+        "Cz",
+        "CL",
+        "CDi",
+        "CDo",
+        "CMx",
+        "CMy",
+        "CMz",
+        "force_units",
+        "moment_units",
+        *PROVENANCE,
+    ]
+    assert frame["AOA (deg)"].tolist() == [0.0, 2.0, 4.0]
+    assert frame["CL"].tolist() == pytest.approx([0.0, 0.1247, 0.2485])
+    assert set(frame["data_origin"]) == {"raw"}
+
+
+def test_the_csv_table_carries_what_its_fourth_column_is():
+    """The export prints no header, so the meaning travels in the table.
+
+    `reduction` is `unknown` rather than `none`, and the difference is the
+    whole point of that token: this file prints no solver mode, so whether
+    anything was averaged is unanswerable from it, and `none` would assert a
+    direct reading that may never have happened.
+    """
+    from pyflightstream.results import parse_solver_analysis_csv
+
+    text = read_fixture("solver_analysis_26.123.csv")
+    frame = to_table(parse_solver_analysis_csv(text, field="CP-FREESTREAM"))
+    assert list(frame.columns) == ["x", "y", "z", "scalar", "scalar_field", *PROVENANCE]
+    assert len(frame) == 86
+    assert set(frame["scalar_field"]) == {"CP-FREESTREAM"}
+    assert set(frame["data_origin"]) == {"raw"}
+    assert set(frame["reduction"]) == {"unknown"}
+    assert set(frame["reduction_window"]) == {"unknown"}
+    assert frame["scalar"].iloc[0] == pytest.approx(-0.1416963759213626)
+
+    unstated = to_table(parse_solver_analysis_csv(text))
+    assert set(unstated["scalar_field"]) == {"UNSTATED"}
+
+
+def test_a_report_whose_columns_moved_is_refused_by_the_table_too():
+    """The second half of the pin, over a report rather than over a file.
+
+    A report is an ordinary dataclass, so a caller can build one with the
+    columns in a different order; tabulated by position, every value would
+    land under its neighbour's label and nothing anywhere would say so.
+    """
+    from pyflightstream.results import (
+        FORCE_DISTRIBUTION_COLUMNS,
+        SWEEP_COLUMNS,
+        ExportSolution,
+        ForceDistributionReport,
+        SweepSpreadsheetReport,
+    )
+
+    solution = ExportSolution(
+        angle_of_attack_deg=4.0,
+        sideslip_deg=0.0,
+        freestream_velocity_m_s=30.0,
+        solver_mode="Steady",
+        current_iteration=65,
+        frame="Reference",
+        reported_version="26.1",
+        reported_build="8112026",
+    )
+    for report_type, columns in (
+        (ForceDistributionReport, FORCE_DISTRIBUTION_COLUMNS),
+        (SweepSpreadsheetReport, SWEEP_COLUMNS),
+    ):
+        moved = (*columns[:-2], columns[-1], columns[-2])
+        assert moved != columns
+        report = report_type(
+            columns=moved,
+            values=np.zeros((2, len(columns))),
+            solution=solution,
+            force_units="Coefficients",
+            moment_units="Coefficients",
+        )
+        with pytest.raises(MalformedOutputError, match="fixed by the solver"):
+            to_table(report)
+        # And the untouched layout still tabulates, so the guard is not
+        # refusing everything.
+        assert (
+            len(
+                to_table(
+                    report_type(
+                        columns=columns,
+                        values=np.zeros((2, len(columns))),
+                        solution=solution,
+                        force_units="Coefficients",
+                        moment_units="Coefficients",
+                    )
+                )
+            )
+            == 2
+        )
+
+
+def test_every_new_table_survives_the_write_path():
+    """`write_table` refuses a frame that cannot say what it is; none of these can."""
+    import tempfile
+
+    for name in (
+        "force_distributions_26.123.txt",
+        "off_body_streamlines_26.123.txt",
+        "all_surface_sections_26.123.txt",
+        "sweeper_spreadsheet_26.123.txt",
+        "solver_analysis_26.123.csv",
+    ):
+        frame = to_table(_parsed(name))
+        with tempfile.TemporaryDirectory() as directory:
+            written = write_table(frame, Path(directory) / "out.csv")
+            reread = pd.read_csv(written)
+        assert len(reread) == len(frame)
+        assert list(reread.columns) == list(frame.columns)
+        for column in PROVENANCE_COLUMNS:
+            assert reread[column].notna().all(), (
+                f"{column} came back from {name}'s csv with a missing cell, so the "
+                "identifier did not survive its own file"
+            )
+
+
+def test_the_unsupported_kind_message_names_the_new_parsers():
+    """A refusal that lists eight of the ten kinds would send a reader nowhere."""
+    from pyflightstream.results import UnsupportedResultTypeError
+
+    with pytest.raises(UnsupportedResultTypeError) as caught:
+        to_table(object())
+    message = str(caught.value)
+    for name in (
+        "parse_force_distributions",
+        "parse_off_body_streamlines",
+        "parse_surface_sections",
+        "parse_sweep_spreadsheet",
+        "parse_solver_analysis_csv",
+    ):
+        assert name in message, f"{name} is tabulatable and the refusal does not say so"

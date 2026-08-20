@@ -1,0 +1,35 @@
+
+
+
+
+                              Aerodynamic Force Distribution
+
+
+     Simulation file:                            Default.fsm
+     Angle of attack (Deg)                       4.000
+     Side-slip angle (Deg)                       .000
+     Freestream velocity (m/s)                   30.000
+     Requested solver iterations                 120
+     Solver convergence limit                     1.000E-04
+     Force solver to run all iterations           F
+     Time increment (sec)                        1.000
+     Solver model:                               Incompressible
+     Solver mode:                                Steady
+     Reference velocity (m/s)                    30.000
+     Reference length (m)                        1.000
+     Reference area (m^2)                        8.000
+     Altitude (ft)                               .000
+
+     Wake refinement size (% average mesh size)  1000.000
+     Reynolds Number                             2064607.
+     Coordinate frame for analysis:              Reference
+     Current solver iteration number:            0
+     ----------------------------------------------------------------------------------------------------
+     Boundary, X, Y, Z, Cx, Cy, Cz, Cxv, Cyv, Czv
+     ----------------------------------------------------------------------------------------------------
+     ----------------------------------------------------------------------------------------------------
+     Force Units: Coefficients
+     Moment Units: Coefficients
+     Software : Flightstream version 26.1, build #7012026
+     Company  : Altair
+     Date: 8/20/2026, Time: 0551 hours (local)

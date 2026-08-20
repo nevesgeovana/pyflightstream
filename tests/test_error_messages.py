@@ -10,9 +10,9 @@ the exception type but drops the explanation fails here, not in a
 user's terminal.
 
 Scope: the refusals users meet first (versions, solver_settings, the
-workspace input library, the run-matrix reader). Behavioral tests for
-the same code paths live with their subsystems; this module owns only
-the wording.
+workspace input library, the declared-name refusals of FR-33d, FR-33e
+and FR-33f, the run-matrix reader). Behavioral tests for the same code
+paths live with their subsystems; this module owns only the wording.
 """
 
 from __future__ import annotations
@@ -24,7 +24,13 @@ import pytest
 from pyflightstream.cases.matrix import MatrixError, read_matrix
 from pyflightstream.script import CommandArgumentError, Script, helpers
 from pyflightstream.versions import FsVersion, UnknownVersionError, resolve
-from pyflightstream.workspace import CampaignWorkspace, InputArtifactError
+from pyflightstream.workspace import (
+    CampaignWorkspace,
+    InputArtifactError,
+    NamingTemplate,
+    NamingTemplateError,
+    WorkspaceError,
+)
 
 MATRIX_FIXTURE = Path(__file__).parent / "fixtures" / "matrix.fs"
 
@@ -268,6 +274,149 @@ def test_the_sense_refusal_still_names_the_two_words_it_accepts():
             blade1_azimuth_deg=0.0,
             rotation="widdershins",
         )
+
+
+# --- the declared-name refusals (FR-33d, FR-33e, FR-33f) --------------------
+#
+# The three refusals PYFS-005 left behind, each of which now has exactly one
+# published requirement behind it. They are pinned HERE rather than only in
+# `tests/test_workspace.py` because the two modules pin different things: that
+# one asserts THAT the refusal fires, with a two-word `match=`, and this one
+# asserts what the refusal TEACHES. Every one of these messages has to carry
+# the same two facts, because a user meeting them has no way to work either
+# out from the signature: that collection MOVES rather than copies, and what
+# to do instead.
+
+
+@pytest.mark.requirement("FR-33d")
+def test_an_escaping_output_name_says_that_collection_moves():
+    """FR-33d. The name is refused, and the message says why it matters.
+
+    "Not a portable path" would be a true refusal and a useless one: it
+    reads as a portability nicety. The consequence is that the file is
+    TAKEN, not read, because collection moves it into ``raw/`` and the
+    manifest then records it as evidence the run produced.
+    """
+    template = NamingTemplate()
+    with pytest.raises(NamingTemplateError) as refused:
+        template.render_output("../outside.txt", campaign="camp", sim="1", point={"alpha": 0.0})
+
+    message = str(refused.value)
+    assert "../outside.txt" in message, "the refusal does not quote the name it refused"
+    assert "MOVES" in message, (
+        "the refusal does not say that collection moves rather than copies, which is "
+        "the whole reason an escaping name is a data-loss defect and not a style one"
+    )
+    assert "it would take it" in message, (
+        "the refusal states the mechanism without stating the consequence: the source "
+        "file is gone afterwards and the run records it as its own evidence"
+    )
+    assert "relative to the simulation folder" in message, "the refusal offers no remedy"
+
+
+@pytest.mark.requirement("FR-33d")
+def test_an_absolute_output_name_is_refused_with_the_same_reason():
+    """FR-33d. An absolute name needs no ``..`` to leave the run.
+
+    The two shapes share one requirement, so they must not diverge into
+    one didactic message and one bare one.
+    """
+    template = NamingTemplate()
+    with pytest.raises(NamingTemplateError) as refused:
+        template.render_output("/etc/passwd", campaign="camp", sim="1", point={"alpha": 0.0})
+
+    message = str(refused.value)
+    assert "absolute path" in message
+    assert "collection moves them into raw/" in message, (
+        "the absolute-name refusal names no consequence, while the '..' refusal does"
+    )
+    assert "named relative to the simulation folder" in message, "the refusal offers no remedy"
+
+
+@pytest.mark.requirement("FR-33e")
+def test_two_outputs_collecting_to_one_name_offer_the_placeholder_remedy(tmp_path):
+    """FR-33e, first shape. Two sources, one destination, before any move.
+
+    The remedy is the part a user cannot guess: the declared names are
+    theirs to choose, and a per-point placeholder is what makes each
+    point of one simulation export under its own name.
+    """
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    for folder in ("a", "b"):
+        (tmp_path / folder).mkdir()
+        (tmp_path / folder / "loads.txt").write_text(folder, encoding="utf-8")
+
+    with pytest.raises(WorkspaceError) as refused:
+        workspace.collect_outputs("1", [tmp_path / "a" / "loads.txt", tmp_path / "b" / "loads.txt"])
+
+    message = str(refused.value)
+    assert "raw/loads.txt" in message, "the refusal does not name the destination they share"
+    assert str(tmp_path / "a" / "loads.txt") in message, "the refusal does not name both sources"
+    assert str(tmp_path / "b" / "loads.txt") in message, "the refusal does not name both sources"
+    assert "record one name twice" in message, (
+        "the refusal does not say what the MANIFEST would have recorded, which is how "
+        "this defect stayed invisible: both moves ran and the record read complete"
+    )
+    assert "loads_{point}.txt" in message, (
+        "the refusal offers no per-point remedy, so a user is told what not to do and "
+        "not what to do instead"
+    )
+
+
+@pytest.mark.requirement("FR-33e")
+def test_collecting_onto_a_held_name_offers_the_archive_remedy(tmp_path):
+    """FR-33e, second shape, and it has a different remedy from the first.
+
+    Nothing about this call is wrong on its own: the name is unique
+    within the call. What is wrong is the folder's history, so the remedy
+    is about the simulation rather than about the name alone.
+    """
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    (tmp_path / "loads.txt").write_text("first", encoding="utf-8")
+    workspace.collect_outputs("1", [tmp_path / "loads.txt"])
+    (tmp_path / "loads.txt").write_text("second", encoding="utf-8")
+
+    with pytest.raises(WorkspaceError) as refused:
+        workspace.collect_outputs("1", [tmp_path / "loads.txt"])
+
+    message = str(refused.value)
+    assert "already in raw/ from an earlier point or run" in message, (
+        "the refusal does not say WHOSE record is in the way, so a user re-running one "
+        "point reads it as a defect in the call they just made"
+    )
+    assert "destroy the collected evidence" in message
+    assert "archive the simulation before" in message, (
+        "the refusal offers only the per-point remedy, which does not help a caller "
+        "re-running a whole simulation"
+    )
+
+
+@pytest.mark.requirement("FR-33f")
+def test_two_inputs_sharing_a_base_name_name_both_sources(tmp_path):
+    """FR-33f. The harm arrives through the INPUT side and reads identically.
+
+    The manifest records one hash for two declared inputs, so the run
+    claims reproducibility from a file that was never staged. The message
+    has to name both sources, because the two are in different folders
+    and the base name alone says nothing about which pair collided.
+    """
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    for folder in ("a", "b"):
+        (tmp_path / folder).mkdir()
+        (tmp_path / folder / "mesh.obj").write_text(folder, encoding="utf-8")
+
+    with pytest.raises(WorkspaceError) as refused:
+        workspace.stage_inputs("1", [tmp_path / "a" / "mesh.obj", tmp_path / "b" / "mesh.obj"])
+
+    message = str(refused.value)
+    assert "mesh.obj" in message
+    assert str(tmp_path / "a" / "mesh.obj") in message, "the refusal does not name both sources"
+    assert str(tmp_path / "b" / "mesh.obj") in message, "the refusal does not name both sources"
+    assert "one hash for two" in message, (
+        "the refusal does not say what the manifest would have recorded, which is the "
+        "reproducibility claim this check exists to protect (NFR-07)"
+    )
+    assert "Rename one" in message, "the refusal offers no remedy"
 
 
 # --- run-matrix reader ------------------------------------------------------

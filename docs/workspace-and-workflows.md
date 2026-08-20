@@ -70,6 +70,40 @@ Four runs come out of those two rows. Nothing in the matrix says where
 anything is written, and that is deliberate: naming is the workspace's
 job.
 
+### One sweep per row, and the geometry variant that is its own row
+
+A row sweeps ONE thing. `SWEEP_TYPE` and `SWEEP_VALUES` sweep the
+aerodynamic condition, and a geometric variation of the same
+configuration, a rotated blade or a trailing-edge variant, does **not**
+multiply with it. A row that asks for both is refused when the file is
+read, before a workspace is opened and before a solver is started, and
+the refusal names the row, both sweeps and the count of runs they would
+have produced.
+
+The rule is the same in a hand-written `campaign.toml`: a `[[sim]]`
+declaring a multi-angle `angle_sweep_deg` beside a multi-point `sweep`
+is refused when the file loads, which is the moment the case is
+declared. Neither door lets in what the other refuses.
+
+Write it one of two ways.
+
+- **One rotation, held fixed across the aerodynamic sweep.** Put
+  `angle_deg: 5.0` in `VAR_NAMES_VALUES` (or `angle_deg = 5.0` under
+  `[sim.variables]`). One value. The row keeps its alpha sweep and stays
+  one row.
+- **A sweep of the geometry.** One row per angle, each with its own
+  `POL` and a single-valued `angle_deg`. Three angles across an eleven
+  point alpha sweep are three rows of eleven runs, not one row of
+  thirty three.
+
+The limit is about IDENTITY before it is about cost. A run is named by
+its aerodynamic point: the folders above are `a+00.0` and `b-03.0`, and
+nothing in that name is geometric. Crossing three angles into an eleven
+point sweep would give thirty three runs eleven names, so each group of
+three would share one `run_id` and one set of output file names, and the
+cost view would average the three into a single cell. Three rows cost
+the same thirty three runs and keep thirty three identities.
+
 ## The input library those identifiers resolve against
 
 The three code columns are looked up in the workspace's own `inputs/`
@@ -82,7 +116,8 @@ inputs/
   setups/s002.toml        iterations = 800, convergence = 1e-6
   setups/s003.toml        iterations = 400, wake_layers = 4
   groups/e001.toml        wing = ["wing_left", "wing_right"], body = [1]
-  executables.toml        which executable each build identifier means
+  executables.toml        which executable, and optionally which version,
+                          each build identifier means
 ```
 
 `REF r003` therefore means "the reference quantities in
@@ -96,6 +131,28 @@ kind and what is available.
 rather than about your study: it maps a build identifier such as
 `26.120` onto the executable on this computer. It is why the matrix can
 name a build and stay portable.
+
+An entry takes one of two shapes and the difference is what a row's
+script is emitted under:
+
+```toml
+"26.120" = "C:/builds/26120/FlightStream.exe"
+"26.123" = { path = "C:/builds/26123/FlightStream.exe", version = "26.123" }
+```
+
+The bare path declares no version, so rows naming that build are emitted
+under the campaign's default. The table declares one, and rows naming
+that build are emitted under it. That is what lets ONE matrix send some
+rows to one build and some to another: since v0.8.0 a matrix whose active
+rows name two builds runs, and each row's record names the executable its
+own row asked for. The declared version is checked against the version
+registry when the file is READ, so a typo is refused pointing at the file
+that is wrong rather than at the first emission that fails.
+
+Note the one asymmetry, because it is easy to expect the other
+behaviour: a registry entry never overrules the default version for a row
+that names NO build. A silent row falls back to the campaign default, as
+it always has.
 
 ### What a reference artifact holds beyond the three lengths
 

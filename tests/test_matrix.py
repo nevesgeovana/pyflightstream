@@ -24,8 +24,10 @@ import os
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
-from pyflightstream.cases import load_campaign
+from pyflightstream import cases as cases_mod
+from pyflightstream.cases import SimCase, load_campaign
 from pyflightstream.cases import matrix as matrix_mod
 from pyflightstream.cases.matrix import (
     MatrixError,
@@ -821,6 +823,55 @@ def test_the_rotation_keys_are_read_whatever_their_case(tmp_path):
     )
     with pytest.raises(MatrixError, match="angle_deg"):
         read_matrix(bad)
+
+
+# --- one owner for the limit (PFS-2025.17, PFS-2025.17.02) ------------------
+
+
+def test_the_matrix_reads_the_rotation_keys_the_cases_layer_owns():
+    """The keys are IMPORTED, not respelled here.
+
+    Two spellings is two limits, and the drift would be discovered by a
+    user whose hand-written campaign.toml ran what their matrix refuses.
+    Reading the constants off `pyflightstream.cases` is what makes this
+    test move with the spelling instead of pinning a second copy of it.
+    """
+    assert matrix_mod.ROTATION_SWEEP_KEY is cases_mod.ROTATION_SWEEP_KEY
+    assert matrix_mod.ROTATION_OFFSET_KEY is cases_mod.ROTATION_OFFSET_KEY
+    source = Path(matrix_mod.__file__).read_text(encoding="utf-8")
+    for quote in ('"', "'"):
+        respelled = f"= {quote}{cases_mod.ROTATION_SWEEP_KEY}{quote}"
+        assert respelled not in source, (
+            f"the matrix module assigns the geometric sweep key its own value again "
+            f"({respelled}); the limit has two owners and they can disagree"
+        )
+
+
+def test_the_row_the_matrix_refuses_is_refused_natively_too(tmp_path):
+    """Both declaration doors refuse the same declaration.
+
+    The matrix refusal is read off the file; this rebuilds the same row
+    as a SimCase, which is the door a user who writes campaign.toml by
+    hand comes through, and requires that it closes too.
+    """
+    text = _with_variable(FIXTURE.read_text(encoding="utf-8"), "angle_sweep_deg:0.0,5.0,10.0")
+    bad = tmp_path / "matrix.fs"
+    bad.write_text(text, encoding="utf-8")
+    with pytest.raises(MatrixError, match="asks for two sweeps at once"):
+        read_matrix(bad)
+    # The same row without the extra variable, so the case below is built
+    # from what the file really declares rather than from a hand-made echo.
+    good = tmp_path / "clean.fs"
+    good.write_text(FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")
+    row = read_matrix(good)[0]
+    with pytest.raises(ValidationError, match="asks for two sweeps at once"):
+        SimCase(
+            sim_id=row.pol,
+            aircraft=row.aircraft,
+            sweep=row.sweep,
+            recipe=RECIPES[row.script_code],
+            variables={**row.variables, "angle_sweep_deg": "0.0,5.0,10.0"},
+        )
 
 
 # --- PFS-2009.08.03: row_number, and the row that names no build ------------

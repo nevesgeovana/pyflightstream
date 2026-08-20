@@ -112,18 +112,73 @@ When a mesh exists only inside a `.fsm`, the pre-processing export
 solver run, which is how the geometry gate of the probe planner gets
 its watertight surface.
 
+## Marking a blade's trailing edge from its mesh
+
+Since v0.8.0 the one step of a rotor campaign that still had to be done by
+hand is in the library: `pyflightstream.workspace.extract_trailing_edge` reads
+a blade surface and returns the trailing-edge vertices in the rotor frame, and
+`TrailingEdge.write_node_file` writes them as the node list both documented
+marking routes read.
+
+<!-- skip: next -->
+```python
+from pyflightstream.workspace import extract_trailing_edge
+
+edge = extract_trailing_edge("blade.obj", axis=(0.0, 0.0, 1.0), hub=(0.0, 0.0, 0.0))
+edge.write_node_file("wake_nodes.txt", unit="METER")
+```
+
+That block is skipped by the executable-examples run rather than checked,
+and the reason is worth one line because every other python block on this
+page IS executed: it names a blade mesh, and this repository commits no
+blade. The API names in it are checked against the package by
+`tests/test_guide_api_names.py`.
+
+Only the vertices are read. The mesh need not be watertight and no proximity
+query is made, so this runs on a base install with no extra.
+
+**THE CRITERION IS NOT A CREASE, and that is the whole point.** The obvious
+implementation is a dihedral-angle threshold over face adjacency, which every
+mesh library offers. This package refuses it, because marking wake edges from a
+file exists precisely BECAUSE the solver's own auto-detection is an angle
+criterion, and a strongly twisted blade has a trailing edge that is not a
+crease. Building the extraction on adjacency angles would reimplement in Python
+the criterion the capability was created to escape, and a campaign would gain a
+different threshold rather than a different capability.
+
+What is computed instead: a vertex's spanwise coordinate is its radial distance
+from the rotor axis, the vertices are binned into chordwise sections by that
+coordinate, and each section contributes its AFTMOST point, with the chordwise
+direction taken from the section's own extent. The reasoning, and the
+alternatives that were rejected, are in the design note `DD-27`.
+
+An OBJ file's named groups would have been the preferred route and were
+measured and dropped: the mesh library this package reads through does not
+surface OBJ group names, so a blade exported with its trailing edge already
+named as a group offers nothing the reader can see.
+
 ## Mesh format policy
 
-The library's mesh seam is deliberately narrow: OBJ in and out, with
-geometric validity (watertightness, containment queries) owned by the
-`[geom]` extra on trimesh. Two standing decisions bound any widening:
+The library's mesh seam is deliberately narrow: OBJ in and out. READING a
+mesh is a runtime capability since v0.8.0, through trimesh, because the
+trailing-edge extraction sits on the default path of a rotor campaign and a
+capability behind an extra makes the library promise what a default install
+cannot do (design note DD-27, closing PFS-2025.20). What stays in the
+`[geom]` extra is the SPATIAL INDEX the geometry gate queries through:
+rtree's bounds tree and scipy's kd-tree. Reading vertices and faces needs
+neither. Two standing decisions bound any widening:
 
 * More formats never enter through raw third-party APIs. If a
   workflow needs formats beyond OBJ, meshio joins the `[geom]` extra
   as a conversion backend behind a project-owned adapter (decision
   D8, 2026-07-23): the adapter exposes only what the workflow needs,
   a license evidence card is committed at adoption time like every
-  dependency, and validity checks stay with trimesh.
+  dependency, and validity checks stay with trimesh. That decision was
+  re-tested in v0.8.0 when a mesh reader had to be chosen and it held:
+  meshio was refused on the committed weight budget, at five new
+  distributions and 12.26 MiB against limits of one and five, one of them
+  a syntax highlighter. Its route into this package is still through the
+  adapter and still only if a workflow needs it.
 * Until that need materializes, converting external formats to OBJ
   with your own tooling is the supported route.
 

@@ -5,6 +5,7 @@ files from a local run; values, paths, and surface names are
 synthetic.
 """
 
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -22,10 +23,15 @@ from pyflightstream.results import (
     delimited_table,
     labeled_value,
     parse_count,
+    parse_force_distributions,
     parse_loads,
     parse_number,
+    parse_off_body_streamlines,
     parse_probe_points,
     parse_residual_history,
+    parse_solver_analysis_csv,
+    parse_surface_sections,
+    parse_sweep_spreadsheet,
     reject_duplicate_columns,
 )
 
@@ -757,10 +763,13 @@ def test_every_parsed_verdict_names_an_importable_callable():
             "export and the claim has to resolve"
         )
         resolved += 1
-    assert resolved >= 4, (
-        f"only {resolved} parsed verdict(s) were resolved; four exports have "
+    assert resolved >= 10, (
+        f"only {resolved} parsed verdict(s) were resolved; ten exports have "
         "parsers today and this walk is what proves the claim rather than "
-        "repeating it"
+        "repeating it. The floor was four until PFS-2014.02 wrote the six "
+        "parsers the classification owed (2026-08-20); it is a NON-VACUITY "
+        "floor, so it rises when parsers are added and a fall in it is a "
+        "parser that went missing rather than a number to relax"
     )
 
 
@@ -1177,3 +1186,853 @@ def test_the_import_closure_is_not_vacuous_and_follows_a_chain():
     )
     # And it stops at this package: a third-party name is never a module here.
     assert all(name.startswith("pyflightstream") for name in closure)
+
+
+# --- PFS-2014.02: the six formats the classification owed a parser ---------
+#
+# Every fixture below is a REAL export off a licensed solver, captured by
+# `scripts/capture_export_corpus.py` on a coarse generated NACA 0012 wing:
+# five on 26.123 (build 8112026) on 2026-08-20 and two on 26.120 (build
+# 7012026). None of them is synthetic and none of the assertions below is a
+# shape the manual suggested.
+#
+# TWO OF THE FILES ARE DEGENERATE and they are kept deliberately, one as a
+# case and one as a warning. `surface_sections_26.120.txt` cut a plane laid
+# on a spanwise panel boundary, so it declares `Edges=0` and holds no row;
+# `force_distributions_26.120.txt` was exported at iteration zero and holds
+# none either. Both are complete files with correct headers and terminators,
+# which is exactly the shape a parser passes against while never having read
+# a row, so every format here is ALSO asserted against a file with rows in
+# it, by count and by value.
+
+FORCE_HEADER = "Boundary, X, Y, Z, Cx, Cy, Cz, Cxv, Cyv, Czv"
+STREAMLINE_HEADER = "X, Y, Z, Mach, Cp_ref, vx, vy, vz, vtot, Cp"
+SECTION_HEADER = (
+    "Section_direction_value, X, Y, Z, nx, ny, nz, L, Cp, Mach, vx, vy, vz, vtot, "
+    "Cp_ref, Theta, CF, Delta*, Delta, H"
+)
+SWEEP_HEADER = "AOA (deg), Beta (deg), Velocity (m/sec), Cx, Cy, Cz, CL, CDi, CDo, CMx, CMy, CMz"
+
+#: The four text formats and the parser each is read by, for the guards that
+#: apply to all of them (footer, concatenation, header pin, version check).
+TEXT_EXPORTS = [
+    ("force_distributions_26.123.txt", "parse_force_distributions"),
+    ("off_body_streamlines_26.123.txt", "parse_off_body_streamlines"),
+    ("all_surface_sections_26.123.txt", "parse_surface_sections"),
+    ("sweeper_spreadsheet_26.123.txt", "parse_sweep_spreadsheet"),
+]
+
+
+def test_the_force_distribution_fixture_reads_every_panel():
+    """96 panel rows off the real 26.123 export, checked by count and by value."""
+    from pyflightstream.results import FORCE_DISTRIBUTION_COLUMNS, parse_force_distributions
+
+    report = parse_force_distributions(read_fixture("force_distributions_26.123.txt"), "26.123")
+    assert report.columns == FORCE_DISTRIBUTION_COLUMNS
+    assert report.count == 96, "the committed 26.123 export holds 96 panel rows"
+    assert report.values.shape == (96, 10)
+    assert report.boundary_indices.tolist() == [1] * 96
+    # The first row, verbatim from the file.
+    assert report.values[0][1] == pytest.approx(0.9665063514165755)
+    assert report.values[0][3] == pytest.approx(-0.4665757602364896e-02)
+    assert report.field("Cz")[0] == pytest.approx(-0.6270321115917074e-03)
+    assert report.field("Cxv")[0] == pytest.approx(0.4707505061189517e-04)
+    assert report.positions.shape == (96, 3)
+    assert report.solution.angle_of_attack_deg == 4.0
+    assert report.solution.sideslip_deg == 0.0
+    assert report.solution.freestream_velocity_m_s == 30.0
+    assert report.solution.solver_mode == "Steady"
+    assert report.solution.current_iteration == 65
+    assert report.solution.frame == "Reference"
+    assert report.solution.reported_build == "8112026"
+    assert report.force_units == "Coefficients"
+    assert report.moment_units == "Coefficients"
+
+
+def test_an_empty_force_distribution_is_reported_rather_than_refused():
+    """The 26.120 capture ran at iteration zero: a complete file with no rows.
+
+    It is also the file that made `delimited_table` the wrong helper for
+    these formats: that one treats every dashed rule as a separator until it
+    has a row, so a table with none never terminates for it and this
+    complete export came back as "the file ends mid-table".
+    """
+    from pyflightstream.results import parse_force_distributions
+
+    report = parse_force_distributions(read_fixture("force_distributions_26.120.txt"))
+    assert report.count == 0
+    assert report.values.shape == (0, 10), (
+        "an empty table still has to know how many columns it does not have; a "
+        "one-dimensional empty array cannot be indexed by column downstream"
+    )
+    assert report.solution.current_iteration == 0
+    assert report.solution.reported_build == "7012026"
+
+
+def test_the_streamline_fixture_reads_three_streamlines_by_their_markers():
+    """Three streamlines of thirty points each, off the real 26.123 export."""
+    from pyflightstream.results import OFF_BODY_STREAMLINE_COLUMNS, parse_off_body_streamlines
+
+    report = parse_off_body_streamlines(read_fixture("off_body_streamlines_26.123.txt"), "26.123")
+    assert report.columns == OFF_BODY_STREAMLINE_COLUMNS
+    assert report.declared_count == 3
+    assert report.count == 3
+    assert [line.index for line in report.streamlines] == [1, 2, 3]
+    assert [line.points for line in report.streamlines] == [30, 30, 30]
+    assert report.points == 90
+    first = report.streamlines[0]
+    # The seed point of streamline 1, verbatim from the file.
+    assert first.positions[0].tolist() == pytest.approx([2.0, -1.0, 0.3])
+    assert first.field("vtot")[0] == pytest.approx(0.2990135e02)
+    assert first.field("Mach")[0] == pytest.approx(0.8786685e-01)
+    assert first.values[-1][0] == pytest.approx(0.1382484e02)
+    assert report.solution.solver_mode == "Steady"
+    assert report.solution.reported_build == "8112026"
+
+
+def test_the_streamline_point_count_is_recorded_verbatim_and_not_asserted():
+    """The measured off-by-one, pinned as a measurement rather than assumed away.
+
+    Every streamline of the observed export prints 31 and writes 30 rows.
+    Nothing in the file or the manual settles what the extra one is, so the
+    parser records the printed number and refuses to equate it with the row
+    count: equating them would refuse every real export of this format. This
+    test is the record of the measurement, and it goes red on the build that
+    changes it, which is the point of writing a defect down rather than
+    tolerating it silently.
+    """
+    from pyflightstream.results import parse_off_body_streamlines
+
+    report = parse_off_body_streamlines(read_fixture("off_body_streamlines_26.123.txt"))
+    for line in report.streamlines:
+        assert line.declared_points == 31
+        assert line.declared_points == line.points + 1, (
+            f"streamline {line.index} declares {line.declared_points} points and holds "
+            f"{line.points}. The one-row shortfall is what build 8112026 was measured "
+            "doing on 2026-08-20; a different relation means the export changed, and "
+            "what the printed number counts is a question to reopen rather than a "
+            "number to adjust"
+        )
+
+
+@pytest.mark.parametrize(
+    ("fixture", "edges", "build"),
+    [
+        ("all_surface_sections_26.123.txt", 12, "8112026"),
+        ("surface_sections_26.120.txt", 0, "7012026"),
+    ],
+)
+def test_one_parser_reads_both_surface_section_commands(fixture, edges, build):
+    """The all-sections and the single-section exports share one format.
+
+    Two observed files on two builds, one written by each command: same
+    banner, same count label, same twenty-column header, same `Edges=` block
+    structure. The zero-edge one is a real complete file whose cutting plane
+    lay on a panel boundary, and it is reported as a section with no rows
+    rather than refused.
+    """
+    from pyflightstream.results import SURFACE_SECTION_COLUMNS, parse_surface_sections
+
+    report = parse_surface_sections(read_fixture(fixture))
+    assert report.columns == SURFACE_SECTION_COLUMNS
+    assert report.declared_count == 1
+    assert report.count == 1
+    section = report.sections[0]
+    assert section.index == 1
+    assert section.edges == edges
+    assert section.count == edges
+    assert section.values.shape == (edges, 20)
+    assert report.points == edges
+    assert report.solution.reported_build == build
+
+
+def test_the_surface_section_fixture_with_rows_is_checked_by_value():
+    """The twelve cut points of the 26.123 export, against the file itself."""
+    from pyflightstream.results import parse_surface_sections
+
+    section = parse_surface_sections(
+        read_fixture("all_surface_sections_26.123.txt"), "26.123"
+    ).sections[0]
+    assert section.field("Cp")[0] == pytest.approx(-0.5171173e-01)
+    assert section.field("Cp")[-1] == pytest.approx(-0.2291439e00)
+    assert section.field("Cp_ref")[0] == pytest.approx(-0.5171173e-01)
+    assert section.field("vtot")[0] == pytest.approx(0.3076049e02)
+    assert section.field("Delta*")[0] == pytest.approx(0.5382381e-03)
+    assert section.field("H")[0] == pytest.approx(0.1447456e01)
+    assert section.positions[0].tolist() == pytest.approx([0.9665064, 0.5, -0.4665754e-02])
+    # The section was cut at y = 0.5 m, off the panel boundary on purpose.
+    assert set(section.field("Y").tolist()) == {0.5}
+
+
+def test_the_sweep_fixture_reads_the_polar_the_solver_assembled():
+    """Three sweep points off the real 26.123 sweeper export."""
+    from pyflightstream.results import SWEEP_COLUMNS, parse_sweep_spreadsheet
+
+    report = parse_sweep_spreadsheet(read_fixture("sweeper_spreadsheet_26.123.txt"), "26.123")
+    assert report.columns == SWEEP_COLUMNS
+    assert report.points == 3
+    assert report.values.shape == (3, 12)
+    assert report.field("AOA (deg)").tolist() == [0.0, 2.0, 4.0]
+    assert report.field("Beta (deg)").tolist() == [0.0, 0.0, 0.0]
+    assert report.field("Velocity (m/sec)").tolist() == [30.0, 30.0, 30.0]
+    assert report.field("CL").tolist() == pytest.approx([0.0, 0.1247, 0.2485])
+    assert report.field("CDi").tolist() == pytest.approx([-0.0125, -0.0082, 0.0046])
+    assert report.force_units == "Coefficients"
+    # The solution block belongs to the LAST point solved, not to the sweep.
+    assert report.solution.angle_of_attack_deg == 4.0
+    assert report.solution.current_iteration == 90
+
+
+def test_the_csv_fixture_reads_four_columns_that_no_header_names():
+    """The header-less FEM csv, checked against the geometry that produced it.
+
+    The column identification is the parser docstring's evidence, asserted
+    here so it stays a measurement rather than a claim: seven chordwise node
+    stations over a 1 m chord, seven spanwise stations over an 8 m span, the
+    NACA 0012 ordinate at each, and a scalar that agrees with the Cp column
+    of the surface-section export captured in the same run.
+    """
+    from pyflightstream.results import (
+        SOLVER_ANALYSIS_CSV_COLUMNS,
+        SOLVER_ANALYSIS_CSV_FIELD_UNSTATED,
+        parse_solver_analysis_csv,
+    )
+
+    text = read_fixture("solver_analysis_26.123.csv")
+    report = parse_solver_analysis_csv(text, field="cp-freestream")
+    assert report.columns == SOLVER_ANALYSIS_CSV_COLUMNS == ("x", "y", "z", "scalar")
+    assert report.count == 86
+    assert report.values.shape == (86, 4)
+    assert report.field == "CP-FREESTREAM", "the declared format is recorded upper cased"
+
+    x, y, z = (report.positions[:, index] for index in range(3))
+    assert sorted(set(np.round(x, 6).tolist())) == [
+        0.0,
+        0.066987,
+        0.25,
+        0.5,
+        0.75,
+        0.933013,
+        1.0,
+    ], "column 1 is X: the seven cosine-spaced chordwise node stations of that mesh"
+    assert sorted(set(np.round(y, 6).tolist())) == [
+        -4.0,
+        -2.666667,
+        -1.333333,
+        0.0,
+        1.333333,
+        2.666667,
+        4.0,
+    ], "column 2 is Y: the seven spanwise node stations of an 8 m span"
+    assert sorted(set(np.round(z[np.abs(x - 0.75) < 1e-9], 7).tolist())) == [
+        -0.0312044,
+        0.0312044,
+    ], "column 3 is Z: plus and minus the NACA 0012 half-thickness at x/c = 0.75"
+    assert float(np.abs(z).max()) == pytest.approx(0.0594075)
+    # Column 4 against the section export of the same run, which read -0.2293
+    # on the upper surface near x = 0.93 and -0.0512 on the lower.
+    near = report.values[np.abs(report.values[:, 0] - 0.9330127) < 1e-6]
+    assert len(near) == 14, "seven spanwise stations, upper and lower surface"
+    assert float(near[:, 3].min()) == pytest.approx(-0.2293, abs=2e-3)
+    assert float(near[:, 3].max()) == pytest.approx(-0.0512, abs=6e-3)
+
+    unstated = parse_solver_analysis_csv(text)
+    assert unstated.field == SOLVER_ANALYSIS_CSV_FIELD_UNSTATED == "UNSTATED", (
+        "a word rather than an empty cell: an empty one reads back out of a csv as NaN"
+    )
+
+
+@pytest.mark.parametrize(
+    ("fixture", "parser_name", "header", "moved"),
+    [
+        (
+            "force_distributions_26.123.txt",
+            "parse_force_distributions",
+            FORCE_HEADER,
+            "Boundary, X, Y, Z, Cx, Cy, Cz, Cyv, Cxv, Czv",
+        ),
+        (
+            "off_body_streamlines_26.123.txt",
+            "parse_off_body_streamlines",
+            STREAMLINE_HEADER,
+            "X, Y, Z, Mach, Cp, vx, vy, vz, vtot, Cp_ref",
+        ),
+        (
+            "all_surface_sections_26.123.txt",
+            "parse_surface_sections",
+            SECTION_HEADER,
+            SECTION_HEADER.replace("Cp, Mach", "Mach, Cp"),
+        ),
+        (
+            "sweeper_spreadsheet_26.123.txt",
+            "parse_sweep_spreadsheet",
+            SWEEP_HEADER,
+            SWEEP_HEADER.replace("CL, CDi", "CDi, CL"),
+        ),
+    ],
+)
+def test_a_reordered_header_is_refused_rather_than_read_by_position(
+    fixture, parser_name, header, moved
+):
+    """The pin, and the reason it is a pin rather than a read.
+
+    These layouts are the solver's, so two swapped column names mean the
+    build reordered the numbers. Read by position, every value would come
+    back under its neighbour's label and not one of them would look wrong.
+    """
+    import pyflightstream.results as results
+
+    text = read_fixture(fixture)
+    assert text.count(header) == 1, "the anchor this mutation rewrites must be present and unique"
+    assert header != moved
+    with pytest.raises(MalformedOutputError, match="fixed by the solver"):
+        getattr(results, parser_name)(text.replace(header, moved))
+
+
+@pytest.mark.parametrize(("fixture", "parser_name"), TEXT_EXPORTS)
+def test_a_missing_software_footer_is_incomplete_output(fixture, parser_name):
+    """The footer is structural in every text export here (FR-17)."""
+    import pyflightstream.results as results
+
+    text = read_fixture(fixture)
+    assert "Software :" in text
+    with pytest.raises(IncompleteOutputError, match="no software footer"):
+        getattr(results, parser_name)(text[: text.index("Software :")])
+
+
+@pytest.mark.parametrize(("fixture", "parser_name"), TEXT_EXPORTS)
+def test_two_concatenated_exports_are_refused_by_every_new_parser(fixture, parser_name):
+    """A second complete export after the first is not silently ignored."""
+    import pyflightstream.results as results
+
+    text = read_fixture(fixture)
+    with pytest.raises(MalformedOutputError, match="more than one complete export"):
+        getattr(results, parser_name)(text + text)
+
+
+@pytest.mark.parametrize(("fixture", "parser_name"), TEXT_EXPORTS)
+def test_the_new_parsers_cross_check_the_build_they_were_asked_for(fixture, parser_name):
+    """FR-18 on the four formats that print a footer to check against."""
+    import pyflightstream.results as results
+
+    parser = getattr(results, parser_name)
+    text = read_fixture(fixture)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", VersionMismatchWarning)
+        parser(text, "26.123")
+    with pytest.raises(VersionMismatchWarning, match="the wrong executable ran"):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", VersionMismatchWarning)
+            parser(text, "26.120")
+
+
+def test_a_streamline_count_the_file_does_not_hold_raises():
+    """Declared versus written, raising rather than returning fewer (FR-17)."""
+    from pyflightstream.results import parse_off_body_streamlines
+
+    text = read_fixture("off_body_streamlines_26.123.txt")
+    anchor = "Number of Off-body Streamlines:             3"
+    assert text.count(anchor) == 1
+    with pytest.raises(IncompleteOutputError, match="declares 4 streamline"):
+        parse_off_body_streamlines(text.replace(anchor, anchor.replace("3", "4")))
+
+
+def test_a_section_count_the_file_does_not_hold_raises():
+    """The same rule on the other block-structured format."""
+    from pyflightstream.results import parse_surface_sections
+
+    text = read_fixture("all_surface_sections_26.123.txt")
+    anchor = "Number of Surface Sections:                 1"
+    assert text.count(anchor) == 1
+    with pytest.raises(IncompleteOutputError, match="declares 2 surface section"):
+        parse_surface_sections(text.replace(anchor, anchor.replace("1", "2")))
+
+
+def test_a_section_that_lost_a_row_it_declared_raises():
+    """`Edges=N` and the row count are equal in every observed export."""
+    from pyflightstream.results import parse_surface_sections
+
+    text = read_fixture("all_surface_sections_26.123.txt")
+    assert text.count("Edges=12") == 1
+    with pytest.raises(IncompleteOutputError, match="declares 13 edge"):
+        parse_surface_sections(text.replace("Edges=12", "Edges=13"))
+
+
+def test_streamlines_numbered_out_of_order_are_refused():
+    """A gap or a repeat means a block was lost or two exports interleaved."""
+    from pyflightstream.results import parse_off_body_streamlines
+
+    text = read_fixture("off_body_streamlines_26.123.txt")
+    assert text.count("Streamline 2") == 1
+    with pytest.raises(MalformedOutputError, match="numbers its streamlines 3 where 2"):
+        parse_off_body_streamlines(text.replace("Streamline 2", "Streamline 3"))
+
+
+def test_each_block_keeps_its_own_declared_count_and_not_its_successor_s():
+    """The handover this parser's ordering exists to prevent, made visible.
+
+    The count of block N+1 is printed BEFORE the marker that closes block N,
+    so a parser that closes on the marker after consuming the count stamps
+    every block with its successor's number. All three streamlines of the
+    real export declare 31, which would hide it, so the fixture is rewritten
+    to give the second block a count of its own.
+    """
+    from pyflightstream.results import parse_off_body_streamlines
+
+    lines = read_fixture("off_body_streamlines_26.123.txt").splitlines()
+    marker = lines.index("Streamline 2")
+    assert lines[marker - 1].strip() == "31"
+    lines[marker - 1] = "        44"
+    report = parse_off_body_streamlines("\n".join(lines) + "\n")
+    assert [line.declared_points for line in report.streamlines] == [31, 44, 31], (
+        "block 1 must keep the 31 printed above its own marker; reading 44 there "
+        "means the counts were handed over one block late"
+    )
+
+
+def test_a_data_row_before_any_block_marker_is_refused():
+    """A row outside a block belongs to no streamline at all."""
+    from pyflightstream.results import parse_off_body_streamlines
+
+    lines = read_fixture("off_body_streamlines_26.123.txt").splitlines()
+    marker = lines.index("Streamline 1")
+    lines.insert(marker, lines[marker + 1])
+    with pytest.raises(MalformedOutputError, match="before any 'Streamline N' marker"):
+        parse_off_body_streamlines("\n".join(lines) + "\n")
+
+
+def test_a_block_marker_with_no_count_above_it_is_refused():
+    """Every block of both formats is introduced by its own count line."""
+    from pyflightstream.results import parse_off_body_streamlines, parse_surface_sections
+
+    lines = read_fixture("off_body_streamlines_26.123.txt").splitlines()
+    del lines[lines.index("Streamline 1") - 1]
+    with pytest.raises(MalformedOutputError, match="no point count printed above it"):
+        parse_off_body_streamlines("\n".join(lines) + "\n")
+
+    sections = read_fixture("all_surface_sections_26.123.txt")
+    with pytest.raises(MalformedOutputError, match="no 'Edges=' line above it"):
+        parse_surface_sections(sections.replace("Edges=12\n", ""))
+
+
+def test_a_later_block_marker_without_its_own_count_is_refused_too():
+    """The half of that guard the first block cannot exercise.
+
+    FOUND BY THE ADVERSARIAL PASS of this item, not by review. Deleting the
+    count above streamline ONE is caught by any implementation, because
+    nothing has been read yet; deleting the one above streamline TWO is
+    caught only if the count is CLEARED when its own block consumes it. A
+    parser that leaves it standing gives block two block one's number in
+    silence, and 31 is as plausible a point count for the second streamline
+    as it is for the first.
+    """
+    from pyflightstream.results import parse_off_body_streamlines
+
+    lines = read_fixture("off_body_streamlines_26.123.txt").splitlines()
+    marker = lines.index("Streamline 2")
+    assert lines[marker - 1].strip() == "31"
+    del lines[marker - 1]
+    with pytest.raises(MalformedOutputError, match="no point count printed above it"):
+        parse_off_body_streamlines("\n".join(lines) + "\n")
+
+
+def _two_sections(text: str) -> str:
+    """Duplicate the observed section block, so a second section exists.
+
+    DERIVED FROM THE OBSERVED FILE rather than invented: the capture run cut
+    one section, so the committed export has one block and the multi-block
+    machinery (the per-section edge count, the section numbering, the key
+    column of the table) has nothing in it to act on. Every byte here comes
+    from the real export; what is synthetic is the REPETITION, which is the
+    one thing the format's own structure already tells us how to do.
+    """
+    lines = text.splitlines()
+    start = lines.index("Edges=12")
+    block = lines[start : start + 14]
+    assert block[1] == "Surface cross-section 1"
+    assert len([line for line in block if "," in line]) == 12
+    second = [block[0], "Surface cross-section 2", *block[2:]]
+    lines[start + 14 : start + 14] = second
+    return (
+        "\n".join(lines).replace(
+            "Number of Surface Sections:                 1",
+            "Number of Surface Sections:                 2",
+        )
+        + "\n"
+    )
+
+
+def test_two_sections_each_keep_their_own_edge_count_and_number():
+    """The multi-block path, on a text derived from the observed export."""
+    from pyflightstream.results import parse_surface_sections
+
+    report = parse_surface_sections(_two_sections(read_fixture("all_surface_sections_26.123.txt")))
+    assert report.declared_count == 2
+    assert [(section.index, section.edges, section.count) for section in report.sections] == [
+        (1, 12, 12),
+        (2, 12, 12),
+    ]
+    assert report.points == 24
+
+
+def test_a_second_section_without_its_own_edge_count_is_refused():
+    """The section half of the cleared-count rule (see the streamline one)."""
+    from pyflightstream.results import parse_surface_sections
+
+    lines = _two_sections(read_fixture("all_surface_sections_26.123.txt")).splitlines()
+    marker = lines.index("Surface cross-section 2")
+    assert lines[marker - 1] == "Edges=12"
+    del lines[marker - 1]
+    with pytest.raises(MalformedOutputError, match="no 'Edges=' line above it"):
+        parse_surface_sections("\n".join(lines) + "\n")
+
+
+def test_a_second_section_that_declares_a_different_edge_count_is_checked_alone():
+    """Each block is measured against ITS OWN count, not against its neighbour's.
+
+    The count of block N+1 is printed before the marker that closes block N,
+    so a parser that closes on the marker after consuming the count stamps
+    every block with its successor's number. Giving the second section an
+    edge count that does not match its rows is what makes that visible: the
+    first section must still pass and the second must not.
+    """
+    from pyflightstream.results import parse_surface_sections
+
+    text = _two_sections(read_fixture("all_surface_sections_26.123.txt"))
+    lines = text.splitlines()
+    marker = lines.index("Surface cross-section 2")
+    lines[marker - 1] = "Edges=11"
+    with pytest.raises(IncompleteOutputError, match="section 2 .* declares 11 edge"):
+        parse_surface_sections("\n".join(lines) + "\n")
+
+
+def test_a_short_row_is_incomplete_and_a_wide_row_is_a_changed_layout():
+    """The two arities fail differently because they mean different things."""
+    from pyflightstream.results import parse_force_distributions
+
+    text = read_fixture("force_distributions_26.123.txt")
+    row = text.splitlines()[29]
+    assert text.count(row) == 1 and row.strip().startswith("1,")
+    with pytest.raises(IncompleteOutputError, match="ends part way through a row"):
+        parse_force_distributions(text.replace(row, row.rsplit(",", 1)[0]))
+    with pytest.raises(MalformedOutputError, match="the table layout changed"):
+        parse_force_distributions(text.replace(row, row + ", 0.0"))
+
+
+def test_a_cell_that_is_not_a_number_names_the_row_and_the_column():
+    """Didactic policy: the message says which value of which column."""
+    from pyflightstream.results import parse_force_distributions
+
+    text = read_fixture("force_distributions_26.123.txt")
+    row = text.splitlines()[29]
+    broken = row.replace("0.8734723819011840E-04", "Coefficients")
+    assert broken != row
+    with pytest.raises(MalformedOutputError, match=r"row 1 .* in column 'Cx'"):
+        parse_force_distributions(text.replace(row, broken))
+
+
+def test_a_boundary_index_that_is_not_a_whole_number_is_refused():
+    """The Boundary column indexes the mesh boundaries, counting from one."""
+    from pyflightstream.results import parse_force_distributions
+
+    text = read_fixture("force_distributions_26.123.txt")
+    row = text.splitlines()[29]
+    for bad in ("1.5,", "0,", "-1,"):
+        with pytest.raises(MalformedOutputError, match="whole boundary index"):
+            parse_force_distributions(text.replace(row, row.replace("1,", bad, 1)))
+
+
+def test_no_new_parser_reads_another_export_as_its_own():
+    """The whole confusion matrix, on every committed export of this package.
+
+    THE CLASS OF DEFECT THIS PREVENTS HAS HAPPENED HERE: the committed probe
+    fixture parsed cleanly as an unsteady plot history and returned twelve
+    "time steps" that were twelve positions in space. Every one of these
+    formats is a comma table of numbers under a header, so nothing but the
+    anchors distinguishes them, and an anchor is only a distinguisher if it
+    is measured against the other files.
+
+    The diagonal must be the only thing that reads, and each refusal must be
+    a catalogued class (FR-39) rather than an IndexError from reading a row
+    of the wrong width.
+    """
+    from pyflightstream._errors import PyflightstreamError
+    from pyflightstream.results import (
+        parse_force_distributions,
+        parse_off_body_streamlines,
+        parse_solver_analysis_csv,
+        parse_surface_sections,
+        parse_sweep_spreadsheet,
+    )
+
+    owner = {
+        "force_distributions_26.123.txt": parse_force_distributions,
+        "off_body_streamlines_26.123.txt": parse_off_body_streamlines,
+        "all_surface_sections_26.123.txt": parse_surface_sections,
+        "sweeper_spreadsheet_26.123.txt": parse_sweep_spreadsheet,
+        "solver_analysis_26.123.csv": parse_solver_analysis_csv,
+    }
+    strangers = ["loads_steady_26.120.txt", "probe_points_26.120.txt"]
+    checked = 0
+    for fixture in [*owner, *strangers]:
+        text = read_fixture(fixture)
+        for name, parser in owner.items():
+            if name == fixture:
+                parser(text)
+                continue
+            with pytest.raises(PyflightstreamError):
+                parser(text)
+            checked += 1
+    assert checked == 7 * 5 - 5, f"the matrix covered {checked} off-diagonal cells"
+
+
+def test_the_csv_refuses_a_labelled_text_export():
+    """Four bare columns of numbers, or it is a different export entirely."""
+    from pyflightstream.results import parse_solver_analysis_csv
+
+    with pytest.raises(MalformedOutputError, match="software footer"):
+        parse_solver_analysis_csv(read_fixture("loads_steady_26.120.txt"))
+
+
+def test_the_csv_refuses_a_row_that_is_not_four_numbers():
+    """Including a header row, which this export never writes."""
+    from pyflightstream.results import parse_solver_analysis_csv
+
+    text = read_fixture("solver_analysis_26.123.csv")
+    with pytest.raises(MalformedOutputError, match="not a solver-printed number"):
+        parse_solver_analysis_csv("x, y, z, Cp\n" + text)
+    with pytest.raises(MalformedOutputError, match="the table layout changed"):
+        parse_solver_analysis_csv("1.0, 2.0, 3.0, 4.0, 5.0\n")
+    with pytest.raises(IncompleteOutputError, match="ends part way through a row"):
+        parse_solver_analysis_csv("1.0, 2.0, 3.0\n")
+    with pytest.raises(IncompleteOutputError, match="holds no row at all"):
+        parse_solver_analysis_csv("   \n\n")
+    with pytest.raises(MalformedOutputError, match="declared as blank"):
+        parse_solver_analysis_csv(text, field="   ")
+
+
+def test_the_owed_tranche_is_the_boundary_layer_profile_alone():
+    """One format still owed, and its note says why the SOLVER is the reason.
+
+    That distinction is the whole content of the entry: every other owed
+    format was owed a capture, and this one has had two licensed runs spent
+    on it. A note reading "no observed export captured" would send the next
+    reader to spend a third.
+    """
+    from pyflightstream.results import EXPORT_CONVERSIONS, EXPORT_OWED
+
+    owed = {
+        command: entry
+        for command, entry in EXPORT_CONVERSIONS.items()
+        if entry.verdict == EXPORT_OWED
+    }
+    assert set(owed) == {"EXPORT_BL_VELOCITY_PROFILE"}
+    note = owed["EXPORT_BL_VELOCITY_PROFILE"].note
+    assert "never been observed" in note
+    assert "RPT-027" in note, "the note points at the report that measured the cause"
+    assert "modal window" in note
+    assert "1800" in note and "240" in note, "both bounded runs are named"
+
+
+def test_every_default_set_export_now_has_a_parser_and_a_conversion():
+    """The acceptance of PFS-2014.02, read off the classification itself.
+
+    Default set means: not excluded, and not one of the two entries that
+    export nothing. Every member of it but one names a parser, that parser
+    resolves to a callable, and the one that does not is the format the
+    solver will not write unattended.
+    """
+    import importlib
+
+    from pyflightstream.results import (
+        EXPORT_CONVERSIONS,
+        EXPORT_EXCLUDED,
+        EXPORT_NOT_AN_EXPORT,
+        EXPORT_PARSED,
+    )
+
+    default_set = {
+        command: entry
+        for command, entry in EXPORT_CONVERSIONS.items()
+        if entry.verdict not in (EXPORT_EXCLUDED, EXPORT_NOT_AN_EXPORT)
+    }
+    assert len(default_set) == 11, (
+        f"the default set resolved {len(default_set)} command(s); eighteen exports "
+        "less five excluded and two that export nothing is eleven"
+    )
+    parsed = {
+        command: entry.parser
+        for command, entry in default_set.items()
+        if entry.verdict == EXPORT_PARSED
+    }
+    assert len(parsed) == 10, f"ten of the eleven are parsed today, not {len(parsed)}"
+    for command, dotted in parsed.items():
+        assert dotted is not None
+        module_name, _, attribute = dotted.rpartition(".")
+        assert callable(getattr(importlib.import_module(module_name), attribute, None)), (
+            f"{command} claims {dotted!r} reads it"
+        )
+    # Both surface-section commands are read by one parser, on the evidence
+    # of two observed files that carry the same format.
+    assert (
+        parsed["EXPORT_SURFACE_SECTIONS"]
+        == parsed["EXPORT_ALL_SURFACE_SECTIONS"]
+        == "pyflightstream.results.parse_surface_sections"
+    )
+
+
+def test_every_new_public_name_is_exported():
+    """A parser reachable only by its dotted path is not part of the API."""
+    from pyflightstream import results
+
+    for name in (
+        "ExportSolution",
+        "FORCE_DISTRIBUTION_COLUMNS",
+        "ForceDistributionReport",
+        "OFF_BODY_STREAMLINE_COLUMNS",
+        "OffBodyStreamline",
+        "OffBodyStreamlinesReport",
+        "SOLVER_ANALYSIS_CSV_COLUMNS",
+        "SOLVER_ANALYSIS_CSV_FIELD_UNSTATED",
+        "SURFACE_SECTION_COLUMNS",
+        "SWEEP_COLUMNS",
+        "SolverAnalysisCsvReport",
+        "SurfaceSection",
+        "SurfaceSectionsReport",
+        "SweepSpreadsheetReport",
+        "parse_force_distributions",
+        "parse_off_body_streamlines",
+        "parse_solver_analysis_csv",
+        "parse_surface_sections",
+        "parse_sweep_spreadsheet",
+    ):
+        assert name in results.__all__, f"{name} is public and missing from __all__"
+        assert hasattr(results, name)
+
+
+def _assert_same_report(under_crlf, under_lf, parser_name, fixture_name):
+    """Compare two parsed reports field by field, arrays included.
+
+    A plain ``==`` on these records is not merely inconvenient, it is
+    WRONG in the direction that matters: the reports hold numpy arrays,
+    so dataclass equality raises ``ValueError: the truth value of an
+    array ... is ambiguous``. Found by writing the naive version first
+    and watching it fail; a version that had caught that exception and
+    called it a difference, or swallowed it and called it a match, would
+    have reported on nothing.
+    """
+    import dataclasses
+
+    assert type(under_crlf) is type(under_lf), (
+        f"{parser_name} returned different TYPES for {fixture_name} under the two "
+        f"line endings: {type(under_crlf).__name__} and {type(under_lf).__name__}"
+    )
+    fields = dataclasses.fields(under_crlf)
+    assert fields, f"{type(under_crlf).__name__} has no fields, so this compared nothing"
+    for field in fields:
+        left = getattr(under_crlf, field.name)
+        right = getattr(under_lf, field.name)
+        _assert_same_value(left, right, f"{parser_name}.{field.name}", fixture_name)
+
+
+def _assert_same_value(left, right, where, fixture_name):
+    """Compare two parsed values, descending into records and sequences.
+
+    THE RECURSION IS NOT GENERALITY FOR ITS OWN SAKE. Two of these
+    reports hold a TUPLE OF RECORDS, one per streamline and one per
+    surface section, and each of those records holds the array. A
+    comparison that stopped at the report's own fields would hit the same
+    ambiguous-array `ValueError` one level down, which is exactly what it
+    did before this function existed.
+    """
+    import dataclasses
+
+    if isinstance(left, np.ndarray) or isinstance(right, np.ndarray):
+        assert np.array_equal(left, right, equal_nan=True), (
+            f"{where} is a different array for {fixture_name} under CRLF"
+        )
+        return
+    if dataclasses.is_dataclass(left) and not isinstance(left, type):
+        assert type(left) is type(right), (
+            f"{where} is {type(left).__name__} under CRLF and "
+            f"{type(right).__name__} under LF for {fixture_name}"
+        )
+        for field in dataclasses.fields(left):
+            _assert_same_value(
+                getattr(left, field.name),
+                getattr(right, field.name),
+                f"{where}.{field.name}",
+                fixture_name,
+            )
+        return
+    if isinstance(left, (list, tuple)) and not isinstance(left, str):
+        assert len(left) == len(right), (
+            f"{where} holds {len(left)} entries under CRLF and {len(right)} under LF "
+            f"for {fixture_name}"
+        )
+        for position, (one, other) in enumerate(zip(left, right, strict=True)):
+            _assert_same_value(one, other, f"{where}[{position}]", fixture_name)
+        return
+    assert left == right, (
+        f"{where} differs for {fixture_name} under CRLF: {left!r} against {right!r}. "
+        "A trailing carriage return on the last column of every row is the usual "
+        "shape of this"
+    )
+
+
+def test_every_new_parser_reads_the_line_ending_the_solver_actually_writes():
+    """The gap the fixture pin creates, closed by construction.
+
+    `tests/test_matrix.py` pins `tests/fixtures/** text eol=lf`, so every
+    fixture is LF in the index AND LF in the checkout, which is what
+    makes a case read the same file on every platform. The seven
+    captures this release added arrived from the solver as CRLF and were
+    normalised on the way in, exactly as the pin intends.
+
+    The consequence is a coverage hole nobody would see: tier 1 then
+    exercises a line ending the solver never writes on the machine these
+    parsers run on. Storing a second CRLF copy of each fixture would
+    close it and would defeat the pin, so the variant is CONSTRUCTED
+    here, which is the remedy the pin's own docstring names for the two
+    cases that failed this way on 2026-08-19.
+
+    What this asserts is EQUALITY of the parsed result, not merely that
+    the CRLF form parses. A parser that read CRLF into a trailing `\r`
+    on the last column of every row would still "parse"; it would return
+    strings nobody can compare and floats nobody can subtract.
+
+    WHERE THE ROBUSTNESS ACTUALLY LIVES, measured by mutation rather than
+    assumed, because the answer was not the obvious one. Rewriting every
+    `.splitlines()` in the parsers to `.split(chr(10))`, which is the
+    textbook shape of this defect and leaves the carriage return on every
+    row, SURVIVES this case. So does removing the per-cell `.strip()`
+    from the row split. The property is over-determined: `float()`
+    absorbs a trailing carriage return on its own, so a numeric column
+    survives two independent mechanisms failing.
+
+    What this case DOES deny is a mutant on the column HEADER, which is
+    compared as text and never passes through a numeric conversion:
+    dropping the `.strip()` where the pinned columns are read makes the
+    CRLF file name its last column `Czv\r` and the LF file name it
+    `Czv`, and this case fails naming the field. That is the honest
+    scope of the guard, and it is written here so a reader does not
+    mistake it for a tight coupling to `splitlines()`.
+    """
+    cases = (
+        ("force_distributions_26.123.txt", parse_force_distributions),
+        ("off_body_streamlines_26.123.txt", parse_off_body_streamlines),
+        ("all_surface_sections_26.123.txt", parse_surface_sections),
+        ("surface_sections_26.120.txt", parse_surface_sections),
+        ("sweeper_spreadsheet_26.123.txt", parse_sweep_spreadsheet),
+        ("solver_analysis_26.123.csv", parse_solver_analysis_csv),
+    )
+    for name, parser in cases:
+        text = read_fixture(name)
+        assert "\r\n" not in text, (
+            f"{name} carries CRLF in the checkout, so the pin that should have "
+            "normalised it is not covering it and this case is comparing a file "
+            "with itself"
+        )
+        crlf = text.replace("\n", "\r\n")
+        assert crlf != text, f"{name} has no line breaks at all, so nothing was varied"
+        _assert_same_report(parser(crlf), parser(text), parser.__name__, name)

@@ -199,6 +199,88 @@ adds or strips.
 exception catalog, deriving from `PyflightstreamError` and keeping
 `RuntimeError` as its standard-library base.
 
+**BREAKING FOR AN INSTALL FOOTPRINT, not for any code: `trimesh` becomes a
+RUNTIME dependency** (PFS-2025.20, PFS-2025.20.02), pinned `>=4.12,<6`. It was
+previously behind the `[geom]` extra and is now installed by `pip install
+pyflightstream` with nothing named. Cost, measured rather than assumed: ONE new
+distribution and 3.89 MiB, and the hard dependency it drags is `numpy>=1.21`,
+which this package already requires. A fresh install resolves 5.0.0, not the
+4.12.2 a development tree happens to carry, which is why the envelope declares
+both ends and a test asserts the installed version falls inside it.
+
+Read that against `NFR-06`, which says the runtime dependency count does not
+grow, because this release AMENDS it rather than quietly stepping over it. The
+reason is recorded with the amendment: extracting a trailing edge is on the
+default path of a rotor campaign, and a capability gated behind an extra makes
+the library promise what a default install cannot do. The rejected candidates
+are recorded too. `meshio` was refused on the committed weight budget, at five
+new distributions and 12.26 MiB against limits of one and five, one of them a
+syntax highlighter; `numpy-stl` was refused on capability and explicitly NOT
+measured, since it reads STL where this package's seam is OBJ and it supplies no
+face adjacency at all; an in-house reader was refused on the standing
+engineering policy that prefers a public library for a generic need.
+
+A BASE INSTALL CAN NOW MARK A TRAILING EDGE END TO END, and two independent
+proofs say so rather than one (PFS-2025.20.03): a CI job that installs `[dev]`
+alone, and an in-suite child interpreter whose meta-path REFUSES `scipy`,
+`rtree`, `PyNite`, `pypdf` and `matplotlib` and then runs the whole route.
+
+**BREAKING FOR A CONSTRAINT, and it is a constraint being LIFTED: one run
+matrix may now name several solver builds** (PFS-2009.05). A matrix whose
+active rows named two `FS_BUILD` values was refused outright, on the ground
+that a campaign binds to exactly one installation. It runs now, and each
+point's record names in `fs_exe` and `fs_exe_sha256` the executable ITS OWN
+ROW asked for, with its script emitted under that build's declared version.
+
+The version is a DECLARATION and never an inference, which is why
+`inputs/executables.toml` grew a second entry shape rather than the code
+growing a guess:
+
+```toml
+"26.120" = "C:/builds/26120/FlightStream.exe"
+"26.123" = { path = "C:/builds/26123/FlightStream.exe", version = "26.123" }
+```
+
+A bare path means exactly what it has always meant and declares no version, so
+every registry written before this release is byte-identical in behaviour; the
+table declares the version that build's scripts are emitted under. An unknown
+key inside the table is REFUSED naming itself and listing the keys that are
+read, because a silently ignored `verison` is how a run gets emitted under the
+wrong version while the file looks correct. The declared version is checked
+against the version registry when the file is READ, so the refusal points at
+the file that is wrong rather than at the first emission that fails.
+
+One asymmetry is deliberate and documented at the call: a registry entry never
+overrules the caller's `default_fs_version` for a row that names NO build. A
+silent row falls back to the campaign default, as it always has.
+
+`pyflightstream.workspace` gains `resolve_build` and `RegisteredBuild`, and
+`CampaignWorkspace.resolve_build` beside the unchanged `resolve_executable`.
+`ResolvedMatrix` gains `builds` beside an unchanged `fs_exe`.
+
+READ THE RESIDUAL WITH IT, because it is stated rather than left to be found:
+the PRE-FLIGHT still plans under one version. `plan_matrix` has no executor and
+`run_matrix` pre-flights before its executors exist, so a two-build matrix is
+planned against `default_fs_version` and run against each row's own. Both
+docstrings say so. Closing it means constructing executors ahead of the
+pre-flight, which would trade away pre-flighting away from the licensed
+machine.
+
+**New module `pyflightstream.workspace.trailing_edges`** (PFS-2025.16,
+PFS-2025.20). It extracts a trailing edge from a mesh and writes it as the NODE
+LIST both documented marking routes consume, through
+`workspace.wake_edges.write_node_file`, which already existed and needed no
+change. The criterion is the AFTMOST POINT OF EACH CHORDWISE SECTION in the
+rotor frame, computed here rather than delegated: a dihedral-angle threshold is
+the crease criterion, which is exactly what this capability exists to escape,
+because a strongly twisted blade has a trailing edge that is not a crease.
+Coordinates are an `(n, 3)` array in a declared length unit, and the frame is
+the rotor's.
+
+`pyflightstream._mesh` is where the mesh library is imported, through ONE lazy
+accessor, on the precedent `_digest.py` set: it sits below every layer rather
+than becoming a third hand-rolled copy of the same import guard.
+
 **New public names in `pyflightstream.workspace`:**
 `CampaignWorkspace.open`, `check_unique_stems`, `STEM_REGISTERED_KINDS`,
 `expand_group`, `CampaignWorkspace.expand_group`, `reference_points`,
@@ -438,6 +520,69 @@ Deprecations: none.
 
 ### Added
 
+- **Six parsers for the exports that had none, each written against a
+  real observed file** (PFS-2014.02). `parse_force_distributions`,
+  `parse_off_body_streamlines`, `parse_surface_sections` (which answers
+  for BOTH surface-section commands, on the evidence that the two
+  captures carry the same banner, count label, twenty-column header and
+  `Edges=` block structure), `parse_sweep_spreadsheet` and
+  `parse_solver_analysis_csv`. With them: `ExportSolution`, the solution
+  block all four text formats print identically, plus one typed report
+  per format and the record types `OffBodyStreamline` and
+  `SurfaceSection`; the column pins `FORCE_DISTRIBUTION_COLUMNS`,
+  `OFF_BODY_STREAMLINE_COLUMNS`, `SURFACE_SECTION_COLUMNS`,
+  `SWEEP_COLUMNS` and `SOLVER_ANALYSIS_CSV_COLUMNS`; and
+  `SOLVER_ANALYSIS_CSV_FIELD_UNSTATED`. `to_table`, `to_csv` and
+  `write_table` accept all five.
+
+  **THE CSV'S FOURTH COLUMN IS NOT LABELLED, deliberately.** That export
+  writes no header at all, so the columns cannot be read from the file.
+  The first three are settled by MEASUREMENT rather than inference:
+  column one takes exactly the seven cosine-spaced chordwise node
+  stations of the captured mesh, column two exactly its seven spanwise
+  stations, and column three the NACA 0012 half-thickness at each, so it
+  is a node-based export as the entry's note says. The fourth is a
+  pressure coefficient and not a pressure in the units the call names,
+  which the surface-section export from the same run confirms. WHICH
+  coefficient cannot be settled: that run set the reference velocity
+  equal to the free-stream velocity, so `Cp` and `Cp_ref` are identical
+  to seven digits and the two tokens are indistinguishable from the
+  numbers. So the column is `scalar`, the caller may declare the token,
+  and the table carries `scalar_field` with the word `UNSTATED` where
+  nobody said. A word rather than an empty cell, because an empty cell
+  reads back as NaN.
+
+  Two further readings are recorded in the code rather than smoothed
+  over. Every streamline in the captured file declares 31 points and
+  writes 30; nothing settles what the extra one is, so the declared
+  count is recorded verbatim and never equated with the rows, and a test
+  pins the off-by-one as a measurement so a build that changes it goes
+  red rather than silent. A section declaring zero edges is RETURNED as
+  an empty section rather than refused, because the file declares it.
+
+- **A completed sweep leaves its table beside its runs without anyone
+  asking** (PFS-2014.03). `run_campaign` writes `post/campaign_sweep.csv`
+  at the end of its third pass, one row per point, with the integrated
+  forces and, for an unsteady point, the solver's own time average with
+  the window token beside it, so no row is ambiguous about what produced
+  its numbers.
+
+  TWO THINGS ABOUT WHEN IT IS WRITTEN, because both are the point rather
+  than details. It is written BEFORE `CampaignErrors` is raised, so a
+  campaign whose every point failed still leaves the table this exists to
+  leave. And a failed write costs the campaign nothing: it is reported as
+  a warning naming the exception, the target and the call that rebuilds
+  the table, because a sweep that ran is not undone by a table that did
+  not.
+
+- **The two field writers and the coupling drivers refuse a silent
+  overwrite** (PFS-2011.02). The VTK and Tecplot point writers refuse an
+  existing path naming the file, with `overwrite=True` the only way
+  through; a script emitting the same probe export path twice is refused
+  naming BOTH call sites rather than the second one; and `coupling_step`
+  refuses a run folder that holds a convergence log with no state beside
+  it, naming the log. Each refusal names what to do instead.
+
 - **An explicit classification of every export command, with the debt
   named one file at a time** (PFS-2014.02). `results.EXPORT_CONVERSIONS`
   says which exports read and tabulate, which formats are deliberately
@@ -445,12 +590,27 @@ Deprecations: none.
   write no file at all, and which are debt; `require_export_parser`
   refuses each missing one BY NAME rather than in the aggregate.
 
-  READ THE COUNT WITH IT, because the acceptance sentence is not yet
-  true and this release does not claim it is. Four of the eleven
-  default-set exports read and tabulate. Seven have no parser, and each
-  needs one real export from a licensed run to pin its columns against;
-  fabricating a fixture for a format nobody has seen is what the parser
-  that DID land this cycle marks as synthetic in its own first line.
+  READ THE COUNT WITH IT. **Ten of the eleven default-set exports now
+  read and tabulate**, up from four, and the eleventh is not an omission:
+  `EXPORT_BL_VELOCITY_PROFILE` is the one format nobody has observed,
+  because the solver HANGS on it. Measured three times, on both builds
+  that document the command, on a mesh that solves in two seconds: 26.123
+  at 1800 s, 26.123 at 240 s with the probe moved off a panel boundary,
+  and 26.122 at 180 s. Every earlier export in the same script is written
+  in the first two seconds and the log shows the run reaching the command
+  and writing nothing after it (`reports/RPT-037`). Its classification
+  note now carries that reason in place of "no observed export
+  captured", which had come to read as though nobody had tried. No status
+  moved: `broken` travels only through the sanctioned probe path.
+
+  Every new parser is written against a REAL observed export, captured on
+  a licensed solver and committed as a fixture. The captures are
+  deliberately small: the same wing at 6 by 6 panels writes the same
+  FORMAT in a few kilobytes, where the mesh a physics reference wants
+  produces a 508 KiB force distribution. A parser is pinned by the shape
+  of a table, its header, its terminator and its column names, and none
+  of those vary with panel count; no coefficient in any of those fixtures
+  is evidence of anything.
 
 - **A Tier 1 guard binding the examples run's promotion to the categories
   the package actually raises.** It derives the six command homes from
@@ -1111,9 +1271,16 @@ Deprecations: none.
   `[tool.mypy]` header has promised since 2026-08-03 that an exemption is
   removed as its module is typed and never added, and this is that
   direction happening rather than being restated. The re-count moves with
-  it: mypy recount 2026-08-19: 274 errors in 20 of 71 modules, where the tree carried 275 in 21 of
-  64 the day before, and the four records that state it move together
-  because a tier-1 guard compares them.
+  it: mypy recount 2026-08-20: 276 errors in 20 of 73 modules, where the
+  tree carried 275 in 21 of 64 two days before, and the four records that
+  state it move together because a tier-1 guard compares them.
+
+  It was re-measured a THIRD time on 2026-08-20, when this release's last
+  two modules landed and the module-total guard went red exactly as
+  designed. `scripts/mypy_recount.py` emits every figure the report
+  states from ONE run now, so the failure that started this, a sentence
+  retyped while the tool output beside it was not, cannot be repeated by
+  hand.
 
 - **The FSI persisted state and its convergence log name the digest
   `config_sha256` rather than `config_hash`** (OPS-2009.01.14). A
@@ -1628,14 +1795,32 @@ Deprecations: none.
   named the remedy and the guide takes it; the word table deliberately
   stops at twenty and says why.
 
-- **A trailing-edge parameter's fifth field is recorded where a reader
-  would look for it** (PFS-2026.06). The newest edition gives the relaxed
-  trailing-edge component parameter an integer shedding direction, axial
-  by default and azimuthal otherwise. No scripting command on any
-  registered build takes that direction and this package writes no
-  component file, so nothing emits it, and no status, manual reference or
-  version row moved. It is recorded so a reader meeting the parameter in
-  the manual does not conclude the omission here was ours.
+- **A trailing-edge parameter's fifth field is READ, RESTATED and
+  reachable from a rotor row** (PFS-2026.06). The newest edition gives
+  the relaxed trailing-edge component parameter an integer shedding
+  direction, axial by default and azimuthal otherwise.
+  `script.helpers.parse_relaxed_trailing_edge` reads a specification in
+  either shape, `RelaxedTrailingEdge.render()` writes it back, and
+  `cases.workflows.rotor_relaxed_trailing_edges` restates a rotor case's
+  specifications in the direction its `ROTOR_SHEDDING` cell asks for.
+
+  READ THE BOUNDARY WITH IT, because this bullet said the opposite half
+  of it until 2026-08-20 and both halves are true. NO SCRIPTING COMMAND
+  on any registered build takes the direction, so the emitted script is
+  byte-identical with and without the cell, and no status, manual
+  reference or version row moved. And THIS PACKAGE STILL WRITES NO
+  COMPONENT FILE: the restated specifications are returned as text for
+  the caller to write where their geometry keeps them. Whether the
+  package should own that file is a product-owner question and is still
+  open.
+
+  The four-field form is not silently widened. A specification parsed
+  with four fields renders with four, and asking for the axial direction
+  on one that leaves the field unwritten returns it unchanged, because
+  writing the 0 would hand a five-field specification to a build that
+  reads four. A direction a row invents is refused before the first
+  emission, naming the case, the key, the value and both accepted
+  directions.
 
 - **`reports/compat/README.md` gained three sections** (PFS-2026.15,
   PFS-2026.16, PFS-2026.17): which binary produced a report and why the

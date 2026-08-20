@@ -23,7 +23,7 @@ one way, from here into the campaign loop.
 from __future__ import annotations
 
 import warnings
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
 
 from pyflightstream._errors import PyflightstreamDeprecationWarning
@@ -137,6 +137,7 @@ def _bind_row_builds(
     resolved: ResolvedMatrix,
     default: str,
     executor: Executor,
+    executor_for: Callable[[Path], Executor],
 ) -> tuple[Campaign, dict[str, SolverBuild] | None]:
     """Carry the matrix's build provenance into the campaign that runs.
 
@@ -155,24 +156,48 @@ def _bind_row_builds(
     is the campaign's own installation and what the loop records as
     ``campaign_default``.
 
-    WHAT THE MAPPED BUILD DOES NOT CHANGE is the version. Every
-    :class:`~pyflightstream.run.SolverBuild` here declares ``default``,
-    the campaign default version, exactly as the campaign does, so the
-    scripts of every point are emitted under the same version they always
-    were and the identity pre-flight asks the same question of the same
-    executable. A build id is a key of the workspace executable registry;
-    reading it as a command-database version would be the inference
-    :class:`~pyflightstream.run.SolverBuild` exists to refuse.
+    WHAT THE MAPPED BUILD CHANGES, since PFS-2009.05, is the
+    installation AND the version, one row at a time. Each build takes
+    the executable its own registry entry names and the version that
+    entry DECLARES, so a matrix whose rows name two builds runs each row
+    on the installation it asked for and emits its script under that
+    installation's version. This paragraph said the opposite until that
+    item, that the version was always ``default`` and that a build id
+    could never move it, and the sentence was true of the code beside
+    it: the mapping gave every build the campaign's one executable.
+
+    NOTHING HERE IS INFERRED, which is the part that did not change. A
+    build id is still a key of the workspace registry and still says
+    nothing about a command database; what carries the version is the
+    ``version`` key of that build's registry entry, written by the same
+    person who wrote the path. A build whose entry declares none falls
+    back to ``default``, so a registry of bare path strings, which is
+    every registry written before that item, produces exactly the
+    mapping this function produced before it.
+
+    AN EXECUTOR IS BOUND TO AN EXECUTABLE at construction, so a second
+    installation needs a second executor and this function cannot make
+    one: whether the caller wants a
+    :class:`~pyflightstream.run.LocalExecutor` and with which window
+    setting is a decision one layer up. It is passed in as
+    ``executor_for`` and called ONCE PER DISTINCT EXECUTABLE, with the
+    campaign's own executor answering for its own executable, so a
+    single-build matrix constructs nothing extra.
 
     Parameters
     ----------
     resolved : pyflightstream.workspace.matrix.ResolvedMatrix
-        The bound matrix, carrying ``row_builds``.
+        The bound matrix, carrying ``row_builds`` and ``builds``.
     default : str
-        The campaign default version, declared by every build.
+        The campaign default version, declared by every build whose
+        registry entry declares none of its own.
     executor : pyflightstream.run.Executor
-        The executor every point runs through; the matrix binds to one
-        installation, so one executor answers for every build id here.
+        The campaign's own executor, which is the one bound to
+        ``resolved.fs_exe``.
+    executor_for : callable
+        Builds the executor of one build's executable, given that
+        executable as a :class:`pathlib.Path`. Called only for an
+        executable that is not the campaign's own.
 
     Returns
     -------
@@ -180,6 +205,14 @@ def _bind_row_builds(
         The campaign to run and the ``builds`` mapping it needs. None
         means no active row named a build, so nothing is mapped and the
         campaign is returned untouched.
+
+    Raises
+    ------
+    pyflightstream.cases.matrix.MatrixError
+        The bound matrix names a build in ``row_builds`` that its
+        ``builds`` mapping does not carry, which
+        :func:`~pyflightstream.workspace.matrix.resolve_matrix` never
+        produces and a hand-built ``ResolvedMatrix`` can.
     """
     campaign = resolved.campaign
     row_builds = resolved.row_builds
@@ -189,11 +222,30 @@ def _bind_row_builds(
         case if build is None else case.model_copy(update={"fs_build": build})
         for case, build in zip(campaign.sims, row_builds, strict=True)
     ]
-    builds = {
-        build: SolverBuild(fs_exe=resolved.fs_exe, fs_version=default, executor=executor)
-        for build in row_builds
-        if build is not None
-    }
+    # Keyed by EXECUTABLE rather than by build id, because two build ids
+    # may name one installation and building a second executor for it
+    # would double the identity pre-flight it pays for.
+    executors: dict[Path, Executor] = {Path(resolved.fs_exe): executor}
+    builds: dict[str, SolverBuild] = {}
+    for build in row_builds:
+        if build is None or build in builds:
+            continue
+        registered = resolved.builds.get(build)
+        if registered is None:
+            raise MatrixError(
+                f"the bound matrix reports build {build!r} in row_builds and carries no "
+                "entry for it in builds, so nothing says which executable that row runs "
+                "on. resolve_matrix always fills both together; a ResolvedMatrix built "
+                "by hand has to do the same."
+            )
+        exe = Path(registered.fs_exe)
+        if exe not in executors:
+            executors[exe] = executor_for(exe)
+        builds[build] = SolverBuild(
+            fs_exe=exe,
+            fs_version=registered.fs_version or default,
+            executor=executors[exe],
+        )
     return campaign.model_copy(update={"sims": sims}), builds
 
 
@@ -218,6 +270,16 @@ def plan_matrix(
     every script builds in dry run, and points already in the manifest
     are marked ALREADY_RECORDED, exactly what
     ``run_matrix(..., resume=True)`` would skip.
+
+    ONE RESIDUAL, stated rather than discovered: every point is
+    pre-flighted under ``default_fs_version``, including a point whose
+    row names a build whose registry entry declares a version of its own
+    (PFS-2009.05). Binding those builds needs one executor per
+    installation, an executor refuses a path that is not there, and
+    pre-flighting away from the licensed machine is what this function
+    is for. So a multi-build matrix is pre-flighted under one version
+    and run under each build's own, and a command that differs between
+    them is met at run time rather than here.
 
     Parameters
     ----------
@@ -326,7 +388,13 @@ def run_matrix(
     executor : pyflightstream.run.Executor, optional
         Replacement executor; by default a
         :class:`pyflightstream.run.LocalExecutor` is built from the
-        resolved executable.
+        resolved executable. Given one, it answers for EVERY row,
+        including a row whose FS_BUILD cell names a second installation:
+        a caller who hands in an executor has bound the run to it, and
+        building a local executor beside it would send some rows to a
+        process the caller never asked for. Left out, one local executor
+        is built per distinct executable the matrix names, each with the
+        window setting ``hidden`` resolves to.
     recipe_registry : dict of str to ScriptRecipe, optional
         Named recipe registry (name to callable), forwarded to the
         pre-flight and the campaign loop.
@@ -350,13 +418,20 @@ def run_matrix(
         The records executed by this call, in execution order. Each one
         names the installation it ran on (``fs_exe``, hashed into
         ``fs_exe_sha256``), the version its script was emitted under
-        (``fs_version_requested``, the campaign default), and which of
-        the two possible sources chose the installation
-        (``fs_version_source``: ``row`` for a point whose FS_BUILD cell
-        named the build, ``campaign_default`` for one that named none
-        and for every point of a run given the explicit ``fs_exe``
-        override, which overrules the column). Those three reproduce the
-        run without the matrix (PFS-2009.08.02).
+        (``fs_version_requested``), and which of the two possible
+        sources chose the installation (``fs_version_source``: ``row``
+        for a point whose FS_BUILD cell named the build,
+        ``campaign_default`` for one that named none and for every point
+        of a run given the explicit ``fs_exe`` override, which overrules
+        the column). Those three reproduce the run without the matrix
+        (PFS-2009.08.02).
+
+        The first two are PER ROW since PFS-2009.05: a row naming a
+        build is recorded against that build's own executable, and
+        against the version its registry entry declares where it
+        declares one. A row that names none, and every row of a
+        registry written as bare path strings, is recorded against the
+        campaign default exactly as before.
 
     Raises
     ------
@@ -399,6 +474,12 @@ def run_matrix(
             f"pre-flight blocked {len(plan.blocked)} matrix point(s); nothing was "
             f"executed:\n{plan.summary()}"
         )
+    # Held before the branch below rebinds the name, because it is what
+    # tells a build's executor apart from the campaign's: a caller who
+    # supplied an executor supplied it for the whole run, whatever
+    # installation a row names, and building a LocalExecutor beside it
+    # would send some rows somewhere the caller never asked for.
+    supplied = executor
     if executor is None:
         # The matrix has a HIDDEN column and it used to be read into the
         # matrix_hidden variable and never acted on, so a row saying 0
@@ -410,12 +491,33 @@ def run_matrix(
             rows = read_matrix(path)
             hidden = all(row.hidden for row in rows) if rows else True
         executor = LocalExecutor(resolved.fs_exe, hidden=hidden)
+    windowless = bool(hidden)
+
+    def executor_for(exe: Path) -> Executor:
+        """Build the executor of one row's own installation.
+
+        The window setting is the one the campaign's own executor was
+        built with, so a second build runs the same way the first does.
+        """
+        return supplied if supplied is not None else LocalExecutor(exe, hidden=windowless)
+
     # AFTER the executor exists, because a `SolverBuild` names one, and
     # after the pre-flight above, which is planned from the resolved
-    # campaign. The two campaigns differ in nothing the plan reads: every
-    # build declares the same version the campaign does, so a point plans
-    # under the version it runs under either way (PFS-2009.08.02).
-    campaign, builds = _bind_row_builds(resolved, default, executor)
+    # campaign.
+    #
+    # THE TWO CAMPAIGNS CAN NOW DIFFER in the version a point's script is
+    # emitted under: the pre-flight above builds every script under the
+    # campaign default, while a row whose build declares a version of its
+    # own runs under that one (PFS-2009.05). It said here that they could
+    # not, and that was true while every build declared `default`. The
+    # residual is stated rather than closed because closing it means
+    # constructing the executors above the pre-flight, and an executor
+    # refuses a path that is not there, which would put an existence check
+    # ahead of the promise this function makes about a blocked plan: that
+    # a broken recipe is reported with its summary and costs no solver
+    # time. `plan_matrix` carries the same residual for the same reason
+    # and has no executor at all to offer.
+    campaign, builds = _bind_row_builds(resolved, default, executor, executor_for)
     return run_campaign(
         campaign,
         executor,

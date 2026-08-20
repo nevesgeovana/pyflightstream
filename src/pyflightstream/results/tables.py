@@ -80,16 +80,26 @@ from pyflightstream.extras import missing_extra
 from pyflightstream.results import (
     DATA_ORIGIN_CODES,
     DATA_ORIGIN_COLUMN,
+    FORCE_DISTRIBUTION_COLUMNS,
+    OFF_BODY_STREAMLINE_COLUMNS,
     PROVENANCE_COLUMNS,
     REDUCTION_CODES,
     REDUCTION_COLUMN,
     REDUCTION_WINDOW_CODES,
     REDUCTION_WINDOW_COLUMN,
+    SOLVER_ANALYSIS_CSV_COLUMNS,
+    SURFACE_SECTION_COLUMNS,
+    SWEEP_COLUMNS,
+    ForceDistributionReport,
     IncompleteOutputError,
     LoadsReport,
     MalformedOutputError,
+    OffBodyStreamlinesReport,
     ProbePointsReport,
     ResidualSample,
+    SolverAnalysisCsvReport,
+    SurfaceSectionsReport,
+    SweepSpreadsheetReport,
     UnsteadyPlotsReport,
     UnsupportedResultTypeError,
     parse_loads,
@@ -114,6 +124,19 @@ _RUN_OUTCOME_COLUMNS = (
     "residual",
     "wall_time_s",
 )
+
+#: The extra column each block-structured export's table carries in front of
+#: its pinned ones: which streamline, or which cross-section, a row belongs
+#: to. Without it the concatenated table would read as one long curve and a
+#: reader would join the last point of one block to the first of the next.
+_STREAMLINE_COLUMN = "streamline"
+_SECTION_COLUMN = "section"
+
+#: The column that says what the fourth column of a solver-analysis csv IS.
+#: That export prints no header, so the meaning is the caller's declaration
+#: and travels in the table beside the numbers rather than in a note beside
+#: the file (:func:`~pyflightstream.results.parse_solver_analysis_csv`).
+_CSV_FIELD_COLUMN = "scalar_field"
 
 # Printed sectional loads columns (asserted at parse time by the FSI
 # parser) mapped to the unit-suffixed names its dataclass documents:
@@ -169,6 +192,38 @@ def to_table(result: object) -> pd.DataFrame:
       exactly as printed. Units are per column and the export declares
       none, so nothing is converted here; the time column is in the
       unit the run's time increment is stated in.
+    - :class:`ForceDistributionReport`
+      (:func:`~pyflightstream.results.parse_force_distributions`): one
+      row per panel, columns
+      :data:`~pyflightstream.results.FORCE_DISTRIBUTION_COLUMNS` with
+      ``Boundary`` as an integer index, plus the constant
+      ``force_units`` / ``moment_units`` metadata.
+    - :class:`OffBodyStreamlinesReport`
+      (:func:`~pyflightstream.results.parse_off_body_streamlines`): one
+      row per point of every streamline, keyed by a leading
+      ``streamline`` column, then
+      :data:`~pyflightstream.results.OFF_BODY_STREAMLINE_COLUMNS`.
+    - :class:`SurfaceSectionsReport`
+      (:func:`~pyflightstream.results.parse_surface_sections`, for both
+      surface-section commands): one row per cut point of every section,
+      keyed by a leading ``section`` column, then
+      :data:`~pyflightstream.results.SURFACE_SECTION_COLUMNS`.
+    - :class:`SweepSpreadsheetReport`
+      (:func:`~pyflightstream.results.parse_sweep_spreadsheet`): one row
+      per sweep point, columns
+      :data:`~pyflightstream.results.SWEEP_COLUMNS` plus the printed
+      units.
+    - :class:`SolverAnalysisCsvReport`
+      (:func:`~pyflightstream.results.parse_solver_analysis_csv`):
+      ``x``, ``y``, ``z``, ``scalar`` and ``scalar_field``, the last
+      naming what the scalar is, because that export prints no header
+      and the file cannot say.
+
+    Those five carry PINNED columns: the layout is the solver's rather
+    than the run's, so a report whose columns have moved is refused here
+    as well as at parse time, instead of being tabulated with each value
+    under its neighbour's label.
+
     - ``SectionalLoadsReport`` (:mod:`pyflightstream.fsi.loads`,
       optional ``[fsi]`` extra): unit-suffixed columns ``offset_m``,
       ``chord_m``, ``x_qc_m``, ``z_qc_m`` [m], ``fx_n_per_m``,
@@ -202,6 +257,16 @@ def to_table(result: object) -> pd.DataFrame:
         return _probe_points_frame(result)
     if isinstance(result, UnsteadyPlotsReport):
         return _unsteady_plots_frame(result)
+    if isinstance(result, ForceDistributionReport):
+        return _force_distribution_frame(result)
+    if isinstance(result, OffBodyStreamlinesReport):
+        return _off_body_streamlines_frame(result)
+    if isinstance(result, SurfaceSectionsReport):
+        return _surface_sections_frame(result)
+    if isinstance(result, SweepSpreadsheetReport):
+        return _sweep_spreadsheet_frame(result)
+    if isinstance(result, SolverAnalysisCsvReport):
+        return _solver_analysis_csv_frame(result)
     if isinstance(result, (list, tuple)):
         if result and all(isinstance(sample, ResidualSample) for sample in result):
             return _residual_history_frame(list(result))
@@ -229,7 +294,12 @@ def to_table(result: object) -> pd.DataFrame:
         f"to_table cannot tabulate {type(result).__name__}; supported parsed "
         "results are LoadsReport (parse_loads), a list of ResidualSample "
         "(parse_residual_history), ProbePointsReport (parse_probe_points), "
-        "UnsteadyPlotsReport (parse_unsteady_plots), and SectionalLoadsReport "
+        "UnsteadyPlotsReport (parse_unsteady_plots), ForceDistributionReport "
+        "(parse_force_distributions), OffBodyStreamlinesReport "
+        "(parse_off_body_streamlines), SurfaceSectionsReport "
+        "(parse_surface_sections), SweepSpreadsheetReport "
+        "(parse_sweep_spreadsheet), SolverAnalysisCsvReport "
+        "(parse_solver_analysis_csv), and SectionalLoadsReport "
         "(pyflightstream.fsi.loads, optional [fsi] extra)"
     )
 
@@ -774,6 +844,156 @@ def _unsteady_plots_frame(report: UnsteadyPlotsReport) -> pd.DataFrame:
         origin="raw",
         reduction="none",
     )
+
+
+def _pinned_frame_columns(
+    printed: tuple[str, ...], expected: tuple[str, ...], *, what: str
+) -> list[str]:
+    """Refuse a report whose columns are not the layout this frame pins.
+
+    THE SECOND HALF OF THE PIN, and it is not redundant with the parser's.
+    The parsers refuse a header that has moved, but a report is an
+    ordinary dataclass a caller can build by hand, and one built with the
+    columns in a different order would otherwise be tabulated with the
+    numbers under the wrong labels and no complaint anywhere. The frame
+    is the last place that can still say so (PFS-2014.02).
+    """
+    if printed != expected:
+        raise MalformedOutputError(
+            f"the {what} names columns {list(printed)}, and this table pins "
+            f"{list(expected)}. The layout of this export is fixed by the solver, so a "
+            "table built from a different one would carry each value under the label of "
+            "whatever used to sit in its position"
+        )
+    return list(expected)
+
+
+def _force_distribution_frame(report: ForceDistributionReport) -> pd.DataFrame:
+    """Tabulate the per-panel force distribution under its printed names.
+
+    ``Boundary`` stays an integer column: it indexes the mesh boundaries
+    the run initialized, and a boundary index that reads back out of a
+    csv as ``1.0`` is a label pretending to be a measurement.
+    """
+    columns = _pinned_frame_columns(
+        tuple(report.columns), FORCE_DISTRIBUTION_COLUMNS, what="force distribution report"
+    )
+    frame = pd.DataFrame(report.values, columns=columns)
+    frame["Boundary"] = frame["Boundary"].astype(int)
+    frame["force_units"] = report.force_units
+    frame["moment_units"] = report.moment_units
+    return _stamped(
+        frame,
+        origin="raw",
+        reduction=reduction_for_solver_mode(report.solution.solver_mode),
+    )
+
+
+def _off_body_streamlines_frame(report: OffBodyStreamlinesReport) -> pd.DataFrame:
+    """Tabulate every streamline into one long table, keyed by streamline.
+
+    ONE FRAME RATHER THAN ONE PER STREAMLINE, with the streamline number
+    as the leading column. A tidy table is one observation per row, and
+    the observation here is a point on a curve; the key is what stops a
+    reader joining the last point of one streamline to the first of the
+    next, which is a plausible-looking curve that no flow ever followed.
+    """
+    columns = _pinned_frame_columns(
+        tuple(report.columns), OFF_BODY_STREAMLINE_COLUMNS, what="off-body streamline report"
+    )
+    blocks = [
+        pd.DataFrame(line.values, columns=columns).assign(**{_STREAMLINE_COLUMN: line.index})
+        for line in report.streamlines
+    ]
+    frame = (
+        pd.concat(blocks, ignore_index=True)
+        if blocks
+        else pd.DataFrame(columns=[*columns, _STREAMLINE_COLUMN])
+    )
+    frame = frame[[_STREAMLINE_COLUMN, *columns]]
+    # A streamline is an integration through the field at one instant, so
+    # nothing was averaged to make a point of it; the token still comes from
+    # the solver mode, which is the one place this package decides what an
+    # unsteady export's numbers are (see reduction_for_solver_mode).
+    return _stamped(
+        frame,
+        origin="raw",
+        reduction=reduction_for_solver_mode(report.solution.solver_mode),
+    )
+
+
+def _surface_sections_frame(report: SurfaceSectionsReport) -> pd.DataFrame:
+    """Tabulate every cross-section into one table, keyed by section.
+
+    Same shape and same reason as the streamline table above: a section
+    is a closed cut and concatenating two of them without the key would
+    read as one.
+    """
+    columns = _pinned_frame_columns(
+        tuple(report.columns), SURFACE_SECTION_COLUMNS, what="surface section report"
+    )
+    blocks = [
+        pd.DataFrame(section.values, columns=columns).assign(**{_SECTION_COLUMN: section.index})
+        for section in report.sections
+    ]
+    frame = (
+        pd.concat(blocks, ignore_index=True)
+        if blocks
+        else pd.DataFrame(columns=[*columns, _SECTION_COLUMN])
+    )
+    frame = frame[[_SECTION_COLUMN, *columns]]
+    return _stamped(
+        frame,
+        origin="raw",
+        reduction=reduction_for_solver_mode(report.solution.solver_mode),
+    )
+
+
+def _sweep_spreadsheet_frame(report: SweepSpreadsheetReport) -> pd.DataFrame:
+    """Tabulate the sweeper's polar, one row per sweep point.
+
+    The nearest thing here to :func:`sweep_table`, and deliberately not
+    the same table: that one is assembled by this package from a campaign
+    manifest and one loads spreadsheet per point, this one is the polar
+    the SOLVER assembled in a single sweeper run. They carry the same
+    provenance columns so the two can be compared without either having
+    to explain itself.
+    """
+    columns = _pinned_frame_columns(
+        tuple(report.columns), SWEEP_COLUMNS, what="sweeper spreadsheet report"
+    )
+    frame = pd.DataFrame(report.values, columns=columns)
+    frame["force_units"] = report.force_units
+    frame["moment_units"] = report.moment_units
+    return _stamped(
+        frame,
+        origin="raw",
+        reduction=reduction_for_solver_mode(report.solution.solver_mode),
+    )
+
+
+def _solver_analysis_csv_frame(report: SolverAnalysisCsvReport) -> pd.DataFrame:
+    """Tabulate the header-less csv, carrying what its fourth column is.
+
+    ``scalar_field`` is a column and not a note, on the same reasoning as
+    the provenance columns beside it: a reader must be able to answer
+    "what is this number" with the one file in hand. It holds whatever
+    the caller passed to
+    :func:`~pyflightstream.results.parse_solver_analysis_csv`, or
+    ``UNSTATED`` where nobody said, which is a fact rather than a gap.
+
+    ``reduction`` is ``unknown`` rather than ``none``, and the difference
+    is the whole point of that token: this export prints no solver mode,
+    so whether anything was averaged is not merely absent from the file,
+    it is unanswerable from the file. Saying ``none`` would assert a
+    direct reading that may not have happened.
+    """
+    columns = _pinned_frame_columns(
+        tuple(report.columns), SOLVER_ANALYSIS_CSV_COLUMNS, what="solver analysis csv report"
+    )
+    frame = pd.DataFrame(report.values, columns=columns)
+    frame[_CSV_FIELD_COLUMN] = report.field
+    return _stamped(frame, origin="raw", reduction=reduction_for_solver_mode(None))
 
 
 def _sectional_loads_frame(report: object) -> pd.DataFrame:

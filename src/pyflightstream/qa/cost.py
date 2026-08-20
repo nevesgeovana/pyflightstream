@@ -193,6 +193,19 @@ class PointKey:
     :func:`pyflightstream.results.tables.sweep_table` is where an axis
     becomes a column and where that collision is checked.
 
+    THE AXES ARE THE AERODYNAMIC ONES AND ONLY THOSE, because the point
+    is what the run layer recorded and the run layer records
+    :meth:`pyflightstream.cases.SweepAxis.points`. A geometry variant is
+    therefore invisible in a row: two rotations of the same mesh run
+    under one ``sim_id`` at one alpha land in ONE cell, and
+    :attr:`CostCell.wall_time_s` averages them, so the variant that got
+    slower cannot be seen. That is not a gap to close here. It is the
+    evidence-side half of the reason a geometric sweep is not allowed to
+    multiply with an aerodynamic one (PFS-2025.17): a study OF the
+    geometry is one case per geometry, and a case is a ``sim_id``, so
+    each geometry is a row of its own in this table and the comparison
+    the module exists for stays askable.
+
     Attributes
     ----------
     sim_id : str

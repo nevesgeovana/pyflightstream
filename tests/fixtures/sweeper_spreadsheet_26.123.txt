@@ -1,0 +1,38 @@
+
+
+
+
+                              Aerodynamic loads (Sweep)
+
+
+     Simulation file:                            Default.fsm
+     Angle of attack (Deg)                       4.000
+     Side-slip angle (Deg)                       .000
+     Freestream velocity (m/s)                   30.000
+     Requested solver iterations                 200
+     Solver convergence limit                     1.000E-05
+     Force solver to run all iterations           F
+     Time increment (sec)                        1.000
+     Solver model:                               Subsonic (Prandtl-Glauert)
+     Solver mode:                                Steady
+     Reference velocity (m/s)                    30.000
+     Reference length (m)                        1.000
+     Reference area (m^2)                        8.000
+     Altitude (ft)                               .000
+                                                  
+     Wake refinement size (% average mesh size)  1000.000
+     Reynolds Number                             2064607.
+     Coordinate frame for analysis:              Reference
+     Current solver iteration number:            90
+     ----------------------------------------------------------------------------------------------------
+     AOA (deg), Beta (deg), Velocity (m/sec), Cx, Cy, Cz, CL, CDi, CDo, CMx, CMy, CMz
+     ----------------------------------------------------------------------------------------------------
+     +.0000,+.0000,+30.0000,-.0125,+.0000,+.0000,+.0000,-.0125,+.0000,+.0000,-.0000,+.0000,
+     +2.0000,+.0000,+30.0000,-.0125,+.0000,+.1243,+.1247,-.0082,+.0000,+.0000,-.0535,+.0000,
+     +4.0000,+.0000,+30.0000,-.0127,+.0000,+.2482,+.2485,+.0046,+.0000,+.0000,-.1068,+.0000,
+     ----------------------------------------------------------------------------------------------------
+     Force Units: Coefficients
+     Moment Units: Coefficients
+     Software : Flightstream version 26.1, build #8112026
+     Company  : Altair
+     Date: 8/20/2026, Time: 0710 hours (local)

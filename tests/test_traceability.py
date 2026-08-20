@@ -13,7 +13,7 @@ the other: a ``requirement`` marker declares that a test FALSIFIES a
 requirement, every marker must resolve to a live identifier, and the
 covered set is a ratchet.
 
-Read as a RATCHET rather than as closure, because it is not closure. 96
+Read as a RATCHET rather than as closure, because it is not closure. 99
 requirements exist and the marked set is a fraction of them. Naming a
 requirement on a test that does not actually falsify it would be worse
 than leaving it unmarked, so the set grows as each one is verified by
@@ -40,7 +40,15 @@ INDEX = REPO / "reports" / "requirements-index.json"
 #: The covered set may only GROW. This is the floor, raised in the same
 #: commit that marks a new requirement, exactly like the coverage floor
 #: in pyproject: the measurement is the fact and this is the promise.
-MARKED_FLOOR = 13
+#:
+#: 13 until 2026-08-20, when OPS-2005.10.03 published FR-33d, FR-33e and
+#: FR-33f and marked the wording pin of each in
+#: `tests/test_error_messages.py`. Three requirements and three markers
+#: in one commit, which is the only shape in which this number moves by
+#: more than one honestly: a marker was written for each because the
+#: requirement was new, not a requirement claimed because a marker
+#: existed.
+MARKED_FLOOR = 16
 
 
 def _marked() -> dict[str, list[str]]:
@@ -92,7 +100,7 @@ def test_every_marker_resolves_to_a_live_requirement():
 
 
 def test_the_marked_set_only_grows():
-    """The ratchet. 96 requirements exist and the marked set is a fraction.
+    """The ratchet. 99 requirements exist and the marked set is a fraction.
 
     Marking a requirement on a test that does not actually falsify it
     would be worse than leaving it unmarked, so the set grows by hand,
@@ -172,7 +180,7 @@ def test_the_marker_is_registered_so_a_typo_is_not_silent():
 
 #: The exemptions as first measured on 2026-08-03, then 21 of 53 modules.
 #: Re-counted at 0.8.0.dev0 and the SET did not move, only its surroundings:
-#: mypy recount 2026-08-19: 274 errors in 20 of 71 modules (reports/RPT-029).
+#: mypy recount 2026-08-20: 276 errors in 20 of 73 modules (reports/RPT-029).
 #: Removing one means deleting its override AND its line here, in the same
 #: commit.
 MYPY_EXEMPTIONS = frozenset(
@@ -245,7 +253,7 @@ def test_the_type_check_exemption_list_only_shrinks():
 # said "223 errors in 21 of 53 modules", taken on 2026-08-03. Reading any one
 # of them told a planner the grind was 223 errors over 53 modules. Re-measured
 # on 2026-08-18 with every `ignore_errors` override off, the package reports
-# 274 errors in 20 of 71 modules. Nothing detected the drift, because nothing
+# 276 errors in 20 of 73 modules. Nothing detected the drift, because nothing
 # compared a record against the tree; documentation is not a guard.
 #
 # What is guarded here, and what deliberately is not. The MODULE TOTAL is

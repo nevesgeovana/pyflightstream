@@ -23,6 +23,7 @@ from pyflightstream.workspace import (
     WorkspaceError,
 )
 from pyflightstream.workspace.cli import main as workspace_cli
+from pyflightstream.workspace.inputs import resolve_build
 
 
 def make_record(run_id="camp/sim_9001/a+02.0", sim_id="9001", **overrides):
@@ -2291,3 +2292,190 @@ def test_the_migration_leaves_the_uncoded_kinds_alone(tmp_path):
         f"the migration reached outside the three coded kinds: {moved}"
     )
     assert mesh.is_file() and profile.is_file()
+
+
+# --- the build registry declares a version, PFS-2009.05 ---------------------
+#
+# A build entry may be a bare path string, which is what the registry has
+# always taken and still means "no version declared", or a table carrying
+# that path and, optionally, the FlightStream version this build's
+# scripts are emitted under. The table is where the declaration lives
+# because it is already the file in which the user says what a build id
+# MEANS on this machine; nothing infers a version from a build id or from
+# an executable path.
+
+
+def registry(workspace, body):
+    """Write the workspace build registry verbatim and return its path."""
+    path = workspace.inputs_dir / "executables.toml"
+    path.write_text(body, encoding="utf-8")
+    return path
+
+
+def test_a_bare_path_entry_declares_no_version(tmp_path):
+    """The shape every registry written before this item uses.
+
+    Unchanged, and that is the load-bearing half: a bare string means the
+    build's rows are emitted under the campaign default, so no campaign
+    written before the table shape existed changes what it records.
+    """
+    workspace = library(tmp_path)
+    registry(workspace, '"26.120" = "C:/fs26120/FlightStream.exe"\n')
+
+    build = resolve_build(workspace.inputs_dir, "26.120")
+
+    assert build.fs_exe == Path("C:/fs26120/FlightStream.exe")
+    assert build.fs_version is None
+    # And the path half of the same entry, through the older function.
+    assert workspace.resolve_executable("26.120") == build.fs_exe
+
+
+def test_a_table_entry_declares_the_version_its_scripts_are_emitted_under(tmp_path):
+    """The new shape, and the only way a build states its version.
+
+    The version is a DECLARATION the campaign author makes beside the
+    path they already wrote; it is never read out of the build id, which
+    is a key they chose and which may name any installation at all.
+    """
+    workspace = library(tmp_path)
+    registry(
+        workspace,
+        '"26.123" = { path = "C:/fs26123/FlightStream.exe", version = "26.123" }\n',
+    )
+
+    build = resolve_build(workspace.inputs_dir, "26.123")
+
+    assert build.fs_exe == Path("C:/fs26123/FlightStream.exe")
+    assert build.fs_version == "26.123"
+    assert workspace.resolve_executable("26.123") == build.fs_exe
+
+
+def test_a_table_entry_may_declare_the_path_alone(tmp_path):
+    """version is optional, and its absence falls back like a bare string."""
+    workspace = library(tmp_path)
+    registry(workspace, '"26.120" = { path = "C:/fs26120/FlightStream.exe" }\n')
+
+    build = resolve_build(workspace.inputs_dir, "26.120")
+
+    assert build.fs_exe == Path("C:/fs26120/FlightStream.exe")
+    assert build.fs_version is None
+
+
+def test_a_build_id_the_registry_declares_as_a_key_it_does_not_read_is_refused(tmp_path):
+    """A misspelled key is refused naming itself and the keys that are read.
+
+    Ignoring it is what makes it dangerous: the registry looks correct,
+    the version is silently absent, and every row of that build is
+    emitted under the campaign default with nothing said anywhere.
+    """
+    workspace = library(tmp_path)
+    registry(
+        workspace,
+        '"26.123" = { path = "C:/fs26123/FlightStream.exe", verison = "26.123" }\n',
+    )
+
+    with pytest.raises(InputArtifactError) as caught:
+        resolve_build(workspace.inputs_dir, "26.123")
+
+    message = str(caught.value)
+    assert "verison" in message, f"the refused key is not named: {message}"
+    assert "path, version" in message, f"the keys that ARE read are not listed: {message}"
+
+
+def test_a_table_entry_without_a_path_is_refused(tmp_path):
+    """path is the one key an entry must carry: it is why the entry exists."""
+    workspace = library(tmp_path)
+    registry(workspace, '"26.123" = { version = "26.123" }\n')
+
+    with pytest.raises(InputArtifactError, match="declares no path"):
+        resolve_build(workspace.inputs_dir, "26.123")
+
+
+def test_a_declared_version_the_package_does_not_know_is_refused(tmp_path):
+    """Checked where it is READ, not where a script is emitted under it.
+
+    The version decides which command database the build's scripts are
+    built against, so an identifier that resolves to nothing is a
+    configuration error in this file and the message says so, listing
+    what IS registered.
+    """
+    workspace = library(tmp_path)
+    registry(
+        workspace,
+        '"lab" = { path = "C:/fslab/FlightStream.exe", version = "27.000" }\n',
+    )
+
+    with pytest.raises(InputArtifactError) as caught:
+        resolve_build(workspace.inputs_dir, "lab")
+
+    message = str(caught.value)
+    assert "'27.000'" in message and "lab" in message, message
+    assert "26.120" in message, f"the registered versions are not listed: {message}"
+
+
+def test_a_declared_version_that_names_two_builds_is_refused(tmp_path):
+    """A vendor release name the vendor reused names no single build."""
+    workspace = library(tmp_path)
+    registry(
+        workspace,
+        '"lab" = { path = "C:/fslab/FlightStream.exe", version = "26.12" }\n',
+    )
+
+    with pytest.raises(InputArtifactError, match="more than one registered build"):
+        resolve_build(workspace.inputs_dir, "lab")
+
+
+def test_a_version_written_as_a_number_is_refused_as_a_number(tmp_path):
+    """A bare 26.123 is a TOML float and loses the three-digit form."""
+    workspace = library(tmp_path)
+    registry(workspace, '"26.123" = { path = "C:/fs/FS.exe", version = 26.123 }\n')
+
+    with pytest.raises(InputArtifactError, match="TOML float"):
+        resolve_build(workspace.inputs_dir, "26.123")
+
+
+def test_an_entry_of_neither_shape_names_both_shapes(tmp_path):
+    """The refusal teaches the two shapes rather than only rejecting."""
+    workspace = library(tmp_path)
+    registry(workspace, '"26.120" = 26\n')
+
+    with pytest.raises(InputArtifactError) as caught:
+        resolve_build(workspace.inputs_dir, "26.120")
+
+    message = str(caught.value)
+    assert "path string or a table" in message, message
+    assert "version" in message, f"the table shape is not shown: {message}"
+
+
+def test_a_table_valued_registry_is_listed_as_registered(tmp_path):
+    """A miss must list what IS there, whichever shape it is written in.
+
+    Listing only the string entries, which is what the not-found message
+    did while a string was the only shape, tells a user whose registry is
+    entirely tables that nothing is registered at all.
+    """
+    workspace = library(tmp_path)
+    registry(
+        workspace,
+        '"26.123" = { path = "C:/fs26123/FlightStream.exe", version = "26.123" }\n',
+    )
+
+    with pytest.raises(InputArtifactError, match=r"registered: 26\.123"):
+        resolve_build(workspace.inputs_dir, "26.200")
+
+
+def test_the_override_bypasses_the_registry_and_declares_no_version(tmp_path):
+    """An override is a bare path: it has no entry behind it to carry one."""
+    workspace = library(tmp_path)
+    registry(
+        workspace,
+        '"26.123" = { path = "C:/fs26123/FlightStream.exe", version = "26.123" }\n',
+    )
+
+    build = resolve_build(workspace.inputs_dir, "26.123", override="C:/elsewhere/FS.exe")
+
+    assert build.fs_exe == Path("C:/elsewhere/FS.exe")
+    assert build.fs_version is None, (
+        "an override that inherited the registry's declared version would emit a "
+        "script for an installation the caller replaced"
+    )

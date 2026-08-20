@@ -207,7 +207,8 @@ The managed folder tree of a campaign:
     setups/          named solver-setup presets
     groups/          named boundary groups (labels for aggregation)
     profiles/        input profiles (e.g. actuator loading shapes)
-    executables.toml the build-id to executable registry
+    executables.toml the build-id to executable registry, with an
+                     optional declared version per build
   sims/sim_<id>/     per-simulation staging, scripts, raw and parsed outputs
   post/              post-processing outputs
   archive/           archived simulations (zip)

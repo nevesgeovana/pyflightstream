@@ -276,7 +276,7 @@
     holds every marker to a live identifier and ratchets the covered
     set so it cannot shrink by accident.
 
-    Why it stays pending rather than moving: 96 requirements exist and
+    Why it stays pending rather than moving: 99 requirements exist and
     the marked set is a fraction of them. Marking a requirement on a
     test that does not actually falsify it would be worse than leaving
     it unmarked, because the index would then count a trace that is not

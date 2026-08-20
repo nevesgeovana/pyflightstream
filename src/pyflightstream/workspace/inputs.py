@@ -40,7 +40,10 @@ The library tree, created by ``CampaignWorkspace.init``:
 - ``inputs/executables.toml``: the build registry, mapping a
   FlightStream build id to its executable path; an explicit override
   path bypasses the registry, and that override is the only way to run
-  an unregistered build (the MANUAL mode of the run matrix).
+  an unregistered build (the MANUAL mode of the run matrix). An entry
+  is a bare path string, or a table carrying that path and, optionally,
+  the FlightStream version the build's scripts are emitted under
+  (:func:`resolve_build`).
 """
 
 from __future__ import annotations
@@ -83,8 +86,27 @@ from pyflightstream._errors import InputArtifactError
 from pyflightstream.cases.matrix import CODE_COLUMNS, rewrite_codes
 from pyflightstream.script.helpers import RotationSense
 
+# DOWNWARD as well, and the lowest layer of the stack: `versions` sits
+# below `commands`, which sits below everything else. It is imported so a
+# version DECLARED in the build registry is checked against the version
+# registry at the moment it is read, rather than at the moment a run
+# emits a script under it. The sister module `wake_edges` already reaches
+# down to `commands` for the same kind of reason (PFS-2009.05).
+from pyflightstream.versions import (
+    AmbiguousVersionAliasError,
+    UnknownVersionError,
+    resolve,
+)
+
 INPUT_KINDS = ("geometries", "references", "setups", "groups", "profiles")
 EXECUTABLES_FILE = "executables.toml"
+
+#: Every key a TABLE-valued entry of the build registry carries, and the
+#: only ones read. A key outside this tuple is REFUSED naming itself
+#: rather than ignored: a silently dropped ``verison`` leaves a registry
+#: that looks correct and a run emitted under the campaign default, and
+#: the two look identical from the manifest (PFS-2009.05).
+EXECUTABLE_ENTRY_KEYS = ("path", "version")
 
 _ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
@@ -782,17 +804,216 @@ def resolve_profile(inputs_dir: Path, artifact_id: str) -> Path:
     return _resolve_file(inputs_dir, "profile", "profiles", artifact_id)
 
 
-def resolve_executable(inputs_dir: Path, build_id: str, override: str | Path | None = None) -> Path:
-    """Resolve the FlightStream executable of one build id.
+@dataclass(frozen=True)
+class RegisteredBuild:
+    """One entry of the workspace build registry, as the registry states it.
+
+    Attributes
+    ----------
+    fs_exe : Path
+        The executable this build id names. Existence is checked by the
+        executor at construction, so a campaign can be authored away
+        from the licensed machine.
+    fs_version : str or None
+        The FlightStream version the registry DECLARES this build's
+        scripts are emitted under, canonical identifier (``"26.123"``)
+        or a vendor release name that resolves to exactly one registered
+        build. None means the registry declares none, and the caller's
+        campaign default answers for it.
+
+        It is a DECLARATION and never an inference. Nothing here reads a
+        version out of the executable path or out of the build id, which
+        is the rule :class:`pyflightstream.run.SolverBuild` exists to
+        state: a build id is a key of this registry, and which command
+        database a build carries is a fact only its owner knows.
+    """
+
+    fs_exe: Path
+    fs_version: str | None
+
+
+def _refuse_declared_version(version: str, build_id: str, registry_path: Path) -> None:
+    """Refuse a declared version the version registry does not carry.
+
+    The check happens where the version is READ rather than where a
+    script is emitted under it, so a typed identifier is refused with the
+    file and the build id in the message instead of surfacing much later
+    as an unknown-version error from the script layer.
+
+    Parameters
+    ----------
+    version : str
+        The version string the registry entry declares.
+    build_id : str
+        The build id whose entry declares it, for the message.
+    registry_path : Path
+        The registry file, for the message.
+
+    Raises
+    ------
+    InputArtifactError
+        The identifier names no registered version, or names a vendor
+        release name that more than one registered build carries. The
+        chained message lists the registered versions or the candidates.
+    """
+    try:
+        resolve(version)
+    except (UnknownVersionError, AmbiguousVersionAliasError) as error:
+        raise InputArtifactError(
+            f"the registry entry for build {build_id!r} in {registry_path} declares "
+            f"version {version!r}, which this package cannot resolve to one registered "
+            "FlightStream version. The version decides which command database the "
+            "build's scripts are emitted against, so it is never guessed from the "
+            f"build id or the executable path. {error}"
+        ) from error
+
+
+def resolve_build(
+    inputs_dir: Path, build_id: str, override: str | Path | None = None
+) -> RegisteredBuild:
+    """Read the registry entry of one build id: its executable and its version.
 
     Two explicit modes, translated from the run matrix's MANUAL pattern:
 
     - Registry mode (default): the build id must exist in
       ``inputs/executables.toml``, a top-level TOML table mapping build
-      ids to executable paths.
+      ids to entries.
     - Override mode: an explicit ``override`` path wins over the
       registry and is the only way to run an unregistered build; it is
-      never guessed from the environment.
+      never guessed from the environment. An override declares NO
+      version, because it is a bare path with no registry entry behind
+      it to carry one.
+
+    TWO ENTRY SHAPES, and the difference is what a build may say about
+    itself:
+
+    - ``"26.120" = "C:/fs26120/FlightStream.exe"`` is the shape this
+      registry has always had and means exactly what it meant: the build
+      id names an executable and declares no version, so a campaign that
+      sends a row to it emits that row's script under the campaign
+      default version.
+    - ``"26.123" = { path = "C:/fs26123/FlightStream.exe", version =
+      "26.123" }`` declares the version as well, which is what lets ONE
+      run matrix send its rows to two solver builds and record each row
+      against the version its own build emits under (PFS-2009.05).
+
+    The table is where the declaration lives because it is already the
+    file in which the user says what a build id MEANS on this machine.
+    Deriving the version from the build id instead would be the
+    inference :class:`pyflightstream.run.SolverBuild` refuses, and the
+    two are not the same thing: a registry key is a name the campaign
+    author chose, and nothing stops it naming an installation whose
+    command database is anything at all.
+
+    Parameters
+    ----------
+    inputs_dir : Path
+        The workspace ``inputs/`` directory.
+    build_id : str
+        Build identifier key of the registry, for example ``"26.120"``.
+    override : str or Path, optional
+        Explicit executable path bypassing the registry.
+
+    Returns
+    -------
+    RegisteredBuild
+        The executable, and the declared version or None.
+
+    Raises
+    ------
+    InputArtifactError
+        Registry file missing; build id not registered (the message
+        lists the registered build ids and the override mode); an entry
+        that is neither a path string nor a table; a table with no
+        ``path``; a table carrying a key outside
+        :data:`EXECUTABLE_ENTRY_KEYS`; or a declared version the version
+        registry does not carry.
+
+    Examples
+    --------
+    >>> from pyflightstream.workspace.inputs import resolve_build
+    >>> build = resolve_build(workspace.inputs_dir, "26.123")  # doctest: +SKIP
+    >>> build.fs_version                                       # doctest: +SKIP
+    '26.123'
+    """
+    if override is not None:
+        return RegisteredBuild(fs_exe=Path(override), fs_version=None)
+    registry_path = Path(inputs_dir) / EXECUTABLES_FILE
+    if not registry_path.is_file():
+        raise InputArtifactError(
+            f"no executable registry at {registry_path}; register builds as "
+            '"<build_id>" = "<path>" entries in that TOML file, or pass the '
+            "explicit override path. The executable is always explicit input, "
+            "never guessed."
+        )
+    table = _load_toml(registry_path, "executables")
+    entry = table.get(build_id)
+    if entry is None:
+        # BOTH shapes count as registered. Listing only the string entries,
+        # which is what this did while a string was the only shape, would
+        # tell a user with a table-valued registry that nothing is
+        # registered at all.
+        registered = sorted(key for key, value in table.items() if isinstance(value, (str, dict)))
+        listing = ", ".join(registered) if registered else "none yet"
+        raise InputArtifactError(
+            f"build id {build_id!r} is not in the executable registry "
+            f"{registry_path} (registered: {listing}); add it there, or pass the "
+            "explicit override path to run an unregistered build."
+        )
+    if isinstance(entry, str):
+        return RegisteredBuild(fs_exe=Path(entry), fs_version=None)
+    if not isinstance(entry, dict):
+        raise InputArtifactError(
+            f"the registry entry for build {build_id!r} in {registry_path} must be "
+            f"a path string or a table, got {type(entry).__name__}; write "
+            f'"{build_id}" = "C:/path/to/FlightStream.exe" for a build whose scripts '
+            f'are emitted under the campaign default version, or "{build_id}" = '
+            '{ path = "C:/path/to/FlightStream.exe", version = "26.123" } to declare '
+            "the version this build's scripts are emitted under."
+        )
+    unknown = sorted(key for key in entry if key not in EXECUTABLE_ENTRY_KEYS)
+    if unknown:
+        raise InputArtifactError(
+            f"the registry entry for build {build_id!r} in {registry_path} carries "
+            f"key(s) {', '.join(unknown)}, and a build entry reads "
+            f"{', '.join(EXECUTABLE_ENTRY_KEYS)} and nothing else. The key is refused "
+            "rather than ignored because an ignored one is invisible: a misspelled "
+            "version key leaves the registry looking correct and every row of this "
+            "build emitted under the campaign default. Correct the spelling, or "
+            "remove the key."
+        )
+    path_value = entry.get("path")
+    if not isinstance(path_value, str):
+        stated = "declares no path" if path_value is None else f"declares path {path_value!r}"
+        raise InputArtifactError(
+            f"the registry entry for build {build_id!r} in {registry_path} {stated}, "
+            "and a table entry must carry path as a string; write "
+            f'"{build_id}" = {{ path = "C:/path/to/FlightStream.exe" }}. The '
+            "executable is always explicit input, never guessed."
+        )
+    version = entry.get("version")
+    if version is None:
+        return RegisteredBuild(fs_exe=Path(path_value), fs_version=None)
+    if not isinstance(version, str):
+        raise InputArtifactError(
+            f"the registry entry for build {build_id!r} in {registry_path} declares "
+            f"version {version!r} of type {type(version).__name__}, and a FlightStream "
+            'version is written as a string: version = "26.123". A bare 26.123 is a '
+            "TOML float and loses the three-digit form the canonical identifier is."
+        )
+    _refuse_declared_version(version, build_id, registry_path)
+    return RegisteredBuild(fs_exe=Path(path_value), fs_version=version)
+
+
+def resolve_executable(inputs_dir: Path, build_id: str, override: str | Path | None = None) -> Path:
+    """Resolve the FlightStream executable of one build id.
+
+    The path half of :func:`resolve_build`, which is where the registry
+    is read and where both entry shapes are described. This is the call
+    for a caller who wants the executable and nothing else; a caller who
+    also needs the version the build declares calls
+    :func:`resolve_build` instead, because the two facts come from one
+    entry and reading it twice is how they would drift apart.
 
     Existence of the executable is checked by the executor at
     construction (so campaigns can be authored away from the licensed
@@ -815,36 +1036,10 @@ def resolve_executable(inputs_dir: Path, build_id: str, override: str | Path | N
     Raises
     ------
     InputArtifactError
-        Registry file missing, or build id not registered (the message
-        lists the registered build ids and the override mode).
+        Every refusal of :func:`resolve_build`: registry file missing,
+        build id not registered, or a malformed entry.
     """
-    if override is not None:
-        return Path(override)
-    registry_path = Path(inputs_dir) / EXECUTABLES_FILE
-    if not registry_path.is_file():
-        raise InputArtifactError(
-            f"no executable registry at {registry_path}; register builds as "
-            '"<build_id>" = "<path>" entries in that TOML file, or pass the '
-            "explicit override path. The executable is always explicit input, "
-            "never guessed."
-        )
-    table = _load_toml(registry_path, "executables")
-    entry = table.get(build_id)
-    if entry is None:
-        registered = sorted(key for key in table if isinstance(table[key], str))
-        listing = ", ".join(registered) if registered else "none yet"
-        raise InputArtifactError(
-            f"build id {build_id!r} is not in the executable registry "
-            f"{registry_path} (registered: {listing}); add it there, or pass the "
-            "explicit override path to run an unregistered build."
-        )
-    if not isinstance(entry, str):
-        raise InputArtifactError(
-            f"the registry entry for build {build_id!r} in {registry_path} must be "
-            f"a path string, got {type(entry).__name__}; write "
-            f'"{build_id}" = "C:/path/to/FlightStream.exe"'
-        )
-    return Path(entry)
+    return resolve_build(inputs_dir, build_id, override=override).fs_exe
 
 
 @dataclass(frozen=True)

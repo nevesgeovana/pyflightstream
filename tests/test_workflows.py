@@ -45,6 +45,7 @@ from pyflightstream.cases import CampaignConfigError, SimCase, SweepAxis, check_
 from pyflightstream.cases import matrix as matrix_module
 from pyflightstream.cases.matrix import to_campaign
 from pyflightstream.cases.workflows import (
+    ROTOR_SHEDDING_VARIABLE,
     WORKFLOW_KEY,
     WORKFLOWS,
     ExportWindow,
@@ -57,6 +58,8 @@ from pyflightstream.cases.workflows import (
     export_window,
     reduction_plan,
     resolve_workflow,
+    rotor_relaxed_trailing_edges,
+    rotor_shedding_direction,
     select_workflow,
     workflow_names,
     workflow_registry,
@@ -888,4 +891,210 @@ def test_the_fixture_is_a_two_row_matrix_that_declares_its_outputs():
     assert {sim.variables[WORKFLOW_KEY] for sim in campaign.sims} == set(WORKFLOWS), (
         "the fixture does not exercise every registered workflow, so a broken builder "
         "could ship green"
+    )
+
+
+# --- PFS-2026.06: the azimuthal shedding option, reachable from the row ------
+#
+# The direction a relaxed trailing edge sheds its wake in is a field of
+# the COMPONENT specification and not a scripting argument, so no
+# workflow emits it. The clause this section answers is that the option
+# is REACHABLE from the workflow that emits rotor cases: a rotor row
+# states it, `emit_rotor_motion` refuses a row that states it wrongly,
+# and `rotor_relaxed_trailing_edges` applies it to the specifications a
+# component definition carries.
+
+#: The two shapes a component definition carries, in canonical spelling.
+FOUR_FIELD_EDGE = "0.5;0.1;0.9;1"
+AZIMUTH_EDGE = "0.5;0.1;0.9;1;1"
+AXIAL_EDGE = "0.5;0.1;0.9;1;0"
+
+
+def test_the_azimuthal_option_is_reachable_from_the_rotor_row():
+    """The acceptance clause, at its shortest.
+
+    A rotor row writes one cell and the specifications its component
+    definition carries come back shedding azimuthally. Nothing is
+    emitted, because no command takes the field; what the workflow layer
+    owns is turning the row into the text.
+    """
+    case = rotor_case(ROTOR_SHEDDING="AZIMUTH")
+    assert rotor_shedding_direction(case) == "AZIMUTH"
+    assert rotor_relaxed_trailing_edges(case, [FOUR_FIELD_EDGE]) == [AZIMUTH_EDGE]
+
+
+@pytest.mark.parametrize("cell", ["AZIMUTH", "azimuth", "1", " Azimuth "])
+def test_the_row_may_spell_the_direction_either_way(cell):
+    """A matrix cell is text, and the manual's own spelling is an integer.
+
+    Both are accepted so an author copying the field value out of a
+    component definition and an author writing the word get the same
+    run.
+    """
+    assert rotor_shedding_direction(rotor_case(ROTOR_SHEDDING=cell)) == "AZIMUTH"
+
+
+def test_a_row_that_asks_for_nothing_leaves_every_specification_as_written():
+    """Clause two, at the workflow layer.
+
+    Absent is not AXIAL: a row that says nothing about shedding must not
+    silently widen a four-field specification, because the component
+    file it came from may be read by a build that has four fields.
+    """
+    case = rotor_case()
+    assert rotor_shedding_direction(case) is None
+    assert rotor_relaxed_trailing_edges(case, [FOUR_FIELD_EDGE, AXIAL_EDGE]) == [
+        FOUR_FIELD_EDGE,
+        AXIAL_EDGE,
+    ]
+
+
+def test_the_axial_direction_asked_for_reaches_a_specification_that_states_another():
+    """A row CAN turn the azimuthal option back off, on a stated one."""
+    case = rotor_case(ROTOR_SHEDDING="AXIAL")
+    assert rotor_relaxed_trailing_edges(case, [AZIMUTH_EDGE, FOUR_FIELD_EDGE]) == [
+        AXIAL_EDGE,
+        FOUR_FIELD_EDGE,
+    ]
+
+
+def test_a_direction_the_row_invents_is_refused_naming_the_cell_and_both():
+    """Clause three, at the layer where a matrix author reads it.
+
+    This module's rule: a matrix value is refused by the cell the author
+    typed, not by the command. The message therefore names the case, the
+    key, the value written and both accepted directions.
+    """
+    with pytest.raises(CampaignConfigError) as raised:
+        rotor_shedding_direction(rotor_case(ROTOR_SHEDDING="diagonal"))
+    message = str(raised.value)
+    assert "7001" in message, "the refusal does not name the row (the POL is the sim_id)"
+    assert "ROTOR_SHEDDING" in message, "the refusal does not name the key"
+    assert "'diagonal'" in message, "the refusal does not name the value the row wrote"
+    for accepted in ("AXIAL", "AZIMUTH", "0", "1"):
+        assert accepted in message, f"the refusal does not name {accepted!r}; got {message!r}"
+
+
+def test_the_rotor_emitter_refuses_that_row_before_it_emits_anything():
+    """The option is reachable FROM THE EMITTER, which is what makes it a guard.
+
+    `emit_rotor_motion` cannot emit the direction, and reads it anyway:
+    a row declaring ROTOR_SHEDDING: diagonal that built a perfectly good
+    script would be told nothing at all, and the author would discover
+    the typo by getting the wrong wake. The refusal lands before the
+    first emission, like every other read in that function.
+    """
+    script = Script("26.120")
+    with pytest.raises(CampaignConfigError) as raised:
+        emit_rotor_motion(rotor_case(ROTOR_SHEDDING="diagonal"), script, frame=2)
+    assert "ROTOR_SHEDDING" in str(raised.value)
+    assert script.render().strip() == "", "the step emitted before it refused"
+
+
+def test_a_rotor_row_asking_for_the_azimuth_direction_still_builds_its_script():
+    """And the script gains NOTHING, because no command carries the field.
+
+    The complement of the refusal above: a well-formed direction changes
+    the specifications a component definition carries and changes no
+    line of the script, so a build that reads four fields runs this case
+    exactly as it always did.
+    """
+    plain = Script("26.120")
+    build_script(rotor_case(), plain)
+    shedding = Script("26.120")
+    build_script(rotor_case(ROTOR_SHEDDING="AZIMUTH"), shedding)
+    assert shedding.render() == plain.render(), (
+        "the shedding direction reached the script; it is a component-file field and "
+        "no registered build takes it as a scripting argument"
+    )
+
+
+def test_a_specification_the_package_cannot_read_names_which_one_of_how_many():
+    """A component definition carries several, so 'unreadable' is not enough."""
+    case = rotor_case(ROTOR_SHEDDING="AZIMUTH")
+    with pytest.raises(CampaignConfigError) as raised:
+        rotor_relaxed_trailing_edges(case, [FOUR_FIELD_EDGE, "0.5;0.1;0.9", AZIMUTH_EDGE])
+    message = str(raised.value)
+    assert "7001" in message
+    assert "number 2 of 3" in message, (
+        f"the refusal does not say which specification of how many; got {message!r}"
+    )
+
+
+def test_the_direction_the_row_names_is_the_vocabulary_the_helper_defines():
+    """Non-vacuity: the two layers cannot drift into different vocabularies.
+
+    Every test above names its values as literals, so the workflow layer
+    could grow a third direction and they would all still pass.
+    """
+    assert set(helpers.RELAXED_SHEDDING_DIRECTIONS) == {"AXIAL", "AZIMUTH"}
+    assert ROTOR_SHEDDING_VARIABLE == "ROTOR_SHEDDING"
+    for token in helpers.RELAXED_SHEDDING_DIRECTIONS:
+        assert rotor_shedding_direction(rotor_case(ROTOR_SHEDDING=token)) == token
+
+
+def test_one_specification_passed_without_its_list_is_refused_by_shape():
+    """Found by the adversarial pass: a bare string is a sequence.
+
+    `rotor_relaxed_trailing_edges(case, "0.5;0.1;0.9;1")` iterated the
+    text one character at a time and refused "number 1 of 13", which
+    names the wrong thing entirely. The remedy is stated: put it in a
+    list.
+    """
+    with pytest.raises(CampaignConfigError) as raised:
+        rotor_relaxed_trailing_edges(rotor_case(), FOUR_FIELD_EDGE)
+    message = str(raised.value)
+    assert "one character at a time" in message
+    assert repr(FOUR_FIELD_EDGE) in message
+
+
+def test_something_that_cannot_be_iterated_is_refused_and_not_left_to_len():
+    """No bare standard-library error out of a public name (FR-39).
+
+    The second half of the same adversarial finding: the signature says
+    sequence and `len()` on anything else leaves a raw TypeError.
+    """
+    with pytest.raises(CampaignConfigError) as raised:
+        rotor_relaxed_trailing_edges(rotor_case(), 4)
+    assert "cannot be iterated" in str(raised.value)
+
+
+def test_a_generator_of_specifications_is_read_rather_than_refused():
+    """The lazy form works, which is why `len` had to go.
+
+    A caller filtering a component definition hands in a generator; it
+    has no length, and the count in the unreadable-specification message
+    is what needed one.
+    """
+    case = rotor_case(ROTOR_SHEDDING="AZIMUTH")
+    produced = (edge for edge in [FOUR_FIELD_EDGE, AXIAL_EDGE])
+    assert rotor_relaxed_trailing_edges(case, produced) == [AZIMUTH_EDGE, AZIMUTH_EDGE]
+
+
+def test_the_specification_restater_refuses_a_bad_row_rather_than_defaulting():
+    """MUTANT N1, found by an adversarial pass on 2026-08-20.
+
+    `rotor_relaxed_trailing_edges` reads the row's direction through
+    `rotor_shedding_direction`, and that refusal is asserted at the
+    reader. It was NOT asserted here, so wrapping this call in
+    `try: ... except CampaignConfigError: direction = None` left the
+    whole module green: a row that typed the direction wrong would have
+    had its specifications restated at the DEFAULT direction, silently,
+    and the axial default is exactly the value a rotor author asking for
+    azimuth would not notice.
+
+    The complement is asserted too, because a case that only proves a
+    raise proves nothing about the path it guards: a well-formed row
+    still restates.
+    """
+    with pytest.raises(CampaignConfigError) as raised:
+        rotor_relaxed_trailing_edges(rotor_case(ROTOR_SHEDDING="diagonal"), [FOUR_FIELD_EDGE])
+    message = str(raised.value)
+    assert "ROTOR_SHEDDING" in message, "the refusal does not name the key"
+    assert "'diagonal'" in message, "the refusal does not name the value the row wrote"
+
+    good = rotor_relaxed_trailing_edges(rotor_case(ROTOR_SHEDDING="AZIMUTH"), [FOUR_FIELD_EDGE])
+    assert good == [AZIMUTH_EDGE], (
+        "the well-formed row stopped restating, so the case above would pass on a "
+        "function that refuses everything"
     )

@@ -1336,3 +1336,339 @@ def test_exactly_one_rotation_command_resolves_on_every_registered_build():
             "resolves, which is a choice rather than a resolution as soon as the "
             "count is not one"
         )
+
+
+# --- PFS-2026.06: the relaxed trailing-edge specification's fifth field ------
+#
+# The specification is a COMPONENT parameter, written where a component
+# is defined and not in a script, so this pair is the one place in the
+# helper module that takes no `script` and emits nothing. What 26.123
+# adds is a fifth field, the direction the relaxed wake sheds; the
+# four-field form of the earlier editions stays valid, which is the
+# clause that matters most here because artifacts written before this
+# release carry four.
+
+#: One specification of each shape, in the canonical spelling: no spaces
+#: around the separators, so a render can be compared to its own input.
+FOUR_FIELD = "0.5;0.1;0.9;1"
+FIVE_FIELD_AXIAL = "0.5;0.1;0.9;1;0"
+FIVE_FIELD_AZIMUTH = "0.5;0.1;0.9;1;1"
+
+
+def test_the_specification_accepts_the_fifth_field():
+    """Clause one: the five-field form parses, and says which direction.
+
+    SRC-751 p.85 gives the specification a fifth field, an integer
+    direction of the relaxed wake shedding, 1 being the azimuth
+    direction. Before this item nothing in the package could read one.
+    """
+    edge = helpers.parse_relaxed_trailing_edge(FIVE_FIELD_AZIMUTH)
+    assert edge.direction == "AZIMUTH"
+    assert edge.shedding_direction == "AZIMUTH"
+    assert edge.fields == ("0.5", "0.1", "0.9", "1"), (
+        f"the four leading fields did not survive the parse; got {edge.fields!r}"
+    )
+    assert edge.render() == FIVE_FIELD_AZIMUTH
+
+
+def test_the_zero_field_is_the_axial_direction_and_stays_written():
+    """A specification that STATES the default still states it.
+
+    0 and an absent fifth field mean the same direction and are not the
+    same text: an artifact that wrote the 0 keeps it, because rewriting
+    it away would edit a file the caller did not ask to have edited.
+    """
+    edge = helpers.parse_relaxed_trailing_edge(FIVE_FIELD_AXIAL)
+    assert edge.direction == "AXIAL"
+    assert edge.render() == FIVE_FIELD_AXIAL
+
+
+def test_a_four_field_specification_parses_and_behaves_as_it_did():
+    """Clause two, the one that gets forgotten.
+
+    Every artifact written before 26.123 carries four fields. It must
+    parse, it must mean the axial direction, and it must NOT come back
+    widened: a five-field specification handed to a build that reads
+    four is a file the solver that wrote it can no longer read.
+    """
+    edge = helpers.parse_relaxed_trailing_edge(FOUR_FIELD)
+    assert edge.direction is None, (
+        "the four-field form was recorded as STATING the axial direction; None and "
+        "'AXIAL' are the same physical direction and different text, and only the "
+        "second one writes a field"
+    )
+    assert edge.shedding_direction == "AXIAL"
+    assert edge.render() == FOUR_FIELD
+    assert edge.render().count(";") == 3
+
+
+@pytest.mark.parametrize("asked", ["AXIAL", "axial", 0, "0"])
+def test_asking_a_four_field_specification_for_the_default_leaves_it_alone(asked):
+    """The other half of clause two: the widening is not smuggled in here.
+
+    Asking for the axial direction is asking for what the four-field
+    form already means, so it comes back at four fields whichever
+    vocabulary the caller used.
+    """
+    edge = helpers.parse_relaxed_trailing_edge(FOUR_FIELD)
+    assert edge.with_shedding(asked).render() == FOUR_FIELD
+
+
+def test_asking_a_stated_specification_for_the_default_rewrites_the_field():
+    """Asking IS a request where the specification already states one.
+
+    The pass-through above is about a specification that states nothing.
+    One that states the azimuth direction and is asked for the axial one
+    has been asked to change, so it changes.
+    """
+    edge = helpers.parse_relaxed_trailing_edge(FIVE_FIELD_AZIMUTH)
+    assert edge.with_shedding("AXIAL").render() == FIVE_FIELD_AXIAL
+
+
+@pytest.mark.parametrize("asked", ["AZIMUTH", "azimuth", 1, "1"])
+def test_the_azimuth_direction_is_asked_for_in_either_vocabulary(asked):
+    """The specification writes an integer and a caller reads a word."""
+    edge = helpers.parse_relaxed_trailing_edge(FOUR_FIELD)
+    assert edge.with_shedding(asked).render() == FIVE_FIELD_AZIMUTH
+
+
+@pytest.mark.parametrize("direction", ["2", "-1", "10", "azimuthal", "RADIAL", "1.0"])
+def test_an_out_of_range_direction_is_refused_naming_it_and_the_two_accepted(direction):
+    """Clause three, through the parser.
+
+    The field has exactly two documented values, so a third is not a
+    variant to pass through: it would ask the solver to shed a wake in a
+    direction the manual does not define. The message names the value
+    received and BOTH accepted directions, in both spellings, so the
+    reader does not have to open the manual to fix a typo.
+    """
+    specification = f"0.5;0.1;0.9;1;{direction}"
+    with pytest.raises(CommandArgumentError) as raised:
+        helpers.parse_relaxed_trailing_edge(specification)
+    message = str(raised.value)
+    assert repr(direction) in message, (
+        f"the refusal does not name the value it received; got {message!r}"
+    )
+    for accepted in ("AXIAL", "AZIMUTH", "0", "1"):
+        assert accepted in message, (
+            f"the refusal does not name {accepted!r} as an accepted direction; got {message!r}"
+        )
+
+
+@pytest.mark.parametrize("direction", [2, -1, "azimuthal", None, 1.0, [1]])
+def test_the_same_refusal_reaches_a_caller_who_asks_directly(direction):
+    """Clause three, through the asking route rather than the parsing one.
+
+    A caller never has to go through text: `with_shedding` takes the
+    same vocabulary, so it must refuse the same values the same way, or
+    the two routes disagree about what the field accepts.
+    """
+    edge = helpers.parse_relaxed_trailing_edge(FOUR_FIELD)
+    with pytest.raises(CommandArgumentError) as raised:
+        edge.with_shedding(direction)
+    message = str(raised.value)
+    assert repr(direction) in message
+    for accepted in ("AXIAL", "AZIMUTH", "0", "1"):
+        assert accepted in message
+
+
+def test_true_is_not_the_azimuth_direction():
+    """bool is an int in Python, and a direction is not a switch.
+
+    Found by the adversarial pass. `RELAXED_SHEDDING_DIRECTIONS` maps
+    AZIMUTH to 1 and `True == 1`, so a plain integer lookup resolves
+    True to the azimuth direction and False to the axial one, silently
+    turning a caller's misunderstanding into a physical choice.
+    """
+    edge = helpers.parse_relaxed_trailing_edge(FOUR_FIELD)
+    for value in (True, False):
+        with pytest.raises(CommandArgumentError) as raised:
+            edge.with_shedding(value)
+        assert repr(value) in str(raised.value)
+
+
+@pytest.mark.parametrize(
+    "specification",
+    ["0.5;0.1;0.9", "0.5", "0.5;0.1;0.9;1;0;7", ""],
+)
+def test_a_field_count_that_is_neither_documented_shape_is_refused(specification):
+    """Four fields or five, and the refusal says which two and why.
+
+    A field list of another length is not a specification this package
+    can guess the meaning of: it cannot tell a missing bound from a
+    field it does not know about.
+    """
+    with pytest.raises(CommandArgumentError) as raised:
+        helpers.parse_relaxed_trailing_edge(specification)
+    message = str(raised.value)
+    assert repr(specification) in message
+    assert "4" in message and "5" in message
+
+
+def test_a_blank_field_is_refused_rather_than_read_as_a_default():
+    """`0.5;0.1;;1` is a separator too many, not a field left at default.
+
+    Only the fifth field has a default and it is defaulted by leaving it
+    OUT, so a blank anywhere is a typo. Accepting it would render a
+    specification the solver cannot read, from text this package
+    declared well formed.
+    """
+    with pytest.raises(CommandArgumentError) as raised:
+        helpers.parse_relaxed_trailing_edge("0.5;0.1;;1")
+    assert "blank" in str(raised.value)
+
+
+@pytest.mark.parametrize("unreadable", [None, 4, ["0.5", "0.1", "0.9", "1"], 0.5])
+def test_something_that_is_not_the_specification_text_is_refused(unreadable):
+    """No bare standard-library error out of a public name (FR-39).
+
+    A non-string reaches `.split` and leaves an AttributeError, which is
+    the one exception shape this repository refuses on an exported name.
+    """
+    with pytest.raises(CommandArgumentError) as raised:
+        helpers.parse_relaxed_trailing_edge(unreadable)
+    assert "component" in str(raised.value)
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [("0.5", "0.1", "0.9"), ("0.5", "0.1", "0.9", "1", "1"), ()],
+)
+def test_the_record_itself_holds_the_four_leading_fields_and_no_more(fields):
+    """The direction is an attribute, never a fifth entry in `fields`.
+
+    Constructed directly rather than parsed, because the dataclass is
+    public: a five-entry `fields` would render five fields with the
+    direction attribute unset, so `render` could no longer tell a
+    specification that states the direction from one that leaves it at
+    the default, which is the whole of clause two.
+    """
+    with pytest.raises(CommandArgumentError) as raised:
+        helpers.RelaxedTrailingEdge(fields=fields)
+    assert str(len(fields)) in str(raised.value)
+
+
+def test_a_direction_token_the_field_does_not_spell_is_refused_on_the_record():
+    """The other direct-construction hole: an unknown token."""
+    with pytest.raises(CommandArgumentError) as raised:
+        helpers.RelaxedTrailingEdge(fields=("0.5", "0.1", "0.9", "1"), direction="RADIAL")
+    message = str(raised.value)
+    assert "'RADIAL'" in message and "AXIAL" in message and "AZIMUTH" in message
+
+
+def test_whitespace_around_a_field_is_not_part_of_it():
+    """A component definition is written by hand, so it carries spaces."""
+    edge = helpers.parse_relaxed_trailing_edge(" 0.5 ; 0.1 ; 0.9 ; 1 ; 1 ")
+    assert edge.fields == ("0.5", "0.1", "0.9", "1")
+    assert edge.render() == FIVE_FIELD_AZIMUTH
+
+
+def test_the_two_directions_are_the_two_the_manual_defines():
+    """Non-vacuity of every parametrization above.
+
+    Each test names its own values, so the vocabulary could grow a third
+    entry and every one of them would still pass while the package
+    accepted a direction the manual does not define. This is the guard
+    that notices.
+    """
+    assert helpers.RELAXED_SHEDDING_DIRECTIONS == {"AXIAL": 0, "AZIMUTH": 1}
+    assert helpers.DEFAULT_SHEDDING_DIRECTION == "AXIAL"
+    assert helpers.RELAXED_TE_FIELDS_WITHOUT_DIRECTION == 4
+    assert helpers.RELAXED_TE_FIELDS_WITH_DIRECTION == 5
+
+
+def test_the_specification_pair_takes_no_script_because_no_command_takes_it():
+    """The module docstring's stated exception, measured.
+
+    Every other helper here translates typed arguments into `emit()`
+    calls. No command on any registered build takes the direction (the
+    reading is pinned in `tests/test_wake_edges.py`), so a `script`
+    parameter on either of these would be this package inventing a
+    grammar.
+    """
+    import inspect
+
+    for name in ("parse_relaxed_trailing_edge", "resolve_shedding_direction"):
+        parameters = inspect.signature(getattr(helpers, name)).parameters
+        assert "script" not in parameters, (
+            f"{name} took a script, which would mean something here emits the "
+            "component-file direction; nothing does"
+        )
+    source = inspect.getsource(helpers.RelaxedTrailingEdge)
+    assert "emit" not in source, "the specification record reached the emitter"
+
+
+# The four cases below close gaps an adversarial pass found by MUTATION on
+# 2026-08-20: three defects could be restored in `helpers.py` with the whole
+# of this file still green, which means the behaviour was documented and
+# implemented and nothing was measuring it. Each case names the mutant it
+# denies, because a reader deleting one should know what stops being covered.
+
+
+def test_a_field_carrying_whitespace_is_normalised_by_the_constructor():
+    """MUTANT N2: `tuple(str(f).strip() ...)` reduced to `tuple(self.fields)`.
+
+    The record is public and constructible directly, so the parser's
+    normalisation is not the only route in. Nothing asserted the
+    constructor's own, so a specification built from cells a user had
+    already split would render with the spaces still in it and a
+    component file would carry `0.5; 0.1` where the field is `0.1`.
+    """
+    edge = helpers.RelaxedTrailingEdge(fields=("  0.5", "0.1  ", " 0.9 ", "\t1"))
+    assert edge.fields == ("0.5", "0.1", "0.9", "1")
+    assert edge.render() == "0.5;0.1;0.9;1", (
+        "a rendered specification carried whitespace inside a field, which a "
+        "component definition reads as part of the value"
+    )
+
+
+def test_a_non_string_field_is_rendered_rather_than_crashing():
+    """MUTANT N3: `str(field).strip()` reduced to `field.strip()`.
+
+    A caller holding parsed numbers is the obvious caller, and under the
+    mutant the public constructor raised a bare `AttributeError` out of
+    a dataclass, which FR-39 exists to stop: `except PyflightstreamError`
+    would not have caught it and the message would have named `float`
+    rather than the specification.
+    """
+    edge = helpers.RelaxedTrailingEdge(fields=(0.5, 0.1, 0.9, 1))
+    assert edge.render() == "0.5;0.1;0.9;1"
+
+
+def test_the_constructor_refuses_a_fifth_field_smuggled_into_the_leading_four():
+    """The silent-widening clause, reached through the CONSTRUCTOR.
+
+    Parsing four fields and rendering four is asserted elsewhere. This
+    is the other door into the same failure: `fields` is documented as
+    the FOUR leading fields, and a caller who puts the direction there
+    would render six on the next `with_shedding`. The refusal names the
+    count it got and where the direction belongs.
+    """
+    with pytest.raises(helpers.CommandArgumentError, match="leading fields"):
+        helpers.RelaxedTrailingEdge(fields=("0.5", "0.1", "0.9", "1", "1"))
+
+
+def test_the_fifth_field_is_an_ascii_integer_or_one_of_the_two_words():
+    """What the direction field accepts, pinned in both directions.
+
+    `int()` reads any Unicode decimal digit and a leading sign, so
+    before 2026-08-20 the Arabic-Indic ONE and `+1` both resolved to
+    AZIMUTH: a field spelled in a script the manual never uses became a
+    direction the solver would shed a wake along. The manual says the
+    field is an integer with two values, so the accepted set is written
+    down here rather than left to the conversion's accidents.
+    """
+    for accepted, expected in (
+        ("0", "AXIAL"),
+        ("1", "AZIMUTH"),
+        ("01", "AZIMUTH"),
+        ("AZIMUTH", "AZIMUTH"),
+        ("azimuth", "AZIMUTH"),
+        (1, "AZIMUTH"),
+    ):
+        assert helpers.resolve_shedding_direction(accepted, context="pin") == expected, (
+            f"{accepted!r} stopped resolving to {expected}"
+        )
+    for refused in ("١", "+1", "1.0", "2", "", "AXIAL_ISH", True):
+        with pytest.raises(helpers.CommandArgumentError):
+            helpers.resolve_shedding_direction(refused, context="pin")

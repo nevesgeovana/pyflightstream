@@ -73,8 +73,10 @@ from pyflightstream.workspace.inputs import (
     PointXyz,
     PropellerReference,
     ReferenceArtifact,
+    RegisteredBuild,
     SetupArtifact,
     migrate_input_ids,
+    resolve_build,
     resolve_executable,
     resolve_geometry,
     resolve_group,
@@ -108,6 +110,7 @@ __all__ = [
     "PropellerReference",
     "ReferenceArtifact",
     "ReferencePoints",
+    "RegisteredBuild",
     "RunRecord",
     "RunStatus",
     "SetupArtifact",
@@ -119,6 +122,7 @@ __all__ = [
     "expand_group",
     "extract_trailing_edge",
     "migrate_input_ids",
+    "resolve_build",
     "write_trailing_edge_node_file",
 ]
 
@@ -190,10 +194,21 @@ _SIM_SUBDIRS = ("inputs", "scripts", "raw", "parsed")
 # Comment-only template written by init when no registry exists yet;
 # didactic: shows the entry shape without registering a fake build.
 _EXECUTABLES_TEMPLATE = """\
-# FlightStream build registry of this workspace (one entry per build):
+# FlightStream build registry of this workspace (one entry per build).
+#
+# A bare path is the short form, and a build written this way declares no
+# version: its rows are emitted under the campaign's default version.
 #   "26.120" = "C:/path/to/FlightStream.exe"
-# resolve_executable(build_id) reads this table; an explicit override
-# path is the only way to run an unregistered build.
+#
+# A table declares the version this build's scripts are emitted under, which
+# is what lets ONE run matrix send different rows to different builds. The
+# version is checked against the registry when this file is read, so a
+# typo is refused here rather than at the first emission.
+#   "26.123" = { path = "C:/path/to/FlightStream.exe", version = "26.123" }
+#
+# resolve_executable(build_id) reads the path and resolve_build(build_id)
+# reads both; an explicit override path is the only way to run an
+# unregistered build, and it declares no version either.
 """
 
 
@@ -1013,8 +1028,41 @@ class CampaignWorkspace:
         ``override`` path bypasses the registry and is the only way to
         run an unregistered build. See
         :func:`pyflightstream.workspace.inputs.resolve_executable`.
+
+        Returns the PATH alone, which is what it has always returned and
+        what most callers want. Use :meth:`resolve_build` where the
+        version the registry declares for the build matters too.
         """
         return resolve_executable(self.inputs_dir, build_id, override=override)
+
+    def resolve_build(self, build_id: str, override: str | Path | None = None) -> RegisteredBuild:
+        """Resolve the executable AND the declared version of one build id.
+
+        The sibling of :meth:`resolve_executable`, and the one a caller
+        wants when a run matrix sends different rows to different builds:
+        a registry entry written as a table declares the version that
+        build's scripts are emitted under, and a bare path entry declares
+        none.
+
+        Parameters
+        ----------
+        build_id : str
+            Build identifier key of the registry.
+        override : str or Path, optional
+            Explicit executable path bypassing the registry. It declares
+            no version, exactly as it declares no registry entry.
+
+        Returns
+        -------
+        pyflightstream.workspace.inputs.RegisteredBuild
+            The path, and the declared version or None.
+
+        See Also
+        --------
+        pyflightstream.workspace.inputs.resolve_build : the free function
+            this delegates to, which carries the full refusal rules.
+        """
+        return resolve_build(self.inputs_dir, build_id, override=override)
 
     def sim_dir(self, sim_id: str) -> Path:
         """Return the managed folder of one simulation.
@@ -1065,12 +1113,12 @@ class CampaignWorkspace:
             :attr:`RunRecord.inputs_sha256`.
         """
         sim = self.create_sim(sim_id)
-        # PYFS-005, the staging half of the same collision class. Two sources
-        # with the same base name staged onto one file: the second copy won,
-        # and the returned dict carried ONE entry, so the manifest recorded a
-        # single hash for what the case declared as two inputs. The run then
-        # claimed to be reproducible from inputs one of which was never
-        # staged at all.
+        # FR-33f, and PYFS-005 is the incident behind it: the staging half of
+        # the same collision class. Two sources with the same base name staged
+        # onto one file: the second copy won, and the returned dict carried ONE
+        # entry, so the manifest recorded a single hash for what the case
+        # declared as two inputs. The run then claimed to be reproducible from
+        # inputs one of which was never staged at all.
         seen: dict[str, str] = {}
         for source in sources:
             name = Path(source).name
@@ -1236,6 +1284,17 @@ class CampaignWorkspace:
             ordinary case, since the solver's working directory is not
             managed by this class.
 
+            If two declared outputs of one call would collect to the
+            same name, or if a declared output's base name is already
+            held in ``raw/`` from an earlier point or run. Both are
+            FR-33e and neither takes an overwrite argument: the remedies
+            are a per-point output name and an archived simulation. They
+            differ in WHEN they are decided, which a caller can see: the
+            first is a pre-scan over the whole call, so a refusal moves
+            nothing at all, while the second is asked immediately before
+            each move, so a call whose third output lands on a held name
+            refuses with the first two already collected.
+
         Notes
         -----
         Collection MOVES rather than copies. Every refusal here exists
@@ -1264,12 +1323,13 @@ class CampaignWorkspace:
             trespass = self._output_trespass(sim, Path(path))
             if trespass is not None:
                 raise WorkspaceError(trespass)
-        # PYFS-005, the collision half. Collection MOVES, so two declared
-        # outputs whose base names agree used to land on one file in raw/:
-        # both moves ran, only the second content survived, and the manifest
-        # recorded the same name twice as though two artifacts existed. A
-        # campaign then carried a record naming evidence that had been
-        # overwritten by other evidence, with nothing anywhere saying so.
+        # FR-33e, first shape, and PYFS-005 is the incident behind it.
+        # Collection MOVES, so two declared outputs whose base names agree used
+        # to land on one file in raw/: both moves ran, only the second content
+        # survived, and the manifest recorded the same name twice as though two
+        # artifacts existed. A campaign then carried a record naming evidence
+        # that had been overwritten by other evidence, with nothing anywhere
+        # saying so.
         #
         # Detected before any move rather than during, so a refusal leaves
         # every source where it was instead of half-collecting.
@@ -1293,6 +1353,13 @@ class CampaignWorkspace:
         for path in produced:
             origin = Path(path)
             destination = sim / "raw" / origin.name
+            # FR-33e, second shape. Same rule as the pre-scan above and a
+            # different remedy: the name is unique within THIS call, and what
+            # is in the way is a record an earlier point or run collected.
+            # Asked per destination rather than as a pre-scan, so a refusal
+            # here leaves the outputs already handled in raw/. Nothing is
+            # destroyed either way, which is the guarantee; making it a
+            # pre-scan would change behaviour rather than tighten it.
             if destination.exists():
                 raise WorkspaceError(
                     f"cannot collect {origin} into raw/{origin.name}: that name is "

@@ -17,7 +17,7 @@ Optional extras, each gating one subsystem:
 |---|---|
 | `[fsi]` | The aeroelastic coupling loop (PyNiteFEA) |
 | `[manual]` | Reading a vendor manual pdf for `pyfs-manual` (pypdf); maintainer tooling, no run path imports it |
-| `[geom]` | Containment culling for probe lattices (trimesh, rtree, scipy) |
+| `[geom]` | The spatial index behind containment culling for probe lattices (rtree, scipy). The mesh reader, trimesh, is NOT here: it became a runtime dependency in v0.8.0, because the trailing-edge extraction that reads a blade surface through it is on the default path of a rotor campaign |
 | `[plot]` | matplotlib, for the plotting examples only |
 
 Reach one without installing it and you get a single typed refusal

@@ -193,7 +193,7 @@ exclude_also = [
 # RE-COUNTED at 0.8.0.dev0 (OPS-2006.11.01), because the sentence above is a
 # fact about 2026-08-03 and was being read as a fact about today. With every
 # override below turned off:
-#     mypy recount 2026-08-19: 274 errors in 20 of 71 modules
+#     mypy recount 2026-08-20: 276 errors in 20 of 73 modules
 # The package grew by eighteen modules and the debt by 51 errors, and no
 # module outside the exempted set is dirty. THE EXEMPTED SET DID MOVE, and
 # down: `pyflightstream.results.tables` was excused on 2026-08-03 and is

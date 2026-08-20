@@ -21,7 +21,7 @@ import-by-number system (PP-7, FR-12).
 from __future__ import annotations
 
 import tomllib
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from datetime import UTC, datetime
 from importlib import import_module
 from inspect import Parameter, signature
@@ -45,6 +45,8 @@ from pyflightstream.script.toggles import resolve_toggle
 from pyflightstream.versions import resolve
 
 __all__ = [
+    "ROTATION_OFFSET_KEY",
+    "ROTATION_SWEEP_KEY",
     "Campaign",
     "CampaignConfigError",
     "DerivedFrom",
@@ -56,13 +58,32 @@ __all__ = [
     "SweepAxis",
     "check_recipe",
     "derived_body_sha256",
+    "geometric_sweep_values",
     "load_campaign",
+    "multiplied_sweep",
     "point_tag",
     "resolve_recipe",
     "stamp_derived_campaign",
 ]
 
+#: The axes a point tag can name, and therefore the axes a run can be
+#: IDENTIFIED by. All three are aerodynamic. Nothing geometric appears
+#: here, which is the mechanical half of the reason a geometric sweep is
+#: not allowed to multiply with an aerodynamic one; the reasoning is in
+#: :func:`multiplied_sweep`.
 _TAG_PREFIXES = (("alpha", "a"), ("beta", "b"), ("advance_ratio", "j"))
+
+#: The case variable naming a rigid-body rotation of the geometry held
+#: FIXED for the whole case: one angle in degrees, about the axis the
+#: recipe or the workflow applies it to. This is the form that composes
+#: with an aerodynamic sweep, and it is what a refusal points at.
+ROTATION_OFFSET_KEY = "angle_deg"
+
+#: The case variable naming a rotation the study SWEEPS: several angles
+#: in degrees, comma separated, in the one string a case variable can
+#: hold. A case naming two or more of these AND an aerodynamic sweep of
+#: two or more points is refused (:func:`multiplied_sweep`).
+ROTATION_SWEEP_KEY = "angle_sweep_deg"
 
 
 class CampaignConfigError(PyflightstreamError, ValueError):
@@ -195,6 +216,120 @@ def point_tag(point: dict[str, float]) -> str:
     if not parts:
         raise CampaignConfigError(f"point {point!r} has no known axis (alpha, beta, advance_ratio)")
     return "_".join(parts)
+
+
+def geometric_sweep_values(variables: Mapping[str, object]) -> list[str]:
+    """Return the angles a case's geometric sweep variable declares.
+
+    The variable is :data:`ROTATION_SWEEP_KEY`, and its values are
+    comma separated because a case variable holds one scalar or one
+    string and never a list. Values are returned as written, in degrees,
+    without being converted: this function counts how many angles were
+    asked for, and whether each is a number is the recipe's or the
+    workflow's refusal to make, naming the key the user typed.
+
+    The key is matched CASE-INSENSITIVELY. Its spelling is settled
+    elsewhere, and a limit that fires only for one casing is a limit a
+    user gets past by shouting.
+
+    EVERY matching key is read and their values are POOLED, rather than
+    the first match winning. Two keys differing only in case are two
+    distinct entries in a variables mapping, so a first-match rule let a
+    one-angle ``angle_sweep_deg`` stand in front of a three-angle
+    ``ANGLE_SWEEP_DEG`` and carry the whole declaration past the limit.
+    Pooling closes that and is right on its own terms besides: two keys
+    naming one rotation is an ambiguity, and counting both is what makes
+    the ambiguous case meet a refusal rather than a coin toss.
+
+    Parameters
+    ----------
+    variables : mapping of str to object
+        A case's free variables, as :attr:`SimCase.variables` holds them
+        or as the run matrix reader parsed its ``VAR_NAMES_VALUES`` cell.
+
+    Returns
+    -------
+    list of str
+        The declared angles in degrees, in the order written, pooled
+        across every key that spells :data:`ROTATION_SWEEP_KEY` in any
+        casing. Empty when no such key is present or all of them hold
+        nothing but separators, which are the same fact here: no
+        geometric sweep was asked for.
+
+    Examples
+    --------
+    >>> geometric_sweep_values({"angle_sweep_deg": "0.0,5.0,10.0"})
+    ['0.0', '5.0', '10.0']
+    >>> geometric_sweep_values({"angle_sweep_deg": "5.0", "ANGLE_SWEEP_DEG": "7.5"})
+    ['5.0', '7.5']
+    >>> geometric_sweep_values({"CONFIG": "NSX"})
+    []
+    """
+    angles: list[str] = []
+    for name, value in variables.items():
+        if name.strip().lower() == ROTATION_SWEEP_KEY:
+            angles += [token.strip() for token in str(value).split(",") if token.strip()]
+    return angles
+
+
+def multiplied_sweep(sweep: SweepAxis, variables: Mapping[str, object]) -> list[str]:
+    """Return the geometric angles that would MULTIPLY with the sweep.
+
+    This is the single owner of the one-sweep-per-case limit, called from
+    both places a case can be declared: the ``campaign.toml`` model
+    (:class:`SimCase`) and the run matrix reader
+    (:func:`pyflightstream.cases.matrix.read_matrix`). Two owners would
+    be two rules, and the drift would be discovered by a user whose
+    hand-written campaign ran what the matrix refuses.
+
+    THE DECISION IT ENFORCES (design note DD-28): a geometric sweep does
+    NOT multiply with
+    the aerodynamic one. A case carries one aerodynamic sweep and at most
+    one FIXED geometric offset (:data:`ROTATION_OFFSET_KEY`); a study OF
+    the geometry is one case per geometry, each with its own ``sim_id``.
+    Multiplication was rejected on identity rather than on taste. A run
+    is identified by :func:`point_tag`, whose axes are
+    :data:`_TAG_PREFIXES`, and none of the three is geometric, so the
+    three angles of a rotation sweep crossed with an eleven point alpha
+    sweep are thirty three runs wearing eleven identities: each group of
+    three renders one tag, one ``run_id`` and one set of output file
+    names. That is exactly the collision
+    :meth:`SweepAxis._points_have_distinct_tags` already refuses within
+    one axis, and it is not made safe by arriving from a second axis. The
+    same collapse reaches the evidence:
+    :class:`pyflightstream.qa.cost.PointKey` keys a cost row by
+    ``sim_id`` and the recorded point, so three geometries under one
+    ``sim_id`` average into one cell and the geometry that got slower
+    cannot be seen.
+
+    Parameters
+    ----------
+    sweep : SweepAxis
+        The case's aerodynamic sweep.
+    variables : mapping of str to object
+        The case's free variables.
+
+    Returns
+    -------
+    list of str
+        The geometric angles in degrees when BOTH sweeps carry two or
+        more values, which is the multiplying shape. Empty otherwise, so
+        a fixed offset beside a sweep, a rotation sweep on a single point
+        case, and a case with no geometric variable at all all pass: each
+        of those is one sweep, and one sweep is what a case may have.
+
+    Examples
+    --------
+    >>> sweep = SweepAxis(type="alpha", values=[0.0, 2.0, 4.0])
+    >>> multiplied_sweep(sweep, {"angle_sweep_deg": "0.0,5.0"})
+    ['0.0', '5.0']
+    >>> multiplied_sweep(sweep, {"angle_deg": "5.0"})
+    []
+    """
+    angles = geometric_sweep_values(variables)
+    if len(angles) < 2 or len(sweep.values) < 2:
+        return []
+    return angles
 
 
 class ReferenceData(BaseModel):
@@ -394,6 +529,41 @@ class SimCase(BaseModel):
     outputs: list[str] = Field(default_factory=list)
     point: dict[str, float] = Field(default_factory=dict)
     fs_build: str | None = None
+
+    @model_validator(mode="after")
+    def _one_sweep_per_case(self) -> SimCase:
+        """Refuse a case asking for an aerodynamic AND a geometric sweep.
+
+        The limit is stated at DECLARATION, which is the moment this
+        validator runs: constructing the case in Python, or loading the
+        ``campaign.toml`` that holds it. Nothing is resolved yet, no
+        workspace is opened and no solver is started, so a user meets the
+        limit before spending anything on it. The run matrix reader
+        carries the same refusal at its own declaration moment, in its
+        own vocabulary; both call :func:`multiplied_sweep`, which is
+        where the decision and its reasoning live.
+
+        The refusal names the fixed-offset form, because the user asking
+        for both almost always wants one rotation held fixed across an
+        aerodynamic sweep, which is what
+        :data:`ROTATION_OFFSET_KEY` already does and costs one campaign
+        rather than N.
+        """
+        angles = multiplied_sweep(self.sweep, self.variables)
+        if not angles:
+            return self
+        raise CampaignConfigError(
+            f"case {self.sim_id} asks for two sweeps at once: the {self.sweep.type} "
+            f"sweep of {len(self.sweep.values)} points and the geometric sweep "
+            f"{ROTATION_SWEEP_KEY}: {','.join(angles)} of {len(angles)} angles. The "
+            f"two would multiply into {len(self.sweep.values) * len(angles)} runs the "
+            "case does not name, and the points cannot be told apart: a run is "
+            "identified by its aerodynamic point alone, so every geometry would "
+            "produce the same run_id and the same output file names. A rotation held "
+            f"FIXED across an aerodynamic sweep is written {ROTATION_OFFSET_KEY} = "
+            "<angle>, one value; a sweep OF the geometry is one case per geometry, "
+            "each with its own sim_id and its own single-valued angle."
+        )
 
 
 #: Key of the marker's own digest, the one line the canonical form

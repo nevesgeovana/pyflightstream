@@ -62,7 +62,14 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
-from pyflightstream.cases import Campaign, SimCase, SweepAxis
+from pyflightstream.cases import (
+    ROTATION_OFFSET_KEY,
+    ROTATION_SWEEP_KEY,
+    Campaign,
+    SimCase,
+    SweepAxis,
+    multiplied_sweep,
+)
 
 # SAME LAYER, so this is a sideways import and not an upward one: both
 # modules are `pyflightstream.cases`, and the layer rule
@@ -129,12 +136,12 @@ LEGACY_WORKFLOW = "LEGACY"
 
 _SWEEP_CODES = {"AL": "alpha", "BE": "beta"}
 
-#: The two rotation keys of ``VAR_NAMES_VALUES`` this reader knows about:
-#: one fixed offset, one geometric sweep. Their spelling belongs to
-#: PFS-2025.14, so both are matched CASE-INSENSITIVELY and neither is
-#: interpreted here beyond counting the values a sweep asks for.
-_ROTATION_OFFSET_KEY = "angle_deg"
-_ROTATION_SWEEP_KEY = "angle_sweep_deg"
+# The two rotation keys of VAR_NAMES_VALUES this reader knows about, one
+# fixed offset and one geometric sweep, ARE NOT DEFINED HERE. They and the
+# one-sweep-per-case limit they carry belong to `pyflightstream.cases`,
+# the layer below and the single owner of the decision (PFS-2025.17): a
+# second spelling in this module is how a hand-written campaign comes to
+# run what the matrix refuses. Both are imported at the top of this file.
 
 
 class MatrixError(PyflightstreamError, ValueError):
@@ -291,39 +298,31 @@ def _check_workflow(value: str, pol: str) -> str:
     return value
 
 
-def _rotation_values(variables: dict[str, str], key: str) -> list[str] | None:
-    """Return the comma-separated values of one rotation key, or None.
-
-    The key is matched case-insensitively: its spelling is PFS-2025.14's
-    to settle, and a refusal that fires only for one casing is a refusal
-    a user gets past by shouting.
-    """
-    for name, value in variables.items():
-        if name.strip().lower() == key:
-            return [token.strip() for token in value.split(",") if token.strip()]
-    return None
-
-
 def _check_one_sweep_per_row(pol: str, sweep: SweepAxis, variables: dict[str, str]) -> None:
     """Refuse a row asking for an aerodynamic AND a geometric sweep.
 
-    The two multiply: a three-point alpha sweep beside a three-angle
-    rotation sweep is nine runs the row never asked for, and neither
-    axis names the other in the point identifier. The refusal names the
-    fixed-offset form, because the user asking for both almost always
-    wants one rotation held fixed across an alpha sweep, which is what
-    ``angle_deg`` already does.
+    The DECISION and its reasoning live in
+    :func:`pyflightstream.cases.multiplied_sweep`, which is called here
+    rather than restated: this function owns only the matrix's own
+    vocabulary, so the refusal a matrix user reads names POL,
+    ``SWEEP_TYPE`` and the cell they typed instead of naming a
+    ``campaign.toml`` field they have never seen.
+
+    The refusal names the fixed-offset form, because the user asking for
+    both almost always wants one rotation held fixed across an alpha
+    sweep, which is what ``angle_deg`` already does.
     """
-    rotation = _rotation_values(variables, _ROTATION_SWEEP_KEY)
-    if rotation is None or len(rotation) < 2 or len(sweep.values) < 2:
+    rotation = multiplied_sweep(sweep, variables)
+    if not rotation:
         return
     raise MatrixError(
         f"POL {pol} asks for two sweeps at once: the SWEEP_TYPE {sweep.type} sweep of "
         f"{len(sweep.values)} points and the geometric sweep "
-        f"{_ROTATION_SWEEP_KEY}: {','.join(rotation)} of {len(rotation)} angles. The "
-        "two would multiply into a grid this row does not name and whose points cannot "
+        f"{ROTATION_SWEEP_KEY}: {','.join(rotation)} of {len(rotation)} angles. The "
+        f"two would multiply into {len(sweep.values) * len(rotation)} runs this row "
+        "does not name and whose points cannot "
         "be told apart. A rotation held FIXED across an aerodynamic sweep is written "
-        f"{_ROTATION_OFFSET_KEY}: <angle>, one value; a sweep OF the rotation is a row "
+        f"{ROTATION_OFFSET_KEY}: <angle>, one value; a sweep OF the rotation is a row "
         "of its own with a single-point SWEEP_VALUES."
     )
 

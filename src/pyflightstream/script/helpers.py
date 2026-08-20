@@ -43,6 +43,15 @@ the run manifest. The induced-drag selection itself is an
 analysis-phase command, so when it is passed its emission is deferred
 and lands right after the solver starts: :func:`start_solver` (or the
 first analysis or export helper call) flushes it.
+
+ONE PAIR HERE EMITS NOTHING, and it is stated in the module docstring
+rather than only beside itself, because the sentence above says every
+helper translates typed arguments into ``emit()`` calls and this is the
+exception. :func:`parse_relaxed_trailing_edge` and
+:class:`RelaxedTrailingEdge` read and write the relaxed trailing-edge
+COMPONENT specification, a semicolon-separated field list written where
+a component is defined; no command on any registered build takes its
+fields, so they take no ``script`` and produce text (SRC-751 p.85).
 """
 
 from __future__ import annotations
@@ -51,6 +60,7 @@ import math
 import re
 import warnings
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, replace
 from typing import Literal
 
 from pydantic import BaseModel, ValidationError
@@ -2895,3 +2905,321 @@ def mark_wake_edges(script: Script, *, edge_type: str, tolerance: float) -> str:
         ) from error
     script.emit(WAKE_EDGE_IMPORT_ROUTE, edge_type, tolerance)
     return WAKE_EDGE_IMPORT_ROUTE
+
+
+# --- PFS-2026.06: the relaxed trailing-edge specification's fifth field -------
+#
+# THIS PAIR EMITS NOTHING, which is the one surprise worth stating before
+# the code. Every other name in this module turns typed arguments into
+# `script.emit()` calls. A relaxed-Kutta trailing edge can also be
+# declared as a COMPONENT parameter, written where a component is defined
+# rather than in a script, and no command on any registered build takes
+# its fields (the reading is recorded on SET_TRAILING_EDGE_TYPE in the
+# command database, and `tests/test_wake_edges.py` pins it). So these
+# read and write the specification TEXT, and take no `script`.
+
+#: Field count of the relaxed trailing-edge component specification: what
+#: the editions up to SRC-750 p.85 print, and what SRC-751 p.85 prints
+#: after adding the shedding direction. The four-field form stays valid,
+#: so both counts are accepted and neither is converted into the other
+#: unasked.
+RELAXED_TE_FIELDS_WITHOUT_DIRECTION = 4
+RELAXED_TE_FIELDS_WITH_DIRECTION = 5
+
+#: The direction the relaxed wake sheds, as the token this package takes
+#: mapped to the integer the specification's fifth field carries
+#: (SRC-751 p.85). AXIAL is 0 AND is the default, which is what a
+#: four-field specification already means; AZIMUTH is 1 and is the new
+#: control, the one a rotor case wants.
+RELAXED_SHEDDING_DIRECTIONS: Mapping[str, int] = {"AXIAL": 0, "AZIMUTH": 1}
+
+#: The reverse lookup, built once. Written from the mapping above rather
+#: than typed a second time, so the two can never disagree.
+_SHEDDING_BY_FIELD: Mapping[int, str] = {
+    field: token for token, field in RELAXED_SHEDDING_DIRECTIONS.items()
+}
+
+#: The direction a specification that carries no fifth field means.
+DEFAULT_SHEDDING_DIRECTION = "AXIAL"
+
+
+def _shedding_vocabulary() -> str:
+    """Render the accepted directions the way every refusal names them."""
+    return " or ".join(
+        f"{field} ({token})" for token, field in sorted(RELAXED_SHEDDING_DIRECTIONS.items())
+    )
+
+
+def resolve_shedding_direction(value: str | int, *, context: str) -> str:
+    """Resolve one relaxed-wake shedding direction to its token.
+
+    Takes either vocabulary, because the specification writes the
+    integer and a caller reads the word: ``0`` and ``"AXIAL"`` are the
+    same request, as are ``1`` and ``"AZIMUTH"``. Tokens are matched
+    without regard to case and a numeric string is read as the integer
+    it spells, which is what a matrix cell carries.
+
+    Parameters
+    ----------
+    value : str or int
+        The direction, as a token or as the integer the fifth field
+        carries.
+    context : str
+        What is being resolved, prefixed to the refusal so the caller
+        learns which call refused. A helper passes its own name; a
+        campaign passes the case and the key.
+
+    Returns
+    -------
+    str
+        ``"AXIAL"`` or ``"AZIMUTH"``.
+
+    Raises
+    ------
+    CommandArgumentError
+        If the value is neither. The message names the value received
+        and both accepted directions, because there is no third: the
+        field is an integer with exactly two documented values, and a
+        direction outside them would make the solver read a wake
+        shedding in a direction the manual does not define.
+
+    Examples
+    --------
+    >>> from pyflightstream.script import helpers
+    >>> helpers.resolve_shedding_direction(1, context="rotor")
+    'AZIMUTH'
+    >>> helpers.resolve_shedding_direction("axial", context="rotor")
+    'AXIAL'
+    """
+    token: str | None = None
+    if isinstance(value, bool):
+        # bool is an int in Python, so True would otherwise resolve to
+        # AZIMUTH. A direction is not a switch, and the caller who wrote
+        # True meant something this package cannot know.
+        token = None
+    elif isinstance(value, int):
+        token = _SHEDDING_BY_FIELD.get(value)
+    elif isinstance(value, str):
+        text = value.strip()
+        if text.upper() in RELAXED_SHEDDING_DIRECTIONS:
+            token = text.upper()
+        elif text.isascii() and text.isdigit():
+            # ASCII DIGITS ONLY, and the guard is not decoration.
+            # `int()` reads any Unicode decimal digit, so the
+            # Arabic-Indic ONE resolved to AZIMUTH and a field spelled
+            # in a script the manual never uses became a direction the
+            # solver would shed a wake along. It also read `+1`, which
+            # no tool writes and which the manual's "integer, 0 or 1"
+            # does not describe. Both are accidents of the conversion
+            # rather than decisions, and a refusal naming both accepted
+            # values is a better answer than either.
+            token = _SHEDDING_BY_FIELD.get(int(text))
+    if token is None:
+        raise CommandArgumentError(
+            f"{context}: the relaxed wake sheds in one of two directions and "
+            f"{value!r} is neither. The fifth field of the relaxed trailing-edge "
+            f"component specification takes {_shedding_vocabulary()}, the axial "
+            "direction being the default and the one a four-field specification "
+            "already means (SRC-751 p.85). Write the integer or the word; there is "
+            "no third direction to fall back to, and shedding a rotor wake the wrong "
+            "way round changes the induced velocity at every blade"
+        )
+    return token
+
+
+@dataclass(frozen=True)
+class RelaxedTrailingEdge:
+    """One relaxed trailing-edge component specification, read apart.
+
+    The specification is a semicolon-separated field list written where a
+    component is defined, not in a script (SRC-751 p.85). The first four
+    fields are a chordwise or radial location and two spanwise or axial
+    bounds; this package does not interpret them and carries them
+    verbatim, because the edition that added the fifth field changed
+    nothing about them.
+
+    THE FOUR-FIELD FORM IS NOT SILENTLY WIDENED. A specification parsed
+    with four fields renders with four, so an artifact written before
+    26.123 stays readable by the builds that wrote it; the fifth field
+    appears only where one was read or one was asked for.
+
+    Attributes
+    ----------
+    fields : tuple of str
+        The four leading fields, verbatim apart from the whitespace
+        around each one, which is not part of a field.
+    direction : str or None
+        ``"AXIAL"`` or ``"AZIMUTH"`` where the specification carries the
+        fifth field, and None where it carries four. None is not the
+        same statement as ``"AXIAL"``: both MEAN the axial direction,
+        and only one of them writes a field.
+
+    Examples
+    --------
+    >>> from pyflightstream.script import helpers
+    >>> edge = helpers.parse_relaxed_trailing_edge("0.5;0.1;0.9;1")
+    >>> edge.direction is None
+    True
+    >>> edge.shedding_direction
+    'AXIAL'
+    >>> edge.render()
+    '0.5;0.1;0.9;1'
+    >>> edge.with_shedding("AZIMUTH").render()
+    '0.5;0.1;0.9;1;1'
+    """
+
+    fields: tuple[str, ...]
+    direction: str | None = None
+
+    def __post_init__(self) -> None:
+        """Normalise the fields and refuse a record that cannot render.
+
+        The record is public and constructible directly, so the two
+        invariants rendering rests on are checked here rather than only
+        in the parser: exactly the four leading fields, and a direction
+        the fifth field can spell.
+        """
+        object.__setattr__(self, "fields", tuple(str(field).strip() for field in self.fields))
+        if len(self.fields) != RELAXED_TE_FIELDS_WITHOUT_DIRECTION:
+            raise CommandArgumentError(
+                f"RelaxedTrailingEdge holds the {RELAXED_TE_FIELDS_WITHOUT_DIRECTION} "
+                f"leading fields of the specification and was given {len(self.fields)}: "
+                f"{self.fields!r}. The shedding direction is the `direction` attribute "
+                "and never a fifth entry here, so that rendering can tell a "
+                "specification that states the direction from one that leaves it at the "
+                "default (SRC-751 p.85)"
+            )
+        if self.direction is not None and self.direction not in RELAXED_SHEDDING_DIRECTIONS:
+            raise CommandArgumentError(
+                f"RelaxedTrailingEdge direction is {self.direction!r}, and the fifth "
+                f"field of the specification takes {_shedding_vocabulary()} "
+                "(SRC-751 p.85). Pass None to leave the field unwritten, which means "
+                "the axial direction"
+            )
+
+    @property
+    def shedding_direction(self) -> str:
+        """The direction this specification MEANS, stated or defaulted.
+
+        Returns
+        -------
+        str
+            ``"AXIAL"`` or ``"AZIMUTH"``. A specification carrying four
+            fields reads as ``"AXIAL"``, because that is the field's
+            documented default (SRC-751 p.85); use :attr:`direction` to
+            tell that case from one that wrote the 0.
+        """
+        return self.direction or DEFAULT_SHEDDING_DIRECTION
+
+    def with_shedding(self, direction: str | int) -> RelaxedTrailingEdge:
+        """Return this specification stating one shedding direction.
+
+        Parameters
+        ----------
+        direction : str or int
+            ``"AXIAL"``/0 or ``"AZIMUTH"``/1, resolved by
+            :func:`resolve_shedding_direction`.
+
+        Returns
+        -------
+        RelaxedTrailingEdge
+            A new specification. Asking for the axial direction on one
+            that already leaves the field unwritten returns it
+            UNCHANGED, at four fields: the two say the same thing, and
+            writing the 0 would hand a five-field specification to a
+            build that reads four.
+
+        Raises
+        ------
+        CommandArgumentError
+            If the direction is neither, naming the value and both.
+        """
+        token = resolve_shedding_direction(direction, context="with_shedding")
+        if token == DEFAULT_SHEDDING_DIRECTION and self.direction is None:
+            return self
+        return replace(self, direction=token)
+
+    def render(self) -> str:
+        """Return the specification as a component definition writes it.
+
+        Returns
+        -------
+        str
+            The fields, semicolon separated, with the direction's
+            integer appended only where :attr:`direction` states one.
+        """
+        fields = list(self.fields)
+        if self.direction is not None:
+            fields.append(str(RELAXED_SHEDDING_DIRECTIONS[self.direction]))
+        return ";".join(fields)
+
+
+def parse_relaxed_trailing_edge(specification: str) -> RelaxedTrailingEdge:
+    """Read one relaxed trailing-edge component specification.
+
+    Accepts both shapes the editions print: the four-field form of
+    SRC-750 p.85 and the five-field form SRC-751 p.85 adds, whose last
+    field is the direction the relaxed wake sheds.
+
+    Parameters
+    ----------
+    specification : str
+        The semicolon-separated field list, as a component definition
+        carries it. Whitespace around a field is not part of it.
+
+    Returns
+    -------
+    RelaxedTrailingEdge
+        The parsed specification, whose :attr:`~RelaxedTrailingEdge.direction`
+        is None where the text carried four fields.
+
+    Raises
+    ------
+    CommandArgumentError
+        If the text is not a string, if it carries a field count that is
+        neither of the two documented ones, if a field is blank, or if
+        the fifth field is a direction the edition does not define. The
+        direction refusal names the value and both accepted directions.
+
+    Examples
+    --------
+    >>> from pyflightstream.script import helpers
+    >>> helpers.parse_relaxed_trailing_edge("0.5; 0.1; 0.9; 1; 1").shedding_direction
+    'AZIMUTH'
+    """
+    if not isinstance(specification, str):
+        raise CommandArgumentError(
+            "parse_relaxed_trailing_edge takes the specification TEXT, a "
+            "semicolon-separated field list as a component definition carries it, and "
+            f"was given {type(specification).__name__} {specification!r}. This is a "
+            "component-file field and not a command, so there is no emitter to convert "
+            "typed arguments for it (SRC-751 p.85)"
+        )
+    fields = [field.strip() for field in specification.split(";")]
+    if len(fields) not in (RELAXED_TE_FIELDS_WITHOUT_DIRECTION, RELAXED_TE_FIELDS_WITH_DIRECTION):
+        raise CommandArgumentError(
+            f"parse_relaxed_trailing_edge: {specification!r} carries {len(fields)} "
+            f"semicolon-separated field(s), and the relaxed trailing-edge component "
+            f"specification carries {RELAXED_TE_FIELDS_WITHOUT_DIRECTION} (a chordwise "
+            f"or radial location and two bounds) or "
+            f"{RELAXED_TE_FIELDS_WITH_DIRECTION}, the fifth being the direction the "
+            "relaxed wake sheds, which SRC-751 p.85 adds and SRC-750 p.85 does not "
+            "print"
+        )
+    blank = [position for position, field in enumerate(fields, start=1) if not field]
+    if blank:
+        raise CommandArgumentError(
+            f"parse_relaxed_trailing_edge: {specification!r} leaves field(s) "
+            f"{', '.join(str(position) for position in blank)} blank. Every field of "
+            "the specification carries a value, so a blank one is a separator too many "
+            "rather than a field left at its default; the only field with a default is "
+            "the fifth, and it is defaulted by leaving it OUT (SRC-751 p.85)"
+        )
+    if len(fields) == RELAXED_TE_FIELDS_WITHOUT_DIRECTION:
+        return RelaxedTrailingEdge(fields=tuple(fields))
+    direction = resolve_shedding_direction(
+        fields[-1], context=f"parse_relaxed_trailing_edge: {specification!r}"
+    )
+    return RelaxedTrailingEdge(
+        fields=tuple(fields[:RELAXED_TE_FIELDS_WITHOUT_DIRECTION]), direction=direction
+    )

@@ -328,11 +328,20 @@ def test_the_relaxed_trailing_edge_direction_is_recorded_where_it_belongs():
 def test_the_direction_is_not_smuggled_in_as_a_scripting_argument():
     """Two arguments, on every registered build, and no third.
 
-    This passes today and is pinned deliberately. The item it comes from
-    asked for a parser and a refusal, and the reading is that there is
-    nothing to parse: no command on any registered build takes the
+    This passes today and is pinned deliberately. The direction is a
+    COMPONENT-FILE field: `script.helpers.parse_relaxed_trailing_edge`
+    reads it and `cases.workflows.rotor_relaxed_trailing_edges` restates
+    a rotor row's specifications in it, and none of that reaches a
+    script, because no command on any registered build takes the
     direction. A later edit that added it as an argument would be
     inventing a grammar, which is what this guards.
+
+    The docstring said something narrower until 2026-08-20, that the item
+    asked for a parser and a refusal and there was nothing to parse. The
+    second half was never true of the specification text and the first
+    stopped being true when the restater landed; a guard whose stated
+    premise is false is a guard a reader will delete for the wrong
+    reason.
     """
     registry = CommandRegistry.load()
     entry = registry.commands[RELAXED_TYPE_COMMAND]
