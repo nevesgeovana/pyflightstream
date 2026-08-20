@@ -528,10 +528,39 @@ worse than no page at all.
   read: the standard assessor sees every point of a row in one folder
   and refuses from the second point onward. One sweep value per row
   runs today.
-- **A campaign declares ONE FlightStream build.** The matrix has an
-  `FS_BUILD` column per row, and a matrix whose active rows name two
-  different builds is refused today. Comparing two builds means two
-  campaigns.
+- **A ROW CANNOT NAME ITS GEOMETRY, and this is the limit that decides
+  whether the capability can be used at all.** It is first in this list
+  because it is the one a reader most needs before starting. Nothing in
+  the matrix reader assigns a case's geometry, and neither workflow
+  builder emits an open or an import, so a case that CARRIES a geometry
+  renders byte for byte identically to one that does not: 47 lines, and
+  none of them opens anything. The run layer does stage the file, hash
+  it into the record and rewrite the case's path to the staged copy; the
+  value is prepared and then read by nobody.
+
+  Worse than the gap is its shape. Every other limit on this page
+  refuses early and names itself. This one does not refuse at all: the
+  script builds, the campaign runs, and the failure arrives from the
+  solver. Today a geometry reaches a run only because a recipe reads a
+  key of its own out of `VAR_NAMES_VALUES` and opens the file itself,
+  which is precisely the Python a workflow exists to remove.
+
+- **Three more things a row cannot say, all decided in the builders
+  rather than by a cell.** Symmetry is fixed at `SYMMETRY NONE`, so a
+  periodic sector is solved as a one-bladed rotor. The solver model is
+  fixed at `INCOMPRESSIBLE`. And the row's `REF` code resolves a
+  reference artifact that changes no emitted line, so coefficients come
+  out against the solver's own defaults rather than against the areas
+  and lengths the campaign declared.
+
+- **A campaign declares one build by DEFAULT, and a row may declare its
+  own.** Since v0.8.0 a matrix whose active rows name two different
+  builds RUNS: each point's record names the executable its own row
+  asked for, and its script is emitted under that build's declared
+  version. This entry said the opposite until 2026-08-20, when the
+  capability it denied had already shipped in the same release; the
+  section on the executable registry above was right and this list was
+  stale, which is the wrong way round for the list people read.
 - **There is no result-array facade.** No interpolation along a named
   axis, no re-parameterisation, no trim extraction. FR-20 carries that
   promise and is `pending`.
