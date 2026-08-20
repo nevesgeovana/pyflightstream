@@ -214,13 +214,22 @@ def build_capture(stl: Path, out: Path) -> tuple[Script, dict[str, str]]:
     # would have said where it stopped.
     script.emit("EXPORT_LOG", str(out / "log.txt"))
 
-    # THE BOUNDARY-LAYER PROFILE IS EMITTED LAST AND UNDER PROTEST. It is the
-    # one format no run has observed, and on 26.123 it HUNG the solver: the
-    # first run of this script completed its solve and seven exports in two
-    # seconds and then sat for fourteen minutes producing nothing, with this
-    # command next in the script. It is placed after everything else so that a
-    # second hang costs only itself, and `--bl-timeout` bounds the wait rather
-    # than the whole run's 1800 seconds.
+    # THE BOUNDARY-LAYER PROFILE IS EMITTED LAST AND UNDER PROTEST. It is
+    # the one format no run has observed, and the reason is INTERACTIVITY
+    # rather than a solver defect: `reports/RPT-027` measured on 26.122
+    # that the command opens a modal window with a plot and a Done button,
+    # and script processing stops there until a person dismisses it, under
+    # `-hidden` with both streams redirected. Every unattended run of this
+    # script since has reproduced that, on 26.123 as well.
+    #
+    # So it is placed after everything else, and the placement is the whole
+    # mitigation: `--timeout` bounds the WHOLE RUN, not this command alone,
+    # and putting this last is what makes that bound cheap, because
+    # everything else is already written by the time it blocks. This comment
+    # named a `--bl-timeout` that does not exist and claimed it bounded the
+    # wait rather than the run, which is the inverse of what the real flag
+    # does; an operator following it would have got `unrecognized arguments`
+    # and then believed a bound they did not have.
     #
     # The arguments are the reference frame and a point near the upper surface.
     # The probe's spanwise station is off the panel boundary, on the same
@@ -315,8 +324,17 @@ def main() -> int:
         action="store_true",
         help="run the sweeper script instead of the main capture",
     )
+    # `--fs-version`, NOT `--version`, and the reason is written down at
+    # `utils/cli.py`: every tool of this package spells the FlightStream
+    # version that way (pyfs-qa, pyfs-matrix, pyfs-manual), and `--version`
+    # is what a reader expects to print the PACKAGE's own version. This
+    # script was the only place in the tree where `--version` named a
+    # solver build, which is the quiet direction of that confusion: the
+    # spelling that means "print and exit" everywhere else silently
+    # retargeted a licensed run here.
     parser.add_argument(
-        "--version",
+        "--fs-version",
+        dest="fs_version",
         default=VERSION,
         help=(
             "the build to emit under (default 26.123). A command with no row on "
@@ -338,7 +356,7 @@ def main() -> int:
     args = parser.parse_args()
 
     global _version
-    _version = args.version
+    _version = args.fs_version
     out = Path(args.out).resolve()
     out.mkdir(parents=True, exist_ok=True)
     stl = generate_wing_stl(COARSE, out / "wing.stl")

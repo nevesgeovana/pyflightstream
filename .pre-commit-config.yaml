@@ -55,12 +55,22 @@ repos:
       # the file, fails the commit, and a second `git commit` succeeds
       # over the rewritten bytes with nothing said.
       #
-      # Measured the day it was extended, on the five captures of that
-      # night: trailing-whitespace stripped exactly one line of forty
-      # spaces from the preamble of four of them. It cost nothing that
-      # time, because no parser reads that line. It was still the wrong
-      # thing to have happened, and the next capture could as easily
-      # carry a space-delimited field where the loss is the value.
+      # Measured the day it was extended, on the SEVEN captures of that
+      # night: trailing-whitespace stripped exactly one line of fifty
+      # spaces from the preamble of six of them. It cost nothing, because
+      # no parser reads that line. It was still the wrong thing to have
+      # happened, and the next capture could as easily carry a
+      # space-delimited field where the loss is the value.
+      #
+      # BOTH FIGURES WERE WRONG IN THE FIRST VERSION of this comment, and
+      # the second one mattered: it said forty spaces (it is fifty) and
+      # five captures of which four were stripped. The two it left out
+      # were committed BEFORE this exclusion landed, so they stayed
+      # mutilated in the tree while the comment beside them described the
+      # fix. A V and V pass found them by the right discriminator: the
+      # capture report records their byte counts, and both files were
+      # exactly fifty short. Both were re-captured on the licensed
+      # machine and restored.
       - id: trailing-whitespace
         exclude: '^tests/(goldens|fixtures)/'
       - id: end-of-file-fixer

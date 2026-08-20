@@ -2000,7 +2000,18 @@ def _pinned_columns(header: str, expected: tuple[str, ...], *, what: str) -> tup
     return printed
 
 
-def _row_values(line: str, *, columns: tuple[str, ...], what: str, ordinal: int) -> list[float]:
+def _row_values(
+    line: str,
+    *,
+    columns: tuple[str, ...],
+    what: str,
+    ordinal: int,
+    named_by: str = "the header names",
+    truncation: str = (
+        "the file ends part way through a row, so the solver stopped mid-write "
+        "and the missing values are not zeros"
+    ),
+) -> list[float]:
     """Parse one data row, refusing an arity the header does not name.
 
     A trailing separator is punctuation rather than a column: three of
@@ -2012,13 +2023,12 @@ def _row_values(line: str, *, columns: tuple[str, ...], what: str, ordinal: int)
         cells.pop()
     if len(cells) < len(columns):
         raise IncompleteOutputError(
-            f"row {ordinal} of the {what} holds {len(cells)} values but the header names "
-            f"{len(columns)} columns; the file ends part way through a row, so the solver "
-            "stopped mid-write and the missing values are not zeros"
+            f"row {ordinal} of the {what} holds {len(cells)} values but {named_by} "
+            f"{len(columns)} columns; {truncation}"
         )
     if len(cells) > len(columns):
         raise MalformedOutputError(
-            f"row {ordinal} of the {what} holds {len(cells)} values but the header names "
+            f"row {ordinal} of the {what} holds {len(cells)} values but {named_by} "
             f"{len(columns)} columns; the table layout changed, so reading it by position "
             "would attribute a value to the wrong column"
         )
@@ -2118,7 +2128,7 @@ class ForceDistributionReport:
 
 
 def parse_force_distributions(
-    text: str, requested_version: str | FsVersion | None = None
+    text: str, *, requested_version: str | FsVersion | None = None
 ) -> ForceDistributionReport:
     """Parse an EXPORT_SOLVER_ANALYSIS_FORCE_DISTRIBUTIONS file.
 
@@ -2270,7 +2280,7 @@ class OffBodyStreamlinesReport:
 
 
 def parse_off_body_streamlines(
-    text: str, requested_version: str | FsVersion | None = None
+    text: str, *, requested_version: str | FsVersion | None = None
 ) -> OffBodyStreamlinesReport:
     """Parse an EXPORT_ALL_OFF_BODY_STREAMLINES file into per-streamline tables.
 
@@ -2501,7 +2511,7 @@ class SurfaceSectionsReport:
 
 
 def parse_surface_sections(
-    text: str, requested_version: str | FsVersion | None = None
+    text: str, *, requested_version: str | FsVersion | None = None
 ) -> SurfaceSectionsReport:
     """Parse a surface-section export into one table per cross-section.
 
@@ -2696,7 +2706,7 @@ class SweepSpreadsheetReport:
 
 
 def parse_sweep_spreadsheet(
-    text: str, requested_version: str | FsVersion | None = None
+    text: str, *, requested_version: str | FsVersion | None = None
 ) -> SweepSpreadsheetReport:
     """Parse a SWEEPER_EXPORT_SPREADSHEET file into the polar it holds.
 
@@ -2778,7 +2788,7 @@ class SolverAnalysisCsvReport:
 
     columns: tuple[str, ...]
     values: np.ndarray
-    field: str
+    scalar_field: str
 
     @property
     def count(self) -> int:
@@ -2792,7 +2802,7 @@ class SolverAnalysisCsvReport:
 
     @property
     def scalar(self) -> np.ndarray:
-        """The fourth column, shape ``(count,)``; see :attr:`field`."""
+        """The fourth column, shape ``(count,)``; see :attr:`scalar_field`."""
         return self.values[:, 3]
 
 
@@ -2885,7 +2895,7 @@ def parse_solver_analysis_csv(text: str, *, field: str | None = None) -> SolverA
     ('x', 'y', 'z', 'scalar')
     >>> report.count
     2
-    >>> report.field
+    >>> report.scalar_field
     'CP-FREESTREAM'
     >>> float(report.scalar[0])
     -0.141
@@ -2913,7 +2923,26 @@ def parse_solver_analysis_csv(text: str, *, field: str | None = None) -> SolverA
         )
     columns = SOLVER_ANALYSIS_CSV_COLUMNS
     rows = [
-        _row_values(line, columns=columns, what=what, ordinal=ordinal)
+        _row_values(
+            line,
+            columns=columns,
+            what=what,
+            ordinal=ordinal,
+            # THIS EXPORT WRITES NO HEADER, so the shared refusal's default
+            # sentence would send a reader looking for a line the format does
+            # not have, and the two places that explain this format both shout
+            # that it has none. And the mid-write reading is not available
+            # either: there is no footer to be short of, so a short row here is
+            # as likely to be a truncated cell or a hand edit as a solver that
+            # stopped, and only the LAST row could mean truncation at all.
+            named_by="this export writes",
+            truncation=(
+                "this format NAMES none of its columns, so nothing in the file "
+                "says which value is missing. A short row here is a truncated "
+                "write, a truncated cell or a hand edit, and a header-less "
+                "export with no footer cannot tell them apart"
+            ),
+        )
         for ordinal, line in enumerate(
             (line for line in text.splitlines() if line.strip()), start=1
         )
@@ -2925,7 +2954,7 @@ def parse_solver_analysis_csv(text: str, *, field: str | None = None) -> SolverA
             "not have, or the write never started"
         )
     return SolverAnalysisCsvReport(
-        columns=columns, values=_as_table(rows, len(columns)), field=declared
+        columns=columns, values=_as_table(rows, len(columns)), scalar_field=declared
     )
 
 

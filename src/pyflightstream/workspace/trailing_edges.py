@@ -1,4 +1,14 @@
-"""Trailing-edge extraction from a blade surface mesh, in the rotor frame.
+"""Trailing-edge extraction from a blade surface mesh.
+
+THE ROTOR FRAME IS WHERE THE CRITERION IS COMPUTED, NOT WHERE THE
+COORDINATES LAND, and this line said otherwise until a review pass on
+2026-08-20 traced two public sentences back to it. The axis and the hub
+define the spanwise and tangential directions that decide which end of a
+section is aft; the nodes returned are SELECTED MESH VERTICES, never
+transformed, so they are in the mesh's own reference frame and length
+units. A reader who believed otherwise would apply an inverse transform
+before writing the node list and mark the wrong edges, which is the
+failure this capability exists to remove.
 
 Pipeline role: workspace layer. It turns a surface mesh the user already
 has into the node list a wake-edge import reads, and hands that list to
@@ -65,8 +75,8 @@ from typing import Any
 
 import numpy
 
-from pyflightstream._errors import InputArtifactError
 from pyflightstream._mesh import read_mesh
+from pyflightstream.workspace.inputs import InputArtifactError
 from pyflightstream.workspace.wake_edges import write_node_file
 
 __all__ = [
@@ -341,15 +351,25 @@ def extract_trailing_edge(
         watertight and no proximity query is made, so this runs on a
         base install.
     axis : array_like
+        REQUIRED. There is no default and the ``= None`` in the signature
+        is a sentinel that exists only so the refusal can name both this
+        and ``hub`` together; nothing here guesses an axis, because a
+        guessed one silently returns the LEADING edge of a blade whose
+        rotor turns the other way.
+
         Rotor axis of rotation, three components in the mesh's reference
         frame. Normalised internally, so only the direction matters, but
         the SENSE matters: the rotor is taken to turn the right-handed
         way about it, and that is what decides which end of the chord is
-        aft.
+        aft. It is a third vocabulary for which way a rotor turns,
+        alongside ``PropellerReference.rotation`` and its ``blade_travel``
+        sibling, and nothing reconciles the three; if the extraction
+        returns a leading edge, this sign is the first thing to check.
     hub : array_like
-        A point on the axis of rotation, three components in the mesh's
-        reference frame and length units. Together with ``axis`` it
-        fixes the spanwise coordinate of every vertex.
+        REQUIRED, on the same terms as ``axis`` above. A point on the
+        axis of rotation, three components in the mesh's reference frame
+        and length units. Together with ``axis`` it fixes the spanwise
+        coordinate of every vertex.
     sections : int
         Number of chordwise sections to cut the span into, which is the
         number of nodes returned. At least two: one section yields one

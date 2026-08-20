@@ -116,9 +116,15 @@ its watertight surface.
 
 Since v0.8.0 the one step of a rotor campaign that still had to be done by
 hand is in the library: `pyflightstream.workspace.extract_trailing_edge` reads
-a blade surface and returns the trailing-edge vertices in the rotor frame, and
+a blade surface and returns its trailing-edge vertices, and
 `TrailingEdge.write_node_file` writes them as the node list both documented
 marking routes read.
+
+The vertices come back in the MESH's own reference frame and length units,
+because they are selected mesh vertices and nothing transforms them. The rotor
+axis and hub you pass in are what the CRITERION is computed in, not what the
+output is expressed in. The unit is declared once, at `write_node_file`, since
+a mesh file does not carry one.
 
 <!-- skip: next -->
 ```python
@@ -129,10 +135,14 @@ edge.write_node_file("wake_nodes.txt", unit="METER")
 ```
 
 That block is skipped by the executable-examples run rather than checked,
-and the reason is worth one line because every other python block on this
-page IS executed: it names a blade mesh, and this repository commits no
-blade. The API names in it are checked against the package by
-`tests/test_guide_api_names.py`.
+and the reason is worth one line because every other python block on this page
+IS executed: it names a blade mesh, and this repository commits no blade.
+NOTHING GUARDS THE NAMES IN IT, which is said rather than left to be assumed:
+`tests/test_guide_api_names.py` reads the user guide alone and
+`tests/test_docs_example_currency.py` reads `workspace-and-workflows.md`
+alone, so a rename would leave this block stale and no test would say so. The
+first version of this paragraph claimed a guard that does not read this page,
+which is worse than no guard at all.
 
 Only the vertices are read. The mesh need not be watertight and no proximity
 query is made, so this runs on a base install with no extra.

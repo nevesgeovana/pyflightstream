@@ -1040,7 +1040,12 @@ the base could not offer while it bundled several.
     remainder is enumerated; a reader who needs the exact residual reads
     the ratchet, which is the only place it cannot go stale.
 
-    The base parents the exceptions and not the one catalogued warning.
+    The catalogue has TWO roots: `PyflightstreamError` parents every
+    exception, and `PyflightstreamWarning` parents every warning, so a
+    caller selects either family with one category. This sentence said
+    the base parents the exceptions and not the one catalogued warning,
+    which was true before the warning base existed and describes a
+    package with one warning rather than three.
     The first clause of this requirement says exception, the third says
     exception and warning, and those are deliberately different sets: a
     warning is delivered through the warnings machinery and selected by

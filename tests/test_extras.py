@@ -443,3 +443,49 @@ def test_every_runtime_dependency_has_a_license_card():
         f"runtime dependencies {missing} have no license-evidence card under "
         "reports/. These reach every user of the package"
     )
+
+
+def test_the_requirement_that_calls_itself_the_home_of_record_names_the_shipped_set():
+    """NFR-06's table against `[project].dependencies`, name for name.
+
+    THE DRIFT THIS CATCHES ALREADY HAPPENED, which is why the guard is
+    here rather than in a plan row. `trimesh` was promoted out of the
+    `[geom]` extra into the runtime set, and the promotion reached
+    `pyproject.toml`, `pyflightstream.extras`, three documentation pages,
+    the user guide and the changelog without ever reaching the
+    requirement that declares itself "the single home OF RECORD for the
+    set". An architect pass found it, not a test, because nothing read
+    that table.
+
+    It compares the LEFT-HAND column, which is what ships today. The
+    right-hand column is the migration release's set and is deliberately
+    not compared: reading it as already true is the error the table
+    exists to prevent, and a guard that compared it would demand exactly
+    that error.
+
+    Names only, and case-folded. A version bound belongs in the
+    packaging file and stating one in a requirement would be a second
+    home for it.
+    """
+    import re
+
+    srs = (REPO / "docs" / "srs" / "nonfunctional-requirements.md").read_text(encoding="utf-8")
+    rows = re.findall(r"^\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*$", srs, re.M)
+    today = [left for left, _ in rows if "numpy" in left and "pydantic" in left]
+    assert len(today) == 1, (
+        f"NFR-06's dependency table has {len(today)} rows naming numpy and pydantic "
+        "in its left column, and this guard needs exactly one. Either the table moved "
+        "or another table now matches; re-aim the anchor rather than deleting the test"
+    )
+    stated = {name.strip().lower() for name in today[0].split(",") if name.strip()}
+    shipped = {
+        re.split(r"[<>=!~\[ ]", entry, maxsplit=1)[0].strip().lower()
+        for entry in _pyproject_runtime_dependencies()
+    }
+    assert stated == shipped, (
+        "NFR-06 calls itself the single home of record for the runtime dependency "
+        f"set, and it disagrees with what ships.\n  stated and not shipped: "
+        f"{sorted(stated - shipped)}\n  shipped and not stated: {sorted(shipped - stated)}\n"
+        "Amend the requirement in the same commit as the packaging change, with the "
+        "reason and the measurement, which is what home of record costs."
+    )

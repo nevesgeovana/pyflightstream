@@ -59,9 +59,19 @@ the numbers describe.
 
 No override was removed. That is not restraint, it is the measurement: the set
 of modules that report an error with the overrides off is EXACTLY the set of
-modules the overrides name. Nothing outside the 21 is dirty, and nothing
-inside the 21 is clean, so there is no override here whose removal could be
+modules the overrides name. Nothing outside the 20 is dirty, and nothing
+inside the 20 is clean, so there is no override here whose removal could be
 justified on evidence today and no clean module quietly going unchecked.
+
+THOSE FOUR NUMBERS SAID 21 UNTIL 2026-08-20, which is the third recurrence
+of the defect this report was amended twice for and the reason its
+reproduction is a script now. `results.tables` was removed from the exempted
+set and the delta table two sections down records that removal correctly; the
+prose around it was the pre-removal edition welded onto post-removal figures.
+At 21 the sentence above is self-contradictory rather than merely stale: 21
+exempted against 20 dirty leaves one exempted module clean, which is exactly
+what it denies. A V and V pass found it, not the guard, because the guard
+parses the ONE re-count sentence and nothing else.
 
 ## Why this was measured at all
 
@@ -288,13 +298,13 @@ That is false. It is recorded here as false rather than quietly worked around,
 because the item's purpose sentence will outlive this session and the next
 reader would otherwise go looking for a discrepancy that is not there.
 
-`pyproject.toml` carries 21 `ignore_errors = true` blocks, between lines 199
-and 281 as this commit leaves the file. Two of them are:
+`pyproject.toml` carries 20 `ignore_errors = true` blocks as this commit
+leaves the file. Two of them are:
 
     pyproject.toml:276   module = "pyflightstream.workspace.inputs"
     pyproject.toml:280   module = "pyflightstream.workspace.naming"
 
-`MYPY_EXEMPTIONS` in `tests/test_traceability.py` carries 21 names, and the
+`MYPY_EXEMPTIONS` in `tests/test_traceability.py` carries 20 names, and the
 same two are among them:
 
     tests/test_traceability.py:198   "pyflightstream.workspace.inputs",
@@ -308,7 +318,7 @@ remote could open. It recorded both modules from the beginning, in the
 workspace.naming, results.tables,`. The two public records above settle the
 question on their own.
 
-So the count is 21 in the configuration against 21 in the test record, the
+So the count is 20 in the configuration against 20 in the test record, the
 ledger table agrees with both, and nothing is unlisted. Where "nineteen" came
 from is not recoverable from the tree; the two modules named as missing are
 the two that appear at the END of an alphabetically sorted list, which is the
@@ -328,11 +338,14 @@ Five records carried the 2026-08-03 measurement.
 
 1. `pyproject.toml`, the `[tool.mypy]` header comment. Corrected, and it now
    distinguishes the dated error total from the guarded module total.
-2. The 21 override blocks in `pyproject.toml`. Matched, unchanged, correct as
-   they stood. No override was added and none was deleted.
-3. `MYPY_EXEMPTIONS` in `tests/test_traceability.py`. The frozenset is
-   unchanged, because the exempted set has not moved; its comment is corrected
-   and now carries the re-count sentence.
+2. The 20 override blocks in `pyproject.toml`. Matched and correct as they
+   stand. No override was ADDED; one was deleted, on the evidence that its
+   module is clean.
+3. `MYPY_EXEMPTIONS` in `tests/test_traceability.py`. The frozenset LOST one
+   name, `pyflightstream.results.tables`, because that module became clean and
+   its override was deleted on evidence; its comment carries the re-count
+   sentence. This item said the frozenset was unchanged and that the set had
+   not moved, eleven lines above the comment recording the removal.
 4. The debt table in this repository's local-only plan ledger, which is why it
    is described here rather than named: this remote is public and that record
    is not. Re-counted, with the 2026-08-03 table kept beneath it so the delta

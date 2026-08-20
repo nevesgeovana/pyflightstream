@@ -84,13 +84,34 @@ a row, and nothing about the file announces that. The script now names the
 offset as a constant with the arithmetic in its comment, so the next mesh
 change cannot quietly put the plane back on a boundary.
 
-## THIRD FINDING: `EXPORT_BL_VELOCITY_PROFILE` HANGS THE SOLVER
+## THIRD FINDING, AND ITS CAUSE WAS ALREADY KNOWN: `EXPORT_BL_VELOCITY_PROFILE` DOES NOT RETURN IN AN UNATTENDED RUN
 
-The one format still unobserved, and it is not for want of trying.
+**CORRECTED 2026-08-20, BY A REVIEW PASS, AND THE CORRECTION IS THE FIRST
+THING TO READ.** This section was titled "hangs the solver" and opened by
+saying the solver accepts the command, prints nothing further and does not
+return. That is a WIDER claim than the evidence carries, and the narrower one
+was already committed three days earlier in `RPT-027`:
 
-The solver accepts the command, prints nothing further, and does not return.
-Measured three times, on both builds that document the command, on a mesh that
-solves in two seconds:
+> Measured on 26.122 on 2026-08-17: the command opens a modal window titled
+> "Boundary layer velocity profile", carrying a plot of velocity against
+> height above the surface and a Done button, and script processing stops
+> there until a person dismisses it. Under `-hidden`, with standard output
+> and standard error redirected.
+
+So the runs below are RE-OBSERVATIONS OF A DIAGNOSED CAUSE rather than
+evidence of a solver hang, and this report should have cited `RPT-027` before
+it spent the first of them. The command's own database entry already records
+the behaviour and cites that report, and
+`src/pyflightstream/results/__init__.py` already states it correctly; this
+report and the changelog entry drawn from it were the two places in the tree
+that said something else about one behaviour.
+
+WHAT THESE RUNS DO ADD, which is why they are kept rather than deleted: the
+behaviour occurs on 26.123 as well as 26.122, and it is NOT the panel-boundary
+effect that the degenerate section above would otherwise suggest.
+
+The command does not return in an unattended run. Measured three times, on
+both builds that document the command, on a mesh that solves in two seconds:
 
 * run 1, 26.123, 1800 s, probe at `y = 0`;
 * run 2, 26.123, 240 s, probe at `y = 0.5`, which rules out the panel-boundary
@@ -109,13 +130,19 @@ and it shows the run reaching the command and writing nothing after it. In run
 1 the log came last and was therefore never written, which is the whole reason
 the order was changed.
 
-**No status was moved.** Invariant 3: `broken` moves only through the
-sanctioned probe path with a committed compat report, and three runs of a
-capture script are evidence FOR a probe rather than a substitute for one. The
-reading this supports is recorded in the local plan ledger, together with what
-the probe should test and why a hang is worse for a campaign than an abort: an
-aborting command leaves a nonzero status, and this one leaves a run that looks
-busy.
+**No status was moved**, and `RPT-027` had already reached that conclusion
+for the same reason: `broken` moves only through the sanctioned probe path
+with a committed compat report, this was a hand run, and "opens a window" is
+not the same claim as "the solver rejects it". Three runs of a capture script
+are evidence FOR a probe rather than a substitute for one.
+
+AND THE PROBE THIS REPORT ASKS FOR CANNOT BE RUN UNATTENDED, which follows
+from the cause and which the first version of this section could not see
+because it had the cause wrong. A probe harness that waits on this command
+waits on a person. That is recorded in the local plan ledger rather than left
+for whoever spends the next seat to discover, and it is the reason the
+behaviour is worse for a campaign than an abort would be: an aborting command
+leaves a nonzero status, and this one leaves a run that looks busy.
 
 ## FOURTH FINDING: 26.122 AND 26.123 DO NOT AGREE, AT THE FIFTH DECIMAL
 

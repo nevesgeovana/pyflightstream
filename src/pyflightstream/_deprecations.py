@@ -107,10 +107,21 @@ class DeprecatedModule:
 #: ``pyflightstream.files`` and ``pyflightstream.cases.matrix_legacy``
 #: were deleted on the horizon their own entries recorded. Empty
 #: therefore means that no module shim is live. It has never meant that
-#: the package owes a user nothing, and two live promises sit outside
-#: this tuple right now:
+#: the package owes a user nothing, and THREE live promises sit outside
+#: this tuple right now. It said TWO until 2026-08-20, and the third had
+#: shipped in the same release whose changelog announces the correction
+#: that made this list enumerate them at all; an architect pass found it,
+#: not a guard, which is the point the last paragraph here makes:
 #:
-#: * the parameter warning at ``script/helpers.py:1852``, which tells a
+#: * the argument warning at ``run/matrix.py``, quoted as "is the former
+#:   name of default_fs_version and will be removed in a future release",
+#:   which tells a caller of ``plan_matrix`` or ``run_matrix`` that
+#:   ``fs_version=`` is the former spelling of ``default_fs_version=``
+#:   (PFS-2009.08.01). It deprecates a KEYWORD of two functions that
+#:   stay, so again there is no module to record. The ``pyfs-matrix
+#:   --fs-version`` flag is NOT deprecated and keeps its spelling, which
+#:   is worth stating here because the two look like one promise;
+#: * the parameter warning at ``script/helpers.py``, which tells a
 #:   caller that ``analysis_setup(vorticity_drag_boundaries=...)`` is
 #:   deprecated, the selection having been a parameter of
 #:   ``solver_settings`` since v0.3.0, and that it will leave
@@ -128,13 +139,27 @@ class DeprecatedModule:
 #:   module shim either, so again there is nothing this tuple can hold.
 #:
 #: The changelog line numbers above shift whenever the Unreleased section
-#: grows; the heading and the quoted opening are the anchors to grep for,
-#: and the helpers line is anchored by the warning text quoted with it.
+#: grows; the heading and the quoted opening are the anchors to grep for.
+#: NO FILE:LINE APPEARS IN THIS LIST ANY MORE, and that is a change made
+#: on 2026-08-20 rather than an omission: the helpers entry cited
+#: ``script/helpers.py:1852``, the file moved in the same release, and
+#: line 1852 became the closing paren of an unrelated call. Each entry is
+#: anchored by the warning TEXT quoted with it, which survives a move.
 #:
-#: NEITHER PROMISE CARRIES A REMOVAL VERSION, deliberately. Setting one
+#: NO PROMISE HERE CARRIES A REMOVAL VERSION, deliberately. Setting one
 #: is the author's call and NFR-20's policy does not bind before 1.0, so
 #: a date invented here would look decided. The machinery stays rather
 #: than going with the two shims it outlived, so the next module shim
-#: registers here; a promise of either shape above still has no home in
-#: this dataclass, which is how both of them went unrecorded.
+#: registers here; a promise of any shape above still has no home in this
+#: dataclass, which is how all three went unrecorded.
+#:
+#: THREE PROMISES IN THREE SHAPES IS THE DATACLASS SAYING IT IS TOO
+#: NARROW, and that reading is recorded here rather than acted on
+#: tonight: a keyword deprecation, a parameter deprecation and an
+#: unlanded rename each need a row this type cannot hold, so
+#: ``tests/test_deprecation_deadline.py`` sees none of them and this
+#: comment is the only enumeration. Giving ``DeprecatedModule`` a sibling
+#: that models a parameter or keyword promise is registered in the local
+#: plan ledger; until it lands, adding a fourth promise means editing
+#: this comment, and nothing will remind you.
 DEPRECATED_MODULES: tuple[DeprecatedModule, ...] = ()

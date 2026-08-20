@@ -125,13 +125,48 @@
 
     | Today | From the migration release |
     |---|---|
-    | numpy, pandas, pydantic, PyYAML, xarray | numpy, itaca, pydantic, PyYAML |
+    | numpy, pandas, pydantic, PyYAML, trimesh, xarray | numpy, itaca, pydantic, PyYAML, trimesh |
 
     pandas and xarray leave and ITACA arrives as one move, not per
-    structure (AD-06, AD-07). The count does not grow: five becomes
-    four. Reading the right-hand column as already true is the error
-    this table exists to prevent; `pyproject.toml` carries the
-    left-hand column today and the migration commit moves it.
+    structure (AD-06, AD-07). Reading the right-hand column as already
+    true is the error this table exists to prevent; `pyproject.toml`
+    carries the left-hand column today and the migration commit moves
+    it.
+
+    **AMENDED AT v0.8.0, AND THE COUNT GREW.** This requirement said
+    "the count does not grow: five becomes four", and v0.8.0 makes it
+    six becoming five, because `trimesh` was promoted out of the
+    `[geom]` extra into the runtime set. The amendment is recorded here
+    rather than only in the decision note, because this table calls
+    itself the home OF RECORD and a runtime-dependency change whose
+    reason lives nowhere public is the failure the phrase exists to
+    prevent.
+
+    The reason: extracting a trailing edge from a blade mesh is on the
+    DEFAULT PATH of a rotor campaign, and a capability gated behind an
+    extra makes the library promise what a default install cannot do.
+    The cost was measured rather than estimated and is the smallest a
+    new runtime dependency has been asked to be: ONE new distribution
+    and 3.89 MiB, whose only hard dependency is `numpy`, which this
+    package already requires (`reports/RPT-034`). Its licence is
+    MIT-compatible under NFR-02 with the evidence card committed
+    (`reports/RPT-035`). The candidates that were refused are recorded
+    with it: `meshio` on that same weight budget, at five new
+    distributions and 12.26 MiB against limits of one and five;
+    `numpy-stl` on capability; an in-house reader on the standing
+    engineering policy.
+
+    What did NOT change is the rule this requirement is about. A
+    heavier need still lives behind an extra: `[geom]` keeps the
+    SPATIAL INDEX, `rtree` and `scipy`, because containment culling is
+    an optional capability where reading a mesh is not.
+
+    A tier-1 guard now compares this table against
+    `[project].dependencies` name for name
+    (`tests/test_extras.py`), because until v0.8.0 nothing did, and
+    that is why the promotion reached `pyproject.toml`, the extras
+    module, three documentation pages and the changelog without ever
+    reaching the requirement that answers for it.
 
     Two satellites restate the set for their own readers and are not
     generated from this table, so they move with the migration commit

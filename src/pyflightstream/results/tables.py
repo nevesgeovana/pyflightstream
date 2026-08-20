@@ -992,7 +992,7 @@ def _solver_analysis_csv_frame(report: SolverAnalysisCsvReport) -> pd.DataFrame:
         tuple(report.columns), SOLVER_ANALYSIS_CSV_COLUMNS, what="solver analysis csv report"
     )
     frame = pd.DataFrame(report.values, columns=columns)
-    frame[_CSV_FIELD_COLUMN] = report.field
+    frame[_CSV_FIELD_COLUMN] = report.scalar_field
     return _stamped(frame, origin="raw", reduction=reduction_for_solver_mode(None))
 
 

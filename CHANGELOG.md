@@ -149,7 +149,8 @@ is refused rather than written (PFS-2014.03).
 
 **New catalogued exceptions:** `results.UnsupportedResultTypeError` and
 `script.entities.ScriptDeclarationTypeError`, both keeping `TypeError` as
-their second base (OPS-2009.01.08).
+their second base (OPS-2009.01.08), and `post.writers.OutputExistsError`,
+raised where a writer refuses to overwrite (PFS-2011.02).
 
 **New catalogued warning categories:** `PyflightstreamWarning` and
 `PyflightstreamDeprecationWarning`, in the shared-vocabulary module below
@@ -198,6 +199,30 @@ adds or strips.
 `WORKFLOWS`, `workflow_names`, and `WorkflowCoverageError` in the
 exception catalog, deriving from `PyflightstreamError` and keeping
 `RuntimeError` as its standard-library base.
+
+**BREAKING: a case cannot ask for a geometric sweep and an aerodynamic sweep
+at once** (PFS-2025.17, PFS-2025.17.02). A case declaring a multi-value
+`angle_sweep_deg` beside a multi-point sweep is REFUSED at load time, through
+both doors: `campaign.toml` and the run matrix. A file that loaded before this
+release and asks for both will now stop, which is the whole point of the
+change.
+
+The reason is identity, not taste. The two sweeps MULTIPLY, into runs the case
+never names, and the products cannot be told apart: a run is identified by its
+aerodynamic point alone, so every geometry in the product would produce the
+same `run_id` and the same output file names. Silently writing one over
+another is the failure this refuses.
+
+The refusal teaches both shapes rather than only refusing, and they are the
+two things a user might mean. A rotation held FIXED across an aerodynamic
+sweep is `angle_deg = <angle>`, one value, which costs one campaign. A sweep
+OF the geometry is one case per geometry, each with its own `sim_id` and its
+own single-valued angle.
+
+`pyflightstream.cases` gains `ROTATION_SWEEP_KEY`, `ROTATION_OFFSET_KEY`,
+`geometric_sweep_values` and `multiplied_sweep`, and the limit is stated where
+a user meets it, at the declaration site, rather than in a page they would
+have to already know to consult.
 
 **BREAKING FOR AN INSTALL FOOTPRINT, not for any code: `trimesh` becomes a
 RUNTIME dependency** (PFS-2025.20, PFS-2025.20.02), pinned `>=4.12,<6`. It was
@@ -274,8 +299,13 @@ change. The criterion is the AFTMOST POINT OF EACH CHORDWISE SECTION in the
 rotor frame, computed here rather than delegated: a dihedral-angle threshold is
 the crease criterion, which is exactly what this capability exists to escape,
 because a strongly twisted blade has a trailing edge that is not a crease.
-Coordinates are an `(n, 3)` array in a declared length unit, and the frame is
-the rotor's.
+READ THE FRAME PRECISELY, because it is the one thing here a reader can act
+on wrongly. The rotor frame is where the CRITERION is computed: the axis and
+the hub define the spanwise and tangential directions that decide which end of
+a section is aft. The COORDINATES returned are selected mesh vertices, never
+transformed, so they are an `(n, 3)` array in the MESH's own reference frame
+and length units. The unit is declared once, at `write_node_file`, because a
+mesh file does not carry one.
 
 `pyflightstream._mesh` is where the mesh library is imported, through ONE lazy
 accessor, on the precedent `_digest.py` set: it sits below every layer rather
@@ -284,7 +314,13 @@ than becoming a third hand-rolled copy of the same import guard.
 **New public names in `pyflightstream.workspace`:**
 `CampaignWorkspace.open`, `check_unique_stems`, `STEM_REGISTERED_KINDS`,
 `expand_group`, `CampaignWorkspace.expand_group`, `reference_points`,
-`reference_point`, `ReferencePoints` and `check_reference_point_names`.
+`reference_point`, `ReferencePoints`, `check_reference_point_names`,
+`extract_trailing_edge`, `TrailingEdge`, `write_trailing_edge_node_file`,
+`resolve_build`, `RegisteredBuild` and `CampaignWorkspace.resolve_build`.
+`DEFAULT_SECTIONS` and `MINIMUM_SECTION_VERTICES` stay reachable as
+`pyflightstream.workspace.trailing_edges.*` rather than at the package,
+deliberately: they are the extraction's own tuning constants and not part
+of the promise the package namespace makes.
 `RunRecord.broken_commands` is annotated `list[BrokenCommandRecord]`,
 a new `TypedDict` mirroring the script-layer record field for field.
 
@@ -388,11 +424,20 @@ take a `builds` mapping from that id to a `SolverBuild`.
 **New modules on the affirmed public surface:**
 `pyflightstream.post.reductions`, `pyflightstream.post.settings_table`,
 `pyflightstream.post.unsteady`, `pyflightstream.run.cli`,
-`pyflightstream.run.matrix`, `pyflightstream.workspace.matrix` and
+`pyflightstream.run.matrix`, `pyflightstream.workspace.matrix`,
+`pyflightstream.workspace.trailing_edges` and
 `pyflightstream.workspace.wake_edges`. **Removed:**
 `pyflightstream.cases.cli`.
 
-**New public names elsewhere:** `pyflightstream.results.parse_unsteady_plots`
+**New public names elsewhere:** in `pyflightstream.script.helpers`,
+`RelaxedTrailingEdge`, `parse_relaxed_trailing_edge`,
+`resolve_shedding_direction`, `RELAXED_SHEDDING_DIRECTIONS`,
+`DEFAULT_SHEDDING_DIRECTION` and `RotationSense`; in
+`pyflightstream.cases.workflows`, `ROTOR_SHEDDING_VARIABLE`,
+`rotor_shedding_direction` and `rotor_relaxed_trailing_edges`; in
+`pyflightstream.cases`, `ROTATION_SWEEP_KEY`, `ROTATION_OFFSET_KEY`,
+`geometric_sweep_values` and `multiplied_sweep`;
+`pyflightstream.results.parse_unsteady_plots`
 and `UnsteadyPlotsReport`; in `pyflightstream.qa.compat`,
 `EXECUTABLE_BASELINE_REPORT`, `read_executable_baseline`,
 `classify_executable`, `ExecutableIdentity`, `ExecutableVerdict`,
@@ -516,12 +561,28 @@ functions, three of which are being broken here anyway. Every caller in
 this repository, in its tests, its scripts and its one shipped example,
 already passed these by keyword, so nothing in the tree moved.
 
-Deprecations: none.
+**Deprecations: ONE, and this line said "none" until 2026-08-20.**
+`plan_matrix(fs_version=...)` and `run_matrix(fs_version=...)` are
+deprecated in favour of `default_fs_version` (PFS-2009.08.01). The old
+spelling still works and warns with `PyflightstreamDeprecationWarning`.
+
+The rename is not cosmetic: beside a per-row `FS_BUILD` column,
+`fs_version` reads as an OVERRIDE of that column, and it is the opposite,
+the version that rows naming NO build fall back to. The `pyfs-matrix
+--fs-version` command-line flag is unaffected and keeps its spelling.
+
+The removal release is not named, because NFR-20 does not bind before 1.0
+and the number is the author's call. That this line is the one a
+downstream reader greps to decide whether an upgrade breaks them is why
+it is corrected here rather than at the next release: publishing it false
+costs the reader the whole warning window the shim exists to buy.
 
 ### Added
 
-- **Six parsers for the exports that had none, each written against a
-  real observed file** (PFS-2014.02). `parse_force_distributions`,
+- **Five parsers for the six exports that had none, each written against
+  a real observed file** (PFS-2014.02). Five functions rather than six
+  because `parse_surface_sections` answers for both surface-section
+  commands, on the evidence below. `parse_force_distributions`,
   `parse_off_body_streamlines`, `parse_surface_sections` (which answers
   for BOTH surface-section commands, on the evidence that the two
   captures carry the same banner, count label, twenty-column header and
@@ -593,15 +654,17 @@ Deprecations: none.
   READ THE COUNT WITH IT. **Ten of the eleven default-set exports now
   read and tabulate**, up from four, and the eleventh is not an omission:
   `EXPORT_BL_VELOCITY_PROFILE` is the one format nobody has observed,
-  because the solver HANGS on it. Measured three times, on both builds
-  that document the command, on a mesh that solves in two seconds: 26.123
-  at 1800 s, 26.123 at 240 s with the probe moved off a panel boundary,
-  and 26.122 at 180 s. Every earlier export in the same script is written
-  in the first two seconds and the log shows the run reaching the command
-  and writing nothing after it (`reports/RPT-037`). Its classification
-  note now carries that reason in place of "no observed export
-  captured", which had come to read as though nobody had tried. No status
-  moved: `broken` travels only through the sanctioned probe path.
+  because IT IS INTERACTIVE. It opens a modal window carrying a plot and
+  a Done button, and script processing stops there until a person
+  dismisses it, even under `-hidden` with both standard streams
+  redirected. That was measured on 26.122 and recorded in
+  `reports/RPT-027` on 2026-08-17; `reports/RPT-037` adds that it happens
+  on 26.123 too, across three unattended runs that returned nothing on a
+  mesh which solves in two seconds. Its classification note now carries
+  that reason in place of "no observed export captured", which had come
+  to read as though nobody had tried. No status moved: `broken` travels
+  only through the sanctioned probe path, and in any case "opens a
+  window" is not the claim "the solver rejects it".
 
   Every new parser is written against a REAL observed export, captured on
   a licensed solver and committed as a fixture. The captures are
@@ -750,11 +813,14 @@ Deprecations: none.
   read with today's table.
 
 - **An explicit classification of every export command the database
-  carries** (PFS-2014.02): four are parsed today, five are formats
-  deliberately outside the default conversion set, two carry the export
-  phase and write no file at all, and seven are named debt. The debt is
-  ENUMERATED rather than described, so the acceptance's own sentence can
-  be checked against it.
+  carries** (PFS-2014.02). The debt is ENUMERATED rather than described,
+  so the acceptance's own sentence can be checked against it. THE COUNTS
+  ARE NOT REPEATED HERE and this bullet used to carry them: it said four
+  parsed and seven owed, which was the census when the classification
+  landed and not the one this release ships. `EXPORT_CONVERSIONS` owns
+  that fact and the parsers entry above states the release's own figures;
+  a second home for a count is how the two came to disagree inside one
+  section.
 
 - **`sweep_table(..., require_loads=False)`** returns the identity rows it
   has already assembled, with a warning, where it used to raise because
@@ -773,9 +839,15 @@ Deprecations: none.
   this exists to prevent. The build's version is DECLARED in
   `SolverBuild` and never inferred from an executable path or a build id.
 
-  The run matrix still refuses a second `FS_BUILD` value: expressing a
-  per-row build through the matrix needs a rule mapping `FS_BUILD` to a
-  command-database version, which is a separate open decision.
+  THAT SEPARATE DECISION WAS TAKEN LATER IN THIS SAME RELEASE, and this
+  paragraph said the opposite until 2026-08-20. It read "the run matrix
+  still refuses a second `FS_BUILD` value", which was true when the
+  campaign-level capability landed and stopped being true when
+  PFS-2009.05 closed. The rule that was missing is now the registry's
+  second entry shape: a build's version is DECLARED beside its path in
+  `inputs/executables.toml`, never mapped from the build id. See the
+  multi-build matrix entry above, which is the successor to this
+  sentence.
 
 - **A tier-1 layering guard with an EMPTY permitted set** (OPS-2007.02.03).
   Any import inside a function body that resolves to a module in a higher

@@ -34,10 +34,13 @@ classifiers = [
 # default path of a rotor campaign: gating it behind an extra would make the
 # library promise something a default install cannot do. Measured cost, one
 # new distribution and 3.89 MiB, with no transitive distribution beyond it
-# (reports/RPT-034); licence Apache-2.0 at 4.12 and MIT from 5.0, both
-# MIT-compatible (reports/RPT-035, NFR-02). NFR-06's "the count does not
-# grow" is amended rather than ignored: DD-27 section 4 records the reason
-# and the measurement.
+# (reports/RPT-034); licence MIT at BOTH ends of the declared envelope,
+# 4.12.2 carded in reports/RPT-003 and 5.0.0 in reports/RPT-035, so
+# NFR-02 is satisfied across the whole range rather than at one end. This
+# comment said "Apache-2.0 at 4.12 and MIT from 5.0" until 2026-08-20; a
+# review pass read both cards and neither says Apache-2.0. NFR-06's "the
+# count does not grow" is amended rather than ignored, and the amendment
+# is in the requirement itself, which is the home of record for it.
 #
 # BOTH ENDS ARE PINNED DELIBERATELY. The floor is the oldest release this
 # package has been exercised against, and the ceiling excludes the next
@@ -194,7 +197,7 @@ exclude_also = [
 # fact about 2026-08-03 and was being read as a fact about today. With every
 # override below turned off:
 #     mypy recount 2026-08-20: 276 errors in 20 of 73 modules
-# The package grew by eighteen modules and the debt by 51 errors, and no
+# The package grew by twenty modules and the debt by 53 errors, and no
 # module outside the exempted set is dirty. THE EXEMPTED SET DID MOVE, and
 # down: `pyflightstream.results.tables` was excused on 2026-08-03 and is
 # clean now, so its override was deleted on evidence (see the note where it
@@ -202,11 +205,18 @@ exclude_also = [
 # ratchet was written, happening for the first time. Every one of the
 # remaining 20 still reports at least one error. The per-module figures, the
 # reproduction command and the dependency versions the count rests on are in
-# reports/RPT-029. Read the two numbers differently: the 274 is a DATED
-# measurement that moves with the code and with numpy's and xarray's own
-# stubs, while the 71 is re-counted from the tracked tree by
-# tests/test_traceability.py on every run, which is what the stale 53 had
-# nothing doing for it.
+# reports/RPT-029, and `scripts/mypy_recount.py` re-derives every one of them
+# from a single run.
+#
+# THE PROSE AROUND THE SENTENCE IS NOT GUARDED AND WENT STALE ON 2026-08-20,
+# which is worth one line because it is the same failure one layer out. The
+# guard (`RECOUNT_SENTENCE` in tests/test_traceability.py) parses the ONE
+# sentence form above, so when the numbers were revised it saw the sentence
+# move and this paragraph stay at 274, 71, eighteen and 51. An architect pass
+# found it, not the guard. Read the two numbers differently: the ERROR TOTAL
+# is a DATED measurement that moves with the code and with numpy's and
+# xarray's own stubs, while the MODULE TOTAL is re-counted from the tracked
+# tree on every run, which is what the stale 53 had nothing doing for it.
 #
 # py.typed is deliberately NOT shipped. Shipping it tells every downstream
 # type checker to trust these annotations, and a non-empty exemption list says

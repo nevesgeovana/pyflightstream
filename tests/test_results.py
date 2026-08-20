@@ -1227,7 +1227,9 @@ def test_the_force_distribution_fixture_reads_every_panel():
     """96 panel rows off the real 26.123 export, checked by count and by value."""
     from pyflightstream.results import FORCE_DISTRIBUTION_COLUMNS, parse_force_distributions
 
-    report = parse_force_distributions(read_fixture("force_distributions_26.123.txt"), "26.123")
+    report = parse_force_distributions(
+        read_fixture("force_distributions_26.123.txt"), requested_version="26.123"
+    )
     assert report.columns == FORCE_DISTRIBUTION_COLUMNS
     assert report.count == 96, "the committed 26.123 export holds 96 panel rows"
     assert report.values.shape == (96, 10)
@@ -1273,7 +1275,9 @@ def test_the_streamline_fixture_reads_three_streamlines_by_their_markers():
     """Three streamlines of thirty points each, off the real 26.123 export."""
     from pyflightstream.results import OFF_BODY_STREAMLINE_COLUMNS, parse_off_body_streamlines
 
-    report = parse_off_body_streamlines(read_fixture("off_body_streamlines_26.123.txt"), "26.123")
+    report = parse_off_body_streamlines(
+        read_fixture("off_body_streamlines_26.123.txt"), requested_version="26.123"
+    )
     assert report.columns == OFF_BODY_STREAMLINE_COLUMNS
     assert report.declared_count == 3
     assert report.count == 3
@@ -1351,7 +1355,7 @@ def test_the_surface_section_fixture_with_rows_is_checked_by_value():
     from pyflightstream.results import parse_surface_sections
 
     section = parse_surface_sections(
-        read_fixture("all_surface_sections_26.123.txt"), "26.123"
+        read_fixture("all_surface_sections_26.123.txt"), requested_version="26.123"
     ).sections[0]
     assert section.field("Cp")[0] == pytest.approx(-0.5171173e-01)
     assert section.field("Cp")[-1] == pytest.approx(-0.2291439e00)
@@ -1368,7 +1372,9 @@ def test_the_sweep_fixture_reads_the_polar_the_solver_assembled():
     """Three sweep points off the real 26.123 sweeper export."""
     from pyflightstream.results import SWEEP_COLUMNS, parse_sweep_spreadsheet
 
-    report = parse_sweep_spreadsheet(read_fixture("sweeper_spreadsheet_26.123.txt"), "26.123")
+    report = parse_sweep_spreadsheet(
+        read_fixture("sweeper_spreadsheet_26.123.txt"), requested_version="26.123"
+    )
     assert report.columns == SWEEP_COLUMNS
     assert report.points == 3
     assert report.values.shape == (3, 12)
@@ -1403,7 +1409,7 @@ def test_the_csv_fixture_reads_four_columns_that_no_header_names():
     assert report.columns == SOLVER_ANALYSIS_CSV_COLUMNS == ("x", "y", "z", "scalar")
     assert report.count == 86
     assert report.values.shape == (86, 4)
-    assert report.field == "CP-FREESTREAM", "the declared format is recorded upper cased"
+    assert report.scalar_field == "CP-FREESTREAM", "the declared format is recorded upper cased"
 
     x, y, z = (report.positions[:, index] for index in range(3))
     assert sorted(set(np.round(x, 6).tolist())) == [
@@ -1437,7 +1443,7 @@ def test_the_csv_fixture_reads_four_columns_that_no_header_names():
     assert float(near[:, 3].max()) == pytest.approx(-0.0512, abs=6e-3)
 
     unstated = parse_solver_analysis_csv(text)
-    assert unstated.field == SOLVER_ANALYSIS_CSV_FIELD_UNSTATED == "UNSTATED", (
+    assert unstated.scalar_field == SOLVER_ANALYSIS_CSV_FIELD_UNSTATED == "UNSTATED", (
         "a word rather than an empty cell: an empty one reads back out of a csv as NaN"
     )
 
@@ -1519,11 +1525,11 @@ def test_the_new_parsers_cross_check_the_build_they_were_asked_for(fixture, pars
     text = read_fixture(fixture)
     with warnings.catch_warnings():
         warnings.simplefilter("error", VersionMismatchWarning)
-        parser(text, "26.123")
+        parser(text, requested_version="26.123")
     with pytest.raises(VersionMismatchWarning, match="the wrong executable ran"):
         with warnings.catch_warnings():
             warnings.simplefilter("error", VersionMismatchWarning)
-            parser(text, "26.120")
+            parser(text, requested_version="26.120")
 
 
 def test_a_streamline_count_the_file_does_not_hold_raises():
@@ -1803,7 +1809,13 @@ def test_the_csv_refuses_a_row_that_is_not_four_numbers():
         parse_solver_analysis_csv("x, y, z, Cp\n" + text)
     with pytest.raises(MalformedOutputError, match="the table layout changed"):
         parse_solver_analysis_csv("1.0, 2.0, 3.0, 4.0, 5.0\n")
-    with pytest.raises(IncompleteOutputError, match="ends part way through a row"):
+    # NOT "ends part way through a row": this export has no header to be short
+    # of and no footer to be truncated before, so the shared mid-write sentence
+    # would be a diagnosis the format cannot support. An api-designer pass on
+    # 2026-08-20 found the shared refusal naming a header for a format whose
+    # two explanations both shout that it writes none. Line 1716 keeps the old
+    # wording deliberately: that format HAS a header and a footer.
+    with pytest.raises(IncompleteOutputError, match="NAMES none of its columns"):
         parse_solver_analysis_csv("1.0, 2.0, 3.0\n")
     with pytest.raises(IncompleteOutputError, match="holds no row at all"):
         parse_solver_analysis_csv("   \n\n")
@@ -2028,11 +2040,18 @@ def test_every_new_parser_reads_the_line_ending_the_solver_actually_writes():
     )
     for name, parser in cases:
         text = read_fixture(name)
-        assert "\r\n" not in text, (
-            f"{name} carries CRLF in the checkout, so the pin that should have "
-            "normalised it is not covering it and this case is comparing a file "
-            "with itself"
-        )
+        # THE DECODED TEXT CANNOT CARRY A CARRIAGE RETURN, whatever is on
+        # disk: `read_fixture` opens in text mode with universal newlines,
+        # so a CRLF file always decodes to bare line feeds. The first
+        # version of this case asserted that the decoded text held no
+        # carriage return and called it
+        # proof that the fixture pin had normalised the file. It proved only
+        # that Python decodes, and it could not have failed. What is
+        # asserted instead is that the two forms are genuinely different
+        # STRINGS, which is what makes the comparison below a comparison
+        # rather than a file against itself. Whether the COMMITTED BYTES are
+        # LF is a different question with its own guard, in
+        # tests/test_matrix.py, which reads the git attributes.
         crlf = text.replace("\n", "\r\n")
         assert crlf != text, f"{name} has no line breaks at all, so nothing was varied"
         _assert_same_report(parser(crlf), parser(text), parser.__name__, name)
