@@ -37,10 +37,20 @@ __all__ = ["EXTRAS", "MissingExtraError", "UnknownExtraError", "missing_extra"]
 #:
 #: ``dev`` is deliberately absent. It gates no runtime code path, so
 #: there is nothing for a user to reach without it.
+#:
+#: ``trimesh`` LEFT ``geom`` on 2026-08-19 and is a runtime dependency
+#: now (design note DD-27). What stays behind the extra is the SPATIAL
+#: INDEX, ``scipy`` and ``rtree``, which trimesh's containment and
+#: distance-to-surface queries go through; reading vertices and faces
+#: needs neither, which is what lets the trailing-edge extraction run on
+#: a base install. The move is recorded here because the refusal the
+#: geometry gate raises names this extra, and a refusal that told a
+#: reader to install ``[geom]`` to obtain a distribution they already
+#: have is the exact failure this module exists to prevent.
 EXTRAS: dict[str, tuple[str, ...]] = {
     "fsi": ("PyNiteFEA",),
     "manual": ("pypdf",),
-    "geom": ("trimesh", "rtree", "scipy"),
+    "geom": ("rtree", "scipy"),
     "plot": ("matplotlib",),
 }
 

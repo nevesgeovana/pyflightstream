@@ -58,7 +58,21 @@ missing:
   by CONSTRUCTION rather than by filtering: every canonical form below
   is either the raw bytes of a file or a text this package renders from
   validated data, and none of them reads a clock, a path or an
-  environment.
+  environment. Each entry is SPENT rather than declared:
+  ``tests/test_digest.py`` requires one demonstration per entry, three
+  of them by hashing (a modification time that moves, the same bytes
+  under two names, two files hashed in both orders) and two by scanning
+  this module's own source, because no fixture can show that a clock
+  was not read. An exclusion cannot be added, narrowed or deleted
+  without a measurement moving with it.
+
+WHERE THE RULE IS STATED FOR A USER. This docstring is the home of the
+rule, and a user staging a mesh does not read it. ``docs/mesh-inputs.md``
+is the page that asks a reader to rely on the manifest checksum, so it
+names the algorithm and the exclusions in prose and points back here;
+``tests/test_digest.py`` fails on a docs page that promises a content
+hash and names neither, so the page cannot go stale quietly and a
+changed :data:`ALGORITHM` breaks it rather than agreeing with it.
 
 The boundary, stated rather than implied: the digest is reproducible for
 one canonical form, not across platforms for one CONCEPT. A file digest

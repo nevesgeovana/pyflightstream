@@ -137,7 +137,20 @@ _DYNAMIC = frozenset({"import_module", "__import__"})
 
 #: The extras every job is expected to install. A ratchet, not a
 #: derivation; see the test that reads it.
-EXPECTED_GUARANTEED = frozenset({"dev", "fsi", "geom"})
+#:
+#: NARROWED from {"dev", "fsi", "geom"} on 2026-08-20, and narrowing
+#: STRENGTHENS this scan rather than weakening it: a guaranteed extra's
+#: distributions leave the forbidden set, so the smaller this is, the
+#: more the isolation guard actually forbids.
+#:
+#: It narrowed because PFS-2025.20.03 required a leg that installs no
+#: user-facing extra at all, and the `test-lean` job added for it
+#: installs `[dev]` alone. `dev` gates no runtime code path (EXTRAS omits
+#: it by name), so `[dev]` is what "no extra" means for a job that still
+#: has to run pytest: a truly bracket-less line collapses this set to
+#: empty, which puts pytest itself into the forbidden set and refuses
+#: `import pytest` in every test file.
+EXPECTED_GUARANTEED = frozenset({"dev"})
 
 #: And a ratchet on the scan itself. SCAN_PARTITION derives from
 #: SCAN_ROOTS, so narrowing the scan narrows its own coverage assertion

@@ -56,8 +56,47 @@ When a step is GUI-only, the supported workflow is:
 
 The GUI step itself is the one part the library cannot replay; the
 saved `.fsm` is its record. The workspace stages inputs with content
-hashes in the run manifest, so every run names exactly which saved
-file it consumed.
+hashes in the run manifest (`inputs_sha256`), so every run names
+exactly which saved file it consumed.
+
+### What that content hash is, and what it leaves out
+
+Stated here because this page is where a user is told to trust it, and
+a checksum whose rule is unstated cannot settle the question it exists
+for: two people holding what they believe is the same input file must
+be able to tell whether they really do.
+
+**The algorithm is sha256, and there is no other.** Every digest this
+library writes into a manifest comes from `pyflightstream._digest`,
+which holds the algorithm as a value rather than as a sentence, so a
+tier 1 test spends it and a second algorithm cannot arrive quietly.
+
+**The canonical form is the raw bytes of the staged file**, read in
+blocks and never decoded. One manifest field is not a file digest and
+is named here so the rule is not over-read: `recipe_sha256` records the
+recipe function's SOURCE, and a source text is hashed as its UTF-8
+encoding, which is the second canonical form `pyflightstream._digest`
+states.
+
+**Nothing around the file enters the digest.** Not the path it was
+staged from, not the file name, not its modification time, not the
+machine or the user that staged it, and not the order the inputs were
+staged in. Those are exactly the fields that differ between two runs
+which are otherwise the same run, so admitting one would make the
+manifest report two identical runs as different. They are absent by
+construction rather than by filtering: the digest reads bytes and
+reads nothing else.
+
+Read the consequence for a text mesh, because it is the one that
+surprises. An OBJ is bytes like anything else, so the same mesh
+checked out with CRLF line endings on one machine and LF on another is
+two different files carrying two different digests. That is the digest
+being correct about the file rather than wrong about the content: the
+solver reads the file, not an idea of it. A `.fsm` artifact is binary
+and has no such ambiguity, which is a further reason the pattern above
+treats it as immutable. Where a comparison has to survive a
+line-ending change, compare the parsed geometry rather than the
+manifest digest.
 
 ## Canonical mesh inputs
 

@@ -9,19 +9,31 @@ distance ``d`` of the surface with finer elements. Every decision is
 counted in the :class:`~pyflightstream.probes.planar.GeometryGateReport`:
 no probe is dropped or added silently.
 
-The containment and distance queries come from trimesh (public
-library per the engineering policy; ``pip install pyflightstream[geom]``,
-license evidence reports/RPT-003). This module never runs the solver:
-it consumes a mesh file that already exists.
+The containment and distance queries come from trimesh (public library
+per the engineering policy), which reaches them through a SPATIAL INDEX:
+scipy's kd-tree and rtree's bounds tree. Those two are what
+``pip install pyflightstream[geom]`` installs and what this module's
+refusal is about (license evidence reports/RPT-003). The reader itself
+is a runtime dependency since 2026-08-19 (design note DD-27), so its
+absence is a broken installation rather than a missing extra, and the
+one accessor for it lives in :mod:`pyflightstream._mesh`. The two are
+worth keeping apart: before the promotion a missing trimesh and a
+missing index were one state, and afterwards a refusal naming the
+reader would send a reader to reinstall a distribution they already
+have. This module never runs the solver: it consumes a mesh file that
+already exists.
 """
 
 from __future__ import annotations
 
+import contextlib
+from collections.abc import Iterator
 from pathlib import Path
 
 import numpy as np
 
 from pyflightstream._errors import PyflightstreamError
+from pyflightstream._mesh import read_mesh
 from pyflightstream.extras import MissingExtraError
 from pyflightstream.probes.errors import ProbeGeometryError
 from pyflightstream.probes.planar import (
@@ -39,11 +51,24 @@ __all__ = [
 
 
 class GeometryEngineMissingError(MissingExtraError):
-    """The optional geometry engine is not installed.
+    """The optional SPATIAL INDEX is not installed.
 
-    Point-in-body containment and distance-to-surface queries need
-    trimesh with its spatial index; the plain installation leaves the
-    grids fully usable without culling.
+    Point-in-body containment and distance-to-surface queries are ray
+    and nearest-neighbour searches over the mesh, and trimesh runs them
+    through scipy's kd-tree and rtree's bounds tree. Those two are the
+    ``[geom]`` extra; the plain installation leaves the grids fully
+    usable without culling.
+
+    WHAT THIS CLASS MEANS CHANGED ON 2026-08-19 and the old meaning is
+    written down because a reader will otherwise reconstruct it wrongly.
+    It used to mean "the geometry ENGINE is missing", the engine being
+    trimesh, because before that date trimesh, scipy and rtree arrived
+    together in one extra and no environment could hold one without the
+    others. trimesh is a runtime dependency now (design note DD-27), so
+    an installation carrying the reader and not the index is a state
+    that can exist for the first time, and it is the only state this
+    refusal is about. Naming trimesh here would send a reader to
+    reinstall a distribution they already have.
 
     A subclass of :class:`~pyflightstream.extras.MissingExtraError`
     rather than a sibling of it, so ``except MissingExtraError`` now
@@ -65,19 +90,44 @@ class OpenMeshError(PyflightstreamError, ValueError):
     """
 
 
-def _trimesh():
+#: What the ``[geom]`` extra actually installs, named once so the two
+#: refusal sites cannot drift into naming different things. It is the
+#: index, not the reader: see :class:`GeometryEngineMissingError`.
+_SPATIAL_INDEX = "scipy and rtree, the spatial index trimesh searches through"
+
+
+@contextlib.contextmanager
+def _spatial_index(purpose: str) -> Iterator[None]:
+    """Turn a missing spatial index into the didactic refusal.
+
+    The guard is around the CALL rather than around an import, and that
+    is not a style choice. trimesh imports scipy and rtree defensively
+    and substitutes a placeholder that re-raises the original
+    ``ImportError`` at the moment it is USED, so an import-time try
+    would catch nothing and the reader would meet the bare
+    ``ImportError`` the didactic refusal exists to replace. The original
+    is chained, so a failure that is not a missing distribution stays
+    diagnosable.
+
+    Parameters
+    ----------
+    purpose : str
+        What the caller was doing, as a sentence subject, for the
+        refusal text.
+
+    Yields
+    ------
+    None
+        The guarded block runs unchanged when the index is present.
+    """
     try:
-        import trimesh
+        yield
     except ImportError as error:
         raise GeometryEngineMissingError(
             extra="geom",
-            package="trimesh",
-            purpose=(
-                "the geometry gate (point-in-body containment and "
-                "distance-to-surface queries; or run the grid without culling)"
-            ),
+            package=_SPATIAL_INDEX,
+            purpose=purpose,
         ) from error
-    return trimesh
 
 
 def load_surface_mesh(path: str | Path, *, require_watertight: bool = True):
@@ -100,16 +150,20 @@ def load_surface_mesh(path: str | Path, *, require_watertight: bool = True):
 
     Raises
     ------
-    GeometryEngineMissingError
-        If trimesh is not installed.
     OpenMeshError
         If the mesh is not watertight and containment would be
         undefined.
+
+    Notes
+    -----
+    Reading a mesh needs no optional extra: it is the reader alone, and
+    the reader is a runtime dependency (:mod:`pyflightstream._mesh`).
+    This function raised :class:`GeometryEngineMissingError` until
+    2026-08-19, when trimesh left the ``[geom]`` extra; the refusal now
+    belongs to the QUERIES, which is where the index is actually
+    reached.
     """
-    trimesh = _trimesh()
-    # load_mesh is the typed loader; the load(force="mesh") form is the
-    # deprecated content-dependent compatibility wrapper.
-    mesh = trimesh.load_mesh(str(path))
+    mesh = read_mesh(path)
     if require_watertight and not mesh.is_watertight:
         raise OpenMeshError(
             f"the surface mesh {path} is not watertight, so inside/outside is "
@@ -129,28 +183,44 @@ def _fine_axis(values: np.ndarray, factor: int) -> np.ndarray:
 
 
 def _surface_distance(mesh, points: np.ndarray) -> np.ndarray:
-    # Gated exactly as `_trimesh` above, and for a reason that is easy to
-    # miss: this was the ONE unguarded import of an extra-gated
-    # distribution left in the package, measured 2026-08-19. It is
-    # invisible today because every install leg in CI names the `geom`
-    # extra, so nothing ever reaches it without trimesh present. The
-    # first lean leg would have met a bare ImportError here instead of
-    # the didactic refusal every other site raises, which is the failure
-    # `GeometryEngineMissingError` exists to prevent.
-    try:
+    # RE-POINTED on 2026-08-19 at what is actually absent. This refusal
+    # named trimesh as the missing package, which was right while trimesh
+    # and the index arrived in one extra and became wrong the moment
+    # trimesh was promoted: from that day the only way to reach this
+    # branch is with the reader present and the index absent, so the old
+    # text sent a reader to reinstall a distribution they already have.
+    #
+    # The import is inside the guarded block rather than outside it
+    # because a future trimesh could move its own scipy import to module
+    # level; today the failure surfaces on the CALL, which is why the
+    # block covers both.
+    with _spatial_index(
+        "the distance-to-surface query behind the geometry gate's "
+        "clearance band (or run the grid without culling)"
+    ):
         from trimesh.proximity import ProximityQuery
-    except ImportError as error:
-        raise GeometryEngineMissingError(
-            extra="geom",
-            package="trimesh",
-            purpose=(
-                "the distance-to-surface query behind the geometry gate's "
-                "clearance band (or run the grid without culling)"
-            ),
-        ) from error
 
-    _, distance, _ = ProximityQuery(mesh).on_surface(points)
+        _, distance, _ = ProximityQuery(mesh).on_surface(points)
     return np.asarray(distance)
+
+
+def _inside(mesh, points: np.ndarray) -> np.ndarray:
+    """Point-in-body test, with the same refusal the distance query has.
+
+    A NEW guard on 2026-08-19, and the reason is the promotion rather
+    than an oversight found late: trimesh answers ``contains`` by ray
+    casting against an rtree bounds tree, so containment needs the index
+    exactly as the distance query does. It could not be reached without
+    the index before, because one extra installed both the reader and
+    the index; an installation carrying trimesh and not rtree is a state
+    the promotion created. Unguarded it would raise a bare
+    ``ImportError`` out of the public
+    :func:`apply_geometry_gate`.
+    """
+    with _spatial_index(
+        "the point-in-body containment test of the geometry gate (or run the grid without culling)"
+    ):
+        return np.asarray(mesh.contains(points), dtype=bool)
 
 
 def apply_geometry_gate(
@@ -217,7 +287,7 @@ def apply_geometry_gate(
 
     base = grid.base_points()
     if mesh is not None and cull:
-        inside = np.asarray(mesh.contains(base), dtype=bool)
+        inside = _inside(mesh, base)
     else:
         inside = np.zeros(len(base), dtype=bool)
     if standoff > 0.0:
@@ -276,7 +346,7 @@ def _refine_band(
     centers = grid.frame.to_reference(centers_local)
 
     center_distance = _surface_distance(mesh, centers)
-    center_inside = np.asarray(mesh.contains(centers), dtype=bool)
+    center_inside = _inside(mesh, centers)
     flagged = (center_distance < distance) & ~center_inside
     flagged = flagged.reshape(len(centers_u), len(centers_v))
 
@@ -305,7 +375,7 @@ def _refine_band(
     local[:, :2] = np.asarray(nodes_local)
     candidates = grid.frame.to_reference(local)
     if cull:
-        inside = np.asarray(mesh.contains(candidates), dtype=bool)
+        inside = _inside(mesh, candidates)
     else:
         inside = np.zeros(len(candidates), dtype=bool)
     if standoff > 0.0:

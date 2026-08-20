@@ -38,6 +38,12 @@ def _declared_extras() -> dict[str, list[str]]:
         return tomllib.load(handle)["project"]["optional-dependencies"]
 
 
+def _pyproject_runtime_dependencies() -> list[str]:
+    """The distributions every install of this package carries."""
+    with open(REPO / "pyproject.toml", "rb") as handle:
+        return tomllib.load(handle)["project"]["dependencies"]
+
+
 def test_the_extras_table_matches_the_packaging():
     """`EXTRAS` and pyproject are one fact.
 
@@ -89,20 +95,62 @@ def test_the_refusal_carries_the_exact_install_command(extra):
 def test_a_refusal_cannot_name_an_extra_that_does_not_exist():
     """The failure mode the composed remedy exists to prevent."""
     with pytest.raises(ValueError, match="not an extra of this package"):
-        missing_extra("geometry", package="trimesh", purpose="the gate")
+        missing_extra("geometry", package="scipy", purpose="the gate")
     # The control: the real name is accepted, so the refusal is about the
     # value and not about the check being unconditional.
-    assert missing_extra("geom", package="trimesh", purpose="the gate").extra == "geom"
+    assert missing_extra("geom", package="scipy", purpose="the gate").extra == "geom"
+
+
+@pytest.mark.requirement("NFR-25")
+def test_no_extra_installs_a_distribution_the_base_install_already_gives():
+    """An extra and the runtime set must not name the same distribution.
+
+    The structural half of the trimesh promotion of 2026-08-19 (DD-27).
+    A distribution in BOTH lists is not a redundancy: every refusal built
+    from :data:`EXTRAS` says "install this extra to obtain that package",
+    and for a package the base install already provides that sentence
+    sends the reader to a command which changes nothing and leaves them
+    hunting for a dependency that is not the problem. This is the exact
+    shape the extras module was written to make impossible, one level up
+    from the one it already checks.
+
+    It also holds the promotion itself: putting trimesh back under
+    ``[geom]`` while leaving it in ``dependencies`` fails here, and so
+    does the reverse of the second half, promoting a distribution and
+    forgetting to take it out of its extra.
+    """
+    runtime = {
+        re.split(r"[<>=!~\[]", spec)[0].strip().lower()
+        for spec in _pyproject_runtime_dependencies()
+    }
+    assert runtime, "the runtime dependency list is empty; the comparison is vacuous"
+    declared = _declared_extras()
+    both = sorted(
+        f"{name} (in [{extra}])"
+        for extra, specs in declared.items()
+        for name in {re.split(r"[<>=!~\[]", spec)[0].strip().lower() for spec in specs}
+        if name in runtime
+    )
+    assert not both, (
+        f"these distributions are BOTH a runtime dependency and part of an extra: "
+        f"{both}. Every refusal MissingExtraError builds tells the reader to install "
+        "the extra in order to obtain the package, and for one the base install "
+        "already carries, that command changes nothing"
+    )
 
 
 def test_the_converters_pypdf_accessor_refuses_in_the_shared_shape(monkeypatch):
     """The one gated path added on 2026-08-10, asserted rather than assumed.
 
-    ``scripts/chm_to_pdf._pypdf`` mirrors ``probes.geometry._trimesh``,
-    and that one has its refusal exercised. Without this, a wrong extra
-    name in the accessor would raise ``UnknownExtraError`` instead of the
-    didactic refusal, and would ship silently, because the branch only
-    runs where pypdf is absent and no environment here is.
+    ``scripts/chm_to_pdf._pypdf`` was written mirroring
+    ``probes.geometry._trimesh``, which is GONE since 2026-08-19: trimesh
+    became a runtime dependency and its accessor moved to
+    :mod:`pyflightstream._mesh` with no refusal to make, so this is now
+    the accessor of that shape whose refusal is exercised rather than the
+    second of two. Without this, a wrong extra name in the accessor would
+    raise ``UnknownExtraError`` instead of the didactic refusal, and
+    would ship silently, because the branch only runs where pypdf is
+    absent and no environment here is.
     """
     # Loaded by path rather than by putting scripts/ on sys.path: a
     # permanently prepended directory shadows later imports for the rest
@@ -197,6 +245,59 @@ def test_the_geometry_gate_is_still_its_own_catchable_name():
 
     assert issubclass(GeometryEngineMissingError, MissingExtraError)
     assert issubclass(GeometryEngineMissingError, ImportError)
+
+
+def test_a_missing_spatial_index_names_the_index_and_not_the_reader(monkeypatch):
+    """The re-pointed refusal of the geometry gate (DD-27 section 5).
+
+    Both queries the gate makes are searches through scipy's kd-tree and
+    rtree's bounds tree, and both used to refuse by naming trimesh. That
+    was right while one extra installed all three and became wrong the
+    day trimesh was promoted: from then on the only way to reach these
+    branches is with the reader present and the index absent, so a
+    refusal naming the reader sends the reader to reinstall a
+    distribution they already have.
+
+    Driven with objects that raise ``ImportError`` where the index is
+    reached, because the alternative is an environment with trimesh and
+    without scipy, which no leg of this suite has. The containment arm
+    is the one the promotion CREATED: before it, an installation could
+    not carry the reader without the index.
+    """
+    import numpy as np
+    import trimesh.proximity
+
+    from pyflightstream.probes.geometry import _inside, _surface_distance
+
+    class NoIndex:
+        """A mesh whose containment search cannot reach its bounds tree."""
+
+        def contains(self, points):
+            raise ImportError("No module named 'rtree'")
+
+    class NoKdTree:
+        """trimesh's own placeholder shape: it raises when it is USED."""
+
+        def __init__(self, mesh):
+            raise ImportError("No module named 'scipy'")
+
+    monkeypatch.setattr(trimesh.proximity, "ProximityQuery", NoKdTree)
+
+    points = np.zeros((1, 3))
+    for call, arm in ((_inside, "containment"), (_surface_distance, "distance")):
+        with pytest.raises(MissingExtraError) as caught:
+            call(NoIndex(), points)
+        assert caught.value.extra == "geom", arm
+        assert caught.value.package.startswith("scipy and rtree"), (
+            f"the {arm} refusal names {caught.value.package!r} as what is missing; "
+            "after the promotion the missing thing is the spatial index, and naming "
+            "the reader sends a reader to reinstall what they already have"
+        )
+        assert "pip install pyflightstream[geom]" in str(caught.value), arm
+        assert isinstance(caught.value.__cause__, ImportError), (
+            f"the {arm} refusal discarded the original ImportError, so a failure "
+            "that is not a missing distribution is no longer diagnosable"
+        )
 
 
 @pytest.mark.parametrize("extra", sorted(EXTRAS))

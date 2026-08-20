@@ -20,6 +20,7 @@ from pathlib import Path
 
 import pytest
 
+from pyflightstream._digest import file_sha256
 from pyflightstream.cases.matrix import (
     DEFAULT_VERSION_OPTION,
     MatrixError,
@@ -28,9 +29,16 @@ from pyflightstream.cases.matrix import (
     to_campaign,
     upgrade_matrix,
 )
-from pyflightstream.run import Assessment, LocalExecutor, PlanStatus
+from pyflightstream.run import (
+    FS_VERSION_FROM_DEFAULT,
+    FS_VERSION_FROM_ROW,
+    Assessment,
+    LocalExecutor,
+    PlanStatus,
+)
 from pyflightstream.run.matrix import plan_matrix, run_matrix
 from pyflightstream.script import helpers
+from pyflightstream.versions import resolve
 from pyflightstream.workspace import (
     CampaignWorkspace,
     InputArtifactError,
@@ -1026,3 +1034,368 @@ def test_a_given_default_still_binds_a_matrix_with_a_silent_row(tmp_path):
     )
     assert {entry.sim_id for entry in plan.points} == {"9001", "9002"}
     assert not plan.blocked, plan.summary()
+
+
+# --- PFS-2009.08.02: the record says WHERE its build came from --------------
+#
+# A record has always named the installation twice, in `fs_exe` and in
+# `fs_version_requested`, and could not say whether the point's own row
+# chose it or whether it inherited the campaign default. The campaign
+# layer learned to record that (`fs_version_source`) from
+# `SimCase.fs_build`; the matrix converter never set that field, so every
+# matrix-driven point was recorded as having inherited the default even
+# when its FS_BUILD cell named the build outright.
+#
+# The two facts these tests hold apart:
+#   * WHICH build ran -> fs_exe, fs_exe_sha256, fs_version_requested
+#   * WHO CHOSE it    -> fs_version_source
+
+SILENT_ROW = (
+    "9101 | TestWing | SILENT_ROW | 3.10 | 0.0890 | AL | 0.0,2.0 | r003 | s002 | e001 "
+    "| 003 |          | 1 | 1 | OUTPUTS: loads_{point}.txt"
+)
+NAMED_ROW = (
+    "9102 | TestWing | NAMED_ROW | 3.10 | 0.0890 | BE | -3.0,3.0 | r003 | s002 | e001 "
+    "| 003 |   26.120 | 1 | 1 | OUTPUTS: loads_{point}.txt"
+)
+
+
+def real_executable(tmp_path):
+    """A file that really exists, so fs_exe_sha256 is a real digest.
+
+    The other fixtures register a path that is not there, which is fine
+    for selection but records ``fs_exe_sha256`` as None, and a
+    reproduction test that cannot compare a digest is not testing
+    reproduction.
+    """
+    exe = tmp_path / "fs26120" / "FlightStream.exe"
+    exe.parent.mkdir(parents=True, exist_ok=True)
+    exe.write_bytes(b"not really a solver, but a real file with a real digest")
+    return exe
+
+
+def run_for_records(path, workspace, **extra):
+    """Run one matrix through the stub solver and return its records."""
+    return run_matrix(
+        path,
+        workspace,
+        name="prov",
+        default_fs_version="26.120",
+        recipes=RECIPES,
+        assess=converged,
+        executor=StubSolver(WRITES_LOADS),
+        recipe_registry={"steady": matrix_recipe},
+        **extra,
+    )
+
+
+@pytest.mark.filterwarnings("ignore:none of the")
+def test_a_row_naming_its_build_is_recorded_as_having_chosen_it(tmp_path):
+    """The FS_BUILD cell named the installation, so the row chose it."""
+    exe = real_executable(tmp_path)
+    workspace = make_library(tmp_path, register_build=("26.120", exe.as_posix()))
+    records = run_for_records(REGISTRY_FIXTURE, workspace)
+
+    assert records, "the run recorded nothing to judge"
+    for record in records:
+        assert record.fs_version_source == FS_VERSION_FROM_ROW, (
+            f"{record.run_id} inherited the campaign default in the manifest, but its "
+            "row's FS_BUILD cell names 26.120: the record cannot tell a build chosen "
+            "FOR THE ROW from one it fell back to"
+        )
+        assert Path(record.fs_exe) == exe
+
+
+@pytest.mark.filterwarnings("ignore:none of the")
+def test_a_silent_row_falls_back_to_the_default_and_the_record_says_so(tmp_path):
+    """The other source, and the fallback the refusal text always promised.
+
+    An empty FS_BUILD cell used to be carried into the build set
+    verbatim, so this matrix asked the workspace registry for the build
+    id '' and was refused as unregistered, however good the default was.
+    """
+    exe = real_executable(tmp_path)
+    workspace = make_library(tmp_path, register_build=("26.120", exe.as_posix()))
+    path = write_matrix(tmp_path / "silent_only.fs", [SILENT_ROW])
+    assert [row.fs_build for row in read_matrix(path)] == [""], (
+        "this arm needs a matrix whose only active row names no build"
+    )
+
+    records = run_for_records(path, workspace)
+
+    assert records, "the run recorded nothing to judge"
+    for record in records:
+        assert record.fs_version_source == FS_VERSION_FROM_DEFAULT
+        assert Path(record.fs_exe) == exe, (
+            "the campaign default did not answer for the row that names no build"
+        )
+
+
+@pytest.mark.filterwarnings("ignore:none of the")
+def test_one_matrix_records_both_sources_row_by_row(tmp_path):
+    """The case the per-row shape exists for: one silent row, one named.
+
+    A single flag per RUN would report one of these two rows wrongly,
+    and both run on the same installation, so nothing else in the record
+    could tell them apart.
+    """
+    exe = real_executable(tmp_path)
+    workspace = make_library(tmp_path, register_build=("26.120", exe.as_posix()))
+    path = write_matrix(tmp_path / "both_sources.fs", [SILENT_ROW, NAMED_ROW])
+
+    records = run_for_records(path, workspace)
+
+    sources = {record.sim_id: record.fs_version_source for record in records}
+    assert sources == {"9101": FS_VERSION_FROM_DEFAULT, "9102": FS_VERSION_FROM_ROW}
+    assert {Path(record.fs_exe) for record in records} == {exe}, (
+        "both rows run on one installation; only the SOURCE differs"
+    )
+    # And the manifest on disk says it, not just the returned objects.
+    stored = {record.sim_id: record.fs_version_source for record in workspace.read_manifest()}
+    assert stored == sources
+
+
+@pytest.mark.filterwarnings("ignore:none of the")
+def test_the_explicit_override_is_recorded_as_the_campaign_not_the_row(tmp_path):
+    """The override overrules the column, and the record must agree.
+
+    The warning ``_resolve_build`` raises says these rows will be
+    recorded against the campaign's declared version and not the build
+    they asked for. Recording them as row-chosen would contradict the
+    package's own warning.
+    """
+    exe = real_executable(tmp_path)
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/unused/FlightStream.exe"))
+    with pytest.warns(UserWarning, match="overruling the FS_BUILD value"):
+        records = run_for_records(REGISTRY_FIXTURE, workspace, fs_exe=exe)
+
+    assert records
+    for record in records:
+        assert record.fs_version_source == FS_VERSION_FROM_DEFAULT
+        assert Path(record.fs_exe) == exe
+
+
+@pytest.mark.filterwarnings("ignore:none of the")
+def test_the_record_alone_resolves_to_the_same_build(tmp_path):
+    """The reproduction clause: no matrix, no registry, just the record.
+
+    A reader who has only the manifest must reach the same installation
+    and the same version the run used. The three fields that carry it
+    are ``fs_exe`` (which binary), ``fs_exe_sha256`` (still that
+    binary), and ``fs_version_requested`` (which command database the
+    script was built against).
+    """
+    exe = real_executable(tmp_path)
+    workspace = make_library(tmp_path, register_build=("26.120", exe.as_posix()))
+    path = write_matrix(tmp_path / "reproduce.fs", [SILENT_ROW, NAMED_ROW])
+    run_for_records(path, workspace)
+
+    expected = (exe, resolve("26.120").canonical)
+    manifest = workspace.read_manifest()
+    assert manifest, "nothing was recorded to reproduce"
+    for record in manifest:
+        reproduced = (Path(record.fs_exe), resolve(record.fs_version_requested).canonical)
+        assert reproduced == expected, (
+            f"{record.run_id} cannot be reproduced from its own record: it names "
+            f"{reproduced} where the run used {expected}"
+        )
+        assert record.fs_exe_sha256 == file_sha256(exe), (
+            "the recorded digest does not identify the binary that ran, so a reader "
+            "cannot tell whether the same installation is still there"
+        )
+
+
+def test_resolve_matrix_reports_which_rows_named_their_own_build(tmp_path):
+    """The one fact only the binding step knows, and where it is stated.
+
+    By the time a record is written both sources have become the same
+    executable, so the provenance has to be captured here or not at all.
+    """
+    exe = real_executable(tmp_path)
+    workspace = make_library(tmp_path, register_build=("26.120", exe.as_posix()))
+    path = write_matrix(tmp_path / "row_builds.fs", [SILENT_ROW, NAMED_ROW])
+
+    resolved = resolve_matrix(path, workspace, name="prov", fs_version="26.120", recipes=RECIPES)
+
+    assert resolved.row_builds == (None, "26.120")
+    assert len(resolved.row_builds) == len(resolved.campaign.sims), (
+        "row_builds is read positionally against campaign.sims; a length mismatch "
+        "would attribute one row's build to another row"
+    )
+    assert resolved.fs_exe == exe
+
+
+def test_an_override_leaves_no_row_claiming_it_chose_the_build(tmp_path):
+    """Every entry None under the override, and that is a statement."""
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/unused/FlightStream.exe"))
+    path = write_matrix(tmp_path / "override_rows.fs", [SILENT_ROW, NAMED_ROW])
+
+    with pytest.warns(UserWarning, match="overruling the FS_BUILD value"):
+        resolved = resolve_matrix(
+            path,
+            workspace,
+            name="prov",
+            fs_version="26.120",
+            recipes=RECIPES,
+            fs_exe="C:/elsewhere/FlightStream.exe",
+        )
+
+    assert resolved.row_builds == (None, None)
+
+
+def test_the_override_warning_never_lists_a_row_that_named_nothing(tmp_path):
+    """A silent row is not overruled: it asked for nothing.
+
+    It used to be listed anyway, as an empty id in the middle of the
+    sentence, between the words value(s) and the comma.
+    """
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/unused/FlightStream.exe"))
+    path = write_matrix(tmp_path / "override_warning.fs", [SILENT_ROW, NAMED_ROW])
+
+    with pytest.warns(UserWarning, match="overruling the FS_BUILD value") as caught:
+        resolve_matrix(
+            path,
+            workspace,
+            name="prov",
+            fs_version="26.120",
+            recipes=RECIPES,
+            fs_exe="C:/elsewhere/FlightStream.exe",
+        )
+
+    message = str(caught[0].message)
+    assert "value(s) 26.120 that" in message, (
+        f"the overruled list is not exactly the rows that named a build: {message}"
+    )
+
+
+def test_two_installations_are_still_refused_and_the_default_is_named(tmp_path):
+    """A silent row and a named row that disagree are two installations.
+
+    The refusal has to say where the second one came from: the silent
+    row's build is the campaign default, which appears in no cell of the
+    file, so a reader told only that two FS_BUILD values were named
+    would search the matrix for a value that is not in it.
+    """
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/unused/FlightStream.exe"))
+    path = write_matrix(tmp_path / "two_installations.fs", [SILENT_ROW, NAMED_ROW])
+
+    with pytest.raises(MatrixError) as caught:
+        resolve_matrix(path, workspace, name="prov", fs_version="26.101", recipes=RECIPES)
+
+    message = str(caught.value)
+    assert "26.101" in message and "26.120" in message
+    assert "row 1 (POL 9101)" in message, (
+        f"the row that fell back to the default is not named: {message}"
+    )
+    assert "9102" not in message, f"the row that names its own build is not inherited: {message}"
+
+
+def test_an_unregistered_default_is_refused_as_the_default_and_not_as_a_cell(tmp_path):
+    """The remedies differ, so the message must say which id this is.
+
+    Editing an FS_BUILD cell does nothing for a build id that arrived
+    from the campaign default, and the cell in question is empty.
+    """
+    workspace = make_library(tmp_path)  # registry template only, no entries
+    path = write_matrix(tmp_path / "unregistered_default.fs", [SILENT_ROW])
+
+    with pytest.raises(InputArtifactError) as caught:
+        resolve_matrix(path, workspace, name="prov", fs_version="26.120", recipes=RECIPES)
+
+    message = str(caught.value)
+    assert "campaign default version '26.120'" in message, message
+    assert "row 1 (POL 9101)" in message, message
+    assert "executables.toml" in message
+
+
+def test_binding_a_matrix_directly_refuses_a_blank_default_before_the_registry(tmp_path):
+    """PFS-2009.08.03 for the caller who binds without planning or running.
+
+    ``plan_matrix`` and ``run_matrix`` refuse above this function, and a
+    caller who calls ``resolve_matrix`` itself reaches neither of them.
+    Without the same refusal here the silent row falls back to a blank
+    default, and the first thing that notices is the executable registry,
+    which reports a missing build id rather than a missing option.
+    """
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/unused/FlightStream.exe"))
+    path = write_matrix(tmp_path / "blank_default.fs", [SILENT_ROW])
+
+    with pytest.raises(MatrixError) as caught:
+        resolve_matrix(path, workspace, name="prov", fs_version="   ", recipes=RECIPES)
+
+    message = str(caught.value)
+    assert "row 1 (POL 9101)" in message, message
+    assert DEFAULT_VERSION_OPTION in message
+    assert "executables.toml" not in message, (
+        f"the executable registry answered a question about a missing option: {message}"
+    )
+
+
+def count_identity_probes(monkeypatch):
+    """Count the identity pre-flights a run spends, without running any.
+
+    Each one launches the solver, so this is a licensed-seat cost and not
+    a stylistic one; the campaign loop asks once per installation that
+    still has work, keyed by the case's ``fs_build``.
+    """
+    import pyflightstream.run as run_module
+
+    calls = []
+
+    def counting(executor, version, workdir):
+        calls.append(version)
+
+    monkeypatch.setattr(run_module, "check_solver_identity", counting)
+    return calls
+
+
+@pytest.mark.filterwarnings("ignore:none of the")
+def test_a_matrix_on_one_installation_is_asked_which_build_it_is_once(tmp_path, monkeypatch):
+    """Carrying the provenance must not multiply the pre-flight.
+
+    Every active row names the same build, so there is one installation
+    and one question to ask it. A row-keyed build mapping that also left
+    the campaign answering for someone would ask twice, and each ask is
+    a solver launch.
+    """
+    calls = count_identity_probes(monkeypatch)
+    exe = real_executable(tmp_path)
+    workspace = make_library(tmp_path, register_build=("26.120", exe.as_posix()))
+
+    run_for_records(REGISTRY_FIXTURE, workspace)
+
+    assert len(calls) == 1, f"one installation was asked {len(calls)} times: {calls}"
+
+
+@pytest.mark.filterwarnings("ignore:none of the")
+def test_a_mixed_matrix_asks_its_one_installation_once_per_source(tmp_path, monkeypatch):
+    """The measured cost of per-row provenance, stated rather than hidden.
+
+    A matrix mixing a silent row with a row naming the same build reaches
+    ONE executable under TWO keys, because the campaign loop groups by
+    ``fs_build`` and the silent rows sit under the campaign's own key. It
+    therefore launches the solver twice to ask one installation the same
+    question.
+
+    It is not a regression: before this item a mixed matrix did not run
+    at all, being refused for naming two FS_BUILD values, one of which
+    was the empty string. The structural fix is to group by the resolved
+    EXECUTABLE rather than by the key, which lives in
+    ``pyflightstream.run._check_scheduled_builds``. If this number drops
+    to 1, that fix landed: lower it here rather than deleting the test.
+    """
+    calls = count_identity_probes(monkeypatch)
+    exe = real_executable(tmp_path)
+    workspace = make_library(tmp_path, register_build=("26.120", exe.as_posix()))
+    path = write_matrix(tmp_path / "probe_cost.fs", [SILENT_ROW, NAMED_ROW])
+
+    run_for_records(path, workspace)
+
+    assert len(calls) == 2, (
+        f"the mixed matrix spent {len(calls)} identity probe(s) on one installation; "
+        "2 is the measured cost of keying the pre-flight by fs_build"
+    )
+    assert set(calls) == {resolve("26.120")}, (
+        "both probes must ask about the campaign default version: a build id is a "
+        "registry key and never a declaration of which command database a build has"
+    )

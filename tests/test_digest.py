@@ -215,6 +215,338 @@ def test_a_digest_is_a_statement_about_content_and_nothing_around_it(tmp_path):
     assert text_sha256("SOLVER_SET_AOA 4.0\n") == text_sha256("SOLVER_SET_AOA 4.0\n")
 
 
+# ---------------------------------------------------------------------------
+# PFS-2012.10: the rule names its ALGORITHM and what it EXCLUDES, so two
+# identical inputs cannot disagree about what was hashed.
+#
+# The algorithm half was already spent above. The exclusion half was not:
+# `EXCLUDED_FROM_EVERY_DIGEST` was a tuple of five sentences that nothing
+# read, so it could be edited, narrowed or deleted with this suite green,
+# and a rule nothing spends is a rule the next reader may reasonably doubt.
+# What follows makes each named exclusion cost a demonstration.
+#
+# Two of the five cannot be shown by hashing anything, and that is stated
+# rather than papered over: no fixture can prove a clock was NOT read, only
+# that reading one changed nothing today. So those two are shown
+# structurally, on the source of the module that owns the digest, which is
+# the same argument the module docstring makes in prose ("absent by
+# CONSTRUCTION rather than by filtering").
+# ---------------------------------------------------------------------------
+
+
+def _names_the_digest_owner_reaches_for(module: Path | None = None) -> set[str]:
+    """Every module ``_digest`` imports and every dotted root it reads.
+
+    Parameters
+    ----------
+    module : Path or None, optional
+        The source to read. Defaults to ``src/pyflightstream/_digest.py``.
+        A companion test passes a fabricated module, which is the only way
+        to show this scan measures rather than agrees.
+
+    Returns
+    -------
+    set of str
+        Imported module and symbol names, plus for every ``x.y`` attribute
+        read, both ``x`` and ``x.y``.
+    """
+    source = module or (SRC / "_digest.py")
+    tree = ast.parse(source.read_text(encoding="utf-8"), filename=str(source))
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            names |= {alias.name.split(".")[0] for alias in node.names}
+        elif isinstance(node, ast.ImportFrom):
+            if node.module:
+                names.add(node.module.split(".")[0])
+            names |= {alias.name for alias in node.names}
+        elif isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
+            names.add(node.value.id)
+            names.add(f"{node.value.id}.{node.attr}")
+        elif isinstance(node, ast.Name):
+            names.add(node.id)
+    return names
+
+
+#: Anything whose value is a property of WHEN a digest was taken.
+_CLOCK_SOURCES = {"time", "datetime", "perf_counter", "monotonic", "time_ns", "clock_gettime"}
+#: Anything whose value is a property of WHERE, or of WHO, took it.
+_MACHINE_SOURCES = {"os", "sys", "platform", "socket", "getpass", "uuid", "environ", "getenv"}
+
+
+def _a_modification_time_does_not_move_a_digest(folder: Path, module: Path | None = None) -> None:
+    """One file, hashed before and after its mtime moves."""
+    target = folder / "wing.stl"
+    target.write_bytes(b"solid wing\nfacet\nendsolid\n")
+    before = file_sha256(target)
+
+    import os
+
+    os.utime(target, (0, 0))
+    assert file_sha256(target) == before, (
+        "the digest of a file moved when its modification time did, so two "
+        "identical runs on two machines cannot agree"
+    )
+    target.write_bytes(b"solid wing\nfacet\nfacet\nendsolid\n")
+    assert file_sha256(target) != before, "the control: content must still count"
+
+
+def _no_clock_is_read_at_all(folder: Path, module: Path | None = None) -> None:
+    """Structural: the digest owner never reaches for a clock.
+
+    A fixture cannot prove this. Two hashes taken a millisecond apart agree
+    under a module that reads the clock at second resolution, so the
+    property is asserted where it is decided, in the source.
+    """
+    forbidden = sorted(_names_the_digest_owner_reaches_for(module) & _CLOCK_SOURCES)
+    assert not forbidden, (
+        f"the digest owner reads {forbidden}, so a digest can carry WHEN it was "
+        "taken. Elapsed and wall time are excluded from every digest this "
+        "package computes; a value that needs a clock is not a digest of the input."
+    )
+
+
+def _neither_the_path_nor_the_name_moves_a_digest(folder: Path, module: Path | None = None) -> None:
+    """The same bytes, in two directories, under two names, one value."""
+    first = folder / "here" / "wing.obj"
+    second = folder / "elsewhere" / "a_different_name.obj"
+    for path in (first, second):
+        path.parent.mkdir(parents=True)
+        path.write_bytes(b"v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n")
+
+    assert file_sha256(first) == file_sha256(second), (
+        "the digest changed with the file's name or directory, so an input "
+        "staged under two names reads as two different inputs"
+    )
+    assert file_sha256(str(first)) == file_sha256(first), "a str path must hash the same as a Path"
+    third = folder / "here" / "changed.obj"
+    third.write_bytes(b"v 0 0 0\nv 1 0 0\nv 0 2 0\nf 1 2 3\n")
+    assert file_sha256(third) != file_sha256(first), "the control: content must still count"
+
+
+def _no_machine_or_user_is_read_at_all(folder: Path, module: Path | None = None) -> None:
+    """Structural, for the same reason the clock one is.
+
+    A test run on one machine cannot show that the machine is excluded; it
+    can only show that this machine's value did not change the answer.
+    """
+    forbidden = sorted(_names_the_digest_owner_reaches_for(module) & _MACHINE_SOURCES)
+    assert not forbidden, (
+        f"the digest owner reads {forbidden}, so a digest can carry WHERE or by "
+        "WHOM it was taken. The environment, the user and the machine are "
+        "excluded from every digest this package computes."
+    )
+
+
+def _the_order_files_are_hashed_in_does_not_move_a_digest(
+    folder: Path, module: Path | None = None
+) -> None:
+    """Two files hashed in both orders, one answer each.
+
+    This is the exclusion with a real implementation trap behind it: a hash
+    object held at module level instead of created per call would make each
+    digest depend on everything hashed before it, and a workspace stages
+    inputs in whatever order it walked them.
+    """
+    first = folder / "a.obj"
+    second = folder / "b.obj"
+    first.write_bytes(b"v 0 0 0\n")
+    second.write_bytes(b"v 1 1 1\n")
+
+    forward = {path.name: file_sha256(path) for path in (first, second)}
+    backward = {path.name: file_sha256(path) for path in (second, first)}
+    assert forward == backward, (
+        "a file's digest depended on what was hashed before it, so a manifest "
+        "records the staging order rather than the inputs"
+    )
+    assert forward["a.obj"] != forward["b.obj"], (
+        "the control: the two fixtures hash alike, so this case would pass on "
+        "an implementation that returned one constant"
+    )
+
+
+#: One demonstration per entry of ``EXCLUDED_FROM_EVERY_DIGEST``, keyed by the
+#: exact declared wording so the two cannot drift apart silently.
+DEMONSTRATED_EXCLUSIONS = {
+    "wall-clock timestamps": _a_modification_time_does_not_move_a_digest,
+    "elapsed and wall time": _no_clock_is_read_at_all,
+    "absolute paths, and any path at all": _neither_the_path_nor_the_name_moves_a_digest,
+    "the machine, the user and the environment the run happened on": (
+        _no_machine_or_user_is_read_at_all
+    ),
+    "the order in which files were staged": _the_order_files_are_hashed_in_does_not_move_a_digest,
+}
+
+
+@pytest.mark.requirement("NFR-15")
+def test_every_exclusion_the_rule_names_is_demonstrated(tmp_path):
+    """The exclusion half of the rule, spent rather than declared.
+
+    ``EXCLUDED_FROM_EVERY_DIGEST`` is what the package promises it does NOT
+    hash. Until this test it was prose in a tuple: an entry could be added
+    that nothing held, or removed while the promise stayed in the module
+    docstring, and no run would notice either way.
+
+    So the tuple and the demonstrations are required to be the SAME set,
+    keyed on the declared wording. Adding an exclusion now costs a
+    demonstration; deleting one costs deleting its demonstration, which is
+    a deliberate act rather than an edit that passes.
+    """
+    declared = tuple(getattr(digest_module, "EXCLUDED_FROM_EVERY_DIGEST", ()))
+    assert declared, "the rule names no exclusion at all, so it says only 'sha256'"
+    assert all(isinstance(entry, str) and entry.strip() for entry in declared), declared
+
+    undemonstrated = sorted(set(declared) - set(DEMONSTRATED_EXCLUSIONS))
+    undeclared = sorted(set(DEMONSTRATED_EXCLUSIONS) - set(declared))
+    assert not undemonstrated and not undeclared, (
+        "what the digest rule EXCLUDES and what this file demonstrates have "
+        f"diverged.\n  declared, not demonstrated: {undemonstrated}\n"
+        f"  demonstrated, no longer declared: {undeclared}\n"
+        "An exclusion nothing measures is a promise, and NFR-07 rests on this "
+        "one being a fact."
+    )
+    for index, (excluded, demonstration) in enumerate(DEMONSTRATED_EXCLUSIONS.items()):
+        folder = tmp_path / f"case{index}"
+        folder.mkdir()
+        try:
+            demonstration(folder)
+        except AssertionError as failure:
+            raise AssertionError(
+                f"the digest does not exclude {excluded!r} after all: {failure}"
+            ) from failure
+
+
+@pytest.mark.requirement("NFR-15")
+def test_the_structural_exclusions_are_measured_and_not_assumed(tmp_path):
+    """The mutation companion for the two exclusions no fixture can show.
+
+    A scan that reported nothing would pass both structural demonstrations
+    above on any module at all, including one that hashes the wall clock
+    into every digest. So both are re-run here against a fabricated module
+    that reads a clock and the environment, and both must refuse it.
+    """
+    fabricated = tmp_path / "_digest_that_reads_the_world.py"
+    fabricated.write_text(
+        "import hashlib\nimport os\nimport time\n\n\n"
+        "def file_sha256(path):\n"
+        "    stamp = str(time.time()) + os.environ.get('USERNAME', '')\n"
+        "    return hashlib.sha256(open(path, 'rb').read() + stamp.encode()).hexdigest()\n",
+        encoding="utf-8",
+    )
+    reached = _names_the_digest_owner_reaches_for(fabricated)
+    assert "time" in reached and "os" in reached, reached
+
+    with pytest.raises(AssertionError, match="WHEN it was"):
+        _no_clock_is_read_at_all(tmp_path, module=fabricated)
+    with pytest.raises(AssertionError, match="WHERE or by"):
+        _no_machine_or_user_is_read_at_all(tmp_path, module=fabricated)
+
+    # The control, on the real module, through the same code path.
+    _no_clock_is_read_at_all(tmp_path)
+    _no_machine_or_user_is_read_at_all(tmp_path)
+
+
+def pages_promising_a_content_hash(root: Path) -> list[Path]:
+    """Markdown pages that tell a reader an input is recorded by content hash.
+
+    Parameters
+    ----------
+    root : Path
+        Directory to walk. Whitespace is normalized before the phrase is
+        looked for, because the sentence that prompted this wrapped across
+        two lines and a raw grep for it found nothing.
+
+    Returns
+    -------
+    list of Path
+        The pages, sorted.
+    """
+    found = []
+    for page in sorted(root.rglob("*.md")):
+        if "content hash" in " ".join(page.read_text(encoding="utf-8").split()):
+            found.append(page)
+    return found
+
+
+def pages_that_promise_a_hash_without_stating_the_rule(root: Path) -> list[str]:
+    """Pages promising a content hash that name neither algorithm nor owner."""
+    offenders = []
+    for page in pages_promising_a_content_hash(root):
+        text = page.read_text(encoding="utf-8")
+        missing = [
+            token
+            for token in (getattr(digest_module, "ALGORITHM", "sha256"), "pyflightstream._digest")
+            if token not in text
+        ]
+        if missing:
+            offenders.append(f"{page.name} promises a content hash and never names {missing}")
+    return offenders
+
+
+@pytest.mark.requirement("NFR-15")
+def test_a_page_that_promises_a_content_hash_states_which_hash_it_means():
+    """The rule has to reach the reader who is told to rely on it.
+
+    ``docs/mesh-inputs.md`` tells a user that a GUI-only step is made
+    reproducible by staging the saved artifact under a content hash. That
+    is the page where two people ask whether they hold the same input, and
+    until 2026-08-19 it said "content hashes" and stopped: no algorithm,
+    and nothing about what the digest leaves out. Two readers could not
+    disagree about the ANSWER, but they could disagree about the QUESTION,
+    which is the same failure one step earlier.
+
+    The algorithm is read from the module rather than written here, so the
+    day it changes this fails on the page instead of agreeing with a stale
+    literal.
+    """
+    docs = REPO_ROOT / "docs"
+    pages = pages_promising_a_content_hash(docs)
+    assert pages, (
+        "no page under docs/ promises a content hash, so this guard measured "
+        "nothing. Either the phrase moved or the scan is broken."
+    )
+    assert any(page.name == "mesh-inputs.md" for page in pages), [p.name for p in pages]
+    offenders = pages_that_promise_a_hash_without_stating_the_rule(docs)
+    assert not offenders, (
+        "\n  ".join(offenders) + "\nA page that asks a reader to rely on a "
+        "content hash must name the algorithm and point at the module that "
+        "owns the rule, or the reader cannot tell what was hashed."
+    )
+
+
+def test_the_doc_scan_catches_a_page_that_names_no_algorithm(tmp_path):
+    """The mutation companion for the page guard.
+
+    Proven by writing the defect rather than by the real page passing: a
+    scan that returned no offenders whatever it read would satisfy the test
+    above forever.
+    """
+    vague = tmp_path / "vague"
+    vague.mkdir()
+    (vague / "page.md").write_text(
+        "Every run records a content\nhash of each staged input.\n", encoding="utf-8"
+    )
+    assert [p.name for p in pages_promising_a_content_hash(vague)] == ["page.md"], (
+        "the phrase was not found across a line break, which is exactly how it "
+        "was written on the real page"
+    )
+    assert pages_that_promise_a_hash_without_stating_the_rule(vague)
+
+    complete = tmp_path / "complete"
+    complete.mkdir()
+    (complete / "page.md").write_text(
+        f"Every run records a content hash ({digest_module.ALGORITHM}) of each "
+        "staged input; the rule lives in pyflightstream._digest.\n",
+        encoding="utf-8",
+    )
+    assert not pages_that_promise_a_hash_without_stating_the_rule(complete)
+
+    silent = tmp_path / "silent"
+    silent.mkdir()
+    (silent / "page.md").write_text("This page says nothing about hashing.\n", encoding="utf-8")
+    assert pages_promising_a_content_hash(silent) == [], "a page that makes no promise is not asked"
+
+
 def _imports_of(module: Path) -> list[tuple[str, str]]:
     """Return ``(module, name)`` for every ``from x import y`` in a file."""
     tree = ast.parse(module.read_text(encoding="utf-8"), filename=str(module))

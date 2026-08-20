@@ -90,6 +90,11 @@ PUBLIC_MODULES = [
     "pyflightstream.workspace.inputs",
     "pyflightstream.workspace.matrix",
     "pyflightstream.workspace.naming",
+    # PFS-2025.20: the trailing-edge extraction. Public deliberately, and
+    # NOT in EXTRA_GATED_MODULES: after the trimesh promotion it must
+    # import on a base install with no extras, which is the whole point
+    # of the promotion and what PFS-2025.20.03 measures.
+    "pyflightstream.workspace.trailing_edges",
     "pyflightstream.workspace.wake_edges",
 ]
 

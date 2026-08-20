@@ -76,6 +76,14 @@ a DIFFERENT kind would catch on its own. Equality on the opening bracket
 rather than a substring search, because the collision above is what a
 substring search looks like when it fails.
 
+Naming them all was a sweep, and a sweep does not hold: the next case
+here will be written beside one that already passes, and ``== "deny"``
+is shorter and reads fine. So the rule is also a RATCHET.
+``unpinned_refusal_sites`` measures this file against itself and
+``test_every_refusal_this_file_asserts_names_which_check_refused``
+fails on a refusal that names no check, with the escape hatch declared
+in ``DELEGATES_ITS_SUB_KIND_ASSERTION`` and checked in both directions.
+
 The taxonomy and both gate constants are READ OUT OF THE GATE BODY
 rather than mirrored here, for the reason ``LEDGER_ENV`` records below:
 a hand-copied literal that stops matching does not fail loudly, it
@@ -204,6 +212,110 @@ def pinned_kinds() -> set[str]:
             if isinstance(third, ast.Constant) and isinstance(third.value, str):
                 found.add(third.value)
     return found
+
+
+#: Test functions allowed to reach a refusal WITHOUT naming ``kind=``, each
+#: with the reason, because they call ``assert_kind`` by hand instead.
+#:
+#: Declared rather than merely tolerated. The ``kind=`` rule is what makes a
+#: refusal assertion mean something, so the escape hatch from it is the one
+#: place the rule can be lost without anything going red, and the guard below
+#: checks this set in BOTH directions: an undeclared user fails, and a stale
+#: declaration fails too, so the hatch cannot outlive the case that needed it.
+DELEGATES_ITS_SUB_KIND_ASSERTION = {
+    "test_an_unterminated_heredoc_opener_does_not_swallow_a_real_push": (
+        "the shape it was written for is NO DECISION AT ALL, so the fail-open "
+        "message has to be the first thing a failure prints; the sub-kind is "
+        "asserted afterwards, by hand, on that case's last line"
+    ),
+}
+
+
+def _is_gate_call(node: ast.AST) -> bool:
+    """True for a call to ``judge`` or ``decide`` by name."""
+    return (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id in {"judge", "decide"}
+    )
+
+
+def _names_a_sub_kind(call: ast.Call) -> bool:
+    """True when a call passes ``kind=`` as anything but a literal ``None``.
+
+    A literal ``None`` is excluded deliberately: ``assert_kind`` applies only
+    the fail-closed rule to it, so ``kind=None`` names no check and would be
+    the cheapest way past the guard below while looking like compliance.
+    """
+    return any(
+        keyword.arg == "kind"
+        and not (isinstance(keyword.value, ast.Constant) and keyword.value.value is None)
+        for keyword in call.keywords
+    )
+
+
+def unpinned_refusal_sites(source: Path | None = None) -> list[tuple[str, str]]:
+    """Gate calls in this file that assert nothing about WHICH check refused.
+
+    Parameters
+    ----------
+    source : Path or None, optional
+        The file to measure. Defaults to this one. A companion test passes a
+        deliberately mutated copy, which is the only way to show this
+        measures rather than agrees.
+
+    Returns
+    -------
+    list of tuple of str
+        ``(enclosing test name, "line N: <the call>")`` for every ``judge``
+        or ``decide`` call that neither names a ``kind=`` nor is asserted to
+        ALLOW. A call inside a function named in
+        ``DELEGATES_ITS_SUB_KIND_ASSERTION`` is still reported, tagged with
+        that function, so the caller can partition it rather than have it
+        silently excused here.
+
+    Notes
+    -----
+    An ALLOW assertion is the third accepted shape and not an oversight: a
+    case that requires the gate to let a push through is making a decision
+    claim with no sub-kind to name, and forcing ``kind=`` on it would mean
+    writing an expectation the case does not hold.
+    """
+    text = (source or Path(__file__)).read_text(encoding="utf-8")
+    tree = ast.parse(text)
+    allowed: set[int] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Compare) or not _is_gate_call(node.left):
+            continue
+        if any(
+            isinstance(other, ast.Constant) and other.value == "allow" for other in node.comparators
+        ):
+            allowed.add(id(node.left))
+    sites: list[tuple[str, str]] = []
+    seen: set[int] = set()
+    for function in ast.walk(tree):
+        if not isinstance(function, ast.FunctionDef):
+            continue
+        for node in ast.walk(function):
+            if not _is_gate_call(node):
+                continue
+            assert isinstance(node, ast.Call)
+            seen.add(id(node))
+            if _names_a_sub_kind(node) or id(node) in allowed:
+                continue
+            sites.append((function.name, f"line {node.lineno}: {ast.unparse(node)}"))
+    # A gate call outside every function would be invisible to the loop above,
+    # and it would run at import time where a failure is an error rather than
+    # a case. There are none today; it is scanned for rather than assumed,
+    # because "there are none today" is how the bare refusals got in.
+    for node in ast.walk(tree):
+        if not _is_gate_call(node) or id(node) in seen:
+            continue
+        assert isinstance(node, ast.Call)
+        if _names_a_sub_kind(node) or id(node) in allowed:
+            continue
+        sites.append(("<module level>", f"line {node.lineno}: {ast.unparse(node)}"))
+    return sites
 
 
 # The variable the GATE reads. Renamed from PYFS_INCIDENT_LEDGER when the
@@ -1633,6 +1745,108 @@ def test_every_deny_sub_kind_the_gate_can_emit_is_pinned_or_declared_unreached()
     assert not covered, (
         f"{sorted(covered)} is declared unreachable and a case reaches it; the "
         "declaration is false and would excuse a real gap next to it"
+    )
+
+
+def test_every_refusal_this_file_asserts_names_which_check_refused() -> None:
+    """The RATCHET, as distinct from the sweep that preceded it.
+
+    Naming a sub-kind in all 79 cases was a one-time act, and a one-time
+    act does not hold: the next case written here will be written by
+    someone reading the case above it, and ``== "deny"`` is shorter,
+    reads fine, and passes. That is exactly how the 15 bare refusals this
+    item removed were written in the first place, one at a time, each
+    beside a neighbour that looked the same.
+
+    So the property is measured rather than remembered. Every ``judge``
+    or ``decide`` call in this file must either name the sub-kind it
+    expects, or assert an ALLOW, or sit in a case declared in
+    ``DELEGATES_ITS_SUB_KIND_ASSERTION`` because it asserts the sub-kind
+    by hand. Both directions of that declaration are checked, so the
+    hatch cannot be widened quietly and cannot outlive its case.
+
+    What this does NOT check, stated so the guard is not read as more
+    than it is: that the kind a case names is the RIGHT one. Nothing here
+    can know that. The gate itself answers it, by refusing through a
+    different arm and failing the case.
+    """
+    sites = unpinned_refusal_sites()
+    undeclared = [site for name, site in sites if name not in DELEGATES_ITS_SUB_KIND_ASSERTION]
+    assert not undeclared, (
+        "a push-gate case reaches a refusal without saying WHICH check refused it:\n  "
+        + "\n  ".join(undeclared)
+        + "\nPass kind=<sub-kind> so the case fails when the gate refuses through "
+        "another arm, or through the fail-closed [gate] arm having run no check at "
+        "all. A bare == 'deny' passes on a gate that denies everything."
+    )
+    used = {name for name, _ in sites}
+    stale = set(DELEGATES_ITS_SUB_KIND_ASSERTION) - used
+    assert not stale, (
+        f"{sorted(stale)} is declared as asserting its sub-kind by hand and no "
+        "longer does; delete the declaration rather than leaving an unused "
+        "exemption sitting next to the rule it exempts."
+    )
+    # The population, printed rather than assumed. A scan that matched nothing
+    # would satisfy every assertion above and measure no case at all.
+    measured = ast.walk(ast.parse(Path(__file__).read_text(encoding="utf-8")))
+    calls = [node for node in measured if _is_gate_call(node)]
+    assert len(calls) > 50, f"only {len(calls)} gate calls found; the scan is not reaching them"
+
+
+def test_the_unpinned_scan_catches_a_bare_deny_that_is_added_later(tmp_path: Path) -> None:
+    """The mutation companion for the ratchet above.
+
+    A guard is proven by restoring the defect and watching it deny, never
+    by a suite that passes. Two shapes are restored here because they are
+    the two ways the rule is actually lost: a ``kind=`` deleted from a
+    case that had one, and a brand new case written without one.
+
+    The control runs first and on the SAME code path, so a scanner that
+    reported everything, or nothing, could not pass all three.
+    """
+    body = Path(__file__).read_text(encoding="utf-8")
+    clean = tmp_path / "clean.py"
+    clean.write_text(body, encoding="utf-8")
+    assert [site for name, site in unpinned_refusal_sites(clean)] == [
+        site for name, site in unpinned_refusal_sites()
+    ], "reading a copy must measure the same file"
+
+    # Split so this line is not itself a second occurrence of its own anchor,
+    # which is the same reason `PUSH` is built by concatenation at the top of
+    # this file. Measured: written whole, the uniqueness check below fails at 2.
+    anchor = 'assert decide(repo, f"{PUSH} origin main; echo done", kind=' + '"scope") == "deny"'
+    assert body.count(anchor) == 1, (
+        f"the mutation anchor occurs {body.count(anchor)} times; a battery that "
+        "cannot find its anchor proves nothing about the body it did not change"
+    )
+    stripped = tmp_path / "stripped.py"
+    without_kind = anchor.replace(', kind="scope"', "")
+    stripped.write_text(body.replace(anchor, without_kind), encoding="utf-8")
+    caught = [site for _, site in unpinned_refusal_sites(stripped)]
+    assert any("echo done" in site for site in caught), (
+        f"a kind= deleted from an existing case went unreported: {caught}"
+    )
+
+    added = tmp_path / "added.py"
+    written_later = (
+        '\n\ndef test_written_later(repo: Path) -> None:\n    assert decide(repo, "x") == "deny"\n'
+    )
+    added.write_text(body + written_later, encoding="utf-8")
+    assert any(name == "test_written_later" for name, _ in unpinned_refusal_sites(added)), (
+        "a new case written with a bare == 'deny' went unreported, which is the "
+        "shape this ratchet exists for"
+    )
+
+    # The third shape, and the one that would otherwise leave a dead branch in
+    # the scan: a gate call outside every function. It is exercised on a COPY
+    # rather than as a battery mutant on this file, because a module-level call
+    # would run at import and report as a collection error instead of a verdict.
+    at_module_level = tmp_path / "module_level.py"
+    at_module_level.write_text(
+        body + '\n\nWHATEVER = decide(REPO_FIXTURE, "x") == "deny"\n', encoding="utf-8"
+    )
+    assert any(name == "<module level>" for name, _ in unpinned_refusal_sites(at_module_level)), (
+        "a gate call outside every function was invisible to the scan"
     )
 
 

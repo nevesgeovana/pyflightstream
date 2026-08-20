@@ -96,11 +96,19 @@ jobs:
     # assertion again. A guard nothing executes is not weaker evidence
     # than a red test, it is no evidence.
     #
-    # The four test legs above deliberately stay at [dev,fsi,geom]. They
-    # are the probe that the package works WITHOUT the optional extras,
-    # which is what most users install, and widening them would delete
-    # that measurement to buy this one. Keeping both is the whole point
-    # of this leg being separate.
+    # The four test legs above deliberately stay at [dev,fsi,geom], which
+    # is NARROWER than this one and is the point of keeping them
+    # separate: widening them would delete that measurement to buy this
+    # one.
+    #
+    # THIS COMMENT USED TO CLAIM THOSE FOUR LEGS PROBED THE PACKAGE
+    # WITHOUT THE OPTIONAL EXTRAS, and they install two of them, so the
+    # claim was false on its own file (corrected 2026-08-19, DD-27
+    # section 5). What they measure is that [manual] and [plot] are not
+    # needed. The leg that really installs no user-facing extra is
+    # `test-lean` below, and it was added in the same commit as this
+    # correction rather than left as a sentence describing a job that
+    # did not exist.
     #
     # tests/test_extras_isolation.py derives its forbidden set from the
     # INTERSECTION of every install line, so this richer leg does not
@@ -122,6 +130,44 @@ jobs:
         # absent fixture). What this leg buys is that the extra-gated
         # ones are not among them.
         run: pytest
+
+  test-lean:
+    # PFS-2025.20.03: the leg that installs NO user-facing extra, and the
+    # only place the mesh reader's promotion is actually measured. Marking
+    # a trailing edge is on the default path of a rotor campaign, so a
+    # base install must be able to do it end to end; if trimesh ever slid
+    # back behind an extra, this job is what goes red, and it goes red at
+    # the import rather than skipping quietly, which is the failure mode
+    # INC-20260810-2140-shared cost a release.
+    #
+    # THE BRACKET IS [dev] AND NOT EMPTY, deliberately, so a reader does
+    # not correct it. `dev` is the contributor extra: it gates no runtime
+    # code path (pyflightstream.extras.EXTRAS omits it by name) and it
+    # installs the test runner, without which this job cannot run a test
+    # at all. An EMPTY bracket would also drop `dev` out of the
+    # intersection tests/test_extras_isolation.py derives from every
+    # install line, which would put pytest itself into that guard's
+    # forbidden set and refuse `import pytest` in every test file. The
+    # measurement wanted here is "no user-facing extra", and that is
+    # exactly what this line installs.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+        with:
+          fetch-depth: 0  # the clean-room walk, as in the test job
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: "3.12"
+      - name: Install the package with no user-facing extra
+        run: pip install -e .[dev]
+      - name: The mesh reader arrives with the package alone
+        # Loud and readable: a base install either has the reader or this
+        # line names the version it does not have. The test below would
+        # fail too, at collection, but a failing import inside a suite
+        # reads as a broken test rather than as a broken dependency set.
+        run: python -c "import trimesh; print('trimesh', trimesh.__version__)"
+      - name: Mark a trailing edge end to end, with no extras present
+        run: pytest tests/test_trailing_edges.py
 
   types:
     # One leg, like the coverage floor and for the same reason: the answer

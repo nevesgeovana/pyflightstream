@@ -5,6 +5,7 @@ manifest built in tmp_path through the public files API; no new large
 fixtures are committed.
 """
 
+import json
 import math
 from pathlib import Path
 
@@ -636,6 +637,164 @@ def test_parse_run_loads_names_a_missing_file_on_disk(tmp_path):
     workspace.create_sim("9001")
     record = make_record(outputs=["raw/gone.txt"])
     with pytest.raises(FileNotFoundError, match="archived or"):
+        parse_run_loads(workspace, record)
+
+
+# --- OPS-2009.01.13: the reader weighs the velocity that was requested ----
+#
+# The record now carries `velocity_requested_m_s`, the free-stream speed in
+# m/s the CASE asked for, because a sweep axis is not the only way a
+# velocity is requested and it was the only one this reader could see. The
+# committed steady export prints 30.000 m/s, and every test below is a real
+# comparison against that printed number rather than against a constructed
+# report: the failure this closes is a valid converged export of a
+# DIFFERENT speed standing in as the evidence of this run.
+#
+# The absence token is `None` (JSON `null` in runs.json), not a word and not
+# zero. `REDUCTION_CODES` spends a word on `unknown` because those tokens
+# ride in a csv, where an empty cell reads back as NaN; the manifest is
+# JSON, which carries null as a value of its own, and this field is not
+# written to any table. Zero is a SPEED, so it must read as a request the
+# export can contradict, which is the pair of tests at the end.
+
+
+def build_velocity_workspace(tmp_path, **overrides):
+    """One collected steady export (alpha 2.000 deg, 30.000 m/s) and its record."""
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    outputs = collect_text(
+        workspace, "9001", tmp_path, "loads.txt", read_fixture("loads_steady_26.120.txt")
+    )
+    return workspace, make_record(outputs=outputs, **overrides)
+
+
+def test_the_reader_refuses_an_export_printing_another_speed(tmp_path):
+    """The clause this item exists for, at the tabular reader.
+
+    Before OPS-2009.01.13 the record could not state a case-supplied
+    velocity, so this file was read back as the evidence of a run that
+    asked for 25 m/s and the reader compared only the angles.
+    """
+    workspace, record = build_velocity_workspace(tmp_path, velocity_requested_m_s=25.0)
+    with pytest.raises(ValueError, match="not the evidence") as refusal:
+        parse_run_loads(workspace, record)
+    message = str(refusal.value)
+    assert "velocity requested +25.0000 m/s" in message, message
+    assert "export prints +30.0000 m/s" in message, message
+
+
+def test_the_reader_accepts_the_export_that_prints_the_requested_speed(tmp_path):
+    """The control: the same axis must be able to AGREE.
+
+    A comparison that refused every velocity would satisfy the test above
+    forever.
+    """
+    workspace, record = build_velocity_workspace(tmp_path, velocity_requested_m_s=30.0)
+    report = parse_run_loads(workspace, record)
+    assert report.freestream_velocity_m_s == pytest.approx(30.0)
+
+
+def test_the_reader_and_the_assessor_reach_the_same_verdict_on_velocity(tmp_path):
+    """Refused exactly where the assessor refuses it, measured on both.
+
+    REV010-001 is the incident where one consumer compared a point and the
+    other did not, so a wrong-condition export was recorded CONVERGED and
+    contradicted only later. The two now merge the same two supply points
+    into the same `bind_conditions` call, and this drives both with the
+    same requested speed against the same parsed export.
+    """
+    from pyflightstream.cases import SimCase, SweepAxis
+    from pyflightstream.run import _bind_case_conditions
+
+    export = read_fixture("loads_steady_26.120.txt")
+    report = parse_loads(export, requested_version="26.120")
+    for requested, agrees in ((30.0, True), (25.0, False)):
+        case = SimCase(
+            sim_id="9001",
+            aircraft="wing",
+            sweep=SweepAxis(type="alpha", values=[2.0]),
+            recipe="recipes.steady",
+            velocity=requested,
+            point={"alpha": 2.0},
+        )
+        assessor_verdict = not _bind_case_conditions(case, report).mismatches
+        workspace, record = build_velocity_workspace(
+            tmp_path / f"v{requested}", velocity_requested_m_s=requested
+        )
+        try:
+            parse_run_loads(workspace, record)
+        except ValueError as refusal:
+            # Narrowed deliberately: LoadsNotFoundError is a ValueError
+            # too, so a bare `except ValueError` would score a missing
+            # fixture as the reader refusing the point and let this test
+            # agree with the assessor for the wrong reason.
+            assert "not the evidence" in str(refusal), refusal
+            reader_verdict = False
+        else:
+            reader_verdict = True
+        assert assessor_verdict == reader_verdict == agrees, (
+            f"requested {requested} m/s against an export printing 30.000: the "
+            f"assessor says {assessor_verdict} and the reader says {reader_verdict}"
+        )
+
+
+def test_the_points_own_velocity_wins_over_the_case_default(tmp_path):
+    """`setdefault`, not assignment, and the two are indistinguishable here.
+
+    A point that names its own velocity is THIS point's request; the
+    record's case-level field fills in when it does not. Reversing the
+    order reads identically at the call site and would make the reader
+    weigh a speed the point overrode.
+    """
+    workspace, record = build_velocity_workspace(
+        tmp_path / "point-wins",
+        point={"alpha": 2.0, "velocity": 30.0},
+        velocity_requested_m_s=25.0,
+    )
+    assert parse_run_loads(workspace, record).freestream_velocity_m_s == pytest.approx(30.0)
+
+    workspace, record = build_velocity_workspace(
+        tmp_path / "point-loses",
+        point={"alpha": 2.0, "velocity": 25.0},
+        velocity_requested_m_s=30.0,
+    )
+    with pytest.raises(ValueError, match="velocity requested \\+25.0000 m/s"):
+        parse_run_loads(workspace, record)
+
+
+def test_a_record_written_without_the_field_reads_as_velocity_not_requested(tmp_path):
+    """Absence is NOT REQUESTED, and every row written before the field is one.
+
+    Written through the manifest rather than through the constructor, so
+    what is measured is a row on disk that never carried the key. Were the
+    absence read as zero, this export would be refused for printing 30 m/s
+    against a request nobody made.
+    """
+    workspace, record = build_velocity_workspace(tmp_path, velocity_requested_m_s=30.0)
+    row = json.loads(record.model_dump_json())
+    del row["velocity_requested_m_s"]
+    workspace.manifest_path.write_text(json.dumps([row]), encoding="utf-8")
+
+    (raw,) = workspace.read_raw_manifest()
+    assert "velocity_requested_m_s" not in raw, "the row under test must not carry the key"
+    (stored,) = workspace.read_manifest()
+    assert stored.velocity_requested_m_s is None, (
+        "a row written before the field must read as not requested, and None is "
+        "the token: the manifest is JSON, where null is a value of its own"
+    )
+    assert parse_run_loads(workspace, stored).freestream_velocity_m_s == pytest.approx(30.0)
+
+
+def test_a_requested_zero_is_a_request_the_export_can_contradict(tmp_path):
+    """Zero is a speed, so it is the one value absence must not collapse to.
+
+    The discriminating half of the test above: `is not None` and a
+    truthiness test agree on every velocity but this one, and a truthiness
+    test would let a 30 m/s export stand as the evidence of a run that
+    asked for a standstill.
+    """
+    workspace, record = build_velocity_workspace(tmp_path, velocity_requested_m_s=0.0)
+    with pytest.raises(ValueError, match="velocity requested \\+0.0000 m/s"):
         parse_run_loads(workspace, record)
 
 

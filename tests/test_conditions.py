@@ -183,6 +183,40 @@ def test_a_requested_value_of_none_is_not_requested():
     assert {check.axis for check in binding.checks} == {"velocity"}
 
 
+def test_a_requested_zero_is_a_request_and_not_an_absence():
+    """Zero is a speed, so it is the value that separates the two states.
+
+    OPS-2009.01.13. ``None`` means the axis was never asked for and is
+    skipped; 0.0 means a standstill was asked for and an export printing
+    30 m/s contradicts it. Only ``is None`` tells them apart, and every
+    other requested value makes a truthiness test look correct.
+    """
+    absent = bind_conditions({"velocity": None}, reported=FakeReport(freestream_velocity_m_s=30.0))
+    assert absent.checks == () and not absent.compared
+    assert absent.unprinted == () and absent.unbound == ()
+
+    standstill = bind_conditions(
+        {"velocity": 0.0}, reported=FakeReport(freestream_velocity_m_s=30.0)
+    )
+    assert {check.axis for check in standstill.checks} == {"velocity"}
+    (mismatch,) = standstill.mismatches
+    assert mismatch.requested == 0.0
+    assert mismatch.reported == pytest.approx(30.0)
+    assert mismatch.unit == "m/s"
+
+
+def test_an_unbound_axis_requested_as_zero_is_still_reported():
+    """The same distinction on the other branch that filters on None.
+
+    ``unbound`` is built by its own comprehension, so a truthiness test
+    there would drop a J of exactly 0.0 with no trace, which is the
+    silent-drop defect that comprehension was added to close.
+    """
+    binding = bind_conditions({"advance_ratio": 0.0}, reported=FakeReport())
+    assert binding.unbound == ("advance_ratio",)
+    assert bind_conditions({"advance_ratio": None}, reported=FakeReport()).unbound == ()
+
+
 def test_an_empty_binding_is_not_evidence_of_agreement():
     """`mismatch_free` is vacuously true with nothing to compare, and
     `compared` is the property that says so.

@@ -83,6 +83,11 @@ from pyflightstream.workspace.inputs import (
     resolve_setup,
 )
 from pyflightstream.workspace.naming import NamingTemplate, NamingTemplateError
+from pyflightstream.workspace.trailing_edges import (
+    TrailingEdge,
+    extract_trailing_edge,
+    write_trailing_edge_node_file,
+)
 
 __all__ = [
     "EXECUTABLES_FILE",
@@ -106,12 +111,15 @@ __all__ = [
     "RunRecord",
     "RunStatus",
     "SetupArtifact",
+    "TrailingEdge",
     "WorkspaceError",
     "check_reference_point_names",
     "check_unique_stems",
     "collection_name",
     "expand_group",
+    "extract_trailing_edge",
     "migrate_input_ids",
+    "write_trailing_edge_node_file",
 ]
 
 #: Layout identifier of a manifest record. Bumped when a field is

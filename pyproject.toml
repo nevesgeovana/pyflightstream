@@ -27,11 +27,30 @@ classifiers = [
 # xarray confirmed as a runtime dependency by the author's far-field
 # extraction instruction of 2026-07-21 (PLN-006 closed): the farfield
 # ledgers live on labeled (station, r, psi) arrays.
+# trimesh was PROMOTED out of the [geom] extra on 2026-08-19 (design note
+# DD-27, closing PFS-2025.20), making the runtime set six. It is the mesh
+# reader the trailing-edge extraction reads a blade surface through
+# (pyflightstream.workspace.trailing_edges), and that extraction is on the
+# default path of a rotor campaign: gating it behind an extra would make the
+# library promise something a default install cannot do. Measured cost, one
+# new distribution and 3.89 MiB, with no transitive distribution beyond it
+# (reports/RPT-034); licence Apache-2.0 at 4.12 and MIT from 5.0, both
+# MIT-compatible (reports/RPT-035, NFR-02). NFR-06's "the count does not
+# grow" is amended rather than ignored: DD-27 section 4 records the reason
+# and the measurement.
+#
+# BOTH ENDS ARE PINNED DELIBERATELY. The floor is the oldest release this
+# package has been exercised against, and the ceiling excludes the next
+# major, which is a boundary this repository has no evidence about; a new
+# install resolves 5.0.0 today. tests/test_extras.py holds the installed
+# version inside the declared range, so the envelope is a measurement rather
+# than a hope.
 dependencies = [
     "numpy",
     "pandas",
     "pydantic",
     "pyyaml",
+    "trimesh>=4.12,<6",
     "xarray",
 ]
 
@@ -39,9 +58,13 @@ dependencies = [
 # matplotlib is PSF/BSD-style, MIT-compatible (NFR-02); it backs the
 # plotting examples only, no core code imports it.
 plot = ["matplotlib"]
-# Geometry gate of the probe planner: containment culling and
-# distance-to-surface queries (license evidence reports/RPT-003).
-geom = ["trimesh", "rtree", "scipy"]
+# The SPATIAL INDEX behind the geometry gate of the probe planner:
+# containment culling and distance-to-surface queries go through trimesh,
+# which queries scipy's kd-tree and rtree's bounds tree (license evidence
+# reports/RPT-003). trimesh itself left this extra on 2026-08-19 and is a
+# runtime dependency above (DD-27); reading vertices and faces needs neither
+# of these two, which is why the trailing-edge extraction runs without them.
+geom = ["rtree", "scipy"]
 # FSI structural coupling (M6, DLV-007). PyNiteFEA is MIT; license
 # evidence: reports/RPT-002_pynitefea-license_2026-07-21.md (NFR-02).
 fsi = ["PyNiteFEA>=3.0"]
