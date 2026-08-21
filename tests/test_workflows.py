@@ -45,13 +45,17 @@ from pyflightstream.cases import CampaignConfigError, SimCase, SweepAxis, check_
 from pyflightstream.cases import matrix as matrix_module
 from pyflightstream.cases.matrix import to_campaign
 from pyflightstream.cases.workflows import (
+    PERIODIC_COPIES_VARIABLE,
     ROTOR_SHEDDING_VARIABLE,
+    SIMULATION_SUFFIX,
+    SYMMETRY_VARIABLE,
     WORKFLOW_KEY,
     WORKFLOWS,
     ExportWindow,
     ReductionPlan,
     WorkflowConventions,
     WorkflowCoverageError,
+    accepted_symmetry,
     build_script,
     covered_builds,
     emit_rotor_motion,
@@ -72,7 +76,7 @@ from pyflightstream.post.unsteady import (
     passage_windows,
     read_timestep_series,
 )
-from pyflightstream.script import Script, helpers
+from pyflightstream.script import CommandArgumentError, Script, helpers
 from pyflightstream.versions import known_versions
 from pyflightstream.workspace import WorkspaceError
 
@@ -1098,3 +1102,398 @@ def test_the_specification_restater_refuses_a_bad_row_rather_than_defaulting():
         "the well-formed row stopped restating, so the case above would pass on a "
         "function that refuses everything"
     )
+
+
+# --- PFS-2025.02.02: the case geometry is opened, first -----------------------
+
+
+def steady_case(**overrides) -> SimCase:
+    """One steady case built by hand, for the geometry and symmetry reads."""
+    variables: dict[str, str | float | int | bool] = {
+        WORKFLOW_KEY: "steady",
+        "VELOCITY": "30.0",
+    }
+    geometry = overrides.pop("geometry", None)
+    for key, value in overrides.items():
+        if value is None:
+            variables.pop(key, None)
+        else:
+            variables[key] = value
+    return SimCase(
+        sim_id="7002",
+        aircraft="RotorRig",
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        recipe="steady",
+        outputs=["loads_a+00.0.txt"],
+        variables=variables,
+        point={"alpha": 0.0},
+        geometry=geometry,
+    )
+
+
+def rendered(case: SimCase, build: str = "26.120") -> str:
+    """Build one case and return the whole script text."""
+    script = Script(build)
+    build_script(case, script)
+    return script.render()
+
+
+#: A staged simulation path of the shape the campaign loop writes: the
+#: case's OWN copy under its sim directory, not the library original.
+STAGED = "runs/7002/inputs/rotor_sector.fsm"
+
+
+def test_the_defect_itself_a_geometry_now_changes_the_script():
+    """THE REPRODUCTION. Two cases that differed only in their geometry
+    rendered BYTE-IDENTICAL scripts, on both builders: no OPEN, no
+    NEW_SIMULATION, no import of any kind. The run layer had already
+    staged the file and hashed it into the record, so the manifest named
+    a mesh the script never opened and the solver solved whatever it had
+    in memory.
+
+    This case is the one that goes red on the shipped 0.8.0 body, and it
+    is written as a comparison rather than as an `"OPEN" in text` so it
+    keeps failing for the original reason if the emission ever moves.
+    """
+    without = rendered(steady_case())
+    with_geometry = rendered(steady_case(geometry=STAGED))
+    assert with_geometry != without, (
+        "a case carrying a geometry renders the same script as the same case without "
+        "one, so nothing opens the mesh and the solver runs on whatever it has"
+    )
+    assert STAGED in with_geometry, "the script never names the staged geometry"
+
+
+@pytest.mark.parametrize(
+    ("workflow", "case"),
+    [
+        ("steady", steady_case(geometry=STAGED)),
+        ("unsteady_rotor", rotor_case()),
+    ],
+)
+def test_both_builders_open_the_geometry_before_anything_else(workflow, case):
+    """OPEN is the FIRST line, on both run types.
+
+    Not merely present: OPEN replaces the whole simulation state, so a
+    coordinate system, a motion or a solver setting emitted before it
+    would be discarded by it with nothing said, and the rotor's rotary
+    motion would then cite a frame that no longer exists.
+    """
+    opened = case.model_copy(update={"geometry": STAGED})
+    lines = rendered(opened, "26.123").splitlines()
+    assert lines[0] == "OPEN", (
+        f"the {workflow} workflow emits {lines[0]!r} first; OPEN discards whatever "
+        "preceded it, so anything before it is silently thrown away"
+    )
+    assert lines[1] == STAGED, "OPEN does not name the staged geometry on its value line"
+
+
+def test_the_path_opened_is_the_one_the_case_carries_at_build_time():
+    """The STAGED copy, never the library original.
+
+    ``inputs_sha256`` in the run record is the hash of the staged bytes,
+    so opening anything else breaks the pairing between the digest a
+    record publishes and the bytes the solver read, and breaks it
+    silently. The campaign loop rewrites ``case.geometry`` to the staged
+    path before the builder runs; the builder's job is to open what it
+    is given and nothing else.
+    """
+    library = "campaign/inputs/geometries/rotor_sector.fsm"
+    text = rendered(steady_case(geometry=STAGED))
+    assert STAGED in text
+    assert library not in text
+    assert rendered(steady_case(geometry=library)) != text, (
+        "the builder renders the same script for two different geometry paths, so it "
+        "is not opening the path the case carries"
+    )
+
+
+def test_a_case_naming_no_geometry_emits_nothing_new():
+    """The byte-unchanged property, which is what makes this a patch.
+
+    Every shipped fixture and every committed golden names no geometry,
+    so this is the case that has to be unchanged: not "OPEN is absent"
+    but "the first line is the one it always was".
+    """
+    lines = rendered(steady_case()).splitlines()
+    assert lines[0] == "SET_FREESTREAM CONSTANT"
+    assert "OPEN" not in lines
+    rotor = rendered(rotor_case(), "26.123").splitlines()
+    assert rotor[0] == "CREATE_NEW_COORDINATE_SYSTEM"
+    assert "OPEN" not in rotor
+
+
+@pytest.mark.parametrize(
+    "geometry",
+    ["runs/7002/inputs/blade.stl", "runs/7002/inputs/blade.obj", "runs/7002/inputs/blade"],
+)
+def test_a_suffix_that_is_not_fsm_is_refused_with_the_documented_route(geometry):
+    """A raw mesh is refused rather than imported, and the refusal routes.
+
+    IMPORT's FIRST argument is the length units of the mesh file
+    (SRC-003 p.307) and no matrix cell declares them, so importing here
+    would mean defaulting a unit: a body of the wrong size, solved,
+    exported and reported without a word. That is the class of defect
+    this release exists to remove, so the narrowing is deliberate and
+    the refusal names the route the user already has.
+    """
+    with pytest.raises(CampaignConfigError) as raised:
+        rendered(steady_case(geometry=geometry))
+    message = str(raised.value)
+    assert geometry in message, "the refusal does not name the file that was refused"
+    assert SIMULATION_SUFFIX in message, "the refusal does not name the suffix that works"
+    assert "units" in message.lower(), "the refusal does not name the physical cause"
+    assert "docs/mesh-inputs.md" in message, "the refusal does not name the documented route"
+
+
+def test_the_documented_route_the_refusal_names_really_exists():
+    """The refusal points at a page, so the page has to be there.
+
+    A route named in an error message and deleted from the repository is
+    a worse answer than no route at all, and nothing else in the suite
+    reads this pair.
+    """
+    page = REPO / "docs" / "mesh-inputs.md"
+    assert page.is_file(), f"{page} is named in a refusal and does not exist"
+    body = page.read_text(encoding="utf-8")
+    assert ".fsm" in body, "the page the refusal routes to does not mention .fsm at all"
+
+
+def test_the_suffix_is_read_case_insensitively():
+    """``.FSM`` off a file system that upper-cased it still opens.
+
+    A user staging a file from a case-preserving share meets this and
+    nothing about their simulation is different.
+    """
+    assert rendered(steady_case(geometry="runs/7002/inputs/rotor_sector.FSM"))
+
+
+def test_open_is_not_declared_in_any_workflow_command_tuple():
+    """A sometimes-emitted command must not narrow the derived coverage.
+
+    ``Workflow.commands`` is the input to :func:`covered_builds`, and
+    its own docstring states the rule: a command emitted only for some
+    cases must not be listed, because listing it narrows the range for
+    every run that never reaches it. OPEN is emitted only for a case
+    that names a geometry.
+    """
+    for name, workflow in WORKFLOWS.items():
+        assert "OPEN" not in workflow.commands, (
+            f"workflow {name!r} declares OPEN, which it emits only for a case naming a "
+            "geometry; the coverage range would then exclude builds that can run every "
+            "case this workflow actually builds"
+        )
+
+
+def test_open_is_available_on_every_build_the_workflows_cover():
+    """The complement of the case above, and the reason it is safe.
+
+    Leaving OPEN out of the tuples costs nothing only while every
+    covered build carries the command. Measured against the database
+    rather than asserted, so the day a build appears without it this
+    goes red instead of the emission failing in a user's session.
+    """
+    database = CommandRegistry.load()
+    for name, workflow in WORKFLOWS.items():
+        for build in covered_builds(workflow):
+            assert "OPEN" in database.for_version(build), (
+                f"build {build} is covered by workflow {name!r} and its command database "
+                "carries no OPEN, so a case naming a geometry cannot be built on it"
+            )
+
+
+# --- PFS-2025.02.03: the solver initialization comes off the row -------------
+
+
+def database_symmetry(build: str) -> tuple[str, ...]:
+    """The symmetry tokens one build's INITIALIZE_SOLVER declares.
+
+    Read here the long way round, from the loaded database, so the cases
+    below compare the function against the EVIDENCE and not against a
+    second copy of the same tuple.
+    """
+    entry = CommandRegistry.load().for_version(build)["INITIALIZE_SOLVER"]
+    for argument in entry.args:
+        if argument.name == "symmetry":
+            return tuple(argument.values or ())
+    return ()
+
+
+def registry_declaring(values: tuple[str, ...]) -> CommandRegistry:
+    """A command database whose INITIALIZE_SOLVER takes other symmetries.
+
+    The only way to prove the accepted set is READ rather than restated:
+    a literal list in the module answers the same on every database, and
+    this one is deliberately not the shipped vocabulary.
+    """
+    database = CommandRegistry.load()
+    entry = database.commands["INITIALIZE_SOLVER"]
+    args = tuple(
+        argument.model_copy(update={"values": values}) if argument.name == "symmetry" else argument
+        for argument in entry.args
+    )
+    commands = dict(database.commands)
+    commands["INITIALIZE_SOLVER"] = entry.model_copy(update={"args": args})
+    return CommandRegistry(commands=commands)
+
+
+def test_the_accepted_symmetries_come_from_the_database_per_build():
+    """Every registered build, against the database's own declaration."""
+    for build in known_versions():
+        canonical = build.canonical
+        assert accepted_symmetry(Script(canonical)) == database_symmetry(canonical), (
+            f"the accepted symmetry set reported for {canonical} is not the one its "
+            "command database declares"
+        )
+
+
+def test_the_build_whose_symmetry_argument_is_spelled_differently_reports_none():
+    """25.000 spells it SYMMETRY_TYPE, so the read finds no ``symmetry``.
+
+    This is the case a hand-written list cannot pass: a literal
+    ``("NONE", "MIRROR", "PERIODIC")`` answers the same for every build
+    and would report a vocabulary this edition does not have
+    (SRC-749 p.298). The empty tuple is what hands the row on to
+    ``initialize_solver``, whose refusal names that edition.
+    """
+    assert accepted_symmetry(Script("25.000")) == ()
+    assert accepted_symmetry(Script("26.120")) != ()
+
+
+def test_a_database_declaring_other_symmetries_changes_the_answer():
+    """MUTATION-PROOF: the set is read, and a literal cannot pass this.
+
+    The database is the authority, so a build documenting a different
+    vocabulary has to be reported with THAT vocabulary, both by the
+    reader and inside the refusal a bad cell meets.
+    """
+    invented = ("NONE", "HALF_MODEL", "SECTOR")
+    database = registry_declaring(invented)
+    script = Script("26.120", registry=database)
+    assert accepted_symmetry(script) == invented
+
+    case = steady_case(SYMMETRY="MIRROR")
+    with pytest.raises(CampaignConfigError) as raised:
+        build_script(case, Script("26.120", registry=database), registry=database)
+    message = str(raised.value)
+    assert "HALF_MODEL" in message and "SECTOR" in message, (
+        "the refusal does not list the modes THIS database declares, so the accepted "
+        "set is a literal kept beside the workflow"
+    )
+    assert "MIRROR" in message, "the refusal does not name the value the row wrote"
+
+
+def test_a_row_declaring_neither_key_emits_symmetry_none_and_no_count():
+    """Exactly what every workflow emitted before 0.8.1.
+
+    Both halves matter: NONE is the token, and the absence of a count
+    beside it is what says no periodic copies were requested.
+    """
+    lines = rendered(steady_case()).splitlines()
+    assert "SYMMETRY NONE" in lines
+    assert not [line for line in lines if line.startswith("SYMMETRY ") and line != "SYMMETRY NONE"]
+
+
+def test_a_periodic_sector_reaches_the_command_with_its_copy_count():
+    """The whole point of the item: the sector can finally say so.
+
+    A four-bladed rotor modelled as one 90 degree sector emits
+    ``SYMMETRY PERIODIC 4``. Under the shipped 0.8.0 body no cell could
+    express this and the same mesh was initialized under NONE, which
+    solves a ONE-BLADED rotor: it converges, it exports, and its thrust
+    and torque are not the sector's.
+    """
+    text = rendered(steady_case(SYMMETRY="PERIODIC", PERIODIC_COPIES="4"))
+    assert "SYMMETRY PERIODIC 4" in text.splitlines()
+    assert "SYMMETRY NONE" not in text
+
+
+def test_the_rotor_builder_reads_the_same_two_keys():
+    """Both builders, because a sector study is a ROTOR study.
+
+    The unsteady rotor is the run type the periodic rows of the blocked
+    study name, so a fix that reached only the steady builder would have
+    fixed the case nobody was blocked on.
+    """
+    case = rotor_case()
+    case = case.model_copy(
+        update={"variables": {**case.variables, "SYMMETRY": "PERIODIC", "PERIODIC_COPIES": "3"}}
+    )
+    assert "SYMMETRY PERIODIC 3" in rendered(case, "26.123").splitlines()
+
+
+def test_the_symmetry_value_is_folded_before_the_domain_is_checked():
+    """A cell typed in lower case is the same physical statement."""
+    assert "SYMMETRY MIRROR" in rendered(steady_case(SYMMETRY="mirror")).splitlines()
+
+
+def test_a_symmetry_outside_the_declared_set_is_refused_naming_both():
+    """The value written and the modes accepted, and the physical cause."""
+    with pytest.raises(CampaignConfigError) as raised:
+        rendered(steady_case(SYMMETRY="AXISYMMETRIC"))
+    message = str(raised.value)
+    assert "'AXISYMMETRIC'" in message, "the refusal does not name the value the row wrote"
+    for mode in database_symmetry("26.120"):
+        assert mode in message, f"the refusal does not list the accepted mode {mode}"
+    assert "one blade" in message, "the refusal does not name the physical consequence"
+
+
+def test_periodic_without_a_copy_count_is_refused_by_the_cell_it_needs():
+    """The command appends the count (SRC-003 p.337), so the row must say."""
+    with pytest.raises(CampaignConfigError) as raised:
+        rendered(steady_case(SYMMETRY="PERIODIC"))
+    message = str(raised.value)
+    assert PERIODIC_COPIES_VARIABLE in message
+    assert "7002" in message, "the refusal does not name the case"
+
+
+def test_a_copy_count_without_periodic_is_refused_rather_than_dropped():
+    """A count outside a periodic sector means nothing, so it is not ignored.
+
+    Silently dropping it is the shape of this whole release's defect: the
+    author asked for something, the script did not carry it, and nothing
+    said so.
+    """
+    with pytest.raises(CampaignConfigError) as raised:
+        rendered(steady_case(PERIODIC_COPIES="4"))
+    message = str(raised.value)
+    assert f"no {SYMMETRY_VARIABLE} at all" in message, (
+        "the refusal reports a SYMMETRY value the author never typed"
+    )
+    with pytest.raises(CampaignConfigError):
+        rendered(steady_case(SYMMETRY="MIRROR", PERIODIC_COPIES="4"))
+
+
+@pytest.mark.parametrize("count", ["0", "-2"])
+def test_fewer_than_one_copy_is_not_a_sector(count):
+    """A sector stands for at least one copy of itself."""
+    with pytest.raises(CampaignConfigError) as raised:
+        rendered(steady_case(SYMMETRY="PERIODIC", PERIODIC_COPIES=count))
+    assert PERIODIC_COPIES_VARIABLE in str(raised.value)
+
+
+def test_a_fractional_copy_count_is_refused_by_the_key_and_not_by_the_command():
+    """Matrix variables arrive as text; the conversion is refused here."""
+    with pytest.raises(CampaignConfigError) as raised:
+        rendered(steady_case(SYMMETRY="PERIODIC", PERIODIC_COPIES="2.5"))
+    message = str(raised.value)
+    assert PERIODIC_COPIES_VARIABLE in message
+    assert "fractional" in message
+
+
+def test_the_build_this_helper_cannot_express_keeps_its_own_refusal():
+    """25.000 raises the HELPER's message, not a symmetry one.
+
+    Wrapping the ``initialize_solver`` call re-labelled that refusal as
+    a symmetry problem on a row that had said nothing about symmetry,
+    which reads as a defect in the row rather than in the build. It was
+    measured on this build before the wrap was removed, so the case is
+    kept: every refusal this module owns is decided BEFORE the helper
+    runs, and the helper's own message survives untouched.
+    """
+    with pytest.raises(CommandArgumentError) as raised:
+        rendered(steady_case(), "25.000")
+    message = str(raised.value)
+    assert "25.000" in message
+    assert "SYMMETRY_TYPE" in message
+    assert SYMMETRY_VARIABLE not in message.replace("SYMMETRY_TYPE", "")

@@ -38,12 +38,29 @@ THE WORKSPACE CONVENTIONS ARRIVE AS DATA. ``workspace`` sits ABOVE
 ``cases`` in the layer order, so a workflow can never import the naming
 template that rendered its output names. :class:`WorkflowConventions`
 is what the run layer passes down instead.
+
+AND SO DOES THE GEOMETRY, for the same reason and by a different route.
+A workflow never resolves an input-library id: by the time a builder
+runs, :attr:`pyflightstream.cases.SimCase.geometry` already holds the
+STAGED path of the case's own copy, put there by the campaign loop
+after it hashed those bytes into the record. What the builder does with
+it is open it, first, before anything else
+(:func:`_open_geometry`).
+
+Two of the three things this module reads off a row arrived at 0.8.1
+and both were absent rather than wrong. A case carrying a geometry
+rendered a script byte-identical to the same case without one, so
+nothing opened the mesh; and every workflow initialized under
+``SYMMETRY NONE`` with no cell able to say otherwise, so a periodic
+rotor sector was solved as a one-bladed rotor that converged and
+exported (PFS-2025.02.02, PFS-2025.02.03).
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from pathlib import PurePath
 
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.cases import CampaignConfigError, ScriptRecipe, SimCase
@@ -55,10 +72,13 @@ __all__ = [
     "BLADES_VARIABLE",
     "DELTA_TIME_VARIABLE",
     "MOVING_BOUNDARIES_VARIABLE",
+    "PERIODIC_COPIES_VARIABLE",
     "ROTOR_AXIS_VARIABLE",
     "ROTOR_ORIGIN_VARIABLE",
     "ROTOR_SHEDDING_VARIABLE",
     "RPM_VARIABLE",
+    "SIMULATION_SUFFIX",
+    "SYMMETRY_VARIABLE",
     "TIME_ITERATIONS_VARIABLE",
     "VELOCITY_VARIABLE",
     "WINDOW_DEGREES_VARIABLE",
@@ -71,6 +91,7 @@ __all__ = [
     "Workflow",
     "WorkflowConventions",
     "WorkflowCoverageError",
+    "accepted_symmetry",
     "build_script",
     "covered_builds",
     "emit_rotor_motion",
@@ -122,6 +143,42 @@ TIME_ITERATIONS_VARIABLE = "TIME_ITERATIONS"
 WINDOW_DEGREES_VARIABLE = "WINDOW_DEGREES"
 WINDOW_STEPS_VARIABLE = "WINDOW_STEPS"
 WINDOW_REVOLUTIONS_VARIABLE = "WINDOW_REVOLUTIONS"
+
+#: The solver symmetry the case is initialized under: ``NONE``,
+#: ``MIRROR`` or ``PERIODIC``, and the accepted set is READ FROM THE
+#: COMMAND DATABASE per build rather than restated here
+#: (:func:`accepted_symmetry`). Absent means the row asks for nothing and
+#: ``NONE`` is emitted, which is what every workflow emitted before
+#: 0.8.1 and the only thing any of them could emit.
+#:
+#: THIS KEY IS WHY 0.8.1 IS A DEFECT RELEASE AND NOT A FEATURE ONE. A
+#: periodic sector solved under ``SYMMETRY NONE`` is not a failed run: it
+#: is a ONE-BLADED ROTOR that converges, exports, and reports thrust and
+#: torque a reader has no way to tell from the sector's. Two of the three
+#: rows of the study this was measured on are periodic sectors, and
+#: until this key existed no matrix cell could say so (PFS-2025.02.03).
+SYMMETRY_VARIABLE = "SYMMETRY"
+
+#: How many periodic copies the sector stands for, dimensionless count.
+#: Required with ``SYMMETRY: PERIODIC`` and forbidden otherwise, which is
+#: the command's own rule (SRC-003 p.337) and is enforced by
+#: :func:`pyflightstream.script.helpers.initialize_solver`; a
+#: four-bladed rotor modelled as one 90 degree sector declares 4.
+PERIODIC_COPIES_VARIABLE = "PERIODIC_COPIES"
+
+#: The only suffix a workflow opens, and it is a DELIBERATE narrowing
+#: rather than an oversight (PFS-2025.02.02).
+#:
+#: A ``.fsm`` is a saved SIMULATION: its units, its mesh and its
+#: boundary names are already established, so ``OPEN`` needs the path
+#: and nothing else. A raw mesh is not, and importing one takes the
+#: units as an argument the row would have to declare. A mesh import
+#: that silently defaults its units is precisely the class of
+#: silent-wrong-answer this release exists to remove, so the suffix is
+#: REFUSED and the refusal names the route the user already has:
+#: ``docs/mesh-inputs.md`` documents the supported pattern as GUI once,
+#: save as ``.fsm``, script everything after.
+SIMULATION_SUFFIX = ".fsm"
 
 
 class WorkflowCoverageError(PyflightstreamError, RuntimeError):
@@ -1130,6 +1187,245 @@ def _output(conventions: WorkflowConventions, case: SimCase, index: int) -> str:
     return names[index]
 
 
+# --- PFS-2025.02.02: the case geometry, opened first --------------------------
+
+
+def _open_geometry(case: SimCase, script: Script) -> None:
+    """Open the case's geometry, before anything else is emitted.
+
+    THE BUG THIS CLOSES, stated once because it is the whole reason for
+    the 0.8.1 patch. A case carrying a geometry and the same case with
+    the geometry absent rendered BYTE-IDENTICAL scripts: no ``OPEN``, no
+    ``NEW_SIMULATION``, no import of any kind. The run layer had already
+    staged the file and hashed it into the record, so the manifest named
+    a mesh the script never opened, and the solver solved whatever it
+    happened to have in memory.
+
+    Emitted FIRST, and not merely early: ``OPEN`` replaces the whole
+    simulation state, so a coordinate system, a motion or a solver
+    setting written before it would be discarded by it without a word.
+    The script layer's phase order agrees (``geometry`` is the first
+    phase), so a later ``OPEN`` would also be refused, but the ordering
+    here is the reason rather than the consequence.
+
+    The path opened is :attr:`pyflightstream.cases.SimCase.geometry` as
+    the case carries it AT BUILD TIME, which the campaign loop has
+    already rewritten to the case's own staged copy
+    (``pyflightstream.run._prepare_case``). That is deliberate and
+    load-bearing: ``inputs_sha256`` in the run record is the hash of the
+    STAGED bytes, so opening the library original instead would break
+    the pairing between the digest a record publishes and the bytes the
+    solver actually read, and would break it silently.
+
+    Parameters
+    ----------
+    case : SimCase
+        The case; its ``geometry`` is the simulation file to open, or
+        None for a case that names none.
+    script : Script
+        Script under construction, still empty. Nothing is emitted
+        until the suffix has been judged, so a refusal leaves it exactly
+        as it was.
+
+    Raises
+    ------
+    CampaignConfigError
+        If the geometry's suffix is not :data:`SIMULATION_SUFFIX`. The
+        message names the suffix written and the documented route,
+        because there IS one and it is not this function.
+    """
+    if case.geometry is None:
+        return
+    suffix = PurePath(case.geometry).suffix
+    if suffix.lower() != SIMULATION_SUFFIX:
+        # REFUSED RATHER THAN IMPORTED, and the narrowing is a scope
+        # decision of the patch release rather than a gap. IMPORT's FIRST
+        # argument is the length units of the mesh file (SRC-003 p.307),
+        # which no matrix cell declares today; a mesh imported under
+        # defaulted units solves, exports and reports coefficients
+        # normalized against a body of the wrong size, which is exactly
+        # the silent-wrong-answer class this release exists to remove.
+        # Widening this to IMPORT is a UNITS key on the row first, and a
+        # units key is a new promise rather than a defect fix.
+        #
+        # The refusal points at a route the user already has:
+        # docs/mesh-inputs.md documents the supported pattern as GUI
+        # once, save as .fsm, script everything after.
+        written = suffix or "no suffix at all"
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} names the geometry {case.geometry!r}, which carries "
+            f"{written}, and a workflow opens a saved simulation ({SIMULATION_SUFFIX}) "
+            "and nothing else. A .fsm already carries its own length units, its mesh "
+            "and its boundary names, so opening it needs the path alone; importing a "
+            "raw mesh takes the length UNITS of the file as an argument, and no matrix "
+            "cell declares them, so this package would have to default them and a "
+            "defaulted unit is a body of the wrong size reported without a word. Open "
+            "the mesh in the FlightStream window once, save the result as a .fsm, and "
+            f"stage that in inputs/geometries/ instead; docs/mesh-inputs.md is the "
+            "route in full."
+        )
+    script.emit("OPEN", case.geometry)
+
+
+# --- PFS-2025.02.03: the solver initialization, off the same row --------------
+
+
+def accepted_symmetry(script: Script) -> tuple[str, ...]:
+    """Return the symmetry modes one build's INITIALIZE_SOLVER accepts.
+
+    READ FROM THE COMMAND DATABASE, per build, and never a literal list
+    kept here. The modes are a per-version fact of the command's own
+    grammar, so a list in this module would be a second declaration of
+    a vocabulary this package already stores with its evidence, free to
+    drift the moment a build states a different set.
+
+    The database is reached through :attr:`Script.registry`, which is
+    public for exactly this reason: everything recording a per-version
+    fact ABOUT a script has to ask the same database the script itself
+    validates against.
+
+    Parameters
+    ----------
+    script : Script
+        The script under construction, bound to one build.
+
+    Returns
+    -------
+    tuple of str
+        The accepted tokens, in the order the database declares them.
+        EMPTY where that build's ``INITIALIZE_SOLVER`` declares no
+        argument called ``symmetry`` at all, which is a real case and
+        not a failure: FlightStream 25.000 spells it ``SYMMETRY_TYPE``
+        with its own token set (SRC-749 p.298). An empty tuple is what
+        sends a row on to
+        :func:`pyflightstream.script.helpers.initialize_solver`, whose
+        refusal already names that edition and its remedy.
+    """
+    entry = script.registry.for_version(script.version)["INITIALIZE_SOLVER"]
+    for argument in entry.args:
+        if argument.name == "symmetry":
+            return tuple(argument.values or ())
+    return ()
+
+
+def _initialize(case: SimCase, script: Script) -> None:
+    """Initialize the solver under the symmetry the ROW declares.
+
+    WHY THIS IS FATAL AND NOT COSMETIC. A rotor sector is a slice of a
+    disc: one blade of four, modelled once and stood in for the other
+    three by PERIODIC symmetry with three more copies. Solve that same
+    sector under ``SYMMETRY NONE`` and the solver does not fail, does
+    not warn and does not diverge. It solves a ONE-BLADED ROTOR. It
+    converges, it exports, and it reports a thrust and a torque a reader
+    cannot tell from the sector's own. Two of the three rows of the
+    study that measured this defect are periodic sectors, and the
+    builders called
+    :func:`pyflightstream.script.helpers.initialize_solver` with no
+    arguments at all, so every one of them emitted ``SYMMETRY NONE``
+    with no cell anywhere able to say otherwise. That silence IS the
+    defect (PFS-2025.02.03).
+
+    The values come off the ROW and nowhere else, which is this
+    module's own doctrine, and they are converted HERE so a refusal
+    names the case and the KEY the author typed rather than the command.
+
+    Parameters
+    ----------
+    case : SimCase
+        The case; ``SYMMETRY`` in its variables carries the mode
+        (:data:`SYMMETRY_VARIABLE`) and ``PERIODIC_COPIES`` the
+        dimensionless copy count (:data:`PERIODIC_COPIES_VARIABLE`). A
+        row declaring NEITHER emits ``SYMMETRY NONE`` and no copy count,
+        which is exactly what every workflow emitted before 0.8.1.
+    script : Script
+        Script under construction.
+
+    Raises
+    ------
+    CampaignConfigError
+        If the row declares a symmetry outside the set this build's
+        command database declares (the message names the value and the
+        accepted modes); if ``PERIODIC_COPIES`` is not a whole positive
+        count; or if the pairing rule of the command is broken, which is
+        ``PERIODIC`` requiring a copy count and every other mode
+        forbidding one (SRC-003 p.337).
+
+    Notes
+    -----
+    A ROW THAT DECLARES NEITHER KEY REACHES THE HELPER UNTOUCHED, and
+    the call is deliberately not wrapped in a ``try``. Every refusal
+    this function owns is decided BEFORE the helper runs, so a build
+    whose ``INITIALIZE_SOLVER`` this helper cannot express at all
+    (FlightStream 25.000, SRC-749 p.298) still raises the helper's own
+    message, naming that edition and the ``script.emit`` route out of
+    it. Wrapping the call instead re-labelled that refusal as a
+    symmetry problem on a row that had said nothing about symmetry,
+    which is a worse message than the one it replaced; it was measured
+    on 25.000 before this shape was chosen.
+    """
+    symmetry = _variable(case, SYMMETRY_VARIABLE)
+    copies = None
+    if _variable(case, PERIODIC_COPIES_VARIABLE) is not None:
+        copies = _required_int(
+            case, PERIODIC_COPIES_VARIABLE, quantity="periodic copy count", unit="copies"
+        )
+        if copies < 1:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r} declares {PERIODIC_COPIES_VARIABLE} as {copies}, "
+                "and a periodic sector stands for a whole positive number of copies of "
+                "itself: a four-bladed rotor modelled as one 90 degree sector declares "
+                "4. Fewer than one copy is not a sector."
+            )
+    # NONE is the mode of a row that asks for nothing, and it is the mode
+    # every workflow emitted before 0.8.1 because nothing could ask.
+    mode = "NONE" if symmetry is None else symmetry.upper()
+    if symmetry is not None:
+        accepted = accepted_symmetry(script)
+        if accepted and mode not in accepted:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r} declares {SYMMETRY_VARIABLE} as {symmetry!r}, and "
+                f"FlightStream {script.version.canonical} initializes under "
+                f"{', '.join(accepted)}. The accepted modes are read from this build's "
+                "own command database rather than from a list kept beside the workflow, "
+                "so they are the modes this build documents. The mode is not a "
+                "presentation choice: a periodic sector initialized under NONE is solved "
+                "as though the rest of the disc were not there, and that run completes "
+                "and exports numbers for a rotor with one blade."
+            )
+    # THE PAIRING IS DECIDED HERE rather than caught from the helper,
+    # because the helper's refusal names the command and the manual page
+    # and not the two CELLS the author typed, which is this module's own
+    # rule about where a matrix value is refused. The rule itself is the
+    # command's: PERIODIC appends the number of copies (SRC-003 p.337).
+    if mode == "PERIODIC" and copies is None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} declares {SYMMETRY_VARIABLE} as {symmetry!r} and no "
+            f"{PERIODIC_COPIES_VARIABLE}. A periodic sector is a slice that stands for "
+            "a whole number of copies of itself, and the solver cannot know how many "
+            "the slice you meshed represents: a four-bladed rotor modelled as one 90 "
+            f"degree sector declares '{PERIODIC_COPIES_VARIABLE}: 4'. Add it to the "
+            "row's variables."
+        )
+    if mode != "PERIODIC" and copies is not None:
+        # A row declaring the count and NO symmetry at all is the likely
+        # shape of this mistake, so it is spelled out rather than
+        # reported as "SYMMETRY as None", which names a value the author
+        # never typed.
+        stated = (
+            f"{SYMMETRY_VARIABLE} as {symmetry!r}"
+            if symmetry is not None
+            else f"no {SYMMETRY_VARIABLE} at all, which initializes under {mode}"
+        )
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} declares {PERIODIC_COPIES_VARIABLE} as {copies} and "
+            f"{stated}, and a copy count means nothing outside a periodic sector: only "
+            f"PERIODIC repeats the modelled slice around the axis. Set "
+            f"'{SYMMETRY_VARIABLE}: PERIODIC' if the geometry really is a sector, or "
+            f"drop {PERIODIC_COPIES_VARIABLE}."
+        )
+    helpers.initialize_solver(script, symmetry=mode, periodic_copies=copies)
+
+
 def _settings(case: SimCase, script: Script) -> None:
     helpers.solver_settings(
         script,
@@ -1143,17 +1439,32 @@ def _settings(case: SimCase, script: Script) -> None:
 
 
 def _build_steady(case: SimCase, script: Script, conventions: WorkflowConventions) -> None:
-    """Build a steady polar point: free stream, settings, solve, export."""
+    """Build a steady polar point: open, free stream, settings, solve, export.
+
+    The open is FIRST and only where the case names a geometry
+    (:func:`_open_geometry`), so a case that names none emits exactly
+    the lines this workflow emitted before 0.8.1.
+    """
+    _open_geometry(case, script)
     helpers.free_stream(script)
     _settings(case, script)
-    helpers.initialize_solver(script)
+    _initialize(case, script)
     helpers.start_solver(script)
     script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", _output(conventions, case, 0))
     script.emit("CLOSE_FLIGHTSTREAM")
 
 
 def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowConventions) -> None:
-    """Build a blade-resolved rotor run: rotor frame, motion, time loop."""
+    """Build a blade-resolved rotor run: open, rotor frame, motion, time loop.
+
+    The open is FIRST and only where the case names a geometry
+    (:func:`_open_geometry`). It has to precede the coordinate system
+    rather than merely appear somewhere: ``OPEN`` replaces the whole
+    simulation state, so a frame created before it would be discarded
+    with nothing said, and the rotary motion would then turn about a
+    frame that no longer exists.
+    """
+    _open_geometry(case, script)
     origin = _origin(case)
     helpers.coordinate_frame(
         script,
@@ -1172,7 +1483,7 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
         delta_time=float(window.delta_time_s or 0.0),
     )
     _settings(case, script)
-    helpers.initialize_solver(script)
+    _initialize(case, script)
     helpers.start_solver(script)
     script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", _output(conventions, case, 0))
     script.emit("CLOSE_FLIGHTSTREAM")
@@ -1201,6 +1512,19 @@ def _origin(case: SimCase) -> tuple[float, float, float]:
 
 #: The registered run types. A TABLE, deliberately: a workflow is looked
 #: up here and never imported, which is what a user cannot supply.
+#:
+#: ``OPEN`` IS DELIBERATELY ABSENT FROM EVERY ``commands`` TUPLE BELOW,
+#: and this note is here so the absence is not read as an oversight and
+#: quietly "fixed". Both builders emit it since 0.8.1, but only for a
+#: case that names a geometry, and :class:`Workflow` states the rule
+#: this follows: a command that is only SOMETIMES emitted must not be
+#: listed, because :func:`covered_builds` derives coverage from this
+#: tuple and listing it would narrow the range for runs that never
+#: reach it. Nothing is lost by leaving it out today either: ``OPEN``
+#: is documented or verified on all nine registered builds, so it
+#: narrows nothing on any of them, and a build that ever lacked it
+#: would refuse the emission at the line itself rather than silently
+#: omitting it.
 WORKFLOWS: Mapping[str, Workflow] = {
     "steady": Workflow(
         name="steady",

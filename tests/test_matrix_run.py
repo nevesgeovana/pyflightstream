@@ -29,6 +29,7 @@ from pyflightstream.cases.matrix import (
     to_campaign,
     upgrade_matrix,
 )
+from pyflightstream.cases.workflows import workflow_registry
 from pyflightstream.run import (
     FS_VERSION_FROM_DEFAULT,
     FS_VERSION_FROM_ROW,
@@ -45,7 +46,7 @@ from pyflightstream.workspace import (
     RunStatus,
     WorkspaceError,
 )
-from pyflightstream.workspace.matrix import resolve_matrix
+from pyflightstream.workspace.matrix import GEOMETRY_VARIABLE, resolve_matrix
 
 FIXTURES = Path(__file__).parent / "fixtures"
 FIXTURE = FIXTURES / "matrix.fs"
@@ -1851,3 +1852,267 @@ def test_a_manual_row_beside_a_registered_one_still_needs_the_override(tmp_path)
 
     with pytest.raises(MatrixError, match="MANUAL.*fs_exe"):
         resolve_matrix(path, workspace, name="prov", fs_version="26.120", recipes=RECIPES)
+
+
+# --- PFS-2025.02.01: a row names its geometry through the input library ------
+
+
+#: One active row, with its VAR_NAMES_VALUES cell left open to the case.
+#: The codes are the lettered ids `make_library` stages (PFS-2009.01).
+GEOMETRY_ROW = (
+    "7001 | TestWing | GEOMETRY_ROW | 3.10 | 0.0890 | AL | 0.0 | r003 | s002 | e001 "
+    "| 003 | 26.120 |  0 | 1 | OUTPUTS: loads_{{point}}.txt{tail}"
+)
+
+
+def stage_geometry(workspace, name, body=b"fake simulation"):
+    """Put one file in the workspace geometry library and return its path."""
+    path = workspace.inputs_dir / "geometries" / name
+    path.write_bytes(body)
+    return path
+
+
+def geometry_matrix(tmp_path, tail, stem="geometry.fs"):
+    """Write a one-row matrix whose variables cell carries `tail`."""
+    return write_matrix(tmp_path / stem, [GEOMETRY_ROW.format(tail=tail)])
+
+
+def resolve_geometry_row(tmp_path, workspace, tail, stem="geometry.fs"):
+    """Resolve a one-row matrix and return its single case."""
+    matrix = geometry_matrix(tmp_path, tail, stem)
+    resolved = resolve_matrix(
+        matrix, workspace, name="matrix", fs_version="26.120", recipes=RECIPES
+    )
+    return resolved.campaign.sims[0]
+
+
+def test_a_row_naming_a_geometry_resolves_it_against_the_input_library(tmp_path):
+    """THE DEFECT, at the layer that had no way to say it.
+
+    ``resolve_matrix`` never assigned ``SimCase.geometry`` and the word
+    "geometr" did not occur in this module, so a run matrix could not
+    name a geometry AT ALL. The run layer had always done its half:
+    ``_prepare_case`` stages the file, hashes it into the record, and
+    rewrites the field to the staged copy before a builder is called.
+    The value was prepared and read by nobody.
+    """
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
+    staged = stage_geometry(workspace, "wing_clean.fsm")
+    case = resolve_geometry_row(tmp_path, workspace, " / GEOMETRY: wing_clean")
+    assert case.geometry is not None, "the row named a geometry and the case carries none"
+    assert Path(case.geometry) == staged
+
+
+def test_the_id_is_a_stem_and_the_library_extension_is_whatever_was_staged(tmp_path):
+    """The id is the file name STEM, never a path and never a suffix.
+
+    Resolution is delegated to ``workspace.resolve_geometry``, which
+    registers a staged file under any extension. Which suffixes a
+    WORKFLOW will open is a different question, decided one layer up in
+    ``cases.workflows``: a library holding a raw mesh is legitimate, and
+    a row pointing a workflow at one is what is refused.
+    """
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
+    staged = stage_geometry(workspace, "raw_blade.stl")
+    case = resolve_geometry_row(tmp_path, workspace, " / GEOMETRY: raw_blade")
+    assert Path(case.geometry) == staged
+
+
+def test_the_stem_the_row_wrote_survives_in_the_case_variables(tmp_path):
+    """The conversion stays lossless (FR-11): the cell is still readable.
+
+    The resolved PATH lands on the field and the ID stays in the
+    variables, so a record can still say which library artifact the row
+    asked for and not only which file it got.
+    """
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
+    stage_geometry(workspace, "wing_clean.fsm")
+    case = resolve_geometry_row(tmp_path, workspace, " / GEOMETRY: wing_clean")
+    assert case.variables[GEOMETRY_VARIABLE] == "wing_clean"
+
+
+def test_a_row_naming_no_geometry_leaves_the_field_absent(tmp_path):
+    """The property that makes this shippable as a patch.
+
+    Measured on the SHIPPED fixtures rather than on an inline row: every
+    matrix written before this release resolves exactly as it did, which
+    means every case of them carries no geometry and every builder emits
+    the bytes it always emitted.
+    """
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
+    with pytest.warns(UserWarning, match="wake_layers"):
+        resolved = resolve_matrix(
+            FIXTURE,
+            workspace,
+            name="matrix",
+            fs_version="26.120",
+            recipes=RECIPES,
+            fs_exe="C:/fs/FlightStream.exe",
+        )
+    assert resolved.campaign.sims, "the fixture resolved to no cases, so this proves nothing"
+    assert all(case.geometry is None for case in resolved.campaign.sims)
+    assert not any(GEOMETRY_VARIABLE in case.variables for case in resolved.campaign.sims), (
+        "the shipped fixture already names a geometry, so the case above is not measuring "
+        "a matrix written before this release"
+    )
+
+
+def test_a_geometry_cell_that_strips_to_empty_names_nothing(tmp_path):
+    """Blank and absent are the same silence, as they are for FS_BUILD.
+
+    A row whose cell is empty NAMES NO GEOMETRY, so it resolves exactly
+    as a row that never wrote the key. Refusing it instead would change
+    how a pre-existing matrix resolves, which is the one thing a patch
+    release may not do.
+
+    THE PROPERTY IS COMPOSED OF TWO HALVES and both are asserted, in the
+    order the value travels. The reader strips every VAR_NAMES_VALUES
+    value as it parses the cell, and the binder treats the empty string
+    as no geometry; a strip in the binder as well would be a second
+    guard that no input can reach, which is exactly what a mutation
+    found there (it deleted the strip and the whole suite stayed green).
+    """
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
+    stage_geometry(workspace, "wing_clean.fsm")
+    matrix = geometry_matrix(tmp_path, " / GEOMETRY:   ")
+    row = read_matrix(matrix)[0]
+    assert row.variables[GEOMETRY_VARIABLE] == "", (
+        "the reader no longer strips a variable value, so the binder is now the only "
+        "thing between a whitespace cell and the input library and it does not strip"
+    )
+    assert resolve_geometry_row(tmp_path, workspace, " / GEOMETRY:   ").geometry is None
+
+
+def test_a_geometry_the_library_cannot_resolve_is_refused_naming_the_row(tmp_path):
+    """The row, its POL, the stem written, and what would have resolved.
+
+    The sibling REF, SET and ENTRY refusals all name the row's POL, and
+    this one has to as well: a campaign has as many rows as it has
+    points, and "no geometry artifact with id 'wing_v3'" sends the
+    author to grep their own matrix.
+    """
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
+    stage_geometry(workspace, "wing_clean.fsm")
+    stage_geometry(workspace, "wing_flapped.fsm")
+    with pytest.raises(InputArtifactError) as caught:
+        resolve_geometry_row(tmp_path, workspace, " / GEOMETRY: wing_v3")
+    message = str(caught.value)
+    assert "POL 7001" in message, "the refusal does not name the row"
+    assert GEOMETRY_VARIABLE in message, "the refusal does not name the variable"
+    assert "'wing_v3'" in message, "the refusal does not name the stem that was written"
+    assert "wing_clean" in message and "wing_flapped" in message, (
+        "the refusal does not list the geometries that WOULD have resolved"
+    )
+
+
+def test_the_geometry_refusal_carries_its_structured_attributes(tmp_path):
+    """A caller offering the user a choice does not parse the sentence.
+
+    ``InputArtifactError`` carries ``kind``, ``artifact_id`` and
+    ``available`` for exactly that, and re-raising with the row is where
+    those get dropped.
+    """
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
+    stage_geometry(workspace, "wing_clean.fsm")
+    with pytest.raises(InputArtifactError) as caught:
+        resolve_geometry_row(tmp_path, workspace, " / GEOMETRY: wing_v3")
+    assert caught.value.kind == "geometry"
+    assert caught.value.artifact_id == "wing_v3"
+    assert caught.value.available == ("wing_clean",)
+
+
+def test_the_geometry_refusal_is_the_catalogued_exception_and_not_a_bare_raise(tmp_path):
+    """No standard-library error out of a public name (FR-39).
+
+    ``InputArtifactError`` is what a user catches for every other
+    library miss, so a geometry miss must be catchable the same way. The
+    ``RuntimeError`` half is asserted because that is the base a caller
+    who has not imported the package name still catches.
+    """
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
+    with pytest.raises(InputArtifactError) as caught:
+        resolve_geometry_row(tmp_path, workspace, " / GEOMETRY: wing_v3")
+    assert isinstance(caught.value, RuntimeError)
+    assert not isinstance(caught.value, (KeyError, FileNotFoundError, ValueError))
+
+
+def test_an_id_that_could_not_be_a_file_name_is_refused_by_the_library(tmp_path):
+    """A PATH in the cell is refused, and it is refused ONCE.
+
+    Resolution is not reimplemented here: ``resolve_geometry`` already
+    holds the id rule, the not-found listing and the ambiguity check, so
+    a second resolver in this module would be a second answer to "which
+    file is this id". The path form is what proves the library's own
+    ``_check_id`` is the thing being reached.
+    """
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
+    with pytest.raises(InputArtifactError) as caught:
+        resolve_geometry_row(tmp_path, workspace, " / GEOMETRY: inputs\\geometries\\wing.fsm")
+    message = str(caught.value)
+    assert "POL 7001" in message, "the row is lost when the library refuses the id's shape"
+    assert "never a path" in message, "the library's own id rule is not what refused this"
+
+
+def test_a_stem_two_staged_files_share_is_refused_rather_than_chosen(tmp_path):
+    """Which of two files an ambiguous id means is not a guess.
+
+    The library owns this refusal too, and the row has to survive it:
+    the author fixes a matrix cell or a staged file name, and both are
+    findable only from the POL.
+    """
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
+    stage_geometry(workspace, "wing_clean.fsm")
+    stage_geometry(workspace, "wing_clean.stl")
+    with pytest.raises(InputArtifactError) as caught:
+        resolve_geometry_row(tmp_path, workspace, " / GEOMETRY: wing_clean")
+    message = str(caught.value)
+    assert "POL 7001" in message
+    assert "wing_clean.fsm" in message and "wing_clean.stl" in message
+
+
+def test_the_whole_chain_the_row_the_staged_copy_and_the_opened_path(tmp_path):
+    """END TO END, and the one case that proves the three items compose.
+
+    A row names a geometry, the workspace resolves it, the campaign loop
+    STAGES it into the case's own inputs directory and hashes those
+    bytes into the record, and the workflow opens THE STAGED COPY. That
+    last pairing is the load-bearing one: opening the library original
+    instead would leave ``inputs_sha256`` naming bytes the solver never
+    read, and would leave it silently.
+    """
+    workspace = make_library(tmp_path, register_build=("26.120", Path(sys.executable).as_posix()))
+    library = stage_geometry(workspace, "wing_clean.fsm")
+    matrix = geometry_matrix(
+        tmp_path,
+        " / VELOCITY: 30.0 / GEOMETRY: wing_clean / SYMMETRY: PERIODIC / PERIODIC_COPIES: 4",
+    )
+    records = run_matrix(
+        matrix,
+        workspace,
+        name="matrix",
+        default_fs_version="26.120",
+        recipes=RECIPES,
+        assess=converged,
+        executor=StubSolver(WRITES_LOADS),
+        recipe_registry=workflow_registry(),
+    )
+    assert [record.status for record in records] == [RunStatus.CONVERGED]
+
+    sim_dir = workspace.sim_dir("7001")
+    staged = sim_dir / "inputs" / "wing_clean.fsm"
+    assert staged.is_file(), "the campaign loop did not stage the geometry the row named"
+    assert staged != library, "the staged copy IS the library file, so the pairing is untested"
+    assert records[0].inputs_sha256 == {"wing_clean.fsm": file_sha256(library)}
+
+    # THE SCRIPT THE SOLVER RAN, read off disk rather than spied on in
+    # flight: the pre-flight builds a script of its own for validation,
+    # before anything is staged, and asserting on whichever render a spy
+    # saw first measures that one instead.
+    executed = (sim_dir / records[0].script_path).read_text(encoding="utf-8")
+    lines = executed.splitlines()
+    assert lines[0] == "OPEN", "the executed script does not open the geometry first"
+    assert Path(lines[1]) == staged, (
+        "the executed script opens a path other than the staged copy the record hashed, "
+        "so the digest and the bytes the solver read are not the same file"
+    )
+    assert "SYMMETRY PERIODIC 4" in lines, "the row's symmetry did not reach the command"

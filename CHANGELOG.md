@@ -7,6 +7,64 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Fixed
+
+- **A matrix row can name its geometry, and the workflow opens it**
+  (PFS-2025.02.01, PFS-2025.02.02). Until this release it could not, and
+  the consequence was that v0.8.0's headline capability could not be used
+  at all: a case CARRYING a geometry rendered byte for byte identically
+  to one that did not, because nothing in the matrix reader assigned the
+  field and neither workflow builder read it. The run layer was already
+  doing its half, staging the file and hashing it into the record, and
+  the value was prepared and read by nobody.
+
+  `GEOMETRY: <stem>` in `VAR_NAMES_VALUES` resolves against
+  `inputs/geometries/` the way `REF`, `SET` and `ENTRY` already do, and
+  is refused with the available stems and the row's own identifier when
+  the id is not staged. Both builders emit `OPEN` first, before anything
+  else, on the STAGED path, so the file the manifest hashed and the file
+  the solver read are the same bytes.
+
+  It must be a saved simulation, a `.fsm`. Another suffix is REFUSED
+  naming the suffix and the documented route, and the refusal is a
+  decision rather than a gap: importing a raw mesh needs the row to
+  declare its UNITS, and a silently defaulted unit is the same class of
+  failure this release exists to remove.
+
+  **WORSE THAN THE GAP WAS ITS SHAPE, and that is why this is a patch
+  rather than a 0.9.0 item.** Every other limit in this capability
+  refuses early and names itself. This one did not refuse at all: the
+  script built, the campaign ran, and the failure arrived from the
+  solver, which is the one place this package exists to stop a failure
+  arriving from.
+
+- **A row declares its symmetry, so a periodic sector is no longer solved
+  as a one-bladed rotor** (PFS-2025.02.03). `SYMMETRY` and, where the
+  mode needs it, `PERIODIC_COPIES` come off the row. The accepted modes
+  are read from the command database for the row's own build rather than
+  from a list written in this package, so a build that spells the
+  argument differently reports no accepted set instead of pretending one.
+
+  This is not a convenience. Symmetry was fixed at `NONE`, so a sector
+  ran as a one-bladed rotor and the run COMPLETED: the numbers were
+  wrong and nothing said so.
+
+- **A matrix that names none of the three keys behaves exactly as it did**,
+  and that is measured rather than promised: 23 committed goldens, 18
+  fixture files and 14 case-and-build renders come out byte for byte
+  identical, including the one build whose grammar the steady builder
+  cannot express, whose refusal text is unchanged too.
+
+### Known gaps, stated because the same page used to be silent about one
+
+A row's `REF` code still changes no emitted line, so coefficients come
+out against solver defaults rather than the campaign's areas and lengths;
+the solver model and the fluid state are still decided in the builders;
+and `BLADES` divides the averaging window and configures no rotor. Where
+those belong, a row or a solver-setup preset, is an open design question
+and not an oversight: a fluid and a solver model are campaign-wide
+conditions rather than case identity.
+
 ## [0.8.0] - 2026-08-20
 
 **26.122 answers for 84 commands, and the vendor's build fixes the
@@ -959,8 +1017,12 @@ costs the reader the whole warning window the shim exists to buy.
   input library, the recipe, the call and the four run identifiers are
   those of an executed test. A tier-1 guard holds the two together, so
   the page cannot drift from the suite without the suite going red. It
-  also states plainly what is NOT built, including that there is no
-  workflow object in the package. The "Planned next" bullet on the
+  also states plainly what is NOT built. That clause used to end
+  "including that there is no workflow object in the package", which
+  stopped being true LATER IN THIS SAME RELEASE, when `cases.workflows`
+  shipped `Workflow` and `WORKFLOWS`; the entry further down recording
+  that the page corrected itself is the surviving statement, and this
+  one no longer contradicts it. The "Planned next" bullet on the
   documentation home page that promised this walkthrough is retired
   against it.
 

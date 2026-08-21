@@ -372,10 +372,19 @@ def test_every_python_block_on_the_page_is_marked_skip():
 def test_the_page_says_plainly_what_is_not_built():
     """A page that documents an unbuilt capability is worse than no page.
 
-    There is no workflow OBJECT in this package: what exists is a run
-    matrix, a recipe and one call. The page has to say so, because the
-    word workflow is used throughout the plan tree for something that
-    does not ship.
+    THE REASON WAS REWRITTEN ON 2026-08-20 because the old one had
+    stopped being true inside 0.8.0 and a stale reason on a guard is what
+    sends the next reader to restore the sentence it argued for. It said
+    there is no workflow OBJECT in this package, only a run matrix, a
+    recipe and one call; `cases.workflows` ships `Workflow` and
+    `WORKFLOWS`, and the page correctly stopped saying otherwise in the
+    same release.
+
+    The reason that applies now: this page names capabilities a reader
+    would otherwise take as shipping, so the section that says which of
+    them are not built has to exist. A docs review found the page's
+    limits list silent about the one limit that decides whether the
+    capability can be used at all, which is what that section is for.
     """
     text = PAGE.read_text(encoding="utf-8")
     assert "## What does not exist yet" in text, (

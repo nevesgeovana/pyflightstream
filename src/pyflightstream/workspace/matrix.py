@@ -9,10 +9,22 @@ matrix's reference columns against the input library under ``inputs/``.
 
 REF resolves to reference data (applied to each case's ``reference``),
 SET to a solver preset (its runtime subset applied to each case's
-``solver``), ENTRY to named boundary groups (returned verbatim), and
-FS_BUILD to an executable through the build registry. Plain conversion
+``solver``), ENTRY to named boundary groups (returned verbatim),
+FS_BUILD to an executable through the build registry, and the
+``GEOMETRY`` variable of the free ``VAR_NAMES_VALUES`` cell to a staged
+geometry file (applied to each case's ``geometry``). Plain conversion
 never needs the library; resolution applies only when the matrix is
 about to be planned or run.
+
+THE GEOMETRY ARRIVED LAST AND IT IS WHY 0.8.1 EXISTS. The run layer had
+always done its half: :func:`pyflightstream.run._prepare_case` stages
+:attr:`pyflightstream.cases.SimCase.geometry`, hashes it into the
+record, and rewrites the field to the STAGED path before the builder is
+called. Nothing ever ASSIGNED that field from a matrix, so a row could
+not name a geometry at all, the value was prepared and read by nobody,
+and a workflow rendered a script with no ``OPEN`` in it. The script ran,
+against whatever the solver happened to have open, and the numbers were
+wrong with nothing said (PFS-2025.02.01).
 
 This module exists because the reader used to do the binding itself and
 paid for it with imports deferred to call time, which recorded an
@@ -58,9 +70,26 @@ from pyflightstream.workspace import (
 from pyflightstream.workspace.inputs import RegisteredBuild, resolve_build
 
 __all__ = [
+    "GEOMETRY_VARIABLE",
     "ResolvedMatrix",
     "resolve_matrix",
 ]
+
+#: The ``VAR_NAMES_VALUES`` key a row names its geometry with.
+#:
+#: The value is an input-library ID, which is the STEM of a file staged
+#: under ``inputs/geometries/``, and never a path. That is the same rule
+#: the REF, SET and ENTRY columns follow, and it is what lets one
+#: geometry be cited by many rows, staged once per case, and hashed into
+#: every record that used it
+#: (:attr:`pyflightstream.run.RunRecord.inputs_sha256`).
+#:
+#: It is a VARIABLE and not a column of its own, deliberately: the
+#: fifteen-column layout is a published format and widening it again is a
+#: BREAK, which 0.8.0 has already spent once (PFS-2025.01). A key in the
+#: free cell costs no format change, so every matrix written before this
+#: release reads at the same width and resolves exactly as it did.
+GEOMETRY_VARIABLE = "GEOMETRY"
 
 
 @dataclass(frozen=True)
@@ -71,10 +100,12 @@ class ResolvedMatrix:
     ----------
     campaign : Campaign
         The canonical campaign form, with the resolved reference data
-        applied to each case (``reference``) and the solver preset
-        applied to each case's runtime settings (``solver``); the
-        historical codes stay in the case variables, so nothing of the
-        matrix is lost.
+        applied to each case (``reference``), the solver preset applied
+        to each case's runtime settings (``solver``), and the resolved
+        library path of the row's ``GEOMETRY`` applied to each case's
+        ``geometry`` where the row named one; the historical codes and
+        the ``GEOMETRY`` stem itself stay in the case variables, so
+        nothing of the matrix is lost.
     references : dict of str to ReferenceArtifact
         Resolved reference-data artifacts, keyed by REF code.
     setups : dict of str to SetupArtifact
@@ -363,6 +394,71 @@ def _resolve_code(workspace: CampaignWorkspace, kind: str, code: str, pol: str):
         ) from error
 
 
+def _resolve_geometry(workspace: CampaignWorkspace, artifact_id: str, pol: str) -> Path:
+    """Resolve one ``GEOMETRY`` id, naming the row and the library folder.
+
+    The sibling of :func:`_resolve_code` for the one library kind a
+    matrix names from its free cell rather than from a column. It is a
+    separate function for one reason, and the reason is in the message:
+    a reference, setup or group is a ``.toml`` the user writes, while a
+    geometry is a FILE THE USER STAGED under any extension, so the
+    "create this file" half of the refusal cannot be the same sentence.
+
+    Resolution itself is not reimplemented here.
+    :func:`pyflightstream.workspace.inputs.resolve_geometry` already
+    takes a stem of any extension, already refuses an unknown id by
+    listing the available ones, and already refuses a stem that two
+    staged files share; a second resolver would be a second answer to
+    "which file is this id".
+
+    Parameters
+    ----------
+    workspace : CampaignWorkspace
+        The managed campaign root carrying the input library.
+    artifact_id : str
+        The geometry id, which is the stem of a file under
+        ``inputs/geometries/``.
+    pol : str
+        Polar identifier of the row that named it, for the message. It
+        is the POL and not the row number because the POL is what the
+        author reads down the left of their own matrix, which is the
+        sibling refusal's own choice.
+
+    Returns
+    -------
+    Path
+        The staged geometry file, as the library holds it. It is the
+        LIBRARY path: the run layer copies it into the case's own
+        ``inputs/`` directory and rewrites
+        :attr:`pyflightstream.cases.SimCase.geometry` to that copy
+        before any builder sees it.
+
+    Raises
+    ------
+    pyflightstream.workspace.InputArtifactError
+        The library cannot resolve the id, or the stem is shared by
+        several staged files. The message names the row's POL, the stem
+        written, and (through the chained library refusal) the ids that
+        would have resolved. The structured ``kind``, ``artifact_id``
+        and ``available`` attributes are carried across, so a caller
+        that offers the user a choice does not parse the sentence.
+    """
+    try:
+        return workspace.resolve_geometry(artifact_id)
+    except InputArtifactError as error:
+        raise InputArtifactError(
+            f"matrix row POL {pol}: the {GEOMETRY_VARIABLE} variable names geometry "
+            f"{artifact_id!r}, which the workspace input library cannot resolve; stage "
+            f"the file at inputs/geometries/{artifact_id}.fsm (the id is the file name "
+            "stem and any extension registers), or fix the matrix cell. A row that "
+            f"names no {GEOMETRY_VARIABLE} at all opens no file and is unaffected. "
+            f"{error}",
+            kind=error.kind,
+            artifact_id=error.artifact_id,
+            available=error.available,
+        ) from error
+
+
 def _solver_from_setup(setup: SetupArtifact, set_code: str) -> SolverSettings:
     """Map the runtime subset of one preset onto the case solver settings.
 
@@ -412,6 +508,17 @@ def resolve_matrix(
     and the ``inputs/`` file to create; plain conversion
     (:func:`pyflightstream.cases.matrix.convert_matrix`) never needs the
     library.
+
+    THE ``GEOMETRY`` VARIABLE RESOLVES HERE TOO, and it is the fifth of
+    those bindings rather than a sixth kind of thing
+    (:data:`GEOMETRY_VARIABLE`, PFS-2025.02.01). A row writing
+    ``GEOMETRY: wing_v2`` in its ``VAR_NAMES_VALUES`` cell resolves that
+    stem against ``inputs/geometries/`` and the file lands on the case's
+    :attr:`~pyflightstream.cases.SimCase.geometry`, which is what the
+    campaign loop stages, hashes into the record, and rewrites to the
+    staged copy before a builder opens it. A row naming no geometry
+    leaves the field absent and resolves exactly as it did before this
+    release.
 
     Parameters
     ----------
@@ -471,8 +578,9 @@ def resolve_matrix(
         and no longer are: each row runs on the installation it names
         (PFS-2009.05).
     pyflightstream.workspace.InputArtifactError
-        A code the library cannot resolve, or a preset that does not
-        fit the case solver settings.
+        A code the library cannot resolve, a ``GEOMETRY`` stem the
+        library cannot resolve or that two staged files share, or a
+        preset that does not fit the case solver settings.
 
     Examples
     --------
@@ -519,14 +627,31 @@ def resolve_matrix(
     sims: list[SimCase] = []
     for case, row in zip(campaign.sims, rows, strict=True):
         reference = references[row.ref_code]
-        sims.append(
-            case.model_copy(
-                update={
-                    "reference": ReferenceData(area=reference.area_m2, length=reference.chord_m),
-                    "solver": solvers[row.set_code],
-                }
-            )
-        )
+        update: dict[str, object] = {
+            "reference": ReferenceData(area=reference.area_m2, length=reference.chord_m),
+            "solver": solvers[row.set_code],
+        }
+        # ABSENT AND BLANK ARE THE SAME SILENCE, and it is the same rule
+        # `_resolve_build` applies one function above: a cell that is
+        # empty NAMES NOTHING. It matters more here than there, because
+        # it is what makes the promise this key ships with true: a row
+        # that does not name a geometry leaves the field absent, so every
+        # matrix written before 0.8.1 resolves to exactly the campaign it
+        # resolved to before, and the builders emit exactly the bytes they
+        # emitted before.
+        #
+        # NO `.strip()` HERE, deliberately, and the first version of this
+        # line had one. The reader strips every VAR_NAMES_VALUES value as
+        # it parses the cell, so `GEOMETRY:   ` arrives as `''` already
+        # and a second strip could never change an outcome: a mutation
+        # deleting it left the whole suite green, which is what an
+        # unreachable guard does. The composed behaviour is asserted in
+        # `tests/test_matrix_run.py`, at the reader AND here, rather than
+        # defended twice in code and proven in neither place.
+        stem = row.variables.get(GEOMETRY_VARIABLE, "")
+        if stem:
+            update["geometry"] = str(_resolve_geometry(workspace, stem, row.pol))
+        sims.append(case.model_copy(update=update))
     return ResolvedMatrix(
         campaign=campaign.model_copy(update={"sims": sims}),
         references=references,

@@ -101,6 +101,17 @@ print("\n".join(campaign_toml.splitlines()[:8]))
 # the per-point case (with `case.point` filled) and an empty `Script`
 # bound to the campaign version; it emits through the curated helpers,
 # so every line still passes database validation.
+#
+# READ ONE THING ABOUT `case.geometry` BEFORE YOU COPY THIS RECIPE, added
+# 2026-08-20 after a docs review found the trap. The recipe below opens
+# `case.geometry`, and that field is populated in section 4, which builds
+# a `SimCase` BY HAND. A matrix row cannot set it: `convert_matrix`
+# assigns no geometry, so the same recipe driven from the matrix of
+# section 2 would open nothing. Until a geometry column exists, a
+# matrix-driven recipe reads a key it chooses out of
+# `case.variables` and resolves it with
+# `workspace.inputs.resolve_geometry`; the page
+# `docs/workspace-and-workflows.md` carries that route and the reason.
 
 
 # %%

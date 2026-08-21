@@ -66,6 +66,36 @@ that builds its script. `WORKFLOW` names the run type; `LEGACY` means
 means and what these two rows say. `RUN` is the switch that says whether
 the row takes part at all.
 
+`VAR_NAMES_VALUES` is the last cell and the one that carries everything
+else, as `KEY: value` pairs separated by ` / `. The rows above use
+`FSM_FILE`, which is a key of THEIR OWN: nothing in the package reads it,
+and the recipe named by `FS_SCRIPT` is what resolves it and opens the
+file. That is still how a recipe works.
+
+**A WORKFLOW reads keys the package defines**, and since v0.8.1 three of
+them close the gap that made the capability unusable:
+
+* `GEOMETRY: <stem>` names a geometry staged under `inputs/geometries/`,
+  resolved the same way `REF`, `SET` and `ENTRY` are, and refused with
+  the available stems when the id is not there. The workflow opens it
+  first, before anything else, and it opens the STAGED copy, so the file
+  the manifest hashed and the file the solver read are the same bytes.
+  It must be a saved simulation, a `.fsm`; another suffix is refused
+  naming the route above, because importing a raw mesh needs the row to
+  declare its UNITS and a silently defaulted unit is the failure this
+  page exists to prevent.
+* `SYMMETRY: <mode>` and, where the mode needs it, `PERIODIC_COPIES: <n>`.
+  The accepted modes are read from the command database for the row's own
+  build, never from a list written here. **This one is not a
+  convenience.** Until v0.8.1 symmetry was fixed at `NONE`, so a periodic
+  sector was solved as a one-bladed rotor: the run completed and the
+  numbers were wrong, silently.
+
+A row that names none of the three behaves exactly as it did before, and
+that is measured rather than promised: every shipped golden, every
+fixture and every covered build render byte for byte identically without
+them.
+
 Four runs come out of those two rows. Nothing in the matrix says where
 anything is written, and that is deliberate: naming is the workspace's
 job.
@@ -509,6 +539,20 @@ build. The guarantee is carried by the lift, not by the block.
 Said plainly, because a page that documents an unbuilt capability is
 worse than no page at all.
 
+- **A row's `REF` code changes no emitted line, and neither does its
+  `BLADES` count.** The reference artifact resolves, and the solver
+  model and the fluid state are still decided in the builders rather
+  than by a cell, so coefficients come out against the solver's own
+  defaults rather than against the areas and lengths the campaign
+  declared, and a case runs `INCOMPRESSIBLE` at sea level whatever the
+  campaign flew. `BLADES` divides the phase-locked averaging window and
+  nothing else, so it does not configure the rotor and does not interact
+  with the symmetry the row now declares, however reasonably a reader
+  pairs the two cells. Both are scoped, and where they should live is an
+  open design question: a row, like everything else a workflow reads, or
+  a solver-setup preset, since a fluid and a solver model are
+  campaign-wide conditions rather than case identity.
+
 - **You cannot add a workflow of your own.** The table is this
   package's, and there is deliberately no way to register into it: a
   type this package builds is a type it can also refuse before it runs,
@@ -528,39 +572,8 @@ worse than no page at all.
   read: the standard assessor sees every point of a row in one folder
   and refuses from the second point onward. One sweep value per row
   runs today.
-- **A ROW CANNOT NAME ITS GEOMETRY, and this is the limit that decides
-  whether the capability can be used at all.** It is first in this list
-  because it is the one a reader most needs before starting. Nothing in
-  the matrix reader assigns a case's geometry, and neither workflow
-  builder emits an open or an import, so a case that CARRIES a geometry
-  renders byte for byte identically to one that does not: 47 lines, and
-  none of them opens anything. The run layer does stage the file, hash
-  it into the record and rewrite the case's path to the staged copy; the
-  value is prepared and then read by nobody.
-
-  Worse than the gap is its shape. Every other limit on this page
-  refuses early and names itself. This one does not refuse at all: the
-  script builds, the campaign runs, and the failure arrives from the
-  solver. Today a geometry reaches a run only because a recipe reads a
-  key of its own out of `VAR_NAMES_VALUES` and opens the file itself,
-  which is precisely the Python a workflow exists to remove.
-
-- **Three more things a row cannot say, all decided in the builders
-  rather than by a cell.** Symmetry is fixed at `SYMMETRY NONE`, so a
-  periodic sector is solved as a one-bladed rotor. The solver model is
-  fixed at `INCOMPRESSIBLE`. And the row's `REF` code resolves a
-  reference artifact that changes no emitted line, so coefficients come
-  out against the solver's own defaults rather than against the areas
-  and lengths the campaign declared.
-
-- **A campaign declares one build by DEFAULT, and a row may declare its
-  own.** Since v0.8.0 a matrix whose active rows name two different
-  builds RUNS: each point's record names the executable its own row
-  asked for, and its script is emitted under that build's declared
-  version. This entry said the opposite until 2026-08-20, when the
-  capability it denied had already shipped in the same release; the
-  section on the executable registry above was right and this list was
-  stale, which is the wrong way round for the list people read.
+- **Naming a second build is no longer a limit.** See the executable
+  registry above, which is this fact's one home.
 - **There is no result-array facade.** No interpolation along a named
   axis, no re-parameterisation, no trim extraction. FR-20 carries that
   promise and is `pending`.
