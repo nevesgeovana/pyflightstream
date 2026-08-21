@@ -2586,7 +2586,15 @@ def test_no_golden_carries_a_carriage_return():
     This asserts the property directly, so the pin is checked rather
     than trusted.
     """
-    offenders = [path.name for path in sorted(GOLDENS.iterdir()) if b"\r" in path.read_bytes()]
+    # RECURSIVE since 0.8.1, when tests/goldens/workflows/ arrived. The
+    # flat `iterdir()` would have raised on the new subdirectory rather
+    # than skipping it, so this had to move either way; walking is the
+    # version that also keeps covering whatever lands there next.
+    offenders = [
+        str(path.relative_to(GOLDENS).as_posix())
+        for path in sorted(GOLDENS.rglob("*"))
+        if path.is_file() and b"\r" in path.read_bytes()
+    ]
     assert not offenders, (
         f"these goldens carry a carriage return: {offenders}. Their bytes are the "
         "assertion, and read_text hides the difference, so a line-ending rewrite would "

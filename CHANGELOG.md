@@ -25,11 +25,24 @@ FlightStream versions.
   else, on the STAGED path, so the file the manifest hashed and the file
   the solver read are the same bytes.
 
-  It must be a saved simulation, a `.fsm`. Another suffix is REFUSED
-  naming the suffix and the documented route, and the refusal is a
-  decision rather than a gap: importing a raw mesh needs the row to
-  declare its UNITS, and a silently defaulted unit is the same class of
-  failure this release exists to remove.
+  A WORKFLOW opens a saved simulation, a `.fsm`, and nothing else; a
+  recipe of your own receives whatever the library staged and imports it
+  declaring the units itself. Another suffix is REFUSED naming the
+  suffix and the documented route, and the refusal is a decision rather
+  than a gap: importing a raw mesh needs the row to declare its UNITS,
+  and a silently defaulted unit is the same class of failure this
+  release exists to remove.
+
+  **If your `VAR_NAMES_VALUES` cells already spell `GEOMETRY`,
+  `SYMMETRY` or `PERIODIC_COPIES`, the package now reads them.** That is
+  the only upgrade risk in this release: those three names were yours
+  before it and are the package's now. Rename your key, or stage the
+  file the id names. The match is on the exact key, so a cell spelling
+  it `SYMMETRY_TYPE` is untouched. A row carrying a geometry under a key
+  of its own, `FSM_FILE` being the common one, is unaffected and also
+  unread: rename it to `GEOMETRY` when you move the row off `LEGACY`, or
+  keep the recipe. `upgrade_matrix` deliberately does NOT rewrite it,
+  because a `LEGACY` row's recipe may still be reading that key.
 
   **WORSE THAN THE GAP WAS ITS SHAPE, and that is why this is a patch
   rather than a 0.9.0 item.** Every other limit in this capability
@@ -50,12 +63,44 @@ FlightStream versions.
   wrong and nothing said so.
 
 - **A matrix that names none of the three keys behaves exactly as it did**,
-  and that is measured rather than promised: 23 committed goldens, 18
-  fixture files and 14 case-and-build renders come out byte for byte
-  identical, including the one build whose grammar the steady builder
-  cannot express, whose refusal text is unchanged too.
+  and that is now measured rather than promised: every workflow crossed
+  with every build it covers, 14 renders, is committed under
+  `tests/goldens/workflows/` and compared byte for byte on every run of
+  the suite. The one build whose grammar the steady builder cannot
+  express is pinned as its REFUSAL text, so that wording is fixed too.
 
-### Known gaps, stated because the same page used to be silent about one
+  The claim in the first draft of this entry cited 23 goldens and 18
+  fixtures instead, and it was two thirds vacuous: not one of those 41
+  files is produced by a workflow builder, so none of them could have
+  changed whatever the builders did. A QA pass proved it by inserting
+  one extra emitted line into the steady builder, which changes the
+  bytes of every geometry-less steady script on every build; the whole
+  tier 1 suite stayed green. It does not now.
+
+- **A campaign no longer fails when the workspace root is relative**, and
+  this one was found by the review of the fix above rather than by a
+  user. `pyfs-matrix run` and `plan` default `--workspace` to `"."`, and
+  `CampaignWorkspace` kept the root exactly as given, while the solver
+  runs with its working directory set to the simulation folder. Both the
+  script's path and the geometry path the script names were therefore
+  spelled from the caller's directory and re-resolved from the solver's,
+  one level too deep, so the documented default invocation died with a
+  `FileNotFoundError` naming a script that was sitting right there. It
+  failed for EVERY row, with or without a geometry.
+
+  The root is now resolved once, at construction, which is the one place
+  that covers every path derived from it rather than the three boundaries
+  that hand something to the solver today. `CampaignWorkspace.root` is
+  therefore absolute even when the caller passed a relative path;
+  `RunRecord.script_path` stays relative to the simulation directory, so
+  manifests written by earlier releases still read.
+
+  Every guard in the suite had built its workspace on an absolute
+  temporary directory, where a path spelled from the caller and one
+  spelled from the solver are the same string, which is why 3143 tests
+  passed over a shipped default that could not work.
+
+### Known gaps
 
 A row's `REF` code still changes no emitted line, so coefficients come
 out against solver defaults rather than the campaign's areas and lengths;
@@ -64,6 +109,32 @@ and `BLADES` divides the averaging window and configures no rotor. Where
 those belong, a row or a solver-setup preset, is an open design question
 and not an oversight: a fluid and a solver model are campaign-wide
 conditions rather than case identity.
+
+A workflow row that names no `GEOMETRY` opens nothing and says nothing,
+which is what keeps every earlier matrix rendering as it did, and which
+means a row migrated off `LEGACY` while keeping its own `FSM_FILE` key
+is accepted in silence.
+
+`covered_builds` reports FlightStream 25.000 as covered by `steady`,
+because that build's database carries every command the workflow always
+emits, while `initialize_solver` refuses that edition's grammar outright.
+The refusal is loud and arrives before anything is emitted, so no seat is
+spent and no numbers are produced; the over-approximation is pinned as a
+golden and registered rather than hidden.
+
+### Documentation
+
+- `docs/workspace-and-workflows.md` gained the three keys, the reserved
+  names, the `.fsm`-only narrowing and the two limits above, and lost a
+  claim that no unsteady rotor case had run on a licensed solver, which
+  the QA physics suite's own PHY-05 contradicts.
+- `docs/mesh-inputs.md` says which of its two canonical routes a workflow
+  takes, since the refusal cites that page and its canonical section read
+  as permission for the route just refused.
+- `examples/campaign_matrix.py` no longer tells the reader that a matrix
+  row cannot name a geometry. It was written when that was true and
+  shipped in the release that made it false; a currency guard now holds
+  it.
 
 ## [0.8.0] - 2026-08-20
 

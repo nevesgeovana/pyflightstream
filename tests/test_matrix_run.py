@@ -2070,6 +2070,56 @@ def test_a_stem_two_staged_files_share_is_refused_rather_than_chosen(tmp_path):
     assert "wing_clean.fsm" in message and "wing_clean.stl" in message
 
 
+def test_a_raw_mesh_row_is_refused_by_the_pre_flight_before_anything_is_staged(tmp_path):
+    """THE OTHER HALF OF THE .stl SIBLING ABOVE, which stops at resolution.
+
+    ``test_the_id_is_a_stem_and_the_library_extension_is_whatever_was_staged``
+    stages a ``.stl``, asserts it lands on ``case.geometry``, and stops
+    there, which reads as "a .stl row works". It does not: the library
+    resolves any extension and the WORKFLOW opens one. With only those
+    two cases the suite points in two directions and nothing joins them.
+
+    What is asserted here is the composed behaviour and the commit
+    message's own claim about it, that this capability's limits "refuse
+    early and name themselves": the refusal arrives from the PRE-FLIGHT,
+    so no seat is spent, no simulation folder is created and no bytes are
+    copied. That last part is the difference between a refusal and a
+    mess to clean up.
+    """
+    workspace = make_library(tmp_path, register_build=("26.120", Path(sys.executable).as_posix()))
+    stage_geometry(workspace, "raw_blade.stl")
+    matrix = geometry_matrix(tmp_path, " / VELOCITY: 30.0 / GEOMETRY: raw_blade")
+
+    with pytest.raises(MatrixError) as caught:
+        run_matrix(
+            matrix,
+            workspace,
+            name="matrix",
+            default_fs_version="26.120",
+            recipes=RECIPES,
+            assess=converged,
+            executor=StubSolver(WRITES_LOADS),
+            recipe_registry=workflow_registry(),
+        )
+    message = str(caught.value)
+    assert "docs/mesh-inputs.md" in message, "the composed refusal lost the documented route"
+    assert ".fsm" in message, "the composed refusal does not name the suffix that works"
+    # MEASURED, and it corrects the assertion this case was first written
+    # with. The simulation folder DOES exist: the pre-flight creates the
+    # empty skeleton before it validates. That is not the property worth
+    # asserting, and demanding its absence would have failed a campaign
+    # that behaved correctly. What must be true is that nothing was
+    # COPIED, WRITTEN or RECORDED, since those are the three things a
+    # refusal arriving too late would leave behind.
+    sim_dir = workspace.sim_dir("7001")
+    assert not list((sim_dir / "inputs").iterdir()), (
+        "the refused row staged its geometry anyway, so bytes were copied for a point "
+        "that was never going to run"
+    )
+    assert not list((sim_dir / "scripts").iterdir()), "a script was written for a refused row"
+    assert workspace.read_manifest() == [], "a refused row reached the manifest"
+
+
 def test_the_whole_chain_the_row_the_staged_copy_and_the_opened_path(tmp_path):
     """END TO END, and the one case that proves the three items compose.
 
@@ -2111,8 +2161,75 @@ def test_the_whole_chain_the_row_the_staged_copy_and_the_opened_path(tmp_path):
     executed = (sim_dir / records[0].script_path).read_text(encoding="utf-8")
     lines = executed.splitlines()
     assert lines[0] == "OPEN", "the executed script does not open the geometry first"
-    assert Path(lines[1]) == staged, (
+    assert Path(lines[1]).resolve() == staged.resolve(), (
         "the executed script opens a path other than the staged copy the record hashed, "
         "so the digest and the bytes the solver read are not the same file"
     )
     assert "SYMMETRY PERIODIC 4" in lines, "the row's symmetry did not reach the command"
+
+
+def test_a_campaign_runs_under_the_relative_root_the_cli_defaults_to(tmp_path, monkeypatch):
+    """THE ASSERTION EVERY SIBLING ABOVE IS UNABLE TO MAKE, and the reason is the fixture.
+
+    Every guard of this module builds its workspace on ``tmp_path``,
+    which is ABSOLUTE, so a path spelled from the caller's directory and
+    one spelled from the solver's are the same string and no case can
+    tell them apart. The SHIPPED DEFAULT is the other one: ``pyfs-matrix
+    run`` and ``plan`` default ``--workspace`` to ``"."`` (``run/cli.py``)
+    and hand it to ``CampaignWorkspace`` as written.
+
+    Two things then cross into the solver's process, which runs with its
+    working directory set to the simulation folder: the script's path in
+    the argv, and the geometry path the script itself names. Spelled from
+    a relative root, both were re-resolved from ``sims/sim_7001`` and
+    landed one level too deep. This was measured, not reasoned: before
+    the fix this case died with
+
+        FileNotFoundError: 'camp/sims/sim_7001/scripts/a+00.0.txt'
+
+    on a script that was sitting right there, and it would have done so
+    for EVERY row of every matrix, with or without a geometry.
+
+    The fix is at the root rather than at the two boundaries, so this
+    case asserts the OUTCOME (a campaign completes and the opened file is
+    where the solver looks) rather than the remedy: the day a third thing
+    is handed to the solver it is covered without a new assertion.
+    """
+    workspace = make_library(tmp_path, register_build=("26.120", Path(sys.executable).as_posix()))
+    stage_geometry(workspace, "wing_clean.fsm")
+    matrix = geometry_matrix(tmp_path, " / VELOCITY: 30.0 / GEOMETRY: wing_clean")
+
+    monkeypatch.chdir(tmp_path)
+    argument = Path("camp")
+    assert not argument.is_absolute(), "the fixture is absolute, so it proves nothing"
+    relative = CampaignWorkspace(argument)
+    assert relative.root.is_absolute(), "the workspace did not resolve the root it was given"
+
+    records = run_matrix(
+        matrix,
+        relative,
+        name="matrix",
+        default_fs_version="26.120",
+        recipes=RECIPES,
+        assess=converged,
+        executor=StubSolver(WRITES_LOADS),
+        recipe_registry=workflow_registry(),
+    )
+    assert [record.status for record in records] == [RunStatus.CONVERGED], (
+        f"the campaign did not complete under a relative root: {records[0].error}"
+    )
+
+    sim_dir = relative.sim_dir("7001")
+    executed = (sim_dir / records[0].script_path).read_text(encoding="utf-8")
+    opened = Path(executed.splitlines()[1])
+    # `sim_dir / opened` IS the solver's resolution rule: an absolute
+    # emitted path wins the join and stands on its own, a relative one is
+    # taken from the execution directory. So this single expression asks
+    # exactly what the solver asks, and it is why the case does not
+    # simply assert `opened.is_absolute()`: absoluteness is today's
+    # remedy, resolving from sim_dir is the requirement.
+    assert (sim_dir / opened).is_file(), (
+        f"the script opens {opened}, which does not exist from the solver's own "
+        f"directory {sim_dir}: the open resolves against the execution directory"
+    )
+    assert (sim_dir / opened).resolve() == (sim_dir / "inputs" / "wing_clean.fsm").resolve()

@@ -102,16 +102,31 @@ print("\n".join(campaign_toml.splitlines()[:8]))
 # bound to the campaign version; it emits through the curated helpers,
 # so every line still passes database validation.
 #
-# READ ONE THING ABOUT `case.geometry` BEFORE YOU COPY THIS RECIPE, added
-# 2026-08-20 after a docs review found the trap. The recipe below opens
-# `case.geometry`, and that field is populated in section 4, which builds
-# a `SimCase` BY HAND. A matrix row cannot set it: `convert_matrix`
-# assigns no geometry, so the same recipe driven from the matrix of
-# section 2 would open nothing. Until a geometry column exists, a
-# matrix-driven recipe reads a key it chooses out of
-# `case.variables` and resolves it with
-# `workspace.inputs.resolve_geometry`; the page
-# `docs/workspace-and-workflows.md` carries that route and the reason.
+# READ ONE THING ABOUT `case.geometry` BEFORE YOU COPY THIS RECIPE. The
+# recipe below opens `case.geometry`, and there are three ways that field
+# is filled, which is the whole of what this note is for.
+#
+# Section 4 sets it BY HAND, on a `SimCase` built in Python.
+#
+# A MATRIX ROW SETS IT with `GEOMETRY: <stem>` in `VAR_NAMES_VALUES`,
+# resolved against `inputs/geometries/` the way `REF`, `SET` and `ENTRY`
+# are (v0.8.1). `resolve_matrix` is what assigns it, and it assigns it
+# for every active row, so a recipe of your own receives the field
+# exactly as a built-in workflow does. `plan_matrix` and `run_matrix`
+# both go through there.
+#
+# `convert_matrix`, which section 2 uses, resolves no library artifact at
+# all and leaves the field absent. That is the one route where a recipe
+# still sees nothing, and it is a property of the CONVERTER rather than
+# of the matrix.
+#
+# THIS NOTE SAID THE OPPOSITE until v0.8.1, and the correction is left
+# visible rather than quietly rewritten: it said a matrix row could not
+# set the field and that a recipe should read a key of its own and call
+# `workspace.inputs.resolve_geometry`, and it told the reader to wait for
+# a geometry COLUMN. It was true the day it was written. The release that
+# made it false is the one that shipped the key, and no test reads an
+# example's prose, so nothing but a reader was ever going to catch it.
 
 
 # %%

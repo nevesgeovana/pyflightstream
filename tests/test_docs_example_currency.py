@@ -29,6 +29,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from pyflightstream.cases.workflows import GEOMETRY_VARIABLE
+
 REPO = Path(__file__).resolve().parents[1]
 PAGE = REPO / "docs" / "workspace-and-workflows.md"
 FIXTURE = REPO / "tests" / "fixtures" / "matrix_registry.fs"
@@ -394,6 +396,58 @@ def test_the_page_says_plainly_what_is_not_built():
     tail = text.split("## What does not exist yet", 1)[1]
     assert "workflow" in tail.lower()
     assert "does not" in tail.lower() or "no " in tail.lower()
+    # THE ASSERTIONS ABOVE DO NOT BITE, which a QA pass measured: they
+    # pass on any list mentioning "workflow" and the word "no", so the
+    # commit whose whole subject was a missing bullet would have passed
+    # without its own change. A guard whose docstring narrates a finding
+    # its assertions do not encode is the stale-reason failure the
+    # docstring above was itself rewritten to correct.
+    #
+    # Each name below is a cell a row may carry that reaches NOTHING in
+    # the emitted script. They are the limits that decide whether a
+    # result is what the author asked for, so the list people read has to
+    # carry them by name; when one is closed, its line here goes with the
+    # fix rather than being left to pass vacuously.
+    for reaches_nothing in ("REF", "BLADES", "fluid", "solver model"):
+        assert reaches_nothing in tail, (
+            f"the limits list does not name {reaches_nothing!r}. A row can carry it and "
+            "it changes no emitted line, so a reader takes it as shipping and reads "
+            "back numbers computed against something else"
+        )
+
+
+def test_the_matrix_example_does_not_deny_the_capability_it_now_has():
+    """THE ONE PIECE OF SHIPPED PROSE NOTHING WAS READING.
+
+    ``examples/campaign_matrix.py`` carried a note telling readers that a
+    matrix row CANNOT name a geometry and that they should hand-roll the
+    resolution under a key of their own until a geometry COLUMN existed.
+    Every word of that became false in the release that shipped
+    ``GEOMETRY``, and it was introduced by the very commit that shipped
+    it: the example is registered in ``tests/test_examples.py`` with an
+    empty expectation set, so no case reads its prose.
+
+    This guard is narrow on purpose. It does not police the wording; it
+    asserts that an example teaching ``case.geometry`` names the key that
+    fills it, and that the two specific claims which went stale cannot
+    come back.
+    """
+    example = REPO / "examples" / "campaign_matrix.py"
+    text = example.read_text(encoding="utf-8")
+    assert "case.geometry" in text, (
+        "the example no longer teaches case.geometry, so this guard is measuring "
+        "nothing and should move or go"
+    )
+    assert GEOMETRY_VARIABLE in text, (
+        f"the example opens case.geometry and never names {GEOMETRY_VARIABLE}, the key "
+        "a matrix row fills it with, so a reader is left to conclude a row cannot"
+    )
+    for expired in ("a geometry column exists", "matrix row cannot set it"):
+        assert expired not in text, (
+            f"the example carries the claim {expired!r}, which the GEOMETRY key made "
+            "false; a row sets the field and no column is coming, because widening the "
+            "published layout is a break"
+        )
 
 
 def test_the_index_no_longer_promises_this_page_as_planned():

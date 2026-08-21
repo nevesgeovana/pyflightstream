@@ -2253,8 +2253,15 @@ def _plan_point(
             status=PlanStatus.BLOCKED,
             error=f"{type(error).__name__}: {error}",
         )
-    # The dry run built the same script the campaign will, so the two
-    # provenance flags are already determined here. Reported at plan time
+    # The dry run built the same COMMANDS the campaign will, so the two
+    # provenance flags are already determined here. Not the same bytes,
+    # and the difference is exactly one argument: the plan runs before
+    # anything is staged, so a case naming a geometry renders `OPEN
+    # <library path>` here and `OPEN <staged copy>` at run time. Nothing
+    # depends on that today (the plan checks the library file exists, the
+    # builder judges only the suffix, and plan.json carries no script
+    # text), and it is written down so a later reader does not reuse this
+    # render AS the run's. Reported at plan time
     # rather than only in the manifest: an operator who learns from the
     # manifest that a point leaned on a broken command has already spent
     # the solver time (PYFS-002, and the pre-flight promise of FR-14).
@@ -2435,6 +2442,13 @@ def _prepare_case(
         except WorkspaceError as error:
             return recipe, str(error), {}, None
         staged = workspace.sim_dir(case.sim_id) / "inputs" / Path(case.geometry).name
+        # ABSOLUTE, and not by anything done here: this path is EMITTED
+        # into the script while the solver runs with working_dir=sim_dir,
+        # so a root-relative spelling would be re-resolved from the
+        # simulation folder, one level too deep. CampaignWorkspace
+        # resolves its root once, at construction, which is what makes
+        # every path derived from it safe to hand to the solver; the
+        # reasoning is there rather than repeated at each boundary.
         staged_geometry = str(staged)
     return recipe, None, inputs_sha256, staged_geometry
 

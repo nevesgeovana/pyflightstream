@@ -71,6 +71,7 @@ from pyflightstream.versions import FsVersion, known_versions, resolve
 __all__ = [
     "BLADES_VARIABLE",
     "DELTA_TIME_VARIABLE",
+    "GEOMETRY_VARIABLE",
     "MOVING_BOUNDARIES_VARIABLE",
     "PERIODIC_COPIES_VARIABLE",
     "ROTOR_AXIS_VARIABLE",
@@ -125,6 +126,20 @@ WORKFLOW_KEY = "matrix_workflow"
 #: running exactly as it always ran.
 _LEGACY = "LEGACY"
 
+#: The geometry a row names, as a library id: the STEM of a file staged
+#: under ``inputs/geometries/``, never a path and never a file name.
+#:
+#: Defined HERE, beside the other cell keys, and re-exported from
+#: :mod:`pyflightstream.workspace.matrix`, which is where the resolver
+#: that reads the cell lives and where the published import path stays.
+#: It was defined THERE until 0.8.1 and the move is not tidying: a cell
+#: key that a refusal in this module cannot name is a refusal that has to
+#: describe the value some other way, and this one described an internal
+#: staged path, so the author read back a string they had never typed.
+#: Free because the name is new in this release and had no published
+#: contract to keep.
+GEOMETRY_VARIABLE = "GEOMETRY"
+
 #: Free case variables a workflow reads off the row. Each is a KEY of the
 #: matrix ``VAR_NAMES_VALUES`` cell and arrives as a string.
 VELOCITY_VARIABLE = "VELOCITY"
@@ -150,6 +165,13 @@ WINDOW_REVOLUTIONS_VARIABLE = "WINDOW_REVOLUTIONS"
 #: (:func:`accepted_symmetry`). Absent means the row asks for nothing and
 #: ``NONE`` is emitted, which is what every workflow emitted before
 #: 0.8.1 and the only thing any of them could emit.
+#:
+#: ``MIRROR`` CARRIES A CAUTION THIS KEY CANNOT ENFORCE: initializing a
+#: mirrored solution with the FULL model loaded diverges immediately,
+#: because the model is then its own mirror image (SRC-003 p.217). The
+#: mode describes what was MESHED, so a row declaring it must have
+#: staged the half. Nothing here can check that, which is why it is
+#: written where the mode is chosen rather than only in the helper.
 #:
 #: THIS KEY IS WHY 0.8.1 IS A DEFECT RELEASE AND NOT A FEATURE ONE. A
 #: periodic sector solved under ``SYMMETRY NONE`` is not a failed run: it
@@ -1211,7 +1233,8 @@ def _open_geometry(case: SimCase, script: Script) -> None:
     The path opened is :attr:`pyflightstream.cases.SimCase.geometry` as
     the case carries it AT BUILD TIME, which the campaign loop has
     already rewritten to the case's own staged copy
-    (``pyflightstream.run._prepare_case``). That is deliberate and
+    (:func:`pyflightstream.run.run_campaign`, which owns the staging).
+    That is deliberate and
     load-bearing: ``inputs_sha256`` in the run record is the hash of the
     STAGED bytes, so opening the library original instead would break
     the pairing between the digest a record publishes and the bytes the
@@ -1253,7 +1276,7 @@ def _open_geometry(case: SimCase, script: Script) -> None:
         # once, save as .fsm, script everything after.
         written = suffix or "no suffix at all"
         raise CampaignConfigError(
-            f"case {case.sim_id!r} names the geometry {case.geometry!r}, which carries "
+            f"case {case.sim_id!r} declares {GEOMETRY_VARIABLE} as a file carrying "
             f"{written}, and a workflow opens a saved simulation ({SIMULATION_SUFFIX}) "
             "and nothing else. A .fsm already carries its own length units, its mesh "
             "and its boundary names, so opening it needs the path alone; importing a "
@@ -1261,8 +1284,9 @@ def _open_geometry(case: SimCase, script: Script) -> None:
             "cell declares them, so this package would have to default them and a "
             "defaulted unit is a body of the wrong size reported without a word. Open "
             "the mesh in the FlightStream window once, save the result as a .fsm, and "
-            f"stage that in inputs/geometries/ instead; docs/mesh-inputs.md is the "
-            "route in full."
+            "stage that in inputs/geometries/ instead; docs/mesh-inputs.md carries the "
+            "route in full, under 'A workflow opens route 1 only'. The file this case "
+            f"resolved to is {case.geometry!r}."
         )
     script.emit("OPEN", case.geometry)
 
@@ -1270,7 +1294,7 @@ def _open_geometry(case: SimCase, script: Script) -> None:
 # --- PFS-2025.02.03: the solver initialization, off the same row --------------
 
 
-def accepted_symmetry(script: Script) -> tuple[str, ...]:
+def accepted_symmetry(script: Script) -> tuple[str, ...] | None:
     """Return the symmetry modes one build's INITIALIZE_SOLVER accepts.
 
     READ FROM THE COMMAND DATABASE, per build, and never a literal list
@@ -1291,21 +1315,41 @@ def accepted_symmetry(script: Script) -> tuple[str, ...]:
 
     Returns
     -------
-    tuple of str
+    tuple of str or None
         The accepted tokens, in the order the database declares them.
-        EMPTY where that build's ``INITIALIZE_SOLVER`` declares no
+        ``None`` where that build's ``INITIALIZE_SOLVER`` declares no
         argument called ``symmetry`` at all, which is a real case and
         not a failure: FlightStream 25.000 spells it ``SYMMETRY_TYPE``
-        with its own token set (SRC-749 p.298). An empty tuple is what
-        sends a row on to
+        with its own token set (SRC-749 p.298). ``None`` is what sends a
+        row on to
         :func:`pyflightstream.script.helpers.initialize_solver`, whose
         refusal already names that edition and its remedy.
+
+        ``None`` RATHER THAN AN EMPTY TUPLE, and the distinction is the
+        caller's rather than this function's. An empty tuple would be
+        the honest answer to a different question, an enumeration that
+        declares no tokens, and today no build asks it; sharing one
+        value between "this build does not express symmetry" and "this
+        build accepts nothing" makes the docstring true only by a
+        property of the database that nothing asserts. It also reads
+        wrongly at a call site: ``accepted_symmetry(script) == ()``
+        says "no mode is accepted", which is the inverse of what the
+        empty tuple used to mean here.
+
+    Raises
+    ------
+    pyflightstream.commands.CommandNotInVersionError
+        When the build's command view carries no ``INITIALIZE_SOLVER``
+        at all. Unreachable from the builders, which call
+        :func:`require_coverage` first, and reachable by a caller
+        passing a :class:`~pyflightstream.script.Script` bound to a
+        build that only the registry knows.
     """
     entry = script.registry.for_version(script.version)["INITIALIZE_SOLVER"]
     for argument in entry.args:
         if argument.name == "symmetry":
             return tuple(argument.values or ())
-    return ()
+    return None
 
 
 def _initialize(case: SimCase, script: Script) -> None:
@@ -1381,6 +1425,22 @@ def _initialize(case: SimCase, script: Script) -> None:
     mode = "NONE" if symmetry is None else symmetry.upper()
     if symmetry is not None:
         accepted = accepted_symmetry(script)
+        # TWO FALSY ANSWERS, BOTH MEANING "THIS BUILD CANNOT JUDGE A
+        # MODE", and they are deliberately treated alike here while the
+        # return value keeps them apart for callers who need to tell.
+        # ``None`` is the argument absent, which is 25.000 spelling it
+        # SYMMETRY_TYPE. ``()`` is the argument present and NOT an
+        # enumeration, because a non-enum argument carries ``values =
+        # None`` in the command database and this reads it as an empty
+        # tuple. Refusing a token against an empty list would reject
+        # every mode on such a build while claiming it accepts none,
+        # which is the inverse of the truth.
+        #
+        # So the row falls through to the command's own validation, which
+        # is the only thing that knows that build's grammar. Written as
+        # ``accepted is not None`` for one round of this review, which
+        # broke exactly the second case; the mutation that restored the
+        # truthiness test survived, and chasing why is what found it.
         if accepted and mode not in accepted:
             raise CampaignConfigError(
                 f"case {case.sim_id!r} declares {SYMMETRY_VARIABLE} as {symmetry!r}, and "

@@ -107,6 +107,18 @@ Two input routes are canonical:
 * A direct surface mesh imported by script through the mesh-import
   family, with OBJ as the reference format.
 
+**A WORKFLOW TAKES ROUTE 1 ONLY**, and a reader arriving here from its
+refusal needs that said before anything else on this page. The
+mesh-import family takes the file's length units as an argument
+(SRC-003 p.307). A recipe you write declares them, and a run-matrix row
+has no cell that can: no `UNITS` key exists, so a built-in workflow would
+have to default one, and a mesh imported at the wrong scale solves,
+exports and reports coefficients normalized against a body of the wrong
+size, without a word. So `cases.workflows` refuses any suffix but `.fsm`
+and names route 1. Route 2 stays fully available to a recipe of your own,
+which is the difference the refusal is pointing at rather than a
+capability being withdrawn.
+
 When a mesh exists only inside a `.fsm`, the pre-processing export
 (`run.export_surface_mesh`) produces the OBJ counterpart through a
 solver run, which is how the geometry gate of the probe planner gets

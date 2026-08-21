@@ -750,13 +750,34 @@ class CampaignWorkspace:
     Attributes
     ----------
     root : Path
-        The campaign root.
+        The campaign root, ABSOLUTE. A relative root is resolved once,
+        here, against the working directory of the process that built
+        the workspace; see the constructor's own note for why that is a
+        correctness property rather than a convenience.
     naming : NamingTemplate
         The active naming template.
     """
 
     def __init__(self, root: str | Path, naming: NamingTemplate | None = None):
-        self.root = Path(root)
+        # RESOLVED ONCE, AT THE ROOT, because every path this class hands
+        # out is derived from it and one of them crosses a process
+        # boundary. The solver runs with its working directory set to the
+        # simulation folder, and it is handed the script's path and reads
+        # the geometry path the script names. Under a relative root those
+        # were spelled from the CALLER's directory and re-resolved from
+        # the solver's, one level too deep: `pyfs-matrix run` defaults
+        # --workspace to "." (run/cli.py), so the shipped default
+        # invocation failed on every row with a FileNotFoundError naming a
+        # script that was sitting right there.
+        #
+        # Resolving at each boundary instead was the alternative and was
+        # rejected: it is three call sites today, it is a new one every
+        # time something else is handed to the solver, and the property a
+        # reader needs ("a managed path is absolute") cannot be stated
+        # anywhere. Nothing downstream is affected: `record.script_path`
+        # is stored relative to the simulation directory and stays
+        # relative, so manifests written before this release still read.
+        self.root = Path(root).resolve()
         self.naming = naming if naming is not None else NamingTemplate()
 
     @classmethod

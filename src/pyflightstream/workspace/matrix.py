@@ -41,7 +41,7 @@ from __future__ import annotations
 import warnings
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PurePath
 
 from pydantic import ValidationError
 
@@ -54,6 +54,7 @@ from pyflightstream.cases.matrix import (
     refuse_silent_rows_without_default,
     to_campaign,
 )
+from pyflightstream.cases.workflows import GEOMETRY_VARIABLE
 from pyflightstream.workspace import (
     CampaignWorkspace,
     GroupsArtifact,
@@ -77,11 +78,17 @@ __all__ = [
 
 #: The ``VAR_NAMES_VALUES`` key a row names its geometry with.
 #:
+#: RE-EXPORTED, not defined here. Its home is
+#: :data:`pyflightstream.cases.workflows.GEOMETRY_VARIABLE`, beside the
+#: eleven other cell keys, so the builders that refuse a bad value can
+#: name the key the author typed; this module keeps the published import
+#: path and reads the cell.
+#:
 #: The value is an input-library ID, which is the STEM of a file staged
-#: under ``inputs/geometries/``, and never a path. That is the same rule
-#: the REF, SET and ENTRY columns follow, and it is what lets one
-#: geometry be cited by many rows, staged once per case, and hashed into
-#: every record that used it
+#: under ``inputs/geometries/``, and never a path or a file name. That is
+#: the same rule the REF, SET and ENTRY columns follow, and it is what
+#: lets one geometry be cited by many rows, staged once per case, and
+#: hashed into every record that used it
 #: (:attr:`pyflightstream.run.RunRecord.inputs_sha256`).
 #:
 #: It is a VARIABLE and not a column of its own, deliberately: the
@@ -89,7 +96,6 @@ __all__ = [
 #: BREAK, which 0.8.0 has already spent once (PFS-2025.01). A key in the
 #: free cell costs no format change, so every matrix written before this
 #: release reads at the same width and resolves exactly as it did.
-GEOMETRY_VARIABLE = "GEOMETRY"
 
 
 @dataclass(frozen=True)
@@ -446,13 +452,32 @@ def _resolve_geometry(workspace: CampaignWorkspace, artifact_id: str, pol: str) 
     try:
         return workspace.resolve_geometry(artifact_id)
     except InputArtifactError as error:
+        # THE LIKELIEST MISTAKE IS ANSWERED FIRST, and it is the one the
+        # previous wording actively made worse. The id rule permits a
+        # dot, so `GEOMETRY: wing_clean.fsm` (what anyone who has just
+        # staged a file writes) passes the id check, misses in the
+        # library, and used to be told to stage
+        # `inputs/geometries/wing_clean.fsm.fsm`. That instruction is
+        # satisfiable and wrong: the file was already staged correctly
+        # and the CELL is what needed fixing.
+        stem = PurePath(artifact_id).stem
+        if PurePath(artifact_id).suffix and stem in (error.available or ()):
+            remedy = (
+                f"the id is the file name STEM and not the file name, so write "
+                f"'{GEOMETRY_VARIABLE}: {stem}'. The file itself is staged correctly"
+            )
+        else:
+            remedy = (
+                f"stage the file as inputs/geometries/{artifact_id}<suffix> and write "
+                f"'{GEOMETRY_VARIABLE}: {artifact_id}', or fix the matrix cell. A "
+                "workflow opens a saved simulation, so stage a .fsm; a recipe of your "
+                "own receives whatever the library holds"
+            )
         raise InputArtifactError(
             f"matrix row POL {pol}: the {GEOMETRY_VARIABLE} variable names geometry "
-            f"{artifact_id!r}, which the workspace input library cannot resolve; stage "
-            f"the file at inputs/geometries/{artifact_id}.fsm (the id is the file name "
-            "stem and any extension registers), or fix the matrix cell. A row that "
-            f"names no {GEOMETRY_VARIABLE} at all opens no file and is unaffected. "
-            f"{error}",
+            f"{artifact_id!r}, which the workspace input library cannot resolve; "
+            f"{remedy}. A row that names no {GEOMETRY_VARIABLE} at all opens no file "
+            f"and is unaffected. {error}",
             kind=error.kind,
             artifact_id=error.artifact_id,
             available=error.available,

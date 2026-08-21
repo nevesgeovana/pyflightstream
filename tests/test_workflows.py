@@ -45,6 +45,7 @@ from pyflightstream.cases import CampaignConfigError, SimCase, SweepAxis, check_
 from pyflightstream.cases import matrix as matrix_module
 from pyflightstream.cases.matrix import to_campaign
 from pyflightstream.cases.workflows import (
+    GEOMETRY_VARIABLE,
     PERIODIC_COPIES_VARIABLE,
     ROTOR_SHEDDING_VARIABLE,
     SIMULATION_SUFFIX,
@@ -68,7 +69,7 @@ from pyflightstream.cases.workflows import (
     workflow_names,
     workflow_registry,
 )
-from pyflightstream.commands import CommandRegistry
+from pyflightstream.commands import ArgType, CommandRegistry
 from pyflightstream.fsi.driver import revolutions_per_step
 from pyflightstream.post.reductions import write_reduction, write_series
 from pyflightstream.post.unsteady import (
@@ -1138,6 +1139,102 @@ def rendered(case: SimCase, build: str = "26.120") -> str:
     return script.render()
 
 
+#: Every workflow crossed with every build it covers: the population the
+#: byte-identity claim was always about.
+WORKFLOW_RENDERS = [
+    (name, build) for name in sorted(WORKFLOWS) for build in covered_builds(WORKFLOWS[name])
+]
+
+GOLDEN_WORKFLOWS = Path(__file__).parent / "goldens" / "workflows"
+
+
+def render_or_refusal(name: str, build: str) -> str:
+    """Return one workflow's render on one build, or its refusal text.
+
+    Shared with ``scripts/gen_workflow_goldens.py`` in shape but not in
+    code, deliberately: the generator imports THIS module for the case
+    builders, so the two cannot disagree about what a case is, and the
+    formatting of a refusal is four lines that are clearer duplicated
+    than imported across the tests/scripts boundary.
+    """
+    case = steady_case() if name == "steady" else rotor_case()
+    try:
+        return rendered(case, build)
+    except Exception as error:  # noqa: BLE001 - the refusal IS the golden
+        return f"REFUSED {type(error).__name__}\n{error}\n"
+
+
+@pytest.mark.parametrize(("name", "build"), WORKFLOW_RENDERS)
+def test_a_case_naming_none_of_the_three_keys_renders_its_committed_bytes(name, build):
+    """THE GUARD BEHIND THE RELEASE'S OWN HEADLINE SAFETY CLAIM.
+
+    0.8.1 says a matrix naming none of ``GEOMETRY``, ``SYMMETRY`` or
+    ``PERIODIC_COPIES`` renders byte for byte as it always did, and until
+    this case nothing measured it. The claim cited the 23 files in
+    ``tests/goldens/`` and the 18 in ``tests/fixtures/``; not one of those
+    41 is produced by a workflow builder, so they could not have changed
+    whatever the builders did.
+
+    Measured rather than argued: a QA pass inserted one extra
+    ``script.emit("SET_LOADS_AND_MOMENTS_UNITS", "COEFFICIENTS")`` into
+    ``_build_steady``, which changes the bytes of every geometry-less
+    steady render on every build, and the whole tier 1 suite stayed
+    GREEN. The nearest existing guard asserts line 0 and ``"OPEN" not in
+    lines``, which that mutant satisfies.
+
+    A build a workflow COVERS but cannot BUILD is pinned as its refusal
+    text instead of a script. That is not a curiosity: ``covered_builds``
+    reports 25.000 as covered by ``steady`` because the database carries
+    every command the workflow always emits, while the initialization
+    helper refuses that edition outright. Pinning the refusal keeps the
+    over-approximation visible and its wording fixed; the CHANGELOG's
+    "Known gaps" states it as a shipped limit.
+
+    Regenerate with ``python scripts/gen_workflow_goldens.py`` and read
+    the diff: a change here is a change to every script this package
+    builds for every user who has not touched their matrix.
+    """
+    golden = GOLDEN_WORKFLOWS / f"{name}@{build}.txt"
+    assert golden.is_file(), (
+        f"no committed render for {name} on {build}. A build joins covered_builds the "
+        "moment its evidence lands, so this fires on a newly registered build before "
+        "anyone notices the population grew: regenerate with "
+        "python scripts/gen_workflow_goldens.py and review the new file"
+    )
+    # read_bytes and not read_text: universal-newline translation would
+    # hide a line-ending rewrite from a comparison whose whole subject is
+    # the bytes. The sibling guard in test_script.py asserts the same
+    # tree carries no carriage return at all.
+    assert render_or_refusal(name, build).encode("utf-8") == golden.read_bytes(), (
+        f"the {name} workflow renders different bytes on {build} than the committed "
+        "golden. Every matrix that names none of the three 0.8.1 keys just changed "
+        "script, which is the property the release promised would hold"
+    )
+
+
+def test_the_render_population_is_not_empty_and_covers_both_workflows():
+    """The non-vacuity guard for the parametrization above.
+
+    ``WORKFLOW_RENDERS`` is computed from ``covered_builds``, so a defect
+    that emptied or narrowed it would silently reduce the case above to
+    nothing while every remaining case still passed. A parametrized guard
+    over a computed population needs the population asserted.
+    """
+    assert len(WORKFLOW_RENDERS) >= 14, (
+        f"the render population shrank to {len(WORKFLOW_RENDERS)}; it was 14 when the "
+        "goldens were committed, and it may only GROW as builds register"
+    )
+    assert {name for name, _ in WORKFLOW_RENDERS} == set(WORKFLOWS), (
+        "a shipped workflow renders on no build at all, so the byte-identity guard "
+        "covers it vacuously"
+    )
+    committed = {path.stem for path in GOLDEN_WORKFLOWS.iterdir() if path.is_file()}
+    assert committed == {f"{name}@{build}" for name, build in WORKFLOW_RENDERS}, (
+        "the committed goldens and the covered population disagree; a stale golden for "
+        "a build no longer covered would sit there asserted by nothing"
+    )
+
+
 #: A staged simulation path of the shape the campaign loop writes: the
 #: case's OWN copy under its sim directory, not the library original.
 STAGED = "runs/7002/inputs/rotor_sector.fsm"
@@ -1237,13 +1334,27 @@ def test_a_suffix_that_is_not_fsm_is_refused_with_the_documented_route(geometry)
     this release exists to remove, so the narrowing is deliberate and
     the refusal names the route the user already has.
     """
+    script = Script("26.120")
     with pytest.raises(CampaignConfigError) as raised:
-        rendered(steady_case(geometry=geometry))
+        build_script(steady_case(geometry=geometry), script)
     message = str(raised.value)
     assert geometry in message, "the refusal does not name the file that was refused"
     assert SIMULATION_SUFFIX in message, "the refusal does not name the suffix that works"
     assert "units" in message.lower(), "the refusal does not name the physical cause"
     assert "docs/mesh-inputs.md" in message, "the refusal does not name the documented route"
+    assert GEOMETRY_VARIABLE in message, (
+        "the refusal describes the resolved file and never names the CELL the author "
+        "typed, so they read back a path they did not write"
+    )
+    # `_open_geometry`'s docstring promises the script is left exactly as
+    # it was, and that promise was asserted NOWHERE: a QA pass inserted
+    # the OPEN emission immediately BEFORE the raise and the suite stayed
+    # green. Two sibling refusals in this module already assert the empty
+    # render; this is the third.
+    assert script.render().strip() == "", (
+        "the refusal left lines in the script, so a caller that catches it and keeps "
+        "building emits a half-open geometry"
+    )
 
 
 def test_the_documented_route_the_refusal_names_really_exists():
@@ -1305,18 +1416,32 @@ def test_open_is_available_on_every_build_the_workflows_cover():
 # --- PFS-2025.02.03: the solver initialization comes off the row -------------
 
 
-def database_symmetry(build: str) -> tuple[str, ...]:
-    """The symmetry tokens one build's INITIALIZE_SOLVER declares.
-
-    Read here the long way round, from the loaded database, so the cases
-    below compare the function against the EVIDENCE and not against a
-    second copy of the same tuple.
-    """
-    entry = CommandRegistry.load().for_version(build)["INITIALIZE_SOLVER"]
-    for argument in entry.args:
-        if argument.name == "symmetry":
-            return tuple(argument.values or ())
-    return ()
+#: What each registered build accepts, WRITTEN DOWN rather than derived.
+#:
+#: This replaced a helper that walked the database exactly as
+#: :func:`accepted_symmetry` does, five identical lines, under a
+#: docstring claiming it compared the function against the evidence
+#: "and not against a second copy of the same tuple". A second copy is
+#: precisely what it was, so any defect the two shared (the wrong
+#: argument name, the wrong field) passed. A QA pass measured that and
+#: it is the reason this table exists.
+#:
+#: A table has to be MAINTAINED, and that is the feature: a build whose
+#: documented vocabulary changes cannot slip through as a silently
+#: re-derived answer, because someone has to come here and say so.
+#: ``None`` means the build does not express symmetry through an
+#: argument of that name.
+EXPECTED_SYMMETRY = {
+    "25.000": None,  # spells it SYMMETRY_TYPE, own token set (SRC-749 p.298)
+    "25.100": ("NONE", "MIRROR", "PERIODIC"),
+    "26.000": ("NONE", "MIRROR", "PERIODIC"),
+    "26.100": ("NONE", "MIRROR", "PERIODIC"),
+    "26.101": ("NONE", "MIRROR", "PERIODIC"),
+    "26.120": ("NONE", "MIRROR", "PERIODIC"),
+    "26.121": ("NONE", "MIRROR", "PERIODIC"),
+    "26.122": ("NONE", "MIRROR", "PERIODIC"),
+    "26.123": ("NONE", "MIRROR", "PERIODIC"),
+}
 
 
 def registry_declaring(values: tuple[str, ...]) -> CommandRegistry:
@@ -1338,12 +1463,23 @@ def registry_declaring(values: tuple[str, ...]) -> CommandRegistry:
 
 
 def test_the_accepted_symmetries_come_from_the_database_per_build():
-    """Every registered build, against the database's own declaration."""
-    for build in known_versions():
-        canonical = build.canonical
-        assert accepted_symmetry(Script(canonical)) == database_symmetry(canonical), (
-            f"the accepted symmetry set reported for {canonical} is not the one its "
-            "command database declares"
+    """Every registered build, against an INDEPENDENT expectation.
+
+    The oracle is :data:`EXPECTED_SYMMETRY`, written down rather than
+    re-derived; its own comment carries why. The population is asserted
+    too, so a build registered tomorrow fails here until someone states
+    what it accepts, instead of being covered by a loop that shrank.
+    """
+    registered = {build.canonical for build in known_versions()}
+    assert registered == set(EXPECTED_SYMMETRY), (
+        f"the expectation table and the registered builds disagree: {registered} vs "
+        f"{set(EXPECTED_SYMMETRY)}. State what the new build accepts rather than "
+        "widening the loop"
+    )
+    for canonical, expected in sorted(EXPECTED_SYMMETRY.items()):
+        assert accepted_symmetry(Script(canonical)) == expected, (
+            f"the accepted symmetry set reported for {canonical} is not the one this "
+            "build is documented to accept"
         )
 
 
@@ -1353,11 +1489,11 @@ def test_the_build_whose_symmetry_argument_is_spelled_differently_reports_none()
     This is the case a hand-written list cannot pass: a literal
     ``("NONE", "MIRROR", "PERIODIC")`` answers the same for every build
     and would report a vocabulary this edition does not have
-    (SRC-749 p.298). The empty tuple is what hands the row on to
+    (SRC-749 p.298). ``None`` is what hands the row on to
     ``initialize_solver``, whose refusal names that edition.
     """
-    assert accepted_symmetry(Script("25.000")) == ()
-    assert accepted_symmetry(Script("26.120")) != ()
+    assert accepted_symmetry(Script("25.000")) is None
+    assert accepted_symmetry(Script("26.120")) is not None
 
 
 def test_a_database_declaring_other_symmetries_changes_the_answer():
@@ -1381,6 +1517,64 @@ def test_a_database_declaring_other_symmetries_changes_the_answer():
         "set is a literal kept beside the workflow"
     )
     assert "MIRROR" in message, "the refusal does not name the value the row wrote"
+
+
+def test_a_build_that_declares_the_argument_without_enumerating_it_refuses_nothing_here():
+    """THE SECOND FALSY ANSWER, and the one that had no case at all.
+
+    ``accepted_symmetry`` returns ``None`` when the build does not
+    declare a ``symmetry`` argument, and an EMPTY TUPLE when it declares
+    one that is not an enumeration: a non-enum argument carries
+    ``values = None`` in the command database, which reads back as ``()``.
+    The two are different facts and the return value keeps them apart,
+    but ``_initialize`` must treat them alike, because neither can judge
+    a mode.
+
+    This case exists because getting that wrong is invisible. For one
+    round of review the check read ``accepted is not None``, which is
+    correct for the absent argument and refuses EVERY mode on this one,
+    with a message claiming the build accepts none of them. No test
+    reached it: the mutation restoring the truthiness test survived the
+    suite, and that survival is what exposed it.
+
+    What must happen instead is nothing at all HERE. The row goes on to
+    the command's own validation, which is the only thing that knows
+    this build's grammar.
+    """
+    # A NON-ENUM argument, which is the shape that really produces the
+    # empty tuple: `values` is None on it and `values or ()` reads it as
+    # `()`. Built here rather than through `registry_declaring`, which
+    # keeps the type ENUM and so makes an enumeration with no tokens,
+    # a degenerate entry the script validator rejects on its own. That
+    # distinction cost this case one revision and is why it is written
+    # down: the two look identical through `accepted_symmetry`.
+    database = CommandRegistry.load()
+    entry = database.commands["INITIALIZE_SOLVER"]
+    args = tuple(
+        argument.model_copy(update={"type": ArgType.STR, "values": None})
+        if argument.name == "symmetry"
+        else argument
+        for argument in entry.args
+    )
+    commands = dict(database.commands)
+    commands["INITIALIZE_SOLVER"] = entry.model_copy(update={"args": args})
+    database = CommandRegistry(commands=commands)
+
+    script = Script("26.120", registry=database)
+    assert accepted_symmetry(script) == (), (
+        "an argument declared without an enumeration should read back as an empty "
+        "tuple, which is the case this guard is about"
+    )
+
+    case = steady_case(SYMMETRY="PERIODIC", PERIODIC_COPIES="4")
+    text = Script("26.120", registry=database)
+    build_script(case, text, registry=database)
+    rendered_lines = text.render().splitlines()
+    assert "SYMMETRY PERIODIC 4" in rendered_lines, (
+        "the row was refused, or its mode was dropped, on a build that declares the "
+        "argument without enumerating its tokens; this layer cannot judge a mode there "
+        "and must leave the decision to the command"
+    )
 
 
 def test_a_row_declaring_neither_key_emits_symmetry_none_and_no_count():
@@ -1433,7 +1627,7 @@ def test_a_symmetry_outside_the_declared_set_is_refused_naming_both():
         rendered(steady_case(SYMMETRY="AXISYMMETRIC"))
     message = str(raised.value)
     assert "'AXISYMMETRIC'" in message, "the refusal does not name the value the row wrote"
-    for mode in database_symmetry("26.120"):
+    for mode in EXPECTED_SYMMETRY["26.120"]:
         assert mode in message, f"the refusal does not list the accepted mode {mode}"
     assert "one blade" in message, "the refusal does not name the physical consequence"
 
@@ -1497,3 +1691,47 @@ def test_the_build_this_helper_cannot_express_keeps_its_own_refusal():
     assert "25.000" in message
     assert "SYMMETRY_TYPE" in message
     assert SYMMETRY_VARIABLE not in message.replace("SYMMETRY_TYPE", "")
+
+
+def test_a_row_that_does_declare_a_symmetry_on_that_build_still_gets_the_helpers_refusal():
+    """THE BRANCH THE CASE ABOVE CANNOT REACH, and it was unproven.
+
+    The sibling above builds a case with NO ``SYMMETRY`` key, so
+    ``symmetry is None`` and the whole accepted-modes block is skipped.
+    No case anywhere declared a symmetry on 25.000, which left
+    ``accepted is not None and ...`` carrying a fact nothing measured: a
+    QA pass deleted the ``accepted is not None`` half and the entire tier
+    1 suite stayed green.
+
+    What the missing half decides: 25.000 spells the argument
+    ``SYMMETRY_TYPE``, so :func:`accepted_symmetry` answers ``None``, and
+    the row must go on to meet the BUILD's refusal. Without the guard it
+    would meet a refusal from this module reading "FlightStream 25.000
+    initializes under " with an empty list, blaming the row for the
+    build's grammar and naming no accepted mode at all.
+    """
+    with pytest.raises(CommandArgumentError) as raised:
+        rendered(steady_case(SYMMETRY="PERIODIC", PERIODIC_COPIES="4"), "25.000")
+    message = str(raised.value)
+    assert "SYMMETRY_TYPE" in message, "the build's own refusal was replaced by ours"
+    assert "initializes under" not in message, (
+        "the row was refused for declaring a mode this build does not accept, but the "
+        "build declares no accepted set at all: the refusal names an empty list"
+    )
+
+
+def test_the_build_that_spells_it_differently_answers_none_rather_than_empty():
+    """``None`` and ``()`` are two different facts and must not share a value.
+
+    ``None`` means this build does not express symmetry through an
+    argument named ``symmetry``; an empty tuple would mean it declares
+    the argument and enumerates nothing. No build asks the second
+    question today, which is exactly why the sentinel was worth
+    separating before one does: with both spelled ``()`` the docstring
+    was true only by a property of the database that nothing asserts,
+    and ``accepted_symmetry(script) == ()`` reads at a call site as "no
+    mode is accepted", the inverse of what it meant.
+    """
+    assert accepted_symmetry(Script("25.000")) is None
+    accepted = accepted_symmetry(Script("26.120"))
+    assert accepted is not None and "PERIODIC" in accepted

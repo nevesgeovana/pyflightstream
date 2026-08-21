@@ -77,13 +77,23 @@ them close the gap that made the capability unusable:
 
 * `GEOMETRY: <stem>` names a geometry staged under `inputs/geometries/`,
   resolved the same way `REF`, `SET` and `ENTRY` are, and refused with
-  the available stems when the id is not there. The workflow opens it
-  first, before anything else, and it opens the STAGED copy, so the file
-  the manifest hashed and the file the solver read are the same bytes.
-  It must be a saved simulation, a `.fsm`; another suffix is refused
-  naming the route above, because importing a raw mesh needs the row to
-  declare its UNITS and a silently defaulted unit is the failure this
-  page exists to prevent.
+  the available stems when the id is not there. The value is the file
+  name STEM, never the file name: with `wing_clean.fsm` staged, the cell
+  reads `GEOMETRY: wing_clean`. The workflow opens it first, before
+  anything else, and it opens the STAGED copy, so the file the manifest
+  hashed and the file the solver read are the same bytes.
+
+    A WORKFLOW opens a saved simulation, a `.fsm`, and nothing else. That
+    is a property of the two built-in builders rather than of the key: a
+    recipe of your own receives whatever the library staged and imports
+    it declaring the units itself. The narrowing exists because importing
+    a raw mesh takes the mesh's length units as an argument
+    (SRC-003 p.307) and no matrix cell declares them, so the package
+    would have to default one, and a defaulted unit is a body of the
+    wrong size whose coefficients solve, export and report without a
+    word. The refusal points at
+    [mesh inputs and GUI-only operations](mesh-inputs.md): open the mesh
+    in the window once, save a `.fsm`, script everything after.
 * `SYMMETRY: <mode>` and, where the mode needs it, `PERIODIC_COPIES: <n>`.
   The accepted modes are read from the command database for the row's own
   build, never from a list written here. **This one is not a
@@ -91,12 +101,31 @@ them close the gap that made the capability unusable:
   sector was solved as a one-bladed rotor: the run completed and the
   numbers were wrong, silently.
 
-A row that names none of the three behaves exactly as it did before, and
-that is measured rather than promised: every shipped golden, every
-fixture and every covered build render byte for byte identically without
-them.
+    `MIRROR` carries a caution the cell cannot enforce. The mode
+    describes what you MESHED, so a row declaring it must have staged the
+    half model; initializing a mirrored solution with the full model
+    loaded diverges immediately, because the model is then its own mirror
+    image (SRC-003 p.217).
 
-Four runs come out of those two rows. Nothing in the matrix says where
+**THOSE THREE NAMES ARE NOW RESERVED**, and it is the only upgrade risk
+in v0.8.1. `VAR_NAMES_VALUES` is otherwise your namespace: the rows above
+use `FSM_FILE`, a key of their own that nothing in the package reads. If
+a cell of yours already spells `GEOMETRY`, `SYMMETRY` or
+`PERIODIC_COPIES`, the package now reads it, so rename your key or stage
+the file the id names. The match is on the exact key, so a cell spelling
+it `SYMMETRY_TYPE` is untouched. Moving a row off `LEGACY` is the moment
+to rename `FSM_FILE` to `GEOMETRY`; a row that stays on `LEGACY` keeps
+its recipe and its own key, and nothing changes for it.
+
+A row that names none of the three behaves exactly as it did before, and
+that is measured rather than promised: every workflow, on every build it
+covers, renders the same bytes it rendered before v0.8.1, pinned as
+committed goldens under `tests/goldens/workflows/` and compared on every
+run of the suite. That population is the one the claim is about; a
+sentence here once cited the repository's other goldens and fixtures,
+and not one of those is produced by a workflow builder.
+
+Four runs come out of those two rows of `matrix_registry.fs`. Nothing in the matrix says where
 anything is written, and that is deliberate: naming is the workspace's
 job.
 
@@ -412,6 +441,9 @@ row's identifiers resolved to.
 
 Two types ship today.
 
+Both open the row's `GEOMETRY` first when the row names one, and both
+initialize the solver under the row's `SYMMETRY`.
+
 `steady` is one point of a polar: a uniform free stream, the solver
 settings the row's `SET` identifier resolved to, one solve, one loads
 export.
@@ -430,6 +462,19 @@ POL  | AIRCRAFT  | DESCRIPTION            | RE      | MACH    | SWEEP_TYPE  | SW
 7001 | RotorRig  | ROTOR_UNSTEADY         |  1.20   | 0.0800  | AL          | 0.0            | r003 | s002 | e001   | 010       | 26.120   |    1   |  1  | unsteady_rotor | OUTPUTS: loads_{point}.txt / VELOCITY: 30.0 / RPM: 1200 / ROTOR_AXIS: X / BLADES: 4 / DELTA_TIME: 0.0001 / TIME_ITERATIONS: 720 / WINDOW_DEGREES: 90
 7002 | RotorRig  | STEADY_REFERENCE       |  1.20   | 0.0800  | AL          | 0.0,2.0        | r003 | s002 | e001   | 003       | 26.120   |    1   |  1  | steady         | OUTPUTS: loads_{point}.txt / VELOCITY: 30.0
 ```
+
+**NEITHER ROW NAMES A `GEOMETRY`, AND THAT IS WHAT THEY ARE FOR.** This
+file is the suite's proof that a matrix written before v0.8.1 renders
+exactly the bytes it always did, so it deliberately names none of the
+three keys; run as it stands, it solves whatever the solver already has
+open, which is the defect v0.8.1 exists to remove. Add the cell to make
+it a study that opens its own model:
+
+```text
+... | unsteady_rotor | GEOMETRY: blade_sector / OUTPUTS: loads_{point}.txt / VELOCITY: 30.0 / SYMMETRY: PERIODIC / PERIODIC_COPIES: 4 / RPM: 1200 / ...
+```
+
+with `blade_sector.fsm` staged under `inputs/geometries/`.
 
 From the terminal, that whole study is one command:
 
@@ -562,11 +607,26 @@ worse than no page at all.
   reader, the average, the writing seam and the plan that says which
   windows all ship, and the composition is executed in the suite. What
   does not exist is the step that fires it at the end of a run.
-- **No unsteady rotor case has been run on a licensed solver yet.** The
-  rotor workflow is proven to build a script every registered build's
-  command database accepts, which is not the same fact as a solver
-  accepting it. Read `unsteady_rotor` as evidenced against the database
-  and not against a run.
+- **A workflow opens a saved simulation only.** No matrix cell declares
+  mesh units, so a `.stl` or `.obj` staged in the library resolves
+  perfectly well and is then refused when the script is built, rather
+  than being imported under a unit nobody chose. Convert it once through
+  [mesh inputs](mesh-inputs.md). A recipe of your own is not bound by
+  this: it declares the units itself.
+- **A workflow row that names no `GEOMETRY` is accepted in silence.** It
+  emits no open, which is exactly what keeps every pre-v0.8.1 matrix
+  rendering as it did, and it means a row migrated from a recipe by
+  changing `LEGACY` to a workflow name, while keeping a `FSM_FILE` key of
+  its own, opens nothing and is told nothing. Rename the key to
+  `GEOMETRY` when you move a row off `LEGACY`.
+- **No script BUILT BY THE `unsteady_rotor` WORKFLOW has been run on a
+  licensed solver yet.** The workflow is proven to build a script every
+  registered build's command database accepts, which is not the same
+  fact as a solver accepting it. Read `unsteady_rotor` as evidenced
+  against the database and not against a run. The QA physics suite's own
+  unsteady propeller case (PHY-05) HAS run on a licensed machine and
+  sits inside its bands, and it is a different script, hand-built rather
+  than emitted by this workflow.
 - **`pyfs-matrix run` cannot judge a swept row yet.** Stated above where
   the command is, and repeated here because this is the list people
   read: the standard assessor sees every point of a row in one folder
