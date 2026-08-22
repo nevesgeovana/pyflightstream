@@ -25,8 +25,10 @@ exercises the whole item:
 
 WHAT THIS MODULE DELIBERATELY DOES NOT TEST, said here so a reader does
 not take silence for coverage: no solver runs. The rotor path is proven
-to SERIALISE against the command database of every registered build,
-which is not the same fact as being accepted by a solver, and the
+to SERIALISE against the command database of every build it COVERS,
+which is five of the nine registered rather than all nine, because the
+rotor motion vocabulary only exists from 26.101 onward. Serialising is
+not the same fact as being accepted by a solver, and the
 acceptance clause of PFS-2025.06 that asks for one real unsteady case
 producing all four outputs needs a licensed seat that was not open.
 """
@@ -41,11 +43,18 @@ import numpy as np
 import pytest
 
 from pyflightstream._errors import PyflightstreamError
-from pyflightstream.cases import CampaignConfigError, SimCase, SweepAxis, check_recipe
+from pyflightstream.cases import (
+    CampaignConfigError,
+    SimCase,
+    SolverSettings,
+    SweepAxis,
+    check_recipe,
+)
 from pyflightstream.cases import matrix as matrix_module
 from pyflightstream.cases.matrix import to_campaign
 from pyflightstream.cases.workflows import (
     GEOMETRY_VARIABLE,
+    MESH_PAGE_ANCHOR,
     PERIODIC_COPIES_VARIABLE,
     ROTOR_SHEDDING_VARIABLE,
     SIMULATION_SUFFIX,
@@ -1139,33 +1148,133 @@ def rendered(case: SimCase, build: str = "26.120") -> str:
     return script.render()
 
 
-#: Every workflow crossed with every build it covers: the population the
-#: byte-identity claim was always about.
-WORKFLOW_RENDERS = [
-    (name, build) for name in sorted(WORKFLOWS) for build in covered_builds(WORKFLOWS[name])
+def steady_case_full() -> SimCase:
+    """A steady case exercising the settings branches ``bare`` leaves out.
+
+    ``bare`` carries one alpha, the default :class:`SolverSettings` and one
+    output, so three conditional emissions never fire: the sideslip line
+    (``point`` has no ``beta``), the thread-count line (``max_threads``
+    is None) and any output index above zero. A V and V pass measured
+    that, and it matters because the goldens are the release's forward
+    regression detector: a mutation inside the ``sideslip is not None``
+    branch was invisible to the whole population.
+
+    Like ``bare`` it names NONE of the three 0.8.1 keys, so it belongs to
+    the same claim.
+    """
+    return steady_case().model_copy(
+        update={
+            "point": {"alpha": 2.0, "beta": 3.0},
+            "outputs": ["loads_a+02.0.txt", "forces_a+02.0.txt"],
+            "solver": SolverSettings(iterations=800, convergence=1e-6, max_threads=8),
+        }
+    )
+
+
+def rotor_case_full() -> SimCase:
+    """A rotor case in the other window form, with the optional cells set.
+
+    ``WINDOW_STEPS`` rather than ``WINDOW_DEGREES``, plus ``ROTOR_ORIGIN``
+    and ``MOVING_BOUNDARIES``, which are the rotor branches ``bare`` does
+    not reach. Names none of the three 0.8.1 keys.
+
+    EVERY FIELD IS NON-DEGENERATE ON PURPOSE, including the axis. A first
+    version of this case left ``ROTOR_AXIS`` at the shared default of
+    ``X``, so all 28 goldens carried ``AXIS 1 X`` and a builder that
+    ignored the row's axis and hardcoded ``X`` passed every one of them.
+    A rotor row asking for ``Z`` and spinning about ``X`` converges,
+    exports and reports numbers for a machine nobody described, which is
+    the failure class this release exists to remove. The origin is
+    likewise off-axis in all three components rather than only in ``z``.
+    """
+    return rotor_case(
+        WINDOW_DEGREES=None,
+        WINDOW_STEPS="36",
+        ROTOR_AXIS="Z",
+        ROTOR_ORIGIN="0.1,0.2,0.3",
+        MOVING_BOUNDARIES="1,2",
+    )
+
+
+#: The case shapes the byte-identity goldens are rendered from, by
+#: workflow. The SINGLE HOME: ``scripts/gen_workflow_goldens.py`` imports
+#: this table, so the generator and the guard cannot disagree about what
+#: a historical case is.
+GOLDEN_CASES = {
+    "steady": {"bare": steady_case, "full": steady_case_full},
+    "unsteady_rotor": {"bare": rotor_case, "full": rotor_case_full},
+}
+
+#: The (workflow, build) pairs that are expected to REFUSE rather than
+#: render, with the refusal text pinned as the golden.
+#:
+#: Declared as data because the alternative is a laundering path. The
+#: generator writes a refusal golden ONLY for a pair listed here and
+#: aborts on any other failure; without that, a defect making a builder
+#: raise on every build would be turned into nine committed "expected"
+#: refusals by one regeneration, and the suite would pass over it.
+#:
+#: The one entry is the registered over-approximation: ``covered_builds``
+#: reports 25.000 as covered by ``steady`` because that build's database
+#: carries every command the workflow always emits, while
+#: ``initialize_solver`` refuses that edition's grammar outright. When
+#: that is decided either way, this set goes empty in the same commit.
+EXPECTED_REFUSALS = {("steady", "25.000")}
+
+#: Every workflow crossed with every case shape and every build it
+#: covers: the population the byte-identity claim was always about.
+GOLDEN_RENDERS = [
+    (name, label, build)
+    for name in sorted(GOLDEN_CASES)
+    for label in sorted(GOLDEN_CASES[name])
+    for build in covered_builds(WORKFLOWS[name])
 ]
 
 GOLDEN_WORKFLOWS = Path(__file__).parent / "goldens" / "workflows"
 
 
-def render_or_refusal(name: str, build: str) -> str:
+def golden_name(name: str, label: str, build: str) -> str:
+    """The committed file name for one rendered pair."""
+    return f"{name}.{label}@{build}.txt"
+
+
+def render_or_refusal(name: str, label: str, build: str) -> str:
     """Return one workflow's render on one build, or its refusal text.
 
-    Shared with ``scripts/gen_workflow_goldens.py`` in shape but not in
-    code, deliberately: the generator imports THIS module for the case
-    builders, so the two cannot disagree about what a case is, and the
-    formatting of a refusal is four lines that are clearer duplicated
-    than imported across the tests/scripts boundary.
+    Imported by ``scripts/gen_workflow_goldens.py`` rather than copied
+    into it. An earlier version duplicated these lines there and
+    justified it as "clearer duplicated than imported across the
+    tests/scripts boundary", which refuted itself: the generator already
+    imports this module for the case builders.
+
+    The ``except`` is narrow on purpose. A builder refusing is behaviour
+    worth pinning; a ``TypeError`` from a renamed helper is a broken
+    generator, and freezing its message as evidence would hide the break.
     """
-    case = steady_case() if name == "steady" else rotor_case()
+    case = GOLDEN_CASES[name][label]()
+    # THE PREMISE, ASSERTED RATHER THAN NAMED IN A TITLE. The guard is
+    # called "a case naming none of the three keys", and nothing checked
+    # that the case names none of them. Both builders come from shared
+    # fixtures that forty other cases override, so the default variable
+    # dict is a live edit surface: adding `SYMMETRY: NONE` to a default
+    # leaves every golden byte-identical, because NONE is what the
+    # builder already emits, and the guard's subject silently becomes
+    # the opposite of its name. Measured by a QA pass, green.
+    declared = {GEOMETRY_VARIABLE, SYMMETRY_VARIABLE, PERIODIC_COPIES_VARIABLE}
+    named = declared & set(case.variables)
+    assert not named and case.geometry is None, (
+        f"the {name} '{label}' case declares {sorted(named) or 'a geometry'}, so this "
+        "population is no longer the historical one and the byte-identity claim it "
+        "backs is about a different matrix than the one it names"
+    )
     try:
         return rendered(case, build)
-    except Exception as error:  # noqa: BLE001 - the refusal IS the golden
+    except (CampaignConfigError, CommandArgumentError, WorkflowCoverageError) as error:
         return f"REFUSED {type(error).__name__}\n{error}\n"
 
 
-@pytest.mark.parametrize(("name", "build"), WORKFLOW_RENDERS)
-def test_a_case_naming_none_of_the_three_keys_renders_its_committed_bytes(name, build):
+@pytest.mark.parametrize(("name", "label", "build"), GOLDEN_RENDERS)
+def test_a_case_naming_none_of_the_three_keys_renders_its_committed_bytes(name, label, build):
     """THE GUARD BEHIND THE RELEASE'S OWN HEADLINE SAFETY CLAIM.
 
     0.8.1 says a matrix naming none of ``GEOMETRY``, ``SYMMETRY`` or
@@ -1194,21 +1303,35 @@ def test_a_case_naming_none_of_the_three_keys_renders_its_committed_bytes(name, 
     the diff: a change here is a change to every script this package
     builds for every user who has not touched their matrix.
     """
-    golden = GOLDEN_WORKFLOWS / f"{name}@{build}.txt"
+    golden = GOLDEN_WORKFLOWS / golden_name(name, label, build)
     assert golden.is_file(), (
-        f"no committed render for {name} on {build}. A build joins covered_builds the "
-        "moment its evidence lands, so this fires on a newly registered build before "
-        "anyone notices the population grew: regenerate with "
+        f"no committed render for {name} ({label}) on {build}. A build joins "
+        "covered_builds the moment its evidence lands, so this fires on a newly "
+        "registered build before anyone notices the population grew: regenerate with "
         "python scripts/gen_workflow_goldens.py and review the new file"
     )
+    actual = render_or_refusal(name, label, build)
     # read_bytes and not read_text: universal-newline translation would
     # hide a line-ending rewrite from a comparison whose whole subject is
     # the bytes. The sibling guard in test_script.py asserts the same
     # tree carries no carriage return at all.
-    assert render_or_refusal(name, build).encode("utf-8") == golden.read_bytes(), (
+    assert actual.encode("utf-8") == golden.read_bytes(), (
         f"the {name} workflow renders different bytes on {build} than the committed "
         "golden. Every matrix that names none of the three 0.8.1 keys just changed "
         "script, which is the property the release promised would hold"
+    )
+    # THE REFUSAL SET IS ASSERTED, not merely tolerated. Without this, a
+    # defect that made a builder raise on every build could be turned
+    # into committed "expected" refusals by one regeneration, and every
+    # assertion above would still pass: the goldens would match, the
+    # population would match, and the tree would record the defect as the
+    # intended behaviour.
+    refused = actual.startswith("REFUSED")
+    assert refused == ((name, build) in EXPECTED_REFUSALS), (
+        f"{name} on {build} "
+        + ("refuses and is not a declared refusal" if refused else "")
+        + ("renders and is declared as a refusal" if not refused else "")
+        + f"; EXPECTED_REFUSALS holds {sorted(EXPECTED_REFUSALS)}"
     )
 
 
@@ -1220,18 +1343,28 @@ def test_the_render_population_is_not_empty_and_covers_both_workflows():
     nothing while every remaining case still passed. A parametrized guard
     over a computed population needs the population asserted.
     """
-    assert len(WORKFLOW_RENDERS) >= 14, (
-        f"the render population shrank to {len(WORKFLOW_RENDERS)}; it was 14 when the "
+    assert len(GOLDEN_RENDERS) >= 28, (
+        f"the render population shrank to {len(GOLDEN_RENDERS)}; it was 28 when the "
         "goldens were committed, and it may only GROW as builds register"
     )
-    assert {name for name, _ in WORKFLOW_RENDERS} == set(WORKFLOWS), (
+    assert {name for name, _, _ in GOLDEN_RENDERS} == set(WORKFLOWS), (
         "a shipped workflow renders on no build at all, so the byte-identity guard "
         "covers it vacuously"
     )
-    committed = {path.stem for path in GOLDEN_WORKFLOWS.iterdir() if path.is_file()}
-    assert committed == {f"{name}@{build}" for name, build in WORKFLOW_RENDERS}, (
+    assert {label for _, label, _ in GOLDEN_RENDERS} == {"bare", "full"}, (
+        "a case shape vanished from the table, so the branches it was added to reach "
+        "are covered by nothing again"
+    )
+    committed = {path.name for path in GOLDEN_WORKFLOWS.iterdir() if path.is_file()}
+    assert committed == {golden_name(*row) for row in GOLDEN_RENDERS}, (
         "the committed goldens and the covered population disagree; a stale golden for "
         "a build no longer covered would sit there asserted by nothing"
+    )
+    # Every declared refusal names a pair that is actually rendered, so a
+    # stale entry cannot sit here excusing a pair that no longer exists.
+    assert EXPECTED_REFUSALS <= {(name, build) for name, _, build in GOLDEN_RENDERS}, (
+        "EXPECTED_REFUSALS names a (workflow, build) pair outside the rendered "
+        "population, so it excuses nothing and hides the next real refusal"
     )
 
 
@@ -1368,6 +1501,26 @@ def test_the_documented_route_the_refusal_names_really_exists():
     assert page.is_file(), f"{page} is named in a refusal and does not exist"
     body = page.read_text(encoding="utf-8")
     assert ".fsm" in body, "the page the refusal routes to does not mention .fsm at all"
+    # THE ANCHOR, and this half is why the guard was widened. The refusal
+    # tells the user which sentence to look for, and for one commit it
+    # quoted "A workflow opens route 1 only" while the page said "A
+    # WORKFLOW TAKES ROUTE 1 ONLY". Both halves were written together and
+    # neither was wrong alone; the pair sent a blocked user searching a
+    # long page for a string that was not on it. Asserting that the file
+    # exists and says ".fsm" could not see it.
+    assert MESH_PAGE_ANCHOR in body, (
+        f"the refusal tells the user to look on {page.name} under "
+        f"{MESH_PAGE_ANCHOR!r}, and that sentence is not on the page"
+    )
+    refusal = ""
+    try:
+        rendered(steady_case(geometry="runs/7002/inputs/blade.stl"))
+    except CampaignConfigError as error:
+        refusal = str(error)
+    assert MESH_PAGE_ANCHOR in refusal, (
+        "the refusal no longer quotes the anchor this guard pins, so the pair it "
+        "protects is no longer the pair that ships"
+    )
 
 
 def test_the_suffix_is_read_case_insensitively():

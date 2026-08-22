@@ -46,7 +46,9 @@ def main(argv: list[str] | None = None) -> int:
 
 def _cmd_init(args: argparse.Namespace) -> int:
     workspace = CampaignWorkspace.init(args.root)
-    print(f"campaign workspace ready at {workspace.root.resolve()}")
+    # `.root` is already absolute; the workspace resolves it once at
+    # construction. Re-resolving here would tell a reader it might not be.
+    print(f"campaign workspace ready at {workspace.root}")
     for kind in INPUT_KINDS:
         print(f"  inputs/{kind}/")
     print("  inputs/executables.toml (build registry)")

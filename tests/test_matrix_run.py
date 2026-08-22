@@ -2070,6 +2070,64 @@ def test_a_stem_two_staged_files_share_is_refused_rather_than_chosen(tmp_path):
     assert "wing_clean.fsm" in message and "wing_clean.stl" in message
 
 
+@pytest.mark.parametrize("staged_first", [True, False])
+def test_a_cell_naming_the_file_name_is_told_the_id_is_the_stem(tmp_path, staged_first):
+    """THE REFUSAL MUST NOT PRESCRIBE A DOUBLED EXTENSION.
+
+    The id rule permits a dot, so ``GEOMETRY: wing_clean.fsm`` (what
+    anyone who has just staged a file writes) passes the id check and
+    misses in the library. The first wording told that user to stage
+    ``inputs/geometries/wing_clean.fsm.fsm``: satisfiable, and the wrong
+    action, because their file was already staged correctly and the CELL
+    was what needed fixing.
+
+    BOTH ORDERS ARE COVERED and that is the point of the parametrization.
+    A first fix keyed the diagnosis on the stem already being staged,
+    which serves only someone who staged before writing the cell; the
+    commoner order is the other one, and it still received the doubled
+    extension. The suffix in the WRITTEN id is what diagnoses this, and
+    it is diagnosable with nothing else true.
+    """
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
+    if staged_first:
+        stage_geometry(workspace, "wing_clean.fsm")
+    with pytest.raises(InputArtifactError) as caught:
+        resolve_geometry_row(tmp_path, workspace, " / GEOMETRY: wing_clean.fsm")
+    message = str(caught.value)
+    assert "wing_clean.fsm.fsm" not in message, (
+        "the refusal prescribes a doubled extension, which is the defect this case "
+        "exists to prevent"
+    )
+    assert f"{GEOMETRY_VARIABLE}: wing_clean" in message, (
+        "the refusal does not show the cell the user should have written"
+    )
+    assert "STEM" in message, "the refusal does not name the rule that was broken"
+
+
+def test_an_ambiguous_stem_is_not_told_to_stage_the_file_it_staged_twice(tmp_path):
+    """The third arm, which the two-arm version answered wrongly.
+
+    With ``wing_clean.fsm`` and ``wing_clean.stl`` both staged and the
+    cell written correctly as the stem, the library refuses for
+    AMBIGUITY. The general arm told that user to stage the file and to
+    write the cell they had already written, while the real remedy,
+    renaming or removing one of the two, was only in the chained
+    sentence.
+    """
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
+    stage_geometry(workspace, "wing_clean.fsm")
+    stage_geometry(workspace, "wing_clean.stl")
+    with pytest.raises(InputArtifactError) as caught:
+        resolve_geometry_row(tmp_path, workspace, " / GEOMETRY: wing_clean")
+    message = str(caught.value)
+    assert "wing_clean.fsm" in message and "wing_clean.stl" in message
+    assert "stage a file whose name is" not in message, (
+        "the refusal tells a user whose file is staged twice to stage it, and to write "
+        "the cell they already wrote"
+    )
+    assert "rename or remove" in message, "the refusal does not carry the real remedy"
+
+
 def test_a_raw_mesh_row_is_refused_by_the_pre_flight_before_anything_is_staged(tmp_path):
     """THE OTHER HALF OF THE .stl SIBLING ABOVE, which stops at resolution.
 
@@ -2161,7 +2219,13 @@ def test_the_whole_chain_the_row_the_staged_copy_and_the_opened_path(tmp_path):
     executed = (sim_dir / records[0].script_path).read_text(encoding="utf-8")
     lines = executed.splitlines()
     assert lines[0] == "OPEN", "the executed script does not open the geometry first"
-    assert Path(lines[1]).resolve() == staged.resolve(), (
+    # STRICT equality, not resolved-equality. Widening this was an
+    # unforced weakening made in the commit that is about path SPELLING:
+    # two paths that resolve alike but are spelled differently are
+    # exactly the defect that commit fixes, and this is the case that
+    # would otherwise see it. The relative-root sibling below is where
+    # resolving is the requirement, and it says so.
+    assert Path(lines[1]) == staged, (
         "the executed script opens a path other than the staged copy the record hashed, "
         "so the digest and the bytes the solver read are not the same file"
     )

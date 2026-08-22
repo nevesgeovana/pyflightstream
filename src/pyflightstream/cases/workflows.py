@@ -72,6 +72,7 @@ __all__ = [
     "BLADES_VARIABLE",
     "DELTA_TIME_VARIABLE",
     "GEOMETRY_VARIABLE",
+    "MESH_PAGE_ANCHOR",
     "MOVING_BOUNDARIES_VARIABLE",
     "PERIODIC_COPIES_VARIABLE",
     "ROTOR_AXIS_VARIABLE",
@@ -187,6 +188,17 @@ SYMMETRY_VARIABLE = "SYMMETRY"
 #: :func:`pyflightstream.script.helpers.initialize_solver`; a
 #: four-bladed rotor modelled as one 90 degree sector declares 4.
 PERIODIC_COPIES_VARIABLE = "PERIODIC_COPIES"
+
+#: The sentence on ``docs/mesh-inputs.md`` that the suffix refusal sends
+#: a blocked user to, quoted VERBATIM so the two cannot drift.
+#:
+#: The refusal used to quote "A workflow opens route 1 only" while the
+#: page said "A WORKFLOW TAKES ROUTE 1 ONLY". Both were written in the
+#: same commit and neither was wrong on its own; only together were they
+#: useless, because a user who does what the message says, opens the page
+#: and searches for the phrase, finds nothing. Spelled here rather than
+#: inline so a tier 1 guard can assert the page still contains it.
+MESH_PAGE_ANCHOR = "A WORKFLOW TAKES ROUTE 1 ONLY"
 
 #: The only suffix a workflow opens, and it is a DELIBERATE narrowing
 #: rather than an oversight (PFS-2025.02.02).
@@ -1285,7 +1297,7 @@ def _open_geometry(case: SimCase, script: Script) -> None:
             "defaulted unit is a body of the wrong size reported without a word. Open "
             "the mesh in the FlightStream window once, save the result as a .fsm, and "
             "stage that in inputs/geometries/ instead; docs/mesh-inputs.md carries the "
-            "route in full, under 'A workflow opens route 1 only'. The file this case "
+            f"route in full, under '{MESH_PAGE_ANCHOR}'. The file this case "
             f"resolved to is {case.geometry!r}."
         )
     script.emit("OPEN", case.geometry)
@@ -1325,16 +1337,30 @@ def accepted_symmetry(script: Script) -> tuple[str, ...] | None:
         :func:`pyflightstream.script.helpers.initialize_solver`, whose
         refusal already names that edition and its remedy.
 
-        ``None`` RATHER THAN AN EMPTY TUPLE, and the distinction is the
-        caller's rather than this function's. An empty tuple would be
-        the honest answer to a different question, an enumeration that
-        declares no tokens, and today no build asks it; sharing one
-        value between "this build does not express symmetry" and "this
-        build accepts nothing" makes the docstring true only by a
-        property of the database that nothing asserts. It also reads
-        wrongly at a call site: ``accepted_symmetry(script) == ()``
-        says "no mode is accepted", which is the inverse of what the
-        empty tuple used to mean here.
+        An EMPTY TUPLE where the build declares a ``symmetry`` argument
+        that is NOT an enumeration. A non-enum argument carries no
+        ``values`` in the command database and reads back as ``()``. No
+        registered build is that shape today: 25.000 spells the argument
+        ``symmetry_type`` and every other build declares the three-token
+        enum.
+
+        BOTH FALSY ANSWERS MEAN "THIS BUILD CANNOT JUDGE A MODE", so a
+        caller tests truthiness unless it specifically needs to tell the
+        two apart, which is what :func:`_initialize` does. They are
+        returned distinctly because they are different facts about the
+        build, and a caller offering a user a list of modes needs to know
+        which it is looking at.
+
+        AN ENUMERATION DECLARING NO TOKENS IS NOT ONE OF THESE CASES,
+        and the distinction is worth a line because the obvious reading
+        gets it backwards. That state cannot exist:
+        :class:`pyflightstream.commands.ArgSpec` refuses to validate an
+        enum with no values, so a database containing one fails to load.
+        An earlier draft of this section offered it as the meaning of
+        ``()`` and called the real producer impossible, which is exactly
+        the reading under which ``if accepted is not None`` looks
+        correct at the call site. It is not, and that regression was
+        written and reverted once already.
 
     Raises
     ------

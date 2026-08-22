@@ -101,11 +101,16 @@ them close the gap that made the capability unusable:
   sector was solved as a one-bladed rotor: the run completed and the
   numbers were wrong, silently.
 
-    `MIRROR` carries a caution the cell cannot enforce. The mode
+    `MIRROR` carries two cautions the cell cannot enforce. The mode
     describes what you MESHED, so a row declaring it must have staged the
     half model; initializing a mirrored solution with the full model
     loaded diverges immediately, because the model is then its own mirror
-    image (SRC-003 p.217).
+    image (SRC-003 p.217). And a workflow cannot make the post-mirror
+    loads setting explicit, because no cell reaches it: the run takes the
+    solver's own default, which was measured as ENABLE on a licensed
+    solver, so the loads are the full model's. That is the value you
+    want, and it is a default rather than a declaration. A study that
+    needs it stated is a recipe today.
 
 **THOSE THREE NAMES ARE NOW RESERVED**, and it is the only upgrade risk
 in v0.8.1. `VAR_NAMES_VALUES` is otherwise your namespace: the rows above
@@ -118,12 +123,20 @@ to rename `FSM_FILE` to `GEOMETRY`; a row that stays on `LEGACY` keeps
 its recipe and its own key, and nothing changes for it.
 
 A row that names none of the three behaves exactly as it did before, and
-that is measured rather than promised: every workflow, on every build it
-covers, renders the same bytes it rendered before v0.8.1, pinned as
-committed goldens under `tests/goldens/workflows/` and compared on every
-run of the suite. That population is the one the claim is about; a
-sentence here once cited the repository's other goldens and fixtures,
-and not one of those is produced by a workflow builder.
+that is measured rather than promised, in two separate ways because they
+are two separate claims.
+
+Going forward, 28 renders are pinned as committed goldens under
+`tests/goldens/workflows/` and compared byte for byte on every run of the
+suite: two workflows, two case shapes each, across every build the
+workflow covers. On one of the 28 pairs, `steady` on FlightStream 25.000,
+the builder refuses instead of rendering and the golden pins that refusal
+text; the changelog's "Known gaps" says why.
+
+Looking back, the same cases were rendered against a worktree at the
+`v0.8.0` tag and came out byte for byte identical to all 28. That is the
+half the goldens cannot prove on their own, since they were generated
+from this release.
 
 Four runs come out of those two rows of `matrix_registry.fs`. Nothing in the matrix says where
 anything is written, and that is deliberate: naming is the workspace's
@@ -467,14 +480,23 @@ POL  | AIRCRAFT  | DESCRIPTION            | RE      | MACH    | SWEEP_TYPE  | SW
 file is the suite's proof that a matrix written before v0.8.1 renders
 exactly the bytes it always did, so it deliberately names none of the
 three keys; run as it stands, it solves whatever the solver already has
-open, which is the defect v0.8.1 exists to remove. Add the cell to make
-it a study that opens its own model:
+open, which is the defect v0.8.1 exists to remove.
+
+**BOTH** rows need the cell, not just the rotor one: a row that keeps
+none opens nothing and is told nothing. The fragment below is written for
+this page rather than lifted from the suite, and shows each row's
+`VAR_NAMES_VALUES` tail with the rest elided:
 
 ```text
-... | unsteady_rotor | GEOMETRY: blade_sector / OUTPUTS: loads_{point}.txt / VELOCITY: 30.0 / SYMMETRY: PERIODIC / PERIODIC_COPIES: 4 / RPM: 1200 / ...
+7001 ... | unsteady_rotor | GEOMETRY: blade_sector / OUTPUTS: loads_{point}.txt / VELOCITY: 30.0 / RPM: 1200 / ...
+7002 ... | steady         | GEOMETRY: blade_sector / OUTPUTS: loads_{point}.txt / VELOCITY: 30.0
 ```
 
-with `blade_sector.fsm` staged under `inputs/geometries/`.
+with `blade_sector.fsm` staged under `inputs/geometries/`. A periodic
+sector adds `SYMMETRY: PERIODIC / PERIODIC_COPIES: <n>`; whether the
+solver turns the periodic images with the rotary motion, so that a
+sector under `PERIODIC 4` solves as a four-bladed rotor in an UNSTEADY
+run, has not been measured on a licensed solver and is not claimed here.
 
 From the terminal, that whole study is one command:
 
@@ -498,6 +520,14 @@ both read as loads tables and refuses rather than guessing between
 them. A row with one sweep value runs; a row with several does not yet.
 Running such a row from Python, with an assessor of your own, is
 unaffected.
+
+**That limit applies to the matrix printed above, as printed.** Row 7002
+sweeps two alphas, so the command shown runs 7001 and cannot judge
+7002's second point. Cut 7002 to one sweep value to run the block
+exactly as it stands, which is what the suite does: it keeps a helper
+that rewrites `0.0,2.0` to a single value for the acceptance cases, and
+the case that runs the committed fixture unmodified is marked as an
+expected failure until this is fixed.
 
 ### The window, said once
 
@@ -607,6 +637,13 @@ worse than no page at all.
   reader, the average, the writing seam and the plan that says which
   windows all ship, and the composition is executed in the suite. What
   does not exist is the step that fires it at the end of a run.
+- **No cell reaches the post-mirror loads setting.** A `SYMMETRY: MIRROR`
+  row takes the solver's own default for whether the reported loads are
+  the half model's or the full one's. That default was measured as
+  ENABLE on a licensed solver, which is the value a mirrored study
+  wants, so this is a declaration that cannot be made rather than a
+  wrong number being produced. A study that needs it stated explicitly
+  is a recipe today.
 - **A workflow opens a saved simulation only.** No matrix cell declares
   mesh units, so a `.stl` or `.obj` staged in the library resolves
   perfectly well and is then refused when the script is built, rather

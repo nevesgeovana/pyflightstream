@@ -831,11 +831,17 @@ class CampaignWorkspace:
     def open(cls, root: str | Path, naming: NamingTemplate | None = None) -> CampaignWorkspace:
         """Open an existing campaign root, checking what it already holds.
 
-        The validating constructor. ``CampaignWorkspace(root)`` stays
-        free of I/O so a campaign can be described cheaply and away from
-        the files; this one asks the questions that are worth asking once,
-        when the library opens, rather than when a single id happens to
-        resolve.
+        The validating constructor. ``CampaignWorkspace(root)`` READS
+        NOTHING OF THE CAMPAIGN, refuses nothing and raises nothing, so a
+        campaign can be described before its tree exists; this one asks
+        the questions that are worth asking once, when the library opens,
+        rather than when a single id happens to resolve.
+
+        That promise used to be worded "stays free of I/O", which stopped
+        being true in 0.8.1: the constructor normalises the root with
+        :meth:`pathlib.Path.resolve`, which consults the working
+        directory and the filesystem. The property the split actually
+        rests on is the one stated above, and it is unchanged.
 
         Parameters
         ----------
@@ -1227,7 +1233,10 @@ class CampaignWorkspace:
         """
         try:
             resolved = origin.resolve()
-            root = self.root.resolve()
+            # `self.root` is resolved at construction, so it is used as
+            # it stands. `origin` and `sim` still need it: the first is
+            # caller-supplied and the second may descend through a link.
+            root = self.root
             simulation = sim.resolve()
         except OSError:
             # A path this process cannot resolve is a problem for the

@@ -442,36 +442,64 @@ def _resolve_geometry(workspace: CampaignWorkspace, artifact_id: str, pol: str) 
     Raises
     ------
     pyflightstream.workspace.InputArtifactError
-        The library cannot resolve the id, or the stem is shared by
-        several staged files. The message names the row's POL, the stem
-        written, and (through the chained library refusal) the ids that
-        would have resolved. The structured ``kind``, ``artifact_id``
-        and ``available`` attributes are carried across, so a caller
-        that offers the user a choice does not parse the sentence.
+        In two cases, which carry DIFFERENT structured attributes, and
+        the difference is stated because a caller that offers the user a
+        choice will otherwise offer an empty one.
+
+        A MISS. The library holds no file of that stem. ``kind``,
+        ``artifact_id`` and ``available`` are carried across from the
+        library's refusal, so the ids that would have resolved are
+        readable without parsing the sentence.
+
+        AN AMBIGUOUS STEM, where several staged files share it. The
+        library raises that one with no structured attributes at all
+        (:func:`pyflightstream.workspace.inputs.resolve_geometry`), so
+        ``kind`` and ``artifact_id`` are ``None`` and ``available`` is
+        empty here too, and the colliding FILE NAMES appear only in the
+        chained sentence. Filling them at the ambiguity site would be
+        the better fix and is not this function's to make.
+
+        Both messages name the row's POL and the stem written.
     """
     try:
         return workspace.resolve_geometry(artifact_id)
     except InputArtifactError as error:
-        # THE LIKELIEST MISTAKE IS ANSWERED FIRST, and it is the one the
-        # previous wording actively made worse. The id rule permits a
-        # dot, so `GEOMETRY: wing_clean.fsm` (what anyone who has just
-        # staged a file writes) passes the id check, misses in the
-        # library, and used to be told to stage
-        # `inputs/geometries/wing_clean.fsm.fsm`. That instruction is
-        # satisfiable and wrong: the file was already staged correctly
-        # and the CELL is what needed fixing.
+        # THREE ARMS, and which one fires is decided by the SUFFIX alone
+        # rather than by what happens to be staged. The first version of
+        # this branch also required the stem to be in `available`, which
+        # served only the user who had already staged the file, and left
+        # the commoner order (write the cell, then stage) reading the
+        # general arm: with an empty library it still told them to create
+        # `inputs/geometries/wing_clean.fsm.fsm` and to keep the cell that
+        # was wrong. That is the original defect, in the half that meets
+        # more people. The id rule permits a dot, so a written id CARRYING
+        # a suffix is diagnosable on its own and nothing else needs to be
+        # true for the diagnosis to hold.
         stem = PurePath(artifact_id).stem
-        if PurePath(artifact_id).suffix and stem in (error.available or ()):
+        if PurePath(artifact_id).suffix:
+            staged = stem in (error.available or ())
+            settled = (
+                "The file itself is staged correctly"
+                if staged
+                else f"Then stage the file as inputs/geometries/{stem} plus its extension"
+            )
             remedy = (
                 f"the id is the file name STEM and not the file name, so write "
-                f"'{GEOMETRY_VARIABLE}: {stem}'. The file itself is staged correctly"
+                f"'{GEOMETRY_VARIABLE}: {stem}'. {settled}"
             )
+        elif error.artifact_id is None:
+            # The AMBIGUOUS stem, which the library raises with no
+            # structured attributes at all. Its own sentence names the
+            # colliding FILES and the remedy (rename or remove one), and
+            # anything this module adds about staging is wrong: the file
+            # is staged twice and the cell is already right.
+            remedy = "the library's own refusal below names the files and the fix"
         else:
             remedy = (
-                f"stage the file as inputs/geometries/{artifact_id}<suffix> and write "
-                f"'{GEOMETRY_VARIABLE}: {artifact_id}', or fix the matrix cell. A "
-                "workflow opens a saved simulation, so stage a .fsm; a recipe of your "
-                "own receives whatever the library holds"
+                f"stage a file whose name is '{artifact_id}' plus its extension under "
+                f"inputs/geometries/, or fix the matrix cell. A workflow opens a saved "
+                "simulation, so stage a .fsm; a recipe of your own receives whatever "
+                "the library holds"
             )
         raise InputArtifactError(
             f"matrix row POL {pol}: the {GEOMETRY_VARIABLE} variable names geometry "

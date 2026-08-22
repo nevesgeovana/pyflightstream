@@ -64,18 +64,25 @@ FlightStream versions.
 
 - **A matrix that names none of the three keys behaves exactly as it did**,
   and that is now measured rather than promised: every workflow crossed
-  with every build it covers, 14 renders, is committed under
-  `tests/goldens/workflows/` and compared byte for byte on every run of
-  the suite. The one build whose grammar the steady builder cannot
-  express is pinned as its REFUSAL text, so that wording is fixed too.
+  with two case shapes and every build it covers, 28 renders, is
+  committed under `tests/goldens/workflows/` and compared byte for byte
+  on every run of the suite. The one build whose grammar the steady
+  builder cannot express is pinned as its REFUSAL text, so that wording
+  is fixed too, and the set of pairs allowed to refuse is declared as
+  data: an unexpected refusal aborts the generator instead of being
+  written as evidence that the tree then accepts.
 
-  The claim in the first draft of this entry cited 23 goldens and 18
-  fixtures instead, and it was two thirds vacuous: not one of those 41
-  files is produced by a workflow builder, so none of them could have
-  changed whatever the builders did. A QA pass proved it by inserting
-  one extra emitted line into the steady builder, which changes the
-  bytes of every geometry-less steady script on every build; the whole
-  tier 1 suite stayed green. It does not now.
+  The claim is measured rather than asserted, and it was not before: a
+  QA pass inserted one extra emitted line into the steady builder, which
+  changes the bytes of every geometry-less steady script on every build,
+  and the whole tier 1 suite stayed green. It does not now; the same
+  mutant fails eight cases.
+
+  Both halves of the claim are measured, because they are two claims.
+  The goldens are generated from THIS release, so on their own they can
+  only pin what happens from here. The backward half was measured
+  separately and once: the same 28 cases rendered against a worktree at
+  the `v0.8.0` tag come out byte for byte identical.
 
 - **A campaign no longer fails when the workspace root is relative**, and
   this one was found by the review of the fix above rather than by a
@@ -93,7 +100,17 @@ FlightStream versions.
   that hand something to the solver today. `CampaignWorkspace.root` is
   therefore absolute even when the caller passed a relative path;
   `RunRecord.script_path` stays relative to the simulation directory, so
-  manifests written by earlier releases still read.
+  manifests written by earlier releases still read. `RunRecord.cwd` and
+  `RunRecord.argv` now carry absolute paths under a relative root, where
+  they previously carried the caller's spelling; older rows read
+  unchanged.
+
+  `run.export_surface_mesh` had the same defect and no workspace to
+  inherit the fix from, since a caller hands it a directory directly. It
+  resolves its own working directory and the simulation it opens, and
+  `LocalExecutor` now resolves the script path it puts in the argv, which
+  covers every caller of that half rather than the three that exist
+  today.
 
   Every guard in the suite had built its workspace on an absolute
   temporary directory, where a path spelled from the caller and one
@@ -118,9 +135,30 @@ is accepted in silence.
 `covered_builds` reports FlightStream 25.000 as covered by `steady`,
 because that build's database carries every command the workflow always
 emits, while `initialize_solver` refuses that edition's grammar outright.
-The refusal is loud and arrives before anything is emitted, so no seat is
-spent and no numbers are produced; the over-approximation is pinned as a
-golden and registered rather than hidden.
+The refusal is loud and arrives before the script is written and before
+any solver is started, so no seat is spent and no numbers are produced.
+(A row naming a `GEOMETRY` does emit its `OPEN` first and then refuses;
+the script is discarded either way, which is why the guarantee is worded
+about the solver rather than about the first emission.) The
+over-approximation is pinned as a golden and registered rather than
+hidden.
+
+### API surface delta
+
+- **Added** to `pyflightstream.cases.workflows`: `GEOMETRY_VARIABLE`,
+  `SYMMETRY_VARIABLE`, `PERIODIC_COPIES_VARIABLE`, `SIMULATION_SUFFIX`,
+  `MESH_PAGE_ANCHOR` and `accepted_symmetry`.
+- `GEOMETRY_VARIABLE` is DEFINED in `cases.workflows`, beside the other
+  cell keys, and re-exported from `pyflightstream.workspace.matrix`,
+  where the resolver that reads the cell lives. Both import paths work,
+  neither is deprecated, and the second is the one the resolver's own
+  documentation names.
+- `accepted_symmetry` returns `tuple[str, ...] | None`. `None` means the
+  build does not express symmetry through an argument of that name; an
+  empty tuple would mean it declares one that is not an enumeration.
+  Both mean "this build cannot judge a mode", so a caller tests
+  truthiness unless it needs to tell the two apart.
+- Nothing was removed, renamed or deprecated.
 
 ### Documentation
 

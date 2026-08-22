@@ -463,7 +463,15 @@ class LocalExecutor:
         argv = [str(self.fs_exe)]
         if self.hidden:
             argv.append("-hidden")
-        argv.extend([SCRIPT_ARGUMENT, str(script_path)])
+        # RESOLVED AT THE CHOKEPOINT. The solver is started with its
+        # working directory set to the run's own folder, and it reads
+        # this path from ITS cwd, not from ours. A caller holding a
+        # relative path therefore names a script one level too deep and
+        # the solver reports a file that is sitting right there as
+        # missing. Every caller passes through here, so this is the one
+        # line that covers the argv half for all of them, including the
+        # ones written after this comment.
+        argv.extend([SCRIPT_ARGUMENT, str(Path(script_path).resolve())])
         return argv
 
     def run_script(
@@ -2708,12 +2716,21 @@ def export_surface_mesh(
                 "executor or the explicit fs_exe path"
             )
         executor = LocalExecutor(fs_exe)
-    workdir = Path(workdir)
+    # RESOLVED, for the reason `CampaignWorkspace.__init__` carries at
+    # length: this function has no workspace to inherit an absolute root
+    # from, and it hands the solver three things spelled from HERE while
+    # the solver runs THERE. Two of them, the simulation it opens and the
+    # mesh it writes, become script text, which no chokepoint downstream
+    # can fix; the third is the argv, which `_argv` also resolves. A
+    # relative `workdir` used to write the mesh one level below the
+    # directory this then checks, and report a run that did everything
+    # right as "the mesh was not written".
+    workdir = Path(workdir).resolve()
     workdir.mkdir(parents=True, exist_ok=True)
     mesh_path = workdir / f"surface_mesh.{file_type.lower()}"
 
     script = Script(version)
-    script.emit("OPEN", str(Path(fsm_path)))
+    script.emit("OPEN", str(Path(fsm_path).resolve()))
     script.emit("EXPORT_SURFACE_MESH", file_type, surface, str(mesh_path))
     script.emit("CLOSE_FLIGHTSTREAM")
     script_path = workdir / "export_surface_mesh.txt"

@@ -2991,3 +2991,35 @@ def test_an_unforeseen_write_error_does_not_swallow_the_campaign_failures(tmp_pa
                 recipes={"steady": steady_recipe},
             )
     assert workspace.read_manifest()[0].status is RunStatus.FAILED_INCOMPLETE_OUTPUT
+
+
+def test_the_argv_names_the_script_absolutely_whatever_the_caller_passed(tmp_path, monkeypatch):
+    """THE CHOKEPOINT, tested directly because no caller reaches it wrongly.
+
+    The solver is started with its working directory set to the run's own
+    folder and reads the script path from ITS directory, not from the
+    caller's. Every path a campaign hands it is absolute because
+    ``CampaignWorkspace`` resolves its root, and ``export_surface_mesh``
+    resolves its own working directory, so today nothing passes a
+    relative script path and a case built on a caller could not fail.
+
+    That is exactly why this asserts the property at ``_argv`` instead.
+    The resolution lives there because it is the one line every present
+    and future caller passes through; an arm no case reaches is not
+    covered, it is merely unvisited, so the arm is exercised on its own
+    terms here.
+    """
+    # A real file, because the constructor refuses a missing executable.
+    # sys.executable is the stand-in every other case in this module uses.
+    monkeypatch.chdir(tmp_path)
+    executor = LocalExecutor(fs_exe=sys.executable)
+
+    argv = executor._argv(Path("sims/sim_7001/scripts/a+00.0.txt"))
+
+    named = Path(argv[-1])
+    assert named.is_absolute(), (
+        f"the argv names {named!r}, spelled from the caller's directory; the solver "
+        "resolves it from the simulation folder and reports a script that is sitting "
+        "right there as missing"
+    )
+    assert named == (tmp_path / "sims/sim_7001/scripts/a+00.0.txt").resolve()

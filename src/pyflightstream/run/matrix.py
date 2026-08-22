@@ -318,7 +318,10 @@ def plan_matrix(
         bound, so no campaign is built and no executable is resolved
         (PFS-2009.08.03).
     pyflightstream.workspace.InputArtifactError
-        A REF, SET or ENTRY code the input library cannot resolve.
+        A REF, SET or ENTRY code, or a ``GEOMETRY`` stem, that the input
+        library cannot resolve. The geometry half arrived with 0.8.1 and
+        raises through the same call; this list said REF, SET and ENTRY
+        only until the review that noticed.
 
     Examples
     --------

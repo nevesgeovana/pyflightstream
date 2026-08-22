@@ -1586,7 +1586,13 @@ def test_the_same_stem_under_two_kinds_is_two_ids_and_stays_legal(tmp_path):
     (workspace.inputs_dir / "geometries" / "003.fsm").write_text("mesh", encoding="utf-8")
     (workspace.inputs_dir / "profiles" / "003.csv").write_text("r,T\n", encoding="utf-8")
 
-    assert CampaignWorkspace.init(root).root == root
+    # `.resolve()` on BOTH sides, and it is not decoration. The workspace
+    # normalises its root at construction, so comparing against the raw
+    # argument passes here only because pytest's tmp_path is already
+    # resolved. Written that way it reads as evidence that the root is
+    # preserved verbatim, which is exactly the belief that let a relative
+    # root ship broken.
+    assert CampaignWorkspace.init(root).root == root.resolve()
     opened = CampaignWorkspace.open(root)
     assert opened.resolve_geometry("003").name == "003.fsm"
     assert opened.resolve_profile("003").name == "003.csv"
@@ -1795,7 +1801,11 @@ def test_opening_a_root_that_was_never_initialised_finds_no_ambiguity(tmp_path):
     its tree is built.
     """
     workspace = CampaignWorkspace.open(tmp_path / "not_a_campaign_yet")
-    assert workspace.root == tmp_path / "not_a_campaign_yet"
+    assert workspace.root == (tmp_path / "not_a_campaign_yet").resolve()
+    assert workspace.root.is_absolute(), (
+        "the root is stored as given; every path handed to the solver derives from it "
+        "and would be spelled from the caller's directory rather than the run's"
+    )
 
 
 # --- PFS-2012.03: a waiver row on disk must name the build it rests on ------

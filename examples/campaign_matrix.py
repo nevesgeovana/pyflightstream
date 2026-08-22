@@ -103,8 +103,9 @@ print("\n".join(campaign_toml.splitlines()[:8]))
 # so every line still passes database validation.
 #
 # READ ONE THING ABOUT `case.geometry` BEFORE YOU COPY THIS RECIPE. The
-# recipe below opens `case.geometry`, and there are three ways that field
-# is filled, which is the whole of what this note is for.
+# recipe below opens `case.geometry`, and there are three routes to that
+# field of which only two fill it, which is the whole of what this note
+# is for.
 #
 # Section 4 sets it BY HAND, on a `SimCase` built in Python.
 #
@@ -125,8 +126,11 @@ print("\n".join(campaign_toml.splitlines()[:8]))
 # set the field and that a recipe should read a key of its own and call
 # `workspace.inputs.resolve_geometry`, and it told the reader to wait for
 # a geometry COLUMN. It was true the day it was written. The release that
-# made it false is the one that shipped the key, and no test reads an
+# made it false is the one that shipped the key, and no test READ an
 # example's prose, so nothing but a reader was ever going to catch it.
+# One does now: `tests/test_docs_example_currency.py` asserts that this
+# note names the key a row fills the field with, and that the two claims
+# which went stale cannot come back.
 
 
 # %%

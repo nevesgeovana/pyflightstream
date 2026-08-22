@@ -48,6 +48,50 @@ def test_export_runs_the_documented_script_and_returns_the_mesh(tmp_path):
     assert "CLOSE_FLIGHTSTREAM" in executor.script_text
 
 
+def test_every_path_the_solver_reads_is_absolute_under_a_relative_workdir(tmp_path, monkeypatch):
+    """THE FOURTH SOLVER BOUNDARY, and the one with no workspace behind it.
+
+    `CampaignWorkspace` resolves its root, which covers every path a
+    campaign hands the solver. This function has no workspace: a caller
+    passes a `workdir` directly, and three things spelled from the
+    CALLER's directory then reach a solver running in `workdir` itself.
+    Two of them are script text, which nothing downstream can repair.
+
+    Under a relative `workdir` the mesh was written one level below the
+    directory this function then checks, so a run that did everything
+    right was reported as `SurfaceMeshExportError: ... was not written`.
+
+    Every other case in this module passes `tmp_path`, which is absolute,
+    so none of them can tell a resolved path from an unresolved one.
+    """
+    (tmp_path / "case.fsm").write_text("simulation", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    executor = FakeMeshExporter()
+
+    mesh = export_surface_mesh(Path("case.fsm"), Path("pre"), version="26.120", executor=executor)
+
+    assert mesh.is_absolute() and mesh.is_file()
+    # Located by the command that owns each one rather than by a line
+    # index: the renderer puts a blank line after each argument block, so
+    # an index is a guess about the layout and this case is about the
+    # paths, not about the spacing.
+    lines = executor.script_text.splitlines()
+    opened = lines[lines.index("OPEN") + 1]
+    written = next(
+        line for i, line in enumerate(lines) if lines[i - 1].startswith("EXPORT_SURFACE_MESH")
+    )
+    assert Path(opened).is_absolute(), (
+        f"the script opens {opened!r}, spelled from the caller's directory; the solver "
+        "resolves it from its own and lands one level too deep"
+    )
+    assert Path(opened).is_file(), "the opened path does not name the simulation that exists"
+    assert Path(written).is_absolute(), (
+        f"the script writes the mesh to {written!r}, which the solver resolves from its "
+        "own directory while this function looks for it under the caller's"
+    )
+    assert Path(written) == mesh, "the mesh the script writes is not the one this returns"
+
+
 def test_failed_run_raises_with_the_log_excerpt(tmp_path):
     executor = FakeMeshExporter(write_mesh=False, return_code=1)
     with pytest.raises(SurfaceMeshExportError, match="returned 1.*solver said no"):
