@@ -111,10 +111,11 @@ print("\n".join(campaign_toml.splitlines()[:8]))
 #
 # A MATRIX ROW SETS IT with `GEOMETRY: <stem>` in `VAR_NAMES_VALUES`,
 # resolved against `inputs/geometries/` the way `REF`, `SET` and `ENTRY`
-# are (v0.8.1). `resolve_matrix` is what assigns it, and it assigns it
-# for every active row, so a recipe of your own receives the field
-# exactly as a built-in workflow does. `plan_matrix` and `run_matrix`
-# both go through there.
+# are (v0.8.1). `resolve_matrix` is what assigns it, for every active row
+# THAT NAMES THE KEY; a row naming none leaves the field absent, which is
+# the property the whole release rests on. So a recipe of your own
+# receives the field exactly as a built-in workflow does, and both
+# `plan_matrix` and `run_matrix` go through there.
 #
 # `convert_matrix`, which section 2 uses, resolves no library artifact at
 # all and leaves the field absent. That is the one route where a recipe

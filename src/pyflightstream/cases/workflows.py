@@ -72,7 +72,6 @@ __all__ = [
     "BLADES_VARIABLE",
     "DELTA_TIME_VARIABLE",
     "GEOMETRY_VARIABLE",
-    "MESH_PAGE_ANCHOR",
     "MOVING_BOUNDARIES_VARIABLE",
     "PERIODIC_COPIES_VARIABLE",
     "ROTOR_AXIS_VARIABLE",
@@ -160,9 +159,11 @@ WINDOW_DEGREES_VARIABLE = "WINDOW_DEGREES"
 WINDOW_STEPS_VARIABLE = "WINDOW_STEPS"
 WINDOW_REVOLUTIONS_VARIABLE = "WINDOW_REVOLUTIONS"
 
-#: The solver symmetry the case is initialized under: ``NONE``,
-#: ``MIRROR`` or ``PERIODIC``, and the accepted set is READ FROM THE
-#: COMMAND DATABASE per build rather than restated here
+#: The mode the case is initialized under. The accepted tokens are READ
+#: FROM THE COMMAND DATABASE per build rather than restated here, and on
+#: today's 26-series builds they are ``NONE``, ``MIRROR`` and
+#: ``PERIODIC``, while 25.000 spells the argument differently and offers
+#: its own set
 #: (:func:`accepted_symmetry`). Absent means the row asks for nothing and
 #: ``NONE`` is emitted, which is what every workflow emitted before
 #: 0.8.1 and the only thing any of them could emit.
@@ -173,6 +174,15 @@ WINDOW_REVOLUTIONS_VARIABLE = "WINDOW_REVOLUTIONS"
 #: mode describes what was MESHED, so a row declaring it must have
 #: staged the half. Nothing here can check that, which is why it is
 #: written where the mode is chosen rather than only in the helper.
+#:
+#: AND A SECOND CAUTION THIS KEY CANNOT REACH. No workflow calls
+#: :func:`pyflightstream.script.helpers.analysis_setup`, so nothing
+#: emits ``SET_ANALYSIS_SYMMETRY_LOADS`` and a MIRROR row takes the
+#: solver's own default for whether the reported loads are the half
+#: model's or the full one's. That default was calibrated on a licensed
+#: 26.120 as ENABLE, which is the value a mirrored study wants, so what
+#: is missing is the DECLARATION and not the number. The user guide
+#: emits it explicitly for that reason.
 #:
 #: THIS KEY IS WHY 0.8.1 IS A DEFECT RELEASE AND NOT A FEATURE ONE. A
 #: periodic sector solved under ``SYMMETRY NONE`` is not a failed run: it
@@ -198,7 +208,7 @@ PERIODIC_COPIES_VARIABLE = "PERIODIC_COPIES"
 #: useless, because a user who does what the message says, opens the page
 #: and searches for the phrase, finds nothing. Spelled here rather than
 #: inline so a tier 1 guard can assert the page still contains it.
-MESH_PAGE_ANCHOR = "A WORKFLOW TAKES ROUTE 1 ONLY"
+_MESH_PAGE_ANCHOR = "A WORKFLOW TAKES ROUTE 1 ONLY"
 
 #: The only suffix a workflow opens, and it is a DELIBERATE narrowing
 #: rather than an oversight (PFS-2025.02.02).
@@ -1297,7 +1307,7 @@ def _open_geometry(case: SimCase, script: Script) -> None:
             "defaulted unit is a body of the wrong size reported without a word. Open "
             "the mesh in the FlightStream window once, save the result as a .fsm, and "
             "stage that in inputs/geometries/ instead; docs/mesh-inputs.md carries the "
-            f"route in full, under '{MESH_PAGE_ANCHOR}'. The file this case "
+            f"route in full; search that page for '{_MESH_PAGE_ANCHOR}'. The file this "
             f"resolved to is {case.geometry!r}."
         )
     script.emit("OPEN", case.geometry)
@@ -1345,11 +1355,20 @@ def accepted_symmetry(script: Script) -> tuple[str, ...] | None:
         enum.
 
         BOTH FALSY ANSWERS MEAN "THIS BUILD CANNOT JUDGE A MODE", so a
-        caller tests truthiness unless it specifically needs to tell the
-        two apart, which is what :func:`_initialize` does. They are
-        returned distinctly because they are different facts about the
-        build, and a caller offering a user a list of modes needs to know
-        which it is looking at.
+        caller tests truthiness::
+
+            if accepted and mode not in accepted:
+                ...
+
+        That is what the built-in workflows do, and they deliberately do
+        NOT tell the two apart. Tell them apart only when REPORTING to a
+        user which fact holds: ``None`` means the build declares no
+        argument of that name, ``()`` means it declares one that is not
+        an enumeration. An earlier draft of this paragraph pointed at the
+        workflow builders as the precedent for distinguishing them, which
+        is the opposite of what they do, and a reader following that
+        citation found a truthiness test and could reasonably conclude
+        ``is not None`` was sanctioned. It is not.
 
         AN ENUMERATION DECLARING NO TOKENS IS NOT ONE OF THESE CASES,
         and the distinction is worth a line because the obvious reading

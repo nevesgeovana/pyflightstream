@@ -2,7 +2,7 @@
 
 Pipeline role: the workspace-layer half of the run matrix. The reader
 and the converter stay in :mod:`pyflightstream.cases.matrix`, which
-parses the verified 15-column file and maps it onto the canonical
+parses the verified 16-column file and maps it onto the canonical
 ``campaign.toml`` model without needing anything above the cases layer.
 What lives HERE is the step that needs the layer above: resolving the
 matrix's reference columns against the input library under ``inputs/``.
@@ -79,8 +79,8 @@ __all__ = [
 #: The ``VAR_NAMES_VALUES`` key a row names its geometry with.
 #:
 #: RE-EXPORTED, not defined here. Its home is
-#: :data:`pyflightstream.cases.workflows.GEOMETRY_VARIABLE`, beside the
-#: eleven other cell keys, so the builders that refuse a bad value can
+#: :data:`pyflightstream.cases.workflows.GEOMETRY_VARIABLE`, beside its
+#: sibling cell keys, so the builders that refuse a bad value can
 #: name the key the author typed; this module keeps the published import
 #: path and reads the cell.
 #:
@@ -92,7 +92,7 @@ __all__ = [
 #: (:attr:`pyflightstream.run.RunRecord.inputs_sha256`).
 #:
 #: It is a VARIABLE and not a column of its own, deliberately: the
-#: fifteen-column layout is a published format and widening it again is a
+#: published column layout is a format and widening it again is a
 #: BREAK, which 0.8.0 has already spent once (PFS-2025.01). A key in the
 #: free cell costs no format change, so every matrix written before this
 #: release reads at the same width and resolves exactly as it did.
@@ -476,24 +476,52 @@ def _resolve_geometry(workspace: CampaignWorkspace, artifact_id: str, pol: str) 
         # a suffix is diagnosable on its own and nothing else needs to be
         # true for the diagnosis to hold.
         stem = PurePath(artifact_id).stem
-        if PurePath(artifact_id).suffix:
-            staged = stem in (error.available or ())
+        if error.artifact_id is None:
+            # THE AMBIGUOUS STEM, AND IT IS TESTED FIRST. An ambiguity
+            # refusal proves BY CONSTRUCTION that the written id already
+            # IS the shared stem, so nothing any later arm could say
+            # about stems or staging can be true on this path. Ordered
+            # after the suffix arm for one round, which shadowed every
+            # ambiguous id containing a dot: `wing.v2` staged as both
+            # `.fsm` and `.stl` was told to write `GEOMETRY: wing` and
+            # stage a third file, three sentences before the library's
+            # own text said the id matched two files and one should go.
+            #
+            # The library raises this one with no structured attributes,
+            # which is why the discriminator is their absence. That is
+            # the weak half: filling them at the raise site is the right
+            # fix and would invert this test, so it is registered rather
+            # than relied upon, and the guard below goes red if it moves.
+            remedy = "the library's own refusal below names the files and the fix"
+        elif "/" in artifact_id or "\\" in artifact_id:
+            # A PATH, not an id. `_check_id` refuses the shape, and its
+            # refusal is indistinguishable from a miss into an empty
+            # library, so without this arm the general one told the user
+            # to stage a file whose NAME contains separators, which
+            # cannot be created and which the chained sentence
+            # immediately contradicts.
+            #
+            # Both separators are named explicitly rather than asking
+            # PurePath, which is PureWindowsPath here and PurePosixPath
+            # in CI: a cell carrying a backslash would otherwise be
+            # diagnosed on one platform and not the other, and a matrix
+            # is a file that travels.
+            remedy = (
+                f"the id is the stem of a file directly under inputs/geometries/ and "
+                f"never a path, so write '{GEOMETRY_VARIABLE}: {stem}'"
+            )
+        elif PurePath(artifact_id).suffix:
+            # A FILE NAME, not an id. Diagnosable from the suffix alone;
+            # what is staged only changes the second half of the advice.
             settled = (
-                "The file itself is staged correctly"
-                if staged
+                f"A file is already staged under the stem {stem!r}"
+                if stem in (error.available or ())
                 else f"Then stage the file as inputs/geometries/{stem} plus its extension"
             )
             remedy = (
                 f"the id is the file name STEM and not the file name, so write "
                 f"'{GEOMETRY_VARIABLE}: {stem}'. {settled}"
             )
-        elif error.artifact_id is None:
-            # The AMBIGUOUS stem, which the library raises with no
-            # structured attributes at all. Its own sentence names the
-            # colliding FILES and the remedy (rename or remove one), and
-            # anything this module adds about staging is wrong: the file
-            # is staged twice and the cell is already right.
-            remedy = "the library's own refusal below names the files and the fix"
         else:
             remedy = (
                 f"stage a file whose name is '{artifact_id}' plus its extension under "

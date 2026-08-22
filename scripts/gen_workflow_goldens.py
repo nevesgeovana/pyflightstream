@@ -31,11 +31,14 @@ them from too, so a generator and a test cannot drift into disagreeing
 about what "the historical case" is.
 
 MEASURED AGAINST THE RELEASED v0.8.0, once, on 2026-08-21: the same
-cases rendered against a worktree at the ``v0.8.0`` tag produce these
-bytes exactly. That is what licenses the retrospective half of the claim
-("renders what it rendered BEFORE 0.8.1"); the goldens themselves can
-only pin the forward half. Redo it with ``git worktree add <dir>
-v0.8.0`` and this script's sibling render, comparing byte for byte.
+case shapes rendered against a worktree at the ``v0.8.0`` tag produce
+these bytes exactly. That is what licenses the retrospective half of the
+claim ("renders what it rendered BEFORE 0.8.1"); the goldens themselves
+can only pin the forward half. The measurement is committed beside them
+as ``RECEIPT-v0.8.0.md``, which carries the method in full: note that
+the v0.8.0 tree has neither ``GOLDEN_CASES`` nor ``render_or_refusal``,
+both being new here, so a redo restates the case shapes in its render
+script rather than importing them.
 
 Usage
 -----

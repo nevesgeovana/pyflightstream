@@ -51,10 +51,10 @@ from pyflightstream.cases import (
     check_recipe,
 )
 from pyflightstream.cases import matrix as matrix_module
+from pyflightstream.cases import workflows as workflows_module
 from pyflightstream.cases.matrix import to_campaign
 from pyflightstream.cases.workflows import (
     GEOMETRY_VARIABLE,
-    MESH_PAGE_ANCHOR,
     PERIODIC_COPIES_VARIABLE,
     ROTOR_SHEDDING_VARIABLE,
     SIMULATION_SUFFIX,
@@ -1151,13 +1151,22 @@ def rendered(case: SimCase, build: str = "26.120") -> str:
 def steady_case_full() -> SimCase:
     """A steady case exercising the settings branches ``bare`` leaves out.
 
-    ``bare`` carries one alpha, the default :class:`SolverSettings` and one
-    output, so three conditional emissions never fire: the sideslip line
-    (``point`` has no ``beta``), the thread-count line (``max_threads``
-    is None) and any output index above zero. A V and V pass measured
-    that, and it matters because the goldens are the release's forward
-    regression detector: a mutation inside the ``sideslip is not None``
-    branch was invisible to the whole population.
+    ``bare`` carries one alpha and the default :class:`SolverSettings`,
+    so two conditional emissions never fire: the sideslip line (``point``
+    has no ``beta``) and the thread-count line (``max_threads`` is None).
+    A V and V pass measured that, and it matters because the goldens are
+    the release's forward regression detector: a mutation inside the
+    ``sideslip is not None`` branch was invisible to the whole
+    population.
+
+    THE SECOND OUTPUT IS CARRIED AND NOT REACHED, said plainly because an
+    earlier version of this docstring claimed it exercised "any output
+    index above zero" and it does not. Both builders call ``_output`` at
+    index 0 only, so ``forces_a+02.0.txt`` appears in no golden and
+    ``return names[index]`` is an equivalent mutant today. It is kept
+    because a case declaring two outputs is a legitimate shape and the
+    day a builder exports a second file the golden moves; it buys
+    nothing right now.
 
     Like ``bare`` it names NONE of the three 0.8.1 keys, so it belongs to
     the same claim.
@@ -1178,10 +1187,15 @@ def rotor_case_full() -> SimCase:
     and ``MOVING_BOUNDARIES``, which are the rotor branches ``bare`` does
     not reach. Names none of the three 0.8.1 keys.
 
-    EVERY FIELD IS NON-DEGENERATE ON PURPOSE, including the axis. A first
-    version of this case left ``ROTOR_AXIS`` at the shared default of
-    ``X``, so all 28 goldens carried ``AXIS 1 X`` and a builder that
-    ignored the row's axis and hardcoded ``X`` passed every one of them.
+    EVERY FIELD IS NON-DEGENERATE ON PURPOSE, including the axis and the
+    TIME LOOP. Two versions of this case failed that in turn. The first
+    left ``ROTOR_AXIS`` at the shared default of ``X``, so all 28 goldens
+    carried ``AXIS 1 X`` and a builder that hardcoded ``X`` passed every
+    one of them. The second left ``DELTA_TIME`` and ``TIME_ITERATIONS``
+    at the shared values, which the only rotor fixture in the repository
+    also uses, so nothing anywhere disagreed and hardcoding BOTH survived
+    the entire tier 1 suite: every rotor row's time loop was decorative
+    and the run reported a machine nobody described.
     A rotor row asking for ``Z`` and spinning about ``X`` converges,
     exports and reports numbers for a machine nobody described, which is
     the failure class this release exists to remove. The origin is
@@ -1193,6 +1207,8 @@ def rotor_case_full() -> SimCase:
         ROTOR_AXIS="Z",
         ROTOR_ORIGIN="0.1,0.2,0.3",
         MOVING_BOUNDARIES="1,2",
+        DELTA_TIME="0.00025",
+        TIME_ITERATIONS="1600",
     )
 
 
@@ -1234,8 +1250,18 @@ GOLDEN_WORKFLOWS = Path(__file__).parent / "goldens" / "workflows"
 
 
 def golden_name(name: str, label: str, build: str) -> str:
-    """The committed file name for one rendered pair."""
-    return f"{name}.{label}@{build}.txt"
+    """The committed file name for one rendered pair.
+
+    Double underscores rather than a dot and an at sign. The first
+    scheme joined the parts that way and reads as an EMAIL ADDRESS to
+    the tier 1 personal-identifier guard, which fired on the receipt
+    file that lists these names. It was right to: the shape it protects
+    against is a dotted word, an at sign and a dotted domain, which is
+    exactly what that scheme produced. Exempting the guard would have
+    weakened a check that keeps addresses off a public remote in order
+    to keep a file name cosmetic.
+    """
+    return f"{name}__{label}__{build}.txt"
 
 
 def render_or_refusal(name: str, label: str, build: str) -> str:
@@ -1338,7 +1364,7 @@ def test_a_case_naming_none_of_the_three_keys_renders_its_committed_bytes(name, 
 def test_the_render_population_is_not_empty_and_covers_both_workflows():
     """The non-vacuity guard for the parametrization above.
 
-    ``WORKFLOW_RENDERS`` is computed from ``covered_builds``, so a defect
+    ``GOLDEN_RENDERS`` is computed from ``covered_builds``, so a defect
     that emptied or narrowed it would silently reduce the case above to
     nothing while every remaining case still passed. A parametrized guard
     over a computed population needs the population asserted.
@@ -1355,7 +1381,11 @@ def test_the_render_population_is_not_empty_and_covers_both_workflows():
         "a case shape vanished from the table, so the branches it was added to reach "
         "are covered by nothing again"
     )
-    committed = {path.name for path in GOLDEN_WORKFLOWS.iterdir() if path.is_file()}
+    # `*.txt` only: the directory also carries `RECEIPT-v0.8.0.md`, the
+    # one-time measurement that the same cases rendered identically
+    # against the released tag. It is evidence, not a golden, and no test
+    # reads it, so it must not join the population it documents.
+    committed = {path.name for path in GOLDEN_WORKFLOWS.glob("*.txt")}
     assert committed == {golden_name(*row) for row in GOLDEN_RENDERS}, (
         "the committed goldens and the covered population disagree; a stale golden for "
         "a build no longer covered would sit there asserted by nothing"
@@ -1508,16 +1538,16 @@ def test_the_documented_route_the_refusal_names_really_exists():
     # neither was wrong alone; the pair sent a blocked user searching a
     # long page for a string that was not on it. Asserting that the file
     # exists and says ".fsm" could not see it.
-    assert MESH_PAGE_ANCHOR in body, (
+    assert workflows_module._MESH_PAGE_ANCHOR in body, (
         f"the refusal tells the user to look on {page.name} under "
-        f"{MESH_PAGE_ANCHOR!r}, and that sentence is not on the page"
+        f"{workflows_module._MESH_PAGE_ANCHOR!r}, and that sentence is not on the page"
     )
     refusal = ""
     try:
         rendered(steady_case(geometry="runs/7002/inputs/blade.stl"))
     except CampaignConfigError as error:
         refusal = str(error)
-    assert MESH_PAGE_ANCHOR in refusal, (
+    assert workflows_module._MESH_PAGE_ANCHOR in refusal, (
         "the refusal no longer quotes the anchor this guard pins, so the pair it "
         "protects is no longer the pair that ships"
     )

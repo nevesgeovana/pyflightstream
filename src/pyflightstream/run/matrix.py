@@ -446,6 +446,14 @@ def run_matrix(
         cell strips to empty too, by row number and POL, and is raised
         before the matrix is bound: no campaign is built, no executable
         is resolved and no executor is constructed (PFS-2009.08.03).
+    pyflightstream.workspace.InputArtifactError
+        A REF, SET or ENTRY code, or a ``GEOMETRY`` stem, that the input
+        library cannot resolve. Raised during resolution, before the
+        pre-flight and before any executor is constructed. Documented on
+        the sibling :func:`plan_matrix` and not here until 0.8.1, which
+        read as a difference in behaviour where there is none: both call
+        the same resolver on the same line, and a mistyped geometry stem
+        is the commonest user mistake this release makes possible.
     pyflightstream.run.ExecutorConfigurationError
         When the identity pre-flight finds the wrong build installed;
         raised before any point executes.

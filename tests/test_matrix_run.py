@@ -2104,6 +2104,73 @@ def test_a_cell_naming_the_file_name_is_told_the_id_is_the_stem(tmp_path, staged
     assert "STEM" in message, "the refusal does not name the rule that was broken"
 
 
+@pytest.mark.parametrize("stem", ["wing_clean", "wing.v2"])
+def test_an_ambiguous_stem_is_diagnosed_before_its_dot_is_mistaken_for_a_suffix(tmp_path, stem):
+    """A DOTTED STEM IS A LEGITIMATE ID, and it shadowed the arm above it.
+
+    ``wing.v2.fsm`` and ``wing.v2.stl`` is one mesh in two formats under
+    a version-numbered stem, and the cell ``GEOMETRY: wing.v2`` is
+    correct. The library refuses it for AMBIGUITY, and for one round the
+    suffix arm was tested first: ``PurePath('wing.v2').suffix`` is
+    ``'.v2'``, so that user was told to write ``GEOMETRY: wing`` and
+    stage a third file, three sentences before the chained library text
+    said their id matched two files and one should be removed.
+
+    An ambiguity refusal proves the written id IS the shared stem, so it
+    has to be diagnosed first. The dot-free case is kept beside it
+    because it is the one the first version of this guard covered, and
+    losing it would trade one blind spot for another.
+    """
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
+    stage_geometry(workspace, f"{stem}.fsm")
+    stage_geometry(workspace, f"{stem}.stl")
+    with pytest.raises(InputArtifactError) as caught:
+        resolve_geometry_row(tmp_path, workspace, f" / GEOMETRY: {stem}")
+    message = str(caught.value)
+    assert f"{stem}.fsm" in message and f"{stem}.stl" in message
+    assert "rename or remove" in message, "the refusal does not carry the real remedy"
+    assert "STEM and not the file name" not in message, (
+        "an ambiguous id was diagnosed as a file name, so the user is told to shorten "
+        "a cell that is already correct"
+    )
+    assert "stage" not in message.split("A row that names no")[0].lower(), (
+        "the refusal tells a user whose file is staged twice to stage it"
+    )
+
+
+def test_a_cell_holding_a_path_is_told_the_id_is_a_stem(tmp_path):
+    """A path-shaped cell must not be told to create a file with separators in its name.
+
+    ``_check_id`` refuses the SHAPE, and its refusal carries the same
+    structured attributes as a miss into an empty library, so without an
+    arm of its own the general remedy fired: "stage a file whose name is
+    '...rotor' plus its extension". That file cannot be created, a
+    subdirectory would not resolve either, and the chained library
+    sentence says "never a path" immediately afterwards.
+
+    THE SEPARATOR IS A BACKSLASH, and it is the only one that reaches
+    here. A forward slash is the ``VAR_NAMES_VALUES`` cell's own
+    separator between KEY:VALUE entries, so a matrix carrying one is
+    refused by the reader before this function is called at all. A
+    backslash is what a Windows user pastes from an explorer window, and
+    it travels through the cell untouched, which is why the arm names
+    both separators itself rather than asking ``PurePath``: on a POSIX
+    runner ``PurePosixPath`` does not treat it as one.
+    """
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
+    pasted = "inputs\\geometries\\rotor"
+    with pytest.raises(InputArtifactError) as caught:
+        resolve_geometry_row(tmp_path, workspace, f" / GEOMETRY: {pasted}")
+    message = str(caught.value)
+    assert f"{GEOMETRY_VARIABLE}: rotor" in message, (
+        "the refusal does not show the cell the user should have written"
+    )
+    assert f"whose name is '{pasted}'" not in message, (
+        "the refusal prescribes a file name containing path separators, which cannot "
+        "be created and which the library's own sentence contradicts"
+    )
+
+
 def test_an_ambiguous_stem_is_not_told_to_stage_the_file_it_staged_twice(tmp_path):
     """The third arm, which the two-arm version answered wrongly.
 

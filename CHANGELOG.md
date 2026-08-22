@@ -76,13 +76,14 @@ FlightStream versions.
   QA pass inserted one extra emitted line into the steady builder, which
   changes the bytes of every geometry-less steady script on every build,
   and the whole tier 1 suite stayed green. It does not now; the same
-  mutant fails eight cases.
+  mutant fails every steady render on every build that renders one.
 
   Both halves of the claim are measured, because they are two claims.
   The goldens are generated from THIS release, so on their own they can
   only pin what happens from here. The backward half was measured
-  separately and once: the same 28 cases rendered against a worktree at
-  the `v0.8.0` tag come out byte for byte identical.
+  separately and once: the same four case shapes, rendered on all 28
+  combinations against a worktree at the `v0.8.0` tag, come out byte for
+  byte identical, and the receipt is committed beside the goldens.
 
 - **A campaign no longer fails when the workspace root is relative**, and
   this one was found by the review of the fix above rather than by a
@@ -100,10 +101,11 @@ FlightStream versions.
   that hand something to the solver today. `CampaignWorkspace.root` is
   therefore absolute even when the caller passed a relative path;
   `RunRecord.script_path` stays relative to the simulation directory, so
-  manifests written by earlier releases still read. `RunRecord.cwd` and
+  manifests written by earlier releases still read. `RunRecord.cwd` and the SCRIPT PATH inside
   `RunRecord.argv` now carry absolute paths under a relative root, where
   they previously carried the caller's spelling; older rows read
-  unchanged.
+  unchanged. `argv[0]` is the executable as the campaign declared it and
+  is unchanged.
 
   `run.export_surface_mesh` had the same defect and no workspace to
   inherit the fix from, since a caller hands it a directory directly. It
@@ -146,8 +148,8 @@ hidden.
 ### API surface delta
 
 - **Added** to `pyflightstream.cases.workflows`: `GEOMETRY_VARIABLE`,
-  `SYMMETRY_VARIABLE`, `PERIODIC_COPIES_VARIABLE`, `SIMULATION_SUFFIX`,
-  `MESH_PAGE_ANCHOR` and `accepted_symmetry`.
+  `SYMMETRY_VARIABLE`, `PERIODIC_COPIES_VARIABLE`, `SIMULATION_SUFFIX`
+  and `accepted_symmetry`.
 - `GEOMETRY_VARIABLE` is DEFINED in `cases.workflows`, beside the other
   cell keys, and re-exported from `pyflightstream.workspace.matrix`,
   where the resolver that reads the cell lives. Both import paths work,

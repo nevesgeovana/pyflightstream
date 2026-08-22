@@ -40,6 +40,7 @@ from pyflightstream.run import (
     run_campaign,
 )
 from pyflightstream.script import helpers
+from pyflightstream.versions import resolve as version_resolve
 from pyflightstream.workspace import (
     MANIFEST_SCHEMA,
     CampaignWorkspace,
@@ -3023,3 +3024,51 @@ def test_the_argv_names_the_script_absolutely_whatever_the_caller_passed(tmp_pat
         "right there as missing"
     )
     assert named == (tmp_path / "sims/sim_7001/scripts/a+00.0.txt").resolve()
+
+
+def test_the_identity_preflight_exports_its_log_to_an_absolute_path(tmp_path, monkeypatch):
+    """THE FIFTH SOLVER BOUNDARY, and the one whose failure is a false PASS.
+
+    `check_solver_identity` emits `EXPORT_LOG <path>` into script text and
+    runs the solver with its working directory set to `workdir`. Spelled
+    relatively, the solver writes the log one level too deep, this
+    function finds none, reads no build number, and WARNS instead of
+    raising: a campaign aimed at the wrong FlightStream build proceeds,
+    and the warning blames the solver.
+
+    That is the difference between this boundary and the other four. The
+    campaign ones fail loudly with a missing file; this one fails by
+    downgrading a refusal into a warning about somebody else.
+
+    Its only in-package caller passes `tempfile.mkdtemp()` and every
+    existing case passes `tmp_path`, both absolute, so the arm is
+    unvisited rather than covered and is exercised here on its own terms.
+    """
+    emitted: dict[str, str] = {}
+
+    class LogSpy:
+        def run_script(self, script_path, working_dir, timeout_s=None):
+            emitted["script"] = Path(script_path).read_text(encoding="utf-8")
+            return run_module.ExecutionResult(
+                return_code=0,
+                wall_time_s=0.1,
+                timed_out=False,
+                log_text=None,
+                stdout="",
+                stderr="",
+            )
+
+    monkeypatch.chdir(tmp_path)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        run_module.check_solver_identity(LogSpy(), version_resolve("26.120"), Path("pre"))
+
+    lines = emitted["script"].splitlines()
+    exported = lines[lines.index("EXPORT_LOG") + 1]
+    assert Path(exported).is_absolute(), (
+        f"the pre-flight exports its log to {exported!r}, which the solver resolves "
+        "from its own directory; the log lands where nothing reads it, the build "
+        "number is never read, and a wrong installation is warned about instead of "
+        "being refused"
+    )
+    assert Path(exported).parent == (tmp_path / "pre").resolve()

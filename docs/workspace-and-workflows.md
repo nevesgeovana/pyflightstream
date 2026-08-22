@@ -107,10 +107,11 @@ them close the gap that made the capability unusable:
     loaded diverges immediately, because the model is then its own mirror
     image (SRC-003 p.217). And a workflow cannot make the post-mirror
     loads setting explicit, because no cell reaches it: the run takes the
-    solver's own default, which was measured as ENABLE on a licensed
-    solver, so the loads are the full model's. That is the value you
-    want, and it is a default rather than a declaration. A study that
-    needs it stated is a recipe today.
+    solver's own default. That default was calibrated on a licensed
+    26.120 as ENABLE, so the loads are the full model's, which is what a
+    mirrored study wants. It is a default rather than a declaration, and
+    it is measured on ONE build: the user guide emits it explicitly for
+    that reason. A study that needs it stated is a recipe today.
 
 **THOSE THREE NAMES ARE NOW RESERVED**, and it is the only upgrade risk
 in v0.8.1. `VAR_NAMES_VALUES` is otherwise your namespace: the rows above
@@ -126,17 +127,18 @@ A row that names none of the three behaves exactly as it did before, and
 that is measured rather than promised, in two separate ways because they
 are two separate claims.
 
-Going forward, 28 renders are pinned as committed goldens under
+Going forward, every workflow crossed with two case shapes and every
+build it covers is pinned as a committed golden under
 `tests/goldens/workflows/` and compared byte for byte on every run of the
-suite: two workflows, two case shapes each, across every build the
-workflow covers. On one of the 28 pairs, `steady` on FlightStream 25.000,
-the builder refuses instead of rendering and the golden pins that refusal
-text; the changelog's "Known gaps" says why.
+suite. On one of the workflow-and-build pairs, `steady` on FlightStream
+25.000, the builder refuses instead of rendering, and both of that pair's
+goldens pin the refusal text; the changelog's "Known gaps" says why.
 
-Looking back, the same cases were rendered against a worktree at the
-`v0.8.0` tag and came out byte for byte identical to all 28. That is the
-half the goldens cannot prove on their own, since they were generated
-from this release.
+Looking back, the same four case shapes were rendered against a worktree
+at the `v0.8.0` tag: every render came out byte for byte identical, and
+the two refusals matched their text as well. That is the half the goldens
+cannot prove on their own, since they were generated from this release.
+The receipt is committed beside them.
 
 Four runs come out of those two rows of `matrix_registry.fs`. Nothing in the matrix says where
 anything is written, and that is deliberate: naming is the workspace's
@@ -493,10 +495,17 @@ this page rather than lifted from the suite, and shows each row's
 ```
 
 with `blade_sector.fsm` staged under `inputs/geometries/`. A periodic
-sector adds `SYMMETRY: PERIODIC / PERIODIC_COPIES: <n>`; whether the
-solver turns the periodic images with the rotary motion, so that a
-sector under `PERIODIC 4` solves as a four-bladed rotor in an UNSTEADY
-run, has not been measured on a licensed solver and is not claimed here.
+sector adds `SYMMETRY: PERIODIC / PERIODIC_COPIES: <n>`.
+
+That combination, periodic copies together with a rotary motion in an
+unsteady run, HAS been run on a licensed solver by this repository's own
+QA case PHY-05, on 26.120 and again on 26.123, inside its bands. Read
+that as evidence about the SOLVER and not about this workflow: PHY-05 is
+a hand-built script, and no script the `unsteady_rotor` workflow builds
+has run on a licensed solver. What is not established here is whether a
+`BLADES` count may divide the phase-locked averaging window on the
+strength of it, which is why the limits list still says `BLADES`
+configures no rotor.
 
 From the terminal, that whole study is one command:
 
@@ -639,11 +648,11 @@ worse than no page at all.
   does not exist is the step that fires it at the end of a run.
 - **No cell reaches the post-mirror loads setting.** A `SYMMETRY: MIRROR`
   row takes the solver's own default for whether the reported loads are
-  the half model's or the full one's. That default was measured as
-  ENABLE on a licensed solver, which is the value a mirrored study
-  wants, so this is a declaration that cannot be made rather than a
-  wrong number being produced. A study that needs it stated explicitly
-  is a recipe today.
+  the half model's or the full one's. That default was calibrated on a
+  licensed 26.120 as ENABLE, which is the value a mirrored study wants,
+  so this is a declaration that cannot be made rather than a wrong
+  number being produced, and it rests on one build's measurement. A
+  study that needs it stated explicitly is a recipe today.
 - **A workflow opens a saved simulation only.** No matrix cell declares
   mesh units, so a `.stl` or `.obj` staged in the library resolves
   perfectly well and is then refused when the script is built, rather

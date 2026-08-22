@@ -1368,6 +1368,18 @@ def check_solver_identity(
     """
     if version.build is None:
         return
+    # RESOLVED FIRST, and this is the boundary with the worst failure of
+    # the four. `log_path` below becomes SCRIPT TEXT, in an EXPORT_LOG,
+    # and the solver runs with its working directory set to `workdir`.
+    # Spelled relatively, the solver writes the log one level too deep,
+    # this function finds no log, reads no build number, and takes the
+    # WARN branch instead of raising: a campaign pointed at the wrong
+    # installation proceeds, and the warning blames the solver for
+    # "could not read a build number" when the cause was our own path.
+    # A guard that reads its own missing evidence as permission is not a
+    # guard. The same shape was measured against a real 26.120 export in
+    # qa.probes, where it failed silently for exactly this reason.
+    workdir = Path(workdir).resolve()
     workdir.mkdir(parents=True, exist_ok=True)
     log_path = workdir / "preflight_log.txt"
     if log_path.exists():
@@ -2269,7 +2281,14 @@ def _plan_point(
     # depends on that today (the plan checks the library file exists, the
     # builder judges only the suffix, and plan.json carries no script
     # text), and it is written down so a later reader does not reuse this
-    # render AS the run's. Reported at plan time
+    # render AS the run's. Two things make that reuse wrong even for a
+    # case naming no geometry: `write_script` writes in text mode, so on
+    # this Windows-primary machine the bytes the solver reads and
+    # `script_sha256` hashes carry CRLF while `render()` returns LF; and
+    # a RECIPE is user code that may read `case.geometry` in more than one
+    # place, or branch on it, so the one-argument difference is a property
+    # of the two shipped builders rather than of the mechanism.
+    # Reported at plan time
     # rather than only in the manifest: an operator who learns from the
     # manifest that a point leaned on a broken command has already spent
     # the solver time (PYFS-002, and the pre-flight promise of FR-14).
