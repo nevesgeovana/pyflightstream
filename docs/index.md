@@ -3,7 +3,7 @@
 Version-aware, didactic Python driver for the FlightStream panel-method
 solver. MIT licensed.
 
-Status: v0.8.0 is the current release; the changelog records what each
+Status: v0.8.1 is the current release; the changelog records what each
 release adds and what each one asks you to do. This release registers a ninth
 FlightStream build, 26.123, which deliberately INHERITS NOTHING, so every row
 it holds was read on its own edition rather than carried over from 26.120. The

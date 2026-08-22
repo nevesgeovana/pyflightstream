@@ -7,7 +7,7 @@
 Version-aware, didactic Python driver for the FlightStream panel-method
 solver. Successor of the author's legacy research scripts. MIT licensed.
 
-Status: v0.8.0 is the current release. It publishes to
+Status: v0.8.1 is the current release. It publishes to
 [PyPI](https://pypi.org/project/pyflightstream/) and archives on Zenodo
 from the tag, so the concept DOI in CITATION.cff resolves to the newest
 archived version and the version DOI is recorded one commit after the

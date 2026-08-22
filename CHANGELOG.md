@@ -7,6 +7,8 @@ FlightStream versions.
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-08-22
+
 ### Fixed
 
 - **A matrix row can name its geometry, and the workflow opens it**
@@ -6295,7 +6297,8 @@ the repository seeding and this tag (milestones M0 through M5).
 * 26.000: registered, no recorded evidence yet (honest empty column;
   backfill planned for v0.2+).
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.8.1
 [0.8.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.8.0
 [0.7.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.7.0
 [0.6.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.6.0
