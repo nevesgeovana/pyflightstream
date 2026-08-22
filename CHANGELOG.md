@@ -107,12 +107,24 @@ FlightStream versions.
   unchanged. `argv[0]` is the executable as the campaign declared it and
   is unchanged.
 
-  `run.export_surface_mesh` had the same defect and no workspace to
-  inherit the fix from, since a caller hands it a directory directly. It
-  resolves its own working directory and the simulation it opens, and
-  `LocalExecutor` now resolves the script path it puts in the argv, which
-  covers every caller of that half rather than the three that exist
-  today.
+  `run.export_surface_mesh` and `run.check_solver_identity` had the same
+  defect and no workspace to inherit the fix from, since a caller hands
+  each of them a directory directly. Both now resolve their own working
+  directory, and with it every path they build from it, including the
+  ones that become script text. The second is the sharper of the two: it
+  writes its log path into an `EXPORT_LOG`, so a relative working
+  directory left the log where nothing read it, no build number was
+  parsed, and the identity check WARNED instead of raising. A campaign
+  aimed at the wrong FlightStream build proceeded, and the warning said
+  the build number could not be read from the solver.
+
+  `LocalExecutor._argv` deliberately does NOT resolve. It did for one
+  commit, on the argument that every caller passes through it, and CI
+  showed what this Windows-primary machine could not: `Path("C:/runs/x")`
+  is absolute here and RELATIVE on Linux, so resolving rewrote it against
+  the working directory and broke the documented headless mechanism on
+  half the platforms. What a relative path means there is the caller's
+  business and is unchanged.
 
   Every guard in the suite had built its workspace on an absolute
   temporary directory, where a path spelled from the caller and one

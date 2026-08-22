@@ -463,15 +463,23 @@ class LocalExecutor:
         argv = [str(self.fs_exe)]
         if self.hidden:
             argv.append("-hidden")
-        # RESOLVED AT THE CHOKEPOINT. The solver is started with its
-        # working directory set to the run's own folder, and it reads
-        # this path from ITS cwd, not from ours. A caller holding a
-        # relative path therefore names a script one level too deep and
-        # the solver reports a file that is sitting right there as
-        # missing. Every caller passes through here, so this is the one
-        # line that covers the argv half for all of them, including the
-        # ones written after this comment.
-        argv.extend([SCRIPT_ARGUMENT, str(Path(script_path).resolve())])
+        # THE PATH AS THE CALLER SPELLED IT, deliberately, and this line
+        # was `str(Path(script_path).resolve())` for one commit. The
+        # argument for resolving here was that every caller passes
+        # through this one place; the argument against is that CI made
+        # visible and this machine could not. `Path("C:/runs/point.txt")`
+        # is absolute on Windows and RELATIVE on Linux, so resolving
+        # rewrote it against the working directory there and broke the
+        # documented headless mechanism on half the platforms.
+        #
+        # It was also redundant. Every caller that hands the solver a
+        # path resolves its own directory first: the campaign inherits an
+        # absolute root from CampaignWorkspace, and `export_surface_mesh`
+        # and `check_solver_identity` each resolve the `workdir` their
+        # script path is built from. What a RELATIVE path means here is
+        # the caller's business, and it means what it always meant: the
+        # solver resolves it from its own working directory.
+        argv.extend([SCRIPT_ARGUMENT, str(script_path)])
         return argv
 
     def run_script(
