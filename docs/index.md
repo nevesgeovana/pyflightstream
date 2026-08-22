@@ -4,14 +4,14 @@ Version-aware, didactic Python driver for the FlightStream panel-method
 solver. MIT licensed.
 
 Status: v0.8.1 is the current release; the changelog records what each
-release adds and what each one asks you to do. This release registers a ninth
-FlightStream build, 26.123, which deliberately INHERITS NOTHING, so every row
-it holds was read on its own edition rather than carried over from 26.120. The
-eight-edition sweep of the release before it is scoped to those eight and says
-nothing about this one; read both at the level the release notes measure them
-at. The release before it registered three older builds and
-gave every registered build the vendor build number its solver prints,
-so an install can be identified rather than described. Five command-line
+release adds and what each one asks you to do. This one is a patch: a run
+matrix can name its geometry, so a workflow no longer builds a script
+that opens nothing and solves whatever the solver already had in memory,
+and a row can declare the symmetry a periodic sector needs. It reserves
+three names inside the matrix's free cell, `GEOMETRY`, `SYMMETRY` and
+`PERIODIC_COPIES`, which is its only upgrade action. Earlier releases,
+and what each of them registered or broke, are in the changelog rather
+than re-threaded here. Five command-line
 tools ship with the package: `pyfs-qa`
 (probes, physics regression, drift), `pyfs-workspace` (campaign
 workspace init), `pyfs-matrix` (run-matrix convert, pre-flight and run),

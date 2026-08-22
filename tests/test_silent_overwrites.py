@@ -21,8 +21,9 @@ different in each:
   ``state.json`` beside it, which is a previous run's history in a folder
   being reused.
 
-WHAT IS DELIBERATELY OUT. ``script.helpers.export_results`` is a fourth
-writer of the same shape and is not covered, because the item names the
+WHAT IS DELIBERATELY OUT. ``script.helpers.export_results`` is a FIFTH
+writer of the same shape, the four above being the covered ones, and it
+is not covered, because the item names the
 probe exports, the two field writers and the coupling driver, and
 widening a guard here would put a decision nobody made into the tree.
 """

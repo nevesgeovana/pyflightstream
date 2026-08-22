@@ -13,36 +13,30 @@ from the tag, so the concept DOI in CITATION.cff resolves to the newest
 archived version and the version DOI is recorded one commit after the
 tag that names it. CHANGELOG.md carries the release history.
 
-**What changes for you, and what you must do.** Four breaks need an
-action, and each names the call that fixes it where it refuses. A run
-matrix gains a sixteenth column and a fifteen-column file is recognised
-rather than merely rejected: `cases.matrix.upgrade_matrix(path,
-in_place=True)` adds it and leaves every other byte alone. A workspace
-input id now declares its kind with a leading letter, so a number
-mistyped between the `REF`, `SET` and `ENTRY` cells is refused instead
-of resolving to another artifact's file: `workspace.migrate_input_ids`
-renames the files and rewrites the cells in one call. A manifest's
-broken-command rows carry the build they were read from. And the FSI
-state's digest field is renamed, though a `state.json` written by an
-earlier release still loads.
+**What changes for you, and what you must do.** One thing, and it is
+the only upgrade risk in v0.8.1. Three names inside the free
+`VAR_NAMES_VALUES` cell of a run matrix are now the package's:
+`GEOMETRY`, `SYMMETRY` and `PERIODIC_COPIES`. If a cell of yours already
+spells one of them, the package now reads it, so rename your key or
+stage the file the id names. The match is on the exact key, so a cell
+spelling it `SYMMETRY_TYPE` is untouched, and a row that names none of
+the three renders the script it always did.
 
-Two things arrive that a default install did not have. `trimesh` becomes
-a runtime dependency, one distribution and 3.89 MiB, because extracting
-a blade's trailing edge is on the default path of a rotor campaign and
-gating it behind an extra would make this library promise what a plain
-`pip install` cannot do. And ten of the eleven exports in the default
-set now read as tables, up from four; the eleventh is not an omission,
-it is a solver command that opens a modal window and waits for a person.
+**What v0.8.1 fixes**, and it is why a patch followed v0.8.0 by two
+days. A run matrix had no way to name a geometry at all, so a workflow
+built a script with no `OPEN` in it: the solver solved whatever it
+already had in memory, and reported numbers with nothing said. A row
+names its geometry now, and declares the symmetry a periodic sector
+needs, which was fixed at `NONE` so a sector ran as a one-bladed rotor
+and converged. Separately, `pyfs-matrix run` could not run at all under
+its own documented default: `--workspace` defaults to `"."` and every
+path was then spelled from your directory while the solver resolved it
+from the run's.
 
-On evidence: this release registers a ninth FlightStream build, 26.123,
-which deliberately INHERITS NOTHING, so every row it holds was read on
-its own edition rather than carried over. The eight-edition sweep of the
-release before it is scoped to those eight and says nothing about this
-one. Read both claims at the level they are measured at, which the
-release notes do: ten readings across four commands are deliberately
-withheld where a version row cannot express a layout, and the coverage
-tool reports that second measure beside the first rather than leaving it
-to prose.
+v0.8.0's four breaking changes and the two capabilities a default
+install gained are unchanged and are described in CHANGELOG.md, which
+carries the reasoning, the measurements and the rejected alternatives
+behind every entry.
 
 ```
 pip install pyflightstream

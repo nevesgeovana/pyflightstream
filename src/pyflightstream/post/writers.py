@@ -231,8 +231,8 @@ def _refuse_existing(destination: Path, overwrite: bool) -> None:
     """Refuse a destination that already exists (PFS-2011.02)."""
     if destination.exists() and not overwrite:
         raise OutputExistsError(
-            f"{destination} already exists. This writer replaced it silently until "
-            "2026-08-19, which is the shape PYFS-005 records: one point of a run "
+            f"{destination} already exists. This writer replaced it silently before "
+            "v0.8.0, which is the shape PYFS-005 records: one point of a run "
             "overwrote another's output while the run record listed both complete. "
             "Pass overwrite=True to replace it deliberately, or write under a name "
             "that carries the point."

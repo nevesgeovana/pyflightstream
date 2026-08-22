@@ -13,8 +13,9 @@ FlightStream versions.
 
 - **A matrix row can name its geometry, and the workflow opens it**
   (PFS-2025.02.01, PFS-2025.02.02). Until this release it could not, and
-  the consequence was that v0.8.0's headline capability could not be used
-  at all: a case CARRYING a geometry rendered byte for byte identically
+  the consequence was that the workflow capability v0.8.0 introduced, a
+  run type the package builds itself off the matrix `WORKFLOW` column,
+  could not be used at all: a case CARRYING a geometry rendered byte for byte identically
   to one that did not, because nothing in the matrix reader assigned the
   field and neither workflow builder read it. The run layer was already
   doing its half, staging the file and hashing it into the record, and
@@ -49,9 +50,9 @@ FlightStream versions.
   **WORSE THAN THE GAP WAS ITS SHAPE, and that is why this is a patch
   rather than a 0.9.0 item.** Every other limit in this capability
   refuses early and names itself. This one did not refuse at all: the
-  script built, the campaign ran, and the failure arrived from the
-  solver, which is the one place this package exists to stop a failure
-  arriving from.
+  script built, the campaign ran, and the solver solved whatever it
+  already had in memory. No refusal anywhere, and the numbers wrong with
+  nothing said, which is the failure this package exists to stop.
 
 - **A row declares its symmetry, so a periodic sector is no longer solved
   as a one-bladed rotor** (PFS-2025.02.03). `SYMMETRY` and, where the
@@ -190,9 +191,9 @@ hidden.
   takes, since the refusal cites that page and its canonical section read
   as permission for the route just refused.
 - `examples/campaign_matrix.py` no longer tells the reader that a matrix
-  row cannot name a geometry. It was written when that was true and
-  shipped in the release that made it false; a currency guard now holds
-  it.
+  row cannot name a geometry. It was true when it was written and shipped
+  unchanged through v0.8.0; the key that falsifies it and the correction
+  land together here, and a currency guard now holds it.
 
 ## [0.8.0] - 2026-08-20
 
