@@ -1391,7 +1391,7 @@ def check_solver_identity(
     script.emit("CLOSE_FLIGHTSTREAM")
     script_path = workdir / "preflight.txt"
     script_path.write_text(script.render(), encoding="utf-8")
-    executor.run_script(script_path, working_dir=workdir, timeout_s=timeout_s)
+    result = executor.run_script(script_path, working_dir=workdir, timeout_s=timeout_s)
 
     if log_path.exists():
         # Real 26.120 hidden-mode exports carry NUL bytes (RPT-001).
@@ -1400,8 +1400,28 @@ def check_solver_identity(
         text = ""
     found = _BUILD_LINE.search(text)
     if found is None:
+        # THE CAUSE IS NAMED WHEN IT IS KNOWN. The result of the run was
+        # discarded here, so a solver that failed to start, or one killed
+        # by the timeout, produced the same sentence as a solver that ran
+        # perfectly and printed nothing: "could not read a build number
+        # from the solver". That is the misattribution this function's
+        # own path fix was about, one line further on, and the timeout
+        # case is one the operator can act on by raising timeout_s.
+        if result.timed_out:
+            cause = (
+                f"the pre-flight run was killed by its {timeout_s} second timeout, so "
+                "no build number could be read; raise timeout_s if this installation "
+                "is simply slow to start"
+            )
+        elif result.failed:
+            cause = (
+                f"the pre-flight run exited with return code {result.return_code} and "
+                "wrote no readable log, so no build number could be read"
+            )
+        else:
+            cause = "the pre-flight could not read a build number from the solver"
         warnings.warn(
-            f"the pre-flight could not read a build number from the solver, so the "
+            f"{cause}, so the "
             f"installation at the campaign's executable was neither confirmed nor "
             f"refused as {version.canonical} (build #{version.build}). Every parsed "
             "result is still cross-checked against the registered build.",

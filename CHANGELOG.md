@@ -150,6 +150,10 @@ hidden.
 - **Added** to `pyflightstream.cases.workflows`: `GEOMETRY_VARIABLE`,
   `SYMMETRY_VARIABLE`, `PERIODIC_COPIES_VARIABLE`, `SIMULATION_SUFFIX`
   and `accepted_symmetry`.
+- **Added** to `pyflightstream.workspace.inputs`: `is_valid_artifact_id`,
+  which publishes the input-library id shape rule. It exists because two
+  layers now need to ask it, and reaching for the private pattern across
+  a module boundary is a layer crossing a tier 1 guard refuses.
 - `GEOMETRY_VARIABLE` is DEFINED in `cases.workflows`, beside the other
   cell keys, and re-exported from `pyflightstream.workspace.matrix`,
   where the resolver that reads the cell lives. Both import paths work,

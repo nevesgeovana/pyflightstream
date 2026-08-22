@@ -41,7 +41,7 @@ from __future__ import annotations
 import warnings
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from pathlib import Path, PurePath
+from pathlib import Path, PurePath, PurePosixPath
 
 from pydantic import ValidationError
 
@@ -68,7 +68,11 @@ from pyflightstream.workspace import (
 # matrix row now needs the version its build declares beside it, so the
 # registry is read once through the function that returns both
 # (PFS-2009.05).
-from pyflightstream.workspace.inputs import RegisteredBuild, resolve_build
+from pyflightstream.workspace.inputs import (
+    RegisteredBuild,
+    is_valid_artifact_id,
+    resolve_build,
+)
 
 __all__ = [
     "GEOMETRY_VARIABLE",
@@ -393,10 +397,40 @@ def _resolve_code(workspace: CampaignWorkspace, kind: str, code: str, pol: str):
     try:
         return resolver(code)
     except InputArtifactError as error:
+        # THE SAME THREE-WAY READING ITS GEOMETRY SIBLING MAKES, and for
+        # the same reason: one arm prescribed a file for every refusal,
+        # so a code refused for its SHAPE was told to create a file that
+        # could not resolve under any name. The sharpest case is the one
+        # 0.8.0 created, a bare pre-0.8.0 code: `003` was answered with
+        # "put the artifact at inputs/references/003.toml" while the
+        # library's own sentence, chained immediately after it, said the
+        # file must be `r003.toml` and named the migration that renames
+        # it.
+        if not is_valid_artifact_id(code):
+            remedy = (
+                "the cell is what to fix rather than the library: a code is a file "
+                "name stem of letters, digits, dot, underscore or hyphen, beginning "
+                "with a letter or a digit, and never a path"
+            )
+        else:
+            remedy = (
+                f"put the artifact at inputs/{subdir}/{code}.toml, or fix the matrix "
+                "code. An id declares its kind with a leading letter since v0.8.0, so "
+                "a code written before that release resolves nothing until it is "
+                "migrated; the library's own sentence follows and names the id it "
+                "expected"
+            )
         raise InputArtifactError(
             f"matrix row POL {pol}: the {column} column names {kind} {code!r}, which "
-            "the workspace input library cannot resolve; put the artifact at "
-            f"inputs/{subdir}/{code}.toml (or fix the matrix code). {error}"
+            f"the workspace input library cannot resolve; {remedy}. {error}",
+            # CARRIED ACROSS, as the geometry sibling already does. The
+            # class docstring promises a caller can offer the user a
+            # choice without parsing the sentence, and this re-raise
+            # dropped all three, so a genuine miss with real candidates
+            # was indistinguishable from an empty library.
+            kind=error.kind,
+            artifact_id=error.artifact_id,
+            available=error.available,
         ) from error
 
 
@@ -475,7 +509,21 @@ def _resolve_geometry(workspace: CampaignWorkspace, artifact_id: str, pol: str) 
         # more people. The id rule permits a dot, so a written id CARRYING
         # a suffix is diagnosable on its own and nothing else needs to be
         # true for the diagnosis to hold.
+        # THE STEM IS COMPUTED PER ARM, and the reason is a platform.
+        # `PurePath` is `PureWindowsPath` here and `PurePosixPath` on the
+        # runner, and only the first treats a backslash as a separator.
+        # One shared `PurePath(...).stem` therefore made the PATH arm
+        # print the user's own input back at them on Linux, inside a
+        # sentence saying "never a path", and took the ubuntu leg of CI
+        # red on the case that guards it. The suffix arm wants the
+        # platform-neutral dot rule; the path arm wants both separators.
         stem = PurePath(artifact_id).stem
+        path_stem = PurePosixPath(artifact_id.replace("\\", "/")).stem
+        available = error.available or ()
+        # The library's OWN rule, imported rather than restated, so a
+        # cell refused for its SHAPE is never told to stage a file that
+        # could not resolve under any name.
+        well_formed = is_valid_artifact_id(artifact_id)
         if error.artifact_id is None:
             # THE AMBIGUOUS STEM, AND IT IS TESTED FIRST. An ambiguity
             # refusal proves BY CONSTRUCTION that the written id already
@@ -508,19 +556,46 @@ def _resolve_geometry(workspace: CampaignWorkspace, artifact_id: str, pol: str) 
             # is a file that travels.
             remedy = (
                 f"the id is the stem of a file directly under inputs/geometries/ and "
-                f"never a path, so write '{GEOMETRY_VARIABLE}: {stem}'"
+                f"never a path, so write '{GEOMETRY_VARIABLE}: {path_stem}' and stage "
+                "the file directly under that directory rather than in a subdirectory "
+                "of it"
             )
-        elif PurePath(artifact_id).suffix:
-            # A FILE NAME, not an id. Diagnosable from the suffix alone;
-            # what is staged only changes the second half of the advice.
+        elif not well_formed:
+            # REFUSED ON ITS SHAPE, which the library's own sentence
+            # explains. Prescribing a file to stage would be wrong: no
+            # file of that name can resolve under any extension, so the
+            # cell is the only thing to change.
+            remedy = (
+                "the cell is what to fix rather than the library: an id is a file "
+                "name stem of letters, digits, dot, underscore or hyphen, beginning "
+                "with a letter or a digit"
+            )
+        elif PurePath(artifact_id).suffix and (not available or stem in available):
+            # A FILE NAME, and the library CORROBORATES that reading:
+            # either it holds a file under the stem, or it holds nothing
+            # at all and no other reading is available.
             settled = (
                 f"A file is already staged under the stem {stem!r}"
-                if stem in (error.available or ())
+                if stem in available
                 else f"Then stage the file as inputs/geometries/{stem} plus its extension"
             )
             remedy = (
                 f"the id is the file name STEM and not the file name, so write "
                 f"'{GEOMETRY_VARIABLE}: {stem}'. {settled}"
+            )
+        elif PurePath(artifact_id).suffix:
+            # A DOT, AND NOTHING CORROBORATES EITHER READING, so both are
+            # given rather than one guessed. A dot is legal INSIDE an id,
+            # so `blade.v2` is as likely a version-tagged stem as a file
+            # name, and the arm above used to answer it by truncating a
+            # correct version tag while the listing below named the id
+            # that would have resolved. Saying both is the only sentence
+            # that is true whichever the author meant.
+            remedy = (
+                f"{artifact_id!r} reads two ways and neither resolves: as a FILE NAME "
+                f"its id would be the stem {stem!r}, and nothing is staged under that; "
+                "as an id in its own right, a dot being legal inside one, nothing is "
+                "staged under it either. The ids that would have resolved follow"
             )
         else:
             remedy = (
@@ -532,8 +607,7 @@ def _resolve_geometry(workspace: CampaignWorkspace, artifact_id: str, pol: str) 
         raise InputArtifactError(
             f"matrix row POL {pol}: the {GEOMETRY_VARIABLE} variable names geometry "
             f"{artifact_id!r}, which the workspace input library cannot resolve; "
-            f"{remedy}. A row that names no {GEOMETRY_VARIABLE} at all opens no file "
-            f"and is unaffected. {error}",
+            f"{remedy}. {error}",
             kind=error.kind,
             artifact_id=error.artifact_id,
             available=error.available,

@@ -3026,6 +3026,52 @@ def test_the_argv_names_the_script_absolutely_whatever_the_caller_passed(tmp_pat
     assert named == (tmp_path / "sims/sim_7001/scripts/a+00.0.txt").resolve()
 
 
+@pytest.mark.parametrize(
+    ("outcome", "expected"),
+    [
+        ({"return_code": 1, "timed_out": False}, "return code 1"),
+        ({"return_code": None, "timed_out": True}, "timeout"),
+    ],
+)
+def test_the_preflight_names_its_own_failure_rather_than_blaming_the_solver(
+    tmp_path, monkeypatch, outcome, expected
+):
+    """A DISCARDED RESULT MADE THREE CAUSES READ AS ONE.
+
+    The pre-flight warns rather than refuses when it cannot read a build
+    number, which is deliberate. What was wrong is the diagnosis: the
+    run's own result was thrown away, so a solver that failed to start
+    and one killed by the timeout produced the same sentence as a solver
+    that ran perfectly and printed nothing, and that sentence said the
+    build number could not be read FROM THE SOLVER.
+
+    It is the same misattribution as the unresolved log path one line
+    further on, with the difference that here the cause was knowable and
+    discarded. The timeout case is one the operator can act on.
+    """
+
+    class FailingSolver:
+        def run_script(self, script_path, working_dir, timeout_s=None):
+            return run_module.ExecutionResult(
+                wall_time_s=0.1, log_text=None, stdout="", stderr="", **outcome
+            )
+
+    monkeypatch.chdir(tmp_path)
+    with pytest.warns(run_module.VersionMismatchWarning) as caught:
+        run_module.check_solver_identity(
+            FailingSolver(), version_resolve("26.120"), tmp_path / "pre"
+        )
+    message = str(caught[0].message)
+    assert expected in message, (
+        f"the warning does not name the real cause; it says {message!r}, which reads "
+        "as a solver that ran and printed nothing"
+    )
+    assert "could not read a build number from the solver" not in message, (
+        "the warning blames the solver for a run that failed or was killed before it "
+        "could print anything"
+    )
+
+
 def test_the_identity_preflight_exports_its_log_to_an_absolute_path(tmp_path, monkeypatch):
     """THE FIFTH SOLVER BOUNDARY, and the one whose failure is a false PASS.
 

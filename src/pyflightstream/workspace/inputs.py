@@ -548,6 +548,45 @@ def available_ids(directory: Path, suffix: str | None = ".toml") -> list[str]:
     return sorted(stems)
 
 
+def is_valid_artifact_id(artifact_id: str) -> bool:
+    """Whether a string is well formed as an input-library id.
+
+    THE ONE HOME OF THE SHAPE RULE, published rather than left private
+    because two layers need to ask it and the alternative was reaching
+    for the private pattern across a module boundary, which a tier 1
+    guard refuses by design: an underscore-private name crossing into a
+    public sibling is a layer boundary crossed for a helper.
+
+    An id is a file name STEM: letters, digits, dot, underscore or
+    hyphen, beginning with a letter or a digit. It is never a path, and
+    the leading-character half is the part a caller cannot infer from the
+    permitted set, which is why a refusal that merely lists the permitted
+    characters sends an author back to make the same mistake.
+
+    Parameters
+    ----------
+    artifact_id : str
+        The candidate id, as the matrix cell or the caller wrote it.
+
+    Returns
+    -------
+    bool
+        True when the shape is acceptable. It says nothing about whether
+        anything is STAGED under that id, which is
+        :func:`available_ids`'s question.
+
+    Examples
+    --------
+    >>> is_valid_artifact_id("wing_clean")
+    True
+    >>> is_valid_artifact_id("blade.v2")
+    True
+    >>> is_valid_artifact_id("_scratch")
+    False
+    """
+    return bool(_ID_PATTERN.match(artifact_id))
+
+
 def _check_id(artifact_id: str, kind: str) -> None:
     """Refuse ids that could not have come from a library file name.
 
@@ -557,11 +596,12 @@ def _check_id(artifact_id: str, kind: str) -> None:
     mistyped between the REF, SET and ENTRY cells of a run matrix is
     refused instead of resolving to another artifact's file.
     """
-    if not _ID_PATTERN.match(artifact_id):
+    if not is_valid_artifact_id(artifact_id):
         raise InputArtifactError(
             f"{kind} id {artifact_id!r} is not a valid artifact id: ids are file "
-            "name stems (letters, digits, dot, underscore, hyphen). The id selects "
-            "a file inside the library; it is never a path.",
+            "name stems of letters, digits, dot, underscore or hyphen, beginning "
+            "with a letter or a digit. The id selects a file inside the library; it "
+            "is never a path.",
             kind=kind,
             artifact_id=artifact_id,
         )

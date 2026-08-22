@@ -16,7 +16,7 @@ converter stayed in `pyflightstream.cases.matrix`.
 """
 
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import pytest
 
@@ -46,6 +46,7 @@ from pyflightstream.workspace import (
     RunStatus,
     WorkspaceError,
 )
+from pyflightstream.workspace import matrix as matrix_module
 from pyflightstream.workspace.matrix import GEOMETRY_VARIABLE, resolve_matrix
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -2138,7 +2139,7 @@ def test_an_ambiguous_stem_is_diagnosed_before_its_dot_is_mistaken_for_a_suffix(
     )
 
 
-def test_a_cell_holding_a_path_is_told_the_id_is_a_stem(tmp_path):
+def test_a_cell_holding_a_path_is_told_the_id_is_a_stem(tmp_path, monkeypatch):
     """A path-shaped cell must not be told to create a file with separators in its name.
 
     ``_check_id`` refuses the SHAPE, and its refusal carries the same
@@ -2169,6 +2170,107 @@ def test_a_cell_holding_a_path_is_told_the_id_is_a_stem(tmp_path):
         "the refusal prescribes a file name containing path separators, which cannot "
         "be created and which the library's own sentence contradicts"
     )
+    # THE STEM MUST NOT BE PLATFORM-DEPENDENT, and this assertion is the
+    # whole reason the arm computes it with an explicit POSIX rule. A
+    # shared `PurePath(...).stem` is `PureWindowsPath` on this machine
+    # and `PurePosixPath` on the runner, and the second does not split a
+    # backslash: the remedy became the user's own input, echoed back
+    # inside a sentence saying "never a path", on the one platform CI
+    # runs and this machine does not.
+    assert pasted not in message.split("which the workspace")[1].split(". ")[0], (
+        "the refusal quotes the path back as the cell to write, which is the input "
+        "that was just refused; the stem was computed with the platform's own "
+        "separator rule rather than with both"
+    )
+
+    # THE OTHER PLATFORM, SIMULATED, because this one cannot see the
+    # defect. On Windows `PurePath` is `PureWindowsPath` and splits a
+    # backslash, so the assertions above pass whether the arm uses the
+    # explicit POSIX rule or the platform default. On the runner
+    # `PurePath` is `PurePosixPath`, which does NOT, and the remedy
+    # became the user's own input. Substituting the class is what makes
+    # that reachable from here rather than only from a red CI leg.
+    monkeypatch.setattr(matrix_module, "PurePath", PurePosixPath)
+    with pytest.raises(InputArtifactError) as posix:
+        resolve_geometry_row(tmp_path, workspace, f" / GEOMETRY: {pasted}", stem="p.fs")
+    posix_message = str(posix.value)
+    assert f"{GEOMETRY_VARIABLE}: rotor" in posix_message, (
+        "under the POSIX path rule the refusal no longer names the stem, so the arm "
+        "is relying on this machine's separator handling and the runner sees the "
+        "input echoed back at it"
+    )
+
+
+def test_a_dotted_id_that_misses_is_not_told_to_truncate_its_version_tag(tmp_path):
+    """A DOT IS LEGAL INSIDE AN ID, so a suffix does not prove a file name.
+
+    The library holds ``blade.v3`` and the row says ``GEOMETRY: blade.v2``,
+    a version typo. Read as a file name, that id's stem is ``blade``, and
+    the suffix arm used to say so: it told the author to truncate a
+    correct version tag and to stage a third file, while the chained
+    listing named ``blade.v3`` as the id that would have resolved.
+
+    Nothing here can tell a version-tagged stem from a file name, so the
+    refusal gives BOTH readings rather than guessing one. The arm that
+    does commit to the file-name reading fires only when the library
+    corroborates it, which is the sibling case above.
+    """
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
+    stage_geometry(workspace, "blade.v3.fsm")
+    with pytest.raises(InputArtifactError) as caught:
+        resolve_geometry_row(tmp_path, workspace, " / GEOMETRY: blade.v2")
+    message = str(caught.value)
+    assert "blade.v3" in message, "the refusal does not name the id that would resolve"
+    assert f"{GEOMETRY_VARIABLE}: blade'" not in message, (
+        "the refusal tells the author to truncate a version tag, and the id it points "
+        "at does not resolve either"
+    )
+    assert "reads two ways" in message, "the refusal commits to one reading it cannot prove"
+
+
+def test_an_id_refused_for_its_shape_is_told_to_fix_the_cell_not_to_stage_a_file(tmp_path):
+    """No file of that name can resolve, so staging one is the wrong action.
+
+    ``_check_id`` refuses on shape, and its refusal carries the same
+    structured attributes as a miss into an empty library. Without an arm
+    of its own, a cell like ``_wing`` was told to stage ``_wing`` plus an
+    extension; the author does that and meets the identical refusal,
+    because the leading character rule is what they broke.
+    """
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
+    stage_geometry(workspace, "wing_clean.fsm")
+    with pytest.raises(InputArtifactError) as caught:
+        resolve_geometry_row(tmp_path, workspace, " / GEOMETRY: _wing")
+    message = str(caught.value)
+    assert "stage a file whose name is" not in message, (
+        "the refusal tells the author to stage a file that cannot resolve under any "
+        "extension, because the id's SHAPE is what was refused"
+    )
+    assert "beginning with a letter or a digit" in message, (
+        "the refusal does not state the rule that was broken"
+    )
+
+
+def test_no_refusal_offers_dropping_the_key_as_a_way_out(tmp_path):
+    """The compatibility sentence must not read as a third option.
+
+    Every geometry refusal used to end "A row that names no GEOMETRY at
+    all opens no file and is unaffected". True, and in a refusal it reads
+    as a remedy: taking it produces a workflow with no OPEN, which is
+    PFS-2025.02.01 exactly, a script that runs against whatever the
+    solver had in memory and reports numbers with nothing said. A blocked
+    engineer under time pressure is the reader who takes the option that
+    makes the error go away.
+    """
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
+    stage_geometry(workspace, "wing_clean.fsm")
+    with pytest.raises(InputArtifactError) as caught:
+        resolve_geometry_row(tmp_path, workspace, " / GEOMETRY: absent_stem")
+    message = str(caught.value)
+    assert "is unaffected" not in message, (
+        "the refusal offers naming no geometry as a way out, which is the defect this "
+        "release exists to remove"
+    )
 
 
 def test_an_ambiguous_stem_is_not_told_to_stage_the_file_it_staged_twice(tmp_path):
@@ -2193,6 +2295,62 @@ def test_an_ambiguous_stem_is_not_told_to_stage_the_file_it_staged_twice(tmp_pat
         "the cell they already wrote"
     )
     assert "rename or remove" in message, "the refusal does not carry the real remedy"
+
+
+@pytest.mark.parametrize("code", ["003", "r 003", "inputs/references/r003"])
+def test_a_reference_code_refusal_never_prescribes_a_file_that_cannot_resolve(tmp_path, code):
+    """THE SIBLING PATH, which had one arm where geometry now has five.
+
+    Every REF, SET and ENTRY refusal used to end "put the artifact at
+    inputs/references/<code>.toml", whatever was wrong with the code. The
+    sharpest case is the one v0.8.0 created: a bare pre-v0.8.0 code like
+    ``003`` was told to create ``003.toml`` while the library's own
+    sentence, chained immediately after, said the file must be
+    ``r003.toml`` and named the migration that renames it. The author
+    creates the file and meets the identical refusal.
+    """
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
+    matrix = write_matrix(
+        tmp_path / "refcode.fs",
+        [GEOMETRY_ROW.format(tail="").replace("| r003 |", f"| {code} |")],
+    )
+    with pytest.raises(InputArtifactError) as caught:
+        resolve_matrix(matrix, workspace, name="matrix", fs_version="26.120", recipes=RECIPES)
+    message = str(caught.value)
+    assert "POL 7001" in message, "the refusal does not name the row"
+    if code == "003":
+        assert "leading letter since v0.8.0" in message, (
+            "a pre-v0.8.0 code is told to create a file that cannot resolve, with no "
+            "mention of the migration the library's own sentence names"
+        )
+    else:
+        assert f"inputs/references/{code}.toml" not in message, (
+            "the refusal prescribes a file whose name cannot be a valid id, so "
+            "creating it changes nothing"
+        )
+
+
+def test_a_reference_refusal_carries_the_structured_attributes_its_class_promises(tmp_path):
+    """A caller offering the user a choice must not be handed an empty one.
+
+    ``InputArtifactError`` documents ``available`` as populated on a
+    not-found refusal so callers do not parse the sentence. The geometry
+    resolver carries all three across; the code resolver dropped them, so
+    a genuine miss with real candidates arrived indistinguishable from an
+    empty library.
+    """
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
+    matrix = write_matrix(
+        tmp_path / "refmiss.fs",
+        [GEOMETRY_ROW.format(tail="").replace("| r003 |", "| r999 |")],
+    )
+    with pytest.raises(InputArtifactError) as caught:
+        resolve_matrix(matrix, workspace, name="matrix", fs_version="26.120", recipes=RECIPES)
+    assert caught.value.artifact_id == "r999", "the row-level refusal dropped the id"
+    assert caught.value.available, (
+        "the row-level refusal reports no available ids, so a caller cannot offer the "
+        "author the codes that would have resolved"
+    )
 
 
 def test_a_raw_mesh_row_is_refused_by_the_pre_flight_before_anything_is_staged(tmp_path):
