@@ -381,3 +381,11 @@ convention = "numpy"
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["D"]
+# The maintainer checkers under `tools/` are standalone command-line
+# scripts, not part of the documented public surface, and their reasoning
+# lives in long module docstrings rather than in a numpydoc block per
+# helper. Same exemption and same reason as `tests/` above; E, F, W, I,
+# UP, B and N all still apply to them, which is what caught the two
+# late-binding lambdas and the placeholder-less f-strings when the
+# checkers were moved here.
+"tools/*" = ["D"]

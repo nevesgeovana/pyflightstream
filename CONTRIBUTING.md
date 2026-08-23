@@ -25,7 +25,8 @@ the fidelity. Two of those runs shell out per case, so the number moves
 with the machine.
 
 Tier 1 also runs a tree-wide forbidden-identifier scan
-(`check_shipped_surface.py` against `.claude/shipped_surface.conf`). It
+(`tools/check_shipped_surface.py` against `tools/shipped_surface.conf`,
+run by `tests/test_repository_guards.py`). It
 reads every tracked file, so a new file carrying an email address or a
 user-profile path reddens CI rather than being noticed at review. If it
 refuses something that is an identifier by design, the fix is an

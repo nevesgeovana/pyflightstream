@@ -350,12 +350,12 @@
     in a `.csv` is invisible to it, and one is tracked
     (`tests/fixtures/fsi/structural_nodes.csv`). NFR-08 is the wider
     requirement and stays a discipline for that residual. The guard also
-    walks the TREE, not the built wheel. The shared-kit tool that reads
-    the ARTIFACT side, `check_shipped_surface.py`, is vendored here since
-    2026-08-11 and its tree boundary is wired in tier 1; its `--dist`
-    boundary over a built wheel and sdist is not, because that needs a
-    build in the loop and two archive floors, recorded in
-    `.claude/shipped_surface.conf`. Note the scope difference rather than
+    walks the TREE, not the built wheel. The tool that can also read the
+    ARTIFACT side, `tools/check_shipped_surface.py`, has its tree
+    boundary wired in tier 1 by `tests/test_repository_guards.py`; its
+    `--dist` boundary over a built wheel and sdist is not, because that
+    needs a build in the loop and two archive floors, recorded in
+    `tools/shipped_surface.conf`. Note the scope difference rather than
     reading it as coverage of this requirement: that tool judges personal
     and institutional IDENTIFIERS, and NFR-14 is about geometry
     suffixes. No artifact-side check for geometry exists in either
