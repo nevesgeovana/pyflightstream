@@ -64,7 +64,14 @@ SHIPPED_SURFACE_CONFIG = TOOLS / "shipped_surface.conf"
 #: floor nobody lowers: a count BELOW the pin fails too, and asks for this
 #: line to move in the same commit as the call site it closes. The number
 #: below is a measurement of this tree and nothing else.
-TESTS_UNGUARDED_SPAWNS = 16
+#:
+#: LOWERED FROM 16 TO 5 ON 2026-08-23, and not one call site was fixed to
+#: do it. Eleven of the sixteen lived in the process-tooling test modules
+#: that left the tree, so the downward arm fired on a removal rather than
+#: on a repair. Recorded that way on purpose: a ratchet that moved because
+#: its population shrank has measured nothing about the code that stayed,
+#: and reading this number as eleven closures would be a false credit.
+TESTS_UNGUARDED_SPAWNS = 5
 
 
 def _run(*argv: str) -> subprocess.CompletedProcess[str]:

@@ -363,7 +363,7 @@ def test_the_cleanliness_detector_can_actually_see_an_artifact():
 #: interpreter parses its own ``-W`` while it starts, before ``site`` puts
 #: this package on the path, so ``python -W error::pyflightstream...`` prints
 #: "Invalid -W option ignored" and promotes nothing at all. Every one of the
-#: six homes is a ``pytest`` command line, and pytest parses its ``-W`` after
+#: five homes is a ``pytest`` command line, and pytest parses its ``-W`` after
 #: the run has begun, where the import succeeds.
 #:
 #: ``pyflightstream._errors`` rather than ``pyflightstream.exceptions``, and
@@ -372,7 +372,7 @@ def test_the_cleanliness_detector_can_actually_see_an_artifact():
 #: that the catalogue re-export was owed. It is not owed any more:
 #: ``pyflightstream.exceptions.PyflightstreamWarning`` exists and is the
 #: SAME CLASS OBJECT, re-exported, so both spellings promote exactly the
-#: same warnings and nothing about the behaviour of the six homes depends
+#: same warnings and nothing about the behaviour of the five homes depends
 #: on which is written.
 #:
 #: What is owed is the public SPELLING, and it is owed as ONE edit rather
@@ -391,7 +391,6 @@ PACKAGE_WARNING_HOME, PACKAGE_WARNING_NAME = PACKAGE_WARNING_PATH.rsplit(".", 1)
 #: and a home cannot quietly stop carrying its command.
 PROMOTION_HOMES = frozenset(
     {
-        ".claude/skills/release/SKILL.md",
         ".github/workflows/ci.yml",
         ".github/workflows/release.yml",
         "CONTRIBUTING.md",
@@ -400,12 +399,17 @@ PROMOTION_HOMES = frozenset(
     }
 )
 
-#: How many such commands those six files hold. SEVEN and not six:
+#: How many such commands those five files hold. SIX and not five:
 #: ``docs/srs/standards.md`` is a table row that prints the command twice,
 #: once inside the prose cell and once in the cell that names the check, so
 #: that row is one edit and two commands. The count is asserted because the
 #: population of anything walked is asserted before it is compared.
-PROMOTION_COMMANDS = 7
+#:
+#: It was seven across six homes until 2026-08-23. The sixth home was a
+#: maintenance procedure that left the repository with the process tree it
+#: belonged to; the contract it carried is unchanged, and the five homes
+#: that remain are the ones a contributor can actually open.
+PROMOTION_COMMANDS = 6
 
 #: The sentence a promotion home used to carry beside its command, and the
 #: reason it is a defect rather than a shorthand: the run promotes ONE
@@ -696,7 +700,7 @@ def _distinct_filters() -> list[tuple[str, ...]]:
     return sorted(seen)
 
 
-def test_the_promotion_homes_are_the_six_the_item_names():
+def test_the_promotion_homes_are_the_five_the_item_names():
     """A seventh home, or a home that lost its command, is a finding.
 
     The scan is derived and this is where its population is asserted,
@@ -708,18 +712,18 @@ def test_the_promotion_homes_are_the_six_the_item_names():
     assert set(commands) == PROMOTION_HOMES, (
         f"the tracked tree spells a `pytest ... -W` command in {sorted(commands)} and "
         f"this file watches {sorted(PROMOTION_HOMES)}. A home nobody watches drifts "
-        "from the other five"
+        "from the other four"
     )
     total = sum(len(found) for found in commands.values())
     assert total == PROMOTION_COMMANDS, (
-        f"{total} commands across the six homes, and {PROMOTION_COMMANDS} are watched. "
+        f"{total} commands across the five homes, and {PROMOTION_COMMANDS} are watched. "
         "The standards row prints its command twice, which is where the seventh comes "
         f"from; the commands found are {commands}"
     )
 
 
 def test_every_promotion_home_spells_the_same_filter():
-    """Six homes, one filter. Anything else is a narrowing that half landed.
+    """Five homes, one filter. Anything else is a narrowing that half landed.
 
     This is the assertion that makes the narrowing ATOMIC: the moment one
     home is narrowed and another is not, a contributor following

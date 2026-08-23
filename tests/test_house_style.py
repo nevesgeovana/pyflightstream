@@ -77,7 +77,7 @@ def iter_style_checked_files():
 
 #: The walk's own floor. Three guards subtract from it and none of them
 #: asserted it had anything to subtract from, which is how a collapse to
-#: zero read as a clean tree. Measured 2026-08-23 at 471 files; the floor
+#: zero read as a clean tree. Measured 2026-08-23 at 407 files; the floor
 #: is set well below so ordinary work never moves it and a collapse
 #: cannot hide.
 STYLE_WALK_FLOOR = 300
@@ -655,16 +655,17 @@ CONTAINER_DIRECTORY = "".join(
     map(chr, (67, 108, 97, 117, 100, 101, 80, 114, 111, 106, 101, 99, 116, 115))
 )
 
-#: Tracked files allowed to name it, each with the reason. Both are
-#: hash-pinned vendored kit bodies: CLAUDE.md's rule is that a vendored body is
-#: corrected by a kit promotion at the coordination level, never by an edit
-#: here, so allowlisting them is the honest state rather than a concession. The
-#: routing is registered as PLN-20260803-1500. Remove each entry as its kit row
-#: is re-vendored, and delete the allowlist when the last one goes.
-CONTAINER_PATH_ALLOWLIST = {
-    ".claude/tools/snap.sh": "vendored kit body, row at 0.2.4; three literals",
-    ".claude/tools/check_plan_kit_mutations.py": "vendored kit body; one literal",
-}
+# THERE IS NO ALLOWLIST, and that is the change of 2026-08-23 rather than
+# an omission. Two tracked files used to be exempted here, both of them
+# bodies whose canonical copy lived outside this repository and which could
+# therefore not be corrected in it; the allowlist was the honest state and
+# it carried the reason per entry. Those files have left the tree, so no
+# tracked file names the container directory and no file needs permission
+# to. The exemption MECHANISM goes with them rather than being kept empty:
+# an exemption that outlives its entries is a door standing open in a guard
+# whose whole subject is a literal that must never be published, and the
+# mutation proof below now asserts that every entry offered to the detector
+# is judged.
 
 
 def _container_offenders(entries: Iterable[tuple[str, str]]) -> list[str]:
@@ -676,11 +677,7 @@ def _container_offenders(entries: Iterable[tuple[str, str]]) -> list[str]:
     "mutation proof" with nothing to drive and no way to fail. The
     geometry detector next door was already written this way.
     """
-    return [
-        relative
-        for relative, text in entries
-        if relative not in CONTAINER_PATH_ALLOWLIST and CONTAINER_DIRECTORY in text
-    ]
+    return [relative for relative, text in entries if CONTAINER_DIRECTORY in text]
 
 
 def _tracked_text() -> list[tuple[str, str]]:
@@ -746,41 +743,20 @@ def test_the_container_guard_fires_on_what_it_exists_to_catch():
             f"the guard fires on the illustrative path {benign!r}, which is "
             "documentation and must stay"
         )
-    # The exemption branch needs a witness too, or an allowlist that
-    # stopped being consulted would look exactly like a clean tree.
-    allowlisted = next(iter(CONTAINER_PATH_ALLOWLIST))
-    assert _container_offenders([(allowlisted, leaks[0])]) == []
+    # NO ENTRY IS EXEMPT, and this is the assertion that replaced the
+    # exemption witness when the allowlist went. The same leak under the
+    # two paths that used to be excused must now be reported, so a
+    # reinstated exemption cannot pass for a clean tree.
+    for once_excused in ("tools/snap.sh", "tools/check_plan_kit_mutations.py"):
+        assert _container_offenders([(once_excused, leaks[0])]) == [once_excused], (
+            f"{once_excused} is not judged by the container guard, so an "
+            "exemption has come back; every tracked file is inside this rule"
+        )
 
     # And the live scan must see a plausible number of files, or the
     # tree walk could be empty while every assertion above passes.
     entries = _tracked_text()
     assert len(entries) > 50, f"the tracked-file walk yielded {len(entries)} entries"
-
-
-def test_the_container_allowlist_has_no_stale_entry():
-    """An allowlist that outlives its files silently widens the guard.
-
-    Each entry names a vendored body awaiting a kit promotion. When one is
-    re-vendored the literal goes, and so must its entry; when the file stops
-    being tracked at all, the entry is dead. Either way this fails rather than
-    letting the exemption drift into covering something else.
-    """
-    tracked = {path.relative_to(REPO_ROOT).as_posix() for path in _tracked_files()}
-    missing = sorted(set(CONTAINER_PATH_ALLOWLIST) - tracked)
-    assert not missing, (
-        f"allowlisted paths {missing} are not tracked; remove the entry rather "
-        "than leaving an exemption for a file that no longer exists"
-    )
-    unneeded = sorted(
-        name
-        for name in CONTAINER_PATH_ALLOWLIST
-        if CONTAINER_DIRECTORY not in (REPO_ROOT / name).read_text(encoding="utf-8")
-    )
-    assert not unneeded, (
-        f"allowlisted paths {unneeded} no longer carry the literal, so the kit "
-        "promotion landed; delete the entry and close its half of "
-        "PLN-20260803-1500"
-    )
 
 
 #: Every codepoint this workflow renders as nothing: delete, the C1
@@ -1033,8 +1009,8 @@ def test_no_new_private_ledger_citation_in_a_walked_file():
     counted = _private_id_units()
     # A FLOOR on the population, for the reason `_tracked_files` states: the
     # walk is `REPO_ROOT.rglob` minus SKIP_DIRS, and a walk that yields
-    # nothing satisfies every comparison below. 471 files on 2026-08-23, of
-    # which 154 carry a citation and hold a row; the exact per-unit numbers
+    # nothing satisfies every comparison below. 407 files on 2026-08-23, of
+    # which 99 carry a citation and hold a row; the exact per-unit numbers
     # are pinned by the inventory, so this is a collapse detector and not a
     # second population pin.
     assert len(counted) > 350, (

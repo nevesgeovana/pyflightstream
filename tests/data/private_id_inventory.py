@@ -16,17 +16,23 @@ there is deliberately no regenerate command here, because a one-command
 rewrite would absorb a new citation as easily as a removed one, which is the
 whole thing this record exists to prevent.
 
-Re-measured 2026-08-23, and the rows below are that measurement: 609
-citations across 154 counted units, over 471 walked files.
+Re-measured 2026-08-23, and the rows below are that measurement: 325
+citations across 99 counted units, over 407 walked files.
 
-EVERY WALKED FILE IS NOW COUNTED END TO END, and that is the change of
+EVERY WALKED FILE IS COUNTED END TO END, and that is the change of
 2026-08-23 rather than a simplification of the sentence. There used to be an
 exempt region: a population of files whose bodies were byte-pinned outside
 this repository, counted only above a marker line, because a citation below
-it could not be corrected here at all. That arrangement is retired with the
-tree it described, so the counted unit is the file and the two totals that
-used to differ are one number. The rows below rose wherever that exemption
-used to sit, and every one of them is a path that leaves the tree next.
+it could not be corrected here at all. Those files have left the tree, so no
+walked file has a region this repository cannot correct, and the two totals
+that used to differ are one number.
+
+FIFTY-FIVE ROWS WENT WITH THEM in the same measurement, and the drop from
+609 citations to 325 is that removal rather than a sweep: the departing
+tree was where more than half of the recorded citations lived. Three
+surviving rows also fell, each because the sentence carrying the citation
+was rewritten in the same change. Nothing was added anywhere, which is what
+the ratchet's upward arm was asked and what it answered.
 
 Read those totals as a snapshot rather than as a contract. The rows are the
 contract; the totals move whenever a page is edited, and the guard reports
@@ -34,51 +40,6 @@ the live ones in its failure message.
 """
 
 PRIVATE_ID_COUNTS: dict[str, int] = {
-    ".claude/agents/api-designer.md": 3,
-    ".claude/agents/architect-reviewer.md": 1,
-    ".claude/agents/incident-analyst.md": 3,
-    ".claude/agents/qa-engineer.md": 1,
-    ".claude/agents/tech-writer.md": 2,
-    ".claude/agents/vv-engineer.md": 1,
-    ".claude/hooks/ci_state.py": 8,
-    ".claude/hooks/ci_state_mutations.py": 3,
-    ".claude/hooks/execution_guard.py": 6,
-    ".claude/hooks/execution_guard_mutations.py": 4,
-    ".claude/hooks/role_review_gate.py": 12,
-    ".claude/hooks/role_review_gate_mutations.py": 1,
-    ".claude/hooks/write_attestation.py": 2,
-    ".claude/skills/audit/SKILL.md": 2,
-    ".claude/skills/derive-requirements/SKILL.md": 2,
-    ".claude/skills/handoff/SKILL.md": 1,
-    ".claude/skills/plan/SKILL.md": 10,
-    ".claude/skills/release/SKILL.md": 1,
-    ".claude/skills/role-review/ROLE_TEMPLATE.md": 1,
-    ".claude/skills/role-review/SKILL.md": 4,
-    ".claude/tools/budget_isolation.py": 11,
-    ".claude/tools/check_citations.py": 19,
-    ".claude/tools/check_citations_mutations.py": 24,
-    ".claude/tools/check_incidents.py": 1,
-    ".claude/tools/check_plan_kit.py": 1,
-    ".claude/tools/check_plan_kit_mutations.py": 1,
-    ".claude/tools/check_probe_closure.py": 1,
-    ".claude/tools/check_release_gate.py": 6,
-    ".claude/tools/check_release_gate_mutations.py": 7,
-    ".claude/tools/check_review_rounds.py": 5,
-    ".claude/tools/check_review_rounds_mutations.py": 2,
-    ".claude/tools/check_shipped_surface.py": 4,
-    ".claude/tools/check_shipped_surface_mutations.py": 2,
-    ".claude/tools/check_side_effect_guard.py": 2,
-    ".claude/tools/check_side_effect_guard_mutations.py": 1,
-    ".claude/tools/check_spawn_env.py": 3,
-    ".claude/tools/check_spawn_env_mutations.py": 3,
-    ".claude/tools/detached_gate.py": 4,
-    ".claude/tools/incident-analyst.md": 5,
-    ".claude/tools/prepush_receipt.py": 12,
-    ".claude/tools/prepush_receipt_mutations.py": 7,
-    ".claude/tools/review-policy.md": 13,
-    ".claude/tools/review_runner.py": 22,
-    ".claude/tools/version-control.md": 10,
-    ".pre-commit-config.yaml": 1,
     "CHANGELOG.md": 48,
     "CLAUDE.md": 14,
     "CONTRIBUTING.md": 4,
@@ -112,7 +73,6 @@ PRIVATE_ID_COUNTS: dict[str, int] = {
     "reports/physics/TRI-SMI01-CMy_2026-07-21.md": 2,
     "scripts/_mutation_harness.py": 1,
     "scripts/prove_evidence_guards.py": 1,
-    "scripts/prove_extras_isolation.py": 1,
     "scripts/prove_flow_mapping_guard.py": 1,
     "scripts/prove_published_invocation_guards.py": 1,
     "scripts/prove_report_date_guards.py": 1,
@@ -151,26 +111,19 @@ PRIVATE_ID_COUNTS: dict[str, int] = {
     "src/pyflightstream/utils/manual.py": 2,
     "src/pyflightstream/workspace/__init__.py": 1,
     "tests/test_build_table.py": 1,
-    "tests/test_ci_state.py": 1,
     "tests/test_clean_room.py": 1,
     "tests/test_command_db.py": 5,
     "tests/test_conventions.py": 1,
     "tests/test_digest.py": 1,
-    "tests/test_env_contract.py": 1,
     "tests/test_error_messages.py": 2,
     "tests/test_evidence_provenance.py": 3,
     "tests/test_exceptions_catalog.py": 4,
     "tests/test_extras_isolation.py": 6,
     "tests/test_guide_api_names.py": 1,
     "tests/test_guide_currency.py": 2,
-    "tests/test_house_style.py": 5,
-    "tests/test_kit_checkers.py": 2,
-    "tests/test_kit_drift.py": 8,
-    "tests/test_legacy_id_exemption.py": 11,
+    "tests/test_house_style.py": 3,
     "tests/test_mutation_harness.py": 1,
     "tests/test_overview.py": 2,
-    "tests/test_plan_checker.py": 12,
-    "tests/test_push_gate.py": 8,
     "tests/test_qa_cli.py": 1,
     "tests/test_qa_compat.py": 5,
     "tests/test_qa_physics.py": 1,
@@ -181,8 +134,6 @@ PRIVATE_ID_COUNTS: dict[str, int] = {
     "tests/test_run_campaign.py": 3,
     "tests/test_run_preproc.py": 1,
     "tests/test_script.py": 7,
-    "tests/test_skill_invocation.py": 2,
-    "tests/test_snap_skip_status.py": 1,
     "tests/test_solver_setup.py": 2,
     "tests/test_traceability.py": 2,
     "tests/test_utils_manual.py": 3,

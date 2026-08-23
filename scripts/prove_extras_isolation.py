@@ -1,22 +1,19 @@
 #!/usr/bin/env python3
 r"""Mutation proof for the extras-isolation guard, tests/test_extras_isolation.py.
 
-ONE OF THE TWO GUARDS THAT CLOSED INC-20260810-2140-shared, and this file was
-named for both until 2026-08-11. The other was the repository-owned CI-green
-tag gate, deleted with its test and this battery's BM1..BM16 in the commit that
-vendored kit 0.2.18, which carries that rule in the SHARED push gate. Its
-replacement evidence lives with the body it proves: `ci_state_mutations.py`
-beside the vendored `ci_state.py`, run in tier 1 by `tests/test_ci_state.py`,
-with the refusal at the push boundary pinned by `tests/test_push_gate.py`. The
-rename came with the deletion rather than after it, because a battery named for
-two guards that proves one asserts a property no run of it evaluates.
+ONE OF THE TWO GUARDS THAT CLOSED THE v0.7.0 FAILURE, and this file was named
+for both until 2026-08-11. The other was a check that a version tag names a
+commit whose CI has concluded green; it was deleted with its test and this
+battery's BM1..BM16, and what is left of that rule is stated in
+`CONTRIBUTING.md` rather than enforced here. The rename came with the deletion
+rather than after it, because a battery named for two guards that proves one
+asserts a property no run of it evaluates.
 
-Committed rather than kept in a scratchpad, which is this workspace's own
-practice (`.claude/tools/check_plan_kit_mutations.py` and
-`check_side_effect_guard_mutations.py` ship beside the checkers they
-prove, and the kit's V and V lens once refused a promotion that shipped a
-checker without its mutations). A guard's evidence that nobody else can
-re-run is an assertion, not evidence.
+Committed rather than kept in a scratchpad, which is this repository's own
+practice: the mutation companions under `tools/` ship beside the checkers they
+prove, and a checker shipped without its mutations is a checker nobody can
+re-prove. A guard's evidence that nobody else can re-run is an assertion, not
+evidence.
 
     python scripts/prove_extras_isolation.py            # everything
     python scripts/prove_extras_isolation.py M1 M2 N1   # by label prefix
@@ -62,14 +59,14 @@ PYTHON = Path(sys.executable)
 #: never tracked and always present.
 #:
 #: This exists because it happened. A run of this battery hit a ten
-#: minute command timeout mid-mutant and left `.claude/settings.json`
-#: holding the mutation that UNWIRED the CI gate; had it been committed,
-#: the guard would have shipped disabled, which is the exact failure the
-#: guard existed to prevent. (That mutant, BM10, went with the bridge on
-#: 2026-08-11; the recovery path it justified stays, because the hazard
-#: is the harness rather than any one mutant.) A `finally` does not survive SIGKILL, and
-#: this workspace already has an incident about a review process dying
-#: with mutations in the tree.
+#: minute command timeout mid-mutant and left a wiring file holding the
+#: mutation that DISABLED the guard it was proving; had it been
+#: committed, the guard would have shipped disabled, which is the exact
+#: failure the guard existed to prevent. (That mutant, BM10, went with
+#: its subject on 2026-08-11; the recovery path it justified stays,
+#: because the hazard is the harness rather than any one mutant.)
+#: A `finally` does not survive SIGKILL, and this repository already has
+#: an incident about a review process dying with mutations in the tree.
 #: Resolved through git rather than assumed to be `REPO / ".git"`: in a
 #: LINKED WORKTREE `.git` is a FILE, so `mkdir` raised on the first
 #: mutant and `recover()` silently found nothing. This workspace parks
@@ -371,9 +368,9 @@ def prove_guard_a() -> list[str]:
         "M12 a doctest inside a src docstring",
     )
     battery.create(
-        REPO / ".claude" / "hooks" / "zz_mutant_hook.py",
+        REPO / "tools" / "zz_mutant_checker.py",
         "import pypdf\n",
-        "M13 an unguarded import in .claude/hooks",
+        "M13 an unguarded import in tools/",
     )
     battery.patch(
         REPO / ".github" / "workflows" / "ci.yml",
@@ -388,7 +385,7 @@ def prove_guard_a() -> list[str]:
     )
     battery.patch(
         guard,
-        'SCAN_ROOTS = ("src", "tests", "examples", "scripts", ".claude/hooks", ".claude/tools")',
+        'SCAN_ROOTS = ("src", "tests", "examples", "scripts", "tools")',
         'SCAN_ROOTS = ("src",)',
         "M16 the scan narrowed to one tree",
     )

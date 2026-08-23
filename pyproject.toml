@@ -337,37 +337,14 @@ src = ["src"]
 # the installed ruff version. (Which markdown code blocks are executed is
 # Sybil's job, configured in conftest.py, and is independent of ruff.)
 #
-# The vendored shared-process-kit copies (.claude/tools/ and everything under
-# .claude/hooks/ except the one repository-owned script) are byte-exact
-# derivations of the coordination kit master, guarded by the tier-1 drift test
-# (tests/test_kit_drift.py), NOT by ruff: a reformat or a lint autofix changes
-# the body bytes and breaks the sha256 pin. Their canonical home is the kit; a
-# real fix is made there and re-vendored. force-exclude makes the exclusion
-# hold even when pre-commit passes the files to ruff explicitly.
-#
-# THE HOOKS ARE EXCLUDED BY DIRECTORY WITH ONE NAMED EXCEPTION, since
-# 2026-08-11, and the inversion is the point. This list used to name the two
-# vendored hooks one per line, so a vendored body arriving beside them was
-# linted by default. On 2026-08-11 that happened: the 0.2.18 gate brought
-# `ci_state.py` and `ci_state_mutations.py`, ruff-format rewrote both at the
-# pre-commit that was vendoring them, and `test_kit_drift.py` went red on two
-# hashes. Recoverable in one re-vendor, but the same enumeration also sat in
-# `.pre-commit-config.yaml` and in `.gitattributes`, so it was three lists to
-# remember rather than one. Now a NEW VENDORED HOOK IS COVERED BY DEFAULT, and
-# a new repository-owned hook has to be named here to be linted. That is the
-# safer direction to forget in: an unlinted repository file is a style miss, a
-# reformatted vendored body is a broken pin and a red suite.
-# The repository-owned hook is NOT rescued by an `extend-include` entry: with
-# `force-exclude = true` the exclusion wins, measured here on 2026-08-11 (ruff
-# reported "No Python files found" for that exact path). It is linted by a
-# named pre-commit hook that passes `--no-force-exclude`, which is the only
-# form that overrides this. Said here rather than only in the hook, because
-# reading this block alone would otherwise suggest the file is unchecked.
-extend-exclude = [
-    "*.md",
-    ".claude/tools/**",
-    ".claude/hooks/**",
-]
+# `force-exclude = true` stays: it makes the "*.md" exclusion hold even
+# when pre-commit passes a file to ruff explicitly, which is the only
+# form that overrides an exclusion. Two directory exclusions stood here
+# until 2026-08-23, for bodies whose canonical copy lived outside this
+# repository and which a reformat would have broken; both directories
+# have left the tree, and the two files of theirs that stayed are under
+# `tools/` and `scripts/`, where they are linted like anything else.
+extend-exclude = ["*.md"]
 force-exclude = true
 
 [tool.ruff.lint]

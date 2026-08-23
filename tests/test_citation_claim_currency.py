@@ -148,21 +148,15 @@ PAGES = (
     # subject is the citation fields and whose module docstring
     # describes them. The guard's own walk is what put both here.
     "src/pyflightstream/utils/cli.py",
-    # And the procedure that WRITES the citations, which now names the
-    # tool that re-reads them. It is the most load-bearing of the three:
-    # this is the file a maintainer follows when registering a build,
-    # and it is the file whose silence let ten stale citations ship.
-    ".claude/skills/fts-version-update/SKILL.md",
-    # Joined 2026-08-17, on the guard's own walk, the day after the file
-    # arrived. It states the evidence rule for every work item, so it is
-    # WATCHED rather than exempted: the sibling that registers a build
-    # is watched for the same reason, and this one is read more often.
-    # Its arrival is worth one sentence, because the guard was RED at
-    # HEAD when this session opened: the commit adding the skill did not
-    # run tier 1, and the surface list is exactly the part of this file
-    # that has failed twice before. The list held; the suite was not
-    # asked.
-    ".claude/skills/develop/SKILL.md",
+    # TWO MAINTENANCE PROCEDURES WERE WATCHED HERE and left the tree on
+    # 2026-08-23 with the process tooling that held them: the one a
+    # maintainer followed when registering a build, whose silence let ten
+    # stale citations ship, and the one stating the evidence rule for a
+    # work item. Recorded rather than silently dropped, because this list
+    # is the part of this file that has failed twice by omission. The
+    # rule itself is not lost: `CONTRIBUTING.md` and the SRS both state
+    # it and both are watched below, and a maintenance page that returns
+    # will be found by the walk rather than by anyone remembering this.
 )
 
 #: The claim shape: a citation OF THE MANUAL offered as an entry's
@@ -482,12 +476,6 @@ DELIBERATELY_UNLISTED = {
     # nobody wrote, which is the reason the script exists; it makes no
     # claim about what an entry carries.
     "scripts/chm_to_pdf.py",
-    # Maintainer tooling rather than a page a user reads. They DO carry
-    # instructions and could go stale the same way; listing them here
-    # records that the guard does not watch them.
-    ".claude/agents/vv-engineer.md",
-    ".claude/skills/add-command/SKILL.md",
-    ".claude/skills/handoff/SKILL.md",
     # CLAUDE.md's invariant 3 states the evidence rule and is the
     # author's charter. Its wording is hers to change, not this guard's
     # to force, and it is raised to her rather than edited here.

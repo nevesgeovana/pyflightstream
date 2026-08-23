@@ -2,36 +2,6 @@
 # The heavier house-style and database-schema guards run as tier 1 tests
 # (tests/test_house_style.py, tests/test_command_db.py) and in CI.
 #
-# The vendored shared-process-kit copies are byte-exact derivations of the
-# coordination kit master and are guarded by the tier-1 drift test
-# (tests/test_kit_drift.py), not by these hooks: a whitespace trim, an
-# end-of-file newline, or a ruff reformat changes the body bytes and breaks
-# the sha256 pin. They are excluded from every hook here; fixes are made in
-# the kit and re-vendored. (ruff also force-excludes them via pyproject.)
-#
-# THE HOOKS DIRECTORY IS EXCLUDED WITH ONE NAMED EXCEPTION, since 2026-08-11,
-# and the inversion is deliberate. This pattern used to name the two vendored
-# hooks one at a time, so a vendored body arriving beside them was included by
-# default. That happened: kit 0.2.18 brought `ci_state.py` and
-# `ci_state_mutations.py`, ruff-format rewrote both at the very commit that
-# was vendoring them, and the drift test went red on two hashes. Recoverable
-# in one re-vendor, but the same enumeration also sat in `pyproject.toml` and
-# in `.gitattributes`, which is three lists to remember instead of one.
-# A new VENDORED hook is now excluded by default; a new REPOSITORY-OWNED hook
-# has to be named in the lookahead to be checked. That is the safer direction
-# to forget in: an unchecked repository file is a style miss, a reformatted
-# vendored body is a broken pin and a red suite.
-#
-# THE DEPLOYED HALVES OF THE OQ-56 SHAPE ARE BOTH LISTED, since 2026-08-12.
-# `.claude/agents/incident-analyst.md` was here from the start;
-# `.claude/skills/version-control/SKILL.md` arrived with the full vendoring and
-# was not, although it is byte-compared against its stamped of-record by the
-# same drift test. A trailing-whitespace or end-of-file rewrite of the deployed
-# copy, while its of-record twin is excluded, turns that comparison red for a
-# reason nobody edited. `.gitattributes` took the pair correctly on the night;
-# this list did not, which is the third-list problem the comment above says the
-# inversion was meant to end.
-exclude: '^\.claude/(tools/|hooks/(?!check_clean_room_trailer\.py)|agents/incident-analyst\.md$|skills/version-control/SKILL\.md$)'
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
