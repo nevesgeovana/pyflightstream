@@ -83,27 +83,14 @@ repos:
     hooks:
       - id: ruff
       - id: ruff-format
-      # The one repository-owned hook under .claude/hooks/, linted by name.
-      #
-      # It cannot ride the plain `ruff` entry above. `pyproject.toml` excludes
-      # `.claude/hooks/**` so a newly vendored body is safe by default, and
-      # with `force-exclude = true` that wins over anything pre-commit passes
-      # in, `extend-include` included (measured 2026-08-11: ruff answered "No
-      # Python files found" for this exact path). `--no-force-exclude` is the
-      # only form that overrides it, so the file that IS ours gets its own
-      # entry rather than the directory getting a weaker rule.
-      #
-      # It is a THIRD ruff entry rather than a local `language: system` hook,
-      # and that is the second attempt. The first ran `python -m ruff` under
-      # pre-commit's system interpreter, which has no ruff installed; it
-      # reported "Skipped, no files to check" on the commit that introduced it
-      # and would have gone on doing so forever. Found by running it against
-      # the file on purpose instead of trusting the green line.
-      - id: ruff
-        alias: ruff-repo-owned-hook
-        name: ruff (repository-owned hook)
-        args: ["--no-force-exclude"]
-        files: '^\.claude/hooks/check_clean_room_trailer\.py$'
+      # A THIRD RUFF ENTRY STOOD HERE and is gone with the reason for it.
+      # The clean-room commit-msg hook used to live inside a directory
+      # `pyproject.toml` excluded from linting, and with `force-exclude`
+      # that exclusion beat anything pre-commit passed in, so the one
+      # repository-owned file in there needed its own entry with
+      # `--no-force-exclude`. It now lives in `scripts/`, which nothing
+      # excludes, so the plain `ruff` entry above lints it like any other
+      # maintainer script.
 
   # Guard: licensed or binary documents never enter Git (invariant 1).
   - repo: local
@@ -156,7 +143,7 @@ repos:
       # release commit. The hook script carries the reasoning.
       - id: clean-room-trailer
         name: clean-room trailer is in the last paragraph
-        entry: python .claude/hooks/check_clean_room_trailer.py
+        entry: python scripts/check_clean_room_trailer.py
         language: system
         stages: [commit-msg]
         always_run: true

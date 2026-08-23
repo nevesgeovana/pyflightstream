@@ -7,7 +7,7 @@ on:
   push:
   pull_request:
 
-# REV010-019. Declared explicitly rather than left absent: an absent block
+# Declared explicitly rather than left absent: an absent block
 # is not "grants nothing", it falls back to the repository default token,
 # which can be read-write on every scope. Nothing in this workflow writes
 # anything back to the repository.
@@ -89,7 +89,7 @@ jobs:
     # The ONLY leg that installs every declared extra, and the only place
     # the assertions gated behind one actually execute.
     #
-    # It exists because of what INC-20260810-2140-shared measured. The
+    # It exists because of what the v0.7.0 release measured. The
     # v0.7.0 tag failed on an unguarded `import pypdf`; guarding it was
     # right, and by itself it turned a red job into a permanent silent
     # skip, because no job installed [manual] and so nothing ran the
@@ -138,7 +138,7 @@ jobs:
     # base install must be able to do it end to end; if trimesh ever slid
     # back behind an extra, this job is what goes red, and it goes red at
     # the import rather than skipping quietly, which is the failure mode
-    # INC-20260810-2140-shared cost a release.
+    # That gap cost a release.
     #
     # THE BRACKET IS [dev] AND NOT EMPTY, deliberately, so a reader does
     # not correct it. `dev` is the contributor extra: it gates no runtime
@@ -208,7 +208,7 @@ jobs:
           fi
 
   guard:
-    # Repository-wide guards for the hard invariants (CLAUDE.md).
+    # Repository-wide guards for the hard invariants (CONTRIBUTING.md).
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4

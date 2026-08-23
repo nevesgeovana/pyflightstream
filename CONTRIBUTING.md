@@ -16,13 +16,12 @@ The `fsi` and `geom` extras are part of the full Tier 1 suite (the FSI
 and geometry-gate tests import them); the four platform legs of CI
 install exactly this set.
 
-**Budget roughly ten minutes for `pytest`**, measured 2026-08-12 at 659
-seconds. Most of the growth is four vendored mutation batteries that run
-every kit guard against the body it protects, and one of them, the push
-gate's, is 244 seconds by itself: it drives sixteen cases and six mutants
-as real hook processes against real throwaway repositories. The cost is
-the fidelity. Two of those runs shell out per case, so the number moves
-with the machine.
+**Budget roughly ten minutes for `pytest`**. A large part of that is the
+mutation batteries beside the repository checkers under `tools/`: each
+one restores the original defect and requires the checker to deny it,
+against real archives and real modules on disk. The cost is the
+fidelity. Those runs shell out per case, so the number moves with the
+machine.
 
 Tier 1 also runs a tree-wide forbidden-identifier scan
 (`tools/check_shipped_surface.py` against `tools/shipped_surface.conf`,
@@ -65,15 +64,12 @@ an unguarded `import pypdf` reached the v0.7.0 tag past every reviewer
 pass of that release, all of them reading in an environment that had it
 (INC-20260810-2140-shared).
 
-That incident produced a SECOND guard, the CI-green tag rule, and it is
-no longer in this repository's own hands: it lives in the shared push
-gate (`.claude/hooks/role_review_gate.py`, kit 0.2.18), and its evidence
-is `.claude/hooks/ci_state_mutations.py`, run in tier 1 by
-`tests/test_ci_state.py` with the refusal itself pinned by
-`tests/test_push_gate.py`. The battery above was named
-`prove_extras_and_ci_guards.py` and carried that half until 2026-08-11;
-both were renamed and removed in the commit that vendored the shared
-body.
+That incident also produced a rule about WHEN a tag is cut, which is not
+a test and is stated rather than enforced here: a version tag names a
+commit whose CI has already concluded green. The v0.7.0 tag was pushed
+fifteen seconds after its branch, with CI still running and then red.
+The battery above was named `prove_extras_and_ci_guards.py` and carried
+a mechanical half of that rule until 2026-08-11.
 
 ## Hard invariants
 
@@ -84,8 +80,7 @@ added, English names everywhere, no notebooks in Git.
 
 ## How to add a command
 
-Use the `add-command` skill (`.claude/skills/add-command/SKILL.md`) or follow
-it manually: draft the YAML entry with layout, phase, typed args, one
+Draft the YAML entry with layout, phase, typed args, one
 evidence citation (manual_ref for the page that documents the command, or
 probe_ref naming a committed report where no edition documents it), and
 status `documented`; add emit-validation and golden

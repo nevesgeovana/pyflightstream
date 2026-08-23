@@ -4,10 +4,9 @@
 # configured on PyPI (project pyflightstream, owner nevesgeovana,
 # repository pyflightstream, workflow release.yml, environment pypi)
 # and a GitHub environment named pypi. Triggered by version tags only;
-# the tag is cut after the release skill's gates are green (including
-# the role-review and release attestations).
+# the tag is cut once the gates below are green.
 #
-# REV010-016 changed the SHAPE of this workflow. It used to build, run
+# A 2026-08 review changed the SHAPE of this workflow. It used to build, run
 # `twine check`, and publish on the strength of the build job alone, so
 # a tag could publish while ci.yml was failing, and the artifact that
 # reached PyPI was never the artifact any test had exercised: ci.yml
@@ -20,7 +19,7 @@
 # before publishing, so the bytes that were tested are the bytes that
 # ship.
 #
-# Actions are pinned by commit digest (REV010-019). A tag is mutable and
+# Actions are pinned by commit digest. A tag is mutable and
 # can be repointed at new code by its owner; a digest cannot. Update
 # them deliberately, with `gh api repos/<owner>/<repo>/commits/<ref>`,
 # and keep the human-readable ref in the trailing comment so the next
@@ -52,7 +51,7 @@ jobs:
       - name: Build sdist and wheel
         run: |
           # Build tooling is constrained rather than "whatever is current"
-          # (REV010-019): an unpinned build backend can change what the
+          # an unpinned build backend can change what the
           # artifact contains between two runs of the same commit, and
           # nothing in the repository diff would record it.
           python -m pip install --upgrade "pip==26.1.2" "build==1.5.0" "twine==6.2.0"
@@ -171,7 +170,7 @@ jobs:
 
   publish:
     # Every gate, not just the build. A tag used to publish while ci.yml
-    # was red because nothing here waited for it (REV010-016).
+    # was red because nothing here waited for it.
     needs: [build, test-artifact, gates]
     runs-on: ubuntu-latest
     environment:

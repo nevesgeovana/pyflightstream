@@ -247,17 +247,16 @@ from the database at build time.
 | `examples/` | Runnable example scripts in percent format |
 | `guide/` | LaTeX source of the user guide (the built pdf never enters Git) |
 | `deprecated/` | Discontinued public items, grouped here instead of scattered at the top level |
-| `.claude/skills/` | Maintenance procedures (version updates, command additions, QA runs, releases) |
 | `_private/` | Local only, never committed: FlightStream manuals, executables, research geometry, the design documents and the plan ledger |
 
 ## Development setup
 
-Maintainers: several machine-specific environment variables locate local
-tooling and session state and are not in Git. A fresh clone must set
-them in `.claude/settings.local.json`; `CLAUDE.md` (Session protocol)
-is their single home, lists them, and states what each one does when
-unset. The count is deliberately not repeated here: it lived in two
-places and went stale in this one.
+Maintainers: a few machine-specific environment variables locate local
+tooling and are not in Git, because a literal path into somebody's
+machine never enters a committed file. `CLAUDE.md` is their single home,
+lists them, and states what each one does when unset. The count is
+deliberately not repeated here: it lived in two places and went stale in
+this one.
 
 ```
 pip install -e .[dev,fsi,geom]

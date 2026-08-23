@@ -9,7 +9,7 @@ on:
   push:
     branches: [main]
 
-# REV010-019: least privilege at workflow scope. `pages: write` and
+# Least privilege at workflow scope. `pages: write` and
 # `id-token: write` used to be granted here, which handed them to the
 # BUILD job as well, and the build job is the one that installs and runs
 # third-party dependencies. Only the deploy job needs them, and it asks
