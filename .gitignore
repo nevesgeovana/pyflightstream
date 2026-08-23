@@ -40,27 +40,21 @@ guide/*.fdb_latexmk
 guide/*.synctex.gz
 guide/*.vrb
 
-# Role-review push-gate attestation (local session state, never versioned)
-.claude/.role_review_attestation.json
-
-# Local machine configuration (absolute paths: incident ledger, plan checker)
+# Local machine configuration. Absolute paths locating local tooling live
+# here and nowhere else: `tests/test_house_style.py` refuses a user-profile
+# path or a workspace-container path in any COMMITTED file, and this is the
+# gitignored home that exemption assumes.
 .claude/settings.local.json
 
-# Reviewer worktrees. The role-review skill parks a mutating pass in a full
-# second copy of the repository under here, and `git worktree remove` fails on
-# Windows while a handle is open, so an abandoned copy outlives the review.
-#
-# Committed on 2026-08-12 rather than left to `.git/info/exclude`, where it had
-# been living on one machine. That was not a tidiness point: the shipped
-# surface scan wired the same night builds its inventory from `git ls-files`
-# PLUS `--others --exclude-standard`, and turns any path it cannot read into a
-# refusal rather than a skip. A fresh clone that spawned one reviewer worktree
-# would therefore see tier 1 fail with a message about coverage holes naming a
-# scratch directory, and the cause would read as a checker defect.
-# `tests/test_env_contract.py` already excludes this tree for the neighbouring
-# reason, so the local-only exclude was the last place this was not written
-# down.
-.claude/worktrees/
+# A NESTED SECOND CHECKOUT, if one is ever parked inside this tree, belongs
+# here too and the reason is measured rather than tidy: the shipped-surface
+# scan builds its inventory from `git ls-files` PLUS
+# `--others --exclude-standard`, and turns any path it cannot read into a
+# refusal rather than a skip. An unignored scratch checkout therefore fails
+# tier 1 with a message about coverage holes, and the cause reads as a
+# checker defect. Keep it out of the style walk by absolute PREFIX rather
+# than by directory name; `tests/test_house_style.py` records above its own
+# `SKIP_DIRS` how a name once blanked that walk entirely.
 
 # Coverage data and reports (NFR-16). The measurement is a local
 # artifact; the FLOOR it is checked against is versioned, in

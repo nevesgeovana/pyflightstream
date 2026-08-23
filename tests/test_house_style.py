@@ -149,26 +149,24 @@ MIGRATED_PATH = re.compile(
     r"_private[/\\](" + "|".join(re.escape(name) for name in MIGRATED_SESSION_DIRS) + r")\b"
 )
 
-# No exemption list. The nine vendored kit bodies were exempted here at first,
-# defensively, and the exemption was then verified to be unnecessary: none of
-# them names a migrated session path. The stale prose they DO carry is
-# `_private/kit`, which is not on the list above. A permanently silenced push
-# gate is worse than a hypothetical future conflict, so the silence was
-# removed. If a re-vendor ever does introduce one of these paths into a kit
-# body, this guard should fire and the fix belongs in the kit.
+# No exemption list, and there has never been a live entry in one. Nine
+# files were exempted here defensively when this guard was written, the
+# exemption was verified to be unnecessary, and the silence was removed;
+# those files have since left the tree entirely. Every tracked file is
+# inside this rule.
 
 
 # Personal-identifier guard, added 2026-07-28 with the kit 0.2.4 re-vendor.
 #
-# Why it exists: `.claude/tools/snap.sh` set the private snapshot repositories'
-# git identity from two literals, a full name and a personal email address, and
-# located a tree by an absolute path under a personal user profile. That file is
-# TRACKED and this remote is public, so a hashed kit body published an email
-# address. The kit promotion removed the instance. This guard is the other half
-# the structural-fix rule requires, because without it the same literal reaching
-# any tracked file is undetectable: `iter_style_checked_files` yields `*.md` and
-# `*.py` only, so the file that actually leaked was outside every house-style
-# guard by file type, and the drift test pins bytes rather than content.
+# Why it exists: a tracked shell tool set a git identity from two literals,
+# a full name and a personal email address, and located a tree by an absolute
+# path under a personal user profile. The file was TRACKED and this remote is
+# public, so a real email address was published here. Removing that one
+# instance was half a fix; this guard is the other half, because without it
+# the same literal reaching any tracked file is undetectable. Note which half
+# of the tree the leak sat in: `iter_style_checked_files` yields `*.md`,
+# `*.py` and `*.yaml`, and the file that leaked was none of those, which is
+# why THIS guard walks `git ls-files` instead.
 #
 # What is deliberately NOT guarded: the author's NAME. It appears by intention
 # in LICENSE, CITATION.cff, pyproject.toml, the SRS and the guide, because she
@@ -177,10 +175,11 @@ MIGRATED_PATH = re.compile(
 # and a user-profile path have no legitimate home in this tree at all, which is
 # what makes them checkable without one.
 #
-# Scope is TRACKED files, from `git ls-files`, not a worktree walk. The
-# gitignored `.claude/settings.local.json` legitimately holds the profile path
-# (it is the documented home for machine configuration) and a worktree walk
-# would fail on it.
+# Scope is TRACKED files, from `git ls-files`, not a worktree walk, and the
+# difference is load bearing rather than incidental: machine configuration
+# legitimately holds a profile path and legitimately lives in a gitignored
+# file, so a walk of the working tree would fail on the one file that is
+# allowed to carry the literal.
 _AT = chr(64)
 # A dotted top-level domain is REQUIRED, which is what separates an address
 # from a version pin: `actions/checkout@v4` and `gh-action-pypi-publish@release`
@@ -304,10 +303,9 @@ def test_no_personal_identifier_in_a_tracked_file():
     assert not offenders, (
         "a tracked file carries a personal identifier, and this remote is public:\n"
         + "\n".join(offenders)
-        + "\n\nMachine-specific values belong in the gitignored "
-        ".claude/settings.local.json, never in a committed file. If the file is a "
-        "vendored kit body, the fix is a kit promotion at the coordination level, "
-        "not an edit here."
+        + "\n\nMachine-specific values belong in a gitignored local settings "
+        "file, never in a committed one. There is no exemption from this rule "
+        "and no file in this tree has one."
     )
 
 
@@ -316,9 +314,10 @@ def test_the_identifier_guard_fires_on_what_it_exists_to_catch():
 
     The structural-fix rule says a fix is not complete until it carries a guard
     that makes recurrence impossible AND the evidence that the guard blocks the
-    original failure. These are the two shapes the kit 0.2.4 promotion removed
-    from ``.claude/tools/snap.sh``, reconstructed here rather than quoted, so
-    this file stays clean of them while still proving the detector fires.
+    original failure. These are the two shapes that were removed from the
+    tracked shell tool which published them, reconstructed here rather than
+    quoted, so this file stays clean of them while still proving the detector
+    fires.
     """
     address = "someone.personal" + _AT + "gmail.com"
     assert _identifier_offenses(f'config user.email "{address}"'), (
@@ -379,13 +378,12 @@ def test_no_committed_path_to_a_migrated_session_document():
     stay in ``_private/``, so this guard names the five migrated entries
     explicitly rather than forbidding ``_private/`` wholesale.
 
-    Scope, stated so the limit is visible: ``iter_style_checked_files`` yields
-    ``*.md`` and ``*.py`` only, so ``.github/workflows/*.yml``,
-    ``.claude/settings.json`` and ``.claude/tools/snap.sh`` are outside this
-    guard. The first two carry no such path today and the third is a
-    hash-pinned kit body whose stale wording is tracked by
-    PLN-20260727-1854-kit-side-residue (the re-vendor entry that first
-    carried it has since closed, and a closed entry is not a tracker).
+    Scope, stated so the limit is visible: ``iter_style_checked_files``
+    yields ``*.md``, ``*.py`` and ``*.yaml``, so ``.github/workflows/*.yml``
+    and any ``*.json`` or ``*.sh`` in the tree are outside this guard. None
+    of them carries such a path today. The two tracked files that used to
+    carry one, and could not be corrected here because their canonical copy
+    was kept elsewhere, have left the tree.
     """
     offenders = []
     for path in iter_style_checked_files():
@@ -707,8 +705,8 @@ def test_no_tracked_file_names_the_container_directory():
     offenders = _container_offenders(_tracked_text())
     assert not offenders, (
         "these tracked files carry an absolute path into the workspace "
-        "container, which is machine configuration and belongs in the "
-        "gitignored .claude/settings.local.json:\n" + "\n".join(offenders)
+        "container, which is machine configuration and belongs in a gitignored "
+        "local settings file:\n" + "\n".join(offenders)
     )
 
 

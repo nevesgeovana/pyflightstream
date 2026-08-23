@@ -16,7 +16,7 @@ there is deliberately no regenerate command here, because a one-command
 rewrite would absorb a new citation as easily as a removed one, which is the
 whole thing this record exists to prevent.
 
-Re-measured 2026-08-23, and the rows below are that measurement: 325
+Re-measured 2026-08-23, and the rows below are that measurement: 324
 citations across 99 counted units, over 407 walked files.
 
 EVERY WALKED FILE IS COUNTED END TO END, and that is the change of
@@ -28,8 +28,8 @@ walked file has a region this repository cannot correct, and the two totals
 that used to differ are one number.
 
 FIFTY-FIVE ROWS WENT WITH THEM in the same measurement, and the drop from
-609 citations to 325 is that removal rather than a sweep: the departing
-tree was where more than half of the recorded citations lived. Three
+609 citations to 324 is that removal rather than a sweep: the departing
+tree was where more than half of the recorded citations lived. Four
 surviving rows also fell, each because the sentence carrying the citation
 was rewritten in the same change. Nothing was added anywhere, which is what
 the ratchet's upward arm was asked and what it answered.
@@ -121,7 +121,7 @@ PRIVATE_ID_COUNTS: dict[str, int] = {
     "tests/test_extras_isolation.py": 6,
     "tests/test_guide_api_names.py": 1,
     "tests/test_guide_currency.py": 2,
-    "tests/test_house_style.py": 3,
+    "tests/test_house_style.py": 2,
     "tests/test_mutation_harness.py": 1,
     "tests/test_overview.py": 2,
     "tests/test_qa_cli.py": 1,
