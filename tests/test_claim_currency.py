@@ -131,36 +131,6 @@ def test_the_readme_states_the_experimental_boundary() -> None:
     assert "experimental" in text.lower()
 
 
-def test_the_attestation_claim_agrees_with_the_hook_that_implements_it() -> None:
-    """REV010-018. The hook's docstring says the attestation does NOT prove
-    the reviewer agents ran; the skill called it "the mechanical proof that
-    the real agents ran". Two documents, one mechanism, opposite claims."""
-
-    # Whitespace-normalized: both files are hard-wrapped prose, so a phrase
-    # this guard looks for is routinely split across a line break. Searching
-    # the raw text would make the guard depend on where the wrap happened,
-    # which is the difference between a guard and a guard-shaped thing.
-    def flat(path: str) -> str:
-        return " ".join((REPO / path).read_text(encoding="utf-8").split())
-
-    hook = flat(".claude/hooks/role_review_gate.py")
-    skill = flat(".claude/skills/role-review/SKILL.md")
-
-    # The hook is the accurate one, so its disclaimer is the anchor.
-    assert "does NOT" in hook and "prove the reviewer agents ran" in hook, (
-        "the hook no longer states the limit of what it enforces; that sentence is "
-        "what this guard compares the skill against"
-    )
-    assert "the mechanical proof that the real agents ran" not in skill, (
-        "the role-review skill claims the attestation proves the agents ran, which "
-        "the hook that implements it explicitly refuses to claim about itself"
-    )
-    assert "NOT proof" in skill or "not proof" in skill, (
-        "the skill should state what the attestation is not, since a reader who "
-        "only reads the skill would otherwise infer the wider claim"
-    )
-
-
 def test_the_index_generator_documents_the_fields_it_emits() -> None:
     """REV010-017. The generator's docstring listed three fields while six
     were being written. A hand-maintained description of a generated
@@ -610,10 +580,15 @@ def test_no_committed_page_writes_a_stale_tally_of_a_shared_vendor_name() -> Non
 # ``docs/srs/standards.md`` is the page an outside reader uses to judge how
 # much of this project's discipline is mechanical and how much is habit. Its
 # Adopted table carried one prose column, so a row backed by a tier-1 test
-# and a row backed by nobody's memory read the same. The three guards below
-# hold the two claims that column now makes: that every adopted row names
-# what enforces it, and that the row about role-based review names the hook
-# that REFUSES a push rather than a routine somebody runs.
+# and a row backed by nobody's memory read the same. The two guards below
+# hold the claim that column makes: that every adopted row names what
+# enforces it, and that what it names resolves.
+#
+# A THIRD GUARD STOOD HERE UNTIL 2026-08-23 and went with its subject. It
+# pinned the wording of one row against a process tool that this repository
+# no longer carries, which is a claim about how the work is organised
+# rather than about the library; the row itself now answers `convention`,
+# which the surviving guard accepts as the honest answer it is.
 #
 # SCOPE. They cannot read a cell and decide whether the named mechanism
 # really enforces the practice; that judgement is the reviewer's. What they
@@ -774,66 +749,3 @@ def test_every_adopted_standard_names_what_enforces_it() -> None:
         "column exists to prevent; the word convention is how a row says, on purpose, "
         "that nothing mechanical refuses a breach."
     )
-
-
-def test_the_role_based_review_row_names_the_gate_that_refuses_a_push() -> None:
-    """The row says a tool refuses the push, not that a reviewer remembers.
-
-    The page described role-based review as five charters run by a skill
-    before a work item closes, which is true and stopped being complete when
-    the push gate landed: an unattested push is DENIED, and a push made
-    while a blocking incident is open in the shared ledger is denied too.
-    A public claim that understates its own mechanism is the mirror of one
-    that overstates it, and this repository's changelog had announced both
-    gates while the SRS still described a habit.
-    """
-    headers, rows = _adopted_table()
-    matching = [row for row in rows if row[0].startswith("Role-based review")]
-    assert len(matching) == 1, f"expected one Role-based review row, found {len(matching)}"
-    assert "How it lands here" in headers, f"the Adopted table columns are {headers}"
-
-    # THE PROSE CELL, not the joined row, and the difference is measured
-    # rather than stylistic: the enforcement cell of this same row names the
-    # hook too, so a guard reading the whole row passed with the hook deleted
-    # from the sentence a reader actually reads.
-    cell = matching[0][headers.index("How it lands here")]
-
-    hook = ".claude/hooks/role_review_gate.py"
-    assert (REPO / hook).is_file(), (
-        f"{hook} is not in the tree, so the row below would name a mechanism that no "
-        "longer exists; the row and the hook move together"
-    )
-    assert hook in cell, (
-        "the Role-based review row does not name the push-gate hook where it describes "
-        "the practice, so a reader of that row alone learns that a skill runs five "
-        f"charters and not that an unattested push is refused by {hook}"
-    )
-    assert ".claude/agents/" in cell, (
-        "the row no longer names the reviewer charters, which are what the gate "
-        "attests to; naming the gate is an addition to that sentence, not a swap"
-    )
-    assert "COORD_INCIDENT_LEDGER" in cell, (
-        "the incident half is stated without naming the variable that locates the "
-        "ledger, so a reader cannot follow it to the machine-configuration table "
-        "in CLAUDE.md, which is that fact's one home"
-    )
-
-    # Per CLAUSE, for the same reason. Both halves of the gate live in one
-    # sentence, so a sentence-level or row-level search let "reminds the
-    # author about the attestation" pass on the word "denies" belonging to
-    # the OTHER half. A refusal has to be stated where the mechanism is.
-    clauses = re.split(r"[.;:]\s+", cell)
-    refusal = ("denies", "refuses", "refusal", "blocks")
-    for what, marker in (("attestation half", hook), ("incident half", "incident")):
-        carrying = [clause for clause in clauses if marker.lower() in clause.lower()]
-        assert carrying, (
-            f"the row's prose does not mention the {what} of the gate at all "
-            f"(looked for {marker!r}), so a reader learns about only one of the two "
-            "refusals that stand behind role-based review here"
-        )
-        assert any(any(verb in clause.lower() for verb in refusal) for clause in carrying), (
-            f"the row names the {what} without saying, in the same clause, that it "
-            f"REFUSES the push (one of {', '.join(refusal)}). A gate described as a "
-            "reminder reads exactly like the reviewer's memory it replaced, which is "
-            "the understatement this row was corrected for"
-        )

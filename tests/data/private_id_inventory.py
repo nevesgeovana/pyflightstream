@@ -16,11 +16,17 @@ there is deliberately no regenerate command here, because a one-command
 rewrite would absorb a new citation as easily as a removed one, which is the
 whole thing this record exists to prevent.
 
-Measured 2026-08-18, and the rows below are that measurement: 499 citations
-across 150 counted units, out of 611 found by the same pattern over the whole
-of the 430 walked files. The difference is the one exempt region, 112
-citations inside the hash-pinned bodies of 26 vendored kit files, which
-cannot be corrected in this repository at all.
+Re-measured 2026-08-23, and the rows below are that measurement: 609
+citations across 154 counted units, over 471 walked files.
+
+EVERY WALKED FILE IS NOW COUNTED END TO END, and that is the change of
+2026-08-23 rather than a simplification of the sentence. There used to be an
+exempt region: a population of files whose bodies were byte-pinned outside
+this repository, counted only above a marker line, because a citation below
+it could not be corrected here at all. That arrangement is retired with the
+tree it described, so the counted unit is the file and the two totals that
+used to differ are one number. The rows below rose wherever that exemption
+used to sit, and every one of them is a path that leaves the tree next.
 
 Read those totals as a snapshot rather than as a contract. The rows are the
 contract; the totals move whenever a page is edited, and the guard reports
@@ -34,12 +40,13 @@ PRIVATE_ID_COUNTS: dict[str, int] = {
     ".claude/agents/qa-engineer.md": 1,
     ".claude/agents/tech-writer.md": 2,
     ".claude/agents/vv-engineer.md": 1,
-    ".claude/hooks/ci_state.py": 5,
-    ".claude/hooks/ci_state_mutations.py": 2,
-    ".claude/hooks/execution_guard.py": 1,
-    ".claude/hooks/role_review_gate.py": 5,
+    ".claude/hooks/ci_state.py": 8,
+    ".claude/hooks/ci_state_mutations.py": 3,
+    ".claude/hooks/execution_guard.py": 6,
+    ".claude/hooks/execution_guard_mutations.py": 4,
+    ".claude/hooks/role_review_gate.py": 12,
     ".claude/hooks/role_review_gate_mutations.py": 1,
-    ".claude/hooks/write_attestation.py": 1,
+    ".claude/hooks/write_attestation.py": 2,
     ".claude/skills/audit/SKILL.md": 2,
     ".claude/skills/derive-requirements/SKILL.md": 2,
     ".claude/skills/handoff/SKILL.md": 1,
@@ -47,25 +54,29 @@ PRIVATE_ID_COUNTS: dict[str, int] = {
     ".claude/skills/release/SKILL.md": 1,
     ".claude/skills/role-review/ROLE_TEMPLATE.md": 1,
     ".claude/skills/role-review/SKILL.md": 4,
-    ".claude/tools/budget_isolation.py": 5,
-    ".claude/tools/check_citations.py": 10,
-    ".claude/tools/check_citations_mutations.py": 4,
+    ".claude/tools/budget_isolation.py": 11,
+    ".claude/tools/check_citations.py": 19,
+    ".claude/tools/check_citations_mutations.py": 24,
+    ".claude/tools/check_incidents.py": 1,
+    ".claude/tools/check_plan_kit.py": 1,
+    ".claude/tools/check_plan_kit_mutations.py": 1,
     ".claude/tools/check_probe_closure.py": 1,
-    ".claude/tools/check_release_gate.py": 2,
-    ".claude/tools/check_release_gate_mutations.py": 2,
-    ".claude/tools/check_review_rounds.py": 4,
-    ".claude/tools/check_review_rounds_mutations.py": 1,
-    ".claude/tools/check_shipped_surface.py": 2,
-    ".claude/tools/check_side_effect_guard.py": 1,
+    ".claude/tools/check_release_gate.py": 6,
+    ".claude/tools/check_release_gate_mutations.py": 7,
+    ".claude/tools/check_review_rounds.py": 5,
+    ".claude/tools/check_review_rounds_mutations.py": 2,
+    ".claude/tools/check_shipped_surface.py": 4,
+    ".claude/tools/check_shipped_surface_mutations.py": 2,
+    ".claude/tools/check_side_effect_guard.py": 2,
     ".claude/tools/check_side_effect_guard_mutations.py": 1,
     ".claude/tools/check_spawn_env.py": 3,
-    ".claude/tools/check_spawn_env_mutations.py": 2,
-    ".claude/tools/detached_gate.py": 3,
-    ".claude/tools/incident-analyst.md": 2,
-    ".claude/tools/prepush_receipt.py": 7,
-    ".claude/tools/prepush_receipt_mutations.py": 1,
-    ".claude/tools/review-policy.md": 4,
-    ".claude/tools/review_runner.py": 10,
+    ".claude/tools/check_spawn_env_mutations.py": 3,
+    ".claude/tools/detached_gate.py": 4,
+    ".claude/tools/incident-analyst.md": 5,
+    ".claude/tools/prepush_receipt.py": 12,
+    ".claude/tools/prepush_receipt_mutations.py": 7,
+    ".claude/tools/review-policy.md": 13,
+    ".claude/tools/review_runner.py": 22,
     ".claude/tools/version-control.md": 10,
     ".pre-commit-config.yaml": 1,
     "CHANGELOG.md": 48,

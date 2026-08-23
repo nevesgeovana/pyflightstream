@@ -725,9 +725,9 @@
     Two things closed it. `tests/test_extras_isolation.py` derives, from
     pyproject and the workflow install lines, which distributions a CI
     job may lack, and refuses an unguarded import of one in `src/`,
-    `tests/`, `examples/`, `scripts/`, the two `.claude` tool trees, the
-    root conftest, the doctests inside all of those, and the executable
-    fenced blocks of the README and the docs pages. And the
+    `tests/`, `examples/`, `scripts/`, `tools/`, the root conftest, the
+    doctests inside all of those, and the executable fenced blocks of the
+    README and the docs pages. And the
     `test-all-extras` job in `ci.yml` installs all five, so the gated
     assertions execute somewhere rather than skipping everywhere.
 

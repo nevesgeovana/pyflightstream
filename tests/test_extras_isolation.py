@@ -39,16 +39,17 @@ shipped in this workspace with a flat ``glob`` where it needed
 ``rglob``, was green, and covered a fraction of what its name claimed
 (INC-20260809-2230-pyflightstream).
 
-WHAT THIS DOES NOT REACH, stated so the coverage is not overread.
-``.claude/skills``, ``.claude/agents`` and ``.claude/worktrees`` are
-outside the scan, the last deliberately, since it holds whole checkouts
-of this repository that reviewer agents park there. ``.claude/hooks``
-and ``.claude/tools`` ARE scanned, because tier 1 loads those bodies by
-path; note that several of them are hash-pinned, so a finding there
-cannot be fixed here and belongs to the kit, which is the resolution
-this file commits to rather than weakening the scan. Also unreached: an
-import made through a console script, an entry point, a pytest plugin,
-or ``import_module`` with a computed argument.
+WHAT THIS DOES NOT REACH, stated so the coverage is not overread. The
+scan covers the five trees in ``SCAN_ROOTS``, the root ``conftest.py``,
+the doctests inside all of those, and the executable fenced blocks of
+the README and the docs pages. ``deprecated/``, ``guide/`` and
+``reports/`` are outside it: nothing in tier 1 imports them. A nested
+second checkout of this tree, if one is ever parked inside it, must be
+kept out of the scan by an absolute prefix rather than by a directory
+name, for the reason ``tests/test_house_style.py`` records above its own
+``SKIP_DIRS``. Also unreached: an import made through a console script,
+an entry point, a pytest plugin, or ``import_module`` with a computed
+argument.
 
 And the forbidden set is not identical on every leg. Import roots are
 resolved from installed metadata, so ``mpl_toolkits`` and ``pylab`` join
@@ -74,13 +75,16 @@ REPO = Path(__file__).resolve().parents[1]
 
 #: Every tree whose python this repository executes somewhere: shipped
 #: package, test suite, published examples, maintainer scripts, and the
-#: two hook and tool trees that tier 1 loads by path.
+#: repository checkers that tier 1 runs by path.
 #:
-#: `.claude` is named by its two leaves rather than whole, because
-#: `.claude/worktrees/` holds entire checkouts of this repository that
-#: reviewer agents park there; walking it would scan copies of every
-#: file, including mid-mutation ones.
-SCAN_ROOTS = ("src", "tests", "examples", "scripts", ".claude/hooks", ".claude/tools")
+#: MOVED, NOT NARROWED, on 2026-08-23. Two of these entries used to name
+#: leaves of a process-tooling tree that has left the repository. The
+#: python tier 1 loads by path did not leave with it: the two checkers
+#: under `tools/` are the same files under a new home, and `tools` is
+#: named here so the scan follows them. Dropping the two old entries
+#: without adding this one would have been a narrowing, which is the
+#: exact move the twin constant below exists to refuse.
+SCAN_ROOTS = ("src", "tests", "examples", "scripts", "tools")
 
 #: The partition the main assertion runs over. "root" catches the files
 #: that sit at the repository root (the conftest), "markdown" the fenced
@@ -160,9 +164,17 @@ EXPECTED_GUARANTEED = frozenset({"dev"})
 #: joining the scan is a decision worth seeing in a diff.
 #: Written out rather than derived from SCAN_ROOTS, which would make it
 #: unfalsifiable. That was the first attempt.
-EXPECTED_SCAN_ROOTS = frozenset(
-    {"src", "tests", "examples", "scripts", ".claude/hooks", ".claude/tools"}
-)
+#:
+#: WHY IT MOVED ON 2026-08-23, recorded here because this constant is the
+#: one place a change to the scan has to be argued rather than made. Two
+#: entries named leaves of a process-tooling tree that is leaving the
+#: repository; `tools` replaces both. The python that tier 1 loads by
+#: path is the same python: the forbidden-identifier checker, the
+#: spawn-environment checker and their two mutation companions moved to
+#: `tools/` and are run by `tests/test_repository_guards.py`. The count
+#: fell from six trees to five and the SCANNED FILES did not, which is
+#: the distinction this constant exists to make visible.
+EXPECTED_SCAN_ROOTS = frozenset({"src", "tests", "examples", "scripts", "tools"})
 
 
 def _distribution_of(specifier: str) -> str:

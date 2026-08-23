@@ -13,14 +13,6 @@ from pathlib import Path
 
 import pytest
 
-# The hash-pinned vendored kit population and the ONE definition of where a
-# vendored body begins. Imported rather than re-derived: the private-ledger
-# ratchet at the foot of this file counts the provenance HEADER of these
-# files and not their body, and if the two modules disagreed about that line
-# the exemption would silently move (OPS-2010.15).
-from test_kit_drift import MANIFEST as KIT_MANIFEST
-from test_kit_drift import _read_lf, _split_at_marker
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SKIP_DIRS = {
     ".git",
@@ -34,28 +26,39 @@ SKIP_DIRS = {
     "dist",
 }
 
-#: The one directory skipped by ABSOLUTE PREFIX rather than by name.
-#:
-#: A review's isolated worktree is a full second copy of the tree, under
-#: .claude/worktrees/. Walking it doubles every check, and an abandoned
-#: one (the removal fails on Windows while a handle is open) would report
-#: offenders against a path nobody edits.
-#:
-#: IT WAS A NAME IN `SKIP_DIRS` UNTIL 2026-08-19 and that made this walk
-#: blank ITSELF. Inside a worktree every path carries the component
-#: `worktrees`, so the walk yielded ZERO files and all three guards built
-#: on it passed over anything: a QA pass proved it by writing an em dash
-#: and the forbidden employer name into README.md and watching them pass.
-#: The guards were off in exactly the environment the review process
-#: uses. A prefix cannot do that, because it is anchored at this tree's
-#: own root.
-WORKTREE_ROOT = (REPO_ROOT / ".claude" / "worktrees").resolve()
+# A RULE ABOUT `SKIP_DIRS` THAT COST THE WHOLE WALK ONCE, kept because the
+# next nested checkout will arrive one day and the trap is not obvious.
+#
+# Until 2026-08-19 a second full copy of this tree lived inside it, and it
+# was skipped by NAME. Inside that copy every path carried the skipped
+# component, so the walk yielded ZERO files and all three guards built on
+# it passed over nothing at all: a QA pass proved it by writing an em dash
+# and the forbidden employer name into README.md and watching both pass.
+# A name in `SKIP_DIRS` matches at any depth, including above this tree's
+# own root, which is how a walk blanks itself.
+#
+# So a nested checkout is skipped by ABSOLUTE PREFIX, anchored at
+# `REPO_ROOT`, never by a name. There is none in this tree today and the
+# prefix test is therefore gone rather than pointed at a path that does
+# not exist; `test_the_style_walk_has_something_to_check` below is the
+# floor that would catch its return.
+
 # Built from codepoints so this file itself stays free of the characters.
 FORBIDDEN = {chr(0x2013): "en dash", chr(0x2014): "em dash"}
-# Built by concatenation so this file itself stays free of the words:
-# the repository never names the author's employer or internal
-# predecessor toolchains (CLAUDE.md invariant 5).
-FORBIDDEN_WORDS = ("Embr" + "aer", "fts_" + "horse")
+# Built from code points so this file itself stays free of the words: the
+# repository never names the author's employer or internal predecessor
+# toolchains (CLAUDE.md invariant 5).
+#
+# CODE POINTS AND NOT TWO-FRAGMENT CONCATENATION, since 2026-08-23. The
+# previous spelling joined two halves of each word, which defeats a grep
+# and nothing else: both words were legible to any reader of this file,
+# and a file that spells what it forbids is one careless copy away from
+# being the offender it exists to catch. The strings and every assertion
+# below are unchanged.
+FORBIDDEN_WORDS = (
+    "".join(map(chr, (69, 109, 98, 114, 97, 101, 114))),
+    "".join(map(chr, (102, 116, 115, 95, 104, 111, 114, 115, 101))),
+)
 
 
 def iter_style_checked_files():
@@ -69,14 +72,12 @@ def iter_style_checked_files():
         for path in REPO_ROOT.rglob(pattern):
             if SKIP_DIRS.intersection(path.parts):
                 continue
-            if WORKTREE_ROOT in path.resolve().parents:
-                continue
             yield path
 
 
 #: The walk's own floor. Three guards subtract from it and none of them
 #: asserted it had anything to subtract from, which is how a collapse to
-#: zero read as a clean tree. Measured 2026-08-19 at 470 files; the floor
+#: zero read as a clean tree. Measured 2026-08-23 at 471 files; the floor
 #: is set well below so ordinary work never moves it and a collapse
 #: cannot hide.
 STYLE_WALK_FLOOR = 300
@@ -85,11 +86,12 @@ STYLE_WALK_FLOOR = 300
 def test_the_style_walk_has_something_to_check():
     """The guard on the three guards, and it is not hypothetical.
 
-    Until 2026-08-19 this walk yielded ZERO files inside a reviewer
-    worktree, because it skipped by path component and a worktree lives
-    under a directory of that name. Invariants 5 and 6 were unenforced
-    there and nothing said so: each of the three consumers iterates the
-    walk and asserts per file, so an empty walk satisfies all of them.
+    Until 2026-08-19 this walk yielded ZERO files inside a nested second
+    checkout of this tree, because it skipped by path component and that
+    checkout lived under a directory of the skipped name. Invariants 5 and
+    6 were unenforced there and nothing said so: each of the three
+    consumers iterates the walk and asserts per file, so an empty walk
+    satisfies all of them. See the note above ``SKIP_DIRS``.
     """
     walked = list(iter_style_checked_files())
     assert len(walked) >= STYLE_WALK_FLOOR, (
@@ -417,7 +419,14 @@ def test_no_committed_path_to_a_migrated_session_document():
 # asserts against that text. `qa/physics.py` requires the string to be non-empty
 # and echoes it into reports; no test, requirement or report compares it. The
 # load-bearing half is the report citation inside it, and that is untouched.
-GIVEN_NAME = "Geo" + "vana"
+#
+# BUILT FROM CODE POINTS, not from two joined fragments, since 2026-08-23.
+# The fragment form kept the name out of a grep and left it perfectly
+# legible in the file, which is the wrong half of the problem to solve:
+# this module is itself scanned, by its own walk and by the tree-wide
+# checker under `tools/`, and a guard that spells the token it forbids is
+# the one file able to defeat itself. The resulting string is identical.
+GIVEN_NAME = "".join(map(chr, (71, 101, 111, 118, 97, 110, 97)))
 
 
 def _names_the_author(text: str) -> bool:
@@ -638,9 +647,13 @@ def test_the_geometry_guard_fires_on_what_it_exists_to_catch():
 # from a path that leaks, and it is machine independent, so the guard reads it
 # rather than the drive letter.
 #
-# Assembled from fragments for the reason PROFILE_PATH_SHAPE gives: this file
-# is scanned too, and a guard that is its own only offender is no guard.
-CONTAINER_DIRECTORY = "Claude" + "Projects"
+# Assembled from code points for the reason PROFILE_PATH_SHAPE gives: this
+# file is scanned too, and a guard that is its own only offender is no guard.
+# It was two joined fragments until 2026-08-23, which hides a token from a
+# grep and from nothing else; the string is identical.
+CONTAINER_DIRECTORY = "".join(
+    map(chr, (67, 108, 97, 117, 100, 101, 80, 114, 111, 106, 101, 99, 116, 115))
+)
 
 #: Tracked files allowed to name it, each with the reason. Both are
 #: hash-pinned vendored kit bodies: CLAUDE.md's rule is that a vendored body is
@@ -944,27 +957,19 @@ def _recorded_private_id_counts() -> dict[str, int]:
     return dict(module.PRIVATE_ID_COUNTS)
 
 
-def _counted_region(relative: str, text: str) -> str:
-    """The region of a walked file the ratchet counts, given its LF text.
+def _count_private_ids(text: str) -> int:
+    """Occurrences of a private-ledger id in this unit.
 
-    The counted unit is the whole file, EXCEPT for the hash-pinned vendored
-    kit bodies, where it is the provenance HEADER alone. That partition is
-    not a convenience: ``tests/test_kit_drift.py`` hashes only the body below
-    the ``END KIT PROVENANCE`` marker, so correcting a citation in the header
-    moves no body hash and is a legal edit here, while correcting one in the
-    body breaks the pin and must be done at the kit and re-vendored. The
-    boundary comes from that module's own ``_split_at_marker`` so the two
-    cannot disagree about which line the body starts on.
+    THE COUNTED UNIT IS THE WHOLE FILE, with no exempt region, since
+    2026-08-23. There used to be one: a population of files whose bodies
+    were byte-pinned elsewhere, where only the header above a marker line
+    was counted, because a citation inside a pinned body could not be
+    corrected in this repository at all. That population is gone, and with
+    it the only region a walked file could legitimately carry an
+    uncorrectable citation in. Every walked file is now counted end to end,
+    which is the stronger reading and the simpler one.
     """
-    if relative in KIT_MANIFEST:
-        lines, body_start = _split_at_marker(text)
-        return "\n".join(lines[:body_start])
-    return text
-
-
-def _count_private_ids(relative: str, text: str) -> int:
-    """Occurrences of a private-ledger id in this unit's counted region."""
-    return len(PRIVATE_LEDGER_ID.findall(_counted_region(relative, text)))
+    return len(PRIVATE_LEDGER_ID.findall(text))
 
 
 def _private_id_units() -> dict[str, int]:
@@ -977,13 +982,8 @@ def _private_id_units() -> dict[str, int]:
     units: dict[str, int] = {}
     for path in iter_style_checked_files():
         relative = path.relative_to(REPO_ROOT).as_posix()
-        # The kit bodies are hashed over LF-normalized text, so the header
-        # split must run on the same normalization the pin uses.
-        if relative in KIT_MANIFEST:
-            text = _read_lf(path)
-        else:
-            text = path.read_text(encoding="utf-8", errors="ignore")
-        units[relative] = _count_private_ids(relative, text)
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        units[relative] = _count_private_ids(text)
     return units
 
 
@@ -1033,8 +1033,8 @@ def test_no_new_private_ledger_citation_in_a_walked_file():
     counted = _private_id_units()
     # A FLOOR on the population, for the reason `_tracked_files` states: the
     # walk is `REPO_ROOT.rglob` minus SKIP_DIRS, and a walk that yields
-    # nothing satisfies every comparison below. 430 files at delivery, of
-    # which 150 carry a citation and hold a row; the exact per-unit numbers
+    # nothing satisfies every comparison below. 471 files on 2026-08-23, of
+    # which 154 carry a citation and hold a row; the exact per-unit numbers
     # are pinned by the inventory, so this is a collapse detector and not a
     # second population pin.
     assert len(counted) > 350, (
@@ -1054,48 +1054,6 @@ def test_no_new_private_ledger_citation_in_a_walked_file():
         "reader can open: a report under reports/, an SRS requirement, a commit, or "
         "the sentence itself. If a citation was legitimately REMOVED, lower its "
         "recorded number in tests/data/private_id_inventory.py in the same commit."
-    )
-
-
-def test_the_private_id_ratchet_counts_the_partition_it_claims():
-    """The header/body partition is live, not a branch nothing takes.
-
-    The exemption exists because a citation inside a hashed kit body cannot
-    be corrected here at all. If the marker split drifted, every kit file
-    would silently become "header equals whole file", the exempt region would
-    be empty, and the ratchet above would still pass on a clean tree. This
-    asserts the partition is doing something and that its population is not
-    empty.
-    """
-    counted = _private_id_units()
-    walked_kit = sorted(set(KIT_MANIFEST) & set(counted))
-    assert len(KIT_MANIFEST) >= 30, (
-        f"the vendored manifest holds {len(KIT_MANIFEST)} rows; the partition "
-        "this ratchet applies is keyed on it, and a collapsed manifest would "
-        "widen the counted unit to the whole file without anything going red"
-    )
-    assert len(walked_kit) >= 30, (
-        f"only {len(walked_kit)} of {len(KIT_MANIFEST)} manifest rows are inside "
-        "the style walk; the header exemption is being applied to almost nothing"
-    )
-    exempt = 0
-    for relative in walked_kit:
-        whole = len(PRIVATE_LEDGER_ID.findall(_read_lf(REPO_ROOT / relative)))
-        assert whole >= counted[relative], (
-            f"{relative}: the counted header carries {counted[relative]} ids and the "
-            f"whole file {whole}. The header cannot hold more than the file, so "
-            "_split_at_marker returned a boundary past the end of the text."
-        )
-        exempt += whole - counted[relative]
-    # 112 occurrences in 26 hashed bodies at delivery. Asserted as non-empty
-    # rather than pinned to that number, because a re-vendor legitimately
-    # moves it and the exact per-unit numbers are pinned by the inventory.
-    assert exempt > 0, (
-        "no citation at all sits inside a hashed kit body, so the header/body "
-        "partition currently exempts nothing. Either the bodies were swept (in "
-        "which case delete this partition and count the whole file) or the "
-        "END KIT PROVENANCE split has drifted and the exemption is silently "
-        "covering the whole of every kit file."
     )
 
 
@@ -1134,13 +1092,13 @@ def test_the_private_id_ratchet_fires_on_what_it_exists_to_catch():
     # string built here. Restoring one citation into it must be refused.
     counted = _private_id_units()
     recorded = _recorded_private_id_counts()
-    plain = sorted((set(recorded) & set(counted)) - set(KIT_MANIFEST))
+    plain = sorted(set(recorded) & set(counted))
     assert plain, "the inventory records no walked ordinary file, so this proof drives nothing"
     victim = max(plain, key=lambda name: (recorded[name], name))
     text = (REPO_ROOT / victim).read_text(encoding="utf-8", errors="ignore")
-    before = _count_private_ids(victim, text)
+    before = _count_private_ids(text)
     assert before == counted[victim], f"{victim}: the counter is not reading the walked text"
-    after = _count_private_ids(victim, text + "\nsee " + cite + "\n")
+    after = _count_private_ids(text + "\nsee " + cite + "\n")
     assert after == before + 1, (
         f"{victim}: restoring one citation moved the count from {before} to {after}"
     )
@@ -1151,20 +1109,17 @@ def test_the_private_id_ratchet_fires_on_what_it_exists_to_catch():
     assert _ratchet_offenses({victim: after}, {victim: before}), (
         f"{victim} was given one more citation than it carries and the ratchet did not refuse it"
     )
-    # 4. The exemption boundary, both ways, on a real manifest path so the
-    # branch is selected by the same membership test the scan uses.
-    kit = sorted(KIT_MANIFEST)[0]
+    # 4. THERE IS NO EXEMPT REGION, and this is asserted rather than assumed
+    # because there used to be one. A population of byte-pinned files was
+    # counted only above a marker line, since a citation below it could not
+    # be corrected here at all. Those files are gone, and an exemption that
+    # outlives its reason is a hole nobody would see: it reads exactly like a
+    # clean file. The counter must now read a citation anywhere in the text,
+    # marker line or no marker line, whatever the unit is called.
     marker = "END KIT " + "PROVENANCE"
-    in_body = "# note: kit\n# " + marker + "\nbody cites " + cite + "\n"
-    in_header = "# note: " + cite + "\n# " + marker + "\nbody\n"
-    assert _count_private_ids(kit, in_body) == 0, (
-        f"{kit}: a citation inside the HASHED body is counted, so the ratchet "
-        "asks for an edit that would break the body pin"
+    below_a_marker = "# note: header\n# " + marker + "\nbody cites " + cite + "\n"
+    assert _count_private_ids(below_a_marker) == 1, (
+        "a citation below a marker line is not counted, so an exempt region has "
+        "come back. Every walked file is counted end to end; there is no file in "
+        "this tree whose text cannot be corrected here."
     )
-    assert _count_private_ids(kit, in_header) == 1, (
-        f"{kit}: a citation in the provenance header is not counted, so the one "
-        "region a vendored file may legally be corrected in is unguarded"
-    )
-    # The same text under an ordinary path counts both, which is what proves
-    # the exemption is keyed on the manifest and not on the marker.
-    assert _count_private_ids("docs/whatever.md", in_body) == 1

@@ -62,7 +62,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 #: Where an untracked prose file is admitted into the population below.
 #: Everything `PAGES` and `DELIBERATELY_UNLISTED` can rule on lives under
 #: one of these.
-SOURCE_ROOTS = ("src", "docs", "scripts", "examples", ".claude")
+SOURCE_ROOTS = ("src", "docs", "scripts", "examples", "tools")
 
 _PROSE_SUFFIXES = (".md", ".tex", ".py")
 
@@ -95,9 +95,9 @@ def prose_population(root: Path) -> list[str]:
     """
     # `env=` EXPLICITLY, and identical to the inherited default: git
     # needs the ambient environment to find its own configuration, and
-    # the kit's spawn rule is that the environment is passed rather than
-    # assumed. The ratchet in `test_kit_checkers.py` counts the sites
-    # that do not.
+    # the rule is that the environment is passed rather than assumed.
+    # The ratchet in `test_repository_guards.py` counts the sites that
+    # do not.
     environment = os.environ.copy()
 
     # A FAILED CALL REFUSES, and neither call checked its status until
