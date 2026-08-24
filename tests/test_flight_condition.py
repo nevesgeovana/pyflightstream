@@ -1,7 +1,7 @@
 """Tier 1: the FLIGHT_CONDITION cell parses, and refuses what it does not know.
 
 PFS-2027.01, and the format change of D5 that carries it: the RE and
-MACH columns were REMOVED at 0.8.2 and the flight condition replaced
+MACH columns were REMOVED at 0.9.0 and the flight condition replaced
 them, so a row states its whole flow condition in one place.
 
 WHAT THIS MODULE TESTS AND WHAT IT DOES NOT. The parser turns a cell
@@ -146,6 +146,21 @@ def test_an_empty_entry_between_commas_is_refused():
     assert "empty entry" in str(raised.value)
     with pytest.raises(MatrixError):
         _parse_flight_condition("MACH:0.20,", "P7")
+
+
+@pytest.mark.parametrize("written", ["nan", "NaN", "inf", "-inf", "Infinity"])
+def test_a_non_finite_value_is_refused(written):
+    """float() accepts these; a flow condition does not.
+
+    Found by an independent review. A NaN density travels through the
+    resolver and out into an emitted script as the text 'nan', and
+    nothing downstream refuses it, so the solver reads whatever it
+    reads. Refused where every other malformed value is refused.
+    """
+    with pytest.raises(MatrixError) as raised:
+        _parse_flight_condition(f"MACH:{written}", "P7")
+    assert "finite" in str(raised.value)
+    assert "P7" in str(raised.value)
 
 
 def test_the_key_order_written_is_the_order_returned():

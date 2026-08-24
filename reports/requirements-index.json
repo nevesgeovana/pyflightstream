@@ -116,7 +116,7 @@
    "text": "A dedicated reader consumes the documented pipe-delimited run-matrix format: rows with RUN = 1 are active, the sweep columns define alpha, beta, or advance-ratio sweeps, and the variables column holds KEY:VALUE pairs. A column the reader does not recognize is preserved and reported rather than silently dropped.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: BRF-08. Evidence: milestone M2; the verified 16-column layout and its fixtures, including tests/fixtures/workflow_rotor_matrix.fs. The layout gained its sixteenth column on 2026-08-19; a fifteen-column file is recognised and refused rather than misread, which is what keeps this requirement's forever promise honest.*",
+   "evidence": "*Origin: BRF-08. Evidence: milestone M2; the verified 15-column layout and its fixtures, including tests/fixtures/workflow_rotor_matrix.fs. The layout has broken twice and each older width is RECOGNISED and refused naming its converter rather than misread, which is what keeps this requirement's forever promise honest.*",
    "verification": "test"
   },
   {

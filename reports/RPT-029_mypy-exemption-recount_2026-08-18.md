@@ -39,20 +39,21 @@
 > the per-module table, the code table, the concentration lines and the
 > delta table are all that run rather than edits to the previous one:
 >
->     Found 276 errors in 20 files (checked 74 source files)
->     Success: no issues found in 74 source files
+>     Found 276 errors in 20 files (checked 75 source files)
+>     Success: no issues found in 75 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-08-24: 276 errors in 20 of 74 modules.**
+**mypy recount 2026-08-24: 276 errors in 20 of 75 modules.**
 
 ## Re-measured 2026-08-24: one module arrived and nothing else moved
 
-`_atmosphere.py` (PFS-2027.03) moved the module total to 74, and
+`_atmosphere.py` (PFS-2027.03) moved the module total to 74 and
+`workspace/flight_condition.py` (PFS-2027.02) to 75, and
 `tests/test_traceability.py` refused the tree until every record of the
-count moved with it. **That is the whole delta: `73 -> 74` modules,
+count moved with it. **That is the whole delta: `73 -> 74 -> 75` modules,
 `276 -> 276` errors, `20 -> 20` dirty files.** The floor module appears
 in neither error list, so it arrives type-clean and adds no debt to the
 ratchet, and no override was added or removed.
@@ -163,11 +164,11 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 276 errors in 20 files (checked 74 source files)
+    Found 276 errors in 20 files (checked 75 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
-    Success: no issues found in 74 source files
+    Success: no issues found in 75 source files
 
 mypy walks the FILESYSTEM rather than the git index, so the state of the
 working tree is part of the measurement, and this report has already been

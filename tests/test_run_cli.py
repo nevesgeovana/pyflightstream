@@ -434,7 +434,55 @@ def test_convert_and_plan_still_take_recipe_references(tmp_path):
 
     parser = cli._build_parser()
     choices = parser._subparsers._group_actions[0].choices
-    assert set(choices) == {"convert", "plan", "run"}
+    # `upgrade` joined at 0.9.0 (PFS-2027.01). It is deliberately NOT
+    # given the common arguments the other three share: upgrading a file
+    # written under an older layout needs no recipes, no version and no
+    # executable, and requiring them would refuse the one user the
+    # subcommand exists for.
+    assert set(choices) == {"convert", "plan", "run", "upgrade"}
     for name in ("convert", "plan"):
         flags = {option for action in choices[name]._actions for option in action.option_strings}
         assert "--recipe" in flags, f"{name} lost its --recipe option"
+
+
+def test_upgrade_converts_an_older_matrix_from_the_command_line(tmp_path):
+    """The migration path a matrix user can actually take.
+
+    An independent review found the only route from a refused matrix to
+    a readable one was a Python call, addressed to the one user who does
+    not write Python. This is the same converter behind a subcommand.
+    """
+    import shutil
+
+    from pyflightstream.cases.matrix import _COLUMNS, MatrixError, read_matrix
+    from pyflightstream.run import cli
+
+    source = Path(__file__).parent / "fixtures" / "pfs202701_matrix16.fs"
+    target = tmp_path / "old.fs"
+    shutil.copyfile(source, target)
+
+    # It is refused before the upgrade, naming the command that fixes it.
+    with pytest.raises(MatrixError) as caught:
+        read_matrix(target)
+    assert "pyfs-matrix upgrade" in str(caught.value)
+
+    assert cli.main(["upgrade", str(target), "--in-place"]) == 0
+
+    rows = read_matrix(target, active_only=False)
+    assert rows, "the upgraded matrix reads back empty"
+    assert rows[0].flight_condition == {"MACH": 0.1441, "REmi": 4.38}
+    header = target.read_text(encoding="utf-8").splitlines()[0]
+    assert [cell.strip() for cell in header.split("|")] == list(_COLUMNS)
+
+
+def test_upgrade_needs_no_recipes_version_or_executable(tmp_path):
+    """The arguments the other three subcommands require are not asked for."""
+    import shutil
+
+    from pyflightstream.run import cli
+
+    source = Path(__file__).parent / "fixtures" / "pfs202701_matrix16.fs"
+    target = tmp_path / "old.fs"
+    shutil.copyfile(source, target)
+    # No --recipe, no --fs-version, no --fs-exe anywhere in this call.
+    assert cli.main(["upgrade", str(target), "--in-place"]) == 0

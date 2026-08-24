@@ -2213,7 +2213,7 @@ def test_the_migration_keeps_every_other_byte_of_the_matrix(tmp_path):
         if old != new
     ]
     # Derived rather than written as [7, 8, 9]: those positions moved when
-    # RE and MACH folded into FLIGHT_CONDITION at 0.8.2, and a literal
+    # RE and MACH folded into FLIGHT_CONDITION at 0.9.0, and a literal
     # list would then be asserting about the wrong three cells.
     expected_indices = [_COLUMNS.index(name) for name in CODE_COLUMNS]
     assert differing == expected_indices, (

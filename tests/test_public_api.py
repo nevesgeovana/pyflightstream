@@ -87,6 +87,7 @@ PUBLIC_MODULES = [
     "pyflightstream.versions",
     "pyflightstream.workspace",
     "pyflightstream.workspace.cli",
+    "pyflightstream.workspace.flight_condition",
     "pyflightstream.workspace.inputs",
     "pyflightstream.workspace.matrix",
     "pyflightstream.workspace.naming",

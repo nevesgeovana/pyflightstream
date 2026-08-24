@@ -45,6 +45,7 @@ import math
 
 import pytest
 
+from pyflightstream import _atmosphere as atmosphere_mod
 from pyflightstream._atmosphere import (
     ISA,
     AtmosphereError,
@@ -172,6 +173,56 @@ def test_pressure_is_continuous_across_the_tropopause():
     below = standard_pressure(ISA.tropopause_altitude_m - 1e-6)
     above = standard_pressure(ISA.tropopause_altitude_m + 1e-6)
     assert below == pytest.approx(above, rel=1e-9)
+
+
+def test_the_sutherland_coefficients_are_the_cited_ones():
+    """The pin the acceptance sentence actually asks for.
+
+    WHY THIS EXISTS, and it was found by an independent review rather
+    than by its author. Constraining viscosity at ONE temperature cannot
+    determine THREE free constants, so a compensating pair passes every
+    other assertion in this file while the law is wrong everywhere else.
+    Measured by that review: moving the Sutherland constant from 110.4
+    to 130.0 and the reference viscosity from 1.716e-05 to
+    1.7128601049198977e-05 left this whole file green, while viscosity
+    at 216.65 K -- the tropopause, which is where a cruise Reynolds
+    number is actually formed -- came out 1.01 percent wrong. At S=200
+    with the same compensation the tropopause error is 3.86 percent.
+
+    The sea-level check below is therefore necessary and not sufficient,
+    and this is the assertion that closes it: the acceptance sentence
+    says the constants are "pinned to that citation rather than to a
+    number someone remembered", and pinning the constants is what that
+    means. A compensating pair now fails HERE, at the constant, naming
+    which one moved.
+    """
+    assert ISA.gas_constant_j_per_kg_k == 287.05287
+    assert ISA.heat_capacity_ratio == 1.4
+    assert ISA.sea_level_temperature_k == 288.15
+    assert ISA.sea_level_pressure_pa == 101325.0
+    assert ISA.lapse_rate_k_per_m == 0.0065
+    assert ISA.tropopause_temperature_k == 216.65
+    assert ISA.tropopause_altitude_m == 11000.0
+    assert ISA.gravity_m_per_s2 == 9.80665
+    # White, Viscous Fluid Flow, 3rd ed., eq. (1-36), air.
+    assert atmosphere_mod.SUTHERLAND_REFERENCE_VISCOSITY_PA_S == 1.716e-5
+    assert atmosphere_mod.SUTHERLAND_REFERENCE_TEMPERATURE_K == 273.15
+    assert atmosphere_mod.SUTHERLAND_CONSTANT_K == 110.4
+    assert atmosphere_mod.METRES_PER_FOOT == 0.3048
+
+
+def test_viscosity_is_constrained_away_from_sea_level_too():
+    """One temperature cannot pin a three-constant law, so use three.
+
+    Values computed from White's coefficients, which the assertion above
+    pins independently, so this is a check on the LAW's shape rather
+    than a restatement of one constant. The tropopause point is the one
+    the review's perturbation moved by 1 percent while everything else
+    stayed green.
+    """
+    assert sutherland_viscosity(216.65) == pytest.approx(1.421547e-05, rel=1e-4)
+    assert sutherland_viscosity(255.65) == pytest.approx(1.628043e-05, rel=1e-4)
+    assert sutherland_viscosity(300.00) == pytest.approx(1.845916e-05, rel=1e-4)
 
 
 def test_sutherland_reproduces_the_sea_level_viscosity():

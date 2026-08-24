@@ -41,7 +41,7 @@ workdir = Path(tempfile.mkdtemp(prefix="pyfs_campaign_"))
 # Three things in the header are newer than the format itself.
 # `FLIGHT_CONDITION` states the whole flow condition of a row in one
 # cell, as comma-separated `KEY:value` pairs from a closed set; it
-# REPLACED the `RE` and `MACH` columns at 0.8.2, and which quantity the
+# REPLACED the `RE` and `MACH` columns at 0.9.0, and which quantity the
 # resolver solves for follows from which keys are present rather than
 # from which columns are mandatory. `WORKFLOW`
 # names which workflow builds the row's script, in a column of its own

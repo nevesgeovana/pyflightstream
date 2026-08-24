@@ -40,15 +40,26 @@ binding, and :func:`pyflightstream.run.matrix.plan_matrix` and
 execution. Nothing about the format, the flags or the records moved
 with them, and the ``pyfs-matrix`` command line kept its name.
 
-THE LAYOUT GREW BY ONE COLUMN on 2026-08-19 and that is a BREAK, taken
-deliberately for 0.8.0 (PFS-2025.01, PFS-2025.12). ``WORKFLOW`` names
-the workflow type a row asks for. It is a column of its own rather than
-a pair inside ``VAR_NAMES_VALUES``, because that cell is where the free
-CASE DATA lives and a type competing with it would be indistinguishable
-from a user's own key. A file written at the preceding width is not
-merely unparsable: :func:`read_matrix` RECOGNISES it and refuses it
-naming :func:`upgrade_matrix`, which inserts the one cell and leaves
-every other byte of the file alone.
+THE LAYOUT HAS BROKEN TWICE, and both breaks are recognised rather than
+merely refused.
+
+At 0.8.0 it GREW BY ONE COLUMN (PFS-2025.01, PFS-2025.12). ``WORKFLOW``
+names the workflow type a row asks for. It is a column of its own rather
+than a pair inside ``VAR_NAMES_VALUES``, because that cell is where the
+free CASE DATA lives and a type competing with it would be
+indistinguishable from a user's own key.
+
+At 0.9.0 it LOST TWO AND GAINED ONE (PFS-2027.01). ``RE`` and ``MACH``
+were removed and ``FLIGHT_CONDITION`` replaced them, so a row states its
+whole flow condition in one place and which quantity is solved for
+follows from which keys it names. The cell is MANDATORY, exactly as the
+two columns it replaced were.
+
+A file written at either preceding width is not merely unparsable:
+:func:`read_matrix` RECOGNISES it, says which of the two layouts it is,
+and refuses it naming :func:`upgrade_matrix`. That converter runs both
+stages, so a file written before 0.8.0 gains the workflow cell AND has
+its two numeric columns folded, from one call.
 
 What is left here imports nothing above the cases layer, at any level,
 which is what :mod:`tests.test_conventions` now holds it to.
@@ -218,7 +229,7 @@ class MatrixRow:
     flight_condition : dict
         The FLIGHT_CONDITION cell, parsed to canonical key and float and
         kept in the units the KEYS name (PFS-2027.01). It replaced the
-        RE and MACH columns at 0.8.2: a run states its flow condition in
+        RE and MACH columns at 0.9.0: a run states its flow condition in
         one place, and which quantity gets solved for follows from which
         keys are present rather than from which columns are mandatory.
         An empty cell is an empty mapping, not a refusal; a row that
@@ -376,12 +387,57 @@ def _parse_flight_condition(cell: str, pol: str) -> dict[str, float]:
                 "solved."
             )
         try:
-            condition[key] = float(value.strip())
+            number = float(value.strip())
         except ValueError:
             raise MatrixError(
                 f"FLIGHT_CONDITION key {key} of POL {pol} carries {value.strip()!r}, "
                 f"which is not a number. {key} is in {FLIGHT_CONDITION_KEYS[key][0]}."
             ) from None
+        # `float()` accepts 'nan' and 'inf', and both would travel all
+        # the way into a solved flow state and out into a script without
+        # anything downstream refusing them: a NaN density emits as
+        # 'nan' and the solver reads whatever it reads. They are not
+        # numbers a flow condition can be stated in, so they are refused
+        # where every other malformed value is.
+        if number != number or number in (float("inf"), float("-inf")):
+            raise MatrixError(
+                f"FLIGHT_CONDITION key {key} of POL {pol} carries {value.strip()!r}, "
+                "which is not a finite number. A flow condition cannot be stated "
+                "as a NaN or an infinity, and one would otherwise reach the "
+                "emitted script unrefused."
+            )
+        condition[key] = number
+    return condition
+
+
+def _require_flight_condition(
+    cell: str, pol: str, row_number: int, path: str | Path
+) -> dict[str, float]:
+    """Parse a row's FLIGHT_CONDITION, and refuse an empty one.
+
+    WHY EMPTY IS REFUSED. ``RE`` and ``MACH`` were MANDATORY columns, and
+    a blank cell in either was refused by the conversion that read it. The
+    flight condition replaced them (PFS-2027.01), so it inherits their
+    mandatoriness: letting a row state no flow condition at all would be a
+    silent loosening smuggled in by a format change, and the case would
+    reach a builder with no velocity, no density and no Reynolds number
+    while looking exactly like a working row.
+
+    The grammar function beside this one still answers ``{}`` for an empty
+    string, because parsing nothing IS nothing; deciding that a ROW may
+    not do that is a different question and belongs here, where the row
+    and its number are in hand.
+    """
+    condition = _parse_flight_condition(cell, pol)
+    if not condition:
+        raise MatrixError(
+            f"data row {row_number} of {path}, POL {pol}, states no FLIGHT_CONDITION. "
+            "Every row states its flow condition: the cell replaced the mandatory RE "
+            "and MACH columns and is mandatory in the same way, so that a case cannot "
+            "reach a solver with no velocity and no density while looking like a "
+            f"working row. Write one, for example 'MACH:0.20, REmi:5.5' or "
+            "'TASmps:68.08, ALTFT:10000, dISA:5'."
+        )
     return condition
 
 
@@ -529,23 +585,27 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
         raise MatrixError(
             f"{path} carries the {len(_LEGACY_COLUMNS_15)}-column layout that preceded "
             f"the WORKFLOW column, so it is a run matrix written before v0.8.0 rather "
-            "than a file this reader cannot recognise. Upgrade it with "
-            "pyflightstream.cases.matrix.upgrade_matrix(path, in_place=True), which "
-            f"inserts one {LEGACY_WORKFLOW!r} cell per row, folds RE and MACH into a "
-            "FLIGHT_CONDITION cell, and leaves every other byte, separator and line "
-            "ending of the file exactly as it is."
+            "than a file this reader cannot recognise. To upgrade it, pass "
+            "in_place=True to pyflightstream.cases.matrix.upgrade_matrix(path), or "
+            "run `pyfs-matrix upgrade <path> --in-place`. It "
+            f"inserts one {LEGACY_WORKFLOW!r} cell per row and folds RE and MACH "
+            "into a FLIGHT_CONDITION cell. Every VALUE moves across verbatim and "
+            "every other cell, separator and line ending is untouched."
         )
     if header == _LEGACY_COLUMNS_16:
         raise MatrixError(
             f"{path} carries the {len(_LEGACY_COLUMNS_16)}-column layout of v0.8.0 and "
             "v0.8.1, which held RE and MACH as columns of their own. They are now two "
             "keys of the FLIGHT_CONDITION cell, so that a row states its whole flow "
-            "condition in one place. Upgrade it with "
-            "pyflightstream.cases.matrix.upgrade_matrix(path, in_place=True), which "
-            "replaces the two cells with one reading 'MACH:<mach>, REmi:<re>' and "
-            "leaves every other byte, separator and line ending of the file exactly "
-            "as it is. The conversion is lossless: the two columns carried exactly "
-            "the two quantities those keys carry."
+            "condition in one place. To upgrade it, pass in_place=True to "
+            "pyflightstream.cases.matrix.upgrade_matrix(path), or run "
+            "`pyfs-matrix upgrade <path> --in-place`. It "
+            "replaces the two cells with one reading 'MACH:<mach>, REmi:<re>'. The "
+            "VALUES move across verbatim and every other cell, separator and line "
+            "ending is untouched; the two columns' own PADDING cannot survive, "
+            "because two cells become one and the widths are not recoverable from "
+            "the joined text. The conversion is lossless in content: those columns "
+            "carried exactly the two quantities those keys carry."
         )
     if header != _COLUMNS:
         raise MatrixError(
@@ -569,8 +629,8 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
             pol=record["POL"],
             aircraft=record["AIRCRAFT"],
             description=record["DESCRIPTION"],
-            flight_condition=_parse_flight_condition(
-                record["FLIGHT_CONDITION"], record["POL"]
+            flight_condition=_require_flight_condition(
+                record["FLIGHT_CONDITION"], record["POL"], row_number, path
             ),
             sweep=_parse_sweep(record["SWEEP_TYPE"], record["SWEEP_VALUES"]),
             ref_code=record["REF"],
@@ -934,11 +994,24 @@ def rewrite_codes(
 
 
 def upgrade_matrix(path: str | Path, *, in_place: bool = False) -> bytes:
-    """Add the WORKFLOW column to a matrix written before it existed.
+    """Bring a matrix of either older layout up to the current one.
 
-    Every other cell, separator, comment rule and line ending survives
-    byte for byte, so the diff a user reviews holds exactly one changed
-    thing per line. The value written into each data row is
+    TWO STAGES, because the format has broken twice and a file written
+    before v0.8.0 needs both. A fifteen-column file gains the
+    ``WORKFLOW`` cell and then has its ``RE`` and ``MACH`` columns folded
+    into one ``FLIGHT_CONDITION`` cell; a sixteen-column file, written
+    under v0.8.0 or v0.8.1, needs the fold alone. A file already at the
+    current layout is returned unchanged, so running this twice is safe.
+
+    WHAT SURVIVES, stated precisely because the earlier wording said
+    "every other byte" and that is not quite true of the fold. Every
+    VALUE moves across verbatim -- ``0.20`` keeps its trailing zero --
+    and every other cell, separator, comment rule and line ending is
+    untouched. What cannot survive is the two folded columns' own
+    PADDING, because two cells become one and the original widths are
+    not recoverable from the joined text.
+
+    The value written into each data row is
     :data:`LEGACY_WORKFLOW`, which names the behaviour those rows already
     have; the header receives the column LABEL, so the result is a file
     :func:`read_matrix` accepts rather than one that merely has the right
@@ -1243,6 +1316,16 @@ def convert_matrix(
             lines.append(f"reynolds = {_toml_value(sim.reynolds)}")
         if sim.mach is not None:
             lines.append(f"mach = {_toml_value(sim.mach)}")
+        if sim.flight_condition:
+            # The condition AS WRITTEN, so the conversion stays lossless
+            # (FR-11) and a campaign.toml round-trips back to the same
+            # case. Without this the constraint set would survive the
+            # matrix reader and die at the converter, which is the half
+            # of a lossless claim nobody tests until it matters.
+            pairs = ", ".join(
+                f"{key} = {_toml_value(value)}" for key, value in sim.flight_condition.items()
+            )
+            lines.append(f"flight_condition = {{{pairs}}}")
         plain_values = [
             list(value) if isinstance(value, tuple) else value for value in sim.sweep.values
         ]

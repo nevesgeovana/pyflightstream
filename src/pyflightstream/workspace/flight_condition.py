@@ -198,6 +198,7 @@ def resolve_flight_condition(
         velocity = stated["TASmps"]
     mach = velocity / atmosphere.sonic_velocity_m_per_s
 
+    reynolds: float | None
     if DENSITY_KEY in stated:
         if reference_length_m is None:
             raise FlightConditionError(

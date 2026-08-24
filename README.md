@@ -130,7 +130,7 @@ Nothing is guessed; the honest gaps are reported as such.
   solver outputs, and a pandas table layer (per-result tables, one wide
   row per run, whole-sweep DataFrame straight from the manifest).
 - Run-matrix support as a first-class interface: read, convert,
-  pre-flight, and run the pipe-delimited 16-column matrix format.
+  pre-flight, and run the pipe-delimited 15-column matrix format.
   The sixteenth column is `WORKFLOW`, the run type the package builds
   for that row; a file written before v0.8.0 is recognised and refused
   with the call that upgrades it, `cases.matrix.upgrade_matrix`.

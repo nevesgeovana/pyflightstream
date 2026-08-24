@@ -107,6 +107,11 @@ _DIMENSIONLESS_OR_DEBT = {
     "mach",  # dimensionless by definition
     "convergence",  # solver residual target, dimensionless
     "variables",  # free per-case table, values untyped
+    # The KEYS carry the units, which is the whole point of their
+    # spelling: ALTFT is feet, dISA is Celsius, REmi is millions. A
+    # suffix on the CONTAINER would be a claim about the container that
+    # is not true of any one entry (PFS-2027.01).
+    "flight_condition",
     "point",  # sweep point: axis name to value
     "values",  # sweep values along a declared axis
     "default",  # command-schema default, type per command

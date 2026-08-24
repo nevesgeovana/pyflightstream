@@ -53,7 +53,7 @@ import argparse
 import sys
 
 from pyflightstream.cases import CampaignConfigError
-from pyflightstream.cases.matrix import MatrixError, convert_matrix
+from pyflightstream.cases.matrix import MatrixError, convert_matrix, upgrade_matrix
 from pyflightstream.cases.workflows import (
     WorkflowCoverageError,
     resolve_workflow,
@@ -161,6 +161,22 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     subparsers = parser.add_subparsers(dest="subcommand", required=True)
 
+    # FIRST, because it is the subcommand a user meets when a matrix they
+    # already have stops being readable. An independent review found the
+    # only migration path was a Python call, which a matrix user is
+    # precisely the person who does not write: the format broke and the
+    # remedy was addressed to somebody else.
+    upgrade = subparsers.add_parser(
+        "upgrade",
+        help="convert a matrix written under an older layout to the current one",
+    )
+    upgrade.add_argument("matrix", help="path of the run matrix to upgrade")
+    upgrade.add_argument(
+        "--in-place",
+        action="store_true",
+        help="rewrite the file; without it the upgraded matrix goes to standard output",
+    )
+
     convert = subparsers.add_parser(
         "convert",
         help="emit the native campaign.toml equivalent of a matrix (FR-11)",
@@ -241,6 +257,11 @@ def _build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     """Run ``pyfs-matrix``; returns the process exit code."""
     args = _build_parser().parse_args(argv)
+    # Before the recipe parsing below, deliberately: upgrading a file
+    # needs no recipes, no version and no executable, and requiring them
+    # would refuse the one user this subcommand exists for.
+    if args.subcommand == "upgrade":
+        return _cmd_upgrade(args)
     try:
         recipes = _parse_recipes(args.recipe)
         if args.subcommand in ("run", "plan"):
@@ -258,6 +279,20 @@ def main(argv: list[str] | None = None) -> int:
     if args.subcommand == "run":
         return _cmd_run(args, recipes)
     return _cmd_plan(args, recipes)
+
+
+def _cmd_upgrade(args: argparse.Namespace) -> int:
+    """Bring a matrix at an older layout up to the current one."""
+    try:
+        upgraded = upgrade_matrix(args.matrix, in_place=args.in_place)
+    except (OSError, MatrixError) as error:
+        print(str(error), file=sys.stderr)
+        return 2
+    if args.in_place:
+        print(f"upgraded {args.matrix}", file=sys.stderr)
+        return 0
+    sys.stdout.buffer.write(upgraded)
+    return 0
 
 
 def _cmd_convert(args: argparse.Namespace, recipes: dict[str, str]) -> int:

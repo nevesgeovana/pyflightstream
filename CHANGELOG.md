@@ -17,6 +17,15 @@ FlightStream versions.
   silently reinterpreted: `read_matrix` RECOGNISES a file written under
   either older layout and refuses it naming the converter. Run:
 
+  ```
+  pyfs-matrix upgrade your_matrix.fs --in-place
+  ```
+
+  It needs no recipes, no version and no executable, because upgrading a
+  file needs none of those. Without `--in-place` the upgraded matrix
+  goes to standard output, so you can diff before you overwrite. From
+  Python it is the same converter:
+
   ```python
   from pyflightstream.cases.matrix import upgrade_matrix
   upgrade_matrix("your_matrix.fs", in_place=True)
@@ -47,12 +56,39 @@ FlightStream versions.
   last one, because these are constraints on one state and a silently
   dropped constraint changes what is solved.
 
-  **What this release does not yet do.** `TASmps`, `ALTFT` and `dISA`
-  parse, and a row carrying one is then REFUSED at conversion naming the
-  resolver that will accept it. Solving for the unknown a constraint set
-  leaves needs the reference length, and that resolver is the next item.
-  Refused rather than ignored, deliberately: a constraint read and then
-  dropped would be solved at a condition nobody asked for.
+  **The cell is MANDATORY**, exactly as the two columns it replaced
+  were. A row that states no flow condition at all is refused by the
+  reader, naming the row and the columns it replaced: letting one
+  through would be a loosening smuggled in by a format change, and the
+  case would reach a builder with no velocity, no density and no
+  Reynolds number while looking exactly like a working row.
+
+- **A constraint set resolves to one flow state, or is refused**
+  (PFS-2027.02, PFS-2027.04). The keys a row states decide WHICH
+  quantity is solved for. `MACH` with `REmi` at no stated temperature is
+  sea level with the DENSITY solved to meet the Reynolds number;
+  `TASmps` with `ALTFT` and `dISA` is an atmosphere point with Reynolds
+  derived. One resolver answers both.
+
+  A set that determines no velocity is refused as under-determined,
+  naming which keys would supply one. A set stating both `MACH` and
+  `TASmps` is refused as a contradiction rather than resolved by
+  preferring one silently. `dISA` defaults to 0 and an absent altitude
+  to sea level, and those defaults are what make a short set legal.
+
+  **A Reynolds number needs a reference length, and says so.** `REmi` on
+  a row naming no reference is refused naming both, because the same
+  `MACH:0.20, REmi:5.5` against a unit chord and against a rotor's mean
+  face length gives densities differing by nearly a factor of eight. The
+  length actually used is recorded beside the resolved state, since the
+  state cannot be checked without it.
+
+  **The solved-density state is not a point in any atmosphere**, and it
+  says so about itself. Holding Mach and Reynolds together at a fixed
+  temperature is what a wind tunnel does; the implied pressure is then
+  not any altitude's. The record carries which branch produced the
+  density, so a later reader cannot mistake it for an altitude and
+  "fix" it into one.
 
 ### Added
 
@@ -1656,7 +1692,7 @@ costs the reader the whole warning window the shim exists to buy.
   `[tool.mypy]` header has promised since 2026-08-03 that an exemption is
   removed as its module is typed and never added, and this is that
   direction happening rather than being restated. The re-count moves with
-  it: mypy recount 2026-08-24: 276 errors in 20 of 74 modules, where the
+  it: mypy recount 2026-08-24: 276 errors in 20 of 75 modules, where the
   tree carried 275 in 21 of 64 two days before, and the four records that
   state it move together because a tier-1 guard compares them.
 

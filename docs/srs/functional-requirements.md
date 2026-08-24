@@ -236,11 +236,11 @@ Milestones and session records are listed in the
     single home of the explicit-never-guessed rule.
 
 !!! requirement "FR-10 Run-matrix reader, forever <span class='srs-implemented'>implemented</span>"
-    *Origin: BRF-08. Evidence: milestone M2; the verified 16-column
+    *Origin: BRF-08. Evidence: milestone M2; the verified 15-column
     layout and its fixtures, including
-    `tests/fixtures/workflow_rotor_matrix.fs`. The layout gained its
-    sixteenth column on 2026-08-19; a fifteen-column file is recognised
-    and refused rather than misread, which is what keeps this
+    `tests/fixtures/workflow_rotor_matrix.fs`. The layout has broken
+    twice and each older width is RECOGNISED and refused naming its
+    converter rather than misread, which is what keeps this
     requirement's forever promise honest.*
 
     A dedicated reader consumes the documented pipe-delimited
@@ -254,6 +254,26 @@ Milestones and session records are listed in the
     rather than reading as a promise never to change the reader. The
     unknown-column clause is new and closes a silent-loss path the
     original left unstated.
+
+    AMENDED 2026-08-24, and the amendment is owed rather than optional.
+    An independent review found this requirement carrying the word
+    "forever" in its own title while the external format had broken
+    twice with nothing here saying so. What "forever" means is now
+    stated as a mechanism rather than as a promise:
+
+    **No file this reader ever accepted is left unreadable, and no file
+    is silently misread.** A matrix at a superseded width is recognised
+    BY that width, told which release it predates, and refused naming
+    `upgrade_matrix`, which converts it losslessly in content. That is
+    the guarantee; it is not, and since 2026-07-27 has not claimed to
+    be, a promise that the column list never changes.
+
+    The two breaks: 0.8.0 added `WORKFLOW` (PFS-2025.01); 0.9.0 removed
+    `RE` and `MACH` and replaced them with the mandatory
+    `FLIGHT_CONDITION` cell (PFS-2027.01). The second is the larger one,
+    because a row's flow condition is now stated rather than typed into
+    two fixed columns, and which quantity the resolver solves for
+    follows from which keys the row names.
 
 !!! requirement "FR-11 Lossless one-command conversion <span class='srs-implemented'>implemented</span>"
     *Origin: BRF-08, BRF-16. Evidence: milestone M2; TOML round-trip

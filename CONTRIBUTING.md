@@ -361,7 +361,7 @@ trailer is corrected by a follow-up commit that declares **on its
 behalf**, naming it:
 
 ```
-Clean-room-for: 83db2f2d0e1f4a5b6c7d8e9f0a1b2c3d4e5f6a7b
+Clean-room-for: 83db2f2d5194fbd55d48d4be546d7a900ed10ca3
 Clean-room: emitter specified from the official manual and probe evidence only; no code, structure or docstrings from the AGPL predecessor
 ```
 

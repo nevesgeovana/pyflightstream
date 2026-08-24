@@ -317,13 +317,19 @@ def test_the_resolved_state_reaches_the_case_fields_it_has(tmp_path):
     assert case.flight_condition == {"MACH": 0.1441, "REmi": 4.38}
 
 
-def test_a_row_stating_no_condition_gets_no_entry(tmp_path):
-    """Absent is not the same as empty, and the mapping says so.
+def test_a_row_stating_no_condition_is_refused_by_the_reader(tmp_path):
+    """The mandatoriness RE and MACH had, inherited by what replaced them.
 
     Written in the CURRENT layout directly rather than through
     `write_matrix`, which goes via the legacy upgrade: the old format
-    had RE and MACH as mandatory numeric columns, so a row with no
-    flight condition at all is a thing only the new layout can express.
+    had RE and MACH as mandatory numeric columns, so a row with no flow
+    condition at all is a thing only the new layout can even express.
+
+    IT IS REFUSED, and that is the point of the test. An independent
+    review found this accepted silently, which would have been a
+    loosening smuggled in by a format change: the case would reach a
+    builder with no velocity, no density and no Reynolds number while
+    looking exactly like a working row.
     """
     from pyflightstream.cases.matrix import _COLUMNS
 
@@ -352,18 +358,23 @@ def test_a_row_stating_no_condition_gets_no_entry(tmp_path):
     header_line = " | ".join(_COLUMNS)
     data_line = " | ".join(cells[name] for name in _COLUMNS)
     matrix.write_text(header_line + "\n" + data_line + "\n", encoding="utf-8")
-    resolved = resolve_matrix(
-        matrix,
-        workspace,
-        name="matrix",
-        fs_version="26.120",
-        recipes=RECIPES,
-        fs_exe="C:/fs/FlightStream.exe",
-    )
-    assert "9101" not in resolved.conditions
-    case = resolved.campaign.sims[0]
-    assert case.flight_condition == {}
-    assert case.mach is None and case.reynolds is None and case.velocity is None
+    with pytest.raises(MatrixError) as caught:
+        resolve_matrix(
+            matrix,
+            workspace,
+            name="matrix",
+            fs_version="26.120",
+            recipes=RECIPES,
+            fs_exe="C:/fs/FlightStream.exe",
+        )
+    message = str(caught.value)
+    assert "9101" in message
+    assert "FLIGHT_CONDITION" in message
+    # It names the columns it replaced, so a user migrating knows why a
+    # cell they never had to fill in is suddenly required.
+    assert "RE" in message and "MACH" in message
+    # And it gives something to copy rather than only a rule.
+    assert "MACH:0.20, REmi:5.5" in message
 
 
 def test_registry_build_resolves_the_executable(tmp_path):

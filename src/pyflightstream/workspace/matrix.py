@@ -2,7 +2,7 @@
 
 Pipeline role: the workspace-layer half of the run matrix. The reader
 and the converter stay in :mod:`pyflightstream.cases.matrix`, which
-parses the verified 16-column file and maps it onto the canonical
+parses the verified 15-column file and maps it onto the canonical
 ``campaign.toml`` model without needing anything above the cases layer.
 What lives HERE is the step that needs the layer above: resolving the
 matrix's reference columns against the input library under ``inputs/``.

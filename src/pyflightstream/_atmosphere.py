@@ -27,14 +27,41 @@ here. In one module neither half is testable on its own.
 WHAT THIS MODULE DOES NOT DO. It does not emit. The script layer's
 ``helpers.atmosphere`` is the emitter and stays one: it writes
 ``AIR_ALTITUDE`` or the explicit fluid properties and computes nothing.
-It cannot serve this feature for two independent reasons, both measured
-rather than assumed. ``AIR_ALTITUDE`` has no argument for an ISA
-deviation, so any condition carrying one must be emitted as explicit
-properties computed on this side; and it is recorded ``broken`` on three
-supported builds -- 26.100, 26.101 and 26.120, where the solver reads
-its metres argument as feet -- in this repository's own committed compat
-evidence. Computing here and emitting explicit properties is the more
-robust route across the supported range, not the more elegant one.
+It cannot serve this feature for two reasons, and they are not equally
+well evidenced, so they are stated separately.
+
+THE FIRST IS A FACT ABOUT THE GRAMMAR. ``AIR_ALTITUDE`` has no argument
+for an ISA deviation. So any condition carrying ``dISA`` must be emitted
+as explicit fluid properties computed on this side, and so must the
+solved-density path, which is not an atmosphere point at all. That one
+needs no probe: it is the command's own signature.
+
+THE SECOND IS WEAKER THAN AN EARLIER VERSION OF THIS DOCSTRING SAID, and
+the correction is worth keeping. ``AIR_ALTITUDE`` is recorded ``broken``
+on three supported builds, 26.100, 26.101 and 26.120. That count is
+exact. What those three rows RECORD is only that the command ran and the
+expected density was not observed. **Only 26.120 has a reading behind
+it** -- 1.056 against the 0.736 expected, the 5000-foot standard state,
+seen twice on build 7012026 (RPT-014). On 26.100 and 26.101 the probe
+recorded absence and nothing more.
+
+This docstring previously said all three read their metres argument as
+feet, and cited the compat evidence for it. The evidence refuses that:
+``commands/boundary_conditions.yaml`` says in its own notes that the
+"reads ignored" sentence is the probe spec's STATIC ``effect_note``
+rather than a per-run reading, and proves it by pointing out that the
+same sentence appears in 26.121's row under outcome ``verified``.
+Whether those builds read every altitude in feet is an open question
+about three solvers and needs the density read back on 26.100 and 26.101
+as well.
+
+What survives is still enough to decide the design, which is why the
+conclusion did not move: a command that is ``broken`` on three of nine
+registered builds is refused by the emitter unless a caller passes
+``allow_broken``, and on 25.000 it takes a bare value read in FEET. So
+computing here and emitting explicit properties is the more robust route
+across the supported range. That argument rests on the recorded STATUS,
+which is committed and dated, and not on a mechanism nobody measured.
 
 THE CONVENTION THAT IS WORTH WRITING DOWN. An ISA deviation moves
 temperature and leaves PRESSURE alone, so density follows from the

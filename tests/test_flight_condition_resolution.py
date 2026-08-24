@@ -6,8 +6,9 @@ happen BEFORE a script is emitted and before a solver exists, which is
 the whole reason a condition is declarative.
 
 THE TWO WORKED EXAMPLES ARE THE AUTHOR'S OWN, and they are asserted
-against the numbers derived independently in BRF-106 section 3 rather
-than against whatever this implementation happens to produce. That is
+against the numbers the specification derived independently, before any
+of this code existed, rather than against whatever this implementation
+happens to produce. That is
 the difference between a regression test and a verification: the second
 can fail on the day the code is wrong.
 """
@@ -34,8 +35,9 @@ TOLERANCE = 1e-4
 def test_her_first_example_solves_for_density_at_sea_level_temperature():
     """MACH with REmi and no altitude: the DENSITY is what moves.
 
-    Every figure here is from BRF-106 section 3, derived there before
-    any of this code existed.
+    Every figure here was derived in the specification of this feature
+    before any of this code existed, so the assertion checks the physics
+    rather than snapshotting the implementation.
     """
     state = resolve_flight_condition(
         {"MACH": 0.20, "REmi": 5.5}, pol="P1", reference_length_m=1.0
@@ -55,8 +57,7 @@ def test_the_solved_state_is_not_a_point_in_any_atmosphere():
 
     Holding Mach and Reynolds together at a fixed temperature is what a
     wind tunnel does. The implied pressure is then NOT the pressure at
-    any altitude, and BRF-106 section 3 puts it near 119.6 kPa against a
-    sea-level 101.325 kPa.
+    any altitude: it is near 119.6 kPa against a sea-level 101.325 kPa.
     """
     state = resolve_flight_condition(
         {"MACH": 0.20, "REmi": 5.5}, pol="P1", reference_length_m=1.0
@@ -88,8 +89,8 @@ def test_her_second_example_is_an_atmosphere_point_with_reynolds_derived():
 def test_her_two_examples_are_not_the_same_condition():
     """Measured, and flagged to the author rather than assumed away.
 
-    BRF-106 section 3 notes the two examples are nearly the same speed
-    and NOT the same Mach, because the sound speed at 10000 ft ISA+5 is
+    The two examples are nearly the same speed and NOT the same Mach,
+    because the sound speed at 10000 ft ISA+5 is
     lower. If they were meant to be one condition, they are not, and
     this test is what would notice a later edit quietly making them
     agree.
@@ -203,7 +204,7 @@ def test_the_reference_length_used_is_recorded_beside_the_state():
 
 
 def test_the_same_condition_against_two_lengths_gives_two_densities():
-    """The dependency BRF-106 section 4 prices, reproduced here.
+    """The dependency the specification prices, reproduced here.
 
     This is the test that makes the coupling a fact rather than a
     caution: same inputs, same resolver, densities that differ by the
