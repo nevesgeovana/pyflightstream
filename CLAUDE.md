@@ -45,6 +45,76 @@ the need is generic (validation, parsing, arrays, IO); licenses must be
 MIT-compatible. Domain logic (FlightStream semantics, evidence rules,
 physics) stays in-house. Author's decision of 2026-07-21.
 
+## READ THIS BEFORE THE SECTIONS BELOW: the process tooling left on 2026-08-23
+
+Everything above this line is about the PRODUCT and is current. Much of what
+follows describes a tree that is no longer here, and it is corrected in one
+place rather than sentence by sentence, deliberately: the reasoning below is
+worth keeping and is the author's, so it is left in her words and dated rather
+than rewritten by a later session.
+
+`158f5de`, "chore: the process tooling leaves the repository", removed
+sixty-seven files: the fifty-seven under `.claude/` and the ten test modules
+whose whole subject was them. The reasoning is in that commit and is not
+restated. **The mechanisms did not stop existing; they stopped existing HERE.**
+They live at the Geoverse control plane, one level up, which is where every
+session that touches this repository already starts.
+
+Measured on 2026-08-24, by testing every path this file names against the
+filesystem: it names 39, of which 32 are absent, and **29 of those absences are
+a claim about this tree** rather than an illustration. Three of the absent are
+placeholders and not claims: `check_foo.py`, which the execution-guard section
+uses as an example of a false positive, and the two `STATUS.md` spellings the
+session protocol uses to show the hazard it is warning about.
+
+Six of the 29 are named below as tier-1 tests that ENFORCE something, and a
+named guard that does not exist is the worst line in any document, because it
+reads as an assurance:
+
+`tests/test_env_contract.py`, `tests/test_kit_checkers.py`,
+`tests/test_kit_drift.py`, `tests/test_push_gate.py`,
+`tests/test_skill_invocation.py` and `tests/test_snap_skip_status.py`.
+**None of them exist. Nothing below is enforced by any of them.**
+
+So are the paths they guarded: `.claude/hooks/` (the push gate, the execution
+guard, the attestation writer, the CI-state reader), `.claude/skills/`, the
+role-review charters and role template, `.claude/tools/snap.sh`,
+`.claude/tools/budget_isolation.py`, the whole vendored kit
+(`check_plan_kit.py`, `check_release_gate.py`, `check_side_effect_guard.py`,
+`review-policy.md`, `release_caller.yml`, `release_gate.yml`) and
+`_private/plan/legacy_ids.txt`. The `.claude/` directory here holds one file,
+the gitignored attestation the control plane's gate writes.
+
+**What still runs in this repository**, and it is short: the tree-wide
+forbidden-identifier scan and the spawn-environment scan, both under `tools/`
+with their mutation companions, run by `tests/test_repository_guards.py`; the
+clean-room commit-msg check at `scripts/check_clean_room_trailer.py`;
+`tests/test_house_style.py`; and the currency, metadata, traceability and
+release-readiness tests, all of which pass. Those are the PRODUCT's guards,
+which is why they stayed.
+
+**The push gate, the execution guard and the attestation writer still apply to
+work done here.** They are hooks on the control plane's tool surface, not tests
+in this tree, so they fire on a session's commands rather than in this
+repository's pipeline. Read them at
+`C:/GeoverseGoddess/.claude/hooks/`; the four environment variables described
+near the end of this file are read there too, not here. Three of them
+(`PYFS_PLAN_CHECKER`, `COORD_SHARED_LEDGER_TREE`, `KIT_BUDGET_ISOLATED`) are
+read by nothing anywhere in this repository, and `PYFS_SESSION_ROOT` by one
+test that only checks that no committed file hardcodes a migrated path.
+
+**And the local git hooks were never installed on this clone until
+2026-08-24.** `.pre-commit-config.yaml` declares eleven, `ruff-format` among
+them, and the hook directory held nothing but git's samples, which is how nine
+commits of unformatted code reached a red pipeline with a green local suite.
+Install them on a fresh clone before the first commit:
+`pre-commit install --hook-type pre-commit --hook-type commit-msg`.
+
+**What this correction does NOT decide**, and it is the author's: whether this
+file should still carry the process half at all now that the process lives
+elsewhere. Correcting it and rewriting it are different acts, and only the
+first is a later session's to make.
+
 ## Definition of done
 
 A change is done when: tier 1 tests pass in CI; new commands carry
