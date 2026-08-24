@@ -63,3 +63,16 @@ guide/*.vrb
 .coverage.*
 coverage.xml
 htmlcov/
+# The role-review push gate's audit record, and this repository PUBLISHES, so
+# the line matters more here than anywhere else. role_review_gate.py DENIES a
+# push from pyflightstream until an attestation covers every commit it makes
+# new, and the remedy it prints writes that record to
+# <repo root>/.claude/.role_review_attestation.json. It names review lenses and
+# commit shas: an argument for a push, never release content, and never
+# something a wheel should carry. Only `.claude/settings.local.json` was
+# ignored above, so before this line the gate's own remedy left a stageable
+# audit file in a tree that ships. The path is duplicated in
+# role_review_gate.py, write_attestation.py and here; a rename must touch all
+# three, and check_hook_provenance.py asserts that it does, in every repository
+# the gate can write into.
+.claude/.role_review_attestation.json
