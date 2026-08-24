@@ -1918,3 +1918,158 @@ def test_the_build_that_spells_it_differently_answers_none_rather_than_empty():
     assert accepted_symmetry(Script("25.000")) is None
     accepted = accepted_symmetry(Script("26.120"))
     assert accepted is not None and "PERIODIC" in accepted
+
+
+# --- PFS-2025.02.04: the reference artifact reaches the emitted script -------
+
+
+def _reference_case(reference):
+    """A minimal steady case, with and without a reference."""
+    from pyflightstream.cases import SimCase, SweepAxis
+
+    return SimCase(
+        sim_id="P1",
+        aircraft="W",
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        recipe="steady",
+        point={"alpha": 0.0},
+        reference=reference,
+        velocity=30.0,
+        outputs=["loads.txt"],
+        variables={"WORKFLOW": "steady"},
+    )
+
+
+def _rendered(reference):
+    from pyflightstream.cases.workflows import build_script
+    from pyflightstream.script import Script
+
+    script = Script("26.123")
+    build_script(_reference_case(reference), script)
+    return script.render().splitlines()
+
+
+def test_a_case_carrying_a_reference_emits_its_area_and_length():
+    """PFS-2025.02.04, and until 0.9.0 it emitted neither.
+
+    Measured before this landed: not one of the 29 committed workflow
+    goldens carried a REF_ line, so a campaign declared its areas and
+    lengths and the coefficients came out against whatever the solver
+    defaulted to, with nothing said.
+    """
+    from pyflightstream.cases import ReferenceData
+
+    lines = _rendered(ReferenceData(area=10.0, length=1.2))
+    assert "SOLVER_SET_REF_AREA 10.0" in lines
+    assert "SOLVER_SET_REF_LENGTH 1.2" in lines
+
+
+def test_a_case_carrying_no_reference_emits_neither_and_nothing_else_moves():
+    """The byte-identity clause, which is what protects every old fixture."""
+    from pyflightstream.cases import ReferenceData
+
+    with_reference = _rendered(ReferenceData(area=10.0, length=1.2))
+    without = _rendered(None)
+    assert [line for line in without if "REF" in line] == []
+    # Everything that is not the two new lines is unchanged, so a case
+    # that names no reference renders exactly what it always rendered.
+    assert [line for line in with_reference if "REF" not in line] == without
+
+
+def test_the_reference_values_are_emitted_in_the_units_the_artifact_carries():
+    """No conversion here, deliberately.
+
+    The artifact documents its own units (area in square metres, length
+    in metres). Converting at the emitter would put a second opinion
+    about units in the one place that cannot see that documentation.
+    """
+    from pyflightstream.cases import ReferenceData
+
+    lines = _rendered(ReferenceData(area=3.25, length=0.75))
+    assert "SOLVER_SET_REF_AREA 3.25" in lines
+    assert "SOLVER_SET_REF_LENGTH 0.75" in lines
+
+
+# --- PFS-2025.02.05 / PFS-2027.05: the resolved state reaches the script -----
+
+
+def _fluid_case(fluid):
+    from pyflightstream.cases import ReferenceData, SimCase, SweepAxis
+
+    return SimCase(
+        sim_id="P1",
+        aircraft="W",
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        recipe="steady",
+        point={"alpha": 0.0},
+        velocity=30.0,
+        reference=ReferenceData(area=10.0, length=1.2),
+        fluid=fluid,
+        outputs=["loads.txt"],
+        variables={"WORKFLOW": "steady"},
+    )
+
+
+def _fluid_rendered(fluid, build="26.123"):
+    from pyflightstream.cases.workflows import build_script
+    from pyflightstream.script import Script
+
+    script = Script(build)
+    build_script(_fluid_case(fluid), script)
+    return script.render().splitlines()
+
+
+def _resolved_state():
+    from pyflightstream.cases import FluidState
+
+    return FluidState(
+        velocity_m_per_s=68.0588,
+        density_kg_m3=1.44598,
+        pressure_pa=119603.0,
+        temperature_k=288.15,
+        viscosity_pa_s=1.7893e-05,
+        sonic_velocity_m_per_s=340.294,
+        source="solved-from-reynolds",
+    )
+
+
+def test_a_resolved_flight_condition_emits_the_five_fluid_properties():
+    """PFS-2027.05: what was solved is what the script says.
+
+    Emitted as explicit properties rather than as an altitude, and the
+    choice is forced rather than preferred: AIR_ALTITUDE has no argument
+    for an ISA deviation, and a density solved to meet a Reynolds number
+    is not an atmosphere point at all.
+    """
+    lines = _fluid_rendered(_resolved_state())
+    assert "FLUID_PROPERTIES" in lines
+    assert "DENSITY 1.44598" in lines
+    assert "PRESSURE 119603.0" in lines
+    assert "TEMPERATURE 288.15" in lines
+    assert "VISCOSITY 1.7893e-05" in lines
+
+
+def test_a_case_with_no_resolved_state_emits_no_fluid_block():
+    """The clause that protects every case written before 0.9.0."""
+    assert "FLUID_PROPERTIES" not in _fluid_rendered(None)
+
+
+@pytest.mark.parametrize(
+    ("build", "present", "absent"),
+    [
+        ("26.123", "SPECIFIC_HEAT_RATIO 1.4", "SONIC_VELOCITY"),
+        ("26.000", "SONIC_VELOCITY 340.294", "SPECIFIC_HEAT_RATIO"),
+    ],
+)
+def test_the_fifth_property_follows_the_build(build, present, absent):
+    """One state, two editions, and the emitter refuses the wrong one.
+
+    The solver editions state one physical fact two ways: the three
+    pre-26.100 builds take a sonic velocity and the later ones take the
+    specific-heat ratio. The case carries both and the builder ASKS
+    which this build takes, so one case renders on either side of that
+    boundary instead of failing on one of them.
+    """
+    lines = _fluid_rendered(_resolved_state(), build)
+    assert present in lines
+    assert not any(line.startswith(absent) for line in lines)

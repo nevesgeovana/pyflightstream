@@ -50,6 +50,7 @@ __all__ = [
     "Campaign",
     "CampaignConfigError",
     "DerivedFrom",
+    "FluidState",
     "ReferenceData",
     "ScriptRecipe",
     "SimCase",
@@ -447,6 +448,42 @@ class SolverSettings(BaseModel):
     timeout_s: float | None = Field(default=None, gt=0.0)
 
 
+class FluidState(BaseModel):
+    """The resolved air state a case runs at (PFS-2027.05, PFS-2025.02.05).
+
+    Every field carries its unit in its name. It is the OUTPUT of
+    resolving a flight condition, and it rides on the case so that a
+    builder can emit it: the resolver lives in the workspace layer,
+    which a builder cannot import, so the value travels rather than the
+    computation.
+
+    ``source`` records WHICH branch produced the density, and it is not
+    decoration. A density solved to meet a Reynolds number is not a
+    point in any atmosphere, deliberately, and this field is what stops
+    a later reader treating it as an altitude and "fixing" it into one.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    velocity_m_per_s: float
+    density_kg_m3: float
+    pressure_pa: float
+    temperature_k: float
+    viscosity_pa_s: float
+    sonic_velocity_m_per_s: float
+    #: The ratio of specific heats, dimensionless. Carried BESIDE the
+    #: sonic velocity rather than instead of it, because the solver
+    #: editions state the same physical fact two ways: the three
+    #: pre-26.100 builds take a sonic velocity and the later ones take
+    #: this ratio. A case that travels between builds needs both.
+    heat_capacity_ratio: float = 1.4
+    #: "atmosphere" or "solved-from-reynolds".
+    source: str = "atmosphere"
+    #: The length a stated Reynolds number was measured against, in
+    #: metres. None when no Reynolds number was stated.
+    reference_length_m: float | None = None
+
+
 class SimCase(BaseModel):
     """One solver configuration with its sweep (SAD Section 5).
 
@@ -488,6 +525,11 @@ class SimCase(BaseModel):
         ``reynolds``. Keeping the inputs here beside the resolved values
         is also what lets a reader recompute the resolution rather than
         trust it (PFS-2027.05).
+    fluid : FluidState, optional
+        The RESOLVED air state, where a flight condition was resolved
+        into one. Absent on a case whose row stated none and on every
+        hand-written campaign that does not set it, which is what keeps
+        such a case rendering exactly what it always rendered.
     reference : ReferenceData, optional
         Coefficient normalization references.
     solver : SolverSettings
@@ -538,6 +580,7 @@ class SimCase(BaseModel):
     geometry: str | None = None
     sweep: SweepAxis
     flight_condition: dict[str, float] = Field(default_factory=dict)
+    fluid: FluidState | None = None
     reference: ReferenceData | None = None
     solver: SolverSettings = Field(default_factory=SolverSettings)
     recipe: str

@@ -321,6 +321,27 @@ def free_stream(
         script.emit("SET_FREESTREAM", upper)
 
 
+def fluid_fifth_property(script: Script) -> str:
+    """Name the fifth ``FLUID_PROPERTIES`` argument this build takes.
+
+    The editions state one physical fact two ways: the three pre-26.100
+    builds take ``sonic_velocity`` and the later ones take
+    ``specific_heat_ratio``. :func:`atmosphere` REFUSES the one its
+    build does not take, which is right -- passing it would emit a
+    keyword the build rejects -- but it leaves a caller holding both
+    values with no way to ask which to pass without reaching into the
+    script's private command view.
+
+    So the question is answerable here, where the view belongs, and a
+    caller one layer up chooses instead of guessing or catching.
+    """
+    return (
+        "specific_heat_ratio"
+        if "specific_heat_ratio" in {arg.name for arg in script._view["FLUID_PROPERTIES"].args}
+        else "sonic_velocity"
+    )
+
+
 def atmosphere(
     script: Script,
     *,

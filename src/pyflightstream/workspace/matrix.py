@@ -46,7 +46,13 @@ from pathlib import Path, PurePath, PurePosixPath
 from pydantic import ValidationError
 
 from pyflightstream._errors import PyflightstreamWarning
-from pyflightstream.cases import Campaign, ReferenceData, SimCase, SolverSettings
+from pyflightstream.cases import (
+    Campaign,
+    FluidState,
+    ReferenceData,
+    SimCase,
+    SolverSettings,
+)
 from pyflightstream.cases.matrix import (
     MatrixError,
     MatrixRow,
@@ -852,6 +858,20 @@ def resolve_matrix(
             update["mach"] = resolved.mach
             update["velocity"] = resolved.velocity_m_per_s
             update["reynolds"] = resolved.reynolds
+            # The whole resolved state, so a BUILDER can emit it. The
+            # resolver lives here and a builder cannot import this layer,
+            # so the value travels rather than the computation
+            # (PFS-2025.02.05, PFS-2027.05).
+            update["fluid"] = FluidState(
+                velocity_m_per_s=resolved.velocity_m_per_s,
+                density_kg_m3=resolved.density_kg_m3,
+                pressure_pa=resolved.pressure_pa,
+                temperature_k=resolved.temperature_k,
+                viscosity_pa_s=resolved.viscosity_pa_s,
+                sonic_velocity_m_per_s=resolved.sonic_velocity_m_per_s,
+                source=resolved.density_source,
+                reference_length_m=resolved.reference_length_m,
+            )
         sims.append(case.model_copy(update=update))
     return ResolvedMatrix(
         campaign=campaign.model_copy(update={"sims": sims}),

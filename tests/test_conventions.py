@@ -81,8 +81,13 @@ def test_conventions_markdown_mirrors_the_same_home():
 # --- mechanical adherence audit: units ride the names -----------------------
 
 #: Accepted SI unit suffixes of float-valued model fields.
+#: ``k`` (kelvin) joined on 2026-08-24 with PFS-2027.05. It is an SI
+#: BASE unit and its absence was an omission rather than a policy: the
+#: list had simply never met a temperature field, because until the
+#: flight condition nothing in a model carried one. The alternative was
+#: a whitelist entry, which would have recorded a real unit as debt.
 _UNIT_SUFFIX = re.compile(
-    r"_(m|m2|m3|mm|um|deg|rad|s|hz|n|pa|kg|kg_m|kg_per_m|n_m2|per_m"
+    r"_(m|m2|m3|mm|um|deg|rad|s|hz|k|n|pa|kg|kg_m|kg_per_m|n_m2|per_m"
     r"|rad_per_s|m_per_s|millions)$"
 )
 
@@ -105,6 +110,7 @@ _DIMENSIONLESS_OR_DEBT = {
     "ratio",  # geometric spacing ratio (AxisSpec)
     "reynolds",  # dimensionless by definition
     "mach",  # dimensionless by definition
+    "heat_capacity_ratio",  # a ratio of two specific heats, dimensionless
     "convergence",  # solver residual target, dimensionless
     "variables",  # free per-case table, values untyped
     # The KEYS carry the units, which is the whole point of their

@@ -1532,6 +1532,28 @@ def _initialize(case: SimCase, script: Script) -> None:
 
 
 def _settings(case: SimCase, script: Script) -> None:
+    """Emit the solver settings, including the reference if the case has one.
+
+    THE REFERENCE REACHES THE SCRIPT HERE (PFS-2025.02.04), and until
+    0.9.0 it did not. A row's REF code resolved a reference artifact,
+    the artifact was bound onto the case, and no emitter ever read it:
+    measured across the 29 committed workflow goldens, not one carried a
+    ``REF_`` line. So a campaign declared its areas and lengths and the
+    coefficients came out against whatever the solver was defaulting to,
+    with nothing said.
+
+    The emitter one layer down has always taken these two arguments;
+    what was missing was the four lines that pass them. A case carrying
+    no reference emits neither, exactly as before, which is what keeps
+    every golden of a reference-less case byte identical.
+
+    UNITS ARE NOT CONVERTED HERE. The reference artifact documents its
+    own (area in square metres, length in metres) and the values are
+    emitted as the artifact carries them; converting at the emitter
+    would put a second opinion about units in the one place that cannot
+    see the artifact's documentation.
+    """
+    reference = case.reference
     helpers.solver_settings(
         script,
         aoa=case.point.get("alpha", 0.0),
@@ -1540,6 +1562,48 @@ def _settings(case: SimCase, script: Script) -> None:
         iterations=case.solver.iterations,
         convergence=case.solver.convergence,
         max_threads=case.solver.max_threads,
+        ref_area=None if reference is None else reference.area,
+        ref_length=None if reference is None else reference.length,
+    )
+
+
+def _fluid(case: SimCase, script: Script) -> None:
+    """Emit the resolved air state, where the row resolved one.
+
+    PFS-2025.02.05 and PFS-2027.05. A case whose row stated a flight
+    condition arrives here carrying the state that condition resolved
+    to, and it is emitted as the FIVE EXPLICIT FLUID PROPERTIES rather
+    than as an altitude. That choice is forced rather than preferred:
+    ``AIR_ALTITUDE`` has no argument for an ISA deviation, so a
+    condition carrying ``dISA`` could not be expressed by it at all, and
+    a density solved to meet a Reynolds number is not an atmosphere
+    point in the first place. Emitting the state we computed says
+    exactly what will be solved.
+
+    A case carrying no resolved state emits NOTHING here, which is what
+    keeps every case written before 0.9.0, and every hand-written
+    campaign that sets no fluid, rendering exactly what it rendered
+    before.
+    """
+    fluid = case.fluid
+    if fluid is None:
+        return
+    # WHICH FIFTH PROPERTY depends on the build, and the emitter refuses
+    # the one its build does not take. Asking rather than guessing is
+    # what lets one case render on either side of the 26.100 boundary.
+    fifth = helpers.fluid_fifth_property(script)
+    helpers.atmosphere(
+        script,
+        density=fluid.density_kg_m3,
+        pressure=fluid.pressure_pa,
+        temperature=fluid.temperature_k,
+        viscosity=fluid.viscosity_pa_s,
+        specific_heat_ratio=(
+            fluid.heat_capacity_ratio if fifth == "specific_heat_ratio" else None
+        ),
+        sonic_velocity=(
+            fluid.sonic_velocity_m_per_s if fifth == "sonic_velocity" else None
+        ),
     )
 
 
@@ -1552,6 +1616,7 @@ def _build_steady(case: SimCase, script: Script, conventions: WorkflowConvention
     """
     _open_geometry(case, script)
     helpers.free_stream(script)
+    _fluid(case, script)
     _settings(case, script)
     _initialize(case, script)
     helpers.start_solver(script)
@@ -1580,6 +1645,7 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
         label="rotor",
     )
     helpers.free_stream(script)
+    _fluid(case, script)
     emit_rotor_motion(case, script, frame="rotor")
     window = ExportWindow.from_case(case)
     helpers.unsteady_solver(
