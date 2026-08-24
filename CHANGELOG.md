@@ -164,6 +164,47 @@ FlightStream versions.
   It computes; it does not emit. `script.helpers.atmosphere` remains the
   emitter and remains one.
 
+- **Three new names on the public surface**, listed because an export that
+  arrives with no line here is an export a user meets by accident. The
+  release audit found all three missing from this section while the
+  behaviour they belong to was described at length above.
+
+  - `cases.FluidState`, the resolved flow state carried on a `SimCase`.
+    It is what `SimCase.fluid` holds once `resolve_matrix` has run, and
+    it is `None` before that, because a case records what was STATED and
+    the resolver is what turns it into a state.
+  - `exceptions.FlightConditionError`, raised when a cell PARSED and the
+    state it asks for cannot be resolved: no velocity or two velocities,
+    or a Reynolds number on a row with no reference length.
+  - `exceptions.AtmosphereError`, raised when the cell is well-formed,
+    the state is determined, and the atmosphere has no answer there: an
+    altitude outside the model's range, or a temperature at or below
+    absolute zero.
+
+  **Three exceptions, not two, and the third is the one already there.**
+  A malformed cell -- an unknown key, a duplicate key, a value that is
+  not a number, a NaN, an infinity, a missing colon -- raises
+  `MatrixError` as it always has, because at that point the defect is in
+  the FILE and no flight condition has been constructed to complain
+  about. The boundary is worth knowing before you write an `except`
+  clause: `MatrixError` means the cell is wrong, `FlightConditionError`
+  means the cell is fine and the state is under- or over-determined, and
+  `AtmosphereError` means both are fine and the physics does not reach.
+
+- **The run record carries the resolved state** (PFS-2027.05). Beside the
+  fields it already had, a `RunRecord` now carries `flight_condition` as
+  the cell was WRITTEN, the resolved `density_kg_m3`, `temperature_k` and
+  `viscosity_pa_s`, the `reference_length_m` the resolution used, and
+  `density_source`, which says WHICH BRANCH produced the density.
+
+  The last one is the load-bearing field, and it is why the others are
+  worth recording at all. A density solved to meet a Reynolds number is
+  deliberately not a point in any atmosphere, so a record without that
+  marker gives a later reader no way to tell a wind-tunnel state from an
+  altitude. With it, and with the condition as written beside it, the
+  resolution in the artifact that outlives the session can be recomputed
+  rather than trusted.
+
 ### Fixed
 
 - **A commit that missed its clean-room trailer can now be corrected,
