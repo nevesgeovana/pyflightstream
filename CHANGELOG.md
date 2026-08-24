@@ -7,6 +7,37 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Fixed
+
+- **A commit that missed its clean-room trailer can now be corrected,
+  which is what three documents already said and none could do.** The
+  Tier 1 provenance guard is a WALK over every commit since its
+  baseline, so the remedy printed by the guard itself, by
+  `CONTRIBUTING.md` and by the control plane's commit-message hook — "a
+  commit that missed it is corrected by a follow-up commit that says so"
+  — could never clear it: a follow-up adds a commit to the population
+  and removes nothing from it. The named mechanism did not exist, which
+  is the same defect class FR-08 was reworded for in the first place.
+
+  A later commit now declares on an earlier one's behalf with a
+  `Clean-room-for` trailer naming its full hash, beside the unchanged
+  `Clean-room` declaration. It is an exemption and deliberately the
+  in-band kind: it lives in the history it describes, carries the full
+  declaration rather than a waiver token, and is signed by its own
+  author and date. The alternatives were moving the baseline, which
+  un-checks every commit before it, and rewriting history, which is
+  banned here.
+
+  The follow-up is held to every rule a first-hand declaration is held
+  to, each with its own test: the declarer must itself declare, must
+  name a commit git can resolve, must name one inside the range under
+  review, must come after the commit it covers, and may not name itself.
+
+  Measured twice before it was believed: 2026-08-09, when a release
+  commit could not be tagged until its message was rewritten, and
+  2026-08-24, when a thirteen-line `.gitignore` change turned CI red on
+  `main` and no follow-up could clear it.
+
 ## [0.8.1] - 2026-08-22
 
 ### Fixed

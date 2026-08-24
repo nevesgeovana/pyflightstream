@@ -354,9 +354,31 @@ Clean-room: emitter specified from the official manual and probe evidence only; 
 ```
 
 `tests/test_clean_room.py` asserts it on every commit since its
-baseline and fails the suite without it. Amending is banned in this
-repository, so a commit that missed the trailer is corrected by a
-follow-up commit that says so.
+baseline and fails the suite without it.
+
+Amending is banned in this repository, so a commit that missed the
+trailer is corrected by a follow-up commit that declares **on its
+behalf**, naming it:
+
+```
+Clean-room-for: 83db2f2d0e1f4a5b6c7d8e9f0a1b2c3d4e5f6a7b
+Clean-room: emitter specified from the official manual and probe evidence only; no code, structure or docstrings from the AGPL predecessor
+```
+
+Both lines go in the same final paragraph. The declaring commit must
+itself declare, must come after the commit it covers, and must name the
+full hash of a commit inside the range under review; a follow-up that
+fails any of those is refused rather than accepted quietly.
+
+**Why the naming is necessary, and not bureaucracy.** The check is a
+WALK over every commit since the baseline, not a check on the change in
+front of you. A plain follow-up commit *adds* a commit to that walk and
+leaves the failing one in it forever, so "a follow-up commit that says
+so" — which is what this page said until 2026-08-24 — could never clear
+the guard. It happened twice before the wording was fixed: once on
+2026-08-09, when a release commit could not be tagged until its message
+was rewritten, and once on 2026-08-24, when a thirteen-line `.gitignore`
+change turned CI red on `main`.
 
 What the trailer is, and is not. It is a DECLARATION with an auditable
 record of who made it: nothing can prove the absolute negative "the

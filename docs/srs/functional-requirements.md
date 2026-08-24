@@ -206,6 +206,16 @@ Milestones and session records are listed in the
     200 commits before it carry no trailer, and adding one to them would
     mean rewriting history to manufacture a declaration nobody made.
 
+    A commit that missed its own trailer is covered by a later commit
+    declaring on its behalf, in a `Clean-room-for` trailer naming it.
+    Added 2026-08-24, because the remedy this requirement's guard had
+    been printing since 2026-08-03 could not work: the assertion is a
+    walk over every commit since the baseline, and a follow-up commit
+    adds to that population without removing the commit that failed. The
+    declaration is unchanged in what it claims and in what it is worth;
+    only its author moves, and the follow-up is held to every rule a
+    first-hand declaration is held to, including declaring for itself.
+
 !!! requirement "FR-08a Phase ordering enforced <span class='srs-implemented'>implemented</span>"
     *Origin: BRF-13. Evidence: milestone M1 (phases in the schema),
     M2 (builder enforcement); phase tests.*
