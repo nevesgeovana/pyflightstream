@@ -16,15 +16,19 @@ cases              simulation and campaign definitions
 script results     validating script builder | output parsers
 commands           the evidence-backed per-version command database
 versions           canonical version identifiers and ordering
+_atmosphere        the standard atmosphere, importing only the base exception below it
 _errors            the package base exception, imported by every layer and importing none
 ```
 
-The bottom row is not a pipeline stage. `_errors` defines the package
-base exception and the refusals more than one layer names, and it
-imports nothing from this package, so every layer above may import it
-without a cycle; it is the floor the stack stands on rather than a step
-in it, which is why the arrow chains that state the flow name six rows
-and this table names seven.
+The bottom two rows are not pipeline stages. `_errors` defines the
+package base exception and the refusals more than one layer names, and
+it imports nothing from this package, so every layer above may import it
+without a cycle. `_atmosphere` holds the standard atmosphere and imports
+only `_errors`; it is a floor for the same reason, that several layers
+need it and it needs none of them, and nothing flows THROUGH either.
+They are the floor the stack stands on rather than steps in it, which is
+why the arrow chains that state the flow name six rows and this table
+names eight.
 
 Side branches follow the same downward-only rule: `fsi` (the
 structural side of the aeroelastic loop), `probes` and `farfield`

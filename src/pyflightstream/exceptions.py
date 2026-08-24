@@ -63,6 +63,7 @@ the message alone would force parsing: see
 
 from __future__ import annotations
 
+from pyflightstream._atmosphere import AtmosphereError
 from pyflightstream._errors import (
     PyflightstreamDeprecationWarning,
     PyflightstreamError,
@@ -130,6 +131,7 @@ __all__ = [
     "AmbiguousLoadsError",
     "AmbiguousVersionAliasError",
     "AnchorNotFoundError",
+    "AtmosphereError",
     "BrokenCommandError",
     "CampaignConfigError",
     "CampaignErrors",

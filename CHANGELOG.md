@@ -7,15 +7,45 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+- **A standard atmosphere the package computes itself** (PFS-2027.03), as
+  a floor module below every layer: ISA temperature, pressure, density,
+  speed of sound and Sutherland viscosity, with an ISA deviation that
+  moves temperature and leaves pressure alone. That last point is the
+  convention worth writing down, because the other reading -- shifting
+  pressure too -- is what a reader who has not met "ISA+5" will assume,
+  and it is asserted rather than left to be inferred.
+
+  It is NOT in `utils`, and the reason is the package's declared
+  architecture rather than a preference: `utils` is a side branch outside
+  the pipeline, and putting the atmosphere there would have created the
+  first pipeline-to-`utils` dependency in the one module family whose
+  position in the layer rule is undefined.
+
+  The constants are ISO 2533:1975 and the viscosity law is White's
+  Sutherland form, both cited in the module. The tier-1 test asserts
+  against the values the standard DEFINES -- sea level, the tropopause,
+  and the top of the isothermal layer -- and checks the quantities the
+  standard does not tabulate at every boundary by derivation instead,
+  because this repository holds no copy of ISO 2533 and a test that
+  restated a remembered table figure would reproduce the very defect the
+  item exists to retire. Sea-level density is derived rather than
+  stored, and reproducing the standard's 1.225 kg/m3 to 1e-8 is what
+  checks the three constants behind it together.
+
+  It computes; it does not emit. `script.helpers.atmosphere` remains the
+  emitter and remains one.
+
 ### Fixed
 
 - **A commit that missed its clean-room trailer can now be corrected,
   which is what three documents already said and none could do.** The
   Tier 1 provenance guard is a WALK over every commit since its
   baseline, so the remedy printed by the guard itself, by
-  `CONTRIBUTING.md` and by the control plane's commit-message hook — "a
+  `CONTRIBUTING.md` and by the control plane's commit-message hook -- "a
   commit that missed it is corrected by a follow-up commit that says so"
-  — could never clear it: a follow-up adds a commit to the population
+  -- could never clear it: a follow-up adds a commit to the population
   and removes nothing from it. The named mechanism did not exist, which
   is the same defect class FR-08 was reworded for in the first place.
 

@@ -63,6 +63,10 @@ _CORE_LAYERS: tuple[tuple[tuple[str, ...], str], ...] = (
 # and does not (the CLAUDE.md layout rule, the user guide's diagram).
 _BASE_LAYERS: tuple[tuple[tuple[str, ...], str], ...] = (
     (
+        ("_atmosphere",),
+        "the standard atmosphere, importing only the base exception below it",
+    ),
+    (
         ("_errors",),
         "the package base exception, imported by every layer and importing none",
     ),
@@ -98,6 +102,10 @@ _SECTIONS: tuple[str, ...] = (
     # asking why one module sits outside the pipeline gets the answer
     # from that module's own docstring and from nowhere else.
     "_errors",
+    # Second for the same reason, one row up: the standard atmosphere is
+    # a floor too, and the question it answers for a reader is the same
+    # one -- why is this outside the pipeline, and what may import it.
+    "_atmosphere",
     "versions",
     "commands",
     "script",

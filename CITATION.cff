@@ -30,8 +30,7 @@ license: MIT
 # it is always recorded one commit AFTER the tag it names. Older ones
 # stay, because those releases did happen and are still what a citation
 # of them should resolve to.
-version: 0.8.1
-date-released: 2026-08-22
+version: 0.8.2.dev0
 repository-code: "https://github.com/nevesgeovana/pyflightstream"
 identifiers:
   - type: doi

@@ -122,6 +122,10 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
         "AmbiguousVersionAliasError": ValueError,
         "CampaignConfigError": ValueError,
         "AnchorNotFoundError": ValueError,
+        # PFS-2027.03: an altitude or a temperature outside what the
+        # standard atmosphere models. ValueError because every caller
+        # reaches it with an out-of-range NUMBER.
+        "AtmosphereError": ValueError,
         "BrokenCommandError": RuntimeError,
         "CampaignErrors": RuntimeError,
         "CommandArgumentError": ValueError,

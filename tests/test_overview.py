@@ -198,6 +198,10 @@ def test_overview_sections_match_the_deliverable_list():
         # (OPS-2005.12). Private, so it is absent from PUBLIC_MODULES
         # below and the comparison there is unaffected.
         "_errors",
+        # The second floor module (PFS-2027.03): it imports the base
+        # exception and nothing else from the package, and the pipeline
+        # imports it. Private, so it is absent from PUBLIC_MODULES too.
+        "_atmosphere",
         "versions",
         "commands",
         "script",

@@ -374,7 +374,7 @@ fails any of those is refused rather than accepted quietly.
 WALK over every commit since the baseline, not a check on the change in
 front of you. A plain follow-up commit *adds* a commit to that walk and
 leaves the failing one in it forever, so "a follow-up commit that says
-so" — which is what this page said until 2026-08-24 — could never clear
+so" -- which is what this page said until 2026-08-24 -- could never clear
 the guard. It happened twice before the wording was fixed: once on
 2026-08-09, when a release commit could not be tagged until its message
 was rewritten, and once on 2026-08-24, when a thirteen-line `.gitignore`
