@@ -32,9 +32,13 @@ spelling, deliberately:
 |---|---|---|
 | `MACH` | dimensionless | velocity, through the speed of sound at the state's own temperature |
 | `TASmps` | metres per second | velocity directly (true airspeed) |
-| `REmi` | **millions** -- `5.5` means 5 500 000 | density, velocity and reference length over viscosity |
+| `REmi` | **millions** -- `5.5` means 5 500 000 | density [^re] |
 | `ALTFT` | **feet** | pressure, and temperature through the standard lapse |
 | `dISA` | **Celsius, as a DELTA** | temperature, as an offset on the standard value |
+
+[^re]: A Reynolds number is density times velocity times reference
+    length over viscosity. Velocity and the length come from elsewhere on
+    the row, so stating `REmi` is what pins the density.
 
 The names are ugly on purpose. `ALTITUDE:10000` would be ambiguous
 between feet and metres, and this repository has already shipped a solver
@@ -50,8 +54,10 @@ one key. A key written twice is refused rather than taking the last one.
   sound and the viscosity. Both have defaults: an absent altitude is sea
   level and an absent `dISA` is zero. Those defaults are what make a
   short set legal at all.
-* Exactly one of `MACH` or `TASmps` fixes the **velocity**. Never zero,
-  never both.
+* Exactly one of `MACH` or `TASmps` fixes the **velocity**. State
+  exactly one of the two: stating neither leaves the state
+  under-determined and is refused, and stating both is a contradiction
+  and is refused.
 * `REmi` fixes the **density**, by solving the Reynolds definition for
   it. If you do not state it, density is the atmosphere's own value at
   the stated altitude and the Reynolds number becomes an outcome.
@@ -75,15 +81,17 @@ That is the design, not a defect. For a panel method it is harmless --
 density scales forces, viscosity sets Reynolds, and nothing reads
 pressure. It stops being harmless the moment a consumer reads that state
 as an altitude, which is why the run record carries **which branch**
-produced the density.
+produced the density, in its `density_source` field, beside the resolved
+density, temperature and viscosity and the condition as written.
 
 ## A Reynolds number needs a reference length
 
 `REmi` on a row that names no `REF` is refused, naming both. The
 dependency is not bookkeeping: the same `MACH:0.20, REmi:5.5` against a
 unit chord gives a density about 18 percent above sea level, and against
-a rotor's mean face length gives nearly eight times sea level, at an
-implied pressure near 794 kPa. Same inputs, same resolver, a state that
+a rotor's mean face length of about 0.15 m gives nearly eight times sea
+level, at an implied pressure near 794 kPa. The length is stated so the
+figure can be reproduced rather than taken. Same inputs, same resolver, a state that
 is ordinary or absurd depending on a number that comes from somewhere
 else entirely.
 
@@ -104,8 +112,16 @@ than typing numbers into columns.
 | `MACH:0.2, MACH:0.35` | refused as a duplicate, rather than taking the last |
 | `ALTFT:10000` alone | refused as under-determined, naming which keys supply a velocity |
 | `MACH:0.20, TASmps:68.08` | refused as a contradiction: each fixes the velocity alone |
-| `REmi:5.5` with no `REF` on the row | refused, naming both the condition and the missing reference |
+| `MACH 0.2` (no colon) | refused: the cell holds `KEY:value` pairs |
+| `MACH:0.20,,REmi:5.5` | refused: an empty entry between commas is a typo, not a constraint |
+| `ALTFT:70000` | refused naming the altitude range the model covers |
 | an empty cell | refused: the cell is mandatory, exactly as `RE` and `MACH` were |
+
+`REmi` also cannot be resolved without the reference length the row's
+`REF` names, and the resolver refuses naming both if it ever lacks one.
+You are unlikely to meet that message from a matrix: `REF` is itself a
+mandatory column and a blank or unresolvable one is refused earlier. It
+guards a caller reaching the resolver directly.
 
 The set being closed is what makes the first row possible. A key the
 package does not know is refused rather than ignored, which is the
@@ -148,8 +164,13 @@ meant it as a constraint.
 
 ## What this page does not cover
 
-The atmosphere model itself -- ISO 2533 with a Sutherland viscosity law,
-its constants and the altitude range it refuses outside -- is documented
-in the module that implements it. Nothing here is a claim about a
-particular day's weather: the model says what the standard defines at a
-pressure altitude.
+The atmosphere model itself is ISO 2533:1975 with a Sutherland
+viscosity law. The one fact you may hit is its RANGE: the model covers
+-2000 m to 20000 m, which is about -6562 ft to 65617 ft, and an `ALTFT`
+outside that is refused naming the range rather than extrapolated. It is
+stated here rather than pointed at, because the module that implements
+it is private and a pointer there resolves nowhere for a reader of this
+page.
+
+Nothing here is a claim about a particular day's weather: the model says
+what the standard defines at a pressure altitude.

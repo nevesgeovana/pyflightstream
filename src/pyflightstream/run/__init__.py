@@ -2557,6 +2557,14 @@ def _execute_point(
         # exactly the failed points a reader most wants to compare
         # (OPS-2009.01.13).
         "velocity_requested_m_s": case.velocity,
+        # PFS-2027.05: the inputs as written and the resolved state, so
+        # the record is recomputable rather than merely trusted.
+        "flight_condition": dict(case.flight_condition),
+        "density_kg_m3": None if case.fluid is None else case.fluid.density_kg_m3,
+        "temperature_k": None if case.fluid is None else case.fluid.temperature_k,
+        "viscosity_pa_s": None if case.fluid is None else case.fluid.viscosity_pa_s,
+        "density_source": None if case.fluid is None else case.fluid.source,
+        "reference_length_m": None if case.fluid is None else case.fluid.reference_length_m,
         "inputs_sha256": inputs_sha256,
         "script_sha256": "",
         "raw_flag": False,

@@ -2727,3 +2727,60 @@ def test_a_case_from_resolve_matrix_renders_its_fluid_state(tmp_path):
     # commit's own sentence.
     assert any(line.startswith("SOLVER_SET_REF_AREA") for line in lines)
     assert any(line.startswith("SOLVER_SET_REF_LENGTH") for line in lines)
+
+
+def test_the_run_record_carries_the_condition_and_the_resolved_state(tmp_path):
+    """PFS-2027.05's first clause, which nothing implemented until now.
+
+    The acceptance sentence is that the run record carries the condition
+    string AS WRITTEN, every resolved quantity and the reference length,
+    so a reader can RECOMPUTE the resolution rather than trust it. Four
+    places in this repository said it did. A round-two technical-writer
+    pass measured that the run layer held no such field at all: the
+    branch marker lived on the resolved matrix and on the case, neither
+    of which is the artifact that outlives the session.
+
+    The density_source field is the load-bearing one. A density solved
+    to meet a Reynolds number is deliberately not a point in any
+    atmosphere, so a record without it gives a later reader no way to
+    tell a wind-tunnel state from an altitude.
+    """
+    from pyflightstream.workspace import RunRecord
+
+    for field in (
+        "flight_condition",
+        "density_kg_m3",
+        "temperature_k",
+        "viscosity_pa_s",
+        "density_source",
+        "reference_length_m",
+    ):
+        assert field in RunRecord.model_fields, (
+            f"the run record carries no {field}, so the resolution it records "
+            "cannot be recomputed by a reader"
+        )
+
+    workspace = make_library(tmp_path)
+    with pytest.warns(UserWarning, match="wake_layers"):
+        resolved = resolve_matrix(
+            FIXTURE,
+            workspace,
+            name="matrix",
+            fs_version="26.120",
+            recipes=RECIPES,
+            fs_exe="C:/fs/FlightStream.exe",
+        )
+    case = {sim.sim_id: sim for sim in resolved.campaign.sims}["9001"]
+    condition = resolved.conditions["9001"]
+
+    # THE NUMBER THE UPGRADE WARNING RESTS ON. Both the changelog and the
+    # flight-condition page tell a user their results will move and quote
+    # this density; until this assertion it was anchored by nothing.
+    assert condition.density_kg_m3 == pytest.approx(1.3319, rel=1e-4)
+    assert condition.density_kg_m3 / 1.225 == pytest.approx(1.087, rel=1e-3)
+
+    # And the record's own fields are populated from that same state.
+    assert case.fluid is not None
+    assert case.fluid.density_kg_m3 == pytest.approx(condition.density_kg_m3)
+    assert case.fluid.source == "solved-from-reynolds"
+    assert case.flight_condition == {"MACH": 0.1441, "REmi": 4.38}

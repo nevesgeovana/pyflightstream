@@ -239,11 +239,14 @@ Milestones and session records are listed in the
 
 !!! requirement "FR-10 Run-matrix reader, forever <span class='srs-implemented'>implemented</span>"
     *Origin: BRF-08. Evidence: milestone M2; the verified 15-column
-    layout and its fixtures, including
-    `tests/fixtures/workflow_rotor_matrix.fs`. The layout has broken
-    twice and each older width is RECOGNISED and refused naming its
-    converter rather than misread, which is what keeps this
-    requirement's forever promise honest.*
+    layout and its fixtures. The layout has broken twice and each older
+    LAYOUT is recognised by its HEADER ROW, never by its width, and
+    refused naming `pyfs-matrix upgrade` rather than misread, which is
+    what keeps this requirement's forever promise honest. Width could
+    not serve: two of the three layouts are fifteen columns wide. The
+    fixtures carrying that claim are
+    `tests/fixtures/pfs202512_matrix15.fs` and
+    `tests/fixtures/pfs202701_matrix16.fs`.*
 
     A dedicated reader consumes the documented pipe-delimited
     run-matrix format: rows with RUN = 1 are active, the sweep columns

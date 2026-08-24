@@ -439,6 +439,24 @@ class RunRecord(BaseModel):
     fs_build: str | None = None
     fs_version_source: str | None = None
     velocity_requested_m_s: float | None = None
+    #: The flight condition AS WRITTEN in the row, canonical key to
+    #: value, in the units the keys name. Empty when the case stated
+    #: none (PFS-2027.05).
+    flight_condition: dict[str, float] = Field(default_factory=dict)
+    #: The resolved flow state, and WHICH BRANCH produced the density.
+    #: Recorded so a reader can RECOMPUTE the resolution rather than
+    #: trust it: the inputs above plus these values plus the reference
+    #: length are everything the resolver used.
+    #:
+    #: `density_source` is not decoration. A density solved to meet a
+    #: Reynolds number is deliberately NOT a point in any atmosphere, so
+    #: without this field a later reader has no way to tell a
+    #: wind-tunnel state from an altitude and may "fix" it into one.
+    density_kg_m3: float | None = None
+    temperature_k: float | None = None
+    viscosity_pa_s: float | None = None
+    density_source: str | None = None
+    reference_length_m: float | None = None
     package_version: str
     package_commit: str | None = None
     package_dirty: bool | None = None

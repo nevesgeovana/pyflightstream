@@ -76,3 +76,17 @@ htmlcov/
 # three, and check_hook_provenance.py asserts that it does, in every repository
 # the gate can write into.
 .claude/.role_review_attestation.json
+# AND THE DIRECTORY, because ignoring only the file was half the fix.
+# 83db2f2 ignored the attestation so it could not be staged into a tree
+# that ships, and left `.claude/` itself neither tracked nor ignored. The
+# root-artifact guard in tests/test_examples.py closes its question the
+# other way round: a path at the root is accounted for when git tracks it
+# OR ignores it, and anything else is something a run left behind. So the
+# first attestation this repository ever wrote turned that guard red while
+# the file inside it was correctly ignored.
+#
+# Ignoring the directory is the deliberate half. Nothing under `.claude/`
+# is tracked here: the process tooling left this repository in 158f5de,
+# and what remains is the gate's own local write target. Anything that
+# should ship from here does not belong under `.claude/`.
+.claude/

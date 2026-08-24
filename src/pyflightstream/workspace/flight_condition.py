@@ -56,7 +56,8 @@ IMPLIED pressure is not sea level's. For a panel method that is
 harmless: density scales forces, viscosity sets Reynolds, and nothing
 reads pressure. It stops being harmless the moment a consumer reads that
 state as an altitude, which is why :attr:`ResolvedCondition.density_source`
-exists and why the run record carries the inputs as written.
+exists, and why the run record carries both it and the inputs as
+written, in ``density_source`` and ``flight_condition``.
 
 WHY A REYNOLDS CONSTRAINT NEEDS THE REFERENCE (PFS-2027.04). A Reynolds
 number is meaningless without a length, and the dependency is not
