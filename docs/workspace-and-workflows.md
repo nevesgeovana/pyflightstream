@@ -49,10 +49,10 @@ solver preset and the boundary group it should be resolved against.
 This is the matrix the test suite runs, byte for byte:
 
 ```text title="matrix_registry.fs"
-POL  | AIRCRAFT  | DESCRIPTION            | RE      | MACH    | SWEEP_TYPE  | SWEEP_VALUES   | REF  | SET  | ENTRY  | FS_SCRIPT | FS_BUILD | HIDDEN | RUN | WORKFLOW | VAR_NAMES_VALUES
+POL  | AIRCRAFT  | DESCRIPTION            | FLIGHT_CONDITION | SWEEP_TYPE  | SWEEP_VALUES   | REF  | SET  | ENTRY  | FS_SCRIPT | FS_BUILD | HIDDEN | RUN | WORKFLOW | VAR_NAMES_VALUES
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-8001 | TestWing  | REGISTRY_ALPHA         |  3.10   | 0.0890  | AL          | 0.0,2.0        | r003 | s002 | e001   | 003       | 26.120   |    0   |  1  | LEGACY   | FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt
-8002 | TestWing  | REGISTRY_BETA          |  3.10   | 0.0890  | BE          | -3.0,3.0       | r003 | s002 | e001   | 003       | 26.120   |    1   |  1  | LEGACY   | FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt
+8001 | TestWing  | REGISTRY_ALPHA         | MACH:0.0890, REmi:3.10 | AL          | 0.0,2.0        | r003 | s002 | e001   | 003       | 26.120   |    0   |  1  | LEGACY   | FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt
+8002 | TestWing  | REGISTRY_BETA          | MACH:0.0890, REmi:3.10 | BE          | -3.0,3.0       | r003 | s002 | e001   | 003       | 26.120   |    1   |  1  | LEGACY   | FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt
 ```
 
 Read one row across. `POL` is the point of interest, and it becomes the
@@ -472,10 +472,10 @@ of them is refused before anything runs, naming the row and the cell.
 This is the matrix the suite runs for those two types, byte for byte:
 
 ```text title="workflow_rotor_matrix.fs"
-POL  | AIRCRAFT  | DESCRIPTION            | RE      | MACH    | SWEEP_TYPE  | SWEEP_VALUES   | REF  | SET  | ENTRY  | FS_SCRIPT | FS_BUILD | HIDDEN | RUN | WORKFLOW       | VAR_NAMES_VALUES
+POL  | AIRCRAFT  | DESCRIPTION            | FLIGHT_CONDITION | SWEEP_TYPE  | SWEEP_VALUES   | REF  | SET  | ENTRY  | FS_SCRIPT | FS_BUILD | HIDDEN | RUN | WORKFLOW       | VAR_NAMES_VALUES
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-7001 | RotorRig  | ROTOR_UNSTEADY         |  1.20   | 0.0800  | AL          | 0.0            | r003 | s002 | e001   | 010       | 26.120   |    1   |  1  | unsteady_rotor | OUTPUTS: loads_{point}.txt / VELOCITY: 30.0 / RPM: 1200 / ROTOR_AXIS: X / BLADES: 4 / DELTA_TIME: 0.0001 / TIME_ITERATIONS: 720 / WINDOW_DEGREES: 90
-7002 | RotorRig  | STEADY_REFERENCE       |  1.20   | 0.0800  | AL          | 0.0,2.0        | r003 | s002 | e001   | 003       | 26.120   |    1   |  1  | steady         | OUTPUTS: loads_{point}.txt / VELOCITY: 30.0
+7001 | RotorRig  | ROTOR_UNSTEADY         | MACH:0.0800, REmi:1.20 | AL          | 0.0            | r003 | s002 | e001   | 010       | 26.120   |    1   |  1  | unsteady_rotor | OUTPUTS: loads_{point}.txt / VELOCITY: 30.0 / RPM: 1200 / ROTOR_AXIS: X / BLADES: 4 / DELTA_TIME: 0.0001 / TIME_ITERATIONS: 720 / WINDOW_DEGREES: 90
+7002 | RotorRig  | STEADY_REFERENCE       | MACH:0.0800, REmi:1.20 | AL          | 0.0,2.0        | r003 | s002 | e001   | 003       | 26.120   |    1   |  1  | steady         | OUTPUTS: loads_{point}.txt / VELOCITY: 30.0
 ```
 
 **NEITHER ROW NAMES A `GEOMETRY`, AND THAT IS WHAT THEY ARE FOR.** This

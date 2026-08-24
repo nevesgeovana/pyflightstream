@@ -103,8 +103,7 @@ _COLUMNS = (
     "POL",
     "AIRCRAFT",
     "DESCRIPTION",
-    "RE",
-    "MACH",
+    "FLIGHT_CONDITION",
     "SWEEP_TYPE",
     "SWEEP_VALUES",
     "REF",
@@ -123,7 +122,53 @@ _COLUMNS = (
 #: meeting the generic "this is not a run matrix" message. It is only
 #: ever COMPARED: no row is ever read through it, so the reader keeps its
 #: single-grammar property and gains no tolerant second path.
-_LEGACY_COLUMNS_15 = tuple(name for name in _COLUMNS if name != "WORKFLOW")
+#:
+#: WRITTEN OUT IN FULL as of PFS-2027.01, and that is the point rather
+#: than verbosity. It used to be derived as ``_COLUMNS`` minus
+#: ``WORKFLOW``, which was correct exactly while the only difference
+#: between the two layouts was that one column. The moment ``_COLUMNS``
+#: lost ``RE`` and ``MACH``, a derived legacy shape would have silently
+#: FOLLOWED the change and stopped describing any file that ever
+#: existed, so the recognition message would have vanished for the files
+#: it was written for. A frozen historical layout must be a literal.
+_LEGACY_COLUMNS_15 = (
+    "POL",
+    "AIRCRAFT",
+    "DESCRIPTION",
+    "RE",
+    "MACH",
+    "SWEEP_TYPE",
+    "SWEEP_VALUES",
+    "REF",
+    "SET",
+    "ENTRY",
+    "FS_SCRIPT",
+    "FS_BUILD",
+    "HIDDEN",
+    "RUN",
+    "VAR_NAMES_VALUES",
+)
+
+#: The v0.8.0 and v0.8.1 layout: the 15 above plus ``WORKFLOW``. Frozen
+#: for the same reason and recognised the same way (PFS-2027.01).
+_LEGACY_COLUMNS_16 = (
+    "POL",
+    "AIRCRAFT",
+    "DESCRIPTION",
+    "RE",
+    "MACH",
+    "SWEEP_TYPE",
+    "SWEEP_VALUES",
+    "REF",
+    "SET",
+    "ENTRY",
+    "FS_SCRIPT",
+    "FS_BUILD",
+    "HIDDEN",
+    "RUN",
+    "WORKFLOW",
+    "VAR_NAMES_VALUES",
+)
 
 #: The workflow every row written before the column existed asks for:
 #: the established matrix behaviour, whose builder is the user's own
@@ -170,10 +215,14 @@ class MatrixRow:
         Polar identifier (POL column); maps to the native ``sim_id``.
     aircraft, description : str
         Configuration name and free text.
-    re_millions : float
-        Reynolds number in millions, as stored in the matrix.
-    mach : float
-        Mach number.
+    flight_condition : dict
+        The FLIGHT_CONDITION cell, parsed to canonical key and float and
+        kept in the units the KEYS name (PFS-2027.01). It replaced the
+        RE and MACH columns at 0.8.2: a run states its flow condition in
+        one place, and which quantity gets solved for follows from which
+        keys are present rather than from which columns are mandatory.
+        An empty cell is an empty mapping, not a refusal; a row that
+        states no condition is legal here and is answered one layer up.
     sweep : SweepAxis
         The sweep, already in native form.
     ref_code, set_code, entry_code, script_code : str
@@ -195,8 +244,7 @@ class MatrixRow:
     pol: str
     aircraft: str
     description: str
-    re_millions: float
-    mach: float
+    flight_condition: dict[str, float]
     sweep: SweepAxis
     ref_code: str
     set_code: str
@@ -207,6 +255,134 @@ class MatrixRow:
     run: int
     workflow: str
     variables: dict[str, str]
+
+
+#: The CLOSED set of flight-condition keys, each with the unit it is
+#: written in and the quantity it constrains (PFS-2027.01).
+#:
+#: A flight condition is a SET OF CONSTRAINTS on one flow state, and the
+#: keys given decide which quantity is solved for. That sentence is the
+#: whole design: the same resolver answers ``MACH:0.20, REmi:5.5`` and
+#: ``TASmps:68.08, ALTFT:10000, dISA:5`` by solving for a different
+#: unknown each time. This table is the vocabulary; the resolving lives
+#: one layer up, where a row can reach the reference artifact.
+#:
+#: WHY THE SET IS CLOSED. An unrecognised key is REFUSED here rather
+#: than ignored, which is the difference between a typo that costs a
+#: message and a typo that costs a campaign. Extending it later costs
+#: one row in this table and no rewrite, which is why the first cut can
+#: be narrow without being a trap.
+#:
+#: THE UNITS RIDE THE KEYS rather than the values, which is why the
+#: names are not plain words: ``ALTFT`` is feet, ``dISA`` is Celsius and
+#: ``REmi`` is millions. A cell that said ``ALTITUDE:10000`` would be
+#: ambiguous between feet and metres in a repository that has already
+#: shipped a solver command whose metres argument three builds read as
+#: feet.
+FLIGHT_CONDITION_KEYS: dict[str, tuple[str, str]] = {
+    "MACH": ("dimensionless", "velocity, through the speed of sound at the state"),
+    "TASmps": ("m/s", "velocity directly"),
+    "REmi": ("millions", "density, velocity and reference length over viscosity"),
+    "ALTFT": ("feet", "pressure, and temperature through the standard lapse"),
+    "dISA": ("Celsius, a DELTA", "temperature, as an offset on the standard value"),
+}
+
+#: Canonical spelling by upper-cased key, for the case-insensitive match
+#: below. Built from the table so the two cannot drift apart.
+_FLIGHT_CONDITION_CANONICAL = {key.upper(): key for key in FLIGHT_CONDITION_KEYS}
+
+
+def _parse_flight_condition(cell: str, pol: str) -> dict[str, float]:
+    """Parse a FLIGHT_CONDITION cell into canonical key to value.
+
+    KEYS ARE MATCHED CASE-INSENSITIVELY and reported in their canonical
+    spelling. Stated here rather than left to whichever the first caller
+    happened to type, and asserted both ways in the tests.
+
+    The reason is the keys themselves: ``REmi``, ``TASmps`` and ``dISA``
+    carry deliberate internal capitals that a user types from memory, so
+    refusing ``remi`` as an unknown key would be refusing a correct
+    intention on a shift key. The repository's one existing precedent
+    for a variable key, the rotation sweep in
+    :func:`pyflightstream.cases.geometric_sweep_values`, is also
+    case-insensitive.
+
+    A DUPLICATED KEY IS REFUSED rather than last-wins, and the check is
+    on the CANONICAL key, so ``MACH:0.2, mach:0.3`` is a duplicate and
+    not two keys. Last-wins is what the general ``VAR_NAMES_VALUES``
+    parser does beside this one, and it is wrong here for a reason worth
+    the difference: those values are free case data a recipe interprets,
+    while these are constraints on a flow state, and a silently dropped
+    constraint changes what is solved.
+
+    Parameters
+    ----------
+    cell : str
+        The FLIGHT_CONDITION cell, comma-separated ``KEY:value`` pairs.
+        An empty cell means the row states no flight condition and is
+        returned as an empty mapping rather than refused.
+    pol : str
+        The row's POL, named in every refusal so the reader knows which
+        cell to edit.
+
+    Returns
+    -------
+    dict
+        Canonical key to float value, in the order written.
+
+    Examples
+    --------
+    >>> _parse_flight_condition("MACH:0.20, REmi:5.5", "P1")
+    {'MACH': 0.2, 'REmi': 5.5}
+    >>> _parse_flight_condition("TASmps:68.08, ALTFT:10000, dISA:5", "P1")
+    {'TASmps': 68.08, 'ALTFT': 10000.0, 'dISA': 5.0}
+
+    Whitespace around the separators and around the colon is accepted:
+
+    >>> _parse_flight_condition("  MACH : 0.20 ,REmi:5.5  ", "P1")
+    {'MACH': 0.2, 'REmi': 5.5}
+    """
+    condition: dict[str, float] = {}
+    if not cell.strip():
+        return condition
+    accepted = ", ".join(FLIGHT_CONDITION_KEYS)
+    for pair in cell.split(","):
+        if not pair.strip():
+            raise MatrixError(
+                f"FLIGHT_CONDITION of POL {pol} holds an empty entry between commas; "
+                f"the cell is comma-separated KEY:value pairs, from {accepted}"
+            )
+        name, separator, value = pair.partition(":")
+        if not separator:
+            raise MatrixError(
+                f"FLIGHT_CONDITION entry {pair.strip()!r} of POL {pol} is not a "
+                f"KEY:value pair; the cell holds comma-separated KEY:value entries, "
+                f"from {accepted}"
+            )
+        key = _FLIGHT_CONDITION_CANONICAL.get(name.strip().upper())
+        if key is None:
+            raise MatrixError(
+                f"FLIGHT_CONDITION key {name.strip()!r} of POL {pol} is not one this "
+                f"package knows; the accepted keys are {accepted}. The set is CLOSED "
+                "so that a mistyped key costs a message rather than a campaign solved "
+                "at a condition nobody asked for."
+            )
+        if key in condition:
+            raise MatrixError(
+                f"FLIGHT_CONDITION of POL {pol} names {key} more than once, as "
+                f"{condition[key]} and {value.strip()!r}. A repeated key is refused "
+                "rather than taking the last one, because these are constraints on "
+                "one flow state and a silently dropped constraint changes what is "
+                "solved."
+            )
+        try:
+            condition[key] = float(value.strip())
+        except ValueError:
+            raise MatrixError(
+                f"FLIGHT_CONDITION key {key} of POL {pol} carries {value.strip()!r}, "
+                f"which is not a number. {key} is in {FLIGHT_CONDITION_KEYS[key][0]}."
+            ) from None
+    return condition
 
 
 def _parse_sweep(sweep_type: str, sweep_values: str) -> SweepAxis:
@@ -355,8 +531,21 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
             f"the WORKFLOW column, so it is a run matrix written before v0.8.0 rather "
             "than a file this reader cannot recognise. Upgrade it with "
             "pyflightstream.cases.matrix.upgrade_matrix(path, in_place=True), which "
-            f"inserts one {LEGACY_WORKFLOW!r} cell per row and leaves every other "
-            "byte, separator and line ending of the file exactly as it is."
+            f"inserts one {LEGACY_WORKFLOW!r} cell per row, folds RE and MACH into a "
+            "FLIGHT_CONDITION cell, and leaves every other byte, separator and line "
+            "ending of the file exactly as it is."
+        )
+    if header == _LEGACY_COLUMNS_16:
+        raise MatrixError(
+            f"{path} carries the {len(_LEGACY_COLUMNS_16)}-column layout of v0.8.0 and "
+            "v0.8.1, which held RE and MACH as columns of their own. They are now two "
+            "keys of the FLIGHT_CONDITION cell, so that a row states its whole flow "
+            "condition in one place. Upgrade it with "
+            "pyflightstream.cases.matrix.upgrade_matrix(path, in_place=True), which "
+            "replaces the two cells with one reading 'MACH:<mach>, REmi:<re>' and "
+            "leaves every other byte, separator and line ending of the file exactly "
+            "as it is. The conversion is lossless: the two columns carried exactly "
+            "the two quantities those keys carry."
         )
     if header != _COLUMNS:
         raise MatrixError(
@@ -380,8 +569,9 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
             pol=record["POL"],
             aircraft=record["AIRCRAFT"],
             description=record["DESCRIPTION"],
-            re_millions=float(record["RE"]),
-            mach=float(record["MACH"]),
+            flight_condition=_parse_flight_condition(
+                record["FLIGHT_CONDITION"], record["POL"]
+            ),
             sweep=_parse_sweep(record["SWEEP_TYPE"], record["SWEEP_VALUES"]),
             ref_code=record["REF"],
             set_code=record["SET"],
@@ -492,16 +682,20 @@ def _peel_terminator(line: bytes) -> tuple[bytes, bytes]:
     return line, b""
 
 
-def _upgraded_bytes(data: bytes, source: str) -> bytes:
-    """Insert the WORKFLOW cell into a fifteen-column matrix, byte-wise.
+def _header_names(parts: list[bytes]) -> tuple[str, ...]:
+    return tuple(cell.strip().decode("utf-8", "replace") for cell in parts)
+
+
+def _insert_workflow_cell(data: bytes, source: str) -> bytes:
+    """Stage one: the fifteen-column layout gains WORKFLOW, byte-wise.
 
     Works on BYTES and never through :func:`read_matrix`, which replaces
     undecodable bytes, drops the dashed rule and strips every cell: a
     converter built on it would hand back a file the user cannot diff
     against the one they had.
     """
-    index = _COLUMNS.index("WORKFLOW")
-    last = index == len(_COLUMNS) - 1
+    index = _LEGACY_COLUMNS_16.index("WORKFLOW")
+    last = index == len(_LEGACY_COLUMNS_16) - 1
     rebuilt: list[bytes] = []
     header_seen = False
     row_number = 0
@@ -515,17 +709,7 @@ def _upgraded_bytes(data: bytes, source: str) -> bytes:
         parts = body.split(b"|")
         if not header_seen:
             header_seen = True
-            names = tuple(cell.strip().decode("utf-8", "replace") for cell in parts)
-            if names == _COLUMNS:
-                return data
-            if names != _LEGACY_COLUMNS_15:
-                raise MatrixError(
-                    f"{source} is not a run matrix at the layout this converter "
-                    f"upgrades: its header names {', '.join(names)}, and the "
-                    f"{len(_LEGACY_COLUMNS_15)}-column layout that gains the WORKFLOW "
-                    f"column names {', '.join(_LEGACY_COLUMNS_15)}."
-                )
-            cell = _COLUMNS[index].encode("utf-8")
+            cell = _LEGACY_COLUMNS_16[index].encode("utf-8")
         else:
             row_number += 1
             if len(parts) != len(_LEGACY_COLUMNS_15):
@@ -541,9 +725,81 @@ def _upgraded_bytes(data: bytes, source: str) -> bytes:
         # own pre-commit hook strips out from under a committed fixture.
         parts.insert(index, b" " + cell + (b"" if last else b" "))
         rebuilt.append(b"|".join(parts) + terminator)
-    if not header_seen:
-        raise MatrixError(f"{source} holds no matrix content: no line carries a cell separator")
     return b"".join(rebuilt)
+
+
+def _fold_flight_condition(data: bytes, source: str) -> bytes:
+    """Stage two: RE and MACH become one FLIGHT_CONDITION cell.
+
+    LOSSLESS BY CONSTRUCTION, which is why the fold is mechanical rather
+    than a judgement: the two columns carried exactly the two quantities
+    ``MACH`` and ``REmi`` name, in exactly those units, so the values
+    move across VERBATIM. ``5.5`` stays ``5.5`` and ``0.20`` keeps its
+    trailing zero, because a converter that reformatted numbers would
+    hand back a diff whose real change nobody could find.
+    """
+    re_index = _LEGACY_COLUMNS_16.index("RE")
+    mach_index = _LEGACY_COLUMNS_16.index("MACH")
+    assert mach_index == re_index + 1, "the fold assumes RE and MACH are adjacent"
+    rebuilt: list[bytes] = []
+    header_seen = False
+    row_number = 0
+    for line in data.splitlines(keepends=True):
+        body, terminator = _peel_terminator(line)
+        if b"|" not in body:
+            rebuilt.append(line)
+            continue
+        parts = body.split(b"|")
+        if not header_seen:
+            header_seen = True
+            cell = b" FLIGHT_CONDITION "
+        else:
+            row_number += 1
+            if len(parts) != len(_LEGACY_COLUMNS_16):
+                raise MatrixError(
+                    f"data row {row_number} of {source} holds {len(parts)} cells "
+                    f"against the {len(_LEGACY_COLUMNS_16)} columns of the layout "
+                    "being upgraded, so this converter cannot say which cells carry "
+                    "RE and MACH; repair the row first."
+                )
+            re_value = parts[re_index].strip().decode("utf-8", "replace")
+            mach_value = parts[mach_index].strip().decode("utf-8", "replace")
+            cell = f" MACH:{mach_value}, REmi:{re_value} ".encode()
+        parts[re_index : mach_index + 1] = [cell]
+        rebuilt.append(b"|".join(parts) + terminator)
+    return b"".join(rebuilt)
+
+
+def _upgraded_bytes(data: bytes, source: str) -> bytes:
+    """Bring a matrix of any earlier layout up to the current one.
+
+    TWO STAGES, because two layouts precede the current one and a file
+    written before v0.8.0 needs both: it gains the WORKFLOW column, and
+    then its RE and MACH columns fold into FLIGHT_CONDITION. Chaining
+    them rather than writing a third direct converter is what keeps the
+    oldest path exercised by the same code the newer one uses.
+    """
+    header: tuple[str, ...] | None = None
+    for line in data.splitlines():
+        body, _ = _peel_terminator(line)
+        if b"|" in body:
+            header = _header_names(body.split(b"|"))
+            break
+    if header is None:
+        raise MatrixError(f"{source} holds no matrix content: no line carries a cell separator")
+    if header == _COLUMNS:
+        return data
+    if header == _LEGACY_COLUMNS_15:
+        return _fold_flight_condition(_insert_workflow_cell(data, source), source)
+    if header == _LEGACY_COLUMNS_16:
+        return _fold_flight_condition(data, source)
+    raise MatrixError(
+        f"{source} is not a run matrix at a layout this converter upgrades: its "
+        f"header names {', '.join(header)}. The layouts it reads are the "
+        f"{len(_LEGACY_COLUMNS_15)}-column one that precedes WORKFLOW "
+        f"({', '.join(_LEGACY_COLUMNS_15)}) and the {len(_LEGACY_COLUMNS_16)}-column "
+        f"one that precedes FLIGHT_CONDITION ({', '.join(_LEGACY_COLUMNS_16)})."
+    )
 
 
 #: The columns whose cells carry an input-library id, in file order.
@@ -722,6 +978,42 @@ def upgrade_matrix(path: str | Path, *, in_place: bool = False) -> bytes:
     return upgraded
 
 
+#: The flight-condition keys this layer can act on today. MACH and REmi
+#: are the two the RE and MACH columns used to carry, so they map
+#: straight onto the fields that already existed.
+#:
+#: THE OTHERS ARE PARSED AND NOT YET RESOLVED. ``TASmps``, ``ALTFT`` and
+#: ``dISA`` need the resolver of PFS-2027.02, which lives one layer up
+#: because it must reach the reference artifact for a length. Until it
+#: lands, a row carrying one of them is REFUSED here rather than having
+#: it dropped: a constraint that is read, accepted and then ignored is
+#: precisely the silent-wrong-answer failure this capability exists to
+#: remove, and it would be indistinguishable from a working row.
+#: PFS-2027.02 deletes this set and this refusal together.
+_RESOLVABLE_CONDITION_KEYS = frozenset({"MACH", "REmi"})
+
+
+def _condition_reynolds(row: MatrixRow) -> float | None:
+    """The absolute Reynolds number a row states, or None.
+
+    The matrix stores it in millions, which is what ``REmi`` names, and
+    the conversion is here rather than in the parser because the parser
+    keeps every value in the unit its key declares.
+    """
+    unresolved = sorted(set(row.flight_condition) - _RESOLVABLE_CONDITION_KEYS)
+    if unresolved:
+        raise MatrixError(
+            f"FLIGHT_CONDITION of POL {row.pol} names {', '.join(unresolved)}, which "
+            "this release parses but cannot yet resolve to a flow state: solving for "
+            "the unknown a constraint set leaves needs the reference length, and that "
+            "resolver is PFS-2027.02. It is refused rather than ignored, because a "
+            "constraint that is read and then dropped would be solved at a condition "
+            f"nobody asked for. Today this column takes {', '.join(sorted(_RESOLVABLE_CONDITION_KEYS))}."
+        )
+    millions = row.flight_condition.get("REmi")
+    return None if millions is None else millions * 1e6
+
+
 #: Matrix variable naming the files a row's recipe exports, several
 #: separated by commas. NOT by the slash: the slash already separates
 #: the KEY:VALUE pairs of VAR_NAMES_VALUES, so a slash inside a value
@@ -882,8 +1174,8 @@ def to_campaign(
                 sim_id=row.pol,
                 aircraft=row.aircraft,
                 description=row.description,
-                reynolds=row.re_millions * 1e6,
-                mach=row.mach,
+                reynolds=_condition_reynolds(row),
+                mach=row.flight_condition.get("MACH"),
                 sweep=row.sweep,
                 recipe=recipes[row.script_code],
                 outputs=_declared_outputs(row, required=require_outputs),

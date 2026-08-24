@@ -39,14 +39,60 @@
 > the per-module table, the code table, the concentration lines and the
 > delta table are all that run rather than edits to the previous one:
 >
->     Found 276 errors in 20 files (checked 73 source files)
->     Success: no issues found in 73 source files
+>     Found 276 errors in 20 files (checked 74 source files)
+>     Success: no issues found in 74 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-08-20: 276 errors in 20 of 73 modules.**
+**mypy recount 2026-08-24: 276 errors in 20 of 74 modules.**
+
+## Re-measured 2026-08-24: one module arrived and nothing else moved
+
+`_atmosphere.py` (PFS-2027.03) moved the module total to 74, and
+`tests/test_traceability.py` refused the tree until every record of the
+count moved with it. **That is the whole delta: `73 -> 74` modules,
+`276 -> 276` errors, `20 -> 20` dirty files.** The floor module appears
+in neither error list, so it arrives type-clean and adds no debt to the
+ratchet, and no override was added or removed.
+
+### The measurement was wrong once during this session, and the trap is worth more than the correction
+
+The first re-run here reported **283 errors in 25 files**, and a
+detached worktree at the `v0.8.1` tag reported the same. Two independent
+readings agreeing is persuasive, and the conclusion drawn from them was
+that the records had drifted and the shipped release had been
+misdescribed. **That conclusion was false and it was written into this
+report before it was checked.**
+
+The cause was the environment, not the source. `types-PyYAML` was not
+installed, so mypy raised `Library stubs not installed for "yaml"` in
+`versions.py`, `utils/manual.py`, `utils/database.py`, `qa/compat.py`
+and `qa/drift.py` -- five modules, one error each, in BOTH invocations.
+`276 + 5 = 281`, not 283, so even the arithmetic did not close; the
+remaining two are the same five files counted under a second code. With
+the stubs installed both invocations return the recorded figures
+exactly.
+
+**What caught it was this report's own invariant, not the arithmetic.**
+`test_the_recorded_dirty_count_is_the_number_of_overrides_that_exist`
+holds the dirty count equal to the number of `ignore_errors` overrides,
+on the reasoning that the re-count finds an error in every exempted
+module and in no other. 25 dirty against 20 overrides is not a drifted
+number, it is an impossible one: it claims five unexempted modules are
+dirty while the config claims none are. A guard that ties two records to
+each other refused a measurement that a guard checking either one alone
+would have accepted.
+
+**The rule this produces, for whoever re-runs it next.** A recount taken
+in an environment missing a stub package is not a measurement of the
+source, and it will look like drift rather than like a broken
+environment, because every count moves together and in the same
+direction. Install `.[dev,fsi,geom]` and `types-PyYAML`, or run
+`python scripts/mypy_recount.py`, and check the dirty count against the
+override count BEFORE believing any story the numbers seem to tell.
+CI's `types` job is the reference environment and it is green.
 
 Taken at version `0.8.0.dev0`, on the working tree at commit `5f2dcf1` plus
 the wave-1 changes of 2026-08-18, with every `ignore_errors`
@@ -117,11 +163,11 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 276 errors in 20 files (checked 73 source files)
+    Found 276 errors in 20 files (checked 74 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
-    Success: no issues found in 73 source files
+    Success: no issues found in 74 source files
 
 mypy walks the FILESYSTEM rather than the git index, so the state of the
 working tree is part of the measurement, and this report has already been

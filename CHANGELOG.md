@@ -7,6 +7,53 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Changed -- BREAKING, and it changes the run-matrix file format
+
+- **The `RE` and `MACH` columns are REMOVED. A row states its whole flow
+  condition in one `FLIGHT_CONDITION` cell** (PFS-2027.01). The run
+  matrix goes from sixteen columns to fifteen.
+
+  **What to do if you have a matrix.** Nothing is guessed and nothing is
+  silently reinterpreted: `read_matrix` RECOGNISES a file written under
+  either older layout and refuses it naming the converter. Run:
+
+  ```python
+  from pyflightstream.cases.matrix import upgrade_matrix
+  upgrade_matrix("your_matrix.fs", in_place=True)
+  ```
+
+  It folds `RE` and `MACH` into one cell reading
+  `MACH:<mach>, REmi:<re>` and leaves every other byte, separator and
+  line ending exactly as it is. The conversion is LOSSLESS by
+  construction: the two columns carried exactly the two quantities those
+  two keys carry, in exactly those units, so the values move across
+  verbatim -- `0.20` keeps its trailing zero. A file written before
+  v0.8.0 needs both stages and gets both from the same call: it gains
+  the `WORKFLOW` cell and then the fold.
+
+  **Why the columns went rather than gained a neighbour.** A flight
+  condition is a SET OF CONSTRAINTS on one flow state, and which
+  quantity gets solved for follows from which keys are present. Keeping
+  `RE` and `MACH` as mandatory columns beside a cell that can also state
+  them would have meant two homes for the same two numbers, and a reader
+  would have had to look in both to know what was actually solved. One
+  home per question, and no precedence rule to learn.
+
+  The accepted keys are `MACH`, `TASmps`, `REmi`, `ALTFT` and `dISA`,
+  and the set is CLOSED: an unrecognised key is refused naming it and
+  listing the accepted set, which is the difference between a typo that
+  costs a message and a typo that costs a campaign. Keys match
+  case-insensitively; a duplicated key is refused rather than taking the
+  last one, because these are constraints on one state and a silently
+  dropped constraint changes what is solved.
+
+  **What this release does not yet do.** `TASmps`, `ALTFT` and `dISA`
+  parse, and a row carrying one is then REFUSED at conversion naming the
+  resolver that will accept it. Solving for the unknown a constraint set
+  leaves needs the reference length, and that resolver is the next item.
+  Refused rather than ignored, deliberately: a constraint read and then
+  dropped would be solved at a condition nobody asked for.
+
 ### Added
 
 - **A standard atmosphere the package computes itself** (PFS-2027.03), as
@@ -1609,7 +1656,7 @@ costs the reader the whole warning window the shim exists to buy.
   `[tool.mypy]` header has promised since 2026-08-03 that an exemption is
   removed as its module is typed and never added, and this is that
   direction happening rather than being restated. The re-count moves with
-  it: mypy recount 2026-08-20: 276 errors in 20 of 73 modules, where the
+  it: mypy recount 2026-08-24: 276 errors in 20 of 74 modules, where the
   tree carried 275 in 21 of 64 two days before, and the four records that
   state it move together because a tier-1 guard compares them.
 

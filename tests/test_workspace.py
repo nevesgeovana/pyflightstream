@@ -2126,7 +2126,7 @@ def test_a_record_waiving_nothing_may_still_be_appended_unstamped(tmp_path):
 # reason the two halves are one call and refuse together.
 
 PFS200903_MATRIX_ROW = (
-    "9001 | TestWing | STEADY | 3.10 | 0.0890 | AL | 0.0 | 003  | 002  | 001    "
+    "9001 | TestWing | STEADY | MACH:0.0890, REmi:3.10 | AL | 0.0 | 003  | 002  | 001    "
     "| 003       | MANUAL   |    0   |  1  | LEGACY   | OUTPUTS: loads_{point}.txt"
 )
 
@@ -2204,13 +2204,21 @@ def test_the_migration_keeps_every_other_byte_of_the_matrix(tmp_path):
     # each, so every cell keeps the width it had and the row does too.
     body_before = before.splitlines()[1].split(b"|")
     body_after = after.splitlines()[1].split(b"|")
-    assert len(body_after) == len(body_before) == 16
+    from pyflightstream.cases.matrix import _COLUMNS, CODE_COLUMNS
+
+    assert len(body_after) == len(body_before) == len(_COLUMNS)
     differing = [
         index
         for index, (old, new) in enumerate(zip(body_before, body_after, strict=True))
         if old != new
     ]
-    assert differing == [7, 8, 9], f"cells outside REF, SET and ENTRY moved: indices {differing}"
+    # Derived rather than written as [7, 8, 9]: those positions moved when
+    # RE and MACH folded into FLIGHT_CONDITION at 0.8.2, and a literal
+    # list would then be asserting about the wrong three cells.
+    expected_indices = [_COLUMNS.index(name) for name in CODE_COLUMNS]
+    assert differing == expected_indices, (
+        f"cells outside {', '.join(CODE_COLUMNS)} moved: indices {differing}"
+    )
     for index, expected in zip(differing, (b"r003", b"s002", b"e001"), strict=True):
         assert body_after[index].strip() == expected
         assert len(body_after[index]) == len(body_before[index]), (

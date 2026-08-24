@@ -1,6 +1,6 @@
 """Tier 1: run-matrix reader and convert-matrix (FR-10, FR-11).
 
-The fixture mirrors the verified sixteen-column layout of the run matrix
+The fixture mirrors the verified fifteen-column layout of the run matrix
 (first data row shaped like the real POL 9001 case); names and
 values are synthetic.
 
@@ -47,8 +47,7 @@ def test_read_matrix_parses_the_verified_layout():
     assert [row.pol for row in rows] == ["9001", "9002", "9004", "9005", "9006", "9008"]
     first = rows[0]
     assert first.aircraft == "TestWing"
-    assert first.re_millions == 4.38
-    assert first.mach == 0.1441
+    assert first.flight_condition == {"MACH": 0.1441, "REmi": 4.38}
     assert first.script_code == "003"
     assert first.fs_build == "MANUAL"
     assert first.hidden is False
@@ -145,7 +144,7 @@ def test_unverified_sweep_code_is_refused_with_evidence_language(tmp_path):
 def test_header_deviation_is_refused(tmp_path):
     bad = tmp_path / "matrix.fs"
     bad.write_text("A | B | C\n1 | 2 | 3\n", encoding="utf-8")
-    with pytest.raises(MatrixError, match="verified 16-column layout"):
+    with pytest.raises(MatrixError, match="verified 15-column layout"):
         read_matrix(bad)
 
 
@@ -163,7 +162,7 @@ def test_truncated_row_is_refused_naming_the_row(tmp_path):
     bad = tmp_path / "matrix.fs"
     bad.write_text("\n".join(lines) + "\n", encoding="utf-8")
     with pytest.raises(
-        MatrixError, match=r"data row 1 of .* holds 15 cells against the 16 verified"
+        MatrixError, match=r"data row 1 of .* holds 14 cells against the 15 verified"
     ):
         read_matrix(bad)
 
@@ -252,22 +251,42 @@ def test_the_matrix_legacy_shim_is_gone():
 # --- the sixteenth column (PFS-2025.01, PFS-2025.12.01) ---------------------
 
 
-def test_the_verified_layout_names_sixteen_columns_including_the_workflow():
-    """One column, at a stated position, and the old width kept beside it.
+def test_the_verified_layout_names_fifteen_columns_including_the_workflow():
+    """The current layout, and both predecessors kept beside it.
 
-    The two constants are asserted against EACH OTHER rather than each
-    against a written-out list, so a column added to one and not the
-    other cannot pass: the predecessor is exactly today's names minus
-    the new one.
+    THE PREDECESSORS ARE ASSERTED AS LITERALS, which is a deliberate
+    reversal. They used to be derived here as today's names minus the
+    new one, and that was correct exactly while ONE column was the only
+    difference between the layouts. When RE and MACH left at 0.8.2
+    (PFS-2027.01), a derived predecessor would have silently followed
+    the change and stopped describing any file that ever existed, so the
+    recognition message would have vanished for the very files it was
+    written for. A frozen historical layout is a literal or it is not
+    frozen.
     """
     assert "WORKFLOW" in matrix_mod._COLUMNS
-    assert len(matrix_mod._COLUMNS) == 16
-    legacy = getattr(matrix_mod, "_LEGACY_COLUMNS_15", ())
-    assert legacy == tuple(name for name in matrix_mod._COLUMNS if name != "WORKFLOW")
+    assert "FLIGHT_CONDITION" in matrix_mod._COLUMNS
+    assert len(matrix_mod._COLUMNS) == 15
+    # RE and MACH are gone: a run states its flow condition in one place.
+    assert "RE" not in matrix_mod._COLUMNS
+    assert "MACH" not in matrix_mod._COLUMNS
+    # Both predecessors still name them, because they describe files on
+    # disk rather than the code's current opinion.
+    assert matrix_mod._LEGACY_COLUMNS_15[3:5] == ("RE", "MACH")
+    assert matrix_mod._LEGACY_COLUMNS_16[3:5] == ("RE", "MACH")
+    assert len(matrix_mod._LEGACY_COLUMNS_15) == 15
+    assert len(matrix_mod._LEGACY_COLUMNS_16) == 16
+    # The 16 is the 15 plus WORKFLOW, which is the one relationship
+    # between the two predecessors that IS still a derivation.
+    assert matrix_mod._LEGACY_COLUMNS_15 == tuple(
+        name for name in matrix_mod._LEGACY_COLUMNS_16 if name != "WORKFLOW"
+    )
     # Stated position: the free KEY:VALUE cell stays last, because it is
-    # the only cell whose width is not fixed by the format.
+    # the only cell whose width is not fixed by the format. The flight
+    # condition takes the slot the two numeric columns had.
     assert matrix_mod._COLUMNS[-1] == "VAR_NAMES_VALUES"
-    assert matrix_mod._COLUMNS.index("WORKFLOW") == 14
+    assert matrix_mod._COLUMNS.index("WORKFLOW") == 13
+    assert matrix_mod._COLUMNS.index("FLIGHT_CONDITION") == 3
 
 
 def test_the_workflow_column_parses_and_reaches_every_row():
@@ -355,7 +374,7 @@ def test_the_legacy_refusal_is_a_different_message_from_the_foreign_one(tmp_path
     with pytest.raises(MatrixError) as caught:
         read_matrix(foreign)
     message = str(caught.value)
-    assert "does not match the verified 16-column layout" in message
+    assert "does not match the verified 15-column layout" in message
     assert "upgrade_matrix" not in message
 
 
@@ -612,12 +631,65 @@ def test_rewriting_a_code_cell_leaves_the_same_id_alone_outside_its_column(tmp_p
     )
 
 
-def test_the_upgrade_adds_one_cell_and_changes_no_other_byte(tmp_path):
+def _unfolded(data: bytes) -> bytes:
+    """Put RE and MACH back where FLIGHT_CONDITION now stands.
+
+    The inverse of the 0.8.2 fold, so the byte comparison below can still
+    say "and changed no OTHER byte" now that the conversion touches two
+    places instead of one. It is deliberately dumb: it splits the cell on
+    the two key names rather than parsing it, because a helper that used
+    the parser would pass on any cell the parser accepts.
+    """
+    index = matrix_mod._COLUMNS.index("FLIGHT_CONDITION")
+    rebuilt = []
+    header_seen = False
+    for line in data.splitlines(keepends=True):
+        body, terminator = _peel(line)
+        if b"|" not in body:
+            rebuilt.append(line)
+            continue
+        parts = body.split(b"|")
+        if not header_seen:
+            header_seen = True
+            parts[index : index + 1] = [b" RE      ", b" MACH    "]
+        else:
+            cell = parts[index].strip()
+            mach, _, remi = cell.partition(b", REmi:")
+            mach = mach.replace(b"MACH:", b"", 1)
+            parts[index : index + 1] = [b" " + remi + b"   ", b" " + mach + b"  "]
+        rebuilt.append(b"|".join(parts) + terminator)
+    return b"".join(rebuilt)
+
+
+def test_the_upgrade_changes_only_the_cells_the_conversion_touches(tmp_path):
+    """Two conversions now, and the invariant is the same one.
+
+    The upgrade used to insert exactly one cell, so removing that cell
+    had to give the original back. Since 0.8.2 it ALSO folds RE and MACH
+    into FLIGHT_CONDITION (PFS-2027.01), so the inverse of both is what
+    must give the original back. The claim being tested is unchanged: a
+    user diffing the converted file sees the conversion and nothing else.
+    """
     upgrade_matrix = _upgrade()
     index = matrix_mod._COLUMNS.index("WORKFLOW")
     for label, path, original in _line_ending_variants(tmp_path):
         upgraded = upgrade_matrix(path)
-        assert _without_the_new_cell(upgraded, index) == original, label
+        restored = _unfolded(_without_the_new_cell(upgraded, index))
+        # Cell CONTENT is what must survive; the fold cannot preserve the
+        # original column padding, because two cells become one and the
+        # widths were never recoverable from the joined text.
+        assert [
+            [cell.strip() for cell in line.split(b"|")]
+            for line in restored.splitlines()
+            if b"|" in line
+        ] == [
+            [cell.strip() for cell in line.split(b"|")]
+            for line in original.splitlines()
+            if b"|" in line
+        ], label
+        # Line endings and every line carrying no cell survive exactly.
+        assert restored.count(b"\r\n") == original.count(b"\r\n"), label
+        assert len(restored.splitlines()) == len(original.splitlines()), label
 
 
 def test_the_upgraded_bytes_are_what_the_reader_accepts(tmp_path):
@@ -918,8 +990,7 @@ def _silent_matrix(tmp_path, builds):
                 f"900{index}",
                 "TestWing",
                 "ROW",
-                "3.10",
-                "0.0890",
+                "MACH:0.0890, REmi:3.10",
                 "AL",
                 "0.0",
                 "r003",
@@ -1094,8 +1165,7 @@ def test_a_cell_with_no_padding_to_spare_grows_rather_than_losing_a_character(tm
             "9001",
             "TestWing",
             "ROW",
-            "3.10",
-            "0.0890",
+            "MACH:0.0890, REmi:3.10",
             "AL",
             "0.0",
             "003",
@@ -1113,8 +1183,12 @@ def test_a_cell_with_no_padding_to_spare_grows_rather_than_losing_a_character(tm
     text, counts = rewrite_codes(target, {"REF": {"003": "r003"}})
     assert counts == {"REF": 1}
     body = text.splitlines()[1].split(b"|")
-    assert body[7] == b"r003", (
+    # Derived rather than written as 7: the index moved when RE and MACH
+    # folded into FLIGHT_CONDITION at 0.8.2, and a literal position
+    # silently read the SET cell instead and asserted against it.
+    ref = _COLUMNS.index("REF")
+    assert body[ref] == b"r003", (
         "a cell with no pad space to give up must GROW; truncating it would "
-        f"invent an id: {body[7]!r}"
+        f"invent an id: {body[ref]!r}"
     )
     assert len(body) == len(_COLUMNS)
