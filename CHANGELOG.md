@@ -32,13 +32,38 @@ FlightStream versions.
   ```
 
   It folds `RE` and `MACH` into one cell reading
-  `MACH:<mach>, REmi:<re>` and leaves every other byte, separator and
-  line ending exactly as it is. The conversion is LOSSLESS by
-  construction: the two columns carried exactly the two quantities those
-  two keys carry, in exactly those units, so the values move across
-  verbatim -- `0.20` keeps its trailing zero. A file written before
-  v0.8.0 needs both stages and gets both from the same call: it gains
-  the `WORKFLOW` cell and then the fold.
+  `MACH:<mach>, REmi:<re>`. Every VALUE moves across verbatim -- `0.20`
+  keeps its trailing zero -- and every other cell, separator and line
+  ending is untouched. What cannot survive is the two folded columns'
+  own PADDING, because two cells become one and the original widths are
+  not recoverable from the joined text. A file written before v0.8.0
+  needs both stages and gets both from the same call: it gains the
+  `WORKFLOW` cell and then the fold.
+
+  **THE CONVERSION IS LOSSLESS AS A FILE. IT IS NOT NEUTRAL AS A RESULT,
+  and this is the paragraph to read before you upgrade a campaign you
+  have already run.** Under 0.8.x the `RE` column was RECORDED METADATA:
+  it reached the run record and no emitter, so a row's declared Reynolds
+  number changed nothing about what the solver was asked to do. From
+  0.9.0 `REmi` is a CONSTRAINT that solves for density. Every legacy row
+  carried both `RE` and `MACH`, so every upgraded row now states both
+  keys, takes the solved-density branch, and emits an explicit
+  `FLUID_PROPERTIES` block it never emitted before.
+
+  Measured on this repository's own committed fixture, POL 9001 at
+  `RE 4.38`, `MACH 0.1441` against a 1.2 m reference: the upgraded row
+  solves at 1.3319 kg/m3, **8.7 percent above sea level**, where the
+  same row previously emitted no fluid state at all. The numbers will
+  differ, and they differ because the old behaviour was the defect this
+  release fixes -- a declared Reynolds number that changed nothing is
+  the same class of gap as the reference artifact that reached no
+  emitted line.
+
+  **If you want the previous behaviour**, state the condition without
+  `REmi` and let the Reynolds number be derived from the atmosphere:
+  `MACH:0.1441` alone resolves at the standard density for its altitude
+  and emits what 0.8.x emitted. Keep `REmi` when you meant it as a
+  constraint, which is what a wind-tunnel or validation case wants.
 
   **Why the columns went rather than gained a neighbour.** A flight
   condition is a SET OF CONSTRAINTS on one flow state, and which
@@ -48,8 +73,13 @@ FlightStream versions.
   would have had to look in both to know what was actually solved. One
   home per question, and no precedence rule to learn.
 
-  The accepted keys are `MACH`, `TASmps`, `REmi`, `ALTFT` and `dISA`,
-  and the set is CLOSED: an unrecognised key is refused naming it and
+  The accepted keys, **with their units, because the units ride the key
+  names and a reader who has not been told the suffixes cannot infer
+  them**: `MACH` (dimensionless), `TASmps` (true airspeed, metres per
+  second), `REmi` (Reynolds number **in millions**, so 5.5 means
+  5 500 000), `ALTFT` (pressure altitude **in feet**), and `dISA` (a
+  temperature offset from standard, **in Celsius, as a delta**). The set
+  is CLOSED: an unrecognised key is refused naming it and
   listing the accepted set, which is the difference between a typo that
   costs a message and a typo that costs a campaign. Keys match
   case-insensitively; a duplicated key is refused rather than taking the
@@ -89,6 +119,20 @@ FlightStream versions.
   not any altitude's. The record carries which branch produced the
   density, so a later reader cannot mistake it for an altitude and
   "fix" it into one.
+
+### Removed
+
+- **`MatrixRow.mach` and `MatrixRow.re_millions` are gone**, with the
+  columns behind them. `MatrixRow` is published API, so this is a Python
+  break as well as a file-format one and it is announced here rather
+  than left to be met at run time. Read `row.flight_condition["MACH"]`
+  and `row.flight_condition["REmi"]` instead; a key a row did not state
+  is ABSENT from that mapping rather than present as `None`.
+
+  Note also that `SimCase.mach` is now `None` for a row that states
+  `TASmps` rather than `MACH`, because the case records what was stated
+  before the resolver has run. The resolved Mach number is on the
+  resolved condition, which `resolve_matrix` returns.
 
 ### Added
 

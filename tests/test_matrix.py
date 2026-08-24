@@ -675,18 +675,30 @@ def test_the_upgrade_changes_only_the_cells_the_conversion_touches(tmp_path):
     for label, path, original in _line_ending_variants(tmp_path):
         upgraded = upgrade_matrix(path)
         restored = _unfolded(_without_the_new_cell(upgraded, index))
-        # Cell CONTENT is what must survive; the fold cannot preserve the
-        # original column padding, because two cells become one and the
-        # widths were never recoverable from the joined text.
-        assert [
-            [cell.strip() for cell in line.split(b"|")]
-            for line in restored.splitlines()
-            if b"|" in line
-        ] == [
-            [cell.strip() for cell in line.split(b"|")]
-            for line in original.splitlines()
-            if b"|" in line
-        ], label
+        # THE STRIP IS SCOPED TO THE FOLDED REGION, and that scoping is
+        # the point. An earlier version of this test stripped EVERY cell
+        # before comparing, which is a band widened so a case could pass:
+        # a converter that reflowed the padding of DESCRIPTION or
+        # VAR_NAMES_VALUES would have passed it, while the refusal
+        # message promises those are untouched. A V and V pass found it.
+        # Only the two cells the fold rebuilds may differ in padding;
+        # every other cell is compared BYTE FOR BYTE.
+        folded = matrix_mod._LEGACY_COLUMNS_16.index("RE")
+        restored_rows = [line.split(b"|") for line in restored.splitlines() if b"|" in line]
+        original_rows = [line.split(b"|") for line in original.splitlines() if b"|" in line]
+        assert len(restored_rows) == len(original_rows), label
+        for restored_cells, original_cells in zip(restored_rows, original_rows, strict=True):
+            assert len(restored_cells) == len(original_cells), label
+            for position, (new_cell, old_cell) in enumerate(
+                zip(restored_cells, original_cells, strict=True)
+            ):
+                if position in (folded, folded + 1):
+                    assert new_cell.strip() == old_cell.strip(), f"{label} cell {position}"
+                else:
+                    assert new_cell == old_cell, (
+                        f"{label}: cell {position} changed and the fold does not touch "
+                        f"it: {old_cell!r} -> {new_cell!r}"
+                    )
         # Line endings and every line carrying no cell survive exactly.
         assert restored.count(b"\r\n") == original.count(b"\r\n"), label
         assert len(restored.splitlines()) == len(original.splitlines()), label

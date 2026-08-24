@@ -869,6 +869,7 @@ def resolve_matrix(
                 temperature_k=resolved.temperature_k,
                 viscosity_pa_s=resolved.viscosity_pa_s,
                 sonic_velocity_m_per_s=resolved.sonic_velocity_m_per_s,
+                heat_capacity_ratio=resolved.heat_capacity_ratio,
                 source=resolved.density_source,
                 reference_length_m=resolved.reference_length_m,
             )

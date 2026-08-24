@@ -175,9 +175,11 @@ Milestones and session records are listed in the
 
     The emitter layer is specified exclusively from the official
     manual and from probe evidence, and its clean-room provenance is
-    declared per change in a `Clean-room` commit trailer, which a Tier 1
-    test asserts for every commit a push makes new. No code, structure,
-    or docstrings derive from the AGPL ecosystem predecessor.
+    declared per change in a `Clean-room` commit trailer, or on a
+    commit's behalf by a later commit's `Clean-room-for` trailer naming
+    it, which a Tier 1 test asserts for every commit a push makes new.
+    No code, structure, or docstrings derive from the AGPL ecosystem
+    predecessor.
 
     Reworded 2026-07-27 to name its verification honestly. No test can
     observe how a line of code came to be written, so a requirement that

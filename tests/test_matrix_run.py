@@ -2641,3 +2641,89 @@ def test_a_campaign_runs_under_the_relative_root_the_cli_defaults_to(tmp_path, m
         f"directory {sim_dir}: the open resolves against the execution directory"
     )
     assert (sim_dir / opened).resolve() == (sim_dir / "inputs" / "wing_clean.fsm").resolve()
+
+
+def test_the_resolved_fluid_state_lands_on_the_case(tmp_path):
+    """The WIRE between the two halves, which nothing asserted.
+
+    A QA pass measured that `update["fluid"] = FluidState(...)` in
+    resolve_matrix could be DELETED with 371 tests green: the resolver
+    was tested, the builder was tested against a hand-built FluidState,
+    and the line joining them was tested by nothing. The commit is named
+    for the resolved state reaching the script, so this is the clause
+    the whole change exists for.
+
+    If it stops being true the campaign solves at the solver's default
+    air while the row, the run record and ResolvedMatrix.conditions all
+    say otherwise, which is the silent-wrong-answer shape this milestone
+    was built to remove.
+    """
+    workspace = make_library(tmp_path)
+    with pytest.warns(UserWarning, match="wake_layers"):
+        resolved = resolve_matrix(
+            FIXTURE,
+            workspace,
+            name="matrix",
+            fs_version="26.120",
+            recipes=RECIPES,
+            fs_exe="C:/fs/FlightStream.exe",
+        )
+    case = {sim.sim_id: sim for sim in resolved.campaign.sims}["9001"]
+    condition = resolved.conditions["9001"]
+
+    assert case.fluid is not None, "the resolved state never reached the case"
+    assert case.fluid.density_kg_m3 == pytest.approx(condition.density_kg_m3)
+    assert case.fluid.pressure_pa == pytest.approx(condition.pressure_pa)
+    assert case.fluid.temperature_k == pytest.approx(condition.temperature_k)
+    assert case.fluid.viscosity_pa_s == pytest.approx(condition.viscosity_pa_s)
+    assert case.fluid.sonic_velocity_m_per_s == pytest.approx(
+        condition.sonic_velocity_m_per_s
+    )
+    assert case.fluid.velocity_m_per_s == pytest.approx(condition.velocity_m_per_s)
+    # The branch marker travels too: it is what stops a later reader
+    # taking a solved density for an altitude.
+    assert case.fluid.source == condition.density_source
+    assert case.fluid.reference_length_m == condition.reference_length_m
+    # And the ratio is the floor's, not a second literal.
+    from pyflightstream._atmosphere import ISA
+
+    assert case.fluid.heat_capacity_ratio == ISA.heat_capacity_ratio
+
+
+def test_a_case_from_resolve_matrix_renders_its_fluid_state(tmp_path):
+    """End to end: matrix row, resolver, case, emitted script.
+
+    The other half of the same gap. Asserting the field lands is not
+    the same as asserting a builder emits it, and the two were tested
+    in disconnected halves.
+    """
+    from pyflightstream.cases.workflows import build_script
+    from pyflightstream.script import Script
+
+    workspace = make_library(tmp_path)
+    with pytest.warns(UserWarning, match="wake_layers"):
+        resolved = resolve_matrix(
+            FIXTURE,
+            workspace,
+            name="matrix",
+            fs_version="26.120",
+            recipes=RECIPES,
+            fs_exe="C:/fs/FlightStream.exe",
+        )
+    case = {sim.sim_id: sim for sim in resolved.campaign.sims}["9001"]
+    condition = resolved.conditions["9001"]
+
+    script = Script("26.123")
+    steady = case.model_copy(
+        update={"variables": {**case.variables, "WORKFLOW": "steady"}}
+    )
+    build_script(steady, script)
+    lines = script.render().splitlines()
+
+    assert "FLUID_PROPERTIES" in lines, "a resolved case emitted no fluid state"
+    assert f"DENSITY {condition.density_kg_m3}" in lines
+    assert f"TEMPERATURE {condition.temperature_k}" in lines
+    # The reference reached it too, which is the other half of the
+    # commit's own sentence.
+    assert any(line.startswith("SOLVER_SET_REF_AREA") for line in lines)
+    assert any(line.startswith("SOLVER_SET_REF_LENGTH") for line in lines)

@@ -19,10 +19,11 @@ WHY IT IS SEPARATE FROM THE RESOLUTION THAT USES IT. The split is the
 design and it pays for itself in testing. The physics here can be
 checked against published ISA tables with no case, no matrix and no
 script. The resolution of a flight condition -- deciding which unknown
-the given keys leave, refusing an under- or over-determined set, and
-reaching the reference artifact for a length -- is PIPELINE work: it
-needs the exception catalog and the reference, so it does not descend
-here. In one module neither half is testable on its own.
+the given keys leave and refusing an under- or over-determined set --
+is placed with its caller in the workspace layer, downstream of
+reference binding, so that no layer below can resolve a Reynolds
+constraint before a reference exists to measure it against. In one
+module neither half is testable on its own.
 
 WHAT THIS MODULE DOES NOT DO. It does not emit. The script layer's
 ``helpers.atmosphere`` is the emitter and stays one: it writes
@@ -41,12 +42,16 @@ the correction is worth keeping. ``AIR_ALTITUDE`` is recorded ``broken``
 on three supported builds, 26.100, 26.101 and 26.120. That count is
 exact. What those three rows RECORD is only that the command ran and the
 expected density was not observed. **Only 26.120 has a reading behind
-it** -- 1.056 against the 0.736 expected, the 5000-foot standard state,
-seen twice on build 7012026 (RPT-014). On 26.100 and 26.101 the probe
-recorded absence and nothing more.
+it**: 1.056 against the 0.736 expected, where 1.056 is the 5000-FOOT
+standard state and 0.736 the 5000-METRE one, seen twice on build 7012026
+(RPT-014). That reading is carried by ``CMP-26120_2026-07-21_full.yaml``
+and RPT-014 rather than by the 2026-08-08 row the command database
+cites, which carries the same boilerplate as the others. On 26.100 and
+26.101 the probe recorded absence and nothing more.
 
 This docstring previously said all three read their metres argument as
-feet, and cited the compat evidence for it. The evidence refuses that:
+feet, and cited the compat evidence for it. The evidence does not
+support that, which is weaker than refusing it and is what is true:
 ``commands/boundary_conditions.yaml`` says in its own notes that the
 "reads ignored" sentence is the probe spec's STATIC ``effect_note``
 rather than a per-run reading, and proves it by pointing out that the
@@ -79,8 +84,25 @@ SOURCE OF THE CONSTANTS, cited rather than recalled. The atmosphere is
 ISO 2533:1975, published identically as ICAO Doc 7488/3, whose defining
 constants are reproduced in :data:`ISA` below. The viscosity law is
 Sutherland's, with the air coefficients of White, *Viscous Fluid Flow*,
-3rd ed., eq. (1-36). Every constant this module uses is in one of those
-two places and none is a number someone remembered.
+3rd ed., eq. (1-36).
+
+Every ATMOSPHERE constant is from ISO 2533 and every VISCOSITY constant
+from White. ``METRES_PER_FOOT`` is neither: it is the defining value of
+the international foot, exact by definition rather than by measurement.
+It is called out because an earlier version of this sentence said "every
+constant this module uses is in one of those two places", and its own
+module falsified that sixty lines below.
+
+ONE CITATION IS NOT CHECKABLE IN THIS REPOSITORY, and saying so is the
+honest form. No copy of White is committed here, so
+``SUTHERLAND_REFERENCE_TEMPERATURE_K`` and ``SUTHERLAND_CONSTANT_K``
+rest on a page reference nobody in this tree can resolve. A V and V pass
+noted that the triplet as commonly printed with eq. (1-36) is 273 K and
+111 K, while 110.4 K is the classical Sutherland constant that
+circulates widely; the two readings differ by roughly 0.1 percent in
+viscosity, which propagates into every density solved on the ``REmi``
+path. Which belongs to that equation needs the book, and it is the
+domain-expert seat's call rather than this module's.
 
 WHAT THIS DOES NOT CLAIM. The model is the standard atmosphere, not the
 weather: it says what ISA defines at a pressure altitude, and nothing

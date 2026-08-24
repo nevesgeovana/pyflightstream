@@ -1212,13 +1212,87 @@ def rotor_case_full() -> SimCase:
     )
 
 
+def _golden_fluid():
+    """The resolved state the 0.9.0 golden shapes carry.
+
+    Written as literals rather than by calling the resolver, so a golden
+    cannot follow a change in the physics: a regression detector that
+    recomputes its own expectation detects nothing. These are the values
+    the resolver produces for ``MACH:0.20, REmi:5.5`` against a 1.0 m
+    reference, and if the resolver stops producing them the goldens move
+    and a reader is asked why.
+    """
+    from pyflightstream.cases import FluidState
+
+    return FluidState(
+        velocity_m_per_s=68.0588,
+        density_kg_m3=1.44598,
+        pressure_pa=119603.0,
+        temperature_k=288.15,
+        viscosity_pa_s=1.7893e-05,
+        sonic_velocity_m_per_s=340.294,
+        heat_capacity_ratio=1.4,
+        source="solved-from-reynolds",
+        reference_length_m=1.0,
+    )
+
+
+def steady_case_resolved() -> SimCase:
+    """A steady case carrying BOTH 0.9.0 emissions, for the goldens.
+
+    WHY THIS SHAPE EXISTS, and it is the finding that produced it. A QA
+    pass measured that no golden carried a ``REF_`` line or a
+    ``FLUID_PROPERTIES`` block, so the two emissions this release adds
+    had no byte-exact coverage on any build: they were asserted only by
+    line membership, which cannot see ordering, spacing, phase placement
+    or duplication.
+
+    That is the SAME hole that hid the original defect. The reference
+    resolved, bound onto the case and reached no emitted line for a whole
+    release, and the reason nobody noticed is that not one golden carried
+    a ``REF_`` line to go missing. Fixing the emission without closing
+    the hole would leave the next such defect equally invisible.
+    """
+    from pyflightstream.cases import ReferenceData
+
+    return steady_case().model_copy(
+        update={
+            "reference": ReferenceData(area=10.0, length=1.2),
+            "fluid": _golden_fluid(),
+        }
+    )
+
+
+def rotor_case_resolved() -> SimCase:
+    """The same, on the rotor branch, which had even less coverage."""
+    from pyflightstream.cases import ReferenceData
+
+    return rotor_case().model_copy(
+        update={
+            "reference": ReferenceData(area=10.0, length=1.2),
+            "fluid": _golden_fluid(),
+        }
+    )
+
+
 #: The case shapes the byte-identity goldens are rendered from, by
 #: workflow. The SINGLE HOME: ``scripts/gen_workflow_goldens.py`` imports
 #: this table, so the generator and the guard cannot disagree about what
 #: a historical case is.
 GOLDEN_CASES = {
-    "steady": {"bare": steady_case, "full": steady_case_full},
-    "unsteady_rotor": {"bare": rotor_case, "full": rotor_case_full},
+    "steady": {
+        "bare": steady_case,
+        "full": steady_case_full,
+        # 0.9.0: carries a reference AND a resolved fluid state, so the
+        # two emissions this release adds have byte-exact goldens on
+        # every build rather than line-membership assertions only.
+        "resolved": steady_case_resolved,
+    },
+    "unsteady_rotor": {
+        "bare": rotor_case,
+        "full": rotor_case_full,
+        "resolved": rotor_case_resolved,
+    },
 }
 
 #: The (workflow, build) pairs that are expected to REFUSE rather than
@@ -1369,15 +1443,16 @@ def test_the_render_population_is_not_empty_and_covers_both_workflows():
     nothing while every remaining case still passed. A parametrized guard
     over a computed population needs the population asserted.
     """
-    assert len(GOLDEN_RENDERS) >= 28, (
+    assert len(GOLDEN_RENDERS) >= 41, (
         f"the render population shrank to {len(GOLDEN_RENDERS)}; it was 28 when the "
-        "goldens were committed, and it may only GROW as builds register"
+        "goldens were committed and 41 once the 0.9.0 'resolved' shape joined, and "
+        "it may only GROW as builds register or shapes are added"
     )
     assert {name for name, _, _ in GOLDEN_RENDERS} == set(WORKFLOWS), (
         "a shipped workflow renders on no build at all, so the byte-identity guard "
         "covers it vacuously"
     )
-    assert {label for _, label, _ in GOLDEN_RENDERS} == {"bare", "full"}, (
+    assert {label for _, label, _ in GOLDEN_RENDERS} == {"bare", "full", "resolved"}, (
         "a case shape vanished from the table, so the branches it was added to reach "
         "are covered by nothing again"
     )
@@ -2073,3 +2148,36 @@ def test_the_fifth_property_follows_the_build(build, present, absent):
     lines = _fluid_rendered(_resolved_state(), build)
     assert present in lines
     assert not any(line.startswith(absent) for line in lines)
+
+
+def test_the_rotor_builder_emits_the_fluid_state_too():
+    """BOTH builders, not just the one that had a test.
+
+    A QA pass measured that deleting `_fluid(case, script)` from the
+    unsteady-rotor builder left 136 tests passing, because only the
+    steady branch was covered. The rotor is the workflow whose own
+    fixture was rewritten in this change to carry a flight condition,
+    and rotor Reynolds is the case the reference-length coupling prices
+    at nearly a factor of eight, so it is the branch least safe to leave
+    untested.
+    """
+    from pyflightstream.cases.workflows import build_script
+    from pyflightstream.script import Script
+
+    case = rotor_case().model_copy(update={"fluid": _resolved_state()})
+    script = Script("26.123")
+    build_script(case, script)
+    lines = script.render().splitlines()
+    assert "FLUID_PROPERTIES" in lines, "the rotor builder emitted no fluid state"
+    assert "DENSITY 1.44598" in lines
+    assert "TEMPERATURE 288.15" in lines
+
+
+def test_the_rotor_builder_emits_nothing_when_there_is_no_fluid_state():
+    """And the absence clause on the same branch."""
+    from pyflightstream.cases.workflows import build_script
+    from pyflightstream.script import Script
+
+    script = Script("26.123")
+    build_script(rotor_case(), script)
+    assert "FLUID_PROPERTIES" not in script.render().splitlines()

@@ -1,12 +1,31 @@
 """Resolving a flight condition into one flow state (PFS-2027.02, .04).
 
 Pipeline role: the workspace layer, beside :func:`resolve_matrix`, which
-is where a matrix row is bound to the input library. It sits here and
-not on the floor with :mod:`pyflightstream._atmosphere` because
-resolution is not pure: it needs the exception catalog and it needs the
-REFERENCE LENGTH, which lives in the reference artifact a row names. The
-physics can be checked against published tables with no case and no
-matrix; the resolution can be checked against a trivial atmosphere. In
+is where a matrix row is bound to the input library.
+
+WHY IT IS HERE, stated as what it actually is rather than as an import
+dependency. An architect pass found the earlier wording of this
+paragraph unsupportable: it claimed the module could not descend to the
+floor because it needs the exception catalog and the reference artifact,
+and NEITHER is true of the code. This module's whole package import
+surface is :mod:`pyflightstream._atmosphere` and
+:mod:`pyflightstream._errors`, which is byte for byte a floor module's
+surface; the reference length arrives as a plain float parameter and
+this module never reaches an artifact; and the exception runs the other
+way, since :class:`FlightConditionError` is DEFINED here and the public
+catalog imports it FROM here.
+
+The real reason is CALL-SITE DISCIPLINE, which is a weaker claim and the
+true one. The resolver is placed with its only caller, downstream of
+reference binding, so that no layer below the workspace can resolve a
+Reynolds constraint before a reference exists to measure it against.
+That guarantee is structural rather than asserted: a caller in a lower
+layer cannot import this module at all. Moving the resolver to the floor
+would be defensible on imports and would give up exactly that.
+
+The physics/resolution split is a separate and independent argument, and
+it stands: the physics can be checked against published tables with no
+case and no matrix, and the resolution against a trivial atmosphere. In
 one module neither half is testable on its own.
 
 THE WHOLE DESIGN, in one sentence. A flight condition is a SET OF
@@ -55,7 +74,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from pyflightstream._atmosphere import feet_to_metres, isa
+from pyflightstream._atmosphere import ISA, feet_to_metres, isa
 from pyflightstream._errors import PyflightstreamError
 
 #: The keys that fix velocity. Exactly one is required, always.
@@ -89,6 +108,13 @@ class ResolvedCondition:
     viscosity_pa_s: float
     pressure_pa: float
     sonic_velocity_m_per_s: float
+    #: The ratio of specific heats the sonic velocity above was computed
+    #: WITH, carried rather than restated. An emitter on a build that
+    #: takes the ratio instead of the sonic velocity must emit the same
+    #: gas the rest of this state was derived from; a second literal
+    #: would let the two drift the moment the floor constant moved, and
+    #: the two builds would then solve different gases from one case.
+    heat_capacity_ratio: float
     mach: float
     altitude_ft: float
     delta_isa_c: float
@@ -231,6 +257,7 @@ def resolve_flight_condition(
         viscosity_pa_s=atmosphere.viscosity_pa_s,
         pressure_pa=atmosphere.pressure_pa,
         sonic_velocity_m_per_s=atmosphere.sonic_velocity_m_per_s,
+        heat_capacity_ratio=ISA.heat_capacity_ratio,
         mach=mach,
         altitude_ft=altitude_ft,
         delta_isa_c=delta_isa_c,

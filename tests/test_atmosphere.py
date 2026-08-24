@@ -41,6 +41,7 @@ together, which no single-constant assertion could give.
 
 from __future__ import annotations
 
+import ast
 import math
 
 import pytest
@@ -209,6 +210,12 @@ def test_the_sutherland_coefficients_are_the_cited_ones():
     assert atmosphere_mod.SUTHERLAND_REFERENCE_TEMPERATURE_K == 273.15
     assert atmosphere_mod.SUTHERLAND_CONSTANT_K == 110.4
     assert atmosphere_mod.METRES_PER_FOOT == 0.3048
+    # The two that decide whether this module EXTRAPOLATES into layers
+    # it does not implement. A QA pass found them outside the pin: both
+    # could move by 0.05 m with the file green, because the two tests
+    # that use them read the values back out of ISA itself.
+    assert ISA.ceiling_altitude_m == 20000.0
+    assert ISA.floor_altitude_m == -2000.0
 
 
 def test_viscosity_is_constrained_away_from_sea_level_too():
@@ -304,6 +311,57 @@ def test_the_refusal_is_catalogued_rather_than_a_bare_value_error():
     assert issubclass(AtmosphereError, ValueError)
 
 
+def _package_imports(tree: ast.AST) -> set[str]:
+    """Every pyflightstream module a parsed file imports, either spelling.
+
+    RELATIVE IMPORTS ARE RESOLVED, and that is the whole reason this is a
+    function with a test of its own. The first version asked only whether
+    a dotted name started with the package, so ``from .versions import X``
+    inside a floor module was INVISIBLE to it and the floor assertion
+    passed with a second package import present. An independent architect
+    pass found it. This repository already holds the same rule one level
+    up, in ``test_conventions.py``: a scanner that misses the spelling the
+    package actually uses is a guard reporting green on the thing it was
+    written to refuse.
+    """
+    imported: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            if node.level:
+                # A relative import inside pyflightstream/ resolves into
+                # the package whatever it names, so it counts.
+                imported.add(f"pyflightstream.{node.module}" if node.module else "pyflightstream")
+            elif node.module and node.module.startswith("pyflightstream"):
+                imported.add(node.module)
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name.startswith("pyflightstream"):
+                    imported.add(alias.name)
+    return imported
+
+
+def test_the_import_scan_sees_a_relative_spelling_too():
+    """Prove the scanner denies, rather than asserting that it would.
+
+    Fed the exact shape that slipped past the first version: a relative
+    package import beside the permitted absolute one.
+    """
+    source = "\n".join(
+        [
+            "from __future__ import annotations",
+            "from .versions import known_versions",
+            "from pyflightstream._errors import PyflightstreamError",
+        ]
+    )
+    tree = ast.parse(source)
+    seen = _package_imports(tree)
+    assert seen == {"pyflightstream.versions", "pyflightstream._errors"}, (
+        f"the scanner missed a relative package import; it saw {seen}"
+    )
+    # And the floor assertion built on it must reject that set.
+    assert seen != {"pyflightstream._errors"}
+
+
 def test_the_module_imports_nothing_from_the_package_but_the_base_exception():
     """The floor property, asserted rather than asked for in prose.
 
@@ -311,20 +369,11 @@ def test_the_module_imports_nothing_from_the_package_but_the_base_exception():
     layering guard would not catch it because both modules are below
     the pipeline the guard walks.
     """
-    import ast
     from pathlib import Path
 
     source = Path(__file__).resolve().parents[1] / "src" / "pyflightstream" / "_atmosphere.py"
     tree = ast.parse(source.read_text(encoding="utf-8"))
-    imported = set()
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom) and node.module:
-            if node.module.startswith("pyflightstream"):
-                imported.add(node.module)
-        elif isinstance(node, ast.Import):
-            for alias in node.names:
-                if alias.name.startswith("pyflightstream"):
-                    imported.add(alias.name)
+    imported = _package_imports(tree)
     assert imported == {"pyflightstream._errors"}, (
         f"_atmosphere imports {sorted(imported)} from this package; a floor "
         "module imports only the base exception, or it is a pipeline stage "

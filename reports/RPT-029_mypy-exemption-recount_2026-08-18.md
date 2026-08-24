@@ -1,4 +1,4 @@
-# RPT-029: the type-checker exemption re-count at 0.8.0.dev0 (2026-08-18, amended twice on 2026-08-19, re-measured 2026-08-20)
+# RPT-029: the type-checker exemption re-count at 0.8.0.dev0 (2026-08-18, amended twice on 2026-08-19, re-measured 2026-08-20 and 2026-08-24)
 
 > **Amended before this file was ever committed, and the amendment is the
 > report's own reproduction rule catching its own author.**
@@ -71,10 +71,17 @@ The cause was the environment, not the source. `types-PyYAML` was not
 installed, so mypy raised `Library stubs not installed for "yaml"` in
 `versions.py`, `utils/manual.py`, `utils/database.py`, `qa/compat.py`
 and `qa/drift.py` -- five modules, one error each, in BOTH invocations.
-`276 + 5 = 281`, not 283, so even the arithmetic did not close; the
-remaining two are the same five files counted under a second code. With
-the stubs installed both invocations return the recorded figures
-exactly.
+The FILE count reconciles exactly: 20 dirty + 5 stub-only files = 25.
+**The ERROR count does not, and it is left undecomposed rather than
+explained away.** `276 + 5 = 281`, not 283. An earlier version of this
+paragraph disposed of the residual two with "the same five files counted
+under a second code", which is incoherent -- five files under a second
+code is five errors, not two -- and a V and V pass refused it. The bad
+run was not decomposed per file and per error code before the
+environment was corrected, so the two are simply unaccounted for. What
+is measured is that with the stubs installed both invocations return the
+recorded figures exactly; the bad run's total is not a measurement of
+this source and is not reconciled here.
 
 **What caught it was this report's own invariant, not the arithmetic.**
 `test_the_recorded_dirty_count_is_the_number_of_overrides_that_exist`
@@ -149,7 +156,7 @@ The manual procedure is kept below because the script has to be checkable
 against something.
 
 
-The configuration used is `[tool.mypy]` exactly as committed, minus the 21
+The configuration used is `[tool.mypy]` exactly as committed, minus the 20
 override blocks. It was supplied as a separate config file rather than by
 editing `pyproject.toml`, so the measurement never required the shipped
 configuration to be in a state the repository does not ship:
@@ -241,7 +248,7 @@ option, and the third option is what happened between 2026-08-03 and today.
          1       1   pyflightstream.script.entities
          1       1   pyflightstream.workspace.naming
        ---     ---
-       276     100   20 modules of 73
+       276     100   20 modules of 75
 
 `pyflightstream.results.tables` stood in this table on 2026-08-18 with one
 error and is absent from it now. That is the row the exemption removal rests
@@ -377,7 +384,7 @@ the two quoted names in the frozenset, and the two table rows. The equality
 itself is not left to prose either;
 `test_the_two_modules_called_unlisted_are_listed_in_both_homes` asserts it,
 and `test_the_recorded_dirty_count_is_the_number_of_overrides_that_exist`
-asserts that the recorded 21 is the number of overrides that actually exist.
+asserts that the recorded 20 is the number of overrides that actually exist.
 
 ## The records reconciled in the same commit
 

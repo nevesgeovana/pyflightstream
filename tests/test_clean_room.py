@@ -436,9 +436,20 @@ def test_the_declaration_says_what_fr08_says():
     # manual" spans a line break in FR-08's own text, and the phrase
     # check below read that as the phrase being absent.
     body = " ".join(body.split())
-    assert TRAILER in body, (
+    # SUBSTRING TRAP, and a V and V pass found it: "Clean-room" is a
+    # substring of "Clean-room-for", so a naive `TRAILER in body` passes
+    # on a requirement that names ONLY the follow-up and never the
+    # first-hand declaration. Blank the longer token before asking about
+    # the shorter one, or the assertion cannot tell the two apart.
+    without_follow_up = body.replace(FOLLOW_UP_TRAILER, "")
+    assert TRAILER in without_follow_up, (
         f"FR-08 does not name the {TRAILER} trailer, so its evidence line points at "
         "a mechanism this test invented on its own"
+    )
+    assert FOLLOW_UP_TRAILER in body, (
+        f"FR-08 does not name the {FOLLOW_UP_TRAILER} trailer, so the requirement "
+        "promises more than the guard enforces: a commit may now carry no "
+        "first-hand declaration at all and still pass, covered by a later one"
     )
     # One operand each. Written as `A or B` this loop could not fail:
     # all three phrases are literal substrings of DECLARATION, so the

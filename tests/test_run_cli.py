@@ -475,8 +475,16 @@ def test_upgrade_converts_an_older_matrix_from_the_command_line(tmp_path):
     assert [cell.strip() for cell in header.split("|")] == list(_COLUMNS)
 
 
-def test_upgrade_needs_no_recipes_version_or_executable(tmp_path):
-    """The arguments the other three subcommands require are not asked for."""
+def test_upgrade_writes_to_standard_output_and_touches_nothing(capsysbinary, tmp_path):
+    """The DEFAULT, which the CHANGELOG sells and no test executed.
+
+    A QA pass measured that replacing the stdout branch with a raise left
+    77 tests passing: both CLI tests passed --in-place. The default is
+    the safe one a cautious user reaches for first, it is the one the
+    release notes offer so a diff is possible before overwriting, and
+    `sys.stdout.buffer` on a Windows console is exactly where newline
+    translation goes wrong.
+    """
     import shutil
 
     from pyflightstream.run import cli
@@ -484,5 +492,16 @@ def test_upgrade_needs_no_recipes_version_or_executable(tmp_path):
     source = Path(__file__).parent / "fixtures" / "pfs202701_matrix16.fs"
     target = tmp_path / "old.fs"
     shutil.copyfile(source, target)
-    # No --recipe, no --fs-version, no --fs-exe anywhere in this call.
-    assert cli.main(["upgrade", str(target), "--in-place"]) == 0
+    before = target.read_bytes()
+
+    assert cli.main(["upgrade", str(target)]) == 0
+    written = capsysbinary.readouterr().out
+
+    assert target.read_bytes() == before, "the default overwrote the source file"
+    assert b"FLIGHT_CONDITION" in written, "standard output carried no upgraded matrix"
+    assert b"| RE " not in written and b"| MACH " not in written
+    # Byte for byte what --in-place would have written, so the two routes
+    # cannot drift.
+    from pyflightstream.cases.matrix import upgrade_matrix
+
+    assert written == upgrade_matrix(target)
