@@ -7,7 +7,7 @@ matrix and running it is one call,
 :func:`pyflightstream.run.matrix.run_matrix`, with the native
 ``campaign.toml`` model staying the canonical internal form, so
 nothing changes for campaign.toml users. The verified layout is read as
-is: POL, AIRCRAFT, DESCRIPTION, RE, MACH, SWEEP_TYPE,
+is: POL, AIRCRAFT, DESCRIPTION, FLIGHT_CONDITION, SWEEP_TYPE,
 SWEEP_VALUES, REF, SET, ENTRY, FS_SCRIPT, FS_BUILD, HIDDEN, RUN,
 WORKFLOW, VAR_NAMES_VALUES. Rows with RUN = 1 are active. SWEEP_TYPE names its
 axes separated by ``/`` (verified codes: ``AL`` for alpha, ``BE`` for
@@ -24,8 +24,8 @@ is replaced (PP-7, FR-12): :func:`to_campaign` maps the FS_SCRIPT
 code to a registered recipe name through an explicit mapping and
 preserves all four codes in the case variables, so the conversion is
 lossless. :func:`convert_matrix` (FR-11) emits the native
-``campaign.toml`` equivalent; RE is stored in millions in the matrix
-and converts to an absolute Reynolds number.
+``campaign.toml`` equivalent; ``REmi`` is stated in millions in the
+flight condition and converts to an absolute Reynolds number.
 
 WHAT THIS MODULE DOES NOT DO, and where the rest went. The run path
 needs the layer ABOVE this one: binding REF, SET, ENTRY and FS_BUILD to
@@ -94,7 +94,7 @@ __all__ = [
     "workflow_types",
 ]
 
-#: The verified layout, in file order. ``WORKFLOW`` sits at index 14, in
+#: The verified layout, in file order. ``WORKFLOW`` sits at index 13, in
 #: front of ``VAR_NAMES_VALUES`` rather than after it, and the position
 #: is stated rather than appended: ``VAR_NAMES_VALUES`` is the only cell
 #: whose content is free and whose width is not fixed by the format, so
@@ -978,38 +978,24 @@ def upgrade_matrix(path: str | Path, *, in_place: bool = False) -> bytes:
     return upgraded
 
 
-#: The flight-condition keys this layer can act on today. MACH and REmi
-#: are the two the RE and MACH columns used to carry, so they map
-#: straight onto the fields that already existed.
-#:
-#: THE OTHERS ARE PARSED AND NOT YET RESOLVED. ``TASmps``, ``ALTFT`` and
-#: ``dISA`` need the resolver of PFS-2027.02, which lives one layer up
-#: because it must reach the reference artifact for a length. Until it
-#: lands, a row carrying one of them is REFUSED here rather than having
-#: it dropped: a constraint that is read, accepted and then ignored is
-#: precisely the silent-wrong-answer failure this capability exists to
-#: remove, and it would be indistinguishable from a working row.
-#: PFS-2027.02 deletes this set and this refusal together.
-_RESOLVABLE_CONDITION_KEYS = frozenset({"MACH", "REmi"})
-
-
 def _condition_reynolds(row: MatrixRow) -> float | None:
-    """The absolute Reynolds number a row states, or None.
+    """Return the absolute Reynolds number a row STATES, or None.
 
     The matrix stores it in millions, which is what ``REmi`` names, and
     the conversion is here rather than in the parser because the parser
     keeps every value in the unit its key declares.
+
+    THIS IS NOT THE RESOLUTION, and the difference is the layering. A
+    Reynolds number that is STATED is carried straight through; one that
+    is DERIVED, from a velocity and an atmosphere and a reference
+    length, is computed by
+    :func:`pyflightstream.workspace.flight_condition.resolve_flight_condition`
+    one layer above, because the length lives in an artifact this layer
+    cannot reach. Nothing is dropped in between: the whole condition
+    travels on :attr:`SimCase.flight_condition` as written, so the layer
+    that can resolve it has everything it needs and a reader can see
+    what was asked for.
     """
-    unresolved = sorted(set(row.flight_condition) - _RESOLVABLE_CONDITION_KEYS)
-    if unresolved:
-        raise MatrixError(
-            f"FLIGHT_CONDITION of POL {row.pol} names {', '.join(unresolved)}, which "
-            "this release parses but cannot yet resolve to a flow state: solving for "
-            "the unknown a constraint set leaves needs the reference length, and that "
-            "resolver is PFS-2027.02. It is refused rather than ignored, because a "
-            "constraint that is read and then dropped would be solved at a condition "
-            f"nobody asked for. Today this column takes {', '.join(sorted(_RESOLVABLE_CONDITION_KEYS))}."
-        )
     millions = row.flight_condition.get("REmi")
     return None if millions is None else millions * 1e6
 
@@ -1174,6 +1160,7 @@ def to_campaign(
                 sim_id=row.pol,
                 aircraft=row.aircraft,
                 description=row.description,
+                flight_condition=dict(row.flight_condition),
                 reynolds=_condition_reynolds(row),
                 mach=row.flight_condition.get("MACH"),
                 sweep=row.sweep,

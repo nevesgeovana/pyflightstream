@@ -473,6 +473,21 @@ class SimCase(BaseModel):
         copy, so recipes OPEN exactly what the manifest hashed.
     sweep : SweepAxis
         The sweep of this case.
+    flight_condition : dict, optional
+        The FLIGHT_CONDITION cell of the row this case came from, as
+        WRITTEN: canonical key to value, in the units the keys name
+        (PFS-2027.01). Empty when the case states none.
+
+        It travels on the case UNINTERPRETED, and that is the layering
+        rather than laziness. Turning a constraint set into a flow state
+        needs the reference LENGTH, which lives in the reference
+        artifact, and binding that artifact is workspace work one layer
+        above this one. So this layer carries the constraints verbatim
+        and :func:`pyflightstream.workspace.flight_condition.resolve_flight_condition`
+        turns them into ``velocity``, ``density``, ``mach`` and
+        ``reynolds``. Keeping the inputs here beside the resolved values
+        is also what lets a reader recompute the resolution rather than
+        trust it (PFS-2027.05).
     reference : ReferenceData, optional
         Coefficient normalization references.
     solver : SolverSettings
@@ -522,6 +537,7 @@ class SimCase(BaseModel):
     velocity: float | None = None
     geometry: str | None = None
     sweep: SweepAxis
+    flight_condition: dict[str, float] = Field(default_factory=dict)
     reference: ReferenceData | None = None
     solver: SolverSettings = Field(default_factory=SolverSettings)
     recipe: str

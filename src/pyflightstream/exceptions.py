@@ -126,6 +126,7 @@ from pyflightstream.workspace import (
     NamingTemplateError,
     WorkspaceError,
 )
+from pyflightstream.workspace.flight_condition import FlightConditionError
 
 __all__ = [
     "AmbiguousLoadsError",
@@ -141,6 +142,7 @@ __all__ = [
     "ExecutorConfigurationError",
     "FarfieldInputError",
     "FieldNotInExportError",
+    "FlightConditionError",
     "FsiInputError",
     "GeometryEngineMissingError",
     "IncompleteOutputError",

@@ -259,7 +259,7 @@ def _fake_history(monkeypatch, trailers):
     )
     # In the fake graph a is oldest and c is newest, so "earlier is an
     # ancestor of later" is just string order on the sentinels.
-    monkeypatch.setattr("test_clean_room._is_ancestor", lambda e, l: e < l)
+    monkeypatch.setattr("test_clean_room._is_ancestor", lambda earlier, later: earlier < later)
 
 
 def test_a_follow_up_declaration_covers_the_commit_it_names(monkeypatch):

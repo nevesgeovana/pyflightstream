@@ -63,6 +63,14 @@ from pyflightstream.workspace import (
     SetupArtifact,
 )
 
+# SIDEWAYS, to the module of this layer that resolves a constraint set
+# into a flow state. It needs the reference LENGTH, which is why it is
+# here and not on the floor with the atmosphere (PFS-2027.02).
+from pyflightstream.workspace.flight_condition import (
+    ResolvedCondition,
+    resolve_flight_condition,
+)
+
 # SIDEWAYS, to the module of this layer that owns the build registry.
 # `CampaignWorkspace.resolve_executable` is the path half alone and a
 # matrix row now needs the version its build declares beside it, so the
@@ -116,6 +124,16 @@ class ResolvedMatrix:
         ``geometry`` where the row named one; the historical codes and
         the ``GEOMETRY`` stem itself stay in the case variables, so
         nothing of the matrix is lost.
+    conditions : dict of str to ResolvedCondition
+        The resolved flow state of every row that STATED a flight
+        condition, keyed by POL (PFS-2027.02, .04). A row that states
+        none has no entry, which is not the same as an empty one.
+
+        It rides here rather than on the case because a case is not a
+        record: the density, the temperature, the viscosity, the length
+        the Reynolds number was measured against and WHICH branch
+        produced the density are what the run record must carry so a
+        reader can recompute the resolution rather than trust it.
     references : dict of str to ReferenceArtifact
         Resolved reference-data artifacts, keyed by REF code.
     setups : dict of str to SetupArtifact
@@ -180,6 +198,7 @@ class ResolvedMatrix:
     """
 
     campaign: Campaign
+    conditions: dict[str, ResolvedCondition] = field(default_factory=dict)
     references: dict[str, ReferenceArtifact] = field(default_factory=dict)
     setups: dict[str, SetupArtifact] = field(default_factory=dict)
     groups: dict[str, GroupsArtifact] = field(default_factory=dict)
@@ -780,6 +799,7 @@ def resolve_matrix(
         if row.entry_code not in groups:
             groups[row.entry_code] = _resolve_code(workspace, "group", row.entry_code, row.pol)
     sims: list[SimCase] = []
+    conditions: dict[str, ResolvedCondition] = {}
     for case, row in zip(campaign.sims, rows, strict=True):
         reference = references[row.ref_code]
         update: dict[str, object] = {
@@ -806,9 +826,36 @@ def resolve_matrix(
         stem = row.variables.get(GEOMETRY_VARIABLE, "")
         if stem:
             update["geometry"] = str(_resolve_geometry(workspace, stem, row.pol))
+        # PFS-2027.02 and .04. THE POSITION IS LOAD-BEARING and it is not
+        # a comment asking for an ordering: the reference is bound at the
+        # top of this loop body and reaches the case only through the
+        # `model_copy` below, so `case.reference` is still None here. The
+        # resolver therefore takes the length from the LOCAL binding, and
+        # a resolver moved above that binding would silently resolve
+        # every Reynolds constraint against no length at all -- which is
+        # the failure `.04` exists to prevent, and which
+        # `tests/test_flight_condition_resolution.py` fails on rather
+        # than describing.
+        if row.flight_condition:
+            resolved = resolve_flight_condition(
+                row.flight_condition,
+                pol=row.pol,
+                reference_length_m=reference.chord_m,
+            )
+            conditions[row.pol] = resolved
+            # The three the case already has fields for. The rest of the
+            # state -- density, temperature, viscosity, the length it was
+            # measured against and WHICH branch produced the density --
+            # rides on `conditions` rather than being flattened onto the
+            # case, because the run record is what has to carry it and a
+            # case is not a record.
+            update["mach"] = resolved.mach
+            update["velocity"] = resolved.velocity_m_per_s
+            update["reynolds"] = resolved.reynolds
         sims.append(case.model_copy(update=update))
     return ResolvedMatrix(
         campaign=campaign.model_copy(update={"sims": sims}),
+        conditions=conditions,
         references=references,
         setups=setups,
         groups=groups,

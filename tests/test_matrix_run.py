@@ -258,6 +258,114 @@ def test_resolve_matrix_applies_reference_and_setup_to_the_cases(tmp_path):
     assert resolved.setups[code_for("9001", "set")].settings["wake_layers"] == 4
 
 
+# --- PFS-2027.02 and .04: the resolver, and where it must sit ------------
+
+
+def test_the_flight_condition_resolves_against_the_rows_own_reference(tmp_path):
+    """The end-to-end path, and the ORDERING it depends on.
+
+    THIS TEST IS THE ORDERING GUARD, and it fails rather than asking.
+    In `resolve_matrix` the reference is bound to a LOCAL at the top of
+    the per-row loop and reaches the case only through the `model_copy`
+    that closes it, so `case.reference` is still None while the loop body
+    runs. A resolver moved above that binding would therefore see no
+    length at all, and every Reynolds constraint in the matrix would be
+    refused -- or, worse, silently resolved against nothing if the
+    refusal were ever relaxed. Asserting the length that was USED is what
+    detects the move: 1.2 is REF 003's chord, and no other value in this
+    fixture is 1.2.
+    """
+    workspace = make_library(tmp_path)
+    with pytest.warns(UserWarning, match="wake_layers"):
+        resolved = resolve_matrix(
+            FIXTURE,
+            workspace,
+            name="matrix",
+            fs_version="26.120",
+            recipes=RECIPES,
+            fs_exe="C:/fs/FlightStream.exe",
+        )
+    condition = resolved.conditions["9001"]
+    assert condition.reference_length_m == 1.2, (
+        "the resolver did not see REF 003's chord, which is what happens "
+        "when it runs before the reference is bound"
+    )
+    assert condition.stated == {"MACH": 0.1441, "REmi": 4.38}
+    assert condition.density_source == "solved-from-reynolds"
+    assert condition.reynolds == pytest.approx(4.38e6)
+
+
+def test_the_resolved_state_reaches_the_case_fields_it_has(tmp_path):
+    """Velocity, Mach and Reynolds land on the case; the rest rides along."""
+    workspace = make_library(tmp_path)
+    with pytest.warns(UserWarning, match="wake_layers"):
+        resolved = resolve_matrix(
+            FIXTURE,
+            workspace,
+            name="matrix",
+            fs_version="26.120",
+            recipes=RECIPES,
+            fs_exe="C:/fs/FlightStream.exe",
+        )
+    case = {sim.sim_id: sim for sim in resolved.campaign.sims}["9001"]
+    condition = resolved.conditions["9001"]
+    assert case.mach == pytest.approx(condition.mach)
+    assert case.velocity == pytest.approx(condition.velocity_m_per_s)
+    assert case.reynolds == pytest.approx(condition.reynolds)
+    # And the condition AS WRITTEN travels on the case too, which is what
+    # lets a reader recompute the resolution rather than trust it.
+    assert case.flight_condition == {"MACH": 0.1441, "REmi": 4.38}
+
+
+def test_a_row_stating_no_condition_gets_no_entry(tmp_path):
+    """Absent is not the same as empty, and the mapping says so.
+
+    Written in the CURRENT layout directly rather than through
+    `write_matrix`, which goes via the legacy upgrade: the old format
+    had RE and MACH as mandatory numeric columns, so a row with no
+    flight condition at all is a thing only the new layout can express.
+    """
+    from pyflightstream.cases.matrix import _COLUMNS
+
+    workspace = make_library(tmp_path)
+    cells = {name: "" for name in _COLUMNS}
+    cells.update(
+        {
+            "POL": "9101",
+            "AIRCRAFT": "TestWing",
+            "DESCRIPTION": "NO_CONDITION",
+            "FLIGHT_CONDITION": "",
+            "SWEEP_TYPE": "AL",
+            "SWEEP_VALUES": "0.0",
+            "REF": code_for("9001", "ref"),
+            "SET": code_for("9001", "set"),
+            "ENTRY": code_for("9001", "entry"),
+            "FS_SCRIPT": "003",
+            "FS_BUILD": "MANUAL",
+            "HIDDEN": "0",
+            "RUN": "1",
+            "WORKFLOW": "LEGACY",
+            "VAR_NAMES_VALUES": "OUTPUTS: loads_{point}.txt",
+        }
+    )
+    matrix = tmp_path / "silent.fs"
+    header_line = " | ".join(_COLUMNS)
+    data_line = " | ".join(cells[name] for name in _COLUMNS)
+    matrix.write_text(header_line + "\n" + data_line + "\n", encoding="utf-8")
+    resolved = resolve_matrix(
+        matrix,
+        workspace,
+        name="matrix",
+        fs_version="26.120",
+        recipes=RECIPES,
+        fs_exe="C:/fs/FlightStream.exe",
+    )
+    assert "9101" not in resolved.conditions
+    case = resolved.campaign.sims[0]
+    assert case.flight_condition == {}
+    assert case.mach is None and case.reynolds is None and case.velocity is None
+
+
 def test_registry_build_resolves_the_executable(tmp_path):
     exe = "C:/fs26120/FlightStream.exe"
     workspace = make_library(tmp_path, register_build=("26.120", exe))

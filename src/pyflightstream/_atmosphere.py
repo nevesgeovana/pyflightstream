@@ -82,7 +82,7 @@ class AtmosphereError(PyflightstreamError, ValueError):
 
 @dataclass(frozen=True)
 class IsaConstants:
-    """The defining constants of ISO 2533:1975, in one citable object.
+    """Hold the defining constants of ISO 2533:1975, in one citable object.
 
     Held as data rather than as module-level names so that a test can
     read the values it is checking out of the same object the physics
@@ -129,7 +129,7 @@ METRES_PER_FOOT: Final = 0.3048
 
 @dataclass(frozen=True)
 class AtmosphereState:
-    """One fully determined air state.
+    """Hold one fully determined air state.
 
     Every field carries its unit in its name, which is this
     repository's rule rather than this module's habit.
@@ -232,7 +232,7 @@ def standard_temperature(altitude_m: float) -> float:
 
 
 def isa(altitude_m: float = 0.0, *, delta_isa_c: float = 0.0) -> AtmosphereState:
-    """The air state at a pressure altitude, with an optional ISA deviation.
+    """Return the air state at a pressure altitude, with an optional ISA deviation.
 
     Parameters
     ----------
