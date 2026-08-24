@@ -112,9 +112,7 @@ def _trailer_values(commit: str, key: str = TRAILER) -> list[str]:
     trailer is a key-value line in the LAST paragraph, which is exactly
     the distinction the scan was missing.
     """
-    result = _git(
-        "log", "-1", f"--format=%(trailers:key={key},valueonly,separator=%x1f)", commit
-    )
+    result = _git("log", "-1", f"--format=%(trailers:key={key},valueonly,separator=%x1f)", commit)
     assert result.returncode == 0, f"cannot read the trailers of {commit}"
     return [value.strip() for value in result.stdout.strip().split("\x1f") if value.strip()]
 
@@ -254,9 +252,7 @@ def _fake_history(monkeypatch, trailers):
         "test_clean_room._trailer_values",
         lambda commit, key=TRAILER: trailers.get(commit, {}).get(key, []),
     )
-    monkeypatch.setattr(
-        "test_clean_room._resolve", lambda rev: rev if len(rev) == 40 else None
-    )
+    monkeypatch.setattr("test_clean_room._resolve", lambda rev: rev if len(rev) == 40 else None)
     # In the fake graph a is oldest and c is newest, so "earlier is an
     # ancestor of later" is just string order on the sentinels.
     monkeypatch.setattr("test_clean_room._is_ancestor", lambda earlier, later: earlier < later)

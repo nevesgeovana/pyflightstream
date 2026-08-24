@@ -2676,9 +2676,7 @@ def test_the_resolved_fluid_state_lands_on_the_case(tmp_path):
     assert case.fluid.pressure_pa == pytest.approx(condition.pressure_pa)
     assert case.fluid.temperature_k == pytest.approx(condition.temperature_k)
     assert case.fluid.viscosity_pa_s == pytest.approx(condition.viscosity_pa_s)
-    assert case.fluid.sonic_velocity_m_per_s == pytest.approx(
-        condition.sonic_velocity_m_per_s
-    )
+    assert case.fluid.sonic_velocity_m_per_s == pytest.approx(condition.sonic_velocity_m_per_s)
     assert case.fluid.velocity_m_per_s == pytest.approx(condition.velocity_m_per_s)
     # The branch marker travels too: it is what stops a later reader
     # taking a solved density for an altitude.
@@ -2714,9 +2712,7 @@ def test_a_case_from_resolve_matrix_renders_its_fluid_state(tmp_path):
     condition = resolved.conditions["9001"]
 
     script = Script("26.123")
-    steady = case.model_copy(
-        update={"variables": {**case.variables, "WORKFLOW": "steady"}}
-    )
+    steady = case.model_copy(update={"variables": {**case.variables, "WORKFLOW": "steady"}})
     build_script(steady, script)
     lines = script.render().splitlines()
 

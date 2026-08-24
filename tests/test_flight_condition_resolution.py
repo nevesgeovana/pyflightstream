@@ -39,9 +39,7 @@ def test_her_first_example_solves_for_density_at_sea_level_temperature():
     before any of this code existed, so the assertion checks the physics
     rather than snapshotting the implementation.
     """
-    state = resolve_flight_condition(
-        {"MACH": 0.20, "REmi": 5.5}, pol="P1", reference_length_m=1.0
-    )
+    state = resolve_flight_condition({"MACH": 0.20, "REmi": 5.5}, pol="P1", reference_length_m=1.0)
     assert state.temperature_k == pytest.approx(288.150, rel=TOLERANCE)
     assert state.sonic_velocity_m_per_s == pytest.approx(340.294, rel=TOLERANCE)
     assert state.velocity_m_per_s == pytest.approx(68.0588, rel=TOLERANCE)
@@ -59,9 +57,7 @@ def test_the_solved_state_is_not_a_point_in_any_atmosphere():
     wind tunnel does. The implied pressure is then NOT the pressure at
     any altitude: it is near 119.6 kPa against a sea-level 101.325 kPa.
     """
-    state = resolve_flight_condition(
-        {"MACH": 0.20, "REmi": 5.5}, pol="P1", reference_length_m=1.0
-    )
+    state = resolve_flight_condition({"MACH": 0.20, "REmi": 5.5}, pol="P1", reference_length_m=1.0)
     implied = state.density_kg_m3 * ISA.gas_constant_j_per_kg_k * state.temperature_k
     assert implied == pytest.approx(119_600, rel=1e-3)
     assert implied > ISA.sea_level_pressure_pa
@@ -95,9 +91,7 @@ def test_her_two_examples_are_not_the_same_condition():
     this test is what would notice a later edit quietly making them
     agree.
     """
-    first = resolve_flight_condition(
-        {"MACH": 0.20, "REmi": 5.5}, pol="P1", reference_length_m=1.0
-    )
+    first = resolve_flight_condition({"MACH": 0.20, "REmi": 5.5}, pol="P1", reference_length_m=1.0)
     second = resolve_flight_condition(
         {"TASmps": 68.08, "ALTFT": 10000, "dISA": 5}, pol="P1", reference_length_m=1.0
     )
@@ -197,9 +191,7 @@ def test_a_condition_without_a_reynolds_number_needs_no_reference():
 
 def test_the_reference_length_used_is_recorded_beside_the_state():
     """The state cannot be checked without it, so it is not optional."""
-    state = resolve_flight_condition(
-        {"MACH": 0.20, "REmi": 5.5}, pol="P1", reference_length_m=2.5
-    )
+    state = resolve_flight_condition({"MACH": 0.20, "REmi": 5.5}, pol="P1", reference_length_m=2.5)
     assert state.reference_length_m == 2.5
 
 
@@ -210,12 +202,8 @@ def test_the_same_condition_against_two_lengths_gives_two_densities():
     caution: same inputs, same resolver, densities that differ by the
     ratio of the lengths.
     """
-    short = resolve_flight_condition(
-        {"MACH": 0.20, "REmi": 5.5}, pol="P1", reference_length_m=1.0
-    )
-    long = resolve_flight_condition(
-        {"MACH": 0.20, "REmi": 5.5}, pol="P1", reference_length_m=8.0
-    )
+    short = resolve_flight_condition({"MACH": 0.20, "REmi": 5.5}, pol="P1", reference_length_m=1.0)
+    long = resolve_flight_condition({"MACH": 0.20, "REmi": 5.5}, pol="P1", reference_length_m=8.0)
     assert short.density_kg_m3 == pytest.approx(8.0 * long.density_kg_m3)
     assert short.velocity_m_per_s == pytest.approx(long.velocity_m_per_s)
 

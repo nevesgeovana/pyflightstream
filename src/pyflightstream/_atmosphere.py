@@ -257,9 +257,10 @@ def standard_pressure(altitude_m: float) -> float:
     if altitude_m <= ISA.tropopause_altitude_m:
         temperature = ISA.sea_level_temperature_k - ISA.lapse_rate_k_per_m * altitude_m
         return ISA.sea_level_pressure_pa * (temperature / ISA.sea_level_temperature_k) ** exponent
-    tropopause_pressure = ISA.sea_level_pressure_pa * (
-        ISA.tropopause_temperature_k / ISA.sea_level_temperature_k
-    ) ** exponent
+    tropopause_pressure = (
+        ISA.sea_level_pressure_pa
+        * (ISA.tropopause_temperature_k / ISA.sea_level_temperature_k) ** exponent
+    )
     height_above = altitude_m - ISA.tropopause_altitude_m
     return tropopause_pressure * math.exp(
         -ISA.gravity_m_per_s2

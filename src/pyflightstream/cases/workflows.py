@@ -1598,12 +1598,8 @@ def _fluid(case: SimCase, script: Script) -> None:
         pressure=fluid.pressure_pa,
         temperature=fluid.temperature_k,
         viscosity=fluid.viscosity_pa_s,
-        specific_heat_ratio=(
-            fluid.heat_capacity_ratio if fifth == "specific_heat_ratio" else None
-        ),
-        sonic_velocity=(
-            fluid.sonic_velocity_m_per_s if fifth == "sonic_velocity" else None
-        ),
+        specific_heat_ratio=(fluid.heat_capacity_ratio if fifth == "specific_heat_ratio" else None),
+        sonic_velocity=(fluid.sonic_velocity_m_per_s if fifth == "sonic_velocity" else None),
     )
 
 

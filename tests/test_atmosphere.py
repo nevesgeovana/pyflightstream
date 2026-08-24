@@ -102,9 +102,7 @@ def test_the_derived_quantities_follow_from_the_pinned_ones(altitude_m):
         state.pressure_pa / (ISA.gas_constant_j_per_kg_k * state.temperature_k)
     )
     assert state.sonic_velocity_m_per_s == pytest.approx(
-        math.sqrt(
-            ISA.heat_capacity_ratio * ISA.gas_constant_j_per_kg_k * state.temperature_k
-        )
+        math.sqrt(ISA.heat_capacity_ratio * ISA.gas_constant_j_per_kg_k * state.temperature_k)
     )
     assert state.viscosity_pa_s == pytest.approx(sutherland_viscosity(state.temperature_k))
 
