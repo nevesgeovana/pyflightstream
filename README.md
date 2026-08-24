@@ -129,11 +129,13 @@ Nothing is guessed; the honest gaps are reported as such.
 - Runner and parsers: headless execution, anchor-based parsers for the
   solver outputs, and a pandas table layer (per-result tables, one wide
   row per run, whole-sweep DataFrame straight from the manifest).
-- Run-matrix support as a first-class interface: read, convert,
-  pre-flight, and run the pipe-delimited 15-column matrix format.
-  The sixteenth column is `WORKFLOW`, the run type the package builds
-  for that row; a file written before v0.8.0 is recognised and refused
-  with the call that upgrades it, `cases.matrix.upgrade_matrix`.
+- Run-matrix support as a first-class interface: read, upgrade,
+  convert, pre-flight, and run the pipe-delimited 15-column matrix
+  format. Each row states its whole flow condition in one mandatory
+  `FLIGHT_CONDITION` cell, and `WORKFLOW` names the run type the package
+  builds for that row. A matrix written under either older layout is
+  RECOGNISED and refused naming its converter:
+  `pyfs-matrix upgrade <path> --in-place`.
 - Far-field probe surveys (planar grids, geometry gating, VTK/Tecplot
   writers, conservation ledgers on xarray) and an aeroelastic coupling
   subpackage (structural beam, coupled driver, replay harness).
@@ -176,7 +178,7 @@ runs, not that its physics is right for a case nobody has measured.
 |---|---|
 | `pyfs-qa` | Tier 2 command-validity probes, Tier 3 physics regression and cross-version drift, status promotion from committed reports |
 | `pyfs-workspace` | Initialize the managed campaign workspace tree |
-| `pyfs-matrix` | Convert, pre-flight and run run matrices |
+| `pyfs-matrix` | Upgrade, convert, pre-flight and run run matrices |
 | `pyfs-manual` | Compare FlightStream manuals against the command database: one manual, every registered edition at once (`sweep`, which reports both what has no entry and what an edition documents that its build cannot emit), what each build documents and what changed between builds (`surface`), or whether the citations already written still point where they say (`citations`, the one subcommand that fails by default on a finding, because a citation that does not hold is a statement already shipped rather than work remaining). `register` carries a build's documentation forward: for every command a new edition describes exactly as its predecessor did, it writes a `documented` row citing the new edition, and it reports rather than writes anything described differently. Maintainer tool; needs the `[manual]` extra, and only `draft` and `register` write, both with `--write` and both dry-run by default. `register` is the one that edits the command database rather than emitting a file |
 | `pyfs-fsi` | The structural executable of the aeroelastic coupling loop |
 

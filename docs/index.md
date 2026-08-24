@@ -14,7 +14,7 @@ and what each of them registered or broke, are in the changelog rather
 than re-threaded here. Five command-line
 tools ship with the package: `pyfs-qa`
 (probes, physics regression, drift), `pyfs-workspace` (campaign
-workspace init), `pyfs-matrix` (run-matrix convert, pre-flight and run),
+workspace init), `pyfs-matrix` (run-matrix upgrade, convert, pre-flight and run),
 `pyfs-fsi` (the aeroelastic coupling executable), and `pyfs-manual`
 (maintainer tool: compares a vendor manual against the command
 database, reports what each build documents and what changed between
@@ -50,6 +50,9 @@ added, never dropped.
 * [Getting started](getting-started.md): install, pick a version, build a
   script, declare and pre-flight a campaign, read the results. Half an hour,
   and no solver until the last step.
+* [Flight conditions](flight-conditions.md): what a row states about the
+  flow it runs at, which quantity gets solved for, the units that ride
+  the key names, and what to run on a matrix written before v0.9.0.
 * [The workspace and the workflow](workspace-and-workflows.md): what a
   workspace is and what it is for, in plain language, then the path from a
   filled-in run matrix to results. Every artefact on it is lifted from an

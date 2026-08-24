@@ -56,7 +56,11 @@ POL  | AIRCRAFT  | DESCRIPTION            | FLIGHT_CONDITION | SWEEP_TYPE  | SWE
 ```
 
 Read one row across. `POL` is the point of interest, and it becomes the
-simulation identifier (`sim_8001`). `SWEEP_TYPE` and `SWEEP_VALUES` say
+simulation identifier (`sim_8001`). `FLIGHT_CONDITION` states the flow
+condition the row runs at, as comma-separated `KEY:value` pairs from a
+closed set; it is MANDATORY, and it replaced the `RE` and `MACH` columns
+at v0.9.0. What it means and which quantity gets solved for is
+[its own page](flight-conditions.md). `SWEEP_TYPE` and `SWEEP_VALUES` say
 what varies: `AL 0.0,2.0` is an angle-of-attack sweep at zero and two
 degrees, so this one row is two runs. `REF`, `SET` and `ENTRY` are the
 three identifiers that reach into the input library. `FS_BUILD` names
@@ -113,8 +117,10 @@ them close the gap that made the capability unusable:
     it is measured on ONE build: the user guide emits it explicitly for
     that reason. A study that needs it stated is a recipe today.
 
-**THOSE THREE NAMES ARE NOW RESERVED**, and it is the only upgrade risk
-in v0.8.1. `VAR_NAMES_VALUES` is otherwise your namespace: the rows above
+**THOSE THREE NAMES ARE NOW RESERVED.** They were the only upgrade risk
+in v0.8.1; v0.9.0 added a larger one, the removal of the `RE` and `MACH`
+columns, which is handled by `pyfs-matrix upgrade <path> --in-place` and
+described on [the flight-condition page](flight-conditions.md). `VAR_NAMES_VALUES` is otherwise your namespace: the rows above
 use `FSM_FILE`, a key of their own that nothing in the package reads. If
 a cell of yours already spells `GEOMETRY`, `SYMMETRY` or
 `PERIODIC_COPIES`, the package now reads it, so rename your key or stage

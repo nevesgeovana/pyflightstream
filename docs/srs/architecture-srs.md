@@ -24,8 +24,15 @@ The bottom two rows are not pipeline stages. `_errors` defines the
 package base exception and the refusals more than one layer names, and
 it imports nothing from this package, so every layer above may import it
 without a cycle. `_atmosphere` holds the standard atmosphere and imports
-only `_errors`; it is a floor for the same reason, that several layers
-need it and it needs none of them, and nothing flows THROUGH either.
+only `_errors`; it is a floor for the same reason, that it needs no layer
+above it and any of them may import it, and nothing flows THROUGH either.
+
+The claim is stated that way deliberately. An architect pass found an
+earlier wording asserting that "several layers need it" while, at the
+time, only the exception catalog imported anything from it. Today the
+workspace layer's flight-condition resolver imports it as well. What
+makes it a floor is the DIRECTION, which is checkable, rather than a
+count of consumers, which changes.
 They are the floor the stack stands on rather than steps in it, which is
 why the arrow chains that state the flow name six rows and this table
 names eight.
@@ -145,7 +152,7 @@ structural side of the aeroelastic loop), `probes` and `farfield`
 
 Five console entry points, one per operational concern: `pyfs-qa`
 (evidence tiers 2 and 3), `pyfs-workspace` (workspace initialization),
-`pyfs-matrix` (run-matrix conversion and pre-flight),
+`pyfs-matrix` (run-matrix upgrade, conversion, pre-flight and run),
 `pyfs-fsi` (the coupling-loop executable), and `pyfs-manual`
 (reading a vendor manual against the command database, and WRITING
 documented version rows back into it from that reading; maintainer

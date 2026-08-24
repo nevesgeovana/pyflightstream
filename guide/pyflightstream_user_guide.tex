@@ -922,7 +922,17 @@ records = run_campaign(campaign,
 
 \begin{frame}[fragile]{Recipe 7 addendum: migrating a run matrix}
   \begin{itemize}
-    \item Coming from spreadsheet-driven run matrices (the pipe-delimited 15-column layout with AL and BE sweep codes)? The reader converts them losslessly:
+    \item Coming from spreadsheet-driven run matrices (the pipe-delimited layout with AL and BE sweep codes)? \textbf{First upgrade the file.} v0.9.0 removed the \code{RE} and \code{MACH} columns and replaced them with one mandatory \code{FLIGHT\_CONDITION} cell, so a matrix written under either older layout is recognised and refused rather than misread:
+  \end{itemize}
+\begin{lstlisting}
+pyfs-matrix upgrade matrix.fs --in-place
+# without --in-place it goes to standard output, so you
+# can diff before you overwrite. It needs no recipes, no
+# version and no executable.
+\end{lstlisting}
+  \begin{itemize}
+    \item \textbf{The values move across verbatim; the RESULT may not.} Under v0.8.x the \code{RE} column was recorded metadata that reached no emitted line. From v0.9.0 \code{REmi} is a CONSTRAINT that solves for density, so an upgraded row emits an explicit fluid state it never emitted before and the numbers will differ. To keep the previous behaviour, state the condition without \code{REmi} and let the Reynolds number be derived.
+    \item Then the reader converts:
   \end{itemize}
 \begin{lstlisting}
 from pyflightstream.cases.matrix import convert_matrix
@@ -1175,6 +1185,7 @@ pyfs-qa cases                                         # print Tier 3 matrix
 pyfs-qa update-reference --case ... --reason "..."    # guarded write
 pyfs-qa cost             --workspace DIR              # what a run cost
 pyfs-workspace init      DIR                          # scaffold a workspace
+pyfs-matrix upgrade      matrix.fs --in-place         # older layout to current
 pyfs-matrix convert      matrix.fs -o campaign.toml   # run matrix to campaign
 pyfs-matrix plan         matrix.fs                    # pre-flight, no solver
 pyfs-matrix run          matrix.fs --fs-exe ...       # RUNS the solver

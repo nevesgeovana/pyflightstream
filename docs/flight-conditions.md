@@ -1,0 +1,155 @@
+# Flight conditions
+
+A run states the flow condition it wants, and the package resolves the
+state. This page is what the `FLIGHT_CONDITION` cell of a run matrix
+means, what you may write in it, and what it refuses.
+
+## The idea, in one sentence
+
+**A flight condition is a set of CONSTRAINTS on one flow state, and the
+keys you give decide which quantity gets solved for.**
+
+It is not a record with optional fields and it is not a lookup. The same
+resolver answers both of these by solving for a different unknown each
+time:
+
+```
+FLIGHT_CONDITION: MACH:0.20, REmi:5.5
+FLIGHT_CONDITION: TASmps:68.08, ALTFT:10000, dISA:5
+```
+
+The first states a Mach number and a Reynolds number and no temperature,
+so the state is sea level and **the density moves** to meet the Reynolds
+number. The second states a speed at an altitude, so it is an atmosphere
+point and **the Reynolds number comes out** of it.
+
+## The keys, and the units ride the names
+
+The set is CLOSED. Five keys, and each carries its unit in its own
+spelling, deliberately:
+
+| Key | Unit | What it constrains |
+|---|---|---|
+| `MACH` | dimensionless | velocity, through the speed of sound at the state's own temperature |
+| `TASmps` | metres per second | velocity directly (true airspeed) |
+| `REmi` | **millions** -- `5.5` means 5 500 000 | density, velocity and reference length over viscosity |
+| `ALTFT` | **feet** | pressure, and temperature through the standard lapse |
+| `dISA` | **Celsius, as a DELTA** | temperature, as an offset on the standard value |
+
+The names are ugly on purpose. `ALTITUDE:10000` would be ambiguous
+between feet and metres, and this repository has already shipped a solver
+command whose metres argument three builds read as feet. A unit in the
+key cannot be lost the way a unit in a comment can.
+
+Keys are matched **case-insensitively**, so `remi`, `REmi` and `REMI` are
+one key. A key written twice is refused rather than taking the last one.
+
+## Which quantity gets solved for
+
+* `ALTFT` and `dISA` fix the **temperature**, and therefore the speed of
+  sound and the viscosity. Both have defaults: an absent altitude is sea
+  level and an absent `dISA` is zero. Those defaults are what make a
+  short set legal at all.
+* Exactly one of `MACH` or `TASmps` fixes the **velocity**. Never zero,
+  never both.
+* `REmi` fixes the **density**, by solving the Reynolds definition for
+  it. If you do not state it, density is the atmosphere's own value at
+  the stated altitude and the Reynolds number becomes an outcome.
+
+### An ISA deviation moves temperature and leaves pressure alone
+
+That is the standard reading of "ISA+5", and it is worth stating because
+the other reading, shifting pressure too, is what a reader who has not
+met the convention will assume. Density follows from the offset
+temperature at the unchanged pressure altitude.
+
+### A solved density is not a point in any atmosphere
+
+Holding a Mach number and a Reynolds number together at a fixed
+temperature is what a wind tunnel does, and what a validation case needs.
+The resulting state has an implied pressure that is not any altitude's:
+`MACH:0.20, REmi:5.5` against a one-metre reference solves to about
+1.446 kg/m3 against a sea-level 1.225.
+
+That is the design, not a defect. For a panel method it is harmless --
+density scales forces, viscosity sets Reynolds, and nothing reads
+pressure. It stops being harmless the moment a consumer reads that state
+as an altitude, which is why the run record carries **which branch**
+produced the density.
+
+## A Reynolds number needs a reference length
+
+`REmi` on a row that names no `REF` is refused, naming both. The
+dependency is not bookkeeping: the same `MACH:0.20, REmi:5.5` against a
+unit chord gives a density about 18 percent above sea level, and against
+a rotor's mean face length gives nearly eight times sea level, at an
+implied pressure near 794 kPa. Same inputs, same resolver, a state that
+is ordinary or absurd depending on a number that comes from somewhere
+else entirely.
+
+The length actually used is recorded beside the resolved state, because
+the state cannot be checked without it.
+
+## What it refuses, and why each refusal exists
+
+Every one of these arrives **before** a script is emitted and before a
+solver exists, which is the whole point of stating a condition rather
+than typing numbers into columns.
+
+| You write | What happens |
+|---|---|
+| `KEAS:120` | refused, naming the key and listing the accepted set |
+| `MACH:fast` | refused, naming the key, the value and the unit expected |
+| `MACH:nan`, `REmi:inf` | refused: a flow condition cannot be a NaN or an infinity |
+| `MACH:0.2, MACH:0.35` | refused as a duplicate, rather than taking the last |
+| `ALTFT:10000` alone | refused as under-determined, naming which keys supply a velocity |
+| `MACH:0.20, TASmps:68.08` | refused as a contradiction: each fixes the velocity alone |
+| `REmi:5.5` with no `REF` on the row | refused, naming both the condition and the missing reference |
+| an empty cell | refused: the cell is mandatory, exactly as `RE` and `MACH` were |
+
+The set being closed is what makes the first row possible. A key the
+package does not know is refused rather than ignored, which is the
+difference between a typo that costs a message and a typo that costs a
+campaign.
+
+## Upgrading a matrix written before v0.9.0
+
+The `RE` and `MACH` columns are gone. A file written under either older
+layout is recognised and refused naming its converter:
+
+```
+pyfs-matrix upgrade your_matrix.fs --in-place
+```
+
+Without `--in-place` the upgraded matrix goes to standard output, so you
+can diff before you overwrite. It needs no recipes, no version and no
+executable.
+
+**Read this before you upgrade a campaign you have already run.** The
+conversion is lossless as a FILE -- the values move across verbatim -- but
+it is **not neutral as a RESULT**. Under v0.8.x the `RE` column was
+recorded metadata that reached no emitted line, so a declared Reynolds
+number changed nothing about what the solver was asked to do. From
+v0.9.0 `REmi` is a constraint that solves for density. Every legacy row
+carried both `RE` and `MACH`, so every upgraded row now takes the
+solved-density branch and emits an explicit fluid state it never emitted
+before.
+
+Measured on this repository's own committed fixture, a row at `RE 4.38`,
+`MACH 0.1441` against a 1.2 m reference solves at 1.3319 kg/m3, **8.7
+percent above sea level**, where the same row previously emitted no fluid
+state at all. The numbers will differ, and they differ because the old
+behaviour was the defect this release fixes.
+
+**If you want the previous behaviour**, state the condition without
+`REmi` and let the Reynolds number be derived: `MACH:0.1441` alone
+resolves at the standard density for its altitude. Keep `REmi` when you
+meant it as a constraint.
+
+## What this page does not cover
+
+The atmosphere model itself -- ISO 2533 with a Sutherland viscosity law,
+its constants and the altitude range it refuses outside -- is documented
+in the module that implements it. Nothing here is a claim about a
+particular day's weather: the model says what the standard defines at a
+pressure altitude.

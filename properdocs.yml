@@ -47,6 +47,7 @@ nav:
   - Replaying a recorded run: tutorial-replay.md
   - What a run cost: solver-cost.md
   - The workspace and the workflow: workspace-and-workflows.md
+  - Flight conditions: flight-conditions.md
   - Numeric settings codebook: settings-codebook.md
   - Architecture: architecture.md
   - SRS:
