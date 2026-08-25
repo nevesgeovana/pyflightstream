@@ -33,7 +33,8 @@ def test_the_removed_shim_is_not_described_as_surviving() -> None:
 
     survives = re.compile(r"files.{0,40}(survives|re-exports)", re.I | re.S)
     for path in (
-        REPO / "CLAUDE.md",
+        # CLAUDE.md was a fourth home for this claim and left the
+        # repository on 2026-08-25; the remaining two are the shipped ones.
         REPO / "src/pyflightstream/__init__.py",
         REPO / "src/pyflightstream/workspace/__init__.py",
     ):

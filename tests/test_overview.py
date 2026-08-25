@@ -17,7 +17,7 @@ reword and the assertion could only land together, which is why the
 guard below now also asserts the old phrase is ABSENT.
 
 The second (OPS-2006.02.01). The stack is declared as data in
-``overview.py`` and restated in prose in four other files with nothing
+``overview.py`` and restated in prose in three other files with nothing
 holding the two equal, so they drift and a reviewer enforces whichever
 copy they read. The four guards at the end of this module derive every
 restatement from the module data, name the one file that disagrees, and
@@ -42,12 +42,11 @@ from pyflightstream.overview import (
 
 REPO = Path(__file__).parents[1]
 
-# The four prose restatements of the layer stack. Module-level and read
+# The three prose restatements of the layer stack. Module-level and read
 # through these names on purpose: the mutation battery that proves these
 # guards deny points them at copies in a scratch directory, so nothing
 # has to mutate a tracked file in a tree other sessions are working in.
 SRS_ARCHITECTURE = REPO / "docs" / "srs" / "architecture-srs.md"
-CLAUDE_MD = REPO / "CLAUDE.md"
 USER_GUIDE = REPO / "guide" / "pyflightstream_user_guide.tex"
 
 # Markers rather than line numbers, and each is asserted present and
@@ -63,7 +62,7 @@ BACKTICKED = re.compile(r"`([^`]+)`")
 def _collapse(text: str) -> str:
     """Collapse every whitespace run to one space.
 
-    Two of the four restatements are wrapped prose, so a comparison that
+    One of the three restatements is wrapped prose, so a comparison that
     respects line breaks would fail on a reflow that changed nothing.
     """
     return " ".join(text.split())
@@ -281,7 +280,7 @@ def test_the_generated_page_puts_the_base_module_below_the_pipeline():
 
 
 def test_the_srs_layer_fence_is_derived_from_the_module_data():
-    # OPS-2006.02.01, restatement 1 of 4.
+    # OPS-2006.02.01, restatement 1 of 3.
     rows = _srs_fence_rows(SRS_ARCHITECTURE.read_text(encoding="utf-8"))
     assert rows == _declared_table_rows(), (
         f"{SRS_ARCHITECTURE.name} restates the layer stack and disagrees with "
@@ -291,7 +290,7 @@ def test_the_srs_layer_fence_is_derived_from_the_module_data():
 
 
 def test_the_srs_side_branch_paragraph_names_only_declared_modules():
-    # OPS-2006.02.01, restatement 2 of 4. Containment, not equality: the
+    # OPS-2006.02.01, restatement 2 of 3. Containment, not equality: the
     # paragraph covers three of the five side rows on purpose, so what
     # this catches is a DEAD name, of the kind the `files` shim left
     # behind when it was removed at v0.4.0.
@@ -304,20 +303,17 @@ def test_the_srs_side_branch_paragraph_names_only_declared_modules():
     )
 
 
-def test_the_layout_rule_carries_the_derived_layer_chain():
-    # OPS-2006.02.01, restatement 3 of 4. Whitespace is collapsed across
-    # line wraps first: the rule is wrapped prose and a reflow that
-    # changes nothing must not fail here.
-    text = _collapse(CLAUDE_MD.read_text(encoding="utf-8"))
-    assert _declared_chain() in text, (
-        f"{CLAUDE_MD.name} restates the layer chain and disagrees with the "
-        "data in pyflightstream/overview.py, which is the single home of it; "
-        f"the chain the module declares is: {_declared_chain()}"
-    )
+# RESTATEMENT 3 OF 4 IS GONE, and this note stands in its place rather
+# than the count quietly becoming three. It asserted that the layout rule
+# in CLAUDE.md carried the derived layer chain. That file left this
+# repository on 2026-08-25: it is the author's working method, not a
+# product of this library, and it had been on a public remote since the
+# repository was created. There are three prose restatements now, and the
+# three tests around this note are all of them.
 
 
 def test_the_user_guide_diagram_is_derived_from_the_module_data():
-    # OPS-2006.02.01, restatement 4 of 4. Only the bold label is
+    # OPS-2006.02.01, restatement 3 of 3. Only the bold label is
     # derivable: the guide's captions are written for a reader of the
     # deck and are deliberately not the module's captions.
     labels = _guide_diagram_labels(USER_GUIDE.read_text(encoding="utf-8"))
