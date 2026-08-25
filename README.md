@@ -29,9 +29,13 @@ conversion is lossless as a FILE, every value moving across verbatim,
 and it is **not neutral as a RESULT**. Under v0.8.x the `RE` column was
 recorded metadata that reached no emitted line; from v0.9.0 `REmi` is a
 constraint that solves for density, so every upgraded row emits a fluid
-state it never emitted before and your numbers will move. Measured on
-this repository's own fixture, one row moves 8.7 percent in density. To
-keep the previous behaviour, state the condition without `REmi`.
+state it never emitted before and your numbers will move. How far they
+move is not something this repository can tell you, because the row
+previously emitted NO fluid state at all and what the solver assumed
+instead is a question about the solver. What is measured, on this
+repository's own fixture, is the state your row will now be run at: one
+row solves at 1.3319 kg/m3, 8.7 percent above sea level. To keep the
+previous behaviour, state the condition without `REmi`.
 [docs/flight-conditions.md](docs/flight-conditions.md) is the whole
 grammar, the units, and the migration in full.
 
@@ -44,7 +48,7 @@ stage the file the id names. The match is on the exact key, so a cell
 spelling it `SYMMETRY_TYPE` is untouched, and a row that names none of
 the three renders the script it always did.
 
-**What v0.8.1 fixes**, and it is why a patch followed v0.8.0 by two
+**What v0.8.1 fixed**, and it is why a patch followed v0.8.0 by two
 days. A run matrix had no way to name a geometry at all, so a workflow
 built a script with no `OPEN` in it: the solver solved whatever it
 already had in memory, and reported numbers with nothing said. A row
@@ -55,10 +59,12 @@ its own documented default: `--workspace` defaults to `"."` and every
 path was then spelled from your directory while the solver resolved it
 from the run's.
 
-v0.8.0's four breaking changes and the two capabilities a default
-install gained are unchanged and are described in CHANGELOG.md, which
-carries the reasoning, the measurements and the rejected alternatives
-behind every entry.
+Everything each earlier release broke or added is described under its
+own heading in CHANGELOG.md, which carries the reasoning, the
+measurements and the rejected alternatives behind every entry. The word
+"unchanged" used to stand here about v0.8.0's four breaking changes, and
+a review pointed out that a reader cannot check it: the four were never
+enumerated, and v0.9.0 has just changed the same file format again.
 
 ```
 pip install pyflightstream

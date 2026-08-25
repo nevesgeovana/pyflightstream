@@ -15,6 +15,8 @@ can fail on the day the code is wrong.
 
 from __future__ import annotations
 
+import re
+
 import pytest
 from pydantic import ValidationError
 
@@ -288,7 +290,7 @@ def test_an_out_of_range_altitude_is_refused_in_the_unit_the_cell_was_written_in
     assert "ALTFT:70000" in message
     assert "ft" in message
     # Both units, so the reader can check the conversion rather than take it.
-    assert "65617 ft" in message and "20000 m" in message
+    assert "65616 ft" in message and "20000 m" in message
     # And the metres-only phrasing the floor uses is not what reaches them.
     assert "21336" not in message
 
@@ -315,10 +317,31 @@ def test_a_refusal_that_is_not_about_the_range_does_not_quote_the_range():
     assert "65617 ft" not in message
 
 
-def test_the_top_of_the_modelled_range_still_resolves():
-    """The refusal is a boundary, not a narrowing of what works."""
-    state = resolve_flight_condition({"MACH": 0.20, "ALTFT": 65616.0}, pol="P7")
-    assert state.temperature_k == pytest.approx(216.65, abs=0.01)
+def test_every_altitude_the_refusal_names_as_in_range_actually_resolves():
+    """A range in a refusal is an instruction, so retyping it must work.
+
+    A round-two review found this message printing -6562 ft and 65617 ft,
+    which are -2000.1 m and 20000.06 m: BOTH outside the model. A reader
+    who did the obvious thing and retyped the bound the message handed
+    them met the same refusal, and the test above pinned the outward
+    rounding in place by asserting the string.
+
+    So the bounds round INWARD now, and this asserts the property rather
+    than the numbers: whatever the message names as the edge of the
+    range, resolving at exactly that value succeeds.
+    """
+    with pytest.raises(AtmosphereError) as raised:
+        resolve_flight_condition({"MACH": 0.20, "ALTFT": 99999.0}, pol="P7")
+    quoted = re.findall(r"(-?\d+) ft", str(raised.value))
+    assert len(quoted) == 2, f"the refusal names {len(quoted)} bounds in feet, expected 2"
+    for bound in quoted:
+        state = resolve_flight_condition({"MACH": 0.20, "ALTFT": float(bound)}, pol="P7")
+        assert state.temperature_k > 0.0, f"{bound} ft is named in range and does not resolve"
+
+    # And the top of the range is still the tropopause, so rounding
+    # inward narrowed the message rather than the model.
+    top = resolve_flight_condition({"MACH": 0.20, "ALTFT": float(quoted[1])}, pol="P7")
+    assert top.temperature_k == pytest.approx(216.65, abs=0.01)
 
 
 def test_the_fluid_state_carries_no_second_literal_of_the_floor_constant():

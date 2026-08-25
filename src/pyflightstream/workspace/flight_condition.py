@@ -89,6 +89,7 @@ state, and the resolver runs AFTER reference resolution.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 
 from pyflightstream._atmosphere import (
@@ -259,11 +260,17 @@ def resolve_flight_condition(
         # Answered in FEET, because feet is what the cell says. The range
         # is stated in both units so the reader can check the conversion
         # rather than take it.
+        # ROUNDED INWARD, both ends. A round-two review found this
+        # printing -6562 ft and 65617 ft, which are -2000.1 m and
+        # 20000.06 m: both OUTSIDE the model, so a reader who retyped the
+        # bound the message gave them met the same refusal. A range in a
+        # refusal is an instruction, and every value in it has to resolve.
+        floor_ft = math.ceil(ISA.floor_altitude_m / METRES_PER_FOOT)
+        ceiling_ft = math.floor(ISA.ceiling_altitude_m / METRES_PER_FOOT)
         raise AtmosphereError(
             f"the flight condition of POL {pol} states ALTFT:{altitude_ft:g}, "
-            "which is outside the range this atmosphere models: about "
-            f"{ISA.floor_altitude_m / METRES_PER_FOOT:.0f} ft to "
-            f"{ISA.ceiling_altitude_m / METRES_PER_FOOT:.0f} ft "
+            "which is outside the range this atmosphere models: "
+            f"{floor_ft} ft to {ceiling_ft} ft "
             f"({ISA.floor_altitude_m:g} m to {ISA.ceiling_altitude_m:g} m). "
             "ISO 2533 continues above that ceiling with layers this package "
             "does not implement, and extrapolating past it would be wrong in a "

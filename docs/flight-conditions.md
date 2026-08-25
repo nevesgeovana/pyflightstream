@@ -203,7 +203,7 @@ meant it as a constraint.
 
 The atmosphere model itself is ISO 2533:1975 with a Sutherland
 viscosity law. The one fact you may hit is its RANGE: the model covers
--2000 m to 20000 m, which is about -6562 ft to 65617 ft, and an `ALTFT`
+-2000 m to 20000 m, which is -6561 ft to 65616 ft, and an `ALTFT`
 outside that is refused naming the range rather than extrapolated. It is
 stated here rather than pointed at, because the module that implements
 it is private and a pointer there resolves nowhere for a reader of this

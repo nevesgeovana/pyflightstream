@@ -101,8 +101,8 @@ noted that the triplet as commonly printed with eq. (1-36) is 273 K and
 111 K, while 110.4 K is the classical Sutherland constant that
 circulates widely. MEASURED, rather than estimated: against this
 module's own reference viscosity the two readings differ by about
-0.05 percent at sea level, 0.054 percent at 300 K and 0.016 percent at
-the tropopause, where the two forms very nearly cross. That figure read
+0.0492 percent at sea level, 0.0536 percent at 300 K and 0.0164 percent
+at the tropopause, where the two forms come closest. That figure read
 "roughly 0.1 percent" until a release review recomputed it and found it
 about twice the sea-level spread and several times the tropopause one,
 which matters because the tropopause is where a cruise Reynolds number
@@ -114,10 +114,17 @@ module's.
 THE OPEN QUESTION HAS A MECHANICAL TRIGGER, which is worth stating so
 the arbiter knows the cost of each answer: ``tests/test_atmosphere.py``
 pins viscosity at three temperatures to ``rel=1e-4``, and the 273/111
-reading differs by 3.6e-4 at 255.65 K and 5.8e-4 at 300 K. So resolving
-the citation the other way turns this file RED at two of its three
-points rather than passing silently, which is the right behaviour and is
-not an accident.
+reading differs by 1.64e-4 at 216.65 K, 3.59e-4 at 255.65 K and 5.36e-4
+at 300 K. So resolving the citation the other way turns this file RED at
+ALL THREE of its points rather than passing silently, which is the right
+behaviour and is not an accident.
+
+This paragraph said "two of its three points" and quoted 5.8e-4 at 300 K
+until a round-two review pass caught it disagreeing with the sentence
+above it. Both were wrong in the direction that makes the open question
+look cheaper than it is: the tropopause point is the closest of the
+three and it still exceeds the tolerance by a factor of 1.6. Recomputed
+rather than re-remembered.
 
 WHAT THIS DOES NOT CLAIM. The model is the standard atmosphere, not the
 weather: it says what ISA defines at a pressure altitude, and nothing
