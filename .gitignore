@@ -90,3 +90,15 @@ htmlcov/
 # and what remains is the gate's own local write target. Anything that
 # should ship from here does not belong under `.claude/`.
 .claude/
+
+# The agent instruction file is the author's WORKING METHOD and is not a
+# product of this library. It was tracked on a PUBLIC remote until
+# 2026-08-25 and is untracked from here: the file stays on disk so a
+# session still loads it, and stops being published.
+#
+# NOTE, because removing a path from HEAD is not the same as unpublishing
+# it: every commit before this one still carries the file, and the public
+# history is unchanged. Taking it out of the history is a rewrite and a
+# force push, which is the author's decision and not a side effect of
+# this change.
+CLAUDE.md
