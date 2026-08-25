@@ -1204,3 +1204,40 @@ def test_a_cell_with_no_padding_to_spare_grows_rather_than_losing_a_character(tm
         f"invent an id: {body[ref]!r}"
     )
     assert len(body) == len(_COLUMNS)
+
+
+def test_a_half_edited_matrix_is_told_how_to_recover_and_a_foreign_file_is_not(tmp_path):
+    """The fallthrough refusal serves two populations, so it asks which.
+
+    An API review found this was the only refusal in this module naming
+    no converter, and that the reader most likely to reach it is the one
+    who deleted RE and MACH by hand and never added FLIGHT_CONDITION.
+    That reader is then stuck in a two-refusal loop: the reader says the
+    header is wrong and the converter says the layout is not one it
+    upgrades, and the sentence that rescues them, restore the original
+    and convert THAT, is said nowhere.
+
+    Adding it unconditionally broke a deliberate decision that a
+    migration and a break read differently, which the test above pins.
+    So the message asks which file it has: majority overlap with a
+    layout this package knows means a half-done edit.
+    """
+    half_edited = list(matrix_mod._COLUMNS)
+    half_edited[3] = "REmi"
+    edited = tmp_path / "half_edited.fs"
+    edited.write_text(" | ".join(half_edited) + "\n", encoding="utf-8")
+    with pytest.raises(MatrixError) as caught:
+        read_matrix(edited)
+    message = str(caught.value)
+    assert "upgrade_matrix" in message
+    assert "restore the original" in message
+    # And it says WHERE the file differs rather than leaving two lists to diff by eye.
+    assert "column 4" in message and "FLIGHT_CONDITION" in message and "REmi" in message
+
+    # A file that is not a run matrix at all keeps the plain break, with
+    # no converter named: sending it to one would be a false remedy.
+    foreign = tmp_path / "foreign.fs"
+    foreign.write_text("POL | ANGLE\n9001 | 4.0\n", encoding="utf-8")
+    with pytest.raises(MatrixError) as caught:
+        read_matrix(foreign)
+    assert "upgrade_matrix" not in str(caught.value)

@@ -505,3 +505,37 @@ def test_upgrade_writes_to_standard_output_and_touches_nothing(capsysbinary, tmp
     from pyflightstream.cases.matrix import upgrade_matrix
 
     assert written == upgrade_matrix(target)
+
+
+def test_upgrade_warns_that_the_results_move_on_both_routes(capsysbinary, tmp_path):
+    """The one point at which a user commits to the change.
+
+    A release review found this subcommand was the only surface in the
+    release carrying no warning: the results-will-move paragraph was in
+    the changelog, on the docs page and in the guide, and in front of
+    nobody who runs the command. The subcommand exists BECAUSE the
+    previous migration path was a Python call a matrix user does not
+    write, so it cannot assume that user read any of the three.
+
+    Asserted on both routes, and asserted to be on STDERR, because the
+    stdout route exists to hand back bytes the user can diff and a
+    warning in them would defeat it.
+    """
+    source = Path(__file__).parent / "fixtures" / "pfs202701_matrix16.fs"
+
+    in_place = tmp_path / "in_place.fs"
+    in_place.write_bytes(source.read_bytes())
+    assert main(["upgrade", str(in_place)]) == 0
+    captured = capsysbinary.readouterr()
+    assert b"RESULTS are not preserved" in captured.err
+    assert b"REmi is a CONSTRAINT" in captured.err
+    assert b"docs/flight-conditions.md" in captured.err
+
+    to_stdout = tmp_path / "to_stdout.fs"
+    to_stdout.write_bytes(source.read_bytes())
+    assert main(["upgrade", str(to_stdout)]) == 0
+    captured = capsysbinary.readouterr()
+    assert b"RESULTS are not preserved" in captured.err
+    # And the diffable bytes are clean: the warning is not in them.
+    assert b"RESULTS are not preserved" not in captured.out
+    assert captured.out.splitlines()[0].startswith(b"POL")

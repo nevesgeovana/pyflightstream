@@ -4,12 +4,25 @@ Version-aware, didactic Python driver for the FlightStream panel-method
 solver. MIT licensed.
 
 Status: v0.8.1 is the current release; the changelog records what each
-release adds and what each one asks you to do. This one is a patch: a run
+release adds and what each one asks you to do.
+
+**The next release breaks the run-matrix file format**, and it is the
+one upgrade action that cannot be skipped: the `RE` and `MACH` columns
+are replaced by one mandatory `FLIGHT_CONDITION` cell. An older file is
+recognised and refused rather than misread, and
+`pyfs-matrix upgrade your_matrix.fs --in-place` converts it. The
+conversion is lossless as a file and **not neutral as a result**,
+because a Reynolds number stops being recorded metadata and becomes a
+constraint that solves for density. [Flight
+conditions](flight-conditions.md) is the whole grammar and the
+migration.
+
+v0.8.1 itself is a patch: a run
 matrix can name its geometry, so a workflow no longer builds a script
 that opens nothing and solves whatever the solver already had in memory,
 and a row can declare the symmetry a periodic sector needs. It reserves
 three names inside the matrix's free cell, `GEOMETRY`, `SYMMETRY` and
-`PERIODIC_COPIES`, which is its only upgrade action. Earlier releases,
+`PERIODIC_COPIES`, which was its own upgrade action. Earlier releases,
 and what each of them registered or broke, are in the changelog rather
 than re-threaded here. Five command-line
 tools ship with the package: `pyfs-qa`

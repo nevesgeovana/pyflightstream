@@ -22,7 +22,7 @@ from pydantic import BaseModel
 from test_public_api import PUBLIC_MODULES
 
 import pyflightstream
-from pyflightstream.overview import _CORE_LAYERS
+from pyflightstream.overview import _BASE_LAYERS, _CORE_LAYERS
 from pyflightstream.reference import CONVENTIONS, conventions_markdown, render_html
 
 # --- the conventions section renders in both layers -------------------------
@@ -359,12 +359,28 @@ _SRC = Path(pyflightstream.__file__).parent
 #: index highest. Read from `pyflightstream.overview._CORE_LAYERS`, which
 #: the SRS architecture chapter and the CLAUDE.md layout rule are both
 #: derived from, so this guard spells no layer name of its own. A name
-#: with no row here (a side branch such as `fsi`, or a module below the
-#: stack such as `_errors`) is deliberately absent: the rule orders the
-#: pipeline, and a branch outside it has no direction to violate.
+#: with no row here, a side branch such as `fsi`, is deliberately
+#: absent: the rule orders the pipeline, and a branch outside it has no
+#: direction to violate.
+#:
+#: A FLOOR MODULE IS THE OPPOSITE CASE AND USED TO BE TREATED AS THE
+#: SAME ONE. `_errors` and `_atmosphere` are not outside the order, they
+#: are BELOW all of it, so every package import they make is upward by
+#: construction and the rule is at its strictest there. They were
+#: exempted along with the side branches until a release review measured
+#: it: the walk opened `_errors.py`, found no row, returned an empty
+#: list without examining a single import, and counted the file toward
+#: the non-vacuity assertion that is supposed to prove the walk
+#: happened. `_atmosphere` and `_digest` each survived only because each
+#: carries its own hand-written guard in its own test module; `_errors`,
+#: which both of those cite as their precedent, had none at all.
+#:
+#: Giving a base layer a row BELOW every core row makes the property
+#: structural instead of hand-written, and subsumes both of those
+#: guards rather than asking for a third.
 _LAYER_ROW: dict[str, int] = {
     name: row for row, (names, _) in enumerate(_CORE_LAYERS) for name in names
-}
+} | {name: len(_CORE_LAYERS) for names, _ in _BASE_LAYERS for name in names}
 
 
 def _layer_row(dotted: str) -> int | None:
@@ -590,8 +606,19 @@ def test_the_function_body_scanner_leaves_the_legitimate_shapes_alone():
     assert _layer_row("pyflightstream.fsi") is None
     assert _layer_row("pyflightstream.extras") is None
     assert _layer_row("pyflightstream.utils") is None
-    # And the base-exception module is below the stack rather than in it.
-    assert _layer_row("pyflightstream._errors") is None
+    # And the base-exception module is BELOW the stack rather than
+    # outside it, which is a different thing and used to be conflated.
+    # A floor gets the row after the last core row, so every package
+    # import it makes is upward and the walk examines it instead of
+    # discarding the file.
+    assert _layer_row("pyflightstream._errors") == len(_CORE_LAYERS)
+    assert _layer_row("pyflightstream._atmosphere") == len(_CORE_LAYERS)
+    # `_digest` is a floor by behaviour and is NOT a declared base layer,
+    # so it still resolves to no row and is still covered by its own
+    # hand-written guard in tests/test_digest.py. Declaring it would
+    # change the published architecture table, which is a design call and
+    # is registered rather than taken here.
+    assert _layer_row("pyflightstream._digest") is None
     # Third party and standard library resolve to no row either.
     assert _layer_row("trimesh") is None
     assert _layer_row("pathlib") is None
@@ -630,9 +657,14 @@ def test_an_exception_more_than_one_layer_names_is_defined_below_them_all():
         "the three public spellings of InputArtifactError no longer name one "
         "class, so which one a caller caught decides whether they catch it"
     )
-    assert _layer_row(catalogued.__module__) is None, (
+    # "Below all of them" used to be spelled `is None`, which conflated
+    # below-the-stack with outside-it: a side branch also has no row. A
+    # declared floor now carries a row BELOW every core row, so the
+    # property is stated as the comparison it always meant.
+    row = _layer_row(catalogued.__module__)
+    assert row is None or row >= len(_CORE_LAYERS), (
         f"InputArtifactError is defined in {catalogued.__module__}, which sits "
-        f"in layer row {_layer_row(catalogued.__module__)} of the core stack. "
+        f"in layer row {row} of the core stack. "
         "An exception type that more than one layer names has to live BELOW "
         "all of them, or the lower one reaches upward for the name and pays "
         "for it with an import deferred to call time."

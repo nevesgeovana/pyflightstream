@@ -197,7 +197,7 @@ exclude_also = [
 # fact about 2026-08-03 and was being read as a fact about today. With every
 # override below turned off:
 #     mypy recount 2026-08-24: 276 errors in 20 of 75 modules
-# The package grew by twenty modules and the debt by 53 errors, and no
+# The package grew by twenty-two modules and the debt by 53 errors, and no
 # module outside the exempted set is dirty. THE EXEMPTED SET DID MOVE, and
 # down: `pyflightstream.results.tables` was excused on 2026-08-03 and is
 # clean now, so its override was deleted on evidence (see the note where it

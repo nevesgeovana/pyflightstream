@@ -38,6 +38,7 @@ from pydantic import (
     model_validator,
 )
 
+from pyflightstream._atmosphere import ISA
 from pyflightstream._digest import file_sha256, text_sha256
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.script import Script
@@ -461,6 +462,18 @@ class FluidState(BaseModel):
     decoration. A density solved to meet a Reynolds number is not a
     point in any atmosphere, deliberately, and this field is what stops
     a later reader treating it as an altitude and "fixing" it into one.
+
+    THIS IS THE RESOLVED STATE WITHOUT ITS INPUTS, and the distinction
+    matters for one claim. PFS-2027.05 says a reader can RECOMPUTE the
+    resolution rather than trust it; that is true of
+    ``ResolvedMatrix.conditions``, which carries the condition as
+    written, the altitude and the ISA deviation, and it is NOT true of
+    this object, which carries none of the three. A release review found
+    the recompute claim attached to the object that cannot satisfy it.
+    Concretely: a ``FluidState`` cannot tell sea level at ISA+15 from an
+    altitude that happens to give the same temperature. Read the
+    resolved condition when the inputs matter; read this when the state
+    does.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -476,9 +489,25 @@ class FluidState(BaseModel):
     #: editions state the same physical fact two ways: the three
     #: pre-26.100 builds take a sonic velocity and the later ones take
     #: this ratio. A case that travels between builds needs both.
-    heat_capacity_ratio: float = 1.4
-    #: "atmosphere" or "solved-from-reynolds".
-    source: str = "atmosphere"
+    #:
+    #: The default is the FLOOR CONSTANT and not a literal 1.4. It read
+    #: ``= 1.4`` until a release review pointed out that
+    #: :class:`~pyflightstream.workspace.flight_condition.ResolvedCondition`
+    #: carries a comment forbidding exactly that, in the same words for
+    #: the same reason: a second literal lets the two drift the moment
+    #: the floor constant moves, and the two builds would then solve
+    #: different gases from one case. The resolver always supplies this
+    #: value, so the default is reached only by an AUTHORED campaign,
+    #: which is precisely the path with no resolver to keep it honest.
+    heat_capacity_ratio: float = ISA.heat_capacity_ratio
+    #: WHICH branch produced the density: ``"atmosphere"`` or
+    #: ``"solved-from-reynolds"``. Required, with no default, and that
+    #: is deliberate. It defaulted to ``"atmosphere"`` until a release
+    #: review observed that a provenance marker defaulting to one of its
+    #: two real values makes an unset state ASSERT a branch rather than
+    #: record that nothing established one, on the one field whose whole
+    #: job is to stop an unearned claim about provenance.
+    source: str
     #: The length a stated Reynolds number was measured against, in
     #: metres. None when no Reynolds number was stated.
     reference_length_m: float | None = None

@@ -291,9 +291,17 @@ class MatrixRow:
 #: shipped a solver command whose metres argument three builds read as
 #: feet.
 FLIGHT_CONDITION_KEYS: dict[str, tuple[str, str]] = {
-    "MACH": ("dimensionless", "velocity, through the speed of sound at the state"),
+    "MACH": (
+        "dimensionless",
+        "velocity, through the speed of sound at the state's own temperature",
+    ),
     "TASmps": ("m/s", "velocity directly"),
-    "REmi": ("millions", "density, velocity and reference length over viscosity"),
+    # The second element is the quantity the key CONSTRAINS, which for
+    # REmi is the density alone. It read "density, velocity and reference
+    # length over viscosity" until a release review pointed out that this
+    # is the DEFINITION of a Reynolds number rather than a constraint, and
+    # that read as a constraint list it says REmi pins three things.
+    "REmi": ("millions", "density"),
     "ALTFT": ("feet", "pressure, and temperature through the standard lapse"),
     "dISA": ("Celsius, a DELTA", "temperature, as an offset on the standard value"),
 }
@@ -608,9 +616,53 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
             "carried exactly the two quantities those keys carry."
         )
     if header != _COLUMNS:
+        # The fallthrough, and the one an upgrading user is most likely
+        # to reach: legacy recognition above is exact tuple equality, so
+        # a file one character off both older layouts AND the current one
+        # lands here. That is what a half-done hand edit looks like, and
+        # a release review found this was the only refusal in the file
+        # that named no converter, leaving that user in a two-refusal
+        # loop with the one sentence that rescues them said nowhere.
+        first_difference = next(
+            (
+                f"the first difference is column {index + 1}: expected "
+                f"{expected!r}, found {found!r}"
+                # strict=False deliberately: the two may differ in LENGTH, which
+                # is reported on its own line above, and the pairwise walk is
+                # only asked for the first NAME that differs.
+                for index, (expected, found) in enumerate(zip(_COLUMNS, header, strict=False))
+                if expected != found
+            ),
+            f"the columns agree as far as they go, and the file has {len(header)} "
+            f"of them where {len(_COLUMNS)} are expected",
+        )
+        # WHETHER TO NAME THE CONVERTER IS DECIDED PER FILE, and the
+        # distinction is deliberate rather than a hedge. A file that is
+        # simply not a run matrix must NOT be sent to a converter that
+        # cannot help it: a migration and a break read differently, which
+        # `test_the_legacy_refusal_is_a_different_message_from_the_foreign_one`
+        # pins. But a file that shares most of its column names with a
+        # layout this package knows is a half-done hand edit, and that
+        # reader needs exactly the sentence the foreign reader must not
+        # get. Overlap against the current layout and both frozen legacy
+        # ones, majority of the expected width, decides which they are.
+        known = set(_COLUMNS) | set(_LEGACY_COLUMNS_15) | set(_LEGACY_COLUMNS_16)
+        looks_half_edited = len(known & set(header)) * 2 > len(_COLUMNS)
+        remedy = (
+            " If this file was written before v0.9.0 AND has since been edited by "
+            "hand, restore the original and upgrade THAT: pass in_place=True to "
+            "pyflightstream.cases.matrix.upgrade_matrix(path), or run "
+            "`pyfs-matrix upgrade <path> --in-place`. The converter reads the two "
+            "older layouts as they were written and does not recognise a partly "
+            "edited one."
+            if looks_half_edited
+            else ""
+        )
         raise MatrixError(
             f"{path} header does not match the verified {len(_COLUMNS)}-column layout; "
-            f"expected {', '.join(_COLUMNS)} and found {', '.join(header)}"
+            f"expected {', '.join(_COLUMNS)} and found {', '.join(header)}. "
+            f"There are {len(header)} columns where {len(_COLUMNS)} are expected, and "
+            f"{first_difference}.{remedy}"
         )
     rows: list[MatrixRow] = []
     for row_number, line in enumerate(content[1:], start=1):
@@ -762,8 +814,20 @@ def _insert_workflow_cell(data: bytes, source: str) -> bytes:
     for line in data.splitlines(keepends=True):
         body, terminator = _peel_terminator(line)
         if b"|" not in body:
-            # The dashed rule, and any blank line. Neither carries a cell,
-            # so neither is touched.
+            # A line with no pipe: the dashed rule as every committed
+            # fixture writes it, and any blank line. Neither carries a
+            # cell, so neither is touched.
+            #
+            # NOT a general statement about rules, and it said one until
+            # a release review measured it. `read_matrix` recognises a
+            # rule by ``set(line.strip()) <= {"-"}``, so a rule written
+            # with pipes between its dashes HAS cells and reaches the
+            # branch below. The file is refused rather than mangled,
+            # because the folded cell is not a number, but the refusal
+            # then names a FLIGHT_CONDITION cell the user never wrote,
+            # which costs the reader the diagnosis. The repair is to give
+            # both readers one rule predicate; registered, not taken
+            # here, because it changes what the reader accepts.
             rebuilt.append(line)
             continue
         parts = body.split(b"|")

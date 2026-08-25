@@ -13,11 +13,33 @@ from the tag, so the concept DOI in CITATION.cff resolves to the newest
 archived version and the version DOI is recorded one commit after the
 tag that names it. CHANGELOG.md carries the release history.
 
-**What changes for you, and what you must do.** One thing, and it is
-the only upgrade risk in v0.8.1. Three names inside the free
-`VAR_NAMES_VALUES` cell of a run matrix are now the package's:
+**What changes for you, and what you must do.** If you have a run
+matrix, v0.9.0 changes its FILE FORMAT and you must convert it.
+The `RE` and `MACH` columns are gone, replaced by one mandatory
+`FLIGHT_CONDITION` cell. A file written under either older layout is
+recognised and refused rather than misread, so nothing runs silently
+wrong; run this on it:
+
+```
+pyfs-matrix upgrade your_matrix.fs --in-place
+```
+
+**Then read the next sentence before you re-run a campaign.** The
+conversion is lossless as a FILE, every value moving across verbatim,
+and it is **not neutral as a RESULT**. Under v0.8.x the `RE` column was
+recorded metadata that reached no emitted line; from v0.9.0 `REmi` is a
+constraint that solves for density, so every upgraded row emits a fluid
+state it never emitted before and your numbers will move. Measured on
+this repository's own fixture, one row moves 8.7 percent in density. To
+keep the previous behaviour, state the condition without `REmi`.
+[docs/flight-conditions.md](docs/flight-conditions.md) is the whole
+grammar, the units, and the migration in full.
+
+The earlier upgrade action still applies if you are coming from before
+v0.8.1: three names inside the free
+`VAR_NAMES_VALUES` cell of a run matrix are the package's:
 `GEOMETRY`, `SYMMETRY` and `PERIODIC_COPIES`. If a cell of yours already
-spells one of them, the package now reads it, so rename your key or
+spells one of them, the package reads it, so rename your key or
 stage the file the id names. The match is on the exact key, so a cell
 spelling it `SYMMETRY_TYPE` is untouched, and a row that names none of
 the three renders the script it always did.

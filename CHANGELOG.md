@@ -71,7 +71,17 @@ FlightStream versions.
   `RE` and `MACH` as mandatory columns beside a cell that can also state
   them would have meant two homes for the same two numbers, and a reader
   would have had to look in both to know what was actually solved. One
-  home per question, and no precedence rule to learn.
+  home per question, and no precedence rule BETWEEN homes to learn.
+
+  There is exactly one interaction BETWEEN keys, and it is stated here
+  rather than left to be inferred, because the sentence above read "no
+  precedence rule to learn" until a release review pointed out that it
+  is false of the key set that replaced the columns. `ALTFT` beside
+  `REmi` gives the altitude's temperature, and with it the speed of
+  sound and the viscosity, while the Reynolds number still solves the
+  density: the altitude half-applies on that branch. That is exactly
+  what a wind-tunnel-at-altitude row means, so it is a feature and not
+  a defect, and it is worth knowing before you write one.
 
   The accepted keys, **with their units, because the units ride the key
   names and a reader who has not been told the suffixes cannot infer
@@ -109,9 +119,12 @@ FlightStream versions.
   **A Reynolds number needs a reference length, and says so.** `REmi` on
   a row naming no reference is refused naming both, because the same
   `MACH:0.20, REmi:5.5` against a unit chord and against a rotor's mean
-  face length gives densities differing by nearly a factor of eight. The
-  length actually used is recorded beside the resolved state, since the
-  state cannot be checked without it.
+  face length of about 0.15 m gives densities differing by the ratio of
+  the two lengths, near a factor of seven. On this branch density is
+  inversely proportional to the reference length and to nothing else,
+  which is why the length is the whole of the difference. The length
+  actually used is recorded beside the resolved state, since the state
+  cannot be checked without it.
 
   **The solved-density state is not a point in any atmosphere**, and it
   says so about itself. Holding Mach and Reynolds together at a fixed
@@ -133,6 +146,22 @@ FlightStream versions.
   `TASmps` rather than `MACH`, because the case records what was stated
   before the resolver has run. The resolved Mach number is on the
   resolved condition, which `resolve_matrix` returns.
+
+- **`SimCase.reynolds` is `None` for a row that states no `REmi`, and
+  the `reynolds` key is then OMITTED from a generated
+  `campaign.toml`.** Under v0.8.x `RE` was a mandatory column, so that
+  value was on every case of every row and the key was in every
+  campaign file. This one is easy to meet by accident, because the way
+  to meet it is to follow the advice two paragraphs above: state the
+  condition without `REmi` to keep the previous behaviour, and the key
+  your previous campaign file always carried is gone. A script reading
+  `campaign["sims"][i]["reynolds"]` raises `KeyError`; arithmetic on
+  `case.reynolds` raises `TypeError`.
+
+  If the row names a `REF`, the DERIVED Reynolds number is on the
+  resolved condition as `ResolvedCondition.reynolds`, which is the
+  number that was actually true of the run rather than the number that
+  was declared.
 
 ### Added
 

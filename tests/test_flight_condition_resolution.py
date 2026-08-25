@@ -16,8 +16,9 @@ can fail on the day the code is wrong.
 from __future__ import annotations
 
 import pytest
+from pydantic import ValidationError
 
-from pyflightstream._atmosphere import ISA, isa
+from pyflightstream._atmosphere import ISA, AtmosphereError, isa
 from pyflightstream.exceptions import FlightConditionError, PyflightstreamError
 from pyflightstream.workspace.flight_condition import (
     DENSITY_KEY,
@@ -175,8 +176,17 @@ def test_a_reynolds_constraint_with_no_reference_is_refused_naming_both():
     assert "P7" in message
     assert DENSITY_KEY in message
     assert "reference" in message.lower()
-    # And it prices the mistake rather than merely forbidding it.
-    assert "eight" in message
+    # And it prices the mistake rather than merely forbidding it. This
+    # asserted the literal word "eight" until a release review found the
+    # message was pricing it WRONG: eight is the rotor state against sea
+    # level, not the ratio between the two states. A test that pins a
+    # magnitude WORD cannot tell a right number from a wrong one, and
+    # this one held the wrong one in place. So the assertion is on the
+    # MECHANISM, which is checkable, and the magnitudes are pinned
+    # numerically in test_the_figures_the_prose_quotes_are_the_figures_
+    # the_resolver_gives.
+    assert "inversely proportional" in message
+    assert "ratio of the two lengths" in message
 
 
 def test_a_condition_without_a_reynolds_number_needs_no_reference():
@@ -222,3 +232,123 @@ def test_the_condition_is_kept_as_written():
 def test_the_refusal_is_catalogued_rather_than_a_bare_value_error():
     assert issubclass(FlightConditionError, PyflightstreamError)
     assert issubclass(FlightConditionError, ValueError)
+
+
+def test_the_figures_the_prose_quotes_are_the_figures_the_resolver_gives():
+    """Every number the reference-length argument is made with, pinned.
+
+    A release review found the argument stated with the wrong one: the
+    refusal message, the CHANGELOG and a test docstring all said the two
+    states "differ by nearly a factor of eight", while the ratio between
+    them is the ratio of the two lengths and nothing else. Eight was the
+    rotor state against SEA LEVEL, a third quantity none of those three
+    sentences named, and which the page states correctly.
+
+    Prose is where that mistake is invisible, so the four figures the
+    prose quotes are asserted here and the DISTINCTION between them is
+    asserted too. Recomputing them by hand is what caught it; this is
+    what makes the next drift red instead.
+    """
+    unit = resolve_flight_condition({"MACH": 0.20, "REmi": 5.5}, pol="P1", reference_length_m=1.0)
+    rotor = resolve_flight_condition({"MACH": 0.20, "REmi": 5.5}, pol="P1", reference_length_m=0.15)
+    sea_level = ISA.sea_level_pressure_pa / (
+        ISA.gas_constant_j_per_kg_k * ISA.sea_level_temperature_k
+    )
+
+    # "about 18 percent above sea level", against a unit chord.
+    assert unit.density_kg_m3 / sea_level == pytest.approx(1.18, abs=0.005)
+    # "nearly eight times sea level", against the rotor length.
+    assert rotor.density_kg_m3 / sea_level == pytest.approx(7.87, abs=0.005)
+    # "near 797 kPa", the implied pressure of the rotor state. Implied,
+    # not carried: the resolved condition's own pressure_pa is the
+    # atmosphere's, which is the whole point of the branch marker.
+    implied = rotor.density_kg_m3 * ISA.gas_constant_j_per_kg_k * rotor.temperature_k
+    assert implied == pytest.approx(797_000, abs=1_000)
+
+    # And the one the review corrected: the ratio BETWEEN the two states
+    # is neither of the two figures above. It is 1 / 0.15.
+    assert rotor.density_kg_m3 / unit.density_kg_m3 == pytest.approx(1.0 / 0.15)
+    assert rotor.density_kg_m3 / unit.density_kg_m3 == pytest.approx(6.667, abs=0.001)
+
+
+def test_an_out_of_range_altitude_is_refused_in_the_unit_the_cell_was_written_in():
+    """A release whose premise is that a unit must not be lost.
+
+    The floor module works in metres and answers in metres, which is
+    right for the floor and wrong for a matrix user: a review found
+    `ALTFT:70000` refused as "altitude 21336.0 m is outside the range",
+    naming no ALTFT, no feet, no cell and no POL, leaving the reader to
+    convert back by hand to connect the message to what they typed. The
+    resolver is the layer that still knows both, so it answers.
+    """
+    with pytest.raises(AtmosphereError) as raised:
+        resolve_flight_condition({"MACH": 0.20, "ALTFT": 70000.0}, pol="P7")
+    message = str(raised.value)
+    assert "P7" in message
+    assert "ALTFT:70000" in message
+    assert "ft" in message
+    # Both units, so the reader can check the conversion rather than take it.
+    assert "65617 ft" in message and "20000 m" in message
+    # And the metres-only phrasing the floor uses is not what reaches them.
+    assert "21336" not in message
+
+
+def test_the_floor_is_refused_too_not_only_the_ceiling():
+    with pytest.raises(AtmosphereError) as raised:
+        resolve_flight_condition({"MACH": 0.20, "ALTFT": -9000.0}, pol="P7")
+    assert "ALTFT:-9000" in str(raised.value)
+
+
+def test_a_refusal_that_is_not_about_the_range_does_not_quote_the_range():
+    """The trailer must name the cause, not whatever is nearby.
+
+    A first draft of the fix above appended the altitude range to EVERY
+    atmosphere refusal, including one caused by a dISA driving the
+    temperature below absolute zero, where the range is true and
+    irrelevant and sends the reader to the wrong cell.
+    """
+    with pytest.raises(AtmosphereError) as raised:
+        resolve_flight_condition({"MACH": 0.20, "ALTFT": 10000.0, "dISA": -400.0}, pol="P7")
+    message = str(raised.value)
+    assert "dISA:-400" in message
+    assert "absolute zero" in message
+    assert "65617 ft" not in message
+
+
+def test_the_top_of_the_modelled_range_still_resolves():
+    """The refusal is a boundary, not a narrowing of what works."""
+    state = resolve_flight_condition({"MACH": 0.20, "ALTFT": 65616.0}, pol="P7")
+    assert state.temperature_k == pytest.approx(216.65, abs=0.01)
+
+
+def test_the_fluid_state_carries_no_second_literal_of_the_floor_constant():
+    """ARCH: one resolved state in two homes must not restate a constant.
+
+    ResolvedCondition carries the specific-heat ratio from the floor
+    rather than restating it, with a comment saying why: a second
+    literal lets the two drift the moment the floor constant moves, and
+    the two builds would then solve different gases from one case. A
+    release review found FluidState, the object a builder actually
+    reads, defaulting it to a hard 1.4 anyway. Round one fixed the
+    emitter side of this defect; the model default survived it, which is
+    why the assertion is on the DEFAULT and not on a resolved instance.
+    """
+    from pyflightstream.cases import FluidState
+
+    assert FluidState.model_fields["heat_capacity_ratio"].default == ISA.heat_capacity_ratio
+
+
+def test_the_density_branch_marker_has_no_default_to_fall_back_on():
+    """A provenance marker must not assert a branch nothing established."""
+    from pyflightstream.cases import FluidState
+
+    assert FluidState.model_fields["source"].is_required()
+    with pytest.raises(ValidationError):
+        FluidState(
+            velocity_m_per_s=68.0,
+            density_kg_m3=1.225,
+            pressure_pa=101325.0,
+            temperature_k=288.15,
+            viscosity_pa_s=1.789e-05,
+            sonic_velocity_m_per_s=340.3,
+        )

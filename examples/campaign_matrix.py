@@ -32,7 +32,7 @@ workdir = Path(tempfile.mkdtemp(prefix="pyfs_campaign_"))
 # ## 1. The run matrix as input
 #
 # The run matrix is a pipe-delimited table, one row per simulation:
-# aircraft, Reynolds and Mach, the sweep type and values, the
+# aircraft, the flight condition, the sweep type and values, the
 # reference/setup/entry/script codes that resolve against the input
 # library, the `WORKFLOW` type, and a free `VAR_NAMES_VALUES` cell.
 # `read_matrix` parses it into typed rows; by default only the rows with

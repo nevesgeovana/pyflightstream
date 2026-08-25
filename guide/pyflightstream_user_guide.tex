@@ -920,6 +920,35 @@ records = run_campaign(campaign,
   \end{itemize}
 \end{frame}
 
+\begin{frame}[fragile]{The flight condition: one cell, five keys}
+  \begin{itemize}
+    \item From v0.9.0 a row states its whole flow condition in one \code{FLIGHT\_CONDITION} cell. \textbf{It is a set of CONSTRAINTS on one flow state, and the keys you give decide which quantity gets solved for.} It is not a record with optional fields.
+  \end{itemize}
+\begin{lstlisting}
+FLIGHT_CONDITION: MACH:0.20, REmi:5.5
+FLIGHT_CONDITION: TASmps:68.08, ALTFT:10000, dISA:5
+\end{lstlisting}
+  \begin{itemize}
+    \item The first states a Mach and a Reynolds number and no temperature, so the state is sea level and \textbf{the density moves} to meet the Reynolds number. The second states a speed at an altitude, so it is an atmosphere point and \textbf{the Reynolds number comes out} of it.
+  \end{itemize}
+  \begin{center}
+  \begin{tabular}{lll}
+    \textbf{Key} & \textbf{Unit} & \textbf{What it constrains} \\
+    \hline
+    \code{MACH} & dimensionless & velocity, via the speed of sound at the state's own temperature \\
+    \code{TASmps} & metres per second & velocity directly (true airspeed) \\
+    \code{REmi} & \textbf{MILLIONS}: \code{5.5} is 5\,500\,000 & density \\
+    \code{ALTFT} & \textbf{feet} & pressure, and temperature via the standard lapse \\
+    \code{dISA} & \textbf{Celsius, as a DELTA} & temperature, as an offset on the standard \\
+  \end{tabular}
+  \end{center}
+  \begin{itemize}
+    \item \textbf{Read the units off the key names.} They are ugly on purpose: \code{ALTITUDE:10000} would be ambiguous between feet and metres. \code{REmi} is the one to get right, because a Reynolds number written in absolute units instead of millions is wrong by a factor of a million and still RESOLVES: it produces a density, emits, solves and reports.
+    \item State \textbf{exactly one} of \code{MACH} or \code{TASmps}: neither is under-determined and both is a contradiction, and each is refused. \code{REmi} needs the row's \code{REF}, because a Reynolds number has no meaning without a length. The set is CLOSED, so an unknown key is refused rather than ignored.
+    \item Full grammar, every refusal and the migration: \code{docs/flight-conditions.md}.
+  \end{itemize}
+\end{frame}
+
 \begin{frame}[fragile]{Recipe 7 addendum: migrating a run matrix}
   \begin{itemize}
     \item Coming from spreadsheet-driven run matrices (the pipe-delimited layout with AL and BE sweep codes)? \textbf{First upgrade the file.} v0.9.0 removed the \code{RE} and \code{MACH} columns and replaced them with one mandatory \code{FLIGHT\_CONDITION} cell, so a matrix written under either older layout is recognised and refused rather than misread:

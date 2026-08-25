@@ -77,9 +77,21 @@ The resulting state has an implied pressure that is not any altitude's:
 `MACH:0.20, REmi:5.5` against a one-metre reference solves to about
 1.446 kg/m3 against a sea-level 1.225.
 
-That is the design, not a defect. For a panel method it is harmless --
-density scales forces, viscosity sets Reynolds, and nothing reads
-pressure. It stops being harmless the moment a consumer reads that state
+That is the design, not a defect. For a panel method it is expected to be
+harmless: density scales forces and viscosity sets Reynolds, and nothing
+in this package reads the pressure.
+
+**One thing to know before you read that as a guarantee.** The package
+does not read the pressure, but it does WRITE it. The emitted fluid state
+carries the pressure and temperature of the stated altitude beside the
+solved density, so on this branch the three are not a consistent triple:
+at the worked figures above, a density 18 percent above sea level is
+emitted next to a sea-level pressure. Whether the solver re-derives
+anything from that argument is a question about the solver, not about
+this package, and it is open: it is recorded for the domain-expert seat
+rather than answered here, because settling it needs a licensed run.
+
+It stops being harmless the moment a consumer reads that state
 as an altitude, which is why the run record carries **which branch**
 produced the density, in its `density_source` field, beside the resolved
 density, temperature and viscosity and the condition as written.
@@ -90,8 +102,14 @@ density, temperature and viscosity and the condition as written.
 dependency is not bookkeeping: the same `MACH:0.20, REmi:5.5` against a
 unit chord gives a density about 18 percent above sea level, and against
 a rotor's mean face length of about 0.15 m gives nearly eight times sea
-level, at an implied pressure near 794 kPa. The length is stated so the
-figure can be reproduced rather than taken. Same inputs, same resolver, a state that
+level, at an implied pressure near 797 kPa. The length is stated so the
+figure can be reproduced rather than taken.
+
+Read those two numbers carefully, because it is easy to combine them
+wrongly: 1.18 and 7.87 are each against SEA LEVEL. The ratio between the
+two states is neither, it is 1 divided by 0.15, near seven, because on
+this branch density is inversely proportional to the reference length
+and to nothing else. Same inputs, same resolver, a state that
 is ordinary or absurd depending on a number that comes from somewhere
 else entirely.
 

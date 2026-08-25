@@ -168,7 +168,11 @@ def _build_parser() -> argparse.ArgumentParser:
     # remedy was addressed to somebody else.
     upgrade = subparsers.add_parser(
         "upgrade",
-        help="convert a matrix written under an older layout to the current one",
+        help=(
+            "convert a matrix written under an older layout to the current one "
+            "(the file converts losslessly; the RESULTS move, see --help)"
+        ),
+        description=_UPGRADE_NOTICE,
     )
     upgrade.add_argument("matrix", help="path of the run matrix to upgrade")
     upgrade.add_argument(
@@ -281,6 +285,24 @@ def main(argv: list[str] | None = None) -> int:
     return _cmd_plan(args, recipes)
 
 
+#: Printed by `upgrade` on both routes, because this subcommand is the
+#: one point at which a user commits to the change, and a release review
+#: found it was the only surface in the release carrying no warning: the
+#: results-will-move paragraph was in the changelog, the docs page and
+#: the guide, and in front of nobody who runs the command. This
+#: subcommand exists precisely BECAUSE the previous migration path was a
+#: Python call that a matrix user does not write, so it cannot assume
+#: that user read any of the three.
+_UPGRADE_NOTICE = (
+    "The file is converted; your RESULTS are not preserved. Under v0.8.x the "
+    "RE column was recorded metadata that reached no emitted line. From "
+    "v0.9.0 REmi is a CONSTRAINT that solves for density, so every upgraded "
+    "row emits an explicit fluid state it never emitted before and its "
+    "numbers will differ. To keep the previous behaviour, state the condition "
+    "without REmi. See docs/flight-conditions.md."
+)
+
+
 def _cmd_upgrade(args: argparse.Namespace) -> int:
     """Bring a matrix at an older layout up to the current one."""
     try:
@@ -290,6 +312,10 @@ def _cmd_upgrade(args: argparse.Namespace) -> int:
         return 2
     if args.in_place:
         print(f"upgraded {args.matrix}", file=sys.stderr)
+    # On stderr on BOTH routes, so it never contaminates the bytes the
+    # stdout route exists to hand back cleanly for a diff.
+    print(_UPGRADE_NOTICE, file=sys.stderr)
+    if args.in_place:
         return 0
     sys.stdout.buffer.write(upgraded)
     return 0

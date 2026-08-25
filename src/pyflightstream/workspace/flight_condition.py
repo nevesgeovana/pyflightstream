@@ -52,9 +52,21 @@ the design rather than a defect. Holding Mach and Reynolds together at a
 fixed temperature is what a wind tunnel does and what a validation case
 needs. With ``MACH:0.20, REmi:5.5`` against a one-metre reference the
 solved density is about 1.446 kg/m3 against a sea-level 1.225, so the
-IMPLIED pressure is not sea level's. For a panel method that is
-harmless: density scales forces, viscosity sets Reynolds, and nothing
-reads pressure. It stops being harmless the moment a consumer reads that
+IMPLIED pressure is not sea level's. For a panel method that is expected
+to be harmless: density scales forces, viscosity sets Reynolds, and
+nothing in this package reads the pressure.
+
+BUT THE PACKAGE WRITES IT, and that is worth stating beside the claim
+rather than leaving the claim to be read as a guarantee.
+``pressure_pa`` below carries the ATMOSPHERE's pressure on both
+branches, so on the solved branch the emitted fluid state carries a
+solved density beside an unsolved pressure and temperature: the three
+are not a consistent triple. Whether the solver re-derives anything from
+that argument is a question about the solver rather than about this
+package, and it is open, recorded for the domain-expert seat because
+settling it needs a licensed run.
+
+It stops being harmless the moment a consumer reads that
 state as an altitude, which is why :attr:`ResolvedCondition.density_source`
 exists, and why the run record carries both it and the inputs as
 written, in ``density_source`` and ``flight_condition``.
@@ -63,8 +75,12 @@ WHY A REYNOLDS CONSTRAINT NEEDS THE REFERENCE (PFS-2027.04). A Reynolds
 number is meaningless without a length, and the dependency is not
 academic: the same ``MACH:0.20, REmi:5.5`` against a unit chord gives a
 density about 18 percent above sea level, and against a rotor's mean
-face length gives nearly eight times sea level, at an implied pressure
-near 794 kPa. Same inputs, same resolver, a state that is ordinary or
+face length of about 0.15 m gives nearly eight times sea level, at an
+implied pressure near 797 kPa. Both figures are computed at sea level
+from the constants in ``_atmosphere``; the ratio BETWEEN those two
+states is neither of those numbers, it is the ratio of the two lengths,
+because on this branch density is inversely proportional to the length
+and to nothing else. Same inputs, same resolver, a state that is ordinary or
 absurd depending on a number that comes from somewhere else entirely. So
 a condition carrying ``REmi`` on a row carrying no reference is REFUSED
 naming both, the length actually used is recorded beside the resolved
@@ -75,7 +91,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from pyflightstream._atmosphere import ISA, feet_to_metres, isa
+from pyflightstream._atmosphere import (
+    ISA,
+    METRES_PER_FOOT,
+    AtmosphereError,
+    feet_to_metres,
+    isa,
+)
 from pyflightstream._errors import PyflightstreamError
 
 #: The keys that fix velocity. Exactly one is required, always.
@@ -161,8 +183,17 @@ def resolve_flight_condition(
     Raises
     ------
     FlightConditionError
-        The set is under-determined, over-determined, or states a
-        Reynolds number with no reference length to measure it against.
+        The set is under-determined, over-determined, states nothing at
+        all, or states a Reynolds number with no reference length to
+        measure it against.
+    AtmosphereError
+        The set is well formed and the atmosphere has no answer for it:
+        an ``ALTFT`` outside the modelled range, or a ``dISA`` driving
+        the temperature to or below absolute zero. Named here because a
+        caller writing ``except FlightConditionError`` from this
+        docstring alone would not catch a refusal the documentation
+        elsewhere tells them to expect; ``except PyflightstreamError``
+        catches both.
 
     Examples
     --------
@@ -217,7 +248,39 @@ def resolve_flight_condition(
 
     altitude_ft = stated.get("ALTFT", 0.0)
     delta_isa_c = stated.get("dISA", 0.0)
-    atmosphere = isa(feet_to_metres(altitude_ft), delta_isa_c=delta_isa_c)
+    # The floor speaks metres, because the model is defined in metres,
+    # and the user wrote feet. Re-raise here rather than letting the
+    # floor's message reach a matrix user unchanged: this is the layer
+    # that still knows the POL and the unit the cell was written in, and
+    # a release whose whole premise is that a unit must not be lost
+    # cannot answer an ALTFT in metres and name no cell.
+    altitude_m = feet_to_metres(altitude_ft)
+    if not ISA.floor_altitude_m <= altitude_m <= ISA.ceiling_altitude_m:
+        # Answered in FEET, because feet is what the cell says. The range
+        # is stated in both units so the reader can check the conversion
+        # rather than take it.
+        raise AtmosphereError(
+            f"the flight condition of POL {pol} states ALTFT:{altitude_ft:g}, "
+            "which is outside the range this atmosphere models: about "
+            f"{ISA.floor_altitude_m / METRES_PER_FOOT:.0f} ft to "
+            f"{ISA.ceiling_altitude_m / METRES_PER_FOOT:.0f} ft "
+            f"({ISA.floor_altitude_m:g} m to {ISA.ceiling_altitude_m:g} m). "
+            "ISO 2533 continues above that ceiling with layers this package "
+            "does not implement, and extrapolating past it would be wrong in a "
+            "way you could not see."
+        )
+    try:
+        atmosphere = isa(altitude_m, delta_isa_c=delta_isa_c)
+    except AtmosphereError as refused:
+        # Anything else the atmosphere refuses, most reachably a dISA
+        # that drives the temperature to absolute zero. Named with the
+        # cell that caused it and NOT with the altitude range, which is
+        # not the cause here.
+        raise AtmosphereError(
+            f"the flight condition of POL {pol} states ALTFT:{altitude_ft:g} "
+            f"with dISA:{delta_isa_c:g}, which the atmosphere refuses. "
+            f"{refused}"
+        ) from refused
 
     if "MACH" in stated:
         velocity = stated["MACH"] * atmosphere.sonic_velocity_m_per_s
@@ -235,9 +298,11 @@ def resolve_flight_condition(
                 "which lives in the reference artifact the row's REF cell names. "
                 "That row names no reference. Give it one, or state the condition "
                 "without a Reynolds number and let it be derived. The dependency is "
-                "not bookkeeping: the same Reynolds number against a unit chord and "
-                "against a rotor's mean face length gives densities that differ by "
-                "nearly a factor of eight."
+                "not bookkeeping: on this branch density is inversely proportional "
+                "to the length and to nothing else, so the same Reynolds number "
+                "against a unit chord and against a rotor's mean face length of "
+                "about 0.15 m gives densities differing by the ratio of the two "
+                "lengths, near a factor of seven."
             )
         reynolds = stated[DENSITY_KEY] * 1e6
         density = reynolds * atmosphere.viscosity_pa_s / (velocity * reference_length_m)

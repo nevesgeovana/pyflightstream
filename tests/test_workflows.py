@@ -2158,7 +2158,7 @@ def test_the_rotor_builder_emits_the_fluid_state_too():
     steady branch was covered. The rotor is the workflow whose own
     fixture was rewritten in this change to carry a flight condition,
     and rotor Reynolds is the case the reference-length coupling prices
-    at nearly a factor of eight, so it is the branch least safe to leave
+    at the ratio of the two lengths, so it is the branch least safe to leave
     untested.
     """
     from pyflightstream.cases.workflows import build_script
