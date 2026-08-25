@@ -104,18 +104,37 @@ Every one of these arrives **before** a script is emitted and before a
 solver exists, which is the whole point of stating a condition rather
 than typing numbers into columns.
 
-| You write | What happens |
-|---|---|
-| `KEAS:120` | refused, naming the key and listing the accepted set |
-| `MACH:fast` | refused, naming the key, the value and the unit expected |
-| `MACH:nan`, `REmi:inf` | refused: a flow condition cannot be a NaN or an infinity |
-| `MACH:0.2, MACH:0.35` | refused as a duplicate, rather than taking the last |
-| `ALTFT:10000` alone | refused as under-determined, naming which keys supply a velocity |
-| `MACH:0.20, TASmps:68.08` | refused as a contradiction: each fixes the velocity alone |
-| `MACH 0.2` (no colon) | refused: the cell holds `KEY:value` pairs |
-| `MACH:0.20,,REmi:5.5` | refused: an empty entry between commas is a typo, not a constraint |
-| `ALTFT:70000` | refused naming the altitude range the model covers |
-| an empty cell | refused: the cell is mandatory, exactly as `RE` and `MACH` were |
+| You write | What happens | Exception |
+|---|---|---|
+| `KEAS:120` | refused, naming the key and listing the accepted set | `MatrixError` |
+| `MACH:fast` | refused, naming the key, the value and the unit expected | `MatrixError` |
+| `MACH:nan`, `REmi:inf` | refused: a flow condition cannot be a NaN or an infinity | `MatrixError` |
+| `MACH:0.2, MACH:0.35` | refused as a duplicate, rather than taking the last | `MatrixError` |
+| `MACH 0.2` (no colon) | refused: the cell holds `KEY:value` pairs | `MatrixError` |
+| `MACH:0.20,,REmi:5.5` | refused: an empty entry between commas is a typo, not a constraint | `MatrixError` |
+| an empty cell | refused: the cell is mandatory, exactly as `RE` and `MACH` were | `MatrixError` |
+| `ALTFT:10000` alone | refused as under-determined, naming which keys supply a velocity | `FlightConditionError` |
+| `MACH:0.20, TASmps:68.08` | refused as a contradiction: each fixes the velocity alone | `FlightConditionError` |
+| `ALTFT:70000` | refused naming the altitude range the model covers | `AtmosphereError` |
+
+### Which exception, and why there are three
+
+The table is ordered by the three, because the boundary between them is the
+thing worth knowing before you write an `except` clause:
+
+* **`MatrixError`** means **the cell is malformed.** The defect is in the file,
+  and no flight condition was ever constructed to complain about. Every parse
+  refusal above is this one.
+* **`FlightConditionError`** means **the cell parsed and the state cannot be
+  resolved**: no velocity, two velocities, a Reynolds number on a row with no
+  reference length, or a condition that states nothing at all.
+* **`AtmosphereError`** means **the cell is fine, the state is determined, and
+  the physics does not reach there**: an altitude outside the model's range, or
+  a temperature at or below absolute zero.
+
+All three descend from the package's base exception, so `except
+PyflightstreamError` catches every one of them and is the right clause if you
+do not need to tell them apart.
 
 `REmi` also cannot be resolved without the reference length the row's
 `REF` names, and the resolver refuses naming both if it ever lacks one.

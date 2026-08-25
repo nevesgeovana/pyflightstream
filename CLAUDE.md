@@ -60,12 +60,20 @@ restated. **The mechanisms did not stop existing; they stopped existing HERE.**
 They live at the Geoverse control plane, one level up, which is where every
 session that touches this repository already starts.
 
-Measured on 2026-08-24, by testing every path this file names against the
-filesystem: it names 39, of which 32 are absent, and **29 of those absences are
-a claim about this tree** rather than an illustration. Three of the absent are
-placeholders and not claims: `check_foo.py`, which the execution-guard section
-uses as an example of a false positive, and the two `STATUS.md` spellings the
-session protocol uses to show the hazard it is warning about.
+Measured on 2026-08-24, and the RULE is stated because three bare numbers decay
+on the first edit and nobody can tell: count the distinct backtick-quoted tokens
+in this file that end in a file extension, count a repeat once, exclude bare
+directories, and test each against the filesystem. By that rule the file names
+39, of which 32 are absent, and **29 of those absences are a claim about this
+tree** rather than an illustration. Three of the absent are placeholders and not
+claims: `check_foo.py`, which the execution-guard section uses as an example of
+a false positive, and the two `STATUS.md` spellings the session protocol uses to
+show the hazard it is warning about.
+
+**The numbers are not guarded**, and this file has no test that would notice
+them going stale. Treat the three figures as a dated measurement, which is what
+they are, and the six names below as the part that matters and does not depend
+on any of them.
 
 Six of the 29 are named below as tier-1 tests that ENFORCE something, and a
 named guard that does not exist is the worst line in any document, because it
@@ -90,18 +98,41 @@ forbidden-identifier scan and the spawn-environment scan, both under `tools/`
 with their mutation companions, run by `tests/test_repository_guards.py`; the
 clean-room commit-msg check at `scripts/check_clean_room_trailer.py`;
 `tests/test_house_style.py`; and the currency, metadata, traceability and
-release-readiness tests, all of which pass. Those are the PRODUCT's guards,
-which is why they stayed.
+release-readiness tests. Those are the PRODUCT's guards, which is why they
+stayed.
+
+They passed on 2026-08-24 at `12a860e`, and the counts are given so the claim
+is falsifiable rather than a guarantee word: the eleven modules named in this
+paragraph and beside it ran 132 passed, 4 skipped, exit status read from the
+process. The whole tier ran 2932 passed, 4 skipped, 1 xfailed on the same
+reference.
 
 **The push gate, the execution guard and the attestation writer still apply to
 work done here.** They are hooks on the control plane's tool surface, not tests
 in this tree, so they fire on a session's commands rather than in this
-repository's pipeline. Read them at
-`C:/GeoverseGoddess/.claude/hooks/`; the four environment variables described
-near the end of this file are read there too, not here. Three of them
-(`PYFS_PLAN_CHECKER`, `COORD_SHARED_LEDGER_TREE`, `KIT_BUDGET_ISOLATED`) are
-read by nothing anywhere in this repository, and `PYFS_SESSION_ROOT` by one
-test that only checks that no committed file hardcodes a migrated path.
+repository's pipeline. Read them at `C:/GeoverseGoddess/.claude/hooks/`.
+
+**The four environment variables** the machine-configuration section below
+describes are read there rather than here, and each is named individually
+because a summary that drops one of them is how a clone exports three:
+
+- `COORD_INCIDENT_LEDGER` **is still the one that matters on a fresh clone.**
+  Nothing in this repository reads it, but the control plane's push gate does,
+  and that gate treats unset exactly as it treats unreadable: it denies. Export
+  it before the first command, which is what the section below already says and
+  is the sentence in it that has lost none of its force.
+- `PYFS_SESSION_ROOT` is read by **nothing at all**, exactly as the section
+  below already records in its own words. One test names it inside an assertion
+  message; naming is not reading.
+- `PYFS_PLAN_CHECKER` and `COORD_SHARED_LEDGER_TREE` point at the plan
+  validator and the snapshot tool, both of which left. Read by nothing, here or
+  at the control plane.
+
+`KIT_BUDGET_ISOLATED` is the sixth name the section below is careful to say is
+**not** one of the four and not a variable a clone sets. It was read by a
+vendored tool that has left, so it is now read by nothing either; it is
+mentioned here only so that its absence from the list of four is deliberate
+rather than an omission.
 
 **And the local git hooks were never installed on this clone until
 2026-08-24.** `.pre-commit-config.yaml` declares eleven, `ruff-format` among
@@ -141,7 +172,10 @@ product owner, domain expert, numerical analyst (seat definitions in
 
 Side-effecting skills: EVERY skill declares what it changes in the world,
 in a `side-effects:` frontmatter field. `none` is a valid answer and the
-common case; silence is what is refused. The vendored kit guard
+common case; silence is what is refused. **2026-08-24: this repository has
+no skills left to declare anything, and neither the guard nor the test
+named in the next two paragraphs exists here. The rule still binds the
+skills, at the control plane, where they now live.** The vendored kit guard
 `check_side_effect_guard.py` (tier 1, over `.claude/skills`) enforces
 that, and it cannot infer that a declaration is TRUTHFUL or that a skill
 claiming `none` really has none, so both writing the field and judging it
@@ -217,6 +251,11 @@ the harness timeout that bounds it lives in `.claude/settings.json`
 that order: a hook the harness kills emits NO decision, and no decision
 is read as permission. `tests/test_push_gate.py` pins the ordering,
 because the kit cannot assert a number this repository owns.
+**2026-08-24: it does not, because it is gone, and so is the
+`.claude/settings.json` that held the 90. Both numbers now live at the
+control plane and NOTHING IN THIS REPOSITORY PINS THEIR ORDER. The
+hazard the paragraph describes is unchanged and is now unguarded here.
+See the correction near the top of this file.**
 
 A REPOSITORY-OWNED BRIDGE HOOK held this rule from 2026-08-10 to
 2026-08-11 and is GONE. `.claude/hooks/ci_release_gate.py`, its wiring,
@@ -231,6 +270,15 @@ reading a handoff or a commit from that one day will find a hook this
 file no longer mentions.
 
 ## The vendored process kit
+
+**2026-08-24: THIS WHOLE SECTION IS HISTORY.** There is no vendored kit in this
+repository, no `tests/test_kit_drift.py` to hold it byte-exact, no
+`tests/test_kit_checkers.py` recording why each row is wired or not, and none
+of the checkers it discusses. Every present-tense sentence below, including the
+instruction not to keep a second list anywhere, describes an arrangement that
+ended on 2026-08-23. It is kept because the DECISIONS in it are still the
+author's and still explain why this repository's release workflow has the shape
+it has. See the correction near the top of this file.
 
 The coordination level owns a shared process kit and each library carries
 a DERIVED copy of every artifact it takes, stamped with the kit version
@@ -484,6 +532,9 @@ too, so the old name has no consumer left anywhere in this repository
 and was removed rather than left as configuration nobody reads. Both
 halves are mechanical: `tests/test_env_contract.py` fails on a variable
 used but undocumented AND on one documented but read by nothing.
+**2026-08-24: that test is gone, so neither half is mechanical here any
+more, and by its own rule three of these four variables would now fail
+it. See the correction near the top of this file.**
 The rule in the first sentence is enforced
 since 2026-07-28 by `tests/test_house_style.py`, which fails on an email
 address or a user-profile path in any tracked file; it was prose until a
@@ -597,6 +648,9 @@ vendored tool published both on the public remote:
   THE SKIP IS REAL AND SO IS ITS STATUS, since the 0.2.25 body was
   promoted and vendored on 2026-08-20 (OPS-2013.03). Both halves are
   measured rather than described.
+  **2026-08-24: they WERE measured, and by a test that has left. The
+  script it measured has left too, so this paragraph is history rather
+  than a live assurance. See the correction near the top of this file.**
   `tests/test_snap_skip_status.py` (tier 1, 2026-08-18) runs
   the vendored script against a sandboxed copy whose two literal trees
   point into a temporary directory, in a child environment with this
@@ -676,6 +730,15 @@ a DIFFERENT repository. Loud-and-contingent beats silent-and-wrong.
 
 Summary of the four, because the unset and unreadable columns differ
 per variable and the difference is the trap:
+
+**2026-08-24: THE "Enforced by" COLUMN IS THE STALEST THING IN THIS FILE.**
+Every test it names in that column is gone, and a column with that heading is
+an assurance, so it is marked here at the place a reader lands rather than only
+four hundred lines above. The BEHAVIOUR columns are still right: unset
+`COORD_INCIDENT_LEDGER` really does deny every push, because the gate that
+denies now lives at the control plane. What is wrong is the last column's claim
+that anything in THIS repository checks it. Read
+"the process tooling left on 2026-08-23" near the top of this file.
 
 | Variable | Unset | Set but unreadable | Enforced by |
 |---|---|---|---|

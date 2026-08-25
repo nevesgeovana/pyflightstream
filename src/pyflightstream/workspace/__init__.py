@@ -427,6 +427,28 @@ class RunRecord(BaseModel):
         (for example ``"raw/loads.txt"``).
     error : str, optional
         Error text for failed points.
+    flight_condition : dict of str to float
+        The flight condition AS WRITTEN in the row, canonical key to
+        value, in the units the key names (``MACH`` dimensionless,
+        ``TASmps`` m/s, ``REmi`` millions, ``ALTFT`` ft, ``dISA``
+        Celsius as a delta). Empty when the case stated none.
+    density_kg_m3 : float, optional
+        Resolved density in kg/m3. ``None`` when no condition resolved.
+    temperature_k : float, optional
+        Resolved static temperature in K, including any ISA deviation.
+    viscosity_pa_s : float, optional
+        Resolved dynamic viscosity in Pa s, from Sutherland's law at
+        ``temperature_k``.
+    density_source : {"atmosphere", "solved-from-reynolds"}, optional
+        WHICH BRANCH produced ``density_kg_m3``. ``"atmosphere"`` is the
+        standard value at the stated altitude; ``"solved-from-reynolds"``
+        means the density was solved to meet a stated Reynolds number and
+        is deliberately not a point in any atmosphere. Read it before
+        reading the density as an altitude.
+    reference_length_m : float, optional
+        The reference length in m that the resolution used, which is
+        ``None`` unless a Reynolds number was stated. Recorded because
+        the resolved density cannot be checked without it.
     """
 
     model_config = ConfigDict(extra="forbid")

@@ -174,8 +174,10 @@ FlightStream versions.
     it is `None` before that, because a case records what was STATED and
     the resolver is what turns it into a state.
   - `exceptions.FlightConditionError`, raised when a cell PARSED and the
-    state it asks for cannot be resolved: no velocity or two velocities,
-    or a Reynolds number on a row with no reference length.
+    state it asks for cannot be resolved. Four cases, and the list is
+    complete rather than illustrative: a condition that states nothing at
+    all, no velocity, two velocities, and a Reynolds number on a row with
+    no reference length.
   - `exceptions.AtmosphereError`, raised when the cell is well-formed,
     the state is determined, and the atmosphere has no answer there: an
     altitude outside the model's range, or a temperature at or below
@@ -204,6 +206,15 @@ FlightStream versions.
   altitude. With it, and with the condition as written beside it, the
   resolution in the artifact that outlives the session can be recomputed
   rather than trusted.
+
+  **Mind the spelling: the same fact has two names.** On a `RunRecord` it
+  is `density_source`; on the `FluidState` above it is `source`. Reaching
+  for `case.fluid.density_source` raises `AttributeError` rather than
+  returning `None`, because `FluidState` forbids extras. Both take the
+  same two values, `"atmosphere"` and `"solved-from-reynolds"`. That the
+  two names have not converged is registered against the release review
+  as a naming decision the product owner owns, and it is written here so
+  a user meets it in prose rather than at run time.
 
 ### Fixed
 
