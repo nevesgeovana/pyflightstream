@@ -7,6 +7,8 @@ FlightStream versions.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-08-25
+
 ### Changed -- BREAKING, and it changes the run-matrix file format
 
 - **The `RE` and `MACH` columns are REMOVED. A row states its whole flow
@@ -6567,7 +6569,8 @@ the repository seeding and this tag (milestones M0 through M5).
 * 26.000: registered, no recorded evidence yet (honest empty column;
   backfill planned for v0.2+).
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.8.1...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.9.0
 [0.8.1]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.8.1
 [0.8.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.8.0
 [0.7.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.7.0
