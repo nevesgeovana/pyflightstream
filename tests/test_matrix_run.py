@@ -2780,3 +2780,71 @@ def test_the_run_record_carries_the_condition_and_the_resolved_state(tmp_path):
     assert case.fluid.density_kg_m3 == pytest.approx(condition.density_kg_m3)
     assert case.fluid.source == "solved-from-reynolds"
     assert case.flight_condition == {"MACH": 0.1441, "REmi": 4.38}
+
+
+def test_the_record_that_outlives_the_session_can_be_recomputed_from_itself(tmp_path):
+    """PFS-2027.05's acceptance clause, tested on the RECORD at last.
+
+    The previous test for this clause asserted that the six fields exist
+    on the model and that ``case.fluid`` carries the branch marker. Both
+    pass with the population deleted, because every one of the six is
+    declared with a default: a QA lens blanked the whole block at
+    ``run/__init__.py`` and the tier stayed green. Its own docstring had
+    already said why the case is the wrong object -- "neither of which is
+    the artifact that outlives the session" -- and then asserted on the
+    case anyway.
+
+    So this asserts the property the clause is actually about: a reader
+    holding ONLY the manifest can recompute the resolution rather than
+    trust it. The Reynolds definition is closed from the record's own
+    fields, which is a stronger check than any magic number, because it
+    fails if any single one of density, viscosity, velocity or the
+    reference length is wrong or missing, and it needs no fixture to
+    agree with.
+    """
+    workspace = make_library(
+        tmp_path, register_build=("26.120", real_executable(tmp_path).as_posix())
+    )
+    path = write_matrix(tmp_path / "recompute.fs", [SILENT_ROW, NAMED_ROW])
+    run_for_records(path, workspace)
+
+    manifest = workspace.read_manifest()
+    assert manifest, "nothing was recorded, so there is nothing to recompute from"
+
+    for record in manifest:
+        # The condition AS WRITTEN. Both fixture rows state RE 3.10 and
+        # MACH 0.0890 and are folded by the upgrade, so the cell that
+        # reached the reader is exactly these two keys.
+        assert record.flight_condition == {"MACH": 0.0890, "REmi": 3.10}, (
+            f"{record.run_id} does not carry the condition as written, so a reader "
+            "cannot tell what was asked for"
+        )
+        # WHICH BRANCH. The load-bearing field: these rows state a
+        # Reynolds number, so the density was solved and is deliberately
+        # not a point in any atmosphere.
+        assert record.density_source == "solved-from-reynolds", (
+            f"{record.run_id} records density_source={record.density_source!r}, so a "
+            "reader has no way to tell a wind-tunnel state from an altitude"
+        )
+        for field in ("density_kg_m3", "temperature_k", "viscosity_pa_s", "reference_length_m"):
+            assert getattr(record, field) is not None, (
+                f"{record.run_id} carries no {field}, so the resolution cannot be "
+                "recomputed from the record"
+            )
+
+        # THE RECOMPUTATION ITSELF. Re = rho V L / mu, closed from the
+        # record alone. Every field above has to be right for this to
+        # hold, and the stated Reynolds number is the independent side.
+        recomputed = (
+            record.density_kg_m3
+            * record.velocity_requested_m_s
+            * record.reference_length_m
+            / record.viscosity_pa_s
+        )
+        assert recomputed == pytest.approx(3.10e6, rel=1e-6), (
+            f"{record.run_id} does not close the Reynolds definition from its own "
+            f"fields: they give {recomputed:.6g} where the row stated 3.10 million"
+        )
+        # And the temperature is a real one rather than a zero that would
+        # read as a measurement.
+        assert 150.0 < record.temperature_k < 350.0
