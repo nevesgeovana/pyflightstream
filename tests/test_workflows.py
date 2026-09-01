@@ -2788,8 +2788,8 @@ def test_a_log_position_that_is_not_a_number_gets_the_right_reason(value, expect
 @pytest.mark.parametrize(
     "origin,expected",
     [
-        ("0,0", "three coordinates"),
-        ("0,0,0,0", "three coordinates"),
+        ("0,0", "comma separated"),
+        ("0,0,0,0", "comma separated"),
         ("x,0,0", "not three numbers"),
     ],
 )
@@ -2798,6 +2798,12 @@ def test_a_rotor_origin_that_is_not_three_numbers_is_refused(origin, expected):
 
     The finiteness check went in eight lines below these and neither was
     covered, so a didactic refusal a blocked author reads had no probe.
+
+    ASSERTED ON `comma separated` AND NOT ON `three coordinates`: the
+    latter occurs in TWO of this function's three refusals, so the count
+    cases passed against the finiteness branch's wording as well. That
+    is the round-two defect inside the round written to close it, and a
+    mutant swapping the two message bodies survived.
     """
     with pytest.raises(CampaignConfigError) as raised:
         build_script(

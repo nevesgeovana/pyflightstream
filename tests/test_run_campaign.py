@@ -3176,3 +3176,21 @@ def test_the_forced_iteration_refusal_does_not_tell_users_to_name_the_log(tmp_pa
         f"named; got {message!r}"
     )
     assert "name it to LoadsAssessor" not in message
+
+
+def test_the_auto_detected_log_is_recorded_under_the_name_it_was_found_by(tmp_path):
+    """The branch the reworded refusal calls the normal path, untested.
+
+    TWO THINGS THIS PINS THAT THE NAMED-FILE TEST CANNOT. It takes the
+    auto-detect route, where a mutant returning None for exactly that
+    route survived the whole suite. And the collected log is called
+    something no argument could have supplied, so an implementation
+    echoing the configured name back instead of the resolved file fails
+    here; with a fixture named `log.txt` and `log_file="log.txt"` the two
+    are indistinguishable.
+    """
+    sim_dir = make_raw(tmp_path, "loads_unsteady_26.120.txt")
+    make_raw(tmp_path, "log_residuals_26.120.txt", name="whatever_the_solver_wrote.txt")
+    assessment = LoadsAssessor()(None, None, sim_dir)
+    assert assessment.status is RunStatus.CONVERGED
+    assert assessment.log_file_used == "whatever_the_solver_wrote.txt"
