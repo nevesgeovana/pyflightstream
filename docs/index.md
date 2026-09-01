@@ -3,8 +3,14 @@
 Version-aware, didactic Python driver for the FlightStream panel-method
 solver. MIT licensed.
 
-Status: v0.9.0 is the current release; the changelog records what each
-release adds and what each one asks you to do.
+Status: v0.10.0 is the current release; the changelog records what
+each release adds and what each one asks you to do.
+
+**v0.10.0 asks nothing of a run matrix you already have.** Every key it
+adds is optional and every older form still resolves. It refuses one
+thing it used to drop: a solver preset stating a key this package cannot
+emit, which used to be warned about and dropped and is now refused
+naming the key.
 
 **v0.9.0 breaks the run-matrix file format**, and it is the one
 upgrade action that cannot be skipped: the `RE` and `MACH` columns are

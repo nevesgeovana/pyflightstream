@@ -11,8 +11,8 @@ license: MIT
 # because a development tree has no release date; it once stated the
 # v0.3.0 date beside version 0.4.0.dev0, so a citation generated from
 # that tree asserted a release date for an artifact that was never
-# released (REV010-015). This is a DEVELOPMENT tree: the version carries
-# .dev0 and NO date-released stands beside it, which is the pair the
+# released (REV010-015). This is a RELEASE tree: the version carries no
+# .dev0 and a date-released stands beside it, which is the pair the
 # guard in tests/test_metadata_currency.py enforces in both directions.
 # The release commit sets the two together the other way and this
 # sentence flips with them; it is written as a statement about the
@@ -30,7 +30,8 @@ license: MIT
 # it is always recorded one commit AFTER the tag it names. Older ones
 # stay, because those releases did happen and are still what a citation
 # of them should resolve to.
-version: 0.10.0.dev0
+version: 0.10.0
+date-released: 2026-09-01
 repository-code: "https://github.com/nevesgeovana/pyflightstream"
 identifiers:
   - type: doi

@@ -7,14 +7,22 @@
 Version-aware, didactic Python driver for the FlightStream panel-method
 solver. Successor of the author's legacy research scripts. MIT licensed.
 
-Status: v0.9.0 is the current release. It publishes to
+Status: v0.10.0 is the current release. It publishes to
 [PyPI](https://pypi.org/project/pyflightstream/) and archives on Zenodo
 from the tag, so the concept DOI in CITATION.cff resolves to the newest
 archived version and the version DOI is recorded one commit after the
 tag that names it. CHANGELOG.md carries the release history.
 
-**What changes for you, and what you must do.** If you have a run
-matrix, v0.9.0 changes its FILE FORMAT and you must convert it.
+**What changes for you, and what you must do.** v0.10.0 asks nothing
+of a run matrix you already have: every key it adds is optional and
+every form the older rows use still resolves. It asks one thing of a
+SOLVER PRESET, and only of a preset that states a key this package
+cannot emit: such a key used to be dropped with a warning and is now
+refused, naming the key and listing what applies.
+
+If you are coming from v0.8.x you still have the older job. If you have
+a run matrix written then, v0.9.0 changed its FILE FORMAT and you must
+convert it.
 The `RE` and `MACH` columns are gone, replaced by one mandatory
 `FLIGHT_CONDITION` cell. A file written under either older layout is
 recognised and refused rather than misread, so nothing runs silently

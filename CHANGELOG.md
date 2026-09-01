@@ -7,6 +7,8 @@ FlightStream versions.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-09-01
+
 ### Added -- a rotor row states the study's decisions, not their arithmetic
 
 - **`ADVANCE_RATIO` and `RPM_SIGN`.** A row states its rotor speed as
@@ -6741,7 +6743,8 @@ the repository seeding and this tag (milestones M0 through M5).
 * 26.000: registered, no recorded evidence yet (honest empty column;
   backfill planned for v0.2+).
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.10.0
 [0.9.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.9.0
 [0.8.1]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.8.1
 [0.8.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.8.0
