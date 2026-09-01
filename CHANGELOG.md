@@ -7,6 +7,106 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added -- a rotor row states the study's decisions, not their arithmetic
+
+- **`ADVANCE_RATIO` and `RPM_SIGN`.** A row states its rotor speed as
+  the advance ratio the study was designed at, and the rev/min are
+  resolved as `n = V / (J D)` against the run's own velocity and the
+  reference propeller diameter. `RPM` stays; a row states exactly one of
+  the two, and stating both is refused.
+
+  A ratio is a magnitude, so `RPM_SIGN` (`1` or `-1`, default `1`)
+  carries the hand of the rotation. It is refused beside an explicit
+  `RPM`, which carries its sign in the number itself.
+
+  **Why the derived form is the better one to keep in a file.** Rev/min
+  are what a ratio works out to at ONE velocity. A matrix stating them
+  pins the rotor to that velocity silently: change the flight condition
+  and the row keeps a speed that no longer means the ratio it was chosen
+  for, and nothing says so.
+
+- **`DELTA_THETA` and `REVOLUTIONS`,** the azimuthal step in degrees and
+  the length of the run in whole turns, from which the clock follows:
+  `DELTA_TIME = theta / (6 rpm)` and
+  `TIME_ITERATIONS = REVOLUTIONS * 360 / DELTA_THETA`. `DELTA_TIME` and
+  `TIME_ITERATIONS` stay for the matrices already written in them; a row
+  states one pair, and half a pair is refused naming the missing key.
+
+  Revolutions that do not work out to a WHOLE number of time steps are
+  refused naming both numbers, because such a run ends part way through
+  a step at an azimuth nobody chose.
+
+  Measured on the author's own campaign: rows carrying a hand-typed
+  `DELTA_TIME` of `0.00352` were carrying `0.0035222840` rounded to
+  three figures, so 54 steps covered 1.4990 revolutions and not the 1.5
+  the campaign documented.
+
+- **`propeller_diameter_m` on the reference artifact,** beside
+  `area_m2`, `chord_m` and `span_m` rather than inside the propeller
+  block, and carried onto the case as
+  `ReferenceData.propeller_diameter`. It is a divisor of published
+  numbers exactly like the area and the chord: it is what an advance
+  ratio is a ratio against and what the propeller coefficients
+  normalise on.
+
+- **`LOG_OUTPUT`,** the 1-based position of the solver log among the
+  row's own `OUTPUTS`. Both workflows then emit `EXPORT_LOG`, and
+  `LoadsAssessor` finds a collected log BY CONTENT, the same rule it
+  already finds the loads table by.
+
+  **This changes a published status.** An unsteady run used to be
+  recorded `COMPLETED_MAX_ITER` unconditionally, because the time loop
+  always reaches its prescribed end and the iteration counter therefore
+  judges nothing: a run that converged at every time step and one that
+  converged at none came out with the same word. With a log the verdict
+  is the residual. A campaign that exports no log is judged exactly as
+  it was.
+
+### Fixed -- a solver preset now reaches the script, or is refused
+
+- **A preset key that named no `SolverSettings` field was warned about
+  and DROPPED.** A preset asking for `SUBSONIC_PRANDTL_GLAUERT` ran
+  `INCOMPRESSIBLE`; one asking for a turbulent boundary layer ran the
+  solver's default; one setting `NITER` ran whatever the model's default
+  happened to be. Each is a run that converges, exports and publishes
+  numbers against a physics nobody selected. Measured on the author's
+  own campaign, honouring the preset moved `C_T` by 1.12 percent, which
+  is the Prandtl-Glauert factor at that Mach number.
+
+  An unknown key is now REFUSED, naming the key and listing what
+  applies, so a typo finds the field it meant.
+
+- **Twelve settings joined `SolverSettings`,** every one of which has an
+  emitter: `solver_model`, `wall_collision_avoidance`,
+  `convergence_iterations`, `minimum_cp`, `farfield_layers`,
+  `mesh_induced_wake_velocity`, `unsteady_pressure_and_kutta`,
+  `wake_on_wake_induction`, `additional_wake_relaxation`,
+  `reynolds_averaged_drag`, `solver_stabilization` and
+  `wake_termination_revolutions`. All optional and all defaulting to
+  None, so a campaign that states none emits exactly what it emitted
+  before.
+
+- **The solver's own key spellings are read as aliases,** not as junk:
+  `NITER`, `boundary_layer_type`, `max_parallel_threads`,
+  `set_solver_model`, `proximity_avoidance`, `solver_minimum_cp`,
+  `induced_wake_velocity`, `unsteady_pressure_kutta`,
+  `additional_wake_relaxation_iteration`,
+  `reynolds_averaged_drag_forces` and `unsteady_N_revolutions_wake`.
+  A preset transcribed from a working FlightStream session keeps working
+  as written.
+
+- **Ten keys are declared recorded-only, each with its reason,** and the
+  warning prints the reason. A preset may declare its own with a
+  `recorded_only` list, so a setting from a build this package has not
+  met is not a hard block. `stabilization` and `stabilization_strength`
+  resolve as a PAIR into `solver_stabilization`; disabled means absent
+  and not a strength of zero, which would still be switched on.
+
+  `symmetry_loads` is recorded-only deliberately although it has an
+  emitter: applying it multiplies or divides every published coefficient
+  of a periodic or mirrored case by the copy count, which is a decision
+  to make with a measurement in hand.
+
 ## [0.9.0] - 2026-08-25
 
 ### Changed -- BREAKING, and it changes the run-matrix file format

@@ -347,6 +347,13 @@ class ReferenceData(BaseModel):
         Reference velocity in m/s; None lets the recipe default it to
         the free-stream velocity (steady runs) or a characteristic
         velocity such as the rotor tip speed (SRC-003 p.201).
+    propeller_diameter : float, optional
+        Propeller diameter D in simulation length units, carried from
+        the reference artifact's ``propeller_diameter_m``. It is the
+        length an advance ratio is a ratio AGAINST: a row stating
+        ``ADVANCE_RATIO`` resolves its rotor speed as
+        ``n = V / (J D)``, so without this the ratio names no speed.
+        None for a configuration with no propeller.
     """
 
     # PYFS-016. A reference area or length of zero divides every
@@ -360,6 +367,7 @@ class ReferenceData(BaseModel):
     area: float = Field(gt=0.0)
     length: float = Field(gt=0.0)
     velocity: float | None = Field(default=None, gt=0.0)
+    propeller_diameter: float | None = Field(default=None, gt=0.0)
 
 
 def _resolve_settings_toggle(value: object) -> object:
@@ -410,6 +418,35 @@ class SolverSettings(BaseModel):
     timeout_s : float, optional
         Wall-clock limit for one point's solver process; enforced by
         the executor, not by FlightStream.
+    solver_model : str, optional
+        ``INCOMPRESSIBLE``, ``SUBSONIC_PRANDTL_GLAUERT``,
+        ``TRANSONIC_FIELD_PANEL``, ``TANGENT_CONE`` or
+        ``MODIFIED_NEWTONIAN``; an argument of ``INITIALIZE_SOLVER``.
+        None leaves the emitter's own default, which is
+        ``INCOMPRESSIBLE``.
+    wall_collision_avoidance : bool, optional
+        The other ``INITIALIZE_SOLVER`` argument a preset states.
+    convergence_iterations : int, optional
+        Iterations the residual must hold under the threshold before
+        the solver calls the run converged.
+    minimum_cp : float, optional
+        Floor applied to the pressure coefficient.
+    farfield_layers : int, optional
+        Farfield layer count.
+    mesh_induced_wake_velocity, unsteady_pressure_and_kutta,
+    wake_on_wake_induction, additional_wake_relaxation,
+    reynolds_averaged_drag : bool, optional
+        Advanced-settings toggles; the solver's own ENABLE and DISABLE
+        are read as well as Python booleans.
+    solver_stabilization : float, optional
+        Stabilization strength. A preset that gates it with a separate
+        ENABLE/DISABLE key resolves the pair before it arrives here:
+        disabled means None, not zero.
+    wake_termination_revolutions : float, optional
+        Wake termination stated in revolutions, negative counting
+        backwards from the end of the run. Converted to time steps by
+        the rotor builder, which is the only layer that knows how many
+        steps a revolution is.
 
     Notes
     -----
@@ -447,6 +484,40 @@ class SolverSettings(BaseModel):
     viscous_coupling: SolverToggle | None = None
     max_threads: int | None = Field(default=None, ge=1)
     timeout_s: float | None = Field(default=None, gt=0.0)
+
+    # --- the settings a preset carries and nothing used to read ------
+    #
+    # EVERY FIELD BELOW HAS AN EMITTER, and that is the rule this block
+    # is held to rather than a coincidence of the first version. Ten of
+    # them are keyword arguments of
+    # `pyflightstream.script.helpers.solver_settings` and two are
+    # arguments of `initialize_solver`; a setting a preset can state and
+    # no helper can emit does NOT get a field here, because a field
+    # whose value never reaches a script is a promise the file cannot
+    # keep. Those stay declared as recorded-only in the preset resolver,
+    # where the reason is written beside the key.
+    #
+    # They are all optional and all default to None, which is what keeps
+    # every campaign written before this release emitting exactly the
+    # lines it emitted before: a setting nobody states is a setting
+    # nobody emits, and the solver's own default stands.
+    solver_model: str | None = None
+    wall_collision_avoidance: SolverToggle | None = None
+    convergence_iterations: int | None = Field(default=None, ge=1)
+    minimum_cp: float | None = None
+    farfield_layers: int | None = Field(default=None, ge=1)
+    mesh_induced_wake_velocity: SolverToggle | None = None
+    unsteady_pressure_and_kutta: SolverToggle | None = None
+    wake_on_wake_induction: SolverToggle | None = None
+    additional_wake_relaxation: SolverToggle | None = None
+    reynolds_averaged_drag: SolverToggle | None = None
+    solver_stabilization: float | None = Field(default=None, ge=0.0)
+    #: Wake termination stated in REVOLUTIONS, which is the unit a rotor
+    #: preset writes it in, and negative counting backwards from the end
+    #: of the run. The emitter takes time STEPS, and the conversion needs
+    #: the steps per revolution, which only the case's own clock knows;
+    #: it is therefore done by the rotor builder and never here.
+    wake_termination_revolutions: float | None = None
 
 
 class FluidState(BaseModel):

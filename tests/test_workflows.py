@@ -45,6 +45,7 @@ import pytest
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.cases import (
     CampaignConfigError,
+    ReferenceData,
     SimCase,
     SolverSettings,
     SweepAxis,
@@ -54,9 +55,13 @@ from pyflightstream.cases import matrix as matrix_module
 from pyflightstream.cases import workflows as workflows_module
 from pyflightstream.cases.matrix import to_campaign
 from pyflightstream.cases.workflows import (
+    ADVANCE_RATIO_VARIABLE,
+    DELTA_THETA_VARIABLE,
     GEOMETRY_VARIABLE,
     PERIODIC_COPIES_VARIABLE,
+    REVOLUTIONS_VARIABLE,
     ROTOR_SHEDDING_VARIABLE,
+    RPM_SIGN_VARIABLE,
     SIMULATION_SUFFIX,
     SYMMETRY_VARIABLE,
     WORKFLOW_KEY,
@@ -74,6 +79,8 @@ from pyflightstream.cases.workflows import (
     resolve_workflow,
     rotor_relaxed_trailing_edges,
     rotor_shedding_direction,
+    rotor_speed,
+    rotor_time_stepping,
     select_workflow,
     workflow_names,
     workflow_registry,
@@ -2181,3 +2188,250 @@ def test_the_rotor_builder_emits_nothing_when_there_is_no_fluid_state():
     script = Script("26.123")
     build_script(rotor_case(), script)
     assert "FLUID_PROPERTIES" not in script.render().splitlines()
+
+
+# --- the rotor speed as a ratio, and the clock as an angle -------------------
+#
+# The two derivations that were inputs until this release. A propeller
+# study is designed in an advance ratio and an azimuthal step; the
+# rev/min and the seconds are what those work out to at the run's own
+# velocity, so the matrix now takes the decisions and derives the rest.
+
+
+def ratio_case(**overrides) -> SimCase:
+    """A rotor case stating its speed as a ratio, with a diameter to divide by."""
+    variables: dict[str, object] = {"RPM": None, ADVANCE_RATIO_VARIABLE: "1.7"}
+    variables.update(overrides)
+    case = rotor_case(**variables)
+    return case.model_copy(
+        update={
+            "reference": ReferenceData(area=50.0, length=2.526, propeller_diameter=3.6576),
+            "velocity": 49.036363674559425,
+        }
+    )
+
+
+def test_an_advance_ratio_resolves_the_rotor_speed_the_study_was_designed_at():
+    """J = V/(nD) inverted, against the campaign's own measured numbers.
+
+    The values are the SMIL2 B45 point: 49.0364 m/s through a 3.6576 m
+    diameter at J = 1.7 is 473.17 rev/min, which is the rotor speed that
+    campaign's proven runs used and typed by hand into every row.
+    """
+    speed = rotor_speed(ratio_case())
+    assert speed.stated_form == "advance_ratio"
+    assert speed.rpm == pytest.approx(473.17782, abs=5e-5)
+    assert speed.advance_ratio == 1.7
+    assert speed.diameter_m == 3.6576
+
+
+def test_an_explicit_rpm_is_carried_through_unconverted():
+    """The form that was the only one keeps working, verbatim."""
+    speed = rotor_speed(rotor_case())
+    assert speed.stated_form == "rpm"
+    assert speed.rpm == 1200.0
+    assert speed.advance_ratio is None and speed.diameter_m is None
+
+
+def test_the_sign_is_applied_to_a_derived_speed_and_never_invented():
+    """A ratio is a magnitude, so the hand of the rotation is its own key."""
+    assert rotor_speed(ratio_case()).rpm > 0.0
+    assert rotor_speed(ratio_case(**{RPM_SIGN_VARIABLE: "-1"})).rpm < 0.0
+    assert rotor_speed(ratio_case(**{RPM_SIGN_VARIABLE: "-1"})).rpm == pytest.approx(
+        -rotor_speed(ratio_case()).rpm
+    )
+
+
+def test_a_sign_beside_an_explicit_rpm_is_refused_as_a_second_opinion():
+    """A rev/min value carries its own sign; a second one can only disagree."""
+    with pytest.raises(CampaignConfigError) as raised:
+        rotor_speed(rotor_case(**{RPM_SIGN_VARIABLE: "-1"}))
+    message = str(raised.value)
+    assert RPM_SIGN_VARIABLE in message and "RPM" in message
+
+
+def test_a_ratio_with_no_diameter_on_the_reference_is_refused_naming_the_field():
+    """The refusal has to name the artifact field, or the author cannot act."""
+    case = ratio_case().model_copy(update={"reference": ReferenceData(area=50.0, length=2.526)})
+    with pytest.raises(CampaignConfigError) as raised:
+        rotor_speed(case)
+    message = str(raised.value)
+    assert "propeller_diameter_m" in message, (
+        f"the refusal must name the field to add to the reference artifact; got {message!r}"
+    )
+
+
+def test_stating_the_speed_in_both_forms_is_refused_naming_both():
+    """The rev/min are what the ratio works out to; a second form disagrees."""
+    with pytest.raises(CampaignConfigError) as raised:
+        rotor_speed(ratio_case(RPM="1200"))
+    message = str(raised.value)
+    assert ADVANCE_RATIO_VARIABLE in message and "1200" in message
+
+
+def test_stating_no_rotor_speed_at_all_is_refused_offering_both_forms():
+    """And the refusal names the two ways to close it."""
+    with pytest.raises(CampaignConfigError) as raised:
+        rotor_speed(rotor_case(RPM=None))
+    message = str(raised.value)
+    assert ADVANCE_RATIO_VARIABLE in message and "RPM" in message
+
+
+def test_the_azimuthal_step_and_the_revolutions_set_the_whole_clock():
+    """10 deg per step for 1.5 revolutions at 473.17 rev/min is 54 x 0.00352 s.
+
+    Those are the numbers the SMIL2 campaign typed into its rows as
+    constants; here they are the CONSEQUENCE of the two decisions
+    behind them.
+    """
+    stepping = rotor_time_stepping(
+        ratio_case(
+            DELTA_TIME=None,
+            TIME_ITERATIONS=None,
+            **{DELTA_THETA_VARIABLE: "10.0", REVOLUTIONS_VARIABLE: "1.5"},
+        )
+    )
+    assert stepping.stated_form == "angular"
+    assert stepping.time_iterations == 54
+    assert stepping.steps_per_revolution == pytest.approx(36.0)
+    # 10 / (6 * 473.1786) s, and the legacy row typed 0.00352, which is
+    # that value rounded to three figures. The rounding is the reason to
+    # derive rather than type: 54 steps of 0.00352 s cover 1.4990
+    # revolutions and not the 1.5 the campaign documented.
+    assert stepping.delta_time_s == pytest.approx(0.0035222840, abs=5e-10)
+    assert stepping.delta_time_s * stepping.time_iterations == pytest.approx(
+        1.5 * 60.0 / abs(stepping.rpm)
+    )
+
+
+def test_the_explicit_clock_is_carried_through_unconverted():
+    """The pair that was the only form keeps working, verbatim."""
+    stepping = rotor_time_stepping(rotor_case())
+    assert stepping.stated_form == "explicit"
+    assert stepping.delta_time_s == 1e-4
+    assert stepping.time_iterations == 720
+
+
+def test_revolutions_that_are_not_a_whole_number_of_steps_are_refused():
+    """A run ending part way through a step ends at an azimuth nobody chose."""
+    with pytest.raises(CampaignConfigError) as raised:
+        rotor_time_stepping(
+            ratio_case(
+                DELTA_TIME=None,
+                TIME_ITERATIONS=None,
+                **{DELTA_THETA_VARIABLE: "7.0", REVOLUTIONS_VARIABLE: "1.5"},
+            )
+        )
+    message = str(raised.value)
+    assert "7" in message and "1.5" in message, (
+        f"the refusal must print both numbers the author chose; got {message!r}"
+    )
+
+
+@pytest.mark.parametrize(
+    "stated,missing",
+    [
+        ({DELTA_THETA_VARIABLE: "10.0"}, REVOLUTIONS_VARIABLE),
+        ({REVOLUTIONS_VARIABLE: "1.5"}, DELTA_THETA_VARIABLE),
+    ],
+)
+def test_half_an_angular_clock_is_refused_naming_the_missing_key(stated, missing):
+    """Neither of the two implies the other, so half a pair is not a clock."""
+    with pytest.raises(CampaignConfigError) as raised:
+        rotor_time_stepping(ratio_case(DELTA_TIME=None, TIME_ITERATIONS=None, **stated))
+    assert missing in str(raised.value)
+
+
+def test_stating_the_clock_in_both_forms_is_refused_naming_both():
+    """The seconds are what the angle works out to; a second form disagrees."""
+    with pytest.raises(CampaignConfigError) as raised:
+        rotor_time_stepping(
+            ratio_case(**{DELTA_THETA_VARIABLE: "10.0", REVOLUTIONS_VARIABLE: "1.5"})
+        )
+    message = str(raised.value)
+    assert DELTA_THETA_VARIABLE in message and "DELTA_TIME" in message
+
+
+def test_the_builder_emits_the_derived_clock_and_the_derived_speed():
+    """End to end: a row stating only J and an azimuthal step renders a run."""
+    case = ratio_case(
+        DELTA_TIME=None,
+        TIME_ITERATIONS=None,
+        WINDOW_DEGREES=None,
+        **{
+            DELTA_THETA_VARIABLE: "10.0",
+            REVOLUTIONS_VARIABLE: "1.5",
+            "WINDOW_REVOLUTIONS": "1.0",
+        },
+    )
+    script = Script("26.123")
+    build_script(case, script, conventions=WorkflowConventions(outputs=("loads.txt",)))
+    lines = script.render().splitlines()
+    assert "TIME_ITERATIONS 54" in lines
+    assert any(line.startswith("DELTA_TIME 0.00352") for line in lines), (
+        f"expected the derived time step; got {[x for x in lines if 'DELTA_TIME' in x]}"
+    )
+    assert any(line.startswith("SET_MOTION_ROTOR_RPM 1 473.177") for line in lines), (
+        f"expected the derived rotor speed; got {[x for x in lines if 'RPM' in x]}"
+    )
+
+
+def test_a_row_written_in_the_derived_numbers_renders_what_it_always_rendered():
+    """The compatibility claim, asserted rather than promised."""
+    script = Script("26.123")
+    build_script(rotor_case(), script, conventions=WorkflowConventions(outputs=("loads.txt",)))
+    lines = script.render().splitlines()
+    assert "TIME_ITERATIONS 720" in lines
+    assert "DELTA_TIME 0.0001" in lines
+    assert "SET_MOTION_ROTOR_RPM 1 1200.0" in lines
+
+
+# --- the solver log, and the verdict it makes possible -----------------------
+
+
+def test_a_row_naming_no_log_exports_none():
+    """The compatibility half: every workflow script before this emitted none."""
+    script = Script("26.123")
+    build_script(rotor_case(), script, conventions=WorkflowConventions(outputs=("loads.txt",)))
+    assert "EXPORT_LOG" not in script.render()
+
+
+def test_the_named_output_is_the_one_exported_as_the_log():
+    """1-based, and it survives rendering because rendering preserves order."""
+    script = Script("26.123")
+    build_script(
+        rotor_case(LOG_OUTPUT="2"),
+        script,
+        conventions=WorkflowConventions(outputs=("loads_a+00.0.txt", "log_a+00.0.txt")),
+    )
+    lines = script.render().splitlines()
+    assert "EXPORT_LOG" in lines
+    assert lines[lines.index("EXPORT_LOG") + 1] == "log_a+00.0.txt", (
+        "the log must be the RENDERED name of the declared output, never a literal"
+    )
+
+
+def test_a_log_position_the_row_does_not_declare_is_refused_naming_both():
+    """The refusal has to print what the row declared, or it cannot be acted on."""
+    with pytest.raises(CampaignConfigError) as raised:
+        build_script(
+            rotor_case(LOG_OUTPUT="3"),
+            Script("26.123"),
+            conventions=WorkflowConventions(outputs=("loads.txt", "log.txt")),
+        )
+    message = str(raised.value)
+    assert "3" in message and "2" in message
+
+
+def test_a_log_named_by_file_name_is_refused_saying_why_a_name_cannot_work():
+    """The mistake that cost a pre-flight; the message has to prevent the retry."""
+    with pytest.raises(CampaignConfigError) as raised:
+        build_script(
+            rotor_case(LOG_OUTPUT="loads_{point}_log.txt"),
+            Script("26.123"),
+            conventions=WorkflowConventions(outputs=("loads.txt", "log.txt")),
+        )
+    message = str(raised.value)
+    assert "rendered" in message.lower(), (
+        f"the refusal must say WHY a name cannot be used here; got {message!r}"
+    )

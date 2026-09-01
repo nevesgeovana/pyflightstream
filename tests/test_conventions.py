@@ -126,6 +126,17 @@ _DIMENSIONLESS_OR_DEBT = {
     "area",  # campaign.toml key (ReferenceData), m2 in docs
     "length",  # campaign.toml key (ReferenceData), m in docs
     "velocity",  # campaign.toml key, m/s in docs
+    # Same model, same reason as its three neighbours: a campaign.toml
+    # key carrying simulation length units, stated in the docstring. It
+    # is spelled without a suffix so the four reference quantities read
+    # as one set rather than three of one kind and one of another.
+    "propeller_diameter",  # campaign.toml key (ReferenceData), m in docs
+    # SolverSettings, the preset-mapping block. Cp is dimensionless by
+    # definition, the stabilization strength is a dimensionless solver
+    # factor, and a wake termination in revolutions is a count of turns.
+    "minimum_cp",  # pressure coefficient floor, dimensionless
+    "solver_stabilization",  # stabilization strength, dimensionless
+    "wake_termination_revolutions",  # revolutions are counts
     "start",  # AxisSpec, frame units (m) stated in docstring
     "stop",  # AxisSpec, frame units (m) stated in docstring
     "spacing",  # AxisSpec, frame units (m) stated in docstring

@@ -683,6 +683,26 @@ class OutcomeAssessor(Protocol):
         ...
 
 
+def _reads_as_residual_history(path: Path) -> bool:
+    """Whether one collected file parses as a solver residual history.
+
+    The identification is by CONTENT and never by name, the same rule
+    the loads table is found under: a swept case names its outputs per
+    point, so no literal could name them all. False on anything that
+    does not parse, including a file this process cannot read, because
+    the caller's fallback is the judgment that existed before and never
+    an error about a file nobody asked it to read.
+    """
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return False
+    try:
+        return bool(parse_residual_history(text))
+    except (IncompleteOutputError, ValueError):
+        return False
+
+
 def _read_loads(path: Path, requested_version: str | FsVersion | None):
     """Parse one collected file as a loads table, or say why not."""
     try:
@@ -823,6 +843,7 @@ class LoadsAssessor:
                         "loads table"
                     ),
                 )
+            report_path = found[0]
             report, error = _read_loads(found[0], self.requested_version)
             if report is None:
                 return Assessment(
@@ -848,6 +869,7 @@ class LoadsAssessor:
                         "LoadsAssessor('<name>')"
                     ),
                 )
+            report_path = usable[0][0]
             report = usable[0][1]
         # REV010-001, the check whose absence let a converged result for one
         # flight condition be recorded as the evidence of another. The
@@ -920,6 +942,36 @@ class LoadsAssessor:
                 **stamp,
             )
         log_path = None
+        if self.log_file is None:
+            # AUTO-DETECTION BY CONTENT, on the same ground the loads
+            # table is found by content: a swept case names its outputs
+            # per point, so no literal could name them all, and a file
+            # collected from THIS run's folder that parses as a residual
+            # history is this run's solver log.
+            #
+            # WHAT THIS CHANGES, said plainly because it changes a
+            # published status. Until now an unsteady run was recorded
+            # COMPLETED_MAX_ITER unconditionally, since the time loop
+            # always reaches its prescribed end and the iteration
+            # counter therefore says nothing. That is a statement about
+            # this package's evidence and it reads as a statement about
+            # the solver: a run that converged at every time step and a
+            # run that never converged at any came out with the same
+            # word. A collected log settles it, and a run that exports
+            # one should not have to be asked twice for permission to
+            # use it. Nothing is auto-detected when no collected file
+            # parses as a history, so a campaign that exports no log is
+            # judged exactly as it was.
+            #
+            # Several candidates are NOT resolved by choosing: that
+            # would be a guess about which is the log of this point.
+            candidates = [
+                path
+                for path in collected
+                if path != report_path and _reads_as_residual_history(path)
+            ]
+            if len(candidates) == 1:
+                log_path = candidates[0]
         if self.log_file is not None:
             wanted_log = Path(self.log_file).name
             matches = [path for path in collected if path.name == wanted_log]

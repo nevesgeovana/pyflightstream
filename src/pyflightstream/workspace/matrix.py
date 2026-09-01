@@ -61,6 +61,7 @@ from pyflightstream.cases.matrix import (
     to_campaign,
 )
 from pyflightstream.cases.workflows import GEOMETRY_VARIABLE
+from pyflightstream.script.toggles import resolve_toggle
 from pyflightstream.workspace import (
     CampaignWorkspace,
     GroupsArtifact,
@@ -639,22 +640,200 @@ def _resolve_geometry(workspace: CampaignWorkspace, artifact_id: str, pol: str) 
         ) from error
 
 
-def _solver_from_setup(setup: SetupArtifact, set_code: str) -> SolverSettings:
-    """Map the runtime subset of one preset onto the case solver settings.
+#: Preset spellings that name a :class:`SolverSettings` field under a
+#: different word, and the field they name.
+#:
+#: These are the SOLVER's own key names, which is what a preset
+#: transcribed from a working FlightStream session carries. The library
+#: field names follow the emitter's keyword arguments instead, so the
+#: two vocabularies genuinely differ and neither is the wrong one. The
+#: alias table is where they meet, and it is a table rather than a
+#: rename so the file a user already has keeps working.
+_PRESET_ALIASES = {
+    "NITER": "iterations",
+    "boundary_layer_type": "boundary_layer",
+    "max_parallel_threads": "max_threads",
+    "set_solver_model": "solver_model",
+    "proximity_avoidance": "wall_collision_avoidance",
+    "solver_minimum_cp": "minimum_cp",
+    "induced_wake_velocity": "mesh_induced_wake_velocity",
+    "unsteady_pressure_kutta": "unsteady_pressure_and_kutta",
+    "additional_wake_relaxation_iteration": "additional_wake_relaxation",
+    "reynolds_averaged_drag_forces": "reynolds_averaged_drag",
+    "unsteady_N_revolutions_wake": "wake_termination_revolutions",
+}
 
-    Preset keys that name :class:`~pyflightstream.cases.SolverSettings`
-    fields apply; the remaining keys stay verbatim in the artifact (a
-    warning lists them), awaiting the formal solver-setup model that
-    will consume the full table.
+#: Preset keys that are RECORDED and deliberately emit nothing, each
+#: with the reason, which is printed when a reader asks why.
+#:
+#: This set is the difference between "we read your file" and "we read
+#: the part of your file we happened to have a field for". A key here
+#: is a decision; a key in neither this set nor the alias table nor the
+#: model is a REFUSAL, because silently dropping a solver setting is how
+#: a run answers a question nobody asked.
+_PRESET_RECORDED_ONLY = {
+    "solver": (
+        "the run TYPE, which the matrix WORKFLOW column names: a preset shared by "
+        "several rows cannot decide whether one of them is steady"
+    ),
+    "motion": ("the motion type, which the workflow creates from the row's own rotor keys"),
+    "mesh_order_list": (
+        "boundary ORDER of one mesh, which is a property of the geometry a row opens "
+        "and not of a preset several geometries share"
+    ),
+    "symmetry_type": (
+        "symmetry describes what was MESHED, so it belongs to the row's geometry and "
+        "is stated in the row's SYMMETRY key; a preset value would silently overrule "
+        "the mesh it knows nothing about"
+    ),
+    "symmetry_loads": (
+        "whether the reported loads are the modelled slice's or the whole body's. It "
+        "has an emitter (SET_ANALYSIS_SYMMETRY_LOADS) and is still recorded-only, "
+        "deliberately: applying it would multiply or divide every published "
+        "coefficient of a periodic or mirrored case by the copy count, so it is a "
+        "decision to make with a measurement in hand rather than a key to honour "
+        "silently"
+    ),
+    "unsteady_delta_theta_deg": (
+        "superseded by the row's DELTA_THETA, which is where the azimuthal step is "
+        "stated now that the clock is derived from it"
+    ),
+    "unsteady_N_revolutions": ("superseded by the row's REVOLUTIONS, for the same reason"),
+    "set_base_region_trailing_edges": (
+        "a separation model that selects boundaries, and a preset carries no boundary "
+        "selection; state it in a recipe"
+    ),
+    "significant_digits": "no emitter in this package",
+    "slipstream_wake_stabilization": "no emitter in this package",
+    "wake_layers": "no emitter in this package",
+}
+
+#: Reserved preset key by which a FILE declares its own recorded-only
+#: keys, as a list of names.
+#:
+#: The library table above covers the keys the library knows about, and
+#: it cannot cover a setting from a solver build or a workflow nobody
+#: here has seen. Without this, such a key would be refused with no way
+#: forward except editing the library, so the decision is handed to the
+#: person who wrote the file: name the key here and it is kept, emits
+#: nothing, and says so. What it is NOT is a way to be quiet about it:
+#: a declared key still warns on every resolve, because the whole point
+#: is that the author knows their setting is not reaching the solver.
+_PRESET_RECORDED_ONLY_KEY = "recorded_only"
+
+
+def _resolve_stabilization(settings: Mapping[str, object], set_code: str) -> float | None:
+    """Resolve the two-key stabilization pair into one strength, or None.
+
+    A preset gates the strength with its own ENABLE/DISABLE key, and the
+    emitter takes a single number. Disabled therefore means ABSENT and
+    not zero: zero is a stabilization of zero strength that is still
+    switched on, and emitting it would be a different run from the one
+    the file describes.
     """
+    if "stabilization" not in settings and "stabilization_strength" not in settings:
+        return None
+    gate = settings.get("stabilization")
+    enabled = True if gate is None else resolve_toggle(gate, context="stabilization")
+    if not enabled:
+        return None
+    strength = settings.get("stabilization_strength")
+    if strength is None:
+        raise InputArtifactError(
+            f"setup preset {set_code!r} enables stabilization and states no "
+            "stabilization_strength, so there is no number to emit. Add the strength, "
+            "or disable it."
+        )
+    return float(strength)
+
+
+def _solver_from_setup(setup: SetupArtifact, set_code: str) -> SolverSettings:
+    """Map one preset onto the case solver settings, refusing what it cannot.
+
+    Three outcomes per key, and the third is the change. A key that
+    names a :class:`~pyflightstream.cases.SolverSettings` field, or an
+    alias of one, APPLIES. A key declared recorded-only is kept in the
+    artifact and emits nothing, on the stated ground written beside it.
+    Anything else is REFUSED, naming the key and what is available.
+
+    UNTIL THIS RELEASE THE THIRD CASE WAS A WARNING AND A SILENT DROP,
+    and that is the defect this closes. A preset asking for
+    ``SUBSONIC_PRANDTL_GLAUERT`` ran INCOMPRESSIBLE, a preset asking for
+    a turbulent boundary layer ran the solver's default, and a preset
+    setting NITER ran whatever the model's default happened to be. Each
+    of those is a run that converges, exports and publishes numbers
+    against a physics nobody selected. A refusal costs an edit; a silent
+    drop costs a result.
+    """
+    settings = dict(setup.settings)
+    declared = settings.pop(_PRESET_RECORDED_ONLY_KEY, None)
+    if declared is None:
+        declared_names: set[str] = set()
+    elif isinstance(declared, (list, tuple)) and all(isinstance(name, str) for name in declared):
+        declared_names = {str(name) for name in declared}
+    else:
+        raise InputArtifactError(
+            f"setup preset {set_code!r} states {_PRESET_RECORDED_ONLY_KEY} as "
+            f"{declared!r}, and it is a list of key NAMES, for example "
+            f"{_PRESET_RECORDED_ONLY_KEY} = ['my_setting']."
+        )
+    # THE PAIR IS CONSUMED BEFORE THE LOOP, so neither half reaches the
+    # recorded-only report. An earlier version left them in it, and the
+    # warning then told an author that a stabilization they had switched
+    # ON emitted nothing, while the strength was in fact reaching the
+    # script. A message that names the wrong outcome is worse than none.
+    stabilization = _resolve_stabilization(settings, set_code)
+    gated = "stabilization" in settings or "stabilization_strength" in settings
+    settings.pop("stabilization", None)
+    settings.pop("stabilization_strength", None)
     known = set(SolverSettings.model_fields)
-    matched = {key: value for key, value in setup.settings.items() if key in known}
-    unmatched = sorted(key for key in setup.settings if key not in known)
-    if unmatched:
+    matched: dict[str, object] = {}
+    refused: list[str] = []
+    recorded: list[str] = []
+    for key, value in settings.items():
+        field = _PRESET_ALIASES.get(key, key)
+        if field in known:
+            matched[field] = value
+        elif key in _PRESET_RECORDED_ONLY or key in declared_names:
+            recorded.append(key)
+        else:
+            refused.append(key)
+    if refused:
+        available = sorted(known | set(_PRESET_ALIASES))
+        raise InputArtifactError(
+            f"setup preset {set_code!r} states key(s) {', '.join(sorted(refused))}, "
+            "which name no solver setting this package can emit and are not declared "
+            "as recorded-only. A key that reaches no script would change nothing about "
+            "the run while reading as though it had, so it is refused rather than "
+            f"dropped. The keys that apply are: {', '.join(available)}. The keys this "
+            "package already records without emitting are: "
+            f"{', '.join(sorted(_PRESET_RECORDED_ONLY))}. If the setting really is one "
+            "this package cannot emit and you want it kept in the artifact anyway, "
+            f"name it in {_PRESET_RECORDED_ONLY_KEY} in the preset file."
+        )
+    if recorded:
+        # THE WARNING SURVIVES, and it is the useful half now that the
+        # silent drop is gone: the keys it lists are exactly the ones an
+        # author might still believe reached the solver.
+        reasons = ", ".join(
+            f"{key} ({_PRESET_RECORDED_ONLY.get(key, 'declared recorded-only by this preset')})"
+            for key in sorted(recorded)
+        )
         warnings.warn(
-            f"setup preset {set_code!r}: key(s) {', '.join(unmatched)} do not map to "
-            "the case solver settings yet and were left to the preset artifact "
-            "verbatim; the formal solver-setup model will consume the full table",
+            f"setup preset {set_code!r}: key(s) {reasons} are RECORDED in the artifact "
+            "and emit nothing, so the solver takes its own default for each. Every "
+            "other key of this preset reaches the script.",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
+    if stabilization is not None:
+        matched["solver_stabilization"] = stabilization
+    elif gated:
+        warnings.warn(
+            f"setup preset {set_code!r}: stabilization is DISABLED, so no "
+            "stabilization strength is emitted and the solver takes its own default. "
+            "A disabled stabilization is an absent one and not a strength of zero, "
+            "which would still be switched on.",
             PyflightstreamWarning,
             stacklevel=2,
         )
@@ -664,6 +843,16 @@ def _solver_from_setup(setup: SetupArtifact, set_code: str) -> SolverSettings:
         raise InputArtifactError(
             f"setup preset {set_code!r} does not fit the case solver settings: {error}"
         ) from error
+
+
+def preset_recorded_only() -> Mapping[str, str]:
+    """Return the recorded-only preset keys and the reason each is one.
+
+    Public because the reason is the useful half: a user whose setting
+    did not reach the script needs to read WHY here rather than infer it
+    from a script that lacks a line.
+    """
+    return dict(_PRESET_RECORDED_ONLY)
 
 
 def resolve_matrix(
@@ -809,7 +998,18 @@ def resolve_matrix(
     for case, row in zip(campaign.sims, rows, strict=True):
         reference = references[row.ref_code]
         update: dict[str, object] = {
-            "reference": ReferenceData(area=reference.area_m2, length=reference.chord_m),
+            # THE DIAMETER TRAVELS WITH THE OTHER TWO LENGTHS. It is a
+            # reference length rather than propeller metadata, and it is
+            # the one an advance ratio needs: a row stating
+            # ADVANCE_RATIO resolves n = V / (J D), so a diameter that
+            # stopped at the artifact would leave the ratio naming no
+            # rotor speed. None stays None, which is what keeps a
+            # configuration with no propeller resolving exactly as it did.
+            "reference": ReferenceData(
+                area=reference.area_m2,
+                length=reference.chord_m,
+                propeller_diameter=reference.propeller_diameter_m,
+            ),
             "solver": solvers[row.set_code],
         }
         # ABSENT AND BLANK ARE THE SAME SILENCE, and it is the same rule

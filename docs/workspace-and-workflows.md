@@ -117,6 +117,63 @@ them close the gap that made the capability unusable:
     it is measured on ONE build: the user guide emits it explicitly for
     that reason. A study that needs it stated is a recipe today.
 
+### A rotor row states the decisions, and the arithmetic is derived
+
+A propeller study is designed in an advance ratio and an azimuthal step.
+The rev/min, the seconds per step and the number of steps are what those
+work out to at the run's own velocity, so an `unsteady_rotor` row states
+the decisions and the package derives the rest.
+
+* `ADVANCE_RATIO: <J>` sets the rotor speed as `n = V / (J D)`, against
+  the velocity this row already resolves and the `propeller_diameter_m`
+  its reference artifact carries. `RPM: <rev/min>` states the speed
+  directly instead. A row states exactly one of the two, and stating
+  both is refused: the rev/min are what the ratio works out to, so a
+  second stated form is a second number nobody keeps in agreement with
+  the first.
+
+    **Why the ratio is the better one to keep in a file.** Rev/min are
+    true at ONE velocity. A matrix stating them pins the rotor to that
+    velocity silently: change the flight condition and the row keeps a
+    speed that no longer means the ratio it was chosen for.
+
+    A ratio is a magnitude, so `RPM_SIGN: 1` or `RPM_SIGN: -1` carries
+    the hand of the rotation, defaulting to `1`. It is refused beside an
+    explicit `RPM`, which carries its sign in the number itself. A
+    configuration whose isolated and installed meshes are opposite hands
+    needs opposite signs for one published sense of rotation, and the
+    row is where that choice belongs, because only the row knows which
+    mesh it opened.
+
+* `DELTA_THETA: <deg>` and `REVOLUTIONS: <turns>` set the clock:
+  `DELTA_TIME = theta / (6 rpm)` and
+  `TIME_ITERATIONS = REVOLUTIONS * 360 / DELTA_THETA`. `DELTA_TIME` and
+  `TIME_ITERATIONS` state the same thing directly and still work; a row
+  states one pair, and half a pair is refused naming the key that is
+  missing, because neither half implies the other.
+
+    Revolutions that do not work out to a WHOLE number of steps are
+    refused naming both numbers. Rounding silently would end the run
+    part way through a step, at an azimuth nobody chose, and that run
+    converges and exports like any other.
+
+* `LOG_OUTPUT: <n>` names WHICH of the row's own `OUTPUTS` is the solver
+  log, counted from 1, and the workflow then emits `EXPORT_LOG` for it.
+
+    **It is what makes a convergence verdict possible at all.** An
+    unsteady time loop always reaches its prescribed end, so the
+    iteration counter judges nothing, and without a log every unsteady
+    run is recorded `COMPLETED_MAX_ITER` whether it converged at every
+    time step or at none. That word is a statement about the evidence
+    and it reads as a statement about the solver. With a log the verdict
+    is the final residual against the row's own convergence limit.
+
+    It is a POSITION and not a file name because the names carry the
+    point placeholder in the cell and reach a builder already rendered:
+    the cell says `loads_{point}.txt` and the case carries
+    `loads_a+00.0.txt`, so a name could never match. Order survives
+    rendering; a name does not.
+
 **THOSE THREE NAMES ARE NOW RESERVED.** They were the only upgrade risk
 in v0.8.1; v0.9.0 added a larger one, the removal of the `RE` and `MACH`
 columns, which is handled by `pyfs-matrix upgrade <path> --in-place` and
@@ -206,6 +263,53 @@ the same one. The identifier is yours to choose; the matrix and the
 file name simply have to agree. An identifier that is not staged is
 refused before anything runs, and the refusal names the identifier, the
 kind and what is available.
+
+### What a solver preset may say, and what happens to a key that reaches nothing
+
+A preset is a table of solver settings, written in the SOLVER's own key
+names as often as in this package's. Both are read: `NITER`,
+`boundary_layer_type`, `max_parallel_threads`, `set_solver_model`,
+`proximity_avoidance`, `solver_minimum_cp`, `induced_wake_velocity`,
+`unsteady_pressure_kutta`, `additional_wake_relaxation_iteration`,
+`reynolds_averaged_drag_forces` and `unsteady_N_revolutions_wake` are
+aliases of the fields the emitter names. A preset transcribed from a
+working session keeps working as written.
+
+Three things can happen to a key, and the third is the one worth
+knowing.
+
+1. **It names a setting this package emits**, directly or by alias, and
+   it reaches the script.
+2. **It is declared recorded-only.** It stays in the artifact, emits
+   nothing, and a warning names it AND the reason. `symmetry_type`
+   belongs to the geometry a row opens and is stated in the row's
+   `SYMMETRY`; `solver` and `motion` are what the `WORKFLOW` column
+   decides; `unsteady_delta_theta_deg` and `unsteady_N_revolutions` are
+   superseded by the row's `DELTA_THETA` and `REVOLUTIONS`.
+
+    `symmetry_loads` is recorded-only although it HAS an emitter, and
+    that is a decision rather than a gap: applying it multiplies or
+    divides every published coefficient of a periodic or mirrored case
+    by the copy count. That is a change to make with a measurement in
+    hand, not a key to honour silently.
+
+    A preset may declare its own with `recorded_only = ["my_setting"]`,
+    for a setting from a build or a workflow this package has not met. A
+    declared key still warns, because the point is that its author knows
+    it is not reaching the solver.
+3. **Anything else is REFUSED**, naming the key and listing what
+   applies, so `max_threds` finds `max_threads`.
+
+Case 3 used to be a warning and a silent drop, and that is the defect
+this replaced. A preset asking for `SUBSONIC_PRANDTL_GLAUERT` ran
+`INCOMPRESSIBLE`; one asking for a turbulent boundary layer ran the
+solver's default. Those runs converge, export and publish numbers
+against a physics nobody selected. A refusal costs an edit; a silent
+drop costs a result.
+
+`stabilization` and `stabilization_strength` resolve as a PAIR into one
+number. Disabled means ABSENT and not a strength of zero, which would
+still be switched on.
 
 `inputs/executables.toml` is the one file that is about your machine
 rather than about your study: it maps a build identifier such as

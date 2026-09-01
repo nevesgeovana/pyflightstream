@@ -69,14 +69,19 @@ from pyflightstream.script import CommandArgumentError, Script, helpers
 from pyflightstream.versions import FsVersion, known_versions, resolve
 
 __all__ = [
+    "ADVANCE_RATIO_VARIABLE",
     "BLADES_VARIABLE",
+    "DELTA_THETA_VARIABLE",
     "DELTA_TIME_VARIABLE",
     "GEOMETRY_VARIABLE",
+    "LOG_OUTPUT_VARIABLE",
     "MOVING_BOUNDARIES_VARIABLE",
     "PERIODIC_COPIES_VARIABLE",
+    "REVOLUTIONS_VARIABLE",
     "ROTOR_AXIS_VARIABLE",
     "ROTOR_ORIGIN_VARIABLE",
     "ROTOR_SHEDDING_VARIABLE",
+    "RPM_SIGN_VARIABLE",
     "RPM_VARIABLE",
     "SIMULATION_SUFFIX",
     "SYMMETRY_VARIABLE",
@@ -89,6 +94,8 @@ __all__ = [
     "WORKFLOW_KEY",
     "ExportWindow",
     "ReductionPlan",
+    "RotorSpeed",
+    "TimeStepping",
     "Workflow",
     "WorkflowConventions",
     "WorkflowCoverageError",
@@ -102,6 +109,8 @@ __all__ = [
     "resolve_workflow",
     "rotor_relaxed_trailing_edges",
     "rotor_shedding_direction",
+    "rotor_speed",
+    "rotor_time_stepping",
     "select_workflow",
     "workflow_names",
     "workflow_registry",
@@ -155,6 +164,58 @@ BLADES_VARIABLE = "BLADES"
 MOVING_BOUNDARIES_VARIABLE = "MOVING_BOUNDARIES"
 DELTA_TIME_VARIABLE = "DELTA_TIME"
 TIME_ITERATIONS_VARIABLE = "TIME_ITERATIONS"
+#: The rotor speed stated as a RATIO instead of a number of rev/min:
+#: ``J = V / (n D)``, so ``n = V / (J D)`` and the row needs the
+#: free-stream velocity, which it already resolves, and the propeller
+#: diameter, which travels on the reference artifact beside the other
+#: lengths (:attr:`pyflightstream.cases.ReferenceData.propeller_diameter`).
+#:
+#: IT IS THE FORM A PROPELLER STUDY IS DESIGNED IN. A sweep is laid out
+#: in advance ratio and the rev/min are whatever that ratio works out to
+#: at each condition, so a matrix stating rev/min states a DERIVED
+#: number and silently pins it to one velocity: change the flight
+#: condition and the row keeps a rotor speed that no longer means the
+#: ratio it was chosen for. Stating the ratio keeps the study's own
+#: variable in the file and lets the derived one move with the run.
+#:
+#: :data:`RPM_VARIABLE` stays, and a row states exactly one of the two.
+ADVANCE_RATIO_VARIABLE = "ADVANCE_RATIO"
+#: The sign of the rotor speed about its axis, ``1`` or ``-1``, applied
+#: to a speed derived from an advance ratio. An advance ratio is a
+#: magnitude and carries no hand, while ``RPM`` carries its sign in the
+#: number itself, so this key exists for the derived form alone and is
+#: refused beside an explicit ``RPM``. Absent means ``1``.
+#:
+#: A configuration whose isolated and installed meshes are opposite
+#: hands needs opposite signs for one published sense of rotation; the
+#: reference artifact records both measured signs and cannot know which
+#: mesh a row opened, so the ROW is where the choice belongs.
+RPM_SIGN_VARIABLE = "RPM_SIGN"
+#: Degrees of rotor rotation per physical time step. With the rotor
+#: speed this IS the time step: one revolution lasts ``60 / rpm`` s, so
+#: a degree lasts ``1 / (6 rpm)`` s and ``DELTA_TIME = theta / (6 rpm)``.
+#:
+#: A rotor run is designed in degrees of azimuth, never in seconds. The
+#: azimuthal resolution is the modelling decision -- how finely a blade
+#: passage is resolved -- and the seconds are its consequence at this
+#: rotor speed. Stating the seconds inverts that: the study's decision
+#: becomes implicit and a reader has to divide two numbers to recover
+#: it, while a change of rotor speed silently changes the resolution
+#: the run was designed with.
+DELTA_THETA_VARIABLE = "DELTA_THETA"
+#: Total revolutions of the whole run, from which the physical time step
+#: count follows: ``TIME_ITERATIONS = REVOLUTIONS * 360 / DELTA_THETA``.
+#: Stated with :data:`DELTA_THETA_VARIABLE`, and the pair replaces
+#: :data:`DELTA_TIME_VARIABLE` and :data:`TIME_ITERATIONS_VARIABLE`,
+#: which stay for the matrices already written in them.
+REVOLUTIONS_VARIABLE = "REVOLUTIONS"
+#: WHICH of the row's OUTPUTS is the solver log, by 1-based position.
+#: Absent means no log is exported, which is what
+#: every workflow did before this release. A log is what turns an
+#: unsteady run from "reached the end of its time loop" into a
+#: residual verdict, because the iteration counter of a time loop
+#: that always runs to its prescribed end judges nothing.
+LOG_OUTPUT_VARIABLE = "LOG_OUTPUT"
 WINDOW_DEGREES_VARIABLE = "WINDOW_DEGREES"
 WINDOW_STEPS_VARIABLE = "WINDOW_STEPS"
 WINDOW_REVOLUTIONS_VARIABLE = "WINDOW_REVOLUTIONS"
@@ -576,6 +637,383 @@ def _required_int(case: SimCase, key: str, *, quantity: str, unit: str) -> int:
     return int(value)
 
 
+# --- the rotor speed, and the clock it sets ----------------------------------
+#
+# TWO DERIVATIONS THAT WERE INPUTS, and the reason they are one section.
+# A rotor study is designed in an advance ratio and an azimuthal step;
+# the rev/min and the seconds are what those work out to at the run's own
+# velocity. Until this release the matrix took the DERIVED numbers, so a
+# row carried three constants (rpm, delta_time, time_iterations) that a
+# reader had to divide back into the two decisions behind them, and a
+# change of flight condition left all three silently meaning something
+# else. Both forms are kept: a matrix written in the derived numbers is
+# still read exactly as it was.
+
+
+@dataclass(frozen=True)
+class RotorSpeed:
+    """The rotor speed of one case, and which form the row stated.
+
+    Attributes
+    ----------
+    stated_form : str
+        ``rpm`` or ``advance_ratio``: what the author wrote.
+    stated_value : float
+        Their value, verbatim and unconverted.
+    rpm : float
+        The rotor speed in rev/min, signed. Derived where the form is an
+        advance ratio, and the stated value itself where it is not.
+    advance_ratio : float or None
+        The ratio, where one was stated.
+    velocity_m_per_s, diameter_m : float or None
+        The two quantities the derivation consumed; None where nothing
+        was derived, so a record cannot claim inputs it never read.
+    """
+
+    stated_form: str
+    stated_value: float
+    rpm: float
+    advance_ratio: float | None
+    velocity_m_per_s: float | None
+    diameter_m: float | None
+
+    def record(self) -> dict[str, object]:
+        """Both forms, for the run record."""
+        return {
+            "form": self.stated_form,
+            "stated": self.stated_value,
+            "rpm": self.rpm,
+            "advance_ratio": self.advance_ratio,
+            "velocity_m_per_s": self.velocity_m_per_s,
+            "diameter_m": self.diameter_m,
+        }
+
+
+def _rpm_sign(case: SimCase) -> int:
+    """Return the declared sign of a derived rotor speed, defaulting to 1."""
+    text = _variable(case, RPM_SIGN_VARIABLE)
+    if text is None:
+        return 1
+    try:
+        sign = int(str(text).strip())
+    except ValueError:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} declares {RPM_SIGN_VARIABLE} as {text!r}, and the "
+            "sign of a rotor speed is 1 or -1. It is the hand of the rotation and not "
+            "a magnitude, so anything else is a value nobody measured."
+        ) from None
+    if sign not in (1, -1):
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} declares {RPM_SIGN_VARIABLE} as {sign}, and the sign "
+            "of a rotor speed is 1 or -1."
+        )
+    return sign
+
+
+def rotor_speed(case: SimCase) -> RotorSpeed:
+    """Resolve the rotor speed a row states, in either form.
+
+    Parameters
+    ----------
+    case : SimCase
+        The case. It states ``ADVANCE_RATIO`` or ``RPM``, exactly one.
+        The ratio form also reads ``RPM_SIGN`` (default 1), the case's
+        free-stream velocity, and the propeller diameter carried on the
+        case reference.
+
+    Returns
+    -------
+    RotorSpeed
+
+    Raises
+    ------
+    CampaignConfigError
+        If the row states both forms or neither; if a ratio is stated
+        with no propeller diameter on the reference, naming the artifact
+        field to add; or if the ratio, the velocity or the diameter is
+        not a positive number.
+    """
+    ratio_text = _variable(case, ADVANCE_RATIO_VARIABLE)
+    rpm_text = _variable(case, RPM_VARIABLE)
+    if ratio_text is not None and rpm_text is not None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states its rotor speed twice: "
+            f"{ADVANCE_RATIO_VARIABLE} as {ratio_text!r} and {RPM_VARIABLE} as "
+            f"{rpm_text!r}. The rev/min are what the ratio works out to at this run's "
+            "velocity, so a second stated form is a second number nobody keeps in "
+            f"agreement with the first. Keep {ADVANCE_RATIO_VARIABLE} and let the speed "
+            f"be derived, or keep {RPM_VARIABLE} and state the speed directly."
+        )
+    if ratio_text is None and rpm_text is None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states no rotor speed, and a rotary motion turns at "
+            f"one. State '{ADVANCE_RATIO_VARIABLE}: <J>', which is resolved as "
+            "n = V / (J D) against this run's velocity and the reference propeller "
+            f"diameter, or '{RPM_VARIABLE}: <rev/min>' to state the speed itself."
+        )
+
+    if ratio_text is None:
+        stated = _required_float(case, RPM_VARIABLE, quantity="rotor speed", unit="rev/min")
+        if _variable(case, RPM_SIGN_VARIABLE) is not None:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r} states {RPM_VARIABLE} and {RPM_SIGN_VARIABLE}. A "
+                "rev/min value carries its own sign in the number, so a second one "
+                "beside it can only disagree with it. Write the sign into the "
+                f"{RPM_VARIABLE} value, or state {ADVANCE_RATIO_VARIABLE} instead, which "
+                "is a magnitude and is the form that needs a sign of its own."
+            )
+        return RotorSpeed(
+            stated_form="rpm",
+            stated_value=stated,
+            rpm=stated,
+            advance_ratio=None,
+            velocity_m_per_s=None,
+            diameter_m=None,
+        )
+
+    ratio = _required_float(
+        case, ADVANCE_RATIO_VARIABLE, quantity="advance ratio", unit="dimensionless"
+    )
+    if ratio <= 0.0:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} declares {ADVANCE_RATIO_VARIABLE} as {ratio}, and an "
+            "advance ratio is positive: it is the axial distance travelled per "
+            "revolution over the diameter. The HAND of the rotation is "
+            f"{RPM_SIGN_VARIABLE}, which is where a negative sign belongs."
+        )
+    reference = case.reference
+    diameter = None if reference is None else reference.propeller_diameter
+    if diameter is None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {ADVANCE_RATIO_VARIABLE} as {ratio} and its "
+            "reference carries no propeller diameter, so the ratio names no rotor "
+            "speed: J is a ratio against the diameter and n = V / (J D) cannot be "
+            "evaluated without it. Add 'propeller_diameter_m' to the reference "
+            "artifact this row's REF code names, beside the other reference lengths."
+        )
+    velocity = _velocity(case)
+    if velocity <= 0.0:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} resolves a free-stream velocity of {velocity} m/s, "
+            f"and an advance ratio needs a moving aircraft: J = V / (n D) inverts to "
+            "n = V / (J D), which is a stopped rotor at V = 0. A static case states "
+            f"{RPM_VARIABLE} directly."
+        )
+    # n in rev/s is V / (J D); rev/min is sixty times that.
+    rpm = 60.0 * velocity / (ratio * diameter)
+    return RotorSpeed(
+        stated_form="advance_ratio",
+        stated_value=ratio,
+        rpm=_rpm_sign(case) * rpm,
+        advance_ratio=ratio,
+        velocity_m_per_s=velocity,
+        diameter_m=diameter,
+    )
+
+
+def _optional_rotor_speed(case: SimCase) -> RotorSpeed | None:
+    """Return the rotor speed where the row states one, and None where it does not.
+
+    A window stated in STEPS needs no rotor speed, and refusing a case
+    that never asked for one would break every such row.
+    """
+    if _variable(case, ADVANCE_RATIO_VARIABLE) is None and _variable(case, RPM_VARIABLE) is None:
+        return None
+    return rotor_speed(case)
+
+
+@dataclass(frozen=True)
+class TimeStepping:
+    """The physical clock of an unsteady run, and which form set it.
+
+    Attributes
+    ----------
+    stated_form : str
+        ``angular`` (``DELTA_THETA`` and ``REVOLUTIONS``) or ``explicit``
+        (``DELTA_TIME`` and ``TIME_ITERATIONS``).
+    delta_time_s : float
+        Solver physical time step in s.
+    time_iterations : int
+        Physical time steps of the whole run.
+    delta_theta_deg, revolutions : float or None
+        The stated pair, where the form was angular.
+    rpm : float or None
+        The rotor speed the conversion ran against.
+    """
+
+    stated_form: str
+    delta_time_s: float
+    time_iterations: int
+    delta_theta_deg: float | None
+    revolutions: float | None
+    rpm: float | None
+
+    @property
+    def steps_per_revolution(self) -> float | None:
+        """Solver steps in one revolution, or None without a rotor speed."""
+        if self.rpm is None or self.delta_time_s <= 0.0:
+            return None
+        return 60.0 / (abs(self.rpm) * self.delta_time_s)
+
+    def record(self) -> dict[str, object]:
+        """Both forms, for the run record."""
+        return {
+            "form": self.stated_form,
+            "delta_time_s": self.delta_time_s,
+            "time_iterations": self.time_iterations,
+            "delta_theta_deg": self.delta_theta_deg,
+            "revolutions": self.revolutions,
+            "steps_per_revolution": self.steps_per_revolution,
+        }
+
+
+def rotor_time_stepping(case: SimCase, speed: RotorSpeed | None = None) -> TimeStepping:
+    """Resolve the physical clock of an unsteady rotor run, in either form.
+
+    Parameters
+    ----------
+    case : SimCase
+        The case. It states ``DELTA_THETA`` and ``REVOLUTIONS``, or
+        ``DELTA_TIME`` and ``TIME_ITERATIONS``; one pair, not both and
+        not half of one.
+    speed : RotorSpeed, optional
+        The already-resolved rotor speed, so the caller that needs both
+        resolves the speed once. Resolved here when not given.
+
+    Returns
+    -------
+    TimeStepping
+
+    Raises
+    ------
+    CampaignConfigError
+        If both pairs or neither are stated; if one pair is stated half;
+        or if the revolutions and the azimuthal step do not work out to
+        a WHOLE number of time steps, which is refused naming the two
+        numbers and the nearest pair that does.
+    """
+    angular = {
+        key: _variable(case, key)
+        for key in (DELTA_THETA_VARIABLE, REVOLUTIONS_VARIABLE)
+        if _variable(case, key) is not None
+    }
+    explicit = {
+        key: _variable(case, key)
+        for key in (DELTA_TIME_VARIABLE, TIME_ITERATIONS_VARIABLE)
+        if _variable(case, key) is not None
+    }
+    if angular and explicit:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states its clock in two forms at once: "
+            f"{', '.join(f'{k}={v!r}' for k, v in sorted(angular.items()))} and "
+            f"{', '.join(f'{k}={v!r}' for k, v in sorted(explicit.items()))}. The "
+            "seconds and the step count are what the azimuthal step and the "
+            "revolutions work out to at this rotor speed, so the second form is a "
+            f"second set of numbers nobody keeps in agreement with the first. Keep "
+            f"{DELTA_THETA_VARIABLE} and {REVOLUTIONS_VARIABLE}, or keep "
+            f"{DELTA_TIME_VARIABLE} and {TIME_ITERATIONS_VARIABLE}."
+        )
+    if not angular and not explicit:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states no physical clock, so an unsteady run of it "
+            f"has no step and no length. State '{DELTA_THETA_VARIABLE}: <deg>' and "
+            f"'{REVOLUTIONS_VARIABLE}: <turns>', which are resolved against the rotor "
+            f"speed, or '{DELTA_TIME_VARIABLE}: <s>' and "
+            f"'{TIME_ITERATIONS_VARIABLE}: <steps>' to state them directly."
+        )
+
+    if explicit:
+        # HALF A PAIR IS NAMED HERE rather than left to the required-value
+        # helper, whose message asks for one key and says nothing about the
+        # other, so an author who adds it meets the same refusal twice.
+        missing = [
+            key for key in (DELTA_TIME_VARIABLE, TIME_ITERATIONS_VARIABLE) if key not in explicit
+        ]
+        if missing:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r} states {', '.join(sorted(explicit))} and not "
+                f"{', '.join(missing)}. The explicit clock is a PAIR: a step with no "
+                "count has no length and a count with no step has no duration. Add the "
+                f"missing key, or state {DELTA_THETA_VARIABLE} and "
+                f"{REVOLUTIONS_VARIABLE} instead and let both be derived."
+            )
+        delta_time_s = _required_float(
+            case, DELTA_TIME_VARIABLE, quantity="solver physical time step", unit="s"
+        )
+        iterations = _required_int(
+            case, TIME_ITERATIONS_VARIABLE, quantity="physical time step count", unit="steps"
+        )
+        resolved = speed if speed is not None else _optional_rotor_speed(case)
+        return TimeStepping(
+            stated_form="explicit",
+            delta_time_s=delta_time_s,
+            time_iterations=iterations,
+            delta_theta_deg=None,
+            revolutions=None,
+            rpm=None if resolved is None else resolved.rpm,
+        )
+
+    missing = [key for key in (DELTA_THETA_VARIABLE, REVOLUTIONS_VARIABLE) if key not in angular]
+    if missing:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {', '.join(sorted(angular))} and not "
+            f"{', '.join(missing)}. The angular clock is a PAIR: an azimuthal step "
+            "sets how finely one revolution is resolved and the revolutions set how "
+            "many there are, and neither implies the other. Add the missing key."
+        )
+    theta = _required_float(case, DELTA_THETA_VARIABLE, quantity="azimuthal step", unit="degrees")
+    revolutions = _required_float(
+        case, REVOLUTIONS_VARIABLE, quantity="run length", unit="revolutions"
+    )
+    if theta <= 0.0 or theta > 360.0:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} declares {DELTA_THETA_VARIABLE} as {theta}, and an "
+            "azimuthal step is a positive angle no larger than a whole revolution. A "
+            "step of 360 degrees resolves nothing inside one turn."
+        )
+    if revolutions <= 0.0:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} declares {REVOLUTIONS_VARIABLE} as {revolutions}, "
+            "and a run turns for a positive number of revolutions."
+        )
+    resolved = speed if speed is not None else rotor_speed(case)
+    if resolved.rpm == 0.0:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} resolves a rotor speed of zero, and a degree of "
+            "rotation has no duration on a rotor that does not turn. State the clock "
+            f"as {DELTA_TIME_VARIABLE} and {TIME_ITERATIONS_VARIABLE} if this run "
+            "really is stationary."
+        )
+    # One revolution lasts 60/rpm seconds, so one degree lasts 1/(6 rpm)
+    # seconds. The magnitude is what sets the clock: a rotor turning the
+    # other way takes the same time to sweep the same angle.
+    delta_time_s = theta / (6.0 * abs(resolved.rpm))
+    exact_steps = revolutions * 360.0 / theta
+    steps = int(round(exact_steps))
+    if abs(exact_steps - steps) > 1e-6:
+        # WHOLE STEPS OR A REFUSAL. Rounding silently would move the run
+        # length away from the revolutions the author asked for, and the
+        # run would end mid-step at an azimuth nobody chose, which is a
+        # wrong answer that converges and exports.
+        low = steps * theta / 360.0
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} asks for {revolutions} revolutions at "
+            f"{theta} degrees per step, which is {exact_steps:g} time steps and not a "
+            "whole number, so the run would end part way through a step at an azimuth "
+            f"nobody chose. {low:g} revolutions is {steps} whole steps at this step "
+            f"size; a step size that divides {revolutions} revolutions exactly is the "
+            "other way to close it."
+        )
+    return TimeStepping(
+        stated_form="angular",
+        delta_time_s=delta_time_s,
+        time_iterations=steps,
+        delta_theta_deg=theta,
+        revolutions=revolutions,
+        rpm=resolved.rpm,
+    )
+
+
 # --- PFS-2025.05: the rotor motion, off the row ------------------------------
 
 
@@ -636,7 +1074,7 @@ def emit_rotor_motion(
         direction that is neither of the two. The message names the case
         (whose ``sim_id`` IS the matrix POL) and the KEY.
     """
-    rpm = _required_float(case, RPM_VARIABLE, quantity="rotor speed", unit="rev/min")
+    rpm = rotor_speed(case).rpm
     axis = _variable(case, ROTOR_AXIS_VARIABLE)
     if axis is None:
         raise CampaignConfigError(
@@ -958,27 +1396,20 @@ class ExportWindow:
             steps = _required_int(
                 case, WINDOW_STEPS_VARIABLE, quantity="export window", unit="solver steps"
             )
-        rpm = (
-            None
-            if _variable(case, RPM_VARIABLE) is None
-            else _required_float(case, RPM_VARIABLE, quantity="rotor speed", unit="rev/min")
-        )
-        delta_time_s = (
-            None
-            if _variable(case, DELTA_TIME_VARIABLE) is None
-            else _required_float(
-                case, DELTA_TIME_VARIABLE, quantity="solver physical time step", unit="s"
-            )
-        )
+        # THE CLOCK IS RESOLVED, NOT READ. Both the step and the count
+        # may be derived from the azimuthal step and the revolutions, so
+        # reading the two cells directly would leave an angular row with
+        # no window at all. The rotor speed is resolved once and handed
+        # down, so the ratio is not converted twice.
+        speed = _optional_rotor_speed(case)
+        stepping = rotor_time_stepping(case, speed=speed)
         return export_window(
             degrees=degrees,
             steps=steps,
             revolutions=revolutions,
-            rpm=rpm,
-            delta_time_s=delta_time_s,
-            time_iterations=_required_int(
-                case, TIME_ITERATIONS_VARIABLE, quantity="physical time step count", unit="steps"
-            ),
+            rpm=None if speed is None else speed.rpm,
+            delta_time_s=stepping.delta_time_s,
+            time_iterations=stepping.time_iterations,
         )
 
 
@@ -1528,10 +1959,18 @@ def _initialize(case: SimCase, script: Script) -> None:
             f"'{SYMMETRY_VARIABLE}: PERIODIC' if the geometry really is a sector, or "
             f"drop {PERIODIC_COPIES_VARIABLE}."
         )
-    helpers.initialize_solver(script, symmetry=mode, periodic_copies=copies)
+    # THE PRESET REACHES INITIALIZE_SOLVER TOO, for the two arguments it
+    # states. A case carrying neither passes neither, so the emitter's own
+    # INCOMPRESSIBLE default stands and nothing that ran before changes.
+    optional: dict[str, object] = {}
+    if case.solver.solver_model is not None:
+        optional["solver_model"] = case.solver.solver_model
+    if case.solver.wall_collision_avoidance is not None:
+        optional["wall_collision_avoidance"] = case.solver.wall_collision_avoidance
+    helpers.initialize_solver(script, symmetry=mode, periodic_copies=copies, **optional)
 
 
-def _settings(case: SimCase, script: Script) -> None:
+def _settings(case: SimCase, script: Script, **extra: object) -> None:
     """Emit the solver settings, including the reference if the case has one.
 
     THE REFERENCE REACHES THE SCRIPT HERE (PFS-2025.02.04), and until
@@ -1554,16 +1993,43 @@ def _settings(case: SimCase, script: Script) -> None:
     see the artifact's documentation.
     """
     reference = case.reference
+    solver = case.solver
+    # THE PRESET'S OWN SETTINGS REACH THE SCRIPT HERE, and until this
+    # release ten of them did not: a preset asking for
+    # SUBSONIC_PRANDTL_GLAUERT and a turbulent boundary layer resolved
+    # onto a case that carried neither, so the run took the solver's
+    # defaults and said nothing. Every argument below is passed as the
+    # case carries it, so a case carrying None emits nothing for it and
+    # every script written before this release is byte identical.
+    #
+    # `wake_termination_revolutions` is deliberately absent: it is the
+    # one preset setting whose unit the emitter does not take, and the
+    # conversion needs the case's own clock, so the rotor builder does
+    # it (:func:`_wake_termination_steps`) and the steady builder, which
+    # has no clock, cannot and does not.
     helpers.solver_settings(
         script,
         aoa=case.point.get("alpha", 0.0),
         sideslip=case.point.get("beta"),
         velocity=_velocity(case),
-        iterations=case.solver.iterations,
-        convergence=case.solver.convergence,
-        max_threads=case.solver.max_threads,
+        iterations=solver.iterations,
+        convergence=solver.convergence,
+        max_threads=solver.max_threads,
         ref_area=None if reference is None else reference.area,
         ref_length=None if reference is None else reference.length,
+        forced_iterations=solver.forced_iterations,
+        boundary_layer=solver.boundary_layer,
+        viscous_coupling=solver.viscous_coupling,
+        convergence_iterations=solver.convergence_iterations,
+        minimum_cp=solver.minimum_cp,
+        farfield_layers=solver.farfield_layers,
+        mesh_induced_wake_velocity=solver.mesh_induced_wake_velocity,
+        unsteady_pressure_and_kutta=solver.unsteady_pressure_and_kutta,
+        wake_on_wake_induction=solver.wake_on_wake_induction,
+        additional_wake_relaxation=solver.additional_wake_relaxation,
+        reynolds_averaged_drag=solver.reynolds_averaged_drag,
+        solver_stabilization=solver.solver_stabilization,
+        **extra,
     )
 
 
@@ -1603,6 +2069,87 @@ def _fluid(case: SimCase, script: Script) -> None:
     )
 
 
+def _wake_termination(case: SimCase, stepping: TimeStepping) -> dict[str, object]:
+    """Convert the preset's wake termination from revolutions to time steps.
+
+    A rotor preset states it in revolutions, because that is the unit a
+    rotor wake is thought about in, and negative counts backwards from
+    the end of the run. The emitter takes STEPS. The conversion needs
+    the steps per revolution, which is a property of this case's clock
+    and its rotor speed and of nothing else, which is why it happens
+    here rather than in the artifact model.
+
+    Returns an EMPTY mapping when the preset states none, so a case that
+    asks for nothing passes nothing and emits nothing.
+    """
+    revolutions = case.solver.wake_termination_revolutions
+    if revolutions is None:
+        return {}
+    per_revolution = stepping.steps_per_revolution
+    if per_revolution is None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} inherits a wake termination of {revolutions} "
+            "revolutions from its solver preset and states no rotor speed, so a "
+            "revolution has no length in time steps here. State the rotor speed with "
+            f"{ADVANCE_RATIO_VARIABLE} or {RPM_VARIABLE}, or drop the preset key."
+        )
+    return {"wake_termination_time_steps": int(round(revolutions * per_revolution))}
+
+
+def _export_log(conventions: WorkflowConventions, case: SimCase, script: Script) -> None:
+    """Export the solver log where the row says WHICH of its outputs is one.
+
+    WHY A ROTOR ROW WANTS ONE. Without a log this package cannot judge
+    convergence of an unsteady run at all: the time loop always reaches
+    its prescribed end, so the iteration counter says nothing, and every
+    such run is recorded COMPLETED_MAX_ITER whether it converged at
+    every time step or at none. That word is a statement about the
+    evidence and it reads as a statement about the solver. One more
+    export line turns it into a real verdict.
+
+    WHY AN INDEX, which is the less pretty of the two spellings and the
+    only correct one. Two earlier versions were wrong and each was
+    caught before it cost anything.
+
+    The first read ``outputs[1]``, so a row whose second output is a
+    force-distribution export would have had a solver log written over
+    that name. A second declared output means "a second file this row
+    expects", never "a log". The committed goldens caught it.
+
+    The second took the name as the row WRITES it in OUTPUTS, and the
+    names have been RENDERED by the time a builder sees them: the cell
+    says ``loads_{point}.txt`` and the case carries
+    ``loads_a+00.0.txt``, so the comparison could never match. The
+    pre-flight caught it, before a solver started.
+
+    An index is the one thing that survives rendering, because rendering
+    preserves order. It is 1-BASED, matching how the cell is read left
+    to right rather than how a list is subscripted.
+    """
+    declared = _variable(case, LOG_OUTPUT_VARIABLE)
+    if declared is None:
+        return
+    names = conventions.outputs or tuple(case.outputs)
+    try:
+        position = int(str(declared).strip())
+    except ValueError:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} declares {LOG_OUTPUT_VARIABLE} as {declared!r}, and "
+            "it is the POSITION of the solver log among the row's own OUTPUTS, counted "
+            "from 1. A name cannot be used here: the output names carry the point "
+            f"placeholder in the cell and reach a builder already rendered, so "
+            f"{LOG_OUTPUT_VARIABLE}: 2 says 'the second file this row declares'."
+        ) from None
+    if not 1 <= position <= len(names):
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} names output {position} as its solver log and "
+            f"declares {len(names)}: {', '.join(names) or 'nothing'}. The log is "
+            "declared in OUTPUTS like every other file the row produces, so that it is "
+            f"collected, and {LOG_OUTPUT_VARIABLE} says which one it is."
+        )
+    script.emit("EXPORT_LOG", names[position - 1])
+
+
 def _build_steady(case: SimCase, script: Script, conventions: WorkflowConventions) -> None:
     """Build a steady polar point: open, free stream, settings, solve, export.
 
@@ -1617,6 +2164,7 @@ def _build_steady(case: SimCase, script: Script, conventions: WorkflowConvention
     _initialize(case, script)
     helpers.start_solver(script)
     script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", _output(conventions, case, 0))
+    _export_log(conventions, case, script)
     script.emit("CLOSE_FLIGHTSTREAM")
 
 
@@ -1643,16 +2191,21 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
     helpers.free_stream(script)
     _fluid(case, script)
     emit_rotor_motion(case, script, frame="rotor")
-    window = ExportWindow.from_case(case)
+    # THE CLOCK COMES OFF THE SAME RESOLVER THE WINDOW USES, so a row
+    # stating its azimuthal step and its revolutions emits the seconds
+    # and the step count those work out to, and a row stating the
+    # seconds and the count emits exactly what it always emitted.
+    stepping = rotor_time_stepping(case, speed=_optional_rotor_speed(case))
     helpers.unsteady_solver(
         script,
-        time_iterations=window.time_iterations,
-        delta_time=float(window.delta_time_s or 0.0),
+        time_iterations=stepping.time_iterations,
+        delta_time=stepping.delta_time_s,
     )
-    _settings(case, script)
+    _settings(case, script, **_wake_termination(case, stepping))
     _initialize(case, script)
     helpers.start_solver(script)
     script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", _output(conventions, case, 0))
+    _export_log(conventions, case, script)
     script.emit("CLOSE_FLIGHTSTREAM")
 
 

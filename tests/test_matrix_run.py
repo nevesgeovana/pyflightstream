@@ -16,11 +16,13 @@ converter stayed in `pyflightstream.cases.matrix`.
 """
 
 import sys
+import tomllib
 from pathlib import Path, PurePosixPath
 
 import pytest
 
 from pyflightstream._digest import file_sha256
+from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases.matrix import (
     DEFAULT_VERSION_OPTION,
     MatrixError,
@@ -2848,3 +2850,111 @@ def test_the_record_that_outlives_the_session_can_be_recomputed_from_itself(tmp_
         # And the temperature is a real one rather than a zero that would
         # read as a measurement.
         assert 150.0 < record.temperature_k < 350.0
+
+
+# --- the solver preset reaches the script, or is refused --------------------
+#
+# Until this release a preset key that named no SolverSettings field was
+# WARNED ABOUT AND DROPPED. A preset asking for SUBSONIC_PRANDTL_GLAUERT
+# ran INCOMPRESSIBLE and said nothing; one asking for a turbulent
+# boundary layer ran the solver default. Those runs converge, export and
+# publish numbers against a physics nobody selected.
+
+
+def _setup(body: str):
+    """One setup artifact from a TOML body."""
+    from pyflightstream.workspace.inputs import SetupArtifact
+
+    return SetupArtifact(settings=tomllib.loads(body))
+
+
+def _solver(body: str):
+    from pyflightstream.workspace.matrix import _solver_from_setup
+
+    return _solver_from_setup(_setup(body), "s999")
+
+
+def test_the_legacy_preset_spellings_reach_the_settings():
+    """The solver's own key names are an alias of the library's, not junk."""
+    settings = _solver(
+        "NITER = 400\n"
+        'boundary_layer_type = "TURBULENT"\n'
+        "max_parallel_threads = 8\n"
+        'set_solver_model = "SUBSONIC_PRANDTL_GLAUERT"\n'
+        "solver_minimum_cp = -100\n"
+        'induced_wake_velocity = "ENABLE"\n'
+        "unsteady_N_revolutions_wake = -1\n"
+    )
+    assert settings.iterations == 400
+    assert settings.boundary_layer == "TURBULENT"
+    assert settings.max_threads == 8
+    assert settings.solver_model == "SUBSONIC_PRANDTL_GLAUERT"
+    assert settings.minimum_cp == -100
+    assert settings.mesh_induced_wake_velocity is True
+    assert settings.wake_termination_revolutions == -1
+
+
+def test_a_key_that_reaches_no_script_is_refused_and_not_dropped():
+    """The whole point: a silent drop costs a result, a refusal costs an edit."""
+    with pytest.raises(InputArtifactError) as raised:
+        _solver("max_threds = 8\n")
+    message = str(raised.value)
+    assert "max_threds" in message
+    assert "max_threads" in message, (
+        f"the refusal must list what IS available, or the typo cannot be found; got {message!r}"
+    )
+
+
+def test_a_recorded_only_key_is_kept_and_says_why():
+    """Recorded-only is a declared decision, and the reason is the useful half."""
+    with pytest.warns(PyflightstreamWarning, match="symmetry_loads"):
+        settings = _solver("symmetry_loads = false\n")
+    assert settings.solver_model is None
+    with pytest.warns(PyflightstreamWarning, match="coefficient"):
+        _solver("symmetry_loads = false\n")
+
+
+def test_a_preset_may_declare_its_own_recorded_only_keys():
+    """A setting from a build nobody here has seen must not be a hard block."""
+    with pytest.warns(PyflightstreamWarning, match="my_future_setting"):
+        settings = _solver('recorded_only = ["my_future_setting"]\nmy_future_setting = 3\n')
+    assert settings.iterations == 500
+
+
+def test_the_stabilization_pair_resolves_into_one_strength():
+    """The preset gates the strength; the emitter takes a number."""
+    assert (
+        _solver('stabilization = "ENABLE"\nstabilization_strength = 1.0\n').solver_stabilization
+        == 1.0
+    )
+    # DISABLED MEANS ABSENT AND NOT ZERO: a stabilization of zero
+    # strength is still switched on, and would be a different run. And
+    # it WARNS, because an author who wrote a strength into the file
+    # needs to know that number is not being emitted.
+    with pytest.warns(PyflightstreamWarning, match="DISABLED"):
+        disabled = _solver('stabilization = "DISABLE"\nstabilization_strength = 1.0\n')
+    assert disabled.solver_stabilization is None
+
+
+def test_an_enabled_stabilization_does_not_warn_that_it_emits_nothing():
+    """It DOES emit, and a message naming the wrong outcome is worse than none.
+
+    The first version of the resolver left both halves of the pair in
+    the recorded-only report, so an author who had switched
+    stabilization ON was told it emitted nothing while the strength was
+    in fact reaching the script.
+    """
+    import warnings as _warnings
+
+    with _warnings.catch_warnings():
+        _warnings.simplefilter("error", PyflightstreamWarning)
+        assert (
+            _solver('stabilization = "ENABLE"\nstabilization_strength = 1.0\n').solver_stabilization
+            == 1.0
+        )
+
+
+def test_enabled_stabilization_with_no_strength_is_refused():
+    """There is no number to emit, and guessing one changes the run."""
+    with pytest.raises(InputArtifactError, match="stabilization_strength"):
+        _solver('stabilization = "ENABLE"\n')

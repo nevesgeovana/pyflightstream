@@ -456,6 +456,25 @@ class ReferenceArtifact(BaseModel):
         Reference chord c_ref in m; must be positive.
     span_m : float
         Reference span b_ref in m; must be positive.
+    propeller_diameter_m : float, optional
+        Propeller diameter D in m; must be positive.
+
+        IT LIVES HERE, BESIDE THE OTHER THREE LENGTHS, and not in
+        :class:`PropellerReference`, which is the natural-looking home
+        and the wrong one. The propeller block is RECORDED metadata that
+        nothing in this package reads; the diameter is a DIVISOR of
+        published numbers, exactly like the area and the chord. It sets
+        the rotor speed a row asks for by advance ratio
+        (``n = V / (J D)``) and it normalises the propeller coefficients
+        (``C_T = T / (rho n^2 D^4)``). A quantity a run is computed FROM
+        belongs with the reference lengths, where a reader looking for
+        "what were the coefficients divided by" finds all of them in one
+        place.
+
+        Optional because a configuration with no propeller has no
+        diameter, and stating a placeholder would be worse than stating
+        nothing. A row asking for an advance ratio without it is refused
+        naming this field.
     moment_point : PointXyz
         Moment reference point in the simulation geometry frame, m.
     propeller : PropellerReference, optional
@@ -467,6 +486,7 @@ class ReferenceArtifact(BaseModel):
     area_m2: float = Field(gt=0.0)
     chord_m: float = Field(gt=0.0)
     span_m: float = Field(gt=0.0)
+    propeller_diameter_m: float | None = Field(default=None, gt=0.0)
     moment_point: PointXyz = Field(default_factory=PointXyz)
     propeller: PropellerReference | None = None
 
