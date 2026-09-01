@@ -73,10 +73,16 @@ a mechanical half of that rule until 2026-08-11.
 
 ## Hard invariants
 
-The non-negotiable rules live in CLAUDE.md at the repository root. Read
-them before your first change. In short: no manual text, no AGPL-derived
-code, every command database change is evidence-backed, versions are only
-added, English names everywhere, no notebooks in Git.
+These are the non-negotiable rules, and this file is where a fresh clone
+finds them: no manual text, no AGPL-derived code, every command database
+change is evidence-backed, versions are only added, English names
+everywhere, no notebooks in Git.
+
+They were previously stated here in short with a pointer to a file at the
+repository root. That file is the author's working method and stopped
+being published in 0.9.0, so the pointer named something a clone does not
+have, and it named it to the one reader who could not tell: someone
+before their first change.
 
 ## How to add a command
 

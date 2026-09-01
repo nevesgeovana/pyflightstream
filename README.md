@@ -283,10 +283,12 @@ from the database at build time.
 
 Maintainers: a few machine-specific environment variables locate local
 tooling and are not in Git, because a literal path into somebody's
-machine never enters a committed file. `CLAUDE.md` is their single home,
-lists them, and states what each one does when unset. The count is
-deliberately not repeated here: it lived in two places and went stale in
-this one.
+machine never enters a committed file. They are listed in the author's
+working-method file, which stays on her disk and is deliberately not
+published, so a fresh clone does not have that list. Nothing a user
+installs reads any of them, and the tier that runs anywhere needs none:
+they locate the licensed solver and its manuals for tiers 2 and 3. The
+count is deliberately not repeated here.
 
 ```
 pip install -e .[dev,fsi,geom]
