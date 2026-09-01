@@ -2514,9 +2514,11 @@ def test_a_ratio_on_a_stopped_aircraft_is_refused_naming_the_inversion():
     case = ratio_case().model_copy(update={"velocity": 0.0})
     with pytest.raises(CampaignConfigError) as raised:
         rotor_speed(case)
-    # "RPM" alone is a substring of RPM_SIGN and appears in neighbouring
-    # refusals; the inversion is what only this branch says.
-    assert "n = V / (J D)" in str(raised.value)
+    # NOT `n = V / (J D)`, which the first repair used: that phrase occurs
+    # in three of this function's refusals, so a fixture drifting to a
+    # neighbouring branch would still pass while reporting on a branch it
+    # no longer reaches. That is how the round-two defect was born.
+    assert "needs a moving aircraft" in str(raised.value)
 
 
 def test_stating_no_clock_at_all_is_refused_offering_both_forms():
@@ -2761,6 +2763,7 @@ def test_a_speed_from_this_case_is_accepted():
         ("2.0", "decimal point", "rendered"),
         ("log_{point}.txt", "RENDERED", "decimal point"),
         ("nan", "not a whole number", "decimal point"),
+        ("inf", "not a whole number", "decimal point"),
         ("1e3", "not a whole number", "decimal point"),
     ],
 )
@@ -2780,3 +2783,27 @@ def test_a_log_position_that_is_not_a_number_gets_the_right_reason(value, expect
     message = str(raised.value)
     assert expected in message
     assert forbidden not in message
+
+
+@pytest.mark.parametrize(
+    "origin,expected",
+    [
+        ("0,0", "three coordinates"),
+        ("0,0,0,0", "three coordinates"),
+        ("x,0,0", "not three numbers"),
+    ],
+)
+def test_a_rotor_origin_that_is_not_three_numbers_is_refused(origin, expected):
+    """The two refusals beside the one this round added, left untested.
+
+    The finiteness check went in eight lines below these and neither was
+    covered, so a didactic refusal a blocked author reads had no probe.
+    """
+    with pytest.raises(CampaignConfigError) as raised:
+        build_script(
+            _angular(ROTOR_ORIGIN=origin),
+            Script("26.123"),
+            conventions=WorkflowConventions(outputs=("loads.txt",)),
+        )
+    message = str(raised.value)
+    assert expected in message and "ROTOR_ORIGIN" in message

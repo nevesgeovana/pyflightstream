@@ -97,13 +97,26 @@ the preset file; the third bullet says which.
   emitted solver settings differ between the two runs and only one of
   them is the flow model.
 
-  That count is measured, by diffing the two emitted scripts: thirteen
-  commands appear in the current one and in neither the control, and
+  That count is measured, by diffing the two emitted scripts, **and the
+  filter is stated because a reader who diffs them sees sixteen
+  differing lines rather than fourteen.** Thirteen SOLVER-SETTING
+  commands appear in the current script and in neither the control, and
   `SOLVER_MODEL` is the one command present in both with a different
-  value. Among the thirteen are wake-on-wake induction, the farfield
-  layer count, the mesh-induced wake velocity and the wake termination,
-  all of which move rotor axial force. Earning the attribution needs a
-  run that changes `SOLVER_MODEL` and nothing else.
+  value. Two further differences are excluded and named rather than
+  dropped: `EXPORT_LOG`, which is an export and not a setting, and
+  `SOLVER_MINIMUM_CP`, which reads `-100` in one and `-100.0` in the
+  other and is one number written two ways.
+
+  Among the thirteen are wake-on-wake induction, the farfield layer
+  count, the mesh-induced wake velocity and the wake termination, each
+  of which feeds the same wake and farfield model the axial force is
+  integrated from. **That last clause is a statement about the emitted
+  script and not about the solver**, deliberately: saying those four
+  settings move rotor axial force would be a claim about what the
+  solver computes, which is the thing the paragraph below says this
+  repository does not make, and an earlier draft made it three lines
+  above that sentence. Earning the attribution needs a run that changes
+  `SOLVER_MODEL` and nothing else.
 
   And this package's command database is a GRAMMAR record: by its own
   stated policy it carries no claim about what any solver model
@@ -113,10 +126,11 @@ the preset file; the third bullet says which.
 
   **The runs are not in this repository.** They live in the author's
   campaign workspace at `tools/fts_workspace/pfs090`, measured
-  2026-09-01 on FlightStream build 26.123: the after-state under
-  `sims/`, the before-state under
+  2026-09-01: the after-state under `sims/`, the before-state under
   `archive/run_26123_preset_nao_mapeado`, and that tree is not tracked
-  here. The numbers above are reported as her
+  here. Both arms ran the same executable and recorded solver build
+  `8112026`, read from each arm's own `runs.json` rather than from the
+  scripts, which record no build at all. The numbers above are reported as her
   measurement and are not a repository guarantee.
 
 - **Twelve settings joined `SolverSettings`,** every one of which has an

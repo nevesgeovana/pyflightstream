@@ -3086,3 +3086,93 @@ def test_the_identity_preflight_exports_its_log_to_an_absolute_path(tmp_path, mo
         "being refused"
     )
     assert Path(exported).parent == (tmp_path / "pre").resolve()
+
+
+# --- the log the verdict was read from, and the manifest that carries it -----
+#
+# BOTH FIXES BELOW SHIPPED WITH NO TEST, and a round-three mutation pass
+# found that reverting either left the whole run suite green. The field
+# exists to tell a residual verdict from an iteration-count one; a fix
+# nothing evaluates cannot keep that apart a second time.
+
+
+def test_the_assessment_records_which_log_decided_the_verdict(tmp_path):
+    """The residual half: the file is named, so the claim is checkable."""
+    sim_dir = make_raw(tmp_path, "loads_unsteady_26.120.txt")
+    make_raw(tmp_path, "log_residuals_26.120.txt", name="log.txt")
+    assessment = LoadsAssessor("loads.txt", log_file="log.txt")(None, None, sim_dir)
+    assert assessment.status is RunStatus.CONVERGED
+    assert assessment.log_file_used == "log.txt"
+
+
+def test_an_assessment_with_no_log_records_none_rather_than_a_name(tmp_path):
+    """The other half, and the one that makes the field mean anything.
+
+    An unsteady point with no log is COMPLETED_MAX_ITER whatever the
+    solver did. Without this assertion the field could be populated
+    unconditionally and still read as evidence.
+    """
+    sim_dir = make_raw(tmp_path, "loads_unsteady_26.120.txt")
+    assessment = LoadsAssessor("loads.txt")(None, None, sim_dir)
+    assert assessment.status is RunStatus.COMPLETED_MAX_ITER
+    assert assessment.log_file_used is None
+
+
+def test_the_log_that_decided_the_verdict_reaches_the_run_record(tmp_path):
+    """It was populated on the Assessment and dropped at the RunRecord.
+
+    THROUGH THE CAMPAIGN LOOP, not by constructing a RunRecord. The
+    first version of this test built the record directly, which proves
+    the field is declared and says nothing about the line that carries
+    it across; deleting that line is exactly the regression this exists
+    to catch, and a direct construction survives it.
+    """
+
+    def assessed_from_a_log(case, execution, sim_dir):
+        return Assessment(
+            status=RunStatus.CONVERGED,
+            iterations=120,
+            residual=3.2e-6,
+            log_file_used="log_a+00.0.txt",
+        )
+
+    campaign = make_campaign(tmp_path, alphas=(0.0,))
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    records = run_campaign(
+        campaign,
+        StubSolver(WRITES_LOADS),
+        workspace,
+        assess=assessed_from_a_log,
+        recipes={"steady": steady_recipe},
+    )
+    assert records[0].log_file_used == "log_a+00.0.txt", (
+        "the log the verdict was read from did not survive the RunRecord boundary"
+    )
+    written = json.loads((tmp_path / "camp" / "runs.json").read_text(encoding="utf-8"))
+    rows = written["runs"] if isinstance(written, dict) else written
+    assert rows[0]["log_file_used"] == "log_a+00.0.txt", (
+        "the manifest on disk, which is the reader the field names, does not carry it"
+    )
+
+
+def test_the_forced_iteration_refusal_does_not_tell_users_to_name_the_log(tmp_path):
+    """Auto-detection made that advice wrong and nothing was checking it.
+
+    The message is a didactic surface: it is what a blocked user acts on,
+    and it was still instructing them to pass `log_file` when exporting
+    the log is now enough.
+    """
+    text = (FIXTURES / "loads_steady_26.120.txt").read_text(encoding="utf-8")
+    text = text.replace(
+        "Force solver to run all iterations           F",
+        "Force solver to run all iterations           T",
+    )
+    sim_dir = make_raw(tmp_path, "loads_steady_26.120.txt", text=text)
+    assessment = LoadsAssessor("loads.txt")(None, None, sim_dir)
+    assert assessment.status is RunStatus.FAILED_INCOMPLETE_OUTPUT
+    message = assessment.error or ""
+    assert "found by content" in message, (
+        f"the refusal must say the log is found by content, not that it has to be "
+        f"named; got {message!r}"
+    )
+    assert "name it to LoadsAssessor" not in message
