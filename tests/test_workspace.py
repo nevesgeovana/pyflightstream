@@ -310,6 +310,7 @@ PROPELLER_REFERENCE_TOML = """
 area_m2 = 10.0
 chord_m = 1.2
 span_m = 8.0
+propeller_diameter_m = 2.0
 
 [moment_point]
 x_m = 0.3

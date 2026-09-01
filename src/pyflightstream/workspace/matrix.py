@@ -779,12 +779,18 @@ def _solver_from_setup(setup: SetupArtifact, set_code: str) -> SolverSettings:
 
     UNTIL THIS RELEASE THE THIRD CASE WAS A WARNING AND A SILENT DROP,
     and that is the defect this closes. A preset asking for
-    ``SUBSONIC_PRANDTL_GLAUERT`` ran INCOMPRESSIBLE, a preset asking for
-    a turbulent boundary layer ran the solver's default, and a preset
-    setting NITER ran whatever the model's default happened to be. Each
-    of those is a run that converges, exports and publishes numbers
-    against a physics nobody selected. A refusal costs an edit; a silent
-    drop costs a result.
+    ``SUBSONIC_PRANDTL_GLAUERT`` ran INCOMPRESSIBLE and a preset asking
+    for a turbulent boundary layer ran the solver's default. Each of
+    those is a run that converges, exports and publishes numbers against
+    a physics nobody selected. A refusal costs an edit; a silent drop
+    costs a result.
+
+    ``NITER`` WAS IN THE SAME POSITION AND IS DELIBERATELY NOT OFFERED
+    as a third instance: the campaign that surfaced this states 500 and
+    the model default is 500, so both of its runs emitted the same line
+    and it cannot be demonstrated from them. An earlier version of this
+    docstring listed it beside the other two, which made an unmeasured
+    instance read like a measured one.
     """
     settings = dict(setup.settings)
     declared = settings.pop(_PRESET_RECORDED_ONLY_KEY, None)

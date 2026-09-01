@@ -185,6 +185,19 @@ read by the package rather than ignored:
 | v0.8.1 | `GEOMETRY`, `SYMMETRY`, `PERIODIC_COPIES` |
 | this release | `ADVANCE_RATIO`, `RPM_SIGN`, `DELTA_THETA`, `REVOLUTIONS`, `LOG_OUTPUT` |
 
+`angle_sweep_deg` IS RESERVED TOO, since v0.7.0, and it is the one whose
+match FOLDS CASE rather than being exact: a cell spelling it in any
+casing is read as a sweep of a geometric rotation, and a row that also
+sweeps an aerodynamic axis is REFUSED for it. Its lookalike `angle_deg`
+is a value you write and nothing reads at run time. Only one of the two
+can stop a campaign.
+
+The `matrix_` prefix is the CONVERTER's rather than yours:
+`matrix_ref`, `matrix_set`, `matrix_entry`, `matrix_fs_script`,
+`matrix_fs_build`, `matrix_hidden` and `matrix_workflow` are written
+over whatever your cell said, after your cell is read. A key of yours
+spelling one of those is not read by the package; it is replaced.
+
 **`REVOLUTIONS` AND `DELTA_THETA` ARE THE TWO TO CHECK FIRST**, because
 they are ordinary words a rotor study is likely to have already used for
 its own bookkeeping. A cell of yours spelling either is now the
@@ -307,7 +320,11 @@ knowing.
    and is stated in the row's `SYMMETRY`; `solver` and `motion` are what
    the `WORKFLOW` column decides; `unsteady_delta_theta_deg` and
    `unsteady_N_revolutions` are superseded by the row's `DELTA_THETA`
-   and `REVOLUTIONS`; the last four have no emitter in this package.
+   and `REVOLUTIONS`; `mesh_order_list` is one mesh's boundary order and a
+   preset is shared by several; `set_base_region_trailing_edges` is a
+   separation model that selects boundaries, and a preset carries no
+   selection, so it is a recipe's job; and the last three have no
+   emitter in this package at all.
 
     That list is maintained by hand and this page is not generated, so
     **read the warning your own preset prints** rather than this

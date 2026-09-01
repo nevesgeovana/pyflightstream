@@ -197,7 +197,7 @@ def test_the_propeller_artifact_on_the_page_is_the_one_the_suite_validates():
     ]
     assert len(page) == 1
 
-    documented = tomllib.loads(page[0])["propeller"]
+    documented = tomllib.loads(page[0])
     parsed = tomllib.loads(test_workspace.PROPELLER_REFERENCE_TOML)
     # BEFORE the subscript, not after it. Written the other way round, a
     # fixture that lost its propeller block raised a bare KeyError and the
@@ -205,10 +205,14 @@ def test_the_propeller_artifact_on_the_page_is_the_one_the_suite_validates():
     assert "propeller" in parsed, (
         "the workspace fixture carries no propeller block to compare the page against"
     )
-    fixture = parsed["propeller"]
-    assert documented == fixture, (
-        "the propeller artifact on the page has drifted from the one the workspace "
-        f"suite validates. Page: {documented}. Fixture: {fixture}"
+    # THE WHOLE DOCUMENT, not just ["propeller"]. Compared block-only,
+    # this guard passed over a top-level length added to the page and not
+    # to the fixture, which is the exact drift it exists to catch: the
+    # page calls the block "in full" and the subscript made three
+    # quarters of it unwatched.
+    assert documented == parsed, (
+        "the reference artifact on the page has drifted from the one the workspace "
+        f"suite validates. Page: {documented}. Fixture: {parsed}"
     )
 
 

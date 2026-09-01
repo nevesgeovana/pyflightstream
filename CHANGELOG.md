@@ -85,23 +85,38 @@ the preset file; the third bullet says which.
   coefficient `Cx` from -0.0535 to -0.0541 on one rotor point and from
   -0.0542 to -0.0548 on another, which is about one percent in the
   direction expected. Those operands are printed to four decimals, so
-  the difference carries ONE significant figure and its band is 0.93 to
-  1.31 percent.
+  each difference carries ONE significant figure, and the band the two
+  pairs together support is 0.92 to 1.31 percent.
 
   **The attribution to any single setting is NOT earned**, and an
-  earlier draft of this entry claimed it was the Prandtl-Glauert factor.
-  Twelve solver settings differ between the two runs, among them
-  wake-on-wake induction, the farfield layer count, the mesh-induced
-  wake velocity and the wake termination, all of which move rotor axial
-  force. Earning it needs a run that changes `SOLVER_MODEL` and nothing
-  else. And this package's own command database records that no edition
-  documents what `SUBSONIC_PRANDTL_GLAUERT` computes, so what that token
-  does is not a claim this repository makes anywhere.
+  earlier draft of this entry claimed the move WAS the Prandtl-Glauert
+  factor. It is worth writing down why that was wrong, because the
+  arithmetic is seductive: the factor at M 0.1441 is +1.05 percent and
+  the measured move is about +1.1 percent, so the two agree inside the
+  band above. **Agreement is not evidence here**, because FOURTEEN
+  emitted solver settings differ between the two runs and only one of
+  them is the flow model.
+
+  That count is measured, by diffing the two emitted scripts: thirteen
+  commands appear in the current one and in neither the control, and
+  `SOLVER_MODEL` is the one command present in both with a different
+  value. Among the thirteen are wake-on-wake induction, the farfield
+  layer count, the mesh-induced wake velocity and the wake termination,
+  all of which move rotor axial force. Earning the attribution needs a
+  run that changes `SOLVER_MODEL` and nothing else.
+
+  And this package's command database is a GRAMMAR record: by its own
+  stated policy it carries no claim about what any solver model
+  computes, for any token. So what `SUBSONIC_PRANDTL_GLAUERT` does is
+  not something this repository asserts anywhere, and a changelog entry
+  is not the place to start.
 
   **The runs are not in this repository.** They live in the author's
-  campaign workspace at `tools/fts_workspace/pfs090`, with the
-  before-state under `archive/run_26123_preset_nao_mapeado`, and that
-  tree is not tracked here. The numbers above are reported as her
+  campaign workspace at `tools/fts_workspace/pfs090`, measured
+  2026-09-01 on FlightStream build 26.123: the after-state under
+  `sims/`, the before-state under
+  `archive/run_26123_preset_nao_mapeado`, and that tree is not tracked
+  here. The numbers above are reported as her
   measurement and are not a repository guarantee.
 
 - **Twelve settings joined `SolverSettings`,** every one of which has an

@@ -497,6 +497,7 @@ class RunRecord(BaseModel):
     outputs_sha256: dict[str, str] = Field(default_factory=dict)
     broken_commands: list[BrokenCommandRecord] = Field(default_factory=list)
     conditions: list[dict] | None = None
+    log_file_used: str | None = None
     solver_setup: dict | None = None
     status: RunStatus
     iterations: int | None = None

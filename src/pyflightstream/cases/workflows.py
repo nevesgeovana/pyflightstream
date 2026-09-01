@@ -59,6 +59,7 @@ exported (PFS-2025.02.02, PFS-2025.02.03).
 from __future__ import annotations
 
 import math
+import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import PurePath
@@ -679,6 +680,13 @@ class RotorSpeed:
 
     Attributes
     ----------
+    sim_id : str
+        The case this speed was resolved from. It exists so that a speed
+        HANDED to another function can be checked against the case that
+        function was given: without it, a speed resolved from a
+        different row produces a clock and a rotor motion that are
+        internally consistent, export, and are wrong, and nothing
+        anywhere could refuse it.
     stated_form : str
         ``rpm`` or ``advance_ratio``: what the author wrote.
     stated_value : float
@@ -693,6 +701,7 @@ class RotorSpeed:
         was derived, so a record cannot claim inputs it never read.
     """
 
+    sim_id: str
     stated_form: str
     stated_value: float
     rpm: float
@@ -791,6 +800,7 @@ def rotor_speed(case: SimCase) -> RotorSpeed:
                 "is a magnitude and is the form that needs a sign of its own."
             )
         return RotorSpeed(
+            sim_id=case.sim_id,
             stated_form="rpm",
             stated_value=stated,
             rpm=stated,
@@ -830,6 +840,7 @@ def rotor_speed(case: SimCase) -> RotorSpeed:
     # n in rev/s is V / (J D); rev/min is sixty times that.
     rpm = 60.0 * velocity / (ratio * diameter)
     return RotorSpeed(
+        sim_id=case.sim_id,
         stated_form="advance_ratio",
         stated_value=ratio,
         rpm=_rpm_sign(case) * rpm,
@@ -837,6 +848,28 @@ def rotor_speed(case: SimCase) -> RotorSpeed:
         velocity_m_per_s=velocity,
         diameter_m=diameter,
     )
+
+
+def _own_speed(case: SimCase, speed: RotorSpeed | None) -> RotorSpeed:
+    """Return the speed for this case, refusing one resolved from another.
+
+    A HANDED SPEED ALSO SKIPS EVERY REFUSAL `rotor_speed` MAKES, which is
+    the half that matters more than the mix-up: a row stating both
+    ADVANCE_RATIO and RPM, or a ratio with no propeller diameter, is
+    refused inside `rotor_speed` and builds a clean script when a caller
+    supplies a speed instead. Checking the identity is what makes the
+    parameter an optimisation rather than a way past the guards.
+    """
+    if speed is None:
+        return rotor_speed(case)
+    if speed.sim_id != case.sim_id:
+        raise CampaignConfigError(
+            f"a rotor speed resolved from case {speed.sim_id!r} was passed for case "
+            f"{case.sim_id!r}. A speed carries the row it came from precisely so this "
+            "cannot happen quietly: the run would emit a rotor speed and a clock that "
+            "agree with each other and with no row."
+        )
+    return speed
 
 
 def _optional_rotor_speed(case: SimCase) -> RotorSpeed | None:
@@ -995,7 +1028,7 @@ def rotor_time_stepping(case: SimCase, *, speed: RotorSpeed | None = None) -> Ti
         iterations = _required_int(
             case, TIME_ITERATIONS_VARIABLE, quantity="physical time step count", unit="steps"
         )
-        resolved = speed if speed is not None else _optional_rotor_speed(case)
+        resolved = _own_speed(case, speed) if speed is not None else _optional_rotor_speed(case)
         return TimeStepping(
             stated_form="explicit",
             delta_time_s=delta_time_s,
@@ -1028,7 +1061,7 @@ def rotor_time_stepping(case: SimCase, *, speed: RotorSpeed | None = None) -> Ti
             f"case {case.sim_id!r} declares {REVOLUTIONS_VARIABLE} as {revolutions}, "
             "and a run turns for a positive number of revolutions."
         )
-    resolved = speed if speed is not None else rotor_speed(case)
+    resolved = _own_speed(case, speed)
     if resolved.rpm == 0.0:
         raise CampaignConfigError(
             f"case {case.sim_id!r} resolves a rotor speed of zero, and a degree of "
@@ -1131,7 +1164,7 @@ def emit_rotor_motion(
         direction that is neither of the two. The message names the case
         (whose ``sim_id`` IS the matrix POL) and the KEY.
     """
-    rpm = (speed if speed is not None else rotor_speed(case)).rpm
+    rpm = _own_speed(case, speed).rpm
     axis = _variable(case, ROTOR_AXIS_VARIABLE)
     if axis is None:
         raise CampaignConfigError(
@@ -2192,13 +2225,25 @@ def _refuse_wake_termination_without_a_clock(case: SimCase) -> None:
     )
 
 
-def _looks_numeric(text: str) -> bool:
-    """Whether a LOG_OUTPUT cell was meant as a number rather than a name."""
-    try:
-        float(text)
-    except ValueError:
-        return False
-    return True
+#: A signed decimal, which is what "meant as a number" has to mean here.
+_DECIMAL = re.compile(r"^[+-]?(\d+\.?\d*|\.\d+)$")
+
+
+def _log_position_shape(text: str) -> str:
+    """Classify a LOG_OUTPUT cell that is not a whole number.
+
+    THE FIRST VERSION ASKED `float(text)`, which is wider than the
+    message it selected: `nan`, `inf` and `1e3` all parse, so their
+    authors were told the value "takes no decimal point" about
+    characters containing no decimal point. A refusal whose whole job is
+    to point at the cell someone typed cannot be wrong about what they
+    typed.
+    """
+    if _DECIMAL.match(text):
+        return "decimal"
+    if any(character in text for character in r"/\.") or text.endswith("}"):
+        return "name"
+    return "neither"
 
 
 def _export_log(
@@ -2258,15 +2303,17 @@ def _export_log(
         # THE TWO WRONG SHAPES GET DIFFERENT MESSAGES. `2.0` is not a
         # name, and telling its author why a NAME cannot be used here
         # answers a question they did not ask.
-        looks_like_a_name = not _looks_numeric(text)
-        why = (
-            "A name cannot be used here: the output names carry the point placeholder "
-            "in the cell and reach a builder already RENDERED, so the cell's spelling "
-            "and the case's never match."
-            if looks_like_a_name
-            else "It is a whole number of files and not a measurement, so it takes no "
-            "decimal point."
-        )
+        why = {
+            "name": (
+                "A name cannot be used here: the output names carry the point "
+                "placeholder in the cell and reach a builder already RENDERED, so the "
+                "cell's spelling and the case's never match."
+            ),
+            "decimal": (
+                "It is a whole number of files and not a measurement, so it takes no decimal point."
+            ),
+            "neither": "That is not a whole number.",
+        }[_log_position_shape(text)]
         raise CampaignConfigError(
             f"case {case.sim_id!r} declares {LOG_OUTPUT_VARIABLE} as {declared!r}, and "
             "it is the POSITION of the solver log among the row's own OUTPUTS, counted "
@@ -2373,6 +2420,17 @@ def _origin(case: SimCase) -> tuple[float, float, float]:
             f"case {case.sim_id!r} declares {ROTOR_ORIGIN_VARIABLE} as {text!r}, which "
             "is not three numbers."
         ) from None
+    # THE SAME NON-FINITE ROUTE AS EVERY OTHER NUMERIC CELL, and this one
+    # does not pass through `_required_float` because it parses three
+    # values out of one string. `float("nan")` succeeds, so without this
+    # a NaN coordinate became the origin of the frame the whole rotary
+    # motion turns about.
+    if not all(math.isfinite(value) for value in (x, y, z)):
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} declares {ROTOR_ORIGIN_VARIABLE} as {text!r}, which "
+            "carries a value that is not finite. A rotor hub is three coordinates in "
+            "simulation length units, and NaN or infinity is not a position."
+        )
     return (x, y, z)
 
 

@@ -588,14 +588,6 @@ class Assessment:
         (FR-18).
     fs_build : str, optional
         Build number printed in the assessed output.
-    log_file_used : str, optional
-        Name of the solver log the residual verdict was read from, or
-        None where none was read and the judgment fell to the iteration
-        count. Recorded because the two are DIFFERENT CLAIMS about a
-        result: an unsteady point with no log is recorded
-        ``COMPLETED_MAX_ITER`` whatever the solver did, and a later
-        reader of the manifest cannot otherwise tell that from a point
-        whose residuals were actually read and missed the threshold.
     conditions : list of dict, optional
         The operating-point binding, one entry per requested axis the
         export prints back: ``axis``, ``requested``, ``reported``,
@@ -606,6 +598,19 @@ class Assessment:
         on a refusal, because "checked and agreed" and "never checked"
         are different claims about a result and a later reader cannot
         otherwise tell them apart.
+    log_file_used : str, optional
+        Name of the solver log the residual verdict was read from, or
+        None where none was read and the judgment fell to the iteration
+        count. Recorded because the two are DIFFERENT CLAIMS about a
+        result: an unsteady point with no log is recorded
+        ``COMPLETED_MAX_ITER`` whatever the solver did, and a later
+        reader of the manifest cannot otherwise tell that from a point
+        whose residuals were actually read and missed the threshold.
+
+        IT REACHES THE MANIFEST, which is the whole point of it and was
+        not true of the first version: the field was populated on the
+        assessment and dropped at the RunRecord boundary, so the reader
+        it names still could not tell the two apart.
     """
 
     status: RunStatus
@@ -1113,8 +1118,9 @@ class LoadsAssessor:
                         f"{report.requested_iterations} with forced iterations enabled, "
                         "so the convergence threshold was not what ended the loop: it "
                         "was disabled. The loads file describes an unfinished solve. "
-                        "Export the solver log (EXPORT_LOG) and name it to LoadsAssessor "
-                        "for a residual judgment, or find why the solver stopped"
+                        "Export the solver log (EXPORT_LOG) for a residual judgment, which "
+                        "is found by content and does not have to be named, or find "
+                        "why the solver stopped"
                     ),
                     **stamp,
                 )
@@ -2793,6 +2799,7 @@ def _execute_point(
         # status alone cannot answer "was this result ever bound to the
         # point it claims", and that question is the whole finding.
         conditions=assessment.conditions,
+        log_file_used=assessment.log_file_used,
         error=assessment.error,
     )
 
