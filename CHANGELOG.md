@@ -62,6 +62,19 @@ FlightStream versions.
   is the residual. A campaign that exports no log is judged exactly as
   it was.
 
+**New public names in `pyflightstream.cases.workflows`:** `rotor_speed`,
+`rotor_time_stepping`, `RotorSpeed`, `TimeStepping`, and the cell-key
+constants `ADVANCE_RATIO_VARIABLE`, `RPM_SIGN_VARIABLE`,
+`DELTA_THETA_VARIABLE`, `REVOLUTIONS_VARIABLE` and `LOG_OUTPUT_VARIABLE`.
+
+**New public model fields:** `ReferenceArtifact.propeller_diameter_m`,
+`ReferenceData.propeller_diameter`, the twelve `SolverSettings` fields
+listed above, and `log_file_used` on both `run.Assessment` and
+`workspace.RunRecord`.
+
+**Removed public name:** none. **Deprecations:** none, and no shim is
+added or retired by this release.
+
 ### Changed -- BREAKING for a preset that states a key nothing can emit
 
 A solver preset that resolved yesterday can be REFUSED today, so this is
