@@ -588,6 +588,14 @@ class Assessment:
         (FR-18).
     fs_build : str, optional
         Build number printed in the assessed output.
+    log_file_used : str, optional
+        Name of the solver log the residual verdict was read from, or
+        None where none was read and the judgment fell to the iteration
+        count. Recorded because the two are DIFFERENT CLAIMS about a
+        result: an unsteady point with no log is recorded
+        ``COMPLETED_MAX_ITER`` whatever the solver did, and a later
+        reader of the manifest cannot otherwise tell that from a point
+        whose residuals were actually read and missed the threshold.
     conditions : list of dict, optional
         The operating-point binding, one entry per requested axis the
         export prints back: ``axis``, ``requested``, ``reported``,
@@ -607,6 +615,7 @@ class Assessment:
     fs_version_reported: str | None = None
     fs_build: str | None = None
     conditions: list[dict] | None = None
+    log_file_used: str | None = None
 
 
 def _bind_case_conditions(case: SimCase | None, report: LoadsReport) -> ConditionBinding:
@@ -736,8 +745,9 @@ class LoadsAssessor:
       could have ended the loop legitimately was off (PYFS-008).
     - Without a log, unsteady mode: the time loop always runs to its
       prescribed end, so completion is recorded as
-      COMPLETED_MAX_ITER; declare the log export to get a residual
-      judgment.
+      COMPLETED_MAX_ITER. EXPORTING a log is what changes that; naming
+      it is not required, because a collected file that parses as a
+      residual history is found by content.
 
     Parameters
     ----------
@@ -751,8 +761,16 @@ class LoadsAssessor:
         (``loads_{point}.txt``), so no single literal could name them
         all, and the content is what identifies the file anyway.
     log_file : str, optional
-        Name of the exported solver log (EXPORT_LOG), when the recipe
-        declares one; enables the residual-based judgment.
+        Name of the exported solver log (EXPORT_LOG). None, the default,
+        finds the collected output that parses as a residual history,
+        the same rule ``loads_file`` follows and for the same reason: a
+        swept case names its outputs per point, so no single literal
+        could name them all.
+
+        NAMING IT IS STRICTER, not weaker: a named file that was not
+        collected is a refusal, while the default falls back to the
+        iteration-count judgment when nothing parses. Name it when the
+        run must not be judged without residuals.
     requested_version : str or FsVersion, optional
         Version the campaign requested; enables the FR-18 cross-check
         against the version printed in the loads footer.
@@ -793,7 +811,11 @@ class LoadsAssessor:
     5. The loads footer prints a solver mode this package has not been
        taught (REV010-002).
     6. The file named by ``log_file`` is not among the collected
-       outputs.
+       outputs; or ``log_file`` was not named and SEVERAL collected
+       outputs parse as a residual history, because choosing one would
+       be a guess about which is this point's. Zero candidates is not a
+       refusal: it is the iteration-count judgment, which is what every
+       campaign that exports no log has always received.
     7. The solver log is present but no residual history can be read
        from it.
     8. Steady mode with all iterations forced, and the solver stopped
@@ -890,7 +912,7 @@ class LoadsAssessor:
         # whether that was accepted (REV010-001's closure asks for the
         # decision to be persisted, not just acted on).
         binding = _bind_case_conditions(case, report)
-        stamp = {
+        stamp: dict[str, object] = {
             "fs_version_reported": report.fs_version_reported,
             "fs_build": report.fs_build,
             "conditions": binding.as_records(),
@@ -972,6 +994,27 @@ class LoadsAssessor:
             ]
             if len(candidates) == 1:
                 log_path = candidates[0]
+            elif len(candidates) > 1:
+                # SEVERAL IS A REFUSAL, exactly as it is for the loads
+                # table one branch up, and for the same reason: choosing
+                # one would be a guess about which is the log of THIS
+                # point. The first version fell through silently to the
+                # iteration-count judgment, which is the verdict this
+                # whole path exists to replace, so a campaign that had
+                # gone to the trouble of exporting a log got the old
+                # answer and no way to tell.
+                names = ", ".join(path.name for path in candidates)
+                return Assessment(
+                    status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
+                    iterations=report.current_iteration,
+                    error=(
+                        f"{len(candidates)} collected outputs read as a solver log "
+                        f"({names}), so which one carries this point's residuals is a "
+                        "guess. Name it with LoadsAssessor(log_file='<name>'), or give "
+                        "each point a uniquely named log"
+                    ),
+                    **stamp,
+                )
         if self.log_file is not None:
             wanted_log = Path(self.log_file).name
             matches = [path for path in collected if path.name == wanted_log]
@@ -990,6 +1033,7 @@ class LoadsAssessor:
                 )
             log_path = matches[0]
         if log_path is not None:
+            stamp["log_file_used"] = log_path.name
             log_text = log_path.read_text(encoding="utf-8", errors="replace")
             try:
                 final = parse_residual_history(log_text)[-1]

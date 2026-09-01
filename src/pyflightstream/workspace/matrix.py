@@ -31,9 +31,20 @@ paid for it with imports deferred to call time, which recorded an
 upward dependency while hiding it from every module-level reader
 (OPS-2007.01, PFS-2009.05). The execution half went to
 :mod:`pyflightstream.run.matrix` in the same move, and the direction now
-reads off the import block: this module imports the cases layer
-downward and the workspace layer sideways, and imports nothing from
+reads off the import block: this module imports the cases layer and the
+script layer downward, the workspace layer sideways, and nothing from
 :mod:`pyflightstream.run`.
+
+THE SCRIPT IMPORT IS THE NEWEST OF THOSE AND THE SENTENCE ABOVE IS AN
+ENUMERATION, so it is named rather than left to be inferred:
+:func:`pyflightstream.script.toggles.resolve_toggle` resolves a preset's
+ENABLE/DISABLE gate in the same vocabulary
+:class:`pyflightstream.cases.SolverSettings` validates its own toggles
+with. `script` is two rows below `workspace` in
+:data:`pyflightstream.overview._CORE_LAYERS`, so it is downward. This
+paragraph is a rendering source for the architecture overview (AD-02),
+which is why an enumeration that has drifted from the import block
+matters here more than it would in an ordinary comment.
 """
 
 from __future__ import annotations
@@ -744,6 +755,16 @@ def _resolve_stabilization(settings: Mapping[str, object], set_code: str) -> flo
             "stabilization_strength, so there is no number to emit. Add the strength, "
             "or disable it."
         )
+    # NARROWED RATHER THAN COERCED. A TOML value arrives as `object`, and
+    # `float(object)` is both untypeable and a worse refusal: a string
+    # would raise a bare ValueError naming neither the preset nor the
+    # key. A bool is excluded on its own line because it is an int in
+    # Python, so `True` would silently become a stabilization of 1.0.
+    if isinstance(strength, bool) or not isinstance(strength, (int, float)):
+        raise InputArtifactError(
+            f"setup preset {set_code!r} states stabilization_strength as {strength!r}, "
+            "and a stabilization strength is a number."
+        )
     return float(strength)
 
 
@@ -799,7 +820,18 @@ def _solver_from_setup(setup: SetupArtifact, set_code: str) -> SolverSettings:
         else:
             refused.append(key)
     if refused:
-        available = sorted(known | set(_PRESET_ALIASES))
+        # THE CONSUMED KEYS BELONG IN THE LIST. `stabilization`,
+        # `stabilization_strength` and the reserved `recorded_only` are
+        # all accepted and are all taken out of `settings` before this
+        # loop, so the first version of this message refused
+        # `stabilisation` with a list of "keys that apply" that did not
+        # contain the word its author meant, which is the one case where
+        # the list is the whole value of the refusal.
+        available = sorted(
+            known
+            | set(_PRESET_ALIASES)
+            | {"stabilization", "stabilization_strength", _PRESET_RECORDED_ONLY_KEY}
+        )
         raise InputArtifactError(
             f"setup preset {set_code!r} states key(s) {', '.join(sorted(refused))}, "
             "which name no solver setting this package can emit and are not declared "
@@ -838,21 +870,18 @@ def _solver_from_setup(setup: SetupArtifact, set_code: str) -> SolverSettings:
             stacklevel=2,
         )
     try:
-        return SolverSettings(**matched)
+        # `model_validate` AND NOT `SolverSettings(**matched)`. The dict is
+        # `dict[str, object]` by construction, because a preset table is
+        # untyped until it is validated, and unpacking it as keywords
+        # typechecks `object` against every field: the checker could not
+        # see that any preset value had the right type, on the one call
+        # whose whole purpose is that preset values reach solver fields.
+        # Passing the mapping is the same validation and it is typed.
+        return SolverSettings.model_validate(matched)
     except ValidationError as error:
         raise InputArtifactError(
             f"setup preset {set_code!r} does not fit the case solver settings: {error}"
         ) from error
-
-
-def preset_recorded_only() -> Mapping[str, str]:
-    """Return the recorded-only preset keys and the reason each is one.
-
-    Public because the reason is the useful half: a user whose setting
-    did not reach the script needs to read WHY here rather than infer it
-    from a script that lacks a line.
-    """
-    return dict(_PRESET_RECORDED_ONLY)
 
 
 def resolve_matrix(

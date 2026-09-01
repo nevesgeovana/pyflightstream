@@ -58,6 +58,7 @@ exported (PFS-2025.02.02, PFS-2025.02.03).
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import PurePath
@@ -617,7 +618,7 @@ def _required_float(case: SimCase, key: str, *, quantity: str, unit: str) -> flo
             f"'{key}: <value>'."
         )
     try:
-        return float(text)
+        value = float(text)
     except ValueError:
         raise CampaignConfigError(
             f"case {case.sim_id!r} declares {key} as {text!r}, which is not a number. "
@@ -625,6 +626,28 @@ def _required_float(case: SimCase, key: str, *, quantity: str, unit: str) -> flo
             "conversion happens here rather than at the command, where the refusal "
             "would name only the command and not the cell you typed."
         ) from None
+    # NAN AND INFINITY ARE REFUSED HERE, and this is the one place every
+    # numeric cell of every rotor row passes through, which is why the
+    # check lives here rather than beside each bound.
+    #
+    # `float("nan")` succeeds, so the conversion above lets it past, and
+    # then EVERY COMPARISON AGAINST IT IS FALSE: a NaN advance ratio
+    # passes a `<= 0` guard, resolves a NaN rotor speed, and reaches the
+    # command layer; a NaN azimuthal step passes its range guard and dies
+    # in `int(round(...))` with a bare ValueError naming neither the case
+    # nor the key. This package already recorded that class once, on the
+    # convergence threshold (PYFS-016), and answered it there with
+    # `allow_inf_nan=False`. These keys arrive as TEXT and never touch
+    # that model, so they needed their own.
+    if not math.isfinite(value):
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} declares {key} as {text!r}, which is not a finite "
+            f"number. It is the {quantity} in {unit}, and a value that is NaN or "
+            "infinite compares false against every bound, so it would pass each check "
+            "below and be emitted, or fail much later where the refusal could name "
+            "neither this case nor this key."
+        )
+    return value
 
 
 def _required_int(case: SimCase, key: str, *, quantity: str, unit: str) -> int:
@@ -678,7 +701,12 @@ class RotorSpeed:
     diameter_m: float | None
 
     def record(self) -> dict[str, object]:
-        """Both forms, for the run record."""
+        """Return the stated form, the derived one, and every input consumed.
+
+        NOTHING IN THIS PACKAGE CONSUMES THIS YET; see
+        :meth:`TimeStepping.record`, which states the position both are
+        in and why they exist before a consumer does.
+        """
         return {
             "form": self.stated_form,
             "stated": self.stated_value,
@@ -856,18 +884,35 @@ class TimeStepping:
         return 60.0 / (abs(self.rpm) * self.delta_time_s)
 
     def record(self) -> dict[str, object]:
-        """Both forms, for the run record."""
+        """Return the stated form and every form derived from it.
+
+        NOTHING IN THIS PACKAGE CONSUMES THIS YET, and that is said here
+        rather than left to be discovered: it is the record SHAPE, and
+        the run record does not carry the rotor decisions today. Its
+        sibling :meth:`ExportWindow.record` has stood in the same
+        position since 0.8.1. What the method is for is that when a
+        record does carry them, there is one place that decides what
+        "them" means.
+
+        ``rpm`` IS INCLUDED although it is an input rather than a
+        derived form. ``steps_per_revolution`` below is computed FROM
+        it, so a record carrying the quotient and not the divisor would
+        show a reader a number they could not recover the working for.
+        The paired :meth:`RotorSpeed.record` states the same rule as its
+        reason for carrying every input it consumed.
+        """
         return {
             "form": self.stated_form,
             "delta_time_s": self.delta_time_s,
             "time_iterations": self.time_iterations,
             "delta_theta_deg": self.delta_theta_deg,
             "revolutions": self.revolutions,
+            "rpm": self.rpm,
             "steps_per_revolution": self.steps_per_revolution,
         }
 
 
-def rotor_time_stepping(case: SimCase, speed: RotorSpeed | None = None) -> TimeStepping:
+def rotor_time_stepping(case: SimCase, *, speed: RotorSpeed | None = None) -> TimeStepping:
     """Resolve the physical clock of an unsteady rotor run, in either form.
 
     Parameters
@@ -877,8 +922,15 @@ def rotor_time_stepping(case: SimCase, speed: RotorSpeed | None = None) -> TimeS
         ``DELTA_TIME`` and ``TIME_ITERATIONS``; one pair, not both and
         not half of one.
     speed : RotorSpeed, optional
-        The already-resolved rotor speed, so the caller that needs both
-        resolves the speed once. Resolved here when not given.
+        The already-resolved rotor speed of THIS case, so the caller that
+        needs both resolves the ratio once. Resolved here when not given.
+
+        KEYWORD-ONLY, deliberately. Nothing here can check that a passed
+        speed belongs to this case, so a speed resolved from another row
+        would produce a clock that is internally consistent, exports, and
+        is wrong. A keyword-only parameter cannot be supplied by
+        accident from a positional call site, and the name at the call
+        site is what makes the mistake visible in a diff.
 
     Returns
     -------
@@ -1023,6 +1075,7 @@ def emit_rotor_motion(
     *,
     frame: int | str,
     moving_frames: Sequence[int | str] | str | None = "all",
+    speed: RotorSpeed | None = None,
 ) -> int:
     """Emit one rotary motion entirely from what the row declares.
 
@@ -1060,6 +1113,10 @@ def emit_rotor_motion(
         creation label; it must exist earlier in the script.
     moving_frames : sequence, ``"all"`` or None
         Local frames attached to the motion; ``"all"`` is the default.
+    speed : RotorSpeed, optional
+        The already-resolved rotor speed of THIS case; resolved here
+        when not given, which is what every caller outside the builders
+        does.
 
     Returns
     -------
@@ -1074,7 +1131,7 @@ def emit_rotor_motion(
         direction that is neither of the two. The message names the case
         (whose ``sim_id`` IS the matrix POL) and the KEY.
     """
-    rpm = rotor_speed(case).rpm
+    rpm = (speed if speed is not None else rotor_speed(case)).rpm
     axis = _variable(case, ROTOR_AXIS_VARIABLE)
     if axis is None:
         raise CampaignConfigError(
@@ -1960,17 +2017,29 @@ def _initialize(case: SimCase, script: Script) -> None:
             f"drop {PERIODIC_COPIES_VARIABLE}."
         )
     # THE PRESET REACHES INITIALIZE_SOLVER TOO, for the two arguments it
-    # states. A case carrying neither passes neither, so the emitter's own
-    # INCOMPRESSIBLE default stands and nothing that ran before changes.
-    optional: dict[str, object] = {}
-    if case.solver.solver_model is not None:
-        optional["solver_model"] = case.solver.solver_model
-    if case.solver.wall_collision_avoidance is not None:
-        optional["wall_collision_avoidance"] = case.solver.wall_collision_avoidance
-    helpers.initialize_solver(script, symmetry=mode, periodic_copies=copies, **optional)
+    # states. Both are passed UNCONDITIONALLY and the absent case is
+    # spelled as the emitter's own default rather than as a missing
+    # keyword: `solver_model=None` would be a different call, so the
+    # `or` restates INCOMPRESSIBLE, which is what the helper signature
+    # already defaults to, and `wall_collision_avoidance=None` is that
+    # parameter's own default and emits nothing.
+    #
+    # The first version built a `dict[str, object]` and unpacked it,
+    # which typechecks as `object` against four differently typed
+    # parameters: the type checker could not see that any of them was
+    # right, on the one call this round exists to make.
+    helpers.initialize_solver(
+        script,
+        symmetry=mode,
+        periodic_copies=copies,
+        solver_model=case.solver.solver_model or "INCOMPRESSIBLE",
+        wall_collision_avoidance=case.solver.wall_collision_avoidance,
+    )
 
 
-def _settings(case: SimCase, script: Script, **extra: object) -> None:
+def _settings(
+    case: SimCase, script: Script, *, wake_termination_time_steps: int | None = None
+) -> None:
     """Emit the solver settings, including the reference if the case has one.
 
     THE REFERENCE REACHES THE SCRIPT HERE (PFS-2025.02.04), and until
@@ -2005,7 +2074,7 @@ def _settings(case: SimCase, script: Script, **extra: object) -> None:
     # `wake_termination_revolutions` is deliberately absent: it is the
     # one preset setting whose unit the emitter does not take, and the
     # conversion needs the case's own clock, so the rotor builder does
-    # it (:func:`_wake_termination_steps`) and the steady builder, which
+    # it (:func:`_wake_termination`) and the steady builder, which
     # has no clock, cannot and does not.
     helpers.solver_settings(
         script,
@@ -2029,7 +2098,7 @@ def _settings(case: SimCase, script: Script, **extra: object) -> None:
         additional_wake_relaxation=solver.additional_wake_relaxation,
         reynolds_averaged_drag=solver.reynolds_averaged_drag,
         solver_stabilization=solver.solver_stabilization,
-        **extra,
+        wake_termination_time_steps=wake_termination_time_steps,
     )
 
 
@@ -2069,7 +2138,7 @@ def _fluid(case: SimCase, script: Script) -> None:
     )
 
 
-def _wake_termination(case: SimCase, stepping: TimeStepping) -> dict[str, object]:
+def _wake_termination(case: SimCase, stepping: TimeStepping) -> int | None:
     """Convert the preset's wake termination from revolutions to time steps.
 
     A rotor preset states it in revolutions, because that is the unit a
@@ -2079,12 +2148,12 @@ def _wake_termination(case: SimCase, stepping: TimeStepping) -> dict[str, object
     and its rotor speed and of nothing else, which is why it happens
     here rather than in the artifact model.
 
-    Returns an EMPTY mapping when the preset states none, so a case that
-    asks for nothing passes nothing and emits nothing.
+    Returns None where the preset states none, so a case that asks for
+    nothing emits nothing.
     """
     revolutions = case.solver.wake_termination_revolutions
     if revolutions is None:
-        return {}
+        return None
     per_revolution = stepping.steps_per_revolution
     if per_revolution is None:
         raise CampaignConfigError(
@@ -2093,10 +2162,52 @@ def _wake_termination(case: SimCase, stepping: TimeStepping) -> dict[str, object
             "revolution has no length in time steps here. State the rotor speed with "
             f"{ADVANCE_RATIO_VARIABLE} or {RPM_VARIABLE}, or drop the preset key."
         )
-    return {"wake_termination_time_steps": int(round(revolutions * per_revolution))}
+    return int(round(revolutions * per_revolution))
 
 
-def _export_log(conventions: WorkflowConventions, case: SimCase, script: Script) -> None:
+def _refuse_wake_termination_without_a_clock(case: SimCase) -> None:
+    """Refuse a wake termination on a run type that has no clock to convert it.
+
+    THE STEADY BUILDER USED TO DROP THIS SILENTLY. A preset stating
+    ``unsteady_N_revolutions_wake`` resolved onto a steady case,
+    validated, reached no emitted line, and said nothing, which is
+    exactly the defect this release closes one layer up for a preset key
+    that maps to no field at all. A key that maps to a field and still
+    reaches no script is the same wrong answer with a longer path to it.
+
+    Revolutions cannot be converted here rather than merely being
+    unused: a steady run has no time step and no rotor speed, so there
+    is no number of steps a revolution could be.
+    """
+    revolutions = case.solver.wake_termination_revolutions
+    if revolutions is None:
+        return
+    raise CampaignConfigError(
+        f"case {case.sim_id!r} inherits a wake termination of {revolutions} revolutions "
+        "from its solver preset and is a STEADY run, which has no time loop, so there "
+        "are no time steps for a revolution to become and the setting would reach no "
+        "line. Drop the key from the preset this row names, or give the row a preset "
+        "of its own; a steady row and a rotor row cannot share a wake termination "
+        "stated in revolutions."
+    )
+
+
+def _looks_numeric(text: str) -> bool:
+    """Whether a LOG_OUTPUT cell was meant as a number rather than a name."""
+    try:
+        float(text)
+    except ValueError:
+        return False
+    return True
+
+
+def _export_log(
+    conventions: WorkflowConventions,
+    case: SimCase,
+    script: Script,
+    *,
+    claimed: tuple[int, ...],
+) -> None:
     """Export the solver log where the row says WHICH of its outputs is one.
 
     WHY A ROTOR ROW WANTS ONE. Without a log this package cannot judge
@@ -2108,37 +2219,59 @@ def _export_log(conventions: WorkflowConventions, case: SimCase, script: Script)
     export line turns it into a real verdict.
 
     WHY AN INDEX, which is the less pretty of the two spellings and the
-    only correct one. Two earlier versions were wrong and each was
-    caught before it cost anything.
+    only correct one. Two earlier spellings were wrong, and both are
+    recorded here as DEVELOPMENT RECOLLECTION rather than as evidence:
+    neither left a committed artifact, so nothing in this tree can be
+    read to confirm them. What IS committed is the pair of tests each
+    one now has, and those are the falsifiable half.
 
     The first read ``outputs[1]``, so a row whose second output is a
     force-distribution export would have had a solver log written over
     that name. A second declared output means "a second file this row
-    expects", never "a log". The committed goldens caught it.
+    expects", never "a log".
 
     The second took the name as the row WRITES it in OUTPUTS, and the
     names have been RENDERED by the time a builder sees them: the cell
     says ``loads_{point}.txt`` and the case carries
-    ``loads_a+00.0.txt``, so the comparison could never match. The
-    pre-flight caught it, before a solver started.
+    ``loads_a+00.0.txt``, so the comparison could never match.
 
     An index is the one thing that survives rendering, because rendering
     preserves order. It is 1-BASED, matching how the cell is read left
     to right rather than how a list is subscripted.
+
+    ``claimed`` is the set of 1-based positions the calling builder has
+    already exported something else to, and naming one of them is
+    REFUSED. Position 1 is the loads spreadsheet in both builders, and
+    it is the most likely typo of someone who has just read "counted
+    from 1"; without this the solver writes the log over the loads
+    table, the run completes, and the assessor sends the author to look
+    for a truncated export instead of at the cell they typed.
     """
     declared = _variable(case, LOG_OUTPUT_VARIABLE)
     if declared is None:
         return
     names = conventions.outputs or tuple(case.outputs)
+    text = str(declared).strip()
     try:
-        position = int(str(declared).strip())
+        position = int(text)
     except ValueError:
+        # THE TWO WRONG SHAPES GET DIFFERENT MESSAGES. `2.0` is not a
+        # name, and telling its author why a NAME cannot be used here
+        # answers a question they did not ask.
+        looks_like_a_name = not _looks_numeric(text)
+        why = (
+            "A name cannot be used here: the output names carry the point placeholder "
+            "in the cell and reach a builder already RENDERED, so the cell's spelling "
+            "and the case's never match."
+            if looks_like_a_name
+            else "It is a whole number of files and not a measurement, so it takes no "
+            "decimal point."
+        )
         raise CampaignConfigError(
             f"case {case.sim_id!r} declares {LOG_OUTPUT_VARIABLE} as {declared!r}, and "
             "it is the POSITION of the solver log among the row's own OUTPUTS, counted "
-            "from 1. A name cannot be used here: the output names carry the point "
-            f"placeholder in the cell and reach a builder already rendered, so "
-            f"{LOG_OUTPUT_VARIABLE}: 2 says 'the second file this row declares'."
+            f"from 1. {why} {LOG_OUTPUT_VARIABLE}: 2 says 'the second file this row "
+            "declares'."
         ) from None
     if not 1 <= position <= len(names):
         raise CampaignConfigError(
@@ -2146,6 +2279,14 @@ def _export_log(conventions: WorkflowConventions, case: SimCase, script: Script)
             f"declares {len(names)}: {', '.join(names) or 'nothing'}. The log is "
             "declared in OUTPUTS like every other file the row produces, so that it is "
             f"collected, and {LOG_OUTPUT_VARIABLE} says which one it is."
+        )
+    if position in claimed:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} names output {position} as its solver log and this "
+            f"run type already exports {names[position - 1]!r} there. The solver would "
+            "write the log over that file, the run would complete, and the export that "
+            "was overwritten is the one this package judges the run by. Declare the log "
+            f"as its own entry in OUTPUTS and point {LOG_OUTPUT_VARIABLE} at it."
         )
     script.emit("EXPORT_LOG", names[position - 1])
 
@@ -2157,6 +2298,7 @@ def _build_steady(case: SimCase, script: Script, conventions: WorkflowConvention
     (:func:`_open_geometry`), so a case that names none emits exactly
     the lines this workflow emitted before 0.8.1.
     """
+    _refuse_wake_termination_without_a_clock(case)
     _open_geometry(case, script)
     helpers.free_stream(script)
     _fluid(case, script)
@@ -2164,7 +2306,7 @@ def _build_steady(case: SimCase, script: Script, conventions: WorkflowConvention
     _initialize(case, script)
     helpers.start_solver(script)
     script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", _output(conventions, case, 0))
-    _export_log(conventions, case, script)
+    _export_log(conventions, case, script, claimed=(1,))
     script.emit("CLOSE_FLIGHTSTREAM")
 
 
@@ -2190,22 +2332,26 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
     )
     helpers.free_stream(script)
     _fluid(case, script)
-    emit_rotor_motion(case, script, frame="rotor")
+    # RESOLVED ONCE AND THREADED. The ratio was previously converted
+    # twice per case, here and again for the clock, which is the saving
+    # the `speed` parameter was added for and was not collecting.
+    speed = rotor_speed(case)
+    emit_rotor_motion(case, script, frame="rotor", speed=speed)
     # THE CLOCK COMES OFF THE SAME RESOLVER THE WINDOW USES, so a row
     # stating its azimuthal step and its revolutions emits the seconds
     # and the step count those work out to, and a row stating the
     # seconds and the count emits exactly what it always emitted.
-    stepping = rotor_time_stepping(case, speed=_optional_rotor_speed(case))
+    stepping = rotor_time_stepping(case, speed=speed)
     helpers.unsteady_solver(
         script,
         time_iterations=stepping.time_iterations,
         delta_time=stepping.delta_time_s,
     )
-    _settings(case, script, **_wake_termination(case, stepping))
+    _settings(case, script, wake_termination_time_steps=_wake_termination(case, stepping))
     _initialize(case, script)
     helpers.start_solver(script)
     script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", _output(conventions, case, 0))
-    _export_log(conventions, case, script)
+    _export_log(conventions, case, script, claimed=(1,))
     script.emit("CLOSE_FLIGHTSTREAM")
 
 

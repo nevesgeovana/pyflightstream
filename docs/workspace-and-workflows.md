@@ -174,17 +174,32 @@ the decisions and the package derives the rest.
     `loads_a+00.0.txt`, so a name could never match. Order survives
     rendering; a name does not.
 
-**THOSE THREE NAMES ARE NOW RESERVED.** They were the only upgrade risk
-in v0.8.1; v0.9.0 added a larger one, the removal of the `RE` and `MACH`
-columns, which is handled by `pyfs-matrix upgrade <path> --in-place` and
-described on [the flight-condition page](flight-conditions.md). `VAR_NAMES_VALUES` is otherwise your namespace: the rows above
-use `FSM_FILE`, a key of their own that nothing in the package reads. If
-a cell of yours already spells `GEOMETRY`, `SYMMETRY` or
-`PERIODIC_COPIES`, the package now reads it, so rename your key or stage
-the file the id names. The match is on the exact key, so a cell spelling
-it `SYMMETRY_TYPE` is untouched. Moving a row off `LEGACY` is the moment
-to rename `FSM_FILE` to `GEOMETRY`; a row that stays on `LEGACY` keeps
-its recipe and its own key, and nothing changes for it.
+**THE RESERVED NAMES ARE THESE, AND THE LIST HAS GROWN TWICE.**
+`VAR_NAMES_VALUES` is your namespace except for the keys the package
+itself reads, and a cell of yours that already spells one of them is
+read by the package rather than ignored:
+
+| release | names it reserved |
+|---|---|
+| before v0.8.1 | `VELOCITY`, `RPM`, `ROTOR_AXIS`, `ROTOR_ORIGIN`, `ROTOR_SHEDDING`, `BLADES`, `MOVING_BOUNDARIES`, `DELTA_TIME`, `TIME_ITERATIONS`, `WINDOW_DEGREES`, `WINDOW_STEPS`, `WINDOW_REVOLUTIONS`, `OUTPUTS` |
+| v0.8.1 | `GEOMETRY`, `SYMMETRY`, `PERIODIC_COPIES` |
+| this release | `ADVANCE_RATIO`, `RPM_SIGN`, `DELTA_THETA`, `REVOLUTIONS`, `LOG_OUTPUT` |
+
+**`REVOLUTIONS` AND `DELTA_THETA` ARE THE TWO TO CHECK FIRST**, because
+they are ordinary words a rotor study is likely to have already used for
+its own bookkeeping. A cell of yours spelling either is now the
+package's, so rename yours or adopt the meaning.
+
+The match is on the EXACT key, so a cell spelling it `SYMMETRY_TYPE` or
+`N_REVOLUTIONS` is untouched. The rows above use `FSM_FILE`, a key of
+their own that nothing in the package reads; moving a row off `LEGACY`
+is the moment to rename it to `GEOMETRY`, and a row that stays on
+`LEGACY` keeps its recipe and its own key with nothing changed for it.
+
+v0.9.0 added a larger upgrade risk than any name, the removal of the
+`RE` and `MACH` columns, which is handled by
+`pyfs-matrix upgrade <path> --in-place` and described on
+[the flight-condition page](flight-conditions.md).
 
 A row that names none of the three behaves exactly as it did before, and
 that is measured rather than promised, in two separate ways because they
@@ -252,6 +267,8 @@ inputs/
   references/r004.toml    area_m2 = 12.0, chord_m = 1.5, span_m = 9.0
   setups/s002.toml        iterations = 800, convergence = 1e-6
   setups/s003.toml        iterations = 400, wake_layers = 4
+                          (wake_layers is RECORDED and emits nothing;
+                           see the preset section below)
   groups/e001.toml        wing = ["wing_left", "wing_right"], body = [1]
   executables.toml        which executable, and optionally which version,
                           each build identifier means
@@ -281,11 +298,22 @@ knowing.
 1. **It names a setting this package emits**, directly or by alias, and
    it reaches the script.
 2. **It is declared recorded-only.** It stays in the artifact, emits
-   nothing, and a warning names it AND the reason. `symmetry_type`
-   belongs to the geometry a row opens and is stated in the row's
-   `SYMMETRY`; `solver` and `motion` are what the `WORKFLOW` column
-   decides; `unsteady_delta_theta_deg` and `unsteady_N_revolutions` are
-   superseded by the row's `DELTA_THETA` and `REVOLUTIONS`.
+   nothing, and a warning names it AND the reason. The eleven this
+   package declares today are `solver`, `motion`, `mesh_order_list`,
+   `symmetry_type`, `symmetry_loads`, `unsteady_delta_theta_deg`,
+   `unsteady_N_revolutions`, `set_base_region_trailing_edges`,
+   `significant_digits`, `slipstream_wake_stabilization` and
+   `wake_layers`. `symmetry_type` belongs to the geometry a row opens
+   and is stated in the row's `SYMMETRY`; `solver` and `motion` are what
+   the `WORKFLOW` column decides; `unsteady_delta_theta_deg` and
+   `unsteady_N_revolutions` are superseded by the row's `DELTA_THETA`
+   and `REVOLUTIONS`; the last four have no emitter in this package.
+
+    That list is maintained by hand and this page is not generated, so
+    **read the warning your own preset prints** rather than this
+    paragraph: it names every key of YOUR file that was recorded, each
+    with its reason. What the paragraph is for is that the set is
+    closed and short enough to see at once.
 
     `symmetry_loads` is recorded-only although it HAS an emitter, and
     that is a decision rather than a gap: applying it multiplies or
@@ -341,15 +369,16 @@ it always has.
 ### What a reference artifact holds beyond the three lengths
 
 The two files above carry only the lengths the sweep table needed. A
-reference artifact also carries the moment point and, for a propelled
-configuration, a `[propeller]` block. This is `inputs/references/r003.toml`
-in full, the same artifact the listing above summarises by its three
-lengths:
+reference artifact also carries a FOURTH length for a propelled
+configuration, the moment point, and a `[propeller]` block. This is
+`inputs/references/r003.toml` in full, the same artifact the listing
+above summarises by its first three lengths:
 
 ```toml
 area_m2 = 10.0
 chord_m = 1.2
 span_m = 8.0
+propeller_diameter_m = 2.0
 
 [moment_point]
 x_m = 0.3
@@ -371,6 +400,17 @@ x_m = 0.0
 y_m = 0.0
 z_m = 0.0
 ```
+
+`propeller_diameter_m` SITS WITH THE OTHER LENGTHS AND NOT IN THE
+`[propeller]` BLOCK, which is the natural-looking home and the wrong one.
+The propeller block is recorded metadata that nothing in this package
+reads; the diameter is a DIVISOR of published numbers, exactly like the
+area and the chord. It is what an advance ratio is a ratio against, so a
+row stating `ADVANCE_RATIO` and a reference without this field is
+refused naming the field to add, and it is what the propeller
+coefficients normalise on. It is optional, because a configuration with
+no propeller has no diameter and a placeholder would be worse than
+nothing.
 
 `[propeller.position]` is the hub position in the simulation geometry
 frame, in m, and it defaults to the origin if you leave the table out,

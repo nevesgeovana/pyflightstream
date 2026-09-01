@@ -2868,10 +2868,14 @@ def _setup(body: str):
     return SetupArtifact(settings=tomllib.loads(body))
 
 
-def _solver(body: str):
+def _resolve(setup, code: str):
     from pyflightstream.workspace.matrix import _solver_from_setup
 
-    return _solver_from_setup(_setup(body), "s999")
+    return _solver_from_setup(setup, code)
+
+
+def _solver(body: str):
+    return _resolve(_setup(body), "s999")
 
 
 def test_the_legacy_preset_spellings_reach_the_settings():
@@ -2906,19 +2910,75 @@ def test_a_key_that_reaches_no_script_is_refused_and_not_dropped():
 
 
 def test_a_recorded_only_key_is_kept_and_says_why():
-    """Recorded-only is a declared decision, and the reason is the useful half."""
-    with pytest.warns(PyflightstreamWarning, match="symmetry_loads"):
-        settings = _solver("symmetry_loads = false\n")
-    assert settings.solver_model is None
-    with pytest.warns(PyflightstreamWarning, match="coefficient"):
-        _solver("symmetry_loads = false\n")
+    """Recorded-only is a declared decision, and the reason is the useful half.
+
+    KEPT MEANS KEPT ON THE ARTIFACT. The first version asserted
+    `settings.solver_model is None`, which is the MODEL DEFAULT and
+    would hold against an implementation that dropped the key entirely;
+    it asserted nothing about the property its own name states. The key
+    never appears on the returned SolverSettings at all, by design, so
+    the artifact is where "kept" can be seen.
+    """
+    setup = _setup("symmetry_loads = false\n")
+    with pytest.warns(PyflightstreamWarning, match="symmetry_loads") as warned:
+        settings = _resolve(setup, "s999")
+    assert setup.settings["symmetry_loads"] is False, "the key was not kept on the artifact"
+    assert "symmetry_loads" not in settings.model_dump(), (
+        "a recorded-only key must not reach the solver settings"
+    )
+    assert "coefficient" in str(warned[0].message), (
+        "the warning must carry the REASON and not only the key name"
+    )
 
 
 def test_a_preset_may_declare_its_own_recorded_only_keys():
-    """A setting from a build nobody here has seen must not be a hard block."""
+    """A setting from a build nobody here has seen must not be a hard block.
+
+    The first version asserted `iterations == 500`, the model default,
+    which says nothing about the declaration. What the declaration
+    changes is that the key is ACCEPTED rather than refused, so that is
+    what is asserted, against the refusal the same key gets without it.
+    """
+    body = "my_future_setting = 3\niterations = 400\n"
+    with pytest.raises(InputArtifactError, match="my_future_setting"):
+        _solver(body)
     with pytest.warns(PyflightstreamWarning, match="my_future_setting"):
-        settings = _solver('recorded_only = ["my_future_setting"]\nmy_future_setting = 3\n')
-    assert settings.iterations == 500
+        settings = _solver('recorded_only = ["my_future_setting"]\n' + body)
+    assert settings.iterations == 400, "the rest of the preset must still apply"
+    assert "my_future_setting" not in settings.model_dump()
+
+
+def test_a_malformed_recorded_only_declaration_is_refused_showing_the_shape():
+    """It is a list of key NAMES, and the refusal shows one."""
+    with pytest.raises(InputArtifactError, match="recorded_only") as raised:
+        _solver("recorded_only = 3\n")
+    assert "['my_setting']" in str(raised.value)
+
+
+def test_the_refusal_lists_the_keys_that_are_consumed_before_the_loop():
+    """stabilization, its strength and recorded_only are legal and were missing.
+
+    The remedy list is the whole value of this refusal: an author who
+    misspells `stabilization` must find the word they meant in it.
+    """
+    with pytest.raises(InputArtifactError) as raised:
+        _solver("stabilisation = 1.0\n")
+    message = str(raised.value)
+    for key in ("stabilization", "stabilization_strength", "recorded_only"):
+        assert key in message, f"the remedy list omits {key}, which is accepted"
+
+
+def test_a_non_numeric_stabilization_strength_is_refused_by_preset_and_key():
+    """float(object) would have raised a bare ValueError naming neither."""
+    with pytest.raises(InputArtifactError, match="stabilization_strength") as raised:
+        _solver('stabilization = "ENABLE"\nstabilization_strength = "strong"\n')
+    assert "s999" in str(raised.value)
+
+
+def test_a_boolean_stabilization_strength_is_refused_rather_than_read_as_one():
+    """True is an int in Python and would have become a strength of 1.0."""
+    with pytest.raises(InputArtifactError, match="stabilization_strength"):
+        _solver('stabilization = "ENABLE"\nstabilization_strength = true\n')
 
 
 def test_the_stabilization_pair_resolves_into_one_strength():

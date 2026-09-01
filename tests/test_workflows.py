@@ -2247,7 +2247,11 @@ def test_a_sign_beside_an_explicit_rpm_is_refused_as_a_second_opinion():
     with pytest.raises(CampaignConfigError) as raised:
         rotor_speed(rotor_case(**{RPM_SIGN_VARIABLE: "-1"}))
     message = str(raised.value)
-    assert RPM_SIGN_VARIABLE in message and "RPM" in message
+    # RPM_SIGN_VARIABLE == "RPM_SIGN", so `"RPM" in message` is entailed
+    # by the first conjunct and checked nothing. The second key is named
+    # by the phrase that can only come from the rev/min branch.
+    assert RPM_SIGN_VARIABLE in message
+    assert "carries its own sign" in message
 
 
 def test_a_ratio_with_no_diameter_on_the_reference_is_refused_naming_the_field():
@@ -2299,9 +2303,12 @@ def test_the_azimuthal_step_and_the_revolutions_set_the_whole_clock():
     # derive rather than type: 54 steps of 0.00352 s cover 1.4990
     # revolutions and not the 1.5 the campaign documented.
     assert stepping.delta_time_s == pytest.approx(0.0035222840, abs=5e-10)
-    assert stepping.delta_time_s * stepping.time_iterations == pytest.approx(
-        1.5 * 60.0 / abs(stepping.rpm)
-    )
+    # A DURATION ASSERTION AGAINST THE ROTOR SPEED WAS REPLACED HERE, and
+    # the replacement is the point: `delta_time * steps` is identically
+    # `revolutions * 60 / rpm` given the two formulas the function uses,
+    # so it restated the implementation's own algebra and could not fail
+    # for any accepted input. The literal below is independent of it.
+    assert stepping.delta_time_s * stepping.time_iterations == pytest.approx(0.19020334, abs=5e-9)
 
 
 def test_the_explicit_clock_is_carried_through_unconverted():
@@ -2323,7 +2330,10 @@ def test_revolutions_that_are_not_a_whole_number_of_steps_are_refused():
             )
         )
     message = str(raised.value)
-    assert "7" in message and "1.5" in message, (
+    # "7" ALONE FREE-RIDES on the derived 77.1429, so deleting the theta
+    # interpolation left the assertion passing. "7.0" is the value the
+    # author typed and is the one that pins it.
+    assert "7.0" in message and "1.5" in message, (
         f"the refusal must print both numbers the author chose; got {message!r}"
     )
 
@@ -2336,10 +2346,23 @@ def test_revolutions_that_are_not_a_whole_number_of_steps_are_refused():
     ],
 )
 def test_half_an_angular_clock_is_refused_naming_the_missing_key(stated, missing):
-    """Neither of the two implies the other, so half a pair is not a clock."""
+    """Neither of the two implies the other, so half a pair is not a clock.
+
+    ASSERTED ON THE PHRASE AND NOT ON MEMBERSHIP. Both refusals name both
+    keys, so `missing in message` was true in either branch for either
+    input: the parametrize was one test run twice, and an implementation
+    with the two lists swapped passed it.
+    """
     with pytest.raises(CampaignConfigError) as raised:
         rotor_time_stepping(ratio_case(DELTA_TIME=None, TIME_ITERATIONS=None, **stated))
-    assert missing in str(raised.value)
+    message = str(raised.value)
+    stated_key = next(iter(stated))
+    assert f"and not {missing}" in message, (
+        f"the refusal must say which key is MISSING, not merely mention both; got {message!r}"
+    )
+    assert message.index(stated_key) < message.index(f"and not {missing}"), (
+        "the stated key must be named before the missing one, or the message reads backwards"
+    )
 
 
 def test_stating_the_clock_in_both_forms_is_refused_naming_both():
@@ -2435,3 +2458,180 @@ def test_a_log_named_by_file_name_is_refused_saying_why_a_name_cannot_work():
     assert "rendered" in message.lower(), (
         f"the refusal must say WHY a name cannot be used here; got {message!r}"
     )
+
+
+def _angular(**over):
+    """A ratio case on the angular clock, which is what the conversion needs."""
+    keys = {DELTA_THETA_VARIABLE: "10.0", REVOLUTIONS_VARIABLE: "1.5"}
+    keys.update(over)
+    return ratio_case(DELTA_TIME=None, TIME_ITERATIONS=None, **keys)
+
+
+# --- the refusals the first round shipped untested ---------------------------
+#
+# A QA lens measured ten new refusal branches with no test at all. A
+# refusal nothing exercises is a refusal nobody has read, and this
+# package's whole didactic claim rests on what a refusal says.
+
+
+@pytest.mark.parametrize(
+    "key,value",
+    [
+        (ADVANCE_RATIO_VARIABLE, "nan"),
+        (ADVANCE_RATIO_VARIABLE, "inf"),
+        (DELTA_THETA_VARIABLE, "nan"),
+        (REVOLUTIONS_VARIABLE, "inf"),
+    ],
+)
+def test_a_non_finite_cell_is_refused_by_case_and_key(key, value):
+    """Every comparison against NaN is false, so a bound alone does not stop it.
+
+    Before this, `DELTA_THETA: nan` reached `int(round(...))` and died
+    with a bare ValueError naming neither the case nor the key, and
+    `ADVANCE_RATIO: nan` resolved a NaN rotor speed that reached the
+    command layer.
+    """
+    with pytest.raises(CampaignConfigError) as raised:
+        rotor_time_stepping(_angular(**{key: value}))
+    message = str(raised.value)
+    assert "finite" in message and key in message and "7001" in message
+
+
+def test_an_advance_ratio_of_zero_or_less_is_refused_pointing_at_the_sign_key():
+    """A ratio is a magnitude; a negative one is a hand, and has its own key."""
+    with pytest.raises(CampaignConfigError) as raised:
+        rotor_speed(ratio_case(**{ADVANCE_RATIO_VARIABLE: "-1.7"}))
+    assert RPM_SIGN_VARIABLE in str(raised.value)
+
+
+def test_a_ratio_on_a_stopped_aircraft_is_refused_naming_the_inversion():
+    """n = V / (J D) is a stopped rotor at V = 0."""
+    case = ratio_case().model_copy(update={"velocity": 0.0})
+    with pytest.raises(CampaignConfigError) as raised:
+        rotor_speed(case)
+    assert "RPM" in str(raised.value)
+
+
+def test_stating_no_clock_at_all_is_refused_offering_both_forms():
+    with pytest.raises(CampaignConfigError) as raised:
+        rotor_time_stepping(ratio_case(DELTA_TIME=None, TIME_ITERATIONS=None))
+    message = str(raised.value)
+    assert DELTA_THETA_VARIABLE in message and "DELTA_TIME" in message
+
+
+@pytest.mark.parametrize(
+    "stated,missing",
+    [({"DELTA_TIME": "0.001"}, "TIME_ITERATIONS"), ({"TIME_ITERATIONS": "720"}, "DELTA_TIME")],
+)
+def test_half_an_explicit_clock_is_refused_naming_the_missing_key(stated, missing):
+    """The commit claimed this without qualification; only the angular pair had a test."""
+    # BUILT AS A DICT, because `ratio_case(DELTA_TIME=None, **stated)`
+    # passes DELTA_TIME twice and dies in the call rather than in the
+    # code under test.
+    keys = {"DELTA_TIME": None, "TIME_ITERATIONS": None}
+    keys.update(stated)
+    with pytest.raises(CampaignConfigError) as raised:
+        rotor_time_stepping(ratio_case(**keys))
+    assert f"and not {missing}" in str(raised.value)
+
+
+@pytest.mark.parametrize("theta", ["0", "-10", "361"])
+def test_an_azimuthal_step_outside_one_revolution_is_refused(theta):
+    """A step of a whole turn resolves nothing inside one turn."""
+    with pytest.raises(CampaignConfigError, match=DELTA_THETA_VARIABLE):
+        rotor_time_stepping(
+            ratio_case(DELTA_TIME=None, TIME_ITERATIONS=None, **{DELTA_THETA_VARIABLE: theta})
+        )
+
+
+def test_a_run_of_no_revolutions_is_refused():
+    with pytest.raises(CampaignConfigError, match=REVOLUTIONS_VARIABLE):
+        rotor_time_stepping(
+            ratio_case(DELTA_TIME=None, TIME_ITERATIONS=None, **{REVOLUTIONS_VARIABLE: "0"})
+        )
+
+
+# --- the wake termination, the one preset field needing a conversion ---------
+
+
+def test_the_preset_wake_termination_converts_from_revolutions_to_steps():
+    """Minus one revolution at 36 steps per revolution is minus 36 steps.
+
+    This is the ONLY new solver-preset field whose emitter takes a
+    different unit from the one the preset states, and the round that
+    added it had no test that rendered it into a script at all.
+    """
+    case = _angular().model_copy(
+        update={"solver": SolverSettings(wake_termination_revolutions=-1.0)}
+    )
+    script = Script("26.123")
+    build_script(case, script, conventions=WorkflowConventions(outputs=("loads.txt",)))
+    assert "SET_WAKE_TERMINATION_TIME_STEPS -36" in script.render().splitlines()
+
+
+def test_a_wake_termination_with_no_rotor_speed_is_refused():
+    """A revolution has no length in steps without one."""
+    case = rotor_case(RPM=None).model_copy(
+        update={"solver": SolverSettings(wake_termination_revolutions=-1.0)}
+    )
+    with pytest.raises(CampaignConfigError):
+        build_script(case, Script("26.123"), conventions=WorkflowConventions(outputs=("l.txt",)))
+
+
+# --- the records, whose shape is decided here even though nothing reads it ---
+
+
+def test_the_rotor_speed_record_carries_every_input_it_consumed():
+    """A record claiming a derived number without its divisors is unreadable."""
+    record = rotor_speed(ratio_case()).record()
+    assert record["form"] == "advance_ratio"
+    assert record["stated"] == 1.7
+    assert record["diameter_m"] == 3.6576
+    assert record["velocity_m_per_s"] == pytest.approx(49.036363674559425)
+    assert record["rpm"] == pytest.approx(49.036363674559425 * 60.0 / (1.7 * 3.6576))
+
+
+def test_the_time_stepping_record_carries_the_rotor_speed_it_ran_against():
+    """steps_per_revolution is computed FROM rpm, so a record needs both."""
+    record = rotor_time_stepping(_angular()).record()
+    assert record["form"] == "angular"
+    assert record["delta_theta_deg"] == 10.0
+    assert record["revolutions"] == 1.5
+    assert record["time_iterations"] == 54
+    assert record["steps_per_revolution"] == pytest.approx(36.0)
+    assert record["rpm"] is not None, (
+        "the divisor of steps_per_revolution must be in the record beside it"
+    )
+
+
+# --- the log position, and the export it must not overwrite ------------------
+
+
+def test_the_log_may_not_claim_the_position_the_spreadsheet_exports_to():
+    """LOG_OUTPUT: 1 wrote the solver log over the loads table.
+
+    The run completed and the assessor then sent the author to look for
+    a truncated export rather than at the cell they typed. Position 1 is
+    also the likeliest typo of someone who has just read "counted from 1".
+    """
+    with pytest.raises(CampaignConfigError) as raised:
+        build_script(
+            rotor_case(LOG_OUTPUT="1"),
+            Script("26.123"),
+            conventions=WorkflowConventions(outputs=("loads.txt", "log.txt")),
+        )
+    message = str(raised.value)
+    assert "loads.txt" in message and "already exports" in message
+
+
+def test_a_decimal_log_position_is_not_told_why_a_name_cannot_work():
+    """2.0 is not a name, and answering the name question answers nothing asked."""
+    with pytest.raises(CampaignConfigError) as raised:
+        build_script(
+            rotor_case(LOG_OUTPUT="2.0"),
+            Script("26.123"),
+            conventions=WorkflowConventions(outputs=("loads.txt", "log.txt")),
+        )
+    message = str(raised.value)
+    assert "decimal point" in message
+    assert "rendered" not in message.lower()

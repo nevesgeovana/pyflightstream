@@ -460,8 +460,6 @@ class SolverSettings(BaseModel):
     string is refused by name.
     """
 
-    model_config = ConfigDict(extra="forbid")
-
     # PYFS-016. Every bound below was measured ACCEPTED before it was
     # written: zero and negative iterations, a zero and a negative
     # timeout, a zero and a NaN convergence threshold, zero threads.

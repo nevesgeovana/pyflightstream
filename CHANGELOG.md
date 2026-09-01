@@ -62,19 +62,47 @@ FlightStream versions.
   is the residual. A campaign that exports no log is judged exactly as
   it was.
 
-### Fixed -- a solver preset now reaches the script, or is refused
+### Changed -- BREAKING for a preset that states a key nothing can emit
+
+A solver preset that resolved yesterday can be REFUSED today, so this is
+a change to an input format and not a repair. The remedy is one line in
+the preset file; the third bullet says which.
 
 - **A preset key that named no `SolverSettings` field was warned about
   and DROPPED.** A preset asking for `SUBSONIC_PRANDTL_GLAUERT` ran
-  `INCOMPRESSIBLE`; one asking for a turbulent boundary layer ran the
-  solver's default; one setting `NITER` ran whatever the model's default
-  happened to be. Each is a run that converges, exports and publishes
-  numbers against a physics nobody selected. Measured on the author's
-  own campaign, honouring the preset moved `C_T` by 1.12 percent, which
-  is the Prandtl-Glauert factor at that Mach number.
+  `INCOMPRESSIBLE`, and one asking for a turbulent boundary layer ran
+  the solver's default. Each is a run that converges, exports and
+  publishes numbers against a physics nobody selected. (`NITER` is read
+  as an alias now and was not before, but the campaign that surfaced
+  this cannot demonstrate that one: its preset states 500 and the model
+  default is 500, so both runs emitted the same line.)
 
   An unknown key is now REFUSED, naming the key and listing what
   applies, so a typo finds the field it meant.
+
+  **What was measured, stated to the precision it was measured at.** On
+  the author's own campaign, honouring the preset moved the axial force
+  coefficient `Cx` from -0.0535 to -0.0541 on one rotor point and from
+  -0.0542 to -0.0548 on another, which is about one percent in the
+  direction expected. Those operands are printed to four decimals, so
+  the difference carries ONE significant figure and its band is 0.93 to
+  1.31 percent.
+
+  **The attribution to any single setting is NOT earned**, and an
+  earlier draft of this entry claimed it was the Prandtl-Glauert factor.
+  Twelve solver settings differ between the two runs, among them
+  wake-on-wake induction, the farfield layer count, the mesh-induced
+  wake velocity and the wake termination, all of which move rotor axial
+  force. Earning it needs a run that changes `SOLVER_MODEL` and nothing
+  else. And this package's own command database records that no edition
+  documents what `SUBSONIC_PRANDTL_GLAUERT` computes, so what that token
+  does is not a claim this repository makes anywhere.
+
+  **The runs are not in this repository.** They live in the author's
+  campaign workspace at `tools/fts_workspace/pfs090`, with the
+  before-state under `archive/run_26123_preset_nao_mapeado`, and that
+  tree is not tracked here. The numbers above are reported as her
+  measurement and are not a repository guarantee.
 
 - **Twelve settings joined `SolverSettings`,** every one of which has an
   emitter: `solver_model`, `wall_collision_avoidance`,
@@ -95,8 +123,10 @@ FlightStream versions.
   A preset transcribed from a working FlightStream session keeps working
   as written.
 
-- **Ten keys are declared recorded-only, each with its reason,** and the
-  warning prints the reason. A preset may declare its own with a
+- **A closed set of keys is declared recorded-only, each with its
+  reason,** and the warning prints the reason rather than only the key.
+  The count is deliberately not written here: it has already been wrong
+  once, and the refusal and the warning both print the live list. A preset may declare its own with a
   `recorded_only` list, so a setting from a build this package has not
   met is not a hard block. `stabilization` and `stabilization_strength`
   resolve as a PAIR into `solver_stabilization`; disabled means absent
