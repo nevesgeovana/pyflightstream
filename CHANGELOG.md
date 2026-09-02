@@ -7,6 +7,8 @@ FlightStream versions.
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-09-02
+
 ### Fixed -- a row names the mesh family, and the package makes the link
 
 - **`MOVING_BOUNDARIES` accepts boundary NAMES and FAMILY names, and a
@@ -6928,7 +6930,8 @@ the repository seeding and this tag (milestones M0 through M5).
 * 26.000: registered, no recorded evidence yet (honest empty column;
   backfill planned for v0.2+).
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.10.1...HEAD
+[0.10.1]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.10.1
 [0.10.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.10.0
 [0.9.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.9.0
 [0.8.1]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.8.1

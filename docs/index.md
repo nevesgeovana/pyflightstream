@@ -3,8 +3,18 @@
 Version-aware, didactic Python driver for the FlightStream panel-method
 solver. MIT licensed.
 
-Status: v0.10.0 is the current release; the changelog records what
+Status: v0.10.1 is the current release; the changelog records what
 each release adds and what each one asks you to do.
+
+**v0.10.1 changes no column of the run-matrix file and no cell you have
+already written.** What it changes is what one cell MEANS. A rotor row's
+`MOVING_BOUNDARIES` used to cite boundaries by their POSITION in one
+geometry's order; those positions were right for the file they were
+written against and named different surfaces in any file that ordered
+them differently, and nothing said so. Write the names now, or the
+FAMILY they belong to, and the package reads the geometry and resolves
+them. Positions still work and now warn, naming what they actually
+selected.
 
 **v0.10.0 changes no column of the run-matrix file.** Two things still
 want a look. Your solver preset now REACHES THE SCRIPT: twelve settings
