@@ -16,6 +16,12 @@ FAMILY they belong to, and the package reads the geometry and resolves
 them. Positions still work and now warn, naming what they actually
 selected.
 
+**It also carries a third run type, `unsteady`,** an unsteady run with
+nothing turning, which is a new capability under a patch number by the
+author's explicit exception. It is named here because a patch number
+will not carry that news on its own, and it asks nothing of you: no
+existing row changes. See the workspace and workflows page.
+
 **v0.10.0 changes no column of the run-matrix file.** Two things still
 want a look. Your solver preset now REACHES THE SCRIPT: twelve settings
 and eleven of the solver's own spellings that used to be dropped are now

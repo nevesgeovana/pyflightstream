@@ -13,7 +13,32 @@ from the tag, so the concept DOI in CITATION.cff resolves to the newest
 archived version and the version DOI is recorded one commit after the
 tag that names it. CHANGELOG.md carries the release history.
 
-**What changes for you, and what you must do.** v0.10.0 changes no
+**What changes for you, and what you must do.** v0.10.1 changes no
+column of the run-matrix file and no cell you have already written. What
+it changes is what one cell MEANS.
+
+**A rotor row's `MOVING_BOUNDARIES` used to cite boundaries by their
+POSITION** in one geometry's boundary order. Those positions were right
+for the file they were written against and named different surfaces in
+any file that ordered them differently, and nothing said so. Write the
+names now, or the FAMILY they belong to, and the package reads the
+geometry the row opens and resolves them:
+
+    MOVING_BOUNDARIES: Blade,S
+
+One cell, and it is right for a three-boundary sector and an
+eight-boundary wheel alike. Positions still work and now warn, naming the
+surfaces they actually selected, so nothing you have written stops
+running.
+
+**And this patch carries a third run type, `unsteady`,** an unsteady run
+with nothing turning. It is a new capability under a patch number, by the
+author's explicit exception, and it is named here because a patch number
+will not carry that news on its own. It asks nothing of you: no existing
+row changes. `docs/workspace-and-workflows.md` describes it.
+
+**What v0.10.0 asked of you, kept here because a reader may be arriving
+from 0.9.x.** v0.10.0 changes no
 column of the run-matrix file, so no conversion is needed. Two things
 still want a look before you re-run anything.
 
