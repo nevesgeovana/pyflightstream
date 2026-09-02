@@ -930,6 +930,13 @@ def test_no_module_outside_the_model_reads_the_propeller_block():
     # string is not a read, that mention is deliberate, and
     # `test_the_emitter_refusal_quotes_the_model_it_cannot_import` is what
     # holds it. Parsing separates the two; grepping cannot.
+    # THE ONE READER 0.11.0 ADMITS (PFS-2030.03.02, FR-54): the workspace
+    # binding reads the propeller POSITION onto the case so the unsteady
+    # builders can create the PROP_MRP frame there, which is the frame her
+    # probe lines and rotor plots are defined in. Only that module, and the
+    # signs and the travel stay unread everywhere; the sentences on the
+    # three surfaces say so.
+    admitted = {package / "workspace" / "matrix.py": {"propeller"}}
     scanned = 0
     offenders: list[str] = []
     for module in package.rglob("*.py"):
@@ -947,6 +954,8 @@ def test_no_module_outside_the_model_reads_the_propeller_block():
             # both walked past a guard whose docstring claimed the absence
             # was asserted across the package.
             if isinstance(node, ast.Attribute) and node.attr in watched:
+                if node.attr in admitted.get(module, set()):
+                    continue
                 offenders.append(f"{where_module}:{node.lineno} reads .{node.attr}")
             elif (
                 isinstance(node, ast.Subscript)

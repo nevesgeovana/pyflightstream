@@ -447,9 +447,10 @@ z_m = 0.0
 
 `propeller_diameter_m` SITS WITH THE OTHER LENGTHS AND NOT IN THE
 `[propeller]` BLOCK, which is the natural-looking home and the wrong one.
-The propeller block is recorded metadata that nothing in this package
-reads; the diameter is a DIVISOR of published numbers, exactly like the
-area and the chord. It is what an advance ratio is a ratio against, so a
+The propeller block is recorded metadata of which this package reads
+ONE field, the position, since 0.11.0 (the unsteady run types create the
+PROP_MRP frame there); the diameter is a DIVISOR of published numbers,
+exactly like the area and the chord. It is what an advance ratio is a ratio against, so a
 row stating `ADVANCE_RATIO` and a reference without this field is
 refused naming the field to add, and it is what the propeller
 coefficients normalise on. It is optional, because a configuration with
@@ -513,10 +514,13 @@ after reading the artifact is refused too.
 
 Two warnings, and neither is a detail.
 
-Nothing in the package reads the propeller block. Not the signs, and not
-`rotation`, `blade_travel`, `radius_m`, `n_blades` or `position` either:
-the whole block is recorded, and writing any of it changes no emitted
-script on its own.
+Nothing in the package reads the propeller block except its `position`,
+since 0.11.0: the two unsteady run types turn it into a coordinate system
+named PROP_MRP, the frame the author's probe lines and rotor plots are
+defined in, and the frame a rotor row turns about unless it states
+`ROTOR_ORIGIN`. The rest of the block, the signs, `rotation`,
+`blade_travel`, `radius_m` and `n_blades`, stays recorded and changes no
+emitted script; the four rotor facts leave the artifact under PFS-2029.08.
 
 AND THE ARTIFACT DOES NOT REACH A RECIPE, which is worth knowing before
 you write one. `resolve_matrix` narrows this artifact to the reference

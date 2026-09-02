@@ -2157,15 +2157,25 @@ def test_a_case_carrying_a_reference_emits_its_area_and_length():
 
 
 def test_a_case_carrying_no_reference_emits_neither_and_nothing_else_moves():
-    """The byte-identity clause, which is what protects every old fixture."""
+    """The byte-identity clause, which is what protects every old fixture.
+
+    AMENDED AT 0.11.0 (PFS-2030.03.01, FR-54): the reference VELOCITY is
+    stated on every case, equal to the free stream unless the preset says
+    otherwise, so that line is present with and without a reference and
+    is not one of the two lines the reference adds. The two it adds are
+    still the area and the length, and nothing else moves.
+    """
     from pyflightstream.cases import ReferenceData
 
     with_reference = _rendered(ReferenceData(area=10.0, length=1.2))
     without = _rendered(None)
-    assert [line for line in without if "REF" in line] == []
-    # Everything that is not the two new lines is unchanged, so a case
-    # that names no reference renders exactly what it always rendered.
-    assert [line for line in with_reference if "REF" not in line] == without
+    added = ("SOLVER_SET_REF_AREA", "SOLVER_SET_REF_LENGTH")
+    assert [line for line in without if line.startswith(added)] == []
+    assert "SOLVER_SET_REF_VELOCITY 30.0" in without, (
+        "the reference velocity is stated on a case with no reference too, as the free stream"
+    )
+    # Everything that is not the two reference lines is unchanged.
+    assert [line for line in with_reference if not line.startswith(added)] == without
 
 
 def test_the_reference_values_are_emitted_in_the_units_the_artifact_carries():
@@ -3383,4 +3393,153 @@ def test_a_wake_termination_in_revolutions_is_refused_without_the_wrong_reason()
     )
     assert "RPM" not in message and "ADVANCE_RATIO" not in message, (
         "the refusal offers a rotor speed to a run that turns nothing"
+    )
+
+
+# --- FR-54, PFS-2030.03: every setting her scripts state reaches the script --
+
+
+def _wb_geometry(tmp_path: Path) -> Path:
+    """A wing-body saved simulation: the two families her steady row carries."""
+    return _saved_simulation(tmp_path / "30_WB.fsm", ["W", "B"])
+
+
+def test_reference_velocity_sideslip_and_initialisation_are_stated(tmp_path):
+    """PFS-2030.03.01: three lines her scripts always wrote and 0.10.1 never did."""
+    from pyflightstream.cases import SolverSettings
+
+    lines = rendered(steady_case(geometry=str(_wb_geometry(tmp_path)))).splitlines()
+    assert "SOLVER_SET_REF_VELOCITY 30.0" in lines, (
+        "the reference velocity defaults to the free stream"
+    )
+    assert "SOLVER_SET_SIDESLIP 0.0" in lines, "the sideslip is stated even at zero"
+    opened = ["OPEN", str(_wb_geometry(tmp_path)), "LOAD_SOLVER_INITIALIZATION DISABLE"]
+    assert lines[:3] == opened, (
+        "OPEN stays first and carries the initialisation flag, DISABLE unless the setup says so"
+    )
+    stated = steady_case(geometry=str(_wb_geometry(tmp_path))).model_copy(
+        update={
+            "solver": SolverSettings(
+                reference_velocity_m_per_s=50.0, load_solver_initialization=True
+            )
+        }
+    )
+    lines = rendered(stated).splitlines()
+    assert "SOLVER_SET_REF_VELOCITY 50.0" in lines
+    assert "LOAD_SOLVER_INITIALIZATION ENABLE" in lines
+
+
+def test_the_moment_point_becomes_the_loads_frame():
+    """PFS-2030.03.02: a coordinate system named MRP, and the analysis points at it."""
+    from pyflightstream.cases import ReferenceData
+
+    case = steady_case().model_copy(
+        update={
+            "reference": ReferenceData(area=50.0, length=2.526, moment_point_m=(9.152, 0.0, 0.0))
+        }
+    )
+    lines = rendered(case).splitlines()
+    assert "NAME MRP" in lines
+    assert "ORIGIN_X 9.152" in lines
+    assert "SET_SOLVER_ANALYSIS_LOADS_FRAME 2" in lines, (
+        "the MRP is frame 2, as her scripts numbered it"
+    )
+    assert "SET_ANALYSIS_MOMENTS_MODEL PRESSURE" in lines
+    assert lines.index("SET_SOLVER_ANALYSIS_LOADS_FRAME 2") > lines.index("START_SOLVER"), (
+        "an analysis-phase command follows the solver start in this package's phase order"
+    )
+    # A reference with no moment point creates nothing and names no frame.
+    bare = steady_case().model_copy(update={"reference": ReferenceData(area=50.0, length=2.526)})
+    assert "SET_SOLVER_ANALYSIS_LOADS_FRAME" not in rendered(bare)
+
+
+def test_vorticity_drag_families_resolve_through_the_inventory(tmp_path):
+    """PFS-2030.03.03: names in the preset, indices in the script, absent families left out."""
+    from pyflightstream.cases import SolverSettings
+
+    case = steady_case(geometry=str(_wb_geometry(tmp_path))).model_copy(
+        update={"solver": SolverSettings(vorticity_drag_families=["W", "B", "P", "N", "H"])}
+    )
+    lines = rendered(case).splitlines()
+    at = lines.index("SET_VORTICITY_DRAG_BOUNDARIES 2")
+    assert lines[at + 1] == "1,2", (
+        "W and B are boundaries 1 and 2 of the opened file; P, N and H are not in it"
+    )
+
+
+def test_vorticity_drag_families_the_geometry_lacks_entirely_are_refused(tmp_path):
+    from pyflightstream.cases import CampaignConfigError, SolverSettings
+
+    case = steady_case(geometry=str(_wb_geometry(tmp_path))).model_copy(
+        update={"solver": SolverSettings(vorticity_drag_families=["P", "N"])}
+    )
+    with pytest.raises(CampaignConfigError, match="carries none of them"):
+        rendered(case)
+
+
+def test_significant_digits_reach_the_script():
+    """PFS-2030.03.04: seven decimals in every export, as her tables print."""
+    from pyflightstream.cases import SolverSettings
+
+    seven = steady_case().model_copy(update={"solver": SolverSettings(significant_digits=7)})
+    lines = rendered(seven).splitlines()
+    assert "SET_SIGNIFICANT_DIGITS 7" in lines
+    assert "SET_SIGNIFICANT_DIGITS" not in rendered(steady_case()), (
+        "a preset that says nothing emits nothing"
+    )
+
+
+def test_wake_termination_in_steps_reaches_the_no_rotor_unsteady_run():
+    """PFS-2030.03.04: the steps key is the one a run that turns nothing can state."""
+    from pyflightstream.cases import CampaignConfigError, SolverSettings
+
+    case = unsteady_case().model_copy(update={"solver": SolverSettings(wake_termination_steps=-18)})
+    assert "SET_WAKE_TERMINATION_TIME_STEPS -18" in rendered(case).splitlines()
+    both = rotor_case().model_copy(
+        update={
+            "solver": SolverSettings(wake_termination_steps=-18, wake_termination_revolutions=-1.0)
+        }
+    )
+    with pytest.raises(CampaignConfigError, match="can only disagree"):
+        rendered(both)
+
+
+def test_symmetry_loads_stated_in_the_setup_reaches_the_script():
+    """PFS-2028.05, her decision of 2026-09-02: emitted exactly as stated, before the start."""
+    from pyflightstream.cases import SolverSettings
+
+    stated_on = steady_case().model_copy(update={"solver": SolverSettings(symmetry_loads=True)})
+    stated_off = steady_case().model_copy(update={"solver": SolverSettings(symmetry_loads=False)})
+    on = rendered(stated_on).splitlines()
+    off = rendered(stated_off).splitlines()
+    assert "SET_ANALYSIS_SYMMETRY_LOADS ENABLE" in on
+    assert "SET_ANALYSIS_SYMMETRY_LOADS DISABLE" in off
+    assert on.index("SET_ANALYSIS_SYMMETRY_LOADS ENABLE") < on.index("START_SOLVER")
+
+
+def test_symmetry_loads_omitted_still_emits_nothing():
+    assert "SET_ANALYSIS_SYMMETRY_LOADS" not in rendered(steady_case())
+
+
+def test_the_unsteady_types_create_the_propeller_frame_where_the_reference_places_it():
+    """The frame her probe lines and rotor plots are defined in: PROP_MRP, frame 3."""
+    from pyflightstream.cases import ReferenceData
+
+    reference = ReferenceData(
+        area=50.0,
+        length=2.526,
+        moment_point_m=(9.152, 0.0, 0.0),
+        propeller_position_m=(14.76344, -3.504, 1.84),
+    )
+    lines = rendered(unsteady_case().model_copy(update={"reference": reference})).splitlines()
+    assert "NAME PROP_MRP" in lines
+    at = lines.index("NAME PROP_MRP")
+    assert lines[at - 1] == "FRAME 3", (
+        "MRP is 2 and the propeller frame 3, as her scripts numbered them"
+    )
+    assert lines[at + 1] == "ORIGIN_X 14.76344"
+    assert lines[at + 2] == "ORIGIN_Y -3.504"
+    steady = rendered(steady_case().model_copy(update={"reference": reference}))
+    assert "PROP_MRP" not in steady, (
+        "the steady run creates the MRP alone, as her steady script did"
     )

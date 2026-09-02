@@ -672,6 +672,10 @@ _PRESET_ALIASES = {
     "additional_wake_relaxation_iteration": "additional_wake_relaxation",
     "reynolds_averaged_drag_forces": "reynolds_averaged_drag",
     "unsteady_N_revolutions_wake": "wake_termination_revolutions",
+    # The settings her own scripts state and 0.10.1 did not emit (FR-54).
+    "reference_velocity_mps": "reference_velocity_m_per_s",
+    "vorticity_drag_boundaries": "vorticity_drag_families",
+    "set_vorticity_drag_boundaries": "vorticity_drag_families",
 }
 
 #: Preset keys that are RECORDED and deliberately emit nothing, each
@@ -697,14 +701,11 @@ _PRESET_RECORDED_ONLY = {
         "is stated in the row's SYMMETRY key; a preset value would silently overrule "
         "the mesh it knows nothing about"
     ),
-    "symmetry_loads": (
-        "whether the reported loads are the modelled slice's or the whole body's. It "
-        "has an emitter (SET_ANALYSIS_SYMMETRY_LOADS) and is still recorded-only, "
-        "deliberately: applying it would multiply or divide every published "
-        "coefficient of a periodic or mirrored case by the copy count, so it is a "
-        "decision to make with a measurement in hand rather than a key to honour "
-        "silently"
-    ),
+    # `symmetry_loads` LEFT THIS TABLE on 2026-09-02, her decision (PFS-2028.05)
+    # with the measurement in hand: the 0.10.1 reproduction of her isolated
+    # rotor reported loads six times hers because her preset stated the
+    # symmetry loads off and nothing was emitted. A STATED key now reaches
+    # SET_ANALYSIS_SYMMETRY_LOADS as stated; an absent key still emits nothing.
     "unsteady_delta_theta_deg": (
         "superseded by the row's DELTA_THETA, which is where the azimuthal step is "
         "stated now that the clock is derived from it"
@@ -1044,6 +1045,22 @@ def resolve_matrix(
                 area=reference.area_m2,
                 length=reference.chord_m,
                 propeller_diameter=reference.propeller_diameter_m,
+                # The moment point rides too, so a builder can put the
+                # analysis loads frame on it (PFS-2030.03.02).
+                moment_point_m=(
+                    reference.moment_point.x_m,
+                    reference.moment_point.y_m,
+                    reference.moment_point.z_m,
+                ),
+                propeller_position_m=(
+                    None
+                    if reference.propeller is None
+                    else (
+                        reference.propeller.position.x_m,
+                        reference.propeller.position.y_m,
+                        reference.propeller.position.z_m,
+                    )
+                ),
             ),
             "solver": solvers[row.set_code],
         }

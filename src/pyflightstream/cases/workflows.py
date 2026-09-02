@@ -1955,7 +1955,12 @@ def _open_geometry(case: SimCase, script: Script) -> None:
             f"route in full; search that page for '{_MESH_PAGE_ANCHOR}'. The file this "
             f"resolved to is {case.geometry!r}."
         )
-    script.emit("OPEN", case.geometry)
+    # THE INITIALISATION FLAG IS ALWAYS STATED (PFS-2030.03.01). A saved
+    # simulation may carry an initialised solver, and loading it would start
+    # the run from a state the row never declared; her scripts wrote DISABLE
+    # on every open, and a preset that wants the stored state says so.
+    load = case.solver.load_solver_initialization
+    script.emit("OPEN", case.geometry, "ENABLE" if load else "DISABLE")
     _declare_boundaries(case, script)
 
 
@@ -2270,6 +2275,115 @@ def _initialize(case: SimCase, script: Script) -> None:
     )
 
 
+def _moment_frame(case: SimCase, script: Script) -> int | None:
+    """Create the MRP frame at the reference's moment point, returning its index.
+
+    PFS-2030.03.02. The loads table the solver writes names the frame the
+    loads were analysed in, and hers say MRP; a run with no moment point
+    creates nothing and the solver's reference frame stands, as before.
+    Emitted right after OPEN so that, with the propeller frame after it,
+    the frame indices come out as her scripts numbered them: MRP 2,
+    PROP_MRP 3.
+    """
+    reference = case.reference
+    if reference is None or reference.moment_point_m is None:
+        return None
+    return helpers.coordinate_frame(
+        script,
+        name="MRP",
+        origin=reference.moment_point_m,
+        x_axis=(1.0, 0.0, 0.0),
+        y_axis=(0.0, 1.0, 0.0),
+        label="MRP",
+    )
+
+
+def _propeller_frame(case: SimCase, script: Script) -> int | None:
+    """Create the PROP_MRP frame at the reference's propeller position.
+
+    Only the two unsteady run types call this, because that is what her
+    own scripts did: the steady one created the MRP alone, the unsteady
+    one always created the propeller frame too, rotor or not, since the
+    probe lines and the rotor plots are defined in it. The rotor run
+    turns about this same frame (``label="rotor"`` is what the motion
+    emitter cites). A row stating ROTOR_ORIGIN overrides the artifact's
+    position, so a matrix written before the artifact carried one keeps
+    turning where it said.
+    """
+    reference = case.reference
+    stated = _variable(case, ROTOR_ORIGIN_VARIABLE)
+    if stated is not None:
+        origin = _origin(case)
+    elif reference is not None and reference.propeller_position_m is not None:
+        origin = reference.propeller_position_m
+    else:
+        return None
+    return helpers.coordinate_frame(
+        script,
+        name="PROP_MRP",
+        origin=origin,
+        x_axis=(1.0, 0.0, 0.0),
+        y_axis=(0.0, 1.0, 0.0),
+        label="rotor",
+    )
+
+
+def _significant_digits(case: SimCase, script: Script) -> None:
+    """Emit SET_SIGNIFICANT_DIGITS where the preset states it (PFS-2030.03.04).
+
+    A setup-phase command, so it sits with the frames and before the
+    free stream; the solver's own default prints four decimals and her
+    presets ask for seven, which is the difference between her tables
+    and a table that cannot be compared with them.
+    """
+    digits = case.solver.significant_digits
+    if digits is not None:
+        script.emit("SET_SIGNIFICANT_DIGITS", digits)
+
+
+def _vorticity_indices(case: SimCase, script: Script) -> list[int] | None:
+    """Resolve the preset's vorticity-drag FAMILIES through the opened inventory.
+
+    PFS-2030.03.03. A family the geometry does not carry is left out, as
+    her driver filtered the preset's list to the configuration it opened;
+    a list that resolves to nothing is refused, because an empty selection
+    would be read by the solver as the default and the preset asked for
+    something else.
+    """
+    families = case.solver.vorticity_drag_families
+    if families is None:
+        return None
+    chosen: list[int] = []
+    absent: list[str] = []
+    for name in families:
+        try:
+            chosen.append(script.resolve_boundary(name, context="vorticity_drag_boundaries"))
+        except PyflightstreamError:
+            absent.append(name)
+    if not chosen:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: the preset names vorticity drag boundaries "
+            f"{', '.join(families)} and the opened geometry carries none of them "
+            f"(absent: {', '.join(absent)}), so the selection would be empty. Name "
+            "families the geometry carries, or drop the key so the solver integrates "
+            "surface pressure on every boundary."
+        )
+    return sorted(chosen)
+
+
+def _analysis(case: SimCase, script: Script, frame: int | None) -> None:
+    """Point the analysis at the MRP frame, once the solver has started.
+
+    The loads frame and the moments model are analysis-phase commands, so
+    they follow START_SOLVER in this package's phase order; the solver
+    applies them to the analysis that follows either way, and hers were
+    written before the start with the same effect on the table.
+    """
+    if frame is None:
+        return
+    helpers.analysis_setup(script, loads_frame=frame, moments_model="PRESSURE")
+
+
 def _settings(
     case: SimCase, script: Script, *, wake_termination_time_steps: int | None = None
 ) -> None:
@@ -2309,11 +2423,22 @@ def _settings(
     # conversion needs the case's own clock, so the rotor builder does
     # it (:func:`_wake_termination`) and the steady builder, which
     # has no clock, cannot and does not.
+    # SIDESLIP, THE REFERENCE VELOCITY AND THE VORTICITY FAMILIES ARE ALWAYS
+    # STATED where the case can state them (PFS-2030.03.01, .03.03): her
+    # scripts set the sideslip even at zero and the reference velocity
+    # equal to the free stream, and a setting nobody states is a setting
+    # the solver defaults, which is the silence this release removes.
     helpers.solver_settings(
         script,
         aoa=case.point.get("alpha", 0.0),
-        sideslip=case.point.get("beta"),
+        sideslip=case.point.get("beta", 0.0),
         velocity=_velocity(case),
+        ref_velocity=(
+            solver.reference_velocity_m_per_s
+            if solver.reference_velocity_m_per_s is not None
+            else _velocity(case)
+        ),
+        vorticity_drag_boundaries=_vorticity_indices(case, script),
         iterations=solver.iterations,
         convergence=solver.convergence,
         max_threads=solver.max_threads,
@@ -2333,6 +2458,12 @@ def _settings(
         solver_stabilization=solver.solver_stabilization,
         wake_termination_time_steps=wake_termination_time_steps,
     )
+    # SYMMETRY LOADS AS STATED, her decision of 2026-09-02 (PFS-2028.05): an
+    # init-phase setting, emitted alone here as the helper asks; an absent
+    # key emits nothing, so a preset written before this release is silent
+    # exactly as it was.
+    if solver.symmetry_loads is not None:
+        helpers.analysis_setup(script, symmetry_loads=solver.symmetry_loads)
 
 
 def _fluid(case: SimCase, script: Script) -> None:
@@ -2385,8 +2516,15 @@ def _wake_termination(case: SimCase, stepping: TimeStepping) -> int | None:
     nothing emits nothing.
     """
     revolutions = case.solver.wake_termination_revolutions
+    steps = case.solver.wake_termination_steps
+    if revolutions is not None and steps is not None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} inherits a wake termination in revolutions "
+            f"({revolutions}) and in time steps ({steps}) from its solver preset, and "
+            "the two can only disagree. State one."
+        )
     if revolutions is None:
-        return None
+        return steps
     per_revolution = stepping.steps_per_revolution
     if per_revolution is None:
         raise CampaignConfigError(
@@ -2547,11 +2685,14 @@ def _build_steady(case: SimCase, script: Script, conventions: WorkflowConvention
     """
     _refuse_wake_termination_without_a_clock(case)
     _open_geometry(case, script)
+    frame = _moment_frame(case, script)
+    _significant_digits(case, script)
     helpers.free_stream(script)
     _fluid(case, script)
     _settings(case, script)
     _initialize(case, script)
     helpers.start_solver(script)
+    _analysis(case, script, frame)
     script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", _output(conventions, case, 0))
     _export_log(conventions, case, script, claimed=(1,))
     script.emit("CLOSE_FLIGHTSTREAM")
@@ -2717,6 +2858,9 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     _refuse_rotor_keys_on_a_rotorless_run(case)
     _refuse_wake_termination_without_a_rotor(case)
     _open_geometry(case, script)
+    frame = _moment_frame(case, script)
+    _propeller_frame(case, script)
+    _significant_digits(case, script)
     helpers.free_stream(script)
     _fluid(case, script)
     stepping = unsteady_time_stepping(case)
@@ -2725,9 +2869,12 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
         time_iterations=stepping.time_iterations,
         delta_time=stepping.delta_time_s,
     )
-    _settings(case, script)
+    # The wake termination in STEPS is the one this run type can state
+    # (PFS-2030.03.04); the revolutions form was refused above.
+    _settings(case, script, wake_termination_time_steps=case.solver.wake_termination_steps)
     _initialize(case, script)
     helpers.start_solver(script)
+    _analysis(case, script, frame)
     script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", _output(conventions, case, 0))
     _export_log(conventions, case, script, claimed=(1,))
     script.emit("CLOSE_FLIGHTSTREAM")
@@ -2744,15 +2891,20 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
     frame that no longer exists.
     """
     _open_geometry(case, script)
-    origin = _origin(case)
-    helpers.coordinate_frame(
-        script,
-        name=f"rotor_{case.sim_id}",
-        origin=origin,
-        x_axis=(1.0, 0.0, 0.0),
-        y_axis=(0.0, 1.0, 0.0),
-        label="rotor",
-    )
+    frame = _moment_frame(case, script)
+    # THE ROTOR FRAME IS THE PROPELLER FRAME, named as her scripts named it
+    # and placed where the reference puts the propeller, unless the row
+    # states ROTOR_ORIGIN; a case with neither turns about the origin.
+    if _propeller_frame(case, script) is None:
+        helpers.coordinate_frame(
+            script,
+            name="PROP_MRP",
+            origin=(0.0, 0.0, 0.0),
+            x_axis=(1.0, 0.0, 0.0),
+            y_axis=(0.0, 1.0, 0.0),
+            label="rotor",
+        )
+    _significant_digits(case, script)
     helpers.free_stream(script)
     _fluid(case, script)
     # RESOLVED ONCE AND THREADED. The ratio was previously converted
@@ -2773,6 +2925,7 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
     _settings(case, script, wake_termination_time_steps=_wake_termination(case, stepping))
     _initialize(case, script)
     helpers.start_solver(script)
+    _analysis(case, script, frame)
     script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", _output(conventions, case, 0))
     _export_log(conventions, case, script, claimed=(1,))
     script.emit("CLOSE_FLIGHTSTREAM")

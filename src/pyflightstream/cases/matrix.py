@@ -304,6 +304,15 @@ FLIGHT_CONDITION_KEYS: dict[str, tuple[str, str]] = {
     "REmi": ("millions", "density"),
     "ALTFT": ("feet", "pressure, and temperature through the standard lapse"),
     "dISA": ("Celsius, a DELTA", "temperature, as an offset on the standard value"),
+    # THE FIVE PINS (FR-54, PFS-2030.02). Each overrides the constant the
+    # standard atmosphere would otherwise supply, so a row can state the
+    # fluid its author's own scripts pinned and the emitted FLUID_PROPERTIES
+    # block carries those numbers and no others. The units ride the keys.
+    "RHOkgm3": ("kg/m^3", "density directly, overriding both the atmosphere and REmi"),
+    "MUPas": ("Pa s", "dynamic viscosity, which REmi then solves the density against"),
+    "ASMPS": ("m/s", "sonic velocity, which MACH is then taken against"),
+    "TK": ("kelvin", "temperature, stated rather than lapsed"),
+    "PPA": ("pascal", "pressure, stated rather than lapsed"),
 }
 
 #: Canonical spelling by upper-cased key, for the case-insensitive match

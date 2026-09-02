@@ -368,6 +368,20 @@ class ReferenceData(BaseModel):
     length: float = Field(gt=0.0)
     velocity: float | None = Field(default=None, gt=0.0)
     propeller_diameter: float | None = Field(default=None, gt=0.0)
+    #: The moment reference point (x, y, z) in simulation length units,
+    #: carried from the reference artifact's ``[moment_point]``. A builder
+    #: creates a coordinate system named MRP there and makes it the
+    #: analysis loads frame, so moments are reported about it
+    #: (PFS-2030.03.02). None for an authored case that states none, which
+    #: leaves the solver's reference frame as the loads frame, as before.
+    moment_point_m: tuple[float, float, float] | None = None
+    #: The propeller position (x, y, z) in simulation length units, from
+    #: the reference artifact's ``[propeller.position]``. The two unsteady
+    #: run types create a coordinate system named PROP_MRP there, which is
+    #: the frame the author's probe lines and rotor plots are defined in,
+    #: and the rotor run turns about it. None when the reference declares
+    #: no propeller.
+    propeller_position_m: tuple[float, float, float] | None = None
 
 
 def _resolve_settings_toggle(value: object) -> object:
@@ -516,6 +530,35 @@ class SolverSettings(BaseModel):
     #: the steps per revolution, which only the case's own clock knows;
     #: it is therefore done by the rotor builder and never here.
     wake_termination_revolutions: float | None = None
+    #: Wake termination stated in time STEPS, the emitter's own unit, for a
+    #: run type that has a clock and no rotor (PFS-2030.03.04): a
+    #: revolution has no length there, so the revolutions key above is
+    #: refused on it and this one is the way to say it. Negative counts
+    #: backwards from the end of the run, as the solver reads it.
+    wake_termination_steps: int | None = None
+    #: The four settings the author's own scripts state and 0.10.1 did not
+    #: (FR-54, PFS-2030.03.*). Each is None unless a preset states it, so a
+    #: preset that says nothing emits nothing and every earlier golden holds.
+    #: symmetry_loads reaches SET_ANALYSIS_SYMMETRY_LOADS AS STATED, her
+    #: decision of 2026-09-02 (PFS-2028.05); an absent key stays silent.
+    symmetry_loads: SolverToggle | None = None
+    #: SET_SIGNIFICANT_DIGITS: how many decimals the solver prints in every
+    #: export. Her scripts state 7; the solver's own default prints 4.
+    significant_digits: int | None = Field(default=None, ge=1)
+    #: SOLVER_SET_REF_VELOCITY in m/s. None means the builders state the
+    #: freestream velocity, which is what the coefficients are normalised
+    #: on unless a preset says otherwise (PFS-2030.03.01).
+    reference_velocity_m_per_s: float | None = Field(default=None, gt=0.0)
+    #: SET_VORTICITY_DRAG_BOUNDARIES written as FAMILY NAMES; the builder
+    #: resolves them through the opened geometry's inventory and leaves out
+    #: the families the geometry does not carry, as her driver did
+    #: (PFS-2030.03.03). An empty result is refused.
+    vorticity_drag_families: list[str] | None = None
+    #: The LOAD_SOLVER_INITIALIZATION argument of OPEN. None means DISABLE,
+    #: which is what her scripts wrote on every open: a saved simulation
+    #: may carry an initialised solver, and loading it would start the run
+    #: from a state the row never declared (PFS-2030.03.01).
+    load_solver_initialization: SolverToggle | None = None
 
 
 class FluidState(BaseModel):

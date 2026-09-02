@@ -7,6 +7,36 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+- FR-54, PFS-2030.02: a flight condition may PIN the fluid constants the
+  standard atmosphere would otherwise supply, with five new keys
+  (`RHOkgm3`, `MUPas`, `ASMPS`, `TK`, `PPA`), so a row can state the fluid its
+  author's own scripts pinned and the emitted `FLUID_PROPERTIES` block carries
+  those numbers; the resolved condition records which fields were pinned.
+- FR-54, PFS-2030.03: every builder now states the reference velocity
+  (`SOLVER_SET_REF_VELOCITY`, the free stream unless the setup states
+  `reference_velocity_mps`), the sideslip even at zero, and the
+  `LOAD_SOLVER_INITIALIZATION` flag on `OPEN` (DISABLE unless the setup states
+  `load_solver_initialization = true`); a reference artifact's moment point
+  becomes a coordinate system named MRP and the analysis loads frame, with
+  `SET_ANALYSIS_MOMENTS_MODEL PRESSURE`; a setup's `vorticity_drag_boundaries`
+  may be written as family names and is resolved through the opened geometry's
+  inventory; `significant_digits` and `wake_termination_steps` have emitters,
+  the second on the run type that turns nothing. The two unsteady run types
+  create a `PROP_MRP` frame at the reference's propeller position, which is the
+  one field of the propeller block the package now reads.
+- PFS-2028.05, the author's decision of 2026-09-02: a setup that states
+  `symmetry_loads` emits `SET_ANALYSIS_SYMMETRY_LOADS` as stated; an absent key
+  still emits nothing. The measurement behind it: the 0.10.1 reproduction of her
+  isolated rotor reported loads six times hers because her preset stated the
+  symmetry loads off and nothing was emitted.
+
+### Changed
+
+- The workflow goldens were regenerated for the lines above; every emitted
+  script gains the sideslip, the reference velocity and the initialisation flag.
+
 ## [0.10.1] - 2026-09-02
 
 ### Fixed -- a row names the mesh family, and the package makes the link

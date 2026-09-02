@@ -17,11 +17,19 @@ from __future__ import annotations
 
 import pytest
 
+from pyflightstream.cases import FluidState, ReferenceData, SimCase, SweepAxis
 from pyflightstream.cases.matrix import (
     FLIGHT_CONDITION_KEYS,
     _parse_flight_condition,
 )
+from pyflightstream.cases.workflows import build_script
 from pyflightstream.exceptions import MatrixError
+from pyflightstream.script import Script
+from pyflightstream.workspace.flight_condition import (
+    PINNED_KEYS,
+    FlightConditionError,
+    resolve_flight_condition,
+)
 
 
 def test_the_authors_two_examples_parse_to_the_pairs_they_name():
@@ -174,8 +182,9 @@ def test_every_accepted_key_states_its_unit_and_what_it_constrains():
     for key, (unit, constrains) in FLIGHT_CONDITION_KEYS.items():
         assert unit.strip(), f"{key} declares no unit"
         assert constrains.strip(), f"{key} declares nothing it constrains"
-    # The five the author specified, and no sixth arrived unnoticed.
-    assert set(FLIGHT_CONDITION_KEYS) == {"MACH", "TASmps", "REmi", "ALTFT", "dISA"}
+    # The five the author specified at 0.9.0, plus the five PINS of 0.11.0
+    # (FR-54, PFS-2030.02), and no eleventh arrived unnoticed.
+    assert set(FLIGHT_CONDITION_KEYS) == {"MACH", "TASmps", "REmi", "ALTFT", "dISA", *PINNED_KEYS}
 
 
 def test_integers_and_negatives_and_exponents_are_numbers():
@@ -183,3 +192,119 @@ def test_integers_and_negatives_and_exponents_are_numbers():
     assert _parse_flight_condition("dISA:-10", "P1") == {"dISA": -10.0}
     assert _parse_flight_condition("ALTFT:1e4", "P1") == {"ALTFT": 10000.0}
     assert _parse_flight_condition("MACH:.2", "P1") == {"MACH": 0.2}
+
+
+# --- FR-54, PFS-2030.02: the five fluid pins ---------------------------------
+#
+# A row may state the constants the standard atmosphere would otherwise
+# supply, so the emitted fluid block carries the numbers its author pinned.
+# The three states below are the author's own, read off the scripts that
+# produced her recorded campaign on 2026-09-02, asserted to the last digit:
+# the reproduction arm of GOAL-011 compares the emitted line against hers
+# as a number, and a fourth-digit difference is a different fluid.
+
+CHORD_M = 2.526
+HER_PINS = {"MUPas": 1.789e-5, "ASMPS": 340.29, "TK": 288.15, "PPA": 101325.0}
+
+
+def test_every_pin_is_a_flight_condition_key():
+    """The vocabulary is one table; a pin the reader refuses cannot be stated."""
+    for key in PINNED_KEYS:
+        assert key in FLIGHT_CONDITION_KEYS, f"{key} is a pin the cell parser does not accept"
+        assert _parse_flight_condition(f"TASmps:68, {key}:1.0", "P1")[key] == 1.0
+
+
+def test_pinned_fluid_constants_reach_the_script_verbatim():
+    """Her steady state: density pinned, every constant hers, bit for bit.
+
+    The emitted FLUID_PROPERTIES block is what the solver reads, so the
+    assertion is on the rendered lines and not only on the resolver.
+    """
+    state = resolve_flight_condition(
+        {"TASmps": 68.058, "RHOkgm3": 1.225, **HER_PINS}, pol="3207", reference_length_m=CHORD_M
+    )
+    assert state.density_kg_m3 == 1.225
+    assert state.viscosity_pa_s == 1.789e-5
+    assert state.sonic_velocity_m_per_s == 340.29
+    assert state.density_source == "pinned"
+    assert state.pinned == ("RHOkgm3", "MUPas", "ASMPS", "TK", "PPA")
+    lines = _render_fluid(state)
+    assert "DENSITY 1.225" in lines
+    assert "VISCOSITY 1.789e-05" in lines
+    assert "TEMPERATURE 288.15" in lines
+    assert "PRESSURE 101325.0" in lines
+
+
+def test_a_reynolds_constraint_solves_against_the_pinned_viscosity():
+    """Her unsteady state: REmi against a pinned viscosity gives her density exactly."""
+    state = resolve_flight_condition(
+        {"TASmps": 68.058, "REmi": 11.7717, "MUPas": 1.789e-5},
+        pol="3224",
+        reference_length_m=CHORD_M,
+    )
+    assert state.density_kg_m3 == 1.2250025634834727
+    assert state.density_source == "solved-from-reynolds"
+    assert state.pinned == ("MUPas",)
+
+
+def test_mach_is_taken_against_the_pinned_sonic_velocity():
+    """Her rotor state: MACH times her sonic velocity, then REmi against her viscosity."""
+    state = resolve_flight_condition(
+        {"MACH": 0.1441, "REmi": 4.38, "MUPas": 1.789e-5, "ASMPS": 340.29},
+        pol="9001",
+        reference_length_m=CHORD_M,
+    )
+    assert state.velocity_m_per_s == 49.03578900000001
+    assert state.density_kg_m3 == 0.6326127450123294
+
+
+def test_no_pin_leaves_the_standard_atmosphere_unchanged():
+    """Every condition written before 0.11.0 resolves exactly as it did."""
+    state = resolve_flight_condition({"MACH": 0.20, "REmi": 5.5}, pol="P1", reference_length_m=1.0)
+    assert round(state.velocity_m_per_s, 4) == 68.0588
+    assert state.pinned == ()
+    assert state.density_source == "solved-from-reynolds"
+    assert state.viscosity_pa_s != 1.789e-5, "the standard viscosity is not her pinned one"
+
+
+def test_a_pinned_density_beside_a_reynolds_number_is_refused():
+    with pytest.raises(FlightConditionError, match="RHOkgm3") as refused:
+        resolve_flight_condition(
+            {"TASmps": 68.0, "RHOkgm3": 1.2, "REmi": 5.0}, pol="P1", reference_length_m=1.0
+        )
+    assert "REmi" in str(refused.value)
+
+
+@pytest.mark.parametrize("key", sorted(PINNED_KEYS))
+def test_a_non_positive_pin_is_refused_naming_the_key(key):
+    with pytest.raises(FlightConditionError, match=key):
+        resolve_flight_condition({"TASmps": 68.0, key: 0.0}, pol="P1", reference_length_m=1.0)
+
+
+def _render_fluid(state) -> list[str]:
+    fluid = FluidState(
+        velocity_m_per_s=state.velocity_m_per_s,
+        density_kg_m3=state.density_kg_m3,
+        pressure_pa=state.pressure_pa,
+        temperature_k=state.temperature_k,
+        viscosity_pa_s=state.viscosity_pa_s,
+        sonic_velocity_m_per_s=state.sonic_velocity_m_per_s,
+        heat_capacity_ratio=state.heat_capacity_ratio,
+        source=state.density_source,
+        reference_length_m=state.reference_length_m,
+    )
+    case = SimCase(
+        sim_id="3207",
+        aircraft="WB",
+        sweep=SweepAxis(type="alpha", values=[-2.0]),
+        recipe="steady",
+        outputs=["loads_a-02.0.txt"],
+        variables={"WORKFLOW": "steady"},
+        point={"alpha": -2.0},
+        velocity=state.velocity_m_per_s,
+        reference=ReferenceData(area=50.0, length=CHORD_M),
+        fluid=fluid,
+    )
+    script = Script("26.120")
+    build_script(case, script)
+    return script.render().splitlines()

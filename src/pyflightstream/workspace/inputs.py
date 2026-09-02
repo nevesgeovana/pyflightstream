@@ -461,8 +461,9 @@ class ReferenceArtifact(BaseModel):
 
         IT LIVES HERE, BESIDE THE OTHER THREE LENGTHS, and not in
         :class:`PropellerReference`, which is the natural-looking home
-        and the wrong one. The propeller block is RECORDED metadata that
-        nothing in this package reads; the diameter is a DIVISOR of
+        and the wrong one. The propeller block is RECORDED metadata of which
+        this package reads one field, the position (0.11.0, the PROP_MRP
+        frame); the diameter is a DIVISOR of
         published numbers, exactly like the area and the chord. It sets
         the rotor speed a row asks for by advance ratio
         (``n = V / (J D)``) and it normalises the propeller coefficients

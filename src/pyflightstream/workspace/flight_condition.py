@@ -107,6 +107,17 @@ VELOCITY_KEYS = ("MACH", "TASmps")
 #: The key that fixes density by solving the Reynolds definition.
 DENSITY_KEY = "REmi"
 
+#: The five pins of FR-54: a row may state the constants the standard
+#: atmosphere would otherwise supply, so the emitted fluid block carries the
+#: numbers its author pinned. Each key names the resolved field it replaces.
+PINNED_KEYS = {
+    "RHOkgm3": "density_kg_m3",
+    "MUPas": "viscosity_pa_s",
+    "ASMPS": "sonic_velocity_m_per_s",
+    "TK": "temperature_k",
+    "PPA": "pressure_pa",
+}
+
 
 class FlightConditionError(PyflightstreamError, ValueError):
     """A flight condition does not determine exactly one flow state.
@@ -152,6 +163,10 @@ class ResolvedCondition:
     #: because the state cannot be checked without it.
     reference_length_m: float | None = None
     stated: dict[str, float] = field(default_factory=dict)
+    #: Which resolved fields were PINNED by the row rather than derived, in
+    #: the order the keys are declared. Empty for a condition that pins
+    #: nothing, which is every condition written before 0.11.0.
+    pinned: tuple[str, ...] = ()
 
 
 def resolve_flight_condition(
@@ -289,11 +304,33 @@ def resolve_flight_condition(
             f"{refused}"
         ) from refused
 
+    # THE PINS OVERRIDE THE ATMOSPHERE, field by field (FR-54, PFS-2030.02).
+    # A pinned viscosity is what a Reynolds constraint solves the density
+    # against; a pinned sonic velocity is what MACH is taken against; a
+    # pinned density wins over the atmosphere, and beside REmi it is a
+    # contradiction that is refused rather than silently ignored.
+    pinned = tuple(key for key in PINNED_KEYS if key in stated)
+    if "RHOkgm3" in stated and DENSITY_KEY in stated:
+        raise FlightConditionError(
+            f"the flight condition of POL {pol} states both RHOkgm3:{stated['RHOkgm3']} "
+            f"and {DENSITY_KEY}:{stated[DENSITY_KEY]}, and each fixes the density on its "
+            "own: the first pins it and the second solves it. State one."
+        )
+    for key in pinned:
+        if stated[key] <= 0.0:
+            raise FlightConditionError(
+                f"the flight condition of POL {pol} pins {key}:{stated[key]:g}, and "
+                f"{key} is a positive quantity."
+            )
+    sonic_velocity = stated.get("ASMPS", atmosphere.sonic_velocity_m_per_s)
+    viscosity = stated.get("MUPas", atmosphere.viscosity_pa_s)
+    temperature = stated.get("TK", atmosphere.temperature_k)
+    pressure = stated.get("PPA", atmosphere.pressure_pa)
     if "MACH" in stated:
-        velocity = stated["MACH"] * atmosphere.sonic_velocity_m_per_s
+        velocity = stated["MACH"] * sonic_velocity
     else:
         velocity = stated["TASmps"]
-    mach = velocity / atmosphere.sonic_velocity_m_per_s
+    mach = velocity / sonic_velocity
 
     reynolds: float | None
     if DENSITY_KEY in stated:
@@ -312,24 +349,28 @@ def resolve_flight_condition(
                 "lengths, near a factor of seven."
             )
         reynolds = stated[DENSITY_KEY] * 1e6
-        density = reynolds * atmosphere.viscosity_pa_s / (velocity * reference_length_m)
+        density = reynolds * viscosity / (velocity * reference_length_m)
         density_source = "solved-from-reynolds"
     else:
-        density = atmosphere.density_kg_m3
-        density_source = "atmosphere"
+        if "RHOkgm3" in stated:
+            density = stated["RHOkgm3"]
+            density_source = "pinned"
+        else:
+            density = atmosphere.density_kg_m3
+            density_source = "atmosphere"
         reynolds = (
             None
             if reference_length_m is None
-            else density * velocity * reference_length_m / atmosphere.viscosity_pa_s
+            else density * velocity * reference_length_m / viscosity
         )
 
     return ResolvedCondition(
         velocity_m_per_s=velocity,
         density_kg_m3=density,
-        temperature_k=atmosphere.temperature_k,
-        viscosity_pa_s=atmosphere.viscosity_pa_s,
-        pressure_pa=atmosphere.pressure_pa,
-        sonic_velocity_m_per_s=atmosphere.sonic_velocity_m_per_s,
+        temperature_k=temperature,
+        viscosity_pa_s=viscosity,
+        pressure_pa=pressure,
+        sonic_velocity_m_per_s=sonic_velocity,
         heat_capacity_ratio=ISA.heat_capacity_ratio,
         mach=mach,
         altitude_ft=altitude_ft,
@@ -338,4 +379,5 @@ def resolve_flight_condition(
         reynolds=reynolds,
         reference_length_m=reference_length_m,
         stated=dict(stated),
+        pinned=pinned,
     )

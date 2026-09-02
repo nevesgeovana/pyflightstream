@@ -17,6 +17,7 @@ converter stayed in `pyflightstream.cases.matrix`.
 
 import sys
 import tomllib
+import warnings
 from pathlib import Path, PurePosixPath
 
 import pytest
@@ -2919,16 +2920,42 @@ def test_a_recorded_only_key_is_kept_and_says_why():
     never appears on the returned SolverSettings at all, by design, so
     the artifact is where "kept" can be seen.
     """
-    setup = _setup("symmetry_loads = false\n")
-    with pytest.warns(PyflightstreamWarning, match="symmetry_loads") as warned:
+    # `symmetry_loads` was the instance until 0.11.0, when her decision of
+    # 2026-09-02 (PFS-2028.05) made a STATED key reach the script; the
+    # recorded-only mechanism is unchanged and is exercised on another key.
+    setup = _setup("symmetry_type = 'MIRROR'\n")
+    with pytest.warns(PyflightstreamWarning, match="symmetry_type") as warned:
         settings = _resolve(setup, "s999")
-    assert setup.settings["symmetry_loads"] is False, "the key was not kept on the artifact"
-    assert "symmetry_loads" not in settings.model_dump(), (
+    assert setup.settings["symmetry_type"] == "MIRROR", "the key was not kept on the artifact"
+    assert "symmetry_type" not in settings.model_dump(), (
         "a recorded-only key must not reach the solver settings"
     )
-    assert "coefficient" in str(warned[0].message), (
+    assert "MESHED" in str(warned[0].message), (
         "the warning must carry the REASON and not only the key name"
     )
+
+
+def test_symmetry_loads_stated_in_the_setup_reaches_the_settings():
+    """PFS-2028.05, her decision of 2026-09-02: emit exactly what the preset declares.
+
+    The measurement behind it: the 0.10.1 reproduction of her isolated
+    rotor reported loads six times hers, the periodic copy count, because
+    her preset stated the symmetry loads off and nothing was emitted.
+    """
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        settings = _solver("symmetry_loads = false\n")
+    assert settings.symmetry_loads is False
+    assert _solver("symmetry_loads = true\n").symmetry_loads is True
+    assert _solver("symmetry_loads = 'ENABLE'\n").symmetry_loads is True
+
+
+def test_symmetry_loads_omitted_still_warns_nothing_and_emits_nothing():
+    """An absent key is an absent key: no warning, and the field stays None."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        settings = _solver("NITER = 500\n")
+    assert settings.symmetry_loads is None
 
 
 def test_a_preset_may_declare_its_own_recorded_only_keys():
