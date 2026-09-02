@@ -32,8 +32,24 @@ FlightStream versions.
   isolated rotor reported loads six times hers because her preset stated the
   symmetry loads off and nothing was emitted.
 
+- FR-51, PFS-2029.14.01 and PFS-2029.18: a workflow row that declares no
+  `OUTPUTS` gets the study's export set by default, seven kinds for a steady
+  point and eight for an unsteady one, every one named for the point with the
+  author's suffixes (`.fsm`, `.txt`, `.dat`, `_cp.txt`, `_sloads.txt`,
+  `_probes.txt`, `_plots.txt`, `_log.txt`); the three builders export them in
+  her order, the saved simulation first, with `UPDATE_ALL_SURFACE_SECTIONS`,
+  `COMPUTE_SURFACE_SECTIONAL_LOADS NEWTONS` and `UPDATE_PROBE_POINTS` before
+  them whenever a section, sectional-loads or probe export is asked for. A row
+  that still declares `OUTPUTS` exports exactly what it declares, paired with
+  its verb by suffix, so a matrix written before this release renders what it
+  rendered. The workflow coverage tables name the new verbs, so a build on
+  which one carries no row is reported rather than assumed.
+
 ### Changed
 
+- A workflow row that declares no `OUTPUTS` is no longer refused before the
+  run; it runs with the default export set and a point whose declared exports
+  are not all written is `FAILED_INCOMPLETE_OUTPUT` naming them, as before.
 - The workflow goldens were regenerated for the lines above; every emitted
   script gains the sideslip, the reference velocity and the initialisation flag.
 

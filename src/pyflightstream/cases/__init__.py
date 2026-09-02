@@ -21,7 +21,7 @@ import-by-number system (PP-7, FR-12).
 from __future__ import annotations
 
 import tomllib
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from datetime import UTC, datetime
 from importlib import import_module
 from inspect import Parameter, signature
@@ -200,6 +200,57 @@ class SweepAxis(BaseModel):
                 yield {"alpha": alpha, "beta": beta}
             else:
                 yield {self.type: value}
+
+
+#: THE EXPORT KINDS A POINT LEAVES (FR-51, PFS-2029.14), in the order the
+#: author's own driver wrote them and with her suffixes: (kind, suffix, the
+#: solver verb, unsteady only). A steady point leaves seven, an unsteady point
+#: eight, the plots file being the one only a time loop produces. The suffix is
+#: what pairs a declared output name with its verb, longest suffix first, so
+#: ``x_cp.txt`` is the sections export and never the loads table.
+EXPORT_KINDS: tuple[tuple[str, str, str, bool], ...] = (
+    ("simulation", ".fsm", "SAVEAS", False),
+    ("loads", ".txt", "EXPORT_SOLVER_ANALYSIS_SPREADSHEET", False),
+    ("tecplot", ".dat", "EXPORT_SOLVER_ANALYSIS_TECPLOT", False),
+    ("sections", "_cp.txt", "EXPORT_ALL_SURFACE_SECTIONS", False),
+    ("sectional_loads", "_sloads.txt", "EXPORT_SURFACE_SECTIONAL_LOADS", False),
+    ("probes", "_probes.txt", "EXPORT_PROBE_POINTS", False),
+    ("plots", "_plots.txt", "UNSTEADY_SOLVER_EXPORT_PLOTS", True),
+    ("log", "_log.txt", "EXPORT_LOG", False),
+)
+
+
+def default_outputs(unsteady: bool) -> list[str]:
+    """Return the output names a workflow row gets when it declares none.
+
+    Every kind hangs off the point placeholder, so the naming template
+    decides the stem and this list decides the suffixes; a steady row
+    leaves out the plots file.
+    """
+    return [
+        f"{{point}}{suffix}"
+        for _, suffix, _, only_unsteady in EXPORT_KINDS
+        if unsteady or not only_unsteady
+    ]
+
+
+def classify_outputs(names: Sequence[str]) -> dict[str, str]:
+    """Map each export kind to the declared output name that carries its suffix.
+
+    Longest suffix first, so ``_cp.txt`` is claimed by the sections kind
+    before the loads kind can see a ``.txt``. A kind no name matches is
+    absent from the result; a second name matching an already claimed
+    kind is left unclassified rather than overwriting the first.
+    """
+    by_length = sorted(EXPORT_KINDS, key=lambda kind: -len(kind[1]))
+    claimed: dict[str, str] = {}
+    for name in names:
+        lowered = str(name).lower()
+        for kind, suffix, _, _ in by_length:
+            if lowered.endswith(suffix) and kind not in claimed:
+                claimed[kind] = str(name)
+                break
+    return claimed
 
 
 def point_tag(point: dict[str, float]) -> str:

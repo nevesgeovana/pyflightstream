@@ -508,8 +508,15 @@ def test_every_command_a_workflow_declares_is_one_it_really_emits():
     Measured against the script the builder actually renders on a
     covered build, rather than against the list itself.
     """
+    from pyflightstream.cases import default_outputs
+
     for name in WORKFLOWS:
-        case = _case_for(name)
+        # The bare shape declares a loads table alone, and a builder exports
+        # only what a row declares (FR-51), so the coverage claim is measured
+        # on the row that asks for the whole export set.
+        unsteady = name != "steady"
+        names = [n.replace("{point}", "a+00.0_b+00.0") for n in default_outputs(unsteady)]
+        case = _case_for(name).model_copy(update={"outputs": names})
         script = Script("26.123")
         build_script(case, script)
         emitted = {
@@ -3543,3 +3550,93 @@ def test_the_unsteady_types_create_the_propeller_frame_where_the_reference_place
     assert "PROP_MRP" not in steady, (
         "the steady run creates the MRP alone, as her steady script did"
     )
+
+
+# --- FR-51, PFS-2029.14.01 and PFS-2029.18: the export block, in her order ----
+
+HER_EXPORT_ORDER = (
+    "UPDATE_ALL_SURFACE_SECTIONS",
+    "COMPUTE_SURFACE_SECTIONAL_LOADS NEWTONS",
+    "UPDATE_PROBE_POINTS",
+    "SAVEAS",
+    "EXPORT_SOLVER_ANALYSIS_SPREADSHEET",
+    "EXPORT_SOLVER_ANALYSIS_TECPLOT",
+    "EXPORT_ALL_SURFACE_SECTIONS",
+    "EXPORT_SURFACE_SECTIONAL_LOADS",
+    "EXPORT_PROBE_POINTS",
+    "UNSTEADY_SOLVER_EXPORT_PLOTS",
+    "EXPORT_LOG",
+)
+
+
+def _with_default_outputs(case: SimCase, unsteady: bool) -> SimCase:
+    from pyflightstream.cases import default_outputs
+
+    names = [
+        name.replace("{point}", "POLAR-9_M20AL+000BE+000") for name in default_outputs(unsteady)
+    ]
+    return case.model_copy(update={"outputs": names})
+
+
+@pytest.mark.parametrize(
+    ("make", "unsteady"),
+    [(steady_case, False), (unsteady_case, True), (rotor_case, True)],
+    ids=["steady", "unsteady", "unsteady_rotor"],
+)
+def test_the_export_block_is_her_eight_kinds_in_her_order(make, unsteady):
+    """Her driver's order, flightstreamHorse.py:522-541, updates first and the save first."""
+    lines = rendered(_with_default_outputs(make(), unsteady)).splitlines()
+    wanted = {v.split()[0] for v in HER_EXPORT_ORDER}
+    verbs = [line for line in lines if line.strip() and line.split()[0] in wanted]
+    expected = [
+        v for v in HER_EXPORT_ORDER if unsteady or not v.startswith("UNSTEADY_SOLVER_EXPORT")
+    ]
+    assert verbs == expected, "the export block is not her order"
+    at = lines.index("SAVEAS")
+    assert lines[at + 1] == "POLAR-9_M20AL+000BE+000.fsm", (
+        "the saved simulation is named for the point"
+    )
+    assert lines[lines.index("EXPORT_LOG") + 1] == "POLAR-9_M20AL+000BE+000_log.txt"
+    assert lines.index("START_SOLVER") < lines.index("UPDATE_ALL_SURFACE_SECTIONS")
+
+
+def test_a_row_declaring_a_loads_table_and_a_log_gets_exactly_those():
+    """A matrix written before this release exports what it always exported."""
+    old = steady_case().model_copy(update={"outputs": ["loads_a+00.0.txt", "loads_a+00.0_log.txt"]})
+    lines = rendered(old).splitlines()
+    assert "EXPORT_SOLVER_ANALYSIS_SPREADSHEET" in lines
+    assert "EXPORT_LOG" in lines
+    assert "SAVEAS" not in lines
+    assert "UPDATE_ALL_SURFACE_SECTIONS" not in lines, "no section export was asked for"
+
+
+def test_a_row_whose_outputs_carry_no_loads_table_is_refused():
+    from pyflightstream.cases import CampaignConfigError
+
+    case = steady_case().model_copy(update={"outputs": ["x_cp.txt", "x_log.txt"]})
+    with pytest.raises(CampaignConfigError, match="loads table"):
+        rendered(case)
+
+
+def test_default_outputs_and_their_classification():
+    from pyflightstream.cases import classify_outputs, default_outputs
+
+    steady = default_outputs(unsteady=False)
+    assert steady == [
+        "{point}.fsm",
+        "{point}.txt",
+        "{point}.dat",
+        "{point}_cp.txt",
+        "{point}_sloads.txt",
+        "{point}_probes.txt",
+        "{point}_log.txt",
+    ]
+    assert "{point}_plots.txt" in default_outputs(unsteady=True)
+    kinds = classify_outputs([n.replace("{point}", "P") for n in default_outputs(unsteady=True)])
+    assert kinds["loads"] == "P.txt"
+    assert kinds["sections"] == "P_cp.txt"
+    assert kinds["log"] == "P_log.txt"
+    assert classify_outputs(["loads_a.txt", "loads_a_log.txt"]) == {
+        "loads": "loads_a.txt",
+        "log": "loads_a_log.txt",
+    }

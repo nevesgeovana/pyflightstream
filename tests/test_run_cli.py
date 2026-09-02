@@ -317,8 +317,19 @@ def test_a_bad_reference_code_exits_two_naming_the_row_and_the_column(tmp_path, 
     assert "r003" in error
 
 
-def test_a_row_declaring_no_outputs_is_refused_before_any_solver_time(tmp_path, capsys):
-    """The pre-flight half: nothing executes, and the row is named."""
+def test_a_workflow_row_declaring_no_outputs_gets_the_study_export_set(tmp_path, capsys):
+    """FR-51, PFS-2029.14: a row that declares none is not refused, it gets the eight.
+
+    Until 0.11.0 this row was refused before any solver time. Now the
+    workflow row declares the study's export set by default, every kind
+    hanging off the point, and the run judges each point on what it
+    declared: the stub solver writes the loads table alone, so every
+    point ends FAILED_INCOMPLETE_OUTPUT naming the kinds it did not find,
+    which is the refusal moving from before the run to the record, where a
+    real solver that wrote all eight would have passed.
+    """
+    from pyflightstream.cases import EXPORT_KINDS, default_outputs
+
     workspace = make_workspace(tmp_path)
     matrix = tmp_path / "no_outputs.fs"
     text = FIXTURE.read_text(encoding="utf-8")
@@ -328,10 +339,26 @@ def test_a_row_declaring_no_outputs_is_refused_before_any_solver_time(tmp_path, 
         ),
         encoding="utf-8",
     )
-    assert main(run_args(workspace, matrix)) == 2
-    error = capsys.readouterr().err
-    assert "7001" in error or "7002" in error
-    assert not workspace.read_manifest(), "a point executed despite the refusal"
+    main(run_args(workspace, matrix))
+    records = workspace.read_manifest()
+    assert records, "the rows were not run at all"
+    for record in records:
+        unsteady = record.sim_id == "7001"
+        assert record.status.name == "FAILED_INCOMPLETE_OUTPUT", (
+            f"{record.run_id}: the stub wrote only the loads table, so the point cannot be complete"
+        )
+        # A failed point collects nothing, so the declared set is read off the
+        # refusal, which names every declared output the run did not find.
+        missing = [
+            suffix
+            for _, suffix, _, only_unsteady in EXPORT_KINDS
+            if (unsteady or not only_unsteady) and suffix not in (".txt",)
+        ]
+        for suffix in missing:
+            assert suffix in (record.error or ""), (
+                f"{record.run_id}: the refusal does not name the default {suffix} export"
+            )
+        assert len(default_outputs(unsteady)) == len(missing) + 1
 
 
 def test_a_code_given_both_a_recipe_and_a_workflow_is_refused_naming_both(tmp_path, capsys):

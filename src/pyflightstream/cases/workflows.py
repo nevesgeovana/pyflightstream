@@ -72,7 +72,13 @@ from pyflightstream._fsm import (
     boundary_names,
     resolve_family,
 )
-from pyflightstream.cases import CampaignConfigError, ScriptRecipe, SimCase
+from pyflightstream.cases import (
+    EXPORT_KINDS,
+    CampaignConfigError,
+    ScriptRecipe,
+    SimCase,
+    classify_outputs,
+)
 from pyflightstream.commands import CommandRegistry
 from pyflightstream.script import CommandArgumentError, Script, helpers
 from pyflightstream.versions import FsVersion, known_versions, resolve
@@ -2584,6 +2590,53 @@ def _log_position_shape(text: str) -> str:
     return "neither"
 
 
+def _export_block(
+    conventions: WorkflowConventions, case: SimCase, script: Script, *, unsteady: bool
+) -> None:
+    """Export what the study needs, in her order, with the updates first.
+
+    PFS-2029.14.01 and PFS-2029.18. The names come from the row's outputs
+    (rendered by the workspace) and each is paired with its verb by suffix,
+    so a row that declares the full set of FR-51 gets every kind and a row
+    written before this release, declaring a loads table and a log, gets
+    exactly what it declared. UPDATE_ALL_SURFACE_SECTIONS,
+    COMPUTE_SURFACE_SECTIONAL_LOADS and UPDATE_PROBE_POINTS precede the
+    exports whenever a section, sectional-loads or probe export is asked
+    for, because an export of sections nobody updated is an export of the
+    previous state (her driver, flightstreamHorse.py:522-526). The saved
+    simulation comes first among the exports, as hers did, and a build on
+    which a kind carries no row is refused by the script layer naming the
+    command, which is what require_coverage already checks per workflow.
+
+    The solver log keeps its older spelling: a row that still says which
+    of its outputs is the log through LOG_OUTPUT is honoured by
+    :func:`_export_log`; a row whose outputs carry a ``_log.txt`` name is
+    read by suffix like every other kind.
+    """
+    names = list(conventions.outputs or case.outputs)
+    kinds = classify_outputs(names)
+    if "loads" not in kinds:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} declares outputs {names or 'nothing'} and none of them "
+            "is a loads table (a name ending in .txt that is not one of the other "
+            "export suffixes). The loads table is the export this package judges a run "
+            "by, so every row leaves one; the default outputs name it {point}.txt."
+        )
+    if any(kind in kinds for kind in ("sections", "sectional_loads", "probes")):
+        script.emit("UPDATE_ALL_SURFACE_SECTIONS")
+        script.emit("COMPUTE_SURFACE_SECTIONAL_LOADS", "NEWTONS")
+        script.emit("UPDATE_PROBE_POINTS")
+    declared_log = _variable(case, LOG_OUTPUT_VARIABLE) is not None
+    for kind, _, verb, only_unsteady in EXPORT_KINDS:
+        if kind not in kinds or (only_unsteady and not unsteady):
+            continue
+        if kind == "log" and declared_log:
+            continue
+        script.emit(verb, kinds[kind])
+    if declared_log:
+        _export_log(conventions, case, script, claimed=(names.index(kinds["loads"]) + 1,))
+
+
 def _export_log(
     conventions: WorkflowConventions,
     case: SimCase,
@@ -2693,8 +2746,7 @@ def _build_steady(case: SimCase, script: Script, conventions: WorkflowConvention
     _initialize(case, script)
     helpers.start_solver(script)
     _analysis(case, script, frame)
-    script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", _output(conventions, case, 0))
-    _export_log(conventions, case, script, claimed=(1,))
+    _export_block(conventions, case, script, unsteady=False)
     script.emit("CLOSE_FLIGHTSTREAM")
 
 
@@ -2875,8 +2927,7 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     _initialize(case, script)
     helpers.start_solver(script)
     _analysis(case, script, frame)
-    script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", _output(conventions, case, 0))
-    _export_log(conventions, case, script, claimed=(1,))
+    _export_block(conventions, case, script, unsteady=True)
     script.emit("CLOSE_FLIGHTSTREAM")
 
 
@@ -2926,8 +2977,7 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
     _initialize(case, script)
     helpers.start_solver(script)
     _analysis(case, script, frame)
-    script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", _output(conventions, case, 0))
-    _export_log(conventions, case, script, claimed=(1,))
+    _export_block(conventions, case, script, unsteady=True)
     script.emit("CLOSE_FLIGHTSTREAM")
 
 
@@ -2993,7 +3043,16 @@ WORKFLOWS: Mapping[str, Workflow] = {
             "SOLVER_SET_CONVERGENCE",
             "INITIALIZE_SOLVER",
             "START_SOLVER",
+            "UPDATE_ALL_SURFACE_SECTIONS",
+            "COMPUTE_SURFACE_SECTIONAL_LOADS",
+            "UPDATE_PROBE_POINTS",
+            "SAVEAS",
             "EXPORT_SOLVER_ANALYSIS_SPREADSHEET",
+            "EXPORT_SOLVER_ANALYSIS_TECPLOT",
+            "EXPORT_ALL_SURFACE_SECTIONS",
+            "EXPORT_SURFACE_SECTIONAL_LOADS",
+            "EXPORT_PROBE_POINTS",
+            "EXPORT_LOG",
             "CLOSE_FLIGHTSTREAM",
         ),
         builder=_build_steady,
@@ -3013,7 +3072,17 @@ WORKFLOWS: Mapping[str, Workflow] = {
             "SOLVER_SET_CONVERGENCE",
             "INITIALIZE_SOLVER",
             "START_SOLVER",
+            "UPDATE_ALL_SURFACE_SECTIONS",
+            "COMPUTE_SURFACE_SECTIONAL_LOADS",
+            "UPDATE_PROBE_POINTS",
+            "SAVEAS",
             "EXPORT_SOLVER_ANALYSIS_SPREADSHEET",
+            "EXPORT_SOLVER_ANALYSIS_TECPLOT",
+            "EXPORT_ALL_SURFACE_SECTIONS",
+            "EXPORT_SURFACE_SECTIONAL_LOADS",
+            "EXPORT_PROBE_POINTS",
+            "UNSTEADY_SOLVER_EXPORT_PLOTS",
+            "EXPORT_LOG",
             "CLOSE_FLIGHTSTREAM",
         ),
         builder=_build_unsteady,
@@ -3041,7 +3110,17 @@ WORKFLOWS: Mapping[str, Workflow] = {
             "SOLVER_SET_CONVERGENCE",
             "INITIALIZE_SOLVER",
             "START_SOLVER",
+            "UPDATE_ALL_SURFACE_SECTIONS",
+            "COMPUTE_SURFACE_SECTIONAL_LOADS",
+            "UPDATE_PROBE_POINTS",
+            "SAVEAS",
             "EXPORT_SOLVER_ANALYSIS_SPREADSHEET",
+            "EXPORT_SOLVER_ANALYSIS_TECPLOT",
+            "EXPORT_ALL_SURFACE_SECTIONS",
+            "EXPORT_SURFACE_SECTIONAL_LOADS",
+            "EXPORT_PROBE_POINTS",
+            "UNSTEADY_SOLVER_EXPORT_PLOTS",
+            "EXPORT_LOG",
             "CLOSE_FLIGHTSTREAM",
         ),
         builder=_build_unsteady_rotor,

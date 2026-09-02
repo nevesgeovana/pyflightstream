@@ -79,6 +79,7 @@ from pyflightstream.cases import (
     Campaign,
     SimCase,
     SweepAxis,
+    default_outputs,
     multiplied_sweep,
 )
 
@@ -1198,6 +1199,14 @@ def _declared_outputs(row: MatrixRow, *, required: bool = True) -> list[str]:
     """
     raw = row.variables.get(OUTPUTS_VARIABLE, "").strip()
     outputs = [part.strip() for part in raw.split(",") if part.strip()]
+    # A WORKFLOW ROW THAT DECLARES NONE GETS THE STUDY'S EXPORT SET (FR-51,
+    # PFS-2029.14): the seven or eight kinds her driver wrote, every one
+    # hanging off the point placeholder. A row that still declares OUTPUTS
+    # keeps exactly what it declares, so a matrix written before this
+    # release exports what it always did. A LEGACY row is a recipe's and
+    # the recipe decides, so it is left as written.
+    if not outputs and row.workflow and row.workflow.upper() != "LEGACY":
+        return default_outputs(unsteady=row.workflow.startswith("unsteady"))
     if not outputs and not required:
         # Conversion is a translation and spends no solver time, so it
         # carries whatever the row declares, including nothing. FR-10
