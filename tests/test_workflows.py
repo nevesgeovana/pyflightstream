@@ -117,7 +117,7 @@ SRC = REPO / "src" / "pyflightstream"
 
 #: The FS_SCRIPT code to workflow NAME mapping the fixture expects. No
 #: entry is a module:function reference: that is the whole point.
-CODES = {"010": "unsteady_rotor", "003": "steady"}
+CODES = {"010": "unsteady_rotor", "003": "steady", "020": "unsteady"}
 
 
 def fixture_campaign(fs_version: str = "26.120"):
@@ -314,6 +314,19 @@ def test_every_workflow_in_the_table_satisfies_the_recipe_protocol():
         check_recipe(name, entry)
 
 
+def _case_for(name: str) -> SimCase:
+    """One case of the shape run type ``name`` accepts.
+
+    Read from `GOLDEN_CASES`, which is the same table the byte-identity
+    goldens are rendered from. Sharing that table is the point: a
+    selector with its own private mapping could quietly hand two types
+    the same shape and restore the coverage gap the parametrization
+    above was added to close, and this one cannot, because the goldens
+    would have to degenerate with it and they are pinned byte for byte.
+    """
+    return GOLDEN_CASES[name]["bare"]().model_copy(update={"recipe": name})
+
+
 @pytest.mark.parametrize("name", sorted(WORKFLOWS))
 def test_the_workspace_conventions_are_passed_in_and_never_imported(name):
     """`workspace` sits ABOVE `cases`, so the conventions arrive as data.
@@ -321,8 +334,13 @@ def test_the_workspace_conventions_are_passed_in_and_never_imported(name):
     Parametrized over EVERY workflow, which the adversarial pass forced:
     with only the rotor covered, a literal export name restored into the
     steady builder was denied by nothing in this module.
+
+    The case comes from `_case_for` rather than from `rotor_case` under
+    a borrowed name: the rotorless type REFUSES a rotor key, on purpose,
+    so a shared rotor case would refuse before this test could assert
+    anything about conventions.
     """
-    case = rotor_case(**{WORKFLOW_KEY: name}).model_copy(update={"recipe": name})
+    case = _case_for(name)
     script = Script("26.120")
     build_script(
         case,
@@ -475,7 +493,7 @@ def test_every_command_a_workflow_declares_is_one_it_really_emits():
     covered build, rather than against the list itself.
     """
     for name in WORKFLOWS:
-        case = rotor_case(**{WORKFLOW_KEY: name}).model_copy(update={"recipe": name})
+        case = _case_for(name)
         script = Script("26.123")
         build_script(case, script)
         emitted = {
@@ -854,7 +872,7 @@ def test_the_committed_matrix_drives_the_workflow_with_no_python_recipe():
     module:function reference anywhere in the call.
     """
     campaign = fixture_campaign()
-    assert [sim.sim_id for sim in campaign.sims] == ["7001", "7002"]
+    assert [sim.sim_id for sim in campaign.sims] == ["7001", "7002", "7003"]
     assert not any(":" in sim.recipe for sim in campaign.sims), (
         "a fixture row still names a module:function reference, so the example does "
         "not show what it claims to show"
@@ -865,7 +883,7 @@ def test_the_committed_matrix_drives_the_workflow_with_no_python_recipe():
             script = Script("26.120")
             build_script(sim.model_copy(update={"point": point}), script)
             built[f"rotor/sim_{sim.sim_id}"] = script.render()
-    assert set(built) == {"rotor/sim_7001", "rotor/sim_7002"}
+    assert set(built) == {"rotor/sim_7001", "rotor/sim_7002", "rotor/sim_7003"}
     assert "SET_SOLVER_UNSTEADY" in built["rotor/sim_7001"]
     assert "SET_SOLVER_UNSTEADY" not in built["rotor/sim_7002"], (
         "the steady workflow emitted the unsteady time loop, so the two run types are "
@@ -914,10 +932,10 @@ def test_the_workflow_table_is_documented_where_a_user_would_look():
 # --- non-vacuity of the fixtures this module rests on ------------------------
 
 
-def test_the_fixture_is_a_two_row_matrix_that_declares_its_outputs():
+def test_the_fixture_is_a_three_row_matrix_that_declares_its_outputs():
     """A degenerate fixture passes every test above for the wrong reason."""
     campaign = fixture_campaign()
-    assert len(campaign.sims) == 2
+    assert len(campaign.sims) == len(WORKFLOWS)
     for sim in campaign.sims:
         assert sim.outputs, f"row {sim.sim_id} declares no outputs"
         assert sim.variables.get(WORKFLOW_KEY), f"row {sim.sim_id} names no workflow"
@@ -1295,6 +1313,64 @@ def rotor_case_resolved() -> SimCase:
     )
 
 
+# --- PFS-2028.01: the case shapes of a run that turns nothing ---------------
+#
+# THREE DIFFERENT, NON-DEGENERATE CLOCKS, and the arbitrariness is the
+# point. Reusing 0.0001 and 720, which `rotor_case` and fixture row 7001
+# both carry, would let a builder that hardcoded the clock render every
+# golden correctly. That is not hypothetical here: two earlier versions
+# of the rotor fixture did exactly that, and the note on
+# `rotor_case_full` records both.
+
+
+def unsteady_case(**overrides) -> SimCase:
+    """The bare shape: a free stream, a clock, and nothing turning."""
+    variables: dict[str, str | float | int | bool] = {
+        WORKFLOW_KEY: "unsteady",
+        "VELOCITY": "30.0",
+        "DELTA_TIME": "0.00025",
+        "TIME_ITERATIONS": "480",
+    }
+    geometry = overrides.pop("geometry", None)
+    for key, value in overrides.items():
+        if value is None:
+            variables.pop(key, None)
+        else:
+            variables[key] = value
+    return SimCase(
+        sim_id="7003",
+        aircraft="RotorRig",
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        recipe="unsteady",
+        outputs=["loads_a+00.0.txt"],
+        variables=variables,
+        point={"alpha": 0.0},
+        geometry=geometry,
+    )
+
+
+def unsteady_case_full() -> SimCase:
+    """A third clock again, and the optional cells a rotorless row may set."""
+    return unsteady_case(
+        DELTA_TIME="0.0005",
+        TIME_ITERATIONS="240",
+        LOG_OUTPUT="2",
+        **{"OUTPUTS": "loads_a+00.0.txt, loads_a+00.0_log.txt"},
+    ).model_copy(update={"outputs": ["loads_a+00.0.txt", "loads_a+00.0_log.txt"]})
+
+
+def unsteady_case_resolved() -> SimCase:
+    """The 0.9.0 shape: a resolved fluid state beside a fourth clock."""
+    return unsteady_case(DELTA_TIME="0.00125", TIME_ITERATIONS="96").model_copy(
+        update={
+            "reference": steady_case_resolved().reference,
+            "condition": steady_case_resolved().condition,
+        }
+        if hasattr(steady_case_resolved(), "condition")
+        else {"reference": steady_case_resolved().reference}
+    )
+
+
 #: The case shapes the byte-identity goldens are rendered from, by
 #: workflow. The SINGLE HOME: ``scripts/gen_workflow_goldens.py`` imports
 #: this table, so the generator and the guard cannot disagree about what
@@ -1307,6 +1383,11 @@ GOLDEN_CASES = {
         # two emissions this release adds have byte-exact goldens on
         # every build rather than line-membership assertions only.
         "resolved": steady_case_resolved,
+    },
+    "unsteady": {
+        "bare": unsteady_case,
+        "full": unsteady_case_full,
+        "resolved": unsteady_case_resolved,
     },
     "unsteady_rotor": {
         "bare": rotor_case,
@@ -1329,7 +1410,7 @@ GOLDEN_CASES = {
 #: carries every command the workflow always emits, while
 #: ``initialize_solver`` refuses that edition's grammar outright. When
 #: that is decided either way, this set goes empty in the same commit.
-EXPECTED_REFUSALS = {("steady", "25.000")}
+EXPECTED_REFUSALS = {("steady", "25.000"), ("unsteady", "25.000")}
 
 #: Every workflow crossed with every case shape and every build it
 #: covers: the population the byte-identity claim was always about.
@@ -3107,3 +3188,158 @@ def test_two_boundaries_sharing_a_name_lose_it_rather_than_one_of_them(tmp_path)
         "correct position would now be refused as out of range"
     )
     assert _moving_payload(script.render()) == "1,3"
+
+
+# --- PFS-2028.01: the acceptance of a run type that turns nothing ------------
+
+
+def _time_loop(text: str) -> str:
+    """The emitted time loop, WITH ITS CONTINUATION LINES.
+
+    The command's own line carries no numbers; the step and the count
+    follow it as keyword lines. Returning the first line alone made the
+    first version of this test compare two identical strings while
+    asserting they differed, which is the same failure mode the test
+    exists to catch, one level up.
+    """
+    lines = text.splitlines()
+    for index, line in enumerate(lines):
+        if line.startswith("SET_SOLVER_UNSTEADY"):
+            return "\n".join(lines[index : index + 3])
+    raise AssertionError(f"no SET_SOLVER_UNSTEADY in:\n{text}")
+
+
+def test_the_third_run_type_is_registered_and_covers_every_build():
+    """PFS-2028.01: the exercise's third shape can be named by a row.
+
+    The coverage is DERIVED from the command database rather than
+    declared, and it comes out wider than the rotor type's because this
+    run emits neither motion command. That is the measurable reason the
+    type is separate rather than the rotor one with its motion switched
+    off: folding them would refuse a rotorless run on three builds for
+    commands it never emits.
+    """
+    assert workflow_names() == ("steady", "unsteady", "unsteady_rotor")
+    assert len(covered_builds(WORKFLOWS["unsteady"])) == len(known_versions())
+    assert len(covered_builds(WORKFLOWS["unsteady_rotor"])) < len(known_versions())
+
+
+def test_the_rows_own_clock_reaches_the_emitted_time_loop():
+    """The clause a hardcoded clock fails.
+
+    Two different rows must produce two different time loops. A builder
+    that emitted a fixed step and count would satisfy any single-row
+    assertion, and this repository has shipped that defect twice: the
+    note on `rotor_case_full` records both.
+    """
+    rendered = {}
+    for label, case in (("bare", unsteady_case()), ("full", unsteady_case_full())):
+        script = Script("26.123")
+        build_script(case, script)
+        rendered[label] = _time_loop(script.render())
+    assert rendered["bare"] != rendered["full"], (
+        "two rows stating different clocks emitted the same time loop, so the clock is "
+        "not coming off the row"
+    )
+    assert "480" in rendered["bare"] and "0.00025" in rendered["bare"], rendered["bare"]
+    assert "240" in rendered["full"] and "0.0005" in rendered["full"], rendered["full"]
+
+
+def test_the_rotorless_type_emits_no_motion_and_no_frame():
+    """The whole difference from the rotor type, asserted rather than assumed."""
+    script = Script("26.123")
+    build_script(unsteady_case(), script)
+    text = script.render()
+    assert "SET_SOLVER_UNSTEADY" in text
+    for absent in (
+        "CREATE_NEW_MOTION",
+        "SET_MOTION_BOUNDARIES",
+        "SET_MOTION_ROTOR_RPM",
+        "CREATE_NEW_COORDINATE_SYSTEM",
+    ):
+        assert absent not in text, f"a run that turns nothing emitted {absent}"
+
+
+@pytest.mark.parametrize(
+    "key,value",
+    [
+        ("RPM", "1200"),
+        ("ADVANCE_RATIO", "1.7"),
+        ("RPM_SIGN", "-1"),
+        ("ROTOR_AXIS", "X"),
+        ("ROTOR_ORIGIN", "0,0,0"),
+        ("MOVING_BOUNDARIES", "1,2"),
+    ],
+)
+def test_a_rotor_key_on_a_rotorless_row_is_refused_naming_it(key, value):
+    """A key that reaches no line is refused, not dropped.
+
+    The steady type tolerates these today, silently, and that is a
+    latent instance of this same defect rather than a precedent: this
+    package already refuses a preset key that validates and reaches no
+    emitted line, calling it the same wrong answer with a longer path.
+    """
+    script = Script("26.123")
+    with pytest.raises(CampaignConfigError) as raised:
+        build_script(unsteady_case(**{key: value}), script)
+    message = str(raised.value)
+    assert key in message
+    assert "7003" in message
+    assert script.render().strip() == "", "the refusal landed after something was emitted"
+
+
+def test_the_angular_clock_is_refused_and_the_refusal_offers_no_rotor_speed():
+    """The open question, settled and guarded.
+
+    The refusal must NOT tell the author to state a rotor speed. The
+    rotor resolver's message does exactly that, and an author who obeys
+    it gets a run that builds: the step becomes theta over six times the
+    speed, so a run emitting no motion takes its physical clock from a
+    number nothing turns at.
+    """
+    script = Script("26.123")
+    with pytest.raises(CampaignConfigError) as raised:
+        build_script(unsteady_case(DELTA_THETA="10.0", REVOLUTIONS="2.0"), script)
+    message = str(raised.value)
+    assert "DELTA_THETA" in message and "REVOLUTIONS" in message
+    assert "RPM" not in message and "ADVANCE_RATIO" not in message, (
+        "the refusal offers a rotor speed to a run that turns nothing, which is the "
+        "advice that manufactures a clock from a number nothing uses"
+    )
+    assert "DELTA_TIME" in message and "TIME_ITERATIONS" in message
+
+
+@pytest.mark.parametrize("stated", ["DELTA_TIME", "TIME_ITERATIONS"])
+def test_half_a_clock_is_refused_naming_the_missing_half(stated):
+    """A step with no count has no length, and a count with no step no duration."""
+    absent = "TIME_ITERATIONS" if stated == "DELTA_TIME" else "DELTA_TIME"
+    script = Script("26.123")
+    with pytest.raises(CampaignConfigError) as raised:
+        build_script(unsteady_case(**{absent: None}), script)
+    assert absent in str(raised.value)
+
+
+def test_a_wake_termination_in_revolutions_is_refused_without_the_wrong_reason():
+    """The third sibling guard, and why the two that exist were not enough.
+
+    Both existing guards give this run type false advice: the rotor one
+    tells the author to state a rotor speed, and the steady one says the
+    run has no time loop, which is untrue of this type. A refusal that
+    misdescribes the run it refuses teaches the reader the wrong thing
+    about their own row.
+    """
+    case = unsteady_case()
+    case = case.model_copy(
+        update={"solver": case.solver.model_copy(update={"wake_termination_revolutions": 3.0})}
+    )
+    script = Script("26.123")
+    with pytest.raises(CampaignConfigError) as raised:
+        build_script(case, script)
+    message = str(raised.value)
+    assert "revolution" in message
+    assert "no time loop" not in message, (
+        "the refusal claims this run type has no time loop, and it has one"
+    )
+    assert "RPM" not in message and "ADVANCE_RATIO" not in message, (
+        "the refusal offers a rotor speed to a run that turns nothing"
+    )

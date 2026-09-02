@@ -93,7 +93,7 @@ def test_the_matrix_reader_accepts_every_registered_workflow_name():
     """The reader reads the registry, so no second list can disagree.
 
     Asserted here as well as in `tests/test_workflows.py`, because this
-    module's fixture matrix names two workflow types in its WORKFLOW
+    module's fixture matrix names every workflow type in its WORKFLOW
     column and would otherwise be refused at the header with a message
     about run types rather than about anything this item did.
     """
@@ -132,6 +132,8 @@ def run_args(workspace: CampaignWorkspace, matrix: Path = FIXTURE, *extra: str) 
         "010=unsteady_rotor",
         "--workflow",
         "003=steady",
+        "--workflow",
+        "020=unsteady",
         *extra,
     ]
 
@@ -171,10 +173,11 @@ def test_run_executes_the_matrix_and_writes_the_sweep_table(tmp_path, capsys):
         f"the sweep table carries no coefficient column at all; got {header}"
     )
     records = workspace.read_manifest()
-    assert len(records) == 2, "the run did not execute every active row of the matrix"
+    assert len(records) == 3, "the run did not execute every active row of the matrix"
     assert {record.run_id for record in records} == {
         "rotor/sim_7001/a+00.0",
         "rotor/sim_7002/a+00.0",
+        "rotor/sim_7003/a+00.0",
     }
 
 
@@ -412,6 +415,8 @@ def test_plan_pre_flights_the_matrix_run_would_run(tmp_path, capsys):
             "010=unsteady_rotor",
             "--workflow",
             "003=steady",
+            "--workflow",
+            "020=unsteady",
         ]
     )
     out = capsys.readouterr()

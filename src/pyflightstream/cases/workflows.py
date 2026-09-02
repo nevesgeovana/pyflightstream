@@ -87,6 +87,7 @@ __all__ = [
     "MOVING_BOUNDARIES_VARIABLE",
     "PERIODIC_COPIES_VARIABLE",
     "REVOLUTIONS_VARIABLE",
+    "ROTORLESS_REFUSED_KEYS",
     "ROTOR_AXIS_VARIABLE",
     "ROTOR_ORIGIN_VARIABLE",
     "ROTOR_SHEDDING_VARIABLE",
@@ -120,6 +121,7 @@ __all__ = [
     "rotor_shedding_direction",
     "rotor_speed",
     "rotor_time_stepping",
+    "unsteady_time_stepping",
     "select_workflow",
     "workflow_names",
     "workflow_registry",
@@ -2555,6 +2557,182 @@ def _build_steady(case: SimCase, script: Script, conventions: WorkflowConvention
     script.emit("CLOSE_FLIGHTSTREAM")
 
 
+# --- PFS-2028.01: the third run type, unsteady with nothing turning ----------
+
+
+def unsteady_time_stepping(case: SimCase) -> TimeStepping:
+    """Resolve the physical clock of a run that turns nothing.
+
+    THE SECONDS AND THE COUNT, AND NOT THE ANGULAR PAIR. A degree of
+    rotation has no duration in a run with no rotation: the rotor
+    resolver turns ``DELTA_THETA`` into seconds as ``theta / (6 |rpm|)``,
+    and there is no rpm here for it to divide by. So the angular pair is
+    refused rather than left to fail further in, and the refusal says
+    which of the two spellings this run type has.
+
+    IT IS A SEPARATE FUNCTION AND :func:`rotor_time_stepping` IS NOT
+    TOUCHED. Extracting the shape checks the two share would save about
+    ten lines and put an edit into the resolver that feeds fifteen
+    committed goldens and the whole rotor clock surface. Inside a patch
+    carrying a priority-zero item, "provably zero changed lines in the
+    rotor resolver" is worth more than the ten lines. That is a
+    deliberate choice for this release and it should be revisited.
+
+    Parameters
+    ----------
+    case : SimCase
+        The case; its variables carry ``DELTA_TIME`` in seconds and
+        ``TIME_ITERATIONS`` as a step count.
+
+    Returns
+    -------
+    TimeStepping
+        The resolved clock, in the explicit stated form, carrying no
+        rotor speed because the run has none.
+
+    Raises
+    ------
+    CampaignConfigError
+        If the row states the angular pair, states neither pair, or
+        states half of the explicit one. Each message names the case,
+        which is the matrix POL, and the keys involved.
+    """
+    angular = {
+        key: value
+        for key in (DELTA_THETA_VARIABLE, REVOLUTIONS_VARIABLE)
+        if (value := _variable(case, key)) is not None
+    }
+    if angular:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {', '.join(sorted(angular))} and this run type "
+            "turns nothing, so a degree of rotation has no duration in it: the azimuthal "
+            "step becomes seconds by dividing by a rotor speed, and this run has none. "
+            f"State the clock directly as '{DELTA_TIME_VARIABLE}: <s>' and "
+            f"'{TIME_ITERATIONS_VARIABLE}: <steps>'. A row that really does have a rotor "
+            "belongs to the rotor run type, which takes the azimuthal form."
+        )
+    explicit = {
+        key
+        for key in (DELTA_TIME_VARIABLE, TIME_ITERATIONS_VARIABLE)
+        if _variable(case, key) is not None
+    }
+    if not explicit:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states no physical clock, so an unsteady run of it has "
+            f"no step and no length. State '{DELTA_TIME_VARIABLE}: <s>' and "
+            f"'{TIME_ITERATIONS_VARIABLE}: <steps>'."
+        )
+    missing = [
+        key for key in (DELTA_TIME_VARIABLE, TIME_ITERATIONS_VARIABLE) if key not in explicit
+    ]
+    if missing:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {', '.join(sorted(explicit))} and not "
+            f"{', '.join(missing)}. The clock is a PAIR: a step with no count has no "
+            "length and a count with no step has no duration. Add the missing key."
+        )
+    return TimeStepping(
+        stated_form="explicit",
+        delta_time_s=_required_float(
+            case, DELTA_TIME_VARIABLE, quantity="solver physical time step", unit="s"
+        ),
+        time_iterations=_required_int(
+            case, TIME_ITERATIONS_VARIABLE, quantity="physical time step count", unit="steps"
+        ),
+        delta_theta_deg=None,
+        revolutions=None,
+        rpm=None,
+    )
+
+
+#: The row keys that change an emitted line on the rotor run type and
+#: would reach no line at all on this one. Refused rather than dropped:
+#: a key that validates and reaches nothing is the same wrong answer with
+#: a longer path to it, which is the reason
+#: :func:`_refuse_wake_termination_without_a_clock` already exists.
+#:
+#: ``BLADES`` is deliberately NOT here. It changes no emitted line on
+#: either existing type, so refusing it would be a new rule about an
+#: unread key rather than this item's business, and the reduction plan
+#: reads it for a per-blade split that a rotorless run simply never asks
+#: for.
+ROTORLESS_REFUSED_KEYS: tuple[str, ...] = (
+    ADVANCE_RATIO_VARIABLE,
+    MOVING_BOUNDARIES_VARIABLE,
+    ROTOR_AXIS_VARIABLE,
+    ROTOR_ORIGIN_VARIABLE,
+    RPM_SIGN_VARIABLE,
+    RPM_VARIABLE,
+)
+
+
+def _refuse_rotor_keys_on_a_rotorless_run(case: SimCase) -> None:
+    """Refuse a rotor key on a run type that emits no motion.
+
+    Raised BEFORE the first emission, so a refusal leaves the script
+    exactly as it was.
+    """
+    found = sorted(key for key in ROTORLESS_REFUSED_KEYS if _variable(case, key) is not None)
+    if not found:
+        return
+    raise CampaignConfigError(
+        f"case {case.sim_id!r} states {', '.join(found)} and names a run type that emits "
+        "no motion, so nothing would read them and the run would be recorded as though "
+        "they had been honoured. State them on the rotor run type, which turns a rotor, "
+        "or drop them from this row."
+    )
+
+
+def _refuse_wake_termination_without_a_rotor(case: SimCase) -> None:
+    """Refuse a wake termination stated in revolutions on a rotorless run.
+
+    A THIRD SIBLING, and it exists because the two that already guard
+    this setting both give this run type FALSE advice. The rotor one
+    says the row states no rotor speed and to add one, which would build
+    a clock out of a speed nothing turns at. The steady one says the run
+    is steady and has no time loop, and this run type has a time loop.
+    A refusal that misdescribes the run it is refusing teaches the reader
+    the wrong thing about their own row.
+    """
+    revolutions = case.solver.wake_termination_revolutions
+    if revolutions is None:
+        return
+    raise CampaignConfigError(
+        f"case {case.sim_id!r} inherits a wake termination of {revolutions} revolutions "
+        "from its solver preset and names a run type that turns nothing, so there is no "
+        "revolution for it to be counted in. This run has a time loop, so the setting is "
+        "not meaningless in principle; it is unstateable in revolutions, and this package "
+        "records no steps-spelled preset key for it. Drop the key from the preset this "
+        "row names, or give the row a preset of its own."
+    )
+
+
+def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventions) -> None:
+    """Build an unsteady point of a body that does not move.
+
+    The rotor builder without the rotor: no coordinate system, no
+    motion, and a clock stated directly rather than derived from a
+    speed. Both refusals run before the first emission.
+    """
+    _refuse_rotor_keys_on_a_rotorless_run(case)
+    _refuse_wake_termination_without_a_rotor(case)
+    _open_geometry(case, script)
+    helpers.free_stream(script)
+    _fluid(case, script)
+    stepping = unsteady_time_stepping(case)
+    helpers.unsteady_solver(
+        script,
+        time_iterations=stepping.time_iterations,
+        delta_time=stepping.delta_time_s,
+    )
+    _settings(case, script)
+    _initialize(case, script)
+    helpers.start_solver(script)
+    script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", _output(conventions, case, 0))
+    _export_log(conventions, case, script, claimed=(1,))
+    script.emit("CLOSE_FLIGHTSTREAM")
+
+
 def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowConventions) -> None:
     """Build a blade-resolved rotor run: open, rotor frame, motion, time loop.
 
@@ -2666,6 +2844,26 @@ WORKFLOWS: Mapping[str, Workflow] = {
             "CLOSE_FLIGHTSTREAM",
         ),
         builder=_build_steady,
+    ),
+    "unsteady": Workflow(
+        name="unsteady",
+        summary=(
+            "One unsteady point of a body that does not move: a uniform free stream, a "
+            "physical time loop stated directly by the row, one solve, one loads export."
+        ),
+        commands=(
+            "SET_FREESTREAM",
+            "SET_SOLVER_UNSTEADY",
+            "SOLVER_SET_AOA",
+            "SOLVER_SET_VELOCITY",
+            "SOLVER_SET_ITERATIONS",
+            "SOLVER_SET_CONVERGENCE",
+            "INITIALIZE_SOLVER",
+            "START_SOLVER",
+            "EXPORT_SOLVER_ANALYSIS_SPREADSHEET",
+            "CLOSE_FLIGHTSTREAM",
+        ),
+        builder=_build_unsteady,
     ),
     "unsteady_rotor": Workflow(
         name="unsteady_rotor",

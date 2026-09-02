@@ -60,6 +60,38 @@ FlightStream versions.
   a boundary inventory. Its evidence line now names a test at the surface
   the requirement claims, and that test fails on 0.10.0.
 
+### Added -- a third run type, by the author's exception on a patch
+
+- **`unsteady`: an unsteady run with nothing turning.** The package built
+  two of the three shapes a study needs, and the third had no name a
+  matrix row could write, so two cases of the author's own exercise were
+  left out of her campaign rather than forced into a run type that is not
+  theirs. One of them is a wing-body in the time domain; the other is a
+  power-off configuration on the powered run's discretisation, which
+  exists precisely so the two are comparable.
+
+  **THIS IS A NEW CAPABILITY IN A PATCH RELEASE, and it is stated here
+  rather than left for a reader to infer from the version number.** The
+  author widened 0.10.1 by explicit exception so these items would not
+  block her work. A reader of the version history should know that 0.10.1
+  is a patch by its numbering and by its priority-zero defect fix, and
+  that it also carries this addition because she asked for it that way.
+
+  Its clock is `DELTA_TIME` and `TIME_ITERATIONS`, and the azimuthal pair
+  is REFUSED on it. `DELTA_THETA` and `REVOLUTIONS` are not a clock; they
+  become one by dividing by a rotor speed, and this run has none. The
+  refusal deliberately does not offer a rotor speed: an author who stated
+  one to satisfy it would get a run that builds, solves and exports with
+  its physical time step set from a number nothing turns at.
+
+  A rotor key on such a row is refused rather than dropped, for the reason
+  this package already gives about a preset key that validates and reaches
+  no emitted line: it is the same wrong answer with a longer path to it.
+
+  It covers every registered solver build, derived from the command
+  database rather than declared, which is two more than the rotor type
+  because it emits neither motion command.
+
 ### Kept working, deliberately
 
 - **A row of positions still runs and emits what it always emitted**, so

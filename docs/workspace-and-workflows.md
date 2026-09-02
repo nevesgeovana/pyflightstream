@@ -656,19 +656,37 @@ initialize the solver under the row's `SYMMETRY`.
 settings the row's `SET` identifier resolved to, one solve, one loads
 export.
 
+`unsteady` is one point of a body that does not move, solved in the
+time domain: a uniform free stream, a physical time loop the row states
+directly, one solve, one loads export. It exists because a study often
+needs the unsteady answer for a shape with no rotor in it, and because a
+powered and an unpowered configuration are only comparable when they are
+solved on the SAME discretisation.
+
+**Its clock is `DELTA_TIME` and `TIME_ITERATIONS`, and the azimuthal pair
+is refused on it.** `DELTA_THETA` and `REVOLUTIONS` are not a clock: they
+become one by dividing by a rotor speed, and a run that turns nothing has
+none. The refusal says so and does not offer you a rotor speed, because a
+speed stated to satisfy it would set the physical time step of a run that
+emits no motion. A row carrying `RPM`, `ADVANCE_RATIO`, `RPM_SIGN`,
+`ROTOR_AXIS`, `ROTOR_ORIGIN` or `MOVING_BOUNDARIES` is refused for the
+same reason: nothing would read them, and the run would be recorded as
+though they had been honoured.
+
 `unsteady_rotor` is a blade-resolved rotor run: a rotor coordinate
 system at the hub the row declares, one rotary motion turning at the
 row's `RPM` about the row's `ROTOR_AXIS`, and a physical time loop. The
 values it needs come off the row and nowhere else, and a row missing one
 of them is refused before anything runs, naming the row and the cell.
 
-This is the matrix the suite runs for those two types, byte for byte:
+This is the matrix the suite runs for all three types, byte for byte:
 
 ```text title="workflow_rotor_matrix.fs"
 POL  | AIRCRAFT  | DESCRIPTION            | FLIGHT_CONDITION | SWEEP_TYPE  | SWEEP_VALUES   | REF  | SET  | ENTRY  | FS_SCRIPT | FS_BUILD | HIDDEN | RUN | WORKFLOW       | VAR_NAMES_VALUES
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 7001 | RotorRig  | ROTOR_UNSTEADY         | TASmps:30.0, REmi:1.20   | AL          | 0.0            | r003 | s002 | e001   | 010       | 26.120   |    1   |  1  | unsteady_rotor | OUTPUTS: loads_{point}.txt / VELOCITY: 30.0 / RPM: 1200 / ROTOR_AXIS: X / BLADES: 4 / DELTA_TIME: 0.0001 / TIME_ITERATIONS: 720 / WINDOW_DEGREES: 90
 7002 | RotorRig  | STEADY_REFERENCE       | TASmps:30.0, REmi:1.20   | AL          | 0.0,2.0        | r003 | s002 | e001   | 003       | 26.120   |    1   |  1  | steady         | OUTPUTS: loads_{point}.txt / VELOCITY: 30.0
+7003 | RotorRig  | UNSTEADY_NO_ROTOR      | TASmps:30.0, REmi:1.20   | AL          | 0.0            | r003 | s002 | e001   | 020       | 26.120   |    1   |  1  | unsteady       | OUTPUTS: loads_{point}.txt / VELOCITY: 30.0 / DELTA_TIME: 0.00025 / TIME_ITERATIONS: 480
 ```
 
 **NEITHER ROW NAMES A `GEOMETRY`, AND THAT IS WHAT THEY ARE FOR.** This
@@ -706,6 +724,7 @@ From the terminal, that whole study is one command:
 pyfs-matrix run workflow_rotor_matrix.fs \
     --name rotor --fs-version 26.120 --workspace . \
     --workflow 010=unsteady_rotor --workflow 003=steady \
+    --workflow 020=unsteady \
     --sweep-csv sweep.csv
 ```
 
@@ -749,7 +768,8 @@ is a defect waiting to happen.
 
 A workflow declares the commands it always emits, and the builds it
 covers are DERIVED from the command database rather than written down.
-`unsteady_rotor` covers 26.101 and later, because the earlier builds'
+`steady` and `unsteady` cover every registered build. `unsteady_rotor`
+covers 26.101 and later, because the earlier builds'
 databases carry no `SET_MOTION_ROTOR_AXIS` and no
 `SET_MOTION_ROTOR_RPM`: those builds configure a rotor by flagging an
 existing motion instead, which is a different vocabulary and not a
