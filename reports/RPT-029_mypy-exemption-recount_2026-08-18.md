@@ -1,4 +1,4 @@
-# RPT-029: the type-checker exemption re-count at 0.8.0.dev0 (2026-08-18, amended twice on 2026-08-19, re-measured 2026-08-20 and 2026-08-24)
+# RPT-029: the type-checker exemption re-count at 0.8.0.dev0 (2026-08-18, amended twice on 2026-08-19, re-measured 2026-08-20, 2026-08-24 and 2026-09-02)
 
 > **Amended before this file was ever committed, and the amendment is the
 > report's own reproduction rule catching its own author.**
@@ -39,14 +39,45 @@
 > the per-module table, the code table, the concentration lines and the
 > delta table are all that run rather than edits to the previous one:
 >
->     Found 276 errors in 20 files (checked 75 source files)
->     Success: no issues found in 75 source files
+>     Found 310 errors in 20 files (checked 76 source files)
+>     Success: no issues found in 76 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-08-24: 276 errors in 20 of 75 modules.**
+**mypy recount 2026-09-02: 310 errors in 20 of 76 modules.**
+
+## Re-measured 2026-09-02: one module arrived, and the error total had gone stale unwatched
+
+`_fsm.py` (PFS-2028.00, the saved-simulation boundary reader) moved the module
+total to 76 and `tests/test_traceability.py` refused the tree until every
+record of the count moved with it. The module delta is the whole of what that
+guard asked about: **75 to 76 modules**.
+
+**The error total moved too, 276 to 310, and none of it belongs to the change
+that triggered the re-count.** Not one of the four modules 0.10.1 touched
+appears in the debt table below: `_fsm`, `cases.workflows`, `workspace` and
+`exceptions` are all absent, which is to say all four are type-clean. The
+entire delta sits in `pyflightstream.run`, which went from 108 errors on 18
+lines to 142 on 29, and that module was last changed by the 0.10.0 release on
+2026-09-01.
+
+So the sentence was already stale when this session opened, and nothing was
+wrong with the guard. `pyproject.toml`'s own header says to read the two
+numbers differently: the ERROR TOTAL is a dated measurement that moves with
+the code and with the dependencies' own stubs, while the MODULE TOTAL is
+re-counted from the tracked tree on every run. 0.10.0 added no module, so the
+module total did not move, so nothing asked, and the error total drifted by 34
+between one release and the next with every record agreeing on the old figure.
+That is the residual of a guard that watches one of two numbers, and it is
+recorded here rather than presented as a finding of this release: the design
+was deliberate and is written down in the file that carries it.
+
+**The exempted set did NOT move.** The same 20 modules are exempted, every one
+of them still reports at least one error, and no override was added or removed.
+`_fsm.py` arrives type-clean and adds no debt to the ratchet, which is the
+third floor module in a row to do so.
 
 ## Re-measured 2026-08-24: one module arrived and nothing else moved
 
@@ -171,11 +202,11 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 276 errors in 20 files (checked 75 source files)
+    Found 310 errors in 20 files (checked 76 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
-    Success: no issues found in 75 source files
+    Success: no issues found in 76 source files
 
 mypy walks the FILESYSTEM rather than the git index, so the state of the
 working tree is part of the measurement, and this report has already been
@@ -227,7 +258,7 @@ option, and the third option is what happened between 2026-08-03 and today.
 ## The debt, per module
 
     errors   lines   module
-       108      18   pyflightstream.run
+       142      29   pyflightstream.run
         79      13   pyflightstream.qa.probes
         22       9   pyflightstream.script.solver_setup
         17      16   pyflightstream.script.helpers
@@ -248,7 +279,7 @@ option, and the third option is what happened between 2026-08-03 and today.
          1       1   pyflightstream.script.entities
          1       1   pyflightstream.workspace.naming
        ---     ---
-       276     100   20 modules of 75
+       310     111   20 modules of 76
 
 `pyflightstream.results.tables` stood in this table on 2026-08-18 with one
 error and is absent from it now. That is the row the exemption removal rests
@@ -258,7 +289,7 @@ which zeros mean clean and which mean unmeasured.
 
 By error code:
 
-    235  arg-type
+    269  arg-type
       9  return-value
       8  assignment
       6  misc
@@ -281,7 +312,7 @@ reported four codes this checker does not emit.
 The 2026-08-03 table had one column, and the plan built on it says two modules
 carry 73 percent of the debt and sizes the small modules at an afternoon each.
 The error count is a poor size estimate here, and the re-count shows why
-rather than asserting it: **276 errors sit on 100 distinct source lines.**
+rather than asserting it: **310 errors sit on 111 distinct source lines.**
 
 While reading that table a second defect in it surfaced, small and worth one
 sentence because it is the same class: its prose says "the eleven with one or
