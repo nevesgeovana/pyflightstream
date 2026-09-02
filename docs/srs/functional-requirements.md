@@ -675,9 +675,13 @@ the base could not offer while it bundled several.
     boundaries by optional label rather than by the solver's positional
     index.
 
-!!! requirement "FR-30b Index or label, everywhere <span class='srs-implemented'>implemented</span>"
-    *Origin: Phase 4 split of FR-30, accepted 2026-07-27. Evidence: the
-    v0.3 line; `tests/test_script_entities.py`.*
+!!! requirement "FR-30b Index or label, everywhere <span class='srs-pending'>pending</span>"
+    *Origin: Phase 4 split of FR-30, accepted 2026-07-27. Status taken
+    off implemented 2026-09-02 (PFS-2028.00): the claim is true at the
+    script layer and false at the surface a user writes, because nothing
+    in `src/` declares a boundary inventory, so the label half of
+    "either" is unreachable from a run matrix. Evidence owed at that
+    surface: a matrix row that names a mesh family.*
 
     Every entity-citing argument accepts either an index or a label.
 
