@@ -105,7 +105,7 @@ def test_the_printed_name_comes_from_a_solver_banner_and_not_from_the_alias():
     assert not unevidenced, (
         f"these registered printed names appear in no committed report for their own "
         f"version: {unevidenced}. The printed name is solver evidence; record it from a "
-        "report's solver_identity, never from the vendor alias (CLAUDE.md invariant 3)."
+        "report's solver_identity, never from the vendor alias (CONTRIBUTING.md invariant 3)."
     )
 
 

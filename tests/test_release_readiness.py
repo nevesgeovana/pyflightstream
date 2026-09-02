@@ -102,7 +102,7 @@ def _registration_absence(root: Path) -> str | None:
     if not rows:
         return (
             f"registration: no row with canonical {LAST_STEP_BUILD!r} in commands/_meta.yaml, "
-            "the only ordering authority (CLAUDE.md invariant 4)"
+            "the only ordering authority (CONTRIBUTING.md invariant 4)"
         )
     if not any(str(row.get("build") or "").strip() for row in rows):
         return (

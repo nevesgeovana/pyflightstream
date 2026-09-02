@@ -308,14 +308,19 @@ from the database at build time.
 
 ## Development setup
 
-Maintainers: a few machine-specific environment variables locate local
-tooling and are not in Git, because a literal path into somebody's
-machine never enters a committed file. They are listed in the author's
-working-method file, which stays on her disk and is deliberately not
-published, so a fresh clone does not have that list. Nothing a user
-installs reads any of them, and the tier that runs anywhere needs none:
-they locate the licensed solver and its manuals for tiers 2 and 3. The
-count is deliberately not repeated here.
+Maintainers: **this repository reads no environment variable at all**,
+and a fresh clone is owed no list of them. That sentence is measured
+rather than asserted: no tracked file here reads one, and the licensed
+solver is located by a required argument that is never guessed, which is
+`--fs-exe` on the quality-assurance command line. An earlier version of
+this paragraph said a few machine-specific variables located the solver
+and its manuals for the licensed tiers, and pointed at a file that
+stopped being published. Both halves were wrong, and the paragraph
+shipped inside the package metadata, so it reached every reader of the
+published page.
+
+The contributor rules a clone does need are the numbered hard invariants
+in `CONTRIBUTING.md`.
 
 ```
 pip install -e .[dev,fsi,geom]

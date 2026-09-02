@@ -41,7 +41,7 @@ the live ones in its failure message.
 
 PRIVATE_ID_COUNTS: dict[str, int] = {
     "CHANGELOG.md": 48,
-    # CLAUDE.md carried 14 and its row is DELETED rather than zeroed, on
+    # CONTRIBUTING.md carried 14 and its row is DELETED rather than zeroed, on
     # 2026-08-25, because the file left this repository: the agent
     # instruction file is the author's working method, it is not a product
     # of this library, and it had been on a public remote since the

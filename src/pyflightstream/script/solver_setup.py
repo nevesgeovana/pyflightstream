@@ -9,7 +9,7 @@ the manual documents the value that applies without user input (the
 citation travels with the record), and ``unknown`` when no in-repo
 evidence exists. Unknown is stated honestly, never guessed: an opened
 simulation file can carry saved solver settings, so the library refuses
-to claim knowledge it does not have (evidence rule, CLAUDE.md
+to claim knowledge it does not have (evidence rule, CONTRIBUTING.md
 invariant 3).
 
 The snapshot travels with the run. The curated helper

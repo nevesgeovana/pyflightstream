@@ -476,10 +476,10 @@ DELIBERATELY_UNLISTED = {
     # nobody wrote, which is the reason the script exists; it makes no
     # claim about what an entry carries.
     "scripts/chm_to_pdf.py",
-    # CLAUDE.md's invariant 3 states the evidence rule and is the
+    # CONTRIBUTING.md's invariant 3 states the evidence rule and is the
     # author's charter. Its wording is hers to change, not this guard's
     # to force, and it is raised to her rather than edited here.
-    "CLAUDE.md",
+    "CONTRIBUTING.md",
 }
 
 

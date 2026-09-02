@@ -193,7 +193,7 @@ def test_both_census_tables_cover_every_registered_build():
         )
         assert not extra, (
             f"{label} pins {', '.join(extra)}, which is not a registered build. "
-            "Versions are only ever added, never dropped (CLAUDE.md invariant 4), "
+            "Versions are only ever added, never dropped (CONTRIBUTING.md invariant 4), "
             "so this is a typo in the table rather than a version that went away"
         )
 

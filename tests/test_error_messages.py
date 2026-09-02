@@ -1,6 +1,6 @@
 """Tier 1: wording pins of the main didactic refusals.
 
-Pipeline role: quality gate on the didactic policy (CLAUDE.md item 8:
+Pipeline role: quality gate on the didactic policy (CONTRIBUTING.md item 8:
 error messages name the physical or version cause). Following the
 xarray ``test_error_messages`` pattern, every test here triggers a
 refusal through the public API and pins the operative content of the

@@ -3,7 +3,7 @@
 Every fixture here is SYNTHETIC. It imitates the shape of the vendor
 manual's scripting reference (a signature line, a parameter table, a
 sample block) and carries none of its text, because that manual is
-licensed material which never enters Git (CLAUDE.md invariant 1). The
+licensed material which never enters Git (CONTRIBUTING.md invariant 1). The
 command names are this database's own, which are public already.
 
 The point of the file is not only that the parser works on a well-formed

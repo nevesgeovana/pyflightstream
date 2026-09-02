@@ -674,7 +674,7 @@ def _database_meta_sentence(entry_count: int, scope: str) -> str:
         "the FlightStream manual page that documents it (manual_ref), paraphrased "
         "and never quoted, or a committed probe report measuring that the solver "
         "accepts a command no edition documents (probe_ref). Statuses follow the "
-        "evidence rules of CLAUDE.md invariant 3."
+        "evidence rules of CONTRIBUTING.md invariant 3."
     )
 
 
@@ -1202,7 +1202,7 @@ def percent_script_markdown(source: str) -> str:
     Markdown cells (``# %% [markdown]``) become prose; code cells
     (``# %%``) become fenced Python blocks; a leading module docstring
     is dropped because it repeats the page introduction. This is the
-    committed rendering of the no-notebooks policy (CLAUDE.md
+    committed rendering of the no-notebooks policy (CONTRIBUTING.md
     invariant 7): the ``.py`` file is the single source and the docs
     page is generated from it at build time.
 

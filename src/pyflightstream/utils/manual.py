@@ -20,7 +20,7 @@ and `pyfs-manual register` wrote 369 of them in one pass.
 
 The line is between an entry and a row on it. An entry is grammar, and
 grammar is what the emitter validates other people's scripts against, so
-inventing one is the thing the evidence rules exist to prevent (CLAUDE.md
+inventing one is the thing the evidence rules exist to prevent (CONTRIBUTING.md
 invariant 3). A version row is a statement that a build's own edition
 documents an already-authored command identically to the edition before
 it, carrying the page of each. That is exactly what invariant 3 asks a
@@ -51,7 +51,7 @@ So the drafter's output is a DRAFT and a coverage report for a person
 to work from, and every proposal carries why it was proposed. A tool
 that wrote ENTRIES directly would be inventing grammar the emitter then
 uses to validate other people's scripts, which is the one thing the
-evidence rules exist to prevent (CLAUDE.md invariant 3). Carrying a
+evidence rules exist to prevent (CONTRIBUTING.md invariant 3). Carrying a
 version row forward between two editions that parse identically invents
 no grammar, which is why that one is written and this one is not.
 
@@ -988,7 +988,7 @@ def unreachable_commands(
         The manuals to read.
     recorded : RegistryLike
         The loaded database. Typed loosely because this module sits
-        below ``commands`` in the dependency order (CLAUDE.md Layout)
+        below ``commands`` in the dependency order (CONTRIBUTING.md Layout)
         and must not import it; it is used through ``.commands`` and
         ``.for_version``.
     reader : callable, optional
@@ -1257,7 +1257,7 @@ def stale_citations(
     recorded : RegistryLike
         The loaded database, used through ``.commands``. Typed loosely
         because this module sits below ``commands`` in the dependency
-        order (CLAUDE.md Layout) and must not import it, which is also
+        order (CONTRIBUTING.md Layout) and must not import it, which is also
         why the check cannot default to loading it.
     reader : callable, optional
         What turns a manual and a page range into text, defaulting to
@@ -1443,7 +1443,7 @@ def read_edition_manifest(path: str | Path) -> tuple[Edition, ...]:
     from a session note.
 
     It is never committed here. It names paths of licensed manuals, and
-    those live in ``_private/`` (CLAUDE.md invariant 1).
+    those live in ``_private/`` (CONTRIBUTING.md invariant 1).
 
     Named for the manifest and not for the editions, unlike the
     neighbouring :func:`read_pdf_pages`: this opens a small text file and
@@ -1560,7 +1560,7 @@ def read_pdf_pages(path: str | Path, *, first: int, last: int) -> dict[int, str]
     ----------
     path : str or Path
         The manual. It is licensed vendor material, lives in
-        ``_private/`` and never enters Git (CLAUDE.md invariant 1); only
+        ``_private/`` and never enters Git (CONTRIBUTING.md invariant 1); only
         paraphrases and page citations derived from it are committed.
     first, last : int
         One-based, inclusive page range. Keyword-only.
@@ -2082,7 +2082,7 @@ def render_entry(
             f"{command.name}: a DRAFT from a manual supports the status 'documented' "
             f"only, and {bad} were requested. Every status the harness measures "
             "(verified, broken, and a removed the solver refused) is promoted from a "
-            "committed probe report by pyfs-qa apply-compat (CLAUDE.md invariant 3). "
+            "committed probe report by pyfs-qa apply-compat (CONTRIBUTING.md invariant 3). "
             "A removed read off an edition instead is a hand-written row carrying a "
             "note and a page, not a drafted one."
         )
@@ -2470,7 +2470,7 @@ def insert_version_row(
         Evidence status for that build, written as a bare token. This
         function does NOT judge it: which statuses exist and which may
         be written from a reading is the command database's rule and
-        the caller's to obey (CLAUDE.md invariant 3).
+        the caller's to obey (CONTRIBUTING.md invariant 3).
     note : str
         Provenance of the row, quoted and escaped on the way in. A
         citation, for example ``"SRC-751 p.290, unchanged from SRC-750

@@ -7,7 +7,7 @@ machine-readable YAML report and its rendered Markdown table under
 probed version. :func:`apply_compat` reads a committed report back and
 promotes ``documented`` statuses to ``verified``, ``broken`` or
 ``removed`` in the chapter YAML files, citing the report in each
-promoted entry; statuses are never hand-edited (CLAUDE.md invariant 3),
+promoted entry; statuses are never hand-edited (CONTRIBUTING.md invariant 3),
 and the schema rejects any of those three without its report citation.
 A promotion writes every chapter it touches or none of them, and an
 older report can no longer revert a status a later run already moved.
@@ -182,7 +182,7 @@ def _render_markdown(run: ProbeRun, date: str, counts: dict[str, int]) -> str:
         "Tier 2 command-validity evidence produced by the probe harness",
         "(`pyfs-qa probe`); one evidence line per database command of this",
         "version. Database statuses are promoted from this report only",
-        "through `pyfs-qa apply-compat`, never edited by hand (CLAUDE.md",
+        "through `pyfs-qa apply-compat`, never edited by hand (CONTRIBUTING.md",
         "invariant 3). Probe scripts and logs are local scratch; this",
         "report is the committed evidence.",
         "",
@@ -693,7 +693,7 @@ def _release_order(commands_dir: Path) -> dict[str, int]:
     ----------
     commands_dir : Path
         Chapter directory being edited; its ``_meta.yaml`` is the
-        ordering authority for that tree (CLAUDE.md invariant 4).
+        ordering authority for that tree (CONTRIBUTING.md invariant 4).
 
     Returns
     -------
@@ -941,7 +941,7 @@ def _rewrite_version_line(
             f"from. Rewrite the versions: block of {name} as one line per version "
             "(for example '\"26.120\": {status: documented}') and re-run "
             "pyfs-qa apply-compat; a status is promoted from a committed report, "
-            "never hand-edited (CLAUDE.md invariant 3)."
+            "never hand-edited (CONTRIBUTING.md invariant 3)."
         )
 
     position = order[canonical]

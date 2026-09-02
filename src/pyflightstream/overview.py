@@ -41,7 +41,7 @@ ul { margin: 0.4rem 0 0.8rem 1.2rem; }
 
 # The layered pipeline, one tuple per dependency level, bottom layer
 # last. Every module imports only modules of the rows below its own;
-# the CLAUDE.md layout rule (versions <- commands <- script/results <-
+# the CONTRIBUTING.md layout rule (versions <- commands <- script/results <-
 # cases <- run/workspace <- post/qa) is the authority for the core
 # stack. The `files` shim that used to sit beside `workspace` here was
 # removed at v0.4.0 on the horizon its ledger entry recorded.
@@ -60,7 +60,7 @@ _CORE_LAYERS: tuple[tuple[tuple[str, ...], str], ...] = (
 # THROUGH it, which is the distinction the two shapes make. A layer TABLE
 # states the whole stack and carries this row (the diagram below and the
 # fence in docs/srs/architecture-srs.md); an arrow CHAIN states the flow
-# and does not (the CLAUDE.md layout rule, the user guide's diagram).
+# and does not (the CONTRIBUTING.md layout rule, the user guide's diagram).
 _BASE_LAYERS: tuple[tuple[tuple[str, ...], str], ...] = (
     (
         ("_atmosphere",),
@@ -163,7 +163,7 @@ def _module_doc(name: str) -> str:
             f"{qualified} has no module docstring; the architecture overview "
             "renders only live docstrings so it can never go stale. Write the "
             "pipeline-role docstring in that module (didactic policy of "
-            "CLAUDE.md), not prose here."
+            "CONTRIBUTING.md), not prose here."
         )
     return inspect.cleandoc(doc)
 

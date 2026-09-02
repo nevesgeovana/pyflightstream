@@ -3,7 +3,7 @@
 Pipeline role: manufactures the NACA wing meshes the physics
 regression matrix imports (PHY-01, PHY-02; SAD Section 11), so every
 committed physics case is reproducible from code alone and no research
-geometry ever enters the repository (CLAUDE.md invariant 5). It also
+geometry ever enters the repository (CONTRIBUTING.md invariant 5). It also
 MEASURES a mesh, which is the half the sentence above does not cover:
 `mean_edge_length` returns the local face size, and a face size is only
 ever wanted as one half of a ratio, because the vendor's caveat about
@@ -343,7 +343,7 @@ class BladeSpec:
     Every shape law is analytic and public (textbook blade-element
     relations with round coefficients), so the blade carries no
     proprietary geometry and any committed case built on it is
-    shareable (CLAUDE.md invariant 5). It is deliberately NOT a model
+    shareable (CONTRIBUTING.md invariant 5). It is deliberately NOT a model
     of any research propeller; cases built on it seed their own
     references.
 

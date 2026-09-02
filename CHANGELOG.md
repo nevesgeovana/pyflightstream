@@ -92,6 +92,42 @@ FlightStream versions.
   database rather than declared, which is two more than the rotor type
   because it emits neither motion command.
 
+### Fixed -- pointers to a file this repository does not publish
+
+- **69 tracked pointers retargeted, and the paragraph that shipped a
+  false sentence corrected.** A file at the repository root stopped being
+  published in 0.9.0. Two pointers to it were corrected then; the rest
+  were never swept. Measured now: 116 occurrences of that filename in the
+  tracked tree, and the file is not there.
+
+  `reports/` and `CHANGELOG.md` keep theirs, deliberately, which is why
+  46 remain. Those are committed evidence and history: a pointer inside
+  either was TRUE when it was written, and editing one would be rewriting
+  a record of what somebody knew at the time. The other 69 now name
+  `CONTRIBUTING.md`, which carries the numbered hard invariants.
+
+- **The numbering is the retired file's, kept exactly.** 133 places cite
+  an invariant BY NUMBER, so the numbering is an interface. Renumbering
+  to match a shorter prose list was refused because it cannot be
+  completed: 44 of those citations sit in evidence and history and cannot
+  be rewritten, so a renumber would leave two numberings in one tree with
+  nothing marking which is which.
+
+- **A fresh clone is NOT owed the machine-configuration variable list.**
+  Measured rather than asserted: no tracked file in this repository reads
+  any of those variables. The published page said they "locate the
+  licensed solver and its manuals", and that was wrong twice over: the
+  solver is located by a required argument that is never guessed, and the
+  variables never described a solver at all. That paragraph was inside
+  the published package metadata, so it reached every reader of the
+  project page.
+
+- **An exemption naming a file that is not there is now caught.** The
+  shipped-surface configuration excused that same retired file for three
+  releases after it left. An exemption for an absent path never fires, so
+  it never fails, so it could not go stale loudly. A tier-1 test now
+  refuses one, with a control beside it.
+
 ### Kept working, deliberately
 
 - **A row of positions still runs and emits what it always emitted**, so

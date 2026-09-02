@@ -244,7 +244,7 @@ class BrokenCommandError(PyflightstreamError, RuntimeError):
     """A command recorded ``broken`` in the target version was emitted.
 
     ``broken`` is the one status backed by a probe that measured the
-    command failing to do what the manual documents (CLAUDE.md
+    command failing to do what the manual documents (CONTRIBUTING.md
     invariant 3), so the database already knows the emission is wrong
     before the solver ever sees it. Unlike a removed command, this one
     exists and the solver accepts the line: the run therefore produces
@@ -338,7 +338,7 @@ class BrokenCommandUse(BaseModel):
     report : str
         Repository-relative path of the committed probe report that
         recorded the breakage. Never optional: ``broken`` cannot exist
-        without it (evidence rule, CLAUDE.md invariant 3).
+        without it (evidence rule, CONTRIBUTING.md invariant 3).
     note : str, optional
         The database's paraphrase of what the probe observed, when the
         record carries one.

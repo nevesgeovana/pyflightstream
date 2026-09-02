@@ -6,7 +6,7 @@ writes, and the ONE importable home of the registration transaction.
 
 WHY IT IS A MODULE AND NOT A CLI FUNCTION, which is the correction of
 2026-08-17 rather than a preference. The command database is this
-package's evidence authority (CLAUDE.md invariant 3) and it has two
+package's evidence authority (CONTRIBUTING.md invariant 3) and it has two
 writers: :func:`pyflightstream.qa.compat.apply_compat`, which promotes a
 status from a committed probe report, and this one, which writes a
 ``documented`` row from a reading. The first is a library function with

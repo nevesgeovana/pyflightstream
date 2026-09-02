@@ -369,7 +369,7 @@ def support_table(*, registry: CommandRegistry | None = None) -> tuple[VersionSu
     """Report every registered version, in release order.
 
     Release order comes from ``commands/_meta.yaml``, which is the only
-    ordering authority (CLAUDE.md invariant 4). It is NOT support order.
+    ordering authority (CONTRIBUTING.md invariant 4). It is NOT support order.
     The two agree at this release only because the builds split cleanly
     by age: the ones whose manuals have been read but whose solvers have
     not been probed derive ``documented``, and the probed ones derive

@@ -2094,7 +2094,7 @@ def test_the_entity_kinds_the_database_declares_are_the_ones_the_tracker_tracks(
 
     ``ArgSpec.cites`` names an entity kind, and the emitter looks that
     name up in the tracker. The dependency runs script -> commands and
-    never the other way (CLAUDE.md layout rule), so ``EntityKind``
+    never the other way (CONTRIBUTING.md layout rule), so ``EntityKind``
     restates the tracker's own tuple rather than importing it, and two
     restatements of one set drift.
 

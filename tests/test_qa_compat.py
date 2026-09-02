@@ -491,7 +491,7 @@ def test_the_live_database_carries_no_note_cut_mid_word():
     Fixing the function leaves every note promoted before it untouched,
     so this walks what actually ships. AIR_ALTITUDE's was repaired by
     re-running apply-compat over the committed report, which is the only
-    sanctioned write path for a status or its note (CLAUDE.md invariant
+    sanctioned write path for a status or its note (CONTRIBUTING.md invariant
     3), never by editing the YAML.
 
     Keyed on the length being EXACTLY the cap, which is the old

@@ -527,7 +527,7 @@ def covered_builds(
     tuple of str
         Canonical identifiers, in RELEASE order, which is the order of
         ``commands/_meta.yaml`` and the only ordering authority
-        (CLAUDE.md invariant 4).
+        (CONTRIBUTING.md invariant 4).
     """
     database = registry or CommandRegistry.load()
     covered = []

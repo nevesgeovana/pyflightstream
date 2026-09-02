@@ -47,7 +47,7 @@ SKIP_DIRS = {
 FORBIDDEN = {chr(0x2013): "en dash", chr(0x2014): "em dash"}
 # Built from code points so this file itself stays free of the words: the
 # repository never names the author's employer or internal predecessor
-# toolchains (CLAUDE.md invariant 5).
+# toolchains (CONTRIBUTING.md invariant 5).
 #
 # CODE POINTS AND NOT TWO-FRAGMENT CONCATENATION, since 2026-08-23. The
 # previous spelling joined two halves of each word, which defeats a grep
@@ -597,7 +597,7 @@ def test_no_geometry_file_is_tracked_outside_the_synthetic_allowlist():
         "these tracked files carry a geometry or mesh extension and are not in "
         "the synthetic-fixtures allowlist:\n"
         + "\n".join(offenders)
-        + "\n\nResearch geometry never enters this repository (CLAUDE.md "
+        + "\n\nResearch geometry never enters this repository (CONTRIBUTING.md "
         "invariant 5, SRS NFR-08 and NFR-14). Keep it in _private/ or in the "
         "research workspace and reference it from a local QA run. If the file "
         "really is synthetic, generate it from pyflightstream.qa.geometry "
@@ -635,7 +635,7 @@ def test_the_geometry_guard_fires_on_what_it_exists_to_catch():
 # --- The container directory's absolute path (PYFS-023) --------------------
 #
 # The identifier guard above catches an email address and a user-profile path.
-# It does not catch the other machine-specific literal CLAUDE.md forbids: an
+# It does not catch the other machine-specific literal CONTRIBUTING.md forbids: an
 # absolute path into the directory that holds this repository and its sibling
 # workspaces. Scanning every tracked file for an absolute-path SHAPE is not the
 # guard, and measuring said so: 32 tracked files match one, and 30 of them are
@@ -698,7 +698,7 @@ def _tracked_text() -> list[tuple[str, str]]:
 def test_no_tracked_file_names_the_container_directory():
     """A path into the workspace container is machine configuration.
 
-    CLAUDE.md states the rule ("never a literal path in a committed file") and
+    CONTRIBUTING.md states the rule ("never a literal path in a committed file") and
     until now only prose held it for this shape. The remote is public, so the
     literal names the author's machine layout to everyone who clones.
     """
@@ -856,7 +856,7 @@ def test_no_tracked_text_file_carries_a_control_byte():
 # The policy is decided and until now nothing held it: a page in this
 # repository cites anchors its READER can resolve. This remote is public and
 # the records these identifiers name are not. The plan ledger and the design
-# documents are local-only under `_private/` (CLAUDE.md, "Session protocol"),
+# documents are local-only under `_private/` (CONTRIBUTING.md, "Session protocol"),
 # the incident ledger is a separate repository located by an environment
 # variable, and the coordination hub is a third. A committed sentence citing
 # one of them sends a reader to a document that does not exist for them.

@@ -343,7 +343,7 @@ def known_versions() -> tuple[FsVersion, ...]:
     -------
     tuple of FsVersion
         Registered versions, ordered oldest first. The tuple position is
-        the ordering authority (CLAUDE.md invariant 4).
+        the ordering authority (CONTRIBUTING.md invariant 4).
     """
     meta_text = (
         resources.files("pyflightstream.commands")

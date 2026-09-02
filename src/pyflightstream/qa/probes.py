@@ -36,7 +36,7 @@ gets ``unprobed`` instead of ``broken``.
 
 Statuses are promoted from the resulting compat report only through
 ``pyfs-qa apply-compat`` (:mod:`pyflightstream.qa.compat`), never by
-hand (CLAUDE.md invariant 3).
+hand (CONTRIBUTING.md invariant 3).
 """
 
 from __future__ import annotations

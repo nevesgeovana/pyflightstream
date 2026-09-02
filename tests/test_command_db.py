@@ -31,7 +31,7 @@ COMMANDS_DIR = REPO_ROOT / "src" / "pyflightstream" / "commands"
 #: major, then three digits whose last indexes the hotfix build. It read
 #: `^26\.\d{3}$` until 2026-08-09, when registering the 25 series made
 #: the major a variable, which is what the scheme always meant; the
-#: charter moved in the same change (CLAUDE.md invariant 4).
+#: charter moved in the same change (CONTRIBUTING.md invariant 4).
 CANONICAL_PATTERN = re.compile(r"^\d{2}\.\d{3}$")
 # A report is cited two ways in this database: as a repository-relative path
 # with a suffix, and as the bare id alone (motion_definitions.yaml cites
@@ -814,7 +814,7 @@ def test_every_citation_records_the_status_the_record_claims() -> None:
                 f"{name} at {canonical} is recorded {record.status.value} while "
                 f"{report} recorded {probed.get('outcome')}. A status is promoted from "
                 "a report by pyfs-qa apply-compat and never edited by hand "
-                "(CLAUDE.md invariant 3)"
+                "(CONTRIBUTING.md invariant 3)"
             )
 
     # Offenders first, and this ORDER is the point rather than a style
@@ -1553,7 +1553,7 @@ def test_no_database_note_quotes_the_manual():
                 offenders.append(f"{path.name}:{field} quotes {match.group(0)}")
     assert not offenders, (
         "these command-database prose fields carry a quoted phrase. Manual facts are "
-        "paraphrased with a page citation and never reproduced (CLAUDE.md "
+        "paraphrased with a page citation and never reproduced (CONTRIBUTING.md "
         "invariant 1); if the phrase is this repository's own wording, say it "
         "without the quotes so the two cannot be confused: " + "; ".join(offenders)
     )

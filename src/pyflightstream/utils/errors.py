@@ -21,7 +21,7 @@ class ManualDraftError(PyflightstreamError, ValueError):
     than the source they are reading can justify, the sharp case being a
     ``verified`` or ``broken`` status: those are promoted from a
     committed probe report by ``pyfs-qa apply-compat``, never from a page
-    citation (CLAUDE.md invariant 3).
+    citation (CONTRIBUTING.md invariant 3).
 
     ``ValueError`` as the second base, because that is what this refusal
     raised before the catalogue existed and what a caller written against

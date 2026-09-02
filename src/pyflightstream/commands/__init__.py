@@ -9,11 +9,11 @@ validates every emission against this database.
 
 Data lives in the YAML files next to this module, one file per manual
 chapter; ``_meta.yaml`` holds the ordered version list, which is the only
-ordering authority (CLAUDE.md invariant 4). Version keys in the YAML
+ordering authority (CONTRIBUTING.md invariant 4). Version keys in the YAML
 files are quoted strings ("26.120"); an unquoted key would be parsed as
 a float and rejected by the loader.
 
-Statuses follow the evidence rules of CLAUDE.md invariant 3:
+Statuses follow the evidence rules of CONTRIBUTING.md invariant 3:
 ``documented`` cites the manual through ``manual_ref``, or a committed
 report through ``probe_ref`` where no edition documents the command;
 ``verified`` and ``broken`` additionally cite a committed probe report;
@@ -567,7 +567,7 @@ class VersionStatus(BaseModel):
     report : str, optional
         Repository-relative path of the committed compat report, the
         machine-readable ``.yaml`` the probe harness writes; required for
-        ``verified`` and ``broken`` (CLAUDE.md invariant 3). A guard
+        ``verified`` and ``broken`` (CONTRIBUTING.md invariant 3). A guard
         opens it and compares its recorded outcome against this status,
         so a citation here is checkable and not merely present.
     probe_ref : str, optional
@@ -763,7 +763,7 @@ class CommandEntry(BaseModel):
 
         It does NOT relax the status rules. ``verified`` and ``broken``
         still come only from a compat report applied by
-        ``pyfs-qa apply-compat`` (CLAUDE.md invariant 3); what
+        ``pyfs-qa apply-compat`` (CONTRIBUTING.md invariant 3); what
         ``probe_ref`` records is that the command EXISTS, which is a
         different claim from how it behaves.
     versions : mapping of str to VersionStatus
@@ -774,7 +774,7 @@ class CommandEntry(BaseModel):
     default : int, float, or str, optional
         Documented default value the solver applies when the command
         is never issued, recorded only when the manual states it and
-        always together with ``default_ref`` (evidence rule, CLAUDE.md
+        always together with ``default_ref`` (evidence rule, CONTRIBUTING.md
         invariant 3). Consumed by the solver-setup snapshot
         (:mod:`pyflightstream.script.solver_setup`) so an unset flag
         with a documented default is recorded as such instead of

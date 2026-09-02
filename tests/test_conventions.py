@@ -368,7 +368,7 @@ _SRC = Path(pyflightstream.__file__).parent
 
 #: Layer row of every top-level name the core stack declares, smallest
 #: index highest. Read from `pyflightstream.overview._CORE_LAYERS`, which
-#: the SRS architecture chapter and the CLAUDE.md layout rule are both
+#: the SRS architecture chapter and the CONTRIBUTING.md layout rule are both
 #: derived from, so this guard spells no layer name of its own. A name
 #: with no row here, a side branch such as `fsi`, is deliberately
 #: absent: the rule orders the pipeline, and a branch outside it has no
@@ -481,7 +481,7 @@ def _upward_function_body_imports(path: Path) -> list[str]:
 def test_no_function_body_import_reaches_a_higher_layer():
     """The layer rule, with an EMPTY permitted set (OPS-2007.02.03).
 
-    Dependencies flow downward (CLAUDE.md, "Layout"), and a function-body
+    Dependencies flow downward (CONTRIBUTING.md, "Layout"), and a function-body
     import does not make an upward one legal: deferring the import to
     call time hides the direction from every module-level reader without
     changing it. This guard therefore carries no allowlist, no per-module

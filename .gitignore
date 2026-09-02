@@ -101,4 +101,4 @@ htmlcov/
 # history is unchanged. Taking it out of the history is a rewrite and a
 # force push, which is the author's decision and not a side effect of
 # this change.
-CLAUDE.md
+CONTRIBUTING.md

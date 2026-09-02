@@ -1,9 +1,9 @@
 # Ordered FlightStream version list: release order, append only.
-# This list is the only ordering authority (CLAUDE.md invariant 4).
+# This list is the only ordering authority (CONTRIBUTING.md invariant 4).
 # canonical: YY.XXX scheme, last digit indexes vendor hotfix builds.
 #   It was written here as 26.XXX while 26 was the only major registered;
 #   the 2026-08-09 addition of the 25 series makes the major a variable,
-#   which is what the scheme always meant. CLAUDE.md invariant 4 and SRS
+#   which is what the scheme always meant. CONTRIBUTING.md invariant 4 and SRS
 #   FR-02a were moved to YY.XXX the same day.
 # alias: the vendor-facing release name.
 # build: the vendor build number this version's solver prints in its own
@@ -67,7 +67,7 @@ versions:
   # note before reading the position. These THREE (25.000, 25.100 and
   # 26.000) precede every version this repository had registered until
   # now, so they are inserted at the FRONT rather than appended. The append-only rule above is about
-  # never DROPPING a version (CLAUDE.md invariant 4), not about the end of the
+  # never DROPPING a version (CONTRIBUTING.md invariant 4), not about the end of the
   # list: the list is ordered by RELEASE order and a build obtained
   # later can belong earlier, which is exactly what happened when the
   # February 2026 build arrived after the May one and took the earlier

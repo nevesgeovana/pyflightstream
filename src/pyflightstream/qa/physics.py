@@ -25,7 +25,7 @@ The SMI class (FR-27) adds local-only drift cases over the research
 simulation files: they run only when an explicit ``smi_root`` is
 given, the geometry never enters Git, and the committed reports carry
 aggregated Total coefficients plus the sha256 of the opened file
-(CLAUDE.md invariant 5).
+(CONTRIBUTING.md invariant 5).
 """
 
 from __future__ import annotations
@@ -1116,7 +1116,7 @@ def _run_phy06(context: _CaseContext) -> CaseResult:
 # --------------------------------------------------------------------------
 #
 # The SMI simulation files live under _private/geometry/smi/ and never
-# enter Git (CLAUDE.md invariant 5); these cases run only when the run
+# enter Git (CONTRIBUTING.md invariant 5); these cases run only when the run
 # is given an explicit --smi-root, and the committed reports carry the
 # aggregated Total coefficients plus the sha256 of the opened file,
 # never the geometry itself. Reference values use the unit reference
@@ -1251,7 +1251,7 @@ def _make_smi_runner(case_id: str, fsm_name: str, title: str):
             # `cases/matrix.py` already use.
             raise RuntimeError(
                 f"{case_id} needs the local SMI geometry root; pass smi_root "
-                "(CLI: --smi-root). The files never enter Git, CLAUDE.md invariant 5."
+                "(CLI: --smi-root). The files never enter Git, CONTRIBUTING.md invariant 5."
             )
         fsm_path = (Path(context.smi_root) / fsm_name).resolve()
         if not fsm_path.is_file():
@@ -1452,7 +1452,7 @@ def registered_cases(*, include_smi: bool = False) -> dict[str, PhysicsCase]:
     include_smi : bool, keyword-only
         Include the SMI class, whose geometry is local and never
         committed. The SMI cases join only when the caller can
-        provide that root; they never run implicitly (CLAUDE.md
+        provide that root; they never run implicitly (CONTRIBUTING.md
         invariant 5). Keyword-only since 2026-08-18: a bare ``True``
         in a call read as nothing in particular.
 
@@ -1479,7 +1479,7 @@ def case_table(*, include_smi: bool = False) -> list[dict[str, str | int]]:
     ----------
     include_smi : bool, keyword-only
         Include the SMI class lines; like the runs themselves, they
-        never appear implicitly (CLAUDE.md invariant 5).
+        never appear implicitly (CONTRIBUTING.md invariant 5).
 
     Returns
     -------

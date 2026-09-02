@@ -5,7 +5,7 @@ Two defects are reproduced and then guarded here.
 The first (OPS-2005.12). ``pyflightstream._errors`` imports nothing from
 this package and most of the package imports it, and it appeared in none
 of the three places the layering is stated: the generated architecture
-page, the SRS architecture chapter, and the layout rule in ``CLAUDE.md``.
+page, the SRS architecture chapter, and the layout rule in ``CONTRIBUTING.md``.
 The shortest reproduction is one line::
 
     "_errors" in pyflightstream.overview.markdown_overview()   # was False
@@ -305,7 +305,7 @@ def test_the_srs_side_branch_paragraph_names_only_declared_modules():
 
 # RESTATEMENT 3 OF 4 IS GONE, and this note stands in its place rather
 # than the count quietly becoming three. It asserted that the layout rule
-# in CLAUDE.md carried the derived layer chain. That file left this
+# in CONTRIBUTING.md carried the derived layer chain. That file left this
 # repository on 2026-08-25: it is the author's working method, not a
 # product of this library, and it had been on a public remote since the
 # repository was created. There are three prose restatements now, and the

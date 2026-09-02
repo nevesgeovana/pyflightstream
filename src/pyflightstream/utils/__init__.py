@@ -2,7 +2,7 @@
 
 Pipeline role: none. Nothing in the run pipeline imports this
 subpackage, which is what keeps it outside the layer rule rather than
-at a position within it (CLAUDE.md Layout, AD-01).
+at a position within it (CONTRIBUTING.md Layout, AD-01).
 
 The two positions are stated separately, because one declaration for
 the subpackage was wrong for half of it. :mod:`~pyflightstream.utils.manual`

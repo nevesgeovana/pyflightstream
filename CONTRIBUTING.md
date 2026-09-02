@@ -74,15 +74,37 @@ a mechanical half of that rule until 2026-08-11.
 ## Hard invariants
 
 These are the non-negotiable rules, and this file is where a fresh clone
-finds them: no manual text, no AGPL-derived code, every command database
-change is evidence-backed, versions are only added, English names
-everywhere, no notebooks in Git.
+finds them. They are NUMBERED, and the numbers are cited from the code:
+133 places in this repository name an invariant by its number, so the
+numbering is an interface and not a presentation choice.
 
-They were previously stated here in short with a pointer to a file at the
-repository root. That file is the author's working method and stopped
-being published in 0.9.0, so the pointer named something a clone does not
-have, and it named it to the one reader who could not tell: someone
-before their first change.
+1. **No proprietary text.** No manual prose is reproduced. A fact taken
+   from a licensed document appears as a paraphrase with a locator.
+2. **No AGPL-derived code.** The emitter is specified from the official
+   manual and probe evidence only. Every commit carries the clean-room
+   trailer that says so.
+3. **Evidence before a claim.** Every command database entry carries a
+   citation, a status is never hand-edited into a promoted entry, and
+   nothing claims knowledge it does not have.
+4. **Versions are only added.** The registered version list is the
+   ordering authority and grows; an entry is never removed or reordered.
+5. **No proprietary content, no research geometry, and no naming of the
+   author's employer or the predecessor toolchain**, anywhere that
+   ships.
+6. **English names everywhere**, in code, in tests and in documentation.
+7. **The layered pipeline holds.** A module imports only from the layers
+   below its own.
+8. **Didactic refusals.** A refusal names what was given, what is
+   accepted, and where to look; it never merely says no.
+9. **No notebooks in Git.**
+
+THE NUMBERING IS THE ONE THE CODE ALREADY CITES. It was previously
+stated in a file at the repository root that stopped being published in
+0.9.0, and the numbers went on being cited from 69 places that then
+pointed at a file a clone does not have. Renumbering to suit a shorter
+prose list was considered and refused: 44 of the 133 citations sit in
+`reports/` and `CHANGELOG.md`, which are evidence and history and are
+not rewritten, so a renumber would leave two numberings in one tree.
 
 ## How to add a command
 

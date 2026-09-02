@@ -182,7 +182,7 @@ CREATE_BULK_SEPARATION:
           type: int_list
           cites: boundaries
           required: false
-    "26.120": {status: documented, note: "Contradicted by evidence and not yet reprobed: on 26.120 (build #7012026) the solver refused all four documented forms, including the three-argument 26.1 form that ran on the May build, then called 26.100 and now 26.101 (reports/RPT-015_bulk-separation-family-acceptance_2026-08-02.md). The status stays documented because a promotion needs a probe report written by pyfs-qa (CLAUDE.md invariant 3) and RPT-015 is an ad-hoc probe that promotes nothing; the harness re-probe is PLN-20260802-2240."}
+    "26.120": {status: documented, note: "Contradicted by evidence and not yet reprobed: on 26.120 (build #7012026) the solver refused all four documented forms, including the three-argument 26.1 form that ran on the May build, then called 26.100 and now 26.101 (reports/RPT-015_bulk-separation-family-acceptance_2026-08-02.md). The status stays documented because a promotion needs a probe report written by pyfs-qa (CONTRIBUTING.md invariant 3) and RPT-015 is an ad-hoc probe that promotes nothing; the harness re-probe is PLN-20260802-2240."}
   notes: >
     Assigns the bulk (bluff-body) flow-separation model to the listed
     boundaries. NUM_BOUNDARIES takes -1 for all mesh boundaries;
@@ -417,7 +417,7 @@ DELETE_VALAREZO_CRITERION_BOUNDARIES:
   args: []
   manual_ref: "SRC-741 p.339"
   versions:
-    "26.100": {status: documented, note: "Contradicted by evidence and not yet reprobed: RPT-018 found this name unrecognized on 26.100 (build #2122026), the build whose own manual documents it in a function header, while the undocumented DELETE_VALAREZO_SEPARATION_BOUNDARIES was accepted. The status stays documented because a promotion to broken needs a probe report written by pyfs-qa (CLAUDE.md invariant 3) and RPT-018 is an ad-hoc probe that promotes nothing; the harness re-probe is PLN-20260805-1520."}
+    "26.100": {status: documented, note: "Contradicted by evidence and not yet reprobed: RPT-018 found this name unrecognized on 26.100 (build #2122026), the build whose own manual documents it in a function header, while the undocumented DELETE_VALAREZO_SEPARATION_BOUNDARIES was accepted. The status stays documented because a promotion to broken needs a probe report written by pyfs-qa (CONTRIBUTING.md invariant 3) and RPT-018 is an ad-hoc probe that promotes nothing; the harness re-probe is PLN-20260805-1520."}
   notes: >
     The manual's own name for clearing the Valarezo list, which the
     solver does not answer to. The name it answers to is the entry

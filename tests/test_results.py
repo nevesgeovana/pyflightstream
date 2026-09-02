@@ -284,7 +284,7 @@ def test_every_registered_build_comes_from_a_committed_report(recwarn):
     assert not unevidenced, (
         f"these registered build numbers appear in no committed report for their own "
         f"version: {unevidenced}. A build number is solver evidence; record it from a "
-        "report's solver_identity, never from memory (CLAUDE.md invariant 3)."
+        "report's solver_identity, never from memory (CONTRIBUTING.md invariant 3)."
     )
 
 

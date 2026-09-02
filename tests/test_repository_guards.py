@@ -224,3 +224,109 @@ def test_the_shipped_surface_guard_can_still_fail() -> None:
     done = _run(str(TOOLS / "check_shipped_surface_mutations.py"))
     assert done.returncode == 0, f"{done.stdout}\n{done.stderr}"
     assert "none merely by crashing" in done.stdout, done.stdout
+
+
+# --- PFS-2028.07: an exemption for a file that is not there ------------------
+#
+# The retired working-method file's exemption outlived the file by three
+# releases and nothing noticed. The reason is worth stating: an exemption
+# for an absent path never fires, so it never fails, so it cannot go
+# stale loudly. The parser already refuses a misspelled KEY on the
+# reasoning that an ignored exemption line "reads as an exemption that
+# was never granted", and an exemption for a file that is gone reads as
+# one that is still needed.
+#
+# GUARDED HERE AND NOT IN THE CHECKER, deliberately, and the first
+# version did put it there and was wrong. The config parser has no
+# repository root: `--config` and `--tree` are separate arguments
+# because the two need not be related. Inferring a root from the config
+# file's own location held for this tree and broke all forty cases of the
+# mutation battery the moment they wrote a config into a temporary
+# directory, each refusing on LICENSE and README.md "which this
+# repository does not have" while standing somewhere that indeed did not
+# have them. A root is supplied, never inferred. The exemption list is
+# this repository's own configuration, so a test over this repository is
+# the right reach for it.
+
+#: The retired file's name, ASSEMBLED rather than written, because the
+#: sweep below refuses any tracked file outside the records that spells
+#: it, and the first version of this module spelled it four times and
+#: failed on itself. A guard that cannot name what it forbids without
+#: breaking its own rule needs this seam, and the seam is cheaper than
+#: an exclusion for this file, which would have to be widened by hand
+#: every time another guard mentions the name.
+RETIRED_METHOD_FILE = "CLAUDE" + ".md"
+
+
+def _shipped_surface_module():
+    """Import the checker by path, since `tools/` is not a package.
+
+    REGISTERED IN `sys.modules` BEFORE EXECUTION, which is not ceremony:
+    the module defines a frozen dataclass, and dataclass field
+    processing looks the defining class's module up in `sys.modules`.
+    Without the registration that lookup returns None and the import
+    dies inside the standard library, several frames from anything that
+    names this file.
+    """
+    import importlib.util
+
+    name = "check_shipped_surface_under_test"
+    spec = importlib.util.spec_from_file_location(name, TOOLS / "check_shipped_surface.py")
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    try:
+        spec.loader.exec_module(module)
+    except Exception:
+        del sys.modules[name]
+        raise
+    return module
+
+
+def test_the_live_configuration_names_only_files_that_exist():
+    """Every exempted path is a file this repository actually has.
+
+    The assertion that would have caught the dangling one, and it fails
+    if a future edit reintroduces the shape.
+    """
+    module = _shipped_surface_module()
+    config = module.load_config(SHIPPED_SURFACE_CONFIG)
+    assert config.exempt_paths, (
+        "the configuration exempts nothing, so this test would pass over an empty set "
+        "and prove nothing about the rule it guards"
+    )
+    absent = sorted(entry for entry in config.exempt_paths if not (REPO / entry).exists())
+    assert not absent, (
+        f"the shipped-surface configuration exempts {absent}, which this repository does "
+        "not have. An exemption for an absent file never fires, so it never fails, and it "
+        "reads as an exemption that is still needed long after the file it excused has gone"
+    )
+
+
+def test_no_tracked_file_outside_the_records_points_at_the_retired_method_file():
+    """The sweep, held so it cannot silently regrow.
+
+    `reports/` and `CHANGELOG.md` are excluded BY NAME rather than by a
+    pattern someone can widen: they are committed evidence and history,
+    a pointer inside either was TRUE when it was written, and rewriting
+    one would be editing a record of what somebody knew at the time.
+    """
+    listing = subprocess.run(
+        ["git", "grep", "-l", RETIRED_METHOD_FILE.replace(".", r"\.")],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        check=False,
+        env=os.environ.copy(),
+    ).stdout
+    live = sorted(
+        name
+        for name in listing.splitlines()
+        if not name.replace("\\", "/").startswith("reports/")
+        and name.replace("\\", "/") != "CHANGELOG.md"
+    )
+    assert not live, (
+        f"{len(live)} tracked file(s) outside the records still point at a file this "
+        f"repository does not publish: {live}. The numbered invariants live in "
+        "CONTRIBUTING.md."
+    )
