@@ -640,6 +640,12 @@ def expand_group(
         :class:`~pyflightstream.workspace.inputs.GroupsArtifact` carries
         no id of its own, and a refusal that cannot name the file the
         user must edit is not didactic.
+    boundaries : mapping of str to int, optional
+        The opened geometry's boundary inventory, label to 1-based
+        index. A group member written as a NAME resolves through it
+        (PFS-2028.00); its absence is the only thing that refuses one,
+        and that refusal names this argument rather than telling the
+        user to rewrite their artifact in positions.
 
     Returns
     -------

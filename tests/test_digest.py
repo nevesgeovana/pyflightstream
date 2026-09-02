@@ -605,6 +605,34 @@ def test_the_digest_owner_imports_nothing_from_this_package():
     assert "import pyflightstream" not in module.read_text(encoding="utf-8")
 
 
+def test_the_fsm_reader_imports_nothing_above_the_base(tmp_path=None):
+    """PFS-2028.00: `_fsm` sits below every layer, asserted not assumed.
+
+    THE PRECEDENT IT CITES IS A CONJUNCTION and the first version took
+    half of it. `_digest` is a floor by behaviour and not a declared
+    layer row, and it carries a hand-written guard exactly because of
+    that: `tests/test_conventions.py`'s tree-wide walk resolves an
+    undeclared module to no row, examines not one of its imports, and
+    still counts it toward its own non-vacuity floor. So a module with
+    no row and no guard is checked by nothing, which is the failure that
+    module records having found once in `_errors`.
+
+    `_fsm` is usable from every layer only while it imports nothing from
+    this package but the base exception. The day it imports more, some
+    layer can no longer use it and the reason it exists is gone.
+    """
+    module = SRC / "_fsm.py"
+    assert module.is_file()
+    for source, _ in _imports_of(module):
+        if not source.startswith("pyflightstream"):
+            continue
+        assert source == "pyflightstream._errors", (
+            f"_fsm imports {source}, so it no longer sits below every layer and the "
+            "reason it exists is gone"
+        )
+    assert "import pyflightstream\n" not in module.read_text(encoding="utf-8")
+
+
 def test_the_run_layers_provenance_digest_answers_none_rather_than_raising(tmp_path):
     """The policy at the CALL SITE, not only in the function it calls.
 

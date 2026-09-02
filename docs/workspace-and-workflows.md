@@ -183,7 +183,8 @@ read by the package rather than ignored:
 |---|---|
 | before v0.8.1 | `VELOCITY`, `RPM`, `ROTOR_AXIS`, `ROTOR_ORIGIN`, `ROTOR_SHEDDING`, `BLADES`, `MOVING_BOUNDARIES`, `DELTA_TIME`, `TIME_ITERATIONS`, `WINDOW_DEGREES`, `WINDOW_STEPS`, `WINDOW_REVOLUTIONS`, `OUTPUTS` |
 | v0.8.1 | `GEOMETRY`, `SYMMETRY`, `PERIODIC_COPIES` |
-| this release | `ADVANCE_RATIO`, `RPM_SIGN`, `DELTA_THETA`, `REVOLUTIONS`, `LOG_OUTPUT` |
+| v0.10.0 | `ADVANCE_RATIO`, `RPM_SIGN`, `DELTA_THETA`, `REVOLUTIONS`, `LOG_OUTPUT` |
+| v0.10.1 | none. What changed is what `MOVING_BOUNDARIES` ACCEPTS: see below |
 
 **`MOVING_BOUNDARIES` NAMES SURFACES, AND SHOULD NOT COUNT THEM.** Write
 the boundary names the geometry carries, or a FAMILY name, which is a
@@ -244,7 +245,7 @@ A row that names none of the three behaves exactly as it did before, and
 that is measured rather than promised, in two separate ways because they
 are two separate claims.
 
-Going forward, every workflow crossed with two case shapes and every
+Going forward, every workflow crossed with three case shapes and every
 build it covers is pinned as a committed golden under
 `tests/goldens/workflows/` and compared byte for byte on every run of the
 suite. On one of the workflow-and-build pairs, `steady` on FlightStream
@@ -647,7 +648,7 @@ is the way out of that. Name a run type in the `WORKFLOW` column and the
 package builds the whole script itself, from the row and from what the
 row's identifiers resolved to.
 
-Two types ship today.
+Three types ship today.
 
 Both open the row's `GEOMETRY` first when the row names one, and both
 initialize the solver under the row's `SYMMETRY`.
@@ -673,6 +674,22 @@ emits no motion. A row carrying `RPM`, `ADVANCE_RATIO`, `RPM_SIGN`,
 same reason: nothing would read them, and the run would be recorded as
 though they had been honoured.
 
+**And one refusal reaches an `unsteady` row without its author touching
+the row at all.** A solver preset stating a wake termination in
+REVOLUTIONS is refused on this run type, because a run that turns
+nothing has no revolution for the setting to be counted in. The run
+does have a time loop, so the setting is not meaningless in principle;
+it is unstateable in revolutions, and this package records no
+steps-spelled preset key for it. Drop the key from the preset the row
+names, or give that row a preset of its own. A steady row meets a
+different refusal for a different reason, and a rotor row meets none.
+
+**`LOG_OUTPUT` applies here too**, and for the same reason it applies to
+a rotor run: an unsteady time loop always reaches its prescribed end, so
+the iteration counter judges nothing and the run would be recorded
+`COMPLETED_MAX_ITER` whatever the solver did. Name the log among the
+row's outputs and the residuals decide instead.
+
 `unsteady_rotor` is a blade-resolved rotor run: a rotor coordinate
 system at the hub the row declares, one rotary motion turning at the
 row's `RPM` about the row's `ROTOR_AXIS`, and a physical time loop. The
@@ -689,13 +706,13 @@ POL  | AIRCRAFT  | DESCRIPTION            | FLIGHT_CONDITION | SWEEP_TYPE  | SWE
 7003 | RotorRig  | UNSTEADY_NO_ROTOR      | TASmps:30.0, REmi:1.20   | AL          | 0.0            | r003 | s002 | e001   | 020       | 26.120   |    1   |  1  | unsteady       | OUTPUTS: loads_{point}.txt / VELOCITY: 30.0 / DELTA_TIME: 0.00025 / TIME_ITERATIONS: 480
 ```
 
-**NEITHER ROW NAMES A `GEOMETRY`, AND THAT IS WHAT THEY ARE FOR.** This
+**NO ROW HERE NAMES A `GEOMETRY`, AND THAT IS WHAT THEY ARE FOR.** This
 file is the suite's proof that a matrix written before v0.8.1 renders
 exactly the bytes it always did, so it deliberately names none of the
 three keys; run as it stands, it solves whatever the solver already has
 open, which is the defect v0.8.1 exists to remove.
 
-**BOTH** rows need the cell, not just the rotor one: a row that keeps
+**EVERY** row needs the cell, not just the rotor one: a row that keeps
 none opens nothing and is told nothing. The fragment below is written for
 this page rather than lifted from the suite, and shows each row's
 `VAR_NAMES_VALUES` tail with the rest elided:
@@ -743,8 +760,8 @@ Running such a row from Python, with an assessor of your own, is
 unaffected.
 
 **That limit applies to the matrix printed above, as printed.** Row 7002
-sweeps two alphas, so the command shown runs 7001 and cannot judge
-7002's second point. Cut 7002 to one sweep value to run the block
+sweeps two alphas, so the command shown runs 7001 and 7003 and cannot
+judge 7002's second point. Cut 7002 to one sweep value to run the block
 exactly as it stands, which is what the suite does: it keeps a helper
 that rewrites `0.0,2.0` to a single value for the acceptance cases, and
 the case that runs the committed fixture unmodified is marked as an

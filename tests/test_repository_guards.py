@@ -311,17 +311,39 @@ def test_no_tracked_file_outside_the_records_points_at_the_retired_method_file()
     a pointer inside either was TRUE when it was written, and rewriting
     one would be editing a record of what somebody knew at the time.
     """
-    listing = subprocess.run(
+    done = subprocess.run(
         ["git", "grep", "-l", RETIRED_METHOD_FILE.replace(".", r"\.")],
         cwd=REPO,
         capture_output=True,
         text=True,
         check=False,
         env=os.environ.copy(),
-    ).stdout
+    )
+    # THE STATUS IS READ, and that is not ceremony. `git grep` exits 0
+    # with matches, 1 with none, and anything else is git failing: a
+    # wrong directory, a broken config, a hook. It then writes NOTHING to
+    # stdout, the filter below yields an empty list, and the assertion
+    # passes. A quality lens measured exit 128 with zero bytes from a
+    # non-repository directory, and this guard reported success.
+    assert done.returncode in (0, 1), (
+        f"git grep exited {done.returncode}, so this guard measured nothing: "
+        f"{done.stderr.strip()[:200]}"
+    )
+    matches = done.stdout.splitlines()
+    # NON-VACUITY, and it is load-bearing here in a way it usually is
+    # not. Every one of today's matches is EXPECTED, in `reports/` and
+    # `CHANGELOG.md`, so the surviving population is empty on a healthy
+    # tree AND on a broken git. Without this clause the two states are
+    # indistinguishable and the guard is green in both.
+    assert matches, (
+        "no tracked file names the retired method file at all, not even the records. "
+        "That is not the state this guard was written for: `reports/` and "
+        "`CHANGELOG.md` carry it as history and are never rewritten, so an empty "
+        "result means the search did not run rather than that the sweep succeeded"
+    )
     live = sorted(
         name
-        for name in listing.splitlines()
+        for name in matches
         if not name.replace("\\", "/").startswith("reports/")
         and name.replace("\\", "/") != "CHANGELOG.md"
     )

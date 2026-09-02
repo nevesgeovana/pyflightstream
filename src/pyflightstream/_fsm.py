@@ -28,14 +28,17 @@ THE POSITION IS THE INDEX, AND THE NUMBER ON THE LINE IS NOT. Each
 boundary's first line begins with an integer, and that integer is NOT
 the boundary index: measured over the eight geometries of the author's
 campaign, seven start theirs at 2 and one starts at 1, so a map built
-from it would be off by one in seven files out of eight. The 1-based
-POSITION of the record in the block is the solver's boundary index, on
-four independent measurements: the file's own per-element surface array
-takes values exactly 1..N and never 2..N+1; element counts identify the
-surfaces by position across two different geometries; the solver's own
-run log lists the boundaries in block order; and every row of the
-author's matrix resolves to its intended surfaces under position
-ordering and to nothing coherent under the head numbers.
+from it would be off by one in seven files out of eight.
+
+THE EVIDENCE IS A COMMITTED REPORT AND NOT THIS PARAGRAPH:
+``reports/RPT-039_boundary-position-is-the-solver-index_2026-09-02.md``.
+It states three measurements with their figures rather than describing
+them, and the strongest is the solver answering the question itself: the
+run log of the licensed 26.123 run lists that geometry's boundaries in
+exactly mesh-block order. A fourth measurement was reported by a review
+agent and EXCLUDED from the report, because the session writing it could
+not reproduce the reading. A claim resting only on a docstring is what a
+verification review refused here, correctly.
 """
 
 from __future__ import annotations
@@ -46,7 +49,19 @@ from pathlib import Path
 
 from pyflightstream._errors import PyflightstreamError
 
-__all__ = ["MESH_MARKER", "MeshReadError", "boundary_labels", "boundary_names"]
+#: The CONSUMED surface, which is what this list is for. It carries
+#: every name another module imports and no name only this one uses,
+#: so `family_of` is deliberately absent and `resolve_family` is
+#: deliberately present. The first version omitted `resolve_family`
+#: while `cases/workflows.py` imported it, which would have let a
+#: later tidy-up of unexported names break the caller.
+__all__ = [
+    "MESH_MARKER",
+    "MeshReadError",
+    "boundary_labels",
+    "boundary_names",
+    "resolve_family",
+]
 
 #: Opens the mesh section of a saved simulation. It is SEARCHED for and
 #: never assumed at an offset: it sits on line 16 of seven campaign

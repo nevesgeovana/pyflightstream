@@ -1203,7 +1203,7 @@ def percent_script_markdown(source: str) -> str:
     (``# %%``) become fenced Python blocks; a leading module docstring
     is dropped because it repeats the page introduction. This is the
     committed rendering of the no-notebooks policy (CONTRIBUTING.md
-    invariant 7): the ``.py`` file is the single source and the docs
+    invariant 9): the ``.py`` file is the single source and the docs
     page is generated from it at build time.
 
     Parameters

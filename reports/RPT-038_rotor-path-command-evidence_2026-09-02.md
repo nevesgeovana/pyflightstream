@@ -1,4 +1,4 @@
-# RPT-030: what this package's evidence says about the rotor default path, per build (2026-09-02)
+# RPT-038: what this package's evidence says about the rotor default path, per build (2026-09-02)
 
 **PFS-2028.02, the half that needs no licensed seat.** Produced for 0.10.1.
 

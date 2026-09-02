@@ -75,7 +75,7 @@ a mechanical half of that rule until 2026-08-11.
 
 These are the non-negotiable rules, and this file is where a fresh clone
 finds them. They are NUMBERED, and the numbers are cited from the code:
-133 places in this repository name an invariant by its number, so the
+129 places in this repository name an invariant by its number, so the
 numbering is an interface and not a presentation choice.
 
 1. **No proprietary text.** No manual prose is reproduced. A fact taken
@@ -100,11 +100,14 @@ numbering is an interface and not a presentation choice.
 
 THE NUMBERING IS THE ONE THE CODE ALREADY CITES. It was previously
 stated in a file at the repository root that stopped being published in
-0.9.0, and the numbers went on being cited from 69 places that then
-pointed at a file a clone does not have. Renumbering to suit a shorter
-prose list was considered and refused: 44 of the 133 citations sit in
-`reports/` and `CHANGELOG.md`, which are evidence and history and are
-not rewritten, so a renumber would leave two numberings in one tree.
+0.9.0. Two populations are involved and they are different sizes, so
+both are named rather than blurred: **129** places cite an invariant by
+NUMBER, and **70** pointers named that retired FILE and were retargeted
+here. Renumbering to suit a shorter prose list was considered and
+refused: 44 of the 129 citations sit in `reports/` and `CHANGELOG.md`,
+which are evidence and history and are not rewritten, so a renumber
+would leave 85 citations under one numbering and 44 under another in one
+tree, with nothing marking which is which.
 
 ## How to add a command
 

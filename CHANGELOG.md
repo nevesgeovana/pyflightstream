@@ -27,7 +27,11 @@ FlightStream versions.
   same cell moves 1, 2, 4, 5, 6, 7 and 8. Measured against the author's
   own campaign: **one cell reproduces all ten of its positional cells
   exactly, across five geometries**, and every emitted script is byte
-  for byte what it was.
+  for byte what it was. Those two tables, and the evidence that a
+  boundary's POSITION in the mesh block is the solver's index, are in
+  `reports/RPT-039_boundary-position-is-the-solver-index_2026-09-02.md`.
+  The campaign's own files stay outside this repository, so what is
+  committed is the measurement rather than the geometry.
 
   An exact label beats a family, so `Blade1` is one blade and `Blade` is
   all of them. A name the geometry does not carry is refused, listing
@@ -88,13 +92,13 @@ FlightStream versions.
   this package already gives about a preset key that validates and reaches
   no emitted line: it is the same wrong answer with a longer path to it.
 
-  It covers every registered solver build, derived from the command
-  database rather than declared, which is two more than the rotor type
-  because it emits neither motion command.
+  It covers all nine registered solver builds, derived from the command
+  database rather than declared, against the rotor type's five, because
+  it emits neither motion command. The difference is four.
 
 ### Fixed -- pointers to a file this repository does not publish
 
-- **69 tracked pointers retargeted, and the paragraph that shipped a
+- **70 tracked pointers retargeted, and the paragraph that shipped a
   false sentence corrected.** A file at the repository root stopped being
   published in 0.9.0. Two pointers to it were corrected then; the rest
   were never swept. Measured now: 116 occurrences of that filename in the
@@ -103,15 +107,16 @@ FlightStream versions.
   `reports/` and `CHANGELOG.md` keep theirs, deliberately, which is why
   46 remain. Those are committed evidence and history: a pointer inside
   either was TRUE when it was written, and editing one would be rewriting
-  a record of what somebody knew at the time. The other 69 now name
-  `CONTRIBUTING.md`, which carries the numbered hard invariants.
+  a record of what somebody knew at the time. The other 70 now name
+  `CONTRIBUTING.md`, which carries the numbered hard invariants. 116
+  before, 46 after, and the two figures close.
 
-- **The numbering is the retired file's, kept exactly.** 133 places cite
+- **The numbering is the retired file's, kept exactly.** 129 places cite
   an invariant BY NUMBER, so the numbering is an interface. Renumbering
   to match a shorter prose list was refused because it cannot be
   completed: 44 of those citations sit in evidence and history and cannot
-  be rewritten, so a renumber would leave two numberings in one tree with
-  nothing marking which is which.
+  be rewritten, so a renumber would leave 85 under one numbering and 44
+  under another in one tree, with nothing marking which is which.
 
 - **A fresh clone is NOT owed the machine-configuration variable list.**
   Measured rather than asserted: no tracked file in this repository reads
@@ -130,7 +135,7 @@ FlightStream versions.
 
 ### Measured -- what the evidence says about the rotor default path
 
-- **RPT-030: every command the rotor path emits, on every registered
+- **RPT-038: every command the rotor path emits, on every registered
   build.** The seat-free half of the compatibility item. It is a
   statement about this repository's own evidence and never a claim that
   a command works on a build; the sweep that would earn the second claim

@@ -318,13 +318,29 @@ def _case_for(name: str) -> SimCase:
     """One case of the shape run type ``name`` accepts.
 
     Read from `GOLDEN_CASES`, which is the same table the byte-identity
-    goldens are rendered from. Sharing that table is the point: a
-    selector with its own private mapping could quietly hand two types
-    the same shape and restore the coverage gap the parametrization
-    above was added to close, and this one cannot, because the goldens
-    would have to degenerate with it and they are pinned byte for byte.
+    goldens are rendered from, so the shapes cannot drift apart.
+
+    THE FIRST VERSION CLAIMED MORE THAN THAT AND THE CLAIM WAS FALSE. It
+    said a degenerate selector could not survive "because the goldens
+    would have to degenerate with it". No golden reads this function:
+    `GOLDEN_RENDERS` is built from `GOLDEN_CASES` directly. A quality
+    lens made this return one shape for every name and 256 of 257 tests
+    stayed green, including the parametrized conventions test whose own
+    docstring justifies this helper, which then ran the steady builder
+    three times under three parameter ids and passed.
+
+    So the property is asserted here instead of asserted about
+    elsewhere: the three shapes must be distinguishable, and the check
+    is one line rather than a paragraph of confidence.
     """
-    return GOLDEN_CASES[name]["bare"]().model_copy(update={"recipe": name})
+    case = GOLDEN_CASES[name]["bare"]().model_copy(update={"recipe": name})
+    assert case.variables.get(WORKFLOW_KEY) == name, (
+        f"the case shape for {name!r} names run type "
+        f"{case.variables.get(WORKFLOW_KEY)!r}, so this selector is handing a builder "
+        "a case belonging to another type and every caller of it is measuring the "
+        "wrong thing"
+    )
+    return case
 
 
 @pytest.mark.parametrize("name", sorted(WORKFLOWS))
@@ -2971,20 +2987,39 @@ def _moving_payload(text: str) -> str:
 def test_a_rotor_row_naming_a_boundary_family_moves_those_surfaces(tmp_path):
     """FR-30b at the surface a user writes, which is a matrix row.
 
-    Four clauses, and the order is the point. Clause one fails FIRST on
-    today's code, on a plain equality about the inventory, so the test
-    fails for the RIGHT reason: not because a name is unknown, but
-    because the package never declared the inventory the name lives in.
-    Written the naive way, this test would have failed with "no mesh
-    boundary labels are registered yet", which is the same evidence
-    dressed up as the user's mistake.
+    THE ORDER OF THE TWO BUILDS IS THE POINT, and the first version of
+    this test got it wrong in the exact way its own docstring claimed to
+    avoid. It built the FAMILY row first, so on 0.10.0 the build raised
+    inside label resolution with "no mesh boundary labels are registered
+    yet" and the inventory assertion below was never reached. The
+    docstring said the opposite. A quality lens measured it against the
+    0.10.0 tree and against a mutant of this one, and both reproduced.
+
+    So the inventory is asserted on a script built from a POSITIONAL
+    cell, which resolves no label and therefore cannot raise for the
+    wrong reason. That clause fails on 0.10.0 as a plain equality about
+    a number, which is what "fails for the right reason" has to mean:
+    not because a name is unknown, but because the package never
+    declared the inventory the name lives in.
     """
     sector = _saved_simulation(tmp_path / "sector.fsm", ["Blade1", "S", "N"])
+
+    # 1. THE PACKAGE DECLARED THE INVENTORY, asked of a build that cites
+    #    no name at all, so nothing here can raise before the assertion.
+    counted = Script("26.123")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", PyflightstreamWarning)
+        build_script(_rotor_row(sector, "1,2"), counted)
+    assert counted.num_boundaries == 3, (
+        "the package did not declare the opened geometry's boundary inventory, so a "
+        "row naming a family would have nothing to resolve against and FR-30b's label "
+        "half is unreachable from a matrix row"
+    )
+    assert counted.entities.labels("boundaries") == {"Blade1": 1, "S": 2, "N": 3}
+
+    # 2. And only THEN the family row, which needs clause one to hold.
     script = Script("26.123")
     build_script(_rotor_row(sector, "Blade,S"), script)
-
-    # 1. THE PACKAGE DECLARED THE INVENTORY. This is the clause that
-    #    fails on 0.10.0, before any name is resolved.
     assert script.num_boundaries == 3, (
         "the package did not declare the opened geometry's boundary inventory, so a "
         "row naming a family has nothing to resolve against and FR-30b's label half "
@@ -2992,8 +3027,14 @@ def test_a_rotor_row_naming_a_boundary_family_moves_those_surfaces(tmp_path):
     )
     assert script.entities.labels("boundaries") == {"Blade1": 1, "S": 2, "N": 3}
 
-    # 2. The family resolved to the positions those names hold HERE.
+    # 3. The family resolved to the positions those names hold HERE, and
+    #    to the same payload the positional row emits, which is the
+    #    compatibility half of the claim.
     assert _moving_payload(script.render()) == "1,2"
+    assert _moving_payload(script.render()) == _moving_payload(counted.render()), (
+        "the named row and the positional row emitted different payloads against one "
+        "geometry, so this release changed what a correct matrix already means"
+    )
 
 
 @pytest.mark.requirement("FR-30b")

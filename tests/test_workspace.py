@@ -1707,6 +1707,20 @@ def test_a_group_written_in_names_expands_against_the_geometrys_inventory(tmp_pa
     )
     assert expanded == {"wing1": 4, "wing2": 6}
 
+    # TWO INVENTORIES, AND THE SAME GROUP MUST MOVE BETWEEN THEM. One
+    # inventory alone is satisfied by a mapping hard-coded to it, which
+    # is the defect this whole release is about wearing different
+    # clothes. The sibling at the workflow layer compares two boundary
+    # orders for the same reason.
+    elsewhere = workspace.expand_group(
+        "eprop", "wing", boundaries={"wing_left": 2, "wing_right": 7, "body": 5}
+    )
+    assert elsewhere == {"wing1": 2, "wing2": 7}
+    assert elsewhere != expanded, (
+        "the same group resolved to the same indices against two different "
+        "inventories, so it is not resolving against the inventory at all"
+    )
+
 
 def test_a_named_member_the_geometry_lacks_is_refused_naming_what_it_has(tmp_path):
     """An unknown name is refused, listing the boundaries that exist."""

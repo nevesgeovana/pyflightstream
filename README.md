@@ -308,11 +308,17 @@ from the database at build time.
 
 ## Development setup
 
-Maintainers: **this repository reads no environment variable at all**,
-and a fresh clone is owed no list of them. That sentence is measured
-rather than asserted: no tracked file here reads one, and the licensed
-solver is located by a required argument that is never guessed, which is
-`--fs-exe` on the quality-assurance command line. An earlier version of
+Maintainers: **no tracked file here reads a named environment variable to
+configure this package**, and a fresh clone is owed no list of them. The
+wording is careful and the earlier draft was not: the run layer does hand
+the AMBIENT environment to the solver subprocess, because the solver's own
+licence server address and installation variables live there, and a
+sentence saying this repository reads nothing at all would send a
+maintainer hunting a licence failure that is not a bug. What no tracked
+file does is read a NAMED variable to decide how this package behaves.
+The licensed solver is located by a required argument that is never
+guessed, `--fs-exe` on the quality-assurance command line; a run matrix
+locates it instead through its workspace's own executables table. An earlier version of
 this paragraph said a few machine-specific variables located the solver
 and its manuals for the licensed tiers, and pointed at a file that
 stopped being published. Both halves were wrong, and the paragraph
