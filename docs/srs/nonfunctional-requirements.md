@@ -783,3 +783,24 @@
     repository, so nothing is broken by the absence. It ships when the
     exemption list is empty, and the promise joins this requirement
     then rather than now.
+
+!!! requirement "NFR-28 A shipped workspace reads as a set-up, not as a diary <span class='srs-pending'>pending</span>"
+    *Origin: the author's item #0 of 2026-09-02, "tratar como um teste
+    simples sem comentarios de historico". Carried by PFS-2029.13.
+    Evidence owed: the checker that node names.*
+
+    Every comment in a workspace artifact this repository ships or
+    reproduces from is one a person setting up a run needs to set up the
+    run: what a value means, its unit, or why it is what it is when the
+    reason is not recoverable from the number. No comment records what a
+    value used to be called, what an earlier release did, or addresses
+    the reader; history belongs to version control. An open question
+    found inside an artifact moves to where open questions live before
+    its comment is deleted.
+
+    Measured 2026-09-02 in the 0.10.1 reproduction workspace: 189 of 301
+    lines across five artifacts are comments, and the reference artifact
+    is seventy eight percent comment, most of it the dated history of the
+    migration that produced the file. Whether the cleaned workspace stays
+    a reproduction record, whose receipt is then retaken, or becomes a
+    plain example is the author's decision and is asked in GOAL-011.

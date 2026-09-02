@@ -280,6 +280,11 @@ Milestones and session records are listed in the
     two fixed columns, and which quantity the resolver solves for
     follows from which keys the row names.
 
+    A third break is planned for 0.11.0 and travels through the same
+    mechanism: PFS-2029.04 drops `FS_SCRIPT` and PFS-2029.07.02 renames
+    `ENTRY` to `PPROC` and moves the output cells out of the row, one
+    layout and one `upgrade` for both.
+
 !!! requirement "FR-11 Lossless one-command conversion <span class='srs-implemented'>implemented</span>"
     *Origin: BRF-08, BRF-16. Evidence: milestone M2; TOML round-trip
     tests ([glossary](index.md#glossary)); the `pyfs-matrix convert`
@@ -401,6 +406,17 @@ Milestones and session records are listed in the
     yet started; VTK and Tecplot probe-data writers exist in `post/`
     but that plot format is not among them.
 
+    THE FORMAT NOW HAS A REFERENCE, named 2026-09-02: the products the
+    author's master's driver wrote from her recorded campaign, one polar
+    file per boundary group carrying a parameter block, a point count, a
+    column count and one row per point in body, stability and wind axes,
+    plus per-point sectional-loads and unsteady-plots files of the same
+    shape. Their location is machine-local
+    (`GeoverseSetup/local/reference_runs.json`). PFS-2029.15.01 and
+    PFS-2029.15.02 carry the writers; FR-52 is where they run, and
+    FR-53's offline parity arm is what moves this requirement off
+    pending.
+
     Probe field data is a separate matter and already ships: the VTK
     legacy and Tecplot point writers of `post/writers.py` export it
     with a documented field-to-column mapping
@@ -484,6 +500,10 @@ Milestones and session records are listed in the
     per coefficient and this requirement would go stale the first time
     one moved.
 
+    Read with PFS-2030.07 at 0.11.0: the comparison report of the
+    author's recorded campaign uses the same per-coefficient shape, with
+    the solver's measured repeatability as its band.
+
 !!! requirement "FR-27 Two geometry classes for drift <span class='srs-implemented'>implemented</span>"
     *Origin: BRF-17. Evidence: milestone M4; the drift suite and its
     committed reports.*
@@ -511,6 +531,26 @@ Milestones and session records are listed in the
     hashes in the manifest, collects outputs to declared locations,
     and provides archive and cleanup operations that refuse to touch
     folders whose manifest is missing or inconsistent.
+
+!!! requirement "FR-29a A staged geometry is a link, not a copy <span class='srs-pending'>pending</span>"
+    *Origin: the author's run log of 2026-09-02, on finding a byte copy of
+    every geometry under every point. Carried by PFS-2029.17. Evidence
+    owed: the staging tests that node names.*
+
+    Staging a geometry into a point's `inputs/` makes a directory
+    junction on Windows and a symbolic link elsewhere rather than a copy;
+    the manifest still records the opened path and its hash, so FR-29's
+    promise about what ran is kept; a filesystem that refuses the link
+    falls back to a copy and the record says so with the reason; and
+    archive and cleanup treat the link as a link and never cross it.
+
+    Measured 2026-09-02: `workspace/__init__.py:1272` stages with
+    `shutil.copy2`, and the author's meshes are large enough that the
+    workspace readme sends every saved simulation to cloud storage rather
+    than to version control, so a copy per point is the cost she met. The
+    estate's own incident stands behind the last clause: a scan that
+    crossed sixteen junctions reported more duplicate bytes than the tree
+    held.
 
 ## Usage-feedback requirements (2026-07-22)
 
@@ -659,6 +699,10 @@ the base could not offer while it bundled several.
     as the documented default, which is surface-pressure integration on
     every boundary.
 
+    Read with PFS-2030.03.03 at 0.11.0, which lets the selection be
+    written as family names in a setup and resolved through the
+    geometry's inventory, as the author's own scripts did.
+
 !!! requirement "FR-22c Unknown rather than assumed default <span class='srs-implemented'>implemented</span>"
     *Origin: Phase 4 split of FR-22, accepted 2026-07-27. Evidence: the
     v0.3 line; solver-setup snapshot tests.*
@@ -695,6 +739,16 @@ the base could not offer while it bundled several.
     A declared boundary inventory is range-checked, and an undeclared
     inventory stays permissive, because the total lives in the geometry
     file rather than in the script.
+
+    Amended 2026-09-02, carried by PFS-2029.12, pending until it ships:
+    an inventory that could not be declared says why. When a row cites a
+    label and the opened geometry carries no mesh block, the refusal
+    names the file and says it carries no mesh block; when an inventory
+    was declared and lacks the label, the refusal names the inventory it
+    read. Measured 2026-09-02: `_fsm.py` returns None in silence at
+    `:160-168` when the file cannot be opened and at `:171-174` when it
+    carries no `$MESH_START$` marker, and the user then meets a message
+    that blames their row.
 
 !!! requirement "FR-31a Solver settings are one entry point with provenance <span class='srs-implemented'>implemented</span>"
     *Origin: Phase 4 split of FR-31, accepted 2026-07-27. Evidence: the
@@ -736,12 +790,23 @@ the base could not offer while it bundled several.
     by build id) resolved by stable id, with a didactic message when an
     id misses.
 
+    Amended 2026-09-02 by FR-52 and FR-55, both pending: the `group` kind
+    becomes `pproc` and a geometry resolves by file name with its
+    extension rather than by bare stem. Until they ship this sentence
+    describes the 0.10.1 library; the amendment is recorded here so the
+    two requirements and this one are read together.
+
 !!! requirement "FR-33b Naming is output-only <span class='srs-implemented'>implemented</span>"
     *Origin: Phase 4 split of FR-33, accepted 2026-07-27. Evidence: the
     v0.3 line; the no-parse-back guard in `tests/test_workspace.py`.*
 
     Output naming is templatable and output-only; the manifest is the
     sole identity authority and no parse-back API exists.
+
+    Read with PFS-2029.19.01 at 0.11.0: the default template becomes the
+    author's own convention, carrying the polar, the Mach, the angles
+    and the advance ratio, and the record names the template that
+    rendered each name.
 
 !!! requirement "FR-33c Colliding output names are blocked before the run <span class='srs-implemented'>implemented</span>"
     *Origin: Phase 4 split of FR-33, accepted 2026-07-27, giving the
@@ -796,6 +861,10 @@ the base could not offer while it bundled several.
     path rather than on the declared string, and whether it is widened
     into FR-29 or given an identifier beside these is an acceptance
     decision rather than a consequence of this split.
+
+    Read with PFS-2029.19.02 at 0.11.0, which adds Mach and advance
+    ratio to the rendered name so two rows that differ only there stop
+    rendering one name; the collision refusal itself is unchanged.
 
 !!! requirement "FR-33d A declared output name is a name, not a route <span class='srs-implemented'>implemented</span>"
     *Origin: OPS-2005.10.03, accepted 2026-08-20, giving the containment
@@ -1328,3 +1397,222 @@ The allocation is recorded in the
     `operational` as a statement about measurements made on THAT BUILD
     would be wrong. Anything presenting the level to a user states what
     it rests on where the two differ.
+
+## The workspace interface the author specified (2026-09-02)
+
+The requirements below were derived on 2026-09-02 from two sources read
+side by side: the author's own driver for her master's campaign, which
+ran a matrix with no mandatory input, exported eight kinds of file per
+point and wrote her plot-format products afterwards; and the 0.10.1
+tree, pre-flighted on her rows with zero solver time and diffed against
+the scripts that produced her recorded results. Each requirement names
+the planning nodes that carry it, so the plan points here and this page
+points back. Her words are preserved verbatim in the coordination
+record `RSH-HND-040` and its appendix; the measurements are on the
+nodes.
+
+!!! requirement "FR-50 A matrix runs with no mandatory command-line input <span class='srs-pending'>pending</span>"
+    *Origin: the author's item #1 of 2026-09-02, "nao quero nenhum input
+    obrigatorio aqui". Carried by PFS-2029.01, PFS-2029.02, PFS-2029.03
+    and its two children, and PFS-2029.04. Evidence owed: the tests each
+    node names.*
+
+    `pyfs-matrix run matriz.fs` and `pyfs-matrix plan matriz.fs` need no
+    option beyond the matrix path: the solver build comes from each row's
+    `FS_BUILD` cell, with the version option remaining as the default for
+    rows that leave the cell empty; the run type comes from the `WORKFLOW`
+    column wherever it names a registered type, with the recipe option
+    remaining for `LEGACY` rows; the campaign name comes from the workspace
+    directory, recorded as such, with the name option remaining as an
+    override; and the `FS_SCRIPT` column is no longer part of the layout,
+    the reader recognising the older layout by its header row and refusing
+    it naming `pyfs-matrix upgrade`.
+
+    Measured 2026-09-02 in the 0.10.1 tree: `run/cli.py:136` and `:138`
+    mark the name and the version required, while
+    `cases/matrix.py:720` already computes the only condition under which
+    a default version answers for anything and says in its own message
+    that today it answers for nothing. The version half is therefore a
+    defect against the design recorded on PFS-2009.08 rather than new
+    scope, and the requirement records both halves so the command line
+    and the library stop disagreeing.
+
+!!! requirement "FR-51 A run leaves the study's export set, named for the point <span class='srs-pending'>pending</span>"
+    *Origin: the author's run log of 2026-09-02 and her master's driver,
+    which exported eight kinds per point and named every file for the
+    point it came from. Carried by PFS-2029.14 and its children,
+    PFS-2029.18 and PFS-2029.19 and its children. Evidence owed: the
+    export goldens and the script-parity arm of GOAL-011.*
+
+    Every point of a workflow campaign leaves, beside the loads table and
+    the log it leaves today, the saved simulation, the tecplot export, the
+    surface sections, the surface sectional loads and the probe points,
+    and an unsteady point additionally its unsteady plots; the sections,
+    sectional loads and probe points are updated and computed before they
+    are exported, so no export is of a previous state; the saved
+    simulation is written first, as the author's driver did; a
+    post-processing artifact may deselect a kind; a kind whose command
+    carries no row on the row's build is refused at pre-flight naming the
+    build; and every export is named after the point in the author's
+    convention, `POLAR-{pol}_M{mach}AL{alpha}BE{beta}` with a `J{ratio}`
+    suffix for a rotor point, so two rows differing only in Mach or in
+    advance ratio never render one name.
+
+    Measured 2026-09-02: the 0.10.1 builders emit `EXPORT_LOG` once and
+    `EXPORT_SOLVER_ANALYSIS_SPREADSHEET` at six sites and nothing else
+    (`grep -c EXPORT_ src/pyflightstream/cases/workflows.py`); the
+    default point name `a+00.0_b+00.0` carries the angles alone. Every
+    export command the author's driver emits carries a row on 26.120 and
+    on 26.123 in the command database, six of them verified.
+
+!!! requirement "FR-52 Post-processing is declared in the pproc artifact and runs as part of the campaign <span class='srs-pending'>pending</span>"
+    *Origin: the author's item #3 of 2026-09-02 and her decision of the
+    same day that the groups artifact becomes `pproc`, and her
+    clarification that post-processing means both the data treatment and
+    the files and data types available. Carried by PFS-2029.07 and its
+    children, PFS-2029.15 and its children, and PFS-2029.16. Evidence
+    owed: the tests each node names and the offline parity arm of
+    GOAL-011.*
+
+    The artifact kind `group` becomes `pproc`, kept under `inputs/pproc`
+    with ids `p###`, and carries the whole post-processing definition of a
+    study in six tables: the boundary groups, the export kinds a point
+    writes, the surface-section distributions, the unsteady force plots,
+    the probe lines, and the products the campaign writes; a matrix row
+    names the artifact in its `PPROC` column, which replaces `ENTRY`, and
+    the `OUTPUTS` and `LOG_OUTPUT` cells leave the row; the builders
+    consume the definition, emitting one section distribution per family
+    and plane, one force plot per group and frame, and one fluid plot per
+    probe vertex and parameter; and a post-processing stage runs inside
+    the campaign after each case's outputs are collected, writing the
+    products under `post/` and naming them in the manifest, with
+    `pyfs-matrix post` re-running the stage from the manifest alone. A
+    setup artifact carries solver settings only, and a setup key naming
+    post-processing is refused pointing at the pproc artifact.
+
+    Measured 2026-09-02: the `ENTRY` column resolves a group artifact at
+    `workspace/matrix.py:1030`, the result reaches the caller at `:1117`
+    and no builder consumes it; `src/pyflightstream/post` holds four
+    modules and nothing on the run path reaches them. The author's driver
+    read a post-processing table off the same module as the solver setup
+    and wrote her products after every polar.
+
+!!! requirement "FR-53 The author's recorded campaign reproduces through the workflow scheme <span class='srs-pending'>pending</span>"
+    *Origin: the author's instruction of 2026-09-02, "nao para ate
+    reproduzir EXATAMENTE corridas selecionadas que fiz no meu script do
+    mestrado, com posproc e tudo", and her clarification that the
+    guarantee she wants is that exactly the same post-processing is
+    produced. Carried by PFS-2030.01 to PFS-2030.07, under PFS-2030. Evidence owed:
+    `GeoversePlan/goals/check_goal_011.py`, item one of GOAL-011.*
+
+    One recorded point per registered run type of the author's master's
+    campaign, run on the solver build that produced the record, is
+    reproduced by a workspace the package plans with nothing on the
+    command line: the emitted script differs from the recorded script only
+    on an enumerated allow-list of paths, comments, scene verbs and
+    edition grammar; the run leaves the same export set under the same
+    names; the package's post-processing, fed the author's recorded
+    exports, writes her plot-format products equal to hers except the
+    timestamp line; and the reproduced loads are compared coefficient by
+    coefficient against the recorded ones with the solver's own measured
+    repeatability as the arbiter of any difference.
+
+    The reference set is machine-local, because the folder that holds it
+    carries an identifier the content guard refuses in versioned files:
+    the checker reads its root from `GeoverseSetup/local/reference_runs.json`
+    and prints NOT YET naming that file when it is absent. The build is
+    26.120, FlightStream 26.1 build #7012026, read off the recorded loads
+    tables and matched to `commands/_meta.yaml` on 2026-09-02. The seat
+    cost is five solver executions, authorised by the author on
+    2026-09-02: three selected points and two controls.
+
+!!! requirement "FR-54 Every solver setting a reference script states has a home and reaches the script <span class='srs-pending'>pending</span>"
+    *Origin: the script diff of 2026-09-02 between the 0.10.1 pre-flight
+    of the author's rows and her recorded scripts. Carried by PFS-2030.02,
+    PFS-2030.03 and its four children, and PFS-2028.05 on her decision of
+    2026-09-02. Evidence owed: the tests each node names.*
+
+    A matrix row can state the fluid constants its author pinned
+    (density, viscosity, sonic velocity, temperature, pressure) as
+    flight-condition keys that override the standard atmosphere and are
+    recorded as pinned; every builder states the reference velocity, the
+    sideslip and the initialisation flag on the opened simulation; the
+    reference artifact's moment point becomes the analysis loads frame and
+    the moments model is stated; a setup's vorticity-drag families resolve
+    through the geometry's inventory; significant digits and the wake
+    termination in time steps have emitters; and a setup that states
+    `symmetry_loads` emits it as stated, an absent key remaining
+    recorded-only and warning as before.
+
+    Measured 2026-09-02: the verbs only the author's scripts emit, beyond
+    the export block, are `SET_ANALYSIS_SYMMETRY_LOADS`,
+    `SET_SOLVER_ANALYSIS_LOADS_FRAME`, `SET_ANALYSIS_MOMENTS_MODEL`,
+    `SET_SIGNIFICANT_DIGITS`, `SOLVER_SET_REF_VELOCITY`,
+    `SET_VORTICITY_DRAG_BOUNDARIES`, `SOLVER_SET_SIDESLIP`,
+    `LOAD_SOLVER_INITIALIZATION DISABLE` and, on the no-rotor unsteady
+    run, `SET_WAKE_TERMINATION_TIME_STEPS`; the fluid state differs in the
+    fourth digit because her scripts pin viscosity 1.789e-5 and sonic
+    velocity 340.29 where the package derives both from the standard
+    atmosphere. The consequence of the first verb is already measured: the
+    isolated-rotor row of the 0.10.1 reproduction workspace reported loads
+    six times the author's, the periodic copy count, because her setup
+    stated the symmetry loads off and the package emitted nothing.
+
+!!! requirement "FR-55 A row states its geometry as a file, and the geometry carries its own boundary inventory <span class='srs-pending'>pending</span>"
+    *Origin: the author's items #2 and #6 of 2026-09-02. Carried by
+    PFS-2029.06 and its children, PFS-2029.09 and its children, and
+    PFS-2029.10. Evidence owed: the tests each node names. AMENDS FR-33a's
+    resolution of a geometry by stable id, and the acceptance sentence of
+    PFS-2009.01, in the same change.*
+
+    The `GEOMETRY` cell of a matrix row carries a file name with its
+    extension, a bare stem being refused naming the files that carry it,
+    so that a saved simulation and a bare mesh are told apart by the row
+    and not guessed; in this release the builders accept a saved
+    simulation and refuse a mesh file naming the release that defines its
+    boundary conditions; a geometry's boundary inventory has one source,
+    the geometry file, with an optional sidecar written by
+    `pyfs-matrix inventory` and never by a run, and a sidecar that
+    disagrees with the file is refused naming both; `mesh_order_list` is
+    refused in a setup rather than recorded; and a row or artifact may
+    name the mesh families the base-region autodetect is allowed to
+    consider.
+
+    This reverses a rule the 0.10.1 library defends in four arms at
+    `workspace/matrix.py:566-637`, which is why it is a minor release and
+    why the migration of every shipped matrix travels with it.
+
+!!! requirement "FR-56 The reference artifact states only what rows share, with one length per quantity <span class='srs-pending'>pending</span>"
+    *Origin: the author's items #4 and #5 of 2026-09-02. Carried by
+    PFS-2029.05 and PFS-2029.08. Evidence owed: the tests each node names.*
+
+    The reference artifact carries the propeller diameter and no radius,
+    refusing a file that states both with values that disagree; and it
+    carries no `blade_travel`, `rotation`, `rpm_sign_installed` or
+    `rpm_sign_isolated`, because the hand of a rotor is a property of the
+    mesh a row opens and is stated in the row, a file still carrying them
+    being refused naming the row keys.
+
+    Measured 2026-09-02: `propeller_diameter_m` is read at
+    `cases/workflows.py:832`; `radius_m` is required at
+    `workspace/inputs.py:299` and read by no emitter; the four rotor
+    fields at `:306-308` appear in no emitter.
+
+!!! requirement "FR-57 A row states as many rotors as the study has <span class='srs-pending'>pending</span>"
+    *Origin: the author's item #4 of 2026-09-02, the multirotor syntax.
+    Carried by PFS-2029.11 and its children. Evidence owed: the tests each
+    node names.*
+
+    A matrix row states its motions as a list of records in one cell, each
+    record carrying its moving boundaries, its rotor speed sign, its axis
+    and its origin point, the cell parser reading one level of nesting; a
+    row with the flat single-motion keys of 0.10.1 reads unchanged; each
+    motion creates its own fixed frame at its named point and its own
+    moving frame that follows it, with its own motion block in the script;
+    and a reference point declares that it is an engine point explicitly,
+    a motion naming a point of another kind being refused.
+
+    Measured 2026-09-02: a row states one motion at
+    `cases/workflows.py:167-175`; named reference points already resolve
+    by name (PFS-2025.15, evidenced), so what is new is the nesting and
+    the repetition, not the points.

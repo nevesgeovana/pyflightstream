@@ -2,8 +2,8 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 45,
-  "total": 99,
+  "cited_by_a_test": 46,
+  "total": 109,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -296,6 +296,14 @@
    "verification": "evidence"
   },
   {
+   "id": "FR-29a",
+   "text": "Staging a geometry into a point's inputs/ makes a directory junction on Windows and a symbolic link elsewhere rather than a copy; the manifest still records the opened path and its hash, so FR-29's promise about what ran is kept; a filesystem that refuses the link falls back to a copy and the record says so with the reason; and archive and cleanup treat the link as a link and never cross it.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the author's run log of 2026-09-02, on finding a byte copy of every geometry under every point. Carried by PFS-2029.17. Evidence owed: the staging tests that node names.*",
+   "verification": "none"
+  },
+  {
    "id": "FR-30",
    "text": "FlightStream is index-parameterized; pyflightstream identifies entities by label. The builder registry tracks frames, actuators, motions, and boundaries with optional labels; every entity-citing argument accepts index or label; declared boundary inventories are range-checked; undeclared stays permissive because the total lives in the geometry file.",
    "priority": "M",
@@ -552,6 +560,70 @@
    "verification": "test"
   },
   {
+   "id": "FR-50",
+   "text": "pyfs-matrix run matriz.fs and pyfs-matrix plan matriz.fs need no option beyond the matrix path: the solver build comes from each row's FS_BUILD cell, with the version option remaining as the default for rows that leave the cell empty; the run type comes from the WORKFLOW column wherever it names a registered type, with the recipe option remaining for LEGACY rows; the campaign name comes from the workspace directory, recorded as such, with the name option remaining as an override; and the FS_SCRIPT column is no longer part of the layout, the reader recognising the older layout by its header row and refusing it naming pyfs-matrix upgrade.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the author's item #1 of 2026-09-02, \"nao quero nenhum input obrigatorio aqui\". Carried by PFS-2029.01, PFS-2029.02, PFS-2029.03 and its two children, and PFS-2029.04. Evidence owed: the tests each node names.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-51",
+   "text": "Every point of a workflow campaign leaves, beside the loads table and the log it leaves today, the saved simulation, the tecplot export, the surface sections, the surface sectional loads and the probe points, and an unsteady point additionally its unsteady plots; the sections, sectional loads and probe points are updated and computed before they are exported, so no export is of a previous state; the saved simulation is written first, as the author's driver did; a post-processing artifact may deselect a kind; a kind whose command carries no row on the row's build is refused at pre-flight naming the build; and every export is named after the point in the author's convention, POLAR-{pol}_M{mach}AL{alpha}BE{beta} with a J{ratio} suffix for a rotor point, so two rows differing only in Mach or in advance ratio never render one name.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the author's run log of 2026-09-02 and her master's driver, which exported eight kinds per point and named every file for the point it came from. Carried by PFS-2029.14 and its children, PFS-2029.18 and PFS-2029.19 and its children. Evidence owed: the export goldens and the script-parity arm of GOAL-011.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-52",
+   "text": "The artifact kind group becomes pproc, kept under inputs/pproc with ids p###, and carries the whole post-processing definition of a study in six tables: the boundary groups, the export kinds a point writes, the surface-section distributions, the unsteady force plots, the probe lines, and the products the campaign writes; a matrix row names the artifact in its PPROC column, which replaces ENTRY, and the OUTPUTS and LOG_OUTPUT cells leave the row; the builders consume the definition, emitting one section distribution per family and plane, one force plot per group and frame, and one fluid plot per probe vertex and parameter; and a post-processing stage runs inside the campaign after each case's outputs are collected, writing the products under post/ and naming them in the manifest, with pyfs-matrix post re-running the stage from the manifest alone. A setup artifact carries solver settings only, and a setup key naming post-processing is refused pointing at the pproc artifact.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the author's item #3 of 2026-09-02 and her decision of the same day that the groups artifact becomes pproc, and her clarification that post-processing means both the data treatment and the files and data types available. Carried by PFS-2029.07 and its children, PFS-2029.15 and its children, and PFS-2029.16. Evidence owed: the tests each node names and the offline parity arm of GOAL-011.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-53",
+   "text": "One recorded point per registered run type of the author's master's campaign, run on the solver build that produced the record, is reproduced by a workspace the package plans with nothing on the command line: the emitted script differs from the recorded script only on an enumerated allow-list of paths, comments, scene verbs and edition grammar; the run leaves the same export set under the same names; the package's post-processing, fed the author's recorded exports, writes her plot-format products equal to hers except the timestamp line; and the reproduced loads are compared coefficient by coefficient against the recorded ones with the solver's own measured repeatability as the arbiter of any difference.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the author's instruction of 2026-09-02, \"nao para ate reproduzir EXATAMENTE corridas selecionadas que fiz no meu script do mestrado, com posproc e tudo\", and her clarification that the guarantee she wants is that exactly the same post-processing is produced. Carried by PFS-2030.01 to PFS-2030.07, under PFS-2030. Evidence owed: GeoversePlan/goals/check_goal_011.py, item one of GOAL-011.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-54",
+   "text": "A matrix row can state the fluid constants its author pinned (density, viscosity, sonic velocity, temperature, pressure) as flight-condition keys that override the standard atmosphere and are recorded as pinned; every builder states the reference velocity, the sideslip and the initialisation flag on the opened simulation; the reference artifact's moment point becomes the analysis loads frame and the moments model is stated; a setup's vorticity-drag families resolve through the geometry's inventory; significant digits and the wake termination in time steps have emitters; and a setup that states symmetry_loads emits it as stated, an absent key remaining recorded-only and warning as before.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the script diff of 2026-09-02 between the 0.10.1 pre-flight of the author's rows and her recorded scripts. Carried by PFS-2030.02, PFS-2030.03 and its four children, and PFS-2028.05 on her decision of 2026-09-02. Evidence owed: the tests each node names.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-55",
+   "text": "The GEOMETRY cell of a matrix row carries a file name with its extension, a bare stem being refused naming the files that carry it, so that a saved simulation and a bare mesh are told apart by the row and not guessed; in this release the builders accept a saved simulation and refuse a mesh file naming the release that defines its boundary conditions; a geometry's boundary inventory has one source, the geometry file, with an optional sidecar written by pyfs-matrix inventory and never by a run, and a sidecar that disagrees with the file is refused naming both; mesh_order_list is refused in a setup rather than recorded; and a row or artifact may name the mesh families the base-region autodetect is allowed to consider.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the author's items #2 and #6 of 2026-09-02. Carried by PFS-2029.06 and its children, PFS-2029.09 and its children, and PFS-2029.10. Evidence owed: the tests each node names. AMENDS FR-33a's resolution of a geometry by stable id, and the acceptance sentence of PFS-2009.01, in the same change.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-56",
+   "text": "The reference artifact carries the propeller diameter and no radius, refusing a file that states both with values that disagree; and it carries no blade_travel, rotation, rpm_sign_installed or rpm_sign_isolated, because the hand of a rotor is a property of the mesh a row opens and is stated in the row, a file still carrying them being refused naming the row keys.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the author's items #4 and #5 of 2026-09-02. Carried by PFS-2029.05 and PFS-2029.08. Evidence owed: the tests each node names.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-57",
+   "text": "A matrix row states its motions as a list of records in one cell, each record carrying its moving boundaries, its rotor speed sign, its axis and its origin point, the cell parser reading one level of nesting; a row with the flat single-motion keys of 0.10.1 reads unchanged; each motion creates its own fixed frame at its named point and its own moving frame that follows it, with its own motion block in the script; and a reference point declares that it is an engine point explicitly, a motion naming a point of another kind being refused.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the author's item #4 of 2026-09-02, the multirotor syntax. Carried by PFS-2029.11 and its children. Evidence owed: the tests each node names.*",
+   "verification": "none"
+  },
+  {
    "id": "NFR-01",
    "text": "The package is didactic by construction: NFR-01a to NFR-01d state what that means in four claims.",
    "priority": "M",
@@ -798,6 +870,14 @@
    "status": "implemented",
    "evidence": "*Origin: the independent review's finding PYFS-026, 2026-08-03. Evidence: [tool.mypy] in pyproject.toml; the types job of .github/workflows/ci.yml.*",
    "verification": "review"
+  },
+  {
+   "id": "NFR-28",
+   "text": "Every comment in a workspace artifact this repository ships or reproduces from is one a person setting up a run needs to set up the run: what a value means, its unit, or why it is what it is when the reason is not recoverable from the number. No comment records what a value used to be called, what an earlier release did, or addresses the reader; history belongs to version control. An open question found inside an artifact moves to where open questions live before its comment is deleted.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the author's item #0 of 2026-09-02, \"tratar como um teste simples sem comentarios de historico\". Carried by PFS-2029.13. Evidence owed: the checker that node names.*",
+   "verification": "none"
   }
  ]
 }
