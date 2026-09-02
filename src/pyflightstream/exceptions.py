@@ -69,6 +69,7 @@ from pyflightstream._errors import (
     PyflightstreamError,
     PyflightstreamWarning,
 )
+from pyflightstream._fsm import MeshReadError
 from pyflightstream.cases import (
     CampaignConfigError,
 )
@@ -151,6 +152,7 @@ __all__ = [
     "MalformedOutputError",
     "ManualDraftError",
     "MatrixError",
+    "MeshReadError",
     "MissingExtraError",
     "NamingTemplateError",
     "OpenMeshError",

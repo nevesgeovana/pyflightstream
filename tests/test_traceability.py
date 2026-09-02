@@ -48,7 +48,11 @@ INDEX = REPO / "reports" / "requirements-index.json"
 #: more than one honestly: a marker was written for each because the
 #: requirement was new, not a requirement claimed because a marker
 #: existed.
-MARKED_FLOOR = 16
+#: Raised from 16 to 17 on 2026-09-02 (PFS-2028.00), for FR-30b. It was
+#: marked because the requirement had no falsifying test at the surface
+#: its own word "everywhere" reaches, which is how it stayed marked
+#: implemented through a release that did not satisfy it.
+MARKED_FLOOR = 17
 
 
 def _marked() -> dict[str, list[str]]:

@@ -185,6 +185,32 @@ read by the package rather than ignored:
 | v0.8.1 | `GEOMETRY`, `SYMMETRY`, `PERIODIC_COPIES` |
 | this release | `ADVANCE_RATIO`, `RPM_SIGN`, `DELTA_THETA`, `REVOLUTIONS`, `LOG_OUTPUT` |
 
+**`MOVING_BOUNDARIES` NAMES SURFACES, AND SHOULD NOT COUNT THEM.** Write
+the boundary names the geometry carries, or a FAMILY name, which is a
+boundary label with its trailing number removed:
+
+```
+MOVING_BOUNDARIES: Blade,S
+```
+
+One cell, and it is right for every geometry in a study. On a sector mesh
+holding `Blade1, S, N` it moves the first two; on the full wheel holding
+`Blade1, S, N, Blade2 ... Blade6` it moves all six blades and the spinner.
+The package reads the names out of the saved simulation the row opens and
+resolves them to the solver's own boundary indices, so the cell follows
+the geometry instead of pinning it.
+
+A cell of NUMBERS still works and now warns, naming the surfaces those
+positions actually select. A position is a place in one file's boundary
+order: it is right for the file it was written against and means a
+different surface in any file that orders them differently, and before
+this release nothing said so. The run completed, exported, and reported
+loads for a rotor whose moving set was wrong.
+
+An exact label beats a family, so `Blade1` is one blade and `Blade` is all
+of them. A name the geometry does not carry is refused, listing the ones it
+does.
+
 `angle_sweep_deg` IS RESERVED TOO, since v0.7.0, and it is the one whose
 match FOLDS CASE rather than being exact: a cell spelling it in any
 casing is read as a sweep of a geometric rotation, and a row that also

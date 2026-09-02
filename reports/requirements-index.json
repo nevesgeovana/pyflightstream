@@ -2,7 +2,7 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 43,
+  "cited_by_a_test": 45,
   "total": 99,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
@@ -315,9 +315,9 @@
    "id": "FR-30b",
    "text": "Every entity-citing argument accepts either an index or a label.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: Phase 4 split of FR-30, accepted 2026-07-27. Status taken off implemented 2026-09-02 (PFS-2028.00): the claim is true at the script layer and false at the surface a user writes, because nothing in src/ declares a boundary inventory, so the label half of \"either\" is unreachable from a run matrix. Evidence owed at that surface: a matrix row that names a mesh family.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: Phase 4 split of FR-30, accepted 2026-07-27. Taken off implemented and put back the same day, 2026-09-02 (PFS-2028.00): the claim was true at the script layer and false at the surface a user writes, because nothing declared a boundary inventory there. Evidence: the v0.3 line; tests/test_script_entities.py for the script layer; tests/test_workflows.py, whose rotor-row tests fail on 0.10.0 because the inventory is never declared, for a MATRIX ROW; and tests/test_workspace.py for a named boundary group, whose members may now be written as names.*",
+   "verification": "test"
   },
   {
    "id": "FR-30c",

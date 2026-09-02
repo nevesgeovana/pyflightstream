@@ -60,11 +60,18 @@ from __future__ import annotations
 
 import math
 import re
+import warnings
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import PurePath
 
-from pyflightstream._errors import PyflightstreamError
+from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
+from pyflightstream._fsm import (
+    MeshReadError,
+    boundary_labels,
+    boundary_names,
+    resolve_family,
+)
 from pyflightstream.cases import CampaignConfigError, ScriptRecipe, SimCase
 from pyflightstream.commands import CommandRegistry
 from pyflightstream.script import CommandArgumentError, Script, helpers
@@ -1132,8 +1139,16 @@ def emit_rotor_motion(
         The case; its variables carry the rotor speed in rev/min
         (``RPM``), the rotor axis within ``frame`` (``ROTOR_AXIS``, one
         of X, Y, Z) and optionally the moving boundaries
-        (``MOVING_BOUNDARIES``, comma-separated 1-based indices or
-        labels; absent means every boundary). It may also declare the
+        (``MOVING_BOUNDARIES``, comma-separated boundary NAMES, family
+        names, or 1-based positions; absent means every boundary). A
+        family name is a boundary label with its trailing number
+        removed, so ``Blade`` selects every blade the opened geometry
+        carries and one cell is right for a sector mesh and a full
+        wheel alike. Positions still work and warn: they belong to one
+        file's boundary order and name different surfaces in a file
+        that orders them differently. Names resolve only where the
+        geometry was opened by this package, which is what declares
+        the inventory. It may also declare the
         direction its relaxed trailing edges shed their wake in
         (``ROTOR_SHEDDING``); see :func:`rotor_shedding_direction` for
         why this function READS that key and emits nothing for it.
@@ -1175,7 +1190,7 @@ def emit_rotor_motion(
     boundaries: Sequence[int | str] | str = "all"
     declared = _variable(case, MOVING_BOUNDARIES_VARIABLE)
     if declared is not None:
-        boundaries = [_boundary(token) for token in declared.split(",") if token.strip()]
+        boundaries = _moving_boundaries(case, script, declared)
         if not boundaries:
             raise CampaignConfigError(
                 f"case {case.sim_id!r} declares {MOVING_BOUNDARIES_VARIABLE} as "
@@ -1198,6 +1213,113 @@ def emit_rotor_motion(
         boundaries=boundaries,
         moving_frames=moving_frames,
     )
+
+
+def _moving_boundaries(case: SimCase, script: Script, cell: str) -> list[int | str]:
+    """Resolve a boundary-citing cell against the opened geometry's names.
+
+    THE AUTHOR'S RULE, and the one sentence this function exists for:
+    nowhere in this package should a user work with indices. A row names
+    the mesh family and the package makes the link to the solver's
+    indices (PFS-2028.00).
+
+    A token resolves in this order, and the order is load-bearing:
+
+    1. an exact boundary label of the opened geometry, so a row can
+       always name one surface;
+    2. otherwise a FAMILY, which is a label with its trailing index
+       removed, so ``Blade`` selects every blade the file carries and one
+       cell is correct for a sector mesh and a full wheel alike;
+    3. otherwise a 1-based POSITION, which still works and now warns,
+       naming the surfaces those positions actually select;
+    4. otherwise the token passes through as a name and the script layer
+       refuses it, listing the labels the geometry declared.
+
+    Exact before family is not arbitrary. ``Blade1`` is both a label and
+    a member of family ``blade``, so trying the family first would
+    silently turn a row citing ONE blade into a row citing six, which is
+    the same class of silent wrong answer this release exists to end.
+
+    Parameters
+    ----------
+    case : SimCase
+        The case; its ``sim_id`` is the matrix POL the messages name.
+    script : Script
+        Script under construction, with the geometry already opened and
+        therefore its inventory already declared.
+    cell : str
+        The raw cell text, comma separated.
+
+    Returns
+    -------
+    list of int or str
+        Boundary indices in ascending order once every token resolved.
+        A list that still holds a string is returned as written, so the
+        script layer raises its own refusal naming the declared labels
+        rather than this function inventing a second one.
+
+    Notes
+    -----
+    WITH NO INVENTORY DECLARED THIS IS EXACTLY 0.10.0. A script that
+    opened no geometry, or opened one carrying no mesh block, has no
+    labels, and every token then goes through :func:`_boundary` as it
+    always did. That is what keeps a direct builder call, and every
+    committed golden behind one, byte for byte unchanged.
+    """
+    tokens = [token.strip() for token in cell.split(",") if token.strip()]
+    labels = script.entities.labels("boundaries")
+    if not labels:
+        return [_boundary(token) for token in tokens]
+    resolved: list[int | str] = []
+    positional: list[str] = []
+    for token in tokens:
+        found = resolve_family(token, labels)
+        if found:
+            resolved.extend(found)
+            continue
+        read = _boundary(token)
+        if isinstance(read, int):
+            positional.append(token)
+        resolved.append(read)
+    if positional:
+        selected = ", ".join(
+            f"{position} is {_named(position, labels, script.num_boundaries)}"
+            for position in sorted({int(token) for token in positional})
+        )
+        warnings.warn(
+            f"case {case.sim_id!r} states {MOVING_BOUNDARIES_VARIABLE} as {cell!r}, and "
+            f"{', '.join(positional)} name a POSITION in this geometry's boundary order "
+            f"rather than a surface. Against {PurePath(str(case.geometry)).name}, {selected}. "
+            "A position is right for the one file it was written against and means a "
+            "different surface in any file that orders them differently, and nothing would "
+            "say so. Write the names instead; a family name such as the label without its "
+            "trailing number selects every member the file carries.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+    if all(isinstance(item, int) for item in resolved):
+        return sorted({int(item) for item in resolved})
+    return resolved
+
+
+def _named(position: int, labels: Mapping[str, int], total: int | None) -> str:
+    """Say what the boundary at one position is, for a user to read.
+
+    THE THIRD BRANCH IS NOT DEFENSIVE AND IT IS WHY ``total`` is taken.
+    A boundary whose name the geometry uses more than once is deliberately
+    left out of the label inventory, since a name meaning two surfaces
+    selects neither. It is still a boundary, so reporting it as "no
+    boundary in this geometry" would be false, and a warning that
+    misdescribes what a user is looking at is worse than no warning: it
+    is a wrong statement about their own mesh, in the message telling
+    them to trust names over numbers.
+    """
+    for label, index in labels.items():
+        if index == position:
+            return label
+    if total is not None and 1 <= position <= total:
+        return "a boundary whose name this geometry uses more than once"
+    return "no boundary in this geometry"
 
 
 def _boundary(token: str) -> int | str:
@@ -1832,6 +1954,82 @@ def _open_geometry(case: SimCase, script: Script) -> None:
             f"resolved to is {case.geometry!r}."
         )
     script.emit("OPEN", case.geometry)
+    _declare_boundaries(case, script)
+
+
+def _declare_boundaries(case: SimCase, script: Script) -> None:
+    """Declare the opened geometry's boundary names onto the script.
+
+    BOUND TO THE ``OPEN`` AND NOT TO THE SCRIPT'S CONSTRUCTION, which
+    is the whole of why this call sits here (PFS-2028.00). Declaring
+    when the script is built would assert a name-to-index map for a
+    file that only the recipe decides whether to open, and would hand
+    a pre-declared script to arbitrary user code: a recipe calling
+    :meth:`~pyflightstream.script.Script.declare_existing` itself, which
+    ``docs/mesh-inputs.md`` documents as the supported route, would then
+    ADD to a total this package had already set, because the count form
+    accumulates. Declared here, the inventory and the opened file are the
+    same file by construction, and a script this package did not open a
+    geometry into is left exactly as it was before this release.
+
+    Parameters
+    ----------
+    case : SimCase
+        The case whose geometry was just opened. The path read is the
+        one ``OPEN`` received, which the campaign loop has already
+        rewritten to the STAGED copy, so the names come from the same
+        bytes the run record hashes and the solver reads.
+    script : Script
+        Script under construction, with ``OPEN`` already emitted.
+
+    Notes
+    -----
+    NOTHING HERE REFUSES A RUN THAT WORKS TODAY. A geometry carrying no
+    mesh block leaves the inventory undeclared, which is exactly the
+    state FR-30c licenses and the state every run was in before this
+    release. A block that opens and then does not hold its shape warns
+    and leaves it undeclared too, because a patch may not stop a
+    campaign that ran yesterday; what the warning buys is that the user
+    learns why a name in a row is not resolving, instead of being told
+    that no labels are registered as though it were their mistake.
+    """
+    if case.geometry is None:
+        return
+    try:
+        names = boundary_names(case.geometry)
+    except MeshReadError as unreadable:
+        warnings.warn(
+            f"case {case.sim_id!r}: {unreadable} No boundary names are declared for "
+            "this run, so a row naming one is refused and a row citing positions is "
+            "read exactly as it was before this release.",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
+        return
+    if not names:
+        return
+    labels, ambiguous = boundary_labels(names)
+    if ambiguous:
+        warnings.warn(
+            f"case {case.sim_id!r}: {PurePath(str(case.geometry)).name} carries "
+            f"{len(ambiguous)} boundary name(s) used more than once "
+            f"({', '.join(sorted(ambiguous))}), and a name that means two surfaces "
+            "cannot select either one. Those boundaries are citable by position only; "
+            "every other name in the file resolves.",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
+    if labels:
+        script.declare_existing(boundaries=labels)
+    # TOP THE TOTAL UP TO THE FILE'S TRUE COUNT. The mapping form sets
+    # the total to the highest index it names, so a file whose LAST
+    # boundary has a duplicated name would declare an inventory smaller
+    # than the file and turn a correct position into a refusal. The
+    # count form adds, which is a pinned contract, so the difference is
+    # exactly what restores the true total.
+    highest = max(labels.values(), default=0)
+    if len(names) > highest:
+        script.declare_existing(boundaries=len(names) - highest)
 
 
 # --- PFS-2025.02.03: the solver initialization, off the same row --------------

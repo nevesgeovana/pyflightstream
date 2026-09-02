@@ -1668,14 +1668,57 @@ def test_expanding_an_undeclared_group_names_the_artifact_and_its_groups(tmp_pat
     assert "Blade" in message and "wing" in message
 
 
-def test_expanding_a_group_of_labels_is_refused_naming_the_member(tmp_path):
-    """A label carries no index, so it cannot number a per-member entity."""
+def test_expanding_a_group_of_labels_asks_for_an_inventory_rather_than_indices(tmp_path):
+    """PFS-2028.00: the refusal names the route, it does not prescribe positions.
+
+    This function used to refuse a label member and instruct the user,
+    in its own message, to "declare the group with indices". The author's
+    rule is that nowhere in this package should a user work with indices,
+    so a refusal telling them to write some was the defect speaking in
+    the package's own voice. What a label actually needs is an inventory
+    to resolve against, and that is what is asked for now.
+    """
     workspace = _groups_library(tmp_path)
     with pytest.raises(InputArtifactError) as refusal:
         workspace.expand_group("eprop", "wing")
     message = str(refusal.value)
     assert "wing_left" in message
-    assert "index" in message
+    assert "boundaries={label: index}" in message, (
+        "the refusal does not name the route that resolves a label, so it tells the "
+        "user they are wrong without telling them what is right"
+    )
+    assert "declare the group with indices" not in message, (
+        "the refusal still instructs the user to rewrite their artifact in positions, "
+        "which is the rule this release exists to remove"
+    )
+
+
+def test_a_group_written_in_names_expands_against_the_geometrys_inventory(tmp_path):
+    """PFS-2028.00: the artifact that holds the names can finally use them.
+
+    The campaign artifact this was built for holds its moving set as a
+    list of NAMES, transcribed from the study's own post-processing
+    entries. Before this release the one function that consumes a group
+    refused every one of them.
+    """
+    workspace = _groups_library(tmp_path)
+    expanded = workspace.expand_group(
+        "eprop", "wing", boundaries={"wing_left": 4, "wing_right": 6, "body": 1}
+    )
+    assert expanded == {"wing1": 4, "wing2": 6}
+
+
+def test_a_named_member_the_geometry_lacks_is_refused_naming_what_it_has(tmp_path):
+    """An unknown name is refused, listing the boundaries that exist."""
+    workspace = _groups_library(tmp_path)
+    with pytest.raises(InputArtifactError) as refusal:
+        workspace.expand_group("eprop", "wing", boundaries={"body": 1})
+    message = str(refusal.value)
+    assert "wing_left" in message
+    assert "'body'" in message, (
+        "the refusal does not list the inventory it was given, so the user cannot see "
+        "what they could have written"
+    )
 
 
 def test_the_module_level_expansion_takes_the_artifact_and_its_id():

@@ -37,12 +37,20 @@ from __future__ import annotations
 
 import ast
 import math
+import warnings
+from collections.abc import Sequence
 from pathlib import Path
 
 import numpy as np
 import pytest
 
-from pyflightstream._errors import PyflightstreamError
+from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
+from pyflightstream._fsm import (
+    MESH_MARKER,
+    MeshReadError,
+    boundary_labels,
+    boundary_names,
+)
 from pyflightstream.cases import (
     CampaignConfigError,
     ReferenceData,
@@ -93,7 +101,12 @@ from pyflightstream.post.unsteady import (
     passage_windows,
     read_timestep_series,
 )
-from pyflightstream.script import CommandArgumentError, Script, helpers
+from pyflightstream.script import (
+    CommandArgumentError,
+    Script,
+    ScriptReferenceError,
+    helpers,
+)
 from pyflightstream.versions import known_versions
 from pyflightstream.workspace import WorkspaceError
 
@@ -2813,3 +2826,284 @@ def test_a_rotor_origin_that_is_not_three_numbers_is_refused(origin, expected):
         )
     message = str(raised.value)
     assert expected in message and "ROTOR_ORIGIN" in message
+
+
+# --- PFS-2028.00: a row names the mesh family, not the solver's positions ----
+#
+# THE DEFECT, in one sentence. A rotor row cited its moving boundaries by
+# POSITION in one geometry's boundary order. Those positions are right for
+# the file they were written against and mean different surfaces in any file
+# that orders them differently, and nothing said so: the run completed,
+# exported, and reported loads for a rotor whose moving set was wrong.
+#
+# WHY THESE TESTS ARE HERE AND NOT IN tests/test_script_entities.py. That
+# module is FR-30b's old evidence and the requirement is TRUE there: the
+# script layer has always resolved a declared label. It could not fail on
+# this defect, because nothing in src/ ever declared an inventory, so the
+# label half of "either an index or a label" was unreachable from a matrix
+# row. A requirement whose evidence answers a narrower question than the
+# claim is the defect class this repository has now paid for three times.
+
+
+def _saved_simulation(path: Path, names: Sequence[str]) -> Path:
+    """Write the smallest saved simulation carrying a mesh block.
+
+    Built from the format's own shape rather than copied from a campaign
+    geometry, for two reasons: those files are 1 to 9 MB, and some of
+    them are derivatives that may not be distributed. What is reproduced
+    here is exactly what the reader reads, including the two junk lines
+    between the marker and the count and the head numbers STARTING AT 2,
+    which is what seven of the eight real geometries do and what makes a
+    reader that mistook the head number for the index wrong here.
+    """
+    body = [MESH_MARKER, "9999", "99", str(len(names))]
+    for offset, name in enumerate(names):
+        body += [f"{offset + 2}, T, T, F", name, ".500,.500,.500"]
+    body += ["$MESH_END$"]
+    # `newline=""` because the CRLF here is DATA, not formatting. Without
+    # it the platform translates each "\n" again and the file gains a
+    # blank line between every record, which the reader then reports as a
+    # count line that is not a number. The real geometries are CRLF, so
+    # this writes the bytes they carry rather than the bytes this
+    # platform would have chosen.
+    path.write_text("\r\n".join(body) + "\r\n", encoding="utf-8", newline="")
+    return path
+
+
+def _rotor_row(geometry: Path, cell: str, sim_id: str = "8001") -> SimCase:
+    """A rotor case in the shape a matrix row converts to."""
+    return rotor_case(MOVING_BOUNDARIES=cell).model_copy(
+        update={"sim_id": sim_id, "geometry": str(geometry)}
+    )
+
+
+def _moving_payload(text: str) -> str:
+    """The continuation line under SET_MOTION_BOUNDARIES."""
+    lines = text.splitlines()
+    for index, line in enumerate(lines):
+        if line.startswith("SET_MOTION_BOUNDARIES"):
+            return lines[index + 1]
+    raise AssertionError(f"no SET_MOTION_BOUNDARIES in:\n{text}")
+
+
+@pytest.mark.requirement("FR-30b")
+def test_a_rotor_row_naming_a_boundary_family_moves_those_surfaces(tmp_path):
+    """FR-30b at the surface a user writes, which is a matrix row.
+
+    Four clauses, and the order is the point. Clause one fails FIRST on
+    today's code, on a plain equality about the inventory, so the test
+    fails for the RIGHT reason: not because a name is unknown, but
+    because the package never declared the inventory the name lives in.
+    Written the naive way, this test would have failed with "no mesh
+    boundary labels are registered yet", which is the same evidence
+    dressed up as the user's mistake.
+    """
+    sector = _saved_simulation(tmp_path / "sector.fsm", ["Blade1", "S", "N"])
+    script = Script("26.123")
+    build_script(_rotor_row(sector, "Blade,S"), script)
+
+    # 1. THE PACKAGE DECLARED THE INVENTORY. This is the clause that
+    #    fails on 0.10.0, before any name is resolved.
+    assert script.num_boundaries == 3, (
+        "the package did not declare the opened geometry's boundary inventory, so a "
+        "row naming a family has nothing to resolve against and FR-30b's label half "
+        "is unreachable from a matrix row"
+    )
+    assert script.entities.labels("boundaries") == {"Blade1": 1, "S": 2, "N": 3}
+
+    # 2. The family resolved to the positions those names hold HERE.
+    assert _moving_payload(script.render()) == "1,2"
+
+
+@pytest.mark.requirement("FR-30b")
+def test_one_family_cell_follows_the_geometry_instead_of_a_fixed_position(tmp_path):
+    """The clause that FALSIFIES the defect rather than restating it.
+
+    The same cell, against two files that order the same names
+    differently, must emit different indices. A row of positions cannot
+    have this property, and a test that only checked one file would pass
+    against a mapping hard-coded to that file.
+    """
+    sector = _saved_simulation(tmp_path / "sector.fsm", ["Blade1", "S", "N"])
+    wheel = _saved_simulation(
+        tmp_path / "wheel.fsm",
+        ["Blade1", "S", "N", "Blade2", "Blade3", "Blade4", "Blade5", "Blade6"],
+    )
+
+    rendered = {}
+    for name, geometry in (("sector", sector), ("wheel", wheel)):
+        script = Script("26.123")
+        build_script(_rotor_row(geometry, "Blade,S"), script)
+        rendered[name] = _moving_payload(script.render())
+
+    assert rendered["sector"] == "1,2"
+    assert rendered["wheel"] == "1,2,4,5,6,7,8", (
+        "the family did not follow the file's own order, so one cell does not mean "
+        "the rotating surfaces of whatever geometry the row opens"
+    )
+    assert rendered["sector"] != rendered["wheel"], (
+        "one cell emitted the same positions against two different boundary orders, "
+        "which is the defect this release closes wearing a name"
+    )
+
+    # AND THE DEFECT ITSELF, measured beside it: the positional cell is
+    # blind to the file. This is the assertion that makes the pair above
+    # evidence rather than a description.
+    positional = {}
+    for name, geometry in (("sector", sector), ("wheel", wheel)):
+        script = Script("26.123")
+        with pytest.warns(PyflightstreamWarning, match="POSITION"):
+            build_script(_rotor_row(geometry, "1,2"), script)
+        positional[name] = _moving_payload(script.render())
+    assert positional["sector"] == positional["wheel"] == "1,2", (
+        "the positional cell stopped being blind to the geometry, so the comparison "
+        "above no longer demonstrates anything"
+    )
+
+
+def test_an_exact_boundary_label_is_not_read_as_its_family(tmp_path):
+    """`Blade1` means one blade, and `Blade` means all of them.
+
+    Exact before family is load-bearing: `Blade1` is both a label and a
+    member of family `blade`, so a family match tried first would turn a
+    row citing ONE blade into a row citing six, silently.
+    """
+    wheel = _saved_simulation(
+        tmp_path / "wheel.fsm",
+        ["Blade1", "S", "N", "Blade2", "Blade3", "Blade4", "Blade5", "Blade6"],
+    )
+    script = Script("26.123")
+    build_script(_rotor_row(wheel, "Blade1,S"), script)
+    assert _moving_payload(script.render()) == "1,2", (
+        "an exact boundary label expanded as if it were a family name"
+    )
+
+
+def test_a_row_naming_a_surface_the_geometry_lacks_is_refused_naming_what_it_has(tmp_path):
+    """An unknown name is refused, and the refusal is didactic."""
+    sector = _saved_simulation(tmp_path / "sector.fsm", ["Blade1", "S", "N"])
+    script = Script("26.123")
+    with pytest.raises(ScriptReferenceError) as raised:
+        build_script(_rotor_row(sector, "Blade,Nacelle"), script)
+    message = str(raised.value)
+    assert "Nacelle" in message
+    assert "Blade1" in message and "'S'" in message, (
+        "the refusal does not list the labels the geometry actually carries, so it "
+        "tells the user they are wrong without telling them what is right"
+    )
+    assert "no mesh boundary labels are registered yet" not in message, (
+        "the refusal took the undeclared-inventory branch, which means the package "
+        "did not declare the inventory and this test is passing for the wrong reason"
+    )
+
+
+def test_a_positional_row_still_works_and_says_what_the_positions_are(tmp_path):
+    """Non-vacuity, and the patch's own promise.
+
+    An index keeps working, because sixteen committed goldens carry this
+    line and a patch may not change an input a correct matrix already
+    uses. What it gains is a warning that names the surfaces those
+    positions actually select in THIS file, which is a migration
+    instruction rather than a scold, and which only a package that read
+    the file can write.
+    """
+    wheel = _saved_simulation(
+        tmp_path / "wheel.fsm",
+        ["Blade1", "S", "N", "Blade2", "Blade3", "Blade4", "Blade5", "Blade6"],
+    )
+    script = Script("26.123")
+    with pytest.warns(PyflightstreamWarning) as caught:
+        build_script(_rotor_row(wheel, "1,2,4,5,6,7,8"), script)
+    assert _moving_payload(script.render()) == "1,2,4,5,6,7,8", (
+        "a row of positions stopped emitting what it emitted before this release, "
+        "which is a change to an input a correct matrix already uses"
+    )
+    message = str(caught[0].message)
+    assert "1 is Blade1" in message and "4 is Blade2" in message, (
+        "the warning does not say which surfaces the positions select, so it tells "
+        "the user to change something without telling them to what"
+    )
+
+
+def test_a_geometry_with_no_mesh_block_leaves_the_inventory_exactly_as_it_was(tmp_path):
+    """The compatibility floor, asserted rather than assumed.
+
+    FR-30c licenses an undeclared inventory as permissive, and the suite
+    stages placeholder geometries deliberately. A placeholder must not
+    start refusing, and a positional row against one must not warn,
+    because the package cannot say what those positions name.
+    """
+    placeholder = tmp_path / "placeholder.fsm"
+    placeholder.write_bytes(b"fake simulation")
+    script = Script("26.123")
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        build_script(_rotor_row(placeholder, "1,2"), script)
+    assert script.num_boundaries is None, (
+        "a file carrying no mesh block declared an inventory, so the reader invented "
+        "boundaries the geometry does not describe"
+    )
+    assert _moving_payload(script.render()) == "1,2"
+
+
+def test_a_mesh_block_that_opens_and_breaks_is_reported_and_never_guessed(tmp_path):
+    """A malformed block must not produce a half-read map.
+
+    It warns and leaves the inventory undeclared, which is the state the
+    run was in before this release. It does NOT refuse: a patch may not
+    stop a campaign that ran yesterday over a file the solver itself
+    accepts.
+    """
+    broken = tmp_path / "broken.fsm"
+    broken.write_text(
+        "\r\n".join([MESH_MARKER, "9999", "99", "3", "2, T, T, F", "Blade1", ".5,.5,.5"]) + "\r\n",
+        encoding="utf-8",
+        newline="",
+    )
+    script = Script("26.123")
+    with pytest.warns(PyflightstreamWarning, match="ends after"):
+        build_script(_rotor_row(broken, "1,2"), script)
+    assert script.num_boundaries is None
+
+
+def test_a_boundary_named_as_a_number_is_refused_by_the_reader(tmp_path):
+    """A name that is a bare number reopens the door being closed.
+
+    It could not be told apart from a POSITION in a cell, so the reader
+    refuses the file rather than admitting an ambiguity through the one
+    door this release exists to shut.
+    """
+    numeric = _saved_simulation(tmp_path / "numeric.fsm", ["Blade1", "5", "N"])
+    with pytest.raises(MeshReadError, match="cannot be told apart"):
+        boundary_names(numeric)
+
+
+def test_two_boundaries_sharing_a_name_lose_it_rather_than_one_of_them(tmp_path):
+    """A duplicate must not silently drop a boundary.
+
+    A dict comprehension would keep the later position and lose the
+    earlier boundary without a word, capping the declared inventory below
+    the file's true count and turning a correct position into a refusal.
+    The name goes, both boundaries stay citable by position, and the
+    declared total still equals the file's own count.
+    """
+    twinned = _saved_simulation(tmp_path / "twinned.fsm", ["Blade", "S", "Blade"])
+    labels, ambiguous = boundary_labels(boundary_names(twinned))
+    assert labels == {"S": 2}
+    assert ambiguous == ("Blade",)
+
+    script = Script("26.123")
+    with pytest.warns(PyflightstreamWarning) as caught:
+        build_script(_rotor_row(twinned, "1,3"), script)
+    said = [str(warning.message) for warning in caught]
+    assert any("more than once" in message for message in said), said
+    # AND THE POSITIONAL WARNING MUST NOT LIE ABOUT THEM. Positions 1 and
+    # 3 ARE boundaries; they simply have no unique name. Reporting them as
+    # "no boundary in this geometry" would be a false statement about the
+    # user's own mesh, inside the message telling them to trust names.
+    assert not any("1 is no boundary" in message for message in said), said
+    assert script.num_boundaries == 3, (
+        "the declared inventory is smaller than the file's boundary count, so a "
+        "correct position would now be refused as out of range"
+    )
+    assert _moving_payload(script.render()) == "1,3"

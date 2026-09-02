@@ -72,7 +72,7 @@
 \title[pyflightstream User Guide]{pyflightstream User Guide}
 \subtitle{A version-aware, didactic Python driver for the FlightStream solver}
 \author[G. Neves]{Geovana Neves}
-\institute[]{pyflightstream 0.10.0, MIT licensed}
+\institute[]{pyflightstream 0.10.1, MIT licensed}
 \date{August 2026}
 
 \AtBeginSection[]{
@@ -769,13 +769,17 @@ disc = helpers.actuator_disc(script, "prop1",
 \begin{frame}[fragile]{Recipe 5: unsteady rotary motion (1/2)}
   \textbf{Concept:} the blade-resolved alternative to the actuator disc (SRC-003 p.234): the blade geometry physically rotates through unsteady time stepping. Costlier, richer.
   \begin{enumerate}
-    \item Import the full geometry including blades; identify the blade boundaries (their import order indexes them).
+    \item Import the full geometry including blades. Their names come with the mesh, and naming them is preferred to counting them: a position is right for one file's boundary order and means another surface in a file that orders them differently.
     \item Create the rotation frame (as in recipe 4), then the motion:
   \end{enumerate}
 \begin{lstlisting}
+script.declare_existing(boundaries={   # the names the mesh carries
+    "Blade1": 3, "Blade2": 4, "Blade3": 5,
+    "Blade4": 6, "Blade5": 7, "Blade6": 8})
 motion = helpers.rotary_motion(script,
     frame=2, axis="X", rpm=2200.0,
-    boundaries=[3, 4, 5, 6, 7, 8],   # the blade boundaries
+    boundaries=["Blade1", "Blade2", "Blade3",
+                "Blade4", "Blade5", "Blade6"],
     wake_stabilization_blades=6)
 \end{lstlisting}
   \begin{enumerate}

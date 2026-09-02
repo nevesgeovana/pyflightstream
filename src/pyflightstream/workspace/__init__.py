@@ -47,7 +47,7 @@ import shutil
 import sys
 import tomllib
 import zipfile
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 if sys.version_info >= (3, 12):
@@ -612,7 +612,13 @@ def check_unique_stems(inputs_dir: str | Path) -> None:
     )
 
 
-def expand_group(artifact: GroupsArtifact, name: str, artifact_id: str) -> dict[str, int]:
+def expand_group(
+    artifact: GroupsArtifact,
+    name: str,
+    artifact_id: str,
+    *,
+    boundaries: Mapping[str, int] | None = None,
+) -> dict[str, int]:
     """Expand one named boundary group into its per-member names.
 
     ``Blade`` with three members becomes ``Blade1``, ``Blade2`` and
@@ -645,10 +651,10 @@ def expand_group(artifact: GroupsArtifact, name: str, artifact_id: str) -> dict[
     ------
     InputArtifactError
         If the descriptor declares no group of that name (the message
-        lists the ones it does declare), or if a member is a boundary
-        LABEL rather than an index. A label carries no index, so it
-        cannot number a per-member entity; resolve labels to indices in
-        the descriptor, or expand a group whose members are indices.
+        lists the ones it does declare), if a member is a boundary label
+        and no inventory was given to resolve it against, or if a member
+        names a boundary the given inventory does not carry (the message
+        lists the ones it does).
 
     Examples
     --------
@@ -656,6 +662,15 @@ def expand_group(artifact: GroupsArtifact, name: str, artifact_id: str) -> dict[
     >>> artifact = GroupsArtifact(groups={"Blade": [3, 5, 7]})
     >>> expand_group(artifact, "Blade", "prop")
     {'Blade1': 3, 'Blade2': 5, 'Blade3': 7}
+
+    A group written in NAMES expands the same way, against the boundary
+    inventory of the geometry it belongs to (PFS-2028.00):
+
+    >>> named = GroupsArtifact(groups={"Blade": ["Blade1", "S"]})
+    >>> expand_group(
+    ...     named, "Blade", "prop", boundaries={"Blade1": 1, "S": 2, "N": 3}
+    ... )
+    {'Blade1': 1, 'Blade2': 2}
     """
     members = artifact.groups.get(name)
     if members is None:
@@ -671,17 +686,52 @@ def expand_group(artifact: GroupsArtifact, name: str, artifact_id: str) -> dict[
         )
     expanded: dict[str, int] = {}
     for position, member in enumerate(members, start=1):
-        if not isinstance(member, int) or isinstance(member, bool):
+        if isinstance(member, int) and not isinstance(member, bool):
+            expanded[f"{name}{position}"] = member
+            continue
+        if not isinstance(member, str):
+            # A BOOLEAN, which the model's `int | str` admits because
+            # bool subclasses int. It is neither a position nor a name,
+            # so it is refused here rather than being used as a label and
+            # failing later with a message about an unknown boundary.
             raise InputArtifactError(
-                f"group {name!r} of the group artifact {artifact_id!r} cannot be "
-                f"expanded per member: member {position} is {member!r}, a boundary "
-                "label rather than a 1-based boundary index. Numbering a per-member "
-                "entity needs the index, so declare the group with indices, or expand "
-                "a group that already carries them.",
+                f"group {name!r} of the group artifact {artifact_id!r} names its "
+                f"member {position} as {member!r}, which is neither a boundary name "
+                "nor a 1-based boundary index.",
                 kind="group",
                 artifact_id=artifact_id,
             )
-        expanded[f"{name}{position}"] = member
+        # A LABEL MEMBER IS THE POINT, not an error to be reported
+        # (PFS-2028.00). This function used to refuse one and tell the
+        # user, in these words, to "declare the group with indices",
+        # which is the package instructing a user to work with positions
+        # in the one artifact that already holds the names. What a label
+        # genuinely needs is an inventory to resolve against, so that is
+        # what is asked for, and only its absence refuses.
+        if boundaries is None:
+            raise InputArtifactError(
+                f"group {name!r} of the group artifact {artifact_id!r} names its "
+                f"member {position} as {member!r}, which is a boundary label, and no "
+                "boundary inventory was given to resolve it against. A label is the "
+                "spelling this package prefers; pass the geometry's inventory as "
+                "boundaries={label: index} and the group expands by name. A saved "
+                "simulation carries those names in its own mesh block, in the order "
+                "that numbers them, and a run matrix needs none of this: a workflow "
+                "declares the inventory from the geometry the row opens.",
+                kind="group",
+                artifact_id=artifact_id,
+            )
+        if member not in boundaries:
+            known = ", ".join(repr(label) for label in sorted(boundaries)) or "none"
+            raise InputArtifactError(
+                f"group {name!r} of the group artifact {artifact_id!r} names its "
+                f"member {position} as {member!r}, and the geometry's boundary "
+                f"inventory carries no such boundary; it carries {known}.",
+                kind="group",
+                artifact_id=artifact_id,
+                available=tuple(sorted(boundaries)),
+            )
+        expanded[f"{name}{position}"] = boundaries[member]
     return expanded
 
 
@@ -948,7 +998,9 @@ class CampaignWorkspace:
         """
         return resolve_group(self.inputs_dir, artifact_id)
 
-    def expand_group(self, artifact_id: str, name: str) -> dict[str, int]:
+    def expand_group(
+        self, artifact_id: str, name: str, *, boundaries: Mapping[str, int] | None = None
+    ) -> dict[str, int]:
         """Expand one named boundary group into its per-member names.
 
         The group ``Blade`` of the descriptor becomes ``Blade1`` through
@@ -973,7 +1025,9 @@ class CampaignWorkspace:
             Unknown artifact id, unknown group name, or a group whose
             members are boundary labels rather than indices.
         """
-        return expand_group(self.resolve_group(artifact_id), name, artifact_id)
+        return expand_group(
+            self.resolve_group(artifact_id), name, artifact_id, boundaries=boundaries
+        )
 
     def reference_points(self) -> dict[str, PointXyz]:
         """Read the named reference points this campaign declares.

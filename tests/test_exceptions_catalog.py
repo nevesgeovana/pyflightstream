@@ -146,6 +146,11 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
         "MalformedOutputError": ValueError,
         "ManualDraftError": ValueError,
         "MatrixError": ValueError,
+        # PFS-2028.00: a saved simulation whose mesh block opens and
+        # then does not hold its shape. ValueError because the caller
+        # reaches it with a FILE whose contents do not parse, which is
+        # the same shape as a malformed output.
+        "MeshReadError": ValueError,
         "MissingExtraError": ImportError,
         "NamingTemplateError": ValueError,
         "OpenMeshError": ValueError,

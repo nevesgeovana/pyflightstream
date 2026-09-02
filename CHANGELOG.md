@@ -7,6 +7,73 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Fixed -- a row names the mesh family, and the package makes the link
+
+- **`MOVING_BOUNDARIES` accepts boundary NAMES and FAMILY names, and a
+  family is one word that is right for every geometry in a study.** A
+  rotor row cited its moving boundaries by POSITION in one geometry's
+  boundary order. Those positions are correct for the file they were
+  written against and name different surfaces in any file that orders
+  them differently, and nothing said so: the run completed, exported,
+  and reported loads for a rotor whose moving set was wrong. That is the
+  same silent-wrong-answer shape as a periodic sector solved under
+  `NONE` before 0.8.1.
+
+  A cell now reads `MOVING_BOUNDARIES: Blade,S`. A family name is a
+  boundary label with its trailing number removed, so `Blade` selects
+  every blade the opened geometry carries: on a three-boundary sector
+  holding `Blade1, S, N` that cell moves boundaries 1 and 2, and on the
+  eight-boundary wheel holding `Blade1, S, N, Blade2 ... Blade6` the
+  same cell moves 1, 2, 4, 5, 6, 7 and 8. Measured against the author's
+  own campaign: **one cell reproduces all ten of its positional cells
+  exactly, across five geometries**, and every emitted script is byte
+  for byte what it was.
+
+  An exact label beats a family, so `Blade1` is one blade and `Blade` is
+  all of them. A name the geometry does not carry is refused, listing
+  the ones it does.
+
+- **The package reads the boundary names out of the saved simulation it
+  opens.** They were always there, in the file's own mesh block, and
+  nothing looked. The reader takes the 1-based POSITION of each record
+  as the boundary index and discards the number printed on the record's
+  first line, which is not the index: across the author's eight
+  geometries, seven start that number at 2 and one starts at 1, so a map
+  built from it would be off by one almost everywhere.
+
+  The declaration is bound to the `OPEN`, so the inventory and the file
+  the script loads are the same file by construction. A script this
+  package did not open a geometry into is untouched, which keeps the
+  user-recipe route documented in `docs/mesh-inputs.md` working exactly
+  as before.
+
+- **A named boundary group can be written in names.** `expand_group`
+  refused a member that was a boundary label and instructed the user, in
+  its own message, to "declare the group with indices". It now takes the
+  geometry's inventory and resolves the names; only its absence refuses,
+  and that refusal names the route instead of prescribing positions.
+
+- **`FR-30b Index or label, everywhere` came off implemented and went
+  back on in the same release.** The requirement is unchanged in wording.
+  It was true where its evidence looked, which was the script layer, and
+  false where a user writes, because nothing in the package ever declared
+  a boundary inventory. Its evidence line now names a test at the surface
+  the requirement claims, and that test fails on 0.10.0.
+
+### Kept working, deliberately
+
+- **A row of positions still runs and emits what it always emitted**, so
+  a matrix already written keeps working. It now warns, and the warning
+  names the surfaces those positions actually select in that geometry,
+  which is a migration instruction rather than a scold. Only a package
+  that reads the file can write that sentence.
+
+- One refusal does arm, and it is correct: a position ABOVE the opened
+  geometry's boundary count now stops the run instead of reaching the
+  solver. No row of the author's campaign does that, and a row that did
+  was always wrong.
+
+
 ## [0.10.0] - 2026-09-01
 
 ### Added -- a rotor row states the study's decisions, not their arithmetic
