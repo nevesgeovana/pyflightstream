@@ -1218,8 +1218,8 @@ pyfs-matrix upgrade      matrix.fs --in-place         # older layout to current
 pyfs-matrix convert      matrix.fs -o campaign.toml   # run matrix to campaign
 pyfs-matrix plan         matrix.fs                    # pre-flight, no solver
 pyfs-matrix run          matrix.fs --fs-exe ...       # RUNS the solver
-pyfs-fsi init-dummy      --config ...                  # scaffold a coupling case
-pyfs-fsi step            --config ...                  # one aeroelastic step
+pyfs-fsi init-dummy      --node-count N [--dir DIR]   # dummy config for a dry run
+pyfs-fsi step            [--dir DIR]                  # one coupling step
 pyfs-manual sweep        --editions MANIFEST [--by-section]  # every registered edition
 pyfs-manual surface      --editions MANIFEST [--names]     # what changed between builds
 pyfs-manual coverage     --manual ... --source SRC-741 --chapter-pages 275-369

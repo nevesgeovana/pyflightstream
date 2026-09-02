@@ -6,11 +6,16 @@ solver. MIT licensed.
 Status: v0.10.0 is the current release; the changelog records what
 each release adds and what each one asks you to do.
 
-**v0.10.0 asks nothing of a run matrix you already have.** Every key it
-adds is optional and every older form still resolves. It refuses one
-thing it used to drop: a solver preset stating a key this package cannot
-emit, which used to be warned about and dropped and is now refused
-naming the key.
+**v0.10.0 changes no column of the run-matrix file.** Two things still
+want a look. Your solver preset now REACHES THE SCRIPT: twelve settings
+and eleven of the solver's own spellings that used to be dropped are now
+emitted, silently and with no warning, so a campaign whose preset states
+anything non-default will move its numbers and wants re-baselining. And
+five names became the package's inside `VAR_NAMES_VALUES`:
+`ADVANCE_RATIO`, `RPM_SIGN`, `DELTA_THETA`, `REVOLUTIONS` and
+`LOG_OUTPUT`, matched on the exact key, with a row spelling one of the
+first two beside an existing `RPM` refused for stating the rotor speed
+twice.
 
 **v0.9.0 breaks the run-matrix file format**, and it is the one
 upgrade action that cannot be skipped: the `RE` and `MACH` columns are

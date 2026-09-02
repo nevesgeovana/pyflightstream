@@ -13,12 +13,31 @@ from the tag, so the concept DOI in CITATION.cff resolves to the newest
 archived version and the version DOI is recorded one commit after the
 tag that names it. CHANGELOG.md carries the release history.
 
-**What changes for you, and what you must do.** v0.10.0 asks nothing
-of a run matrix you already have: every key it adds is optional and
-every form the older rows use still resolves. It asks one thing of a
-SOLVER PRESET, and only of a preset that states a key this package
-cannot emit: such a key used to be dropped with a warning and is now
-refused, naming the key and listing what applies.
+**What changes for you, and what you must do.** v0.10.0 changes no
+column of the run-matrix file, so no conversion is needed. Two things
+still want a look before you re-run anything.
+
+**Your solver preset now reaches the script, and that is the SILENT
+half.** A preset key naming a real setting used to be honoured only
+where the model already defaulted to it: a preset asking for
+`SUBSONIC_PRANDTL_GLAUERT` ran `INCOMPRESSIBLE` and said nothing. Twelve
+settings and eleven of the solver's own key spellings now reach the
+emitted script. Nothing refuses and nothing warns; the NUMBERS move. On
+the author's own campaign the axial force coefficient moved about one
+percent. If your preset states anything the solver was not already
+defaulting to, re-baseline before you compare against an older run.
+
+The loud half is smaller: a preset key this package cannot emit at all
+used to be dropped with a warning and is now refused, naming the key and
+listing what applies. The remedy is usually one line in the preset file,
+and for one key it is a line in the row instead, which the refusal says.
+
+**Five names are now the package's inside `VAR_NAMES_VALUES`:**
+`ADVANCE_RATIO`, `RPM_SIGN`, `DELTA_THETA`, `REVOLUTIONS` and
+`LOG_OUTPUT`. The match is on the exact key. If a cell of yours already
+spells one, rename yours or adopt the meaning; a row spelling
+`ADVANCE_RATIO` or `RPM_SIGN` beside an existing `RPM` is REFUSED,
+because that states the rotor speed twice.
 
 If you are coming from v0.8.x you still have the older job. If you have
 a run matrix written then, v0.9.0 changed its FILE FORMAT and you must

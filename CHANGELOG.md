@@ -29,7 +29,7 @@ FlightStream versions.
 
 - **`DELTA_THETA` and `REVOLUTIONS`,** the azimuthal step in degrees and
   the length of the run in whole turns, from which the clock follows:
-  `DELTA_TIME = theta / (6 rpm)` and
+  `DELTA_TIME = theta / (6 |rpm|)` and
   `TIME_ITERATIONS = REVOLUTIONS * 360 / DELTA_THETA`. `DELTA_TIME` and
   `TIME_ITERATIONS` stay for the matrices already written in them; a row
   states one pair, and half a pair is refused naming the missing key.
@@ -71,11 +71,33 @@ constants `ADVANCE_RATIO_VARIABLE`, `RPM_SIGN_VARIABLE`,
 
 **New public model fields:** `ReferenceArtifact.propeller_diameter_m`,
 `ReferenceData.propeller_diameter`, the twelve `SolverSettings` fields
-listed above, and `log_file_used` on both `run.Assessment` and
+listed under Changed below, and `log_file_used` on both `run.Assessment` and
 `workspace.RunRecord`.
 
 **Removed public name:** none. **Deprecations:** none, and no shim is
 added or retired by this release.
+
+### Known gap -- the rotor default path gained thirteen emitters nobody has swept
+
+Neither the command database nor `reports/` is touched by this release,
+so no compatibility or physics report it holds is STALE: nothing they
+measure changed. That is not the same as their being COMPLETE for what
+this release ships, and the difference is worth stating rather than
+leaving an empty diff to imply the stronger thing.
+
+The change is on the caller side. The rotor workflow now emits thirteen
+more solver-setting commands per run than it did, so grammar that was a
+latent property of entries nobody emitted is now a property of the
+DEFAULT path. Most of those entries carry `documented` rather than
+`verified` status on most registered builds, which means the manual says
+the solver takes them and no committed probe report shows that it does.
+
+WHAT IS MEASURED: the author ran the new rotor path end to end on a
+licensed 26.123, two points, both CONVERGED at residuals of 7.59e-06 and
+4.73e-06 against their own 1e-05 limit. WHAT IS NOT: a compatibility
+sweep re-examining the verified and documented split for those thirteen
+on the builds this workflow covers. That sweep is owed and is not in this
+release.
 
 ### Changed -- BREAKING for a preset that states a key nothing can emit
 
