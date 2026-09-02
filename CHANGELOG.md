@@ -128,6 +128,29 @@ FlightStream versions.
   it never fails, so it could not go stale loudly. A tier-1 test now
   refuses one, with a control beside it.
 
+### Measured -- what the evidence says about the rotor default path
+
+- **RPT-030: every command the rotor path emits, on every registered
+  build.** The seat-free half of the compatibility item. It is a
+  statement about this repository's own evidence and never a claim that
+  a command works on a build; the sweep that would earn the second claim
+  needs a licensed solver and is the author's to authorise.
+
+  Nineteen commands, nine of them not emitted by the steady path, over
+  nine builds: 63 cells verified, 93 documented, and **15 carrying no
+  evidence row at all**, which is a third state the item was not written
+  to expect.
+
+  A row's absence is NOT the command being unavailable: the build view
+  accepts every one of them, so the derived coverage is right and no run
+  is affected. NINE of the fifteen are the honest record of a rotor
+  vocabulary that arrives at 26.101. The other SIX are one build, 26.122,
+  where six commands that carry a row on 26.121 and on 26.123 alike carry
+  none, which is a build whose evidence was never recorded rather than a
+  vocabulary boundary. That measurement answers the item's own open
+  question about which build a sweep should cover: 26.123 is fully
+  recorded and 26.122 is the one with the hole.
+
 ### Kept working, deliberately
 
 - **A row of positions still runs and emits what it always emitted**, so
