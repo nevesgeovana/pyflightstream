@@ -67,7 +67,12 @@ from pyflightstream.results.tables import LoadsNotFoundError, sweep_table, write
 from pyflightstream.run import CampaignErrors, LoadsAssessor
 from pyflightstream.run.matrix import plan_matrix, run_matrix
 from pyflightstream.workspace import CampaignWorkspace, InputArtifactError
-from pyflightstream.workspace.naming import MATRIX_POINT_NAME, NamingTemplate, NamingTemplateError
+from pyflightstream.workspace.naming import (
+    MATRIX_POINT_NAME,
+    NamingTemplate,
+    NamingTemplateError,
+    is_portable_name,
+)
 
 
 def _parse_recipes(pairs: list[str]) -> dict[str, str]:
@@ -134,8 +139,9 @@ def _add_common_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("matrix", help="the pipe-delimited run matrix file")
     parser.add_argument(
         "--name",
-        required=True,
-        help="campaign name; the matrix has none, so it is explicit input",
+        default=None,
+        help="campaign name; without it the workspace directory's name is the campaign's "
+        "(PFS-2029.03), and `convert`, which has no workspace, still needs it",
     )
     parser.add_argument(
         "--fs-version",
@@ -356,6 +362,20 @@ _UPGRADE_NOTICE = (
 )
 
 
+def _campaign_name(args: argparse.Namespace) -> tuple[str, str]:
+    """Return the campaign name and where it came from: the option, or the workspace directory."""
+    if args.name is not None:
+        return args.name, "option"
+    derived = Path(args.workspace).resolve().name
+    if not is_portable_name(derived):
+        raise SystemExit(
+            f"the workspace directory is named {derived!r}, which is not a legal campaign "
+            "name (a plain token: no separators, no whitespace, not empty), and no --name "
+            "was given; pass name (CLI: --name) to name the campaign yourself."
+        )
+    return derived, "directory"
+
+
 def _naming(args: argparse.Namespace) -> NamingTemplate:
     """Build the point-name template the command line was given, her convention by default."""
     try:
@@ -431,6 +451,12 @@ def _cmd_upgrade(args: argparse.Namespace) -> int:
 
 
 def _cmd_convert(args: argparse.Namespace, recipes: dict[str, str]) -> int:
+    if args.name is None:
+        print(
+            "convert has no workspace to name the campaign after; pass name (CLI: --name).",
+            file=sys.stderr,
+        )
+        return 2
     try:
         text = convert_matrix(
             args.matrix,
@@ -453,11 +479,13 @@ def _cmd_convert(args: argparse.Namespace, recipes: dict[str, str]) -> int:
 
 def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
     workspace = CampaignWorkspace(args.workspace, naming=_naming(args))
+    name, name_from = _campaign_name(args)
     try:
         plan = plan_matrix(
             args.matrix,
             workspace,
-            name=args.name,
+            name=name,
+            name_from=name_from,
             # The keyword the library takes, not the flag the user types:
             # the parameter renamed with PFS-2009.08.01 and `--fs-version`
             # deliberately did not. Passing the old spelling here fired a
@@ -487,11 +515,13 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
     docstring).
     """
     workspace = CampaignWorkspace(args.workspace, naming=_naming(args))
+    name, name_from = _campaign_name(args)
     try:
         run_matrix(
             args.matrix,
             workspace,
-            name=args.name,
+            name=name,
+            name_from=name_from,
             # The command line's own flag is still --fs-version, and the
             # keyword it feeds is the DEFAULT a row whose FS_BUILD names
             # no build falls back to; a row that names a build wins.

@@ -3310,3 +3310,43 @@ def test_the_campaign_writes_its_products_and_names_them(tmp_path):
         "ZMOM": 0.0,
     }
     assert record.description == "STEADY_WB" and record.mach == 0.2
+
+
+# --- PFS-2029.03.02: a renamed workspace cannot resume under a new name --------------
+
+
+def test_a_renamed_workspace_cannot_resume_under_a_new_name(tmp_path):
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    run_campaign(
+        make_campaign(tmp_path, alphas=(0.0,)),
+        StubSolver(WRITES_LOADS),
+        workspace,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+    )
+    renamed = tmp_path / "study"
+    workspace.root.rename(renamed)
+    moved = CampaignWorkspace(renamed)
+    grown = make_campaign(tmp_path, alphas=(0.0, 2.0)).model_copy(update={"name": "study"})
+    with pytest.raises(WorkspaceError) as caught:
+        run_campaign(
+            grown,
+            StubSolver(WRITES_LOADS),
+            moved,
+            assess=converged,
+            recipes={"steady": steady_recipe},
+            resume=True,
+        )
+    message = str(caught.value)
+    assert "'study'" in message and "'camp'" in message and "--name" in message
+    assert len(moved.read_manifest()) == 1, "nothing ran under the new name"
+    # Under the recorded name the resume proceeds and runs the new point only.
+    records = run_campaign(
+        make_campaign(tmp_path, alphas=(0.0, 2.0)),
+        StubSolver(WRITES_LOADS),
+        moved,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+        resume=True,
+    )
+    assert [record.run_id for record in records] == ["camp/sim_9001/a+02.0"]

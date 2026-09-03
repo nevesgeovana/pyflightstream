@@ -98,6 +98,11 @@ def polar_name(
 _UNSAFE_CHARS = re.compile(r'[<>:"/\\|?*\s]')
 
 
+def is_portable_name(text: str) -> bool:
+    """Whether ``text`` is a plain file-name-safe token: no separators, no whitespace, not empty."""
+    return bool(text) and _UNSAFE_CHARS.search(text) is None
+
+
 class NamingTemplateError(PyflightstreamError, ValueError):
     """A naming template cannot be validated or rendered.
 

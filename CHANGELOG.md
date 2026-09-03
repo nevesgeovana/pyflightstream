@@ -98,6 +98,15 @@ FlightStream versions.
   of GOAL-011, 32 of 32). The products are CSV by her decision of
   2026-09-02; the layout she recorded in is a third party's and the package
   neither names nor writes it.
+- PFS-2029.03: the workspace directory names the campaign. `pyfs-matrix
+  plan` and `run` need no `--name`: the campaign is named after the
+  workspace directory, and the plan and every run record say where the name
+  came from (`campaign_name_from`: `directory`, or `option` when `--name`
+  was given); a directory whose name is not a plain token is refused naming
+  `--name`, and `convert`, which has no workspace, still needs it. A resume
+  from a workspace renamed since its first run is refused naming the
+  recorded name, the derived name and `--name`, since every run id begins
+  with the campaign's name and nothing would be recognised as recorded.
 - PFS-2029.09, the author's decision of 2026-09-02 amending PFS-2009.01:
   the `GEOMETRY` cell carries the FILE NAME with its extension.
   `30_WB.fsm` resolves to `inputs/geometries/30_WB.fsm` and `blade.v2.fsm`

@@ -13,6 +13,8 @@ untouched and every assertion below is unchanged.
 import tomllib
 from pathlib import Path
 
+import pytest
+
 from pyflightstream.cases import load_campaign
 from pyflightstream.run.cli import main
 from pyflightstream.workspace import CampaignWorkspace
@@ -287,3 +289,61 @@ def test_post_reruns_from_the_manifest_without_a_solver(tmp_path, capsys):
     assert main(["post", "--workspace", str(workspace.root)]) == 2
     assert "--overwrite" in capsys.readouterr().err
     assert main(["post", "--workspace", str(workspace.root), "--overwrite"]) == 0
+
+
+# --- PFS-2029.03: the workspace directory names the campaign -----------------------
+
+
+def test_the_workspace_directory_names_the_campaign(tmp_path, capsys):
+    """`plan` from a directory named pfs0101 records campaign 'pfs0101', from the directory."""
+    import json
+
+    workspace = make_planned_workspace(tmp_path)
+    root = tmp_path / "pfs0101"
+    workspace.root.rename(root)
+    argv = ["plan", str(WORKFLOW_FIXTURE), "--workspace", str(root)]
+    assert main(argv) == 0
+    plan = json.loads((root / "plan.json").read_text(encoding="utf-8"))
+    assert plan["campaign"] == "pfs0101"
+    assert plan["campaign_name_from"] == "directory"
+    assert all(point["run_id"].startswith("pfs0101/") for point in plan["points"])
+
+
+def test_name_overrides_the_directory_and_the_record_says_so(tmp_path):
+    import json
+
+    workspace = make_planned_workspace(tmp_path)
+    root = tmp_path / "pfs0101"
+    workspace.root.rename(root)
+    argv = ["plan", str(WORKFLOW_FIXTURE), "--workspace", str(root), "--name", "study"]
+    assert main(argv) == 0
+    plan = json.loads((root / "plan.json").read_text(encoding="utf-8"))
+    assert plan["campaign"] == "study"
+    assert plan["campaign_name_from"] == "option"
+
+
+def test_an_illegal_directory_name_is_refused_naming_the_option(tmp_path, capsys):
+    workspace = make_planned_workspace(tmp_path)
+    root = tmp_path / "my campaign"
+    workspace.root.rename(root)
+    argv = ["plan", str(WORKFLOW_FIXTURE), "--workspace", str(root)]
+    with pytest.raises(SystemExit) as caught:
+        main(argv)
+    assert "--name" in str(caught.value) and "my campaign" in str(caught.value)
+    # `convert` has no workspace to name a campaign after and still needs the option.
+    assert (
+        main(
+            [
+                "convert",
+                str(REGISTRY_FIXTURE),
+                "--fs-version",
+                "26.120",
+                "--fs-exe",
+                "fs.exe",
+                "--recipe",
+                "003=m:f",
+            ]
+        )
+        == 2
+    )
+    assert "--name" in capsys.readouterr().err

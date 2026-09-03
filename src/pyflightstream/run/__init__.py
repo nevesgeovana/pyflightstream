@@ -1834,6 +1834,7 @@ def run_campaign(
     resume: bool = False,
     preflight: bool = True,
     builds: Mapping[str, SolverBuild] | None = None,
+    name_from: str | None = None,
 ) -> list[RunRecord]:
     """Run every point of a campaign, recording each in the manifest.
 
@@ -1961,6 +1962,19 @@ def run_campaign(
     # nothing. The whole schedule is knowable from the campaign and the
     # manifest, so every refusal that rests on it belongs here rather than
     # halfway through a run that has already spent seats (PFS-2009.09.02).
+    # A RESUME UNDER ANOTHER NAME IS REFUSED (PFS-2029.03.02): the run ids
+    # the manifest holds begin with the campaign's name, so a workspace
+    # renamed since its first run derives a name that matches none of them,
+    # and every point would read as new rather than as recorded.
+    recorded_names = sorted({run_id.split("/", 1)[0] for run_id in recorded})
+    if resume and recorded_names and campaign.name not in recorded_names:
+        raise WorkspaceError(
+            f"cannot resume under the campaign name {campaign.name!r}: the manifest of "
+            f"{workspace.root} records {', '.join(repr(n) for n in recorded_names)}, and a "
+            "run id begins with the name, so nothing here would be recognised as "
+            "recorded. Resume under the recorded name with name (CLI: --name), or "
+            "choose a new campaign root for a new campaign."
+        )
     scheduled: list[tuple[SimCase, SolverBuild | None, list[tuple[dict[str, float], str]]]] = []
     for case, build in zip(campaign.sims, case_builds, strict=True):
         # PYFS-004. Which points of this case still need running is decided
@@ -2037,6 +2051,7 @@ def run_campaign(
                 preparation_error=preparation_error,
                 inputs_sha256=inputs_sha256,
                 staged_geometry=staged_geometry,
+                name_from=name_from,
                 executor=case_executor,
                 workspace=workspace,
                 sim_dir=sim_dir,
@@ -2241,6 +2256,8 @@ class CampaignPlan:
     campaign: str
     fs_version: str
     points: list[PointPlan] = field(default_factory=list)
+    #: Where the campaign name came from, ``directory`` or ``option`` (PFS-2029.03.01).
+    campaign_name_from: str | None = None
     plan_file: Path | None = None
     build_groups: dict[str, list[str]] = field(default_factory=dict)
 
@@ -2297,6 +2314,7 @@ def plan_campaign(
     *,
     recipes: dict[str, ScriptRecipe] | None = None,
     write_plan: bool = True,
+    name_from: str | None = None,
     builds: Mapping[str, SolverBuild] | None = None,
 ) -> CampaignPlan:
     """Pre-flight a campaign: validate every point without executing any.
@@ -2390,6 +2408,7 @@ def plan_campaign(
         plan_file = workspace.root / "plan.json"
         payload = {
             "campaign": campaign.name,
+            "campaign_name_from": name_from,
             "fs_version": canonical,
             "package_version": pyflightstream.__version__,
             "build_groups": groups,
@@ -2400,6 +2419,7 @@ def plan_campaign(
     return CampaignPlan(
         campaign=campaign.name,
         fs_version=canonical,
+        campaign_name_from=name_from,
         points=points,
         plan_file=plan_file,
         build_groups=groups,
@@ -2698,6 +2718,7 @@ def _execute_point(
     preparation_error: str | None,
     inputs_sha256: dict[str, str],
     staged_geometry: str | None,
+    name_from: str | None = None,
     executor: Executor,
     workspace: CampaignWorkspace,
     sim_dir: Path,
@@ -2743,6 +2764,7 @@ def _execute_point(
         "description": case.description or None,
         "mach": case.mach,
         "reference": _reference_block(case),
+        "campaign_name_from": name_from,
         # PFS-2027.05: the inputs as written and the resolved state, so
         # the record is recomputable rather than merely trusted.
         "flight_condition": dict(case.flight_condition),

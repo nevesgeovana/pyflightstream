@@ -529,6 +529,10 @@ class RunRecord(BaseModel):
     description: str | None = None
     mach: float | None = None
     reference: dict[str, float] | None = None
+    #: Where the campaign name came from (PFS-2029.03.01): ``directory``
+    #: when the workspace directory named it, ``option`` when ``--name``
+    #: or the ``name`` argument did; None on a record written before.
+    campaign_name_from: str | None = None
     recipe_sha256: str | None = None
     script_path: str | None = None
     script_sha256: str

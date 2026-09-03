@@ -266,6 +266,7 @@ def plan_matrix(
     recipe_registry: dict[str, ScriptRecipe] | None = None,
     write_plan: bool = True,
     fs_version: str | None = None,
+    name_from: str | None = None,
 ) -> CampaignPlan:
     """Pre-flight a run matrix without executing anything.
 
@@ -348,7 +349,11 @@ def plan_matrix(
         path, workspace, name=name, fs_version=default, recipes=recipes, fs_exe=fs_exe
     )
     return plan_campaign(
-        resolved.campaign, workspace, recipes=recipe_registry, write_plan=write_plan
+        resolved.campaign,
+        workspace,
+        recipes=recipe_registry,
+        write_plan=write_plan,
+        name_from=name_from,
     )
 
 
@@ -366,6 +371,7 @@ def run_matrix(
     resume: bool = False,
     hidden: bool | None = None,
     fs_version: str | None = None,
+    name_from: str | None = None,
 ) -> list[RunRecord]:
     """Read a run matrix and run it: the one-call first-class entry.
 
@@ -543,4 +549,5 @@ def run_matrix(
         recipes=recipe_registry,
         resume=resume,
         builds=builds,
+        name_from=name_from,
     )
