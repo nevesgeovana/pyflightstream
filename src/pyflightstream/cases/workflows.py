@@ -768,6 +768,11 @@ def _rpm_sign(case: SimCase) -> int:
     return sign
 
 
+#: The decimals a rotor speed derived from an advance ratio is emitted at:
+#: the author's tool wrote four, and her recorded runs turned at that value.
+_DERIVED_RPM_DECIMALS = 4
+
+
 def rotor_speed(case: SimCase) -> RotorSpeed:
     """Resolve the rotor speed a row states, in either form.
 
@@ -860,12 +865,13 @@ def rotor_speed(case: SimCase) -> RotorSpeed:
         )
     # n in rev/s is V / (J D); rev/min is sixty times that.
     # FOUR DECIMALS, her tool's precision for the derived speed: her recorded
-    # 9001 script states SET_MOTION_ROTOR_RPM 473.1723 where the unrounded
-    # derivation gives 473.17227304, and the run that produced her tables
-    # turned at the four-decimal value. Measured 2026-09-03 by the scripts
-    # arm of GOAL-011, which found it as the one difference on that point.
+    # 9001 script states SET_MOTION_ROTOR_RPM 1 473.1723 0.0 0.0 (quoted in
+    # reports/RPT-040, the reproduction report, from the recorded script)
+    # where the unrounded derivation gives 473.17227304, and the run that
+    # produced her tables turned at the four-decimal value. The scripts arm
+    # of GOAL-011 found it as the one difference on that point on 2026-09-03.
     # A ten-thousandth of a rev/min is below anything the solver resolves.
-    rpm = round(60.0 * velocity / (ratio * diameter), 4)
+    rpm = round(60.0 * velocity / (ratio * diameter), _DERIVED_RPM_DECIMALS)
     return RotorSpeed(
         sim_id=case.sim_id,
         stated_form="advance_ratio",

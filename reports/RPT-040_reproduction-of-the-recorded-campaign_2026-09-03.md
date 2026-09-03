@@ -1,9 +1,10 @@
 # RPT-040: the reproduction of the author's recorded campaign, coefficient by coefficient (2026-09-03)
 
-**PFS-2030.07.** Every number below is read from a loads table on disk by
-`python GeoversePlan/goals/check_goal_011.py --write-report`, and `--report`
-regenerates these tables and refuses a report whose numbers it cannot
-reproduce. The recorded tables are the author's campaign on FlightStream
+**PFS-2030.07.** Every number in the tables below is read from a loads table on disk by
+the GOAL-011 checker of the estate that hosts this repository (its
+`--write-report`, outside this tree), and its `--report` regenerates these
+tables and refuses a report whose numbers it cannot reproduce. The
+recorded tables are the author's campaign on FlightStream
 build #7012026 (registry 26.120); the reproduced tables are pyflightstream
 0.11.0 running the same build through the workflow scheme. The arbiter is
 the repeatability control: her recorded script for the unsteady point run
@@ -13,7 +14,7 @@ band a reproduction may differ by without being a regression (PFS-2030.06).
 ## The repeatability control
 
 Point POLAR-3224_M20AL+000BE+000J+130, recorded against re-run as recorded.
-Band: **0.0000000**; the two tables are identical, coefficient for coefficient.
+Band: **0.0000000**; the two tables are identical, coefficient for coefficient, so the criterion the selected points meet below is identity, not a tolerance. The control was run through the solver again (its log and its exports sit beside the table), so a zero band is the solver's determinism on this build, not a cached result.
 
 | surface | coefficient | recorded | reproduced | difference |
 |---|---|---|---|---|
@@ -192,7 +193,21 @@ the band: largest 0.0025969 at Total.Cz.
 | Total | CMy | -0.0678172 | -0.0685478 | 0.0007306 |
 | Total | CMz | +0.0000000 | +0.0000000 | 0.0000000 |
 
+## The scripts, verb for verb
+
+- scripts 3 of 3 within the allow-list: the three rendered scripts against her recorded ones, outside an enumerated allow-list nothing differs.
+- her recorded unsteady_rotor 9001 script states `SET_MOTION_ROTOR_RPM 1 473.1723 0.0 0.0`; the package derives the speed from the advance ratio and emits it at four decimals, her tool's precision
+
 ## The products and the export set
 
 - products 32 of 32 equal
 - exports 3 of 3 complete on 26.120
+
+## Reproduction
+
+Measured on: 2026-09-03, on the licensed seat that holds build #7012026, by the estate's GOAL-011 checker. To re-take: run the
+reproduction workspace's matrix through `pyfs-matrix run`, run the
+repeatability control beside it, and regenerate this report with the
+checker's `--write-report`; `--report` then refuses any number that moved.
+The recorded tables live in the author's own campaign folder, which is
+machine-local and named in no versioned file.

@@ -3387,3 +3387,33 @@ def test_the_default_assessor_judges_the_points_own_table_in_a_two_point_sweep(t
         record.error for record in records
     ]
     assert [record.outputs for record in records] == [["raw/a+02.0.txt"], ["raw/a+04.0.txt"]]
+
+
+def test_a_case_whose_declared_outputs_are_absent_is_judged_over_the_folder(tmp_path):
+    """The fallback half of the assessor's restriction, asked for by the QA lens.
+
+    A case declares outputs that never appeared under raw/ (a failed export, an
+    unrendered template): the whole folder is judged as before this release,
+    so the one table that IS there still decides the point.
+    """
+    from pyflightstream.run import LoadsAssessor
+
+    steady = (FIXTURES / "loads_steady_26.120.txt").read_text(encoding="utf-8")
+    case = SimCase(
+        sim_id="9001",
+        aircraft="TestWing",
+        velocity=30.0,
+        sweep=SweepAxis(type="alpha", values=[2.0]),
+        recipe="steady",
+        outputs=["never_exported.txt"],
+    )
+    case.point = {"alpha": 2.0}
+    assessment = LoadsAssessor()(case, None, make_raw(tmp_path, "", name="loads.txt", text=steady))
+    assert assessment.status is RunStatus.CONVERGED, assessment.error
+    # And a case whose declared table IS there is judged on that table alone,
+    # with a second table beside it ignored.
+    make_raw(tmp_path, "", name="other.txt", text=steady)
+    own = case.model_copy(update={"outputs": ["loads.txt"]})
+    own.point = {"alpha": 2.0}
+    assert LoadsAssessor()(own, None, tmp_path).status is RunStatus.CONVERGED
+    assert "several of them parse" in (LoadsAssessor()(case, None, tmp_path).error or "")

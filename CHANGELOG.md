@@ -18,7 +18,8 @@ FlightStream versions.
   outputs is judged over the whole folder as before.
 - A rotor speed derived from `ADVANCE_RATIO` is emitted at four decimals,
   the precision the author's tool wrote it with: her recorded 9001 script
-  states 473.1723 rev/min where the unrounded derivation gives 473.17227304,
+  states 473.1723 rev/min (quoted in `reports/RPT-040`, the reproduction
+  report) where the unrounded derivation gives 473.17227304,
   and the run that produced her tables turned at the four-decimal value.
   Found by the scripts arm of GOAL-011 on 2026-09-03 as the one difference
   on that point once the row stated the advance ratio her name carries.

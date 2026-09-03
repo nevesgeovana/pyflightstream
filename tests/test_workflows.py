@@ -4059,3 +4059,14 @@ def test_two_motions_emit_two_motion_blocks_with_their_frames(tmp_path):
     assert lines.count("CREATE_NEW_COORDINATE_SYSTEM") == 5, (
         "the row's PROP_MRP, two fixed and two moving frames (no reference, so no MRP)"
     )
+
+
+def test_a_derived_rotor_speed_is_emitted_at_her_four_decimals():
+    """The QA lens of 2026-09-03: the rounding was pinned by nothing.
+
+    The unrounded derivation of this case is 473.17781838...; her tool wrote
+    the derived speed at four decimals and her recorded runs turned at that
+    value (her 9001 point, at a slightly different velocity, is 473.1723 in
+    RPT-040), so equality is exact here, not approximate.
+    """
+    assert rotor_speed(ratio_case()).rpm == 473.1778
