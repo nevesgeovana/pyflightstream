@@ -663,6 +663,25 @@ that names one of these tables is refused pointing here: a setup carries
 solver settings only (PFS-2029.16). The run record names the pproc id each
 point was run for.
 
+### How a point is named
+
+Every export hangs off the point's NAME, and the name is the author's own
+convention (PFS-2029.19): `POLAR-<sim>_M<mach*100>AL<alpha*10>BE<beta*10>`,
+with `J<J*100>` appended when the row has an advance ratio, every field
+fixed width so a folder of them sorts. Row 3207 at Mach 0.20 and alpha
+-2 is `POLAR-3207_M20AL-020BE+000`; a rotor point at Mach 0.1441 and J 1.7
+is `POLAR-9001_M14AL+000BE+000J+170`; and its exports are
+`POLAR-9001_M14AL+000BE+000J+170.txt`, `..._cp.txt`, `..._log.txt` and
+the rest. `pyfs-matrix plan` and `run` name points this way unless
+`--point-name` gives another template; the placeholders are `{polar}`,
+`{point}` (the historical `a+02.0_b+00.0` tag), `{alpha}`, `{beta}`,
+`{mach}`, `{advance_ratio}`, `{sim}` and `{campaign}`, and inside an
+output name `{name}` is the rendered stem. The run record carries the
+template that named each point (`point_name_template`), so a name is
+never mistaken for the identity beside it: identity is the `run_id`, which
+no template touches. A campaign built in Python keeps the library default,
+`{point}`, so nothing written before v0.11.0 is renamed under it.
+
 A workspace written before v0.11.0 moves in one command:
 
 ```text

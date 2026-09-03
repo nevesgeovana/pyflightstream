@@ -206,7 +206,7 @@ def test_a_case_naming_a_workflow_and_no_recipe_produces_a_complete_script():
     # asserts is that the workflow exported the name the case DECLARES
     # rather than a literal of its own, which is the property that keeps
     # two points of one case from overwriting each other.
-    assert "{point}.txt" in text, (
+    assert "{name}.txt" in text, (
         "the workflow exported a literal rather than the name the case declared: since "
         "0.11.0 a workflow row's exports are the study's set, every one named for the "
         "point (FR-51)"
@@ -530,7 +530,7 @@ def test_every_command_a_workflow_declares_is_one_it_really_emits():
     )
     for name in WORKFLOWS:
         unsteady = name != "steady"
-        names = [n.replace("{point}", "a+00.0_b+00.0") for n in default_outputs(unsteady)]
+        names = [n.replace("{name}", "a+00.0_b+00.0") for n in default_outputs(unsteady)]
         base = _case_for(name)
         reference = base.reference or ReferenceData(area=1.0, length=1.0)
         reference = reference.model_copy(update={"moment_point_m": (0.0, 0.0, 0.0)})
@@ -3342,7 +3342,9 @@ def test_the_rotorless_type_emits_no_motion_and_no_frame():
     "key,value",
     [
         ("RPM", "1200"),
-        ("ADVANCE_RATIO", "1.7"),
+        # ADVANCE_RATIO left this list at 0.11.0 (PFS-2029.19): her wing-body
+        # unsteady rows stated the J of the propeller they did not mesh, and
+        # the name carries it; the keys that would turn something stay.
         ("RPM_SIGN", "-1"),
         ("ROTOR_AXIS", "X"),
         ("ROTOR_ORIGIN", "0,0,0"),
@@ -3593,7 +3595,7 @@ def _with_default_outputs(case: SimCase, unsteady: bool) -> SimCase:
     from pyflightstream.cases import default_outputs
 
     names = [
-        name.replace("{point}", "POLAR-9_M20AL+000BE+000") for name in default_outputs(unsteady)
+        name.replace("{name}", "POLAR-9_M20AL+000BE+000") for name in default_outputs(unsteady)
     ]
     return case.model_copy(update={"outputs": names})
 
@@ -3643,16 +3645,16 @@ def test_default_outputs_and_their_classification():
 
     steady = default_outputs(unsteady=False)
     assert steady == [
-        "{point}.fsm",
-        "{point}.txt",
-        "{point}.dat",
-        "{point}_cp.txt",
-        "{point}_sloads.txt",
-        "{point}_probes.txt",
-        "{point}_log.txt",
+        "{name}.fsm",
+        "{name}.txt",
+        "{name}.dat",
+        "{name}_cp.txt",
+        "{name}_sloads.txt",
+        "{name}_probes.txt",
+        "{name}_log.txt",
     ]
-    assert "{point}_plots.txt" in default_outputs(unsteady=True)
-    kinds = classify_outputs([n.replace("{point}", "P") for n in default_outputs(unsteady=True)])
+    assert "{name}_plots.txt" in default_outputs(unsteady=True)
+    kinds = classify_outputs([n.replace("{name}", "P") for n in default_outputs(unsteady=True)])
     assert kinds["loads"] == "P.txt"
     assert kinds["sections"] == "P_cp.txt"
     assert kinds["log"] == "P_log.txt"
@@ -3778,7 +3780,7 @@ def test_pproc_exports_select_the_export_verbs(tmp_path):
 
     pproc = PprocSpec.model_validate({"exports": {"tecplot": False, "probes": False}})
     case = _with_pproc(unsteady_case(), _wb_geometry(tmp_path), pproc).model_copy(
-        update={"outputs": [n.replace("{point}", "P") for n in pproc.outputs(unsteady=True)]}
+        update={"outputs": [n.replace("{name}", "P") for n in pproc.outputs(unsteady=True)]}
     )
     lines = rendered(case).splitlines()
     assert "EXPORT_SOLVER_ANALYSIS_TECPLOT" not in lines and "EXPORT_PROBE_POINTS" not in lines
@@ -3799,7 +3801,7 @@ def test_pproc_exports_deselect_a_kind():
 
     pproc = PprocSpec.model_validate({"exports": {"tecplot": False}})
     assert len(pproc.outputs(unsteady=True)) == 7
-    assert "{point}.dat" not in pproc.outputs(unsteady=True)
+    assert "{name}.dat" not in pproc.outputs(unsteady=True)
     assert len(PprocSpec().outputs(unsteady=True)) == 8
 
 

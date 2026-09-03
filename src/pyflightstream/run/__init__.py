@@ -2071,16 +2071,49 @@ def _point_names(
     :attr:`SimCase.outputs`, so what it exports is what the loop
     collects. The default template reproduces the historical names.
     """
+    ratio = _advance_ratio_of(case)
     stem = workspace.naming.render_point(
-        campaign=campaign.name, sim=case.sim_id, point=point, mach=case.mach
+        campaign=campaign.name, sim=case.sim_id, point=point, mach=case.mach, advance_ratio=ratio
     )
     outputs = [
         workspace.naming.render_output(
-            name, campaign=campaign.name, sim=case.sim_id, point=point, mach=case.mach
+            name,
+            campaign=campaign.name,
+            sim=case.sim_id,
+            point=point,
+            mach=case.mach,
+            advance_ratio=ratio,
+            stem=stem,
         )
         for name in case.outputs
     ]
     return stem, outputs
+
+
+def _advance_ratio_of(case: SimCase) -> float | None:
+    """Return the advance ratio a case states or resolves, for its name; None without one.
+
+    A row stating ADVANCE_RATIO names it directly; a row stating RPM with
+    a velocity and a propeller diameter resolves it the way the rotor
+    speed does (PFS-2029.19.01, the J field of her convention). A case
+    that cannot resolve one is a case without a J field, not a refusal:
+    the name is presentation, and the run type's own refusals still say
+    what a rotor row lacks.
+    """
+    from pyflightstream.cases.workflows import ADVANCE_RATIO_VARIABLE, RPM_VARIABLE, rotor_speed
+
+    stated = case.variables.get(ADVANCE_RATIO_VARIABLE)
+    if stated is not None:
+        try:
+            return float(stated)
+        except (TypeError, ValueError):
+            return None
+    if case.variables.get(RPM_VARIABLE) is None:
+        return None
+    try:
+        return rotor_speed(case).advance_ratio
+    except PyflightstreamError:
+        return None
 
 
 class PlanStatus(enum.StrEnum):
@@ -2663,6 +2696,9 @@ def _execute_point(
         # reader of the record knows which sections, plots and products
         # the point was run for without opening the matrix.
         "pproc": case.pproc_id,
+        # The template that rendered this point's names (PFS-2029.19.01),
+        # so a reader can tell a name from the identity beside it.
+        "point_name_template": workspace.naming.point_name,
         # PFS-2027.05: the inputs as written and the resolved state, so
         # the record is recomputable rather than merely trusted.
         "flight_condition": dict(case.flight_condition),

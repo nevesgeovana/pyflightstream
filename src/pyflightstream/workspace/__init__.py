@@ -495,6 +495,9 @@ class RunRecord(BaseModel):
     #: The pproc artifact id the row named (PFS-2029.16); None on a
     #: record written before 0.11.0 or by a campaign built without one.
     pproc: str | None = None
+    #: The naming template that rendered the point's stem and output names
+    #: (PFS-2029.19.01); None on a record written before 0.11.0.
+    point_name_template: str | None = None
     recipe_sha256: str | None = None
     script_path: str | None = None
     script_sha256: str

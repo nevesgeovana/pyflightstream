@@ -204,3 +204,74 @@ def test_the_coupling_driver_still_appends_within_one_run(tmp_path):
     driver.coupling_step(run_dir)
     rows = (run_dir / driver.LOG_FILE).read_text(encoding="utf-8").strip().splitlines()
     assert len(rows) >= 3, f"the second call did not append its row: {rows}"
+
+
+# --- PFS-2029.19.02: the name carries the Mach and the advance ratio ---------------
+
+
+def test_mach_and_advance_ratio_separate_two_rows(tmp_path):
+    """Two rows at the same angles and different Mach, or different J, are two names.
+
+    The collision refusal of FR-33c still fires for two rows identical in
+    every rendered field, which the last assertion measures.
+    """
+    import sys
+
+    from pyflightstream.cases import Campaign, SimCase, SweepAxis
+    from pyflightstream.run import PlanStatus, plan_campaign
+    from pyflightstream.workspace import CampaignWorkspace
+    from pyflightstream.workspace.naming import MATRIX_POINT_NAME, NamingTemplate
+
+    geometry = tmp_path / "wing.fsm"
+    geometry.write_bytes(b"geometry")
+
+    def recipe(case, script):
+        script.emit("OPEN", case.geometry)
+        script.emit("START_SOLVER")
+        script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", case.outputs[0])
+        script.emit("CLOSE_FLIGHTSTREAM")
+
+    def case(sim_id, mach, variables=None):
+        return SimCase(
+            sim_id=sim_id,
+            aircraft="WB",
+            velocity=68.0,
+            mach=mach,
+            geometry=str(geometry),
+            sweep=SweepAxis(type="alpha", values=[0.0]),
+            recipe="steady",
+            outputs=["{name}.txt"],
+            variables=variables or {},
+        )
+
+    def names(*sims):
+        campaign = Campaign(
+            name="camp", fs_version="26.120", fs_exe=sys.executable, sims=list(sims)
+        )
+        workspace = CampaignWorkspace(
+            tmp_path / "camp", naming=NamingTemplate(point_name=MATRIX_POINT_NAME)
+        )
+        plan = plan_campaign(campaign, workspace, recipes={"steady": recipe})
+        return [(point.status, point.script_name) for point in plan.points]
+
+    two_mach = names(case("3207", 0.2), case("3208", 0.3))
+    assert [status for status, _ in two_mach] == [PlanStatus.READY, PlanStatus.READY]
+    assert two_mach[0][1] == "POLAR-3207_M20AL+000BE+000.txt"
+    assert two_mach[1][1] == "POLAR-3208_M30AL+000BE+000.txt", "the Mach is in the name"
+    two_ratios = names(
+        case("3224", 0.2, {"ADVANCE_RATIO": "1.3"}), case("3225", 0.2, {"ADVANCE_RATIO": "1.7"})
+    )
+    assert [name for _, name in two_ratios] == [
+        "POLAR-3224_M20AL+000BE+000J+130.txt",
+        "POLAR-3225_M20AL+000BE+000J+170.txt",
+    ], "the advance ratio is in the name"
+    # The control: two points whose every rendered field is the same still
+    # collide before anything runs (FR-33c), here a constant output name
+    # over a two-point sweep.
+    constant = case("3207", 0.2).model_copy(
+        update={"sweep": SweepAxis(type="alpha", values=[0.0, 2.0]), "outputs": ["loads.txt"]}
+    )
+    same = names(constant)
+    assert {status for status, _ in same} == {PlanStatus.BLOCKED}, (
+        "two rows identical in every rendered field still collide (FR-33c)"
+    )

@@ -81,6 +81,21 @@ FlightStream versions.
   variables; `--inputs <dir>` beside `--in-place` moves `inputs/groups/e*.toml`
   to `inputs/pproc/p*.toml` under `[groups]`, comments and all. A workflow row
   that still carries `OUTPUTS` is refused naming the pproc artifact.
+- FR-33a and FR-33b, PFS-2029.19: the author's own naming convention names
+  every point and its exports. A new placeholder `{polar}` renders
+  `POLAR-<sim>_M<mach*100:02d>AL<alpha*10:+04d>BE<beta*10:+04d>`, with
+  `J<J*100:+04d>` appended when the case has an advance ratio, fixed width so
+  a directory of them sorts (`POLAR-3207_M20AL-020BE+000`,
+  `POLAR-9001_M14AL+000BE+000J+170`); `{name}`, inside an output name, is the
+  rendered point stem, and the default export set hangs off it. `pyfs-matrix
+  plan` and `run` name points by `{polar}` unless `--point-name` says
+  otherwise, because a matrix row always resolves a Mach number; the library
+  default stays `{point}`, so hand-built campaigns, goldens and manifests are
+  what they were. The run record carries the template that rendered its names
+  (`point_name_template`). A rotorless unsteady row may state `ADVANCE_RATIO`,
+  the J of the propeller it did not mesh, as her wing-body rows did; it names
+  the point and turns nothing, and the keys that would turn something are
+  still refused.
 - PFS-2029.01 and PFS-2029.02: `pyfs-matrix run` and `plan` need no
   `--fs-version` when every active row fills `FS_BUILD` (a silent row is still
   refused by name), and no `--workflow CODE=NAME` for a row naming a registered

@@ -19,6 +19,20 @@ Available placeholders:
 - ``{alpha}``, ``{beta}``: sweep angles in deg, compact (``2``, ``-3.5``).
 - ``{advance_ratio}``: propeller advance ratio J, dimensionless, compact.
 - ``{mach}``: free-stream Mach number of the case, compact.
+- ``{polar}``: the author's own convention (PFS-2029.19),
+  ``POLAR-<sim>_M<mach*100:02d>AL<alpha*10:+04d>BE<beta*10:+04d>`` and
+  ``J<J*100:+04d>`` appended when the case has an advance ratio, so
+  ``POLAR-3207_M20AL-020BE+000`` and ``POLAR-9001_M14AL+000BE+000J+170``;
+  fixed width, so the names sort. It needs the case's Mach number; an
+  angle the sweep does not vary is zero.
+- ``{name}``, in OUTPUT names only: the rendered point stem, so every
+  export hangs off the point's name whatever template produced it.
+
+The default templates reproduce the historical names exactly
+(``{point}`` for per-point files, ``sim_{sim}`` for archives), so
+existing campaign roots, goldens, and manifests stay valid; the matrix
+command line names points by :data:`MATRIX_POINT_NAME`, her convention,
+because a matrix row always resolves a Mach number.
 
 The default templates reproduce the historical names exactly
 (``{point}`` for per-point files, ``sim_{sim}`` for archives), so
@@ -36,8 +50,49 @@ from pydantic import BaseModel, ConfigDict, field_validator
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.cases import point_tag
 
-_POINT_PLACEHOLDERS = ("campaign", "sim", "point", "alpha", "beta", "mach", "advance_ratio")
+_POINT_PLACEHOLDERS = (
+    "campaign",
+    "sim",
+    "point",
+    "alpha",
+    "beta",
+    "mach",
+    "advance_ratio",
+    "polar",
+)
+_OUTPUT_PLACEHOLDERS = (*_POINT_PLACEHOLDERS, "name")
 _ARCHIVE_PLACEHOLDERS = ("campaign", "sim")
+
+#: The point name the matrix command line uses unless told otherwise
+#: (PFS-2029.19.01): the author's own convention, whose every field a
+#: matrix row resolves.
+MATRIX_POINT_NAME = "{polar}"
+
+
+def polar_name(
+    sim: str,
+    mach: float,
+    alpha_deg: float = 0.0,
+    beta_deg: float = 0.0,
+    advance_ratio: float | None = None,
+) -> str:
+    """Render the author's point convention (PFS-2029.19.01).
+
+    ``POLAR-<sim>_M<mach*100:02d>AL<alpha*10:+04d>BE<beta*10:+04d>``, with
+    ``J<J*100:+04d>`` appended when an advance ratio is known: her
+    ``POLAR-{polar:03d}_M{mach*100:02d}AL{alpha*10:+04d}BE{beta*10:+04d}``
+    and, for a rotor case, ``J{advance_ratio*100:+04d}``. Fixed width, so
+    a directory of them sorts by polar, Mach, angle and ratio.
+    """
+    name = (
+        f"POLAR-{sim}_M{round(mach * 100):02d}"
+        f"AL{round(alpha_deg * 10):+04d}BE{round(beta_deg * 10):+04d}"
+    )
+    if advance_ratio is not None:
+        name += f"J{round(advance_ratio * 100):+04d}"
+    return name
+
+
 # Characters that break file names on at least one supported platform;
 # rendered names and substituted values must stay clear of them.
 _UNSAFE_CHARS = re.compile(r'[<>:"/\\|?*\s]')
@@ -100,6 +155,7 @@ class NamingTemplate(BaseModel):
         sim: str,
         point: dict[str, float],
         mach: float | None = None,
+        advance_ratio: float | None = None,
     ) -> str:
         """Render the file stem of one sweep point.
 
@@ -115,15 +171,20 @@ class NamingTemplate(BaseModel):
             :meth:`pyflightstream.cases.SweepAxis.points`; feeds
             ``{point}`` and the per-axis placeholders.
         mach : float, optional
-            Free-stream Mach number of the case for ``{mach}``;
-            None when the case declares none.
+            Free-stream Mach number of the case for ``{mach}`` and
+            ``{polar}``; None when the case declares none.
+        advance_ratio : float, optional
+            The case's advance ratio for ``{advance_ratio}`` and the J
+            field of ``{polar}`` when the sweep does not vary it.
 
         Returns
         -------
         str
             The rendered stem, without extension.
         """
-        return _render(self.point_name, _values(campaign, sim, point, mach), "point_name")
+        return _render(
+            self.point_name, _values(campaign, sim, point, mach, advance_ratio), "point_name"
+        )
 
     def render_output(
         self,
@@ -133,6 +194,8 @@ class NamingTemplate(BaseModel):
         sim: str,
         point: dict[str, float],
         mach: float | None = None,
+        advance_ratio: float | None = None,
+        stem: str | None = None,
     ) -> str:
         """Render the placeholders inside one declared output name.
 
@@ -171,9 +234,12 @@ class NamingTemplate(BaseModel):
         _check_output_containment(name)
         if "{" not in name and "}" not in name:
             return name
-        _check_placeholders(name, _POINT_PLACEHOLDERS, "output name")
+        _check_placeholders(name, _OUTPUT_PLACEHOLDERS, "output name")
         rendered = _render(
-            name, _values(campaign, sim, point, mach), "output name", check_name=False
+            name,
+            _values(campaign, sim, point, mach, advance_ratio, stem),
+            "output name",
+            check_name=False,
         )
         # Re-checked after rendering: a placeholder value could reintroduce
         # what the template did not contain.
@@ -221,7 +287,12 @@ _FORMATTER = _CompactFormatter()
 
 
 def _values(
-    campaign: str, sim: str, point: dict[str, float], mach: float | None
+    campaign: str,
+    sim: str,
+    point: dict[str, float],
+    mach: float | None,
+    advance_ratio: float | None = None,
+    stem: str | None = None,
 ) -> dict[str, object]:
     """Assemble the placeholder values available on one point."""
     values: dict[str, object] = {
@@ -232,8 +303,20 @@ def _values(
     for axis in ("alpha", "beta", "advance_ratio"):
         if axis in point:
             values[axis] = float(point[axis])
+    if advance_ratio is not None and "advance_ratio" not in values:
+        values["advance_ratio"] = float(advance_ratio)
     if mach is not None:
         values["mach"] = float(mach)
+        ratio = values.get("advance_ratio")
+        values["polar"] = polar_name(
+            sim,
+            float(mach),
+            float(point.get("alpha", 0.0)),
+            float(point.get("beta", 0.0)),
+            None if ratio is None else float(ratio),
+        )
+    if stem is not None:
+        values["name"] = stem
     return values
 
 
@@ -309,8 +392,8 @@ def _render(template: str, values: dict[str, object], role: str, check_name: boo
         raise NamingTemplateError(
             f"the {role} template {template!r} needs {{{missing}}}, but this point "
             f"provides only: {', '.join(sorted(values))}. A sweep axis placeholder "
-            "is only available when the sweep varies that axis, and {mach} only "
-            "when the case declares a Mach number."
+            "is only available when the sweep varies that axis, {mach} and {polar} only "
+            "when the case declares a Mach number, and {name} only inside an output name."
         ) from error
     for name, value in values.items():
         text = _FORMATTER.format_field(value, "")

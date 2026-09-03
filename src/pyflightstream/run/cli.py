@@ -66,6 +66,7 @@ from pyflightstream.results.tables import LoadsNotFoundError, sweep_table, write
 from pyflightstream.run import CampaignErrors, LoadsAssessor
 from pyflightstream.run.matrix import plan_matrix, run_matrix
 from pyflightstream.workspace import CampaignWorkspace, InputArtifactError
+from pyflightstream.workspace.naming import MATRIX_POINT_NAME, NamingTemplate, NamingTemplateError
 
 
 def _parse_recipes(pairs: list[str]) -> dict[str, str]:
@@ -230,6 +231,14 @@ def _build_parser() -> argparse.ArgumentParser:
         help="managed campaign root carrying the inputs/ library (default: the current directory)",
     )
     plan.add_argument(
+        "--point-name",
+        default=MATRIX_POINT_NAME,
+        help="the template that names each point's script and exports; the default "
+        "is the author's convention, POLAR-<sim>_M<mach*100>AL<alpha*10>BE<beta*10>"
+        "[J<J*100>], fixed width; {point}, {alpha}, {beta}, {mach}, {advance_ratio}, "
+        "{sim} and {campaign} are the other placeholders (PFS-2029.19)",
+    )
+    plan.add_argument(
         "--fs-exe",
         help="explicit executable override; mandatory for MANUAL rows, otherwise the "
         "FS_BUILD column resolves through inputs/executables.toml",
@@ -252,6 +261,14 @@ def _build_parser() -> argparse.ArgumentParser:
         "--workspace",
         default=".",
         help="managed campaign root carrying the inputs/ library (default: the current directory)",
+    )
+    run.add_argument(
+        "--point-name",
+        default=MATRIX_POINT_NAME,
+        help="the template that names each point's script and exports; the default "
+        "is the author's convention, POLAR-<sim>_M<mach*100>AL<alpha*10>BE<beta*10>"
+        "[J<J*100>], fixed width; {point}, {alpha}, {beta}, {mach}, {advance_ratio}, "
+        "{sim} and {campaign} are the other placeholders (PFS-2029.19)",
     )
     run.add_argument(
         "--fs-exe",
@@ -316,6 +333,14 @@ _UPGRADE_NOTICE = (
 )
 
 
+def _naming(args: argparse.Namespace) -> NamingTemplate:
+    """Build the point-name template the command line was given, her convention by default."""
+    try:
+        return NamingTemplate(point_name=args.point_name)
+    except NamingTemplateError as error:
+        raise SystemExit(f"--point-name: {error}") from error
+
+
 def _cmd_upgrade(args: argparse.Namespace) -> int:
     """Bring a matrix at an older layout up to the current one."""
     if args.inputs is not None and not args.in_place:
@@ -376,7 +401,7 @@ def _cmd_convert(args: argparse.Namespace, recipes: dict[str, str]) -> int:
 
 
 def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
-    workspace = CampaignWorkspace(args.workspace)
+    workspace = CampaignWorkspace(args.workspace, naming=_naming(args))
     try:
         plan = plan_matrix(
             args.matrix,
@@ -410,7 +435,7 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
     reasoning intact while the subcommand exists (see the module
     docstring).
     """
-    workspace = CampaignWorkspace(args.workspace)
+    workspace = CampaignWorkspace(args.workspace, naming=_naming(args))
     try:
         run_matrix(
             args.matrix,

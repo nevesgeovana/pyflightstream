@@ -240,16 +240,17 @@ EXPORT_KINDS: tuple[tuple[str, str, str, bool], ...] = (
 def default_outputs(unsteady: bool, exports: Mapping[str, bool] | None = None) -> list[str]:
     """Return the output names a workflow row gets when it declares none.
 
-    Every kind hangs off the point placeholder, so the naming template
-    decides the stem and this list decides the suffixes; a steady row
-    leaves out the plots file. ``exports`` is the pproc artifact's
+    Every kind hangs off ``{name}``, the point's rendered stem, so the
+    naming template decides the stem and this list decides the suffixes
+    (PFS-2029.19); a steady row leaves out the plots file. ``exports`` is
+    the pproc artifact's
     ``[exports]`` table (PFS-2029.14.02): a kind set to false is left
     out, a kind the table does not name is kept, so an empty table is
     the whole set, as her driver's ``files_to_save`` defaulted.
     """
     chosen = exports or {}
     return [
-        f"{{point}}{suffix}"
+        f"{{name}}{suffix}"
         for kind, suffix, _, only_unsteady in EXPORT_KINDS
         if (unsteady or not only_unsteady) and chosen.get(kind, True)
     ]

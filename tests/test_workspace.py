@@ -2615,12 +2615,12 @@ def test_the_pproc_artifact_validates_its_six_tables(tmp_path):
     pproc = workspace.resolve_pproc("p010")
     assert pproc.groups == {"1": ["W", "B"]}
     assert pproc.outputs(unsteady=False) == [
-        "{point}.fsm",
-        "{point}.txt",
-        "{point}_cp.txt",
-        "{point}_sloads.txt",
-        "{point}_probes.txt",
-        "{point}_log.txt",
+        "{name}.fsm",
+        "{name}.txt",
+        "{name}_cp.txt",
+        "{name}_sloads.txt",
+        "{name}_probes.txt",
+        "{name}_log.txt",
     ], "tecplot is deselected, the plots file is unsteady-only"
     assert pproc.sections.count == 40 and pproc.sections.distributions[0].families == ["W"]
     assert pproc.plots.parameters == ["CL", "FX"] and pproc.plots.groups[0].name == "MRP_TOTAL"
