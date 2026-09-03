@@ -3,11 +3,28 @@
 Version-aware, didactic Python driver for the FlightStream panel-method
 solver. MIT licensed.
 
-Status: v0.10.1 is the current release; the changelog records what
+Status: v0.11.0 is the current release; the changelog records what
 each release adds and what each one asks you to do.
 
-**v0.10.1 changes no column of the run-matrix file and no cell you have
-already written.** What it changes is what one cell MEANS. A rotor row's
+**v0.11.0 changes the run-matrix FILE FORMAT, and one command moves a
+workspace.** The `ENTRY` column is now `PPROC` and names the post-processing
+artifact, the `FS_SCRIPT` column is gone and a `LEGACY` row carries its recipe
+code in its cell, and the `GEOMETRY` cell names the file with its extension.
+Run `pyfs-matrix upgrade matriz.fs --in-place --inputs inputs` once in the
+workspace: it rewrites the matrix, moves the groups library to `inputs/pproc/`
+and strips the four rotor facts from the reference artifact. What you get is
+the study stated once, in the workspace: the campaign is named after its
+directory, the post-processing artifact says which exports, sections, plots,
+probes and products every point leaves, the products are CSV tables the run
+writes itself (`pyfs-matrix post` rewrites them with no solver), the boundary
+order of a geometry is read from the file (`pyfs-matrix inventory`), a row may
+state several rotors, and every point opens its geometry through a link
+rather than a copy. The reproduction of the author's recorded campaign, script
+by script and product by product, is the exit condition of GOAL-011 and is
+what the release was built against.
+
+**v0.10.1 changed no column of the run-matrix file and no cell you had
+already written.** What it changed is what one cell MEANS. A rotor row's
 `MOVING_BOUNDARIES` used to cite boundaries by their POSITION in one
 geometry's order; those positions were right for the file they were
 written against and named different surfaces in any file that ordered

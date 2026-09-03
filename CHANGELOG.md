@@ -7,6 +7,8 @@ FlightStream versions.
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-09-03
+
 ### Added
 
 - FR-54, PFS-2030.02: a flight condition may PIN the fluid constants the
@@ -7151,7 +7153,8 @@ the repository seeding and this tag (milestones M0 through M5).
 * 26.000: registered, no recorded evidence yet (honest empty column;
   backfill planned for v0.2+).
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.10.1...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.11.0
 [0.10.1]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.10.1
 [0.10.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.10.0
 [0.9.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.9.0
