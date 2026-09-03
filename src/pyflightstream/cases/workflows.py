@@ -859,7 +859,13 @@ def rotor_speed(case: SimCase) -> RotorSpeed:
             f"{RPM_VARIABLE} directly."
         )
     # n in rev/s is V / (J D); rev/min is sixty times that.
-    rpm = 60.0 * velocity / (ratio * diameter)
+    # FOUR DECIMALS, her tool's precision for the derived speed: her recorded
+    # 9001 script states SET_MOTION_ROTOR_RPM 473.1723 where the unrounded
+    # derivation gives 473.17227304, and the run that produced her tables
+    # turned at the four-decimal value. Measured 2026-09-03 by the scripts
+    # arm of GOAL-011, which found it as the one difference on that point.
+    # A ten-thousandth of a rev/min is below anything the solver resolves.
+    rpm = round(60.0 * velocity / (ratio * diameter), 4)
     return RotorSpeed(
         sim_id=case.sim_id,
         stated_form="advance_ratio",
