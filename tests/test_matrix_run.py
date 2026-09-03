@@ -3004,3 +3004,47 @@ def test_a_disagreeing_sidecar_is_refused_before_the_solver_naming_both_lists(tm
     assert "W, B" in message and "B, W" in message and "wb.boundaries.toml" in message
     assert not list((workspace.sim_dir("7001") / "inputs").iterdir()), "a refused row was staged"
     assert workspace.read_manifest() == [], "a refused row reached the manifest"
+
+
+# --- PFS-2029.11.02/.03: a motion record is bound and recorded ------------------------
+
+
+def test_a_motion_record_binds_its_engine_point_and_reaches_the_record(tmp_path):
+    workspace = make_library(tmp_path, register_build=("26.120", Path(sys.executable).as_posix()))
+    (workspace.inputs_dir / "reference_points.toml").write_text(
+        "[ARP]\nx_m = 1.5\n\n[ERP1]\nx_m = -0.5\ny_m = 2.0\n", encoding="utf-8"
+    )
+    stage_geometry(workspace, "wb.fsm")
+    motions = (
+        " / MOTIONS: {MOVING_BOUNDARIES: 1 / RPM: 1000 / RPM_SIGN: 1 / ROTOR_AXIS: X"
+        " / ROTOR_ORIGIN: ERP1},"
+        " {MOVING_BOUNDARIES: 2 / RPM: 500 / RPM_SIGN: -1 / ROTOR_AXIS: X / ROTOR_ORIGIN: 0,0,1}"
+    )
+    matrix = geometry_matrix(tmp_path, " / VELOCITY: 30.0 / GEOMETRY: wb.fsm" + motions)
+    resolved = resolve_matrix(
+        matrix, workspace, name="matrix", fs_version="26.120", recipes=RECIPES
+    )
+    bound = resolved.campaign.sims[0].motions
+    assert bound[0]["ROTOR_ORIGIN"] == "-0.5,2.0,0.0" and bound[0]["ROTOR_ORIGIN_POINT"] == "ERP1"
+    assert bound[1]["ROTOR_ORIGIN"] == "0,0,1" and "ROTOR_ORIGIN_POINT" not in bound[1]
+    records = run_matrix(
+        matrix,
+        workspace,
+        name="matrix",
+        default_fs_version="26.120",
+        recipes=RECIPES,
+        assess=converged,
+        executor=StubSolver(WRITES_LOADS),
+        recipe_registry=workflow_registry(),
+    )
+    assert records[0].motions == bound, "the run record does not list the motions as bound"
+    # A record naming the airframe point is refused naming the point and its kind.
+    airframe = geometry_matrix(
+        tmp_path,
+        " / VELOCITY: 30.0 / GEOMETRY: wb.fsm / MOTIONS: {MOVING_BOUNDARIES: 1 / RPM: 1000 / "
+        "RPM_SIGN: 1 / ROTOR_AXIS: X / ROTOR_ORIGIN: ARP}",
+        stem="airframe.fs",
+    )
+    with pytest.raises(InputArtifactError) as caught:
+        resolve_matrix(airframe, workspace, name="matrix", fs_version="26.120", recipes=RECIPES)
+    assert "'ARP'" in str(caught.value) and "'airframe'" in str(caught.value)

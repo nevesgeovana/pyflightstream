@@ -1372,3 +1372,48 @@ def test_a_partly_edited_layout_is_refused_naming_upgrade(tmp_path):
     message = str(caught.value)
     assert "upgrade" in message, message
     assert "15" in message and "14" in message
+
+
+# --- PFS-2029.11.01: the variables cell reads a list of records ------------------------
+
+
+def _cell(text):
+    variables = matrix_mod._parse_variables(text)
+    return variables, matrix_mod._parse_motions(variables, "9001")
+
+
+def test_a_cell_reads_a_list_of_records():
+    variables, motions = _cell(
+        "VELOCITY: 30.0 / MOTIONS: {MOVING_BOUNDARIES: S,Blade1 / RPM_SIGN: -1 / ROTOR_AXIS: X}, "
+        "{MOVING_BOUNDARIES: Blade2 / RPM_SIGN: 1 / ROTOR_AXIS: X / ROTOR_ORIGIN: ERP2}"
+        " / OUTPUTS: l.txt"
+    )
+    assert variables == {"VELOCITY": "30.0", "OUTPUTS": "l.txt"}, (
+        "the list leaked into the flat keys"
+    )
+    assert motions == [
+        {"MOVING_BOUNDARIES": "S,Blade1", "RPM_SIGN": "-1", "ROTOR_AXIS": "X"},
+        {"MOVING_BOUNDARIES": "Blade2", "RPM_SIGN": "1", "ROTOR_AXIS": "X", "ROTOR_ORIGIN": "ERP2"},
+    ]
+    # A cell without the key reads exactly as before, records empty.
+    variables, motions = _cell("VELOCITY: 30.0 / RPM: 1200")
+    assert variables == {"VELOCITY": "30.0", "RPM": "1200"} and motions == []
+
+
+def test_a_malformed_record_list_is_refused_naming_the_cell():
+    with pytest.raises(MatrixError, match="POL 9001.*MOTIONS.*brace"):
+        _cell("MOTIONS: {MOVING_BOUNDARIES: S / RPM_SIGN: 1")
+    with pytest.raises(MatrixError, match="POL 9001.*MOTIONS.*ROTOR_AXIS twice"):
+        _cell("MOTIONS: {ROTOR_AXIS: X / ROTOR_AXIS: Y}")
+    with pytest.raises(MatrixError, match="POL 9001.*MOTIONS.*flat key.*RPM_SIGN"):
+        _cell("RPM_SIGN: 1 / MOTIONS: {ROTOR_AXIS: X}")
+    # A brace on another key is that key's own: an output template keeps it.
+    variables, motions = _cell("OUTPUTS: loads_{point}.txt / MOTIONS: {ROTOR_AXIS: X}")
+    assert variables == {"OUTPUTS": "loads_{point}.txt"} and motions == [{"ROTOR_AXIS": "X"}]
+
+
+def test_every_fixture_cell_parses_unchanged():
+    """The fixture suite: no fixture cell carries a record list, and every one still reads."""
+    for row in read_matrix(FIXTURE, active_only=False):
+        assert row.motions == []
+        assert "MOTIONS" not in row.variables

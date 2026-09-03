@@ -60,6 +60,7 @@ from pydantic import (
     ConfigDict,
     Field,
     ValidationError,
+    field_validator,
     model_validator,
 )
 
@@ -136,6 +137,10 @@ _KIND_DIRECTORIES = {"reference": "references", "setup": "setups", "pproc": "ppr
 KIND_COLUMNS = {"reference": "REF", "setup": "SET", "pproc": "PPROC"}
 
 
+#: What a reference point may declare itself to be (PFS-2029.11.02).
+POINT_KINDS = ("engine", "airframe")
+
+
 class PointXyz(BaseModel):
     """One point in the simulation geometry reference frame, meters.
 
@@ -147,9 +152,25 @@ class PointXyz(BaseModel):
         Y coordinate in m.
     z_m : float
         Z coordinate in m.
+    kind : str or None
+        What the point is, ``engine`` or ``airframe`` (PFS-2029.11.02),
+        stated so that a motion built on it is a decision the file shows
+        and not a side effect of the name's radical; None leaves the
+        convention to say (``ERP`` is an engine, ``ARP`` the airframe).
     """
 
     model_config = ConfigDict(extra="forbid")
+    kind: str | None = None
+
+    @field_validator("kind")
+    @classmethod
+    def _kind_is_known(cls, value: str | None) -> str | None:
+        if value is not None and value not in POINT_KINDS:
+            raise ValueError(
+                f"kind={value!r} names no point kind; a reference point is one of "
+                f"{', '.join(POINT_KINDS)}"
+            )
+        return value
 
     x_m: float = 0.0
     y_m: float = 0.0

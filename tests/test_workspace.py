@@ -2339,3 +2339,40 @@ def test_archive_does_not_cross_a_staged_link(tmp_path):
     assert library.read_bytes() == b"x" * 4096 and other.read_bytes() == b"y" * 4096, (
         "removing the simulation crossed the link into the library"
     )
+
+
+# --- PFS-2029.11.02: a reference point declares its kind ------------------------------
+
+
+def test_a_point_declares_its_kind(tmp_path):
+    from pyflightstream.workspace import point_kind
+
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    (workspace.inputs_dir / "reference_points.toml").write_text(
+        '[ARP]\nx_m = 1.5\nkind = "engine"\n\n[ERP1]\nx_m = -0.5\n\n'
+        "[ERP2]\nx_m = -0.5\ny_m = 2.0\n",
+        encoding="utf-8",
+    )
+    points = workspace.reference_points()
+    assert points["ARP"].kind == "engine" and points["ERP1"].kind is None
+    assert point_kind("ARP", points["ARP"]) == "engine", "the stated kind did not win over the name"
+    assert point_kind("ERP1", points["ERP1"]) == "engine"
+    assert workspace.engine_point("ERP2").y_m == 2.0
+    assert workspace.engine_point("ARP").x_m == 1.5, "a point stating kind = engine is an engine"
+    (workspace.inputs_dir / "reference_points.toml").write_text(
+        '[ARP]\nx_m = 1.5\nkind = "nose"\n', encoding="utf-8"
+    )
+    with pytest.raises(InputArtifactError, match="nose.*engine, airframe"):
+        workspace.reference_points()
+
+
+def test_a_motion_on_a_non_engine_point_is_refused_naming_the_kind(tmp_path):
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    (workspace.inputs_dir / "reference_points.toml").write_text(
+        "[ARP]\nx_m = 1.5\n\n[ERP1]\nx_m = -0.5\n", encoding="utf-8"
+    )
+    with pytest.raises(InputArtifactError) as caught:
+        workspace.engine_point("ARP")
+    message = str(caught.value)
+    assert "'ARP'" in message and "'airframe'" in message and 'kind = "engine"' in message
+    assert workspace.engine_point("ERP1").x_m == -0.5

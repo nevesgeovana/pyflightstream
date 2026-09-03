@@ -478,6 +478,46 @@ def _resolve_code(workspace: CampaignWorkspace, kind: str, code: str, pol: str):
         ) from error
 
 
+def _bind_motion(
+    workspace: CampaignWorkspace, record: Mapping[str, str], pol: str
+) -> dict[str, str]:
+    """Bind one motion record: a ROTOR_ORIGIN naming a point becomes that point's coordinates.
+
+    PFS-2029.11.02. Three numbers pass through as written; a name is
+    resolved against ``inputs/reference_points.toml`` and must be an
+    engine point, and the record keeps the name beside the coordinates
+    as ``ROTOR_ORIGIN_POINT`` so the run record says which point it was.
+    """
+    bound = dict(record)
+    origin = bound.get("ROTOR_ORIGIN")
+    if origin is None or _is_three_numbers(origin):
+        return bound
+    try:
+        point = workspace.engine_point(origin)
+    except InputArtifactError as error:
+        raise InputArtifactError(
+            f"matrix row POL {pol}: a MOTIONS record states ROTOR_ORIGIN: {origin}, which "
+            f"the workspace cannot turn a rotor about. {error}",
+            kind=error.kind,
+            artifact_id=error.artifact_id,
+            available=error.available,
+        ) from error
+    bound["ROTOR_ORIGIN"] = f"{point.x_m},{point.y_m},{point.z_m}"
+    bound["ROTOR_ORIGIN_POINT"] = origin
+    return bound
+
+
+def _is_three_numbers(text: str) -> bool:
+    parts = [token.strip() for token in text.split(",")]
+    if len(parts) != 3:
+        return False
+    try:
+        [float(part) for part in parts]
+    except ValueError:
+        return False
+    return True
+
+
 def _inventory_of(geometry: Path) -> tuple[tuple[str, ...] | None, str | None]:
     """Return the sidecar's boundary order, if one sits beside the geometry, and the source.
 
@@ -994,6 +1034,8 @@ def resolve_matrix(
             geometry_path = _resolve_geometry(workspace, stem, row.pol)
             update["geometry"] = str(geometry_path)
             update["inventory"], update["inventory_source"] = _inventory_of(geometry_path)
+        if row.motions:
+            update["motions"] = [_bind_motion(workspace, record, row.pol) for record in row.motions]
         # PFS-2027.02 and .04. THE POSITION IS LOAD-BEARING and it is not
         # a comment asking for an ordering: the reference is bound at the
         # top of this loop body and reaches the case only through the

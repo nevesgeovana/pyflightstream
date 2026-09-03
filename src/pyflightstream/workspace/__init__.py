@@ -543,6 +543,9 @@ class RunRecord(BaseModel):
     staged_as: str | None = None
     #: Why a copy was made where a link was asked for; None otherwise.
     staged_as_reason: str | None = None
+    #: The rotor motions the row's ``MOTIONS`` list stated, as bound
+    #: (PFS-2029.11.03): a named hub carries its coordinates and the name.
+    motions: list[dict[str, str]] = Field(default_factory=list)
     recipe_sha256: str | None = None
     script_path: str | None = None
     script_sha256: str
@@ -872,6 +875,13 @@ class ReferencePoints(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     points: dict[str, PointXyz]
+
+
+def point_kind(name: str, point: PointXyz) -> str:
+    """Say what a reference point is: its stated kind, else what its name says."""
+    if point.kind is not None:
+        return point.kind
+    return "airframe" if name == _AIRFRAME_POINT else "engine"
 
 
 def check_reference_point_names(names: Sequence[str]) -> None:
@@ -1247,6 +1257,35 @@ class CampaignWorkspace:
                 available=tuple(points),
             )
         return points[name]
+
+    def engine_point(self, name: str) -> PointXyz:
+        """Resolve a declared reference point that a rotor may turn about.
+
+        PFS-2029.11.02, her decision recorded in the plan: a point's KIND
+        is stated, ``kind = "engine"``, or left to the convention, where
+        ``ERP`` and ``ERPn`` are engines and ``ARP`` is the airframe; a
+        motion on a point that is not an engine is refused naming the
+        point and its kind, so a rotor turning about the airframe
+        reference point is a decision the file shows and never a side
+        effect of a name.
+
+        Raises
+        ------
+        InputArtifactError
+            The point is not declared (as :meth:`reference_point`), or it
+            is declared and is not an engine point.
+        """
+        point = self.reference_point(name)
+        kind = point_kind(name, point)
+        if kind != "engine":
+            raise InputArtifactError(
+                f"reference point {name!r} is declared as {kind!r}, and a rotor motion "
+                'turns about an engine point; declare the point with kind = "engine" in '
+                f"{self.inputs_dir / REFERENCE_POINTS_FILE} if it is one, or cite an engine "
+                "point (ERP, or ERP1 through ERPn).",
+                artifact_id=name,
+            )
+        return point
 
     def resolve_geometry(self, artifact_id: str) -> Path:
         """Resolve the staged geometry file one id (file stem) names.

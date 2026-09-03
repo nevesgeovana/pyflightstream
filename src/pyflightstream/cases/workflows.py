@@ -3300,6 +3300,9 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
             y_axis=(0.0, 1.0, 0.0),
             label="rotor",
         )
+    if case.motions:
+        _rotor_motions(conventions, case, script, frame, prop_frame)
+        return
     blade_frames = _blade_frames(case, script, prop_frame)
     frames: dict[str, int | None | Mapping[str, int]] = {
         "MRP": frame,
@@ -3340,6 +3343,110 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
     _analysis(case, script, frame)
     _export_block(conventions, case, script, unsteady=True)
     script.emit("CLOSE_FLIGHTSTREAM")
+
+
+def _rotor_motions(
+    conventions: WorkflowConventions,
+    case: SimCase,
+    script: Script,
+    frame: int | None,
+    prop_frame: int | None,
+) -> None:
+    """Finish a rotor script whose row states N motions (PFS-2029.11.03).
+
+    N records, N motions, each with its own fixed frame at its hub
+    (``PROP_MRP<k>``) and its own moving frame (``RotorAxis<k>``) that the
+    solver turns with it; the row's ``PROP_MRP``, already created from the
+    reference, stays the frame the pproc entries cite. The time step
+    follows the FASTEST rotor, because ``DELTA_THETA`` bounds every
+    blade's travel per step and the slower rotor travels less. No
+    blade-axis frames here: they belong to the one rotor the flat form
+    states, and a pproc entry citing ``BLADE_AXIS`` on a multi-rotor row
+    is refused by the frame resolver as a frame the run did not create.
+    """
+    views = [_motion_view(case, record) for record in case.motions]
+    moving: list[int] = []
+    for number, view in enumerate(views, start=1):
+        origin = _origin(view)
+        helpers.coordinate_frame(
+            script,
+            name=f"PROP_MRP{number}",
+            origin=origin,
+            x_axis=(1.0, 0.0, 0.0),
+            y_axis=(0.0, 1.0, 0.0),
+            label=f"rotor:{number}",
+        )
+        moving.append(
+            helpers.coordinate_frame(
+                script,
+                name=f"RotorAxis{number}",
+                origin=origin,
+                x_axis=(1.0, 0.0, 0.0),
+                y_axis=(0.0, 1.0, 0.0),
+                label=f"rotor_moving:{number}",
+            )
+        )
+    frames: dict[str, int | None | Mapping[str, int]] = {
+        "MRP": frame,
+        "PROP_MRP": prop_frame,
+        "BLADE_AXIS": None,
+    }
+    _pproc_plots(case, script, frames)
+    _significant_digits(case, script)
+    helpers.free_stream(script)
+    _fluid(case, script)
+    speeds = [rotor_speed(view) for view in views]
+    for number, view in enumerate(views, start=1):
+        emit_rotor_motion(
+            view,
+            script,
+            frame=f"rotor:{number}",
+            speed=speeds[number - 1],
+            moving_frames=[moving[number - 1]],
+        )
+    fastest = max(speeds, key=lambda each: abs(each.rpm))
+    stepping = rotor_time_stepping(case, speed=fastest)
+    helpers.unsteady_solver(
+        script,
+        time_iterations=stepping.time_iterations,
+        delta_time=stepping.delta_time_s,
+    )
+    _settings(case, script, wake_termination_time_steps=_wake_termination(case, stepping))
+    _pproc_sections(case, script, frames)
+    _initialize(case, script)
+    helpers.start_solver(script)
+    _analysis(case, script, frame)
+    _export_block(conventions, case, script, unsteady=True)
+    script.emit("CLOSE_FLIGHTSTREAM")
+
+
+def _motion_view(case: SimCase, record: Mapping[str, str]) -> SimCase:
+    """Return the case as ONE of its motion records sees it: the record's keys in the variables.
+
+    Every reader of a rotor key (:func:`rotor_speed`, :func:`_origin`,
+    :func:`emit_rotor_motion`) reads the row's variables, so a record is
+    made into a row that states exactly that rotor; the flat motion keys
+    cannot be there beside a list, which the matrix reader refused.
+    """
+    variables: dict[str, str | float | int | bool] = {
+        key: value for key, value in case.variables.items() if key not in _MOTION_RECORD_KEYS
+    }
+    variables.update({key: value for key, value in record.items() if key != "ROTOR_ORIGIN_POINT"})
+    return case.model_copy(update={"variables": variables, "motions": []})
+
+
+#: The keys a motion record carries, mirrored from the matrix reader so a
+#: record's view of the row holds its own rotor and no other.
+_MOTION_RECORD_KEYS = frozenset(
+    {
+        MOVING_BOUNDARIES_VARIABLE,
+        RPM_VARIABLE,
+        ADVANCE_RATIO_VARIABLE,
+        RPM_SIGN_VARIABLE,
+        ROTOR_AXIS_VARIABLE,
+        ROTOR_ORIGIN_VARIABLE,
+    }
+)
 
 
 def _origin(case: SimCase) -> tuple[float, float, float]:

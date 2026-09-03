@@ -3979,3 +3979,83 @@ def test_an_unknown_base_region_family_is_refused_naming_the_inventory(tmp_path)
     assert "placeholder.fsm" in str(blockless.value) and "carries no mesh block" in str(
         blockless.value
     )
+
+
+# --- PFS-2029.11.03: N motions in a row become N motions in the script -----------------
+
+
+def test_two_motions_emit_two_motion_blocks_with_their_frames(tmp_path):
+    sector = _saved_simulation(tmp_path / "twin.fsm", ["Blade1", "S", "N", "Blade2"])
+    flat = _rotor_row(sector, "Blade1")
+    record_keys = {
+        "MOVING_BOUNDARIES",
+        "RPM",
+        "ADVANCE_RATIO",
+        "RPM_SIGN",
+        "ROTOR_AXIS",
+        "ROTOR_ORIGIN",
+    }
+    variables = {key: value for key, value in flat.variables.items() if key not in record_keys}
+    twin = flat.model_copy(
+        update={
+            "variables": variables,
+            "motions": [
+                {
+                    "MOVING_BOUNDARIES": "Blade1",
+                    "RPM": "1200",
+                    "ROTOR_AXIS": "X",
+                    "ROTOR_ORIGIN": "0,1.5,0",
+                },
+                {
+                    "MOVING_BOUNDARIES": "Blade2",
+                    "RPM": "-2400",
+                    "ROTOR_AXIS": "X",
+                    "ROTOR_ORIGIN": "0,-1.5,0",
+                },
+            ],
+        }
+    )
+    script = Script("26.123")
+    build_script(twin, script)
+    text = script.render()
+    lines = text.splitlines()
+    assert lines.count("CREATE_NEW_MOTION ROTARY") == 2
+    assert "SET_MOTION_ROTOR_RPM 1 1200.0" in lines and "SET_MOTION_ROTOR_RPM 2 -2400.0" in lines
+    assert "SET_MOTION_ROTOR_AXIS 1 X" in lines and "SET_MOTION_ROTOR_AXIS 2 X" in lines
+    boundaries = {
+        line.split()[1]: lines[index + 1]
+        for index, line in enumerate(lines)
+        if line.startswith("SET_MOTION_BOUNDARIES")
+    }
+    assert boundaries == {"1": "1", "2": "4"}, "each motion does not carry its own boundaries"
+    systems = [line.split() for line in lines if line.startswith("SET_MOTION_COORDINATE_SYSTEM")]
+    assert [row[1] for row in systems] == ["1", "2"] and systems[0][2] != systems[1][2], (
+        "the two motions do not cite two fixed frames"
+    )
+    # SET_MOTION_MOVING_FRAMES <motion> <count> carries the frame indices on the next line.
+    moving = {
+        line.split()[1]: lines[index + 1]
+        for index, line in enumerate(lines)
+        if line.startswith("SET_MOTION_MOVING_FRAMES")
+    }
+    assert list(moving) == ["1", "2"] and moving["1"] != moving["2"], (
+        "the two motions do not cite two moving frames"
+    )
+    assert {moving["1"], moving["2"]}.isdisjoint({row[2] for row in systems}), (
+        "a moving frame is the fixed frame of a motion"
+    )
+    origins = [
+        (
+            float(line.split()[1]),
+            float(lines[i + 1].split()[1]),
+            float(lines[i + 2].split()[1]),
+        )
+        for i, line in enumerate(lines)
+        if line.startswith("ORIGIN_X")
+    ]
+    assert origins.count((0.0, 1.5, 0.0)) == 2 and origins.count((0.0, -1.5, 0.0)) == 2, (
+        f"the fixed and moving frames do not sit at the two hubs: {origins}"
+    )
+    assert lines.count("CREATE_NEW_COORDINATE_SYSTEM") == 5, (
+        "the row's PROP_MRP, two fixed and two moving frames (no reference, so no MRP)"
+    )

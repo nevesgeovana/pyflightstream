@@ -195,6 +195,7 @@ read by the package rather than ignored:
 | v0.8.1 | `GEOMETRY`, `SYMMETRY`, `PERIODIC_COPIES` |
 | v0.10.0 | `ADVANCE_RATIO`, `RPM_SIGN`, `DELTA_THETA`, `REVOLUTIONS`, `LOG_OUTPUT` |
 | v0.10.1 | none. What changed is what `MOVING_BOUNDARIES` ACCEPTS: see below |
+| v0.11.0 | `MOTIONS`, a list of records, one rotor each: `MOTIONS: {MOVING_BOUNDARIES: Blade1 / RPM: 1200 / RPM_SIGN: 1 / ROTOR_AXIS: X / ROTOR_ORIGIN: ERP1}, {...}`; a record's `ROTOR_ORIGIN` is three coordinates or the name of an engine point of `inputs/reference_points.toml`, and no flat motion key may stand beside the list (PFS-2029.11) |
 | v0.11.0 | `BASE_REGIONS`, the mesh families the base-region autodetect may consider, one `DETECT_BASE_REGIONS_BY_SURFACE` per boundary of them after `OPEN`; it overrides the pproc artifact's `base_regions`, and naming none emits nothing (PFS-2029.10) |
 
 **`MOVING_BOUNDARIES` NAMES SURFACES, AND SHOULD NOT COUNT THEM.** Write
@@ -725,6 +726,26 @@ solver and no executable configured:
 pyfs-matrix post --workspace .            # refuses a product that exists
 pyfs-matrix post --workspace . --overwrite
 ```
+
+### One row, several rotors
+
+A rotor row states its motion flat, `RPM`, `RPM_SIGN`, `ROTOR_AXIS`,
+`ROTOR_ORIGIN` and `MOVING_BOUNDARIES` as keys of the cell, and that is one
+rotor. Since v0.11.0 a row may state several (PFS-2029.11): `MOTIONS: {...},
+{...}`, each pair of braces one rotor holding those same keys, the pairs
+inside separated by `/` as in the flat cell and the records by commas. The
+builder then creates, per record, a fixed frame at the record's hub
+(`PROP_MRP1`, `PROP_MRP2`, ...), a moving frame turned by the motion
+(`RotorAxis1`, ...) and one `CREATE_NEW_MOTION` block citing its own frame,
+axis, speed and boundaries; the row's `PROP_MRP` stays the frame the pproc
+entries cite, the time step follows the fastest rotor, and the run record
+lists every record as bound. A record's `ROTOR_ORIGIN` may name a point of
+`inputs/reference_points.toml` instead of three coordinates; the point must
+be an engine point, `ERP` or `ERP1` through `ERPn` by the naming convention
+or any point declaring `kind = "engine"`, and a motion on a point declared
+otherwise is refused naming the point and its kind. A flat row renders
+exactly as before; a row with a `MOTIONS` list and a flat motion key beside
+it is refused, as is an unclosed brace or a record repeating a key.
 
 A point opens its geometry through a link (PFS-2029.17): `sims/<sim>/inputs`
 is a directory junction on Windows and a symbolic link elsewhere, pointing at

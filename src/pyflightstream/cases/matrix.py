@@ -70,7 +70,7 @@ from __future__ import annotations
 import re
 import warnings
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
@@ -303,6 +303,12 @@ class MatrixRow:
     run: int
     workflow: str
     variables: dict[str, str]
+    #: The rotor motions the cell's ``MOTIONS`` list states, one record
+    #: each, in cell order (PFS-2029.11.01); empty for a flat row.
+    motions: list[dict[str, str]] = field(default_factory=list)
+    #: The rotor motions the cell's ``MOTIONS`` list states, one record
+    #: each, in cell order (PFS-2029.11.01); empty for a flat row.
+    motions: list[dict[str, str]] = field(default_factory=list)
 
 
 #: The CLOSED set of flight-condition keys, each with the unit it is
@@ -532,11 +538,48 @@ def _parse_sweep(sweep_type: str, sweep_values: str) -> SweepAxis:
     return SweepAxis(type=axis_name, values=axis_values)
 
 
+#: The one ``VAR_NAMES_VALUES`` key whose value is a LIST OF RECORDS
+#: (PFS-2029.11.01): ``MOTIONS: {A: 1 / B: x}, {A: 2 / B: y}``. Each
+#: record holds the keys one rotor motion is stated with; a row with the
+#: list states no flat motion key beside it.
+MOTIONS_VARIABLE = "MOTIONS"
+
+#: The keys a motion record may carry, and which a row may not state flat
+#: beside a ``MOTIONS`` list, because two statements of one rotor's speed
+#: or hub cannot both be the one the script obeys.
+MOTION_RECORD_KEYS = (
+    "MOVING_BOUNDARIES",
+    "RPM",
+    "ADVANCE_RATIO",
+    "RPM_SIGN",
+    "ROTOR_AXIS",
+    "ROTOR_ORIGIN",
+)
+
+
+def _split_outside_braces(text: str, separator: str) -> list[str]:
+    """Split on ``separator`` at brace depth zero, so a record list stays whole."""
+    parts: list[str] = []
+    depth = 0
+    start = 0
+    for index, character in enumerate(text):
+        if character == "{":
+            depth += 1
+        elif character == "}":
+            depth = max(depth - 1, 0)
+        elif character == separator and depth == 0:
+            parts.append(text[start:index])
+            start = index + 1
+    parts.append(text[start:])
+    return parts
+
+
 def _parse_variables(cell: str) -> dict[str, str]:
+    """Read the flat ``KEY: value`` pairs of one cell; a record list stays as text."""
     variables: dict[str, str] = {}
     if not cell.strip():
         return variables
-    for pair in cell.split("/"):
+    for pair in _split_outside_braces(cell, "/"):
         name, separator, value = pair.partition(":")
         if not separator:
             raise MatrixError(
@@ -545,6 +588,77 @@ def _parse_variables(cell: str) -> dict[str, str]:
             )
         variables[name.strip()] = value.strip()
     return variables
+
+
+def _parse_motions(variables: dict[str, str], pol: str) -> list[dict[str, str]]:
+    """Take the ``MOTIONS`` list out of the flat variables and read its records.
+
+    PFS-2029.11.01. The grammar is hers: ``MOTIONS: {KEY: value / KEY:
+    value}, {...}``, the braces closing one rotor each, the records
+    separated by commas, the pairs inside a record by ``/`` exactly as the
+    flat cell is. An unclosed brace, a record repeating a key, and a flat
+    motion key beside the list are each refused naming the cell, and a
+    cell without the key reads exactly as it did before this release; a
+    brace on another key is that key's own (``OUTPUTS: loads_{point}.txt``
+    is a template) and is left alone.
+    """
+    text = variables.pop(MOTIONS_VARIABLE, None)
+    if text is None:
+        return []
+    flat = sorted(key for key in variables if key in MOTION_RECORD_KEYS)
+    if flat:
+        raise MatrixError(
+            f"POL {pol}: the cell states {MOTIONS_VARIABLE} and also the flat key(s) "
+            f"{', '.join(flat)}; a row with a motion list states every rotor inside "
+            "its record, so the flat key would be a second statement of one rotor."
+        )
+    if text.count("{") != text.count("}") or not text.startswith("{") or not text.endswith("}"):
+        raise MatrixError(
+            f"POL {pol}: {MOTIONS_VARIABLE} is {text!r}, which is not a list of "
+            "brace-closed records; write {KEY: value / KEY: value}, {...}, one pair of "
+            "braces per rotor."
+        )
+    records: list[dict[str, str]] = []
+    body = text
+    while body:
+        body = body.lstrip(", ")
+        if not body:
+            break
+        if not body.startswith("{") or "}" not in body:
+            raise MatrixError(
+                f"POL {pol}: {MOTIONS_VARIABLE} is {text!r}, and {body[:20]!r} is not a "
+                "brace-closed record; the records are separated by commas and each one "
+                "opens and closes its own braces."
+            )
+        inner, _, body = body[1:].partition("}")
+        if "{" in inner:
+            raise MatrixError(
+                f"POL {pol}: {MOTIONS_VARIABLE} is {text!r}, and a record opens a brace "
+                "inside another; a record holds KEY: value pairs only."
+            )
+        record: dict[str, str] = {}
+        for pair in inner.split("/"):
+            if not pair.strip():
+                continue
+            name, separator, value = pair.partition(":")
+            if not separator:
+                raise MatrixError(
+                    f"POL {pol}: {MOTIONS_VARIABLE} record {pair.strip()!r} is not a "
+                    "KEY: value pair."
+                )
+            key = name.strip()
+            if key in record:
+                raise MatrixError(
+                    f"POL {pol}: {MOTIONS_VARIABLE} record {{{inner.strip()}}} states "
+                    f"{key} twice, and one rotor has one {key}."
+                )
+            record[key] = value.strip()
+        if not record:
+            raise MatrixError(f"POL {pol}: {MOTIONS_VARIABLE} holds an empty record {{}}.")
+        records.append(record)
+    if not records:
+        raise MatrixError(f"POL {pol}: {MOTIONS_VARIABLE} names no record at all.")
+    return records
 
 
 def workflow_types() -> tuple[str, ...]:
@@ -740,6 +854,8 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
                 f"the {len(_COLUMNS)} verified columns: {line.strip()[:60]}..."
             )
         record = dict(zip(_COLUMNS, cells, strict=True))
+        variables = _parse_variables(record["VAR_NAMES_VALUES"])
+        motions = _parse_motions(variables, record["POL"])
         row = MatrixRow(
             # From the enumerate above, so it is assigned before the RUN
             # filter below and an inactive row does not shift the numbers
@@ -755,12 +871,13 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
             ref_code=record["REF"],
             set_code=record["SET"],
             pproc_code=record["PPROC"],
-            script_code=_parse_variables(record["VAR_NAMES_VALUES"]).get(RECIPE_VARIABLE, ""),
+            script_code=variables.get(RECIPE_VARIABLE, ""),
             fs_build=record["FS_BUILD"],
             hidden=record["HIDDEN"] == "1",
             run=int(record["RUN"]),
             workflow=_check_workflow(record["WORKFLOW"], record["POL"]),
-            variables=_parse_variables(record["VAR_NAMES_VALUES"]),
+            variables=variables,
+            motions=motions,
         )
         # Every row is checked, active or not: the sweep codes and the
         # variable grammar already are, and a refusal a user only meets
@@ -1510,6 +1627,7 @@ def to_campaign(
                 sweep=row.sweep,
                 recipe=recipe,
                 outputs=_declared_outputs(row, required=require_outputs),
+                motions=[dict(record) for record in row.motions],
                 variables=variables,
             )
         )

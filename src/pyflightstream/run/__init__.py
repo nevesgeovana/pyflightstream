@@ -2759,6 +2759,7 @@ def _execute_point(
         # the point was run for without opening the matrix.
         "pproc": case.pproc_id,
         "inventory_source": case.inventory_source,
+        "motions": [dict(record) for record in case.motions],
         # How the geometry was staged (PFS-2029.17), read off the workspace
         # that staged it, so the record says link or copy and why.
         **dict(

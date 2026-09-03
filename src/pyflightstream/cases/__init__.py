@@ -1124,6 +1124,10 @@ class SimCase(BaseModel):
     solver: SolverSettings = Field(default_factory=SolverSettings)
     recipe: str
     variables: dict[str, str | float | int | bool] = Field(default_factory=dict)
+    #: The rotor motions a row's ``MOTIONS`` list states (PFS-2029.11),
+    #: one record each in cell order; empty for a row stating one rotor
+    #: flat, which is every row written before 0.11.0.
+    motions: list[dict[str, str]] = Field(default_factory=list)
     outputs: list[str] = Field(default_factory=list)
     #: The post-processing specification the row's PPROC cell named, bound
     #: by the workspace (PFS-2029.07); None for a case built without one,

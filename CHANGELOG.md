@@ -134,6 +134,20 @@ FlightStream versions.
   block is the only source as `mesh block`, and a sidecar beside a file
   without a block declares the names the file cannot (.06.03). The two
   reference setups that carried the key no longer do.
+- PFS-2029.11: one row states more than one rotor. The `VAR_NAMES_VALUES`
+  cell reads `MOTIONS: {KEY: value / ...}, {...}`, one brace-closed record
+  per rotor (.11.01); an unclosed brace, a repeated key inside a record, a
+  brace on any other key and a flat motion key beside the list are each
+  refused naming the cell, and every cell without the key reads as before.
+  A reference point may declare `kind = "engine"` or `"airframe"`, the
+  convention (`ERP`, `ARP`) answering when it does not, and a record whose
+  `ROTOR_ORIGIN` names a point that is not an engine point is refused
+  naming the point and its kind (.11.02). N records become N motions: a
+  fixed frame at each hub, a moving frame per motion, and one
+  `CREATE_NEW_MOTION` block per record citing its own frame, axis, speed
+  and boundaries; the time step follows the fastest rotor and the run
+  record lists the records as bound (.11.03). A flat rotor row renders byte
+  for byte as its 0.10.1 golden.
 - PFS-2029.17: a point opens the staged geometry through a link, not through
   a copy. When every input of a simulation sits in the workspace geometry
   library, `sims/<sim>/inputs` is a directory junction on Windows and a
