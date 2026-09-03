@@ -9,6 +9,15 @@ FlightStream versions.
 
 ## [0.11.0] - 2026-09-03
 
+### Fixed
+
+- A staged junction is recognised on Python 3.11 as well: `os.path.isjunction`
+  arrived in 3.12, and the first release commit read it unconditionally on
+  Windows, so on 3.11 the staging link was reported as a folder and the
+  Ubuntu 3.11 leg of CI refused a test helper that read it too; the fact is
+  now read off `lstat` where the function is absent. Found by CI on the
+  release commit, before the tag.
+
 ### Added
 
 - FR-54, PFS-2030.02: a flight condition may PIN the fluid constants the

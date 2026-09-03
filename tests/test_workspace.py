@@ -2268,7 +2268,12 @@ def _library_geometry(workspace, name="wing.fsm", body=b"fake simulation"):
 
 
 def _is_link(path):
-    return path.is_symlink() or os.path.isjunction(path)
+    from pyflightstream.workspace import _is_link as library_is_link
+
+    # The library's own reader, which knows a junction on Python 3.11 too;
+    # os.path.isjunction arrived in 3.12 and the Ubuntu 3.11 leg of CI
+    # refused the first version of this helper with an AttributeError.
+    return library_is_link(path)
 
 
 def test_staging_links_the_geometry_and_records_its_hash(tmp_path):
@@ -2376,3 +2381,24 @@ def test_a_motion_on_a_non_engine_point_is_refused_naming_the_kind(tmp_path):
     message = str(caught.value)
     assert "'ARP'" in message and "'airframe'" in message and 'kind = "engine"' in message
     assert workspace.engine_point("ERP1").x_m == -0.5
+
+
+def test_a_junction_is_recognised_without_isjunction(tmp_path, monkeypatch):
+    """Python 3.11 has no os.path.isjunction; the fact is read off lstat there."""
+    import sys
+
+    from pyflightstream.workspace import _is_junction
+
+    if sys.platform != "win32":
+        pytest.skip("a junction is a Windows object")
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    library = _library_geometry(workspace)
+    workspace.stage_inputs("9001", [library])
+    inputs = workspace.sim_dir("9001") / "inputs"
+    assert _is_junction(inputs)
+    monkeypatch.delattr(os.path, "isjunction", raising=False)
+    assert _is_junction(inputs), "the lstat reader does not see the junction"
+    assert not _is_junction(workspace.inputs_dir / "geometries"), (
+        "a plain folder read as a junction"
+    )
+    assert not _is_junction(tmp_path / "absent")
