@@ -49,22 +49,22 @@ workdir = Path(tempfile.mkdtemp(prefix="pyfs_campaign_"))
 # `LEGACY` is the workflow every row written before the column existed
 # asks for. `upgrade_matrix` converts a file written under either older
 # layout, adding the workflow cell and folding `RE` and `MACH` into a
-# flight condition, and touches no other byte. And the `REF`, `SET` and `ENTRY` codes carry a
+# flight condition, and touches no other byte. And the `REF`, `SET` and `PPROC` codes carry a
 # letter naming their kind (`r`, `s`, `e`), so a number mistyped between
 # the three columns cannot resolve to another artifact's file.
 
 # %%
 _HEADER = (
     "POL|AIRCRAFT|DESCRIPTION|FLIGHT_CONDITION|SWEEP_TYPE|SWEEP_VALUES|REF|SET"
-    "|ENTRY|FS_SCRIPT|FS_BUILD|HIDDEN|RUN|WORKFLOW|VAR_NAMES_VALUES"
+    "|PPROC|FS_BUILD|HIDDEN|RUN|WORKFLOW|VAR_NAMES_VALUES"
 )
 _ROW_1 = (
-    "9001|TestWing|POLAR|MACH:0.1441, REmi:4.38|AL|0.0,2.0,4.0|r003|s003|e001|003|MANUAL|0|1|LEGACY"
-    "|FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt"
+    "9001|TestWing|POLAR|MACH:0.1441, REmi:4.38|AL|0.0,2.0,4.0|r003|s003|p001|MANUAL|0|1|LEGACY"
+    "|FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt / RECIPE: 003"
 )
 _ROW_2 = (
-    "9002|TestWing|PARKED|MACH:0.0890, REmi:3.10|AL|0.0|r003|s002|e001|003|MANUAL|0|0|LEGACY"
-    "|FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt"
+    "9002|TestWing|PARKED|MACH:0.0890, REmi:3.10|AL|0.0|r003|s002|p001|MANUAL|0|0|LEGACY"
+    "|FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt / RECIPE: 003"
 )
 MATRIX = "\n".join([_HEADER, "-" * len(_HEADER), _ROW_1, _ROW_2]) + "\n"
 matrix_path = workdir / "campaign.fs"
@@ -78,7 +78,7 @@ print(f"active matrix rows: {[row.pol for row in rows]}")
 #
 # `convert_matrix` renders the same rows as a `campaign.toml`, the
 # canonical internal form. The `recipes` mapping binds each
-# `FS_SCRIPT` code to a `module:function` recipe that emits the script
+# `RECIPE` code to a `module:function` recipe that emits the script
 # for that row.
 
 # %%
@@ -116,7 +116,7 @@ print("\n".join(campaign_toml.splitlines()[:8]))
 # Section 4 sets it BY HAND, on a `SimCase` built in Python.
 #
 # A MATRIX ROW SETS IT with `GEOMETRY: <stem>` in `VAR_NAMES_VALUES`,
-# resolved against `inputs/geometries/` the way `REF`, `SET` and `ENTRY`
+# resolved against `inputs/geometries/` the way `REF`, `SET` and `PPROC`
 # are (v0.8.1). `resolve_matrix` is what assigns it, for every active row
 # THAT NAMES THE KEY; a row naming none leaves the field absent, which is
 # the property the whole release rests on. So a recipe of your own

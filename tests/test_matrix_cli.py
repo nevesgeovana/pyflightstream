@@ -115,7 +115,9 @@ def make_planned_workspace(tmp_path):
         "area_m2 = 10.0\nchord_m = 1.2\nspan_m = 8.0\n", encoding="utf-8"
     )
     (inputs / "setups" / "s002.toml").write_text("iterations = 800\n", encoding="utf-8")
-    (inputs / "groups" / "e001.toml").write_text('wing = ["wing_left"]\n', encoding="utf-8")
+    (inputs / "pproc" / "p001.toml").write_text(
+        '[groups]\nwing = ["wing_left"]\n', encoding="utf-8"
+    )
     with open(inputs / "executables.toml", "a", encoding="utf-8") as handle:
         handle.write('"26.120" = "C:/fs26120/FlightStream.exe"\n')
     return workspace
@@ -164,3 +166,67 @@ def test_plan_surfaces_a_library_miss_didactically(tmp_path, capsys):
     err = capsys.readouterr().err
     assert "matrix not planned" in err
     assert "inputs/references/r003.toml" in err
+
+
+# --- PFS-2029.01 and PFS-2029.02: nothing repeated on the command line ------------
+
+WORKFLOW_FIXTURE = FIXTURES / "workflow_rotor_matrix.fs"
+
+
+def _workflow_plan_args(workspace, *extra):
+    return [
+        "plan",
+        str(WORKFLOW_FIXTURE),
+        "--workspace",
+        str(workspace.root),
+        "--name",
+        "m",
+        *extra,
+    ]
+
+
+def test_a_matrix_whose_rows_all_name_a_build_needs_no_fs_version(tmp_path, capsys):
+    workspace = make_planned_workspace(tmp_path)
+    assert main(_workflow_plan_args(workspace)) == 0
+    out = capsys.readouterr().out
+    assert "4 ready" in out, out
+
+
+def test_a_silent_row_with_no_default_is_refused_naming_it(tmp_path, capsys):
+    """The refusal that exists today, by row number and POL, with no default given."""
+    text = WORKFLOW_FIXTURE.read_text(encoding="utf-8")
+    silent = tmp_path / "silent.fs"
+    silent.write_text(text.replace("| 26.120   |", "|          |", 1), encoding="utf-8")
+    workspace = make_planned_workspace(tmp_path)
+    argv = _workflow_plan_args(workspace)
+    argv[1] = str(silent)
+    assert main(argv) == 2
+    err = capsys.readouterr().err
+    assert "row 1 (POL 7001)" in err and "--fs-version" in err
+
+
+def test_a_row_naming_a_registered_run_type_needs_no_workflow_option(tmp_path, capsys):
+    """The three rows say steady, unsteady and unsteady_rotor, and that is the builder."""
+    workspace = make_planned_workspace(tmp_path)
+    assert main(_workflow_plan_args(workspace)) == 0
+    assert "4 ready" in capsys.readouterr().out
+
+
+def test_a_legacy_row_still_requires_its_recipe(tmp_path, capsys):
+    workspace = make_planned_workspace(tmp_path)
+    argv = ["plan", str(REGISTRY_FIXTURE), "--workspace", str(workspace.root), "--name", "m"]
+    assert main(argv) == 2
+    err = capsys.readouterr().err
+    assert "LEGACY" in err and "RECIPE code '003'" in err and "--recipe" in err
+
+
+def test_an_unknown_run_type_is_refused_naming_the_registered_ones(tmp_path, capsys):
+    text = WORKFLOW_FIXTURE.read_text(encoding="utf-8")
+    bad = tmp_path / "bad.fs"
+    bad.write_text(text.replace("| unsteady_rotor |", "| hover          |", 1), encoding="utf-8")
+    workspace = make_planned_workspace(tmp_path)
+    argv = _workflow_plan_args(workspace)
+    argv[1] = str(bad)
+    assert main(argv) == 2
+    err = capsys.readouterr().err
+    assert "hover" in err and "steady, unsteady, unsteady_rotor" in err

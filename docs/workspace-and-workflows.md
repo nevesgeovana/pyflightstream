@@ -49,10 +49,10 @@ solver preset and the boundary group it should be resolved against.
 This is the matrix the test suite runs, byte for byte:
 
 ```text title="matrix_registry.fs"
-POL  | AIRCRAFT  | DESCRIPTION            | FLIGHT_CONDITION | SWEEP_TYPE  | SWEEP_VALUES   | REF  | SET  | ENTRY  | FS_SCRIPT | FS_BUILD | HIDDEN | RUN | WORKFLOW | VAR_NAMES_VALUES
----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-8001 | TestWing  | REGISTRY_ALPHA         | MACH:0.0890, REmi:3.10 | AL          | 0.0,2.0        | r003 | s002 | e001   | 003       | 26.120   |    0   |  1  | LEGACY   | FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt
-8002 | TestWing  | REGISTRY_BETA          | MACH:0.0890, REmi:3.10 | BE          | -3.0,3.0       | r003 | s002 | e001   | 003       | 26.120   |    1   |  1  | LEGACY   | FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt
+POL  | AIRCRAFT  | DESCRIPTION            | FLIGHT_CONDITION | SWEEP_TYPE  | SWEEP_VALUES   | REF  | SET  | PPROC  | FS_BUILD | HIDDEN | RUN | WORKFLOW | VAR_NAMES_VALUES
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+8001 | TestWing  | REGISTRY_ALPHA         | MACH:0.0890, REmi:3.10 | AL          | 0.0,2.0        | r003 | s002 | p001   | 26.120   |    0   |  1  | LEGACY   | FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt / RECIPE: 003
+8002 | TestWing  | REGISTRY_BETA          | MACH:0.0890, REmi:3.10 | BE          | -3.0,3.0       | r003 | s002 | p001   | 26.120   |    1   |  1  | LEGACY   | FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt / RECIPE: 003
 ```
 
 Read one row across. `POL` is the point of interest, and it becomes the
@@ -62,25 +62,29 @@ closed set; it is MANDATORY, and it replaced the `RE` and `MACH` columns
 at v0.9.0. What it means and which quantity gets solved for is
 [its own page](flight-conditions.md). `SWEEP_TYPE` and `SWEEP_VALUES` say
 what varies: `AL 0.0,2.0` is an angle-of-attack sweep at zero and two
-degrees, so this one row is two runs. `REF`, `SET` and `ENTRY` are the
-three identifiers that reach into the input library. `FS_BUILD` names
-the FlightStream build the row wants, and `FS_SCRIPT` names the recipe
-that builds its script. `WORKFLOW` names the run type; `LEGACY` means
-"none, use the recipe", which is what every matrix written before v0.8.0
-means and what these two rows say. `RUN` is the switch that says whether
-the row takes part at all.
+degrees, so this one row is two runs. `REF`, `SET` and `PPROC` are the
+three identifiers that reach into the input library; `PPROC` was `ENTRY`
+until v0.11.0, when the groups artifact it names became the
+post-processing artifact (PFS-2029.07). `FS_BUILD` names the FlightStream
+build the row wants. `WORKFLOW` names the run type, and a row naming one
+needs nothing else to build its script; `LEGACY` means "none, use the
+recipe", which is what every matrix written before v0.8.0 means and what
+these two rows say, and such a row names its recipe code as the `RECIPE`
+key of its variables (until v0.11.0 that code sat in a column of its own,
+`FS_SCRIPT`, which `pyfs-matrix upgrade` moves). `RUN` is the switch that
+says whether the row takes part at all.
 
 `VAR_NAMES_VALUES` is the last cell and the one that carries everything
 else, as `KEY: value` pairs separated by ` / `. The rows above use
 `FSM_FILE`, which is a key of THEIR OWN: nothing in the package reads it,
-and the recipe named by `FS_SCRIPT` is what resolves it and opens the
-file. That is still how a recipe works.
+and the recipe named by the row's `RECIPE` code is what resolves it and
+opens the file. That is still how a recipe works.
 
 **A WORKFLOW reads keys the package defines**, and since v0.8.1 three of
 them close the gap that made the capability unusable:
 
 * `GEOMETRY: <stem>` names a geometry staged under `inputs/geometries/`,
-  resolved the same way `REF`, `SET` and `ENTRY` are, and refused with
+  resolved the same way `REF`, `SET` and `PPROC` are, and refused with
   the available stems when the id is not there. The value is the file
   name STEM, never the file name: with `wing_clean.fsm` staged, the cell
   reads `GEOMETRY: wing_clean`. The workflow opens it first, before
@@ -309,7 +313,9 @@ inputs/
   setups/s003.toml        iterations = 400, wake_layers = 4
                           (wake_layers is RECORDED and emits nothing;
                            see the preset section below)
-  groups/e001.toml        wing = ["wing_left", "wing_right"], body = [1]
+  pproc/p001.toml         [groups] wing = ["wing_left", "wing_right"], body = [1]
+                          (the post-processing artifact; its [groups] table is
+                           what the groups file held until v0.11.0)
   executables.toml        which executable, and optionally which version,
                           each build identifier means
 ```
@@ -575,6 +581,98 @@ derived: a campaign that established its signs by measurement reproduces
 the measurement on every later run instead of re-deriving it and
 possibly re-deriving it differently.
 
+### What the post-processing artifact holds
+
+`PPROC` names `inputs/pproc/p<id>.toml`, the post-processing artifact. Until
+v0.11.0 this was the groups artifact, `inputs/groups/e<id>.toml`, a flat
+table of group name to members that nothing on the run path read; the
+author decided on 2026-09-02 that it is the home of post-processing and it
+was renamed (PFS-2029.07). It carries six tables, every one optional, and a
+file holding `[groups]` alone is what the old file was:
+
+```toml
+[groups]                       # what the groups file held: name -> families
+"1" = ["Blade1", "S", "N", "P", "W", "B", "H"]
+"2" = ["W", "B"]
+
+[exports]                      # which of the eight export kinds a point writes
+tecplot = false                # a kind not named is written; loads cannot be off
+
+[sections]                     # NEW_SURFACE_SECTION_DISTRIBUTION per entry and plane
+count = 50
+plot_direction = 1
+include_symmetry = false
+[[sections.distributions]]
+families = ["W"]
+frame = "MRP"
+planes = ["XZ"]
+[[sections.distributions]]
+families = "each_blade"        # one distribution per blade, in its own axis frame
+frame = "BLADE_AXIS"
+planes = ["XY"]
+
+[plots]                        # UNSTEADY_SOLVER_NEW_FORCE_PLOT per group and parameter
+parameters = ["CL", "CDI", "CDO", "CD", "FX", "FY", "FZ", "MX", "MY", "MZ"]
+[[plots.groups]]
+name = "MRP_TOTAL"             # the plot is named {parameter}_{group}: CL_MRP_TOTAL
+frame = "MRP"
+families = "all"
+[[plots.groups]]
+name = "MRP_{family}"          # one group per family the geometry carries
+frame = "MRP"
+families = "each"
+
+[probes]                       # UNSTEADY_SOLVER_NEW_FLUID_PLOT per vertex and parameter
+frame = "PROP_MRP"
+parameters = ["MACH", "VELOCITY", "VX", "VY", "VZ", "STATIC_PRESSURE_RATIO"]
+points = 25
+scale = "propeller_radius"     # or "m"
+[[probes.lines]]
+start = [-2.0, -1.0, 0.0]
+end = [-2.0, 1.0, 0.0]
+
+[products]                     # the post-processed files the campaign writes
+pltet = true
+secloads = true
+plots = true
+```
+
+Three things carry the artifact across configurations. A `families` entry
+is a list of family names, or one of five SELECTORS: `all` (every
+boundary, the command's own `-1` form), `airframe` (every family that is
+not a blade), `blades`, `each` (one entry per family the geometry carries,
+the name carrying `{family}`) and `each_blade`; a family the geometry does
+not carry is left out, which is how one artifact serves a wing-body and an
+isolated rotor, and an entry that resolves to nothing is skipped. A blade
+is told from the airframe by `blade_pattern`, a regular expression over the
+family name, `^Blade\d+$` unless the file says otherwise. A `frame` is
+cited by NAME: `MRP`, the moment frame the reference artifact creates;
+`PROP_MRP`, the propeller frame of the two unsteady run types; and
+`BLADE_AXIS`, one frame per blade that the rotor run type creates
+(`BladeAxis1`, `BladeAxis2`, ..., turned about the rotor axis by each
+blade's share of a turn) and registers as the motion's moving frames. An
+entry citing a frame the run did not create is refused naming the frames
+it did.
+
+The `[exports]` table decides the row's export set (FR-51): a workflow row
+declares no `OUTPUTS` of its own any more, every export is named for the
+point with the study's suffixes (`.fsm`, `.txt`, `.dat`, `_cp.txt`,
+`_sloads.txt`, `_probes.txt`, `_plots.txt`, `_log.txt`), and a workflow row
+that still carries `OUTPUTS` is refused naming this table. A setup artifact
+that names one of these tables is refused pointing here: a setup carries
+solver settings only (PFS-2029.16). The run record names the pproc id each
+point was run for.
+
+A workspace written before v0.11.0 moves in one command:
+
+```text
+pyfs-matrix upgrade matriz.fs --in-place --inputs inputs
+```
+
+which renames the column, drops `FS_SCRIPT`, moves `inputs/groups/e001.toml`
+to `inputs/pproc/p001.toml` under a `[groups]` header (the file's own lines,
+comments and all), and gives the cells that named it their `p`.
+
 ## From a filled-in matrix to results, in one call
 
 <!-- skip: next -->
@@ -594,7 +692,7 @@ records = run_matrix(
 ```
 
 Four arguments carry the study and the rest carry your machine.
-`recipes` maps the matrix's `FS_SCRIPT` code onto the name of a recipe,
+`recipes` maps a LEGACY row's `RECIPE` code onto the name of a recipe,
 `recipe_registry` maps that name onto the function that builds the
 script, `assess` is what decides whether a finished run converged, and
 `executor` is how a script is actually launched.
@@ -703,11 +801,11 @@ of them is refused before anything runs, naming the row and the cell.
 This is the matrix the suite runs for all three types, byte for byte:
 
 ```text title="workflow_rotor_matrix.fs"
-POL  | AIRCRAFT  | DESCRIPTION            | FLIGHT_CONDITION | SWEEP_TYPE  | SWEEP_VALUES   | REF  | SET  | ENTRY  | FS_SCRIPT | FS_BUILD | HIDDEN | RUN | WORKFLOW       | VAR_NAMES_VALUES
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-7001 | RotorRig  | ROTOR_UNSTEADY         | TASmps:30.0, REmi:1.20   | AL          | 0.0            | r003 | s002 | e001   | 010       | 26.120   |    1   |  1  | unsteady_rotor | OUTPUTS: loads_{point}.txt / VELOCITY: 30.0 / RPM: 1200 / ROTOR_AXIS: X / BLADES: 4 / DELTA_TIME: 0.0001 / TIME_ITERATIONS: 720 / WINDOW_DEGREES: 90
-7002 | RotorRig  | STEADY_REFERENCE       | TASmps:30.0, REmi:1.20   | AL          | 0.0,2.0        | r003 | s002 | e001   | 003       | 26.120   |    1   |  1  | steady         | OUTPUTS: loads_{point}.txt / VELOCITY: 30.0
-7003 | RotorRig  | UNSTEADY_NO_ROTOR      | TASmps:30.0, REmi:1.20   | AL          | 0.0            | r003 | s002 | e001   | 020       | 26.120   |    1   |  1  | unsteady       | OUTPUTS: loads_{point}.txt / VELOCITY: 30.0 / DELTA_TIME: 0.00025 / TIME_ITERATIONS: 480
+POL  | AIRCRAFT  | DESCRIPTION            | FLIGHT_CONDITION | SWEEP_TYPE  | SWEEP_VALUES   | REF  | SET  | PPROC  | FS_BUILD | HIDDEN | RUN | WORKFLOW       | VAR_NAMES_VALUES
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+7001 | RotorRig  | ROTOR_UNSTEADY         | TASmps:30.0, REmi:1.20   | AL          | 0.0            | r003 | s002 | p001   | 26.120   |    1   |  1  | unsteady_rotor | VELOCITY: 30.0 / RPM: 1200 / ROTOR_AXIS: X / BLADES: 4 / DELTA_TIME: 0.0001 / TIME_ITERATIONS: 720 / WINDOW_DEGREES: 90
+7002 | RotorRig  | STEADY_REFERENCE       | TASmps:30.0, REmi:1.20   | AL          | 0.0,2.0        | r003 | s002 | p001   | 26.120   |    1   |  1  | steady         | VELOCITY: 30.0
+7003 | RotorRig  | UNSTEADY_NO_ROTOR      | TASmps:30.0, REmi:1.20   | AL          | 0.0            | r003 | s002 | p001   | 26.120   |    1   |  1  | unsteady       | VELOCITY: 30.0 / DELTA_TIME: 0.00025 / TIME_ITERATIONS: 480
 ```
 
 **NO ROW HERE NAMES A `GEOMETRY`, AND THAT IS WHAT THEY ARE FOR.** This
@@ -722,8 +820,8 @@ this page rather than lifted from the suite, and shows each row's
 `VAR_NAMES_VALUES` tail with the rest elided:
 
 ```text
-7001 ... | unsteady_rotor | GEOMETRY: blade_sector / OUTPUTS: loads_{point}.txt / VELOCITY: 30.0 / RPM: 1200 / ...
-7002 ... | steady         | GEOMETRY: blade_sector / OUTPUTS: loads_{point}.txt / VELOCITY: 30.0
+7001 ... | unsteady_rotor | GEOMETRY: blade_sector / VELOCITY: 30.0 / RPM: 1200 / ...
+7002 ... | steady         | GEOMETRY: blade_sector / VELOCITY: 30.0
 ```
 
 with `blade_sector.fsm` staged under `inputs/geometries/`. A periodic
@@ -743,9 +841,7 @@ From the terminal, that whole study is one command:
 
 ```text
 pyfs-matrix run workflow_rotor_matrix.fs \
-    --name rotor --fs-version 26.120 --workspace . \
-    --workflow 010=unsteady_rotor --workflow 003=steady \
-    --workflow 020=unsteady \
+    --name rotor --workspace . \
     --sweep-csv sweep.csv
 ```
 

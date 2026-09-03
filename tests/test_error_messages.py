@@ -188,17 +188,17 @@ def test_an_unlettered_setup_id_names_the_setup_letter(tmp_path):
     assert workspace.resolve_setup("s002").settings["iterations"] == 800
 
 
-def test_an_unlettered_group_id_names_the_entry_letter(tmp_path):
+def test_an_unlettered_pproc_id_names_the_kind_letter(tmp_path):
     workspace = CampaignWorkspace.init(tmp_path / "camp")
-    (workspace.inputs_dir / "groups" / "e001.toml").write_text(
-        'wing = ["wing_left"]\n', encoding="utf-8"
+    (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
+        '[groups]\nwing = ["wing_left"]\n', encoding="utf-8"
     )
     with pytest.raises(
         InputArtifactError,
-        match=r"group id '001' does not declare its kind: a group id begins with 'e'",
+        match=r"pproc id '001' does not declare its kind: a pproc id begins with 'p'",
     ):
-        workspace.resolve_group("001")
-    assert workspace.resolve_group("e001").groups["wing"] == ["wing_left"]
+        workspace.resolve_pproc("001")
+    assert workspace.resolve_pproc("p001").groups["wing"] == ["wing_left"]
 
 
 def test_the_kind_letter_is_read_in_either_case(tmp_path):
@@ -442,7 +442,7 @@ def test_foreign_header_names_the_verified_layout(tmp_path):
     bad.write_text("POL | ANGLE\n9001 | 4.0\n", encoding="utf-8")
     with pytest.raises(
         MatrixError,
-        match=r"header does not match the verified 15-column layout; expected ",
+        match=r"header does not match the verified 14-column layout; expected ",
     ):
         read_matrix(bad)
 

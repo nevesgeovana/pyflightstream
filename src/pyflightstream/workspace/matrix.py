@@ -9,7 +9,7 @@ matrix's reference columns against the input library under ``inputs/``.
 
 REF resolves to reference data (applied to each case's ``reference``),
 SET to a solver preset (its runtime subset applied to each case's
-``solver``), ENTRY to named boundary groups (returned verbatim),
+``solver``), PPROC to the post-processing artifact (bound onto the case),
 FS_BUILD to an executable through the build registry, and the
 ``GEOMETRY`` variable of the free ``VAR_NAMES_VALUES`` cell to a staged
 geometry file (applied to each case's ``geometry``). Plain conversion
@@ -65,6 +65,7 @@ from pyflightstream.cases import (
     SolverSettings,
 )
 from pyflightstream.cases.matrix import (
+    LEGACY_WORKFLOW,
     MatrixError,
     MatrixRow,
     read_matrix,
@@ -75,8 +76,8 @@ from pyflightstream.cases.workflows import GEOMETRY_VARIABLE
 from pyflightstream.script.toggles import resolve_toggle
 from pyflightstream.workspace import (
     CampaignWorkspace,
-    GroupsArtifact,
     InputArtifactError,
+    PprocArtifact,
     ReferenceArtifact,
     SetupArtifact,
 )
@@ -158,8 +159,8 @@ class ResolvedMatrix:
         Resolved solver-setup presets, keyed by SET code; the raw
         preset table is kept verbatim for consumers beyond the runtime
         subset (see :func:`resolve_matrix`).
-    groups : dict of str to GroupsArtifact
-        Resolved named boundary groups, keyed by ENTRY code; members
+    pprocs : dict of str to PprocArtifact
+        Resolved post-processing artifacts, keyed by PPROC code; group members
         are boundary labels or indices, verbatim, for the script layer
         and the post-processing aggregation.
     fs_exe : Path
@@ -219,7 +220,7 @@ class ResolvedMatrix:
     conditions: dict[str, ResolvedCondition] = field(default_factory=dict)
     references: dict[str, ReferenceArtifact] = field(default_factory=dict)
     setups: dict[str, SetupArtifact] = field(default_factory=dict)
-    groups: dict[str, GroupsArtifact] = field(default_factory=dict)
+    pprocs: dict[str, PprocArtifact] = field(default_factory=dict)
     fs_exe: Path = Path()
     builds: dict[str, RegisteredBuild] = field(default_factory=dict)
     row_builds: tuple[str | None, ...] = ()
@@ -240,7 +241,7 @@ def _registered_build(
     rows: list[MatrixRow],
     named: tuple[str | None, ...],
     path: str | Path,
-    default: str,
+    default: str | None,
 ) -> RegisteredBuild:
     """Read one build's registry entry, naming how the build id arrived.
 
@@ -302,7 +303,7 @@ def _resolve_build(
     workspace: CampaignWorkspace,
     override: str | Path | None,
     path: str | Path,
-    default: str,
+    default: str | None,
 ) -> tuple[Path, dict[str, RegisteredBuild], tuple[str | None, ...]]:
     """Select the executables, and say which rows chose one themselves.
 
@@ -395,7 +396,10 @@ def _resolve_build(
         # above promises will be recorded, so the provenance reported here
         # has to agree with it rather than with the overruled cells.
         return Path(override), {}, tuple(None for _ in named)
-    fallback = default.strip()
+    # No default is legal when every active row names a build (PFS-2029.01);
+    # the silent row that would have needed it was refused by name before
+    # this function ran, so the empty fallback answers for no row.
+    fallback = (default or "").strip()
     effective = tuple(build if build is not None else fallback for build in named)
     # EVERY effective build is asked, not only the one a single-build
     # matrix used to collapse to: MANUAL names no executable whichever row
@@ -429,7 +433,7 @@ def _resolve_code(workspace: CampaignWorkspace, kind: str, code: str, pol: str):
     column, subdir, resolver = {
         "reference": ("REF", "references", workspace.resolve_reference),
         "setup": ("SET", "setups", workspace.resolve_setup),
-        "group": ("ENTRY", "groups", workspace.resolve_group),
+        "pproc": ("PPROC", "pproc", workspace.resolve_pproc),
     }[kind]
     try:
         return resolver(code)
@@ -686,6 +690,10 @@ _PRESET_ALIASES = {
 #: is a decision; a key in neither this set nor the alias table nor the
 #: model is a REFUSAL, because silently dropping a solver setting is how
 #: a run answers a question nobody asked.
+#: The tables a setup artifact is refused for naming, because they are
+#: post-processing and the pproc artifact is their home (PFS-2029.16).
+_POST_PROCESSING_KEYS = ("sections", "plots", "probes", "products", "exports", "groups")
+
 _PRESET_RECORDED_ONLY = {
     "solver": (
         "the run TYPE, which the matrix WORKFLOW column names: a preset shared by "
@@ -826,6 +834,18 @@ def _solver_from_setup(setup: SetupArtifact, set_code: str) -> SolverSettings:
             recorded.append(key)
         else:
             refused.append(key)
+    post_processing = sorted(set(refused) & set(_POST_PROCESSING_KEYS))
+    if post_processing:
+        # PFS-2029.16: a setup artifact carries solver settings only. Her
+        # SET files carried a second table of post-processing, and that
+        # table's home is the pproc artifact the row's PPROC cell names.
+        raise InputArtifactError(
+            f"setup preset {set_code!r} states key(s) {', '.join(post_processing)}, "
+            "which name post-processing, not a solver setting. A setup artifact "
+            "carries solver settings only; sections, plots, probes, products, exports "
+            "and groups live in the pproc artifact the row's PPROC cell names "
+            "(inputs/pproc/p001.toml, PFS-2029.07). Move the table there."
+        )
     if refused:
         # THE CONSUMED KEYS BELONG IN THE LIST. `stabilization`,
         # `stabilization_strength` and the reserved `recorded_only` are
@@ -896,7 +916,7 @@ def resolve_matrix(
     workspace: CampaignWorkspace,
     *,
     name: str,
-    fs_version: str,
+    fs_version: str | None,
     recipes: Mapping[str, str],
     fs_exe: str | Path | None = None,
 ) -> ResolvedMatrix:
@@ -907,7 +927,7 @@ def resolve_matrix(
     columns resolve against the library under ``inputs/``: REF to
     reference data (applied to each case's ``reference``), SET to a
     solver preset (its runtime subset applied to each case's
-    ``solver``), ENTRY to named boundary groups (returned verbatim), and
+    ``solver``), PPROC to the post-processing artifact (bound onto the case), and
     FS_BUILD to an executable through the build registry. A missing
     artifact fails with a didactic error naming the row, the missing id,
     and the ``inputs/`` file to create; plain conversion
@@ -1016,10 +1036,17 @@ def resolve_matrix(
     exe, builds, row_builds = _resolve_build(
         rows, workspace, override=fs_exe, path=path, default=fs_version
     )
-    campaign = to_campaign(path, name=name, fs_version=fs_version, fs_exe=str(exe), recipes=recipes)
+    # With no default given, the campaign's version is the first active
+    # row's build, which is the installation _resolve_build already chose
+    # the campaign executable from (PFS-2029.01); every row still runs on
+    # the build its own cell names.
+    campaign_version = fs_version if fs_version is not None else next(b for b in row_builds if b)
+    campaign = to_campaign(
+        path, name=name, fs_version=campaign_version, fs_exe=str(exe), recipes=recipes
+    )
     references: dict[str, ReferenceArtifact] = {}
     setups: dict[str, SetupArtifact] = {}
-    groups: dict[str, GroupsArtifact] = {}
+    pprocs: dict[str, PprocArtifact] = {}
     solvers: dict[str, SolverSettings] = {}
     for row in rows:
         if row.ref_code not in references:
@@ -1027,8 +1054,8 @@ def resolve_matrix(
         if row.set_code not in setups:
             setups[row.set_code] = _resolve_code(workspace, "setup", row.set_code, row.pol)
             solvers[row.set_code] = _solver_from_setup(setups[row.set_code], row.set_code)
-        if row.entry_code not in groups:
-            groups[row.entry_code] = _resolve_code(workspace, "group", row.entry_code, row.pol)
+        if row.pproc_code not in pprocs:
+            pprocs[row.pproc_code] = _resolve_code(workspace, "pproc", row.pproc_code, row.pol)
     sims: list[SimCase] = []
     conditions: dict[str, ResolvedCondition] = {}
     for case, row in zip(campaign.sims, rows, strict=True):
@@ -1063,6 +1090,13 @@ def resolve_matrix(
                 ),
             ),
             "solver": solvers[row.set_code],
+            # THE PPROC ARTIFACT RIDES ON THE CASE (PFS-2029.07.03): the
+            # builders emit its sections, plots and probes and export the
+            # kinds it selects, and the record names its id. A LEGACY row's
+            # recipe decides its own outputs, so only a workflow row takes
+            # the export set from the artifact.
+            "pproc": pprocs[row.pproc_code],
+            "pproc_id": row.pproc_code,
         }
         # ABSENT AND BLANK ARE THE SAME SILENCE, and it is the same rule
         # `_resolve_build` applies one function above: a cell that is
@@ -1125,13 +1159,17 @@ def resolve_matrix(
                 source=resolved.density_source,
                 reference_length_m=resolved.reference_length_m,
             )
+        if row.workflow != LEGACY_WORKFLOW:
+            update["outputs"] = pprocs[row.pproc_code].outputs(
+                unsteady=row.workflow.startswith("unsteady")
+            )
         sims.append(case.model_copy(update=update))
     return ResolvedMatrix(
         campaign=campaign.model_copy(update={"sims": sims}),
         conditions=conditions,
         references=references,
         setups=setups,
-        groups=groups,
+        pprocs=pprocs,
         fs_exe=exe,
         builds=builds,
         row_builds=row_builds,

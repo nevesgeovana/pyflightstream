@@ -129,6 +129,9 @@ def test_full_variables_cell_keeps_every_pair_verbatim():
         # refused, because a campaign that collects nothing spends the
         # solver and then records the point as a failure.
         "OUTPUTS": "loads_{point}.txt",
+        # Since 0.11.0 a LEGACY row carries its recipe code here, where
+        # the FS_SCRIPT column put it (PFS-2029.04).
+        "RECIPE": "003",
     }
     assert "\n" not in variables["NOTE"]
 
@@ -144,7 +147,7 @@ def test_unverified_sweep_code_is_refused_with_evidence_language(tmp_path):
 def test_header_deviation_is_refused(tmp_path):
     bad = tmp_path / "matrix.fs"
     bad.write_text("A | B | C\n1 | 2 | 3\n", encoding="utf-8")
-    with pytest.raises(MatrixError, match="verified 15-column layout"):
+    with pytest.raises(MatrixError, match="verified 14-column layout"):
         read_matrix(bad)
 
 
@@ -162,7 +165,7 @@ def test_truncated_row_is_refused_naming_the_row(tmp_path):
     bad = tmp_path / "matrix.fs"
     bad.write_text("\n".join(lines) + "\n", encoding="utf-8")
     with pytest.raises(
-        MatrixError, match=r"data row 1 of .* holds 14 cells against the 15 verified"
+        MatrixError, match=r"data row 1 of .* holds 13 cells against the 14 verified"
     ):
         read_matrix(bad)
 
@@ -251,7 +254,7 @@ def test_the_matrix_legacy_shim_is_gone():
 # --- the sixteenth column (PFS-2025.01, PFS-2025.12.01) ---------------------
 
 
-def test_the_verified_layout_names_fifteen_columns_including_the_workflow():
+def test_the_verified_layout_names_fourteen_columns_including_the_workflow():
     """The current layout, and both predecessors kept beside it.
 
     THE PREDECESSORS ARE ASSERTED AS LITERALS, which is a deliberate
@@ -266,7 +269,14 @@ def test_the_verified_layout_names_fifteen_columns_including_the_workflow():
     """
     assert "WORKFLOW" in matrix_mod._COLUMNS
     assert "FLIGHT_CONDITION" in matrix_mod._COLUMNS
-    assert len(matrix_mod._COLUMNS) == 15
+    assert "PPROC" in matrix_mod._COLUMNS
+    assert len(matrix_mod._COLUMNS) == 14
+    # FS_SCRIPT and ENTRY are gone at 0.11.0 (PFS-2029.04, PFS-2029.07.02),
+    # and the layout that carried them is frozen as a literal of its own.
+    assert "FS_SCRIPT" not in matrix_mod._COLUMNS
+    assert "ENTRY" not in matrix_mod._COLUMNS
+    assert matrix_mod._LAYOUT_0_9_0[8:10] == ("ENTRY", "FS_SCRIPT")
+    assert len(matrix_mod._LAYOUT_0_9_0) == 15
     # RE and MACH are gone: a run states its flow condition in one place.
     assert "RE" not in matrix_mod._COLUMNS
     assert "MACH" not in matrix_mod._COLUMNS
@@ -285,7 +295,7 @@ def test_the_verified_layout_names_fifteen_columns_including_the_workflow():
     # the only cell whose width is not fixed by the format. The flight
     # condition takes the slot the two numeric columns had.
     assert matrix_mod._COLUMNS[-1] == "VAR_NAMES_VALUES"
-    assert matrix_mod._COLUMNS.index("WORKFLOW") == 13
+    assert matrix_mod._COLUMNS.index("WORKFLOW") == 12
     assert matrix_mod._COLUMNS.index("FLIGHT_CONDITION") == 3
 
 
@@ -374,7 +384,7 @@ def test_the_legacy_refusal_is_a_different_message_from_the_foreign_one(tmp_path
     with pytest.raises(MatrixError) as caught:
         read_matrix(foreign)
     message = str(caught.value)
-    assert "does not match the verified 15-column layout" in message
+    assert "does not match the verified 14-column layout" in message
     assert "upgrade_matrix" not in message
 
 
@@ -631,6 +641,49 @@ def test_rewriting_a_code_cell_leaves_the_same_id_alone_outside_its_column(tmp_p
     )
 
 
+def test_the_third_stage_changes_only_the_cells_it_owns(tmp_path):
+    """FS_SCRIPT goes, ENTRY becomes PPROC, the variables move; nothing else.
+
+    PFS-2029.04 and PFS-2029.07.02. Read on the 0.9.0-layout fixture of
+    the matrix, whose rows are LEGACY: every cell but the ENTRY id, the
+    removed FS_SCRIPT cell and the variables cell is byte for byte the
+    cell it was, the id gained its kind letter in the same width, and the
+    variables gained exactly the recipe code the removed cell carried.
+    """
+    original = (Path(__file__).parent / "fixtures" / "matrix.fs").read_bytes()
+    # The committed fixture is at the current layout; the stage is measured
+    # on its 0.9.0 form, which the two older stages produce from the
+    # sixteen-column fixture of v0.8.0.
+    legacy = (Path(__file__).parent / "fixtures" / "pfs202701_matrix16.fs").read_bytes()
+    before = matrix_mod._fold_flight_condition(legacy, "legacy16")
+    after = matrix_mod._drop_fs_script_and_name_pproc(before, "legacy16")
+    assert after == original, "the committed fixture is not the third stage's own output"
+    entry = matrix_mod._LAYOUT_0_9_0.index("ENTRY")
+    script = matrix_mod._LAYOUT_0_9_0.index("FS_SCRIPT")
+    variables = matrix_mod._LAYOUT_0_9_0.index("VAR_NAMES_VALUES")
+    before_rows = [line.split(b"|") for line in before.splitlines() if b"|" in line]
+    after_rows = [line.split(b"|") for line in after.splitlines() if b"|" in line]
+    assert len(before_rows) == len(after_rows)
+    header_before, header_after = before_rows[0], after_rows[0]
+    assert len(header_after) == len(header_before) - 1
+    assert header_after[entry] == header_before[entry].replace(b"ENTRY", b"PPROC")
+    for old_cells, new_cells in zip(before_rows[1:], after_rows[1:], strict=True):
+        assert len(new_cells) == len(old_cells) - 1
+        code = old_cells[script].strip().decode()
+        expected = list(old_cells)
+        del expected[script]
+        for position, (new_cell, old_cell) in enumerate(zip(new_cells, expected, strict=True)):
+            if position == entry:
+                assert len(new_cell) == len(old_cell), "the id changed width"
+                assert new_cell.strip() == b"p" + old_cell.strip()[1:]
+            elif position == variables - 1:
+                assert new_cell.rstrip() == old_cell.rstrip() + f" / RECIPE: {code}".encode()
+            else:
+                assert new_cell == old_cell, (
+                    f"cell {position} changed: {old_cell!r} -> {new_cell!r}"
+                )
+
+
 def _unfolded(data: bytes) -> bytes:
     """Put RE and MACH back where FLIGHT_CONDITION now stands.
 
@@ -671,9 +724,20 @@ def test_the_upgrade_changes_only_the_cells_the_conversion_touches(tmp_path):
     user diffing the converted file sees the conversion and nothing else.
     """
     upgrade_matrix = _upgrade()
-    index = matrix_mod._COLUMNS.index("WORKFLOW")
+    index = matrix_mod._LAYOUT_0_9_0.index("WORKFLOW")
     for label, path, original in _line_ending_variants(tmp_path):
-        upgraded = upgrade_matrix(path)
+        # THREE STAGES SINCE 0.11.0 (PFS-2029.04): the converted file is the
+        # two older stages followed by the third, and this invariant reads
+        # the two-stage result, whose inverse is the one written below;
+        # the third stage has an invariant of its own in
+        # test_the_third_stage_changes_only_the_cells_it_owns.
+        two_stage = matrix_mod._fold_flight_condition(
+            matrix_mod._insert_workflow_cell(original, label), label
+        )
+        assert upgrade_matrix(path) == matrix_mod._drop_fs_script_and_name_pproc(
+            two_stage, label
+        ), label
+        upgraded = two_stage
         restored = _unfolded(_without_the_new_cell(upgraded, index))
         # THE STRIP IS SCOPED TO THE FOLDED REGION, and that scoping is
         # the point. An earlier version of this test stripped EVERY cell
@@ -888,8 +952,9 @@ def test_a_rotation_sweep_on_a_single_point_row_runs_normally(tmp_path):
     good = tmp_path / "matrix.fs"
     good.write_text(
         FIXTURE.read_text(encoding="utf-8").replace(
-            "| FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt\n9004",
-            "| angle_sweep_deg:0.0,5.0 / FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt\n9004",
+            "| FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt / RECIPE: 003\n9004",
+            "| angle_sweep_deg:0.0,5.0 / FSM_FILE:wing_clean / OUTPUTS: loads_{point}.txt "
+            "/ RECIPE: 003\n9004",
             1,
         ),
         encoding="utf-8",
@@ -1007,13 +1072,12 @@ def _silent_matrix(tmp_path, builds):
                 "0.0",
                 "r003",
                 "s002",
-                "e001",
-                "003",
+                "p001",
                 build,
                 "0",
                 "1",
                 "LEGACY",
-                "OUTPUTS: loads_{point}.txt",
+                "OUTPUTS: loads_{point}.txt / RECIPE: 003",
             ]
         )
         for index, build in enumerate(builds, start=1)
@@ -1045,20 +1109,22 @@ def test_a_silent_row_with_no_default_is_refused_naming_the_rows(tmp_path):
     assert "not registered" not in message
 
 
-def test_a_blank_default_with_no_silent_row_is_refused_naming_the_option(tmp_path):
-    """The other arm, which would otherwise die in the version registry."""
+def test_a_blank_default_with_no_silent_row_is_accepted(tmp_path):
+    """PFS-2029.01: every row names its build, so the default answers for nothing.
+
+    Until 0.11.0 this arm refused, on the argument that a row added
+    tomorrow with an empty cell would need the default; that row is
+    refused by name the day it is added (the test above), which is the
+    better answer than repeating on the command line a build every row
+    already states.
+    """
     path = _silent_matrix(tmp_path, ["26.120", "26.120"])
     assert all(row.fs_build for row in read_matrix(path)), (
         "this arm needs a matrix in which NO row is silent"
     )
-    with pytest.raises(MatrixError) as caught:
-        to_campaign(path, name="camp", fs_version="", fs_exe="fs.exe", recipes=RECIPES)
-    message = str(caught.value)
-    assert matrix_mod.DEFAULT_VERSION_OPTION in message
-    assert "not registered" not in message and "Known versions" not in message, (
-        f"a blank default was reported by the version registry: {message}"
-    )
-    assert "POL" not in message, f"no row is silent, so the refusal must not name one: {message}"
+    campaign = to_campaign(path, name="camp", fs_version="", fs_exe="fs.exe", recipes=RECIPES)
+    assert [sim.sim_id for sim in campaign.sims] == ["9001", "9002"]
+    assert [sim.variables["matrix_fs_build"] for sim in campaign.sims] == ["26.120", "26.120"]
 
 
 def test_a_default_that_is_given_lets_a_silent_row_through(tmp_path):
@@ -1120,10 +1186,10 @@ def test_rewrite_codes_touches_the_inactive_rows_too(tmp_path):
     assert [row.pol for row in parked] == ["9003", "9007"], (
         "the fixture no longer carries an inactive row, so this is unmeasured"
     )
-    rewrite_codes(target, {"ENTRY": {"e001": "e900"}}, in_place=True)
-    after = {row.pol: row.entry_code for row in read_matrix(target, active_only=False)}
-    assert after["9003"] == "e900" and after["9007"] == "e900"
-    assert set(after.values()) == {"e900"}
+    rewrite_codes(target, {"PPROC": {"p001": "p900"}}, in_place=True)
+    after = {row.pol: row.pproc_code for row in read_matrix(target, active_only=False)}
+    assert after["9003"] == "p900" and after["9007"] == "p900"
+    assert set(after.values()) == {"p900"}
 
 
 def test_rewrite_codes_refuses_a_column_that_carries_no_library_id(tmp_path):
@@ -1182,13 +1248,12 @@ def test_a_cell_with_no_padding_to_spare_grows_rather_than_losing_a_character(tm
             "0.0",
             "003",
             "s002",
-            "e001",
-            "003",
+            "p001",
             "MANUAL",
             "0",
             "1",
             "LEGACY",
-            "OUTPUTS: loads.txt",
+            "OUTPUTS: loads.txt / RECIPE: 003",
         ]
     )
     target.write_text(header + "\n" + row + "\n", encoding="utf-8")
@@ -1241,3 +1306,69 @@ def test_a_half_edited_matrix_is_told_how_to_recover_and_a_foreign_file_is_not(t
     with pytest.raises(MatrixError) as caught:
         read_matrix(foreign)
     assert "upgrade_matrix" not in str(caught.value)
+
+
+# --- PFS-2029.04 and PFS-2029.07.02: the 0.11.0 layout ------------------------
+
+LAYOUT_0_9_0_FIXTURE = Path(__file__).parent / "fixtures" / "pfs202609_matrix15.fs"
+LAYOUT_0_11_0_FIXTURE = Path(__file__).parent / "fixtures" / "pfs202609_matrix14.fs"
+
+
+def test_the_0_11_0_layout_reads():
+    """Fourteen columns, PPROC where ENTRY was, and no FS_SCRIPT."""
+    rows = read_matrix(LAYOUT_0_11_0_FIXTURE, active_only=False)
+    assert len(rows) == 8
+    assert {row.pproc_code for row in rows} == {"p001"}
+    assert matrix_mod._COLUMNS == (
+        "POL",
+        "AIRCRAFT",
+        "DESCRIPTION",
+        "FLIGHT_CONDITION",
+        "SWEEP_TYPE",
+        "SWEEP_VALUES",
+        "REF",
+        "SET",
+        "PPROC",
+        "FS_BUILD",
+        "HIDDEN",
+        "RUN",
+        "WORKFLOW",
+        "VAR_NAMES_VALUES",
+    )
+
+
+def test_the_layout_without_fs_script_reads():
+    """A LEGACY row carries its recipe code as the RECIPE variable (PFS-2029.04)."""
+    rows = read_matrix(LAYOUT_0_11_0_FIXTURE, active_only=False)
+    assert all(row.workflow == "LEGACY" for row in rows)
+    assert {row.script_code for row in rows} == {"003", "004"}
+    assert all(row.variables[matrix_mod.RECIPE_VARIABLE] == row.script_code for row in rows)
+
+
+def test_the_0_9_0_layout_is_refused_naming_upgrade():
+    """Recognised by its HEADER ROW, and named with the command that converts it."""
+    with pytest.raises(MatrixError) as caught:
+        read_matrix(LAYOUT_0_9_0_FIXTURE)
+    message = str(caught.value)
+    assert "v0.9.0 to v0.10.1" in message and "ENTRY and FS_SCRIPT" in message
+    assert "pyfs-matrix upgrade" in message and "in_place" in message
+
+
+def test_the_fifteen_column_layout_is_refused_naming_upgrade():
+    """The same refusal from `to_campaign`, so nothing parses past the header."""
+    with pytest.raises(MatrixError, match="pyfs-matrix upgrade"):
+        to_campaign(
+            LAYOUT_0_9_0_FIXTURE, name="m", fs_version="26.120", fs_exe="fs.exe", recipes=RECIPES
+        )
+
+
+def test_a_partly_edited_layout_is_refused_naming_upgrade(tmp_path):
+    """A header that renamed ENTRY by hand and kept FS_SCRIPT is a half-done edit."""
+    text = LAYOUT_0_9_0_FIXTURE.read_text(encoding="utf-8")
+    half = tmp_path / "half.fs"
+    half.write_text(text.replace("| ENTRY  |", "| PPROC  |", 1), encoding="utf-8")
+    with pytest.raises(MatrixError) as caught:
+        read_matrix(half)
+    message = str(caught.value)
+    assert "upgrade" in message, message
+    assert "15" in message and "14" in message

@@ -212,7 +212,7 @@ def expected_tree(root: Path) -> list[Path]:
     return [
         *(
             root / "inputs" / kind
-            for kind in ("geometries", "references", "setups", "groups", "profiles")
+            for kind in ("geometries", "references", "setups", "pproc", "profiles")
         ),
         root / "sims",
         root / "post",
@@ -1026,19 +1026,21 @@ def test_setup_preset_keeps_the_raw_table_verbatim(tmp_path):
 
 def test_groups_map_names_to_labels_or_indices(tmp_path):
     workspace = library(tmp_path)
-    (workspace.inputs_dir / "groups" / "eaircraft.toml").write_text(
-        'wing = ["wing_left", "wing_right"]\ntail = [3, 4]\n', encoding="utf-8"
+    (workspace.inputs_dir / "pproc" / "paircraft.toml").write_text(
+        '[groups]\nwing = ["wing_left", "wing_right"]\ntail = [3, 4]\n', encoding="utf-8"
     )
-    groups = workspace.resolve_group("eaircraft")
+    groups = workspace.resolve_pproc("paircraft")
     assert groups.groups["wing"] == ["wing_left", "wing_right"]
     assert groups.groups["tail"] == [3, 4]
 
 
 def test_empty_group_is_refused(tmp_path):
     workspace = library(tmp_path)
-    (workspace.inputs_dir / "groups" / "ebad.toml").write_text("wing = []\n", encoding="utf-8")
+    (workspace.inputs_dir / "pproc" / "pbad.toml").write_text(
+        "[groups]\nwing = []\n", encoding="utf-8"
+    )
     with pytest.raises(InputArtifactError, match="no members"):
-        workspace.resolve_group("ebad")
+        workspace.resolve_pproc("pbad")
 
 
 def test_geometry_and_profile_resolve_by_file_stem(tmp_path):
@@ -1592,7 +1594,9 @@ def test_the_same_stem_under_two_kinds_is_two_ids_and_stays_legal(tmp_path):
     workspace = CampaignWorkspace.init(root)
     (workspace.inputs_dir / "references" / "r003.toml").write_text(REFERENCE_TOML, encoding="utf-8")
     (workspace.inputs_dir / "setups" / "s003.toml").write_text("solver = 1\n", encoding="utf-8")
-    (workspace.inputs_dir / "groups" / "e003.toml").write_text("wing = [1]\n", encoding="utf-8")
+    (workspace.inputs_dir / "pproc" / "p003.toml").write_text(
+        "[groups]\nwing = [1]\n", encoding="utf-8"
+    )
     (workspace.inputs_dir / "geometries" / "003.fsm").write_text("mesh", encoding="utf-8")
     (workspace.inputs_dir / "profiles" / "003.csv").write_text("r,T\n", encoding="utf-8")
 
@@ -1643,7 +1647,9 @@ wing = ["wing_left", "wing_right"]
 
 def _groups_library(tmp_path) -> CampaignWorkspace:
     workspace = CampaignWorkspace.init(tmp_path / "camp")
-    (workspace.inputs_dir / "groups" / "eprop.toml").write_text(GROUPS_TOML, encoding="utf-8")
+    (workspace.inputs_dir / "pproc" / "pprop.toml").write_text(
+        "[groups]\n" + GROUPS_TOML, encoding="utf-8"
+    )
     return workspace
 
 
@@ -1654,14 +1660,14 @@ def test_expanding_a_group_numbers_its_members_from_one(tmp_path):
     slipped into the expansion is measured rather than invisible.
     """
     workspace = _groups_library(tmp_path)
-    assert workspace.expand_group("eprop", "Blade") == {"Blade1": 7, "Blade2": 3, "Blade3": 5}
+    assert workspace.expand_group("pprop", "Blade") == {"Blade1": 7, "Blade2": 3, "Blade3": 5}
 
 
 def test_expanding_the_same_group_twice_gives_the_same_names(tmp_path):
     """A study is reproducible from its inputs: re-resolution is identical."""
     workspace = _groups_library(tmp_path)
-    first = workspace.expand_group("eprop", "Blade")
-    second = workspace.expand_group("eprop", "Blade")
+    first = workspace.expand_group("pprop", "Blade")
+    second = workspace.expand_group("pprop", "Blade")
     assert first == second
     assert list(first) == list(second), "the order is the members' order, not a set's"
 
@@ -1670,10 +1676,10 @@ def test_expanding_an_undeclared_group_names_the_artifact_and_its_groups(tmp_pat
     """The refusal teaches what the descriptor actually declares."""
     workspace = _groups_library(tmp_path)
     with pytest.raises(InputArtifactError) as refusal:
-        workspace.expand_group("eprop", "Rotor")
+        workspace.expand_group("pprop", "Rotor")
     message = str(refusal.value)
     assert "Rotor" in message
-    assert "eprop" in message
+    assert "pprop" in message
     assert "Blade" in message and "wing" in message
 
 
@@ -1689,7 +1695,7 @@ def test_expanding_a_group_of_labels_asks_for_an_inventory_rather_than_indices(t
     """
     workspace = _groups_library(tmp_path)
     with pytest.raises(InputArtifactError) as refusal:
-        workspace.expand_group("eprop", "wing")
+        workspace.expand_group("pprop", "wing")
     message = str(refusal.value)
     assert "wing_left" in message
     assert "boundaries={label: index}" in message, (
@@ -1712,7 +1718,7 @@ def test_a_group_written_in_names_expands_against_the_geometrys_inventory(tmp_pa
     """
     workspace = _groups_library(tmp_path)
     expanded = workspace.expand_group(
-        "eprop", "wing", boundaries={"wing_left": 4, "wing_right": 6, "body": 1}
+        "pprop", "wing", boundaries={"wing_left": 4, "wing_right": 6, "body": 1}
     )
     assert expanded == {"wing1": 4, "wing2": 6}
 
@@ -1722,7 +1728,7 @@ def test_a_group_written_in_names_expands_against_the_geometrys_inventory(tmp_pa
     # clothes. The sibling at the workflow layer compares two boundary
     # orders for the same reason.
     elsewhere = workspace.expand_group(
-        "eprop", "wing", boundaries={"wing_left": 2, "wing_right": 7, "body": 5}
+        "pprop", "wing", boundaries={"wing_left": 2, "wing_right": 7, "body": 5}
     )
     assert elsewhere == {"wing1": 2, "wing2": 7}
     assert elsewhere != expanded, (
@@ -1735,7 +1741,7 @@ def test_a_named_member_the_geometry_lacks_is_refused_naming_what_it_has(tmp_pat
     """An unknown name is refused, listing the boundaries that exist."""
     workspace = _groups_library(tmp_path)
     with pytest.raises(InputArtifactError) as refusal:
-        workspace.expand_group("eprop", "wing", boundaries={"body": 1})
+        workspace.expand_group("pprop", "wing", boundaries={"body": 1})
     message = str(refusal.value)
     assert "wing_left" in message
     assert "'body'" in message, (
@@ -1746,10 +1752,10 @@ def test_a_named_member_the_geometry_lacks_is_refused_naming_what_it_has(tmp_pat
 
 def test_the_module_level_expansion_takes_the_artifact_and_its_id():
     """The artifact carries no id of its own, so the caller passes it."""
-    from pyflightstream.workspace import GroupsArtifact, expand_group
+    from pyflightstream.workspace import PprocArtifact, expand_group
 
-    artifact = GroupsArtifact(groups={"Blade": [3, 5, 7]})
-    assert expand_group(artifact, "Blade", "eprop") == {"Blade1": 3, "Blade2": 5, "Blade3": 7}
+    artifact = PprocArtifact(groups={"Blade": [3, 5, 7]})
+    assert expand_group(artifact, "Blade", "pprop") == {"Blade1": 3, "Blade2": 5, "Blade3": 7}
 
 
 # --- PFS-2025.15: ARP and ERP are named points the user writes once ---------
@@ -2194,7 +2200,7 @@ def test_a_record_waiving_nothing_may_still_be_appended_unstamped(tmp_path):
 
 PFS200903_MATRIX_ROW = (
     "9001 | TestWing | STEADY | MACH:0.0890, REmi:3.10 | AL | 0.0 | 003  | 002  | 001    "
-    "| 003       | MANUAL   |    0   |  1  | LEGACY   | OUTPUTS: loads_{point}.txt"
+    "| MANUAL   |    0   |  1  | LEGACY   | OUTPUTS: loads_{point}.txt / RECIPE: 003"
 )
 
 
@@ -2206,7 +2212,7 @@ def _pre_letter_workspace(tmp_path):
     bodies = {
         "references": ("003", "area_m2 = 10.0\nchord_m = 1.2\nspan_m = 8.0\n"),
         "setups": ("002", "iterations = 800\nconvergence = 1e-6\n"),
-        "groups": ("001", 'wing = ["wing_left"]\n'),
+        "pproc": ("001", '[groups]\nwing = ["wing_left"]\n'),
     }
     for subdir, (stem, body) in bodies.items():
         (workspace.inputs_dir / subdir / f"{stem}.toml").write_text(body, encoding="utf-8")
@@ -2223,10 +2229,10 @@ def test_the_migration_renames_the_files_and_rewrites_the_cells_in_one_call(tmp_
     workspace, matrix = _pre_letter_workspace(tmp_path)
     # BEFORE: three unreachable files and a matrix naming all three.
     before = read_matrix(matrix)
-    assert [(row.ref_code, row.set_code, row.entry_code) for row in before] == [
+    assert [(row.ref_code, row.set_code, row.pproc_code) for row in before] == [
         ("003", "002", "001")
     ], "the fixture matrix does not spell the pre-letter codes"
-    for kind, code in (("reference", "003"), ("setup", "002"), ("group", "001")):
+    for kind, code in (("reference", "003"), ("setup", "002"), ("pproc", "001")):
         with pytest.raises(InputArtifactError, match="does not declare its kind"):
             getattr(workspace, f"resolve_{kind}")(code)
 
@@ -2235,24 +2241,24 @@ def test_the_migration_renames_the_files_and_rewrites_the_cells_in_one_call(tmp_
     assert plan.applied is True
     assert not plan.is_empty
     assert sorted((old.name, new.name) for old, new in plan.renames) == [
-        ("001.toml", "e001.toml"),
+        ("001.toml", "p001.toml"),
         ("002.toml", "s002.toml"),
         ("003.toml", "r003.toml"),
     ], f"the rename plan is not the three coded kinds: {plan.renames}"
-    assert plan.cells == {str(matrix): {"REF": 1, "SET": 1, "ENTRY": 1}}, (
+    assert plan.cells == {str(matrix): {"REF": 1, "SET": 1, "PPROC": 1}}, (
         f"the matrix cells did not all move: {plan.cells}"
     )
     # AFTER: the library resolves and the matrix names what it resolves.
     after = read_matrix(matrix)
-    assert [(row.ref_code, row.set_code, row.entry_code) for row in after] == [
-        ("r003", "s002", "e001")
+    assert [(row.ref_code, row.set_code, row.pproc_code) for row in after] == [
+        ("r003", "s002", "p001")
     ]
     assert workspace.resolve_reference("r003").area_m2 == 10.0
     assert workspace.resolve_setup("s002").settings["iterations"] == 800
-    assert workspace.resolve_group("e001").groups == {"wing": ["wing_left"]}
+    assert workspace.resolve_pproc("p001").groups == {"wing": ["wing_left"]}
     # No bare file is left behind: a file no id can reach teaches the next
     # reader that the old spelling still resolves.
-    for subdir, stem in (("references", "003"), ("setups", "002"), ("groups", "001")):
+    for subdir, stem in (("references", "003"), ("setups", "002"), ("pproc", "001")):
         assert not (workspace.inputs_dir / subdir / f"{stem}.toml").exists()
 
 
@@ -2286,7 +2292,7 @@ def test_the_migration_keeps_every_other_byte_of_the_matrix(tmp_path):
     assert differing == expected_indices, (
         f"cells outside {', '.join(CODE_COLUMNS)} moved: indices {differing}"
     )
-    for index, expected in zip(differing, (b"r003", b"s002", b"e001"), strict=True):
+    for index, expected in zip(differing, (b"r003", b"s002", b"p001"), strict=True):
         assert body_after[index].strip() == expected
         assert len(body_after[index]) == len(body_before[index]), (
             f"cell {index} changed width: {body_before[index]!r} -> {body_after[index]!r}"
@@ -2301,7 +2307,7 @@ def test_the_dry_run_writes_nothing_at_all(tmp_path):
     plan = migrate_input_ids(workspace.inputs_dir, [matrix])
     assert plan.applied is False
     assert len(plan.renames) == 3
-    assert plan.cells == {str(matrix): {"REF": 1, "SET": 1, "ENTRY": 1}}
+    assert plan.cells == {str(matrix): {"REF": 1, "SET": 1, "PPROC": 1}}
     assert matrix.read_bytes() == before
     assert (workspace.inputs_dir / "references" / "003.toml").is_file()
     assert not (workspace.inputs_dir / "references" / "r003.toml").exists()
@@ -2330,7 +2336,7 @@ def test_the_migration_refuses_before_writing_when_a_rename_would_collide(tmp_pa
     # what makes this all-or-nothing rather than best-effort.
     assert (workspace.inputs_dir / "setups" / "002.toml").is_file()
     assert not (workspace.inputs_dir / "setups" / "s002.toml").exists()
-    assert (workspace.inputs_dir / "groups" / "001.toml").is_file()
+    assert (workspace.inputs_dir / "pproc" / "001.toml").is_file()
 
 
 def test_the_migration_refuses_a_matrix_it_cannot_find_and_renames_nothing(tmp_path):
@@ -2356,7 +2362,7 @@ def test_migrating_an_already_lettered_library_moves_nothing(tmp_path):
     assert again.renames == ()
     # The matrix appears with zeros rather than being dropped: "looked at
     # and nothing matched" is a different report from "never read".
-    assert again.cells == {str(matrix): {"REF": 0, "SET": 0, "ENTRY": 0}}
+    assert again.cells == {str(matrix): {"REF": 0, "SET": 0, "PPROC": 0}}
     assert again.is_empty
     assert matrix.read_bytes() == settled
 
@@ -2564,3 +2570,90 @@ def test_the_override_bypasses_the_registry_and_declares_no_version(tmp_path):
         "an override that inherited the registry's declared version would emit a "
         "script for an installation the caller replaced"
     )
+
+
+# --- PFS-2029.07.01 and PFS-2029.16: the pproc artifact ------------------------
+
+SIX_TABLES = """\
+[groups]
+"1" = ["W", "B"]
+
+[exports]
+tecplot = false
+
+[sections]
+count = 40
+[[sections.distributions]]
+families = ["W"]
+frame = "MRP"
+planes = ["XZ"]
+
+[plots]
+parameters = ["CL", "FX"]
+[[plots.groups]]
+name = "MRP_TOTAL"
+frame = "MRP"
+families = "all"
+
+[probes]
+frame = "PROP_MRP"
+parameters = ["MACH"]
+points = 3
+scale = "m"
+[[probes.lines]]
+start = [0.0, -1.0, 0.0]
+end = [0.0, 1.0, 0.0]
+
+[products]
+plots = false
+"""
+
+
+def test_the_pproc_artifact_validates_its_six_tables(tmp_path):
+    workspace = library(tmp_path)
+    (workspace.inputs_dir / "pproc" / "p010.toml").write_text(SIX_TABLES, encoding="utf-8")
+    pproc = workspace.resolve_pproc("p010")
+    assert pproc.groups == {"1": ["W", "B"]}
+    assert pproc.outputs(unsteady=False) == [
+        "{point}.fsm",
+        "{point}.txt",
+        "{point}_cp.txt",
+        "{point}_sloads.txt",
+        "{point}_probes.txt",
+        "{point}_log.txt",
+    ], "tecplot is deselected, the plots file is unsteady-only"
+    assert pproc.sections.count == 40 and pproc.sections.distributions[0].families == ["W"]
+    assert pproc.plots.parameters == ["CL", "FX"] and pproc.plots.groups[0].name == "MRP_TOTAL"
+    assert pproc.probes.points == 3 and pproc.probes.lines[0].end == (0.0, 1.0, 0.0)
+    assert pproc.products.plots is False and pproc.products.pltet is True
+    # An export kind outside the eight is refused naming the eight, and the
+    # loads table cannot be deselected.
+    (workspace.inputs_dir / "pproc" / "p011.toml").write_text(
+        "[exports]\nspreadsheet = false\n", encoding="utf-8"
+    )
+    with pytest.raises(InputArtifactError, match="simulation, loads, tecplot"):
+        workspace.resolve_pproc("p011")
+    (workspace.inputs_dir / "pproc" / "p012.toml").write_text(
+        "[exports]\nloads = false\n", encoding="utf-8"
+    )
+    with pytest.raises(InputArtifactError, match="cannot be deselected"):
+        workspace.resolve_pproc("p012")
+    # A family selector outside the five, and a name placeholder on a group
+    # that does not expand, are each refused by shape.
+    (workspace.inputs_dir / "pproc" / "p013.toml").write_text(
+        '[[sections.distributions]]\nfamilies = "every"\nplanes = ["XZ"]\n', encoding="utf-8"
+    )
+    with pytest.raises(InputArtifactError, match="all, airframe, blades, each, each_blade"):
+        workspace.resolve_pproc("p013")
+
+
+def test_a_setup_key_naming_post_processing_is_refused_pointing_at_pproc(tmp_path):
+    """PFS-2029.16: a setup carries solver settings only."""
+    from pyflightstream.workspace.matrix import _solver_from_setup
+
+    workspace = library(tmp_path)
+    (workspace.inputs_dir / "setups" / "s010.toml").write_text(
+        "iterations = 500\n[sections]\ncount = 50\n", encoding="utf-8"
+    )
+    with pytest.raises(InputArtifactError, match="pproc artifact the row's PPROC cell names"):
+        _solver_from_setup(workspace.resolve_setup("s010"), "s010")

@@ -112,7 +112,15 @@ def make_workspace(tmp_path: Path) -> CampaignWorkspace:
     (inputs / "setups" / "s002.toml").write_text(
         "iterations = 500\nconvergence = 1e-5\n", encoding="utf-8"
     )
-    (inputs / "groups" / "e001.toml").write_text("wing = [1]\n", encoding="utf-8")
+    # The stub solver writes the loads table alone, so the artifact selects
+    # exactly that export (PFS-2029.14.02); the test of the default set
+    # below rewrites the artifact to select nothing out.
+    (inputs / "pproc" / "p001.toml").write_text(
+        "[groups]\nwing = [1]\n\n[exports]\nsimulation = false\ntecplot = false\n"
+        "sections = false\nsectional_loads = false\nprobes = false\nplots = false\n"
+        "log = false\n",
+        encoding="utf-8",
+    )
     with open(inputs / "executables.toml", "a", encoding="utf-8") as handle:
         handle.write(f'"26.120" = "{Path(sys.executable).as_posix()}"\n')
     return workspace
@@ -331,14 +339,11 @@ def test_a_workflow_row_declaring_no_outputs_gets_the_study_export_set(tmp_path,
     from pyflightstream.cases import EXPORT_KINDS, default_outputs
 
     workspace = make_workspace(tmp_path)
-    matrix = tmp_path / "no_outputs.fs"
-    text = FIXTURE.read_text(encoding="utf-8")
-    matrix.write_text(
-        text.replace("OUTPUTS: loads_{point}.txt / ", "").replace(
-            "| OUTPUTS: loads_{point}.txt", "| VELOCITY: 30.0"
-        ),
-        encoding="utf-8",
+    (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
+        "[groups]\nwing = [1]\n", encoding="utf-8"
     )
+    matrix = tmp_path / "no_outputs.fs"
+    matrix.write_text(FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")
     main(run_args(workspace, matrix))
     records = workspace.read_manifest()
     assert records, "the rows were not run at all"

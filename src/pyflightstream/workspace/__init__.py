@@ -67,19 +67,20 @@ from pyflightstream.workspace.inputs import (
     EXECUTABLES_FILE,
     INPUT_KINDS,
     KIND_LETTERS,
-    GroupsArtifact,
     IdMigration,
     InputArtifactError,
     PointXyz,
+    PprocArtifact,
     PropellerReference,
     ReferenceArtifact,
     RegisteredBuild,
     SetupArtifact,
+    migrate_groups_to_pproc,
     migrate_input_ids,
     resolve_build,
     resolve_executable,
     resolve_geometry,
-    resolve_group,
+    resolve_pproc,
     resolve_profile,
     resolve_reference,
     resolve_setup,
@@ -101,7 +102,7 @@ __all__ = [
     "STEM_REGISTERED_KINDS",
     "BrokenCommandRecord",
     "CampaignWorkspace",
-    "GroupsArtifact",
+    "PprocArtifact",
     "IdMigration",
     "InputArtifactError",
     "NamingTemplate",
@@ -121,8 +122,10 @@ __all__ = [
     "collection_name",
     "expand_group",
     "extract_trailing_edge",
+    "migrate_groups_to_pproc",
     "migrate_input_ids",
     "resolve_build",
+    "resolve_pproc",
     "write_trailing_edge_node_file",
 ]
 
@@ -489,6 +492,9 @@ class RunRecord(BaseModel):
     cwd: str | None = None
     timeout_s: float | None = None
     recipe: str | None = None
+    #: The pproc artifact id the row named (PFS-2029.16); None on a
+    #: record written before 0.11.0 or by a campaign built without one.
+    pproc: str | None = None
     recipe_sha256: str | None = None
     script_path: str | None = None
     script_sha256: str
@@ -613,7 +619,7 @@ def check_unique_stems(inputs_dir: str | Path) -> None:
 
 
 def expand_group(
-    artifact: GroupsArtifact,
+    artifact: PprocArtifact,
     name: str,
     artifact_id: str,
     *,
@@ -631,13 +637,13 @@ def expand_group(
 
     Parameters
     ----------
-    artifact : GroupsArtifact
+    artifact : PprocArtifact
         The loaded groups descriptor.
     name : str
         Group to expand, which is also the stem of the generated names.
     artifact_id : str
         Id the descriptor was loaded under. It is a parameter because
-        :class:`~pyflightstream.workspace.inputs.GroupsArtifact` carries
+        :class:`~pyflightstream.workspace.inputs.PprocArtifact` carries
         no id of its own, and a refusal that cannot name the file the
         user must edit is not didactic.
     boundaries : mapping of str to int, optional
@@ -664,15 +670,15 @@ def expand_group(
 
     Examples
     --------
-    >>> from pyflightstream.workspace import GroupsArtifact, expand_group
-    >>> artifact = GroupsArtifact(groups={"Blade": [3, 5, 7]})
+    >>> from pyflightstream.workspace import PprocArtifact, expand_group
+    >>> artifact = PprocArtifact(groups={"Blade": [3, 5, 7]})
     >>> expand_group(artifact, "Blade", "prop")
     {'Blade1': 3, 'Blade2': 5, 'Blade3': 7}
 
     A group written in NAMES expands the same way, against the boundary
     inventory of the geometry it belongs to (PFS-2028.00):
 
-    >>> named = GroupsArtifact(groups={"Blade": ["Blade1", "S"]})
+    >>> named = PprocArtifact(groups={"Blade": ["Blade1", "S"]})
     >>> expand_group(
     ...     named, "Blade", "prop", boundaries={"Blade1": 1, "S": 2, "N": 3}
     ... )
@@ -996,13 +1002,13 @@ class CampaignWorkspace:
         """
         return resolve_setup(self.inputs_dir, artifact_id)
 
-    def resolve_group(self, artifact_id: str) -> GroupsArtifact:
-        """Load the named boundary groups one id names.
+    def resolve_pproc(self, artifact_id: str) -> PprocArtifact:
+        """Load the post-processing artifact one id names.
 
-        See :func:`pyflightstream.workspace.inputs.resolve_group`;
+        See :func:`pyflightstream.workspace.inputs.resolve_pproc`; group
         members are boundary labels or indices, stored verbatim.
         """
-        return resolve_group(self.inputs_dir, artifact_id)
+        return resolve_pproc(self.inputs_dir, artifact_id)
 
     def expand_group(
         self, artifact_id: str, name: str, *, boundaries: Mapping[str, int] | None = None
@@ -1016,7 +1022,7 @@ class CampaignWorkspace:
         Parameters
         ----------
         artifact_id : str
-            File name stem under ``inputs/groups/``.
+            File name stem under ``inputs/pproc/``.
         name : str
             Group to expand, and the stem of the generated names.
 
@@ -1032,7 +1038,7 @@ class CampaignWorkspace:
             members are boundary labels rather than indices.
         """
         return expand_group(
-            self.resolve_group(artifact_id), name, artifact_id, boundaries=boundaries
+            self.resolve_pproc(artifact_id), name, artifact_id, boundaries=boundaries
         )
 
     def reference_points(self) -> dict[str, PointXyz]:

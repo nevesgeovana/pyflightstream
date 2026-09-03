@@ -45,6 +45,47 @@ FlightStream versions.
   rendered. The workflow coverage tables name the new verbs, so a build on
   which one carries no row is reported rather than assumed.
 
+- FR-50, FR-52, FR-53 and FR-55, PFS-2029.07: the groups artifact is now the
+  POST-PROCESSING artifact, `inputs/pproc/p<id>.toml`, named by the matrix's
+  `PPROC` cell (the column that was `ENTRY`), and it carries six tables, every
+  one optional: `[groups]` exactly as the groups file held it; `[exports]`,
+  which of the eight export kinds a point writes (all unless a kind is set to
+  false, the loads table never); `[sections]`, one
+  `NEW_SURFACE_SECTION_DISTRIBUTION` per entry and plane; `[plots]`, one
+  `UNSTEADY_SOLVER_NEW_FORCE_PLOT` per group and parameter, named
+  `{parameter}_{group}` in COEFFICIENTS or NEWTONS; `[probes]`, one
+  `UNSTEADY_SOLVER_NEW_FLUID_PLOT` per vertex and parameter along lines laid
+  out in metres or propeller radii; and `[products]`, which post-processed
+  files the campaign writes. An entry names families, or a selector (`all`,
+  `airframe`, `blades`, `each`, `each_blade`), and cites a frame by name
+  (`MRP`, `PROP_MRP`, `BLADE_AXIS`); a family the geometry does not carry is
+  left out, as the author's driver filtered its tables, and an entry that
+  resolves to nothing is skipped. The three builders emit the definitions
+  before the solver runs; the run record names the pproc id
+  (PFS-2029.16), and a setup artifact naming a post-processing table is
+  refused pointing at the pproc artifact.
+- PFS-2029.11.03, the first half: the rotor run type creates one
+  `BladeAxis<k>` frame per blade family of the opened geometry, at the
+  propeller frame's origin and turned about the rotor axis by the blade's
+  share of a turn, registers them as the motion's moving frames, and the
+  pproc artifact's `BLADE_AXIS` entries cite them per blade. A geometry with
+  no blade family creates none, so every existing rotor golden is unchanged.
+- PFS-2029.04 and PFS-2029.07.02: the run matrix has a 0.11.0 layout, fourteen
+  columns: `FS_SCRIPT` went, and `ENTRY` became `PPROC`. A row naming a
+  registered run type names its builder already; a `LEGACY` row carries its
+  recipe code as the `RECIPE` key of its variables. The v0.9.0 to v0.10.1
+  layout is recognised by its header row and refused naming `pyfs-matrix
+  upgrade`, whose third stage renames the column, drops the `FS_SCRIPT` cell of
+  every row, moves a LEGACY row's code into its variables, gives an `e` id its
+  `p` letter, and takes `OUTPUTS` and `LOG_OUTPUT` out of a workflow row's
+  variables; `--inputs <dir>` beside `--in-place` moves `inputs/groups/e*.toml`
+  to `inputs/pproc/p*.toml` under `[groups]`, comments and all. A workflow row
+  that still carries `OUTPUTS` is refused naming the pproc artifact.
+- PFS-2029.01 and PFS-2029.02: `pyfs-matrix run` and `plan` need no
+  `--fs-version` when every active row fills `FS_BUILD` (a silent row is still
+  refused by name), and no `--workflow CODE=NAME` for a row naming a registered
+  run type; `--recipe` is still required by a `LEGACY` row.
+
 ### Changed
 
 - A workflow row that declares no `OUTPUTS` is no longer refused before the

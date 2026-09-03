@@ -56,7 +56,7 @@ def _default_version(
     fs_version: str | None,
     *,
     caller: str,
-) -> str:
+) -> str | None:
     """Resolve the campaign default from the new keyword or the old one.
 
     The argument answers for rows whose FS_BUILD column names no build.
@@ -79,13 +79,15 @@ def _default_version(
 
     Returns
     -------
-    str
-        The version rows that name no build fall back to.
+    str or None
+        The version rows that name no build fall back to; None when no
+        default was given, in which case every active row must fill
+        FS_BUILD or be refused by name (PFS-2029.01).
 
     Raises
     ------
     pyflightstream.cases.matrix.MatrixError
-        Neither keyword given, or the two given and disagreeing.
+        The two keywords given and disagreeing.
     """
     if fs_version is not None:
         if default_fs_version is not None and default_fs_version != fs_version:
@@ -104,16 +106,16 @@ def _default_version(
             stacklevel=3,
         )
         return fs_version
-    if default_fs_version is None:
-        raise MatrixError(
-            f"{caller}() needs default_fs_version=..., the FlightStream version to "
-            "emit scripts under for matrix rows whose FS_BUILD column names no "
-            "build. The matrix carries no version column, so it is explicit input."
-        )
+    # NO DEFAULT IS A LEGAL INPUT SINCE 0.11.0 (PFS-2029.01): a matrix whose
+    # every active row fills FS_BUILD names its builds itself, and the
+    # default only ever answered for a row that left the cell empty. That
+    # row is still refused, by name, by refuse_silent_rows_without_default,
+    # which runs before anything is bound; what went is the requirement
+    # to repeat on the command line a build every row already states.
     return default_fs_version
 
 
-def _refuse_a_run_that_names_no_build(path: str | Path, default: str) -> None:
+def _refuse_a_run_that_names_no_build(path: str | Path, default: str | None) -> None:
     """Refuse, before anything is bound, a run with no build named anywhere.
 
     Both entry points call this BETWEEN resolving the default and calling
@@ -135,7 +137,7 @@ def _refuse_a_run_that_names_no_build(path: str | Path, default: str) -> None:
 
 def _bind_row_builds(
     resolved: ResolvedMatrix,
-    default: str,
+    default: str | None,
     executor: Executor,
     executor_for: Callable[[Path], Executor],
 ) -> tuple[Campaign, dict[str, SolverBuild] | None]:
@@ -241,9 +243,13 @@ def _bind_row_builds(
         exe = Path(registered.fs_exe)
         if exe not in executors:
             executors[exe] = executor_for(exe)
+        # A bare-path registry entry declares no version, and with no
+        # campaign default (PFS-2029.01) the build id itself is the version
+        # its scripts are emitted under, which is what the id has meant
+        # since the registry took the YY.XXX identifiers.
         builds[build] = SolverBuild(
             fs_exe=exe,
-            fs_version=registered.fs_version or default,
+            fs_version=registered.fs_version or (default or "").strip() or build,
             executor=executors[exe],
         )
     return campaign.model_copy(update={"sims": sims}), builds

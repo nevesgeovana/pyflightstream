@@ -51,6 +51,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 
 from pyflightstream.cases import CampaignConfigError
 from pyflightstream.cases.matrix import MatrixError, convert_matrix, upgrade_matrix
@@ -136,10 +137,11 @@ def _add_common_arguments(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--fs-version",
-        required=True,
-        help="FlightStream version: canonical identifier (for example 26.120); "
-        "a vendor release name works only where it names exactly one registered "
-        "build",
+        default=None,
+        help="the FlightStream version rows whose FS_BUILD cell is empty fall back "
+        "to: canonical identifier (for example 26.120); a vendor release name works "
+        "only where it names exactly one registered build. A matrix whose every "
+        "active row fills FS_BUILD needs none (PFS-2029.01)",
     )
     parser.add_argument(
         "--recipe",
@@ -179,6 +181,17 @@ def _build_parser() -> argparse.ArgumentParser:
         "--in-place",
         action="store_true",
         help="rewrite the file; without it the upgraded matrix goes to standard output",
+    )
+    upgrade.add_argument(
+        "--inputs",
+        metavar="DIR",
+        default=None,
+        help=(
+            "the workspace inputs/ directory whose groups library moves to pproc "
+            "(inputs/groups/e001.toml becomes inputs/pproc/p001.toml under [groups]); "
+            "needs --in-place, because the matrix cells that name the files are "
+            "rewritten with them"
+        ),
     )
 
     convert = subparsers.add_parser(
@@ -305,8 +318,28 @@ _UPGRADE_NOTICE = (
 
 def _cmd_upgrade(args: argparse.Namespace) -> int:
     """Bring a matrix at an older layout up to the current one."""
+    if args.inputs is not None and not args.in_place:
+        print(
+            "--inputs moves library files and rewrites the cells that name them, so it "
+            "needs --in-place; without it the matrix would go to standard output naming "
+            "files that no longer exist.",
+            file=sys.stderr,
+        )
+        return 2
     try:
         upgraded = upgrade_matrix(args.matrix, in_place=args.in_place)
+        if args.inputs is not None:
+            from pyflightstream.workspace.inputs import InputArtifactError, migrate_groups_to_pproc
+
+            try:
+                moved = migrate_groups_to_pproc(Path(args.inputs))
+            except InputArtifactError as error:
+                print(str(error), file=sys.stderr)
+                return 2
+            for old, new in sorted(moved.items()):
+                print(f"moved inputs/groups/{old}.toml to inputs/pproc/{new}.toml", file=sys.stderr)
+            if not moved:
+                print(f"no groups file under {args.inputs} to move", file=sys.stderr)
     except (OSError, MatrixError) as error:
         print(str(error), file=sys.stderr)
         return 2

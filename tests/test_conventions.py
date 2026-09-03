@@ -100,6 +100,7 @@ _UNIT_SUFFIX = re.compile(
 #: with a stated reason.
 _DIMENSIONLESS_OR_DEBT = {
     # (a) dimensionless by physics or by construction
+    "end",  # ProbeLine.end (start is below): in the unit ProbesSpec.scale names (PFS-2029.07)
     "stiffness_scale_factor",  # multiplier on EI/GJ
     "node_offset_chord_fraction",  # fraction of local chord
     "wake_development_revolutions",  # revolutions are counts

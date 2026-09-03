@@ -8,7 +8,7 @@ matrix and running it is one call,
 ``campaign.toml`` model staying the canonical internal form, so
 nothing changes for campaign.toml users. The verified layout is read as
 is: POL, AIRCRAFT, DESCRIPTION, FLIGHT_CONDITION, SWEEP_TYPE,
-SWEEP_VALUES, REF, SET, ENTRY, FS_SCRIPT, FS_BUILD, HIDDEN, RUN,
+SWEEP_VALUES, REF, SET, PPROC, FS_BUILD, HIDDEN, RUN,
 WORKFLOW, VAR_NAMES_VALUES. Rows with RUN = 1 are active. SWEEP_TYPE names its
 axes separated by ``/`` (verified codes: ``AL`` for alpha, ``BE`` for
 beta) and SWEEP_VALUES carries one comma-separated value list per
@@ -89,12 +89,13 @@ from pyflightstream.cases import (
 # registry which types exist rather than keeping a second list, because a
 # second list is how a value gets refused for naming a workflow that was
 # registered last week.
-from pyflightstream.cases.workflows import workflow_names
+from pyflightstream.cases.workflows import LOG_OUTPUT_VARIABLE, workflow_names
 
 __all__ = [
     "CODE_COLUMNS",
     "DEFAULT_VERSION_OPTION",
     "LEGACY_WORKFLOW",
+    "RECIPE_VARIABLE",
     "MatrixError",
     "MatrixRow",
     "convert_matrix",
@@ -120,6 +121,31 @@ _COLUMNS = (
     "SWEEP_VALUES",
     "REF",
     "SET",
+    "PPROC",
+    "FS_BUILD",
+    "HIDDEN",
+    "RUN",
+    "WORKFLOW",
+    "VAR_NAMES_VALUES",
+)
+
+#: The layout of v0.9.0 to v0.10.1, frozen as a literal for the same
+#: reason the two older ones are: it is RECOGNISED and refused naming
+#: the converter, never read. At 0.11.0 it LOST ONE AND RENAMED ONE
+#: (PFS-2029.04, PFS-2029.07.02): ``FS_SCRIPT`` went, because a row that
+#: names a registered run type in WORKFLOW names its builder already and
+#: a LEGACY row carries its recipe code as the ``RECIPE`` key of its own
+#: variables; and ``ENTRY`` became ``PPROC``, because the artifact it
+#: names became the post-processing artifact, whose ids begin with p.
+_LAYOUT_0_9_0 = (
+    "POL",
+    "AIRCRAFT",
+    "DESCRIPTION",
+    "FLIGHT_CONDITION",
+    "SWEEP_TYPE",
+    "SWEEP_VALUES",
+    "REF",
+    "SET",
     "ENTRY",
     "FS_SCRIPT",
     "FS_BUILD",
@@ -128,6 +154,12 @@ _COLUMNS = (
     "WORKFLOW",
     "VAR_NAMES_VALUES",
 )
+
+#: The variables key a LEGACY row carries its recipe code under since
+#: 0.11.0, where the FS_SCRIPT column went (PFS-2029.04). Written by the
+#: upgrade from the column's cell and read back into ``script_code``, so
+#: a LEGACY row's ``--recipe CODE=...`` still finds its code.
+RECIPE_VARIABLE = "RECIPE"
 
 #: The width that preceded ``WORKFLOW``, frozen so a file written under
 #: it is RECOGNISED and refused with the command that fixes it instead of
@@ -237,8 +269,11 @@ class MatrixRow:
         states no condition is legal here and is answered one layer up.
     sweep : SweepAxis
         The sweep, already in native form.
-    ref_code, set_code, entry_code, script_code : str
-        The historical 3-digit codes (REF, SET, ENTRY, FS_SCRIPT).
+    ref_code, set_code, pproc_code : str
+        The library ids the REF, SET and PPROC cells carry.
+    script_code : str
+        A LEGACY row's recipe code, the ``RECIPE`` key of its variables
+        (PFS-2029.04); empty on a row naming a registered run type.
     fs_build : str
         FS_BUILD column, kept verbatim.
     hidden : bool
@@ -260,7 +295,7 @@ class MatrixRow:
     sweep: SweepAxis
     ref_code: str
     set_code: str
-    entry_code: str
+    pproc_code: str
     script_code: str
     fs_build: str
     hidden: bool
@@ -543,7 +578,7 @@ def _check_workflow(value: str, pol: str) -> str:
             f"registered types are {', '.join(known)}. The column names WHICH "
             "workflow builds the row's script, so an unrecognised value would run the "
             f"wrong one silently; a row that wants the established behaviour, built by "
-            f"the recipe its FS_SCRIPT code names, writes {LEGACY_WORKFLOW}."
+            f"the recipe its {RECIPE_VARIABLE} code names, writes {LEGACY_WORKFLOW}."
         )
     return value
 
@@ -625,6 +660,25 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
             "the joined text. The conversion is lossless in content: those columns "
             "carried exactly the two quantities those keys carry."
         )
+    if header == _LAYOUT_0_9_0:
+        raise MatrixError(
+            f"{path} carries the {len(_LAYOUT_0_9_0)}-column layout of v0.9.0 to "
+            "v0.10.1, with ENTRY and FS_SCRIPT. At v0.11.0 ENTRY became PPROC, naming "
+            "the post-processing artifact, and FS_SCRIPT went: a row naming a "
+            "registered run type in WORKFLOW names its builder already, and a LEGACY "
+            f"row carries its recipe code as {RECIPE_VARIABLE}: <code> among its "
+            "variables. To upgrade it, call "
+            "pyflightstream.cases.matrix.upgrade_matrix(path) with in_place (CLI: "
+            "--in-place) and move the groups library with "
+            "pyflightstream.workspace.migrate_groups_to_pproc, whose inputs (CLI: "
+            "--inputs) is the workspace inputs directory; the command is `pyfs-matrix "
+            "upgrade <path> --in-place --inputs <inputs dir>`. It "
+            "renames the column, drops the FS_SCRIPT cell of every "
+            "row, moves a LEGACY row's code into its variables, and takes OUTPUTS and "
+            "LOG_OUTPUT out of a workflow row's variables, whose export set the pproc "
+            "artifact now decides. Every other cell, separator and line ending is "
+            "untouched."
+        )
     if header != _COLUMNS:
         # The fallthrough, and the one an upgrading user is most likely
         # to reach: legacy recognition above is exact tuple equality, so
@@ -656,7 +710,9 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
         # reader needs exactly the sentence the foreign reader must not
         # get. Overlap against the current layout and both frozen legacy
         # ones, majority of the expected width, decides which they are.
-        known = set(_COLUMNS) | set(_LEGACY_COLUMNS_15) | set(_LEGACY_COLUMNS_16)
+        known = (
+            set(_COLUMNS) | set(_LEGACY_COLUMNS_15) | set(_LEGACY_COLUMNS_16) | set(_LAYOUT_0_9_0)
+        )
         looks_half_edited = len(known & set(header)) * 2 > len(_COLUMNS)
         remedy = (
             " If this file was written before v0.9.0 AND has since been edited by "
@@ -697,8 +753,8 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
             sweep=_parse_sweep(record["SWEEP_TYPE"], record["SWEEP_VALUES"]),
             ref_code=record["REF"],
             set_code=record["SET"],
-            entry_code=record["ENTRY"],
-            script_code=record["FS_SCRIPT"],
+            pproc_code=record["PPROC"],
+            script_code=_parse_variables(record["VAR_NAMES_VALUES"]).get(RECIPE_VARIABLE, ""),
             fs_build=record["FS_BUILD"],
             hidden=record["HIDDEN"] == "1",
             run=int(record["RUN"]),
@@ -786,14 +842,13 @@ def refuse_silent_rows_without_default(
             "lines and the dashed rule, and they do not change when a row's RUN "
             "flag does."
         )
-    raise MatrixError(
-        f"no campaign default version was given for {path}. Every active row names "
-        "its own build, so the default answers for nothing today, but it is what a "
-        "row added tomorrow with an empty FS_BUILD cell would fall back to, and the "
-        "scripts are emitted against a version rather than against an executable. "
-        f"Pass {DEFAULT_VERSION_OPTION} <version> (default_fs_version=... in "
-        "Python)."
-    )
+    # EVERY ACTIVE ROW NAMES ITS BUILD AND NO DEFAULT WAS GIVEN: legal since
+    # 0.11.0 (PFS-2029.01). Until then this refused too, on the argument that
+    # a row added tomorrow with an empty cell would need the default; but
+    # that row is refused BY NAME the day it is added, by the branch above,
+    # which is the better answer than asking every study to repeat on the
+    # command line a build its rows already state.
+    return
 
 
 def _peel_terminator(line: bytes) -> tuple[bytes, bytes]:
@@ -904,14 +959,107 @@ def _fold_flight_condition(data: bytes, source: str) -> bytes:
     return b"".join(rebuilt)
 
 
+def _strip_pairs(cell: bytes, keys: tuple[str, ...]) -> bytes:
+    """Drop the KEY: VALUE pairs named from one variables cell, keeping its padding."""
+    leading = cell[: len(cell) - len(cell.lstrip(b" "))]
+    trailing = cell[len(cell.rstrip(b" ")) :]
+    body = cell.strip().decode("utf-8", "replace")
+    if not body:
+        return cell
+    kept = [
+        part.strip()
+        for part in body.split("/")
+        if part.strip() and part.split(":", 1)[0].strip().upper() not in keys
+    ]
+    return leading + " / ".join(kept).encode("utf-8") + trailing
+
+
+def _append_pair(cell: bytes, key: str, value: str) -> bytes:
+    """Append one KEY: VALUE pair to a variables cell, keeping its padding."""
+    leading = cell[: len(cell) - len(cell.lstrip(b" "))]
+    trailing = cell[len(cell.rstrip(b" ")) :]
+    body = cell.strip().decode("utf-8", "replace")
+    joined = f"{body} / {key}: {value}" if body else f"{key}: {value}"
+    return leading + joined.encode("utf-8") + trailing
+
+
+def _drop_fs_script_and_name_pproc(data: bytes, source: str) -> bytes:
+    """Stage three: FS_SCRIPT goes, ENTRY becomes PPROC, the variables move.
+
+    PFS-2029.04 and PFS-2029.07.02, one layout change for the release.
+    Byte-wise like the two stages before it. The FS_SCRIPT cell of every
+    row is removed; a LEGACY row's code is appended to its variables as
+    ``RECIPE: <code>`` so the row still names its recipe, and any other
+    row's code is dropped, because its WORKFLOW cell names its builder.
+    The ENTRY header cell becomes PPROC in the same width, and an id
+    beginning with ``e`` in that column begins with ``p``, which is the
+    kind letter of the artifact the column now names; the file it names
+    moves with ``pyfs-matrix upgrade --inputs``. A workflow row's OUTPUTS
+    and LOG_OUTPUT pairs leave its variables, since the pproc artifact
+    decides the export set and the log is always exported; a LEGACY row
+    keeps them, because its recipe reads them. A rule line of dashes is
+    shortened by the width of the cell removed, so the file still lines
+    up.
+    """
+    entry_index = _LAYOUT_0_9_0.index("ENTRY")
+    script_index = _LAYOUT_0_9_0.index("FS_SCRIPT")
+    workflow_index = _LAYOUT_0_9_0.index("WORKFLOW")
+    variables_index = _LAYOUT_0_9_0.index("VAR_NAMES_VALUES")
+    rebuilt: list[bytes] = []
+    header_seen = False
+    removed_width = 0
+    row_number = 0
+    for line in data.splitlines(keepends=True):
+        body, terminator = _peel_terminator(line)
+        if b"|" not in body:
+            stripped = body.strip()
+            if stripped and set(stripped) <= {ord("-")} and removed_width:
+                body = body[: max(0, len(body) - removed_width)]
+            rebuilt.append(body + terminator)
+            continue
+        row_number += 1
+        parts = body.split(b"|")
+        if len(parts) != len(_LAYOUT_0_9_0):
+            raise MatrixError(
+                f"{source} row {row_number} has {len(parts)} cells against the "
+                f"{len(_LAYOUT_0_9_0)} columns of the layout being upgraded: "
+                f"{body.strip()[:60]!r}"
+            )
+        if not header_seen:
+            header_seen = True
+            entry_cell = parts[entry_index]
+            parts[entry_index] = entry_cell.replace(b"ENTRY", b"PPROC", 1)
+            removed_width = len(parts[script_index]) + 1
+            del parts[script_index]
+            rebuilt.append(b"|".join(parts) + terminator)
+            continue
+        code = parts[script_index].strip().decode("utf-8", "replace")
+        workflow = parts[workflow_index].strip().decode("utf-8", "replace")
+        entry_cell = parts[entry_index]
+        entry_id = entry_cell.strip()
+        if entry_id[:1].lower() == b"e" and entry_id[1:].isdigit():
+            parts[entry_index] = entry_cell.replace(entry_id, b"p" + entry_id[1:], 1)
+        if workflow == LEGACY_WORKFLOW:
+            if code:
+                parts[variables_index] = _append_pair(parts[variables_index], RECIPE_VARIABLE, code)
+        else:
+            parts[variables_index] = _strip_pairs(
+                parts[variables_index], (OUTPUTS_VARIABLE, LOG_OUTPUT_VARIABLE)
+            )
+        del parts[script_index]
+        rebuilt.append(b"|".join(parts) + terminator)
+    return b"".join(rebuilt)
+
+
 def _upgraded_bytes(data: bytes, source: str) -> bytes:
     """Bring a matrix of any earlier layout up to the current one.
 
-    TWO STAGES, because two layouts precede the current one and a file
-    written before v0.8.0 needs both: it gains the WORKFLOW column, and
-    then its RE and MACH columns fold into FLIGHT_CONDITION. Chaining
-    them rather than writing a third direct converter is what keeps the
-    oldest path exercised by the same code the newer one uses.
+    THREE STAGES, because three layouts precede the current one and a
+    file written before v0.8.0 needs all of them: it gains the WORKFLOW
+    column, then its RE and MACH columns fold into FLIGHT_CONDITION, and
+    then FS_SCRIPT goes and ENTRY becomes PPROC. Chaining them rather
+    than writing direct converters is what keeps the oldest path
+    exercised by the same code the newest one uses.
     """
     header: tuple[str, ...] | None = None
     for line in data.splitlines():
@@ -924,22 +1072,26 @@ def _upgraded_bytes(data: bytes, source: str) -> bytes:
     if header == _COLUMNS:
         return data
     if header == _LEGACY_COLUMNS_15:
-        return _fold_flight_condition(_insert_workflow_cell(data, source), source)
-    if header == _LEGACY_COLUMNS_16:
-        return _fold_flight_condition(data, source)
-    raise MatrixError(
-        f"{source} is not a run matrix at a layout this converter upgrades: its "
-        f"header names {', '.join(header)}. The layouts it reads are the "
-        f"{len(_LEGACY_COLUMNS_15)}-column one that precedes WORKFLOW "
-        f"({', '.join(_LEGACY_COLUMNS_15)}) and the {len(_LEGACY_COLUMNS_16)}-column "
-        f"one that precedes FLIGHT_CONDITION ({', '.join(_LEGACY_COLUMNS_16)})."
-    )
+        data = _fold_flight_condition(_insert_workflow_cell(data, source), source)
+    elif header == _LEGACY_COLUMNS_16:
+        data = _fold_flight_condition(data, source)
+    elif header != _LAYOUT_0_9_0:
+        raise MatrixError(
+            f"{source} is not a run matrix at a layout this converter upgrades: its "
+            f"header names {', '.join(header)}. The layouts it reads are the "
+            f"{len(_LEGACY_COLUMNS_15)}-column one that precedes WORKFLOW "
+            f"({', '.join(_LEGACY_COLUMNS_15)}), the {len(_LEGACY_COLUMNS_16)}-column "
+            f"one that precedes FLIGHT_CONDITION ({', '.join(_LEGACY_COLUMNS_16)}) and "
+            f"the {len(_LAYOUT_0_9_0)}-column one of v0.9.0 to v0.10.1 "
+            f"({', '.join(_LAYOUT_0_9_0)})."
+        )
+    return _drop_fs_script_and_name_pproc(data, source)
 
 
 #: The columns whose cells carry an input-library id, in file order.
 #: These are the three the kind-letter rule renames (PFS-2009.03); every
 #: other column names something that is not a library artifact.
-CODE_COLUMNS = ("REF", "SET", "ENTRY")
+CODE_COLUMNS = ("REF", "SET", "PPROC")
 
 
 def _retag_cell(cell: bytes, mapping: Mapping[str, str]) -> tuple[bytes, str | None]:
@@ -1205,7 +1357,19 @@ def _declared_outputs(row: MatrixRow, *, required: bool = True) -> list[str]:
     # keeps exactly what it declares, so a matrix written before this
     # release exports what it always did. A LEGACY row is a recipe's and
     # the recipe decides, so it is left as written.
-    if not outputs and row.workflow and row.workflow.upper() != "LEGACY":
+    if row.workflow and row.workflow.upper() != LEGACY_WORKFLOW:
+        carried = [key for key in (OUTPUTS_VARIABLE, LOG_OUTPUT_VARIABLE) if key in row.variables]
+        if carried:
+            raise MatrixError(
+                f"POL {row.pol} names the run type {row.workflow!r} and carries "
+                f"{' and '.join(carried)} among its variables. Since 0.11.0 the export "
+                "set of a workflow row is decided by the pproc artifact its PPROC cell "
+                "names ([exports], PFS-2029.07), every export is named for the point, "
+                "and the log is always exported; the two keys would be a second home "
+                "for the same fact. Remove them, or upgrade the matrix with "
+                "pyflightstream.cases.matrix.upgrade_matrix(path) and in_place (CLI: "
+                "--in-place), which takes them out of every workflow row."
+            )
         return default_outputs(unsteady=row.workflow.startswith("unsteady"))
     if not outputs and not required:
         # Conversion is a translation and spends no solver time, so it
@@ -1260,7 +1424,7 @@ def to_campaign(
     fs_exe : str
         Explicit executable path (never guessed, SAD Section 5).
     recipes : mapping of str to str
-        FS_SCRIPT code to recipe reference (``module:function`` or a
+        RECIPE code (a LEGACY row's) to recipe reference (``module:function`` or a
         name registered with the campaign loop); replaces the
         import-by-number system (PP-7, FR-12).
 
@@ -1268,7 +1432,7 @@ def to_campaign(
     -------
     Campaign
         Native campaign; the matrix codes survive in each case's
-        variables (``matrix_ref``, ``matrix_set``, ``matrix_entry``,
+        variables (``matrix_ref``, ``matrix_set``, ``matrix_pproc``,
         ``matrix_fs_script``, ``matrix_fs_build``, ``matrix_hidden``,
         ``matrix_workflow``) so the conversion is lossless (FR-11).
     """
@@ -1279,23 +1443,29 @@ def to_campaign(
     refuse_silent_rows_without_default(rows, fs_version, path)
     sims = []
     for row in rows:
-        if row.script_code not in recipes:
+        # A ROW NAMING A REGISTERED RUN TYPE NAMES ITS BUILDER (PFS-2029.02):
+        # the WORKFLOW cell is the recipe, resolved through the workflow
+        # registry, and no option repeats it. A LEGACY row is built by a
+        # function of the user's own, which its RECIPE code must map to.
+        if row.workflow != LEGACY_WORKFLOW:
+            recipe = recipes.get(row.script_code, row.workflow) if row.script_code else row.workflow
+        elif row.script_code in recipes:
+            recipe = recipes[row.script_code]
+        else:
             raise MatrixError(
-                f"FS_SCRIPT code {row.script_code!r} of POL {row.pol} has no recipe "
-                "mapping; the import-by-number system is replaced by explicit recipe "
-                "references: map the code with recipes={code: 'package.module:function'} "
-                "in Python, or --recipe CODE=package.module:function on the pyfs-matrix "
-                "command line. Or map the code to a run type this package builds "
-                "itself, which needs no recipe function at all: name it in recipes "
-                "and pass recipe_registry=workflows.workflow_registry(). The command "
-                "line spells that same pair as one option, workflow (CLI: --workflow) "
-                f"CODE=NAME. Registered run types: {', '.join(workflow_names())}"
+                f"POL {row.pol} writes {LEGACY_WORKFLOW} and its {RECIPE_VARIABLE} code "
+                f"{row.script_code!r} has no recipe mapping; a LEGACY row is built by a "
+                "function of your own: map the code with recipes={code: "
+                "'package.module:function'} in Python, or --recipe "
+                "CODE=package.module:function on the pyfs-matrix command line. A row "
+                "that wants a run type this package builds itself writes the type in "
+                f"its WORKFLOW cell instead, one of: {', '.join(workflow_names())}"
             )
         variables: dict[str, str | float | int | bool] = dict(row.variables)
         variables.update(
             matrix_ref=row.ref_code,
             matrix_set=row.set_code,
-            matrix_entry=row.entry_code,
+            matrix_pproc=row.pproc_code,
             matrix_fs_script=row.script_code,
             matrix_fs_build=row.fs_build,
             matrix_hidden=row.hidden,
@@ -1319,11 +1489,36 @@ def to_campaign(
                 reynolds=_condition_reynolds(row),
                 mach=row.flight_condition.get("MACH"),
                 sweep=row.sweep,
-                recipe=recipes[row.script_code],
+                recipe=recipe,
                 outputs=_declared_outputs(row, required=require_outputs),
                 variables=variables,
             )
         )
+    # NO DEFAULT AND EVERY ROW NAMING ITS BUILD (PFS-2029.01): the campaign
+    # records the first active row's build as its version, since a blank
+    # default answers for no row and the model asks for a version.
+    if fs_version is None or not fs_version.strip():
+        fs_version = next(row.fs_build.strip() for row in rows if row.fs_build.strip())
+    # NO DEFAULT AND EVERY ROW NAMING ITS BUILD (PFS-2029.01): the campaign
+    # records the first active row's build as its version, since a blank
+    # default answers for no row and the model asks for a version.
+    if fs_version is None or not fs_version.strip():
+        fs_version = next(row.fs_build.strip() for row in rows if row.fs_build.strip())
+    # NO DEFAULT AND EVERY ROW NAMING ITS BUILD (PFS-2029.01): the campaign
+    # records the first active row's build as its version, since a blank
+    # default answers for no row and the model asks for a version.
+    if fs_version is None or not fs_version.strip():
+        fs_version = next(row.fs_build.strip() for row in rows if row.fs_build.strip())
+    # NO DEFAULT AND EVERY ROW NAMING ITS BUILD (PFS-2029.01): the campaign
+    # records the first active row's build as its version, since a blank
+    # default answers for no row and the model asks for a version.
+    if fs_version is None or not fs_version.strip():
+        fs_version = next(row.fs_build.strip() for row in rows if row.fs_build.strip())
+    # NO DEFAULT AND EVERY ROW NAMING ITS BUILD (PFS-2029.01): the campaign
+    # records the first active row's build as its version, since a blank
+    # default answers for no row and the model asks for a version.
+    if fs_version is None or not fs_version.strip():
+        fs_version = next(row.fs_build.strip() for row in rows if row.fs_build.strip())
     return Campaign(name=name, fs_version=fs_version, fs_exe=fs_exe, sims=sims)
 
 

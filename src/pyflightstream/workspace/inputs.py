@@ -30,7 +30,7 @@ The library tree, created by ``CampaignWorkspace.init``:
   key-value table for now; the loader keeps the raw table verbatim so
   a later formal solver-setup model can consume it unchanged. The id
   begins with ``s``.
-- ``inputs/groups/<id>.toml``: named boundary groups, mapping a group
+- ``inputs/pproc/<id>.toml``: post-processing, whose ``[groups]`` table maps a group
   name to a list of boundary labels or indices, stored verbatim. The id
   begins with ``e``, after the ENTRY column that carries it.
 - ``inputs/geometries/``: staged geometry files of any extension,
@@ -74,6 +74,7 @@ from pydantic import (
 # Nothing about the class changed: same two bases, same three attributes,
 # same public spelling.
 from pyflightstream._errors import InputArtifactError
+from pyflightstream.cases import PprocSpec
 
 # DOWNWARD, and the two imports in this module that leave the workspace
 # layer: `cases` sits below `workspace` in the house order, and the
@@ -98,7 +99,7 @@ from pyflightstream.versions import (
     resolve,
 )
 
-INPUT_KINDS = ("geometries", "references", "setups", "groups", "profiles")
+INPUT_KINDS = ("geometries", "references", "setups", "pproc", "profiles")
 EXECUTABLES_FILE = "executables.toml"
 
 #: Every key a TABLE-valued entry of the build registry carries, and the
@@ -125,16 +126,16 @@ _ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 #: ``e`` for groups, not ``g``: the matrix column that carries a group id
 #: is ENTRY, which is the word the author's own files use, and the letter
 #: follows the column a user types rather than the model's class name.
-KIND_LETTERS = {"reference": "r", "setup": "s", "group": "e"}
+KIND_LETTERS = {"reference": "r", "setup": "s", "pproc": "p"}
 
 #: The library folder each coded kind lives in, for the refusal below.
-_KIND_DIRECTORIES = {"reference": "references", "setup": "setups", "group": "groups"}
+_KIND_DIRECTORIES = {"reference": "references", "setup": "setups", "pproc": "pproc"}
 
 #: The matrix column that carries each coded kind's id. It is the pair
 #: the migration walks: rename the file in the kind's folder AND rewrite
 #: the cell of the column that names it, in the same call, because doing
 #: one without the other is what half-resolves (PFS-2009.03).
-KIND_COLUMNS = {"reference": "REF", "setup": "SET", "group": "ENTRY"}
+KIND_COLUMNS = {"reference": "REF", "setup": "SET", "pproc": "PPROC"}
 
 
 class PointXyz(BaseModel):
@@ -512,34 +513,20 @@ class SetupArtifact(BaseModel):
     settings: dict[str, Any]
 
 
-class GroupsArtifact(BaseModel):
-    """Named boundary groups (``inputs/groups/<id>.toml``).
+class PprocArtifact(PprocSpec):
+    """The post-processing artifact (``inputs/pproc/<id>.toml``).
 
-    Group members are stored verbatim as boundary labels (strings) or
-    boundary indices (1-based integers, the FlightStream convention);
-    the script layer resolves labels at emission time, so this model
-    never interprets them.
-
-    Attributes
-    ----------
-    groups : dict of str to list
-        Mapping group name to its member boundary labels or indices.
+    PFS-2029.07.01, her decision of 2026-09-02: the groups artifact IS the
+    home of post-processing and is renamed. The file carries six tables,
+    every one optional: ``[groups]`` exactly as the groups file held it,
+    a name to the boundary labels or 1-based indices it aggregates;
+    ``[exports]`` which of the eight export kinds a point writes;
+    ``[sections]``, ``[plots]`` and ``[probes]`` the solver definitions
+    the builders emit; ``[products]`` the post-processed files written
+    after the run. Group members are stored verbatim and resolved by the
+    script layer at emission time, as before. The shape is
+    :class:`pyflightstream.cases.PprocSpec`; this class is the file.
     """
-
-    model_config = ConfigDict(extra="forbid")
-
-    groups: dict[str, list[int | str]]
-
-    @field_validator("groups")
-    @classmethod
-    def _groups_have_members(cls, value: dict[str, list[int | str]]) -> dict:
-        empty = sorted(name for name, members in value.items() if not members)
-        if empty:
-            raise ValueError(
-                f"group(s) {', '.join(empty)} have no members; a named boundary "
-                "group aggregates at least one boundary label or index"
-            )
-        return value
 
 
 def available_ids(directory: Path, suffix: str | None = ".toml") -> list[str]:
@@ -759,34 +746,127 @@ def resolve_setup(inputs_dir: Path, artifact_id: str) -> SetupArtifact:
     return _validate(SetupArtifact, {"settings": data}, path, "setup")
 
 
-def resolve_group(inputs_dir: Path, artifact_id: str) -> GroupsArtifact:
-    """Load the named boundary groups one id names.
+def resolve_pproc(inputs_dir: Path, artifact_id: str) -> PprocArtifact:
+    """Load the post-processing artifact one id names.
 
     Parameters
     ----------
     inputs_dir : Path
         The workspace ``inputs/`` directory.
     artifact_id : str
-        File name stem under ``groups/``.
+        File name stem under ``pproc/``.
 
     Returns
     -------
-    GroupsArtifact
-        The validated groups, members stored verbatim.
+    PprocArtifact
+        The validated artifact, group members stored verbatim.
 
     Raises
     ------
     InputArtifactError
-        Unknown id (the message lists the available ids) or a file
-        that does not validate.
+        Unknown id (the message lists the available ids), a file that
+        does not validate, or a file in the shape the groups artifact
+        had, which is named with the command that moves it.
     """
-    _check_id(artifact_id, "group")
-    directory = Path(inputs_dir) / "groups"
+    _check_id(artifact_id, "pproc")
+    directory = Path(inputs_dir) / "pproc"
     path = directory / f"{artifact_id}.toml"
     if not path.is_file():
-        raise _miss("group", artifact_id, directory)
-    data = _load_toml(path, "group")
-    return _validate(GroupsArtifact, {"groups": data}, path, "group")
+        raise _miss("pproc", artifact_id, directory)
+    data = _load_toml(path, "pproc")
+    bare = sorted(key for key, value in data.items() if isinstance(value, list))
+    if bare:
+        raise InputArtifactError(
+            f"the pproc artifact {path} carries group(s) {', '.join(bare)} at the top "
+            "level, which is the shape the groups artifact had before 0.11.0. A pproc "
+            "file holds its groups under a [groups] table, beside [exports], "
+            "[sections], [plots], [probes] and [products]; "
+            "pyflightstream.workspace.migrate_groups_to_pproc moves a groups file into "
+            "that shape, given the workspace inputs directory (the command line "
+            "spells it inputs (CLI: --inputs) on `pyfs-matrix upgrade`)."
+        )
+    return _validate(PprocArtifact, data, path, "pproc")
+
+
+#: The kind letter a groups id carried before 0.11.0, when the kind was
+#: renamed pproc (PFS-2029.07): ``e`` for ENTRY, the column that named it.
+GROUPS_LETTER = "e"
+
+
+def migrate_groups_to_pproc(inputs_dir: Path) -> dict[str, str]:
+    """Move every ``inputs/groups/e*.toml`` to ``inputs/pproc/p*.toml`` under ``[groups]``.
+
+    PFS-2029.07.01: the groups artifact becomes the pproc artifact, the
+    file's nine groups migrating verbatim: the new file is the old one's
+    text under a ``[groups]`` header, comments and all, so a diff of the
+    two shows one added line. Returns the id mapping (old to new) for the
+    matrix cells that name them, which :func:`upgrade_matrix` rewrites.
+
+    Parameters
+    ----------
+    inputs_dir : Path
+        The workspace ``inputs/`` directory.
+
+    Returns
+    -------
+    dict of str to str
+        Old id to new id, ``e001`` to ``p001``; empty when there is no
+        groups directory or it holds no file.
+
+    Raises
+    ------
+    InputArtifactError
+        A groups file whose id does not carry the ``e`` letter (it
+        predates the kind-letter rule; run the id migration first), a
+        file that already carries a table (it is not a groups file), or
+        a target that already exists.
+    """
+    source_dir = Path(inputs_dir) / "groups"
+    target_dir = Path(inputs_dir) / "pproc"
+    if not source_dir.is_dir():
+        return {}
+    mapping: dict[str, str] = {}
+    for path in sorted(source_dir.glob("*.toml")):
+        old = path.stem
+        if old[:1].lower() != GROUPS_LETTER:
+            raise InputArtifactError(
+                f"the groups file {path} carries the id {old!r}, which does not declare "
+                f"its kind with the letter {GROUPS_LETTER!r}; give the library its kind "
+                "letters first (migrate_input_ids) and then move the groups to pproc."
+            )
+        data = _load_toml(path, "groups")
+        tables = sorted(key for key, value in data.items() if isinstance(value, dict))
+        if tables:
+            raise InputArtifactError(
+                f"the groups file {path} carries table(s) {', '.join(tables)}, so it is "
+                "not a groups file of the shape this migration moves (a flat table of "
+                "group name to members)."
+            )
+        new = KIND_LETTERS["pproc"] + old[1:]
+        target = target_dir / f"{new}.toml"
+        if target.exists():
+            raise InputArtifactError(
+                f"cannot move {path} to {target}: the target already exists. Remove or "
+                "rename it, then run the migration again."
+            )
+        mapping[old] = new
+    for old, new in mapping.items():
+        path = source_dir / f"{old}.toml"
+        target = target_dir / f"{new}.toml"
+        text = path.read_text(encoding="utf-8")
+        target_dir.mkdir(parents=True, exist_ok=True)
+        target.write_text(
+            "# Moved from inputs/groups/" + path.name + " by `pyfs-matrix upgrade --inputs`;\n"
+            "# the groups are the file's own lines, under the [groups] table a pproc\n"
+            "# artifact holds them in (PFS-2029.07).\n[groups]\n" + text,
+            encoding="utf-8",
+        )
+        path.unlink()
+    try:
+        source_dir.rmdir()
+    except OSError:
+        pass
+    return mapping
 
 
 def _resolve_file(inputs_dir: Path, kind: str, subdir: str, artifact_id: str) -> Path:

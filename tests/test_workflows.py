@@ -206,8 +206,10 @@ def test_a_case_naming_a_workflow_and_no_recipe_produces_a_complete_script():
     # asserts is that the workflow exported the name the case DECLARES
     # rather than a literal of its own, which is the property that keeps
     # two points of one case from overwriting each other.
-    assert "loads_{point}.txt" in text, (
-        "the workflow exported a literal rather than the name the case declared"
+    assert "{point}.txt" in text, (
+        "the workflow exported a literal rather than the name the case declared: since "
+        "0.11.0 a workflow row's exports are the study's set, every one named for the "
+        "point (FR-51)"
     )
 
 
@@ -508,15 +510,33 @@ def test_every_command_a_workflow_declares_is_one_it_really_emits():
     Measured against the script the builder actually renders on a
     covered build, rather than against the list itself.
     """
-    from pyflightstream.cases import default_outputs
+    from pyflightstream.cases import PprocSpec, ReferenceData, default_outputs
 
+    # The pproc artifact's definitions are emitted only when a case carries
+    # one (PFS-2029.07.03), so the guard hands every run type an artifact
+    # naming a section, a plot group and a probe line in the MRP frame,
+    # which a reference with a moment point creates on every run type.
+    pproc = PprocSpec.model_validate(
+        {
+            "sections": {"distributions": [{"families": "all", "planes": ["XZ"]}]},
+            "plots": {"groups": [{"name": "MRP_TOTAL", "families": "all"}]},
+            "probes": {
+                "frame": "MRP",
+                "parameters": ["MACH"],
+                "points": 2,
+                "lines": [{"start": [0.0, 0.0, 0.0], "end": [1.0, 0.0, 0.0]}],
+            },
+        }
+    )
     for name in WORKFLOWS:
-        # The bare shape declares a loads table alone, and a builder exports
-        # only what a row declares (FR-51), so the coverage claim is measured
-        # on the row that asks for the whole export set.
         unsteady = name != "steady"
         names = [n.replace("{point}", "a+00.0_b+00.0") for n in default_outputs(unsteady)]
-        case = _case_for(name).model_copy(update={"outputs": names})
+        base = _case_for(name)
+        reference = base.reference or ReferenceData(area=1.0, length=1.0)
+        reference = reference.model_copy(update={"moment_point_m": (0.0, 0.0, 0.0)})
+        case = base.model_copy(
+            update={"outputs": names, "pproc": pproc, "pproc_id": "p001", "reference": reference}
+        )
         script = Script("26.123")
         build_script(case, script)
         emitted = {
@@ -3640,3 +3660,194 @@ def test_default_outputs_and_their_classification():
         "loads": "loads_a.txt",
         "log": "loads_a_log.txt",
     }
+
+
+# --- PFS-2029.07.03, PFS-2029.14.02 and PFS-2029.11.03: the pproc definitions ----
+
+
+def _her_pproc():
+    """Her post-processing, as the reference workspace's p001 writes it."""
+    from pyflightstream.cases import PprocSpec
+
+    return PprocSpec.model_validate(
+        {
+            "groups": {"1": ["Blade1", "S", "N", "W", "B"], "2": ["W", "B"]},
+            "sections": {
+                "count": 50,
+                "distributions": [
+                    {"families": "each_blade", "frame": "BLADE_AXIS", "planes": ["XY"]},
+                    {"families": ["W"], "frame": "MRP", "planes": ["XZ"]},
+                    {"families": ["B"], "frame": "MRP", "planes": ["XZ", "YZ"]},
+                    {"families": ["N", "S"], "frame": "MRP", "planes": ["XZ", "YZ"]},
+                    {"families": ["P"], "frame": "MRP", "planes": ["XZ"]},
+                ],
+            },
+            "plots": {
+                "parameters": ["CL", "CDI", "CDO", "CD", "FX", "FY", "FZ", "MX", "MY", "MZ"],
+                "groups": [
+                    {"name": "MRP_TOTAL", "frame": "MRP", "families": "all"},
+                    {"name": "MRP_AIRFRAME", "frame": "MRP", "families": "airframe"},
+                    {"name": "MRP_{family}", "frame": "MRP", "families": "each"},
+                    {"name": "PROP_X", "frame": "PROP_MRP", "families": "blades"},
+                    {"name": "PROP_XS", "frame": "PROP_MRP", "families": ["blades", "S"]},
+                    {"name": "LOCAL_{family}", "frame": "BLADE_AXIS", "families": "each_blade"},
+                ],
+            },
+            "probes": {
+                "frame": "PROP_MRP",
+                "parameters": ["MACH", "VELOCITY"],
+                "points": 3,
+                "scale": "propeller_radius",
+                "lines": [{"start": [-2.0, -1.0, 0.0], "end": [-2.0, 1.0, 0.0]}],
+            },
+        }
+    )
+
+
+def _with_pproc(case: SimCase, geometry: Path, pproc=None) -> SimCase:
+    from pyflightstream.cases import ReferenceData
+
+    reference = ReferenceData(
+        area=50.0,
+        length=2.526,
+        propeller_diameter=3.6576,
+        moment_point_m=(9.152, 0.0, 0.0),
+        propeller_position_m=(0.0, -3.504, 0.0),
+    )
+    return case.model_copy(
+        update={
+            "geometry": str(geometry),
+            "reference": reference,
+            "pproc": pproc or _her_pproc(),
+            "pproc_id": "p001",
+        }
+    )
+
+
+def test_pproc_sections_emit_one_distribution_per_family_and_plane(tmp_path):
+    """W in XZ, B in XZ and YZ; N, S, P and the blades are not in a wing-body and are left out."""
+    case = _with_pproc(unsteady_case(), _wb_geometry(tmp_path))
+    lines = rendered(case).splitlines()
+    starts = [i for i, line in enumerate(lines) if line == "NEW_SURFACE_SECTION_DISTRIBUTION"]
+    assert len(starts) == 3, "three distributions: W XZ, B XZ, B YZ"
+    blocks = [lines[i : i + 8] for i in starts]
+    assert blocks[0][1:] == [
+        "FRAME 2",
+        "PLANE XZ",
+        "NUM_SECTIONS 50",
+        "PLOT_DIRECTION 1",
+        "INCLUDE_SYMMETRY DISABLE",
+        "SURFACES 1",
+        "1",
+    ]
+    assert blocks[2][2] == "PLANE YZ" and blocks[2][-1] == "2"
+    assert lines.index("INITIALIZE_SOLVER") > starts[-1], "sections exist before the solver"
+
+
+def test_pproc_plots_emit_one_force_plot_per_group_and_frame(tmp_path):
+    """Her 40 force plots on the wing-body: TOTAL, AIRFRAME, W and B, ten parameters each."""
+    case = _with_pproc(unsteady_case(), _wb_geometry(tmp_path))
+    lines = rendered(case).splitlines()
+    names = [
+        lines[i + 4] for i, line in enumerate(lines) if line == "UNSTEADY_SOLVER_NEW_FORCE_PLOT"
+    ]
+    assert len(names) == 40
+    assert names[0] == "NAME CL_MRP_TOTAL" and names[10] == "NAME CL_MRP_AIRFRAME"
+    assert names[20] == "NAME CL_MRP_W" and names[30] == "NAME CL_MRP_B"
+    at = lines.index("NAME CL_MRP_TOTAL")
+    assert lines[at - 3 : at] == ["FRAME 2", "UNITS COEFFICIENTS", "PARAMETER CL"]
+    assert lines[at + 1] == "BOUNDARIES -1", "all is the command's own every-boundary form"
+    at = lines.index("NAME FX_MRP_AIRFRAME")
+    assert lines[at - 2] == "UNITS NEWTONS" and lines[at - 1] == "PARAMETER FORCE_X"
+    assert lines[at + 1 : at + 3] == ["BOUNDARIES 2", "1,2"]
+    assert not any("PROP_" in name for name in names), "no blade, no propeller group"
+    fluid = [i for i, line in enumerate(lines) if line == "UNSTEADY_SOLVER_NEW_FLUID_PLOT"]
+    assert len(fluid) == 6, "one line of three vertices, two parameters"
+    assert lines[fluid[0] + 1 : fluid[0] + 5] == [
+        "FRAME 3",
+        "PARAMETER MACH",
+        "NAME MACH1",
+        "VERTEX -3.6576 -1.8288 0.0",
+    ], "in propeller radii of the reference, in the PROP_MRP frame"
+    assert lines[fluid[-1] + 3] == "NAME VELOCITY3"
+
+
+def test_pproc_exports_select_the_export_verbs(tmp_path):
+    """A row naming the artifact exports what its [exports] table selects."""
+    from pyflightstream.cases import PprocSpec
+
+    pproc = PprocSpec.model_validate({"exports": {"tecplot": False, "probes": False}})
+    case = _with_pproc(unsteady_case(), _wb_geometry(tmp_path), pproc).model_copy(
+        update={"outputs": [n.replace("{point}", "P") for n in pproc.outputs(unsteady=True)]}
+    )
+    lines = rendered(case).splitlines()
+    assert "EXPORT_SOLVER_ANALYSIS_TECPLOT" not in lines and "EXPORT_PROBE_POINTS" not in lines
+    for verb in (
+        "SAVEAS",
+        "EXPORT_SOLVER_ANALYSIS_SPREADSHEET",
+        "EXPORT_ALL_SURFACE_SECTIONS",
+        "EXPORT_SURFACE_SECTIONAL_LOADS",
+        "UNSTEADY_SOLVER_EXPORT_PLOTS",
+        "EXPORT_LOG",
+    ):
+        assert verb in lines, verb
+
+
+def test_pproc_exports_deselect_a_kind():
+    """PFS-2029.14.02: tecplot = false leaves seven outputs on an unsteady row."""
+    from pyflightstream.cases import PprocSpec
+
+    pproc = PprocSpec.model_validate({"exports": {"tecplot": False}})
+    assert len(pproc.outputs(unsteady=True)) == 7
+    assert "{point}.dat" not in pproc.outputs(unsteady=True)
+    assert len(PprocSpec().outputs(unsteady=True)) == 8
+
+
+def test_the_rotor_run_creates_one_axis_frame_per_blade_and_moves_them(tmp_path):
+    """PFS-2029.11.03, the frames: BladeAxis1 at the propeller frame, on the rotor axis."""
+    sector = _saved_simulation(tmp_path / "sector.fsm", ["Blade1", "S", "N"])
+    case = _with_pproc(rotor_case(), sector)
+    lines = rendered(case).splitlines()
+    assert "NAME BladeAxis1" in lines
+    at = lines.index("NAME BladeAxis1")
+    assert lines[at - 1] == "FRAME 4", "MRP is 2, PROP_MRP is 3, the first blade axis is 4"
+    rotate = lines.index("ROTATE_COORDINATE_SYSTEM")
+    assert lines[rotate + 1 : rotate + 5] == [
+        "FRAME 4",
+        "ROTATION_FRAME 3",
+        "ROTATION_AXIS X",
+        "ANGLE 0.0",
+    ]
+    moving = lines.index("SET_MOTION_MOVING_FRAMES 1 1")
+    assert lines[moving + 1] == "4", "the blade axis frame turns with the blades"
+    # The pproc entries citing BLADE_AXIS take the blade's own frame: the
+    # section in XY and the LOCAL plots, one per blade.
+    section = [i for i, line in enumerate(lines) if line == "NEW_SURFACE_SECTION_DISTRIBUTION"]
+    assert lines[section[0] + 1 : section[0] + 3] == ["FRAME 4", "PLANE XY"]
+    assert "NAME CL_LOCAL_Blade1" in lines
+    at = lines.index("NAME CL_LOCAL_Blade1")
+    assert lines[at - 3] == "FRAME 4"
+    assert "NAME CL_PROP_X" in lines and "NAME CL_PROP_XS" in lines
+    at = lines.index("NAME CL_PROP_XS")
+    assert lines[at + 1 : at + 3] == ["BOUNDARIES 2", "1,2"], "the blade and the spinner"
+    names = [
+        lines[i + 4] for i, line in enumerate(lines) if line == "UNSTEADY_SOLVER_NEW_FORCE_PLOT"
+    ]
+    assert len(names) == 80, "TOTAL, AIRFRAME, Blade1, S, N, PROP_X, PROP_XS, LOCAL_Blade1"
+
+
+def test_a_pproc_frame_the_run_did_not_create_is_refused_naming_the_created_ones(tmp_path):
+    from pyflightstream.cases import CampaignConfigError, PprocSpec
+
+    # The steady run creates no propeller frame, so a section distribution
+    # citing PROP_MRP is refused there naming the one frame it did create.
+    pproc = PprocSpec.model_validate(
+        {
+            "sections": {
+                "distributions": [{"families": "all", "frame": "PROP_MRP", "planes": ["XZ"]}]
+            }
+        }
+    )
+    case = _with_pproc(steady_case(), _wb_geometry(tmp_path), pproc)
+    with pytest.raises(CampaignConfigError, match="created: MRP"):
+        rendered(case)

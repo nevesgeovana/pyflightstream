@@ -3194,3 +3194,44 @@ def test_the_auto_detected_log_is_recorded_under_the_name_it_was_found_by(tmp_pa
     assessment = LoadsAssessor()(None, None, sim_dir)
     assert assessment.status is RunStatus.CONVERGED
     assert assessment.log_file_used == "whatever_the_solver_wrote.txt"
+
+
+# --- PFS-2029.16 and PFS-2029.14.02: the record and the missing export -------------
+
+
+def test_the_run_record_names_the_pproc_artifact(tmp_path):
+    from pyflightstream.cases import PprocSpec
+
+    campaign = make_campaign(tmp_path, alphas=(0.0,))
+    case = campaign.sims[0].model_copy(update={"pproc": PprocSpec(), "pproc_id": "p007"})
+    campaign = campaign.model_copy(update={"sims": [case]})
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    run_campaign(
+        campaign,
+        StubSolver(WRITES_LOADS),
+        workspace,
+        assess=converged,
+        recipes={"steady": steady_recipe},
+    )
+    record = workspace.read_manifest()[0]
+    assert record.pproc == "p007"
+    assert record.status is RunStatus.CONVERGED
+
+
+def test_a_missing_declared_export_fails_the_point_naming_it(tmp_path):
+    """The stub writes the loads table alone; the declared tecplot file is named."""
+    campaign = make_campaign(
+        tmp_path, alphas=(0.0,), outputs=("loads_{point}.txt", "loads_{point}.dat")
+    )
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    with pytest.raises(CampaignErrors, match="FAILED_INCOMPLETE_OUTPUT"):
+        run_campaign(
+            campaign,
+            StubSolver(WRITES_LOADS),
+            workspace,
+            assess=converged,
+            recipes={"steady": steady_recipe},
+        )
+    record = workspace.read_manifest()[0]
+    assert record.status is RunStatus.FAILED_INCOMPLETE_OUTPUT
+    assert "loads_a+00.0.dat" in (record.error or "")

@@ -20,6 +20,7 @@ import-by-number system (PP-7, FR-12).
 
 from __future__ import annotations
 
+import re
 import tomllib
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from datetime import UTC, datetime
@@ -57,6 +58,22 @@ __all__ = [
     "SimCase",
     "SolverSettings",
     "SolverToggle",
+    "EXPORT_KINDS",
+    "FAMILY_SELECTORS",
+    "FLUID_PLOT_PARAMETERS",
+    "FORCE_PLOT_PARAMETERS",
+    "PPROC_FRAMES",
+    "PprocSpec",
+    "SectionsSpec",
+    "PlotsSpec",
+    "ProbesSpec",
+    "ProductsSpec",
+    "ForcePlotGroup",
+    "SectionDistribution",
+    "ProbeLine",
+    "select_families",
+    "default_outputs",
+    "classify_outputs",
     "SweepAxis",
     "check_recipe",
     "derived_body_sha256",
@@ -220,17 +237,21 @@ EXPORT_KINDS: tuple[tuple[str, str, str, bool], ...] = (
 )
 
 
-def default_outputs(unsteady: bool) -> list[str]:
+def default_outputs(unsteady: bool, exports: Mapping[str, bool] | None = None) -> list[str]:
     """Return the output names a workflow row gets when it declares none.
 
     Every kind hangs off the point placeholder, so the naming template
     decides the stem and this list decides the suffixes; a steady row
-    leaves out the plots file.
+    leaves out the plots file. ``exports`` is the pproc artifact's
+    ``[exports]`` table (PFS-2029.14.02): a kind set to false is left
+    out, a kind the table does not name is kept, so an empty table is
+    the whole set, as her driver's ``files_to_save`` defaulted.
     """
+    chosen = exports or {}
     return [
         f"{{point}}{suffix}"
-        for _, suffix, _, only_unsteady in EXPORT_KINDS
-        if unsteady or not only_unsteady
+        for kind, suffix, _, only_unsteady in EXPORT_KINDS
+        if (unsteady or not only_unsteady) and chosen.get(kind, True)
     ]
 
 
@@ -251,6 +272,317 @@ def classify_outputs(names: Sequence[str]) -> dict[str, str]:
                 claimed[kind] = str(name)
                 break
     return claimed
+
+
+#: THE FORCE-PLOT PARAMETERS BY THE SHORT NAME HER PLOT FILES USE, paired
+#: with the PARAMETER the command takes and the UNITS it is sampled in
+#: (PFS-2029.07.03). The plot's NAME is ``{short}_{group}``, which is how
+#: her ``CL_MRP_TOTAL`` and ``FX_MRP_TOTAL`` were spelled, and the column
+#: her PLOTS product carries.
+FORCE_PLOT_PARAMETERS: dict[str, tuple[str, str]] = {
+    "CL": ("CL", "COEFFICIENTS"),
+    "CDI": ("CDI", "COEFFICIENTS"),
+    "CDO": ("CDO", "COEFFICIENTS"),
+    "CD": ("CD", "COEFFICIENTS"),
+    "FX": ("FORCE_X", "NEWTONS"),
+    "FY": ("FORCE_Y", "NEWTONS"),
+    "FZ": ("FORCE_Z", "NEWTONS"),
+    "MX": ("MOMENT_X", "NEWTONS"),
+    "MY": ("MOMENT_Y", "NEWTONS"),
+    "MZ": ("MOMENT_Z", "NEWTONS"),
+}
+
+#: The fluid parameters an unsteady fluid plot can sample, the command's
+#: own enumeration (SRC-003 p.347).
+FLUID_PLOT_PARAMETERS = (
+    "CP_FREE",
+    "CP_REF",
+    "MACH",
+    "VELOCITY",
+    "VX",
+    "VY",
+    "VZ",
+    "STATIC_PRESSURE_RATIO",
+)
+
+#: The family SELECTORS a pproc entry may write instead of a family name.
+#: ``all`` is every boundary (the command's own -1 form); ``airframe`` is
+#: every family that is not a blade; ``blades`` is every blade; ``each``
+#: expands the entry into one per family the geometry carries, and
+#: ``each_blade`` into one per blade, the entry's name carrying
+#: ``{family}`` for the expansion. They are what let ONE artifact serve
+#: her wing-body and her isolated-rotor configurations: her driver kept
+#: one table of sections and plots and filtered it to the components the
+#: opened file carried, and the selectors are that filter written down.
+FAMILY_SELECTORS = ("all", "airframe", "blades", "each", "each_blade")
+
+#: The frames a pproc entry may cite by NAME. MRP is the moment frame the
+#: reference creates (PFS-2030.03.02), PROP_MRP the propeller frame, and
+#: BLADE_AXIS the per-blade frame of the multirotor work (PFS-2029.11.03);
+#: an entry citing a frame the builder did not create is refused naming it.
+PPROC_FRAMES = ("MRP", "PROP_MRP", "BLADE_AXIS")
+
+Plane = Literal["XY", "XZ", "YZ"]
+
+
+def _check_family_selection(value: object) -> str | list[str]:
+    """Accept a selector word, or a list of family names and selector words."""
+    if isinstance(value, str):
+        if value not in FAMILY_SELECTORS:
+            raise ValueError(
+                f"{value!r} is neither a family selector ({', '.join(FAMILY_SELECTORS)}) "
+                "nor a list of family names"
+            )
+        return value
+    if isinstance(value, list) and value and all(isinstance(item, str) for item in value):
+        if any(item in ("each", "each_blade") for item in value):
+            raise ValueError("'each' and 'each_blade' expand an entry and stand alone")
+        return list(value)
+    raise ValueError("families is a selector word or a non-empty list of family names")
+
+
+class SectionDistribution(BaseModel):
+    """One surface-section distribution: families, frame and planes."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    families: Annotated[str | list[str], BeforeValidator(_check_family_selection)]
+    frame: str = "MRP"
+    planes: list[Plane] = Field(min_length=1)
+
+    @field_validator("frame")
+    @classmethod
+    def _known_frame(cls, value: str) -> str:
+        if value not in PPROC_FRAMES:
+            raise ValueError(f"frame {value!r} is not one of {', '.join(PPROC_FRAMES)}")
+        return value
+
+
+class SectionsSpec(BaseModel):
+    """The ``[sections]`` table: NEW_SURFACE_SECTION_DISTRIBUTION per entry and plane."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    count: int = Field(default=50, ge=1)
+    plot_direction: Literal[1, 2] = 1
+    include_symmetry: bool = False
+    distributions: list[SectionDistribution] = Field(default_factory=list)
+
+
+class ForcePlotGroup(BaseModel):
+    """One group of unsteady force plots: a name, a frame and the families summed."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1)
+    frame: str = "MRP"
+    families: Annotated[str | list[str], BeforeValidator(_check_family_selection)]
+
+    @field_validator("frame")
+    @classmethod
+    def _known_frame(cls, value: str) -> str:
+        if value not in PPROC_FRAMES:
+            raise ValueError(f"frame {value!r} is not one of {', '.join(PPROC_FRAMES)}")
+        return value
+
+    @model_validator(mode="after")
+    def _expansion_names_the_family(self) -> ForcePlotGroup:
+        expands = isinstance(self.families, str) and self.families in ("each", "each_blade")
+        if expands != ("{family}" in self.name):
+            raise ValueError(
+                f"plot group {self.name!r}: an entry whose families are 'each' or "
+                "'each_blade' expands into one group per family and its name carries "
+                "{family}; any other entry is one group and its name carries no placeholder"
+            )
+        return self
+
+
+class PlotsSpec(BaseModel):
+    """The ``[plots]`` table: which parameters, over which groups of families."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    parameters: list[str] = Field(default_factory=lambda: list(FORCE_PLOT_PARAMETERS))
+    groups: list[ForcePlotGroup] = Field(default_factory=list)
+
+    @field_validator("parameters")
+    @classmethod
+    def _known_parameters(cls, value: list[str]) -> list[str]:
+        unknown = [name for name in value if name not in FORCE_PLOT_PARAMETERS]
+        if unknown:
+            raise ValueError(
+                f"force plot parameter(s) {', '.join(unknown)} are not among "
+                f"{', '.join(FORCE_PLOT_PARAMETERS)}"
+            )
+        return value
+
+
+class ProbeLine(BaseModel):
+    """One line of fluid probes, from one vertex to another, sampled at ``points``."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    start: tuple[float, float, float]
+    end: tuple[float, float, float]
+
+
+class ProbesSpec(BaseModel):
+    """The ``[probes]`` table: fluid plots along lines, in a frame, per parameter.
+
+    Each line is sampled at ``points`` vertices from ``start`` to ``end``,
+    and every vertex gets one UNSTEADY_SOLVER_NEW_FLUID_PLOT per parameter,
+    named ``{parameter}{n}`` with n counting vertices across the lines in
+    the order written. ``scale`` says what the coordinates are in: metres,
+    or propeller radii, which is how her nine lines were laid out over the
+    disk of whichever propeller the reference named.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    frame: str = "PROP_MRP"
+    parameters: list[str] = Field(default_factory=list)
+    points: int = Field(default=25, ge=2)
+    scale: Literal["m", "propeller_radius"] = "m"
+    lines: list[ProbeLine] = Field(default_factory=list)
+
+    @field_validator("frame")
+    @classmethod
+    def _known_frame(cls, value: str) -> str:
+        if value not in PPROC_FRAMES:
+            raise ValueError(f"frame {value!r} is not one of {', '.join(PPROC_FRAMES)}")
+        return value
+
+    @field_validator("parameters")
+    @classmethod
+    def _known_parameters(cls, value: list[str]) -> list[str]:
+        unknown = [name for name in value if name not in FLUID_PLOT_PARAMETERS]
+        if unknown:
+            raise ValueError(
+                f"fluid plot parameter(s) {', '.join(unknown)} are not among "
+                f"{', '.join(FLUID_PLOT_PARAMETERS)}"
+            )
+        return value
+
+
+class ProductsSpec(BaseModel):
+    """The ``[products]`` table: which post-processed files the campaign writes."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    pltet: bool = True
+    secloads: bool = True
+    plots: bool = True
+
+
+class PprocSpec(BaseModel):
+    """The post-processing specification a matrix row's PPROC cell names.
+
+    PFS-2029.07.01, her decision of 2026-09-02: the groups artifact IS the
+    home of post-processing and is renamed pproc. Six tables. ``groups``
+    is exactly what the groups file held, a name to the families it
+    aggregates, and the PLTET writer reads it; ``exports`` says which of
+    the eight export kinds a point writes, all of them unless a kind is
+    set to false; ``sections``, ``plots`` and ``probes`` are the solver
+    definitions the builders emit before the solver runs; ``products``
+    says which post-processed files are written after it.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    groups: dict[str, list[int | str]] = Field(default_factory=dict)
+    exports: dict[str, bool] = Field(default_factory=dict)
+    sections: SectionsSpec = Field(default_factory=SectionsSpec)
+    plots: PlotsSpec = Field(default_factory=PlotsSpec)
+    probes: ProbesSpec = Field(default_factory=ProbesSpec)
+    products: ProductsSpec = Field(default_factory=ProductsSpec)
+    #: How a blade family is told from the airframe: a regular expression
+    #: over the family name. Hers were Blade1 to Blade6.
+    blade_pattern: str = r"^Blade\d+$"
+
+    @field_validator("groups")
+    @classmethod
+    def _groups_have_members(cls, value: dict[str, list[int | str]]) -> dict:
+        empty = sorted(name for name, members in value.items() if not members)
+        if empty:
+            raise ValueError(
+                f"group(s) {', '.join(empty)} have no members; a named boundary "
+                "group aggregates at least one boundary label or index"
+            )
+        return value
+
+    @field_validator("exports")
+    @classmethod
+    def _known_export_kinds(cls, value: dict[str, bool]) -> dict[str, bool]:
+        kinds = [kind for kind, _, _, _ in EXPORT_KINDS]
+        unknown = sorted(set(value) - set(kinds))
+        if unknown:
+            raise ValueError(
+                f"export kind(s) {', '.join(unknown)} are not among the eight a point "
+                f"leaves: {', '.join(kinds)}"
+            )
+        if not value.get("loads", True):
+            raise ValueError(
+                "the loads table cannot be deselected: it is the export this package "
+                "judges a run by"
+            )
+        return value
+
+    @field_validator("blade_pattern")
+    @classmethod
+    def _compiles(cls, value: str) -> str:
+        try:
+            re.compile(value)
+        except re.error as error:
+            raise ValueError(
+                f"blade_pattern {value!r} is not a regular expression: {error}"
+            ) from error
+        return value
+
+    def is_blade(self, family: str) -> bool:
+        """Whether one family name is a blade by this artifact's pattern."""
+        return re.match(self.blade_pattern, family) is not None
+
+    def outputs(self, unsteady: bool) -> list[str]:
+        """Return the output names a row naming this artifact declares."""
+        return default_outputs(unsteady, self.exports)
+
+
+def select_families(
+    selection: str | Sequence[str], inventory: Sequence[str], is_blade: Callable[[str], bool]
+) -> list[list[str]]:
+    """Expand one families entry over the geometry's inventory, in inventory order.
+
+    Returns a list of family lists, one per emitted entry: a single list
+    for a selector or a literal list, one list per family for ``each``
+    and ``each_blade``. A family the geometry does not carry is left out,
+    as her driver filtered its tables to the components it opened; an
+    entry that resolves to nothing is an empty result and the caller
+    skips it. ``all`` is the empty list standing for the command's own
+    every-boundary form, which the caller spells as -1.
+    """
+    blades = [name for name in inventory if is_blade(name)]
+    if isinstance(selection, str):
+        if selection == "all":
+            return [[]]
+        if selection == "airframe":
+            chosen = [name for name in inventory if not is_blade(name)]
+            return [chosen] if chosen else []
+        if selection == "blades":
+            return [blades] if blades else []
+        if selection == "each":
+            return [[name] for name in inventory]
+        if selection == "each_blade":
+            return [[name] for name in blades]
+        raise CampaignConfigError(f"unknown family selector {selection!r}")
+    chosen = []
+    for item in selection:
+        if item == "blades":
+            chosen.extend(name for name in blades if name not in chosen)
+        elif item == "airframe":
+            chosen.extend(name for name in inventory if not is_blade(name) and name not in chosen)
+        elif item in inventory and item not in chosen:
+            chosen.append(item)
+    return [chosen] if chosen else []
 
 
 def point_tag(point: dict[str, float]) -> str:
@@ -778,6 +1110,11 @@ class SimCase(BaseModel):
     recipe: str
     variables: dict[str, str | float | int | bool] = Field(default_factory=dict)
     outputs: list[str] = Field(default_factory=list)
+    #: The post-processing specification the row's PPROC cell named, bound
+    #: by the workspace (PFS-2029.07); None for a case built without one,
+    #: which emits the default export set and no sections, plots or probes.
+    pproc: PprocSpec | None = None
+    pproc_id: str | None = None
     point: dict[str, float] = Field(default_factory=dict)
     fs_build: str | None = None
 

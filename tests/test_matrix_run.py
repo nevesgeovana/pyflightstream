@@ -126,7 +126,7 @@ SETUP_BODIES = {
     "002": "iterations = 800\nconvergence = 1e-6\n",
     "003": "iterations = 400\nwake_layers = 4\n",
 }
-GROUP_BODIES = {"001": 'wing = ["wing_left", "wing_right"]\nbody = [1]\n'}
+GROUP_BODIES = {"001": '[groups]\nwing = ["wing_left", "wing_right"]\nbody = [1]\n'}
 
 
 def fixture_codes(path=FIXTURE):
@@ -139,7 +139,7 @@ def fixture_codes(path=FIXTURE):
     return {
         "ref": [row.ref_code for row in rows],
         "set": [row.set_code for row in rows],
-        "entry": [row.entry_code for row in rows],
+        "entry": [row.pproc_code for row in rows],
     }
 
 
@@ -147,7 +147,7 @@ def code_for(pol, kind, path=FIXTURE):
     """Return the `kind` code the row with this POL names."""
     for row in read_matrix(path, active_only=False):
         if row.pol == pol:
-            return {"ref": row.ref_code, "set": row.set_code, "entry": row.entry_code}[kind]
+            return {"ref": row.ref_code, "set": row.set_code, "entry": row.pproc_code}[kind]
     raise AssertionError(f"POL {pol} is not in {path}")
 
 
@@ -155,12 +155,12 @@ def make_library(tmp_path, *, register_build=None):
     """Build a synthetic workspace input library covering the fixtures."""
     workspace = CampaignWorkspace.init(tmp_path / "camp")
     inputs = workspace.inputs_dir
-    spelled = {"references": set(), "setups": set(), "groups": set()}
+    spelled = {"references": set(), "setups": set(), "pproc": set()}
     for path in (FIXTURE, REGISTRY_FIXTURE):
         codes = fixture_codes(path)
         spelled["references"] |= set(codes["ref"])
         spelled["setups"] |= set(codes["set"])
-        spelled["groups"] |= set(codes["entry"])
+        spelled["pproc"] |= set(codes["entry"])
     # The body tables are keyed by the bare three-digit code, which is
     # what the codes were before 0.8.0. Every id the library can resolve
     # now DECLARES its kind with a leading letter (PFS-2009.01), so the
@@ -174,11 +174,11 @@ def make_library(tmp_path, *, register_build=None):
     for tail in SETUP_BODIES:
         spelled["setups"].add(f"s{tail}")
     for tail in GROUP_BODIES:
-        spelled["groups"].add(f"e{tail}")
+        spelled["pproc"].add(f"p{tail}")
     for subdir, bodies in (
         ("references", REFERENCE_BODIES),
         ("setups", SETUP_BODIES),
-        ("groups", GROUP_BODIES),
+        ("pproc", GROUP_BODIES),
     ):
         for code in sorted(spelled[subdir]):
             body = bodies.get(code[-3:])
@@ -253,7 +253,7 @@ def test_resolve_matrix_applies_reference_and_setup_to_the_cases(tmp_path):
     assert by_sim["9001"].variables["matrix_ref"] == code_for("9001", "ref")
     assert by_sim["9001"].variables["matrix_set"] == code_for("9001", "set")
     # ENTRY groups come back verbatim for the script and post layers.
-    assert resolved.groups[code_for("9001", "entry")].groups == {
+    assert resolved.pprocs[code_for("9001", "entry")].groups == {
         "wing": ["wing_left", "wing_right"],
         "body": [1],
     }
@@ -348,13 +348,12 @@ def test_a_row_stating_no_condition_is_refused_by_the_reader(tmp_path):
             "SWEEP_VALUES": "0.0",
             "REF": code_for("9001", "ref"),
             "SET": code_for("9001", "set"),
-            "ENTRY": code_for("9001", "entry"),
-            "FS_SCRIPT": "003",
+            "PPROC": code_for("9001", "entry"),
             "FS_BUILD": "MANUAL",
             "HIDDEN": "0",
             "RUN": "1",
             "WORKFLOW": "LEGACY",
-            "VAR_NAMES_VALUES": "OUTPUTS: loads_{point}.txt",
+            "VAR_NAMES_VALUES": "OUTPUTS: loads_{point}.txt / RECIPE: 003",
         }
     )
     matrix = tmp_path / "silent.fs"
@@ -425,8 +424,8 @@ def test_missing_setup_and_group_are_didactic_too(tmp_path):
         )
     workspace = make_library(tmp_path / "second")
     group_code = code_for("9001", "entry")
-    (workspace.inputs_dir / "groups" / f"{group_code}.toml").unlink()
-    entry_miss = rf"ENTRY column.*inputs/groups/{group_code}\.toml"
+    (workspace.inputs_dir / "pproc" / f"{group_code}.toml").unlink()
+    entry_miss = rf"PPROC column.*inputs/pproc/{group_code}\.toml"
     with pytest.raises(InputArtifactError, match=entry_miss):
         resolve_matrix(
             FIXTURE,
@@ -656,7 +655,7 @@ def test_a_matrix_row_declaring_no_outputs_is_refused_before_the_solver():
     import tempfile
 
     text = REGISTRY_FIXTURE.read_text(encoding="utf-8")
-    stripped = re.sub(r"\s*/\s*OUTPUTS:[^|\n]*", "", text)
+    stripped = re.sub(r"\s*/\s*OUTPUTS:[^|/\n]*", "", text)
     assert stripped != text, "the fixture no longer declares OUTPUTS to strip"
     with tempfile.TemporaryDirectory() as folder:
         path = Path(folder) / "no_outputs.fs"
@@ -684,7 +683,7 @@ def test_a_legacy_matrix_still_converts_and_says_what_to_add():
     import tempfile
 
     text = REGISTRY_FIXTURE.read_text(encoding="utf-8")
-    stripped = re.sub(r"\s*/\s*OUTPUTS:[^|\n]*", "", text)
+    stripped = re.sub(r"\s*/\s*OUTPUTS:[^|/\n]*", "", text)
     assert stripped != text, "the fixture no longer declares OUTPUTS to strip"
     with tempfile.TemporaryDirectory() as folder:
         path = Path(folder) / "legacy.fs"
@@ -1059,11 +1058,23 @@ def test_the_former_spelling_still_works_and_says_it_is_the_former_one(tmp_path)
     assert plan.fs_version == "26.120"
 
 
-def test_naming_the_version_neither_way_is_refused_didactically(tmp_path):
-    """Omitting it used to be a bare TypeError from the call machinery."""
-    workspace = make_library(tmp_path)
-    with pytest.raises(MatrixError, match="default_fs_version"):
-        plan_matrix(REGISTRY_FIXTURE, workspace, name="matrix", recipes=RECIPES)
+def test_a_matrix_whose_rows_all_name_a_build_needs_no_default(tmp_path):
+    """PFS-2029.01: the default answers for rows that name none, and there are none.
+
+    Until 0.11.0 omitting it was refused didactically; the refusal asked
+    every study to repeat on the command line a build its rows already
+    state. The silent row is still refused by name, in the test below.
+    """
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs26120/FlightStream.exe"))
+    plan = plan_matrix(
+        REGISTRY_FIXTURE,
+        workspace,
+        name="matrix",
+        recipes=RECIPES,
+        recipe_registry={"steady": matrix_recipe},
+        write_plan=False,
+    )
+    assert plan.fs_version == "26.120", "the campaign version is the rows' own build"
 
 
 def test_the_two_spellings_agreeing_is_accepted_with_the_notice(tmp_path):
@@ -1181,10 +1192,8 @@ def test_a_silent_row_with_a_blank_default_is_refused_before_anything_binds(
 
 
 @pytest.mark.parametrize("entry", ["plan", "run"])
-def test_a_blank_default_is_refused_by_the_option_and_never_by_the_registry(
-    tmp_path, monkeypatch, entry
-):
-    """No row is silent, so the default answers for nothing; still refused."""
+def test_a_blank_default_with_no_silent_row_is_accepted(tmp_path, monkeypatch, entry):
+    """No row is silent, so the default answers for nothing and is not required (PFS-2029.01)."""
     path = write_matrix(
         tmp_path / "pfs20090803_named.fs",
         [
@@ -1196,18 +1205,23 @@ def test_a_blank_default_is_refused_by_the_option_and_never_by_the_registry(
         "this arm needs a matrix in which no active row is silent"
     )
     workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FlightStream.exe"))
-    _never_bound(monkeypatch)
     call = plan_matrix if entry == "plan" else run_matrix
-    extra = {} if entry == "plan" else {"assess": converged}
-
-    with pytest.raises(MatrixError) as caught:
-        call(path, workspace, name="camp", recipes=RECIPES, default_fs_version="", **extra)
-    message = str(caught.value)
-    assert DEFAULT_VERSION_OPTION in message
-    assert "Known versions" not in message and "not registered" not in message, (
-        f"the version registry answered a question about a missing option: {message}"
+    extra = (
+        {"write_plan": False}
+        if entry == "plan"
+        else {"assess": converged, "executor": StubSolver(WRITES_LOADS)}
     )
-    assert "POL" not in message, f"no row is silent, so none may be named: {message}"
+    result = call(
+        path,
+        workspace,
+        name="camp",
+        recipes=RECIPES,
+        recipe_registry={"steady": matrix_recipe},
+        default_fs_version="",
+        **extra,
+    )
+    version = result.fs_version if entry == "plan" else result[0].fs_version_requested
+    assert version == "26.120", "the campaign version is the row's own build"
 
 
 def test_a_given_default_still_binds_a_matrix_with_a_silent_row(tmp_path):

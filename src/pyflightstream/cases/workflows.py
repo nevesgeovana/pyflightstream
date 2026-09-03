@@ -74,10 +74,12 @@ from pyflightstream._fsm import (
 )
 from pyflightstream.cases import (
     EXPORT_KINDS,
+    FORCE_PLOT_PARAMETERS,
     CampaignConfigError,
     ScriptRecipe,
     SimCase,
     classify_outputs,
+    select_families,
 )
 from pyflightstream.commands import CommandRegistry
 from pyflightstream.script import CommandArgumentError, Script, helpers
@@ -2590,6 +2592,209 @@ def _log_position_shape(text: str) -> str:
     return "neither"
 
 
+# --- PFS-2029.07.03: the pproc artifact's definitions reach the script ------
+
+
+def _inventory(script: Script) -> list[str]:
+    """Return the opened geometry's boundary labels in inventory order, or nothing."""
+    labels = script.entities.labels("boundaries")
+    return [name for name, _ in sorted(labels.items(), key=lambda item: item[1])]
+
+
+#: The frames a builder created, by the name a pproc entry cites: MRP and
+#: PROP_MRP to an index or None, BLADE_AXIS to one index per blade family.
+Frames = Mapping[str, int | None | Mapping[str, int]]
+
+
+def _pproc_frame(
+    case: SimCase, frames: Frames, name: str, what: str, families: Sequence[str] = ()
+) -> int:
+    """Resolve a frame a pproc entry cites by name to the index the builder created.
+
+    BLADE_AXIS is a frame per blade, so an entry citing it names one blade
+    family at a time (``each_blade``); the family's own axis frame is the
+    one returned.
+    """
+    found = frames.get(name)
+    if isinstance(found, Mapping):
+        if len(families) != 1 or families[0] not in found:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r}: the pproc artifact {case.pproc_id!r} cites frame "
+                f"{name!r} for {what} over families {list(families)}, and that frame is "
+                'one per blade: write the entry with families = "each_blade", so each '
+                f"blade takes its own axis frame (blades with one: {', '.join(found)})."
+            )
+        return found[families[0]]
+    if found is None:
+        created = sorted(key for key, value in frames.items() if value is not None)
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: the pproc artifact {case.pproc_id!r} cites frame "
+            f"{name!r} for {what}, and this run created no such frame (created: "
+            f"{', '.join(created) or 'none'}). MRP needs a reference artifact, PROP_MRP "
+            "a propeller position on it, and BLADE_AXIS the multirotor run type with a "
+            "geometry carrying blade families (PFS-2029.11.03)."
+        )
+    return found
+
+
+def _blade_frames(case: SimCase, script: Script, prop_frame: int) -> dict[str, int]:
+    """Create one axis frame per blade family, turned about the rotor frame.
+
+    PFS-2029.11.03, as her rotor scripts did it: a frame ``BladeAxis<k>``
+    per blade family, at the propeller frame's origin with its axes,
+    rotated about the rotor axis by the blade's share of a turn, so blade
+    k of N sits at (k-1) * 360 / N degrees; a periodic sector meshing one
+    blade gets one frame at zero. The frames are the motion's moving
+    frames, so the solver turns them with the blades, and the pproc
+    artifact's BLADE_AXIS entries cite them by family. A geometry with no
+    blade family creates none, which is what keeps every rotor script
+    without one byte for byte as it was.
+    """
+    pproc = case.pproc
+    is_blade = pproc.is_blade if pproc is not None else _default_is_blade
+    blades = [name for name in _inventory(script) if is_blade(name)]
+    if not blades:
+        return {}
+    axis = str(_variable(case, ROTOR_AXIS_VARIABLE) or "X").upper()
+    origin = (0.0, 0.0, 0.0)
+    if case.reference is not None and case.reference.propeller_position_m is not None:
+        origin = case.reference.propeller_position_m
+    created: dict[str, int] = {}
+    for number, family in enumerate(blades, start=1):
+        index = helpers.coordinate_frame(
+            script,
+            name=f"BladeAxis{number}",
+            origin=origin,
+            x_axis=(1.0, 0.0, 0.0),
+            y_axis=(0.0, 1.0, 0.0),
+            label=f"blade_axis:{family}",
+        )
+        script.emit(
+            "ROTATE_COORDINATE_SYSTEM",
+            frame=index,
+            rotation_frame=prop_frame,
+            rotation_axis=axis,
+            angle=(number - 1) * 360.0 / len(blades),
+        )
+        created[family] = index
+    return created
+
+
+def _default_is_blade(family: str) -> bool:
+    """Tell a blade family from the airframe when no pproc artifact says how."""
+    return re.match(r"^Blade\d+$", family) is not None
+
+
+def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
+    """Emit the force plots and the fluid plots the pproc artifact defines.
+
+    Force plots come one per group and parameter, in the artifact's
+    order, named ``{parameter}_{group}`` as her plot files were, sampled
+    in COEFFICIENTS for the four coefficients and NEWTONS for the six
+    loads; a group whose families the geometry does not carry is left
+    out, and ``all`` takes the command's own every-boundary form. Fluid
+    plots come one per vertex and parameter along the probe lines, named
+    ``{parameter}{n}`` with n counting vertices across the lines.
+    Emitted right after the frames, before the solver settings, which is
+    where her scripts placed them and before the solver they record.
+    """
+    pproc = case.pproc
+    if pproc is None:
+        return
+    inventory = _inventory(script)
+    for group in pproc.plots.groups:
+        for families in select_families(group.families, inventory, pproc.is_blade):
+            frame = _pproc_frame(case, frames, group.frame, f"plot group {group.name!r}", families)
+            name = group.name.format(family=families[0]) if "{family}" in group.name else group.name
+            indices = [script.resolve_boundary(f, context="pproc plot") for f in families]
+            for short in pproc.plots.parameters:
+                parameter, units = FORCE_PLOT_PARAMETERS[short]
+                if indices:
+                    script.emit(
+                        "UNSTEADY_SOLVER_NEW_FORCE_PLOT",
+                        frame=frame,
+                        units=units,
+                        parameter=parameter,
+                        name=f"{short}_{name}",
+                        boundaries=len(indices),
+                        boundary_indices=indices,
+                    )
+                else:
+                    script.emit(
+                        "UNSTEADY_SOLVER_NEW_FORCE_PLOT",
+                        frame=frame,
+                        units=units,
+                        parameter=parameter,
+                        name=f"{short}_{name}",
+                        boundaries=-1,
+                    )
+    probes = pproc.probes
+    if not probes.lines or not probes.parameters:
+        return
+    frame = _pproc_frame(case, frames, probes.frame, "the probe lines")
+    scale = 1.0
+    if probes.scale == "propeller_radius":
+        diameter = None if case.reference is None else case.reference.propeller_diameter
+        if diameter is None:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r}: the pproc artifact {case.pproc_id!r} lays its "
+                "probe lines out in propeller radii and the reference artifact names no "
+                "propeller diameter; state one, or write the lines in metres "
+                '(scale = "m").'
+            )
+        scale = diameter / 2.0
+    vertex = 0
+    for line in probes.lines:
+        for step in range(probes.points):
+            fraction = step / (probes.points - 1)
+            point = [
+                round((a + (b - a) * fraction) * scale, 5)
+                for a, b in zip(line.start, line.end, strict=True)
+            ]
+            vertex += 1
+            for parameter in probes.parameters:
+                script.emit(
+                    "UNSTEADY_SOLVER_NEW_FLUID_PLOT",
+                    frame=frame,
+                    parameter=parameter,
+                    name=f"{parameter}{vertex}",
+                    vertex=" ".join(str(value) for value in point),
+                )
+
+
+def _pproc_sections(case: SimCase, script: Script, frames: Frames) -> None:
+    """Emit one NEW_SURFACE_SECTION_DISTRIBUTION per pproc entry and plane.
+
+    An entry's families are resolved through the opened inventory in the
+    order the entry lists them, families the geometry does not carry
+    being left out as her driver left them out, and an entry resolving
+    to none is skipped. Emitted before the solver is initialised, so the
+    sections exist when UPDATE_ALL_SURFACE_SECTIONS runs after it.
+    """
+    pproc = case.pproc
+    if pproc is None or not pproc.sections.distributions:
+        return
+    inventory = _inventory(script)
+    sections = pproc.sections
+    for entry in sections.distributions:
+        for families in select_families(entry.families, inventory, pproc.is_blade):
+            frame = _pproc_frame(case, frames, entry.frame, "a section distribution", families)
+            indices = [script.resolve_boundary(f, context="pproc section") for f in families]
+            if not indices:
+                indices = list(range(1, len(inventory) + 1))
+            for plane in entry.planes:
+                script.emit(
+                    "NEW_SURFACE_SECTION_DISTRIBUTION",
+                    frame=frame,
+                    plane=plane,
+                    num_sections=sections.count,
+                    plot_direction=str(sections.plot_direction),
+                    include_symmetry="ENABLE" if sections.include_symmetry else "DISABLE",
+                    surfaces=len(indices),
+                    surface_indices=indices,
+                )
+
+
 def _export_block(
     conventions: WorkflowConventions, case: SimCase, script: Script, *, unsteady: bool
 ) -> None:
@@ -2739,10 +2944,12 @@ def _build_steady(case: SimCase, script: Script, conventions: WorkflowConvention
     _refuse_wake_termination_without_a_clock(case)
     _open_geometry(case, script)
     frame = _moment_frame(case, script)
+    frames: dict[str, int | None | Mapping[str, int]] = {"MRP": frame, "PROP_MRP": None}
     _significant_digits(case, script)
     helpers.free_stream(script)
     _fluid(case, script)
     _settings(case, script)
+    _pproc_sections(case, script, frames)
     _initialize(case, script)
     helpers.start_solver(script)
     _analysis(case, script, frame)
@@ -2911,7 +3118,11 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     _refuse_wake_termination_without_a_rotor(case)
     _open_geometry(case, script)
     frame = _moment_frame(case, script)
-    _propeller_frame(case, script)
+    frames: dict[str, int | None | Mapping[str, int]] = {
+        "MRP": frame,
+        "PROP_MRP": _propeller_frame(case, script),
+    }
+    _pproc_plots(case, script, frames)
     _significant_digits(case, script)
     helpers.free_stream(script)
     _fluid(case, script)
@@ -2924,6 +3135,7 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     # The wake termination in STEPS is the one this run type can state
     # (PFS-2030.03.04); the revolutions form was refused above.
     _settings(case, script, wake_termination_time_steps=case.solver.wake_termination_steps)
+    _pproc_sections(case, script, frames)
     _initialize(case, script)
     helpers.start_solver(script)
     _analysis(case, script, frame)
@@ -2946,8 +3158,9 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
     # THE ROTOR FRAME IS THE PROPELLER FRAME, named as her scripts named it
     # and placed where the reference puts the propeller, unless the row
     # states ROTOR_ORIGIN; a case with neither turns about the origin.
-    if _propeller_frame(case, script) is None:
-        helpers.coordinate_frame(
+    prop_frame = _propeller_frame(case, script)
+    if prop_frame is None:
+        prop_frame = helpers.coordinate_frame(
             script,
             name="PROP_MRP",
             origin=(0.0, 0.0, 0.0),
@@ -2955,6 +3168,13 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
             y_axis=(0.0, 1.0, 0.0),
             label="rotor",
         )
+    blade_frames = _blade_frames(case, script, prop_frame)
+    frames: dict[str, int | None | Mapping[str, int]] = {
+        "MRP": frame,
+        "PROP_MRP": prop_frame,
+        "BLADE_AXIS": blade_frames or None,
+    }
+    _pproc_plots(case, script, frames)
     _significant_digits(case, script)
     helpers.free_stream(script)
     _fluid(case, script)
@@ -2962,7 +3182,15 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
     # twice per case, here and again for the clock, which is the saving
     # the `speed` parameter was added for and was not collecting.
     speed = rotor_speed(case)
-    emit_rotor_motion(case, script, frame="rotor", speed=speed)
+    # The blade axis frames turn with the blades (PFS-2029.11.03); with
+    # none created the motion keeps its every-frame default, as before.
+    emit_rotor_motion(
+        case,
+        script,
+        frame="rotor",
+        speed=speed,
+        moving_frames=sorted(blade_frames.values()) if blade_frames else "all",
+    )
     # THE CLOCK COMES OFF THE SAME RESOLVER THE WINDOW USES, so a row
     # stating its azimuthal step and its revolutions emits the seconds
     # and the step count those work out to, and a row stating the
@@ -2974,6 +3202,7 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
         delta_time=stepping.delta_time_s,
     )
     _settings(case, script, wake_termination_time_steps=_wake_termination(case, stepping))
+    _pproc_sections(case, script, frames)
     _initialize(case, script)
     helpers.start_solver(script)
     _analysis(case, script, frame)
@@ -3041,6 +3270,7 @@ WORKFLOWS: Mapping[str, Workflow] = {
             "SOLVER_SET_VELOCITY",
             "SOLVER_SET_ITERATIONS",
             "SOLVER_SET_CONVERGENCE",
+            "NEW_SURFACE_SECTION_DISTRIBUTION",
             "INITIALIZE_SOLVER",
             "START_SOLVER",
             "UPDATE_ALL_SURFACE_SECTIONS",
@@ -3070,6 +3300,9 @@ WORKFLOWS: Mapping[str, Workflow] = {
             "SOLVER_SET_VELOCITY",
             "SOLVER_SET_ITERATIONS",
             "SOLVER_SET_CONVERGENCE",
+            "UNSTEADY_SOLVER_NEW_FORCE_PLOT",
+            "UNSTEADY_SOLVER_NEW_FLUID_PLOT",
+            "NEW_SURFACE_SECTION_DISTRIBUTION",
             "INITIALIZE_SOLVER",
             "START_SOLVER",
             "UPDATE_ALL_SURFACE_SECTIONS",
@@ -3108,6 +3341,9 @@ WORKFLOWS: Mapping[str, Workflow] = {
             "SOLVER_SET_VELOCITY",
             "SOLVER_SET_ITERATIONS",
             "SOLVER_SET_CONVERGENCE",
+            "UNSTEADY_SOLVER_NEW_FORCE_PLOT",
+            "UNSTEADY_SOLVER_NEW_FLUID_PLOT",
+            "NEW_SURFACE_SECTION_DISTRIBUTION",
             "INITIALIZE_SOLVER",
             "START_SOLVER",
             "UPDATE_ALL_SURFACE_SECTIONS",

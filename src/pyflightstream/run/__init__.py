@@ -2659,6 +2659,10 @@ def _execute_point(
         # exactly the failed points a reader most wants to compare
         # (OPS-2009.01.13).
         "velocity_requested_m_s": case.velocity,
+        # The post-processing artifact the row named (PFS-2029.16), so a
+        # reader of the record knows which sections, plots and products
+        # the point was run for without opening the matrix.
+        "pproc": case.pproc_id,
         # PFS-2027.05: the inputs as written and the resolved state, so
         # the record is recomputable rather than merely trusted.
         "flight_condition": dict(case.flight_condition),
