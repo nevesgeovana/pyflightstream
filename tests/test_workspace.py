@@ -256,6 +256,7 @@ area_m2 = 8.0
 chord_m = 1.0
 span_m = 8.0
 
+propeller_diameter_m = 1.6
 [moment_point]
 x_m = 0.25
 
@@ -2657,3 +2658,47 @@ def test_a_setup_key_naming_post_processing_is_refused_pointing_at_pproc(tmp_pat
     )
     with pytest.raises(InputArtifactError, match="pproc artifact the row's PPROC cell names"):
         _solver_from_setup(workspace.resolve_setup("s010"), "s010")
+
+
+# --- PFS-2029.05: the reference artifact needs no radius ------------------------
+
+
+def test_the_reference_artifact_needs_no_radius(tmp_path):
+    """The diameter at the root is the length the package reads; the radius is optional."""
+    workspace = library(tmp_path)
+    (workspace.inputs_dir / "references" / "r020.toml").write_text(
+        "area_m2 = 50.0\nchord_m = 2.526\nspan_m = 20.0\npropeller_diameter_m = 3.6576\n"
+        '[propeller]\nn_blades = 1\nrotation = "clockwise"\n',
+        encoding="utf-8",
+    )
+    reference = workspace.resolve_reference("r020")
+    assert reference.propeller is not None and reference.propeller.radius_m is None
+    assert reference.propeller_diameter_m == 3.6576
+    # A radius that agrees is accepted, as the recorded workspace's files carry it.
+    (workspace.inputs_dir / "references" / "r021.toml").write_text(
+        "area_m2 = 50.0\nchord_m = 2.526\nspan_m = 20.0\npropeller_diameter_m = 3.6576\n"
+        '[propeller]\nradius_m = 1.8288\nn_blades = 1\nrotation = "clockwise"\n',
+        encoding="utf-8",
+    )
+    assert workspace.resolve_reference("r021").propeller.radius_m == 1.8288
+    # The radius alone is refused naming the diameter key it must carry.
+    (workspace.inputs_dir / "references" / "r022.toml").write_text(
+        "area_m2 = 50.0\nchord_m = 2.526\nspan_m = 20.0\n"
+        '[propeller]\nradius_m = 1.8288\nn_blades = 1\nrotation = "clockwise"\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(InputArtifactError, match="propeller_diameter_m = 3.6576"):
+        workspace.resolve_reference("r022")
+
+
+def test_a_diameter_and_a_radius_that_disagree_are_refused_naming_both(tmp_path):
+    workspace = library(tmp_path)
+    (workspace.inputs_dir / "references" / "r023.toml").write_text(
+        "area_m2 = 50.0\nchord_m = 2.526\nspan_m = 20.0\npropeller_diameter_m = 3.6576\n"
+        '[propeller]\nradius_m = 1.5\nn_blades = 1\nrotation = "clockwise"\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(InputArtifactError) as caught:
+        workspace.resolve_reference("r023")
+    message = str(caught.value)
+    assert "3.6576" in message and "1.5" in message and "3.0" in message

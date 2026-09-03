@@ -297,7 +297,12 @@ class PropellerReference(BaseModel):
 
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
-    radius_m: float = Field(gt=0.0)
+    #: OPTIONAL SINCE 0.11.0 (PFS-2029.05): the diameter at the artifact's
+    #: root is the length the package reads (the advance ratio, the probe
+    #: lines), and a radius beside it is the same fact twice; a file that
+    #: states both is checked for agreement and a file stating the radius
+    #: alone is refused naming the diameter key.
+    radius_m: float | None = Field(default=None, gt=0.0)
     hub_radius_m: float | None = Field(default=None, ge=0.0)
     n_blades: int = Field(ge=1)
     pitch_deg: float | None = None
@@ -491,6 +496,36 @@ class ReferenceArtifact(BaseModel):
     propeller_diameter_m: float | None = Field(default=None, gt=0.0)
     moment_point: PointXyz = Field(default_factory=PointXyz)
     propeller: PropellerReference | None = None
+
+    @model_validator(mode="after")
+    def _one_propeller_length(self) -> ReferenceArtifact:
+        """Refuse a radius that disagrees with the diameter, or stands alone.
+
+        PFS-2029.05. ``propeller_diameter_m`` is the length the package
+        reads; ``propeller.radius_m`` is optional and, when stated, must be
+        half of it, so a file cannot carry two propellers. A radius with no
+        diameter is refused naming the key that carries the fact.
+        """
+        propeller = self.propeller
+        if propeller is None or propeller.radius_m is None:
+            return self
+        diameter = self.propeller_diameter_m
+        if diameter is None:
+            raise ValueError(
+                f"[propeller] states radius_m = {propeller.radius_m} and the artifact "
+                "states no propeller_diameter_m. The diameter is the length this package "
+                "reads (the advance ratio, the probe lines), so state "
+                f"propeller_diameter_m = {2 * propeller.radius_m} at the top level; the "
+                "radius may then be dropped."
+            )
+        if abs(diameter - 2 * propeller.radius_m) > 1e-9 * max(1.0, diameter):
+            raise ValueError(
+                f"propeller_diameter_m = {diameter} and [propeller] radius_m = "
+                f"{propeller.radius_m} disagree: twice the radius is "
+                f"{2 * propeller.radius_m}. One propeller has one length; fix one of "
+                "the two, or drop the radius, which the package does not read."
+            )
+        return self
 
 
 class SetupArtifact(BaseModel):

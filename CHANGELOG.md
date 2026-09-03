@@ -98,6 +98,12 @@ FlightStream versions.
   of GOAL-011, 32 of 32). The products are CSV by her decision of
   2026-09-02; the layout she recorded in is a third party's and the package
   neither names nor writes it.
+- PFS-2029.05: the reference artifact needs no propeller radius. The
+  diameter at the artifact's root is the length the package reads (the
+  advance ratio, the probe lines); `[propeller] radius_m` is optional, a file
+  stating both is refused when twice the radius is not the diameter, naming
+  both values, and a file stating the radius alone is refused naming the
+  diameter key it must carry. The rotor goldens are unchanged.
 - FR-55, PFS-2029.15.03: the run leaves its products. After collection
   `run_campaign` and `pyfs-matrix run` write the polar, section and plot
   tables of every simulation under `post/products`, and
@@ -2309,7 +2315,7 @@ costs the reader the whole warning window the shim exists to buy.
   `[tool.mypy]` header has promised since 2026-08-03 that an exemption is
   removed as its module is typed and never added, and this is that
   direction happening rather than being restated. The re-count moves with
-  it: mypy recount 2026-09-02: 310 errors in 20 of 76 modules, where the
+  it: mypy recount 2026-09-02: 318 errors in 20 of 77 modules, where the
   tree carried 275 in 21 of 64 two days before, and the four records that
   state it move together because a tier-1 guard compares them.
 

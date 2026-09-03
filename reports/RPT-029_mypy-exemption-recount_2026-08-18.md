@@ -39,21 +39,21 @@
 > the per-module table, the code table, the concentration lines and the
 > delta table are all that run rather than edits to the previous one:
 >
->     Found 310 errors in 20 files (checked 76 source files)
+>     Found 318 errors in 20 files (checked 77 source files)
 >     Success: no issues found in 76 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-09-02: 310 errors in 20 of 76 modules.**
+**mypy recount 2026-09-02: 318 errors in 20 of 77 modules.**
 
 ## Re-measured 2026-09-02: one module arrived, and the error total had gone stale unwatched
 
 `_fsm.py` (PFS-2028.00, the saved-simulation boundary reader) moved the module
 total to 76 and `tests/test_traceability.py` refused the tree until every
 record of the count moved with it. The module delta is the whole of what that
-guard asked about: **75 to 76 modules**.
+guard asked about: **75 to 76 modules**, and again on 2026-09-02 when `post/products.py` joined: **76 to 77 modules**, the eight new errors all inside the already-exempted modules the tool lists above.
 
 **The error total moved too, 276 to 310, and none of it belongs to the change
 that triggered the re-count.** Not one of the four modules 0.10.1 touched
@@ -202,7 +202,7 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 310 errors in 20 files (checked 76 source files)
+    Found 318 errors in 20 files (checked 77 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
