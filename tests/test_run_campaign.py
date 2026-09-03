@@ -3350,3 +3350,40 @@ def test_a_renamed_workspace_cannot_resume_under_a_new_name(tmp_path):
         resume=True,
     )
     assert [record.run_id for record in records] == ["camp/sim_9001/a+02.0"]
+
+
+def test_the_default_assessor_judges_the_points_own_table_in_a_two_point_sweep(tmp_path):
+    """Measured on her campaign 2026-09-03: the second point of a sweep found two tables.
+
+    Under her naming each point's loads table is `<point>.txt`, so an assessor
+    scanning the whole simulation folder saw the first point's table beside the
+    second's and refused as ambiguous. The point's own declared outputs are the
+    candidates now.
+    """
+    from pyflightstream.run import LoadsAssessor
+
+    fixture = (FIXTURES / "loads_steady_26.120.txt").as_posix()
+    # The stub writes the fixture table at the POINT's own angle, read off
+    # the export name the loop rendered (`a+02.0.txt` is 2.0 degrees).
+    writes_own_table = (
+        "import pathlib, re, sys; "
+        "lines = pathlib.Path(sys.argv[1]).read_text().splitlines(); "
+        f"text = pathlib.Path({fixture!r}).read_text(); "
+        "targets = [pathlib.Path(lines[i + 1]) for i, line in enumerate(lines) "
+        "if line == 'EXPORT_SOLVER_ANALYSIS_SPREADSHEET']; "
+        "[t.write_text(re.sub(r'(Angle of attack .Deg.\\s+)[-+.0-9]+', "
+        "lambda m, a=float(t.stem[1:]): m.group(1) + format(a, '.3f'), text)) for t in targets]"
+    )
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    campaign = make_campaign(tmp_path, alphas=(2.0, 4.0), outputs=("{point}.txt",))
+    records = run_campaign(
+        campaign,
+        StubSolver(writes_own_table),
+        workspace,
+        assess=LoadsAssessor(),
+        recipes={"steady": steady_recipe},
+    )
+    assert [record.status for record in records] == [RunStatus.CONVERGED, RunStatus.CONVERGED], [
+        record.error for record in records
+    ]
+    assert [record.outputs for record in records] == [["raw/a+02.0.txt"], ["raw/a+04.0.txt"]]

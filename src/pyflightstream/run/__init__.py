@@ -857,6 +857,18 @@ class LoadsAssessor:
         """Judge one executed point from its collected outputs."""
         raw = Path(sim_dir) / "raw"
         collected = sorted(path for path in raw.glob("*") if path.is_file())
+        # THE POINT'S OWN OUTPUTS, when the case declares them. A simulation
+        # folder holds every point of its sweep, and under the author's
+        # naming (PFS-2029.19) each point's loads table is `<point>.txt`,
+        # so the second point of a two-point sweep found two tables that
+        # parse and was refused as ambiguous: measured on her own campaign,
+        # 2026-09-03, row 3207 at alpha 0 after alpha -2. A case that
+        # declares no outputs is judged over the whole folder as before.
+        declared = {Path(name).name for name in getattr(case, "outputs", None) or ()}
+        if declared:
+            own = [path for path in collected if path.name in declared]
+            if own:
+                collected = own
         if self.loads_file is not None:
             wanted = Path(self.loads_file).name
             found = [path for path in collected if path.name == wanted]

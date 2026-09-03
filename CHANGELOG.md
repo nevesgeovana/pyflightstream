@@ -7,6 +7,16 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Fixed
+
+- The default loads assessor judges the point's OWN declared outputs, not
+  every file in the simulation folder. Under the author's naming each
+  point's loads table is `<point>.txt`, so the second point of a two-point
+  sweep found the first point's table beside its own and was refused as
+  ambiguous ("several of them parse"); measured on her campaign on
+  2026-09-03, row 3207 at alpha 0 after alpha -2. A case declaring no
+  outputs is judged over the whole folder as before.
+
 ## [0.11.0] - 2026-09-03
 
 ### Fixed
