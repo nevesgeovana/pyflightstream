@@ -463,3 +463,17 @@ def test_the_index_no_longer_promises_this_page_as_planned():
     assert "Campaign tutorial page" not in index, (
         "the Planned next bullet still promises the walkthrough this page delivers"
     )
+
+
+def test_the_rotor_facts_argument_lives_on_the_mesh_inputs_page():
+    """PFS-2029.08: the measured argument left the reference artifact for the page."""
+    page = (REPO / "docs" / "mesh-inputs.md").read_text(encoding="utf-8")
+    heading = "## The four rotor facts a reference artifact once carried"
+    assert heading in page
+    section = page.split(heading, 1)[1]
+    for phrase in ("inboard", "clockwise", "RPM_SIGN", "ROTOR_AXIS", "rpm_sign_installed"):
+        assert phrase in section, f"the argument on the page no longer names {phrase}"
+    from pyflightstream.workspace.inputs import ROTOR_FACT_KEYS
+
+    for key in ROTOR_FACT_KEYS:
+        assert key in section

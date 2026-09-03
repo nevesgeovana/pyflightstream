@@ -84,6 +84,7 @@ from pyflightstream.workspace.inputs import (
     resolve_profile,
     resolve_reference,
     resolve_setup,
+    strip_rotor_facts,
 )
 from pyflightstream.workspace.naming import NamingTemplate, NamingTemplateError
 from pyflightstream.workspace.trailing_edges import (
@@ -123,6 +124,7 @@ __all__ = [
     "expand_group",
     "extract_trailing_edge",
     "migrate_groups_to_pproc",
+    "strip_rotor_facts",
     "migrate_input_ids",
     "resolve_build",
     "post_stages",

@@ -53,15 +53,13 @@ import tomllib
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal, get_args
+from typing import Any
 
 from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
     ValidationError,
-    ValidationInfo,
-    field_validator,
     model_validator,
 )
 
@@ -85,7 +83,6 @@ from pyflightstream.cases import PprocSpec
 # would put a second reader of the pipe-delimited layout in the package
 # (PFS-2009.03).
 from pyflightstream.cases.matrix import CODE_COLUMNS, rewrite_codes
-from pyflightstream.script.helpers import RotationSense
 
 # DOWNWARD as well, and the lowest layer of the stack: `versions` sits
 # below `commands`, which sits below everything else. It is imported so a
@@ -159,296 +156,112 @@ class PointXyz(BaseModel):
 
 
 class PropellerReference(BaseModel):
-    """Propeller description block of a reference artifact.
+    """The recorded propeller of a reference artifact (``[propeller]``).
 
     Attributes
     ----------
-    radius_m : float
-        Propeller tip radius in m; must be positive.
+    radius_m : float, optional
+        Propeller radius. Optional since 0.11.0 (PFS-2029.05): the diameter
+        at the artifact's root is the length the package reads, and a
+        radius stated beside it must be half of it.
     hub_radius_m : float, optional
-        Hub (root cutout) radius in m.
+        Hub radius.
     n_blades : int
-        Blade count; at least 1.
-    pitch_deg : float, optional
-        Blade pitch angle in deg.
-    toe_deg : float, optional
-        Toe (in-plane inclination) angle of the propeller axis in deg.
+        The RESOLVED blade count of the mesh a row opens, not the physical
+        one: a periodic sector meshing one blade states 1 and the row's
+        symmetry supplies the wheel.
+    pitch_deg, toe_deg : float, optional
+        Recorded installation angles; read by nothing in the package.
     position : PointXyz
-        Hub position in the simulation geometry frame, m.
-    rotation : RotationSense
-        Sense of rotation about the propeller axis, viewed from behind
-        the aircraft looking forward, ``"clockwise"`` or
-        ``"counterclockwise"``. Record the convention with the geometry
-        so the sign of the swirl is never guessed.
-
-        The domain is not declared here. It is
-        :data:`pyflightstream.script.helpers.RotationSense`, imported
-        from the layer that consumes it, so the vocabulary has one home
-        rather than two homes held together by a test.
-    blade_travel : {"inboard_up", "inboard_down"}, optional
-        The SAME physical fact in the vocabulary a vendor datasheet
-        prints: where the blade nearest the fuselage travels, stated in
-        the aircraft body frame with the aircraft upright. It describes
-        the blade at its inboard azimuth, not the disc as a whole.
-
-        Written with an underscore, and a datasheet that prints
-        ``inboard-up``, ``Inboard Up`` or ``INBOARD_UP`` is accepted:
-        case, hyphens and whitespace are folded before the domain is
-        checked. ``rotation`` is folded the same way, for the same
-        reason, since both are transcribed off the same page.
-
-        IT DOES NOT APPLY TO A CENTRELINE PROPELLER. A nose-mounted
-        tractor has no blade nearer the fuselage than any other, so the
-        field has no answer for that configuration and is left out;
-        ``rotation`` alone describes it.
-
-        It is a separate field rather than two more values of
-        ``rotation`` because the two vocabularies are not
-        interchangeable. This one is side-independent, so the left and
-        the right propeller of a symmetric pair carry the same word,
-        which is exactly why it cannot be converted to the
-        viewed-from-behind sense without knowing which side this
-        propeller is on. Keeping them apart makes "which vocabulary"
-        a static fact of the field rather than something every consumer
-        re-derives from a string.
-    rpm_sign_installed : {-1, 1}, optional
-        Measured sign of the rotor speed about the propeller's rotation
-        axis, for the INSTALLED meshes of this configuration.
-        Dimensionless. The axis is the one the case emits its rotary
-        motion about and is a per-case argument, so this field states a
-        sign and never an axis.
-    rpm_sign_isolated : {-1, 1}, optional
-        The same for the ISOLATED meshes, which may be the opposite hand
-        of the installed ones and then take the opposite sign for the
-        same published sense. The one campaign this model has been
-        checked against was such a case, which is why the pair exists;
-        how common it is across campaigns is not something this
-        repository has measured.
+        The propeller position, the one field of this block a builder
+        reads: the two unsteady run types turn it into the PROP_MRP frame
+        (PFS-2030.03), the frame the author's probe lines and rotor plots
+        are defined in and the frame a rotor row turns about unless it
+        states ``ROTOR_ORIGIN``.
 
     Notes
     -----
-    NOTHING IN THIS PACKAGE READS THE PROPELLER BLOCK, and that is said
-    here rather than left to be discovered. Not the signs, and not
-    ``rotation``, ``blade_travel``, ``radius_m``, ``n_blades`` or
-    ``position`` either: the whole block is RECORDED, and setting any of
-    it changes no emitted script on its own.
-
-    AND THE ARTIFACT DOES NOT REACH A RECIPE, which is the part that
-    would otherwise be discovered the expensive way.
-    :func:`pyflightstream.workspace.matrix.resolve_matrix` narrows this
-    artifact to a :class:`pyflightstream.cases.ReferenceData` of area and
-    length for the case, and a recipe is called with the case and the
-    script. The full artifact survives only in ``ResolvedMatrix``
-    ``.references``, keyed by the matrix REF code, so a recipe that wants
-    a sign reads it from the workspace or the resolved matrix it closes
-    over, and ``case.reference.propeller`` does not exist.
-
-    Which of the two signs applies is likewise the recipe's knowledge and
-    not the artifact's: nothing in the library records which geometries
-    are the installed meshes and which the isolated ones.
-
-    THE SENSE DOES NOT DETERMINE THE SIGN OF THE ROTOR SPEED, which is
-    why those fields exist and are not derived. Going from a published
-    sense to the number a motion command takes needs the rotor axis, the
-    side of the aircraft, and the handedness of the mesh actually
-    loaded; a mirrored mesh of the same aircraft takes the opposite sign
-    for the same published sense.
-
-    Read that against
-    :data:`pyflightstream.script.helpers.ROTATION_SENSE_SIGN`, which DOES
-    derive a sign from a sense and is not contradicted here: it signs the
-    AZIMUTH INCREMENT, which way round the disc the blades are numbered,
-    and that is a different quantity from the sign of the rotor speed.
-    Two different signs, one of them derivable and one of them measured.
-
-    Both sign fields are optional, and absence means the campaign has not
-    established them rather than that the sign is ``+1``. NOT ESTABLISHED
-    AND NOT APPLICABLE ARE THE SAME SILENCE, deliberately: a
-    configuration with no isolated meshes leaves ``rpm_sign_isolated``
-    out exactly as a campaign that never measured it does, and the model
-    does not distinguish them. Distinguishing them would be a third
-    value rather than a second field, and it is not built.
-
-    The closed domain is also what makes assignment checked rather than
-    merely loading checked: this model sets ``validate_assignment``, so
-    ``propeller.rpm_sign_installed = 0`` is refused after loading and not
-    only at it. It is not frozen, because a campaign may legitimately
-    record a sign it measured after reading the artifact.
-
-    One asymmetry worth a sentence, because it reads as an oversight
-    otherwise: ``n_blades`` accepts the string ``"3"`` by pydantic's
-    ordinary coercion while a sign field refuses ``1.0``. The strictness
-    is deliberate and local to the signs, whose whole content is one bit
-    that must have been measured. That promise is
-    what closes them to COERCION as well as to value: ``true`` and
-    ``1.0`` are refused rather than read as the integer ``1``, because a
-    boolean that becomes a measured positive sign is the package
-    deciding the physical fact this field exists to record. Without it
-    the domain was also asymmetric in a way that modelled nothing:
-    ``true`` was admitted as ``+1`` and ``false`` refused for being
-    outside the domain.
-
-    ``blade_travel`` and the two sign fields were added at 0.8.0
-    (PFS-2009.02), after the shipped vocabulary was checked against a
-    real campaign for the first time and refused that campaign's
-    reference artifact on all three. ``rotation`` itself is unchanged,
-    so an artifact written before 0.8.0 validates unaltered.
+    THE FOUR ROTOR FACTS LEFT THIS BLOCK AT 0.11.0 (PFS-2029.08):
+    ``rotation``, ``blade_travel``, ``rpm_sign_installed`` and
+    ``rpm_sign_isolated`` were recorded here from 0.8.0 to 0.10.1 and read
+    by no builder, while the row states what a script needs: the sign of
+    the rotor speed is the sign of ``RPM`` (or ``RPM_SIGN`` beside
+    ``ADVANCE_RATIO``) and the axis is ``ROTOR_AXIS``. A file still
+    carrying them is refused naming those row keys, and ``pyfs-matrix
+    upgrade --inputs`` strips them; the measured argument that related
+    the datasheet's sense of rotation to the sign about the rotor axis is
+    kept on ``docs/mesh-inputs.md``, where a reader setting up a new rotor
+    finds it.
     """
 
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
-    #: OPTIONAL SINCE 0.11.0 (PFS-2029.05): the diameter at the artifact's
-    #: root is the length the package reads (the advance ratio, the probe
-    #: lines), and a radius beside it is the same fact twice; a file that
-    #: states both is checked for agreement and a file stating the radius
-    #: alone is refused naming the diameter key.
     radius_m: float | None = Field(default=None, gt=0.0)
     hub_radius_m: float | None = Field(default=None, ge=0.0)
     n_blades: int = Field(ge=1)
     pitch_deg: float | None = None
     toe_deg: float | None = None
     position: PointXyz = Field(default_factory=PointXyz)
-    rotation: RotationSense
-    blade_travel: Literal["inboard_up", "inboard_down"] | None = None
-    rpm_sign_installed: Literal[-1, 1] | None = None
-    rpm_sign_isolated: Literal[-1, 1] | None = None
-
-    @field_validator("rotation", "blade_travel", mode="before")
-    @classmethod
-    def _the_vocabulary_is_read_the_way_a_datasheet_prints_it(
-        cls, value: object, info: ValidationInfo
-    ) -> object:
-        """Fold case, hyphens and whitespace before the domain is checked.
-
-        BOTH vocabularies, not one. The first version folded
-        ``blade_travel`` alone, on the ground that its value is
-        transcribed off paper, and left ``rotation`` refusing
-        ``Clockwise`` and ``counter-clockwise`` with pydantic's bare
-        literal error. They record the same fact, off the same
-        datasheet, and ``rotation`` is the REQUIRED one, so the strict
-        field was the one a reader meets first. It is also the field
-        this model's own missing-value refusal tells them to add.
-
-        Runs of whitespace collapse rather than a single space,
-        because a value pasted out of a PDF arrives with two.
-        """
-        if not isinstance(value, str):
-            return value
-
-        def squash(word: str) -> str:
-            """Lower case with every separator removed.
-
-            Comparing SQUASHED forms on both sides is what lets one rule
-            serve two vocabularies whose own spelling differs. Folding
-            separators to an underscore, which is what this did first,
-            reads ``Inboard Up`` correctly and turns ``Counter-Clockwise``
-            into ``counter_clockwise``, a word no domain here contains:
-            one vocabulary joins its parts with an underscore and the
-            other with nothing at all.
-            """
-            return "".join(character for character in word.lower() if character.isalnum())
-
-        # THE DOMAIN IS READ OFF THE FIELD, not restated here. Written as a
-        # literal set this validator was a second declaration of one
-        # vocabulary, exactly what the rotation sense was corrected for one
-        # commit earlier: widening the annotation then changed nothing and
-        # broke nothing, so the two could drift apart in silence.
-        # TWO ANNOTATION SHAPES, flattened here rather than assumed. This
-        # field is `Literal[...]` and `blade_travel` is `Literal[...] | None`,
-        # so the optional arm nests the words one level deeper. Written for
-        # the optional shape alone, this produced an EMPTY permitted set for
-        # `rotation` and a refusal reading "this field takes ." with nothing
-        # after it, which the first run printed.
-        permitted = set()
-        for arm in get_args(cls.model_fields[info.field_name].annotation):
-            permitted.update(get_args(arm) or ({arm} if isinstance(arm, str) else ()))
-        canonical = {squash(word): word for word in permitted}
-        if squash(value) in canonical:
-            return canonical[squash(value)]
-        # The EXAMPLE is built from this field's own domain. Written with
-        # a fixed pair of examples, the message showed one spelling from
-        # each vocabulary, so a blade_travel refusal offered the word
-        # "clockwise" to a reader who had just been told the field does
-        # not take it.
-        sample = sorted(permitted)[0]
-        raise ValueError(
-            f"{info.field_name} is {value!r}, and this field takes "
-            f"{' or '.join(sorted(permitted))}. Case, hyphens and whitespace are "
-            f"folded, so {sample.replace('_', '-').title()} is read as written; "
-            "anything else is refused rather than guessed"
-        )
 
     @model_validator(mode="before")
     @classmethod
-    def _the_sense_is_required_and_the_other_vocabulary_is_not_a_substitute(
-        cls, data: object
-    ) -> object:
-        """Refuse a propeller with no ``rotation`` in words, not in codes.
-
-        The campaign this model was widened for records the sense in the
-        INBOARD vocabulary, so a reader who fills in ``blade_travel``
-        and stops is the expected case rather than a careless one. What
-        they met was pydantic's ``Field required``, which names no cause
-        and no remedy, while the message that routes them lives one
-        layer down in a function they may never call.
-
-        ONE TRADE-OFF, ACCEPTED RATHER THAN OVERLOOKED. Raising here
-        aborts the whole model validation, so an artifact whose
-        propeller block is wrong in more than one way at once reports
-        this cause alone, where pydantic would have reported every
-        cause. A reader who fixes the named one and meets a second
-        refusal on the next load learns less. It is accepted because the
-        alternative loses the message entirely for the case this exists
-        to serve.
-
-        A MAPPING RATHER THAN A DICT, deliberately: the TOML loader
-        yields a dict, and a programmatic caller handing in any other
-        mapping fell straight through to the refusal this replaces.
-        """
-        if not isinstance(data, Mapping) or "rotation" in data:
+    def _the_rotor_facts_live_on_the_row(cls, data: object) -> object:
+        """Refuse the four facts the row states now, naming the keys that carry them."""
+        if not isinstance(data, Mapping):
             return data
-        if "blade_travel" in data:
-            raise ValueError(
-                "the propeller records blade_travel and no rotation. They are the same "
-                "physical fact in two vocabularies and the package cannot convert "
-                "between them: blade_travel is side-independent, so the left and the "
-                "right propeller of a pair carry the same word, and turning it into a "
-                "sense viewed from behind needs the side of the aircraft, which no "
-                "field of this artifact records. You know the side, so the conversion "
-                "is yours to make and it is mechanical: standing behind the aircraft "
-                "looking forward, the inboard blade of a RIGHT-side propeller sits at "
-                "the 9 o'clock position of its disc, and travelling up from there is "
-                "travelling towards 12, which is clockwise. So inboard_up on the right "
-                "side is clockwise, inboard_down on the right side is counterclockwise, "
-                "and a left-side propeller is the mirror of both. Add the rotation you "
-                "get from that, alongside the blade_travel you have"
-            )
+        found = [key for key in ROTOR_FACT_KEYS if key in data]
+        if not found:
+            return data
         raise ValueError(
-            "the propeller records no rotation. The sense of rotation is clockwise or "
-            "counterclockwise viewed from behind the aircraft looking forward, and it "
-            "decides the sign of the swirl and which way round the disc the blades are "
-            "numbered, so there is no safe default to guess"
+            f"the propeller block states {', '.join(found)}, which the reference artifact "
+            "carried until 0.11.0 and no builder read. The row states what a script "
+            "needs: the sign of the rotor speed is the sign of RPM (or RPM_SIGN beside "
+            "ADVANCE_RATIO) and the axis is ROTOR_AXIS (PFS-2029.08). Drop the key(s), or "
+            "call pyflightstream.workspace.strip_rotor_facts on the inputs directory, which "
+            "strips them from every reference artifact (`pyfs-matrix upgrade` does the same "
+            "with in_place (CLI: --in-place) and inputs (CLI: --inputs)); the measured "
+            "argument behind them is on docs/mesh-inputs.md."
         )
 
-    @field_validator("rpm_sign_installed", "rpm_sign_isolated", mode="before")
-    @classmethod
-    def _sign_is_an_integer_and_not_something_that_coerces_to_one(
-        cls, value: object, info: ValidationInfo
-    ) -> object:
-        """Refuse a value that would become a sign nobody measured.
 
-        Runs BEFORE the literal domain, so a value of the right type and
-        the wrong magnitude still meets the domain's own message.
-        """
-        if value is None or type(value) is int:
-            return value
-        raise ValueError(
-            f"{info.field_name} is {value!r}, of type {type(value).__name__}, and a "
-            "measured sign is written as a Python int, 1 or -1. A bool, a float or "
-            "a number from an array library would be coerced to a sign this campaign "
-            f"never measured, so convert the {type(value).__name__} to an int if it "
-            "really is one. An unmeasured sign is recorded by leaving the field out"
-        )
+#: The four facts a reference artifact's propeller block carried from 0.8.0
+#: to 0.10.1 and states no more (PFS-2029.08).
+ROTOR_FACT_KEYS: tuple[str, ...] = (
+    "rotation",
+    "blade_travel",
+    "rpm_sign_installed",
+    "rpm_sign_isolated",
+)
+
+
+def strip_rotor_facts(inputs_dir: Path) -> dict[str, list[str]]:
+    """Remove the four rotor facts from every reference artifact, textually.
+
+    PFS-2029.08, the ``--inputs`` half of ``pyfs-matrix upgrade``. Each line
+    of ``inputs/references/*.toml`` whose key is one of
+    :data:`ROTOR_FACT_KEYS` is removed, comments and every other line
+    staying as written, so the diff a reader sees is the four lines and
+    nothing else. Returns, per file, the keys removed; a file carrying
+    none is not rewritten.
+    """
+    directory = Path(inputs_dir) / "references"
+    removed: dict[str, list[str]] = {}
+    if not directory.is_dir():
+        return removed
+    key_line = re.compile(r"^\s*(" + "|".join(ROTOR_FACT_KEYS) + r")\s*=")
+    for path in sorted(directory.glob("*.toml")):
+        lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+        kept, gone = [], []
+        for line in lines:
+            match = key_line.match(line)
+            if match:
+                gone.append(match.group(1))
+            else:
+                kept.append(line)
+        if gone:
+            path.write_text("".join(kept), encoding="utf-8")
+            removed[path.name] = gone
+    return removed
 
 
 class ReferenceArtifact(BaseModel):

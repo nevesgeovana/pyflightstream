@@ -395,7 +395,11 @@ def _cmd_upgrade(args: argparse.Namespace) -> int:
     try:
         upgraded = upgrade_matrix(args.matrix, in_place=args.in_place)
         if args.inputs is not None:
-            from pyflightstream.workspace.inputs import InputArtifactError, migrate_groups_to_pproc
+            from pyflightstream.workspace.inputs import (
+                InputArtifactError,
+                migrate_groups_to_pproc,
+                strip_rotor_facts,
+            )
 
             try:
                 moved = migrate_groups_to_pproc(Path(args.inputs))
@@ -406,6 +410,12 @@ def _cmd_upgrade(args: argparse.Namespace) -> int:
                 print(f"moved inputs/groups/{old}.toml to inputs/pproc/{new}.toml", file=sys.stderr)
             if not moved:
                 print(f"no groups file under {args.inputs} to move", file=sys.stderr)
+            for name, keys in sorted(strip_rotor_facts(Path(args.inputs)).items()):
+                print(
+                    f"stripped {', '.join(keys)} from inputs/references/{name}; the row "
+                    "states the rotor speed's sign and axis (PFS-2029.08)",
+                    file=sys.stderr,
+                )
     except (OSError, MatrixError) as error:
         print(str(error), file=sys.stderr)
         return 2

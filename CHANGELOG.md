@@ -98,6 +98,15 @@ FlightStream versions.
   of GOAL-011, 32 of 32). The products are CSV by her decision of
   2026-09-02; the layout she recorded in is a third party's and the package
   neither names nor writes it.
+- PFS-2029.08: the four rotor facts leave the reference artifact.
+  `rotation`, `blade_travel`, `rpm_sign_installed` and `rpm_sign_isolated`
+  were recorded in the `[propeller]` block from 0.8.0 to 0.10.1 and read by no
+  builder; a file carrying them is refused naming the row keys that state
+  the rotor speed's sign and axis (`RPM`, `RPM_SIGN`, `ROTOR_AXIS`), and
+  `pyfs-matrix upgrade --inputs` strips exactly those lines from every
+  reference artifact, leaving every other byte. The measured argument that
+  related the datasheet's sense to the sign about the rotor axis is on
+  `docs/mesh-inputs.md`. The rotor goldens are unchanged.
 - PFS-2029.05: the reference artifact needs no propeller radius. The
   diameter at the artifact's root is the length the package reads (the
   advance ratio, the probe lines); `[propeller] radius_m` is optional, a file

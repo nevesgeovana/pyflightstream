@@ -263,7 +263,6 @@ x_m = 0.25
 [propeller]
 radius_m = 0.8
 n_blades = 3
-rotation = "clockwise"
 
 [propeller.position]
 x_m = -0.5
@@ -284,7 +283,6 @@ def test_reference_artifact_round_trip(tmp_path):
     assert reference.moment_point.x_m == 0.25
     assert reference.moment_point.y_m == 0.0
     assert reference.propeller.n_blades == 3
-    assert reference.propeller.rotation == "clockwise"
     assert reference.propeller.position.x_m == -0.5
 
 
@@ -323,188 +321,12 @@ radius_m = 1.0
 n_blades = 3
 pitch_deg = 0.0
 toe_deg = 0.0
-rotation = "clockwise"
-blade_travel = "inboard_down"
-rpm_sign_installed = -1
-rpm_sign_isolated = 1
 
 [propeller.position]
 x_m = 0.0
 y_m = 0.0
 z_m = 0.0
 """
-
-
-def test_the_reference_model_admits_a_real_campaigns_vocabulary(tmp_path):
-    """PFS-2009.02, measured rather than asserted.
-
-    The shipped vocabulary was checked against a real campaign's library
-    for the first time on 2026-08-19 and REFUSED its reference artifact
-    on three counts at once: the rotation sense was published in the
-    inboard vocabulary, which the model had no field for, and the two
-    measured rotor-speed signs had nowhere to live under
-    ``extra="forbid"``.
-    """
-    workspace = library(tmp_path)
-    (workspace.inputs_dir / "references" / "r003.toml").write_text(
-        PROPELLER_REFERENCE_TOML, encoding="utf-8"
-    )
-
-    propeller = workspace.resolve_reference("r003").propeller
-
-    assert propeller.blade_travel == "inboard_down"
-    assert propeller.rpm_sign_installed == -1
-    assert propeller.rpm_sign_isolated == 1
-
-
-def test_the_two_vocabularies_are_separate_fields_rather_than_one_union(tmp_path):
-    """The shape a review pass asked for, pinned so it cannot drift back.
-
-    Admitting both vocabularies in ``rotation`` made "which vocabulary"
-    a runtime property of a string, so every consumer had to re-derive
-    membership, and it made the one consumer in the package refuse two
-    values with a message asserting that a descriptor records two words.
-    Separate fields make it a static fact of the field.
-    """
-    workspace = library(tmp_path)
-    body = PROPELLER_REFERENCE_TOML.replace('rotation = "clockwise"', 'rotation = "inboard_down"')
-    (workspace.inputs_dir / "references" / "r004.toml").write_text(body, encoding="utf-8")
-
-    with pytest.raises(InputArtifactError) as refused:
-        workspace.resolve_reference("r004")
-    message = str(refused.value)
-    assert "rotation" in message
-    # The PERMITTED SET, not the field name. "rotation" appears in an
-    # unknown-key refusal too, so the name alone would survive the field
-    # being renamed out from under this case.
-    assert "this field takes clockwise or counterclockwise" in message, message
-
-
-def test_the_sense_vocabulary_has_one_home_and_this_model_imports_it(tmp_path):
-    """One declaration, not two held together by an equality.
-
-    THIS CASE USED TO ASSERT THE EQUALITY, and its stated reason was
-    wrong: it said ``script.helpers`` sits below ``workspace`` and
-    cannot import this model, therefore the vocabulary is duplicated by
-    value. The premise is true and the conclusion does not follow. The
-    layer rule forbids importing UPWARD, and what was needed is the
-    other direction, which this module already uses twenty lines above
-    the model to reach ``cases`` for the matrix format.
-
-    So the domain is declared once, in the layer that consumes it, and
-    imported here. What is pinned now is that decision: a future edit
-    that retypes the literal into this model restores the second home,
-    and the identity check below is what refuses it.
-    """
-    # READ THE DECLARATION, not the resolved object. `typing` interns
-    # Literal, so a model that retypes `Literal["clockwise",
-    # "counterclockwise"]` produces an annotation that IS the alias, and
-    # an identity assertion here passed the mutant that restored the
-    # second home. What distinguishes them is the source: one names the
-    # alias, the other spells the vocabulary out again.
-    import ast
-    from typing import get_args
-
-    import pyflightstream.workspace.inputs as inputs_module
-    from pyflightstream.script.helpers import ROTATION_SENSE_SIGN, RotationSense
-    from pyflightstream.workspace.inputs import PropellerReference
-
-    tree = ast.parse(Path(inputs_module.__file__).read_text(encoding="utf-8"))
-    declared: list[ast.expr] = [
-        node.annotation
-        for klass in ast.walk(tree)
-        if isinstance(klass, ast.ClassDef) and klass.name == "PropellerReference"
-        for node in klass.body
-        if isinstance(node, ast.AnnAssign)
-        and isinstance(node.target, ast.Name)
-        and node.target.id == "rotation"
-    ]
-    assert len(declared) == 1, f"PropellerReference declares rotation {len(declared)} times"
-    annotation_source = ast.unparse(declared[0])
-    assert annotation_source == "RotationSense", (
-        f"PropellerReference declares rotation as {annotation_source!r} rather than "
-        "naming the alias the emitter owns. Even spelling the same two words is a "
-        f"second home for one vocabulary, and the emitter's table is keyed on "
-        f"{sorted(ROTATION_SENSE_SIGN)}"
-    )
-    assert PropellerReference.model_fields["rotation"].annotation is RotationSense
-
-    # WHERE THE NAME COMES FROM, which is the half the two assertions
-    # above cannot see. Both are satisfied by a module that declares its
-    # own `RotationSense = Literal[...]` and drops the import: the AST
-    # unparses the same, and `typing` interns the literal so the identity
-    # holds. That mutant survived until a review pass restored it.
-    imported_from = {
-        node.module
-        for node in ast.walk(tree)
-        if isinstance(node, ast.ImportFrom)
-        for alias in node.names
-        if alias.name == "RotationSense"
-    }
-    assert imported_from == {"pyflightstream.script.helpers"}, (
-        "PropellerReference's module does not import RotationSense from the layer that "
-        f"declares it; it binds the name from {imported_from or 'nowhere'}"
-    )
-    assigned = [
-        node.lineno
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Assign)
-        and any(
-            isinstance(target, ast.Name) and target.id == "RotationSense" for target in node.targets
-        )
-    ]
-    assert not assigned, (
-        f"the module assigns RotationSense at line(s) {assigned}, so the vocabulary has "
-        "a second home again and the import above is decoration"
-    )
-    assert set(get_args(RotationSense)) == set(ROTATION_SENSE_SIGN), (
-        "the emitter's sense-to-sign table and the alias beside it have diverged, which "
-        "no import can prevent because one is a type and the other a dict"
-    )
-
-
-def test_the_emitter_refusal_quotes_the_model_it_cannot_import(tmp_path):
-    """The one cross-layer coupling a guard has to hold.
-
-    ``blade_frames`` cannot import this model, and its refusal names
-    ``blade_travel`` and both of that field's values so a caller holding
-    the published vocabulary is routed rather than treated as having
-    made a typo. That is three facts about a higher layer living in a
-    string, and until this case nothing tied them to the field: renaming
-    it left the emitter telling users to write a key the model refuses.
-    """
-    from typing import get_args
-
-    from pyflightstream.exceptions import CommandArgumentError
-    from pyflightstream.script import helpers
-    from pyflightstream.workspace.inputs import PropellerReference
-
-    with pytest.raises(CommandArgumentError) as refused:
-        helpers.blade_frames(
-            Script(version="26.120"),
-            hub_origin=(0.0, 0.0, 0.0),
-            rotor_axis="Z",
-            n_blades=3,
-            blade1_azimuth_deg=0.0,
-            rotation="inboard_down",
-        )
-    message = str(refused.value)
-
-    assert "blade_travel" in PropellerReference.model_fields, (
-        "the emitter's refusal routes callers to a field this model no longer has"
-    )
-    assert "blade_travel" in message
-    annotation = PropellerReference.model_fields["blade_travel"].annotation
-    domain = {value for arm in get_args(annotation) for value in get_args(arm)}
-    assert domain, "blade_travel declares no closed domain to compare the message against"
-    for word in domain:
-        assert word in message, (
-            f"the model admits {word!r} for blade_travel and the emitter's refusal never "
-            "names it, so a caller holding that word is told nothing about where it goes"
-        )
-
-
-SIGN_FIELDS = ("rpm_sign_installed", "rpm_sign_isolated")
 
 
 def _artifact_id(field: str, parameter: object) -> str:
@@ -537,116 +359,6 @@ def _reference_with(tmp_path, artifact_id: str, line: str, replacing: str) -> st
     return str(refused.value)
 
 
-def test_the_sign_domain_is_exactly_plus_or_minus_one():
-    """Pinned from the annotation, because a message can be satisfied by more.
-
-    The first version of the case below asserted that the refusal
-    contained ``-1``. It does under ``Literal[-1, 0, 1]`` too, whose
-    message reads "Input should be -1, 0 or 1", so a domain admitting a
-    ZERO sign passed the guard written to close the domain. A zero does
-    not reverse a rotor, it stops one.
-    """
-    from typing import get_args
-
-    from pyflightstream.workspace.inputs import PropellerReference
-
-    for field in SIGN_FIELDS:
-        annotation = PropellerReference.model_fields[field].annotation
-        # The field is `Literal[...] | None`, so get_args yields the Literal
-        # and NoneType. Drop the optional arm and unwrap the Literal; reading
-        # the outer args as the domain compares a type against numbers and
-        # fails for the wrong reason.
-        arms = [arm for arm in get_args(annotation) if arm is not type(None)]
-        assert len(arms) == 1, f"{field} is not an optional single domain: {arms}"
-        senses = get_args(arms[0])
-
-        # TYPES AND MEMBERSHIP, never a tuple of numbers. `senses == (-1, 1)`
-        # is what this asserted until a review pass measured it: Python widens
-        # numeric equality, so `(-1, 1.0) == (-1, 1)` is True and a domain
-        # admitting the FLOAT one passed the guard written to close the domain.
-        # Under it the artifact's integer 1 is stored as 1.0 while the refusal
-        # beside it promises a Python int. Order is dropped for the same
-        # reason it was never meant to matter: `Literal[1, -1]` is the same
-        # domain and reversing the literal is not a defect.
-        typed = sorted((type(value).__name__, value) for value in senses)
-        assert typed == [("int", -1), ("int", 1)], (
-            f"{field} admits {typed}, and a measured sign is the integer 1 or -1. A "
-            "domain with a zero in it stops the rotor rather than reversing it, one "
-            "with a magnitude in it scales the rotor speed, and one with a float or a "
-            "bool in it stores something the refusal says it will not"
-        )
-
-
-@pytest.mark.parametrize("field", SIGN_FIELDS)
-@pytest.mark.parametrize("magnitude", [-2, 0, 2, 3])
-def test_a_rotor_speed_sign_outside_plus_or_minus_one_is_refused(tmp_path, field, magnitude):
-    """The field is a SIGN, so its domain is closed AT LOAD TIME.
-
-    Both fields and both directions of error, because only the installed
-    field was ever tried and only with ``-2``, which left the isolated
-    one, the half the model itself calls most likely to be the opposite
-    hand, refusal-tested by nothing.
-
-    Scoped deliberately. The model is not frozen and does not validate on
-    assignment, so this closes the domain for an artifact read off disk,
-    which is every path a campaign takes, and not for a value a caller
-    assigns afterwards. Claiming more would be claiming a guard that is
-    not there.
-    """
-    message = _reference_with(
-        tmp_path,
-        _artifact_id(field, magnitude),
-        f"{field} = {magnitude}",
-        f"{field} = " + ("-1" if field == "rpm_sign_installed" else "1"),
-    )
-
-    assert field in message
-    # The PERMITTED SET, exactly, and not a substring of it. A model with
-    # no such field refuses this value too, for being an unknown key, and
-    # a model admitting zero prints a message that contains "-1".
-    # ANCHORED AT BOTH ENDS. "Input should be -1 or 1" is a PREFIX of
-    # "Input should be -1 or 1.0", which pydantic renders for a domain that
-    # admits the float, so the open-ended form passed the very mutant this
-    # assertion exists to kill. The bracket is what pydantic writes next.
-    assert "Input should be -1 or 1 [" in message, (
-        "the refusal does not name the permitted set exactly, so it is satisfied by a "
-        "wider domain whose message merely starts the same way, by a domain that "
-        "admits a zero, or by no such field at all: " + message
-    )
-
-
-@pytest.mark.parametrize("field", SIGN_FIELDS)
-@pytest.mark.parametrize(
-    ("written", "why"),
-    [
-        ("true", "a boolean becomes the integer 1 and so becomes a measured sign"),
-        ("false", "the same door, on the value that happened to be refused already"),
-        ("1.0", "a real number becomes 1 and hides that nothing was measured"),
-        ('"1"', "a quoted sign is a string, and reading it as one guesses"),
-    ],
-)
-def test_a_sign_that_only_coerces_to_one_is_refused(tmp_path, field, written, why):
-    """Absence means not established, so `true` must not mean `+1`.
-
-    Measured before this guard existed: ``true`` was ACCEPTED and became
-    ``1``, ``1.0`` was accepted and became ``1``, and ``false`` was
-    refused for being outside the domain. A model where ``true`` is a
-    measured sign and ``false`` is a domain error is not modelling
-    anything.
-    """
-    message = _reference_with(
-        tmp_path,
-        _artifact_id(field, written),
-        f"{field} = {written}",
-        f"{field} = " + ("-1" if field == "rpm_sign_installed" else "1"),
-    )
-    assert field in message, why
-    assert "Python int, 1 or -1" in message, (
-        "the refusal does not say that a sign is written as a Python int, which is the "
-        "whole content of the refusal: " + message
-    )
-
-
 def test_an_unknown_key_in_the_propeller_block_is_refused(tmp_path):
     """`extra="forbid"` on this model is what the whole item rests on.
 
@@ -654,253 +366,19 @@ def test_an_unknown_key_in_the_propeller_block_is_refused(tmp_path):
     in one of two long, near-identical field names is dropped in silence
     and reads back as ``None``, which this model documents as "the
     campaign has not established it". That inverts the guarantee
-    `test_the_signs_are_absent_rather_than_assumed` exists to give, and
+    the closed model exists to give, and
     it is precisely the setting that refused a real campaign's two
     measured signs and opened this item.
     """
     message = _reference_with(
         tmp_path,
         "r007",
-        "rpm_sign_isolate = 1",
-        "rpm_sign_isolated = 1",
+        "pitch_de = 0.0",
+        "pitch_deg = 0.0",
     )
-    assert "rpm_sign_isolate" in message, (
+    assert "pitch_de" in message, (
         "the refusal does not name the key it did not recognise, which is the only "
         "way a reader finds a typo in a field name: " + message
-    )
-
-
-def test_the_signs_are_absent_rather_than_assumed(tmp_path):
-    """Absence means not established, and must not read as +1.
-
-    A campaign that has not measured which way its rotor turns for the
-    meshes it loads records nothing, and the model says nothing. Reading
-    that as the positive sense would be the package deciding a physical
-    fact it was never told.
-    """
-    workspace = library(tmp_path)
-    body = "\n".join(
-        line for line in PROPELLER_REFERENCE_TOML.splitlines() if not line.startswith("rpm_sign_")
-    )
-    (workspace.inputs_dir / "references" / "r008.toml").write_text(body, encoding="utf-8")
-
-    propeller = workspace.resolve_reference("r008").propeller
-    assert propeller.rpm_sign_installed is None
-    assert propeller.rpm_sign_isolated is None
-
-
-def test_a_datasheet_spelling_of_the_required_sense_is_read(tmp_path):
-    """The strict field was the required one, which a reader meets first.
-
-    Folding was added for `blade_travel`, on the ground that its value is
-    transcribed off a datasheet. `rotation` records the same fact off the
-    same page, is REQUIRED, and refused `Counter-Clockwise` with
-    pydantic's bare literal error. The model's own missing-value refusal
-    ends by telling the reader to add `rotation`, so following it with a
-    capital C met a second refusal naming no cause.
-
-    Note what the folding is NOT: `counter-clockwise` folds to
-    `counterclockwise` and `inboard-up` to `inboard_up`, two different
-    join rules, because the comparison drops separators on both sides
-    rather than folding them to one character.
-    """
-    workspace = library(tmp_path)
-    for index, written in enumerate(("Counter-Clockwise", "COUNTER CLOCKWISE", "counterClockwise")):
-        body = PROPELLER_REFERENCE_TOML.replace('rotation = "clockwise"', f'rotation = "{written}"')
-        artifact_id = f"r67{index}"
-        (workspace.inputs_dir / "references" / f"{artifact_id}.toml").write_text(
-            body, encoding="utf-8"
-        )
-        propeller = workspace.resolve_reference(artifact_id).propeller
-        assert propeller is not None
-        assert propeller.rotation == "counterclockwise", (
-            f"{written!r} is a spelling a datasheet prints for the required field, and "
-            "it was refused rather than read"
-        )
-
-
-def test_the_blade_travel_domain_has_one_declaration(tmp_path):
-    """The field and its folding validator cannot drift apart.
-
-    The validator restated the two words as a literal set, so widening
-    the annotation changed no behaviour and reddened no test: two
-    declarations of one vocabulary inside one model, which is the fault
-    corrected for the rotation sense one commit earlier. The validator
-    now reads the domain off the field, and this is what refuses a
-    return to the second copy.
-    """
-    from typing import get_args
-
-    from pyflightstream.workspace.inputs import PropellerReference
-
-    annotation = PropellerReference.model_fields["blade_travel"].annotation
-    domain = {word for arm in get_args(annotation) for word in get_args(arm)}
-    assert domain == {"inboard_up", "inboard_down"}, (
-        f"blade_travel admits {sorted(domain)}. It names where the blade nearest the "
-        "fuselage travels, so its domain is the two published words and nothing else"
-    )
-
-    # The REFUSAL is what proves the validator reads that domain rather
-    # than a copy of it: a word outside the annotation must be refused,
-    # and the refusal must name the annotation's own words.
-    workspace = library(tmp_path)
-    body = PROPELLER_REFERENCE_TOML.replace(
-        'blade_travel = "inboard_down"', 'blade_travel = "outboard_up"'
-    )
-    (workspace.inputs_dir / "references" / "r650.toml").write_text(body, encoding="utf-8")
-    with pytest.raises(InputArtifactError) as refused:
-        workspace.resolve_reference("r650")
-    message = str(refused.value)
-    for word in domain:
-        assert word in message, (
-            f"the refusal does not name {word!r}, which the field admits, so the "
-            "validator is quoting a copy of the domain rather than reading it"
-        )
-    # AND NOTHING ELSE. Per-word membership alone is satisfied by a
-    # validator holding a superset of both vocabularies, which is exactly
-    # the second declaration this case exists to refuse.
-    for foreign in ("clockwise", "counterclockwise"):
-        assert foreign not in message.split("this field takes")[-1], (
-            f"the blade_travel refusal offers {foreign!r}, which belongs to the other "
-            "vocabulary, so the validator is reading a set wider than the field's own"
-        )
-
-
-def test_the_blade_travel_is_absent_rather_than_assumed(tmp_path):
-    """Absence means not recorded, and must not read as inboard_up.
-
-    The two sign fields have this case and the third new field of the
-    same commit did not, which is how a mutant giving `blade_travel` a
-    DEFAULT survived the whole suite. A default here is the package
-    deciding which way a blade travels on a propeller nobody described.
-    """
-    workspace = library(tmp_path)
-    body = "\n".join(
-        line
-        for line in PROPELLER_REFERENCE_TOML.splitlines()
-        if not line.startswith("blade_travel")
-    )
-    assert "blade_travel" not in body, "the line the case removes is still in the fixture"
-    (workspace.inputs_dir / "references" / "r660.toml").write_text(body, encoding="utf-8")
-
-    propeller = workspace.resolve_reference("r660").propeller
-    assert propeller is not None
-    assert propeller.blade_travel is None, (
-        "an artifact that records no blade travel reads back "
-        f"{propeller.blade_travel!r}, so the package has decided a physical fact it "
-        "was never told"
-    )
-
-
-def test_a_datasheet_spelling_of_the_blade_travel_is_read(tmp_path):
-    """Case, hyphens and spaces are folded before the domain is checked.
-
-    This is the one field in the model whose value is transcribed off
-    paper, and a datasheet prints it in whatever style its publisher
-    chose. It was also the strictest field in the model: the two sign
-    fields got a bespoke didactic refusal while the transcribed one
-    refused ``inboard-up`` with pydantic's bare literal message. This
-    package has a recorded incident of exactly that shape, a
-    case-sensitive ``FEET`` telling a caller who wrote ``feet`` that
-    feet could not be honoured.
-    """
-    workspace = library(tmp_path)
-    for index, written in enumerate(("inboard-up", "Inboard Up", "INBOARD_UP")):
-        body = PROPELLER_REFERENCE_TOML.replace(
-            'blade_travel = "inboard_down"', f'blade_travel = "{written}"'
-        )
-        artifact_id = f"r61{index}"
-        (workspace.inputs_dir / "references" / f"{artifact_id}.toml").write_text(
-            body, encoding="utf-8"
-        )
-        propeller = workspace.resolve_reference(artifact_id).propeller
-        assert propeller is not None
-        assert propeller.blade_travel == "inboard_up", (
-            f"{written!r} is how a datasheet prints the value this field exists to "
-            "record, and it was refused rather than read"
-        )
-
-
-def test_a_blade_travel_outside_the_domain_is_refused_by_name(tmp_path):
-    """Folding is not guessing: a word that is not the fact is refused."""
-    workspace = library(tmp_path)
-    body = PROPELLER_REFERENCE_TOML.replace(
-        'blade_travel = "inboard_down"', 'blade_travel = "sideways"'
-    )
-    (workspace.inputs_dir / "references" / "r620.toml").write_text(body, encoding="utf-8")
-
-    with pytest.raises(InputArtifactError) as refused:
-        workspace.resolve_reference("r620")
-    message = str(refused.value)
-    assert "sideways" in message, "the refusal does not quote what was written"
-    assert "inboard_up" in message and "inboard_down" in message, (
-        "the refusal does not name the two values it accepts: " + message
-    )
-
-
-def test_a_propeller_with_only_the_published_vocabulary_is_refused_didactically(tmp_path):
-    """The expected user of this widening met `Field required`.
-
-    The campaign this model was widened for records the sense in the
-    inboard vocabulary. A reader who fills in `blade_travel` and stops
-    is the expected case, not a careless one, and what they met named no
-    cause and no remedy while the message that routes them sat one layer
-    down in a function they may never call.
-    """
-    workspace = library(tmp_path)
-    body = "\n".join(
-        line for line in PROPELLER_REFERENCE_TOML.splitlines() if not line.startswith("rotation = ")
-    )
-    assert "blade_travel" in body and "rotation = " not in body
-    (workspace.inputs_dir / "references" / "r630.toml").write_text(body, encoding="utf-8")
-
-    with pytest.raises(InputArtifactError) as refused:
-        workspace.resolve_reference("r630")
-    message = str(refused.value)
-
-    assert "blade_travel" in message, (
-        "the refusal does not mention the field the reader DID fill in, so it reads as "
-        "a missing key rather than as two vocabularies: " + message
-    )
-    assert "side of the aircraft" in message, (
-        "the refusal does not say why the package cannot convert what it was given, "
-        "which is the one thing the reader cannot work out alone: " + message
-    )
-    assert "Field required" not in message, (
-        "the raw pydantic refusal survived, so the didactic one is not reached"
-    )
-
-
-def test_the_sign_domain_holds_after_loading_and_not_only_at_it(tmp_path):
-    """The model travels, so load-time validation is not the whole guarantee.
-
-    `PropellerReference` is exported and reaches the run and post layers
-    inside its artifact. Before `validate_assignment`, the two
-    properties this item exists to establish, a closed domain and
-    absence meaning not established, were both defeated by one
-    assignment after the file was read.
-
-    Not frozen, deliberately: a campaign may record a sign it measured
-    after loading. What is refused is a value outside the domain, not
-    the act of writing one.
-    """
-    workspace = library(tmp_path)
-    (workspace.inputs_dir / "references" / "r640.toml").write_text(
-        PROPELLER_REFERENCE_TOML, encoding="utf-8"
-    )
-    propeller = workspace.resolve_reference("r640").propeller
-    assert propeller is not None
-
-    with pytest.raises(ValidationError):
-        propeller.rpm_sign_installed = 0
-    with pytest.raises(ValidationError):
-        propeller.rpm_sign_isolated = True
-    assert propeller.rpm_sign_installed == -1, "the refused assignment changed the value"
-
-    propeller.rpm_sign_isolated = -1
-    assert propeller.rpm_sign_isolated == -1, (
-        "a legitimate later measurement cannot be recorded, which is what freezing the "
-        "model would have cost and validate_assignment is chosen to avoid"
     )
 
 
@@ -2668,7 +2146,7 @@ def test_the_reference_artifact_needs_no_radius(tmp_path):
     workspace = library(tmp_path)
     (workspace.inputs_dir / "references" / "r020.toml").write_text(
         "area_m2 = 50.0\nchord_m = 2.526\nspan_m = 20.0\npropeller_diameter_m = 3.6576\n"
-        '[propeller]\nn_blades = 1\nrotation = "clockwise"\n',
+        "[propeller]\nn_blades = 1\n",
         encoding="utf-8",
     )
     reference = workspace.resolve_reference("r020")
@@ -2677,14 +2155,14 @@ def test_the_reference_artifact_needs_no_radius(tmp_path):
     # A radius that agrees is accepted, as the recorded workspace's files carry it.
     (workspace.inputs_dir / "references" / "r021.toml").write_text(
         "area_m2 = 50.0\nchord_m = 2.526\nspan_m = 20.0\npropeller_diameter_m = 3.6576\n"
-        '[propeller]\nradius_m = 1.8288\nn_blades = 1\nrotation = "clockwise"\n',
+        "[propeller]\nradius_m = 1.8288\nn_blades = 1\n",
         encoding="utf-8",
     )
     assert workspace.resolve_reference("r021").propeller.radius_m == 1.8288
     # The radius alone is refused naming the diameter key it must carry.
     (workspace.inputs_dir / "references" / "r022.toml").write_text(
         "area_m2 = 50.0\nchord_m = 2.526\nspan_m = 20.0\n"
-        '[propeller]\nradius_m = 1.8288\nn_blades = 1\nrotation = "clockwise"\n',
+        "[propeller]\nradius_m = 1.8288\nn_blades = 1\n",
         encoding="utf-8",
     )
     with pytest.raises(InputArtifactError, match="propeller_diameter_m = 3.6576"):
@@ -2695,10 +2173,44 @@ def test_a_diameter_and_a_radius_that_disagree_are_refused_naming_both(tmp_path)
     workspace = library(tmp_path)
     (workspace.inputs_dir / "references" / "r023.toml").write_text(
         "area_m2 = 50.0\nchord_m = 2.526\nspan_m = 20.0\npropeller_diameter_m = 3.6576\n"
-        '[propeller]\nradius_m = 1.5\nn_blades = 1\nrotation = "clockwise"\n',
+        "[propeller]\nradius_m = 1.5\nn_blades = 1\n",
         encoding="utf-8",
     )
     with pytest.raises(InputArtifactError) as caught:
         workspace.resolve_reference("r023")
     message = str(caught.value)
     assert "3.6576" in message and "1.5" in message and "3.0" in message
+
+
+# --- PFS-2029.08: the four rotor facts leave the reference artifact ------------
+
+
+def test_the_four_rotor_facts_are_refused_naming_the_row_keys(tmp_path):
+    from pyflightstream.workspace import strip_rotor_facts
+
+    workspace = library(tmp_path)
+    text = (
+        "area_m2 = 50.0\nchord_m = 2.526\nspan_m = 20.0\npropeller_diameter_m = 3.6576\n"
+        "[propeller]\nradius_m = 1.8288  # half the diameter\nn_blades = 1\n"
+        'blade_travel = "inboard_down"\nrotation = "clockwise"\n'
+        "rpm_sign_installed = -1\nrpm_sign_isolated = 1\n"
+    )
+    (workspace.inputs_dir / "references" / "r030.toml").write_text(text, encoding="utf-8")
+    with pytest.raises(InputArtifactError) as caught:
+        workspace.resolve_reference("r030")
+    message = str(caught.value)
+    for key in ("rotation", "blade_travel", "rpm_sign_installed", "rpm_sign_isolated"):
+        assert key in message
+    assert "RPM_SIGN" in message and "ROTOR_AXIS" in message and "docs/mesh-inputs.md" in message
+    # The upgrade strips exactly the four lines and leaves every other byte.
+    removed = strip_rotor_facts(workspace.inputs_dir)
+    assert removed == {
+        "r030.toml": ["blade_travel", "rotation", "rpm_sign_installed", "rpm_sign_isolated"]
+    }
+    after = (workspace.inputs_dir / "references" / "r030.toml").read_text(encoding="utf-8")
+    assert after == (
+        "area_m2 = 50.0\nchord_m = 2.526\nspan_m = 20.0\npropeller_diameter_m = 3.6576\n"
+        "[propeller]\nradius_m = 1.8288  # half the diameter\nn_blades = 1\n"
+    )
+    assert workspace.resolve_reference("r030").propeller.n_blades == 1
+    assert strip_rotor_facts(workspace.inputs_dir) == {}, "a second pass finds nothing"

@@ -440,10 +440,6 @@ radius_m = 1.0
 n_blades = 3
 pitch_deg = 0.0
 toe_deg = 0.0
-rotation = "clockwise"
-blade_travel = "inboard_down"
-rpm_sign_installed = -1
-rpm_sign_isolated = 1
 
 [propeller.position]
 x_m = 0.0
@@ -524,9 +520,14 @@ Nothing in the package reads the propeller block except its `position`,
 since 0.11.0: the two unsteady run types turn it into a coordinate system
 named PROP_MRP, the frame the author's probe lines and rotor plots are
 defined in, and the frame a rotor row turns about unless it states
-`ROTOR_ORIGIN`. The rest of the block, the signs, `rotation`,
-`blade_travel`, `radius_m` and `n_blades`, stays recorded and changes no
-emitted script; the four rotor facts leave the artifact under PFS-2029.08.
+`ROTOR_ORIGIN`. The rest of the block, `radius_m` (optional since
+0.11.0, and checked against the diameter when stated) and `n_blades`,
+stays recorded and changes no emitted script. The four rotor facts the
+block carried until 0.10.1, `rotation`, `blade_travel`, `rpm_sign_installed`
+and `rpm_sign_isolated`, are refused since 0.11.0 (PFS-2029.08): the row
+states the rotor speed's sign and axis, `pyfs-matrix upgrade --inputs`
+strips them, and the argument behind them is on
+[the mesh inputs page](mesh-inputs.md).
 
 AND THE ARTIFACT DOES NOT REACH A RECIPE, which is worth knowing before
 you write one. `resolve_matrix` narrows this artifact to the reference

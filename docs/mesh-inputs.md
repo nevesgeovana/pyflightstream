@@ -204,6 +204,40 @@ neither. Two standing decisions bound any widening:
 * Until that need materializes, converting external formats to OBJ
   with your own tooling is the supported route.
 
+## The four rotor facts a reference artifact once carried
+
+From 0.8.0 to 0.10.1 the reference artifact's `[propeller]` block recorded
+`rotation`, `blade_travel`, `rpm_sign_installed` and `rpm_sign_isolated`,
+and no builder read them: a script states the rotor speed's sign through
+the sign of `RPM` (or `RPM_SIGN` beside `ADVANCE_RATIO`) and its axis
+through `ROTOR_AXIS`, on the row. Since 0.11.0 a file carrying the four is
+refused naming those row keys, and `pyfs-matrix upgrade --in-place
+--inputs <inputs dir>` strips them (PFS-2029.08). The argument that
+related them is kept here, because it is what a reader setting up a new
+rotor has to work out once, and it was measured on the author's own
+isolated-rotor reference (2026-09-01):
+
+* The frame is x aft, y starboard, z up. On a port propeller, +y is
+  inboard.
+* `blade_travel = "inboard_down"` is the datasheet's side-independent
+  vocabulary: the blade at its inboard azimuth (the +y side of the disc)
+  travels towards -z. That needs an angular velocity of negative sign about
+  +x, which is the "positive rpm is inboard-up" sentence the datasheet
+  states the other way round.
+* `rotation` is the viewed-from-behind sense. An observer behind the
+  aircraft looking forward has screen-right +y and screen-up +z; a point at
+  screen-right moving down reads clockwise. So inboard-down on a port
+  propeller is clockwise from behind; if the meshes' port and starboard
+  assignment is the other way, it is counterclockwise, a one-word edit.
+* `rpm_sign_installed = -1` was that sign about +x for the installed
+  meshes, and `rpm_sign_isolated = 1` the sign for the isolated meshes,
+  which were built the other way round; which of the two applies is a
+  property of the mesh a row opens, which is why the row states it.
+
+None of this was ever read by an emitter, and the sense of rotation does
+not determine the sign of the rotor speed on its own: the sign is the
+mesh's, the sense is the propeller's, and the row is where the two meet.
+
 ## What this policy is not
 
 It is not a promise to wrap the GUI. Steps stay GUI-only until the
