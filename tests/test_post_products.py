@@ -329,3 +329,9 @@ def test_a_point_under_sideslip_is_refused_naming_it(tmp_path):
         polar_rows([point], ["W"], mach=0.2, reference=REFERENCE)
     message = str(caught.value)
     assert "a+02.0.txt" in message and "2.0" in message and "sideslip" in message
+
+
+def test_the_mach_code_rounds_rather_than_truncates():
+    from pyflightstream.post.products import _mach_code
+
+    assert _mach_code(0.1465) == 15 and _mach_code(0.1441) == 14 and _mach_code(0.2) == 20

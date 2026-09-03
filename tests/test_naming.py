@@ -165,3 +165,20 @@ def test_a_stated_advance_ratio_on_a_rotorless_row_reaches_the_name(tmp_path):
     campaign = _campaign(tmp_path, variables={"ADVANCE_RATIO": "1.3"})
     run_campaign(campaign, Stub(), workspace, assess=_converged, recipes={"steady": _recipe})
     assert workspace.read_manifest()[0].outputs == ["raw/POLAR-3207_M20AL-020BE+000J+130.txt"]
+
+
+# --- the QA lens of 2026-09-03: three properties no test discriminated --------------
+
+
+def test_beta_and_the_swept_advance_ratio_reach_the_name():
+    """A non-zero sideslip is rendered, and a swept J wins over a case-level one."""
+    from pyflightstream.workspace.naming import _values
+
+    assert polar_name("3207", 0.2, -2.0, 3.5) == "POLAR-3207_M20AL-020BE+035"
+    values = _values("camp", "3207", {"alpha": -2.0, "beta": 3.5, "advance_ratio": 1.7}, 0.2, 1.3)
+    assert values["advance_ratio"] == 1.7, "the case-level J overrode the swept axis"
+    assert values["polar"] == "POLAR-3207_M20AL-020BE+035J+170"
+    assert (
+        _values("camp", "3207", {"alpha": 0.0}, 0.2, 1.3)["polar"]
+        == "POLAR-3207_M20AL+000BE+000J+130"
+    )
