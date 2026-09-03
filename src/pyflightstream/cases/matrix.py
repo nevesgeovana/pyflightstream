@@ -654,10 +654,16 @@ def _parse_motions(variables: dict[str, str], pol: str) -> list[dict[str, str]]:
                 )
             record[key] = value.strip()
         if not record:
-            raise MatrixError(f"POL {pol}: {MOTIONS_VARIABLE} holds an empty record {{}}.")
+            raise MatrixError(
+                f"POL {pol}: {MOTIONS_VARIABLE} is {text!r}, and one of its records is empty; "
+                "a record holds KEY: value pairs, one rotor each."
+            )
         records.append(record)
     if not records:
-        raise MatrixError(f"POL {pol}: {MOTIONS_VARIABLE} names no record at all.")
+        raise MatrixError(
+            f"POL {pol}: {MOTIONS_VARIABLE} is {text!r}, which names no record at all; "
+            "write {KEY: value / KEY: value}, {...}, one pair of braces per rotor."
+        )
     return records
 
 

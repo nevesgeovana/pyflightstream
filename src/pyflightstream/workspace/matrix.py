@@ -533,7 +533,7 @@ def _inventory_of(geometry: Path) -> tuple[tuple[str, ...] | None, str | None]:
         declared = boundary_names(geometry)
     except MeshReadError:
         return None, None
-    return None, ("mesh block" if declared else None)
+    return None, ("mesh_block" if declared else None)
 
 
 def _resolve_geometry(workspace: CampaignWorkspace, name: str, pol: str) -> Path:
@@ -621,7 +621,6 @@ _PRESET_RECORDED_ONLY = {
         "a separation model that selects boundaries, and a preset carries no boundary "
         "selection; state it in a recipe"
     ),
-    "significant_digits": "no emitter in this package",
     "slipstream_wake_stabilization": "no emitter in this package",
     "wake_layers": "no emitter in this package",
 }

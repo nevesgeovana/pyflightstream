@@ -12,14 +12,16 @@ didactic message naming the file and the available ids.
 
 AN ID OF A CODED KIND DECLARES THAT KIND, since 2026-08-19
 (PFS-2009.01, PFS-2009.03, a BREAK carried by v0.8.0). A reference id
-begins with ``r``, a setup id with ``s``, a group id with ``e``, so
-``r003``, ``s003`` and ``e003`` are three ids rather than one number
-meaning three files. Before that, the three folders each held a
-``003.toml`` and a number mistyped between the REF, SET and ENTRY
-columns of a run matrix resolved to another artifact with no signal at
-all. Geometries and profiles keep bare stems, because their ids are the
-names of files the user staged and a letter rule there would refuse a
-mesh for being called what it is called.
+begins with ``r``, a setup id with ``s``, a pproc id with ``p`` (``e``
+until 0.11.0, when the groups artifact became the post-processing
+artifact, PFS-2029.07), so ``r003``, ``s003`` and ``p003`` are three ids
+rather than one number meaning three files. Before that, the three
+folders each held a ``003.toml`` and a number mistyped between the REF,
+SET and PPROC columns of a run matrix resolved to another artifact with
+no signal at all. A geometry is named by its file name with the
+extension (PFS-2029.09) and a profile by its stem, because their ids are
+the names of files the user staged and a letter rule there would refuse
+a mesh for being called what it is called.
 
 The library tree, created by ``CampaignWorkspace.init``:
 
@@ -30,9 +32,13 @@ The library tree, created by ``CampaignWorkspace.init``:
   key-value table for now; the loader keeps the raw table verbatim so
   a later formal solver-setup model can consume it unchanged. The id
   begins with ``s``.
-- ``inputs/pproc/<id>.toml``: post-processing, whose ``[groups]`` table maps a group
-  name to a list of boundary labels or indices, stored verbatim. The id
-  begins with ``e``, after the ENTRY column that carries it.
+- ``inputs/pproc/<id>.toml``: the post-processing artifact (PFS-2029.07),
+  six optional tables: ``[groups]`` maps a group name to the families it
+  aggregates, ``[exports]`` selects the export kinds, ``[sections]``,
+  ``[plots]`` and ``[probes]`` are the solver definitions, ``[products]``
+  says which files are written after the run. The id begins with ``p``,
+  after the PPROC column that carries it; ``pyfs-matrix upgrade --inputs``
+  moves a groups library (``inputs/groups/e<id>.toml``) here.
 - ``inputs/geometries/``: staged geometry files of any extension,
   registered by file name; the id is the stem.
 - ``inputs/profiles/``: input profile files (for example actuator
@@ -115,16 +121,16 @@ _ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 #:
 #: Only the three CODED kinds are here, and their absence from the other
 #: two is the rule rather than an omission. A reference, a setup and a
-#: group are addressed by ids the author writes in the REF, SET and ENTRY
-#: cells of a run matrix, so a bare ``003`` names three different files
-#: in three folders and a typo between them is silent. A geometry or a
-#: profile is addressed by the STEM OF A FILE THE USER STAGED, so a
-#: letter rule there would refuse a mesh for being called what it is
-#: called.
+#: pproc artifact are addressed by ids the author writes in the REF, SET
+#: and PPROC cells of a run matrix, so a bare ``003`` names three
+#: different files in three folders and a typo between them is silent. A
+#: geometry is addressed by the NAME OF A FILE THE USER STAGED and a
+#: profile by its stem, so a letter rule there would refuse a mesh for
+#: being called what it is called.
 #:
-#: ``e`` for groups, not ``g``: the matrix column that carries a group id
-#: is ENTRY, which is the word the author's own files use, and the letter
-#: follows the column a user types rather than the model's class name.
+#: ``p`` for pproc since 0.11.0: until then the artifact was the groups
+#: file under ``e``, after the ENTRY column that carried it, and
+#: ``pyfs-matrix upgrade --inputs`` renames both the file and the cell.
 KIND_LETTERS = {"reference": "r", "setup": "s", "pproc": "p"}
 
 #: The library folder each coded kind lives in, for the refusal below.
@@ -492,12 +498,16 @@ def _check_id(artifact_id: str, kind: str) -> None:
         raise InputArtifactError(
             f"{kind} id {artifact_id!r} does not declare its kind: a {kind} id begins "
             f"with {letter!r} (for example {letter}003), so a number mistyped between "
-            "the REF, SET and ENTRY columns cannot resolve to another artifact's file. "
+            "the REF, SET and PPROC columns cannot resolve to another artifact's file. "
             f"Rename the library file to inputs/{directory}/{letter}{artifact_id}.toml "
             "and the matrix cell that names it in the same edit; the letter is part of "
             "the id, not a prefix the library adds or strips. A library written before "
             "v0.8.0 is migrated in ONE call rather than one rename per artifact: "
             "pyflightstream.workspace.migrate_input_ids(inputs_dir, matrices, "
+            "...) for the r and s letters; a groups library (e) moves to pproc (p) with "
+            "`pyfs-matrix upgrade`, in_place (CLI: --in-place) and inputs (CLI: --inputs) "
+            "both given. The call "
+            "as documented: migrate_input_ids(inputs_dir, matrices, "
             "apply=True) renames every file and rewrites the REF, SET and ENTRY cells "
             "of the matrices you hand it, together.",
             kind=kind,
@@ -1308,15 +1318,15 @@ def write_inventory(geometry: str | Path, *, overwrite: bool = False) -> Path:
     """
     path = Path(geometry)
     sidecar = inventory_sidecar(path)
+    if not path.is_file():
+        raise InputArtifactError(
+            f"{path} is not a file, so no boundary inventory can be read from it."
+        )
     if sidecar.exists() and not overwrite:
         raise InputArtifactError(
             f"{sidecar} already exists; pass overwrite (CLI: --overwrite) to rewrite it "
             "from the mesh block, after checking that the file is the one the sidecar "
             "should describe."
-        )
-    if not path.is_file():
-        raise InputArtifactError(
-            f"{path} is not a file, so no boundary inventory can be read from it."
         )
     try:
         names = boundary_names(path)

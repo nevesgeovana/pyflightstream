@@ -16,18 +16,22 @@ record, so any spreadsheet or dataframe reads them with nothing else:
   the solver's reference velocity to the free stream.
 
 THE ARITHMETIC IS THE AUTHOR'S, re-derived here from her recorded files and
-never imported: the coefficient columns were checked one by one against
-her recorded polar tables and the loads tables they came from
-(2026-09-02). FlightStream's ``CL``, ``CDi + CDo`` and ``Cy`` are the
-STABILITY-axis coefficients; the body axes follow by turning them through
-the angle of attack, the wind axes by turning the stability axes through
-the sideslip; the rolling and yawing moments are the solver's ``CMx`` and
-``CMz`` scaled from the chord to the span and, by her sign convention,
-negated. Values are written at five decimals, her precision, so a table
-regenerated from the same exports is equal text. The parity arm of
-GOAL-011 regenerates her recorded polars and sections through
-:func:`write_recorded_polar` and compares them with her own tables,
-converted to this shape outside the package.
+never imported. FlightStream's ``CL``, ``CDi + CDo`` and ``Cy`` are the
+STABILITY-axis force coefficients and the body-axis forces follow by
+turning them through the angle of attack; the solver's ``CMx`` and ``CMz``
+are the BODY-axis rolling and yawing moments, scaled from the chord to the
+span and, by her sign convention, negated, and the stability-axis moments
+follow by turning them through the angle of attack. Her polars carried
+``BETA 0.0`` on every row, so the wind axes coincide with the stability
+axes in every table this writer has been checked against; a point with a
+non-zero sideslip is REFUSED naming the point, because the wind-axis turn
+through sideslip has been checked against nothing. Values are written at
+five decimals, her precision, so a table regenerated from the same exports
+is equal text. The evidence is the products arm of GOAL-011,
+``python GeoversePlan/goals/check_goal_011.py --products``, which
+regenerates her 27 recorded polars and 5 section tables through
+:func:`write_recorded_polar` and compares them with her own tables
+converted to this shape outside the package: 32 of 32 equal on 2026-09-03.
 """
 
 from __future__ import annotations
@@ -60,6 +64,9 @@ __all__ = [
     "POLAR_COLUMNS",
     "SECTION_COLUMNS",
     "GroupCoefficients",
+    "PRODUCTS_MANIFEST",
+    "PRODUCTS_MANIFEST",
+    "PRODUCTS_MANIFEST",
     "PolarPoint",
     "ProductError",
     "ReferenceValues",
@@ -107,7 +114,7 @@ COEFFICIENT_COLUMNS: tuple[str, ...] = (
 
 #: The reference block every product row carries in front of its values,
 #: so a row is self-describing: which polar, which group, which reference.
-REFERENCE_COLUMNS: tuple[str, ...] = ("SREF", "CREF", "BREF", "XMOM", "YMOM", "ZMOM")
+_REFERENCE_COLUMNS: tuple[str, ...] = ("SREF", "CREF", "BREF", "XMOM", "YMOM", "ZMOM")
 
 #: A polar table's columns: the polar, its description, the group, the
 #: reference block, the twenty-four coefficients.
@@ -115,7 +122,7 @@ POLAR_COLUMNS: tuple[str, ...] = (
     "POLAR",
     "DESCRIPTION",
     "GROUP",
-    *REFERENCE_COLUMNS,
+    *_REFERENCE_COLUMNS,
     *COEFFICIENT_COLUMNS,
 )
 
@@ -140,10 +147,10 @@ SECTION_COLUMNS: tuple[str, ...] = (
 
 #: The plot-column prefixes that are coefficients, which the solver
 #: normalises by its reference velocity and the product by the free stream.
-COEFFICIENT_PLOT_PREFIXES = ("CL_", "CDI_", "CDO_", "CD_")
+_COEFFICIENT_PLOT_PREFIXES = ("CL_", "CDI_", "CDO_", "CD_")
 
 #: Decimals written for every coefficient and section value, her precision.
-DECIMALS = 5
+_DECIMALS = 5
 
 
 class ProductError(PyflightstreamError, ValueError):
@@ -179,17 +186,19 @@ class ReferenceValues:
             ) from missing
 
     def as_row(self) -> tuple[float, ...]:
-        """Return the six values in :data:`REFERENCE_COLUMNS` order."""
+        """Return the six values in :data:`_REFERENCE_COLUMNS` order."""
         return (self.sref_m2, self.cref_m, self.bref_m, self.xmom_m, self.ymom_m, self.zmom_m)
 
 
 @dataclass(frozen=True)
 class GroupCoefficients:
-    """The stability-axis coefficients of one group, summed over its families.
+    """The coefficients of one group, summed over its families, as the solver reports them.
 
-    ``roll`` and ``yaw`` are already scaled from the chord to the span and
-    carry her sign, so they are the body-axis rolling and yawing moments
-    the polar row writes.
+    ``lift``, ``drag`` and ``side`` are the STABILITY-axis forces; ``roll``,
+    ``pitch`` and ``yaw`` are the BODY-axis moments, ``roll`` and ``yaw``
+    already scaled from the chord to the span and carrying her sign. That
+    is the mixed convention the solver's loads table reports in, and
+    :func:`polar_row` turns each half into the other axes from there.
     """
 
     drag: float
@@ -266,9 +275,10 @@ def polar_row(
 ) -> tuple[float, ...]:
     """Return the twenty-four coefficient values of one polar row.
 
-    The sideslip her polars wrote is zero on every row, whatever the run
-    stated: her tables carried ``BETA 0.0`` and the wind axes coincide with
-    the stability axes, and this writer keeps that so the numbers are hers.
+    Her polars carried ``BETA 0.0`` on every row, so the wind axes coincide
+    with the stability axes in every table this row has been checked
+    against; :func:`_polar_rows` refuses a point stating a sideslip, and the
+    wind-axis turn below is written for the day one is checked.
     """
     beta_deg = 0.0
     a = math.radians(alpha_deg)
@@ -297,20 +307,20 @@ def polar_row(
     )  # fmt: skip
 
 
-def mach_code(mach: float) -> int:
+def _mach_code(mach: float) -> int:
     """Return the two-digit Mach code of her file names: ``round(mach * 100)``."""
     return round(mach * 100)
 
 
 def polar_file_name(polar: str | int, mach: float, group: str | int) -> str:
     """``<polar>_M<mach code:02d>_g<group:02d>.csv``: one polar table per group."""
-    return f"{polar}_M{mach_code(mach):02d}_g{int(group):02d}.csv"
+    return f"{polar}_M{_mach_code(mach):02d}_g{int(group):02d}.csv"
 
 
 def _cell(value: object) -> str:
     """One CSV cell: floats at five decimals, everything else as written."""
     if isinstance(value, float | np.floating):
-        return f"{float(value):.{DECIMALS}f}"
+        return f"{float(value):.{_DECIMALS}f}"
     return str(value)
 
 
@@ -452,7 +462,7 @@ def write_plots_table(path: str | Path, export_text: str) -> Path | None:
     scale = (vref / vinf) ** 2 if vinf else 1.0
     scaled = values.copy()
     for index, name in enumerate(report.columns):
-        if name.startswith(COEFFICIENT_PLOT_PREFIXES):
+        if name.startswith(_COEFFICIENT_PLOT_PREFIXES):
             scaled[:, index] *= scale
     return write_csv_table(
         path, tuple(report.columns), [tuple(float(v) for v in row) for row in scaled]
@@ -477,7 +487,7 @@ def _polar_points(polar_dir: Path, *, loads_suffix: str = ".txt") -> list[PolarP
     return sorted(points, key=lambda point: point.alpha_deg)
 
 
-def polar_rows(
+def _polar_rows(
     points: Sequence[PolarPoint],
     families: Sequence[str],
     *,
@@ -490,6 +500,27 @@ def polar_rows(
         reynolds = point.loads.reynolds
         if reynolds is None:
             raise ProductError(f"{point.loads_path} states no Reynolds number")
+        if point.beta_deg != 0.0:
+            raise ProductError(
+                f"{point.loads_path} states a sideslip of {point.beta_deg} deg, and the polar "
+                "table's wind-axis columns have been checked against her recorded tables at "
+                "zero sideslip only; a polar under sideslip is not written by this release. "
+                "Leave the point out of the products, or state the sweep without sideslip."
+            )
+        if point.beta_deg != 0.0:
+            raise ProductError(
+                f"{point.loads_path} states a sideslip of {point.beta_deg} deg, and the polar "
+                "table's wind-axis columns have been checked against her recorded tables at "
+                "zero sideslip only; a polar under sideslip is not written by this release. "
+                "Leave the point out of the products, or state the sweep without sideslip."
+            )
+        if point.beta_deg != 0.0:
+            raise ProductError(
+                f"{point.loads_path} states a sideslip of {point.beta_deg} deg, and the polar "
+                "table's wind-axis columns have been checked against her recorded tables at "
+                "zero sideslip only; a polar under sideslip is not written by this release. "
+                "Leave the point out of the products, or state the sweep without sideslip."
+            )
         coefficients = group_coefficients(point.loads, list(families), bref_m=reference.bref_m)
         rows.append(
             polar_row(
@@ -543,7 +574,7 @@ def write_recorded_polar(
                 description=description,
                 group=group,
                 reference=ref,
-                rows=polar_rows(points, list(families), mach=mach, reference=ref),
+                rows=_polar_rows(points, list(families), mach=mach, reference=ref),
             )
         )
     for point in points:
@@ -587,21 +618,21 @@ def _sim_products(
     from pyflightstream.cases import classify_outputs
 
     first = records[0]
-    pproc_id = getattr(first, "pproc", None)
+    pproc_id = first.pproc
     if pproc_id is None:
         return [], {}
     pproc = workspace.resolve_pproc(pproc_id)
     products = pproc.products
-    reference_block = getattr(first, "reference", None)
-    description = getattr(first, "description", None) or ""
-    mach = getattr(first, "mach", None)
+    reference_block = first.reference
+    description = first.description or ""
+    mach = first.mach
     written: list[Path] = []
     sources: dict[str, list[str]] = {}
     points: list[PolarPoint] = []
     exports: dict[str, tuple[Path | None, Path | None]] = {}
     sim_dir = workspace.sim_dir(sim_id)
     for record in records:
-        if not getattr(record, "outputs", None):
+        if not record.outputs:
             continue
         kinds = classify_outputs([Path(o).name for o in record.outputs])
         by_name = {Path(o).name: sim_dir / o for o in record.outputs}
@@ -618,7 +649,7 @@ def _sim_products(
         sloads_path = by_name.get(kinds["sectional_loads"]) if "sectional_loads" in kinds else None
         plots_path = by_name.get(kinds["plots"]) if "plots" in kinds else None
         exports[stem] = (sloads_path, plots_path)
-        sources.setdefault(stem, []).append(getattr(record, "run_id", ""))
+        sources.setdefault(stem, []).append(record.run_id)
     if not points:
         return [], {}
     points.sort(key=lambda point: point.alpha_deg)
@@ -639,8 +670,8 @@ def _sim_products(
     def _target(path: Path) -> Path:
         if path.exists() and not overwrite:
             raise ProductError(
-                f"the product {path} exists; pass overwrite=True (`pyfs-matrix post "
-                "--overwrite`) to rewrite it from the manifest"
+                f"the product {path} exists; pass overwrite (CLI: --overwrite) to rewrite "
+                "it from the manifest"
             )
         return path
 
@@ -653,7 +684,9 @@ def _sim_products(
                 description=description,
                 group=str(group),
                 reference=reference,
-                rows=polar_rows(points, [str(f) for f in families], mach=mach, reference=reference),
+                rows=_polar_rows(
+                    points, [str(f) for f in families], mach=mach, reference=reference
+                ),
             )
             written.append(target)
             written_names[target.relative_to(out).as_posix()] = run_ids
@@ -711,7 +744,7 @@ def write_campaign_products(workspace: CampaignWorkspace, *, overwrite: bool = F
         for name, run_ids in names.items():
             products_index[name] = {
                 "sim_id": sim_id,
-                "pproc": getattr(sim_records[0], "pproc", None),
+                "pproc": sim_records[0].pproc,
                 "runs": run_ids,
             }
     if written:

@@ -282,7 +282,9 @@ BrokenCommandRecord.__pydantic_config__ = ConfigDict(extra="allow")  # type: ign
 #: it wrote. The post layer sits ABOVE the run layer, since engineering
 #: data derives from runs, so the run cannot import it; the post layer
 #: registers its stage here at import time and the run calls whatever is
-#: registered, which is the shared name placed below both.
+#: registered. This module shares the run layer's row of the layer table,
+#: so the run may import the name; what the registry buys is that no
+#: import points upward.
 _POST_STAGES: list[Callable[..., list[Path]]] = []
 
 
@@ -534,7 +536,7 @@ class RunRecord(BaseModel):
     #: when the workspace directory named it, ``option`` when ``--name``
     #: or the ``name`` argument did; None on a record written before.
     campaign_name_from: str | None = None
-    #: Where the boundary inventory came from, ``sidecar`` or ``mesh block``
+    #: Where the boundary inventory came from, ``sidecar`` or ``mesh_block``
     #: (PFS-2029.06.03); None when the geometry declares none.
     inventory_source: str | None = None
     #: How the inputs were staged (PFS-2029.17): ``link``, a directory
@@ -1419,8 +1421,8 @@ class CampaignWorkspace:
             if name in seen and str(source) != seen[name]:
                 raise WorkspaceError(
                     f"two declared inputs share the base name {name!r} "
-                    f"({seen[name]} and {source}). Staging copies each into "
-                    "inputs/ under its base name, so the second would overwrite "
+                    f"({seen[name]} and {source}). Staging places each under "
+                    "inputs/ by its base name, so the second would stand for "
                     "the first and the manifest would record one hash for two "
                     "inputs. Rename one, or stage them from directories the "
                     "recipe references separately."
@@ -1490,7 +1492,7 @@ class CampaignWorkspace:
         if _is_link(inputs):
             return "link", None
         if inputs.is_dir() and any(inputs.iterdir()):
-            return "copy", None
+            return "copy", "the copies were staged by an earlier session, which kept the reason"
         return None, None
 
     def write_script(self, sim_id: str, name: str, text: str) -> tuple[Path, str]:

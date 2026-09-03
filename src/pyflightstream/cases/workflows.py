@@ -3355,14 +3355,18 @@ def _rotor_motions(
     """Finish a rotor script whose row states N motions (PFS-2029.11.03).
 
     N records, N motions, each with its own fixed frame at its hub
-    (``PROP_MRP<k>``) and its own moving frame (``RotorAxis<k>``) that the
-    solver turns with it; the row's ``PROP_MRP``, already created from the
-    reference, stays the frame the pproc entries cite. The time step
-    follows the FASTEST rotor, because ``DELTA_THETA`` bounds every
-    blade's travel per step and the slower rotor travels less. No
-    blade-axis frames here: they belong to the one rotor the flat form
-    states, and a pproc entry citing ``BLADE_AXIS`` on a multi-rotor row
-    is refused by the frame resolver as a frame the run did not create.
+    (``PROP_MRP<k>``) and its own moving frame (``RotorAxis<k>``) attached
+    to it by ``SET_MOTION_MOVING_FRAMES`` (documented on every build,
+    SRC-003 p.333, and verified on none); the row's ``PROP_MRP``, already
+    created from the reference, stays the frame the pproc entries cite.
+    The time step follows the FASTEST rotor, because ``DELTA_THETA`` bounds
+    every blade's travel per step and the slower rotor travels less; a
+    wake termination or a run length stated in REVOLUTIONS is therefore
+    counted in revolutions of the fastest rotor, and the slower one turns
+    fewer, which is package arithmetic and hers to confirm. No blade-axis
+    frames here: they belong to the one rotor the flat form states, and a
+    pproc entry citing ``BLADE_AXIS`` on a multi-rotor row is refused by
+    the frame resolver as a frame the run did not create.
     """
     views = [_motion_view(case, record) for record in case.motions]
     moving: list[int] = []

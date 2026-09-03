@@ -131,7 +131,7 @@ FlightStream versions.
   the file's own block is refused before the solver starts, naming both
   lists, in the pre-flight of `plan` and `run` alike; an agreeing sidecar
   is recorded in the run record as `inventory_source: sidecar`, a file whose
-  block is the only source as `mesh block`, and a sidecar beside a file
+  block is the only source as `mesh_block`, and a sidecar beside a file
   without a block declares the names the file cannot (.06.03). The two
   reference setups that carried the key no longer do.
 - PFS-2029.11: one row states more than one rotor. The `VAR_NAMES_VALUES`

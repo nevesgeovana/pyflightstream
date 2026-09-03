@@ -2969,7 +2969,7 @@ def test_an_agreeing_sidecar_is_recorded_as_the_inventory_source(tmp_path):
     # Without a sidecar the file's own block is the source, and a placeholder has none.
     _saved_simulation_with(workspace.inputs_dir / "geometries" / "plain.fsm", ["W"])
     stage_geometry(workspace, "placeholder.fsm")
-    for name, source in (("plain.fsm", "mesh block"), ("placeholder.fsm", None)):
+    for name, source in (("plain.fsm", "mesh_block"), ("placeholder.fsm", None)):
         resolved = resolve_matrix(
             geometry_matrix(tmp_path, f" / VELOCITY: 30.0 / GEOMETRY: {name}"),
             workspace,

@@ -232,7 +232,7 @@ is a value you write and nothing reads at run time. Only one of the two
 can stop a campaign.
 
 The `matrix_` prefix is the CONVERTER's rather than yours:
-`matrix_ref`, `matrix_set`, `matrix_entry`, `matrix_fs_script`,
+`matrix_ref`, `matrix_set`, `matrix_pproc`, `matrix_fs_script`,
 `matrix_fs_build`, `matrix_hidden` and `matrix_workflow` are written
 over whatever your cell said, after your cell is read. A key of yours
 spelling one of those is not read by the package; it is replaced.
@@ -352,31 +352,30 @@ knowing.
 1. **It names a setting this package emits**, directly or by alias, and
    it reaches the script.
 2. **It is declared recorded-only.** It stays in the artifact, emits
-   nothing, and a warning names it AND the reason. The ten this
-   package declares today are `solver`, `motion`,
-   `symmetry_type`, `symmetry_loads`, `unsteady_delta_theta_deg`,
-   `unsteady_N_revolutions`, `set_base_region_trailing_edges`,
-   `significant_digits`, `slipstream_wake_stabilization` and
+   nothing, and a warning names it AND the reason. The eight this
+   package declares today are `solver`, `motion`, `symmetry_type`,
+   `unsteady_delta_theta_deg`, `unsteady_N_revolutions`,
+   `set_base_region_trailing_edges`, `slipstream_wake_stabilization` and
    `wake_layers`. `symmetry_type` belongs to the geometry a row opens
    and is stated in the row's `SYMMETRY`; `solver` and `motion` are what
    the `WORKFLOW` column decides; `unsteady_delta_theta_deg` and
    `unsteady_N_revolutions` are superseded by the row's `DELTA_THETA`
    and `REVOLUTIONS`; `set_base_region_trailing_edges` is a
    separation model that selects boundaries, and a preset carries no
-   selection, so it is a recipe's job; and the last three have no
-   emitter in this package at all.
+   selection, so it is a recipe's job; and the last two have no
+   emitter in this package at all. Two keys LEFT this list at v0.11.0:
+   `symmetry_loads`, on the author's decision of 2026-09-02 with the
+   measurement in hand (a stated key reaches
+   `SET_ANALYSIS_SYMMETRY_LOADS`; an absent one still emits nothing), and
+   `significant_digits`, which gained its emitter; `mesh_order_list` is
+   refused outright, since the boundary order belongs to the file
+   (`pyfs-matrix inventory`).
 
     That list is maintained by hand and this page is not generated, so
     **read the warning your own preset prints** rather than this
     paragraph: it names every key of YOUR file that was recorded, each
     with its reason. What the paragraph is for is that the set is
     closed and short enough to see at once.
-
-    `symmetry_loads` is recorded-only although it HAS an emitter, and
-    that is a decision rather than a gap: applying it multiplies or
-    divides every published coefficient of a periodic or mirrored case
-    by the copy count. That is a change to make with a measurement in
-    hand, not a key to honour silently.
 
     A preset may declare its own with `recorded_only = ["my_setting"]`,
     for a setting from a build or a workflow this package has not met. A
@@ -470,56 +469,17 @@ nothing.
 frame, in m, and it defaults to the origin if you leave the table out,
 which is a default and not a measurement.
 
-THE SENSE OF ROTATION IS RECORDED TWICE ON PURPOSE, in the two
-vocabularies vendors publish it in, and the second one arrived at 0.8.0
-because the first campaign this library was checked against recorded it
-the other way.
-
-`rotation` is `clockwise` or `counterclockwise` viewed from behind the
-aircraft looking forward. Both it and `blade_travel` fold case, hyphens
-and whitespace, so a datasheet's `Counter-Clockwise` and `Inboard Up`
-are read as written. `blade_travel` is `inboard_up` or `inboard_down`
-and names where the blade nearest the fuselage travels,
-in the aircraft body frame with the aircraft upright; it describes the
-blade at its inboard azimuth and not the disc as a whole. That is the
-form the datasheet of the one campaign this library has been checked
-against printed, and it is common enough that the field exists; how
-common is not something this repository has measured. A centreline propeller has no
-inboard blade and leaves the field out.
-
-They are separate fields rather than four values of one field because
-they are not interchangeable: `blade_travel` is side-independent, so the
-left and the right propeller of a symmetric pair carry the same word,
-and turning it into a viewed-from-behind sense means knowing which side
-this propeller is on.
-
-Only `rotation` is required, and an artifact carrying `blade_travel`
-alone is refused with that reason rather than with a bare missing-field
-error. WORKING OUT THE ONE FROM THE OTHER IS MECHANICAL ONCE YOU KNOW
-THE SIDE, and the library cannot do it for you because no field records
-the side. Stand behind the aircraft looking forward: a right-side
-propeller has its inboard blade toward the centreline, at the 9 o'clock
-position of its own disc, and a blade there travelling up is moving
-9 to 12, which is clockwise. So `inboard_up` on a right-side propeller
-is `clockwise`, `inboard_down` there is `counterclockwise`, and a
-left-side propeller is the mirror of both. Follow the derivation rather
-than the conclusion: it is two sentences, and getting it backwards is
-the failure this whole section exists to prevent.
-
-`rpm_sign_installed` and `rpm_sign_isolated` are each `1` or `-1` and
-record a MEASURED sign of the rotor speed, one for the installed meshes
-of the configuration and one for the isolated ones, which may be the
-opposite hand and then take the opposite sign for the same published
-sense of rotation. Both are optional, and leaving one out means your
-campaign has not established it, never that it is `+1`. A configuration
-with no isolated meshes at all leaves the same silence: not measured and
-not applicable are deliberately not distinguished.
-
-Both are also closed to coercion, not only to value: `true` and `1.0`
-are refused rather than read as `1`, because a sign that was never
-measured must not arrive by conversion. And the domain is checked on
-assignment as well as on load, so `propeller.rpm_sign_installed = 0`
-after reading the artifact is refused too.
+THE SENSE OF ROTATION AND THE SIGNS OF THE ROTOR SPEED ARE NOT HERE since
+v0.11.0 (PFS-2029.08). Until 0.10.1 the block carried `rotation`,
+`blade_travel`, `rpm_sign_installed` and `rpm_sign_isolated`; no emitter
+read them, and the two signs named a configuration, installed against
+isolated, which is a property of the mesh a ROW opens and not of
+reference data several rows share. A row states the sign now, in
+`RPM_SIGN` beside `ADVANCE_RATIO` or inside the `RPM` value, and an
+artifact still carrying any of the four is refused naming the row keys;
+`pyfs-matrix upgrade --inputs` strips them. The measured argument behind
+the signs, and the derivation from a published sense to a sign, are on
+[the mesh inputs page](mesh-inputs.md).
 
 Two warnings, and neither is a detail.
 
@@ -562,32 +522,21 @@ def recipe(case, script):
     # it came from, so this reads the artifact that row named.
     reference = resolved.references[case.variables["matrix_ref"]]
     propeller = reference.propeller
-    if propeller is None or propeller.rpm_sign_installed is None:
+    if propeller is None:
         raise ValueError(
-            f"{case.sim_id}: this recipe emits a rotor speed and the reference "
-            "artifact records no measured sign for the installed meshes. Absence "
-            "means the campaign has not established it, so there is nothing to "
-            "assume here"
+            f"{case.sim_id}: this recipe places a probe line per blade and the "
+            "reference artifact describes no propeller"
         )
-    rpm = propeller.rpm_sign_installed * 2400.0   # your recipe knows which mesh it staged
+    blades = propeller.n_blades   # the RESOLVED count, one under a periodic sector
 ```
 
-The two guards on the way to `rpm` are the point rather than ceremony.
+The guard on the way to `blades` is the point rather than ceremony:
 `propeller` is `None` for any reference artifact that describes no
-propeller, and a sign left out means your campaign has not established
-it, which is not the same as `+1`.
-
-Which of the two signs applies is your recipe's knowledge and not the
-artifact's: nothing in the library records which geometries are the
-installed meshes and which the isolated ones.
-
-And a sense of rotation does not determine that sign. Getting from a
-published sense to the number a motion command takes needs the rotor
-axis, the side of the aircraft and the handedness of the mesh you
-actually loaded. That is the reason these are recorded rather than
-derived: a campaign that established its signs by measurement reproduces
-the measurement on every later run instead of re-deriving it and
-possibly re-deriving it differently.
+propeller, and a recipe that assumes one writes a script the solver
+cannot run. The rotor speed and its sign are the ROW's (`RPM`,
+`ADVANCE_RATIO`, `RPM_SIGN`), read through `rotor_speed(case)` rather
+than from the artifact, so a recipe that emits a rotor motion reads the
+row exactly as the built-in `unsteady_rotor` workflow does.
 
 ### What the post-processing artifact holds
 
@@ -919,8 +868,8 @@ this page rather than lifted from the suite, and shows each row's
 `VAR_NAMES_VALUES` tail with the rest elided:
 
 ```text
-7001 ... | unsteady_rotor | GEOMETRY: blade_sector / VELOCITY: 30.0 / RPM: 1200 / ...
-7002 ... | steady         | GEOMETRY: blade_sector / VELOCITY: 30.0
+7001 ... | unsteady_rotor | GEOMETRY: blade_sector.fsm / VELOCITY: 30.0 / RPM: 1200 / ...
+7002 ... | steady         | GEOMETRY: blade_sector.fsm / VELOCITY: 30.0
 ```
 
 with `blade_sector.fsm` staged under `inputs/geometries/`. A periodic

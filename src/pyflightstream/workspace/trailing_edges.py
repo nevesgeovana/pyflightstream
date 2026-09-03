@@ -361,10 +361,10 @@ def extract_trailing_edge(
         frame. Normalised internally, so only the direction matters, but
         the SENSE matters: the rotor is taken to turn the right-handed
         way about it, and that is what decides which end of the chord is
-        aft. It is a third vocabulary for which way a rotor turns,
-        alongside ``PropellerReference.rotation`` and its ``blade_travel``
-        sibling, and nothing reconciles the three; if the extraction
-        returns a leading edge, this sign is the first thing to check.
+        aft. It is a second vocabulary for which way a rotor turns,
+        beside the sign a matrix row states in ``RPM_SIGN`` or ``RPM``,
+        and nothing reconciles the two; if the extraction returns a
+        leading edge, this sign is the first thing to check.
     hub : array_like
         REQUIRED, on the same terms as ``axis`` above. A point on the
         axis of rotation, three components in the mesh's reference frame

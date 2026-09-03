@@ -329,7 +329,9 @@ def test_an_illegal_directory_name_is_refused_naming_the_option(tmp_path, capsys
     argv = ["plan", str(WORKFLOW_FIXTURE), "--workspace", str(root)]
     with pytest.raises(SystemExit) as caught:
         main(argv)
-    assert "--name" in str(caught.value) and "my campaign" in str(caught.value)
+    assert caught.value.code == 2, "a refusal of this command line exits 2, like every other"
+    err = capsys.readouterr().err
+    assert "--name" in err and "my campaign" in err
     # `convert` has no workspace to name a campaign after and still needs the option.
     assert (
         main(

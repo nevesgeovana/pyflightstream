@@ -50,3 +50,13 @@ def test_a_file_without_a_mesh_block_is_refused_by_name(tmp_path, capsys):
     assert not (tmp_path / "raw_blade.boundaries.toml").exists()
     assert main(["inventory", str(tmp_path / "absent.fsm")]) == 2
     assert "absent.fsm" in capsys.readouterr().err
+
+
+def test_a_missing_geometry_is_named_before_a_stale_sidecar(tmp_path, capsys):
+    """The refusal names the cause that is the cause: a file that is not there."""
+    stale = tmp_path / "renamed.boundaries.toml"
+    stale.write_text('boundaries = ["W"]\n', encoding="utf-8")
+    assert main(["inventory", str(tmp_path / "renamed.fsm")]) == 2
+    err = capsys.readouterr().err
+    assert "renamed.fsm" in err and "not a file" in err
+    assert "--overwrite" not in err, "the stale sidecar was named as the cause"

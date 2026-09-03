@@ -310,3 +310,22 @@ def test_write_recorded_polar_writes_one_table_per_group_and_the_sections(tmp_pa
     assert [rows[0][c] for c in COEFFICIENT_COLUMNS] == HER_ROW
     _, empty = read_csv_table(tmp_path / "out" / "3207_M20_g05.csv")
     assert empty[0]["CLB"] == "0.00000", "a group of absent families sums to zero"
+
+
+def test_a_point_under_sideslip_is_refused_naming_it(tmp_path):
+    """The wind-axis turn through sideslip is checked against nothing, so it is refused."""
+    from pyflightstream.post.products import PolarPoint, ProductError
+    from pyflightstream.post.products import _polar_rows as polar_rows
+
+    text = LOADS.replace(
+        "Side-slip angle (Deg)                       .000",
+        "Side-slip angle (Deg)                      2.000",
+    )
+    assert text != LOADS, "the fixture's sideslip line moved"
+    path = tmp_path / "a+02.0.txt"
+    path.write_text(text, encoding="utf-8")
+    point = PolarPoint(name="a+02.0", loads=parse_loads(text), loads_path=path)
+    with pytest.raises(ProductError) as caught:
+        polar_rows([point], ["W"], mach=0.2, reference=REFERENCE)
+    message = str(caught.value)
+    assert "a+02.0.txt" in message and "2.0" in message and "sideslip" in message

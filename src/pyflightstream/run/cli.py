@@ -52,6 +52,7 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
+from typing import NoReturn
 
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.cases import CampaignConfigError
@@ -386,12 +387,18 @@ def _campaign_name(args: argparse.Namespace) -> tuple[str, str]:
         return args.name, "option"
     derived = Path(args.workspace).resolve().name
     if not is_portable_name(derived):
-        raise SystemExit(
+        _refuse(
             f"the workspace directory is named {derived!r}, which is not a legal campaign "
-            "name (a plain token: no separators, no whitespace, not empty), and no --name "
+            "name (a plain token: no separators, no whitespace, not empty), and no name "
             "was given; pass name (CLI: --name) to name the campaign yourself."
         )
     return derived, "directory"
+
+
+def _refuse(message: str) -> NoReturn:
+    """Refuse the way every other refusal of this command line does: stderr and exit 2."""
+    print(message, file=sys.stderr)
+    raise SystemExit(2)
 
 
 def _naming(args: argparse.Namespace) -> NamingTemplate:
@@ -399,7 +406,10 @@ def _naming(args: argparse.Namespace) -> NamingTemplate:
     try:
         return NamingTemplate(point_name=args.point_name)
     except NamingTemplateError as error:
-        raise SystemExit(f"--point-name: {error}") from error
+        _refuse(
+            f"point_name (CLI: --point-name): {error} The placeholders a template may "
+            f"use are listed under `pyfs-matrix run --help`; the default is {MATRIX_POINT_NAME!r}."
+        )
 
 
 def _cmd_post(args: argparse.Namespace) -> int:
@@ -437,9 +447,9 @@ def _cmd_upgrade(args: argparse.Namespace) -> int:
     """Bring a matrix at an older layout up to the current one."""
     if args.inputs is not None and not args.in_place:
         print(
-            "--inputs moves library files and rewrites the cells that name them, so it "
-            "needs --in-place; without it the matrix would go to standard output naming "
-            "files that no longer exist.",
+            "inputs (CLI: --inputs) moves library files and rewrites the cells that name "
+            "them, so it needs in_place (CLI: --in-place); without it the matrix would go "
+            "to standard output naming files that no longer exist.",
             file=sys.stderr,
         )
         return 2

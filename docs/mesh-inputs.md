@@ -145,7 +145,7 @@ once the solver has opened it. A row whose geometry has a sidecar is
 checked when the script opens the file: a sidecar that disagrees with the
 file's own block is refused before any seat is spent, naming both lists,
 and an agreeing one is recorded in the run record as the inventory source
-(`inventory_source: sidecar`; `mesh block` when the file alone declared the
+(`inventory_source: sidecar`; `mesh_block` when the file alone declared the
 names). The sidecar is what lets a name resolve for a file whose mesh
 block a reader cannot open, and it is otherwise a statement the run
 verifies rather than trusts.

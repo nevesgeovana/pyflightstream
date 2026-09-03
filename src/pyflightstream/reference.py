@@ -124,29 +124,31 @@ CONVENTIONS: tuple[tuple[str, str], ...] = (
         "migrated by migrate_input_ids.",
     ),
     (
-        "Rotor signs are recorded, not derived",
+        "Rotor signs are stated by the row, not derived",
         "Two different signs meet at a rotor and the package keeps them "
         "apart. The AZIMUTH INCREMENT, which way round the disc the "
         "blades are numbered, is DERIVED, by "
         "script.helpers.ROTATION_SENSE_SIGN, from the sense a caller "
         "passes to blade_frames, where counterclockwise about the rotor "
         "axis is taken as the positive sense. The ROTOR SPEED sign is "
-        "MEASURED and recorded per mesh family on a propeller reference "
-        "(rpm_sign_installed, rpm_sign_isolated), because getting it "
-        "from a published sense needs the rotor axis, the side of the "
-        "aircraft and the handedness of the mesh actually loaded. "
-        "Absence of a recorded sign means the campaign has not "
-        "established it, never +1. NOTHING IN THE PACKAGE READS ANY "
-        "FIELD OF THE PROPELLER BLOCK TODAY, the signs and the sense "
-        "alike: a recipe reads the artifact and passes what it needs, "
-        "so the two halves above meet in a caller and never inside the "
-        "library. Three things are open rather than settled here and "
-        "are recorded in RPT-036: where azimuth zero sits, which "
-        "viewed-from-behind sense a datasheet's inboard vocabulary "
-        "means, and whether a descriptor's counterclockwise, which is "
-        "stated as seen from behind, is the positive sense about the "
-        "rotor axis as passed. That last one is the report's own "
-        "weakest link and it is what the taken-as above stands on.",
+        "MEASURED and stated by the matrix row that opens the mesh "
+        "(RPM_SIGN beside ADVANCE_RATIO, or the sign inside RPM), since "
+        "0.11.0 (PFS-2029.08): until then a propeller reference carried "
+        "rpm_sign_installed and rpm_sign_isolated, which no emitter read "
+        "and which named a configuration the reference cannot know, the "
+        "mesh a ROW opens. Getting the sign from a published sense needs "
+        "the rotor axis, the side of the aircraft and the handedness of "
+        "the mesh actually loaded, so it is stated rather than derived. "
+        "Of the propeller block the package reads position (the PROP_MRP "
+        "frame of the unsteady run types) and the diameter behind the "
+        "advance ratio; the rest is recorded. Three things are open "
+        "rather than settled here and are recorded in RPT-036: where "
+        "azimuth zero sits, which viewed-from-behind sense a datasheet's "
+        "inboard vocabulary means, and whether a descriptor's "
+        "counterclockwise, which is stated as seen from behind, is the "
+        "positive sense about the rotor axis as passed. That last one is "
+        "the report's own weakest link and it is what the taken-as above "
+        "stands on.",
     ),
     (
         "Refusals teach",
