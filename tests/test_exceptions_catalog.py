@@ -172,6 +172,7 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
         # to two writers that had none.
         "OutputExistsError": FileExistsError,
         "ProbeGeometryError": ValueError,
+        "ProductError": ValueError,
         "QaEvidenceError": ValueError,
         "PhysicsEnvironmentError": RuntimeError,
         "ProbeEnvironmentError": RuntimeError,

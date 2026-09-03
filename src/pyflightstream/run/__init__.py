@@ -108,6 +108,7 @@ from pyflightstream.workspace import (
     RunStatus,
     WorkspaceError,
     collection_name,
+    post_stages,
 )
 
 __all__ = [
@@ -1729,6 +1730,30 @@ def _check_scheduled_builds(
 SWEEP_TABLE_NAME = "campaign_sweep.csv"
 
 
+def _leave_products(workspace: CampaignWorkspace) -> str | None:
+    """Write the campaign's products under ``post/products``, never raising.
+
+    PFS-2029.15.03, the sibling of :func:`_leave_sweep_table` and under the
+    same rule: the products are derived from the manifest and the collected
+    exports, so rewriting them after a resume adds the new points and can
+    destroy nothing, and a write error must not replace the campaign's own
+    outcome. ``pyfs-matrix post`` is the same writer run by hand, which is
+    where an existing product is refused without ``--overwrite``.
+    """
+    try:
+        for stage in post_stages():
+            stage(workspace, overwrite=True)
+    except Exception as error:
+        return (
+            f"the campaign ran and its products were NOT written under "
+            f"{Path(workspace.root) / 'post' / 'products'}: {type(error).__name__}: {error}. "
+            f"No run outcome is affected and nothing is lost: every point is recorded in "
+            f"{workspace.manifest_path}. Fix the cause and rebuild them with "
+            "`pyfs-matrix post --workspace <root> --overwrite`."
+        )
+    return None
+
+
 def _leave_sweep_table(workspace: CampaignWorkspace) -> str | None:
     """Write the campaign's sweep table under ``post/``, never raising.
 
@@ -2035,6 +2060,9 @@ def run_campaign(
     # no problem to report, and complaining would put a warning on every
     # resume that found its work already done.
     if recorded:
+        problem = _leave_products(workspace)
+        if problem is not None:
+            warnings.warn(problem, PyflightstreamWarning, stacklevel=2)
         problem = _leave_sweep_table(workspace)
         if problem is not None:
             # The one residual, stated rather than hidden: under
@@ -2088,6 +2116,19 @@ def _point_names(
         for name in case.outputs
     ]
     return stem, outputs
+
+
+def _reference_block(case: SimCase) -> dict[str, float] | None:
+    """Return the reference block a product row carries, from the case's reference data."""
+    reference = case.reference
+    if reference is None:
+        return None
+    moment = reference.moment_point_m or (0.0, 0.0, 0.0)
+    block = {"SREF": reference.area, "CREF": reference.length}
+    if reference.span_m is not None:
+        block["BREF"] = reference.span_m
+    block.update({"XMOM": moment[0], "YMOM": moment[1], "ZMOM": moment[2]})
+    return block
 
 
 def _advance_ratio_of(case: SimCase) -> float | None:
@@ -2699,6 +2740,9 @@ def _execute_point(
         # The template that rendered this point's names (PFS-2029.19.01),
         # so a reader can tell a name from the identity beside it.
         "point_name_template": workspace.naming.point_name,
+        "description": case.description or None,
+        "mach": case.mach,
+        "reference": _reference_block(case),
         # PFS-2027.05: the inputs as written and the resolved state, so
         # the record is recomputable rather than merely trusted.
         "flight_condition": dict(case.flight_condition),

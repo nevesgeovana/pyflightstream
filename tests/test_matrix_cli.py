@@ -230,3 +230,60 @@ def test_an_unknown_run_type_is_refused_naming_the_registered_ones(tmp_path, cap
     assert main(argv) == 2
     err = capsys.readouterr().err
     assert "hover" in err and "steady, unsteady, unsteady_rotor" in err
+
+
+# --- PFS-2029.15.03: `pyfs-matrix post` rebuilds the products with no solver -------
+
+
+def test_post_reruns_from_the_manifest_without_a_solver(tmp_path, capsys):
+    """The manifest and the collected exports are enough; an existing product needs --overwrite."""
+    import json
+
+    from test_post_products import LOADS
+
+    from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
+
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
+        '[groups]\n"1" = ["W", "B"]\n', encoding="utf-8"
+    )
+    raw = workspace.sim_dir("3207") / "raw"
+    raw.mkdir(parents=True)
+    (raw / "POLAR-3207_M20AL-020BE+000.txt").write_text(LOADS, encoding="utf-8")
+    workspace.append_record(
+        RunRecord(
+            run_id="camp/sim_3207/a-02.0",
+            sim_id="3207",
+            point={"alpha": -2.0},
+            fs_version_requested="26.120",
+            package_version="0.11.0.dev0",
+            script_sha256="",
+            raw_flag=False,
+            status=RunStatus.CONVERGED,
+            outputs=["raw/POLAR-3207_M20AL-020BE+000.txt"],
+            pproc="p001",
+            description="STEADY_WB",
+            mach=0.2,
+            reference={
+                "SREF": 50.0,
+                "CREF": 2.526,
+                "BREF": 20.0,
+                "XMOM": 9.152,
+                "YMOM": 0.0,
+                "ZMOM": 0.0,
+            },
+        )
+    )
+    # No executables.toml entry is consulted, and no build: the manifest is the input.
+    assert main(["post", "--workspace", str(workspace.root)]) == 0
+    out = capsys.readouterr().out
+    assert "1 product(s) written" in out
+    table = workspace.root / "post" / "products" / "3207_M20_g01.csv"
+    assert table.is_file()
+    assert ",0.02744,0.00000,0.18744," in table.read_text(encoding="utf-8")
+    manifest = json.loads((table.parent / "products.json").read_text(encoding="utf-8"))
+    assert manifest["products"]["3207_M20_g01.csv"]["runs"] == ["camp/sim_3207/a-02.0"]
+    # A second run refuses the existing product, and --overwrite rewrites it.
+    assert main(["post", "--workspace", str(workspace.root)]) == 2
+    assert "--overwrite" in capsys.readouterr().err
+    assert main(["post", "--workspace", str(workspace.root), "--overwrite"]) == 0

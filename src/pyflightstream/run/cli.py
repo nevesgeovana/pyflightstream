@@ -53,6 +53,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from pyflightstream._errors import PyflightstreamError
 from pyflightstream.cases import CampaignConfigError
 from pyflightstream.cases.matrix import MatrixError, convert_matrix, upgrade_matrix
 from pyflightstream.cases.workflows import (
@@ -285,6 +286,26 @@ def _build_parser() -> argparse.ArgumentParser:
         "--sweep-csv",
         help="write the campaign sweep table here (default: sweep.csv in the workspace root)",
     )
+
+    post = subparsers.add_parser(
+        "post",
+        help="rebuild the post-processed CSV products from the manifest, with no solver",
+        description=(
+            "Reads runs.json and the collected exports of every successful point and writes "
+            "the polar, section and plot tables under post/products, exactly as `run` left "
+            "them; needs no executable and spends no seat (PFS-2029.15.03)."
+        ),
+    )
+    post.add_argument(
+        "--workspace",
+        default=".",
+        help="managed campaign root carrying runs.json and the inputs/ library",
+    )
+    post.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="rewrite products that already exist; without it an existing product is refused",
+    )
     return parser
 
 
@@ -294,6 +315,8 @@ def main(argv: list[str] | None = None) -> int:
     # Before the recipe parsing below, deliberately: upgrading a file
     # needs no recipes, no version and no executable, and requiring them
     # would refuse the one user this subcommand exists for.
+    if args.subcommand == "post":
+        return _cmd_post(args)
     if args.subcommand == "upgrade":
         return _cmd_upgrade(args)
     try:
@@ -339,6 +362,24 @@ def _naming(args: argparse.Namespace) -> NamingTemplate:
         return NamingTemplate(point_name=args.point_name)
     except NamingTemplateError as error:
         raise SystemExit(f"--point-name: {error}") from error
+
+
+def _cmd_post(args: argparse.Namespace) -> int:
+    """Rebuild the products from the manifest alone."""
+    from pyflightstream.workspace import post_stages
+
+    workspace = CampaignWorkspace(args.workspace)
+    try:
+        written: list[Path] = []
+        for stage in post_stages():
+            written.extend(stage(workspace, overwrite=args.overwrite))
+    except (OSError, PyflightstreamError) as error:
+        print(str(error), file=sys.stderr)
+        return 2
+    for path in written:
+        print(path)
+    print(f"{len(written)} product(s) written under {workspace.root / 'post' / 'products'}")
+    return 0
 
 
 def _cmd_upgrade(args: argparse.Namespace) -> int:

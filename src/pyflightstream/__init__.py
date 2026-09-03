@@ -62,6 +62,10 @@ except metadata.PackageNotFoundError:
     # version.
     __version__ = "0.0.0+uninstalled"
 
+# The post layer registers the products stage a campaign leaves after
+# collection (PFS-2029.15.03); importing it here, above every layer, is
+# what puts the stage in the workspace registry the run layer reads.
+import pyflightstream.post  # noqa: E402, F401
 from pyflightstream.options import (  # noqa: E402
     describe_option,
     get_option,

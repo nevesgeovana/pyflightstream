@@ -47,7 +47,7 @@ import shutil
 import sys
 import tomllib
 import zipfile
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
 if sys.version_info >= (3, 12):
@@ -125,6 +125,8 @@ __all__ = [
     "migrate_groups_to_pproc",
     "migrate_input_ids",
     "resolve_build",
+    "post_stages",
+    "register_post_stage",
     "resolve_pproc",
     "write_trailing_edge_node_file",
 ]
@@ -270,6 +272,27 @@ class BrokenCommandRecord(TypedDict, total=False):
 # Set after the class body because mypy refuses any statement inside a
 # TypedDict definition that is not a field declaration.
 BrokenCommandRecord.__pydantic_config__ = ConfigDict(extra="allow")  # type: ignore[attr-defined]
+
+
+#: THE POST STAGES A RUN LEAVES BEHIND IT (PFS-2029.15.03). A stage is a
+#: callable taking the workspace and ``overwrite`` and returning the paths
+#: it wrote. The post layer sits ABOVE the run layer, since engineering
+#: data derives from runs, so the run cannot import it; the post layer
+#: registers its stage here at import time and the run calls whatever is
+#: registered, which is the shared name placed below both.
+_POST_STAGES: list[Callable[..., list[Path]]] = []
+
+
+def register_post_stage(stage: Callable[..., list[Path]]) -> Callable[..., list[Path]]:
+    """Register a post stage the campaign loop runs after collection; returns it."""
+    if stage not in _POST_STAGES:
+        _POST_STAGES.append(stage)
+    return stage
+
+
+def post_stages() -> tuple[Callable[..., list[Path]], ...]:
+    """Return the registered post stages, in registration order."""
+    return tuple(_POST_STAGES)
 
 
 class RunRecord(BaseModel):
@@ -498,6 +521,12 @@ class RunRecord(BaseModel):
     #: The naming template that rendered the point's stem and output names
     #: (PFS-2029.19.01); None on a record written before 0.11.0.
     point_name_template: str | None = None
+    #: What the post stage needs to rebuild the products from the manifest
+    #: alone (PFS-2029.15.03): the row's description, its Mach number and
+    #: the reference block (SREF, CREF, BREF, XMOM, YMOM, ZMOM).
+    description: str | None = None
+    mach: float | None = None
+    reference: dict[str, float] | None = None
     recipe_sha256: str | None = None
     script_path: str | None = None
     script_sha256: str

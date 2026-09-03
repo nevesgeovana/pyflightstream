@@ -631,10 +631,10 @@ scale = "propeller_radius"     # or "m"
 start = [-2.0, -1.0, 0.0]
 end = [-2.0, 1.0, 0.0]
 
-[products]                     # the post-processed files the campaign writes
-pltet = true
-secloads = true
-plots = true
+[products]                     # the post-processed CSV tables the campaign writes
+polars = true                  # one polar table per group, per point
+sections = true                # one table per point from its sectional loads export
+plots = true                   # one table per unsteady point from its plots export
 ```
 
 Three things carry the artifact across configurations. A `families` entry
@@ -681,6 +681,41 @@ template that named each point (`point_name_template`), so a name is
 never mistaken for the identity beside it: identity is the `run_id`, which
 no template touches. A campaign built in Python keeps the library default,
 `{point}`, so nothing written before v0.11.0 is renamed under it.
+
+### What the products are
+
+The `[products]` table names three kinds of CSV table, every one a header
+line and one row per record, so a spreadsheet or a dataframe opens it with
+nothing else. A POLAR table per group of `[groups]`,
+`<polar>_M<mach code>_g<group>.csv`: one row per point of the polar with the
+reference block (`SREF`, `CREF`, `BREF`, the moment point) and twenty-four
+coefficients, `ALPHA`, `BETA`, `MACH`, `RE` (Reynolds in millions), the body
+axes (`CDB`, `CYB`, `CLB`, `CRB25`, `CMB25`, `CNB25`), the stability axes
+(`CDS` to `CNS25`), the wind axes (`CDW` to `CNW25`), and `CD0` and `CDI`,
+every value at five decimals. A SECTIONS table per point,
+`sections/<point>_sections.csv`, the point's condition and the seven columns
+of its sectional loads export, in the export's units; a run that defined no
+distribution leaves an export declaring zero sections and gets no table. A
+PLOTS table per unsteady point, `plots/<point>_plots.csv`, the plots export
+re-tabled with its coefficient columns brought from the solver's reference
+velocity to the free stream. The arithmetic behind the polar table is the
+author's own and was checked column by column against the tables she
+recorded: FlightStream's `CL`, `CDi + CDo` and `Cy` are the stability-axis
+coefficients, the body axes follow by turning them through the angle of
+attack, the wind axes by turning the stability axes through the sideslip,
+and the rolling and yawing moments are `CMx` and `CMz` scaled from the chord
+to the span, with her sign.
+
+The run writes these after collection, under `post/products`, and
+`post/products/products.json` names every file with the run ids it derives
+from and the pproc artifact; a campaign resumed with new points rewrites
+them, since they derive from the manifest. To rebuild them by hand, with no
+solver and no executable configured:
+
+```text
+pyfs-matrix post --workspace .            # refuses a product that exists
+pyfs-matrix post --workspace . --overwrite
+```
 
 A workspace written before v0.11.0 moves in one command:
 

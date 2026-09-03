@@ -2625,7 +2625,7 @@ def test_the_pproc_artifact_validates_its_six_tables(tmp_path):
     assert pproc.sections.count == 40 and pproc.sections.distributions[0].families == ["W"]
     assert pproc.plots.parameters == ["CL", "FX"] and pproc.plots.groups[0].name == "MRP_TOTAL"
     assert pproc.probes.points == 3 and pproc.probes.lines[0].end == (0.0, 1.0, 0.0)
-    assert pproc.products.plots is False and pproc.products.pltet is True
+    assert pproc.products.plots is False and pproc.products.polars is True
     # An export kind outside the eight is refused naming the eight, and the
     # loads table cannot be deselected.
     (workspace.inputs_dir / "pproc" / "p011.toml").write_text(

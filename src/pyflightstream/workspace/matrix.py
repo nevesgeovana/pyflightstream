@@ -1072,6 +1072,7 @@ def resolve_matrix(
                 area=reference.area_m2,
                 length=reference.chord_m,
                 propeller_diameter=reference.propeller_diameter_m,
+                span_m=reference.span_m,
                 # The moment point rides too, so a builder can put the
                 # analysis loads frame on it (PFS-2030.03.02).
                 moment_point_m=(

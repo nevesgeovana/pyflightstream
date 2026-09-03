@@ -3235,3 +3235,78 @@ def test_a_missing_declared_export_fails_the_point_naming_it(tmp_path):
     record = workspace.read_manifest()[0]
     assert record.status is RunStatus.FAILED_INCOMPLETE_OUTPUT
     assert "loads_a+00.0.dat" in (record.error or "")
+
+
+# --- PFS-2029.15.03: the run leaves its products, and names them ------------------
+
+
+def test_the_campaign_writes_its_products_and_names_them(tmp_path):
+    """After collection each group's polar table is under post/products, named in products.json."""
+    import json
+
+    from test_post_products import LOADS
+
+    from pyflightstream.cases import PprocSpec, ReferenceData
+
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
+        '[groups]\n"1" = ["W", "B"]\n"3" = ["W"]\n', encoding="utf-8"
+    )
+    campaign = make_campaign(tmp_path, alphas=(-2.0,), outputs=("{name}.txt",))
+    case = campaign.sims[0].model_copy(
+        update={
+            "mach": 0.2,
+            "description": "STEADY_WB",
+            "pproc": PprocSpec.model_validate({"groups": {"1": ["W", "B"], "3": ["W"]}}),
+            "pproc_id": "p001",
+            "reference": ReferenceData(
+                area=50.0, length=2.526, span_m=20.0, moment_point_m=(9.152, 0.0, 0.0)
+            ),
+        }
+    )
+    campaign = campaign.model_copy(update={"sims": [case]})
+
+    class WritesHerLoads(LocalExecutor):
+        def __init__(self):
+            super().__init__(fs_exe=sys.executable, hidden=True)
+
+        def _argv(self, script_path):
+            source = str(tmp_path / "loads.txt")
+            code = (
+                "import pathlib, sys; "
+                "lines = pathlib.Path(sys.argv[1]).read_text().splitlines(); "
+                f"text = pathlib.Path({source!r}).read_text(); "
+                "[pathlib.Path(lines[i + 1]).write_text(text) "
+                "for i, line in enumerate(lines) if line == 'EXPORT_SOLVER_ANALYSIS_SPREADSHEET']"
+            )
+            return [sys.executable, "-c", code, str(script_path)]
+
+    (tmp_path / "loads.txt").write_text(LOADS, encoding="utf-8")
+    run_campaign(
+        campaign, WritesHerLoads(), workspace, assess=converged, recipes={"steady": steady_recipe}
+    )
+    products = workspace.root / "post" / "products"
+    assert sorted(p.name for p in products.iterdir()) == [
+        "9001_M20_g01.csv",
+        "9001_M20_g03.csv",
+        "products.json",
+    ]
+    manifest = json.loads((products / "products.json").read_text(encoding="utf-8"))
+    assert manifest["products"]["9001_M20_g01.csv"]["runs"] == ["camp/sim_9001/a-02.0"]
+    assert manifest["products"]["9001_M20_g01.csv"]["pproc"] == "p001"
+    text = (products / "9001_M20_g01.csv").read_text(encoding="utf-8").splitlines()
+    assert text[0].startswith("POLAR,DESCRIPTION,GROUP,SREF,CREF,BREF,XMOM")
+    assert text[1].startswith(
+        "9001,STEADY_WB,1,50.00000,2.52600,20.00000,9.15200,0.00000,0.00000,-2.00000,"
+    )
+    assert ",0.02744,0.00000,0.18744," in text[1], "the body axes of her recorded row"
+    record = workspace.read_manifest()[0]
+    assert record.reference == {
+        "SREF": 50.0,
+        "CREF": 2.526,
+        "BREF": 20.0,
+        "XMOM": 9.152,
+        "YMOM": 0.0,
+        "ZMOM": 0.0,
+    }
+    assert record.description == "STEADY_WB" and record.mach == 0.2

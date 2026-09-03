@@ -12,6 +12,9 @@ rather than left to be discovered:
 * :mod:`pyflightstream.post.unsteady` reads a per-timestep field export
   back as an ordered series and averages it over a blade passage.
   Re-exported here;
+* :mod:`pyflightstream.post.products` writes the campaign's CSV products,
+  the polar table per group, the sections table and the plots table per
+  point, from the collected exports and the manifest (PFS-2029.15).
 * :mod:`pyflightstream.post.reductions` is the writing seam that keeps
   a reduction from overwriting the file it came from. Re-exported
   here, and it was the one this list omitted while naming the module
@@ -30,6 +33,17 @@ Sweep assembly is not here either, it is
 :mod:`pyflightstream.results.tables`.
 """
 
+from pyflightstream.post.products import (
+    ProductError,
+    ReferenceValues,
+    read_csv_table,
+    write_campaign_products,
+    write_csv_table,
+    write_plots_table,
+    write_polar_table,
+    write_recorded_polar,
+    write_sections_table,
+)
 from pyflightstream.post.reductions import write_reduction, write_series
 from pyflightstream.post.unsteady import (
     FrameAverage,
@@ -45,18 +59,33 @@ from pyflightstream.post.writers import (
     write_tecplot_points,
     write_vtk_points,
 )
+from pyflightstream.workspace import register_post_stage
 
 __all__ = [
     "FrameAverage",
     "OutputProvenance",
+    "ProductError",
+    "ReferenceValues",
     "TimestepSeries",
     "blade_passage_average",
     "dataset_to_points",
     "passage_windows",
     "read_timestep_series",
     "settings_records",
+    "read_csv_table",
+    "write_campaign_products",
+    "write_csv_table",
+    "write_plots_table",
+    "write_polar_table",
+    "write_recorded_polar",
     "write_reduction",
+    "write_sections_table",
     "write_series",
     "write_tecplot_points",
     "write_vtk_points",
 ]
+
+# The products are the post stage a campaign leaves after collection
+# (PFS-2029.15.03); registered here, below the run layer's reach, so the
+# run calls it without importing this layer.
+register_post_stage(write_campaign_products)

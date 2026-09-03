@@ -56,7 +56,7 @@ FlightStream versions.
   `{parameter}_{group}` in COEFFICIENTS or NEWTONS; `[probes]`, one
   `UNSTEADY_SOLVER_NEW_FLUID_PLOT` per vertex and parameter along lines laid
   out in metres or propeller radii; and `[products]`, which post-processed
-  files the campaign writes. An entry names families, or a selector (`all`,
+  CSV tables the campaign writes (`polars`, `sections`, `plots`). An entry names families, or a selector (`all`,
   `airframe`, `blades`, `each`, `each_blade`), and cites a frame by name
   (`MRP`, `PROP_MRP`, `BLADE_AXIS`); a family the geometry does not carry is
   left out, as the author's driver filtered its tables, and an entry that
@@ -81,6 +81,33 @@ FlightStream versions.
   variables; `--inputs <dir>` beside `--in-place` moves `inputs/groups/e*.toml`
   to `inputs/pproc/p*.toml` under `[groups]`, comments and all. A workflow row
   that still carries `OUTPUTS` is refused naming the pproc artifact.
+- FR-52 and FR-53, PFS-2029.15.01 and PFS-2029.15.02: the post-processed
+  products, as CSV. `pyflightstream.post.products` writes one polar table per
+  group of the pproc artifact (`<polar>_M<mach code>_g<group>.csv`: the
+  reference block and the twenty-four coefficients of the group per point,
+  in body, stability and wind axes with the two drag parts, at five
+  decimals), one sections table per point from its sectional loads export
+  (`sections/<point>_sections.csv`, nothing for an export declaring zero
+  sections), and one plots table per unsteady point from its plots export
+  (`plots/<point>_plots.csv`, the coefficient columns brought from the
+  reference velocity to the free stream); a reader round-trips each, a
+  plots export the reader cannot parse is refused naming the file, and
+  `write_recorded_polar` drives the three over a recorded polar's point
+  folders. The numbers are the author's: her recorded tables, converted to
+  the same CSV shape outside the package, are equal text (the products arm
+  of GOAL-011, 32 of 32). The products are CSV by her decision of
+  2026-09-02; the layout she recorded in is a third party's and the package
+  neither names nor writes it.
+- FR-55, PFS-2029.15.03: the run leaves its products. After collection
+  `run_campaign` and `pyfs-matrix run` write the polar, section and plot
+  tables of every simulation under `post/products`, and
+  `post/products/products.json` names each file with the run ids it derives
+  from and the pproc id; `pyfs-matrix post --workspace <root>` rebuilds them
+  from the manifest alone, with no executable configured, and refuses an
+  existing product without `--overwrite`. The run record carries what that
+  needs (`description`, `mach`, `reference`), and `ReferenceData` carries
+  the reference span (`span_m`), which the polar tables scale the rolling
+  and yawing moments to.
 - FR-33a and FR-33b, PFS-2029.19: the author's own naming convention names
   every point and its exports. A new placeholder `{polar}` renders
   `POLAR-<sim>_M<mach*100:02d>AL<alpha*10:+04d>BE<beta*10:+04d>`, with

@@ -476,7 +476,9 @@ def test_convert_and_plan_still_take_recipe_references(tmp_path):
     # written under an older layout needs no recipes, no version and no
     # executable, and requiring them would refuse the one user the
     # subcommand exists for.
-    assert set(choices) == {"convert", "plan", "run", "upgrade"}
+    # `post` joined at 0.11.0 (PFS-2029.15.03), and like `upgrade` it takes
+    # no recipe, no version and no executable: it reads the manifest.
+    assert set(choices) == {"convert", "plan", "post", "run", "upgrade"}
     for name in ("convert", "plan"):
         flags = {option for action in choices[name]._actions for option in action.option_strings}
         assert "--recipe" in flags, f"{name} lost its --recipe option"

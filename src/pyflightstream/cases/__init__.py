@@ -466,12 +466,18 @@ class ProbesSpec(BaseModel):
 
 
 class ProductsSpec(BaseModel):
-    """The ``[products]`` table: which post-processed files the campaign writes."""
+    """The ``[products]`` table: which post-processed CSV tables the campaign writes.
+
+    ``polars``: one table per group of ``[groups]``, the coefficients of the
+    group per point; ``sections``: one table per point from its sectional
+    loads export; ``plots``: one table per unsteady point from its plots
+    export. All CSV, one header line and one row per record.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
-    pltet: bool = True
-    secloads: bool = True
+    polars: bool = True
+    sections: bool = True
     plots: bool = True
 
 
@@ -481,7 +487,7 @@ class PprocSpec(BaseModel):
     PFS-2029.07.01, her decision of 2026-09-02: the groups artifact IS the
     home of post-processing and is renamed pproc. Six tables. ``groups``
     is exactly what the groups file held, a name to the families it
-    aggregates, and the PLTET writer reads it; ``exports`` says which of
+    aggregates, and the polar tables are written per group of it; ``exports`` says which of
     the eight export kinds a point writes, all of them unless a kind is
     set to false; ``sections``, ``plots`` and ``probes`` are the solver
     definitions the builders emit before the solver runs; ``products``
@@ -752,6 +758,9 @@ class ReferenceData(BaseModel):
     length: float = Field(gt=0.0)
     velocity: float | None = Field(default=None, gt=0.0)
     propeller_diameter: float | None = Field(default=None, gt=0.0)
+    #: The reference span, which the polar products scale the rolling and
+    #: yawing moments to (PFS-2029.15); None keeps a case built without it.
+    span_m: float | None = Field(default=None, gt=0.0)
     #: The moment reference point (x, y, z) in simulation length units,
     #: carried from the reference artifact's ``[moment_point]``. A builder
     #: creates a coordinate system named MRP there and makes it the
