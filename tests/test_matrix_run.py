@@ -24,6 +24,7 @@ import pytest
 
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import PyflightstreamWarning
+from pyflightstream._fsm import MESH_MARKER
 from pyflightstream.cases.matrix import (
     DEFAULT_VERSION_OPTION,
     MatrixError,
@@ -2913,3 +2914,88 @@ def test_enabled_stabilization_with_no_strength_is_refused():
     """There is no number to emit, and guessing one changes the run."""
     with pytest.raises(InputArtifactError, match="stabilization_strength"):
         _solver('stabilization = "ENABLE"\n')
+
+
+# --- PFS-2029.06: the boundary inventory is read from the file ----------------------
+
+
+def test_mesh_order_list_is_refused_naming_the_inventory_command():
+    """A preset cannot state one mesh's order; the file states it and the command writes it."""
+    from pyflightstream.workspace import InputArtifactError
+
+    setup = _setup('mesh_order_list = ["W", "B"]\n')
+    with pytest.raises(InputArtifactError) as caught:
+        _resolve(setup, "s001")
+    message = str(caught.value)
+    assert "mesh_order_list" in message and "pyfs-matrix inventory" in message
+    assert ".boundaries.toml" in message
+
+
+def _saved_simulation_with(path, names):
+    body = [MESH_MARKER, "9999", "99", str(len(names))]
+    for offset, name in enumerate(names):
+        body += [f"{offset + 2}, T, T, F", name, ".500,.500,.500"]
+    body += ["$MESH_END$"]
+    path.write_text("\r\n".join(body) + "\r\n", encoding="utf-8", newline="")
+    return path
+
+
+def test_an_agreeing_sidecar_is_recorded_as_the_inventory_source(tmp_path):
+    """`pyfs-matrix inventory` wrote it, the run checked it at OPEN, the record says so."""
+    from pyflightstream.workspace.inputs import write_inventory
+
+    workspace = make_library(tmp_path, register_build=("26.120", Path(sys.executable).as_posix()))
+    library = _saved_simulation_with(workspace.inputs_dir / "geometries" / "wb.fsm", ["W", "B"])
+    sidecar = write_inventory(library)
+    assert sidecar == library.with_name("wb.boundaries.toml")
+    matrix = geometry_matrix(tmp_path, " / VELOCITY: 30.0 / GEOMETRY: wb.fsm")
+    records = run_matrix(
+        matrix,
+        workspace,
+        name="matrix",
+        default_fs_version="26.120",
+        recipes=RECIPES,
+        assess=converged,
+        executor=StubSolver(WRITES_LOADS),
+        recipe_registry=workflow_registry(),
+    )
+    assert [record.status for record in records] == [RunStatus.CONVERGED]
+    assert records[0].inventory_source == "sidecar"
+    # Without a sidecar the file's own block is the source, and a placeholder has none.
+    _saved_simulation_with(workspace.inputs_dir / "geometries" / "plain.fsm", ["W"])
+    stage_geometry(workspace, "placeholder.fsm")
+    for name, source in (("plain.fsm", "mesh block"), ("placeholder.fsm", None)):
+        resolved = resolve_matrix(
+            geometry_matrix(tmp_path, f" / VELOCITY: 30.0 / GEOMETRY: {name}"),
+            workspace,
+            name="matrix",
+            fs_version="26.120",
+            recipes=RECIPES,
+        )
+        assert resolved.campaign.sims[0].inventory_source == source, name
+
+
+def test_a_disagreeing_sidecar_is_refused_before_the_solver_naming_both_lists(tmp_path):
+    workspace = make_library(tmp_path, register_build=("26.120", Path(sys.executable).as_posix()))
+    library = _saved_simulation_with(workspace.inputs_dir / "geometries" / "wb.fsm", ["W", "B"])
+    library.with_name("wb.boundaries.toml").write_text(
+        'boundaries = ["B", "W"]\n', encoding="utf-8"
+    )
+    matrix = geometry_matrix(tmp_path, " / VELOCITY: 30.0 / GEOMETRY: wb.fsm")
+    # The pre-flight renders every script before any seat is spent, so the
+    # disagreement blocks the campaign there: nothing staged, nothing recorded.
+    with pytest.raises(MatrixError) as caught:
+        run_matrix(
+            matrix,
+            workspace,
+            name="matrix",
+            default_fs_version="26.120",
+            recipes=RECIPES,
+            assess=converged,
+            executor=StubSolver(WRITES_LOADS),
+            recipe_registry=workflow_registry(),
+        )
+    message = str(caught.value)
+    assert "W, B" in message and "B, W" in message and "wb.boundaries.toml" in message
+    assert not list((workspace.sim_dir("7001") / "inputs").iterdir()), "a refused row was staged"
+    assert workspace.read_manifest() == [], "a refused row reached the manifest"

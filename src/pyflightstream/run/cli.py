@@ -202,6 +202,22 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
 
+    inventory = subparsers.add_parser(
+        "inventory",
+        help="write <stem>.boundaries.toml beside a saved simulation, from its mesh block",
+        description=(
+            "Reads the mesh block of a saved simulation and writes its boundary order as "
+            "a sidecar beside it; a run whose sidecar disagrees with the file is refused "
+            "before the solver starts. Needs no executable (PFS-2029.06.02)."
+        ),
+    )
+    inventory.add_argument("geometry", help="a saved simulation under inputs/geometries/")
+    inventory.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="rewrite a sidecar that already exists; without it an existing one is refused",
+    )
+
     convert = subparsers.add_parser(
         "convert",
         help="emit the native campaign.toml equivalent of a matrix (FR-11)",
@@ -323,6 +339,8 @@ def main(argv: list[str] | None = None) -> int:
     # would refuse the one user this subcommand exists for.
     if args.subcommand == "post":
         return _cmd_post(args)
+    if args.subcommand == "inventory":
+        return _cmd_inventory(args)
     if args.subcommand == "upgrade":
         return _cmd_upgrade(args)
     try:
@@ -399,6 +417,19 @@ def _cmd_post(args: argparse.Namespace) -> int:
     for path in written:
         print(path)
     print(f"{len(written)} product(s) written under {workspace.root / 'post' / 'products'}")
+    return 0
+
+
+def _cmd_inventory(args: argparse.Namespace) -> int:
+    """Write the boundary inventory sidecar of one saved simulation."""
+    from pyflightstream.workspace.inputs import write_inventory
+
+    try:
+        sidecar = write_inventory(args.geometry, overwrite=args.overwrite)
+    except (OSError, PyflightstreamError) as error:
+        print(str(error), file=sys.stderr)
+        return 2
+    print(sidecar)
     return 0
 
 

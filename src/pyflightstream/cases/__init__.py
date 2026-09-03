@@ -1125,6 +1125,13 @@ class SimCase(BaseModel):
     #: which emits the default export set and no sections, plots or probes.
     pproc: PprocSpec | None = None
     pproc_id: str | None = None
+    #: The boundary order a sidecar beside the geometry states
+    #: (PFS-2029.06.03), bound by the workspace; the builder refuses the
+    #: run when the file's own mesh block disagrees with it.
+    inventory: tuple[str, ...] | None = None
+    #: Where the boundary inventory came from: ``sidecar``, ``mesh block``
+    #: or None when the geometry declares none.
+    inventory_source: str | None = None
     point: dict[str, float] = Field(default_factory=dict)
     fs_build: str | None = None
 

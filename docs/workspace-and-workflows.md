@@ -350,8 +350,8 @@ knowing.
 1. **It names a setting this package emits**, directly or by alias, and
    it reaches the script.
 2. **It is declared recorded-only.** It stays in the artifact, emits
-   nothing, and a warning names it AND the reason. The eleven this
-   package declares today are `solver`, `motion`, `mesh_order_list`,
+   nothing, and a warning names it AND the reason. The ten this
+   package declares today are `solver`, `motion`,
    `symmetry_type`, `symmetry_loads`, `unsteady_delta_theta_deg`,
    `unsteady_N_revolutions`, `set_base_region_trailing_edges`,
    `significant_digits`, `slipstream_wake_stabilization` and
@@ -359,8 +359,7 @@ knowing.
    and is stated in the row's `SYMMETRY`; `solver` and `motion` are what
    the `WORKFLOW` column decides; `unsteady_delta_theta_deg` and
    `unsteady_N_revolutions` are superseded by the row's `DELTA_THETA`
-   and `REVOLUTIONS`; `mesh_order_list` is one mesh's boundary order and a
-   preset is shared by several; `set_base_region_trailing_edges` is a
+   and `REVOLUTIONS`; `set_base_region_trailing_edges` is a
    separation model that selects boundaries, and a preset carries no
    selection, so it is a recipe's job; and the last three have no
    emitter in this package at all.
@@ -722,6 +721,13 @@ solver and no executable configured:
 ```text
 pyfs-matrix post --workspace .            # refuses a product that exists
 pyfs-matrix post --workspace . --overwrite
+```
+
+The boundary order of a staged geometry is read from the file and written
+beside it, never stated in a setup (PFS-2029.06; `docs/mesh-inputs.md`):
+
+```text
+pyfs-matrix inventory inputs/geometries/30_WB.fsm    # writes 30_WB.boundaries.toml
 ```
 
 A workspace written before v0.11.0 moves in one command:

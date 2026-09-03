@@ -119,6 +119,21 @@ FlightStream versions.
   mesh (`.obj`, `.stl`) is still refused before any seat is spent, and the
   refusal now names 0.12.0 as the release that defines a mesh's boundary
   conditions. A profile still resolves by its stem.
+- PFS-2029.06: the boundary inventory is read from the file, never stated
+  in a preset. `mesh_order_list` in a setup artifact is refused naming
+  `pyfs-matrix inventory` (.06.01): a preset shared by several geometries
+  cannot state the order of any one of them, and an order nothing checks is
+  read as documentation. `pyfs-matrix inventory inputs/geometries/30_WB.fsm`
+  reads the mesh block and writes `30_WB.boundaries.toml` beside the file
+  (.06.02); it refuses to overwrite an existing sidecar without
+  `--overwrite` and refuses a file without a mesh block by name. A row whose
+  geometry has a sidecar is checked at `OPEN`: a sidecar that disagrees with
+  the file's own block is refused before the solver starts, naming both
+  lists, in the pre-flight of `plan` and `run` alike; an agreeing sidecar
+  is recorded in the run record as `inventory_source: sidecar`, a file whose
+  block is the only source as `mesh block`, and a sidecar beside a file
+  without a block declares the names the file cannot (.06.03). The two
+  reference setups that carried the key no longer do.
 - PFS-2029.08: the four rotor facts leave the reference artifact.
   `rotation`, `blade_travel`, `rpm_sign_installed` and `rpm_sign_isolated`
   were recorded in the `[propeller]` block from 0.8.0 to 0.10.1 and read by no

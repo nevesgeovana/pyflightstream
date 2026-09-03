@@ -124,6 +124,32 @@ When a mesh exists only inside a `.fsm`, the pre-processing export
 solver run, which is how the geometry gate of the probe planner gets
 its watertight surface.
 
+### The boundary inventory sidecar
+
+A saved simulation carries its boundary names in the solver's own order,
+and a workflow row cites boundaries by those names (`MOVING_BOUNDARIES:
+Blade1,Blade2`). The order is a property of the file, so it is never
+stated by hand: since v0.11.0 a setup artifact that carries
+`mesh_order_list` is refused (PFS-2029.06.01), and the order is written
+from the file itself:
+
+```text
+pyfs-matrix inventory inputs/geometries/30_WB.fsm
+```
+
+writes `inputs/geometries/30_WB.boundaries.toml`, a `boundaries` list in
+the file's order, and refuses to overwrite one that exists without
+`--overwrite`. A file without a mesh block (a raw mesh, or a file the
+solver never saved) is refused by name, because its order is only known
+once the solver has opened it. A row whose geometry has a sidecar is
+checked when the script opens the file: a sidecar that disagrees with the
+file's own block is refused before any seat is spent, naming both lists,
+and an agreeing one is recorded in the run record as the inventory source
+(`inventory_source: sidecar`; `mesh block` when the file alone declared the
+names). The sidecar is what lets a name resolve for a file whose mesh
+block a reader cannot open, and it is otherwise a statement the run
+verifies rather than trusts.
+
 ## Marking a blade's trailing edge from its mesh
 
 Since v0.8.0 the one step of a rotor campaign that still had to be done by

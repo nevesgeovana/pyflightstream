@@ -533,6 +533,9 @@ class RunRecord(BaseModel):
     #: when the workspace directory named it, ``option`` when ``--name``
     #: or the ``name`` argument did; None on a record written before.
     campaign_name_from: str | None = None
+    #: Where the boundary inventory came from, ``sidecar`` or ``mesh block``
+    #: (PFS-2029.06.03); None when the geometry declares none.
+    inventory_source: str | None = None
     recipe_sha256: str | None = None
     script_path: str | None = None
     script_sha256: str

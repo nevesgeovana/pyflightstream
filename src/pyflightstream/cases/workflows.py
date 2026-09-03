@@ -2022,6 +2022,23 @@ def _declare_boundaries(case: SimCase, script: Script) -> None:
             stacklevel=2,
         )
         return
+    if case.inventory is not None:
+        # PFS-2029.06.03: a sidecar states the order; the file's own block
+        # is the authority, and the two disagreeing means one of them was
+        # edited since the sidecar was written, which no run may guess at.
+        sidecar_name = PurePath(str(case.geometry)).stem + ".boundaries.toml"
+        if names and tuple(names) != tuple(case.inventory):
+            raise CampaignConfigError(
+                f"case {case.sim_id!r}: the mesh block of "
+                f"{PurePath(str(case.geometry)).name} lists {', '.join(names)} and the "
+                f"sidecar {sidecar_name} lists {', '.join(case.inventory)}; the two "
+                "disagree, so no boundary index this run would cite can be trusted. "
+                "Rewrite the sidecar from the file with `pyfs-matrix inventory "
+                "<geometry>`, overwrite (CLI: --overwrite), if the file is current, or "
+                "restage the file "
+                "the sidecar describes."
+            )
+        names = tuple(case.inventory)
     if not names:
         return
     labels, ambiguous = boundary_labels(names)

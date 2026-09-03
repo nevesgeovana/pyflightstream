@@ -3866,3 +3866,30 @@ def test_a_mesh_file_is_refused_naming_the_release(tmp_path):
     message = str(caught.value)
     assert "no boundary conditions" in message and "0.12.0" in message
     assert "docs/mesh-inputs.md" in message
+
+
+# --- PFS-2029.06.03: the sidecar and the file must agree at OPEN ---------------------
+
+
+def test_a_disagreeing_sidecar_is_refused_naming_both_lists(tmp_path):
+    geometry = _saved_simulation(tmp_path / "wb.fsm", ["W", "B"])
+    case = _rotor_row(geometry, "W").model_copy(update={"inventory": ("B", "W")})
+    with pytest.raises(CampaignConfigError) as caught:
+        build_script(case, Script("26.123"))
+    message = str(caught.value)
+    assert "W, B" in message and "B, W" in message and "wb.boundaries.toml" in message
+
+
+def test_an_agreeing_sidecar_declares_the_inventory_a_blockless_file_lacks(tmp_path):
+    """A raw file with a sidecar resolves names; an agreeing sidecar changes nothing."""
+    geometry = _saved_simulation(tmp_path / "wb.fsm", ["W", "B"])
+    agreed = _rotor_row(geometry, "B").model_copy(update={"inventory": ("W", "B")})
+    script = Script("26.123")
+    build_script(agreed, script)
+    assert _moving_payload(script.render()) == "2"
+    placeholder = tmp_path / "placeholder.fsm"
+    placeholder.write_bytes(b"fake simulation")
+    from_sidecar = _rotor_row(placeholder, "B").model_copy(update={"inventory": ("W", "B")})
+    script = Script("26.123")
+    build_script(from_sidecar, script)
+    assert _moving_payload(script.render()) == "2"

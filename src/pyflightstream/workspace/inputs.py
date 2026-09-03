@@ -72,6 +72,7 @@ from pydantic import (
 # Nothing about the class changed: same two bases, same three attributes,
 # same public spelling.
 from pyflightstream._errors import InputArtifactError
+from pyflightstream._fsm import MeshReadError, boundary_names
 from pyflightstream.cases import PprocSpec
 
 # DOWNWARD, and the two imports in this module that leave the workspace
@@ -1237,3 +1238,108 @@ def migrate_input_ids(
         for name, text in rewritten.items():
             Path(name).write_bytes(text)
     return IdMigration(renames=tuple(renames), cells=cells, applied=apply)
+
+
+# --- the boundary inventory sidecar (PFS-2029.06) ------------------------------------
+
+#: Suffix of the sidecar that states a geometry's boundary order, appended
+#: to the geometry's stem: ``30_WB.fsm`` has ``30_WB.boundaries.toml``.
+INVENTORY_SUFFIX = ".boundaries.toml"
+
+
+def inventory_sidecar(geometry: str | Path) -> Path:
+    """Return the sidecar path beside ``geometry``, whether or not it exists."""
+    path = Path(geometry)
+    return path.with_name(path.stem + INVENTORY_SUFFIX)
+
+
+def write_inventory(geometry: str | Path, *, overwrite: bool = False) -> Path:
+    """Write ``<stem>.boundaries.toml`` beside a saved simulation.
+
+    THE ORDER IS READ, NEVER STATED (PFS-2029.06.02). Until 0.11.0 a
+    setup preset could carry ``mesh_order_list``, an order typed by hand
+    for one mesh into a file several meshes shared, and nothing checked
+    it against any of them. The sidecar is produced from the mesh block
+    of the file it sits beside, and a run whose sidecar disagrees with
+    the file is refused before the solver starts (:func:`read_inventory`
+    and the workflow builder), so the two cannot drift apart silently.
+
+    Parameters
+    ----------
+    geometry : str or Path
+        A saved simulation file carrying a mesh block.
+    overwrite : bool
+        Rewrite a sidecar that already exists. Without it an existing
+        sidecar is refused, because the file may have been edited by the
+        user after it was written.
+
+    Returns
+    -------
+    Path
+        The sidecar written.
+
+    Raises
+    ------
+    InputArtifactError
+        A geometry that cannot be read, that carries no mesh block, or
+        whose block does not hold its shape, each naming the file; a
+        sidecar that already exists, naming it and ``--overwrite``.
+    """
+    path = Path(geometry)
+    sidecar = inventory_sidecar(path)
+    if sidecar.exists() and not overwrite:
+        raise InputArtifactError(
+            f"{sidecar} already exists; pass overwrite (CLI: --overwrite) to rewrite it "
+            "from the mesh block, after checking that the file is the one the sidecar "
+            "should describe."
+        )
+    if not path.is_file():
+        raise InputArtifactError(
+            f"{path} is not a file, so no boundary inventory can be read from it."
+        )
+    try:
+        names = boundary_names(path)
+    except MeshReadError as error:
+        raise InputArtifactError(f"{path.name}: {error}") from error
+    if not names:
+        raise InputArtifactError(
+            f"{path} carries no mesh block, so it states no boundary order to write. "
+            "A saved simulation (.fsm) carries one; a raw mesh does not, and its order "
+            "is only known once the solver has opened it (docs/mesh-inputs.md)."
+        )
+    body = [
+        f"# Boundary inventory of {path.name}, read from its mesh block by "
+        "`pyfs-matrix inventory`.",
+        "# The solver's own order: the name at position i is boundary i (1-based).",
+        f'file = "{path.name}"',
+        "boundaries = [",
+        *[f'    "{name}",' for name in names],
+        "]",
+    ]
+    sidecar.write_text("\n".join(body) + "\n", encoding="utf-8")
+    return sidecar
+
+
+def read_inventory(sidecar: str | Path) -> tuple[str, ...]:
+    """Return the ordered boundary names a sidecar states.
+
+    Raises
+    ------
+    InputArtifactError
+        A sidecar without a ``boundaries`` list of strings, naming it.
+    """
+    path = Path(sidecar)
+    try:
+        data = tomllib.loads(path.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError) as error:
+        raise InputArtifactError(
+            f"{path} cannot be read as a boundary inventory: {error}"
+        ) from error
+    names = data.get("boundaries")
+    if not isinstance(names, list) or not names or not all(isinstance(n, str) for n in names):
+        raise InputArtifactError(
+            f"{path} does not state `boundaries` as a non-empty list of strings; "
+            "rewrite it from the file with `pyfs-matrix inventory <geometry>`, "
+            "overwrite (CLI: --overwrite)."
+        )
+    return tuple(names)

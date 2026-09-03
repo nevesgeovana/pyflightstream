@@ -57,6 +57,7 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from pyflightstream._errors import PyflightstreamWarning
+from pyflightstream._fsm import MeshReadError, boundary_names
 from pyflightstream.cases import (
     Campaign,
     FluidState,
@@ -97,7 +98,9 @@ from pyflightstream.workspace.flight_condition import (
 # (PFS-2009.05).
 from pyflightstream.workspace.inputs import (
     RegisteredBuild,
+    inventory_sidecar,
     is_valid_artifact_id,
+    read_inventory,
     resolve_build,
 )
 
@@ -475,6 +478,24 @@ def _resolve_code(workspace: CampaignWorkspace, kind: str, code: str, pol: str):
         ) from error
 
 
+def _inventory_of(geometry: Path) -> tuple[tuple[str, ...] | None, str | None]:
+    """Return the sidecar's boundary order, if one sits beside the geometry, and the source.
+
+    PFS-2029.06.03. The sidecar is read here, at binding, so a malformed
+    one is refused with the row before any seat is spent; whether it
+    AGREES with the file is the builder's check at ``OPEN``, because that
+    is where the file's own mesh block is read for the staged copy.
+    """
+    sidecar = inventory_sidecar(geometry)
+    if sidecar.is_file():
+        return read_inventory(sidecar), "sidecar"
+    try:
+        declared = boundary_names(geometry)
+    except MeshReadError:
+        return None, None
+    return None, ("mesh block" if declared else None)
+
+
 def _resolve_geometry(workspace: CampaignWorkspace, name: str, pol: str) -> Path:
     """Resolve one ``GEOMETRY`` cell, naming the row.
 
@@ -541,10 +562,6 @@ _PRESET_RECORDED_ONLY = {
         "several rows cannot decide whether one of them is steady"
     ),
     "motion": ("the motion type, which the workflow creates from the row's own rotor keys"),
-    "mesh_order_list": (
-        "boundary ORDER of one mesh, which is a property of the geometry a row opens "
-        "and not of a preset several geometries share"
-    ),
     "symmetry_type": (
         "symmetry describes what was MESHED, so it belongs to the row's geometry and "
         "is stated in the row's SYMMETRY key; a preset value would silently overrule "
@@ -665,6 +682,21 @@ def _solver_from_setup(setup: SetupArtifact, set_code: str) -> SolverSettings:
     settings.pop("stabilization_strength", None)
     known = set(SolverSettings.model_fields)
     matched: dict[str, object] = {}
+    if "mesh_order_list" in settings:
+        # PFS-2029.06.01. Until 0.11.0 the key was recorded-only: kept,
+        # warned about, never emitted. Recorded-only was the wrong answer
+        # for the one key whose value is CHECKABLE against the file it
+        # describes, because a preset several geometries share cannot
+        # state the order of any one of them, and a wrong order that is
+        # merely warned about is read as documentation by the next reader.
+        raise InputArtifactError(
+            f"setup preset {set_code!r} states mesh_order_list, which is the boundary "
+            "order of one mesh and belongs beside that mesh, not in a preset several "
+            "geometries share. Write it from the file itself: `pyfs-matrix inventory "
+            "inputs/geometries/<file>` reads the mesh block and writes "
+            "<stem>.boundaries.toml beside the geometry, and the run refuses a sidecar "
+            "that disagrees with the file (PFS-2029.06). Remove the key from the setup."
+        )
     refused: list[str] = []
     recorded: list[str] = []
     for key, value in settings.items():
@@ -959,7 +991,9 @@ def resolve_matrix(
         # defended twice in code and proven in neither place.
         stem = row.variables.get(GEOMETRY_VARIABLE, "")
         if stem:
-            update["geometry"] = str(_resolve_geometry(workspace, stem, row.pol))
+            geometry_path = _resolve_geometry(workspace, stem, row.pol)
+            update["geometry"] = str(geometry_path)
+            update["inventory"], update["inventory_source"] = _inventory_of(geometry_path)
         # PFS-2027.02 and .04. THE POSITION IS LOAD-BEARING and it is not
         # a comment asking for an ordering: the reference is bound at the
         # top of this loop body and reaches the case only through the
