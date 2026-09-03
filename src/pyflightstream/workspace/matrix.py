@@ -52,7 +52,7 @@ from __future__ import annotations
 import warnings
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from pathlib import Path, PurePath, PurePosixPath
+from pathlib import Path
 
 from pydantic import ValidationError
 
@@ -475,180 +475,21 @@ def _resolve_code(workspace: CampaignWorkspace, kind: str, code: str, pol: str):
         ) from error
 
 
-def _resolve_geometry(workspace: CampaignWorkspace, artifact_id: str, pol: str) -> Path:
-    """Resolve one ``GEOMETRY`` id, naming the row and the library folder.
+def _resolve_geometry(workspace: CampaignWorkspace, name: str, pol: str) -> Path:
+    """Resolve one ``GEOMETRY`` cell, naming the row.
 
-    The sibling of :func:`_resolve_code` for the one library kind a
-    matrix names from its free cell rather than from a column. It is a
-    separate function for one reason, and the reason is in the message:
-    a reference, setup or group is a ``.toml`` the user writes, while a
-    geometry is a FILE THE USER STAGED under any extension, so the
-    "create this file" half of the refusal cannot be the same sentence.
-
-    Resolution itself is not reimplemented here.
-    :func:`pyflightstream.workspace.inputs.resolve_geometry` already
-    takes a stem of any extension, already refuses an unknown id by
-    listing the available ones, and already refuses a stem that two
-    staged files share; a second resolver would be a second answer to
-    "which file is this id".
-
-    Parameters
-    ----------
-    workspace : CampaignWorkspace
-        The managed campaign root carrying the input library.
-    artifact_id : str
-        The geometry id, which is the stem of a file under
-        ``inputs/geometries/``.
-    pol : str
-        Polar identifier of the row that named it, for the message. It
-        is the POL and not the row number because the POL is what the
-        author reads down the left of their own matrix, which is the
-        sibling refusal's own choice.
-
-    Returns
-    -------
-    Path
-        The staged geometry file, as the library holds it. It is the
-        LIBRARY path: the run layer copies it into the case's own
-        ``inputs/`` directory and rewrites
-        :attr:`pyflightstream.cases.SimCase.geometry` to that copy
-        before any builder sees it.
-
-    Raises
-    ------
-    pyflightstream.workspace.InputArtifactError
-        In two cases, which carry DIFFERENT structured attributes, and
-        the difference is stated because a caller that offers the user a
-        choice will otherwise offer an empty one.
-
-        A MISS. The library holds no file of that stem. ``kind``,
-        ``artifact_id`` and ``available`` are carried across from the
-        library's refusal, so the ids that would have resolved are
-        readable without parsing the sentence.
-
-        AN AMBIGUOUS STEM, where several staged files share it. The
-        library raises that one with no structured attributes at all
-        (:func:`pyflightstream.workspace.inputs.resolve_geometry`), so
-        ``kind`` and ``artifact_id`` are ``None`` and ``available`` is
-        empty here too, and the colliding FILE NAMES appear only in the
-        chained sentence. Filling them at the ambiguity site would be
-        the better fix and is not this function's to make.
-
-        Both messages name the row's POL and the stem written.
+    The sibling of :func:`_resolve_code` for the one library kind a matrix
+    names from its free cell rather than from a column. Since 0.11.0 the
+    cell carries the FILE NAME with its extension (PFS-2029.09), and the
+    library's own refusal already says which file to write or to stage;
+    this function adds the row so a reader finds the cell.
     """
     try:
-        return workspace.resolve_geometry(artifact_id)
+        return workspace.resolve_geometry(name)
     except InputArtifactError as error:
-        # THREE ARMS, and which one fires is decided by the SUFFIX alone
-        # rather than by what happens to be staged. The first version of
-        # this branch also required the stem to be in `available`, which
-        # served only the user who had already staged the file, and left
-        # the commoner order (write the cell, then stage) reading the
-        # general arm: with an empty library it still told them to create
-        # `inputs/geometries/wing_clean.fsm.fsm` and to keep the cell that
-        # was wrong. That is the original defect, in the half that meets
-        # more people. The id rule permits a dot, so a written id CARRYING
-        # a suffix is diagnosable on its own and nothing else needs to be
-        # true for the diagnosis to hold.
-        # THE STEM IS COMPUTED PER ARM, and the reason is a platform.
-        # `PurePath` is `PureWindowsPath` here and `PurePosixPath` on the
-        # runner, and only the first treats a backslash as a separator.
-        # One shared `PurePath(...).stem` therefore made the PATH arm
-        # print the user's own input back at them on Linux, inside a
-        # sentence saying "never a path", and took the ubuntu leg of CI
-        # red on the case that guards it. The suffix arm wants the
-        # platform-neutral dot rule; the path arm wants both separators.
-        stem = PurePath(artifact_id).stem
-        path_stem = PurePosixPath(artifact_id.replace("\\", "/")).stem
-        available = error.available or ()
-        # The library's OWN rule, imported rather than restated, so a
-        # cell refused for its SHAPE is never told to stage a file that
-        # could not resolve under any name.
-        well_formed = is_valid_artifact_id(artifact_id)
-        if error.artifact_id is None:
-            # THE AMBIGUOUS STEM, AND IT IS TESTED FIRST. An ambiguity
-            # refusal proves BY CONSTRUCTION that the written id already
-            # IS the shared stem, so nothing any later arm could say
-            # about stems or staging can be true on this path. Ordered
-            # after the suffix arm for one round, which shadowed every
-            # ambiguous id containing a dot: `wing.v2` staged as both
-            # `.fsm` and `.stl` was told to write `GEOMETRY: wing` and
-            # stage a third file, three sentences before the library's
-            # own text said the id matched two files and one should go.
-            #
-            # The library raises this one with no structured attributes,
-            # which is why the discriminator is their absence. That is
-            # the weak half: filling them at the raise site is the right
-            # fix and would invert this test, so it is registered rather
-            # than relied upon, and the guard below goes red if it moves.
-            remedy = "the library's own refusal below names the files and the fix"
-        elif "/" in artifact_id or "\\" in artifact_id:
-            # A PATH, not an id. `_check_id` refuses the shape, and its
-            # refusal is indistinguishable from a miss into an empty
-            # library, so without this arm the general one told the user
-            # to stage a file whose NAME contains separators, which
-            # cannot be created and which the chained sentence
-            # immediately contradicts.
-            #
-            # Both separators are named explicitly rather than asking
-            # PurePath, which is PureWindowsPath here and PurePosixPath
-            # in CI: a cell carrying a backslash would otherwise be
-            # diagnosed on one platform and not the other, and a matrix
-            # is a file that travels.
-            remedy = (
-                f"the id is the stem of a file directly under inputs/geometries/ and "
-                f"never a path, so write '{GEOMETRY_VARIABLE}: {path_stem}' and stage "
-                "the file directly under that directory rather than in a subdirectory "
-                "of it"
-            )
-        elif not well_formed:
-            # REFUSED ON ITS SHAPE, which the library's own sentence
-            # explains. Prescribing a file to stage would be wrong: no
-            # file of that name can resolve under any extension, so the
-            # cell is the only thing to change.
-            remedy = (
-                "the cell is what to fix rather than the library: an id is a file "
-                "name stem of letters, digits, dot, underscore or hyphen, beginning "
-                "with a letter or a digit"
-            )
-        elif PurePath(artifact_id).suffix and (not available or stem in available):
-            # A FILE NAME, and the library CORROBORATES that reading:
-            # either it holds a file under the stem, or it holds nothing
-            # at all and no other reading is available.
-            settled = (
-                f"A file is already staged under the stem {stem!r}"
-                if stem in available
-                else f"Then stage the file as inputs/geometries/{stem} plus its extension"
-            )
-            remedy = (
-                f"the id is the file name STEM and not the file name, so write "
-                f"'{GEOMETRY_VARIABLE}: {stem}'. {settled}"
-            )
-        elif PurePath(artifact_id).suffix:
-            # A DOT, AND NOTHING CORROBORATES EITHER READING, so both are
-            # given rather than one guessed. A dot is legal INSIDE an id,
-            # so `blade.v2` is as likely a version-tagged stem as a file
-            # name, and the arm above used to answer it by truncating a
-            # correct version tag while the listing below named the id
-            # that would have resolved. Saying both is the only sentence
-            # that is true whichever the author meant.
-            remedy = (
-                f"{artifact_id!r} reads two ways and neither resolves: as a FILE NAME "
-                f"its id would be the stem {stem!r}, and nothing is staged under that; "
-                "as an id in its own right, a dot being legal inside one, nothing is "
-                "staged under it either. The ids that would have resolved follow"
-            )
-        else:
-            remedy = (
-                f"stage a file whose name is '{artifact_id}' plus its extension under "
-                f"inputs/geometries/, or fix the matrix cell. A workflow opens a saved "
-                "simulation, so stage a .fsm; a recipe of your own receives whatever "
-                "the library holds"
-            )
         raise InputArtifactError(
             f"matrix row POL {pol}: the {GEOMETRY_VARIABLE} variable names geometry "
-            f"{artifact_id!r}, which the workspace input library cannot resolve; "
-            f"{remedy}. {error}",
+            f"{name!r}, which the workspace input library cannot resolve. {error}",
             kind=error.kind,
             artifact_id=error.artifact_id,
             available=error.available,

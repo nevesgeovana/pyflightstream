@@ -52,7 +52,7 @@ import re
 import tomllib
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePath, PurePosixPath
 from typing import Any
 
 from pydantic import (
@@ -738,19 +738,23 @@ def _resolve_file(inputs_dir: Path, kind: str, subdir: str, artifact_id: str) ->
     return matches[0]
 
 
-def resolve_geometry(inputs_dir: Path, artifact_id: str) -> Path:
-    """Resolve the staged geometry file one id names.
+def resolve_geometry(inputs_dir: Path, name: str) -> Path:
+    """Resolve the staged geometry file one ``GEOMETRY`` cell names.
 
-    Geometries register by file name (any extension); the id is the
-    stem, so ``resolve_geometry(inputs_dir, "wing_v2")`` finds
-    ``inputs/geometries/wing_v2.fsm``.
+    SINCE 0.11.0 THE CELL CARRIES THE FILE NAME WITH ITS EXTENSION
+    (PFS-2029.09, the author's decision of 2026-09-02, amending
+    PFS-2009.01): ``30_WB.fsm`` resolves to ``inputs/geometries/30_WB.fsm``
+    and ``blade.v2.fsm`` to that one file, one reading and no other. What
+    it buys is that the cell says what the file IS: a ``.fsm`` is a saved
+    simulation with its boundary conditions in it, a mesh is not, and the
+    workflow can tell the two apart before any seat is spent.
 
     Parameters
     ----------
     inputs_dir : Path
         The workspace ``inputs/`` directory.
-    artifact_id : str
-        File name stem under ``geometries/``.
+    name : str
+        File name directly under ``geometries/``, extension included.
 
     Returns
     -------
@@ -760,10 +764,50 @@ def resolve_geometry(inputs_dir: Path, artifact_id: str) -> Path:
     Raises
     ------
     InputArtifactError
-        Unknown id (the message lists the available ids) or an
-        ambiguous stem shared by several files.
+        A bare stem (no extension), naming every staged file that carries
+        that stem so the cell can be completed; a name the directory does
+        not hold, naming the files it does; a path, which is never an id.
     """
-    return _resolve_file(inputs_dir, "geometry", "geometries", artifact_id)
+    directory = Path(inputs_dir) / "geometries"
+    if "/" in name or "\\" in name:
+        base = PurePosixPath(name.replace("\\", "/")).name
+        raise InputArtifactError(
+            f"geometry {name!r} is a path, and the GEOMETRY cell names a file directly "
+            f"under {directory} by its file name, never a path: stage the file there "
+            f"and write GEOMETRY: {base}.",
+            kind="geometry",
+            artifact_id=name,
+        )
+    staged = (
+        sorted(p.name for p in directory.iterdir() if p.is_file()) if directory.is_dir() else []
+    )
+    stem, suffix = PurePath(name).stem, PurePath(name).suffix
+    if not suffix:
+        _check_id(name, "geometry")
+        candidates = [f for f in staged if PurePath(f).stem == name]
+        if candidates:
+            raise InputArtifactError(
+                f"geometry {name!r} is a bare stem, and since 0.11.0 the GEOMETRY cell "
+                f"carries the file name with its extension: write GEOMETRY: "
+                f"{' or GEOMETRY: '.join(candidates)} (the file(s) under {directory} "
+                "carrying that stem), or run `pyfs-matrix upgrade` with in_place (CLI: "
+                "--in-place), which completes every GEOMETRY cell with .fsm.",
+                kind="geometry",
+                artifact_id=name,
+                available=tuple(candidates),
+            )
+        raise _miss("geometry", name, directory, suffix=None)
+    _check_id(stem, "geometry")
+    if name not in staged:
+        raise InputArtifactError(
+            f"geometry {name!r} is not under {directory}; it holds "
+            f"{', '.join(staged) if staged else 'no file at all'}. Stage the file "
+            "there under exactly that name, or fix the cell.",
+            kind="geometry",
+            artifact_id=name,
+            available=tuple(staged),
+        )
+    return directory / name
 
 
 def resolve_profile(inputs_dir: Path, artifact_id: str) -> Path:

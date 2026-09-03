@@ -213,12 +213,12 @@ def test_the_kind_letter_is_read_in_either_case(tmp_path):
     assert workspace.resolve_reference("R003").area_m2 == 10.0
 
 
-def test_a_staged_geometry_or_profile_still_resolves_by_bare_stem(tmp_path):
+def test_a_profile_still_resolves_by_bare_stem_and_a_geometry_by_its_file_name(tmp_path):
     """Their ids are the stems of files the user staged, so no letter is owed."""
     workspace = CampaignWorkspace.init(tmp_path / "camp")
     (workspace.inputs_dir / "geometries" / "wing_clean.fsm").write_bytes(b"mesh")
     (workspace.inputs_dir / "profiles" / "thrust.csv").write_bytes(b"r,T\n")
-    assert workspace.resolve_geometry("wing_clean").name == "wing_clean.fsm"
+    assert workspace.resolve_geometry("wing_clean.fsm").name == "wing_clean.fsm"
     assert workspace.resolve_profile("thrust").name == "thrust.csv"
 
 

@@ -83,13 +83,19 @@ opens the file. That is still how a recipe works.
 **A WORKFLOW reads keys the package defines**, and since v0.8.1 three of
 them close the gap that made the capability unusable:
 
-* `GEOMETRY: <stem>` names a geometry staged under `inputs/geometries/`,
-  resolved the same way `REF`, `SET` and `PPROC` are, and refused with
-  the available stems when the id is not there. The value is the file
-  name STEM, never the file name: with `wing_clean.fsm` staged, the cell
-  reads `GEOMETRY: wing_clean`. The workflow opens it first, before
-  anything else, and it opens the STAGED copy, so the file the manifest
-  hashed and the file the solver read are the same bytes.
+* `GEOMETRY: <file name>` names a geometry staged under
+  `inputs/geometries/` by its FILE NAME, extension included: with
+  `wing_clean.fsm` staged, the cell reads `GEOMETRY: wing_clean.fsm`, and
+  `blade.v2.fsm` reads one way and no other. A bare stem is refused
+  naming the files that carry it, and `pyfs-matrix upgrade` completes
+  every stem-only cell of an older matrix with `.fsm` (until v0.11.0 the
+  cell was the stem; PFS-2029.09). What the name buys is that the cell
+  says what the file is: a `.fsm` carries its boundary conditions, a
+  mesh does not, and a workflow row naming a mesh is refused before any
+  seat is spent, naming 0.12.0 as the release that defines them. The
+  workflow opens the file first, before anything else, and it opens the
+  STAGED copy, so the file the manifest hashed and the file the solver
+  read are the same bytes.
 
     A WORKFLOW opens a saved simulation, a `.fsm`, and nothing else. That
     is a property of the two built-in builders rather than of the key: a

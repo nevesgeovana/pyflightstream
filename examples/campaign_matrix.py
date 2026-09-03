@@ -115,7 +115,7 @@ print("\n".join(campaign_toml.splitlines()[:8]))
 #
 # Section 4 sets it BY HAND, on a `SimCase` built in Python.
 #
-# A MATRIX ROW SETS IT with `GEOMETRY: <stem>` in `VAR_NAMES_VALUES`,
+# A MATRIX ROW SETS IT with `GEOMETRY: <file name>` in `VAR_NAMES_VALUES`,
 # resolved against `inputs/geometries/` the way `REF`, `SET` and `PPROC`
 # are (v0.8.1). `resolve_matrix` is what assigns it, for every active row
 # THAT NAMES THE KEY; a row naming none leaves the field absent, which is

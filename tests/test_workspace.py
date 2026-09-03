@@ -522,23 +522,24 @@ def test_empty_group_is_refused(tmp_path):
         workspace.resolve_pproc("pbad")
 
 
-def test_geometry_and_profile_resolve_by_file_stem(tmp_path):
+def test_a_geometry_resolves_by_file_name_and_a_profile_by_stem(tmp_path):
+    """Since 0.11.0 a geometry cell names its file (PFS-2029.09); a profile keeps its stem."""
     workspace = library(tmp_path)
     geometry = workspace.inputs_dir / "geometries" / "wing_v2.fsm"
     geometry.write_bytes(b"geometry")
     profile = workspace.inputs_dir / "profiles" / "thrust_cruise.txt"
     profile.write_text("0.0 100.0\n", encoding="utf-8")
-    assert workspace.resolve_geometry("wing_v2") == geometry
+    assert workspace.resolve_geometry("wing_v2.fsm") == geometry
     assert workspace.resolve_profile("thrust_cruise") == profile
-    with pytest.raises(InputArtifactError, match="available geometry ids: wing_v2"):
-        workspace.resolve_geometry("wing_v3")
+    with pytest.raises(InputArtifactError, match="wing_v2.fsm"):
+        workspace.resolve_geometry("wing_v3.fsm")
 
 
-def test_ambiguous_geometry_stem_is_refused(tmp_path):
+def test_a_bare_geometry_stem_two_files_share_is_refused_naming_both(tmp_path):
     workspace = library(tmp_path)
     (workspace.inputs_dir / "geometries" / "wing.fsm").write_bytes(b"a")
     (workspace.inputs_dir / "geometries" / "wing.stl").write_bytes(b"b")
-    with pytest.raises(InputArtifactError, match="must be unique"):
+    with pytest.raises(InputArtifactError, match="GEOMETRY: wing.fsm or GEOMETRY: wing.stl"):
         workspace.resolve_geometry("wing")
 
 
@@ -1087,7 +1088,7 @@ def test_the_same_stem_under_two_kinds_is_two_ids_and_stays_legal(tmp_path):
     # root ship broken.
     assert CampaignWorkspace.init(root).root == root.resolve()
     opened = CampaignWorkspace.open(root)
-    assert opened.resolve_geometry("003").name == "003.fsm"
+    assert opened.resolve_geometry("003.fsm").name == "003.fsm"
     assert opened.resolve_profile("003").name == "003.csv"
 
 
@@ -2214,3 +2215,43 @@ def test_the_four_rotor_facts_are_refused_naming_the_row_keys(tmp_path):
     )
     assert workspace.resolve_reference("r030").propeller.n_blades == 1
     assert strip_rotor_facts(workspace.inputs_dir) == {}, "a second pass finds nothing"
+
+
+# --- PFS-2029.09.01: the GEOMETRY cell names a file --------------------------------
+
+
+def test_a_geometry_cell_names_a_file(tmp_path):
+    workspace = library(tmp_path)
+    (workspace.inputs_dir / "geometries" / "30_WB.fsm").write_bytes(b"fsm")
+    assert (
+        workspace.resolve_geometry("30_WB.fsm") == workspace.inputs_dir / "geometries" / "30_WB.fsm"
+    )
+    with pytest.raises(InputArtifactError, match="30_WB.fsm") as caught:
+        workspace.resolve_geometry("31_WB.fsm")
+    assert "31_WB.fsm" in str(caught.value), (
+        "a file the directory lacks is refused naming what it holds"
+    )
+    with pytest.raises(InputArtifactError, match="is a path"):
+        workspace.resolve_geometry("sub/30_WB.fsm")
+
+
+def test_a_bare_stem_is_refused_naming_the_candidates(tmp_path):
+    workspace = library(tmp_path)
+    (workspace.inputs_dir / "geometries" / "30_WB.fsm").write_bytes(b"fsm")
+    (workspace.inputs_dir / "geometries" / "30_WB.stl").write_bytes(b"stl")
+    with pytest.raises(InputArtifactError) as caught:
+        workspace.resolve_geometry("30_WB")
+    message = str(caught.value)
+    assert "GEOMETRY: 30_WB.fsm" in message and "GEOMETRY: 30_WB.stl" in message
+    assert caught.value.available == ("30_WB.fsm", "30_WB.stl")
+    assert "in_place" in message and "--in-place" in message, "the upgrade completes the cell"
+
+
+def test_a_dotted_stem_reads_one_way(tmp_path):
+    workspace = library(tmp_path)
+    (workspace.inputs_dir / "geometries" / "blade.v2.fsm").write_bytes(b"fsm")
+    (workspace.inputs_dir / "geometries" / "blade.v3.fsm").write_bytes(b"fsm")
+    assert workspace.resolve_geometry("blade.v2.fsm").name == "blade.v2.fsm"
+    with pytest.raises(InputArtifactError) as caught:
+        workspace.resolve_geometry("blade.v2")
+    assert "blade.v2.fsm" in str(caught.value), "the one file carrying the stem is named"

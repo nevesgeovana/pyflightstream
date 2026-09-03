@@ -98,3 +98,25 @@ def test_groups_migrate_to_pproc_verbatim(tmp_path):
     (workspace.inputs_dir / "pproc" / "p002.toml").write_text("wing = [1]\n", encoding="utf-8")
     with pytest.raises(InputArtifactError, match="migrate_groups_to_pproc"):
         workspace.resolve_pproc("p002")
+
+
+def test_upgrade_adds_the_extension_to_every_geometry_cell(tmp_path):
+    """PFS-2029.09.02: a GEOMETRY value with no extension gains .fsm; one with one is kept."""
+    source = FIXTURES / "workflow_rotor_matrix.fs"
+    text = source.read_text(encoding="utf-8")
+    assert "GEOMETRY:" not in text, "the fixture is expected to name no geometry"
+    target = tmp_path / "geometry.fs"
+    target.write_text(
+        text.replace(
+            "| VELOCITY: 30.0 / RPM", "| GEOMETRY: blade_sector / VELOCITY: 30.0 / RPM", 1
+        ).replace("| VELOCITY: 30.0\n", "| GEOMETRY: wing.v2.fsm / VELOCITY: 30.0\n", 1),
+        encoding="utf-8",
+    )
+    before = target.read_bytes()
+    upgraded = upgrade_matrix(target, in_place=True)
+    assert b"GEOMETRY: blade_sector.fsm / VELOCITY" in upgraded
+    assert b"GEOMETRY: wing.v2.fsm / VELOCITY" in upgraded, (
+        "a value with an extension is left alone"
+    )
+    assert upgraded.count(b".fsm") == before.count(b".fsm") + 1
+    assert upgrade_matrix(target) == upgraded, "running it twice is safe"

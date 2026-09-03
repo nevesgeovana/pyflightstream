@@ -67,6 +67,7 @@ which is what :mod:`tests.test_conventions` now holds it to.
 
 from __future__ import annotations
 
+import re
 import warnings
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -1051,6 +1052,24 @@ def _drop_fs_script_and_name_pproc(data: bytes, source: str) -> bytes:
     return b"".join(rebuilt)
 
 
+_GEOMETRY_PAIR = re.compile(rb"(GEOMETRY\s*:\s*)([^/|\s]+)")
+
+
+def _name_geometry_files(data: bytes) -> bytes:
+    """Stage four: a GEOMETRY value with no extension gains ``.fsm``.
+
+    PFS-2029.09.02. Since 0.11.0 the cell carries the file name, and every
+    matrix written before it named a stem; the file a workflow opens is a
+    saved simulation, so ``.fsm`` is the extension the stem lacked. A
+    value already carrying an extension is left as written, so running
+    this on an upgraded file changes nothing, and every other byte of the
+    line survives.
+    """
+    return _GEOMETRY_PAIR.sub(
+        lambda m: m.group(1) + m.group(2) + (b"" if b"." in m.group(2) else b".fsm"), data
+    )
+
+
 def _upgraded_bytes(data: bytes, source: str) -> bytes:
     """Bring a matrix of any earlier layout up to the current one.
 
@@ -1070,7 +1089,7 @@ def _upgraded_bytes(data: bytes, source: str) -> bytes:
     if header is None:
         raise MatrixError(f"{source} holds no matrix content: no line carries a cell separator")
     if header == _COLUMNS:
-        return data
+        return _name_geometry_files(data)
     if header == _LEGACY_COLUMNS_15:
         data = _fold_flight_condition(_insert_workflow_cell(data, source), source)
     elif header == _LEGACY_COLUMNS_16:
@@ -1085,7 +1104,7 @@ def _upgraded_bytes(data: bytes, source: str) -> bytes:
             f"the {len(_LAYOUT_0_9_0)}-column one of v0.9.0 to v0.10.1 "
             f"({', '.join(_LAYOUT_0_9_0)})."
         )
-    return _drop_fs_script_and_name_pproc(data, source)
+    return _name_geometry_files(_drop_fs_script_and_name_pproc(data, source))
 
 
 #: The columns whose cells carry an input-library id, in file order.

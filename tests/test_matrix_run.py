@@ -18,7 +18,7 @@ converter stayed in `pyflightstream.cases.matrix`.
 import sys
 import tomllib
 import warnings
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 
 import pytest
 
@@ -49,7 +49,6 @@ from pyflightstream.workspace import (
     RunStatus,
     WorkspaceError,
 )
-from pyflightstream.workspace import matrix as matrix_module
 from pyflightstream.workspace.matrix import GEOMETRY_VARIABLE, resolve_matrix
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -2035,7 +2034,7 @@ def test_a_row_naming_a_geometry_resolves_it_against_the_input_library(tmp_path)
     """
     workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
     staged = stage_geometry(workspace, "wing_clean.fsm")
-    case = resolve_geometry_row(tmp_path, workspace, " / GEOMETRY: wing_clean")
+    case = resolve_geometry_row(tmp_path, workspace, " / GEOMETRY: wing_clean.fsm")
     assert case.geometry is not None, "the row named a geometry and the case carries none"
     assert Path(case.geometry) == staged
 
@@ -2051,7 +2050,7 @@ def test_the_id_is_a_stem_and_the_library_extension_is_whatever_was_staged(tmp_p
     """
     workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
     staged = stage_geometry(workspace, "raw_blade.stl")
-    case = resolve_geometry_row(tmp_path, workspace, " / GEOMETRY: raw_blade")
+    case = resolve_geometry_row(tmp_path, workspace, " / GEOMETRY: raw_blade.stl")
     assert Path(case.geometry) == staged
 
 
@@ -2064,8 +2063,8 @@ def test_the_stem_the_row_wrote_survives_in_the_case_variables(tmp_path):
     """
     workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
     stage_geometry(workspace, "wing_clean.fsm")
-    case = resolve_geometry_row(tmp_path, workspace, " / GEOMETRY: wing_clean")
-    assert case.variables[GEOMETRY_VARIABLE] == "wing_clean"
+    case = resolve_geometry_row(tmp_path, workspace, " / GEOMETRY: wing_clean.fsm")
+    assert case.variables[GEOMETRY_VARIABLE] == "wing_clean.fsm"
 
 
 def test_a_row_naming_no_geometry_leaves_the_field_absent(tmp_path):
@@ -2132,11 +2131,11 @@ def test_a_geometry_the_library_cannot_resolve_is_refused_naming_the_row(tmp_pat
     stage_geometry(workspace, "wing_clean.fsm")
     stage_geometry(workspace, "wing_flapped.fsm")
     with pytest.raises(InputArtifactError) as caught:
-        resolve_geometry_row(tmp_path, workspace, " / GEOMETRY: wing_v3")
+        resolve_geometry_row(tmp_path, workspace, " / GEOMETRY: wing_v3.fsm")
     message = str(caught.value)
     assert "POL 7001" in message, "the refusal does not name the row"
     assert GEOMETRY_VARIABLE in message, "the refusal does not name the variable"
-    assert "'wing_v3'" in message, "the refusal does not name the stem that was written"
+    assert "'wing_v3.fsm'" in message, "the refusal does not name the file that was written"
     assert "wing_clean" in message and "wing_flapped" in message, (
         "the refusal does not list the geometries that WOULD have resolved"
     )
@@ -2152,10 +2151,10 @@ def test_the_geometry_refusal_carries_its_structured_attributes(tmp_path):
     workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
     stage_geometry(workspace, "wing_clean.fsm")
     with pytest.raises(InputArtifactError) as caught:
-        resolve_geometry_row(tmp_path, workspace, " / GEOMETRY: wing_v3")
+        resolve_geometry_row(tmp_path, workspace, " / GEOMETRY: wing_v3.fsm")
     assert caught.value.kind == "geometry"
-    assert caught.value.artifact_id == "wing_v3"
-    assert caught.value.available == ("wing_clean",)
+    assert caught.value.artifact_id == "wing_v3.fsm"
+    assert caught.value.available == ("wing_clean.fsm",)
 
 
 def test_the_geometry_refusal_is_the_catalogued_exception_and_not_a_bare_raise(tmp_path):
@@ -2168,7 +2167,7 @@ def test_the_geometry_refusal_is_the_catalogued_exception_and_not_a_bare_raise(t
     """
     workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
     with pytest.raises(InputArtifactError) as caught:
-        resolve_geometry_row(tmp_path, workspace, " / GEOMETRY: wing_v3")
+        resolve_geometry_row(tmp_path, workspace, " / GEOMETRY: wing_v3.fsm")
     assert isinstance(caught.value, RuntimeError)
     assert not isinstance(caught.value, (KeyError, FileNotFoundError, ValueError))
 
@@ -2187,181 +2186,60 @@ def test_an_id_that_could_not_be_a_file_name_is_refused_by_the_library(tmp_path)
         resolve_geometry_row(tmp_path, workspace, " / GEOMETRY: inputs\\geometries\\wing.fsm")
     message = str(caught.value)
     assert "POL 7001" in message, "the row is lost when the library refuses the id's shape"
-    assert "never a path" in message, "the library's own id rule is not what refused this"
+    assert "is a path" in message, "the library's own rule is not what refused this"
 
 
-def test_a_stem_two_staged_files_share_is_refused_rather_than_chosen(tmp_path):
-    """Which of two files an ambiguous id means is not a guess.
+def test_a_bare_stem_two_staged_files_share_is_refused_naming_both(tmp_path):
+    """The library owns this refusal too, and the row has to survive it.
 
-    The library owns this refusal too, and the row has to survive it:
-    the author fixes a matrix cell or a staged file name, and both are
-    findable only from the POL.
+    Written in the current layout by hand, because the upgrade the other
+    rows go through completes a bare stem with .fsm (PFS-2029.09.02) and
+    would turn this case into a hit.
     """
     workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
     stage_geometry(workspace, "wing_clean.fsm")
     stage_geometry(workspace, "wing_clean.stl")
+    matrix = geometry_matrix(tmp_path, " / GEOMETRY: wing_clean.fsm")
+    matrix.write_text(
+        matrix.read_text(encoding="utf-8").replace(
+            "GEOMETRY: wing_clean.fsm", "GEOMETRY: wing_clean"
+        ),
+        encoding="utf-8",
+    )
     with pytest.raises(InputArtifactError) as caught:
-        resolve_geometry_row(tmp_path, workspace, " / GEOMETRY: wing_clean")
+        resolve_matrix(matrix, workspace, name="matrix", fs_version="26.120", recipes=RECIPES)
     message = str(caught.value)
     assert "POL 7001" in message
-    assert "wing_clean.fsm" in message and "wing_clean.stl" in message
+    assert "GEOMETRY: wing_clean.fsm" in message and "GEOMETRY: wing_clean.stl" in message
+    assert caught.value.available == ("wing_clean.fsm", "wing_clean.stl")
 
 
-@pytest.mark.parametrize("staged_first", [True, False])
-def test_a_cell_naming_the_file_name_is_told_the_id_is_the_stem(tmp_path, staged_first):
-    """THE REFUSAL MUST NOT PRESCRIBE A DOUBLED EXTENSION.
+def test_a_cell_naming_the_file_name_resolves_it(tmp_path):
+    """PFS-2029.09.01: `GEOMETRY: wing_clean.fsm` is the file, one reading and no other."""
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
+    stage_geometry(workspace, "wing_clean.fsm")
+    case = resolve_geometry_row(tmp_path, workspace, " / GEOMETRY: wing_clean.fsm")
+    assert case.geometry is not None and case.geometry.endswith("wing_clean.fsm")
 
-    The id rule permits a dot, so ``GEOMETRY: wing_clean.fsm`` (what
-    anyone who has just staged a file writes) passes the id check and
-    misses in the library. The first wording told that user to stage
-    ``inputs/geometries/wing_clean.fsm.fsm``: satisfiable, and the wrong
-    action, because their file was already staged correctly and the CELL
-    was what needed fixing.
 
-    BOTH ORDERS ARE COVERED and that is the point of the parametrization.
-    A first fix keyed the diagnosis on the stem already being staged,
-    which serves only someone who staged before writing the cell; the
-    commoner order is the other one, and it still received the doubled
-    extension. The suffix in the WRITTEN id is what diagnoses this, and
-    it is diagnosable with nothing else true.
+def test_a_cell_holding_a_path_is_told_to_write_the_file_name(tmp_path):
+    """A pasted path is refused naming the cell to write: the file name alone.
+
+    A forward slash is the ``VAR_NAMES_VALUES`` cell's own separator
+    between KEY:VALUE entries, so a matrix carrying one is refused by the
+    reader before this is reached; a backslash is what a Windows user
+    pastes from an explorer window and travels through the cell untouched.
     """
     workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
-    if staged_first:
-        stage_geometry(workspace, "wing_clean.fsm")
-    with pytest.raises(InputArtifactError) as caught:
-        resolve_geometry_row(tmp_path, workspace, " / GEOMETRY: wing_clean.fsm")
-    message = str(caught.value)
-    assert "wing_clean.fsm.fsm" not in message, (
-        "the refusal prescribes a doubled extension, which is the defect this case "
-        "exists to prevent"
-    )
-    assert f"{GEOMETRY_VARIABLE}: wing_clean" in message, (
-        "the refusal does not show the cell the user should have written"
-    )
-    assert "STEM" in message, "the refusal does not name the rule that was broken"
-
-
-@pytest.mark.parametrize("stem", ["wing_clean", "wing.v2"])
-def test_an_ambiguous_stem_is_diagnosed_before_its_dot_is_mistaken_for_a_suffix(tmp_path, stem):
-    """A DOTTED STEM IS A LEGITIMATE ID, and it shadowed the arm above it.
-
-    ``wing.v2.fsm`` and ``wing.v2.stl`` is one mesh in two formats under
-    a version-numbered stem, and the cell ``GEOMETRY: wing.v2`` is
-    correct. The library refuses it for AMBIGUITY, and for one round the
-    suffix arm was tested first: ``PurePath('wing.v2').suffix`` is
-    ``'.v2'``, so that user was told to write ``GEOMETRY: wing`` and
-    stage a third file, three sentences before the chained library text
-    said their id matched two files and one should be removed.
-
-    An ambiguity refusal proves the written id IS the shared stem, so it
-    has to be diagnosed first. The dot-free case is kept beside it
-    because it is the one the first version of this guard covered, and
-    losing it would trade one blind spot for another.
-    """
-    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
-    stage_geometry(workspace, f"{stem}.fsm")
-    stage_geometry(workspace, f"{stem}.stl")
-    with pytest.raises(InputArtifactError) as caught:
-        resolve_geometry_row(tmp_path, workspace, f" / GEOMETRY: {stem}")
-    message = str(caught.value)
-    assert f"{stem}.fsm" in message and f"{stem}.stl" in message
-    assert "rename or remove" in message, "the refusal does not carry the real remedy"
-    assert "STEM and not the file name" not in message, (
-        "an ambiguous id was diagnosed as a file name, so the user is told to shorten "
-        "a cell that is already correct"
-    )
-    assert "stage" not in message.split("A row that names no")[0].lower(), (
-        "the refusal tells a user whose file is staged twice to stage it"
-    )
-
-
-def test_a_cell_holding_a_path_is_told_the_id_is_a_stem(tmp_path, monkeypatch):
-    """A path-shaped cell must not be told to create a file with separators in its name.
-
-    ``_check_id`` refuses the SHAPE, and its refusal carries the same
-    structured attributes as a miss into an empty library, so without an
-    arm of its own the general remedy fired: "stage a file whose name is
-    '...rotor' plus its extension". That file cannot be created, a
-    subdirectory would not resolve either, and the chained library
-    sentence says "never a path" immediately afterwards.
-
-    THE SEPARATOR IS A BACKSLASH, and it is the only one that reaches
-    here. A forward slash is the ``VAR_NAMES_VALUES`` cell's own
-    separator between KEY:VALUE entries, so a matrix carrying one is
-    refused by the reader before this function is called at all. A
-    backslash is what a Windows user pastes from an explorer window, and
-    it travels through the cell untouched, which is why the arm names
-    both separators itself rather than asking ``PurePath``: on a POSIX
-    runner ``PurePosixPath`` does not treat it as one.
-    """
-    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
-    pasted = "inputs\\geometries\\rotor"
+    pasted = "inputs" + "\\" + "geometries" + "\\" + "rotor.fsm"
     with pytest.raises(InputArtifactError) as caught:
         resolve_geometry_row(tmp_path, workspace, f" / GEOMETRY: {pasted}")
     message = str(caught.value)
-    assert f"{GEOMETRY_VARIABLE}: rotor" in message, (
+    assert "POL 7001" in message
+    assert f"{GEOMETRY_VARIABLE}: rotor.fsm" in message, (
         "the refusal does not show the cell the user should have written"
     )
-    assert f"whose name is '{pasted}'" not in message, (
-        "the refusal prescribes a file name containing path separators, which cannot "
-        "be created and which the library's own sentence contradicts"
-    )
-    # THE STEM MUST NOT BE PLATFORM-DEPENDENT, and this assertion is the
-    # whole reason the arm computes it with an explicit POSIX rule. A
-    # shared `PurePath(...).stem` is `PureWindowsPath` on this machine
-    # and `PurePosixPath` on the runner, and the second does not split a
-    # backslash: the remedy became the user's own input, echoed back
-    # inside a sentence saying "never a path", on the one platform CI
-    # runs and this machine does not.
-    assert pasted not in message.split("which the workspace")[1].split(". ")[0], (
-        "the refusal quotes the path back as the cell to write, which is the input "
-        "that was just refused; the stem was computed with the platform's own "
-        "separator rule rather than with both"
-    )
-
-    # THE OTHER PLATFORM, SIMULATED, because this one cannot see the
-    # defect. On Windows `PurePath` is `PureWindowsPath` and splits a
-    # backslash, so the assertions above pass whether the arm uses the
-    # explicit POSIX rule or the platform default. On the runner
-    # `PurePath` is `PurePosixPath`, which does NOT, and the remedy
-    # became the user's own input. Substituting the class is what makes
-    # that reachable from here rather than only from a red CI leg.
-    monkeypatch.setattr(matrix_module, "PurePath", PurePosixPath)
-    with pytest.raises(InputArtifactError) as posix:
-        resolve_geometry_row(tmp_path, workspace, f" / GEOMETRY: {pasted}", stem="p.fs")
-    posix_message = str(posix.value)
-    assert f"{GEOMETRY_VARIABLE}: rotor" in posix_message, (
-        "under the POSIX path rule the refusal no longer names the stem, so the arm "
-        "is relying on this machine's separator handling and the runner sees the "
-        "input echoed back at it"
-    )
-
-
-def test_a_dotted_id_that_misses_is_not_told_to_truncate_its_version_tag(tmp_path):
-    """A DOT IS LEGAL INSIDE AN ID, so a suffix does not prove a file name.
-
-    The library holds ``blade.v3`` and the row says ``GEOMETRY: blade.v2``,
-    a version typo. Read as a file name, that id's stem is ``blade``, and
-    the suffix arm used to say so: it told the author to truncate a
-    correct version tag and to stage a third file, while the chained
-    listing named ``blade.v3`` as the id that would have resolved.
-
-    Nothing here can tell a version-tagged stem from a file name, so the
-    refusal gives BOTH readings rather than guessing one. The arm that
-    does commit to the file-name reading fires only when the library
-    corroborates it, which is the sibling case above.
-    """
-    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
-    stage_geometry(workspace, "blade.v3.fsm")
-    with pytest.raises(InputArtifactError) as caught:
-        resolve_geometry_row(tmp_path, workspace, " / GEOMETRY: blade.v2")
-    message = str(caught.value)
-    assert "blade.v3" in message, "the refusal does not name the id that would resolve"
-    assert f"{GEOMETRY_VARIABLE}: blade'" not in message, (
-        "the refusal tells the author to truncate a version tag, and the id it points "
-        "at does not resolve either"
-    )
-    assert "reads two ways" in message, "the refusal commits to one reading it cannot prove"
+    assert "is a path" in message and "never a path" in message
 
 
 def test_an_id_refused_for_its_shape_is_told_to_fix_the_cell_not_to_stage_a_file(tmp_path):
@@ -2407,30 +2285,6 @@ def test_no_refusal_offers_dropping_the_key_as_a_way_out(tmp_path):
         "the refusal offers naming no geometry as a way out, which is the defect this "
         "release exists to remove"
     )
-
-
-def test_an_ambiguous_stem_is_not_told_to_stage_the_file_it_staged_twice(tmp_path):
-    """The third arm, which the two-arm version answered wrongly.
-
-    With ``wing_clean.fsm`` and ``wing_clean.stl`` both staged and the
-    cell written correctly as the stem, the library refuses for
-    AMBIGUITY. The general arm told that user to stage the file and to
-    write the cell they had already written, while the real remedy,
-    renaming or removing one of the two, was only in the chained
-    sentence.
-    """
-    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
-    stage_geometry(workspace, "wing_clean.fsm")
-    stage_geometry(workspace, "wing_clean.stl")
-    with pytest.raises(InputArtifactError) as caught:
-        resolve_geometry_row(tmp_path, workspace, " / GEOMETRY: wing_clean")
-    message = str(caught.value)
-    assert "wing_clean.fsm" in message and "wing_clean.stl" in message
-    assert "stage a file whose name is" not in message, (
-        "the refusal tells a user whose file is staged twice to stage it, and to write "
-        "the cell they already wrote"
-    )
-    assert "rename or remove" in message, "the refusal does not carry the real remedy"
 
 
 @pytest.mark.parametrize("code", ["003", "r 003", "inputs/references/r003"])
@@ -2507,7 +2361,7 @@ def test_a_raw_mesh_row_is_refused_by_the_pre_flight_before_anything_is_staged(t
     """
     workspace = make_library(tmp_path, register_build=("26.120", Path(sys.executable).as_posix()))
     stage_geometry(workspace, "raw_blade.stl")
-    matrix = geometry_matrix(tmp_path, " / VELOCITY: 30.0 / GEOMETRY: raw_blade")
+    matrix = geometry_matrix(tmp_path, " / VELOCITY: 30.0 / GEOMETRY: raw_blade.stl")
 
     with pytest.raises(MatrixError) as caught:
         run_matrix(
@@ -2553,7 +2407,7 @@ def test_the_whole_chain_the_row_the_staged_copy_and_the_opened_path(tmp_path):
     library = stage_geometry(workspace, "wing_clean.fsm")
     matrix = geometry_matrix(
         tmp_path,
-        " / VELOCITY: 30.0 / GEOMETRY: wing_clean / SYMMETRY: PERIODIC / PERIODIC_COPIES: 4",
+        " / VELOCITY: 30.0 / GEOMETRY: wing_clean.fsm / SYMMETRY: PERIODIC / PERIODIC_COPIES: 4",
     )
     records = run_matrix(
         matrix,
@@ -2622,7 +2476,7 @@ def test_a_campaign_runs_under_the_relative_root_the_cli_defaults_to(tmp_path, m
     """
     workspace = make_library(tmp_path, register_build=("26.120", Path(sys.executable).as_posix()))
     stage_geometry(workspace, "wing_clean.fsm")
-    matrix = geometry_matrix(tmp_path, " / VELOCITY: 30.0 / GEOMETRY: wing_clean")
+    matrix = geometry_matrix(tmp_path, " / VELOCITY: 30.0 / GEOMETRY: wing_clean.fsm")
 
     monkeypatch.chdir(tmp_path)
     argument = Path("camp")

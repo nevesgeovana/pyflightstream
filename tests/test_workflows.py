@@ -3853,3 +3853,16 @@ def test_a_pproc_frame_the_run_did_not_create_is_refused_naming_the_created_ones
     case = _with_pproc(steady_case(), _wb_geometry(tmp_path), pproc)
     with pytest.raises(CampaignConfigError, match="created: MRP"):
         rendered(case)
+
+
+def test_a_mesh_file_is_refused_naming_the_release(tmp_path):
+    """PFS-2029.09.03: a cell `wing.obj` passes the reader; the pre-flight names 0.12.0."""
+    from pyflightstream.cases import CampaignConfigError
+
+    mesh = tmp_path / "wing.obj"
+    mesh.write_bytes(b"o wing")
+    with pytest.raises(CampaignConfigError) as caught:
+        rendered(steady_case(geometry=str(mesh)))
+    message = str(caught.value)
+    assert "no boundary conditions" in message and "0.12.0" in message
+    assert "docs/mesh-inputs.md" in message

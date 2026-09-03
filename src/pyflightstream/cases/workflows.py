@@ -1961,7 +1961,8 @@ def _open_geometry(case: SimCase, script: Script) -> None:
             "the mesh in the FlightStream window once, save the result as a .fsm, and "
             "stage that in inputs/geometries/ instead; docs/mesh-inputs.md carries the "
             f"route in full; search that page for '{_MESH_PAGE_ANCHOR}'. The file this "
-            f"resolved to is {case.geometry!r}."
+            f"resolved to is {case.geometry!r}. A mesh carries no boundary conditions, "
+            "and 0.12.0 is the release that defines them for a mesh cell (PFS-2029.09.03)."
         )
     # THE INITIALISATION FLAG IS ALWAYS STATED (PFS-2030.03.01). A saved
     # simulation may carry an initialised solver, and loading it would start

@@ -98,6 +98,18 @@ FlightStream versions.
   of GOAL-011, 32 of 32). The products are CSV by her decision of
   2026-09-02; the layout she recorded in is a third party's and the package
   neither names nor writes it.
+- PFS-2029.09, the author's decision of 2026-09-02 amending PFS-2009.01:
+  the `GEOMETRY` cell carries the FILE NAME with its extension.
+  `30_WB.fsm` resolves to `inputs/geometries/30_WB.fsm` and `blade.v2.fsm`
+  reads one way; a bare stem is refused naming the files that carry it, a
+  file the directory lacks is refused naming what it holds, and a path is
+  refused naming the file name to write. `pyfs-matrix upgrade` gains a
+  fourth stage that completes every stem-only `GEOMETRY` value with `.fsm`,
+  on an older matrix and on a current one alike, so the reference
+  workspaces and the fixtures moved in one command. A workflow row naming a
+  mesh (`.obj`, `.stl`) is still refused before any seat is spent, and the
+  refusal now names 0.12.0 as the release that defines a mesh's boundary
+  conditions. A profile still resolves by its stem.
 - PFS-2029.08: the four rotor facts leave the reference artifact.
   `rotation`, `blade_travel`, `rpm_sign_installed` and `rpm_sign_isolated`
   were recorded in the `[propeller]` block from 0.8.0 to 0.10.1 and read by no
