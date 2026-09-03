@@ -42,6 +42,7 @@ from __future__ import annotations
 
 import enum
 import json
+import os
 import re
 import shutil
 import sys
@@ -536,6 +537,12 @@ class RunRecord(BaseModel):
     #: Where the boundary inventory came from, ``sidecar`` or ``mesh block``
     #: (PFS-2029.06.03); None when the geometry declares none.
     inventory_source: str | None = None
+    #: How the inputs were staged (PFS-2029.17): ``link``, a directory
+    #: junction on Windows and a symbolic link elsewhere, or ``copy``; None
+    #: for a point with no staged input.
+    staged_as: str | None = None
+    #: Why a copy was made where a link was asked for; None otherwise.
+    staged_as_reason: str | None = None
     recipe_sha256: str | None = None
     script_path: str | None = None
     script_sha256: str
@@ -552,6 +559,61 @@ class RunRecord(BaseModel):
     wall_time_s: float | None = None
     outputs: list[str] = Field(default_factory=list)
     error: str | None = None
+
+
+def _is_link(path: Path) -> bool:
+    """Whether ``path`` is a symbolic link or, on Windows, a directory junction."""
+    return path.is_symlink() or (sys.platform == "win32" and os.path.isjunction(path))
+
+
+def _make_dir_link(target: Path, link: Path) -> None:
+    """Create ``link`` pointing at directory ``target``: a junction on Windows, a symlink elsewhere.
+
+    A JUNCTION AND NOT A SYMLINK ON WINDOWS, because a symbolic link there
+    needs a privilege an ordinary account does not hold and a junction
+    needs none; both resolve for every reader and both are removed without
+    touching what they point at.
+    """
+    if sys.platform == "win32":
+        import _winapi
+
+        _winapi.CreateJunction(str(target), str(link))
+    else:
+        os.symlink(target, link, target_is_directory=True)
+
+
+def _remove_link(link: Path) -> None:
+    """Remove a link and never what it points at."""
+    if sys.platform == "win32" and os.path.isjunction(link):
+        os.rmdir(link)
+    else:
+        os.unlink(link)
+
+
+def _sim_files(sim: Path) -> list[Path]:
+    """Every file under a simulation folder, never crossing a link."""
+    found: list[Path] = []
+    for dirpath, dirnames, filenames in os.walk(sim):
+        here = Path(dirpath)
+        dirnames[:] = sorted(name for name in dirnames if not _is_link(here / name))
+        found.extend(here / name for name in sorted(filenames))
+    return found
+
+
+def _remove_sim_tree(sim: Path) -> None:
+    """Remove a simulation folder, unlinking every link inside it first.
+
+    The estate's own incident is the reason this is not a bare rmtree: a
+    scan that crossed sixteen junctions reported 13.8 GB inside a 6.4 GB
+    tree, and a removal that crossed one would have deleted the survivor.
+    """
+    for dirpath, dirnames, _ in os.walk(sim):
+        here = Path(dirpath)
+        for name in list(dirnames):
+            if _is_link(here / name):
+                _remove_link(here / name)
+                dirnames.remove(name)
+    shutil.rmtree(sim)
 
 
 def _sha256(path: Path) -> str:
@@ -923,6 +985,10 @@ class CampaignWorkspace:
         # relative, so manifests written before this release still read.
         self.root = Path(root).resolve()
         self.naming = naming if naming is not None else NamingTemplate()
+        #: How each simulation's inputs were staged this session (PFS-2029.17):
+        #: ``("link", None)`` or ``("copy", reason)``; :meth:`staged_as` reads
+        #: the disk for a simulation this object did not stage.
+        self._staging: dict[str, tuple[str, str | None]] = {}
 
     @classmethod
     def init(cls, root: str | Path, naming: NamingTemplate | None = None) -> CampaignWorkspace:
@@ -1269,17 +1335,31 @@ class CampaignWorkspace:
         return sim
 
     def stage_inputs(self, sim_id: str, sources: Sequence[str | Path]) -> dict[str, str]:
-        """Copy input files into ``inputs/`` and record their hashes.
+        """Stage input files under ``inputs/`` and record their hashes.
 
         Staging happens before execution so the manifest can tie the
         run to the exact input content (NFR-07).
+
+        THROUGH A LINK, NOT A COPY (PFS-2029.17, her first sentence of
+        item #6). Until 0.11.0 every point carried a byte copy of the
+        geometry it opened, and her meshes are the size that sends every
+        .fsm to cloud storage rather than to git. When every source sits
+        in the workspace's own geometry library, ``sims/<sim>/inputs`` is
+        made a directory junction on Windows and a symbolic link
+        elsewhere, pointing at that library, so the staged path resolves
+        to the one file on disk and the hash recorded is that file's. A
+        filesystem that refuses the link, a source outside the library, or
+        an inputs folder that already holds copies from an earlier
+        release each fall back to a copy, and :meth:`staged_as` says which
+        was made and why, because a junction is not a copy and a scan
+        that crosses one double-counts; the run record carries the answer.
 
         Parameters
         ----------
         sim_id : str
             Target simulation.
         sources : sequence of str or Path
-            Files to copy; each must exist.
+            Files to stage; each must exist.
 
         Returns
         -------
@@ -1307,18 +1387,72 @@ class CampaignWorkspace:
                     "recipe references separately."
                 )
             seen[name] = str(source)
-        hashes: dict[str, str] = {}
-        for source in sources:
-            origin = Path(source)
+        origins = [Path(source) for source in sources]
+        for origin in origins:
             if not origin.is_file():
                 raise WorkspaceError(
                     f"cannot stage {origin}: the file does not exist. Staging copies "
                     "inputs before execution so the manifest records what actually ran."
                 )
-            target = sim / "inputs" / origin.name
-            shutil.copy2(origin, target)
+        inputs = sim / "inputs"
+        mode, reason = self._link_inputs(inputs, origins)
+        hashes: dict[str, str] = {}
+        for origin in origins:
+            target = inputs / origin.name
+            if mode == "copy":
+                shutil.copy2(origin, target)
             hashes[origin.name] = _sha256(target)
+        self._staging[sim_id] = (mode, reason)
         return hashes
+
+    def _link_inputs(self, inputs: Path, origins: Sequence[Path]) -> tuple[str, str | None]:
+        """Make ``inputs`` a link to the geometry library, or say why not."""
+        library = (self.inputs_dir / "geometries").resolve()
+        if not origins:
+            return "copy", None
+        parents = {origin.resolve().parent for origin in origins}
+        if parents != {library}:
+            if _is_link(inputs):
+                _remove_link(inputs)
+                inputs.mkdir()
+            return "copy", (
+                "the source is not in the workspace geometry library (inputs/geometries), "
+                "and a link would expose a directory the workspace does not own"
+            )
+        if _is_link(inputs):
+            if Path(os.path.realpath(inputs)) == library:
+                return "link", None
+            _remove_link(inputs)
+        elif any(inputs.iterdir()):
+            return "copy", (
+                "the simulation's inputs folder already holds files staged by an "
+                "earlier release, and they are the evidence its records hash"
+            )
+        else:
+            inputs.rmdir()
+        try:
+            _make_dir_link(library, inputs)
+        except OSError as error:
+            inputs.mkdir(exist_ok=True)
+            return "copy", f"the filesystem refused the link: {error}"
+        return "link", None
+
+    def staged_as(self, sim_id: str) -> tuple[str | None, str | None]:
+        """Say how one simulation's inputs were staged: ``link`` or ``copy``, and why.
+
+        Returns ``(None, None)`` for a simulation with nothing staged. A
+        simulation this object did not stage is read off the disk, where
+        a link is a link and a folder with files is a copy whose reason
+        was not kept.
+        """
+        if sim_id in self._staging:
+            return self._staging[sim_id]
+        inputs = self.sim_dir(sim_id) / "inputs"
+        if _is_link(inputs):
+            return "link", None
+        if inputs.is_dir() and any(inputs.iterdir()):
+            return "copy", None
+        return None, None
 
     def write_script(self, sim_id: str, name: str, text: str) -> tuple[Path, str]:
         """Write one generated script into ``scripts/`` and hash it.
@@ -1873,10 +2007,15 @@ class CampaignWorkspace:
                 "template whose archive name distinguishes the runs."
             )
         with zipfile.ZipFile(target, "x", compression=zipfile.ZIP_DEFLATED) as bundle:
-            for path in sorted(sim.rglob("*")):
-                if path.is_file():
-                    bundle.write(path, path.relative_to(sim))
-        shutil.rmtree(sim)
+            for path in _sim_files(sim):
+                bundle.write(path, path.relative_to(sim))
+            # A STAGED LINK IS ARCHIVED AS A LINK (PFS-2029.17): the geometry
+            # it points at is the library's and stays there; the zip records
+            # where the link pointed, and never the bytes behind it.
+            link = sim / "inputs"
+            if _is_link(link):
+                bundle.writestr("inputs/STAGED_AS_LINK.txt", os.path.realpath(link) + "\n")
+        _remove_sim_tree(sim)
         return target
 
     def clean_sim(self, sim_id: str) -> None:
@@ -1888,7 +2027,7 @@ class CampaignWorkspace:
             Same refusals as :meth:`archive_sim`.
         """
         sim = self._recorded_sim(sim_id, operation="clean")
-        shutil.rmtree(sim)
+        _remove_sim_tree(sim)
 
     def _recorded_sim(self, sim_id: str, operation: str) -> Path:
         sim = self.sim_dir(sim_id)

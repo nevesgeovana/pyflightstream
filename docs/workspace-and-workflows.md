@@ -726,6 +726,14 @@ pyfs-matrix post --workspace .            # refuses a product that exists
 pyfs-matrix post --workspace . --overwrite
 ```
 
+A point opens its geometry through a link (PFS-2029.17): `sims/<sim>/inputs`
+is a directory junction on Windows and a symbolic link elsewhere, pointing at
+`inputs/geometries/`, so a campaign of forty points holds one copy of each
+mesh and the record still carries the opened path and its sha256, with
+`staged_as: link`. Where a link cannot be made, the inputs are copied and the
+record says `staged_as: copy` with the reason. Archiving writes the link as a
+one-line `inputs/STAGED_AS_LINK.txt` and never the library's bytes.
+
 The boundary order of a staged geometry is read from the file and written
 beside it, never stated in a setup (PFS-2029.06; `docs/mesh-inputs.md`):
 

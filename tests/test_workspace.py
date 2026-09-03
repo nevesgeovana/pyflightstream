@@ -4,6 +4,7 @@ import ast
 import hashlib
 import importlib
 import json
+import os
 import re
 import zipfile
 from pathlib import Path
@@ -2255,3 +2256,86 @@ def test_a_dotted_stem_reads_one_way(tmp_path):
     with pytest.raises(InputArtifactError) as caught:
         workspace.resolve_geometry("blade.v2")
     assert "blade.v2.fsm" in str(caught.value), "the one file carrying the stem is named"
+
+
+# --- PFS-2029.17: the staged geometry is a link, not a copy -------------------------
+
+
+def _library_geometry(workspace, name="wing.fsm", body=b"fake simulation"):
+    path = workspace.inputs_dir / "geometries" / name
+    path.write_bytes(body)
+    return path
+
+
+def _is_link(path):
+    return path.is_symlink() or os.path.isjunction(path)
+
+
+def test_staging_links_the_geometry_and_records_its_hash(tmp_path):
+    from pyflightstream._digest import file_sha256
+
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    library = _library_geometry(workspace)
+    hashes = workspace.stage_inputs("9001", [library])
+    inputs = workspace.sim_dir("9001") / "inputs"
+    assert _is_link(inputs), "the inputs folder is a folder, so a copy was made"
+    staged = inputs / "wing.fsm"
+    assert staged.is_file() and os.path.samefile(staged, library), (
+        "the staged path is a second copy"
+    )
+    assert hashes == {"wing.fsm": file_sha256(library)}
+    assert workspace.staged_as("9001") == ("link", None)
+    # Staging the same library again is idempotent, and a fresh object reads the disk.
+    assert workspace.stage_inputs("9001", [library]) == hashes
+    assert CampaignWorkspace(workspace.root).staged_as("9001") == ("link", None)
+
+
+def test_a_refused_link_falls_back_to_a_copy_that_the_record_names(tmp_path, monkeypatch):
+    import pyflightstream.workspace as workspace_module
+    from pyflightstream._digest import file_sha256
+
+    def refuse(target, link):
+        raise OSError("links are not permitted on this volume")
+
+    monkeypatch.setattr(workspace_module, "_make_dir_link", refuse)
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    library = _library_geometry(workspace)
+    hashes = workspace.stage_inputs("9001", [library])
+    inputs = workspace.sim_dir("9001") / "inputs"
+    assert inputs.is_dir() and not _is_link(inputs)
+    assert (inputs / "wing.fsm").read_bytes() == library.read_bytes()
+    assert hashes == {"wing.fsm": file_sha256(library)}
+    mode, reason = workspace.staged_as("9001")
+    assert mode == "copy" and "links are not permitted on this volume" in reason
+    # A source outside the library is copied whatever the filesystem allows, and says so.
+    monkeypatch.undo()
+    outside = tmp_path / "mesh.obj"
+    outside.write_bytes(b"obj")
+    workspace.stage_inputs("9002", [outside])
+    mode, reason = workspace.staged_as("9002")
+    assert mode == "copy" and "geometry library" in reason
+    assert not _is_link(workspace.sim_dir("9002") / "inputs")
+
+
+def test_archive_does_not_cross_a_staged_link(tmp_path):
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    library = _library_geometry(workspace, body=b"x" * 4096)
+    other = _library_geometry(workspace, "other.fsm", b"y" * 4096)
+    for sim_id in ("9001", "9002"):
+        workspace.stage_inputs(sim_id, [library])
+        (workspace.sim_dir(sim_id) / "raw" / "loads.txt").write_text("loads", encoding="utf-8")
+        workspace.append_record(make_record(sim_id=sim_id, run_id=f"camp/sim_{sim_id}/a"))
+    bundle = workspace.archive_sim("9001")
+    with zipfile.ZipFile(bundle) as archive:
+        names = archive.namelist()
+        assert "raw/loads.txt" in names
+        assert not any(name.endswith(".fsm") for name in names), "the archive crossed the link"
+        assert archive.read("inputs/STAGED_AS_LINK.txt").decode().strip() == os.path.realpath(
+            workspace.inputs_dir / "geometries"
+        )
+    assert not workspace.sim_dir("9001").exists()
+    workspace.clean_sim("9002")
+    assert not workspace.sim_dir("9002").exists()
+    assert library.read_bytes() == b"x" * 4096 and other.read_bytes() == b"y" * 4096, (
+        "removing the simulation crossed the link into the library"
+    )

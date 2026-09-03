@@ -2759,6 +2759,15 @@ def _execute_point(
         # the point was run for without opening the matrix.
         "pproc": case.pproc_id,
         "inventory_source": case.inventory_source,
+        # How the geometry was staged (PFS-2029.17), read off the workspace
+        # that staged it, so the record says link or copy and why.
+        **dict(
+            zip(
+                ("staged_as", "staged_as_reason"),
+                workspace.staged_as(case.sim_id) if staged_geometry is not None else (None, None),
+                strict=True,
+            )
+        ),
         # The template that rendered this point's names (PFS-2029.19.01),
         # so a reader can tell a name from the identity beside it.
         "point_name_template": workspace.naming.point_name,

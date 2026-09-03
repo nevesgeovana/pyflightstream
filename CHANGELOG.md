@@ -134,6 +134,17 @@ FlightStream versions.
   block is the only source as `mesh block`, and a sidecar beside a file
   without a block declares the names the file cannot (.06.03). The two
   reference setups that carried the key no longer do.
+- PFS-2029.17: a point opens the staged geometry through a link, not through
+  a copy. When every input of a simulation sits in the workspace geometry
+  library, `sims/<sim>/inputs` is a directory junction on Windows and a
+  symbolic link elsewhere, so a campaign leaves no second copy of a geometry
+  on disk; the record still carries the opened path and its sha256, and now
+  `staged_as: link`. A filesystem that refuses the link, a source outside the
+  library, or an inputs folder holding copies from an earlier release fall
+  back to a copy, and the record says `staged_as: copy` with the reason.
+  `archive_sim` writes the link as a one-line `inputs/STAGED_AS_LINK.txt`
+  naming its target and never the bytes behind it, and both `archive_sim` and
+  `clean_sim` unlink before removing, so neither crosses into the library.
 - PFS-2029.10: base region is an optional input naming mesh families.
   A pproc artifact's `base_regions` list, or a row's `BASE_REGIONS` key
   which overrides it, names the families the base-region autodetect may

@@ -15,6 +15,7 @@ to `pyflightstream.run.matrix` (OPS-2007.01). Only the reader and the
 converter stayed in `pyflightstream.cases.matrix`.
 """
 
+import os
 import sys
 import tomllib
 import warnings
@@ -2961,6 +2962,10 @@ def test_an_agreeing_sidecar_is_recorded_as_the_inventory_source(tmp_path):
     )
     assert [record.status for record in records] == [RunStatus.CONVERGED]
     assert records[0].inventory_source == "sidecar"
+    # PFS-2029.17: the record says the geometry was staged through a link.
+    assert records[0].staged_as == "link" and records[0].staged_as_reason is None
+    staged = workspace.sim_dir("7001") / "inputs" / "wb.fsm"
+    assert os.path.samefile(staged, library), "the point opened a second copy"
     # Without a sidecar the file's own block is the source, and a placeholder has none.
     _saved_simulation_with(workspace.inputs_dir / "geometries" / "plain.fsm", ["W"])
     stage_geometry(workspace, "placeholder.fsm")
