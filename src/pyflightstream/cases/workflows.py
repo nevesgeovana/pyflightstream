@@ -82,7 +82,7 @@ from pyflightstream.cases import (
     select_families,
 )
 from pyflightstream.commands import CommandRegistry
-from pyflightstream.script import CommandArgumentError, Script, helpers
+from pyflightstream.script import CommandArgumentError, Script, ScriptReferenceError, helpers
 from pyflightstream.versions import FsVersion, known_versions, resolve
 
 __all__ = [
@@ -92,6 +92,7 @@ __all__ = [
     "DELTA_TIME_VARIABLE",
     "GEOMETRY_VARIABLE",
     "LOG_OUTPUT_VARIABLE",
+    "BASE_REGIONS_VARIABLE",
     "MOVING_BOUNDARIES_VARIABLE",
     "PERIODIC_COPIES_VARIABLE",
     "REVOLUTIONS_VARIABLE",
@@ -181,6 +182,9 @@ ROTOR_ORIGIN_VARIABLE = "ROTOR_ORIGIN"
 ROTOR_SHEDDING_VARIABLE = "ROTOR_SHEDDING"
 BLADES_VARIABLE = "BLADES"
 MOVING_BOUNDARIES_VARIABLE = "MOVING_BOUNDARIES"
+#: The mesh families the base-region autodetect is allowed to consider
+#: (PFS-2029.10), comma separated; overrides the pproc artifact's list.
+BASE_REGIONS_VARIABLE = "BASE_REGIONS"
 DELTA_TIME_VARIABLE = "DELTA_TIME"
 TIME_ITERATIONS_VARIABLE = "TIME_ITERATIONS"
 #: The rotor speed stated as a RATIO instead of a number of rev/min:
@@ -1279,6 +1283,12 @@ def _moving_boundaries(case: SimCase, script: Script, cell: str) -> list[int | s
     tokens = [token.strip() for token in cell.split(",") if token.strip()]
     labels = script.entities.labels("boundaries")
     if not labels:
+        # PFS-2029.12: a NAME against no inventory is refused here, saying
+        # why there is no inventory, instead of reaching the script layer
+        # as "no labels are registered yet", which blamed the row.
+        for token in tokens:
+            if not isinstance(_boundary(token), int):
+                _refuse_name_without_inventory(case, MOVING_BOUNDARIES_VARIABLE, token)
         return [_boundary(token) for token in tokens]
     resolved: list[int | str] = []
     positional: list[str] = []
@@ -1290,6 +1300,8 @@ def _moving_boundaries(case: SimCase, script: Script, cell: str) -> list[int | s
         read = _boundary(token)
         if isinstance(read, int):
             positional.append(token)
+        else:
+            _refuse_name_absent_from_inventory(case, MOVING_BOUNDARIES_VARIABLE, token, labels)
         resolved.append(read)
     if positional:
         selected = ", ".join(
@@ -1310,6 +1322,67 @@ def _moving_boundaries(case: SimCase, script: Script, cell: str) -> list[int | s
     if all(isinstance(item, int) for item in resolved):
         return sorted({int(item) for item in resolved})
     return resolved
+
+
+def _inventory_source(case: SimCase) -> str:
+    """Say where this case's boundary inventory was read from, for a message."""
+    file_name = PurePath(str(case.geometry)).name
+    if case.inventory is not None:
+        return f"the sidecar {PurePath(str(case.geometry)).stem}.boundaries.toml beside {file_name}"
+    return f"the mesh block of {file_name}"
+
+
+def _refuse_name_absent_from_inventory(
+    case: SimCase, key: str, token: str, labels: Mapping[str, int]
+) -> None:
+    """Refuse a boundary name the declared inventory lacks, naming the inventory read."""
+    declared = ", ".join(repr(name) for name, _ in sorted(labels.items(), key=lambda item: item[1]))
+    raise ScriptReferenceError(
+        f"case {case.sim_id!r} states {key} with {token!r}, and {_inventory_source(case)} "
+        f"declares no boundary of that name or family; it declares {declared}. Write one "
+        "of those, or a family name (the label without its trailing number) to select "
+        "every member the file carries."
+    )
+
+
+def _refuse_name_without_inventory(case: SimCase, key: str, token: str) -> None:
+    """Refuse a boundary name when no inventory could be declared, saying why.
+
+    PFS-2029.12. Three states leave the inventory undeclared and each is
+    the file's, not the row's: the case opens no geometry; the geometry
+    carries no mesh block, which is what a raw mesh and a placeholder
+    are; or the block could not be read and was warned about at OPEN.
+    The reader is re-run here, once and cheaply, because the refusal
+    has to say which of the three it is.
+    """
+    if case.geometry is None:
+        raise ScriptReferenceError(
+            f"case {case.sim_id!r} states {key} with {token!r}, and the case opens no "
+            "geometry, so there is no boundary inventory to read the name from. Name a "
+            f"geometry in the row ({GEOMETRY_VARIABLE}), or cite positions."
+        )
+    file_name = PurePath(str(case.geometry)).name
+    try:
+        names = boundary_names(case.geometry)
+    except MeshReadError as unreadable:
+        raise ScriptReferenceError(
+            f"case {case.sim_id!r} states {key} with {token!r}, and the boundary "
+            f"inventory of {file_name} could not be read: {unreadable} No name can "
+            "resolve until the file reads."
+        ) from unreadable
+    if not names:
+        raise ScriptReferenceError(
+            f"case {case.sim_id!r} states {key} with {token!r}, and {file_name} carries no "
+            "mesh block, so no boundary name can be read from it. A saved simulation "
+            "(.fsm) carries the block; a file that does not can state its names in "
+            f"{PurePath(file_name).stem}.boundaries.toml beside it (docs/mesh-inputs.md), "
+            "or the row can cite positions."
+        )
+    raise ScriptReferenceError(
+        f"case {case.sim_id!r} states {key} with {token!r}, and every name in the mesh "
+        f"block of {file_name} is used more than once, so none of them can select a "
+        "surface. Cite positions for this file."
+    )
 
 
 def _named(position: int, labels: Mapping[str, int], total: int | None) -> str:
@@ -1971,6 +2044,43 @@ def _open_geometry(case: SimCase, script: Script) -> None:
     load = case.solver.load_solver_initialization
     script.emit("OPEN", case.geometry, "ENABLE" if load else "DISABLE")
     _declare_boundaries(case, script)
+    _detect_base_regions(case, script)
+
+
+def _base_region_families(case: SimCase) -> list[str]:
+    """Return the families the base-region autodetect may consider: row first, then pproc."""
+    declared = _variable(case, BASE_REGIONS_VARIABLE)
+    if declared is not None:
+        return [token.strip() for token in str(declared).split(",") if token.strip()]
+    if case.pproc is not None:
+        return list(case.pproc.base_regions)
+    return []
+
+
+def _detect_base_regions(case: SimCase, script: Script) -> None:
+    """Emit one DETECT_BASE_REGIONS_BY_SURFACE per boundary of the named families.
+
+    PFS-2029.10, her third sentence of item #6: base region is an
+    optional input naming mesh families, so the autodetect runs on those
+    surfaces only. Naming none emits nothing, which is every golden and
+    every recorded script; AUTO_DETECT_BASE_REGIONS, the whole-geometry
+    form, is what a recipe of your own calls, and this package never
+    decides on its own which surfaces have a base.
+    """
+    families = _base_region_families(case)
+    if not families:
+        return
+    labels = script.entities.labels("boundaries")
+    indices: list[int] = []
+    for family in families:
+        if not labels:
+            _refuse_name_without_inventory(case, BASE_REGIONS_VARIABLE, family)
+        found = resolve_family(family, labels)
+        if not found:
+            _refuse_name_absent_from_inventory(case, BASE_REGIONS_VARIABLE, family, labels)
+        indices.extend(index for index in found if index not in indices)
+    for index in sorted(indices):
+        script.emit("DETECT_BASE_REGIONS_BY_SURFACE", boundary_index=index)
 
 
 def _declare_boundaries(case: SimCase, script: Script) -> None:

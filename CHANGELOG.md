@@ -134,6 +134,22 @@ FlightStream versions.
   block is the only source as `mesh block`, and a sidecar beside a file
   without a block declares the names the file cannot (.06.03). The two
   reference setups that carried the key no longer do.
+- PFS-2029.10: base region is an optional input naming mesh families.
+  A pproc artifact's `base_regions` list, or a row's `BASE_REGIONS` key
+  which overrides it, names the families the base-region autodetect may
+  consider, and the builder emits one `DETECT_BASE_REGIONS_BY_SURFACE` per
+  boundary of those families right after `OPEN`. Naming none emits nothing,
+  so every golden and every recorded script is unchanged; a family the
+  geometry does not carry is refused naming what the inventory declares.
+- PFS-2029.12: an undeclared boundary inventory says why it is undeclared.
+  A row citing a boundary NAME against a geometry that carries no mesh
+  block is refused naming the file and saying so, with the sidecar and the
+  positional forms as the routes; a name the declared inventory lacks is
+  refused naming the inventory it was read from, the mesh block or the
+  sidecar, and what it declares. The silent `except OSError` in the mesh
+  reader is gone: a file that cannot be opened is reported by name and
+  cause, as a warning at `OPEN` and in the refusal of any name cited
+  against it.
 - PFS-2029.08: the four rotor facts leave the reference artifact.
   `rotation`, `blade_travel`, `rpm_sign_installed` and `rpm_sign_isolated`
   were recorded in the `[propeller]` block from 0.8.0 to 0.10.1 and read by no

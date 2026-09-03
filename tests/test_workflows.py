@@ -3893,3 +3893,89 @@ def test_an_agreeing_sidecar_declares_the_inventory_a_blockless_file_lacks(tmp_p
     script = Script("26.123")
     build_script(from_sidecar, script)
     assert _moving_payload(script.render()) == "2"
+
+
+# --- PFS-2029.10: base region is an optional input naming mesh families --------------
+
+
+def _detect_lines(text: str) -> list[str]:
+    return [line for line in text.splitlines() if line.startswith("DETECT_BASE_REGIONS_BY_SURFACE")]
+
+
+def test_base_region_families_reach_the_script_by_index(tmp_path):
+    sector = _saved_simulation(tmp_path / "sector.fsm", ["Blade1", "S", "N", "Blade2"])
+    row = _rotor_row(sector, "Blade").model_copy(
+        update={"variables": {**_rotor_row(sector, "Blade").variables, "BASE_REGIONS": "S,Blade"}}
+    )
+    script = Script("26.123")
+    build_script(row, script)
+    lines = script.render().splitlines()
+    assert _detect_lines(script.render()) == [
+        "DETECT_BASE_REGIONS_BY_SURFACE 1",
+        "DETECT_BASE_REGIONS_BY_SURFACE 2",
+        "DETECT_BASE_REGIONS_BY_SURFACE 4",
+    ]
+    motion = next(i for i, line in enumerate(lines) if line.startswith("SET_MOTION_BOUNDARIES"))
+    assert lines.index("DETECT_BASE_REGIONS_BY_SURFACE 1") < motion, (
+        "the autodetect is not emitted right after OPEN, before the motion"
+    )
+    # The pproc artifact's list is the other source, and the row overrides it.
+    from pyflightstream.cases import PprocSpec
+
+    from_pproc = _rotor_row(sector, "Blade").model_copy(
+        update={"pproc": PprocSpec(base_regions=["N"]), "pproc_id": "p001"}
+    )
+    script = Script("26.123")
+    build_script(from_pproc, script)
+    assert _detect_lines(script.render()) == ["DETECT_BASE_REGIONS_BY_SURFACE 3"]
+    overridden = from_pproc.model_copy(
+        update={"variables": {**from_pproc.variables, "BASE_REGIONS": "S"}}
+    )
+    script = Script("26.123")
+    build_script(overridden, script)
+    assert _detect_lines(script.render()) == ["DETECT_BASE_REGIONS_BY_SURFACE 2"]
+
+
+def test_naming_no_family_changes_no_golden(tmp_path):
+    """No family named, nothing emitted: the goldens and her recorded scripts carry no such line."""
+    sector = _saved_simulation(tmp_path / "sector.fsm", ["Blade1", "S", "N"])
+    before = Script("26.123")
+    build_script(_rotor_row(sector, "Blade"), before)
+    from pyflightstream.cases import PprocSpec
+
+    empty = _rotor_row(sector, "Blade").model_copy(
+        update={"pproc": PprocSpec(), "pproc_id": "p001"}
+    )
+    after = Script("26.123")
+    build_script(empty, after)
+    assert "DETECT_BASE_REGIONS_BY_SURFACE" not in before.render()
+    assert before.render() == after.render()
+    goldens = sorted((Path(__file__).parent / "goldens").glob("**/*.txt"))
+    assert goldens, "no goldens found to check"
+    # The command chapter golden documents the command; no WORKFLOW golden emits it.
+    workflow_goldens = [g for g in goldens if "chapter" not in g.name]
+    assert workflow_goldens
+    assert not [
+        g
+        for g in workflow_goldens
+        if "DETECT_BASE_REGIONS_BY_SURFACE" in g.read_text(encoding="utf-8")
+    ]
+
+
+def test_an_unknown_base_region_family_is_refused_naming_the_inventory(tmp_path):
+    sector = _saved_simulation(tmp_path / "sector.fsm", ["Blade1", "S", "N"])
+    row = _rotor_row(sector, "Blade").model_copy(
+        update={"variables": {**_rotor_row(sector, "Blade").variables, "BASE_REGIONS": "Wing"}}
+    )
+    with pytest.raises(ScriptReferenceError) as caught:
+        build_script(row, Script("26.123"))
+    message = str(caught.value)
+    assert "BASE_REGIONS" in message and "'Wing'" in message
+    assert "the mesh block of sector.fsm" in message and "'Blade1', 'S', 'N'" in message
+    placeholder = tmp_path / "placeholder.fsm"
+    placeholder.write_bytes(b"fake simulation")
+    with pytest.raises(ScriptReferenceError) as blockless:
+        build_script(row.model_copy(update={"geometry": str(placeholder)}), Script("26.123"))
+    assert "placeholder.fsm" in str(blockless.value) and "carries no mesh block" in str(
+        blockless.value
+    )

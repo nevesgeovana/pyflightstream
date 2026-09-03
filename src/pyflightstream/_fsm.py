@@ -141,8 +141,9 @@ def boundary_names(path: str | Path) -> tuple[str, ...] | None:
     Raises
     ------
     MeshReadError
-        If the block opens and then does not hold its documented shape:
-        an unreadable count, a record whose first line is not the flag
+        If the file cannot be opened, naming it and the cause, or if the
+        block opens and then does not hold its documented shape: an
+        unreadable count, a record whose first line is not the flag
         line, a block that ends early, or a name written as an integer.
 
     Notes
@@ -157,15 +158,14 @@ def boundary_names(path: str | Path) -> tuple[str, ...] | None:
     target = Path(path)
     try:
         handle = target.open(encoding="utf-8", errors="replace")
-    except OSError:
-        # SILENT, AND DELIBERATELY. A script builder emits OPEN with
-        # whatever path its case carries and does not require the file
-        # to be on disk; the run layer is what proves existence, with
-        # its own message. Warning here fired on four script-building
-        # tests whose cases name a path nobody creates, and a warning
-        # that cries wolf on a normal state teaches a reader to ignore
-        # the one that matters.
-        return None
+    except OSError as error:
+        # REPORTED BY NAME (PFS-2029.12). Until 0.11.0 this returned None
+        # in silence, so a file that could not be opened and a file
+        # carrying no mesh block read the same, and the user was later
+        # told their row cited an unknown label. The caller decides what
+        # an unreadable file means for its run; this reader only says
+        # which file and why.
+        raise MeshReadError(f"{target.name}: cannot be read: {error}") from error
     with handle:
         for line in handle:
             if line.strip() == MESH_MARKER:

@@ -21,6 +21,7 @@ from pathlib import Path
 
 import pytest
 
+from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases.matrix import MatrixError, read_matrix
 from pyflightstream.script import CommandArgumentError, Script, helpers
 from pyflightstream.versions import FsVersion, UnknownVersionError, resolve
@@ -778,3 +779,52 @@ def test_the_flag_predicate_can_tell_the_defect_from_the_accepted_shape(
     predicate got wrong.
     """
     assert _names_the_parameter(flag, message) is expected, why
+
+
+# --- PFS-2029.12: an undeclared inventory says why ------------------------------------
+
+
+def _rotor_row_against(geometry, cell):
+    from tests.test_workflows import _rotor_row
+
+    return _rotor_row(geometry, cell)
+
+
+def test_a_geometry_without_a_mesh_block_is_named_rather_than_the_row(tmp_path):
+    from pyflightstream.cases.workflows import build_script
+    from pyflightstream.script import ScriptReferenceError
+
+    placeholder = tmp_path / "placeholder.fsm"
+    placeholder.write_bytes(b"fake simulation")
+    with pytest.raises(ScriptReferenceError) as caught:
+        build_script(_rotor_row_against(placeholder, "Blade"), Script("26.123"))
+    message = str(caught.value)
+    assert "placeholder.fsm" in message and "carries no mesh block" in message
+    assert "no mesh boundary labels are registered yet" not in message
+    assert "placeholder.boundaries.toml" in message, "the sidecar route is not named"
+    # A file that cannot be opened is reported by name and cause, not as an empty inventory.
+    missing = tmp_path / "absent.fsm"
+    with pytest.warns(PyflightstreamWarning, match="absent.fsm: cannot be read"):
+        with pytest.raises(ScriptReferenceError) as unreadable:
+            build_script(_rotor_row_against(missing, "Blade"), Script("26.123"))
+    assert "absent.fsm" in str(unreadable.value) and "could not be read" in str(unreadable.value)
+
+
+def test_a_label_absent_from_a_declared_inventory_names_the_inventory(tmp_path):
+    from tests.test_workflows import _saved_simulation
+
+    from pyflightstream.cases.workflows import build_script
+    from pyflightstream.script import ScriptReferenceError
+
+    sector = _saved_simulation(tmp_path / "sector.fsm", ["Blade1", "S", "N"])
+    with pytest.raises(ScriptReferenceError) as caught:
+        build_script(_rotor_row_against(sector, "Nacelle"), Script("26.123"))
+    message = str(caught.value)
+    assert "the mesh block of sector.fsm" in message
+    assert "'Blade1', 'S', 'N'" in message and "'Nacelle'" in message
+    with_sidecar = _rotor_row_against(sector, "Nacelle").model_copy(
+        update={"inventory": ("Blade1", "S", "N")}
+    )
+    with pytest.raises(ScriptReferenceError) as sidecar:
+        build_script(with_sidecar, Script("26.123"))
+    assert "the sidecar sector.boundaries.toml" in str(sidecar.value)

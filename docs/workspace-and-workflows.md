@@ -195,6 +195,7 @@ read by the package rather than ignored:
 | v0.8.1 | `GEOMETRY`, `SYMMETRY`, `PERIODIC_COPIES` |
 | v0.10.0 | `ADVANCE_RATIO`, `RPM_SIGN`, `DELTA_THETA`, `REVOLUTIONS`, `LOG_OUTPUT` |
 | v0.10.1 | none. What changed is what `MOVING_BOUNDARIES` ACCEPTS: see below |
+| v0.11.0 | `BASE_REGIONS`, the mesh families the base-region autodetect may consider, one `DETECT_BASE_REGIONS_BY_SURFACE` per boundary of them after `OPEN`; it overrides the pproc artifact's `base_regions`, and naming none emits nothing (PFS-2029.10) |
 
 **`MOVING_BOUNDARIES` NAMES SURFACES, AND SHOULD NOT COUNT THEM.** Write
 the boundary names the geometry carries, or a FAMILY name, which is a
@@ -600,6 +601,8 @@ file holding `[groups]` alone is what the old file was:
 [groups]                       # what the groups file held: name -> families
 "1" = ["Blade1", "S", "N", "P", "W", "B", "H"]
 "2" = ["W", "B"]
+
+base_regions = ["W", "B"]      # families the base-region autodetect may consider; none = off
 
 [exports]                      # which of the eight export kinds a point writes
 tecplot = false                # a kind not named is written; loads cannot be off
