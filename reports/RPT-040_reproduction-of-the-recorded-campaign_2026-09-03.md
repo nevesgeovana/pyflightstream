@@ -196,9 +196,22 @@ the band: largest 0.0025969 at Total.Cz.
 ## The scripts, verb for verb
 
 - scripts 3 of 3 within the allow-list: the three rendered scripts against her recorded ones, outside an enumerated allow-list nothing differs.
-- her recorded unsteady 3224 script states `DELTA_TIME 0.00388`; the package derives the step from the azimuthal pair and emits it at five decimals, her tool's precision
+- her recorded unsteady 3224 script states `DELTA_TIME 0.00388`; the package derives the step from the azimuthal pair [^rounding]
 - her recorded unsteady_rotor 9001 script states `SET_MOTION_ROTOR_RPM 1 473.1723 0.0 0.0`; the package derives the speed from the advance ratio and emits it at four decimals, her tool's precision
-- her recorded unsteady_rotor 9001 script states `DELTA_TIME 0.00352`; the package derives the step from the azimuthal pair and emits it at five decimals, her tool's precision
+- her recorded unsteady_rotor 9001 script states `DELTA_TIME 0.00352`; the package derives the step from the azimuthal pair [^rounding]
+
+[^rounding]: CORRECTED 2026-09-04, and the correction is the author's own.
+    Both lines said the package emits the derived step at five decimals, her
+    tool's precision. It does not and should not: her word that day was that
+    the rounding belongs to the file she typed rather than to what a run
+    emits, and rounding would end a run at an azimuth nobody chose, which is
+    what stating the revolutions exists to prevent. The package emits the
+    derivation whole, 0.0038813952731 and 0.0035223250952, and the difference
+    against her two recorded values is an allow-list entry of the scripts arm
+    rather than an emission that matches them. The measurement this report
+    carries, 3 of 3 within the allow-list, is unaffected; what was wrong was
+    the sentence explaining WHY. Found by a technical-writing review of the
+    v0.12.0 release.
 
 ## The products and the export set
 

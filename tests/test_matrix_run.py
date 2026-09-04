@@ -2909,7 +2909,28 @@ def test_a_workspace_renders_the_same_script_whichever_file_states_the_pins(tmp_
 
     from_the_row = render(True)
     from_the_setup = render(False)
-    assert "1.789e-05" in from_the_row, "the fixture does not exercise the pins at all"
+    # EVERY PIN GUARDED, not one, and the fourth guarded through what it
+    # DOES rather than through a line it does not produce. An equality can
+    # only discriminate for a pin that reaches the script, and a
+    # verification review of the release measured that this one asserted
+    # one pin of four: three reach the fluid block directly, while ASMPS
+    # reaches nothing on 26.120, whose fifth fluid property is the specific
+    # heat ratio. It is load-bearing all the same, because MACH is taken
+    # against it: 0.1441 x 340.29 is the free-stream velocity, and that
+    # number is what this asserts.
+    for pinned in ("1.789e-05", "288.15", "101325"):
+        assert pinned in from_the_row, (
+            f"the fixture does not exercise {pinned}, so the equality below proves "
+            "nothing about that pin"
+        )
+    assert "49.03578900000001" in from_the_row, (
+        "MACH is not taken against the pinned sonic velocity, so ASMPS reaches "
+        "the run through nothing this comparison can see"
+    )
+    assert "340.29" not in from_the_row, (
+        "26.120 now emits the sonic velocity, so guard it directly rather than "
+        "through the velocity it produces"
+    )
     assert from_the_setup == from_the_row
 
 

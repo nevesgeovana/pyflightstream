@@ -13,23 +13,30 @@ from the tag, so the concept DOI in CITATION.cff resolves to the newest
 archived version and the version DOI is recorded one commit after the
 tag that names it. CHANGELOG.md carries the release history.
 
-**What changes for you, and what you must do: nothing.** v0.12.0 changes no
-column of the run-matrix file, no cell you have already written, and no
-number any of them resolves to. It ADDS two ways to say what you were
-already saying. A setup artifact may carry a `[flight_condition]` table
-holding the fluid pins (`RHOkgm3`, `MUPas`, `ASMPS`, `TK`, `PPA`), so a
-thirteen-point polar states its campaign's constants once instead of
-thirteen times; a row that states a pin still overrides the setup's, and
-the resolved state is the same state either way, which a test holds to the
-rendered script BYTE FOR BYTE. And an unsteady run that meshes nothing
-turning may state its clock as `DELTA_THETA` and `REVOLUTIONS`, resolved
-against the rotor speed whose azimuth the step measures, where before only
-the seconds and the step count were accepted. The reproduction workspace of
-the author's recorded campaign needs both, which is why this release
-exists.
+**What changes for you: nothing you have written.** v0.12.0 changes no
+column of the run-matrix file and no cell already in one. It ADDS two ways
+to say what you were already saying. A setup artifact may carry a
+`[flight_condition]` table holding the fluid pins (`RHOkgm3`, `MUPas`,
+`ASMPS`, `TK`, `PPA`), so a thirteen-point polar states its campaign's
+constants once instead of thirteen times; a row that states a pin still
+overrides the setup's, and the resolved state is the same state either way,
+which a test holds to the rendered script BYTE FOR BYTE. And an unsteady run
+that meshes nothing turning may state its clock as `DELTA_THETA` and
+`REVOLUTIONS`, resolved against the rotor speed whose azimuth the step
+measures, where before only the seconds and the step count were accepted.
+The reproduction workspace of the author's recorded campaign needs both,
+which is why this release exists.
 
-**v0.11.0 changed the
-run-matrix FILE FORMAT, and one command moves a workspace. The `ENTRY` column is now `PPROC` and names the post-processing
+**TWO DERIVED NUMBERS DO MOVE, and a row you have already written will feel
+them.** A rotor speed derived from `ADVANCE_RATIO` is now emitted at four
+decimals, the author's own precision: 473.1723 rev/min where the unrounded
+derivation gives 473.17227304. And the default loads assessor now judges a
+point's OWN declared outputs, so a two-point sweep whose points name their
+own tables is judged where it used to be refused as ambiguous. Re-baseline
+against this release rather than comparing its tables with v0.11.0's.
+
+**v0.11.0 changed the run-matrix FILE FORMAT, and one command moved a
+workspace.** The `ENTRY` column is now `PPROC` and names the post-processing
 artifact, the `FS_SCRIPT` column is gone and a `LEGACY` row carries its recipe
 code in its cell, and the `GEOMETRY` cell names the file with its extension.
 Run `pyfs-matrix upgrade matriz.fs --in-place --inputs inputs` once in the
