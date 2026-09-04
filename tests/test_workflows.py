@@ -2445,17 +2445,21 @@ def test_the_azimuthal_step_and_the_revolutions_set_the_whole_clock():
     assert stepping.stated_form == "angular"
     assert stepping.time_iterations == 54
     assert stepping.steps_per_revolution == pytest.approx(36.0)
-    # 10 / (6 * 473.1786) s, and the legacy row typed 0.00352, which is
-    # that value rounded to three figures. The rounding is the reason to
-    # derive rather than type: 54 steps of 0.00352 s cover 1.4990
-    # revolutions and not the 1.5 the campaign documented.
-    assert stepping.delta_time_s == pytest.approx(0.0035222840, abs=5e-10)
-    # A DURATION ASSERTION AGAINST THE ROTOR SPEED WAS REPLACED HERE, and
-    # the replacement is the point: `delta_time * steps` is identically
-    # `revolutions * 60 / rpm` given the two formulas the function uses,
-    # so it restated the implementation's own algebra and could not fail
-    # for any accepted input. The literal below is independent of it.
-    assert stepping.delta_time_s * stepping.time_iterations == pytest.approx(0.19020334, abs=5e-9)
+    # 10 / (6 * 473.1786) s is 0.0035222840, and the emitted step is that
+    # value at her tool's five decimals: HER DECISION OF 2026-09-04, taken
+    # with her two recorded scripts in hand, which state 0.00352 and 0.00388
+    # for exactly this derivation. The reading this test carried until then
+    # was the opposite, and its reason is asserted below rather than
+    # deleted, because it is what the decision costs.
+    assert stepping.delta_time_s == 0.00352
+    # WHAT THE ROUNDING COSTS, and the reason the earlier reading derived
+    # the unrounded value: 54 steps of 0.00352 s cover 1.4990 revolutions
+    # and not the 1.5 the row asks for. The COUNT is unaffected, so the run
+    # ends on the step the author named, four hundredths of a degree short
+    # of the azimuth they named.
+    covered = stepping.delta_time_s * stepping.time_iterations * abs(stepping.rpm) / 60.0
+    assert covered == pytest.approx(1.4990, abs=5e-5)
+    assert stepping.delta_time_s * stepping.time_iterations == pytest.approx(0.19008, abs=5e-9)
 
 
 def test_the_explicit_clock_is_carried_through_unconverted():
@@ -3368,23 +3372,40 @@ def test_a_rotor_key_on_a_rotorless_row_is_refused_naming_it(key, value):
     assert script.render().strip() == "", "the refusal landed after something was emitted"
 
 
-def test_the_angular_clock_is_refused_and_the_refusal_offers_no_rotor_speed():
-    """The open question, settled and guarded.
+def test_the_angular_clock_of_a_rotorless_row_needs_a_speed_and_then_resolves():
+    """HER DECISION OF 2026-09-04: a run that meshes nothing turning may still
+    take an azimuthal clock, when the row states the speed whose azimuth the
+    step measures.
 
-    The refusal must NOT tell the author to state a rotor speed. The
-    rotor resolver's message does exactly that, and an author who obeys
-    it gets a run that builds: the step becomes theta over six times the
-    speed, so a run emitting no motion takes its physical clock from a
-    number nothing turns at.
+    Her POLAR-3224 is the case: a wing-body in a propeller's slipstream at an
+    advance ratio of 1.3, described as UNS_WB_DTHETA20deg_REV8p0, whose
+    recorded DELTA_TIME of 0.00388 is twenty degrees at that propeller's
+    speed. Without a speed the pair is still refused, and the refusal now
+    names the two keys that would make it resolvable.
     """
-    script = Script("26.123")
+    from pyflightstream.cases.workflows import unsteady_time_stepping
+
+    with_speed = unsteady_case(
+        DELTA_TIME=None,
+        TIME_ITERATIONS=None,
+        DELTA_THETA="20",
+        REVOLUTIONS="8.0",
+        RPM="858.7977",
+    )
+    stepping = unsteady_time_stepping(with_speed)
+    assert stepping.stated_form == "angular"
+    assert stepping.time_iterations == 144
+    assert stepping.delta_time_s == 0.00388, "her recorded step for this pair"
+    without = unsteady_case(
+        DELTA_TIME=None, TIME_ITERATIONS=None, DELTA_THETA="20", REVOLUTIONS="8.0"
+    )
     with pytest.raises(CampaignConfigError) as raised:
-        build_script(unsteady_case(DELTA_THETA="10.0", REVOLUTIONS="2.0"), script)
+        unsteady_time_stepping(without)
     message = str(raised.value)
     assert "DELTA_THETA" in message and "REVOLUTIONS" in message
-    assert "RPM" not in message and "ADVANCE_RATIO" not in message, (
-        "the refusal offers a rotor speed to a run that turns nothing, which is the "
-        "advice that manufactures a clock from a number nothing uses"
+    assert "ADVANCE_RATIO" in message and "RPM" in message, (
+        "the refusal names neither key that would resolve the clock, and the row's "
+        "author is left to guess which of the two this run type accepts"
     )
     assert "DELTA_TIME" in message and "TIME_ITERATIONS" in message
 

@@ -7,6 +7,29 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Changed
+
+- **The azimuthal clock is the matrix's form, and it is emitted at the
+  author's precision.** Two decisions of hers, taken on 2026-09-04 with her
+  recorded scripts measured and against the readings this package shipped
+  with. A time step derived from `DELTA_THETA` and `REVOLUTIONS` is emitted
+  at five decimals, her tool's precision: ten degrees at 473.1723 rev/min is
+  0.0035223250952 and her script states `DELTA_TIME 0.00352`, and her runs
+  marched at the rounded value. What that costs is asserted rather than
+  dropped: 54 such steps cover 1.4990 revolutions and not the 1.5 the row
+  asks for, and the step COUNT still comes from the revolutions, so a run
+  ends on the step its author named four hundredths of a degree short of the
+  azimuth. The steps per revolution now come from the azimuthal step itself
+  rather than from the rounded seconds.
+- **An unsteady run that meshes nothing turning may state its clock
+  azimuthally**, when the row states the speed whose azimuth the step
+  measures. Her `POLAR-3224` is the case: a wing-body in a propeller's
+  slipstream at an advance ratio of 1.3, described as
+  `UNS_WB_DTHETA20deg_REV8p0`, whose recorded step is twenty degrees at that
+  propeller's speed. A row stating the pair and no speed is still refused,
+  and the refusal now names `ADVANCE_RATIO` and `RPM` as the two keys that
+  would resolve it.
+
 ### Fixed
 
 - The default loads assessor judges the point's OWN declared outputs, not

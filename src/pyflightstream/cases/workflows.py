@@ -772,6 +772,22 @@ def _rpm_sign(case: SimCase) -> int:
 #: the author's tool wrote four, and her recorded runs turned at that value.
 _DERIVED_RPM_DECIMALS = 4
 
+#: The decimals a time step derived from an azimuthal step is emitted at.
+#: HER DECISION OF 2026-09-04, taken with the measurement in hand and
+#: against the reading this package shipped with. Her tool wrote five, in
+#: both of her recorded unsteady scripts: 10 degrees at 473.1723 rev/min is
+#: 0.0035223250952 and her 9001 script states DELTA_TIME 0.00352; 20 degrees
+#: at 858.7977 rev/min is 0.0038813952731 and her 3224 script states 0.00388.
+#: The runs that produced her tables marched at the rounded value.
+#:
+#: WHAT IT COSTS, said here because the decision it replaces was taken for
+#: this reason: 54 steps of 0.00352 s cover 1.4990 revolutions and not the
+#: 1.5 the row asks for. The step COUNT is unaffected, since it comes from
+#: the revolutions and the azimuthal step and never from the seconds, so
+#: the run ends on the step the author asked for at an azimuth 0.04 degrees
+#: short of the one they named.
+_DERIVED_TIME_STEP_DECIMALS = 5
+
 
 def rotor_speed(case: SimCase) -> RotorSpeed:
     """Resolve the rotor speed a row states, in either form.
@@ -944,7 +960,17 @@ class TimeStepping:
 
     @property
     def steps_per_revolution(self) -> float | None:
-        """Solver steps in one revolution, or None without a rotor speed."""
+        """Solver steps in one revolution, or None without a rotor speed.
+
+        FROM THE AZIMUTHAL STEP WHERE THE CLOCK WAS STATED THAT WAY, and
+        from the seconds only where it was not. A revolution is 360
+        degrees, so a ten-degree step is thirty-six steps exactly;
+        deriving it from the seconds instead reads the rounding of the
+        emitted step back as physics, and answered 36.0234 for a run that
+        resolves 36 once the step took her tool's five decimals.
+        """
+        if self.delta_theta_deg:
+            return 360.0 / self.delta_theta_deg
         if self.rpm is None or self.delta_time_s <= 0.0:
             return None
         return 60.0 / (abs(self.rpm) * self.delta_time_s)
@@ -1105,7 +1131,7 @@ def rotor_time_stepping(case: SimCase, *, speed: RotorSpeed | None = None) -> Ti
     # One revolution lasts 60/rpm seconds, so one degree lasts 1/(6 rpm)
     # seconds. The magnitude is what sets the clock: a rotor turning the
     # other way takes the same time to sweep the same angle.
-    delta_time_s = theta / (6.0 * abs(resolved.rpm))
+    delta_time_s = round(theta / (6.0 * abs(resolved.rpm)), _DERIVED_TIME_STEP_DECIMALS)
     exact_steps = revolutions * 360.0 / theta
     steps = int(round(exact_steps))
     if abs(exact_steps - steps) > 1e-6:
@@ -3143,14 +3169,28 @@ def unsteady_time_stepping(case: SimCase) -> TimeStepping:
         if (value := _variable(case, key)) is not None
     }
     if angular:
-        raise CampaignConfigError(
-            f"case {case.sim_id!r} states {', '.join(sorted(angular))} and this run type "
-            "turns nothing, so a degree of rotation has no duration in it: the azimuthal "
-            "step becomes seconds by dividing by a rotor speed, and this run has none. "
-            f"State the clock directly as '{DELTA_TIME_VARIABLE}: <s>' and "
-            f"'{TIME_ITERATIONS_VARIABLE}: <steps>'. A row that really does have a rotor "
-            "belongs to the rotor run type, which takes the azimuthal form."
-        )
+        # HER DECISION OF 2026-09-04, and the evidence is her own campaign.
+        # This run type meshes nothing that turns, and until now the
+        # azimuthal pair was refused here on the ground that there was no
+        # rotor speed to divide by. Her unsteady wing-body row states one:
+        # POLAR-3224 is the wing-body in a propeller's slipstream at an
+        # advance ratio of 1.3, its description is UNS_WB_DTHETA20deg_REV8p0,
+        # and its recorded DELTA_TIME of 0.00388 is twenty degrees at that
+        # propeller's speed. So the row that states a speed takes the
+        # azimuthal clock, and the row that states none is refused as
+        # before, naming what would make it resolvable.
+        speed = _optional_rotor_speed(case)
+        if speed is None or speed.rpm == 0.0:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r} states {', '.join(sorted(angular))} and no rotor "
+                "speed, and this run type meshes nothing that turns: an azimuthal step "
+                "becomes seconds by dividing by a speed, and there is none here to "
+                f"divide by. State '{ADVANCE_RATIO_VARIABLE}: <J>' or "
+                f"'{RPM_VARIABLE}: <rev/min>' for the propeller whose azimuth the step "
+                f"measures, or state the clock directly as '{DELTA_TIME_VARIABLE}: <s>' "
+                f"and '{TIME_ITERATIONS_VARIABLE}: <steps>'."
+            )
+        return rotor_time_stepping(case, speed=speed)
     explicit = {
         key
         for key in (DELTA_TIME_VARIABLE, TIME_ITERATIONS_VARIABLE)
